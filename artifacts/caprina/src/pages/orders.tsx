@@ -24,18 +24,26 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-const statusColors = {
-  pending: "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900 dark:text-yellow-300",
-  processing: "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900 dark:text-blue-300",
-  shipped: "bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900 dark:text-purple-300",
-  delivered: "bg-green-100 text-green-800 border-green-200 dark:bg-green-900 dark:text-green-300",
-  cancelled: "bg-red-100 text-red-800 border-red-200 dark:bg-red-900 dark:text-red-300",
+const statusLabels: Record<string, string> = {
+  pending: "قيد الانتظار",
+  processing: "جاري التجهيز",
+  shipped: "تم الشحن",
+  delivered: "تم التسليم",
+  cancelled: "ملغي",
+};
+
+const statusColors: Record<string, string> = {
+  pending: "bg-amber-50 text-amber-800 border-amber-200",
+  processing: "bg-blue-50 text-blue-800 border-blue-200",
+  shipped: "bg-purple-50 text-purple-800 border-purple-200",
+  delivered: "bg-emerald-50 text-emerald-800 border-emerald-200",
+  cancelled: "bg-red-50 text-red-800 border-red-200",
 };
 
 export default function Orders() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<string>("all");
-  
+
   const debouncedSearch = useDebounce(search, 300);
 
   const { data: orders, isLoading } = useListOrders({
@@ -43,21 +51,20 @@ export default function Orders() {
     status: status !== "all" ? status : undefined,
   });
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount);
-  };
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat("ar-SA", { style: "currency", currency: "SAR" }).format(amount);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-serif font-bold text-foreground">Orders</h1>
-          <p className="text-muted-foreground mt-1 text-sm">Manage and track your workshop orders.</p>
+          <h1 className="text-3xl font-bold text-foreground">الطلبات</h1>
+          <p className="text-muted-foreground mt-1 text-sm">إدارة وتتبع جميع الطلبات.</p>
         </div>
         <Link href="/orders/new">
-          <Button className="w-full sm:w-auto shadow-sm gap-2">
+          <Button className="w-full sm:w-auto shadow-sm gap-2 bg-foreground text-background hover:bg-foreground/90">
             <Plus className="w-4 h-4" />
-            New Order
+            طلب جديد
           </Button>
         </Link>
       </div>
@@ -65,67 +72,75 @@ export default function Orders() {
       <Card className="shadow-sm border-border overflow-hidden">
         <div className="p-4 border-b border-border bg-muted/20 flex flex-col sm:flex-row gap-4">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Search customers or products..."
-              className="pl-9 bg-card"
+              placeholder="ابحث عن عميل أو منتج..."
+              className="pr-9 bg-card"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              data-testid="input-search"
             />
           </div>
-          <div className="w-full sm:w-48">
+          <div className="w-full sm:w-52">
             <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger className="bg-card">
+              <SelectTrigger className="bg-card" data-testid="select-status">
                 <div className="flex items-center gap-2">
                   <Filter className="w-4 h-4 text-muted-foreground" />
-                  <SelectValue placeholder="Filter status" />
+                  <SelectValue placeholder="تصفية الحالة" />
                 </div>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Orders</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="processing">Processing</SelectItem>
-                <SelectItem value="shipped">Shipped</SelectItem>
-                <SelectItem value="delivered">Delivered</SelectItem>
-                <SelectItem value="cancelled">Cancelled</SelectItem>
+                <SelectItem value="all">جميع الطلبات</SelectItem>
+                <SelectItem value="pending">قيد الانتظار</SelectItem>
+                <SelectItem value="processing">جاري التجهيز</SelectItem>
+                <SelectItem value="shipped">تم الشحن</SelectItem>
+                <SelectItem value="delivered">تم التسليم</SelectItem>
+                <SelectItem value="cancelled">ملغي</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </div>
 
         {isLoading ? (
-          <div className="p-8 text-center text-muted-foreground text-sm">Loading orders...</div>
+          <div className="p-8 text-center text-muted-foreground text-sm">جاري تحميل الطلبات...</div>
         ) : orders && orders.length > 0 ? (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader className="bg-muted/10">
                 <TableRow>
-                  <TableHead className="w-[100px]">Order</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Product</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                  <TableHead className="text-center w-[120px]">Status</TableHead>
+                  <TableHead className="text-right">رقم الطلب</TableHead>
+                  <TableHead className="text-right">التاريخ</TableHead>
+                  <TableHead className="text-right">العميل</TableHead>
+                  <TableHead className="text-right">المنتج</TableHead>
+                  <TableHead className="text-right">الإجمالي</TableHead>
+                  <TableHead className="text-center w-[130px]">الحالة</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {orders.map((order) => (
-                  <TableRow key={order.id} className="group hover:bg-muted/50 cursor-pointer" onClick={() => window.location.href = `/orders/${order.id}`}>
-                    <TableCell className="font-mono text-sm font-medium">#{order.id.toString().padStart(4, "0")}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                      {format(new Date(order.createdAt), "MMM d, yyyy")}
+                  <TableRow
+                    key={order.id}
+                    className="hover:bg-muted/40 cursor-pointer"
+                    onClick={() => window.location.href = `/orders/${order.id}`}
+                    data-testid={`row-order-${order.id}`}
+                  >
+                    <TableCell className="font-mono text-sm font-bold text-primary">
+                      #{order.id.toString().padStart(4, "0")}
                     </TableCell>
-                    <TableCell className="font-medium text-sm">{order.customerName}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                      {format(new Date(order.createdAt), "yyyy/MM/dd")}
+                    </TableCell>
+                    <TableCell className="font-semibold text-sm">{order.customerName}</TableCell>
                     <TableCell className="text-sm">
                       {order.product}
-                      <span className="text-muted-foreground ml-1 text-xs">&times;{order.quantity}</span>
+                      <span className="text-muted-foreground mr-1 text-xs">×{order.quantity}</span>
                     </TableCell>
-                    <TableCell className="text-right font-mono text-sm font-medium">
+                    <TableCell className="font-bold text-sm text-primary">
                       {formatCurrency(order.totalPrice)}
                     </TableCell>
                     <TableCell className="text-center">
-                      <Badge variant="outline" className={`text-[10px] uppercase tracking-wider font-semibold border ${statusColors[order.status as keyof typeof statusColors]}`}>
-                        {order.status}
+                      <Badge variant="outline" className={`text-[10px] font-semibold border ${statusColors[order.status] || ""}`}>
+                        {statusLabels[order.status] || order.status}
                       </Badge>
                     </TableCell>
                   </TableRow>
@@ -136,15 +151,15 @@ export default function Orders() {
         ) : (
           <div className="p-12 text-center text-muted-foreground">
             <Package className="w-12 h-12 mx-auto mb-4 opacity-20" />
-            <h3 className="text-lg font-medium text-foreground mb-1">No orders found</h3>
+            <h3 className="text-lg font-bold text-foreground mb-1">لا توجد طلبات</h3>
             <p className="text-sm max-w-sm mx-auto">
-              {search || status !== "all" 
-                ? "Try adjusting your search or filters to find what you're looking for."
-                : "You don't have any orders yet. Create one to get started."}
+              {search || status !== "all"
+                ? "جرّب تغيير معايير البحث أو التصفية."
+                : "لا توجد طلبات حتى الآن. أنشئ أول طلب للبدء."}
             </p>
             {!(search || status !== "all") && (
               <Link href="/orders/new">
-                <Button variant="outline" className="mt-4">Create Order</Button>
+                <Button variant="outline" className="mt-4" data-testid="button-create-first">إنشاء طلب</Button>
               </Link>
             )}
           </div>

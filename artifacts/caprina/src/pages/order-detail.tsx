@@ -1,11 +1,11 @@
 import { useParams, Link } from "wouter";
 import { format } from "date-fns";
-import { 
-  ArrowLeft, 
-  Calendar, 
-  CreditCard, 
-  Package, 
-  User, 
+import {
+  ArrowRight,
+  Calendar,
+  CreditCard,
+  Package,
+  User,
   AlertCircle,
   Pencil,
   Save,
@@ -15,8 +15,8 @@ import { useState, useRef, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { 
-  useGetOrder, 
+import {
+  useGetOrder,
   getGetOrderQueryKey,
   useUpdateOrder,
   getListOrdersQueryKey,
@@ -48,19 +48,27 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
-const statusColors = {
-  pending: "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900 dark:text-yellow-300",
-  processing: "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900 dark:text-blue-300",
-  shipped: "bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900 dark:text-purple-300",
-  delivered: "bg-green-100 text-green-800 border-green-200 dark:bg-green-900 dark:text-green-300",
-  cancelled: "bg-red-100 text-red-800 border-red-200 dark:bg-red-900 dark:text-red-300",
+const statusLabels: Record<string, string> = {
+  pending: "قيد الانتظار",
+  processing: "جاري التجهيز",
+  shipped: "تم الشحن",
+  delivered: "تم التسليم",
+  cancelled: "ملغي",
+};
+
+const statusColors: Record<string, string> = {
+  pending: "bg-amber-50 text-amber-800 border-amber-200",
+  processing: "bg-blue-50 text-blue-800 border-blue-200",
+  shipped: "bg-purple-50 text-purple-800 border-purple-200",
+  delivered: "bg-emerald-50 text-emerald-800 border-emerald-200",
+  cancelled: "bg-red-50 text-red-800 border-red-200",
 };
 
 const editSchema = z.object({
-  customerName: z.string().min(2, "Customer name must be at least 2 characters."),
-  product: z.string().min(2, "Product name must be at least 2 characters."),
-  quantity: z.coerce.number().int().min(1, "Quantity must be at least 1."),
-  unitPrice: z.coerce.number().min(0, "Price must be positive."),
+  customerName: z.string().min(2, "الاسم يجب أن يكون حرفين على الأقل."),
+  product: z.string().min(2, "المنتج يجب أن يكون حرفين على الأقل."),
+  quantity: z.coerce.number().int().min(1, "الكمية يجب أن تكون 1 على الأقل."),
+  unitPrice: z.coerce.number().min(0, "السعر يجب أن يكون موجباً."),
   notes: z.string().optional().nullable(),
 });
 
@@ -71,7 +79,7 @@ export default function OrderDetail() {
   const id = Number(params.id);
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  
+
   const [isEditing, setIsEditing] = useState(false);
   const initializedRef = useRef(false);
 
@@ -105,31 +113,29 @@ export default function OrderDetail() {
     }
   }, [order, form]);
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount);
-  };
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat("ar-SA", { style: "currency", currency: "SAR" }).format(amount);
 
   const handleStatusChange = (newStatus: string) => {
     if (!order || order.status === newStatus) return;
-    
+
     updateOrder.mutate(
       { id, data: { status: newStatus as any } },
       {
         onSuccess: (updatedData) => {
-          // Optimistically update the cache
           queryClient.setQueryData(getGetOrderQueryKey(id), updatedData);
           queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
           queryClient.invalidateQueries({ queryKey: getGetOrdersSummaryQueryKey() });
-          
+
           toast({
-            title: "Status Updated",
-            description: `Order is now marked as ${newStatus}.`,
+            title: "تم تحديث الحالة",
+            description: `الطلب أصبح الآن: ${statusLabels[newStatus] || newStatus}.`,
           });
         },
-        onError: (err) => {
+        onError: () => {
           toast({
-            title: "Failed to update status",
-            description: err.error || "An unknown error occurred.",
+            title: "فشل التحديث",
+            description: "حدث خطأ أثناء تحديث الحالة.",
             variant: "destructive",
           });
         }
@@ -148,14 +154,14 @@ export default function OrderDetail() {
           queryClient.invalidateQueries({ queryKey: getGetRecentOrdersQueryKey() });
           setIsEditing(false);
           toast({
-            title: "Order Updated",
-            description: "The order details have been saved successfully.",
+            title: "تم تحديث الطلب",
+            description: "تم حفظ التعديلات بنجاح.",
           });
         },
-        onError: (err) => {
+        onError: () => {
           toast({
-            title: "Update Failed",
-            description: err.error || "Could not save changes.",
+            title: "فشل التحديث",
+            description: "تعذّر حفظ التغييرات.",
             variant: "destructive",
           });
         }
@@ -177,17 +183,17 @@ export default function OrderDetail() {
   };
 
   if (isLoading) {
-    return <div className="p-12 text-center text-muted-foreground animate-pulse">Loading order details...</div>;
+    return <div className="p-12 text-center text-muted-foreground animate-pulse">جاري تحميل تفاصيل الطلب...</div>;
   }
 
   if (error || !order) {
     return (
       <div className="p-12 text-center text-destructive">
         <AlertCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
-        <h2 className="text-xl font-bold mb-2">Order Not Found</h2>
-        <p className="mb-6 opacity-80">We couldn't find the order you're looking for.</p>
+        <h2 className="text-xl font-bold mb-2">الطلب غير موجود</h2>
+        <p className="mb-6 opacity-80">لم نتمكن من إيجاد الطلب المطلوب.</p>
         <Link href="/orders">
-          <Button variant="outline">Back to Orders</Button>
+          <Button variant="outline">العودة إلى الطلبات</Button>
         </Link>
       </div>
     );
@@ -198,48 +204,48 @@ export default function OrderDetail() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <Link href="/orders">
-            <Button variant="outline" size="icon" className="h-8 w-8 rounded-full">
-              <ArrowLeft className="h-4 w-4" />
+            <Button variant="outline" size="icon" className="h-8 w-8 rounded-full" data-testid="button-back">
+              <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-serif font-bold text-foreground">
-                Order #{order.id.toString().padStart(4, "0")}
+              <h1 className="text-2xl font-bold text-foreground">
+                طلب #{order.id.toString().padStart(4, "0")}
               </h1>
               {!isEditing && (
-                <Badge variant="outline" className={`uppercase tracking-wider font-semibold border ${statusColors[order.status as keyof typeof statusColors]}`}>
-                  {order.status}
+                <Badge variant="outline" className={`font-semibold border ${statusColors[order.status] || ""}`}>
+                  {statusLabels[order.status] || order.status}
                 </Badge>
               )}
             </div>
             <p className="text-muted-foreground text-sm flex items-center gap-1.5 mt-1">
               <Calendar className="w-3.5 h-3.5" />
-              Placed on {format(new Date(order.createdAt), "MMMM d, yyyy 'at' h:mm a")}
+              تم الإنشاء في {format(new Date(order.createdAt), "yyyy/MM/dd")}
             </p>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-3">
           {!isEditing ? (
             <>
-              <div className="w-48">
+              <div className="w-52">
                 <Select value={order.status} onValueChange={handleStatusChange} disabled={updateOrder.isPending}>
-                  <SelectTrigger className="bg-card font-medium">
+                  <SelectTrigger className="bg-card font-medium" data-testid="select-status">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="processing">Processing</SelectItem>
-                    <SelectItem value="shipped">Shipped</SelectItem>
-                    <SelectItem value="delivered">Delivered</SelectItem>
-                    <SelectItem value="cancelled" className="text-destructive focus:text-destructive">Cancelled</SelectItem>
+                    <SelectItem value="pending">قيد الانتظار</SelectItem>
+                    <SelectItem value="processing">جاري التجهيز</SelectItem>
+                    <SelectItem value="shipped">تم الشحن</SelectItem>
+                    <SelectItem value="delivered">تم التسليم</SelectItem>
+                    <SelectItem value="cancelled" className="text-destructive focus:text-destructive">ملغي</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <Button variant="outline" onClick={() => setIsEditing(true)} className="gap-2">
+              <Button variant="outline" onClick={() => setIsEditing(true)} className="gap-2" data-testid="button-edit">
                 <Pencil className="w-4 h-4" />
-                Edit
+                تعديل
               </Button>
             </>
           ) : null}
@@ -252,9 +258,9 @@ export default function OrderDetail() {
             <Form {...form}>
               <form id="edit-form" onSubmit={form.handleSubmit(onSubmitEdit)}>
                 <Card className="shadow-sm border-border border-primary/50 relative overflow-hidden">
-                  <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
+                  <div className="absolute top-0 right-0 w-1 h-full bg-primary" />
                   <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle className="text-lg">Edit Order Details</CardTitle>
+                    <CardTitle className="text-lg">تعديل الطلب</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-6">
                     <FormField
@@ -262,10 +268,8 @@ export default function OrderDetail() {
                       name="customerName"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Customer Name</FormLabel>
-                          <FormControl>
-                            <Input {...field} />
-                          </FormControl>
+                          <FormLabel>اسم العميل</FormLabel>
+                          <FormControl><Input {...field} /></FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -275,10 +279,8 @@ export default function OrderDetail() {
                       name="product"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Product</FormLabel>
-                          <FormControl>
-                            <Input {...field} />
-                          </FormControl>
+                          <FormLabel>المنتج</FormLabel>
+                          <FormControl><Input {...field} /></FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -289,10 +291,8 @@ export default function OrderDetail() {
                         name="quantity"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Quantity</FormLabel>
-                            <FormControl>
-                              <Input type="number" min="1" {...field} />
-                            </FormControl>
+                            <FormLabel>الكمية</FormLabel>
+                            <FormControl><Input type="number" min="1" {...field} /></FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -302,10 +302,8 @@ export default function OrderDetail() {
                         name="unitPrice"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Unit Price ($)</FormLabel>
-                            <FormControl>
-                              <Input type="number" min="0" step="0.01" {...field} />
-                            </FormControl>
+                            <FormLabel>سعر الوحدة (ر.س)</FormLabel>
+                            <FormControl><Input type="number" min="0" step="0.01" {...field} /></FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -316,24 +314,20 @@ export default function OrderDetail() {
                       name="notes"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Notes</FormLabel>
+                          <FormLabel>ملاحظات</FormLabel>
                           <FormControl>
-                            <Textarea 
-                              className="min-h-[100px]" 
-                              {...field} 
-                              value={field.value || ""} 
-                            />
+                            <Textarea className="min-h-[100px]" {...field} value={field.value || ""} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                    <div className="flex gap-3 justify-end pt-4 border-t border-border">
-                      <Button type="button" variant="ghost" onClick={handleCancelEdit}>
-                        <X className="w-4 h-4 mr-2" /> Cancel
+                    <div className="flex gap-3 justify-start pt-4 border-t border-border">
+                      <Button type="submit" disabled={updateOrder.isPending} data-testid="button-save">
+                        {updateOrder.isPending ? "جاري الحفظ..." : <><Save className="w-4 h-4 ml-2" />حفظ التغييرات</>}
                       </Button>
-                      <Button type="submit" disabled={updateOrder.isPending}>
-                        {updateOrder.isPending ? "Saving..." : <><Save className="w-4 h-4 mr-2" /> Save Changes</>}
+                      <Button type="button" variant="ghost" onClick={handleCancelEdit} data-testid="button-cancel">
+                        <X className="w-4 h-4 ml-2" />إلغاء
                       </Button>
                     </div>
                   </CardContent>
@@ -345,32 +339,30 @@ export default function OrderDetail() {
               <CardHeader className="bg-muted/10 border-b border-border">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <User className="w-5 h-5 text-muted-foreground" />
-                  Customer Details
+                  بيانات العميل
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6">
                 <div className="flex items-center gap-4 mb-6">
-                  <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center text-secondary-foreground font-serif font-bold text-2xl border-2 border-background shadow-sm">
+                  <div className="w-14 h-14 rounded-full bg-foreground flex items-center justify-center text-background font-bold text-2xl border-2 border-background shadow-sm shrink-0">
                     {order.customerName.charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <h3 className="text-xl font-medium">{order.customerName}</h3>
-                    <p className="text-sm text-muted-foreground">Artisan Client</p>
+                    <h3 className="text-xl font-semibold">{order.customerName}</h3>
+                    <p className="text-sm text-muted-foreground">عميل CAPRINA</p>
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  {order.notes ? (
-                    <div>
-                      <h4 className="text-sm font-medium text-muted-foreground mb-2">Order Notes</h4>
-                      <div className="bg-muted/30 p-4 rounded-md text-sm leading-relaxed border border-border">
-                        {order.notes}
-                      </div>
+                {order.notes ? (
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground mb-2">ملاحظات الطلب</h4>
+                    <div className="bg-muted/30 p-4 rounded-md text-sm leading-relaxed border border-border">
+                      {order.notes}
                     </div>
-                  ) : (
-                    <div className="text-sm text-muted-foreground italic">No special notes provided.</div>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground italic">لا توجد ملاحظات خاصة.</div>
+                )}
               </CardContent>
             </Card>
           )}
@@ -380,19 +372,19 @@ export default function OrderDetail() {
               <CardHeader className="bg-muted/10 border-b border-border">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Package className="w-5 h-5 text-muted-foreground" />
-                  Item Specifications
+                  تفاصيل المنتج
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 <div className="divide-y divide-border">
                   <div className="p-6 flex flex-col sm:flex-row justify-between gap-4">
                     <div>
-                      <h4 className="font-medium text-lg">{order.product}</h4>
-                      <p className="text-sm text-muted-foreground mt-1">Handcrafted to order</p>
+                      <h4 className="font-semibold text-lg">{order.product}</h4>
+                      <p className="text-sm text-muted-foreground mt-1">منتج مطلوب</p>
                     </div>
-                    <div className="text-right flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-4 sm:gap-1">
-                      <div className="font-medium">{formatCurrency(order.unitPrice)} <span className="text-muted-foreground text-sm font-normal ml-1">each</span></div>
-                      <div className="text-sm bg-secondary px-2 py-0.5 rounded-sm font-medium text-secondary-foreground">Qty: {order.quantity}</div>
+                    <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-4 sm:gap-1">
+                      <div className="font-semibold">{formatCurrency(order.unitPrice)} <span className="text-muted-foreground text-sm font-normal">/ وحدة</span></div>
+                      <div className="text-sm bg-foreground text-background px-3 py-0.5 rounded-sm font-bold">الكمية: {order.quantity}</div>
                     </div>
                   </div>
                 </div>
@@ -402,29 +394,29 @@ export default function OrderDetail() {
         </div>
 
         <div className="space-y-6">
-          <Card className="shadow-sm border-border bg-sidebar">
+          <Card className="shadow-sm border-border bg-foreground text-background">
             <CardHeader className="pb-4">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <CreditCard className="w-5 h-5 text-muted-foreground" />
-                Financial Summary
+              <CardTitle className="text-lg flex items-center gap-2 text-background">
+                <CreditCard className="w-5 h-5 text-primary" />
+                الملخص المالي
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Subtotal ({isEditing ? form.watch("quantity") : order.quantity} items)</span>
-                  <span className="font-medium">
+                  <span className="text-background/60">الإجمالي الفرعي ({isEditing ? form.watch("quantity") : order.quantity} وحدة)</span>
+                  <span className="font-semibold text-background">
                     {formatCurrency(isEditing ? (form.watch("quantity") || 0) * (form.watch("unitPrice") || 0) : order.totalPrice)}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Shipping</span>
-                  <span className="font-medium">Calculated</span>
+                  <span className="text-background/60">الشحن</span>
+                  <span className="font-semibold text-background">يُحسب</span>
                 </div>
-                <Separator className="my-2" />
+                <Separator className="my-2 bg-background/20" />
                 <div className="flex justify-between items-center">
-                  <span className="font-medium text-base text-foreground">Total</span>
-                  <span className="font-serif font-bold text-2xl text-primary">
+                  <span className="font-bold text-base text-background">الإجمالي</span>
+                  <span className="font-bold text-2xl text-primary">
                     {formatCurrency(isEditing ? (form.watch("quantity") || 0) * (form.watch("unitPrice") || 0) : order.totalPrice)}
                   </span>
                 </div>
@@ -433,7 +425,7 @@ export default function OrderDetail() {
           </Card>
 
           <div className="text-xs text-center text-muted-foreground">
-            <p>Last updated: {format(new Date(order.updatedAt), "MMM d, yyyy h:mm a")}</p>
+            <p>آخر تحديث: {format(new Date(order.updatedAt), "yyyy/MM/dd")}</p>
           </div>
         </div>
       </div>
