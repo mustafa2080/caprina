@@ -1,82 +1,85 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Package, Plus } from "lucide-react";
+import { LayoutDashboard, Package, Plus, Boxes, Truck, FileText, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
+const navItems = [
+  { href: "/", label: "لوحة التحكم", icon: LayoutDashboard, exact: true },
+  { href: "/orders", label: "الطلبات", icon: Package },
+  { href: "/orders/new", label: "طلب جديد", icon: Plus },
+  { href: "/inventory", label: "المخزون", icon: Boxes },
+  { href: "/shipping", label: "شركات الشحن", icon: Truck },
+  { href: "/invoices", label: "الفواتير", icon: FileText },
+  { href: "/import", label: "استيراد Excel", icon: Upload },
+];
+
 export default function Layout({ children }: LayoutProps) {
   const [location] = useLocation();
-
-  const navItems = [
-    { href: "/", label: "لوحة التحكم", icon: LayoutDashboard },
-    { href: "/orders", label: "الطلبات", icon: Package },
-    { href: "/orders/new", label: "طلب جديد", icon: Plus },
-  ];
 
   return (
     <div className="flex min-h-screen bg-background" dir="rtl">
       {/* Sidebar */}
-      <aside className="w-64 border-l border-sidebar-border bg-sidebar shrink-0 hidden md:flex md:flex-col">
-        <div className="p-6 flex items-center gap-3 border-b border-sidebar-border">
-          <div className="w-9 h-9 rounded-sm bg-primary flex items-center justify-center text-primary-foreground font-bold text-lg">
-            C
-          </div>
-          <div>
-            <span className="text-lg font-bold tracking-tight text-sidebar-foreground">CAPRINA</span>
-            <p className="text-[10px] text-sidebar-foreground/50 tracking-widest uppercase">مركز التحكم</p>
+      <aside className="w-60 border-l border-sidebar-border bg-sidebar shrink-0 hidden md:flex md:flex-col">
+        <div className="p-5 border-b border-sidebar-border">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-sm bg-primary flex items-center justify-center text-primary-foreground font-bold text-base shrink-0">
+              C
+            </div>
+            <div>
+              <p className="text-sm font-bold text-sidebar-foreground">CAPRINA</p>
+              <p className="text-[9px] text-sidebar-foreground/40 tracking-widest uppercase">Sales Operations</p>
+            </div>
           </div>
         </div>
 
-        <nav className="px-3 py-4 space-y-1 flex-1">
+        <nav className="px-2 py-3 flex-1 space-y-0.5">
           {navItems.map((item) => {
-            const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
+            const isActive = item.exact ? location === item.href : (location === item.href || location.startsWith(item.href + "/") || (item.href !== "/" && location.startsWith(item.href)));
             const Icon = item.icon;
-
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all",
+                  "flex items-center gap-3 px-3 py-2 rounded-md text-xs font-semibold transition-all",
                   isActive
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-white/5"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-sidebar-foreground/55 hover:text-sidebar-foreground hover:bg-white/5"
                 )}
-                data-testid={`nav-${item.href.replace("/", "") || "dashboard"}`}
               >
-                <Icon className="w-4 h-4 shrink-0" />
+                <Icon className="w-3.5 h-3.5 shrink-0" />
                 {item.label}
               </Link>
             );
           })}
         </nav>
 
-        <div className="p-4 border-t border-sidebar-border">
-          <p className="text-[10px] text-sidebar-foreground/30 text-center tracking-wider uppercase">WIN OR DIE</p>
+        <div className="p-3 border-t border-sidebar-border">
+          <p className="text-[9px] text-sidebar-foreground/25 text-center tracking-widest font-bold uppercase">WIN OR DIE</p>
         </div>
       </aside>
 
-      {/* Main Content */}
+      {/* Main */}
       <main className="flex-1 flex flex-col min-w-0">
-        {/* Mobile Header */}
-        <header className="h-14 border-b border-border bg-sidebar flex items-center justify-between px-4 md:hidden shrink-0">
+        {/* Mobile header */}
+        <header className="h-12 border-b border-sidebar-border bg-sidebar flex items-center justify-between px-4 md:hidden shrink-0">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-sm bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">
-              C
-            </div>
-            <span className="text-base font-bold text-sidebar-foreground">CAPRINA</span>
+            <div className="w-6 h-6 rounded-sm bg-primary flex items-center justify-center text-primary-foreground font-bold text-xs">C</div>
+            <span className="text-sm font-bold text-sidebar-foreground">CAPRINA</span>
           </div>
-          <div className="flex items-center gap-4 text-sm font-medium text-sidebar-foreground/70">
-            <Link href="/">لوحة التحكم</Link>
-            <Link href="/orders">الطلبات</Link>
+          <div className="flex items-center gap-3 text-xs font-semibold text-sidebar-foreground/60">
+            <Link href="/">لوحة</Link>
+            <Link href="/orders">طلبات</Link>
+            <Link href="/inventory">مخزون</Link>
             <Link href="/orders/new" className="text-primary">+ جديد</Link>
           </div>
         </header>
 
         <div className="flex-1 overflow-auto">
-          <div className="mx-auto max-w-5xl p-4 md:p-8">
+          <div className="mx-auto max-w-6xl p-4 md:p-6">
             {children}
           </div>
         </div>

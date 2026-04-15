@@ -7,6 +7,10 @@ import Dashboard from "@/pages/dashboard";
 import Orders from "@/pages/orders";
 import OrderForm from "@/pages/order-form";
 import OrderDetail from "@/pages/order-detail";
+import Inventory from "@/pages/inventory";
+import ShippingCompanies from "@/pages/shipping-companies";
+import Invoices from "@/pages/invoices";
+import Import from "@/pages/import";
 import Layout from "@/components/layout";
 
 const queryClient = new QueryClient();
@@ -19,6 +23,10 @@ function Router() {
         <Route path="/orders" component={Orders} />
         <Route path="/orders/new" component={OrderForm} />
         <Route path="/orders/:id" component={OrderDetail} />
+        <Route path="/inventory" component={Inventory} />
+        <Route path="/shipping" component={ShippingCompanies} />
+        <Route path="/invoices" component={Invoices} />
+        <Route path="/import" component={Import} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

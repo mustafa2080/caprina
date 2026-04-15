@@ -8,42 +8,28 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const statusLabels: Record<string, string> = {
   pending: "قيد الانتظار",
-  processing: "جاري التجهيز",
-  shipped: "تم الشحن",
-  delivered: "تم التسليم",
-  cancelled: "ملغي",
+  received: "استلم",
+  delayed: "مؤجل",
+  returned: "مرتجع",
+  partial_received: "استلم جزئي",
 };
 
-const statusColors: Record<string, string> = {
-  pending: "bg-amber-50 text-amber-800 border-amber-200",
-  processing: "bg-blue-50 text-blue-800 border-blue-200",
-  shipped: "bg-purple-50 text-purple-800 border-purple-200",
-  delivered: "bg-emerald-50 text-emerald-800 border-emerald-200",
-  cancelled: "bg-red-50 text-red-800 border-red-200",
+const statusClasses: Record<string, string> = {
+  pending: "bg-amber-900/30 text-amber-400 border-amber-800",
+  received: "bg-emerald-900/30 text-emerald-400 border-emerald-800",
+  delayed: "bg-blue-900/30 text-blue-400 border-blue-800",
+  returned: "bg-red-900/30 text-red-400 border-red-800",
+  partial_received: "bg-purple-900/30 text-purple-400 border-purple-800",
 };
 
 export default function Orders() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<string>("all");
-
   const debouncedSearch = useDebounce(search, 300);
 
   const { data: orders, isLoading } = useListOrders({
@@ -55,91 +41,67 @@ export default function Orders() {
     new Intl.NumberFormat("ar-SA", { style: "currency", currency: "SAR" }).format(amount);
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-5 animate-in fade-in duration-500">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">الطلبات</h1>
-          <p className="text-muted-foreground mt-1 text-sm">إدارة وتتبع جميع الطلبات.</p>
+          <h1 className="text-2xl font-bold">الطلبات</h1>
+          <p className="text-muted-foreground text-sm mt-0.5">إدارة وتتبع جميع الطلبات</p>
         </div>
         <Link href="/orders/new">
-          <Button className="w-full sm:w-auto shadow-sm gap-2 bg-foreground text-background hover:bg-foreground/90">
-            <Plus className="w-4 h-4" />
-            طلب جديد
+          <Button className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-sm">
+            <Plus className="w-4 h-4" />طلب جديد
           </Button>
         </Link>
       </div>
 
-      <Card className="shadow-sm border-border overflow-hidden">
-        <div className="p-4 border-b border-border bg-muted/20 flex flex-col sm:flex-row gap-4">
+      <Card className="border-border overflow-hidden">
+        <div className="p-3 border-b border-border bg-muted/10 flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="ابحث عن عميل أو منتج..."
-              className="pr-9 bg-card"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              data-testid="input-search"
-            />
+            <Input placeholder="ابحث عن عميل، منتج، أو رقم هاتف..." className="pr-9 bg-card text-sm h-9" value={search} onChange={e => setSearch(e.target.value)} />
           </div>
-          <div className="w-full sm:w-52">
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger className="bg-card" data-testid="select-status">
-                <div className="flex items-center gap-2">
-                  <Filter className="w-4 h-4 text-muted-foreground" />
-                  <SelectValue placeholder="تصفية الحالة" />
-                </div>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">جميع الطلبات</SelectItem>
-                <SelectItem value="pending">قيد الانتظار</SelectItem>
-                <SelectItem value="processing">جاري التجهيز</SelectItem>
-                <SelectItem value="shipped">تم الشحن</SelectItem>
-                <SelectItem value="delivered">تم التسليم</SelectItem>
-                <SelectItem value="cancelled">ملغي</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <Select value={status} onValueChange={setStatus}>
+            <SelectTrigger className="w-full sm:w-48 bg-card h-9 text-sm">
+              <div className="flex items-center gap-2"><Filter className="w-3.5 h-3.5 text-muted-foreground" /><SelectValue /></div>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">جميع الطلبات</SelectItem>
+              <SelectItem value="pending">قيد الانتظار</SelectItem>
+              <SelectItem value="received">استلم</SelectItem>
+              <SelectItem value="delayed">مؤجل</SelectItem>
+              <SelectItem value="returned">مرتجع</SelectItem>
+              <SelectItem value="partial_received">استلم جزئي</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {isLoading ? (
-          <div className="p-8 text-center text-muted-foreground text-sm">جاري تحميل الطلبات...</div>
-        ) : orders && orders.length > 0 ? (
+          <div className="p-8 text-center text-muted-foreground text-sm">جاري التحميل...</div>
+        ) : orders?.length ? (
           <div className="overflow-x-auto">
             <Table>
-              <TableHeader className="bg-muted/10">
-                <TableRow>
-                  <TableHead className="text-right">رقم الطلب</TableHead>
-                  <TableHead className="text-right">التاريخ</TableHead>
-                  <TableHead className="text-right">العميل</TableHead>
-                  <TableHead className="text-right">المنتج</TableHead>
-                  <TableHead className="text-right">الإجمالي</TableHead>
-                  <TableHead className="text-center w-[130px]">الحالة</TableHead>
+              <TableHeader>
+                <TableRow className="border-border hover:bg-transparent">
+                  <TableHead className="text-right text-xs">#</TableHead>
+                  <TableHead className="text-right text-xs">التاريخ</TableHead>
+                  <TableHead className="text-right text-xs">العميل</TableHead>
+                  <TableHead className="text-right text-xs">الهاتف</TableHead>
+                  <TableHead className="text-right text-xs">المنتج</TableHead>
+                  <TableHead className="text-right text-xs">الإجمالي</TableHead>
+                  <TableHead className="text-center text-xs w-32">الحالة</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {orders.map((order) => (
-                  <TableRow
-                    key={order.id}
-                    className="hover:bg-muted/40 cursor-pointer"
-                    onClick={() => window.location.href = `/orders/${order.id}`}
-                    data-testid={`row-order-${order.id}`}
-                  >
-                    <TableCell className="font-mono text-sm font-bold text-primary">
-                      #{order.id.toString().padStart(4, "0")}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                      {format(new Date(order.createdAt), "yyyy/MM/dd")}
-                    </TableCell>
-                    <TableCell className="font-semibold text-sm">{order.customerName}</TableCell>
-                    <TableCell className="text-sm">
-                      {order.product}
-                      <span className="text-muted-foreground mr-1 text-xs">×{order.quantity}</span>
-                    </TableCell>
-                    <TableCell className="font-bold text-sm text-primary">
-                      {formatCurrency(order.totalPrice)}
-                    </TableCell>
+                  <TableRow key={order.id} className="border-border hover:bg-muted/20 cursor-pointer" onClick={() => window.location.href = `/orders/${order.id}`}>
+                    <TableCell className="font-mono text-xs text-primary font-bold">#{order.id.toString().padStart(4,"0")}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{format(new Date(order.createdAt), "MM/dd")}</TableCell>
+                    <TableCell className="text-sm font-semibold">{order.customerName}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{order.phone || "—"}</TableCell>
+                    <TableCell className="text-xs">{order.product}<span className="text-muted-foreground mr-1">×{order.quantity}</span></TableCell>
+                    <TableCell className="text-xs font-bold text-primary">{formatCurrency(order.totalPrice)}</TableCell>
                     <TableCell className="text-center">
-                      <Badge variant="outline" className={`text-[10px] font-semibold border ${statusColors[order.status] || ""}`}>
+                      <Badge variant="outline" className={`text-[9px] font-bold border ${statusClasses[order.status] || ""}`}>
                         {statusLabels[order.status] || order.status}
                       </Badge>
                     </TableCell>
@@ -149,22 +111,21 @@ export default function Orders() {
             </Table>
           </div>
         ) : (
-          <div className="p-12 text-center text-muted-foreground">
-            <Package className="w-12 h-12 mx-auto mb-4 opacity-20" />
-            <h3 className="text-lg font-bold text-foreground mb-1">لا توجد طلبات</h3>
-            <p className="text-sm max-w-sm mx-auto">
-              {search || status !== "all"
-                ? "جرّب تغيير معايير البحث أو التصفية."
-                : "لا توجد طلبات حتى الآن. أنشئ أول طلب للبدء."}
+          <div className="p-12 text-center">
+            <Package className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-20" />
+            <p className="font-bold text-foreground">لا توجد طلبات</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {search || status !== "all" ? "جرّب تغيير معايير البحث." : "لا يوجد طلبات حتى الآن."}
             </p>
-            {!(search || status !== "all") && (
-              <Link href="/orders/new">
-                <Button variant="outline" className="mt-4" data-testid="button-create-first">إنشاء طلب</Button>
-              </Link>
-            )}
           </div>
         )}
       </Card>
+
+      {orders && (
+        <p className="text-xs text-muted-foreground text-left">
+          إجمالي {orders.length} طلب
+        </p>
+      )}
     </div>
   );
 }

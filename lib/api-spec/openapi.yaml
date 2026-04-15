@@ -2,8 +2,8 @@ openapi: 3.1.0
 info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
-  version: 0.1.0
-  description: CAPRINA Order Management API
+  version: 0.2.0
+  description: CAPRINA Sales Operations System API
 servers:
   - url: /api
     description: Base API path
@@ -12,13 +12,16 @@ tags:
     description: Health operations
   - name: orders
     description: Order management operations
+  - name: products
+    description: Inventory management
+  - name: shipping
+    description: Shipping companies
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -31,14 +34,13 @@ paths:
       operationId: listOrders
       tags: [orders]
       summary: List all orders
-      description: Returns all orders sorted by most recent first
       parameters:
         - name: status
           in: query
           required: false
           schema:
             type: string
-            enum: [pending, processing, shipped, delivered, cancelled]
+            enum: [pending, received, delayed, returned, partial_received]
         - name: search
           in: query
           required: false
@@ -57,7 +59,6 @@ paths:
       operationId: createOrder
       tags: [orders]
       summary: Create a new order
-      description: Creates a new order
       requestBody:
         required: true
         content:
@@ -77,12 +78,37 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /orders/summary:
+    get:
+      operationId: getOrdersSummary
+      tags: [orders]
+      summary: Get orders summary statistics
+      responses:
+        "200":
+          description: Orders summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrdersSummary"
+  /orders/recent:
+    get:
+      operationId: getRecentOrders
+      tags: [orders]
+      summary: Get 5 most recent orders
+      responses:
+        "200":
+          description: Recent orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Order"
   /orders/{id}:
     get:
       operationId: getOrder
       tags: [orders]
       summary: Get a single order
-      description: Returns a single order by ID
       parameters:
         - name: id
           in: path
@@ -106,7 +132,6 @@ paths:
       operationId: updateOrder
       tags: [orders]
       summary: Update an order
-      description: Updates an existing order
       parameters:
         - name: id
           in: path
@@ -138,34 +163,201 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-  /orders/summary:
+  /products:
     get:
-      operationId: getOrdersSummary
-      tags: [orders]
-      summary: Get orders summary
-      description: Returns summary statistics about orders
+      operationId: listProducts
+      tags: [products]
+      summary: List all products in inventory
       responses:
         "200":
-          description: Orders summary
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/OrdersSummary"
-  /orders/recent:
-    get:
-      operationId: getRecentOrders
-      tags: [orders]
-      summary: Get recent orders
-      description: Returns the 5 most recent orders
-      responses:
-        "200":
-          description: Recent orders
+          description: List of products
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/Order"
+                  $ref: "#/components/schemas/Product"
+    post:
+      operationId: createProduct
+      tags: [products]
+      summary: Create a new product
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProductBody"
+      responses:
+        "201":
+          description: Product created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /products/{id}:
+    get:
+      operationId: getProduct
+      tags: [products]
+      summary: Get a single product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Product found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateProduct
+      tags: [products]
+      summary: Update a product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProductBody"
+      responses:
+        "200":
+          description: Product updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteProduct
+      tags: [products]
+      summary: Delete a product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /shipping-companies:
+    get:
+      operationId: listShippingCompanies
+      tags: [shipping]
+      summary: List all shipping companies
+      responses:
+        "200":
+          description: List of shipping companies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ShippingCompany"
+    post:
+      operationId: createShippingCompany
+      tags: [shipping]
+      summary: Create a shipping company
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateShippingCompanyBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShippingCompany"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /shipping-companies/{id}:
+    patch:
+      operationId: updateShippingCompany
+      tags: [shipping]
+      summary: Update a shipping company
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateShippingCompanyBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShippingCompany"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteShippingCompany
+      tags: [shipping]
+      summary: Delete a shipping company
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
     HealthStatus:
@@ -173,8 +365,7 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
     Order:
       type: object
       properties:
@@ -182,6 +373,10 @@ components:
           type: integer
         customerName:
           type: string
+        phone:
+          type: ["string", "null"]
+        address:
+          type: ["string", "null"]
         product:
           type: string
         quantity:
@@ -194,7 +389,13 @@ components:
           format: float
         status:
           type: string
-          enum: [pending, processing, shipped, delivered, cancelled]
+          enum: [pending, received, delayed, returned, partial_received]
+        partialQuantity:
+          type: ["integer", "null"]
+        shippingCompanyId:
+          type: ["integer", "null"]
+        productId:
+          type: ["integer", "null"]
         notes:
           type: ["string", "null"]
         createdAt:
@@ -206,11 +407,16 @@ components:
       required:
         - id
         - customerName
+        - phone
+        - address
         - product
         - quantity
         - unitPrice
         - totalPrice
         - status
+        - partialQuantity
+        - shippingCompanyId
+        - productId
         - notes
         - createdAt
         - updatedAt
@@ -219,6 +425,10 @@ components:
       properties:
         customerName:
           type: string
+        phone:
+          type: ["string", "null"]
+        address:
+          type: ["string", "null"]
         product:
           type: string
         quantity:
@@ -228,6 +438,10 @@ components:
           type: number
           format: float
           minimum: 0
+        shippingCompanyId:
+          type: ["integer", "null"]
+        productId:
+          type: ["integer", "null"]
         notes:
           type: ["string", "null"]
       required:
@@ -240,6 +454,10 @@ components:
       properties:
         customerName:
           type: string
+        phone:
+          type: ["string", "null"]
+        address:
+          type: ["string", "null"]
         product:
           type: string
         quantity:
@@ -251,7 +469,13 @@ components:
           minimum: 0
         status:
           type: string
-          enum: [pending, processing, shipped, delivered, cancelled]
+          enum: [pending, received, delayed, returned, partial_received]
+        partialQuantity:
+          type: ["integer", "null"]
+        shippingCompanyId:
+          type: ["integer", "null"]
+        productId:
+          type: ["integer", "null"]
         notes:
           type: ["string", "null"]
     OrdersSummary:
@@ -261,13 +485,13 @@ components:
           type: integer
         pendingOrders:
           type: integer
-        processingOrders:
+        receivedOrders:
           type: integer
-        shippedOrders:
+        delayedOrders:
           type: integer
-        deliveredOrders:
+        returnedOrders:
           type: integer
-        cancelledOrders:
+        partialOrders:
           type: integer
         totalRevenue:
           type: number
@@ -275,15 +499,143 @@ components:
       required:
         - totalOrders
         - pendingOrders
-        - processingOrders
-        - shippedOrders
-        - deliveredOrders
-        - cancelledOrders
+        - receivedOrders
+        - delayedOrders
+        - returnedOrders
+        - partialOrders
         - totalRevenue
+    Product:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        sku:
+          type: ["string", "null"]
+        totalQuantity:
+          type: integer
+        reservedQuantity:
+          type: integer
+        soldQuantity:
+          type: integer
+        lowStockThreshold:
+          type: integer
+        unitPrice:
+          type: number
+          format: float
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - sku
+        - totalQuantity
+        - reservedQuantity
+        - soldQuantity
+        - lowStockThreshold
+        - unitPrice
+        - createdAt
+        - updatedAt
+    CreateProductBody:
+      type: object
+      properties:
+        name:
+          type: string
+        sku:
+          type: ["string", "null"]
+        totalQuantity:
+          type: integer
+          minimum: 0
+        lowStockThreshold:
+          type: integer
+          minimum: 0
+        unitPrice:
+          type: number
+          format: float
+          minimum: 0
+      required:
+        - name
+        - totalQuantity
+        - unitPrice
+    UpdateProductBody:
+      type: object
+      properties:
+        name:
+          type: string
+        sku:
+          type: ["string", "null"]
+        totalQuantity:
+          type: integer
+          minimum: 0
+        lowStockThreshold:
+          type: integer
+          minimum: 0
+        unitPrice:
+          type: number
+          format: float
+          minimum: 0
+    ShippingCompany:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        phone:
+          type: ["string", "null"]
+        website:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - phone
+        - website
+        - notes
+        - isActive
+        - createdAt
+    CreateShippingCompanyBody:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: ["string", "null"]
+        website:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+      required:
+        - name
+    UpdateShippingCompanyBody:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: ["string", "null"]
+        website:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
     ErrorResponse:
       type: object
       properties:
         error:
           type: string
-      required:
-        - error
+      required: [error]
