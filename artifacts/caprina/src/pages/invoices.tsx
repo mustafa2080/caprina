@@ -111,6 +111,7 @@ export default function Invoices() {
           <hr class="divider"/>
           <div class="section">
             <div class="row"><span style="font-size:7pt;color:#888">المنتج</span><span style="font-size:8pt;font-weight:bold">${order.product}</span></div>
+            ${((order as any).color || (order as any).size) ? `<div class="row"><span style="font-size:7pt;color:#888">اللون / المقاس</span><span style="font-size:8pt">${[(order as any).color, (order as any).size].filter(Boolean).join(" — ")}</span></div>` : ""}
             <div class="row"><span style="font-size:7pt;color:#888">الكمية</span><span style="font-size:8pt">${order.quantity}</span></div>
             <div class="row"><span style="font-size:7pt;color:#888">سعر الوحدة</span><span style="font-size:8pt">${formatCurrency(order.unitPrice)}</span></div>
             ${company ? `<div class="row"><span style="font-size:7pt;color:#888">شركة الشحن</span><span style="font-size:8pt">${company.name}</span></div>` : ""}

@@ -285,6 +285,12 @@ export default function OrderDetail() {
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">المنتج</p>
                     <p className="font-semibold">{order.product}</p>
+                    {((order as any).color || (order as any).size) && (
+                      <div className="flex items-center gap-1.5 mt-1">
+                        {(order as any).color && <Badge variant="outline" className="text-[9px] border-border text-muted-foreground">{(order as any).color}</Badge>}
+                        {(order as any).size && <Badge variant="outline" className="text-[9px] border-primary/40 text-primary font-bold">{(order as any).size}</Badge>}
+                      </div>
+                    )}
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">الكمية</p>

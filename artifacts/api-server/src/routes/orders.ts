@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, ilike, or } from "drizzle-orm";
-import { db, ordersTable, productsTable } from "@workspace/db";
+import { db, ordersTable, productsTable, productVariantsTable } from "@workspace/db";
 import {
   ListOrdersQueryParams,
   ListOrdersResponse,
@@ -16,6 +16,42 @@ import {
 
 const router: IRouter = Router();
 
+async function adjustVariantInventory(
+  variantId: number,
+  oldStatus: string,
+  newStatus: string,
+  orderQty: number,
+  partialQty?: number | null
+) {
+  const [variant] = await db.select().from(productVariantsTable).where(eq(productVariantsTable.id, variantId));
+  if (!variant) return;
+
+  let { reservedQuantity, soldQuantity } = variant;
+
+  // Reverse old status effect
+  if (oldStatus === "pending" || oldStatus === "delayed") {
+    reservedQuantity = Math.max(0, reservedQuantity - orderQty);
+  } else if (oldStatus === "received") {
+    soldQuantity = Math.max(0, soldQuantity - orderQty);
+  } else if (oldStatus === "partial_received") {
+    soldQuantity = Math.max(0, soldQuantity - (partialQty ?? 0));
+  }
+
+  // Apply new status effect
+  if (newStatus === "pending" || newStatus === "delayed") {
+    reservedQuantity += orderQty;
+  } else if (newStatus === "received") {
+    soldQuantity += orderQty;
+  } else if (newStatus === "partial_received" && partialQty != null) {
+    soldQuantity += partialQty;
+  }
+
+  await db
+    .update(productVariantsTable)
+    .set({ reservedQuantity: Math.max(0, reservedQuantity), soldQuantity: Math.max(0, soldQuantity), updatedAt: new Date() })
+    .where(eq(productVariantsTable.id, variantId));
+}
+
 async function adjustInventory(
   productId: number,
   oldStatus: string,
@@ -23,7 +59,6 @@ async function adjustInventory(
   orderQty: number,
   partialQty?: number | null
 ) {
-  if (!productId) return;
   const [product] = await db.select().from(productsTable).where(eq(productsTable.id, productId));
   if (!product) return;
 
@@ -73,7 +108,9 @@ router.post("/orders", async (req, res): Promise<void> => {
   const totalPrice = parsed.data.quantity * parsed.data.unitPrice;
   const [order] = await db.insert(ordersTable).values({ ...parsed.data, totalPrice, status: "pending" }).returning();
 
-  if (parsed.data.productId) {
+  if ((parsed.data as any).variantId) {
+    await adjustVariantInventory((parsed.data as any).variantId, "none", "pending", parsed.data.quantity);
+  } else if (parsed.data.productId) {
     await adjustInventory(parsed.data.productId, "none", "pending", parsed.data.quantity);
   }
 
@@ -126,9 +163,14 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
   const [order] = await db.update(ordersTable).set(updateData).where(eq(ordersTable.id, params.data.id)).returning();
   if (!order) { res.status(404).json({ error: "Order not found" }); return; }
 
-  const productId = order.productId ?? existing.productId;
-  if (productId && parsed.data.status && parsed.data.status !== existing.status) {
-    await adjustInventory(productId, existing.status, parsed.data.status, order.quantity, parsed.data.partialQuantity);
+  if (parsed.data.status && parsed.data.status !== existing.status) {
+    const variantId = (order as any).variantId ?? (existing as any).variantId;
+    const productId = order.productId ?? existing.productId;
+    if (variantId) {
+      await adjustVariantInventory(variantId, existing.status, parsed.data.status, order.quantity, parsed.data.partialQuantity);
+    } else if (productId) {
+      await adjustInventory(productId, existing.status, parsed.data.status, order.quantity, parsed.data.partialQuantity);
+    }
   }
 
   res.json(UpdateOrderResponse.parse(order));

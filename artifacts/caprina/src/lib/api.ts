@@ -24,6 +24,22 @@ export interface Product {
   updatedAt: string;
 }
 
+export interface ProductVariant {
+  id: number;
+  productId: number;
+  productName?: string;
+  color: string;
+  size: string;
+  sku: string | null;
+  totalQuantity: number;
+  reservedQuantity: number;
+  soldQuantity: number;
+  lowStockThreshold: number;
+  unitPrice: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ShippingCompany {
   id: number;
   name: string;
@@ -43,9 +59,20 @@ export interface ImportResult {
 
 export const productsApi = {
   list: () => apiFetch<Product[]>("/products"),
-  create: (data: Partial<Product>) => apiFetch<Product>("/products", { method: "POST", body: JSON.stringify(data) }),
+  create: (data: Partial<Product> & { name: string }) => apiFetch<Product>("/products", { method: "POST", body: JSON.stringify(data) }),
   update: (id: number, data: Partial<Product>) => apiFetch<Product>(`/products/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   delete: (id: number) => apiFetch<void>(`/products/${id}`, { method: "DELETE" }),
+};
+
+export const variantsApi = {
+  listAll: () => apiFetch<ProductVariant[]>("/variants"),
+  listByProduct: (productId: number) => apiFetch<ProductVariant[]>(`/products/${productId}/variants`),
+  create: (productId: number, data: { color: string; size: string; sku?: string; totalQuantity: number; lowStockThreshold: number; unitPrice: number }) =>
+    apiFetch<ProductVariant>(`/products/${productId}/variants`, { method: "POST", body: JSON.stringify(data) }),
+  update: (productId: number, variantId: number, data: Partial<ProductVariant>) =>
+    apiFetch<ProductVariant>(`/products/${productId}/variants/${variantId}`, { method: "PATCH", body: JSON.stringify(data) }),
+  delete: (productId: number, variantId: number) =>
+    apiFetch<void>(`/products/${productId}/variants/${variantId}`, { method: "DELETE" }),
 };
 
 export const shippingApi = {
