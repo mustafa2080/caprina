@@ -226,10 +226,10 @@ export default function OrderDetail() {
                     )} />
                     <FormField control={form.control} name="shippingCompanyId" render={({ field }) => (
                       <FormItem><FormLabel className="text-xs">شركة الشحن</FormLabel>
-                        <Select value={field.value?.toString() || ""} onValueChange={v => field.onChange(v ? Number(v) : null)}>
+                        <Select value={field.value?.toString() || "none"} onValueChange={v => field.onChange(v === "none" ? null : Number(v))}>
                           <SelectTrigger className="h-8 text-sm bg-card"><SelectValue placeholder="بدون" /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">بدون</SelectItem>
+                            <SelectItem value="none">بدون</SelectItem>
                             {shippingCompanies?.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
                           </SelectContent>
                         </Select>

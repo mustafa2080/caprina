@@ -111,10 +111,10 @@ export default function OrderForm() {
                     <FormField control={form.control} name="shippingCompanyId" render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-xs">شركة الشحن</FormLabel>
-                        <Select value={field.value?.toString() || ""} onValueChange={v => field.onChange(v ? Number(v) : null)}>
+                        <Select value={field.value?.toString() || "none"} onValueChange={v => field.onChange(v === "none" ? null : Number(v))}>
                           <SelectTrigger className="h-9 text-sm bg-card"><SelectValue placeholder="اختر شركة" /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">بدون</SelectItem>
+                            <SelectItem value="none">بدون</SelectItem>
                             {shippingCompanies?.filter(c => c.isActive).map(c => (
                               <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
                             ))}
@@ -142,8 +142,8 @@ export default function OrderForm() {
                     <FormField control={form.control} name="productId" render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-xs">من المخزون (اختياري)</FormLabel>
-                        <Select value={field.value?.toString() || ""} onValueChange={v => {
-                          if (v) {
+                        <Select value={field.value?.toString() || "none"} onValueChange={v => {
+                          if (v && v !== "none") {
                             field.onChange(Number(v));
                             const p = products?.find(p => p.id === Number(v));
                             if (p) { form.setValue("product", p.name); form.setValue("unitPrice", p.unitPrice); }
@@ -153,7 +153,7 @@ export default function OrderForm() {
                         }}>
                           <SelectTrigger className="h-9 text-sm bg-card"><SelectValue placeholder="اختر منتج" /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">إدخال يدوي</SelectItem>
+                            <SelectItem value="none">إدخال يدوي</SelectItem>
                             {products?.map(p => {
                               const avail = p.totalQuantity - p.reservedQuantity - p.soldQuantity;
                               return <SelectItem key={p.id} value={String(p.id)}>{p.name} ({avail} متاح)</SelectItem>;
