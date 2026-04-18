@@ -11,6 +11,7 @@ export type UpdateOrderBodyStatus =
 
 export const UpdateOrderBodyStatus = {
   pending: "pending",
+  in_shipping: "in_shipping",
   received: "received",
   delayed: "delayed",
   returned: "returned",

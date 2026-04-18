@@ -9,6 +9,7 @@ import { productsApi, ordersApi } from "@/lib/api";
 
 const statusLabels: Record<string, string> = {
   pending: "قيد الانتظار",
+  in_shipping: "قيد الشحن",
   received: "استلم",
   delayed: "مؤجل",
   returned: "مرتجع",
@@ -17,6 +18,7 @@ const statusLabels: Record<string, string> = {
 
 const statusClasses: Record<string, string> = {
   pending: "bg-amber-900/30 text-amber-400 border-amber-800",
+  in_shipping: "bg-sky-900/30 text-sky-400 border-sky-800",
   received: "bg-emerald-900/30 text-emerald-400 border-emerald-800",
   delayed: "bg-blue-900/30 text-blue-400 border-blue-800",
   returned: "bg-red-900/30 text-red-400 border-red-800",
@@ -219,6 +221,7 @@ export default function Dashboard() {
                 <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">ملخص الحالات</p>
                 {[
                   { label: "قيد الانتظار", val: summary.pendingOrders, color: "text-amber-400" },
+                  { label: "قيد الشحن", val: summary.shippingOrders ?? 0, color: "text-sky-400" },
                   { label: "استلم", val: summary.receivedOrders, color: "text-emerald-400" },
                   { label: "مؤجل", val: summary.delayedOrders ?? 0, color: "text-blue-400" },
                   { label: "مرتجع", val: summary.returnedOrders ?? 0, color: "text-red-400" },

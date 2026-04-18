@@ -13,6 +13,7 @@ export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
 
 export const OrderStatus = {
   pending: "pending",
+  in_shipping: "in_shipping",
   received: "received",
   delayed: "delayed",
   returned: "returned",
@@ -67,6 +68,7 @@ export type UpdateOrderBodyStatus =
 
 export const UpdateOrderBodyStatus = {
   pending: "pending",
+  in_shipping: "in_shipping",
   received: "received",
   delayed: "delayed",
   returned: "returned",
@@ -98,6 +100,7 @@ export interface UpdateOrderBody {
 export interface OrdersSummary {
   totalOrders: number;
   pendingOrders: number;
+  shippingOrders: number;
   receivedOrders: number;
   delayedOrders: number;
   returnedOrders: number;
@@ -192,6 +195,7 @@ export type ListOrdersStatus =
 
 export const ListOrdersStatus = {
   pending: "pending",
+  in_shipping: "in_shipping",
   received: "received",
   delayed: "delayed",
   returned: "returned",

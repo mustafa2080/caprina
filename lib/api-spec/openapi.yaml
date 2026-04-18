@@ -40,7 +40,7 @@ paths:
           required: false
           schema:
             type: string
-            enum: [pending, received, delayed, returned, partial_received]
+            enum: [pending, in_shipping, received, delayed, returned, partial_received]
         - name: search
           in: query
           required: false
@@ -389,7 +389,7 @@ components:
           format: float
         status:
           type: string
-          enum: [pending, received, delayed, returned, partial_received]
+          enum: [pending, in_shipping, received, delayed, returned, partial_received]
         partialQuantity:
           type: ["integer", "null"]
         shippingCompanyId:
@@ -469,7 +469,7 @@ components:
           minimum: 0
         status:
           type: string
-          enum: [pending, received, delayed, returned, partial_received]
+          enum: [pending, in_shipping, received, delayed, returned, partial_received]
         partialQuantity:
           type: ["integer", "null"]
         shippingCompanyId:
@@ -485,6 +485,8 @@ components:
           type: integer
         pendingOrders:
           type: integer
+        shippingOrders:
+          type: integer
         receivedOrders:
           type: integer
         delayedOrders:
@@ -499,6 +501,7 @@ components:
       required:
         - totalOrders
         - pendingOrders
+        - shippingOrders
         - receivedOrders
         - delayedOrders
         - returnedOrders

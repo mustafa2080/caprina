@@ -2,7 +2,7 @@ import { pgTable, text, serial, integer, real, timestamp } from "drizzle-orm/pg-
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
-export const ORDER_STATUSES = ["pending", "received", "delayed", "returned", "partial_received"] as const;
+export const ORDER_STATUSES = ["pending", "in_shipping", "received", "delayed", "returned", "partial_received"] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 export const ordersTable = pgTable("orders", {

@@ -32,7 +32,22 @@ A full-stack order management system for CAPRINA, an artisan goods company. Buil
 ## Data Model
 
 - **Orders**: id, customerName, phone, address, product, color, size, quantity, unitPrice, totalPrice, status, partialQuantity, shippingCompanyId, productId, variantId, notes, createdAt, updatedAt
-- **Statuses**: pending | received | delayed | returned | partial_received
+- **Statuses**: pending | in_shipping | received | delayed | returned | partial_received
+
+## Inventory Logic
+
+Inventory adjusts automatically on every status change. The core `computeInventoryDeltas` function reverses the old status effect then applies the new one (idempotent):
+
+| Status | reservedQty | soldQty |
+|---|---|---|
+| pending | +qty | — |
+| in_shipping | +qty (stays reserved) | — |
+| delayed | +qty | — |
+| received | — | +qty |
+| partial_received | — | +partialQty (remaining freed) |
+| returned / deleted | (old effect reversed, nothing new) | |
+
+Inventory target is resolved in priority order: variantId → productId → SKU lookup (product name + color + size match against the inventory tables).
 
 ## Key Commands
 

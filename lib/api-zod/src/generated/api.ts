@@ -19,7 +19,14 @@ export const HealthCheckResponse = zod.object({
  */
 export const ListOrdersQueryParams = zod.object({
   status: zod
-    .enum(["pending", "received", "delayed", "returned", "partial_received"])
+    .enum([
+      "pending",
+      "in_shipping",
+      "received",
+      "delayed",
+      "returned",
+      "partial_received",
+    ])
     .optional(),
   search: zod.coerce.string().optional(),
 });
@@ -35,6 +42,7 @@ export const ListOrdersResponseItem = zod.object({
   totalPrice: zod.number(),
   status: zod.enum([
     "pending",
+    "in_shipping",
     "received",
     "delayed",
     "returned",
@@ -73,6 +81,7 @@ export const CreateOrderBody = zod.object({
 export const GetOrdersSummaryResponse = zod.object({
   totalOrders: zod.number(),
   pendingOrders: zod.number(),
+  shippingOrders: zod.number(),
   receivedOrders: zod.number(),
   delayedOrders: zod.number(),
   returnedOrders: zod.number(),
@@ -94,6 +103,7 @@ export const GetRecentOrdersResponseItem = zod.object({
   totalPrice: zod.number(),
   status: zod.enum([
     "pending",
+    "in_shipping",
     "received",
     "delayed",
     "returned",
@@ -126,6 +136,7 @@ export const GetOrderResponse = zod.object({
   totalPrice: zod.number(),
   status: zod.enum([
     "pending",
+    "in_shipping",
     "received",
     "delayed",
     "returned",
@@ -156,7 +167,14 @@ export const UpdateOrderBody = zod.object({
   quantity: zod.number().min(1).optional(),
   unitPrice: zod.number().min(updateOrderBodyUnitPriceMin).optional(),
   status: zod
-    .enum(["pending", "received", "delayed", "returned", "partial_received"])
+    .enum([
+      "pending",
+      "in_shipping",
+      "received",
+      "delayed",
+      "returned",
+      "partial_received",
+    ])
     .optional(),
   partialQuantity: zod.number().nullish(),
   shippingCompanyId: zod.number().nullish(),
@@ -175,6 +193,7 @@ export const UpdateOrderResponse = zod.object({
   totalPrice: zod.number(),
   status: zod.enum([
     "pending",
+    "in_shipping",
     "received",
     "delayed",
     "returned",

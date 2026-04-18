@@ -12,6 +12,7 @@ import { useLocation } from "wouter";
 
 const statusLabels: Record<string, string> = {
   pending: "قيد الانتظار",
+  in_shipping: "قيد الشحن",
   received: "استلم",
   delayed: "مؤجل",
   returned: "مرتجع",
@@ -20,6 +21,7 @@ const statusLabels: Record<string, string> = {
 
 const statusClasses: Record<string, string> = {
   pending: "text-amber-600 border-amber-600",
+  in_shipping: "text-sky-600 border-sky-600",
   received: "text-emerald-600 border-emerald-600",
   delayed: "text-blue-600 border-blue-600",
   returned: "text-red-600 border-red-600",
@@ -174,6 +176,7 @@ export default function Invoices() {
           <SelectContent>
             <SelectItem value="all">جميع الطلبات</SelectItem>
             <SelectItem value="pending">قيد الانتظار</SelectItem>
+            <SelectItem value="in_shipping">قيد الشحن</SelectItem>
             <SelectItem value="received">استلم</SelectItem>
             <SelectItem value="delayed">مؤجل</SelectItem>
             <SelectItem value="returned">مرتجع</SelectItem>

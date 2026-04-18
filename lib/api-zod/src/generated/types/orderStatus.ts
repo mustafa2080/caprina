@@ -10,6 +10,7 @@ export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
 
 export const OrderStatus = {
   pending: "pending",
+  in_shipping: "in_shipping",
   received: "received",
   delayed: "delayed",
   returned: "returned",

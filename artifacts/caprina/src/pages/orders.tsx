@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 
 const statusLabels: Record<string, string> = {
   pending: "قيد الانتظار",
+  in_shipping: "قيد الشحن",
   received: "استلم",
   delayed: "مؤجل",
   returned: "مرتجع",
@@ -21,6 +22,7 @@ const statusLabels: Record<string, string> = {
 
 const statusClasses: Record<string, string> = {
   pending: "bg-amber-900/30 text-amber-400 border-amber-800",
+  in_shipping: "bg-sky-900/30 text-sky-400 border-sky-800",
   received: "bg-emerald-900/30 text-emerald-400 border-emerald-800",
   delayed: "bg-blue-900/30 text-blue-400 border-blue-800",
   returned: "bg-red-900/30 text-red-400 border-red-800",
@@ -82,6 +84,7 @@ export default function Orders() {
               <SelectContent>
                 <SelectItem value="all">جميع الطلبات</SelectItem>
                 <SelectItem value="pending">قيد الانتظار</SelectItem>
+                <SelectItem value="in_shipping">قيد الشحن</SelectItem>
                 <SelectItem value="received">استلم</SelectItem>
                 <SelectItem value="delayed">مؤجل</SelectItem>
                 <SelectItem value="returned">مرتجع</SelectItem>
