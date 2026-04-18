@@ -87,7 +87,7 @@ export default function Invoices() {
 
     const styles = `
       @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;900&display=swap');
-      @page { size: A4 portrait; margin: 4mm; }
+      @page { size: A4 landscape; margin: 4mm; }
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body {
         font-family: 'Cairo', 'Segoe UI', Tahoma, Arial, sans-serif;
@@ -104,7 +104,7 @@ export default function Invoices() {
         grid-template-rows: 1fr 1fr;
         gap: 3mm;
         width: 100%;
-        height: 200mm;
+        height: 194mm;
         page-break-after: always;
       }
       .page:last-child { page-break-after: avoid; }
