@@ -9,9 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Plus, Package, AlertTriangle, Edit2, Trash2, ChevronDown, ChevronRight,
-  Layers, Tag, TrendingUp, DollarSign, Boxes, BarChart3, Search
+  Layers, Tag, TrendingUp, DollarSign, Boxes, BarChart3, Search, PackagePlus
 } from "lucide-react";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -67,6 +68,12 @@ export default function Inventory() {
   const [activeProductId, setActiveProductId] = useState<number | null>(null);
   const [variantForm, setVariantForm] = useState(emptyVariantForm);
 
+  // Add Stock dialog
+  const [addStockOpen, setAddStockOpen] = useState(false);
+  const [addStockVariant, setAddStockVariant] = useState<ProductVariant | null>(null);
+  const [addStockQty, setAddStockQty] = useState("");
+  const [addStockNotes, setAddStockNotes] = useState("");
+
   const { data: products, isLoading } = useQuery({ queryKey: ["products"], queryFn: productsApi.list });
   const { data: allVariants } = useQuery({ queryKey: ["variants"], queryFn: variantsApi.listAll });
   const { data: stockIntel } = useQuery({ queryKey: ["stock-intelligence"], queryFn: analyticsApi.stockIntelligence, staleTime: 60000 });
@@ -111,6 +118,21 @@ export default function Inventory() {
     onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
 
+  const addStockMutation = useMutation({
+    mutationFn: ({ productId, variantId, qty, notes }: { productId: number; variantId: number; qty: number; notes: string }) =>
+      variantsApi.addStock(productId, variantId, qty, notes || null),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["variants"] });
+      queryClient.invalidateQueries({ queryKey: ["stock-intelligence"] });
+      setAddStockOpen(false);
+      setAddStockVariant(null);
+      setAddStockQty("");
+      setAddStockNotes("");
+      toast({ title: "تمت إضافة المخزون", description: "تم تسجيل الكمية وتحديث المخزون." });
+    },
+    onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
+  });
+
   const openAddProduct = () => { setEditingProduct(null); setProductForm(emptyProductForm); setProductDialogOpen(true); };
   const openEditProduct = (p: Product) => {
     setEditingProduct(p);
@@ -127,8 +149,22 @@ export default function Inventory() {
   const openEditVariant = (v: ProductVariant) => {
     setActiveProductId(v.productId);
     setEditingVariant(v);
-    setVariantForm({ color: v.color, size: v.size, sku: v.sku ?? "", totalQuantity: v.totalQuantity, lowStockThreshold: v.lowStockThreshold, unitPrice: v.unitPrice, costPrice: v.costPrice });
+    setVariantForm({ color: v.color, size: v.size, sku: v.sku ?? "", totalQuantity: 0, lowStockThreshold: v.lowStockThreshold, unitPrice: v.unitPrice, costPrice: v.costPrice });
     setVariantDialogOpen(true);
+  };
+
+  const openAddVariantStock = (v: ProductVariant) => {
+    setAddStockVariant(v);
+    setAddStockQty("");
+    setAddStockNotes("");
+    setAddStockOpen(true);
+  };
+
+  const handleAddStockSubmit = () => {
+    if (!addStockVariant) return;
+    const qty = parseInt(addStockQty);
+    if (isNaN(qty) || qty < 1) { toast({ title: "خطأ", description: "أدخل كمية صحيحة (1 على الأقل).", variant: "destructive" }); return; }
+    addStockMutation.mutate({ productId: addStockVariant.productId, variantId: addStockVariant.id, qty, notes: addStockNotes });
   };
 
   const handleProductSubmit = () => {
@@ -140,19 +176,23 @@ export default function Inventory() {
   const handleVariantSubmit = () => {
     if (!variantForm.color.trim() || !variantForm.size.trim()) { toast({ title: "خطأ", description: "اللون والمقاس مطلوبان.", variant: "destructive" }); return; }
     if (!activeProductId) return;
-    if (editingVariant) updateVariantMutation.mutate({ productId: activeProductId, id: editingVariant.id, data: variantForm });
-    else createVariantMutation.mutate({ productId: activeProductId, data: variantForm });
+    if (editingVariant) {
+      // Don't send totalQuantity on edit — use Add Stock instead
+      const { totalQuantity: _qty, ...editData } = variantForm;
+      updateVariantMutation.mutate({ productId: activeProductId, id: editingVariant.id, data: editData });
+    } else {
+      createVariantMutation.mutate({ productId: activeProductId, data: variantForm });
+    }
   };
 
   const getProductVariants = (productId: number) => allVariants?.filter(v => v.productId === productId) ?? [];
 
-  // Stats
+  // Stats — availableQty = totalQuantity (movement-based model, no reservation)
   const totalVariants = allVariants?.length ?? 0;
-  const lowStockVariants = allVariants?.filter(v => (v.totalQuantity - v.reservedQuantity - v.soldQuantity) <= v.lowStockThreshold).length ?? 0;
-  const totalAvailable = allVariants?.reduce((s, v) => s + Math.max(0, v.totalQuantity - v.reservedQuantity - v.soldQuantity), 0) ?? 0;
+  const lowStockVariants = allVariants?.filter(v => v.totalQuantity <= v.lowStockThreshold).length ?? 0;
+  const totalAvailable = allVariants?.reduce((s, v) => s + Math.max(0, v.totalQuantity), 0) ?? 0;
   const inventoryValue = allVariants?.reduce((s, v) => {
-    const avail = Math.max(0, v.totalQuantity - v.reservedQuantity - v.soldQuantity);
-    return s + avail * (v.costPrice ?? v.unitPrice * 0.6);
+    return s + Math.max(0, v.totalQuantity) * (v.costPrice ?? v.unitPrice * 0.6);
   }, 0) ?? 0;
 
   const filteredProducts = products?.filter(p =>
@@ -256,13 +296,12 @@ export default function Inventory() {
             const variants = getProductVariants(product.id);
             const isExpanded = expandedProductId === product.id;
             const totalStock = variants.reduce((s, v) => s + v.totalQuantity, 0);
-            const availableStock = variants.reduce((s, v) => s + Math.max(0, v.totalQuantity - v.reservedQuantity - v.soldQuantity), 0);
-            const hasLowStock = variants.some(v => (v.totalQuantity - v.reservedQuantity - v.soldQuantity) <= v.lowStockThreshold);
+            const availableStock = totalStock; // availableQty = totalQuantity (movement-based)
+            const hasLowStock = variants.some(v => v.totalQuantity <= v.lowStockThreshold);
             const productMargin = calcMargin(product.unitPrice, product.costPrice);
             const intel = stockMap.get(product.name.trim().toLowerCase());
             const productValue = variants.reduce((s, v) => {
-              const avail = Math.max(0, v.totalQuantity - v.reservedQuantity - v.soldQuantity);
-              return s + avail * (v.costPrice ?? product.costPrice ?? product.unitPrice * 0.6);
+              return s + Math.max(0, v.totalQuantity) * (v.costPrice ?? product.costPrice ?? product.unitPrice * 0.6);
             }, 0);
 
             return (
@@ -312,10 +351,10 @@ export default function Inventory() {
                   <div className="flex items-center gap-4">
                     {/* Stock */}
                     <div className="text-left hidden sm:block">
-                      <p className="text-[10px] text-muted-foreground">متاح / إجمالي</p>
+                      <p className="text-[10px] text-muted-foreground">المتاح</p>
                       <p className="text-sm font-bold">
                         <span className={availableStock === 0 ? "text-red-400" : "text-emerald-400"}>{availableStock}</span>
-                        <span className="text-muted-foreground"> / {totalStock}</span>
+                        <span className="text-muted-foreground"> وحدة</span>
                       </p>
                       <p className="text-[9px] text-muted-foreground">{fc(productValue)}</p>
                     </div>
@@ -353,20 +392,18 @@ export default function Inventory() {
                               <th className="text-right py-2.5 px-4 font-semibold text-muted-foreground w-28">اللون</th>
                               <th className="text-right py-2.5 px-3 font-semibold text-muted-foreground">المقاس</th>
                               <th className="text-right py-2.5 px-3 font-semibold text-muted-foreground hidden lg:table-cell">SKU</th>
-                              <th className="text-center py-2.5 px-3 font-semibold text-muted-foreground">إجمالي</th>
-                              <th className="text-center py-2.5 px-3 font-semibold text-amber-500/80 hidden sm:table-cell">محجوز</th>
-                              <th className="text-center py-2.5 px-3 font-semibold text-emerald-500/80 hidden sm:table-cell">مباع</th>
-                              <th className="text-center py-2.5 px-3 font-semibold text-muted-foreground">متاح</th>
+                              <th className="text-center py-2.5 px-3 font-semibold text-emerald-500/80">متاح</th>
+                              <th className="text-center py-2.5 px-3 font-semibold text-muted-foreground/60 hidden sm:table-cell">مباع</th>
                               <th className="text-right py-2.5 px-3 font-semibold text-primary/80">بيع</th>
                               <th className="text-right py-2.5 px-3 font-semibold text-amber-500/80">تكلفة</th>
                               <th className="text-center py-2.5 px-3 font-semibold text-emerald-500/80">هامش</th>
                               <th className="text-center py-2.5 px-3 font-semibold text-muted-foreground">حالة</th>
-                              <th className="w-16 py-2.5"></th>
+                              <th className="w-24 py-2.5"></th>
                             </tr>
                           </thead>
                           <tbody>
                             {variants.map((v) => {
-                              const available = v.totalQuantity - v.reservedQuantity - v.soldQuantity;
+                              const available = v.totalQuantity; // movement-based: available = totalQuantity
                               const isLow = available <= v.lowStockThreshold;
                               const margin = calcMargin(v.unitPrice, v.costPrice);
                               return (
@@ -381,12 +418,10 @@ export default function Inventory() {
                                     <Badge variant="outline" className="font-bold text-[10px] border-border text-foreground">{v.size}</Badge>
                                   </td>
                                   <td className="py-2.5 px-3 font-mono text-muted-foreground text-[10px] hidden lg:table-cell">{v.sku || "—"}</td>
-                                  <td className="py-2.5 px-3 text-center font-semibold">{v.totalQuantity}</td>
-                                  <td className="py-2.5 px-3 text-center text-amber-400 font-bold hidden sm:table-cell">{v.reservedQuantity}</td>
-                                  <td className="py-2.5 px-3 text-center text-emerald-400 font-bold hidden sm:table-cell">{v.soldQuantity}</td>
                                   <td className="py-2.5 px-3 text-center">
-                                    <span className={`font-bold text-sm ${isLow ? "text-red-400" : available === 0 ? "text-red-400" : "text-foreground"}`}>{available}</span>
+                                    <span className={`font-bold text-sm ${isLow ? "text-amber-400" : available === 0 ? "text-red-400" : "text-emerald-400"}`}>{available}</span>
                                   </td>
+                                  <td className="py-2.5 px-3 text-center text-muted-foreground/60 hidden sm:table-cell">{v.soldQuantity}</td>
                                   <td className="py-2.5 px-3 text-primary font-bold">{fc(v.unitPrice)}</td>
                                   <td className="py-2.5 px-3">
                                     {v.costPrice ? (
@@ -409,6 +444,14 @@ export default function Inventory() {
                                   </td>
                                   <td className="py-2.5 px-3">
                                     <div className="flex items-center justify-center gap-1">
+                                      <Button
+                                        variant="ghost" size="sm"
+                                        className="h-6 px-2 text-[10px] font-bold text-emerald-400 hover:text-emerald-300 hover:bg-emerald-900/20 gap-1"
+                                        title="إضافة مخزون"
+                                        onClick={() => openAddVariantStock(v)}
+                                      >
+                                        <Plus className="w-3 h-3" />مخزون
+                                      </Button>
                                       <Button variant="ghost" size="icon" className="h-6 w-6 hover:text-primary" onClick={() => openEditVariant(v)}>
                                         <Edit2 className="w-3 h-3" />
                                       </Button>
@@ -621,16 +664,40 @@ export default function Inventory() {
             <Separator />
             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground -mb-2">المخزون والأسعار</p>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs mb-1.5 block">الكمية *</Label>
-                <Input
-                  type="number" min="0"
-                  className="h-9 text-sm bg-background"
-                  value={variantForm.totalQuantity}
-                  onChange={e => setVariantForm(f => ({ ...f, totalQuantity: Number(e.target.value) }))}
-                />
+            {editingVariant ? (
+              <div className="flex items-start gap-2 p-2.5 rounded border border-emerald-900/40 bg-emerald-900/10">
+                <PackagePlus className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-bold text-emerald-400">تعديل الكمية عبر "إضافة مخزون"</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    المتاح حالياً: <span className="font-bold text-foreground">{editingVariant.totalQuantity}</span> وحدة — استخدم زر "+مخزون" في الجدول لتغيير الكمية
+                  </p>
+                </div>
               </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs mb-1.5 block">الكمية الأولية</Label>
+                  <Input
+                    type="number" min="0"
+                    className="h-9 text-sm bg-background"
+                    value={variantForm.totalQuantity}
+                    onChange={e => setVariantForm(f => ({ ...f, totalQuantity: Number(e.target.value) }))}
+                  />
+                  <p className="text-[9px] text-muted-foreground mt-1">يمكن إضافة مخزون لاحقاً عبر زر "+مخزون"</p>
+                </div>
+                <div>
+                  <Label className="text-xs mb-1.5 block">حد التنبيه</Label>
+                  <Input
+                    type="number" min="0"
+                    className="h-9 text-sm bg-background"
+                    value={variantForm.lowStockThreshold}
+                    onChange={e => setVariantForm(f => ({ ...f, lowStockThreshold: Number(e.target.value) }))}
+                  />
+                </div>
+              </div>
+            )}
+            {!editingVariant ? null : (
               <div>
                 <Label className="text-xs mb-1.5 block">حد التنبيه</Label>
                 <Input
@@ -640,7 +707,7 @@ export default function Inventory() {
                   onChange={e => setVariantForm(f => ({ ...f, lowStockThreshold: Number(e.target.value) }))}
                 />
               </div>
-            </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -680,7 +747,9 @@ export default function Inventory() {
                   </div>
                   <div>
                     <p className="text-[9px] text-muted-foreground">قيمة المخزون</p>
-                    <p className="font-bold text-amber-400">{fc(variantForm.totalQuantity * variantForm.costPrice)}</p>
+                    <p className="font-bold text-amber-400">
+                      {fc((editingVariant?.totalQuantity ?? variantForm.totalQuantity) * variantForm.costPrice)}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -697,6 +766,72 @@ export default function Inventory() {
               <Button variant="outline" className="h-9 text-sm border-border" onClick={() => setVariantDialogOpen(false)}>إلغاء</Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Add Stock Dialog ────────────────────────────────────────────────── */}
+      <Dialog open={addStockOpen} onOpenChange={setAddStockOpen}>
+        <DialogContent className="bg-card border-border max-w-sm" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="text-right flex items-center gap-2">
+              <PackagePlus className="w-4 h-4 text-emerald-400" />
+              إضافة مخزون
+            </DialogTitle>
+          </DialogHeader>
+          {addStockVariant && (
+            <div className="space-y-4 mt-2">
+              <div className="p-3 rounded-md bg-muted/10 border border-border text-sm">
+                <p className="font-bold">{addStockVariant.productName ?? "المنتج"}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="w-3 h-3 rounded-full border border-border/50" style={{ background: getColorHex(addStockVariant.color) }} />
+                  <span className="text-muted-foreground text-xs">{addStockVariant.color} — {addStockVariant.size}</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-2">
+                  المخزون الحالي: <span className="font-bold text-emerald-400">{addStockVariant.totalQuantity}</span> وحدة
+                </p>
+              </div>
+
+              <div>
+                <Label className="text-xs mb-1.5 block text-emerald-400">الكمية المضافة *</Label>
+                <Input
+                  type="number" min="1"
+                  placeholder="مثال: 50"
+                  className="h-9 text-sm bg-background border-emerald-900/40 focus-visible:ring-emerald-700"
+                  value={addStockQty}
+                  onChange={e => setAddStockQty(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && handleAddStockSubmit()}
+                  autoFocus
+                />
+                {addStockQty && !isNaN(parseInt(addStockQty)) && (
+                  <p className="text-[10px] text-emerald-400/80 mt-1">
+                    بعد الإضافة: {addStockVariant.totalQuantity + parseInt(addStockQty)} وحدة
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <Label className="text-xs mb-1.5 block">ملاحظات (اختياري)</Label>
+                <Textarea
+                  placeholder="مثال: وارد من المورد X — فاتورة #123"
+                  className="min-h-[60px] text-sm resize-none bg-background"
+                  value={addStockNotes}
+                  onChange={e => setAddStockNotes(e.target.value)}
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  className="flex-1 h-9 text-sm font-bold bg-emerald-700 hover:bg-emerald-600 text-white gap-1"
+                  onClick={handleAddStockSubmit}
+                  disabled={addStockMutation.isPending}
+                >
+                  <PackagePlus className="w-4 h-4" />
+                  {addStockMutation.isPending ? "جاري الإضافة..." : "إضافة للمخزون"}
+                </Button>
+                <Button variant="outline" className="h-9 text-sm border-border" onClick={() => setAddStockOpen(false)}>إلغاء</Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

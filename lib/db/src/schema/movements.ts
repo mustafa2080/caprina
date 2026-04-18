@@ -7,6 +7,7 @@ export const MOVEMENT_REASONS = [
   "sale",
   "partial_sale",
   "return",
+  "damaged",
   "manual_in",
   "manual_out",
   "adjustment",

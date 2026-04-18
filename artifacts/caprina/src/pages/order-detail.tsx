@@ -1,6 +1,6 @@
 import { useParams, Link, useLocation } from "wouter";
 import { format } from "date-fns";
-import { ArrowRight, AlertCircle, Pencil, Save, X, Printer, Phone, MapPin, Trash2, RotateCcw, TrendingUp, TrendingDown } from "lucide-react";
+import { ArrowRight, AlertCircle, Pencil, Save, X, Printer, Phone, MapPin, Trash2, RotateCcw, TrendingUp, TrendingDown, AlertTriangle } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -62,6 +62,7 @@ export default function OrderDetail() {
   const [showReturnInput, setShowReturnInput] = useState(false);
   const [returnReason, setReturnReason] = useState("");
   const [returnNote, setReturnNote] = useState("");
+  const [returnIsDamaged, setReturnIsDamaged] = useState(false);
 
   const initializedRef = useRef(false);
 
@@ -128,6 +129,7 @@ export default function OrderDetail() {
         status: "returned",
         returnReason,
         returnNote: returnReason === "other" ? returnNote.trim() : null,
+        isDamaged: returnIsDamaged,
       } as any,
     }, {
       onSuccess: (updated) => {
@@ -136,7 +138,8 @@ export default function OrderDetail() {
         setShowReturnInput(false);
         setReturnReason("");
         setReturnNote("");
-        toast({ title: "تم التسجيل", description: "تم تسجيل المرتجع وسببه بنجاح." });
+        setReturnIsDamaged(false);
+        toast({ title: "تم التسجيل", description: returnIsDamaged ? "تم تسجيل المرتجع التالف — لم يُضاف للمخزون." : "تم تسجيل المرتجع وأُضيف للمخزون." });
       },
       onError: () => toast({ title: "خطأ", description: "فشل تحديث الحالة.", variant: "destructive" }),
     });
@@ -305,11 +308,29 @@ export default function OrderDetail() {
                 />
               </div>
             )}
+            {/* Damaged checkbox */}
+            <div
+              className={`flex items-center gap-3 p-2.5 rounded border cursor-pointer transition-colors ${returnIsDamaged ? "border-amber-700 bg-amber-900/20" : "border-border bg-card/50"}`}
+              onClick={() => setReturnIsDamaged(v => !v)}
+            >
+              <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${returnIsDamaged ? "bg-amber-600 border-amber-600" : "border-muted-foreground"}`}>
+                {returnIsDamaged && <X className="w-2.5 h-2.5 text-white" />}
+              </div>
+              <div>
+                <p className={`text-xs font-bold ${returnIsDamaged ? "text-amber-400" : "text-muted-foreground"}`}>
+                  <AlertTriangle className="w-3 h-3 inline ml-1" />
+                  المنتج تالف / غير صالح للبيع
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  {returnIsDamaged ? "⚠ لن يُضاف للمخزون — سيُسجَّل كخسارة" : "في حالة التيك، لن يُرجَع للمخزون"}
+                </p>
+              </div>
+            </div>
             <div className="flex items-center gap-2 pt-1">
               <Button size="sm" className="h-8 text-xs bg-red-700 hover:bg-red-600 text-white gap-1" onClick={handleReturnConfirm} disabled={updateOrder.isPending}>
                 <RotateCcw className="w-3 h-3" />{updateOrder.isPending ? "جاري..." : "تأكيد الإرجاع"}
               </Button>
-              <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setShowReturnInput(false); setReturnReason(""); setReturnNote(""); }}>إلغاء</Button>
+              <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setShowReturnInput(false); setReturnReason(""); setReturnNote(""); setReturnIsDamaged(false); }}>إلغاء</Button>
             </div>
           </CardContent>
         </Card>

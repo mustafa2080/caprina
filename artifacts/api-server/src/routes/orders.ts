@@ -13,7 +13,7 @@ import {
   GetOrdersSummaryResponse,
   GetRecentOrdersResponse,
 } from "@workspace/api-zod";
-import { adjustOrderInventory } from "../lib/inventory.js";
+import { processDelivery, reverseDelivery, processReturn } from "../lib/inventory.js";
 
 const router: IRouter = Router();
 
@@ -89,14 +89,7 @@ router.post("/orders", async (req, res): Promise<void> => {
 
   const [order] = await db.insert(ordersTable).values({ ...parsed.data, totalPrice, status: "pending", costPrice }).returning();
 
-  // New order always starts as pending → reserve inventory
-  await adjustOrderInventory(
-    { ...parsed.data, variantId: (parsed.data as any).variantId ?? null },
-    "none",
-    "pending",
-    null, null,
-    order.id,
-  );
+  // NO inventory change on order creation — inventory only moves on delivery/return
 
   res.status(201).json(GetOrderResponse.parse(order));
 });
@@ -144,6 +137,9 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
   const params = UpdateOrderParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
+  // Read isDamaged before Zod strips unknown fields
+  const isDamaged = req.body.isDamaged === true || req.body.isDamaged === "true";
+
   const parsed = UpdateOrderBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
@@ -161,24 +157,68 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
     .returning();
   if (!order) { res.status(404).json({ error: "Order not found" }); return; }
 
-  // Adjust inventory only when status changes
-  if (parsed.data.status && parsed.data.status !== existing.status) {
-    await adjustOrderInventory(
-      {
-        variantId: order.variantId ?? existing.variantId,
-        productId: order.productId ?? existing.productId,
-        product: order.product ?? existing.product,
-        color: order.color ?? existing.color,
-        size: order.size ?? existing.size,
-        quantity: order.quantity,
-        partialQuantity: existing.partialQuantity,
-      },
-      existing.status,
-      parsed.data.status,
-      parsed.data.partialQuantity ?? null,
-      existing.partialQuantity ?? null,
-      existing.id,
-    );
+  const oldStatus = existing.status;
+  const newStatus = parsed.data.status;
+
+  if (newStatus && newStatus !== oldStatus) {
+    const orderRef = {
+      variantId: order.variantId ?? existing.variantId,
+      productId: order.productId ?? existing.productId,
+      product: order.product ?? existing.product,
+      color: order.color ?? existing.color,
+      size: order.size ?? existing.size,
+    };
+
+    // ── Transition: → received ─────────────────────────────────────────────
+    if (newStatus === "received") {
+      if (oldStatus === "partial_received") {
+        // Already deducted partialQty; deduct the remainder
+        const alreadyDeducted = existing.partialQuantity ?? 0;
+        const remainder = order.quantity - alreadyDeducted;
+        if (remainder > 0) {
+          await processDelivery(orderRef, remainder, "sale", existing.id);
+        }
+      } else if (oldStatus !== "received") {
+        await processDelivery(orderRef, order.quantity, "sale", existing.id);
+      }
+    }
+
+    // ── Transition: → partial_received ────────────────────────────────────
+    else if (newStatus === "partial_received") {
+      const newPartial = parsed.data.partialQuantity ?? 0;
+      const oldPartial = (oldStatus === "partial_received" ? existing.partialQuantity : 0) ?? 0;
+      const delta = newPartial - oldPartial;
+      if (delta > 0) {
+        await processDelivery(orderRef, delta, "partial_sale", existing.id);
+      } else if (delta < 0) {
+        await reverseDelivery(orderRef, Math.abs(delta), existing.id);
+      }
+    }
+
+    // ── Transition: → returned ─────────────────────────────────────────────
+    else if (newStatus === "returned") {
+      const wasFullyReceived = oldStatus === "received";
+      const wasPartiallyReceived = oldStatus === "partial_received";
+      const returnQty = wasPartiallyReceived
+        ? (existing.partialQuantity ?? order.quantity)
+        : order.quantity;
+      await processReturn(
+        { ...orderRef, quantity: returnQty },
+        wasFullyReceived || wasPartiallyReceived,
+        isDamaged,
+        existing.id,
+      );
+    }
+
+    // ── Transition: received/partial → non-delivery status ────────────────
+    else {
+      if (oldStatus === "received") {
+        await reverseDelivery(orderRef, order.quantity, existing.id);
+      } else if (oldStatus === "partial_received") {
+        const deducted = existing.partialQuantity ?? 0;
+        if (deducted > 0) await reverseDelivery(orderRef, deducted, existing.id);
+      }
+    }
   }
 
   res.json(UpdateOrderResponse.parse(order));
@@ -193,23 +233,24 @@ router.delete("/orders/:id", async (req, res): Promise<void> => {
   const [existing] = await db.select().from(ordersTable).where(eq(ordersTable.id, id));
   if (!existing) { res.status(404).json({ error: "Order not found" }); return; }
 
-  // Reverse inventory effect before deleting
-  await adjustOrderInventory(
-    {
-      variantId: existing.variantId,
-      productId: existing.productId,
-      product: existing.product,
-      color: existing.color,
-      size: existing.size,
-      quantity: existing.quantity,
-      partialQuantity: existing.partialQuantity,
-    },
-    existing.status,
-    "deleted",
-    null,
-    existing.partialQuantity ?? null,
-    existing.id,
-  );
+  // Reverse stock effect only if order had already been delivered
+  if (existing.status === "received") {
+    await reverseDelivery(
+      { variantId: existing.variantId, productId: existing.productId, product: existing.product, color: existing.color, size: existing.size },
+      existing.quantity,
+      existing.id,
+    );
+  } else if (existing.status === "partial_received") {
+    const deducted = existing.partialQuantity ?? 0;
+    if (deducted > 0) {
+      await reverseDelivery(
+        { variantId: existing.variantId, productId: existing.productId, product: existing.product, color: existing.color, size: existing.size },
+        deducted,
+        existing.id,
+      );
+    }
+  }
+  // returned / pending / in_shipping / delayed → no stock to reverse
 
   await db.delete(ordersTable).where(eq(ordersTable.id, id));
   res.status(204).end();

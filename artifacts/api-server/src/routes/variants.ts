@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { eq, desc, and } from "drizzle-orm";
 import { db, productVariantsTable, productsTable } from "@workspace/db";
 import { z } from "zod";
+import { addStock } from "../lib/inventory.js";
 
 const router: IRouter = Router();
 
@@ -15,7 +16,20 @@ const CreateVariantSchema = z.object({
   costPrice: z.number().min(0).nullish(),
 });
 
-const UpdateVariantSchema = CreateVariantSchema.partial();
+// Update schema: totalQuantity excluded — use /add-stock instead
+const UpdateVariantSchema = z.object({
+  color: z.string().min(1).optional(),
+  size: z.string().min(1).optional(),
+  sku: z.string().nullish().optional(),
+  lowStockThreshold: z.number().int().min(0).optional(),
+  unitPrice: z.number().min(0).optional(),
+  costPrice: z.number().min(0).nullish().optional(),
+});
+
+const AddStockSchema = z.object({
+  quantity: z.number().int().min(1),
+  notes: z.string().nullish(),
+});
 
 // List all variants (with product info) — used by order form
 router.get("/variants", async (_req, res): Promise<void> => {
@@ -63,11 +77,9 @@ router.post("/products/:productId/variants", async (req, res): Promise<void> => 
   const parsed = CreateVariantSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
-  // Check product exists
   const [product] = await db.select().from(productsTable).where(eq(productsTable.id, productId));
   if (!product) { res.status(404).json({ error: "Product not found" }); return; }
 
-  // Auto-generate SKU if not provided
   const sku = parsed.data.sku || `${product.name.substring(0, 3).toUpperCase()}-${parsed.data.color.substring(0, 3).toUpperCase()}-${parsed.data.size.toUpperCase()}`;
 
   const [variant] = await db.insert(productVariantsTable).values({
@@ -106,6 +118,38 @@ router.delete("/products/:productId/variants/:variantId", async (req, res): Prom
     .returning();
   if (!deleted) { res.status(404).json({ error: "Variant not found" }); return; }
   res.status(204).send();
+});
+
+// ─── Add Stock ────────────────────────────────────────────────────────────────
+
+router.post("/products/:productId/variants/:variantId/add-stock", async (req, res): Promise<void> => {
+  const productId = parseInt(req.params.productId);
+  const variantId = parseInt(req.params.variantId);
+  if (isNaN(productId) || isNaN(variantId)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+  const parsed = AddStockSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+
+  const [product] = await db.select().from(productsTable).where(eq(productsTable.id, productId));
+  if (!product) { res.status(404).json({ error: "Product not found" }); return; }
+
+  const [variantRow] = await db.select().from(productVariantsTable).where(eq(productVariantsTable.id, variantId));
+  if (!variantRow) { res.status(404).json({ error: "Variant not found" }); return; }
+
+  await addStock(
+    {
+      variantId,
+      productId,
+      product: product.name,
+      color: variantRow.color,
+      size: variantRow.size,
+    },
+    parsed.data.quantity,
+    parsed.data.notes ?? null,
+  );
+
+  const [updated] = await db.select().from(productVariantsTable).where(eq(productVariantsTable.id, variantId));
+  res.json(updated);
 });
 
 export default router;

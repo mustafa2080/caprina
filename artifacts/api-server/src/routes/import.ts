@@ -3,7 +3,6 @@ import multer from "multer";
 import ExcelJS from "exceljs";
 import { db, ordersTable, productsTable, productVariantsTable } from "@workspace/db";
 import { eq, and, ilike } from "drizzle-orm";
-import { adjustOrderInventory } from "../lib/inventory.js";
 
 const router: IRouter = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } });
@@ -164,25 +163,6 @@ router.post("/orders/import/execute", async (req, res): Promise<void> => {
   let inserted: any[] = [];
   if (validOrders.length > 0) {
     inserted = await db.insert(ordersTable).values(validOrders).returning();
-
-    await Promise.all(
-      inserted.map(order =>
-        adjustOrderInventory(
-          {
-            variantId: order.variantId ?? null,
-            productId: order.productId ?? null,
-            product: order.product,
-            color: order.color,
-            size: order.size,
-            quantity: order.quantity,
-          },
-          "none",
-          "pending",
-          null, null,
-          order.id,
-        ),
-      ),
-    );
   }
 
   res.json({
@@ -476,9 +456,6 @@ router.post("/orders/import", upload.single("file"), async (req, res): Promise<v
     let inserted: any[] = [];
     if (validOrders.length > 0) {
       inserted = await db.insert(ordersTable).values(validOrders).returning();
-      await Promise.all(
-        inserted.map(order => adjustOrderInventory({ variantId: null, productId: null, product: order.product, color: order.color, size: order.size, quantity: order.quantity }, "none", "pending", null, null, order.id)),
-      );
     }
 
     res.json({ imported: inserted.length, failed: errors.length, errors: errors.slice(0, 20), orders: inserted });

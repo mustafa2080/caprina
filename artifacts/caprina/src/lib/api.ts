@@ -81,19 +81,23 @@ export interface ImportResult {
 export const productsApi = {
   list: () => apiFetch<Product[]>("/products"),
   create: (data: Partial<Product> & { name: string }) => apiFetch<Product>("/products", { method: "POST", body: JSON.stringify(data) }),
-  update: (id: number, data: Partial<Product>) => apiFetch<Product>(`/products/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  update: (id: number, data: Partial<Omit<Product, "totalQuantity">>) => apiFetch<Product>(`/products/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   delete: (id: number) => apiFetch<void>(`/products/${id}`, { method: "DELETE" }),
+  addStock: (id: number, quantity: number, notes?: string | null) =>
+    apiFetch<Product>(`/products/${id}/add-stock`, { method: "POST", body: JSON.stringify({ quantity, notes }) }),
 };
 
 export const variantsApi = {
   listAll: () => apiFetch<ProductVariant[]>("/variants"),
   listByProduct: (productId: number) => apiFetch<ProductVariant[]>(`/products/${productId}/variants`),
-  create: (productId: number, data: { color: string; size: string; sku?: string; totalQuantity: number; lowStockThreshold: number; unitPrice: number; costPrice?: number | null }) =>
+  create: (productId: number, data: { color: string; size: string; sku?: string; totalQuantity?: number; lowStockThreshold: number; unitPrice: number; costPrice?: number | null }) =>
     apiFetch<ProductVariant>(`/products/${productId}/variants`, { method: "POST", body: JSON.stringify(data) }),
-  update: (productId: number, variantId: number, data: Partial<ProductVariant>) =>
+  update: (productId: number, variantId: number, data: Partial<Omit<ProductVariant, "totalQuantity">>) =>
     apiFetch<ProductVariant>(`/products/${productId}/variants/${variantId}`, { method: "PATCH", body: JSON.stringify(data) }),
   delete: (productId: number, variantId: number) =>
     apiFetch<void>(`/products/${productId}/variants/${variantId}`, { method: "DELETE" }),
+  addStock: (productId: number, variantId: number, quantity: number, notes?: string | null) =>
+    apiFetch<ProductVariant>(`/products/${productId}/variants/${variantId}/add-stock`, { method: "POST", body: JSON.stringify({ quantity, notes }) }),
 };
 
 export const shippingApi = {
@@ -305,7 +309,7 @@ export const ordersApi = {
 };
 
 export type MovementType = "IN" | "OUT";
-export type MovementReason = "sale" | "partial_sale" | "return" | "manual_in" | "manual_out" | "adjustment";
+export type MovementReason = "sale" | "partial_sale" | "return" | "damaged" | "manual_in" | "manual_out" | "adjustment";
 
 export interface InventoryMovement {
   id: number;
