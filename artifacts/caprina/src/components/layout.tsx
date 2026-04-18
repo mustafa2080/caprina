@@ -108,6 +108,36 @@ export default function Layout({ children }: LayoutProps) {
           })}
         </nav>
 
+        {/* Theme Toggle */}
+        <div className="px-3 pb-2">
+          <div className="flex items-center rounded-lg bg-muted/50 border border-sidebar-border p-0.5 gap-0.5">
+            <button
+              type="button"
+              onClick={() => setTheme("dark")}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-[10px] font-bold transition-all ${
+                theme === "dark"
+                  ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
+                  : "text-sidebar-foreground/50 hover:text-sidebar-foreground/80"
+              }`}
+            >
+              <Moon className="w-3 h-3" />
+              داكن
+            </button>
+            <button
+              type="button"
+              onClick={() => setTheme("light")}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-[10px] font-bold transition-all ${
+                theme === "light"
+                  ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
+                  : "text-sidebar-foreground/50 hover:text-sidebar-foreground/80"
+              }`}
+            >
+              <Sun className="w-3 h-3" />
+              فاتح
+            </button>
+          </div>
+        </div>
+
         {/* User info */}
         <div className="border-t border-sidebar-border">
           <div className="relative">

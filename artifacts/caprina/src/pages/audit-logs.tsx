@@ -16,12 +16,12 @@ const ACTION_LABELS: Record<string, string> = {
 };
 
 const ACTION_COLORS: Record<string, string> = {
-  create: "border-emerald-700 bg-emerald-900/20 text-emerald-400",
-  update: "border-blue-700 bg-blue-900/20 text-blue-400",
-  delete: "border-red-700 bg-red-900/20 text-red-400",
-  status_change: "border-amber-700 bg-amber-900/20 text-amber-400",
-  add_stock: "border-purple-700 bg-purple-900/20 text-purple-400",
-  login: "border-gray-700 bg-gray-900/20 text-gray-400",
+  create:        "border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400",
+  update:        "border-blue-300    dark:border-blue-700    bg-blue-50    dark:bg-blue-900/20    text-blue-700    dark:text-blue-400",
+  delete:        "border-red-300     dark:border-red-700     bg-red-50     dark:bg-red-900/20     text-red-700     dark:text-red-400",
+  status_change: "border-amber-300   dark:border-amber-700   bg-amber-50   dark:bg-amber-900/20   text-amber-700   dark:text-amber-400",
+  add_stock:     "border-purple-300  dark:border-purple-700  bg-purple-50  dark:bg-purple-900/20  text-purple-700  dark:text-purple-400",
+  login:         "border-gray-300    dark:border-gray-700    bg-gray-50    dark:bg-gray-900/20    text-gray-600    dark:text-gray-400",
 };
 
 const ENTITY_LABELS: Record<string, string> = {

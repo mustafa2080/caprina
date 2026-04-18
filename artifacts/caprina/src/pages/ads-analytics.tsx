@@ -14,12 +14,12 @@ const fmtNum = (n: number) => new Intl.NumberFormat("ar-EG").format(n);
 const fmtPct = (n: number) => `${n}%`;
 
 const SOURCE_META: Record<string, { label: string; color: string; bg: string; emoji: string }> = {
-  facebook:  { label: "فيسبوك",   color: "text-blue-400",   bg: "bg-blue-900/30",   emoji: "📘" },
-  tiktok:    { label: "تيك توك",  color: "text-pink-400",   bg: "bg-pink-900/30",   emoji: "🎵" },
-  instagram: { label: "إنستجرام", color: "text-purple-400", bg: "bg-purple-900/30", emoji: "📷" },
-  organic:   { label: "عضوي",     color: "text-emerald-400",bg: "bg-emerald-900/20", emoji: "🌱" },
-  whatsapp:  { label: "واتساب",   color: "text-green-400",  bg: "bg-green-900/20",  emoji: "💬" },
-  other:     { label: "أخرى",     color: "text-zinc-400",   bg: "bg-zinc-800/40",   emoji: "📌" },
+  facebook:  { label: "فيسبوك",   color: "text-blue-700    dark:text-blue-400",    bg: "bg-blue-50    dark:bg-blue-900/30",    emoji: "📘" },
+  tiktok:    { label: "تيك توك",  color: "text-pink-700    dark:text-pink-400",    bg: "bg-pink-50    dark:bg-pink-900/30",    emoji: "🎵" },
+  instagram: { label: "إنستجرام", color: "text-purple-700  dark:text-purple-400",  bg: "bg-purple-50  dark:bg-purple-900/30",  emoji: "📷" },
+  organic:   { label: "عضوي",     color: "text-emerald-700 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-900/20", emoji: "🌱" },
+  whatsapp:  { label: "واتساب",   color: "text-green-700   dark:text-green-400",   bg: "bg-green-50   dark:bg-green-900/20",   emoji: "💬" },
+  other:     { label: "أخرى",     color: "text-zinc-600    dark:text-zinc-400",    bg: "bg-zinc-100   dark:bg-zinc-800/40",    emoji: "📌" },
 };
 
 function SourceBadge({ source }: { source: string }) {

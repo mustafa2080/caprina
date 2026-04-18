@@ -34,12 +34,12 @@ const METRIC_OPTIONS = [
 ];
 
 const RATING_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
-  ممتاز: { color: "text-emerald-400", bg: "bg-emerald-900/30", label: "ممتاز ⭐" },
-  "جيد جداً": { color: "text-blue-400", bg: "bg-blue-900/30", label: "جيد جداً 👍" },
-  جيد: { color: "text-primary", bg: "bg-primary/10", label: "جيد 👌" },
-  مقبول: { color: "text-amber-400", bg: "bg-amber-900/20", label: "مقبول ⚠️" },
-  ضعيف: { color: "text-red-400", bg: "bg-red-900/20", label: "ضعيف ❌" },
-  "غير محدد": { color: "text-muted-foreground", bg: "bg-muted/20", label: "غير محدد" },
+  ممتاز:      { color: "text-emerald-700 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-900/30", label: "ممتاز ⭐" },
+  "جيد جداً": { color: "text-blue-700    dark:text-blue-400",    bg: "bg-blue-50    dark:bg-blue-900/30",    label: "جيد جداً 👍" },
+  جيد:        { color: "text-primary",                            bg: "bg-primary/10",                        label: "جيد 👌" },
+  مقبول:      { color: "text-amber-700   dark:text-amber-400",   bg: "bg-amber-50   dark:bg-amber-900/20",   label: "مقبول ⚠️" },
+  ضعيف:       { color: "text-red-700     dark:text-red-400",     bg: "bg-red-50     dark:bg-red-900/20",     label: "ضعيف ❌" },
+  "غير محدد": { color: "text-muted-foreground",                   bg: "bg-muted/20",                          label: "غير محدد" },
 };
 
 // ─── Profile Form Dialog ──────────────────────────────────────────────────────
