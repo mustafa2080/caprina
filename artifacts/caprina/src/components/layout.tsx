@@ -1,9 +1,10 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Package, Plus, Boxes, Truck, FileText, Upload, Activity, BarChart3, Users, Shield, LogOut, ChevronDown, KeyRound, Warehouse, Megaphone, UserCheck, UserCog } from "lucide-react";
+import { LayoutDashboard, Package, Plus, Boxes, Truck, FileText, Upload, Activity, BarChart3, Users, Shield, LogOut, ChevronDown, KeyRound, Warehouse, Megaphone, UserCheck, UserCog, Sun, Moon } from "lucide-react";
 import { BrandFull } from "@/components/brand-logo";
 import { BrandSettingsDialog } from "@/components/brand-settings-dialog";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { useState } from "react";
 import { authApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
@@ -41,6 +42,7 @@ const ROLE_LABELS: Record<string, string> = {
 export default function Layout({ children }: LayoutProps) {
   const [location] = useLocation();
   const { user, logout, can, isAdmin } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const { toast } = useToast();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [pwDialogOpen, setPwDialogOpen] = useState(false);
@@ -96,7 +98,7 @@ export default function Layout({ children }: LayoutProps) {
                   "flex items-center gap-3 px-3 py-2 rounded-md text-xs font-semibold transition-all",
                   isActive
                     ? "bg-primary text-primary-foreground"
-                    : "text-sidebar-foreground/55 hover:text-sidebar-foreground hover:bg-white/5"
+                    : "text-sidebar-foreground/55 hover:text-sidebar-foreground hover:bg-foreground/5"
                 )}
               >
                 <Icon className="w-3.5 h-3.5 shrink-0" />
@@ -112,7 +114,7 @@ export default function Layout({ children }: LayoutProps) {
             <button
               type="button"
               onClick={() => setUserMenuOpen(v => !v)}
-              className="w-full flex items-center gap-2 p-3 hover:bg-white/5 transition-colors text-right"
+              className="w-full flex items-center gap-2 p-3 hover:bg-foreground/5 transition-colors text-right"
             >
               <div className="w-7 h-7 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-xs font-bold text-primary shrink-0">
                 {user?.displayName?.charAt(0) ?? "?"}
@@ -126,6 +128,19 @@ export default function Layout({ children }: LayoutProps) {
 
             {userMenuOpen && (
               <div className="absolute bottom-full right-0 left-0 bg-card border border-border rounded-t-lg shadow-lg overflow-hidden z-50">
+                <button
+                  type="button"
+                  onClick={() => { toggleTheme(); setUserMenuOpen(false); }}
+                  className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-xs hover:bg-muted/20 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    {theme === "dark" ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-muted-foreground" />}
+                    {theme === "dark" ? "الوضع الفاتح" : "الوضع الداكن"}
+                  </div>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted/40 text-muted-foreground">
+                    {theme === "dark" ? "Light" : "Dark"}
+                  </span>
+                </button>
                 <button
                   type="button"
                   onClick={() => { setUserMenuOpen(false); setPwDialogOpen(true); }}
@@ -158,6 +173,9 @@ export default function Layout({ children }: LayoutProps) {
             {can("orders") && <Link href="/orders">طلبات</Link>}
             {can("inventory") && <Link href="/inventory">مخزون</Link>}
             {can("orders") && <Link href="/orders/new" className="text-primary">+ جديد</Link>}
+            <button type="button" onClick={toggleTheme} className="text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors">
+              {theme === "dark" ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+            </button>
             <button type="button" onClick={logout} className="text-red-400">خروج</button>
           </div>
         </header>
