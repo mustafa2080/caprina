@@ -23,6 +23,7 @@ import TeamPage from "@/pages/team";
 import SmartAnalyticsPage from "@/pages/smart-analytics";
 import ArchivePage from "@/pages/archive";
 import ShippingFollowupPage from "@/pages/shipping-followup";
+import WhatsAppSettingsPage from "@/pages/whatsapp-settings";
 import Login from "@/pages/login";
 import Layout from "@/components/layout";
 import { BrandLogoMark } from "@/components/brand-logo";
@@ -91,6 +92,7 @@ function Router() {
         <Route path="/smart" component={SmartAnalyticsPage} />
         <Route path="/archive" component={ArchivePage} />
         <Route path="/shipping-followup" component={ShippingFollowupPage} />
+        <Route path="/whatsapp" component={WhatsAppSettingsPage} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

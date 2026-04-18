@@ -4,7 +4,7 @@ function getToken(): string | null {
   return localStorage.getItem("caprina_token");
 }
 
-async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
+export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const token = getToken();
   const authHeader = token ? { Authorization: `Bearer ${token}` } : {};
   const res = await fetch(`${BASE}${path}`, {

@@ -19,7 +19,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { shippingApi, ordersApi } from "@/lib/api";
-import { openWhatsApp } from "@/lib/whatsapp";
+import { type WhatsAppOrderData } from "@/lib/whatsapp";
+import { WhatsAppDialog } from "@/components/whatsapp-dialog";
 import { RETURN_REASONS, returnReasonLabel, STATUS_LABELS as statusLabels, STATUS_CLASSES as statusClasses } from "@/lib/order-constants";
 import {
   AlertDialog,
@@ -61,6 +62,7 @@ export default function OrderDetail() {
   const [partialQty, setPartialQty] = useState("");
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showWaDialog, setShowWaDialog] = useState(false);
 
   // Return reason state
   const [showReturnInput, setShowReturnInput] = useState(false);
@@ -185,13 +187,11 @@ export default function OrderDetail() {
 
   const handlePrint = () => { window.open(`/invoices?orderId=${id}`, "_blank"); };
 
-  const handleWhatsApp = () => {
-    if (!order?.phone) {
-      toast({ title: "لا يوجد رقم هاتف", description: "أضف رقم هاتف للعميل أولاً.", variant: "destructive" });
-      return;
-    }
-    const sent = openWhatsApp({ id: order.id, customerName: order.customerName, product: order.product, quantity: order.quantity, totalPrice: order.totalPrice, status: order.status, phone: order.phone });
-    if (sent && order.status === "pending") {
+  const handleWhatsApp = () => { setShowWaDialog(true); };
+
+  const handleWaSent = () => {
+    if (!order) return;
+    if (order.status === "pending") {
       updateOrder.mutate(
         { id, data: { status: "in_shipping" } },
         {
@@ -202,8 +202,8 @@ export default function OrderDetail() {
           },
         }
       );
-    } else if (sent) {
-      toast({ title: "تم فتح واتساب ✅", description: `رسالة تأكيد لـ ${order.customerName} جاهزة للإرسال` });
+    } else {
+      toast({ title: "تم فتح واتساب ✅", description: "الرسالة جاهزة للإرسال" });
     }
   };
 
@@ -316,6 +316,16 @@ export default function OrderDetail() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* WhatsApp dialog */}
+      {order && (
+        <WhatsAppDialog
+          open={showWaDialog}
+          onOpenChange={setShowWaDialog}
+          order={{ id: order.id, customerName: order.customerName, product: order.product, quantity: order.quantity, totalPrice: order.totalPrice, status: order.status, phone: order.phone }}
+          onSent={handleWaSent}
+        />
+      )}
 
       {/* Partial received input */}
       {showPartialInput && (

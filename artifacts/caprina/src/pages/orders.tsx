@@ -12,7 +12,8 @@ import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { returnReasonLabel } from "@/lib/order-constants";
-import { openWhatsApp } from "@/lib/whatsapp";
+import { type WhatsAppOrderData } from "@/lib/whatsapp";
+import { WhatsAppDialog } from "@/components/whatsapp-dialog";
 import { useToast } from "@/hooks/use-toast";
 
 const statusLabels: Record<string, string> = {
@@ -44,31 +45,31 @@ export default function Orders() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const updateOrder = useUpdateOrder();
+  const [waOrder, setWaOrder] = useState<WhatsAppOrderData | null>(null);
 
   const { data: orders, isLoading } = useListOrders({
     search: debouncedSearch || undefined,
     status: status !== "all" ? status : undefined,
   });
 
-  const handleWhatsApp = (e: React.MouseEvent, order: (typeof orders)[0] & { phone?: string | null }) => {
+  const handleWhatsApp = (e: React.MouseEvent, order: NonNullable<typeof orders>[0]) => {
     e.stopPropagation();
-    if (!order.phone) {
-      toast({ title: "لا يوجد رقم هاتف", description: "أضف رقم هاتف للعميل أولاً.", variant: "destructive" });
-      return;
-    }
-    const sent = openWhatsApp(order);
-    if (sent && order.status === "pending") {
+    setWaOrder({ id: order.id, customerName: order.customerName, product: order.product, quantity: order.quantity, totalPrice: order.totalPrice, status: order.status, phone: order.phone });
+  };
+
+  const handleWaSent = (orderId: number, currentStatus: string) => {
+    if (currentStatus === "pending") {
       updateOrder.mutate(
-        { id: order.id, data: { status: "in_shipping" } },
+        { id: orderId, data: { status: "in_shipping" } },
         {
           onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
-            toast({ title: "تم إرسال واتساب ✅", description: `تم تحويل الطلب #${order.id.toString().padStart(4,"0")} لـ «قيد الشحن»` });
+            toast({ title: "تم إرسال واتساب ✅", description: `تم تحويل الطلب #${orderId.toString().padStart(4,"0")} لـ «قيد الشحن»` });
           },
         }
       );
-    } else if (sent) {
-      toast({ title: "تم فتح واتساب ✅", description: `رسالة تأكيد لـ ${order.customerName} جاهزة للإرسال` });
+    } else {
+      toast({ title: "تم فتح واتساب ✅", description: "الرسالة جاهزة للإرسال" });
     }
   };
 
@@ -219,6 +220,13 @@ export default function Orders() {
           {orders && filtered.length !== orders.length && ` (من ${orders.length})`}
         </p>
       )}
+
+      <WhatsAppDialog
+        open={!!waOrder}
+        onOpenChange={open => { if (!open) setWaOrder(null); }}
+        order={waOrder}
+        onSent={() => waOrder && handleWaSent(waOrder.id, waOrder.status)}
+      />
     </div>
   );
 }

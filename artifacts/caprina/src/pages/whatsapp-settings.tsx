@@ -1,0 +1,358 @@
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { MessageCircle, Plus, Pencil, Trash2, Star, StarOff, Save, X, Phone, Info, Copy, Check } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { useToast } from "@/hooks/use-toast";
+import { apiFetch } from "@/lib/api";
+import { type WaSettings, type WaTemplate, TEMPLATE_VARIABLES } from "@/lib/whatsapp";
+import { useAuth } from "@/contexts/AuthContext";
+
+const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
+
+export default function WhatsAppSettingsPage() {
+  const { isAdmin } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: settings, isLoading } = useQuery<WaSettings>({
+    queryKey: ["whatsapp-settings"],
+    queryFn: () => apiFetch<WaSettings>("/whatsapp/settings"),
+  });
+
+  const [businessPhone, setBusinessPhone] = useState("");
+  const [savingPhone, setSavingPhone] = useState(false);
+  const [showNewForm, setShowNewForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [newName, setNewName] = useState("");
+  const [newBody, setNewBody] = useState("");
+  const [copiedVar, setCopiedVar] = useState<string | null>(null);
+
+  const templates = settings?.templates ?? [];
+
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ["whatsapp-settings"] });
+
+  const handleSavePhone = async () => {
+    setSavingPhone(true);
+    try {
+      await apiFetch("/whatsapp/settings", {
+        method: "PATCH",
+        body: JSON.stringify({ businessPhone }),
+      });
+      refresh();
+      toast({ title: "تم الحفظ", description: "تم حفظ رقم واتساب الشركة" });
+    } catch {
+      toast({ title: "خطأ", description: "فشل حفظ الرقم", variant: "destructive" });
+    } finally {
+      setSavingPhone(false);
+    }
+  };
+
+  const handleAddTemplate = async () => {
+    if (!newName.trim() || !newBody.trim()) {
+      toast({ title: "خطأ", description: "اسم القالب والنص مطلوبان", variant: "destructive" });
+      return;
+    }
+    try {
+      await apiFetch("/whatsapp/templates", {
+        method: "POST",
+        body: JSON.stringify({ name: newName.trim(), body: newBody.trim() }),
+      });
+      refresh();
+      setShowNewForm(false);
+      setNewName("");
+      setNewBody("");
+      toast({ title: "تم إضافة القالب ✅" });
+    } catch {
+      toast({ title: "خطأ", description: "فشل إضافة القالب", variant: "destructive" });
+    }
+  };
+
+  const handleEditTemplate = async (tpl: WaTemplate) => {
+    try {
+      await apiFetch(`/whatsapp/templates/${tpl.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ name: newName.trim(), body: newBody.trim() }),
+      });
+      refresh();
+      setEditingId(null);
+      setNewName("");
+      setNewBody("");
+      toast({ title: "تم تحديث القالب ✅" });
+    } catch {
+      toast({ title: "خطأ", description: "فشل التحديث", variant: "destructive" });
+    }
+  };
+
+  const handleSetDefault = async (tpl: WaTemplate) => {
+    try {
+      await apiFetch(`/whatsapp/templates/${tpl.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ isDefault: true }),
+      });
+      refresh();
+      toast({ title: `"${tpl.name}" هو القالب الافتراضي الآن` });
+    } catch {
+      toast({ title: "خطأ", variant: "destructive" });
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await apiFetch(`/whatsapp/templates/${id}`, { method: "DELETE" });
+      refresh();
+      toast({ title: "تم حذف القالب" });
+    } catch {
+      toast({ title: "خطأ", description: "فشل الحذف", variant: "destructive" });
+    }
+  };
+
+  const startEdit = (tpl: WaTemplate) => {
+    setEditingId(tpl.id);
+    setNewName(tpl.name);
+    setNewBody(tpl.body);
+    setShowNewForm(false);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setNewName("");
+    setNewBody("");
+  };
+
+  const copyVar = (v: string) => {
+    navigator.clipboard.writeText(v).then(() => {
+      setCopiedVar(v);
+      setTimeout(() => setCopiedVar(null), 1500);
+    });
+  };
+
+  if (isLoading) return <div className="p-8 text-center text-muted-foreground">جاري التحميل...</div>;
+
+  return (
+    <div className="max-w-3xl mx-auto space-y-6 animate-in fade-in duration-500" dir="rtl">
+      <div>
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <MessageCircle className="w-6 h-6 text-green-500" />
+          إعدادات واتساب
+        </h1>
+        <p className="text-muted-foreground text-sm mt-0.5">
+          إدارة رقم واتساب الشركة وقوالب رسائل التأكيد
+        </p>
+      </div>
+
+      {/* Business Phone Card */}
+      <Card className="border-border">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Phone className="w-4 h-4 text-green-500" />
+            رقم واتساب الشركة
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            الرقم الذي تُرسل منه رسائل التأكيد. يُفتح واتساب على الجهاز بهذا الرقم تلقائياً.
+          </p>
+          <div className="flex gap-2">
+            <Input
+              placeholder="مثال: 01012345678 أو +201012345678"
+              value={businessPhone || settings?.businessPhone || ""}
+              onChange={e => setBusinessPhone(e.target.value)}
+              className="bg-muted/20 flex-1"
+              disabled={!isAdmin}
+              dir="ltr"
+            />
+            {isAdmin && (
+              <Button
+                onClick={handleSavePhone}
+                disabled={savingPhone}
+                className="gap-1 bg-green-600 hover:bg-green-700 text-white"
+              >
+                <Save className="w-3.5 h-3.5" />
+                حفظ
+              </Button>
+            )}
+          </div>
+          <div className="flex items-start gap-2 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-xs text-blue-400">
+            <Info className="w-4 h-4 shrink-0 mt-0.5" />
+            <span>
+              عند الضغط على زرار واتساب في أي أوردر، يُفتح التطبيق على هاتفك مباشرةً برسالة جاهزة مرسلة للعميل.
+              لإرسال من رقم شركة محدد، استخدم جهاز الشركة أو واتساب الويب على حساب الشركة.
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Variables Reference */}
+      <Card className="border-border">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">المتغيرات المتاحة في القوالب</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-2">
+            {TEMPLATE_VARIABLES.map(v => (
+              <button
+                key={v.var}
+                onClick={() => copyVar(v.var)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted/40 border border-border hover:border-primary text-xs transition-all"
+                title="انقر للنسخ"
+              >
+                <code className="text-primary font-mono">{v.var}</code>
+                <span className="text-muted-foreground">= {v.label}</span>
+                {copiedVar === v.var
+                  ? <Check className="w-3 h-3 text-green-500" />
+                  : <Copy className="w-3 h-3 text-muted-foreground" />
+                }
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">انقر على أي متغير لنسخه ثم الصقه في القالب</p>
+        </CardContent>
+      </Card>
+
+      {/* Templates */}
+      <Card className="border-border">
+        <CardHeader className="pb-3 flex flex-row items-center justify-between">
+          <CardTitle className="text-base">قوالب الرسائل</CardTitle>
+          {isAdmin && !showNewForm && !editingId && (
+            <Button
+              size="sm"
+              onClick={() => { setShowNewForm(true); setNewName(""); setNewBody(""); }}
+              className="h-8 gap-1 text-xs bg-green-600 hover:bg-green-700 text-white"
+            >
+              <Plus className="w-3.5 h-3.5" />قالب جديد
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {/* New Template Form */}
+          {showNewForm && (
+            <div className="border border-green-600/30 rounded-lg p-4 space-y-3 bg-green-500/5">
+              <p className="text-sm font-bold text-green-500">قالب جديد</p>
+              <div>
+                <Label className="text-xs mb-1 block">اسم القالب</Label>
+                <Input
+                  placeholder="مثال: تأكيد الشحن، متابعة، ..."
+                  value={newName}
+                  onChange={e => setNewName(e.target.value)}
+                  className="bg-muted/20 text-sm"
+                />
+              </div>
+              <div>
+                <Label className="text-xs mb-1 block">نص الرسالة</Label>
+                <Textarea
+                  placeholder={`استخدم المتغيرات مثل {customerName}، {orderNumber}، {amount}...`}
+                  value={newBody}
+                  onChange={e => setNewBody(e.target.value)}
+                  className="bg-muted/20 text-sm min-h-[120px] resize-none"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={handleAddTemplate} className="gap-1 h-8 bg-green-600 hover:bg-green-700 text-white">
+                  <Save className="w-3.5 h-3.5" />حفظ
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setShowNewForm(false)} className="h-8 gap-1">
+                  <X className="w-3.5 h-3.5" />إلغاء
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Template List */}
+          {templates.length === 0 && !showNewForm ? (
+            <div className="text-center py-6 text-muted-foreground text-sm">
+              لا توجد قوالب — اضغط «قالب جديد» لإضافة أول قالب
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {templates.map(tpl => (
+                <div key={tpl.id} className={`border rounded-lg p-4 ${tpl.isDefault ? "border-green-600/40 bg-green-500/5" : "border-border bg-card"}`}>
+                  {editingId === tpl.id ? (
+                    <div className="space-y-3">
+                      <div>
+                        <Label className="text-xs mb-1 block">اسم القالب</Label>
+                        <Input
+                          value={newName}
+                          onChange={e => setNewName(e.target.value)}
+                          className="bg-muted/20 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs mb-1 block">نص الرسالة</Label>
+                        <Textarea
+                          value={newBody}
+                          onChange={e => setNewBody(e.target.value)}
+                          className="bg-muted/20 text-sm min-h-[120px] resize-none"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button size="sm" onClick={() => handleEditTemplate(tpl)} className="gap-1 h-8 bg-green-600 hover:bg-green-700 text-white">
+                          <Save className="w-3.5 h-3.5" />حفظ
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={cancelEdit} className="h-8 gap-1">
+                          <X className="w-3.5 h-3.5" />إلغاء
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm">{tpl.name}</span>
+                          {tpl.isDefault && (
+                            <Badge className="text-[9px] bg-green-600/20 text-green-500 border-green-600/30 font-bold">
+                              ★ افتراضي
+                            </Badge>
+                          )}
+                        </div>
+                        {isAdmin && (
+                          <div className="flex gap-1">
+                            {!tpl.isDefault && (
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-7 w-7 text-muted-foreground hover:text-yellow-500"
+                                title="تعيين كافتراضي"
+                                onClick={() => handleSetDefault(tpl)}
+                              >
+                                <Star className="w-3.5 h-3.5" />
+                              </Button>
+                            )}
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7 text-muted-foreground hover:text-primary"
+                              onClick={() => startEdit(tpl)}
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                              onClick={() => handleDelete(tpl.id)}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                      <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-[Cairo] leading-relaxed bg-muted/20 rounded-md p-3 border border-border">
+                        {tpl.body}
+                      </pre>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
