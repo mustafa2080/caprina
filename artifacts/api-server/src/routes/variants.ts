@@ -12,6 +12,7 @@ const CreateVariantSchema = z.object({
   totalQuantity: z.number().int().min(0).default(0),
   lowStockThreshold: z.number().int().min(0).default(5),
   unitPrice: z.number().min(0),
+  costPrice: z.number().min(0).nullish(),
 });
 
 const UpdateVariantSchema = CreateVariantSchema.partial();
@@ -31,6 +32,7 @@ router.get("/variants", async (_req, res): Promise<void> => {
       soldQuantity: productVariantsTable.soldQuantity,
       lowStockThreshold: productVariantsTable.lowStockThreshold,
       unitPrice: productVariantsTable.unitPrice,
+      costPrice: productVariantsTable.costPrice,
       createdAt: productVariantsTable.createdAt,
       updatedAt: productVariantsTable.updatedAt,
     })

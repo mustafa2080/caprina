@@ -11,6 +11,7 @@ const CreateProductSchema = z.object({
   totalQuantity: z.number().int().min(0).default(0),
   lowStockThreshold: z.number().int().min(0).default(5),
   unitPrice: z.number().min(0),
+  costPrice: z.number().min(0).nullish(),
 });
 
 const UpdateProductSchema = CreateProductSchema.partial();

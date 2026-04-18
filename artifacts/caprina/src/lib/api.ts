@@ -20,6 +20,7 @@ export interface Product {
   soldQuantity: number;
   lowStockThreshold: number;
   unitPrice: number;
+  costPrice: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -36,6 +37,7 @@ export interface ProductVariant {
   soldQuantity: number;
   lowStockThreshold: number;
   unitPrice: number;
+  costPrice: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -86,7 +88,7 @@ export const productsApi = {
 export const variantsApi = {
   listAll: () => apiFetch<ProductVariant[]>("/variants"),
   listByProduct: (productId: number) => apiFetch<ProductVariant[]>(`/products/${productId}/variants`),
-  create: (productId: number, data: { color: string; size: string; sku?: string; totalQuantity: number; lowStockThreshold: number; unitPrice: number }) =>
+  create: (productId: number, data: { color: string; size: string; sku?: string; totalQuantity: number; lowStockThreshold: number; unitPrice: number; costPrice?: number | null }) =>
     apiFetch<ProductVariant>(`/products/${productId}/variants`, { method: "POST", body: JSON.stringify(data) }),
   update: (productId: number, variantId: number, data: Partial<ProductVariant>) =>
     apiFetch<ProductVariant>(`/products/${productId}/variants/${variantId}`, { method: "PATCH", body: JSON.stringify(data) }),
@@ -101,25 +103,30 @@ export const shippingApi = {
   delete: (id: number) => apiFetch<void>(`/shipping-companies/${id}`, { method: "DELETE" }),
 };
 
+const parseFile = async (file: File, endpoint: string): Promise<ParsedImport> => {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(`${BASE}/${endpoint}`, { method: "POST", body: form });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+};
+
+const executeImport = async (endpoint: string, payload: { headers: string[]; rows: any[][]; mapping: any }): Promise<ImportResult> => {
+  const res = await fetch(`${BASE}/${endpoint}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+};
+
 export const importApi = {
-  parse: async (file: File): Promise<ParsedImport> => {
-    const form = new FormData();
-    form.append("file", file);
-    const res = await fetch(`${BASE}/orders/import/parse`, { method: "POST", body: form });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-    return data;
-  },
-  execute: async (payload: { headers: string[]; rows: any[][]; mapping: ColumnMapping }): Promise<ImportResult> => {
-    const res = await fetch(`${BASE}/orders/import/execute`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-    return data;
-  },
+  // Orders
+  parse: (file: File) => parseFile(file, "orders/import/parse"),
+  execute: (payload: { headers: string[]; rows: any[][]; mapping: ColumnMapping }) => executeImport("orders/import/execute", payload),
   uploadExcel: async (file: File): Promise<ImportResult> => {
     const form = new FormData();
     form.append("file", file);
@@ -128,6 +135,12 @@ export const importApi = {
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data;
   },
+  // Products
+  parseProducts: (file: File) => parseFile(file, "products/import/parse"),
+  executeProducts: (payload: { headers: string[]; rows: any[][]; mapping: any }) => executeImport("products/import/execute", payload),
+  // Returns
+  parseReturns: (file: File) => parseFile(file, "returns/import/parse"),
+  executeReturns: (payload: { headers: string[]; rows: any[][]; mapping: any }) => executeImport("returns/import/execute", payload),
 };
 
 export interface OrderStats {

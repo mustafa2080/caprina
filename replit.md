@@ -25,9 +25,12 @@ A full-stack order management system for CAPRINA, an artisan goods company. Buil
 - **Create Order**: Form with customer info, product/variant selection, cost price + shipping cost fields, live profit preview in sidebar
 - **Order Detail**: View/edit individual orders, update status, delete with confirmation, **profit breakdown card** showing revenue/cost/shipping/net profit/margin (shown when cost data exists)
 - **Invoices**: Select orders and print 4-per-A4 page professional invoices
-- **Inventory**: Manage products and variants with stock tracking
+- **Inventory**: Manage products and variants with costPrice, margin%, inventory value at cost. Professional KPI cards (total products, available units, low-stock count, inventory value). Per-variant table with selling price / cost price / margin% / status badges. Product + variant dialogs with live profit preview (unit profit, margin%, ROI).
 - **Inventory Movements**: Timeline of all stock movements (sale/partial_sale/return/manual) with KPI cards
-- **Import**: Upload CSV/XLSX to bulk-import orders with dynamic column mapping wizard
+- **Import (3 modes)**:
+  - **Orders**: Upload CSV/XLSX to bulk-import customer orders with dynamic column mapping wizard
+  - **Products**: Bulk-import products with costPrice+unitPrice+color+size; upserts by name, auto-creates variants
+  - **Returns**: Bulk-mark existing orders as "returned" by orderId or customerName+product
 - **Shipping Companies**: Manage courier company records
 
 ## Profit Engine

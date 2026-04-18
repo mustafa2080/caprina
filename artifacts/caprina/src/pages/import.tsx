@@ -1,11 +1,11 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  Upload, FileSpreadsheet, CheckCircle2, AlertCircle,
+  Upload, FileSpreadsheet, CheckCircle2,
   ArrowRight, ArrowLeft, Settings2, Eye, Loader2,
-  RotateCcw, ChevronDown, Info, Link2,
+  RotateCcw, Info, Link2, ShoppingCart, Package, Undo2,
 } from "lucide-react";
-import { importApi, type ParsedImport, type ColumnMapping, type ImportResult } from "@/lib/api";
+import { importApi, type ParsedImport, type ColumnMapping } from "@/lib/api";
 import { getListOrdersQueryKey, getGetOrdersSummaryQueryKey, getGetRecentOrdersQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,76 +14,96 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-const MAPPING_KEY = "caprina_excel_mapping_v2";
+// ─── Types ─────────────────────────────────────────────────────────────────────
+type ImportMode = "orders" | "products" | "returns";
 
-const FIELD_DEFS = [
+interface FieldDef {
+  key: string;
+  label: string;
+  required: boolean;
+  hint: string;
+}
+
+// ─── Field definitions per mode ────────────────────────────────────────────────
+const ORDERS_FIELDS: FieldDef[] = [
   { key: "name",     label: "اسم العميل",    required: true,  hint: "customer, name, اسم, عميل" },
   { key: "phone",    label: "رقم الهاتف",    required: false, hint: "phone, mobile, هاتف, رقم" },
-  { key: "address",  label: "العنوان",        required: false, hint: "address, عنوان, المدينة" },
-  { key: "product",  label: "المنتج",         required: true,  hint: "product, item, منتج, صنف" },
+  { key: "address",  label: "العنوان",        required: false, hint: "address, عنوان, city" },
+  { key: "product",  label: "المنتج",         required: true,  hint: "product, item, منتج" },
   { key: "color",    label: "اللون",          required: false, hint: "color, colour, لون" },
-  { key: "size",     label: "المقاس",         required: false, hint: "size, مقاس, قياس" },
-  { key: "quantity", label: "الكمية",         required: true,  hint: "qty, quantity, كمية, عدد" },
+  { key: "size",     label: "المقاس",         required: false, hint: "size, مقاس" },
+  { key: "quantity", label: "الكمية",         required: true,  hint: "qty, quantity, كمية" },
   { key: "price",    label: "سعر الوحدة",    required: false, hint: "price, unit_price, سعر" },
   { key: "notes",    label: "ملاحظات",        required: false, hint: "notes, remarks, ملاحظات" },
-] as const;
+];
 
-type FieldKey = typeof FIELD_DEFS[number]["key"];
+const PRODUCTS_FIELDS: FieldDef[] = [
+  { key: "name",           label: "اسم المنتج",        required: true,  hint: "product, item, name, منتج, اسم" },
+  { key: "sku",            label: "SKU",               required: false, hint: "sku, code, كود, رقم" },
+  { key: "unitPrice",      label: "سعر البيع (ج.م)",  required: false, hint: "price, sell, بيع, سعر, selling" },
+  { key: "costPrice",      label: "سعر التكلفة (ج.م)", required: false, hint: "cost, تكلفة, شراء, buying" },
+  { key: "totalQuantity",  label: "الكمية",            required: false, hint: "qty, quantity, كمية, stock" },
+  { key: "lowStockThreshold", label: "حد التنبيه",    required: false, hint: "threshold, minimum, حد, تنبيه" },
+  { key: "color",          label: "اللون",             required: false, hint: "color, colour, لون" },
+  { key: "size",           label: "المقاس",            required: false, hint: "size, مقاس, قياس" },
+];
 
-const EMPTY_MAPPING: ColumnMapping = {
-  name: "", phone: "", address: "", product: "",
-  color: "", size: "", quantity: "", price: "", notes: "",
-};
+const RETURNS_FIELDS: FieldDef[] = [
+  { key: "orderId",      label: "رقم الطلب",     required: false, hint: "id, order_id, رقم, طلب" },
+  { key: "customerName", label: "اسم العميل",    required: false, hint: "customer, name, اسم, عميل" },
+  { key: "product",      label: "المنتج",         required: false, hint: "product, item, منتج" },
+  { key: "reason",       label: "سبب الإرجاع",  required: false, hint: "reason, سبب, ملاحظة" },
+];
 
-// ─── Auto-detect mapping from headers ─────────────────────────────────────────
-function autoDetectMapping(headers: string[]): ColumnMapping {
+// ─── Auto-detect ───────────────────────────────────────────────────────────────
+function autoDetect(headers: string[], fields: FieldDef[]): Record<string, string> {
   const norm = (s: string) => s.toLowerCase().replace(/[_\s-]/g, "");
-
-  const PATTERNS: Record<FieldKey, string[]> = {
-    name:     ["اسمالعميل","اسم","customerName","name","customer","عميل"],
-    phone:    ["رقمالهاتف","هاتف","phone","mobile","tel","جوال","موبايل","رقم"],
-    address:  ["العنوان","عنوان","address","addr","city","مدينة","منطقة"],
-    product:  ["المنتج","منتج","product","item","سلعة","صنف"],
-    color:    ["اللون","لون","color","colour","لوان"],
-    size:     ["المقاس","مقاس","size","قياس","مجال"],
-    quantity: ["الكمية","كمية","quantity","qty","عدد","كم"],
-    price:    ["سعرالوحدة","السعر","سعر","price","unitprice","unit_price","ثمن"],
-    notes:    ["ملاحظات","notes","remarks","ملاحظة","comment"],
-  };
-
-  const result = { ...EMPTY_MAPPING };
+  const result: Record<string, string> = Object.fromEntries(fields.map(f => [f.key, ""]));
   const used = new Set<string>();
-
-  for (const [field, patterns] of Object.entries(PATTERNS) as [FieldKey, string[]][]) {
+  const PATTERNS: Record<string, string[]> = {
+    name:             ["اسمالعميل", "اسم", "customerName", "name", "customer", "عميل"],
+    phone:            ["رقمالهاتف", "هاتف", "phone", "mobile", "tel"],
+    address:          ["العنوان", "عنوان", "address", "addr", "city"],
+    product:          ["المنتج", "منتج", "product", "item"],
+    color:            ["اللون", "لون", "color", "colour"],
+    size:             ["المقاس", "مقاس", "size"],
+    quantity:         ["الكمية", "كمية", "quantity", "qty"],
+    price:            ["سعرالوحدة", "السعر", "سعر", "price", "unitprice"],
+    notes:            ["ملاحظات", "notes", "remarks"],
+    unitPrice:        ["سعرالبيع", "بيع", "selling", "unitprice", "price", "سعر"],
+    costPrice:        ["سعرالتكلفة", "تكلفة", "cost", "شراء", "buying"],
+    totalQuantity:    ["الكمية", "كمية", "quantity", "qty", "stock"],
+    lowStockThreshold:["حدالتنبيه", "حد", "threshold", "minimum", "تنبيه"],
+    sku:              ["sku", "code", "كود", "رمز"],
+    orderId:          ["رقمالطلب", "id", "orderid", "رقم", "طلب"],
+    customerName:     ["اسمالعميل", "اسم", "customer", "name", "عميل"],
+    reason:           ["سبب", "reason", "ملاحظة", "notes"],
+  };
+  for (const field of fields) {
+    const patterns = PATTERNS[field.key] ?? [];
     for (const pattern of patterns) {
       const match = headers.find(h => norm(h) === pattern && !used.has(h));
-      if (match) { result[field] = match; used.add(match); break; }
+      if (match) { result[field.key] = match; used.add(match); break; }
     }
-    if (!result[field]) {
-      // partial match fallback
+    if (!result[field.key]) {
       for (const pattern of patterns) {
         const match = headers.find(h => norm(h).includes(pattern) && !used.has(h));
-        if (match) { result[field] = match; used.add(match); break; }
+        if (match) { result[field.key] = match; used.add(match); break; }
       }
     }
   }
-
   return result;
 }
 
-// ─── Save / load mapping ──────────────────────────────────────────────────────
-function loadSavedMapping(): ColumnMapping | null {
-  try {
-    const raw = localStorage.getItem(MAPPING_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
-}
-function saveMapping(m: ColumnMapping) {
-  localStorage.setItem(MAPPING_KEY, JSON.stringify(m));
-}
+// ─── Persistence ───────────────────────────────────────────────────────────────
+const saveMapping = (mode: ImportMode, m: Record<string, string>) => {
+  try { localStorage.setItem(`caprina_mapping_${mode}_v1`, JSON.stringify(m)); } catch {}
+};
+const loadMapping = (mode: ImportMode): Record<string, string> | null => {
+  try { const r = localStorage.getItem(`caprina_mapping_${mode}_v1`); return r ? JSON.parse(r) : null; } catch { return null; }
+};
 
-// ─── Step indicator ───────────────────────────────────────────────────────────
+// ─── Steps ─────────────────────────────────────────────────────────────────────
 function Steps({ current }: { current: number }) {
   const steps = ["رفع الملف", "ضبط الأعمدة", "معاينة", "النتيجة"];
   return (
@@ -94,9 +114,7 @@ function Steps({ current }: { current: number }) {
         const active = idx === current;
         return (
           <div key={i} className="flex items-center gap-1">
-            <div className={`flex items-center gap-1.5 text-[11px] font-bold transition-all ${
-              active ? "text-primary" : done ? "text-emerald-400" : "text-muted-foreground"
-            }`}>
+            <div className={`flex items-center gap-1.5 text-[11px] font-bold ${active ? "text-primary" : done ? "text-emerald-400" : "text-muted-foreground"}`}>
               <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black border
                 ${active ? "bg-primary text-black border-primary" : done ? "bg-emerald-500 text-black border-emerald-500" : "border-border text-muted-foreground"}`}>
                 {done ? "✓" : idx}
@@ -111,100 +129,99 @@ function Steps({ current }: { current: number }) {
   );
 }
 
-// ─── Helper: cell value display ───────────────────────────────────────────────
 function cellDisplay(v: any): string {
   if (v === null || v === undefined || v === "") return "—";
   if (typeof v === "object") return JSON.stringify(v);
   return String(v);
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
+// ─── Mode Selector ─────────────────────────────────────────────────────────────
+const MODES: { id: ImportMode; label: string; desc: string; icon: any; color: string }[] = [
+  { id: "orders",   label: "طلبات",    desc: "استورد قائمة طلبات العملاء",           icon: ShoppingCart, color: "border-primary/40 bg-primary/5 text-primary" },
+  { id: "products", label: "منتجات",   desc: "استورد منتجات بأسعار البيع والتكلفة",   icon: Package,      color: "border-amber-700/40 bg-amber-900/5 text-amber-400" },
+  { id: "returns",  label: "مرتجعات",  desc: "سجّل مرتجعات بالجملة من ملف Excel",    icon: Undo2,        color: "border-red-800/40 bg-red-900/5 text-red-400" },
+];
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
 export default function Import() {
   const queryClient = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const [mode, setMode] = useState<ImportMode | null>(null);
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   const [parsed, setParsed] = useState<ParsedImport | null>(null);
-  const [mapping, setMapping] = useState<ColumnMapping>(EMPTY_MAPPING);
-  const [result, setResult] = useState<ImportResult | null>(null);
+  const [mapping, setMapping] = useState<Record<string, string>>({});
+  const [result, setResult] = useState<any>(null);
   const [fileName, setFileName] = useState("");
   const [hasSavedMapping, setHasSavedMapping] = useState(false);
 
+  const currentFields = mode === "orders" ? ORDERS_FIELDS : mode === "products" ? PRODUCTS_FIELDS : RETURNS_FIELDS;
+
   useEffect(() => {
-    setHasSavedMapping(!!loadSavedMapping());
-  }, []);
+    if (mode) setHasSavedMapping(!!loadMapping(mode));
+  }, [mode]);
 
   const reset = () => {
-    setStep(1); setParsed(null); setMapping(EMPTY_MAPPING);
-    setResult(null); setError(null); setFileName("");
+    setStep(1); setParsed(null); setMapping({}); setResult(null); setError(null); setFileName("");
   };
+  const resetAll = () => { reset(); setMode(null); };
 
-  // ── Step 1: Parse ────────────────────────────────────────────────────────────
+  // ── Parse File ────────────────────────────────────────────────────────────────
   const handleFile = useCallback(async (file: File) => {
-    if (!file.name.match(/\.(xlsx|xls|csv)$/i)) {
-      setError("يرجى رفع ملف Excel (.xlsx, .xls) أو CSV."); return;
-    }
+    if (!mode) return;
+    if (!file.name.match(/\.(xlsx|xls|csv)$/i)) { setError("يرجى رفع ملف Excel (.xlsx, .xls) أو CSV."); return; }
     setError(null); setIsLoading(true); setFileName(file.name);
-
     try {
-      const data = await importApi.parse(file);
-      if (!data.headers.length) { setError("لم يتم العثور على أعمدة في الملف."); setIsLoading(false); return; }
+      const parseFn = mode === "orders" ? importApi.parse
+        : mode === "products" ? importApi.parseProducts
+        : importApi.parseReturns;
+      const data = await parseFn(file);
+      if (!data.headers.length) { setError("لم يتم العثور على أعمدة."); setIsLoading(false); return; }
       setParsed(data);
 
-      // Build mapping: try saved first, then auto-detect
-      const saved = loadSavedMapping();
-      const auto = autoDetectMapping(data.headers);
+      const saved = loadMapping(mode);
+      const auto = autoDetect(data.headers, currentFields);
       if (saved) {
-        // Keep saved values only if the column still exists in new file
-        const validSaved: ColumnMapping = { ...EMPTY_MAPPING };
-        (Object.keys(saved) as FieldKey[]).forEach(k => {
-          if (saved[k] && data.headers.includes(saved[k])) validSaved[k] = saved[k];
-          else validSaved[k] = auto[k]; // fallback to auto
+        const merged: Record<string, string> = { ...auto };
+        Object.keys(saved).forEach(k => {
+          if (saved[k] && data.headers.includes(saved[k])) merged[k] = saved[k];
         });
-        setMapping(validSaved);
+        setMapping(merged);
       } else {
         setMapping(auto);
       }
-
       setStep(2);
     } catch (e: any) {
       setError(e.message || "فشل قراءة الملف.");
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [mode, currentFields]);
 
-  const onDrop = (e: React.DragEvent) => {
-    e.preventDefault(); setIsDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file) handleFile(file);
-  };
-
-  // ── Step 3: Execute ──────────────────────────────────────────────────────────
+  // ── Execute Import ─────────────────────────────────────────────────────────────
   const handleImport = async () => {
-    if (!parsed) return;
+    if (!parsed || !mode) return;
     setIsLoading(true); setError(null);
-
-    // Save mapping for future use
-    saveMapping(mapping);
+    saveMapping(mode, mapping);
     setHasSavedMapping(true);
-
     try {
-      const res = await importApi.execute({
-        headers: parsed.headers,
-        rows: parsed.allRows,
-        mapping,
-      });
+      let res: any;
+      const payload = { headers: parsed.headers, rows: parsed.allRows, mapping };
+      if (mode === "orders") res = await importApi.execute({ ...payload, mapping: mapping as any as ColumnMapping });
+      else if (mode === "products") res = await importApi.executeProducts(payload);
+      else res = await importApi.executeReturns(payload);
       setResult(res);
       setStep(4);
       if (res.imported > 0) {
         queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetOrdersSummaryQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetRecentOrdersQueryKey() });
+        queryClient.invalidateQueries({ queryKey: ["products"] });
+        queryClient.invalidateQueries({ queryKey: ["variants"] });
+        queryClient.invalidateQueries({ queryKey: ["analytics-profit"] });
       }
     } catch (e: any) {
       setError(e.message || "فشل الاستيراد.");
@@ -213,28 +230,79 @@ export default function Import() {
     }
   };
 
-  // ── Derived: preview with mapped columns ─────────────────────────────────────
   const getPreviewRow = (row: any[]): Record<string, any> => {
-    const result: Record<string, any> = {};
     const headers = parsed?.headers ?? [];
-    FIELD_DEFS.forEach(f => {
-      const col = mapping[f.key as FieldKey];
+    const result: Record<string, any> = {};
+    currentFields.forEach(f => {
+      const col = mapping[f.key];
       const idx = col ? headers.indexOf(col) : -1;
       result[f.key] = idx >= 0 ? row[idx] : "";
     });
     return result;
   };
 
-  const requiredFields: FieldKey[] = ["name", "product", "quantity"];
-  const missingRequired = requiredFields.filter(k => !mapping[k]);
+  const requiredMissing = currentFields.filter(f => f.required && !mapping[f.key]);
 
-  // ─── Render ───────────────────────────────────────────────────────────────────
+  // ─── Mode Selection ───────────────────────────────────────────────────────────
+  if (!mode) {
+    return (
+      <div className="max-w-2xl mx-auto space-y-5 animate-in fade-in duration-500">
+        <div>
+          <h1 className="text-2xl font-bold">استيراد Excel</h1>
+          <p className="text-muted-foreground text-sm mt-0.5">اختر نوع الاستيراد</p>
+        </div>
+        <div className="grid gap-3">
+          {MODES.map(m => {
+            const Icon = m.icon;
+            return (
+              <button
+                key={m.id}
+                onClick={() => setMode(m.id)}
+                className={`w-full text-right p-4 rounded-xl border-2 transition-all hover:scale-[1.01] active:scale-[0.99] ${m.color}`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-background/30 flex items-center justify-center shrink-0">
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-base">{m.label}</p>
+                    <p className="text-xs opacity-70 mt-0.5">{m.desc}</p>
+                  </div>
+                  <ArrowLeft className="w-4 h-4 mr-auto opacity-60" />
+                </div>
+              </button>
+            );
+          })}
+        </div>
+        <Card className="border-border bg-card">
+          <CardContent className="p-4 flex gap-3">
+            <Info className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+            <div className="text-xs text-muted-foreground leading-relaxed">
+              <p className="font-bold text-foreground mb-1">ارفع أي تنسيق Excel أو CSV</p>
+              بعد الرفع ستختار أي عمود يقابل أي حقل. النظام يحاول تعرّف الأعمدة تلقائياً ويحفظ إعدادك لاستخدامه في المرات القادمة.
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const modeInfo = MODES.find(m => m.id === mode)!;
+  const ModeIcon = modeInfo.icon;
+
   return (
     <div className="max-w-4xl mx-auto space-y-4 animate-in fade-in duration-500">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">استيراد الطلبات</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">استورد أي ملف Excel بسهولة بدون تعديل مسبق</p>
+        <div className="flex items-center gap-3">
+          <button onClick={resetAll} className="text-muted-foreground hover:text-foreground transition-colors text-xs flex items-center gap-1">
+            <ArrowRight className="w-3.5 h-3.5" />استيراد Excel
+          </button>
+          <span className="text-border">›</span>
+          <div className="flex items-center gap-2">
+            <ModeIcon className="w-4 h-4 text-primary" />
+            <span className="font-bold text-sm">استيراد {modeInfo.label}</span>
+          </div>
         </div>
         {step > 1 && (
           <Button variant="outline" size="sm" onClick={reset} className="gap-1.5 border-border text-xs">
@@ -245,36 +313,47 @@ export default function Import() {
 
       <Steps current={step} />
 
-      {/* ── Step 1: Upload ── */}
+      {/* ── Step 1: Upload ─────────────────────────────────────────────────────── */}
       {step === 1 && (
         <div className="space-y-4">
-          {/* Info card */}
-          <Card className="border-border bg-card">
-            <CardContent className="p-4 flex items-start gap-3">
-              <Info className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-              <div>
-                <p className="text-sm font-bold">يقبل النظام أي تنسيق Excel أو CSV</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  ارفع ملفك وسنساعدك على ربط أعمدته بالحقول المطلوبة. لا حاجة لتعديل الملف مسبقاً.
+          {hasSavedMapping && (
+            <Card className="border-emerald-900/40 bg-emerald-900/5">
+              <CardContent className="p-3 flex items-center gap-2 text-xs text-emerald-400">
+                <Link2 className="w-3.5 h-3.5 shrink-0" />
+                لديك إعداد أعمدة محفوظ سيُطبَّق تلقائياً على الملف الجديد
+              </CardContent>
+            </Card>
+          )}
+          {mode === "products" && (
+            <Card className="border-amber-900/40 bg-amber-900/5">
+              <CardContent className="p-3 flex gap-3 text-xs">
+                <Info className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <p className="text-muted-foreground leading-relaxed">
+                  كل صف يمثل منتجاً أو <span className="text-amber-400 font-bold">SKU (لون + مقاس)</span>. إذا كان المنتج موجوداً بنفس الاسم، سيتم تحديث أسعاره.
+                  إذا أضفت لون ومقاس، سيُنشأ SKU جديد تحت نفس المنتج.
                 </p>
-                {hasSavedMapping && (
-                  <div className="mt-2 flex items-center gap-1.5 text-xs text-emerald-400">
-                    <Link2 className="w-3 h-3" />
-                    لديك إعداد محفوظ سيُطبَّق تلقائياً
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
+          {mode === "returns" && (
+            <Card className="border-red-900/40 bg-red-900/5">
+              <CardContent className="p-3 flex gap-3 text-xs">
+                <Info className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                <p className="text-muted-foreground leading-relaxed">
+                  حدّد الطلبات بـ<span className="text-red-400 font-bold">رقم الطلب</span> أو بـ(اسم العميل + المنتج).
+                  سيتم تغيير حالة الطلبات إلى &quot;مُرتجع&quot; وإضافة سبب الإرجاع في الملاحظات.
+                </p>
+              </CardContent>
+            </Card>
+          )}
 
-          {/* Drop zone */}
           <div
             className={`relative border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-all duration-200
               ${isDragging ? "border-primary bg-primary/10 scale-[1.01]" : "border-border hover:border-primary/50 hover:bg-muted/10"}
               ${isLoading ? "pointer-events-none opacity-70" : ""}`}
             onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
             onDragLeave={() => setIsDragging(false)}
-            onDrop={onDrop}
+            onDrop={e => { e.preventDefault(); setIsDragging(false); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
             onClick={() => fileRef.current?.click()}
           >
             <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden"
@@ -293,18 +372,14 @@ export default function Import() {
                   <p className="font-bold">{isDragging ? "أفلت الملف هنا" : "اسحب الملف هنا أو انقر للاختيار"}</p>
                   <p className="text-xs text-muted-foreground mt-1.5">يدعم: .xlsx, .xls, .csv — حتى 15MB</p>
                 </div>
-                <Button variant="outline" size="sm" className="border-border text-xs pointer-events-none">
-                  اختيار ملف
-                </Button>
               </div>
             )}
           </div>
-
           {error && <ErrorCard message={error} />}
         </div>
       )}
 
-      {/* ── Step 2: Column Mapping ── */}
+      {/* ── Step 2: Column Mapping ─────────────────────────────────────────────── */}
       {step === 2 && parsed && (
         <div className="space-y-4">
           <Card className="border-border">
@@ -312,23 +387,22 @@ export default function Import() {
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <p className="font-bold text-sm flex items-center gap-2">
-                    <Settings2 className="w-4 h-4 text-primary" />
-                    ربط الأعمدة
+                    <Settings2 className="w-4 h-4 text-primary" />ربط الأعمدة
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    الملف: <span className="font-mono text-foreground">{fileName}</span> &nbsp;|&nbsp;
+                    <span className="font-mono text-foreground">{fileName}</span> &nbsp;|&nbsp;
                     <span className="text-emerald-400">{parsed.totalRows} صف</span> &nbsp;|&nbsp;
                     {parsed.headers.length} عمود
                   </p>
                 </div>
                 <Button variant="ghost" size="sm" className="text-xs gap-1 text-muted-foreground"
-                  onClick={() => { setMapping(autoDetectMapping(parsed.headers)); }}>
+                  onClick={() => setMapping(autoDetect(parsed.headers, currentFields))}>
                   <RotateCcw className="w-3 h-3" />اكتشاف تلقائي
                 </Button>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {FIELD_DEFS.map(field => (
+                {currentFields.map(field => (
                   <div key={field.key}>
                     <Label className="text-xs mb-1.5 flex items-center gap-1.5">
                       {field.label}
@@ -338,7 +412,7 @@ export default function Import() {
                       }
                     </Label>
                     <Select
-                      value={mapping[field.key as FieldKey] || "__none__"}
+                      value={mapping[field.key] || "__none__"}
                       onValueChange={v => setMapping(m => ({ ...m, [field.key]: v === "__none__" ? "" : v }))}
                     >
                       <SelectTrigger className="h-9 text-xs bg-background border-border">
@@ -346,7 +420,7 @@ export default function Import() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="__none__">— غير مربوط —</SelectItem>
-                        {parsed.headers.filter(h => h && h.trim()).map(h => (
+                        {parsed.headers.filter(h => h?.trim()).map(h => (
                           <SelectItem key={h} value={h}>
                             <div className="flex items-center gap-2">
                               <span>{h}</span>
@@ -367,10 +441,9 @@ export default function Import() {
             </CardContent>
           </Card>
 
-          {/* Raw headers reference */}
           <Card className="border-border">
             <CardContent className="p-3">
-              <p className="text-[10px] text-muted-foreground mb-2 font-bold uppercase tracking-wider">أعمدة الملف المتاحة</p>
+              <p className="text-[10px] text-muted-foreground mb-2 font-bold uppercase tracking-wider">الأعمدة المتاحة في الملف</p>
               <div className="flex flex-wrap gap-1.5">
                 {parsed.headers.map((h, i) => (
                   <Badge key={i} variant="outline" className="text-[10px] font-mono border-border">{h}</Badge>
@@ -379,24 +452,23 @@ export default function Import() {
             </CardContent>
           </Card>
 
-          {missingRequired.length > 0 && (
-            <ErrorCard message={`الحقول المطلوبة غير مربوطة: ${missingRequired.map(k => FIELD_DEFS.find(f => f.key === k)?.label).join("، ")}`} />
+          {requiredMissing.length > 0 && (
+            <ErrorCard message={`الحقول المطلوبة غير مربوطة: ${requiredMissing.map(f => f.label).join("، ")}`} />
           )}
-
           {error && <ErrorCard message={error} />}
 
           <div className="flex justify-between">
             <Button variant="outline" size="sm" className="border-border gap-1" onClick={() => setStep(1)}>
               <ArrowRight className="w-3.5 h-3.5" />رجوع
             </Button>
-            <Button size="sm" className="gap-1 font-bold" onClick={() => setStep(3)} disabled={missingRequired.length > 0}>
+            <Button size="sm" className="gap-1 font-bold" onClick={() => setStep(3)} disabled={requiredMissing.length > 0}>
               معاينة<ArrowLeft className="w-3.5 h-3.5" />
             </Button>
           </div>
         </div>
       )}
 
-      {/* ── Step 3: Preview ── */}
+      {/* ── Step 3: Preview ────────────────────────────────────────────────────── */}
       {step === 3 && parsed && (
         <div className="space-y-4">
           <Card className="border-border">
@@ -413,15 +485,13 @@ export default function Import() {
                 <Table>
                   <TableHeader>
                     <TableRow className="border-border hover:bg-transparent">
-                      {FIELD_DEFS.filter(f => mapping[f.key as FieldKey]).map(f => (
+                      {currentFields.filter(f => mapping[f.key]).map(f => (
                         <TableHead key={f.key} className="text-right text-xs whitespace-nowrap">
                           <div className="flex items-center gap-1">
                             {f.label}
                             {f.required && <span className="text-primary">*</span>}
                           </div>
-                          <div className="text-[9px] text-muted-foreground font-normal font-mono">
-                            ← {mapping[f.key as FieldKey]}
-                          </div>
+                          <div className="text-[9px] text-muted-foreground font-normal font-mono">← {mapping[f.key]}</div>
                         </TableHead>
                       ))}
                     </TableRow>
@@ -431,7 +501,7 @@ export default function Import() {
                       const mapped = getPreviewRow(row);
                       return (
                         <TableRow key={ri} className="border-border hover:bg-muted/10">
-                          {FIELD_DEFS.filter(f => mapping[f.key as FieldKey]).map(f => (
+                          {currentFields.filter(f => mapping[f.key]).map(f => (
                             <TableCell key={f.key} className={`text-xs ${f.required && !mapped[f.key] ? "text-red-400" : ""}`}>
                               {cellDisplay(mapped[f.key])}
                             </TableCell>
@@ -442,10 +512,8 @@ export default function Import() {
                   </TableBody>
                 </Table>
               </div>
-
               <p className="text-xs text-muted-foreground mt-2">
-                سيتم استيراد <span className="font-bold text-foreground">{parsed.totalRows}</span> صف كاملاً بعد التأكيد.
-                سيُحفظ إعداد الأعمدة لاستخدامه تلقائياً في المرات القادمة.
+                سيتم استيراد <span className="font-bold text-foreground">{parsed.totalRows}</span> صف بعد التأكيد.
               </p>
             </CardContent>
           </Card>
@@ -457,16 +525,17 @@ export default function Import() {
               <ArrowRight className="w-3.5 h-3.5" />تعديل الأعمدة
             </Button>
             <Button size="sm" className="gap-1.5 font-bold min-w-[140px]" onClick={handleImport} disabled={isLoading}>
-              {isLoading ? <><Loader2 className="w-4 h-4 animate-spin" />جاري الاستيراد...</> : <>تأكيد الاستيراد<ArrowLeft className="w-3.5 h-3.5" /></>}
+              {isLoading
+                ? <><Loader2 className="w-4 h-4 animate-spin" />جاري الاستيراد...</>
+                : <>تأكيد الاستيراد<ArrowLeft className="w-3.5 h-3.5" /></>}
             </Button>
           </div>
         </div>
       )}
 
-      {/* ── Step 4: Result ── */}
+      {/* ── Step 4: Result ─────────────────────────────────────────────────────── */}
       {step === 4 && result && (
         <div className="space-y-4">
-          {/* Summary card */}
           <Card className={`border ${result.imported > 0 ? "border-emerald-800 bg-emerald-900/10" : "border-amber-800 bg-amber-900/10"}`}>
             <CardContent className="p-5">
               <div className="flex items-start gap-4">
@@ -475,51 +544,54 @@ export default function Import() {
                 </div>
                 <div className="flex-1">
                   <p className="font-bold text-base mb-2">نتيجة الاستيراد</p>
-                  <div className="flex flex-wrap items-center gap-4 text-sm">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                      <span>تم استيراد: <span className="font-bold text-emerald-400">{result.imported}</span> طلب</span>
+                  <div className="flex flex-wrap gap-4 text-sm">
+                    <div className="text-center">
+                      <p className="text-2xl font-black text-emerald-400">{result.imported}</p>
+                      <p className="text-xs text-muted-foreground">تم استيراده</p>
                     </div>
+                    {result.importedProducts !== undefined && (
+                      <div className="text-center">
+                        <p className="text-lg font-black text-amber-400">{result.importedProducts}</p>
+                        <p className="text-xs text-muted-foreground">منتج جديد</p>
+                      </div>
+                    )}
+                    {result.importedVariants !== undefined && (
+                      <div className="text-center">
+                        <p className="text-lg font-black text-primary">{result.importedVariants}</p>
+                        <p className="text-xs text-muted-foreground">SKU جديد</p>
+                      </div>
+                    )}
                     {result.failed > 0 && (
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-red-500" />
-                        <span>فشل: <span className="font-bold text-red-400">{result.failed}</span> صف</span>
+                      <div className="text-center">
+                        <p className="text-2xl font-black text-red-400">{result.failed}</p>
+                        <p className="text-xs text-muted-foreground">فشل</p>
                       </div>
                     )}
                   </div>
-                  {result.imported > 0 && (
-                    <a href="/orders" className="mt-3 inline-flex items-center gap-1 text-xs text-primary hover:underline font-semibold">
-                      عرض الطلبات المستوردة <ArrowLeft className="w-3 h-3" />
-                    </a>
-                  )}
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Errors */}
-          {result.errors.length > 0 && (
-            <Card className="border-red-900/50 bg-red-900/10">
+          {result.errors?.length > 0 && (
+            <Card className="border-red-900/40 bg-red-900/5">
               <CardContent className="p-4">
-                <p className="text-xs font-bold text-red-400 mb-3 flex items-center gap-1.5">
-                  <AlertCircle className="w-3.5 h-3.5" />
-                  تفاصيل الصفوف الفاشلة ({result.errors.length})
-                </p>
-                <ul className="space-y-1.5 max-h-48 overflow-y-auto">
-                  {result.errors.map((err, i) => (
-                    <li key={i} className="text-xs text-red-300 flex items-start gap-2 bg-red-900/20 rounded p-1.5">
-                      <AlertCircle className="w-3 h-3 shrink-0 mt-0.5 text-red-500" />
-                      {err}
-                    </li>
+                <p className="text-xs font-bold text-red-400 mb-2">تفاصيل الأخطاء</p>
+                <div className="space-y-1 max-h-48 overflow-y-auto">
+                  {result.errors.map((e: string, i: number) => (
+                    <p key={i} className="text-xs text-muted-foreground font-mono">{e}</p>
                   ))}
-                </ul>
+                </div>
               </CardContent>
             </Card>
           )}
 
-          <div className="flex justify-center">
-            <Button variant="outline" size="sm" className="border-border gap-1.5" onClick={reset}>
-              <RotateCcw className="w-3.5 h-3.5" />استيراد ملف جديد
+          <div className="flex gap-2">
+            <Button className="flex-1 font-bold gap-2" onClick={resetAll}>
+              <Upload className="w-4 h-4" />استيراد ملف آخر
+            </Button>
+            <Button variant="outline" className="border-border" onClick={reset}>
+              <RotateCcw className="w-4 h-4" />
             </Button>
           </div>
         </div>
@@ -528,13 +600,12 @@ export default function Import() {
   );
 }
 
-// ─── Error card ───────────────────────────────────────────────────────────────
 function ErrorCard({ message }: { message: string }) {
   return (
-    <Card className="border-red-800 bg-red-900/20">
-      <CardContent className="p-3 flex items-start gap-2">
-        <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-        <p className="text-sm text-red-400">{message}</p>
+    <Card className="border-red-900/40 bg-red-900/10">
+      <CardContent className="p-3 flex gap-2 text-xs text-red-400">
+        <span className="font-bold shrink-0">⚠</span>
+        <span>{message}</span>
       </CardContent>
     </Card>
   );
