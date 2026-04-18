@@ -1,6 +1,6 @@
 import { useParams, Link, useLocation } from "wouter";
 import { format } from "date-fns";
-import { ArrowRight, AlertCircle, Pencil, Save, X, Printer, Phone, MapPin, Trash2 } from "lucide-react";
+import { ArrowRight, AlertCircle, Pencil, Save, X, Printer, Phone, MapPin, Trash2, RotateCcw } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { shippingApi, ordersApi } from "@/lib/api";
 import {
   AlertDialog,
@@ -46,6 +47,18 @@ const statusClasses: Record<string, string> = {
   partial_received: "bg-purple-900/30 text-purple-400 border-purple-800",
 };
 
+export const RETURN_REASONS: { value: string; label: string }[] = [
+  { value: "size_mismatch", label: "مقاس غير مناسب" },
+  { value: "quality",       label: "جودة" },
+  { value: "customer_refused", label: "رفض العميل" },
+  { value: "other",         label: "سبب آخر" },
+];
+
+export const returnReasonLabel = (reason: string | null | undefined): string => {
+  if (!reason) return "—";
+  return RETURN_REASONS.find(r => r.value === reason)?.label ?? reason;
+};
+
 const editSchema = z.object({
   customerName: z.string().min(2),
   phone: z.string().optional().nullable(),
@@ -73,6 +86,12 @@ export default function OrderDetail() {
   const [partialQty, setPartialQty] = useState("");
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Return reason state
+  const [showReturnInput, setShowReturnInput] = useState(false);
+  const [returnReason, setReturnReason] = useState("");
+  const [returnNote, setReturnNote] = useState("");
+
   const initializedRef = useRef(false);
 
   const { data: order, isLoading, error } = useGetOrder(id, { query: { enabled: !!id, queryKey: getGetOrderQueryKey(id) } });
@@ -91,16 +110,21 @@ export default function OrderDetail() {
     }
   }, [order, form]);
 
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetOrdersSummaryQueryKey() });
+    queryClient.invalidateQueries({ queryKey: ["products"] });
+  };
+
   const handleStatusChange = (newStatus: string) => {
     if (!order || order.status === newStatus) return;
     if (newStatus === "partial_received") { setShowPartialInput(true); return; }
+    if (newStatus === "returned") { setShowReturnInput(true); return; }
 
     updateOrder.mutate({ id, data: { status: newStatus as any } }, {
       onSuccess: (updated) => {
         queryClient.setQueryData(getGetOrderQueryKey(id), updated);
-        queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
-        queryClient.invalidateQueries({ queryKey: getGetOrdersSummaryQueryKey() });
-        queryClient.invalidateQueries({ queryKey: ["products"] });
+        invalidateAll();
         toast({ title: "تم تحديث الحالة", description: `الطلب أصبح: ${statusLabels[newStatus]}` });
       },
       onError: () => toast({ title: "خطأ", description: "فشل تحديث الحالة.", variant: "destructive" }),
@@ -114,14 +138,36 @@ export default function OrderDetail() {
     updateOrder.mutate({ id, data: { status: "partial_received", partialQuantity: pQty } }, {
       onSuccess: (updated) => {
         queryClient.setQueryData(getGetOrderQueryKey(id), updated);
-        queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
-        queryClient.invalidateQueries({ queryKey: getGetOrdersSummaryQueryKey() });
-        queryClient.invalidateQueries({ queryKey: ["products"] });
+        invalidateAll();
         setShowPartialInput(false);
         setPartialQty("");
         toast({ title: "تم التحديث", description: `تم استلام ${pQty} وحدة جزئياً.` });
       },
       onError: () => toast({ title: "خطأ", description: "فشل التحديث.", variant: "destructive" }),
+    });
+  };
+
+  const handleReturnConfirm = () => {
+    if (!returnReason) { toast({ title: "خطأ", description: "اختر سبب الإرجاع.", variant: "destructive" }); return; }
+    if (returnReason === "other" && !returnNote.trim()) { toast({ title: "خطأ", description: "اكتب سبب الإرجاع.", variant: "destructive" }); return; }
+
+    updateOrder.mutate({
+      id,
+      data: {
+        status: "returned",
+        returnReason,
+        returnNote: returnReason === "other" ? returnNote.trim() : null,
+      } as any,
+    }, {
+      onSuccess: (updated) => {
+        queryClient.setQueryData(getGetOrderQueryKey(id), updated);
+        invalidateAll();
+        setShowReturnInput(false);
+        setReturnReason("");
+        setReturnNote("");
+        toast({ title: "تم التسجيل", description: "تم تسجيل المرتجع وسببه بنجاح." });
+      },
+      onError: () => toast({ title: "خطأ", description: "فشل تحديث الحالة.", variant: "destructive" }),
     });
   };
 
@@ -159,9 +205,7 @@ export default function OrderDetail() {
     }
   };
 
-  const handlePrint = () => {
-    window.open(`/invoices?orderId=${id}`, "_blank");
-  };
+  const handlePrint = () => { window.open(`/invoices?orderId=${id}`, "_blank"); };
 
   if (isLoading) return <div className="p-12 text-center text-muted-foreground animate-pulse">جاري التحميل...</div>;
   if (error || !order) return (
@@ -173,6 +217,8 @@ export default function OrderDetail() {
   );
 
   const shippingCompany = shippingCompanies?.find(c => c.id === order.shippingCompanyId);
+  const orderReturnReason = (order as any).returnReason as string | null;
+  const orderReturnNote = (order as any).returnNote as string | null;
 
   return (
     <div className="max-w-4xl mx-auto space-y-5 animate-in fade-in duration-500">
@@ -249,12 +295,50 @@ export default function OrderDetail() {
             <p className="text-sm font-bold text-purple-400 mb-3">استلام جزئي — كم وحدة استلمت؟</p>
             <div className="flex items-center gap-3">
               <Input type="number" min="1" max={order.quantity} placeholder={`الحد الأقصى: ${order.quantity}`} value={partialQty} onChange={e => setPartialQty(e.target.value)} className="h-8 text-sm w-40 bg-card" />
-              <Button size="sm" className="h-8 text-xs bg-purple-600 hover:bg-purple-700 text-white" onClick={handlePartialReceived} disabled={updateOrder.isPending}>
-                تأكيد
+              <Button size="sm" className="h-8 text-xs bg-purple-600 hover:bg-purple-700 text-white" onClick={handlePartialReceived} disabled={updateOrder.isPending}>تأكيد</Button>
+              <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setShowPartialInput(false); setPartialQty(""); }}>إلغاء</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Return reason input */}
+      {showReturnInput && (
+        <Card className="border-red-800 bg-red-900/20">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center gap-2 mb-1">
+              <RotateCcw className="w-4 h-4 text-red-400" />
+              <p className="text-sm font-bold text-red-400">تسجيل مرتجع — ما سبب الإرجاع؟</p>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">سبب الإرجاع *</Label>
+              <Select value={returnReason} onValueChange={setReturnReason}>
+                <SelectTrigger className="h-9 text-sm bg-card border-red-800 focus:ring-red-700">
+                  <SelectValue placeholder="اختر السبب..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {RETURN_REASONS.map(r => (
+                    <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {returnReason === "other" && (
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">اكتب السبب *</Label>
+                <Textarea
+                  placeholder="اكتب سبب الإرجاع بالتفصيل..."
+                  className="min-h-[70px] text-sm resize-none bg-card border-red-800 focus:ring-red-700"
+                  value={returnNote}
+                  onChange={e => setReturnNote(e.target.value)}
+                />
+              </div>
+            )}
+            <div className="flex items-center gap-2 pt-1">
+              <Button size="sm" className="h-8 text-xs bg-red-700 hover:bg-red-600 text-white gap-1" onClick={handleReturnConfirm} disabled={updateOrder.isPending}>
+                <RotateCcw className="w-3 h-3" />{updateOrder.isPending ? "جاري..." : "تأكيد الإرجاع"}
               </Button>
-              <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setShowPartialInput(false); setPartialQty(""); }}>
-                إلغاء
-              </Button>
+              <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setShowReturnInput(false); setReturnReason(""); setReturnNote(""); }}>إلغاء</Button>
             </div>
           </CardContent>
         </Card>
@@ -366,6 +450,22 @@ export default function OrderDetail() {
                     </div>
                   )}
                 </div>
+
+                {/* Return reason section */}
+                {order.status === "returned" && orderReturnReason && (
+                  <div className="mt-2 p-3 rounded border border-red-900 bg-red-900/10">
+                    <p className="text-xs text-red-400 font-bold mb-1 flex items-center gap-1">
+                      <RotateCcw className="w-3 h-3" />سبب الإرجاع
+                    </p>
+                    <p className="text-sm font-semibold text-red-300">
+                      {returnReasonLabel(orderReturnReason)}
+                    </p>
+                    {orderReturnNote && (
+                      <p className="text-xs text-muted-foreground mt-1">{orderReturnNote}</p>
+                    )}
+                  </div>
+                )}
+
                 {order.notes && (
                   <div className="mt-2">
                     <p className="text-xs text-muted-foreground mb-1">ملاحظات</p>

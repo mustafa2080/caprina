@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { format } from "date-fns";
-import { Search, Filter, Plus, Package, CalendarDays, X } from "lucide-react";
+import { Search, Filter, Plus, Package, CalendarDays, X, RotateCcw } from "lucide-react";
 import { useListOrders } from "@workspace/api-client-react";
 import { useDebounce } from "@/hooks/use-debounce";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { returnReasonLabel } from "./order-detail";
 
 const statusLabels: Record<string, string> = {
   pending: "قيد الانتظار",
@@ -124,11 +125,14 @@ export default function Orders() {
                   <TableHead className="text-right text-xs">الهاتف</TableHead>
                   <TableHead className="text-right text-xs">المنتج</TableHead>
                   <TableHead className="text-right text-xs">الإجمالي</TableHead>
-                  <TableHead className="text-center text-xs w-32">الحالة</TableHead>
+                  <TableHead className="text-center text-xs w-36">الحالة</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((order) => (
+                {filtered.map((order) => {
+                  const retReason = (order as any).returnReason as string | null;
+                  const retNote = (order as any).returnNote as string | null;
+                  return (
                   <TableRow key={order.id} className="border-border hover:bg-muted/20 cursor-pointer" onClick={() => window.location.href = `/orders/${order.id}`}>
                     <TableCell className="font-mono text-xs text-primary font-bold">#{order.id.toString().padStart(4,"0")}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">{format(new Date(order.createdAt), "yyyy/MM/dd")}</TableCell>
@@ -140,9 +144,18 @@ export default function Orders() {
                       <Badge variant="outline" className={`text-[9px] font-bold border ${statusClasses[order.status] || ""}`}>
                         {statusLabels[order.status] || order.status}
                       </Badge>
+                      {order.status === "returned" && retReason && (
+                        <div className="flex items-center justify-center gap-0.5 mt-1">
+                          <RotateCcw className="w-2.5 h-2.5 text-red-500 shrink-0" />
+                          <span className="text-[9px] text-red-400 leading-none">
+                            {retReason === "other" && retNote ? retNote : returnReasonLabel(retReason)}
+                          </span>
+                        </div>
+                      )}
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           </div>

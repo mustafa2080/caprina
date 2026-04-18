@@ -27,6 +27,10 @@ export interface Order {
   productId: number | null;
   /** @nullable */
   notes: string | null;
+  /** @nullable */
+  returnReason: string | null;
+  /** @nullable */
+  returnNote: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

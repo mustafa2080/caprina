@@ -52,6 +52,8 @@ export const ListOrdersResponseItem = zod.object({
   shippingCompanyId: zod.number().nullable(),
   productId: zod.number().nullable(),
   notes: zod.string().nullable(),
+  returnReason: zod.string().nullable(),
+  returnNote: zod.string().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -113,6 +115,8 @@ export const GetRecentOrdersResponseItem = zod.object({
   shippingCompanyId: zod.number().nullable(),
   productId: zod.number().nullable(),
   notes: zod.string().nullable(),
+  returnReason: zod.string().nullable(),
+  returnNote: zod.string().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -146,6 +150,8 @@ export const GetOrderResponse = zod.object({
   shippingCompanyId: zod.number().nullable(),
   productId: zod.number().nullable(),
   notes: zod.string().nullable(),
+  returnReason: zod.string().nullable(),
+  returnNote: zod.string().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -180,6 +186,8 @@ export const UpdateOrderBody = zod.object({
   shippingCompanyId: zod.number().nullish(),
   productId: zod.number().nullish(),
   notes: zod.string().nullish(),
+  returnReason: zod.string().nullish(),
+  returnNote: zod.string().nullish(),
 });
 
 export const UpdateOrderResponse = zod.object({
@@ -203,6 +211,8 @@ export const UpdateOrderResponse = zod.object({
   shippingCompanyId: zod.number().nullable(),
   productId: zod.number().nullable(),
   notes: zod.string().nullable(),
+  returnReason: zod.string().nullable(),
+  returnNote: zod.string().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });

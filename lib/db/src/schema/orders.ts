@@ -22,6 +22,8 @@ export const ordersTable = pgTable("orders", {
   productId: integer("product_id"),
   variantId: integer("variant_id"),
   notes: text("notes"),
+  returnReason: text("return_reason"),
+  returnNote: text("return_note"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

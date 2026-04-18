@@ -398,6 +398,10 @@ components:
           type: ["integer", "null"]
         notes:
           type: ["string", "null"]
+        returnReason:
+          type: ["string", "null"]
+        returnNote:
+          type: ["string", "null"]
         createdAt:
           type: string
           format: date-time
@@ -418,6 +422,8 @@ components:
         - shippingCompanyId
         - productId
         - notes
+        - returnReason
+        - returnNote
         - createdAt
         - updatedAt
     CreateOrderBody:
@@ -477,6 +483,10 @@ components:
         productId:
           type: ["integer", "null"]
         notes:
+          type: ["string", "null"]
+        returnReason:
+          type: ["string", "null"]
+        returnNote:
           type: ["string", "null"]
     OrdersSummary:
       type: object

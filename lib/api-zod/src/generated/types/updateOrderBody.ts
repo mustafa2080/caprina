@@ -27,4 +27,8 @@ export interface UpdateOrderBody {
   productId?: number | null;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  returnReason?: string | null;
+  /** @nullable */
+  returnNote?: string | null;
 }
