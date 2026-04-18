@@ -38,6 +38,7 @@ A full-stack order management system for CAPRINA, an artisan goods company. Buil
 - **Ads Tracking**: Orders have `adSource` (facebook/tiktok/instagram/organic/whatsapp/other) and `adCampaign` fields. Order form includes tracking card.
 - **Campaign Analytics**: `/analytics/campaigns` endpoint + `/ads-analytics` page. Per source+campaign: orders, revenue, cost, profit, ROI, delivery rate. Source breakdown summary. Date filter + source filter.
 - **Order Assignment**: Orders have `assignedUserId` field. Order form includes employee dropdown. Team performance analytics aggregates per assignedUserId.
+- **Employee Management System** (`/team`): Full HR + KPI system. `employee_profiles` table (jobTitle, department, monthlySalary, hireDate, notes) + `employee_kpis` table (name, metric, targetValue, unit, direction, weight, isActive). KPI metrics: delivery_rate/return_rate/total_orders/profit/revenue (auto-computed from orders) + manual. Weighted KPI scoring (higher/lower_is_better). Monthly report endpoint `/analytics/employee-report/:userId?month=YYYY-MM` returning evaluated KPIs + overall score + rating (ممتاز/جيد جداً/جيد/مقبول/ضعيف). Printable A4 monthly report with employee info, order stats, KPI evaluation table, salary section.
 
 ## Profit Engine
 

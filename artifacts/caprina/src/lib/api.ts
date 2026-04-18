@@ -556,6 +556,100 @@ export interface CampaignStats {
   roi: number;
 }
 
+// ─── Employee Profiles & KPIs ────────────────────────────────────────────────
+export interface EmployeeProfile {
+  id: number;
+  userId: number;
+  username: string;
+  displayName: string;
+  role: string;
+  isActive: boolean;
+  jobTitle: string | null;
+  department: string | null;
+  monthlySalary: number | null;
+  hireDate: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmployeeKpi {
+  id: number;
+  userId: number;
+  name: string;
+  metric: string;
+  targetValue: number;
+  unit: string;
+  direction: "higher_is_better" | "lower_is_better";
+  weight: number;
+  isActive: boolean;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EvaluatedKpi extends EmployeeKpi {
+  actualValue: number | null;
+  score: number | null;
+  achieved: boolean | null;
+}
+
+export interface EmployeeReport {
+  userId: number;
+  username: string;
+  displayName: string;
+  role: string;
+  profile: EmployeeProfile | null;
+  period: { month: string; from: string; to: string };
+  orderStats: {
+    total: number;
+    delivered: number;
+    returned: number;
+    pending: number;
+    deliveryRate: number;
+    returnRate: number;
+    totalRevenue: number;
+    totalProfit: number;
+  };
+  kpis: EvaluatedKpi[];
+  overallScore: number | null;
+  rating: string;
+  salary: number;
+}
+
+export const employeeApi = {
+  listProfiles: () => apiFetch<EmployeeProfile[]>("/employee-profiles"),
+  getProfile: (userId: number) => apiFetch<EmployeeProfile & { kpis: EmployeeKpi[] }>(`/employee-profiles/${userId}`),
+  upsertProfile: (data: {
+    userId: number;
+    jobTitle?: string | null;
+    department?: string | null;
+    monthlySalary?: number | null;
+    hireDate?: string | null;
+    notes?: string | null;
+  }) => apiFetch<EmployeeProfile>("/employee-profiles", { method: "POST", body: JSON.stringify(data) }),
+  updateProfile: (userId: number, data: Partial<{
+    jobTitle: string | null;
+    department: string | null;
+    monthlySalary: number | null;
+    hireDate: string | null;
+    notes: string | null;
+  }>) => apiFetch<EmployeeProfile>(`/employee-profiles/${userId}`, { method: "PATCH", body: JSON.stringify(data) }),
+  listKpis: (userId: number) => apiFetch<EmployeeKpi[]>(`/employee-kpis/${userId}`),
+  createKpi: (data: {
+    userId: number; name: string; metric: string;
+    targetValue: number; unit: string;
+    direction: "higher_is_better" | "lower_is_better";
+    weight: number; isActive: boolean; description?: string | null;
+  }) => apiFetch<EmployeeKpi>("/employee-kpis", { method: "POST", body: JSON.stringify(data) }),
+  updateKpi: (kpiId: number, data: Partial<EmployeeKpi>) =>
+    apiFetch<EmployeeKpi>(`/employee-kpis/${kpiId}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteKpi: (kpiId: number) => apiFetch<void>(`/employee-kpis/${kpiId}`, { method: "DELETE" }),
+  getReport: (userId: number, month?: string) =>
+    apiFetch<EmployeeReport>(`/analytics/employee-report/${userId}${month ? `?month=${month}` : ""}`),
+  listUsers: () => apiFetch<AppUser[]>("/users"),
+};
+
 export const teamAnalyticsApi = {
   teamPerformance: (dateFrom?: string, dateTo?: string) => {
     const params = new URLSearchParams();

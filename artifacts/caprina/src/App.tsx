@@ -19,6 +19,7 @@ import ShippingManifestPage from "@/pages/shipping-manifest";
 import WarehousesPage from "@/pages/warehouses";
 import TeamPerformancePage from "@/pages/team-performance";
 import AdsAnalyticsPage from "@/pages/ads-analytics";
+import TeamPage from "@/pages/team";
 import Login from "@/pages/login";
 import Layout from "@/components/layout";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -80,6 +81,7 @@ function Router() {
         <Route path="/warehouses" component={WarehousesPage} />
         <Route path="/team-performance" component={TeamPerformancePage} />
         <Route path="/ads-analytics" component={AdsAnalyticsPage} />
+        <Route path="/team" component={TeamPage} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
