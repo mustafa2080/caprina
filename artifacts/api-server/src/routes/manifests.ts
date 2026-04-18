@@ -187,6 +187,12 @@ router.post("/shipping-manifests", async (req, res): Promise<void> => {
     }))
   );
 
+  // Sync shippingCompanyId on all included orders
+  await db
+    .update(ordersTable)
+    .set({ shippingCompanyId: shippingCompanyId })
+    .where(inArray(ordersTable.id, orderIds));
+
   res.status(201).json({
     ...manifest,
     invoicePrice: null,
@@ -487,38 +493,47 @@ router.get(
       return;
     }
 
-    const allOrders = await db
-      .select()
-      .from(ordersTable)
-      .where(eq(ordersTable.shippingCompanyId, id));
-
-    const allManifests = await db
-      .select({ cnt: count() })
+    // Get all manifests for this company
+    const companyManifests = await db
+      .select({ id: shippingManifestsTable.id })
       .from(shippingManifestsTable)
       .where(eq(shippingManifestsTable.shippingCompanyId, id));
 
-    const ordersWithDelivery: OrderWithDelivery[] = allOrders.map((o) => ({
+    const manifestCount = companyManifests.length;
+
+    if (manifestCount === 0) {
+      res.json({
+        total: 0, delivered: 0, returned: 0, pending: 0,
+        deliveryRate: 0, totalRevenue: 0, totalCost: 0,
+        totalShippingCost: 0, returnLosses: 0, netProfit: 0,
+        deliveredGross: 0, manifestCount: 0,
+      });
+      return;
+    }
+
+    const mIds = companyManifests.map((m) => m.id);
+
+    // Aggregate from manifest_orders (accurate delivery status per order)
+    const manifestOrderRows = await db
+      .select({
+        mo: shippingManifestOrdersTable,
+        o: ordersTable,
+      })
+      .from(shippingManifestOrdersTable)
+      .innerJoin(ordersTable, eq(shippingManifestOrdersTable.orderId, ordersTable.id))
+      .where(inArray(shippingManifestOrdersTable.manifestId, mIds));
+
+    const ordersWithDelivery: OrderWithDelivery[] = manifestOrderRows.map(({ mo, o }) => ({
       ...o,
-      deliveryStatus: o.status === "received"
-        ? "delivered"
-        : o.status === "partial_received"
-        ? "partial_received"
-        : o.status === "returned"
-        ? "returned"
-        : o.status === "delayed"
-        ? "postponed"
-        : "pending",
-      deliveryNote: null,
-      deliveredAt: null,
-      manifestOrderId: 0,
+      deliveryStatus: mo.deliveryStatus,
+      deliveryNote: mo.deliveryNote,
+      deliveredAt: mo.deliveredAt,
+      manifestOrderId: mo.id,
     }));
 
     const stats = computeStats(ordersWithDelivery);
 
-    res.json({
-      ...stats,
-      manifestCount: Number(allManifests[0]?.cnt ?? 0),
-    });
+    res.json({ ...stats, manifestCount });
   }
 );
 
