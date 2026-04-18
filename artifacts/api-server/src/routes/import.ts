@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import multer from "multer";
 import ExcelJS from "exceljs";
 import { db, ordersTable } from "@workspace/db";
+import { adjustOrderInventory } from "../lib/inventory.js";
 
 const router: IRouter = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -61,6 +62,8 @@ router.post("/orders/import", upload.single("file"), async (req, res): Promise<v
 
       const customerName = String(row["اسم العميل"] || row["customerName"] || row["customer_name"] || "").trim();
       const product = String(row["المنتج"] || row["product"] || "").trim();
+      const color = String(row["اللون"] || row["color"] || "").trim() || null;
+      const size = String(row["المقاس"] || row["size"] || "").trim() || null;
       const quantity = parseInt(String(row["الكمية"] || row["quantity"] || "1"));
       const unitPrice = parseFloat(String(row["سعر الوحدة"] || row["unitPrice"] || row["unit_price"] || "0").replace(/,/g, ""));
       const phone = String(row["رقم الهاتف"] || row["phone"] || "").trim() || null;
@@ -75,6 +78,8 @@ router.post("/orders/import", upload.single("file"), async (req, res): Promise<v
       validOrders.push({
         customerName,
         product,
+        color,
+        size,
         quantity,
         unitPrice,
         totalPrice: quantity * unitPrice,
@@ -88,6 +93,24 @@ router.post("/orders/import", upload.single("file"), async (req, res): Promise<v
     let inserted: any[] = [];
     if (validOrders.length > 0) {
       inserted = await db.insert(ordersTable).values(validOrders).returning();
+
+      // Reserve inventory for every imported order (all start as pending)
+      await Promise.all(
+        inserted.map(order =>
+          adjustOrderInventory(
+            {
+              variantId: order.variantId ?? null,
+              productId: order.productId ?? null,
+              product: order.product,
+              color: order.color,
+              size: order.size,
+              quantity: order.quantity,
+            },
+            "none",
+            "pending",
+          ),
+        ),
+      );
     }
 
     res.json({
