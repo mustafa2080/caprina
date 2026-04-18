@@ -1,6 +1,6 @@
 import { useParams, Link, useLocation } from "wouter";
 import { format } from "date-fns";
-import { ArrowRight, AlertCircle, Pencil, Save, X, Printer, Phone, MapPin, Trash2, RotateCcw } from "lucide-react";
+import { ArrowRight, AlertCircle, Pencil, Save, X, Printer, Phone, MapPin, Trash2, RotateCcw, TrendingUp, TrendingDown } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { shippingApi, ordersApi } from "@/lib/api";
+import { RETURN_REASONS, returnReasonLabel, STATUS_LABELS as statusLabels, STATUS_CLASSES as statusClasses } from "@/lib/order-constants";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,36 +29,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-
-const statusLabels: Record<string, string> = {
-  pending: "قيد الانتظار",
-  in_shipping: "قيد الشحن",
-  received: "استلم ✓",
-  delayed: "مؤجل",
-  returned: "مرتجع",
-  partial_received: "استلم جزئي",
-};
-
-const statusClasses: Record<string, string> = {
-  pending: "bg-amber-900/30 text-amber-400 border-amber-800",
-  in_shipping: "bg-sky-900/30 text-sky-400 border-sky-800",
-  received: "bg-emerald-900/30 text-emerald-400 border-emerald-800",
-  delayed: "bg-blue-900/30 text-blue-400 border-blue-800",
-  returned: "bg-red-900/30 text-red-400 border-red-800",
-  partial_received: "bg-purple-900/30 text-purple-400 border-purple-800",
-};
-
-export const RETURN_REASONS: { value: string; label: string }[] = [
-  { value: "size_mismatch", label: "مقاس غير مناسب" },
-  { value: "quality",       label: "جودة" },
-  { value: "customer_refused", label: "رفض العميل" },
-  { value: "other",         label: "سبب آخر" },
-];
-
-export const returnReasonLabel = (reason: string | null | undefined): string => {
-  if (!reason) return "—";
-  return RETURN_REASONS.find(r => r.value === reason)?.label ?? reason;
-};
 
 const editSchema = z.object({
   customerName: z.string().min(2),
@@ -479,6 +450,7 @@ export default function OrderDetail() {
 
         {/* Financial summary */}
         <div className="space-y-4">
+          {/* Revenue */}
           <Card className="border-primary/30 bg-card">
             <CardHeader className="pb-2 pt-4 px-4">
               <CardTitle className="text-sm font-bold text-primary">الملخص المالي</CardTitle>
@@ -495,12 +467,59 @@ export default function OrderDetail() {
                 </div>
                 <Separator className="border-border" />
                 <div className="flex justify-between">
-                  <span className="font-bold text-xs">الإجمالي</span>
+                  <span className="font-bold text-xs">إجمالي البيع</span>
                   <span className="font-bold text-lg text-primary">{formatCurrency(order.totalPrice)}</span>
                 </div>
               </div>
             </CardContent>
           </Card>
+
+          {/* Profit breakdown (if cost data exists) */}
+          {(() => {
+            const costPrice = (order as any).costPrice as number | null;
+            const shippingCost = (order as any).shippingCost as number | null;
+            if (!costPrice) return null;
+            const qty = order.status === "partial_received" && order.partialQuantity ? order.partialQuantity : order.quantity;
+            const isReturned = order.status === "returned";
+            const revenue = isReturned ? 0 : qty * order.unitPrice;
+            const cost = qty * costPrice;
+            const shipping = shippingCost ?? 0;
+            const netProfit = revenue - cost - shipping;
+            const margin = revenue > 0 ? Math.round((netProfit / revenue) * 100) : 0;
+            const isPositive = netProfit >= 0;
+            return (
+              <Card className={`border ${isReturned ? "border-red-900/50 bg-red-900/5" : isPositive ? "border-emerald-900/50 bg-emerald-900/5" : "border-red-900/50 bg-red-900/5"}`}>
+                <CardHeader className="pb-2 pt-4 px-4 border-b border-border">
+                  <CardTitle className="text-sm font-bold flex items-center gap-2">
+                    {isPositive && !isReturned ? <TrendingUp className="w-3.5 h-3.5 text-emerald-400" /> : <TrendingDown className="w-3.5 h-3.5 text-red-400" />}
+                    تحليل الربحية
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 pb-4 pt-3 space-y-2 text-xs">
+                  {isReturned && (
+                    <div className="p-2 bg-red-900/20 rounded text-red-400 text-[10px] font-semibold border border-red-900/30">
+                      مرتجع — خسارة كاملة
+                    </div>
+                  )}
+                  <div className="flex justify-between"><span className="text-muted-foreground">الإيرادات</span><span className="text-primary font-semibold">{formatCurrency(revenue)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">تكلفة البضاعة</span><span className="text-amber-400">-{formatCurrency(cost)}</span></div>
+                  {shipping > 0 && <div className="flex justify-between"><span className="text-muted-foreground">تكلفة الشحن</span><span className="text-orange-400">-{formatCurrency(shipping)}</span></div>}
+                  <Separator />
+                  <div className="flex justify-between items-center pt-1">
+                    <span className="font-bold">الربح الصافي</span>
+                    <span className={`font-black text-base ${isPositive && !isReturned ? "text-emerald-400" : "text-red-400"}`}>{formatCurrency(netProfit)}</span>
+                  </div>
+                  {revenue > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">هامش الربح</span>
+                      <span className={`font-bold ${margin >= 20 ? "text-emerald-400" : margin >= 10 ? "text-amber-400" : "text-red-400"}`}>{margin}%</span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })()}
+
           <p className="text-[10px] text-center text-muted-foreground">
             آخر تحديث: {format(new Date(order.updatedAt), "yyyy/MM/dd HH:mm")}
           </p>

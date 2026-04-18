@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { returnReasonLabel } from "./order-detail";
+import { returnReasonLabel } from "@/lib/order-constants";
 
 const statusLabels: Record<string, string> = {
   pending: "قيد الانتظار",

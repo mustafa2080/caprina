@@ -137,6 +137,46 @@ export interface OrderStats {
   bestProduct: { name: string; quantity: number } | null;
 }
 
+export interface PeriodProfit {
+  orders: number;
+  revenue: number;
+  cost: number;
+  shippingCost: number;
+  netProfit: number;
+  returnRate: number;
+  returnCount: number;
+}
+
+export interface ProductProfit {
+  name: string;
+  revenue: number;
+  cost: number;
+  profit: number;
+  quantity: number;
+  orderCount: number;
+  returnCount: number;
+  returnRate: number;
+  margin: number;
+}
+
+export interface ProfitAnalytics {
+  today: PeriodProfit;
+  week: PeriodProfit;
+  month: PeriodProfit;
+  allTime: PeriodProfit;
+  topProducts: ProductProfit[];
+  losingProducts: ProductProfit[];
+  inventoryValue: {
+    byProduct: number;
+    totalUnits: number;
+    lowStock: any[];
+  };
+}
+
+export const analyticsApi = {
+  profit: () => apiFetch<ProfitAnalytics>("/analytics/profit"),
+};
+
 export const ordersApi = {
   stats: () => apiFetch<OrderStats>("/orders/stats"),
   delete: (id: number) => apiFetch<void>(`/orders/${id}`, { method: "DELETE" }),

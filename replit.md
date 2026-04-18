@@ -20,18 +20,25 @@ A full-stack order management system for CAPRINA, an artisan goods company. Buil
 
 ## Features
 
-- **Dashboard**: KPI cards (today/week/month orders & revenue), all-time summary, best-selling product, low-stock alert, recent orders
+- **Profit Engine Dashboard**: Real profit calculation per period (today/week/month/all-time), top profitable products with margin%, losing products (high return rate), low-stock alerts, inventory value, order status summary, recent orders, quick actions
 - **Order List**: Search by name/product/phone, filter by status, filter by date (from), total count
-- **Create Order**: Form to create new orders with validation
-- **Order Detail**: View and edit individual orders, update status, delete with confirmation dialog
+- **Create Order**: Form with customer info, product/variant selection, cost price + shipping cost fields, live profit preview in sidebar
+- **Order Detail**: View/edit individual orders, update status, delete with confirmation, **profit breakdown card** showing revenue/cost/shipping/net profit/margin (shown when cost data exists)
 - **Invoices**: Select orders and print 4-per-A4 page professional invoices
 - **Inventory**: Manage products and variants with stock tracking
-- **Import**: Upload CSV/XLSX to bulk-import orders
+- **Inventory Movements**: Timeline of all stock movements (sale/partial_sale/return/manual) with KPI cards
+- **Import**: Upload CSV/XLSX to bulk-import orders with dynamic column mapping wizard
 - **Shipping Companies**: Manage courier company records
+
+## Profit Engine
+
+- **Profit Calculation**: Per-order profit = revenue - (costPrice × qty) - shippingCost. Returned orders = -(cost + shipping). Partial received uses partialQuantity.
+- **Analytics Endpoint**: `GET /api/analytics/profit` returns today/week/month/allTime stats with revenue, cost, shippingCost, netProfit, returnRate, topProducts, losingProducts, inventoryValue.
+- **Cost Fields**: Orders have `costPrice` (per unit) and `shippingCost` (per order). Products have `costPrice`. Variants have `costPrice`.
 
 ## Data Model
 
-- **Orders**: id, customerName, phone, address, product, color, size, quantity, unitPrice, totalPrice, status, partialQuantity, shippingCompanyId, productId, variantId, notes, createdAt, updatedAt
+- **Orders**: id, customerName, phone, address, product, color, size, quantity, unitPrice, totalPrice, costPrice, shippingCost, status, partialQuantity, shippingCompanyId, productId, variantId, notes, returnReason, returnNote, createdAt, updatedAt
 - **Statuses**: pending | in_shipping | received | delayed | returned | partial_received
 
 ## Inventory Logic
@@ -67,5 +74,19 @@ Inventory target is resolved in priority order: variantId → productId → SKU 
 - `GET /api/orders/summary` — all-time order statistics
 - `GET /api/orders/recent` — 8 most recent orders
 - `GET /api/orders/stats` — today/week/month breakdowns + best product
+- `GET /api/analytics/profit` — Profit Engine: per-period revenue/cost/netProfit/returnRate, topProducts, losingProducts, inventoryValue
+- `GET /api/inventory/movements` — list all inventory movements
+- `POST /api/inventory/movements` — create a manual inventory movement
+- `GET /api/inventory/movements/totals` — movement totals by product
+- `POST /api/orders/import/parse` — parse Excel/CSV and return column headers
+- `POST /api/orders/import/execute` — execute bulk import with column mapping
+
+## Important Zod Schema Note
+
+All API request/response schemas are manually maintained in `lib/api-zod/src/generated/api.ts` (originally from Orval codegen but now manually extended). When adding new fields to the DB schema, update:
+1. `lib/db/src/schema/*.ts` → run `pnpm --filter @workspace/db run push`
+2. `lib/api-zod/src/generated/api.ts` → update both request and response schemas
+3. `lib/api-zod/src/generated/types/*.ts` → update TypeScript interfaces
+4. Restart API server to pick up compiled changes
 
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.

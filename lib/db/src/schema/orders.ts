@@ -21,6 +21,8 @@ export const ordersTable = pgTable("orders", {
   shippingCompanyId: integer("shipping_company_id"),
   productId: integer("product_id"),
   variantId: integer("variant_id"),
+  costPrice: real("cost_price"),
+  shippingCost: real("shipping_cost").default(0),
   notes: text("notes"),
   returnReason: text("return_reason"),
   returnNote: text("return_note"),

@@ -12,6 +12,7 @@ export const productVariantsTable = pgTable("product_variants", {
   soldQuantity: integer("sold_quantity").notNull().default(0),
   lowStockThreshold: integer("low_stock_threshold").notNull().default(5),
   unitPrice: real("unit_price").notNull().default(0),
+  costPrice: real("cost_price").default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
