@@ -42,7 +42,7 @@ const ROLE_LABELS: Record<string, string> = {
 export default function Layout({ children }: LayoutProps) {
   const [location] = useLocation();
   const { user, logout, can, isAdmin } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+  const { theme, toggleTheme, setTheme } = useTheme();
   const { toast } = useToast();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [pwDialogOpen, setPwDialogOpen] = useState(false);
