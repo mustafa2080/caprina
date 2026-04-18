@@ -346,7 +346,7 @@ export default function Import() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="__none__">— غير مربوط —</SelectItem>
-                        {parsed.headers.map(h => (
+                        {parsed.headers.filter(h => h && h.trim()).map(h => (
                           <SelectItem key={h} value={h}>
                             <div className="flex items-center gap-2">
                               <span>{h}</span>

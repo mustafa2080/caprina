@@ -24,6 +24,7 @@ async function parseFileToRaw(buffer: Buffer, originalname: string): Promise<{ h
   if (!worksheet) return { headers: [], rows: [] };
 
   let headers: string[] = [];
+  let columnCount = 0;
   const rows: any[][] = [];
 
   worksheet.eachRow((row, rowNum) => {
@@ -34,9 +35,22 @@ async function parseFileToRaw(buffer: Buffer, originalname: string): Promise<{ h
     });
 
     if (rowNum === 1) {
-      headers = values.map(v => String(v ?? "").trim());
+      // Generate fallback names for empty headers
+      headers = values.map((v, i) => {
+        const s = String(v ?? "").trim();
+        return s || `عمود_${i + 1}`;
+      });
+      // Remove trailing empty columns
+      while (headers.length > 0 && headers[headers.length - 1].startsWith("عمود_")) {
+        const idx = headers.length - 1;
+        const orig = values[idx];
+        if (!orig || String(orig).trim() === "") headers.pop();
+        else break;
+      }
+      columnCount = headers.length;
     } else {
-      rows.push(values);
+      // Trim row to column count
+      rows.push(values.slice(0, columnCount));
     }
   });
 
