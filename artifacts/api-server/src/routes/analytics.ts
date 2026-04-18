@@ -649,4 +649,195 @@ router.get("/analytics/stock-intelligence", async (_req, res): Promise<void> => 
   });
 });
 
+// ─── GET /api/analytics/smart-insights ──────────────────────────────────────
+// Comprehensive smart analytics: ad attribution, stars, dead stock,
+// return insights, stock predictor
+router.get("/analytics/smart-insights", async (_req, res): Promise<void> => {
+  const [allOrders, products, variants] = await Promise.all([
+    db.select().from(ordersTable),
+    db.select().from(productsTable),
+    db.select().from(productVariantsTable),
+  ]);
+
+  const variantMap = new Map<number, number | null>(variants.map(v => [v.id, v.costPrice]));
+  const productMap = new Map<number, number | null>(products.map(p => [p.id, p.costPrice]));
+
+  const now = new Date();
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+  // ── 1. Ad Attribution ────────────────────────────────────────────────────────
+  const sourceMap: Record<string, { orders: number; revenue: number; cost: number; profit: number; adSpend: number; returned: number }> = {};
+
+  for (const o of allOrders) {
+    const src = o.adSource ?? "organic";
+    if (!sourceMap[src]) sourceMap[src] = { orders: 0, revenue: 0, cost: 0, profit: 0, adSpend: 0, returned: 0 };
+    const s = sourceMap[src];
+    const rc = resolveCost(o, variantMap, productMap);
+    s.orders++;
+    if (o.status === "returned") {
+      s.returned++;
+      const p = calcOrderProfit(o, rc);
+      s.cost += p.cost;
+      s.profit += p.netProfit;
+    } else if (o.status === "received" || o.status === "partial_received") {
+      const p = calcOrderProfit(o, rc);
+      s.revenue += p.revenue;
+      s.cost += p.cost;
+      s.profit += p.netProfit;
+    }
+  }
+
+  const adBreakdown = Object.entries(sourceMap)
+    .map(([source, s]) => ({
+      source,
+      orders: s.orders,
+      revenue: Math.round(s.revenue),
+      profit: Math.round(s.profit),
+      returnRate: s.orders > 0 ? Math.round((s.returned / s.orders) * 100) : 0,
+      roi: s.cost > 0 ? Math.round(((s.profit) / s.cost) * 100) : 0,
+    }))
+    .sort((a, b) => b.profit - a.profit);
+
+  const bestSource = adBreakdown.length > 0 ? adBreakdown[0] : null;
+
+  // ── 2. Stars vs Dead Stock ───────────────────────────────────────────────────
+  const productStatsMap: Record<string, {
+    name: string; revenue: number; cost: number; profit: number;
+    quantity: number; orderCount: number; returnCount: number;
+  }> = {};
+
+  for (const o of allOrders) {
+    const key = o.product.trim();
+    if (!productStatsMap[key]) {
+      productStatsMap[key] = { name: key, revenue: 0, cost: 0, profit: 0, quantity: 0, orderCount: 0, returnCount: 0 };
+    }
+    const pm = productStatsMap[key];
+    const rc = resolveCost(o, variantMap, productMap);
+    pm.orderCount++;
+    if (o.status === "returned") {
+      pm.returnCount++;
+      const p = calcOrderProfit(o, rc);
+      pm.cost += p.cost;
+      pm.profit += p.netProfit;
+    } else if (o.status === "received" || o.status === "partial_received") {
+      const p = calcOrderProfit(o, rc);
+      const qty = o.status === "partial_received" ? (o.partialQuantity ?? o.quantity) : o.quantity;
+      pm.revenue += p.revenue;
+      pm.cost += p.cost;
+      pm.profit += p.netProfit;
+      pm.quantity += qty;
+    }
+  }
+
+  // Track last sale date and 30d sales per product name
+  const lastSaleDate = new Map<string, Date>();
+  const sales30d = new Map<string, number>();
+
+  for (const o of allOrders) {
+    if (o.status === "received" || o.status === "partial_received") {
+      const key = o.product.trim();
+      const oDate = new Date(o.createdAt);
+      if (!lastSaleDate.has(key) || oDate > lastSaleDate.get(key)!) {
+        lastSaleDate.set(key, oDate);
+      }
+      if (oDate >= thirtyDaysAgo) {
+        const qty = o.status === "partial_received" ? (o.partialQuantity ?? o.quantity) : o.quantity;
+        sales30d.set(key, (sales30d.get(key) ?? 0) + qty);
+      }
+    }
+  }
+
+  const productList = Object.values(productStatsMap).map(p => ({
+    ...p,
+    returnRate: p.orderCount > 0 ? Math.round((p.returnCount / p.orderCount) * 100) : 0,
+    margin: p.revenue > 0 ? Math.round((p.profit / p.revenue) * 100) : 0,
+    revenue: Math.round(p.revenue),
+    cost: Math.round(p.cost),
+    profit: Math.round(p.profit),
+  }));
+
+  const stars = productList
+    .filter(p => p.profit > 0)
+    .sort((a, b) => b.profit - a.profit)
+    .slice(0, 5);
+
+  // Dead stock: products with available inventory but fewer than 5 units sold in 30d
+  const deadStock = products
+    .map(p => {
+      const key = p.name.trim();
+      const avail = Math.max(0, p.totalQuantity - p.reservedQuantity - p.soldQuantity);
+      const s30 = sales30d.get(key) ?? 0;
+      const last = lastSaleDate.get(key);
+      const daysSinceLastSale = last
+        ? Math.floor((now.getTime() - last.getTime()) / (1000 * 60 * 60 * 24))
+        : null;
+      const frozenCapital = avail * (p.costPrice ?? 0);
+      return { name: key, availableQty: avail, frozenCapital: Math.round(frozenCapital), last30DaysSales: s30, daysSinceLastSale };
+    })
+    .filter(p => p.availableQty > 0 && p.last30DaysSales < 5)
+    .sort((a, b) => b.frozenCapital - a.frozenCapital)
+    .slice(0, 8);
+
+  // ── 3. Return Insights ───────────────────────────────────────────────────────
+  const returnedOrders = allOrders.filter(o => o.status === "returned");
+  const reasonCount: Record<string, number> = {};
+  let noReasonCount = 0;
+
+  for (const o of returnedOrders) {
+    const reason = o.returnReason ?? "__none__";
+    if (reason === "__none__") { noReasonCount++; continue; }
+    reasonCount[reason] = (reasonCount[reason] ?? 0) + 1;
+  }
+
+  const REASON_LABELS: Record<string, string> = {
+    size_mismatch: "مقاس غير مناسب",
+    quality: "جودة المنتج",
+    customer_refused: "رفض العميل",
+    other: "سبب آخر",
+  };
+
+  const totalReturns = returnedOrders.length;
+  const byReason = [
+    ...Object.entries(reasonCount).map(([reason, count]) => ({
+      reason,
+      label: REASON_LABELS[reason] ?? reason,
+      count,
+      pct: totalReturns > 0 ? Math.round((count / totalReturns) * 100) : 0,
+    })),
+    ...(noReasonCount > 0 ? [{ reason: "__none__", label: "غير محدد", count: noReasonCount, pct: Math.round((noReasonCount / totalReturns) * 100) }] : []),
+  ].sort((a, b) => b.count - a.count);
+
+  const totalOrderCount = allOrders.length;
+  const totalReturnRate = totalOrderCount > 0 ? Math.round((totalReturns / totalOrderCount) * 100) : 0;
+
+  // High return products (>= 50%, min 3 orders)
+  const highReturnProducts = productList
+    .filter(p => p.orderCount >= 3 && p.returnRate >= 50)
+    .sort((a, b) => b.returnRate - a.returnRate)
+    .map(p => ({ name: p.name, returnRate: p.returnRate, returnCount: p.returnCount, orderCount: p.orderCount }));
+
+  // ── 4. Stock Predictor ───────────────────────────────────────────────────────
+  const stockPredictor = products
+    .map(p => {
+      const key = p.name.trim();
+      const avail = Math.max(0, p.totalQuantity - p.reservedQuantity - p.soldQuantity);
+      const sold30 = sales30d.get(key) ?? 0;
+      const velocity = sold30 / 30;
+      const daysUntilStockout = avail > 0 && velocity > 0 ? Math.round(avail / velocity) : null;
+      const frozenCapital = avail * (p.costPrice ?? 0);
+      return { name: key, availableQty: avail, velocityPerDay: Math.round(velocity * 100) / 100, daysUntilStockout, frozenCapital: Math.round(frozenCapital) };
+    })
+    .filter(p => p.daysUntilStockout !== null && p.daysUntilStockout <= 14 && p.availableQty > 0)
+    .sort((a, b) => (a.daysUntilStockout ?? 999) - (b.daysUntilStockout ?? 999))
+    .slice(0, 8);
+
+  res.json({
+    adAttribution: { bestSource, breakdown: adBreakdown },
+    stars,
+    deadStock,
+    returnInsights: { byReason, highReturnProducts, totalReturnRate, totalReturns },
+    stockPredictor,
+  });
+});
+
 export default router;

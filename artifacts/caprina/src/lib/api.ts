@@ -366,12 +366,81 @@ export interface StockIntelligenceResponse {
   };
 }
 
+// ─── Smart Insights Types ────────────────────────────────────────────────────
+export interface AdSourceStat {
+  source: string;
+  orders: number;
+  revenue: number;
+  profit: number;
+  returnRate: number;
+  roi: number;
+}
+
+export interface SmartProduct {
+  name: string;
+  revenue: number;
+  cost: number;
+  profit: number;
+  quantity: number;
+  orderCount: number;
+  returnCount: number;
+  returnRate: number;
+  margin: number;
+}
+
+export interface DeadStockItem {
+  name: string;
+  availableQty: number;
+  frozenCapital: number;
+  last30DaysSales: number;
+  daysSinceLastSale: number | null;
+}
+
+export interface ReturnReasonItem {
+  reason: string;
+  label: string;
+  count: number;
+  pct: number;
+}
+
+export interface HighReturnProduct {
+  name: string;
+  returnRate: number;
+  returnCount: number;
+  orderCount: number;
+}
+
+export interface StockPredictorItem {
+  name: string;
+  availableQty: number;
+  velocityPerDay: number;
+  daysUntilStockout: number | null;
+  frozenCapital: number;
+}
+
+export interface SmartInsights {
+  adAttribution: {
+    bestSource: AdSourceStat | null;
+    breakdown: AdSourceStat[];
+  };
+  stars: SmartProduct[];
+  deadStock: DeadStockItem[];
+  returnInsights: {
+    byReason: ReturnReasonItem[];
+    highReturnProducts: HighReturnProduct[];
+    totalReturnRate: number;
+    totalReturns: number;
+  };
+  stockPredictor: StockPredictorItem[];
+}
+
 export const analyticsApi = {
   profit: () => apiFetch<ProfitAnalytics>("/analytics/profit"),
   financialSummary: () => apiFetch<FinancialSummary>("/analytics/financial-summary"),
   productPerformance: () => apiFetch<ProductPerformanceResponse>("/analytics/product-performance"),
   alerts: () => apiFetch<AlertsResponse>("/analytics/alerts"),
   stockIntelligence: () => apiFetch<StockIntelligenceResponse>("/analytics/stock-intelligence"),
+  smartInsights: () => apiFetch<SmartInsights>("/analytics/smart-insights"),
 };
 
 export const ordersApi = {

@@ -37,6 +37,7 @@ A full-stack order management system for CAPRINA, an artisan goods company. Buil
 - **Team Performance**: `/analytics/team-performance` endpoint + page. Per-employee: orders assigned, delivered, returned, profit generated, delivery rate, return rate. Sorted by profit. Trophy for top performer. Unassigned orders shown separately.
 - **Ads Tracking**: Orders have `adSource` (facebook/tiktok/instagram/organic/whatsapp/other) and `adCampaign` fields. Order form includes tracking card.
 - **Campaign Analytics**: `/analytics/campaigns` endpoint + `/ads-analytics` page. Per source+campaign: orders, revenue, cost, profit, ROI, delivery rate. Source breakdown summary. Date filter + source filter.
+- **Smart Analytics & Growth** (`/smart`): Comprehensive decision-making dashboard. (1) Ad Attribution — best platform by net profit + full platform breakdown with profit bars; (2) Stars vs Dead Stock — top 5 profitable products + inventory with <5 units sold in 30 days + frozen capital; (3) Return Insights — return reasons bar chart + ⚠️ High Return Alert for products ≥50% return rate; (4) Stock Predictor — products running out in ≤14 days with urgency color coding (red ≤3d, orange ≤7d, amber ≤14d). Dashboard includes 4 quick-insight tiles linking to /smart.
 - **Order Assignment**: Orders have `assignedUserId` field. Order form includes employee dropdown. Team performance analytics aggregates per assignedUserId.
 - **Employee Management System** (`/team`): Full HR + KPI system. `employee_profiles` table (jobTitle, department, monthlySalary, hireDate, notes) + `employee_kpis` table (name, metric, targetValue, unit, direction, weight, isActive). KPI metrics: delivery_rate/return_rate/total_orders/profit/revenue (auto-computed from orders) + manual. Weighted KPI scoring (higher/lower_is_better). Monthly report endpoint `/analytics/employee-report/:userId?month=YYYY-MM` returning evaluated KPIs + overall score + rating (ممتاز/جيد جداً/جيد/مقبول/ضعيف). Printable A4 monthly report with employee info, order stats, KPI evaluation table, salary section.
 
@@ -51,6 +52,7 @@ A full-stack order management system for CAPRINA, an artisan goods company. Buil
   - `GET /api/analytics/product-performance` — full per-product: revenue, profit, returnCostLoss, netProfit, margin, ROI, returnRate, avgSalePrice; sorted byProfit/byLoss/byReturns
   - `GET /api/analytics/alerts` — smart alerts engine: HIGH_RETURN, LOSING_PRODUCT, LOW_STOCK, LOW_MARGIN, NO_COST_DATA; severity high/medium/low
   - `GET /api/analytics/stock-intelligence` — stock velocity (units/day last 30d), daysUntilStockout, category (fast/medium/slow/stale/out), frozenCapital
+  - `GET /api/analytics/smart-insights` — comprehensive smart analytics: adAttribution (best source + breakdown), stars (top 5 by profit), deadStock (inventory with <5 sales/30d), returnInsights (byReason breakdown + highReturnProducts ≥50%), stockPredictor (products running out ≤14 days)
 - **Cost Fields**: Orders have `costPrice` (per unit) and `shippingCost` (per order). Products have `costPrice`. Variants have `costPrice`.
 
 ## Data Model

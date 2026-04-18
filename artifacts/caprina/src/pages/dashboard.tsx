@@ -6,7 +6,7 @@ import { Link } from "wouter";
 import {
   TrendingUp, TrendingDown, DollarSign, Package, AlertCircle,
   Plus, Activity, Boxes, ArrowUpRight, ArrowDownRight,
-  Star, Wallet, BarChart3, ShoppingCart, AlertTriangle, RefreshCw, Bell,
+  Star, Wallet, BarChart3, ShoppingCart, AlertTriangle, RefreshCw, Bell, Brain, Zap, Archive, Clock,
 } from "lucide-react";
 import {
   analyticsApi, type PeriodProfit, type ProductProfit, type FinancialSummary, type Alert,
@@ -128,6 +128,11 @@ export default function Dashboard() {
     queryFn: analyticsApi.alerts,
     staleTime: 30000,
   });
+  const { data: smartData } = useQuery({
+    queryKey: ["smart-insights"],
+    queryFn: analyticsApi.smartInsights,
+    staleTime: 60000,
+  });
 
   const highAlerts = alertsData?.alerts.filter(a => a.severity === "high") ?? [];
   const allAlerts = alertsData?.alerts ?? [];
@@ -142,16 +147,23 @@ export default function Dashboard() {
   return (
     <div className="space-y-5 animate-in fade-in duration-500">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">لوحة المالية</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">CAPRINA — Financial Engine Dashboard</p>
+          <h1 className="text-xl sm:text-2xl font-bold">لوحة المالية</h1>
+          <p className="text-muted-foreground text-xs sm:text-sm mt-0.5">CAPRINA — Financial Engine Dashboard</p>
         </div>
-        <Link href="/orders/new">
-          <button className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-bold hover:bg-primary/90 transition-colors">
-            <Plus className="w-4 h-4" />طلب جديد
-          </button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/smart">
+            <button className="flex items-center gap-1.5 border border-primary/30 text-primary hover:bg-primary/5 px-3 py-2 rounded-md text-xs font-bold transition-colors">
+              <Brain className="w-3.5 h-3.5" />ذكاء
+            </button>
+          </Link>
+          <Link href="/orders/new">
+            <button className="flex items-center gap-2 bg-primary text-primary-foreground px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-bold hover:bg-primary/90 transition-colors">
+              <Plus className="w-4 h-4" />طلب جديد
+            </button>
+          </Link>
+        </div>
       </div>
 
       {/* === NO COST DATA WARNING === */}
@@ -281,6 +293,95 @@ export default function Dashboard() {
           </>
         ) : null}
       </div>
+
+      {/* === SMART QUICK INSIGHTS === */}
+      {smartData && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {/* Best platform */}
+          <Link href="/smart">
+            <div className="flex items-center gap-2.5 p-3 rounded-xl border border-border bg-card hover:bg-primary/5 hover:border-primary/30 transition-colors cursor-pointer">
+              <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
+                <Zap className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] text-muted-foreground font-bold">أفضل منصة</p>
+                {smartData.adAttribution.bestSource ? (
+                  <>
+                    <p className="text-xs font-black truncate">
+                      {smartData.adAttribution.bestSource.source === "facebook" ? "📘 فيسبوك" :
+                       smartData.adAttribution.bestSource.source === "tiktok" ? "🎵 تيك توك" :
+                       smartData.adAttribution.bestSource.source === "instagram" ? "📷 إنستجرام" :
+                       smartData.adAttribution.bestSource.source === "whatsapp" ? "💬 واتساب" :
+                       smartData.adAttribution.bestSource.source === "organic" ? "🌱 عضوي" : "📌 أخرى"}
+                    </p>
+                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                      {new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(smartData.adAttribution.bestSource.profit)}
+                    </p>
+                  </>
+                ) : <p className="text-xs text-muted-foreground">لا بيانات</p>}
+              </div>
+            </div>
+          </Link>
+
+          {/* Stars & Dead Stock */}
+          <Link href="/smart">
+            <div className="flex items-center gap-2.5 p-3 rounded-xl border border-border bg-card hover:bg-primary/5 hover:border-primary/30 transition-colors cursor-pointer">
+              <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
+                <Star className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] text-muted-foreground font-bold">نجوم / راكد</p>
+                <p className="text-xs font-black">{smartData.stars.length} نجوم</p>
+                <p className="text-[10px] text-amber-600 dark:text-amber-400">{smartData.deadStock.length} منتج راكد</p>
+              </div>
+            </div>
+          </Link>
+
+          {/* Return alert */}
+          <Link href="/smart">
+            <div className={`flex items-center gap-2.5 p-3 rounded-xl border bg-card hover:bg-primary/5 transition-colors cursor-pointer ${
+              smartData.returnInsights.highReturnProducts.length > 0 ? "border-red-300 dark:border-red-800" : "border-border"
+            }`}>
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                smartData.returnInsights.highReturnProducts.length > 0 ? "bg-red-100 dark:bg-red-900/30" : "bg-muted"
+              }`}>
+                <Archive className={`w-4 h-4 ${smartData.returnInsights.highReturnProducts.length > 0 ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}`} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] text-muted-foreground font-bold">المرتجعات</p>
+                <p className="text-xs font-black">{smartData.returnInsights.totalReturnRate}% معدل</p>
+                {smartData.returnInsights.highReturnProducts.length > 0 ? (
+                  <p className="text-[10px] text-red-600 dark:text-red-400 font-bold">⚠️ {smartData.returnInsights.highReturnProducts.length} تجاوز 50%</p>
+                ) : (
+                  <p className="text-[10px] text-emerald-600 dark:text-emerald-400">تحت السيطرة</p>
+                )}
+              </div>
+            </div>
+          </Link>
+
+          {/* Stock predictor */}
+          <Link href="/smart">
+            <div className={`flex items-center gap-2.5 p-3 rounded-xl border bg-card hover:bg-primary/5 transition-colors cursor-pointer ${
+              smartData.stockPredictor.some(i => (i.daysUntilStockout ?? 99) <= 3) ? "border-red-300 dark:border-red-800" : "border-border"
+            }`}>
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                smartData.stockPredictor.some(i => (i.daysUntilStockout ?? 99) <= 3) ? "bg-red-100 dark:bg-red-900/30" : "bg-sky-100 dark:bg-sky-900/20"
+              }`}>
+                <Clock className={`w-4 h-4 ${smartData.stockPredictor.some(i => (i.daysUntilStockout ?? 99) <= 3) ? "text-red-600 dark:text-red-400" : "text-sky-600 dark:text-sky-400"}`} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] text-muted-foreground font-bold">سينفد قريباً</p>
+                <p className="text-xs font-black">{smartData.stockPredictor.length} منتج</p>
+                {smartData.stockPredictor.length > 0 && (
+                  <p className={`text-[10px] font-bold ${smartData.stockPredictor.some(i => (i.daysUntilStockout ?? 99) <= 3) ? "text-red-600 dark:text-red-400" : "text-sky-600 dark:text-sky-400"}`}>
+                    🚨 خلال 14 يوم
+                  </p>
+                )}
+              </div>
+            </div>
+          </Link>
+        </div>
+      )}
 
       {/* === MAIN GRID === */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

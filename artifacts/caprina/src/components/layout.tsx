@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Package, Plus, Boxes, Truck, FileText, Upload, Activity, BarChart3, Users, Shield, LogOut, ChevronDown, KeyRound, Warehouse, Megaphone, UserCheck, UserCog, Sun, Moon } from "lucide-react";
+import { LayoutDashboard, Package, Plus, Boxes, Truck, FileText, Upload, Activity, BarChart3, Users, Shield, LogOut, ChevronDown, KeyRound, Warehouse, Megaphone, UserCheck, UserCog, Sun, Moon, Brain } from "lucide-react";
 import { BrandFull } from "@/components/brand-logo";
 import { BrandSettingsDialog } from "@/components/brand-settings-dialog";
 import { cn } from "@/lib/utils";
@@ -22,6 +22,7 @@ const ALL_NAV = [
   { href: "/product-performance", label: "أداء المنتجات", icon: BarChart3, permission: "analytics" },
   { href: "/team-performance", label: "أداء الفريق", icon: UserCheck, permission: "analytics" },
   { href: "/team", label: "إدارة الفريق", icon: UserCog, permission: "analytics" },
+  { href: "/smart", label: "التحليل الذكي 🧠", icon: Brain, permission: "analytics" },
   { href: "/ads-analytics", label: "تحليل الإعلانات", icon: Megaphone, permission: "analytics" },
   { href: "/orders", label: "الطلبات", icon: Package, permission: "orders" },
   { href: "/orders/new", label: "طلب جديد", icon: Plus, permission: "orders" },
@@ -196,17 +197,73 @@ export default function Layout({ children }: LayoutProps) {
       {/* Main */}
       <main className="flex-1 flex flex-col min-w-0">
         {/* Mobile header */}
-        <header className="h-12 border-b border-sidebar-border bg-sidebar flex items-center justify-between px-4 md:hidden shrink-0">
-          <BrandFull logoSize="sm" layout="row" nameClass="text-sm text-sidebar-foreground" />
-          <div className="flex items-center gap-3 text-xs font-semibold text-sidebar-foreground/60">
-            {can("dashboard") && <Link href="/">لوحة</Link>}
-            {can("orders") && <Link href="/orders">طلبات</Link>}
-            {can("inventory") && <Link href="/inventory">مخزون</Link>}
-            {can("orders") && <Link href="/orders/new" className="text-primary">+ جديد</Link>}
-            <button type="button" onClick={toggleTheme} className="text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors">
-              {theme === "dark" ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+        <header className="border-b border-sidebar-border bg-sidebar md:hidden shrink-0">
+          <div className="flex items-center justify-between px-4 h-12">
+            <BrandFull logoSize="sm" layout="row" nameClass="text-sm text-sidebar-foreground" />
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={toggleTheme} className="text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors p-1">
+                {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              </button>
+              {can("orders") && (
+                <Link href="/orders/new">
+                  <span className="flex items-center gap-1 bg-primary text-primary-foreground px-2.5 py-1 rounded-md text-[11px] font-bold">
+                    <Plus className="w-3 h-3" />جديد
+                  </span>
+                </Link>
+              )}
+            </div>
+          </div>
+          {/* Mobile Nav Tabs */}
+          <div className="flex overflow-x-auto gap-1 px-3 pb-2 no-scrollbar">
+            {can("dashboard") && (
+              <Link href="/">
+                <span className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-colors ${location === "/" ? "bg-primary text-primary-foreground" : "text-sidebar-foreground/60 hover:text-sidebar-foreground"}`}>
+                  <LayoutDashboard className="w-3 h-3" />لوحة
+                </span>
+              </Link>
+            )}
+            {can("analytics") && (
+              <Link href="/smart">
+                <span className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-colors ${location === "/smart" ? "bg-primary text-primary-foreground" : "text-sidebar-foreground/60 hover:text-sidebar-foreground"}`}>
+                  🧠 ذكاء
+                </span>
+              </Link>
+            )}
+            {can("orders") && (
+              <Link href="/orders">
+                <span className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-colors ${location === "/orders" ? "bg-primary text-primary-foreground" : "text-sidebar-foreground/60 hover:text-sidebar-foreground"}`}>
+                  <Package className="w-3 h-3" />طلبات
+                </span>
+              </Link>
+            )}
+            {can("inventory") && (
+              <Link href="/inventory">
+                <span className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-colors ${location === "/inventory" ? "bg-primary text-primary-foreground" : "text-sidebar-foreground/60 hover:text-sidebar-foreground"}`}>
+                  <Boxes className="w-3 h-3" />مخزون
+                </span>
+              </Link>
+            )}
+            {can("analytics") && (
+              <Link href="/ads-analytics">
+                <span className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-colors ${location === "/ads-analytics" ? "bg-primary text-primary-foreground" : "text-sidebar-foreground/60 hover:text-sidebar-foreground"}`}>
+                  <Megaphone className="w-3 h-3" />إعلانات
+                </span>
+              </Link>
+            )}
+            {can("invoices") && (
+              <Link href="/invoices">
+                <span className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-colors ${location === "/invoices" ? "bg-primary text-primary-foreground" : "text-sidebar-foreground/60 hover:text-sidebar-foreground"}`}>
+                  <FileText className="w-3 h-3" />فواتير
+                </span>
+              </Link>
+            )}
+            <button
+              type="button"
+              onClick={logout}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap text-red-500 hover:bg-red-500/10 transition-colors"
+            >
+              <LogOut className="w-3 h-3" />خروج
             </button>
-            <button type="button" onClick={logout} className="text-red-400">خروج</button>
           </div>
         </header>
 
