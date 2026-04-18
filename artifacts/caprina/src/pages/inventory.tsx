@@ -71,7 +71,7 @@ export default function Inventory() {
     onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
 
-  const formatCurrency = (n: number) => new Intl.NumberFormat("ar-SA", { style: "currency", currency: "SAR" }).format(n);
+  const formatCurrency = (n: number) => new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(n);
 
   const openAddProduct = () => { setEditingProduct(null); setProductForm(emptyProductForm); setProductDialogOpen(true); };
   const openEditProduct = (p: Product) => { setEditingProduct(p); setProductForm({ name: p.name, sku: p.sku ?? "", lowStockThreshold: p.lowStockThreshold, unitPrice: p.unitPrice }); setProductDialogOpen(true); };
@@ -356,7 +356,7 @@ export default function Inventory() {
                 <Input type="number" min="0" className="h-9 text-sm bg-background" value={variantForm.totalQuantity} onChange={e => setVariantForm(f => ({ ...f, totalQuantity: Number(e.target.value) }))} />
               </div>
               <div>
-                <Label className="text-xs mb-1.5 block">سعر الوحدة (ر.س)</Label>
+                <Label className="text-xs mb-1.5 block">سعر الوحدة (ج.م)</Label>
                 <Input type="number" min="0" step="0.01" className="h-9 text-sm bg-background" value={variantForm.unitPrice} onChange={e => setVariantForm(f => ({ ...f, unitPrice: Number(e.target.value) }))} />
               </div>
             </div>

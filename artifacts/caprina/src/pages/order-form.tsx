@@ -64,7 +64,7 @@ export default function OrderForm() {
   const selectedVariant = allVariants?.find(v => v.id === Number(selectedVariantId));
   const availableQty = selectedVariant ? selectedVariant.totalQuantity - selectedVariant.reservedQuantity - selectedVariant.soldQuantity : null;
 
-  const formatCurrency = (n: number) => new Intl.NumberFormat("ar-SA", { style: "currency", currency: "SAR" }).format(n);
+  const formatCurrency = (n: number) => new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(n);
 
   const onSubmit = (values: FormValues) => {
     createOrder.mutate(
@@ -279,7 +279,7 @@ export default function OrderForm() {
                     )} />
                     <FormField control={form.control} name="unitPrice" render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-xs">سعر الوحدة (ر.س) *</FormLabel>
+                        <FormLabel className="text-xs">سعر الوحدة (ج.م) *</FormLabel>
                         <FormControl><Input type="number" min="0" step="0.01" className="h-9 text-sm" {...field} /></FormControl>
                         <FormMessage className="text-xs" />
                       </FormItem>
