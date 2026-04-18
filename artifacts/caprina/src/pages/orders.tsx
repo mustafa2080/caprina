@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { format } from "date-fns";
-import { Search, Filter, Plus, Package, CalendarDays, X, RotateCcw } from "lucide-react";
-import { useListOrders } from "@workspace/api-client-react";
+import { Search, Filter, Plus, Package, CalendarDays, X, RotateCcw, MessageCircle } from "lucide-react";
+import { useListOrders, useUpdateOrder, getListOrdersQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useDebounce } from "@/hooks/use-debounce";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +12,8 @@ import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { returnReasonLabel } from "@/lib/order-constants";
+import { openWhatsApp } from "@/lib/whatsapp";
+import { useToast } from "@/hooks/use-toast";
 
 const statusLabels: Record<string, string> = {
   pending: "قيد الانتظار",
@@ -38,11 +41,36 @@ export default function Orders() {
   const [status, setStatus] = useState<string>("all");
   const [dateFrom, setDateFrom] = useState("");
   const debouncedSearch = useDebounce(search, 300);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const updateOrder = useUpdateOrder();
 
   const { data: orders, isLoading } = useListOrders({
     search: debouncedSearch || undefined,
     status: status !== "all" ? status : undefined,
   });
+
+  const handleWhatsApp = (e: React.MouseEvent, order: (typeof orders)[0] & { phone?: string | null }) => {
+    e.stopPropagation();
+    if (!order.phone) {
+      toast({ title: "لا يوجد رقم هاتف", description: "أضف رقم هاتف للعميل أولاً.", variant: "destructive" });
+      return;
+    }
+    const sent = openWhatsApp(order);
+    if (sent && order.status === "pending") {
+      updateOrder.mutate(
+        { id: order.id, data: { status: "in_shipping" } },
+        {
+          onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
+            toast({ title: "تم إرسال واتساب ✅", description: `تم تحويل الطلب #${order.id.toString().padStart(4,"0")} لـ «قيد الشحن»` });
+          },
+        }
+      );
+    } else if (sent) {
+      toast({ title: "تم فتح واتساب ✅", description: `رسالة تأكيد لـ ${order.customerName} جاهزة للإرسال` });
+    }
+  };
 
   const filtered = orders?.filter(o => {
     if (!dateFrom) return true;
@@ -126,12 +154,14 @@ export default function Orders() {
                   <TableHead className="text-right text-xs">المنتج</TableHead>
                   <TableHead className="text-right text-xs">الإجمالي</TableHead>
                   <TableHead className="text-center text-xs w-36">الحالة</TableHead>
+                  <TableHead className="text-center text-xs w-10"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.map((order) => {
                   const retReason = (order as any).returnReason as string | null;
                   const retNote = (order as any).returnNote as string | null;
+                  const canWhatsApp = order.status === "pending" || order.status === "in_shipping" || order.status === "delayed";
                   return (
                   <TableRow key={order.id} className="border-border hover:bg-muted/20 cursor-pointer" onClick={() => window.location.href = `/orders/${order.id}`}>
                     <TableCell className="font-mono text-xs text-primary font-bold">#{order.id.toString().padStart(4,"0")}</TableCell>
@@ -151,6 +181,19 @@ export default function Orders() {
                             {retReason === "other" && retNote ? retNote : returnReasonLabel(retReason)}
                           </span>
                         </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center p-1">
+                      {canWhatsApp && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 rounded-full text-green-500 hover:text-green-400 hover:bg-green-500/10"
+                          title={`إرسال واتساب لـ ${order.customerName}`}
+                          onClick={(e) => handleWhatsApp(e, order)}
+                        >
+                          <MessageCircle className="w-4 h-4" />
+                        </Button>
                       )}
                     </TableCell>
                   </TableRow>

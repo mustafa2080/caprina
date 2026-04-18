@@ -1,6 +1,6 @@
 import { useParams, Link, useLocation } from "wouter";
 import { format } from "date-fns";
-import { ArrowRight, AlertCircle, Pencil, Save, X, Printer, Phone, MapPin, Trash2, RotateCcw, TrendingUp, TrendingDown, AlertTriangle, Lock } from "lucide-react";
+import { ArrowRight, AlertCircle, Pencil, Save, X, Printer, Phone, MapPin, Trash2, RotateCcw, TrendingUp, TrendingDown, AlertTriangle, Lock, MessageCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState, useRef, useEffect } from "react";
 import { useForm } from "react-hook-form";
@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { shippingApi, ordersApi } from "@/lib/api";
+import { openWhatsApp } from "@/lib/whatsapp";
 import { RETURN_REASONS, returnReasonLabel, STATUS_LABELS as statusLabels, STATUS_CLASSES as statusClasses } from "@/lib/order-constants";
 import {
   AlertDialog,
@@ -184,6 +185,28 @@ export default function OrderDetail() {
 
   const handlePrint = () => { window.open(`/invoices?orderId=${id}`, "_blank"); };
 
+  const handleWhatsApp = () => {
+    if (!order?.phone) {
+      toast({ title: "لا يوجد رقم هاتف", description: "أضف رقم هاتف للعميل أولاً.", variant: "destructive" });
+      return;
+    }
+    const sent = openWhatsApp({ id: order.id, customerName: order.customerName, product: order.product, quantity: order.quantity, totalPrice: order.totalPrice, status: order.status, phone: order.phone });
+    if (sent && order.status === "pending") {
+      updateOrder.mutate(
+        { id, data: { status: "in_shipping" } },
+        {
+          onSuccess: (updated) => {
+            queryClient.setQueryData(getGetOrderQueryKey(id), updated);
+            invalidateAll();
+            toast({ title: "تم إرسال واتساب ✅", description: "تم تحويل الطلب لـ «قيد الشحن» تلقائياً" });
+          },
+        }
+      );
+    } else if (sent) {
+      toast({ title: "تم فتح واتساب ✅", description: `رسالة تأكيد لـ ${order.customerName} جاهزة للإرسال` });
+    }
+  };
+
   if (isLoading) return <div className="p-12 text-center text-muted-foreground animate-pulse">جاري التحميل...</div>;
   if (error || !order) return (
     <div className="p-12 text-center">
@@ -251,6 +274,17 @@ export default function OrderDetail() {
               <Button variant="outline" size="sm" onClick={handlePrint} className="h-8 text-xs gap-1 border-border">
                 <Printer className="w-3 h-3" />فاتورة
               </Button>
+              {(order.status === "pending" || order.status === "in_shipping" || order.status === "delayed") && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleWhatsApp}
+                  className="h-8 text-xs gap-1 border-green-700 text-green-400 hover:bg-green-500/10 hover:text-green-400"
+                  title="إرسال رسالة واتساب للعميل"
+                >
+                  <MessageCircle className="w-3 h-3" />واتساب
+                </Button>
+              )}
               <Button
                 variant="outline" size="sm"
                 onClick={() => !isOrderLocked && setShowDeleteDialog(true)}
