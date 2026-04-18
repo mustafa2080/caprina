@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { teamAnalyticsApi, type TeamMemberStats } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 const fmt = (n: number) =>
   new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(n);
@@ -25,7 +26,7 @@ function StatBar({ value, max, color }: { value: number; max: number; color: str
   );
 }
 
-function MemberCard({ member, rank, maxProfit }: { member: TeamMemberStats; rank: number; maxProfit: number }) {
+function MemberCard({ member, rank, maxProfit, showProfit }: { member: TeamMemberStats; rank: number; maxProfit: number; showProfit: boolean }) {
   const isTopPerformer = rank === 1 && member.userId !== 0;
   return (
     <Card className={`border-border bg-card ${isTopPerformer ? "border-yellow-700/60" : ""}`}>
@@ -43,16 +44,18 @@ function MemberCard({ member, rank, maxProfit }: { member: TeamMemberStats; rank
               )}
             </div>
           </div>
-          <Badge
-            variant="outline"
-            className={`text-[9px] font-bold ${member.profit >= 0 ? "border-emerald-800 text-emerald-400" : "border-red-800 text-red-400"}`}
-          >
-            {fmt(member.profit)}
-          </Badge>
+          {showProfit && (
+            <Badge
+              variant="outline"
+              className={`text-[9px] font-bold ${member.profit >= 0 ? "border-emerald-800 text-emerald-400" : "border-red-800 text-red-400"}`}
+            >
+              {fmt(member.profit)}
+            </Badge>
+          )}
         </div>
       </CardHeader>
       <CardContent className="px-4 pb-4 space-y-3">
-        <StatBar value={member.profit >= 0 ? member.profit : 0} max={Math.max(maxProfit, 1)} color="bg-emerald-500" />
+        {showProfit && <StatBar value={member.profit >= 0 ? member.profit : 0} max={Math.max(maxProfit, 1)} color="bg-emerald-500" />}
 
         <div className="grid grid-cols-4 gap-1 text-center">
           <div className="bg-muted/20 rounded p-2">
@@ -89,6 +92,7 @@ function MemberCard({ member, rank, maxProfit }: { member: TeamMemberStats; rank
 }
 
 export default function TeamPerformancePage() {
+  const { isAdmin } = useAuth();
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
@@ -131,11 +135,11 @@ export default function TeamPerformancePage() {
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: "إجمالي الطلبات", value: fmtNum(totalOrders), icon: Package, color: "text-primary" },
-          { label: "مُسلَّم", value: fmtNum(totalDelivered), icon: TrendingUp, color: "text-emerald-400" },
-          { label: "مُرتجَع", value: fmtNum(totalReturned), icon: TrendingDown, color: "text-red-400" },
-          { label: "إجمالي الربح", value: fmt(members.reduce((s, m) => s + m.profit, 0)), icon: Trophy, color: "text-yellow-400" },
-        ].map(card => (
+          { label: "إجمالي الطلبات", value: fmtNum(totalOrders), icon: Package, color: "text-primary", adminOnly: false },
+          { label: "مُسلَّم", value: fmtNum(totalDelivered), icon: TrendingUp, color: "text-emerald-400", adminOnly: false },
+          { label: "مُرتجَع", value: fmtNum(totalReturned), icon: TrendingDown, color: "text-red-400", adminOnly: false },
+          { label: "إجمالي الربح", value: fmt(members.reduce((s, m) => s + m.profit, 0)), icon: Trophy, color: "text-yellow-400", adminOnly: true },
+        ].filter(c => !c.adminOnly || isAdmin).map(card => (
           <Card key={card.label} className="border-border bg-card">
             <CardContent className="px-4 py-3 flex items-center gap-3">
               <card.icon className={`w-4 h-4 shrink-0 ${card.color}`} />
@@ -161,7 +165,7 @@ export default function TeamPerformancePage() {
       {assignedMembers.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {assignedMembers.map((m, i) => (
-            <MemberCard key={m.userId} member={m} rank={i + 1} maxProfit={maxProfit} />
+            <MemberCard key={m.userId} member={m} rank={i + 1} maxProfit={maxProfit} showProfit={isAdmin} />
           ))}
         </div>
       )}
@@ -180,9 +184,11 @@ export default function TeamPerformancePage() {
               <div className="flex items-center gap-3 text-xs">
                 <span className="text-emerald-400">{fmtNum(unassigned.delivered)} مسلَّم</span>
                 <span className="text-red-400">{fmtNum(unassigned.returned)} مرتجع</span>
-                <Badge variant="outline" className={`text-[10px] ${unassigned.profit >= 0 ? "text-emerald-400 border-emerald-800" : "text-red-400 border-red-800"}`}>
-                  {fmt(unassigned.profit)}
-                </Badge>
+                {isAdmin && (
+                  <Badge variant="outline" className={`text-[10px] ${unassigned.profit >= 0 ? "text-emerald-400 border-emerald-800" : "text-red-400 border-red-800"}`}>
+                    {fmt(unassigned.profit)}
+                  </Badge>
+                )}
               </div>
             </div>
           </CardContent>

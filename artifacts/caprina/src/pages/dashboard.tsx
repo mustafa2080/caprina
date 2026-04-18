@@ -3,6 +3,7 @@ import { useGetOrdersSummary, useGetRecentOrders } from "@workspace/api-client-r
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   TrendingUp, TrendingDown, DollarSign, Package, AlertCircle,
   Plus, Activity, Boxes, ArrowUpRight, ArrowDownRight,
@@ -110,6 +111,7 @@ function FinRow({ label, value, color = "text-foreground", sub }: { label: strin
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 export default function Dashboard() {
+  const { isAdmin } = useAuth();
   const { data: summary } = useGetOrdersSummary();
   const { data: recentOrders, isLoading: isRecentLoading } = useGetRecentOrders();
   const { data: products } = useQuery({ queryKey: ["products"], queryFn: productsApi.list, staleTime: 60000 });
@@ -166,8 +168,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* === NO COST DATA WARNING === */}
-      {noCostWarning && (
+      {/* === NO COST DATA WARNING (admin only) === */}
+      {isAdmin && noCostWarning && (
         <div className="flex items-start gap-3 bg-amber-900/20 border border-amber-800/40 rounded-lg p-3">
           <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
           <div className="flex-1">
@@ -180,8 +182,8 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* === FINANCIAL OVERVIEW BANNER === */}
-      {fin && (
+      {/* === FINANCIAL OVERVIEW BANNER (admin only) === */}
+      {isAdmin && fin && (
         <div className={`rounded-xl border overflow-hidden ${fin.netProfit >= 0 ? "border-emerald-800/60 bg-emerald-900/5" : "border-red-800/60 bg-red-900/5"}`}>
           <div className="p-4">
             {/* Main profit */}
@@ -281,18 +283,20 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* === PERIOD CARDS === */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {isAnalyticsLoading ? (
-          [1,2,3].map(i => <Card key={i} className="animate-pulse h-36 border-border" />)
-        ) : analytics ? (
-          <>
-            <PeriodCard label="اليوم" data={analytics.today} accent="text-primary" />
-            <PeriodCard label="هذا الأسبوع" data={analytics.week} accent="text-emerald-400" />
-            <PeriodCard label="هذا الشهر" data={analytics.month} accent="text-amber-400" />
-          </>
-        ) : null}
-      </div>
+      {/* === PERIOD CARDS (admin only) === */}
+      {isAdmin && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {isAnalyticsLoading ? (
+            [1,2,3].map(i => <Card key={i} className="animate-pulse h-36 border-border" />)
+          ) : analytics ? (
+            <>
+              <PeriodCard label="اليوم" data={analytics.today} accent="text-primary" />
+              <PeriodCard label="هذا الأسبوع" data={analytics.week} accent="text-emerald-400" />
+              <PeriodCard label="هذا الشهر" data={analytics.month} accent="text-amber-400" />
+            </>
+          ) : null}
+        </div>
+      )}
 
       {/* === SMART QUICK INSIGHTS === */}
       {smartData && (
@@ -314,9 +318,11 @@ export default function Dashboard() {
                        smartData.adAttribution.bestSource.source === "whatsapp" ? "💬 واتساب" :
                        smartData.adAttribution.bestSource.source === "organic" ? "🌱 عضوي" : "📌 أخرى"}
                     </p>
-                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
-                      {new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(smartData.adAttribution.bestSource.profit)}
-                    </p>
+                    {isAdmin && (
+                      <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                        {new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(smartData.adAttribution.bestSource.profit)}
+                      </p>
+                    )}
                   </>
                 ) : <p className="text-xs text-muted-foreground">لا بيانات</p>}
               </div>
@@ -389,31 +395,33 @@ export default function Dashboard() {
         {/* LEFT: Products + Recent Orders */}
         <div className="lg:col-span-2 space-y-4">
 
-          {/* Top products by profit */}
-          <Card className="border-border">
-            <CardHeader className="py-3 px-4 border-b border-border">
-              <CardTitle className="text-sm font-bold flex items-center gap-2">
-                <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-                أفضل المنتجات ربحاً
-                <span className="text-[10px] text-muted-foreground font-normal mr-auto">مرتبة بصافي الربح</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-3 px-4">
-              {isAnalyticsLoading ? (
-                <div className="py-4 text-center text-xs text-muted-foreground">جاري التحميل...</div>
-              ) : analytics?.topProducts?.length ? (
-                analytics.topProducts.map((p, i) => <ProductRow key={p.name} product={p} rank={i + 1} />)
-              ) : (
-                <div className="py-6 text-center text-muted-foreground text-xs">
-                  <Star className="w-6 h-6 mx-auto mb-2 opacity-20" />
-                  أضف بيانات التكلفة للمنتجات لتفعيل هذا القسم
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          {/* Top products by profit (admin only) */}
+          {isAdmin && (
+            <Card className="border-border">
+              <CardHeader className="py-3 px-4 border-b border-border">
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                  أفضل المنتجات ربحاً
+                  <span className="text-[10px] text-muted-foreground font-normal mr-auto">مرتبة بصافي الربح</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-3 px-4">
+                {isAnalyticsLoading ? (
+                  <div className="py-4 text-center text-xs text-muted-foreground">جاري التحميل...</div>
+                ) : analytics?.topProducts?.length ? (
+                  analytics.topProducts.map((p, i) => <ProductRow key={p.name} product={p} rank={i + 1} />)
+                ) : (
+                  <div className="py-6 text-center text-muted-foreground text-xs">
+                    <Star className="w-6 h-6 mx-auto mb-2 opacity-20" />
+                    أضف بيانات التكلفة للمنتجات لتفعيل هذا القسم
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
-          {/* Losing products */}
-          {analytics?.losingProducts && analytics.losingProducts.length > 0 && (
+          {/* Losing products (admin only) */}
+          {isAdmin && analytics?.losingProducts && analytics.losingProducts.length > 0 && (
             <Card className="border-red-900/40 bg-red-900/5">
               <CardHeader className="py-3 px-4 border-b border-red-900/30">
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -501,23 +509,15 @@ export default function Dashboard() {
             </Link>
           </div>
 
-          {/* Inventory financial value */}
-          {fin && (
+          {/* Inventory financial value (admin only) */}
+          {isAdmin && fin && (
             <Card className="border-border">
               <CardContent className="p-4 space-y-1">
                 <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-1.5">
                   <Boxes className="w-3 h-3" />قيمة المخزون
                 </p>
-                <FinRow
-                  label="بسعر التكلفة"
-                  value={fc(fin.inventoryAtCost)}
-                  color="text-amber-400"
-                />
-                <FinRow
-                  label="بسعر البيع"
-                  value={fc(fin.inventoryAtSell)}
-                  color="text-primary"
-                />
+                <FinRow label="بسعر التكلفة" value={fc(fin.inventoryAtCost)} color="text-amber-400" />
+                <FinRow label="بسعر البيع" value={fc(fin.inventoryAtSell)} color="text-primary" />
                 <div className="mt-1 pt-2 border-t border-border flex justify-between items-center">
                   <span className="text-[10px] text-muted-foreground">الربح المحتمل</span>
                   <span className={`text-xs font-black ${fin.potentialInventoryProfit >= 0 ? "text-emerald-400" : "text-red-400"}`}>
@@ -528,8 +528,8 @@ export default function Dashboard() {
             </Card>
           )}
 
-          {/* Full financial breakdown */}
-          {fin && (
+          {/* Full financial breakdown (admin only) */}
+          {isAdmin && fin && (
             <Card className="border-border">
               <CardContent className="p-4">
                 <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-1.5">
@@ -582,8 +582,8 @@ export default function Dashboard() {
             </Card>
           )}
 
-          {/* Order metrics */}
-          {fin && fin.completedOrders > 0 && (
+          {/* Order metrics (admin only) */}
+          {isAdmin && fin && fin.completedOrders > 0 && (
             <Card className="border-border">
               <CardContent className="p-4">
                 <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-1.5">
@@ -631,8 +631,8 @@ export default function Dashboard() {
             </Card>
           )}
 
-          {/* Return loss detail */}
-          {fin && fin.returnRevLost > 0 && (
+          {/* Return loss detail (admin only) */}
+          {isAdmin && fin && fin.returnRevLost > 0 && (
             <Card className="border-red-900/40 bg-red-900/5">
               <CardContent className="p-4">
                 <p className="text-[9px] font-bold uppercase tracking-widest text-red-400/60 mb-3 flex items-center gap-1.5">

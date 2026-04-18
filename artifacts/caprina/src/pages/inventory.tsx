@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
 import { productsApi, variantsApi, analyticsApi, type Product, type ProductVariant, type StockIntelligenceItem } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -52,6 +53,7 @@ function MarginBadge({ margin }: { margin: number | null }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function Inventory() {
+  const { isAdmin } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [expandedProductId, setExpandedProductId] = useState<number | null>(null);
@@ -241,14 +243,16 @@ export default function Inventory() {
           <p className={`text-2xl font-black ${lowStockVariants > 0 ? "text-red-400" : ""}`}>{lowStockVariants}</p>
           <p className="text-[10px] text-muted-foreground mt-1">SKU يحتاج تجديد</p>
         </Card>
-        <Card className="border-primary/30 bg-primary/5 p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <DollarSign className="w-4 h-4 text-primary" />
-            <p className="text-xs text-muted-foreground">قيمة المخزون</p>
-          </div>
-          <p className="text-xl font-black text-primary">{fc(inventoryValue)}</p>
-          <p className="text-[10px] text-muted-foreground mt-1">بسعر التكلفة</p>
-        </Card>
+        {isAdmin && (
+          <Card className="border-primary/30 bg-primary/5 p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <DollarSign className="w-4 h-4 text-primary" />
+              <p className="text-xs text-muted-foreground">قيمة المخزون</p>
+            </div>
+            <p className="text-xl font-black text-primary">{fc(inventoryValue)}</p>
+            <p className="text-[10px] text-muted-foreground mt-1">بسعر التكلفة</p>
+          </Card>
+        )}
       </div>
 
       {/* Stock Intelligence Summary */}
@@ -328,10 +332,10 @@ export default function Inventory() {
                       <div className="flex items-center gap-3 mt-1 flex-wrap">
                         <span className="text-[10px] text-muted-foreground">{variants.length} SKU</span>
                         <span className="text-[10px] text-primary font-semibold">{fc(product.unitPrice)}</span>
-                        {product.costPrice ? (
+                        {isAdmin && product.costPrice ? (
                           <span className="text-[10px] text-amber-400">تكلفة: {fc(product.costPrice)}</span>
                         ) : null}
-                        <MarginBadge margin={productMargin} />
+                        {isAdmin && <MarginBadge margin={productMargin} />}
                         {intel && intel.velocityPerDay > 0 && (
                           <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${
                             intel.category === "fast" ? "border-red-800 text-red-400 bg-red-900/10"
@@ -395,8 +399,8 @@ export default function Inventory() {
                               <th className="text-center py-2.5 px-3 font-semibold text-emerald-500/80">متاح</th>
                               <th className="text-center py-2.5 px-3 font-semibold text-muted-foreground/60 hidden sm:table-cell">مباع</th>
                               <th className="text-right py-2.5 px-3 font-semibold text-primary/80">بيع</th>
-                              <th className="text-right py-2.5 px-3 font-semibold text-amber-500/80">تكلفة</th>
-                              <th className="text-center py-2.5 px-3 font-semibold text-emerald-500/80">هامش</th>
+                              {isAdmin && <th className="text-right py-2.5 px-3 font-semibold text-amber-500/80">تكلفة</th>}
+                              {isAdmin && <th className="text-center py-2.5 px-3 font-semibold text-emerald-500/80">هامش</th>}
                               <th className="text-center py-2.5 px-3 font-semibold text-muted-foreground">حالة</th>
                               <th className="w-24 py-2.5"></th>
                             </tr>
@@ -423,16 +427,20 @@ export default function Inventory() {
                                   </td>
                                   <td className="py-2.5 px-3 text-center text-muted-foreground/60 hidden sm:table-cell">{v.soldQuantity}</td>
                                   <td className="py-2.5 px-3 text-primary font-bold">{fc(v.unitPrice)}</td>
-                                  <td className="py-2.5 px-3">
-                                    {v.costPrice ? (
-                                      <span className="text-amber-400 font-semibold">{fc(v.costPrice)}</span>
-                                    ) : (
-                                      <span className="text-muted-foreground">—</span>
-                                    )}
-                                  </td>
-                                  <td className="py-2.5 px-3 text-center">
-                                    <MarginBadge margin={margin} />
-                                  </td>
+                                  {isAdmin && (
+                                    <td className="py-2.5 px-3">
+                                      {v.costPrice ? (
+                                        <span className="text-amber-400 font-semibold">{fc(v.costPrice)}</span>
+                                      ) : (
+                                        <span className="text-muted-foreground">—</span>
+                                      )}
+                                    </td>
+                                  )}
+                                  {isAdmin && (
+                                    <td className="py-2.5 px-3 text-center">
+                                      <MarginBadge margin={margin} />
+                                    </td>
+                                  )}
                                   <td className="py-2.5 px-3 text-center">
                                     {available === 0 ? (
                                       <Badge variant="outline" className="text-[8px] font-bold border-red-900 bg-red-900/20 text-red-400">نفد</Badge>

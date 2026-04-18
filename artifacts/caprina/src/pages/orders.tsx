@@ -144,65 +144,115 @@ export default function Orders() {
         {isLoading ? (
           <div className="p-8 text-center text-muted-foreground text-sm">جاري التحميل...</div>
         ) : filtered.length > 0 ? (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="border-border hover:bg-transparent">
-                  <TableHead className="text-right text-xs">#</TableHead>
-                  <TableHead className="text-right text-xs">التاريخ</TableHead>
-                  <TableHead className="text-right text-xs">العميل</TableHead>
-                  <TableHead className="text-right text-xs">الهاتف</TableHead>
-                  <TableHead className="text-right text-xs">المنتج</TableHead>
-                  <TableHead className="text-right text-xs">الإجمالي</TableHead>
-                  <TableHead className="text-center text-xs w-36">الحالة</TableHead>
-                  <TableHead className="text-center text-xs w-10"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((order) => {
-                  const retReason = (order as any).returnReason as string | null;
-                  const retNote = (order as any).returnNote as string | null;
-                  const canWhatsApp = order.status === "pending" || order.status === "in_shipping" || order.status === "delayed";
-                  return (
-                  <TableRow key={order.id} className="border-border hover:bg-muted/20 cursor-pointer" onClick={() => window.location.href = `/orders/${order.id}`}>
-                    <TableCell className="font-mono text-xs text-primary font-bold">#{order.id.toString().padStart(4,"0")}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{format(new Date(order.createdAt), "yyyy/MM/dd")}</TableCell>
-                    <TableCell className="text-sm font-semibold">{order.customerName}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{order.phone || "—"}</TableCell>
-                    <TableCell className="text-xs">{order.product}<span className="text-muted-foreground mr-1">×{order.quantity}</span></TableCell>
-                    <TableCell className="text-xs font-bold text-primary">{formatCurrency(order.totalPrice)}</TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant="outline" className={`text-[9px] font-bold border ${statusClasses[order.status] || ""}`}>
-                        {statusLabels[order.status] || order.status}
-                      </Badge>
-                      {order.status === "returned" && retReason && (
-                        <div className="flex items-center justify-center gap-0.5 mt-1">
-                          <RotateCcw className="w-2.5 h-2.5 text-red-500 shrink-0" />
-                          <span className="text-[9px] text-red-400 leading-none">
-                            {retReason === "other" && retNote ? retNote : returnReasonLabel(retReason)}
-                          </span>
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center p-1">
-                      {canWhatsApp && (
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-7 w-7 rounded-full text-green-500 hover:text-green-400 hover:bg-green-500/10"
-                          title={`إرسال واتساب لـ ${order.customerName}`}
-                          onClick={(e) => handleWhatsApp(e, order)}
-                        >
-                          <MessageCircle className="w-4 h-4" />
-                        </Button>
-                      )}
-                    </TableCell>
+          <>
+            {/* ── Mobile: card list ── */}
+            <div className="sm:hidden divide-y divide-border">
+              {filtered.map((order) => {
+                const canWhatsApp = order.status === "pending" || order.status === "in_shipping" || order.status === "delayed";
+                const retReason = (order as any).returnReason as string | null;
+                const retNote = (order as any).returnNote as string | null;
+                return (
+                  <div
+                    key={order.id}
+                    className="flex items-center gap-3 px-4 py-3 hover:bg-muted/10 active:bg-muted/20 cursor-pointer"
+                    onClick={() => window.location.href = `/orders/${order.id}`}
+                  >
+                    <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-foreground shrink-0">
+                      {order.customerName.charAt(0)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-bold text-sm truncate">{order.customerName}</p>
+                        <span className="font-bold text-xs text-primary shrink-0">{formatCurrency(order.totalPrice)}</span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[10px] text-muted-foreground font-mono">#{order.id.toString().padStart(4,"0")}</span>
+                        <span className="text-[10px] text-muted-foreground truncate">{order.product} ×{order.quantity}</span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant="outline" className={`text-[9px] font-bold border ${statusClasses[order.status] || ""}`}>
+                          {statusLabels[order.status] || order.status}
+                        </Badge>
+                        {order.status === "returned" && retReason && (
+                          <span className="text-[9px] text-red-400">{retReason === "other" && retNote ? retNote : returnReasonLabel(retReason)}</span>
+                        )}
+                        <span className="text-[9px] text-muted-foreground mr-auto">{format(new Date(order.createdAt), "MM/dd")}</span>
+                      </div>
+                    </div>
+                    {canWhatsApp && (
+                      <button
+                        className="shrink-0 w-9 h-9 rounded-full text-green-500 hover:bg-green-500/10 flex items-center justify-center"
+                        onClick={(e) => handleWhatsApp(e, order)}
+                      >
+                        <MessageCircle className="w-4.5 h-4.5" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ── Desktop: table ── */}
+            <div className="hidden sm:block overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-border hover:bg-transparent">
+                    <TableHead className="text-right text-xs">#</TableHead>
+                    <TableHead className="text-right text-xs">التاريخ</TableHead>
+                    <TableHead className="text-right text-xs">العميل</TableHead>
+                    <TableHead className="text-right text-xs">الهاتف</TableHead>
+                    <TableHead className="text-right text-xs">المنتج</TableHead>
+                    <TableHead className="text-right text-xs">الإجمالي</TableHead>
+                    <TableHead className="text-center text-xs w-36">الحالة</TableHead>
+                    <TableHead className="text-center text-xs w-10"></TableHead>
                   </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((order) => {
+                    const retReason = (order as any).returnReason as string | null;
+                    const retNote = (order as any).returnNote as string | null;
+                    const canWhatsApp = order.status === "pending" || order.status === "in_shipping" || order.status === "delayed";
+                    return (
+                      <TableRow key={order.id} className="border-border hover:bg-muted/20 cursor-pointer" onClick={() => window.location.href = `/orders/${order.id}`}>
+                        <TableCell className="font-mono text-xs text-primary font-bold">#{order.id.toString().padStart(4,"0")}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{format(new Date(order.createdAt), "yyyy/MM/dd")}</TableCell>
+                        <TableCell className="text-sm font-semibold">{order.customerName}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{order.phone || "—"}</TableCell>
+                        <TableCell className="text-xs">{order.product}<span className="text-muted-foreground mr-1">×{order.quantity}</span></TableCell>
+                        <TableCell className="text-xs font-bold text-primary">{formatCurrency(order.totalPrice)}</TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant="outline" className={`text-[9px] font-bold border ${statusClasses[order.status] || ""}`}>
+                            {statusLabels[order.status] || order.status}
+                          </Badge>
+                          {order.status === "returned" && retReason && (
+                            <div className="flex items-center justify-center gap-0.5 mt-1">
+                              <RotateCcw className="w-2.5 h-2.5 text-red-500 shrink-0" />
+                              <span className="text-[9px] text-red-400 leading-none">
+                                {retReason === "other" && retNote ? retNote : returnReasonLabel(retReason)}
+                              </span>
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-center p-1">
+                          {canWhatsApp && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7 rounded-full text-green-500 hover:text-green-400 hover:bg-green-500/10"
+                              title={`إرسال واتساب لـ ${order.customerName}`}
+                              onClick={(e) => handleWhatsApp(e, order)}
+                            >
+                              <MessageCircle className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </>
         ) : (
           <div className="p-12 text-center">
             <Package className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-20" />

@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown, RefreshCw, BarChart3, AlertTriangle, Target } from "lucide-react";
 import { analyticsApi, type ProductPerformance } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 const fc = (n: number) =>
   new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(n);
@@ -81,7 +83,19 @@ function ProductRow({ p, maxProfit, maxLoss, sort }: {
 }
 
 export default function ProductPerformancePage() {
+  const { isAdmin } = useAuth();
+  const [, navigate] = useLocation();
   const [sort, setSort] = useState<SortMode>("profit");
+
+  if (!isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground">
+        <BarChart3 className="w-10 h-10 opacity-20" />
+        <p className="text-sm font-bold">هذه الصفحة للمديرين فقط</p>
+        <button onClick={() => navigate("/")} className="text-xs text-primary hover:underline">العودة للرئيسية</button>
+      </div>
+    );
+  }
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["product-performance"],

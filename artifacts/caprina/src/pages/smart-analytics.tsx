@@ -7,6 +7,7 @@ import {
   Brain, Star, Archive, RotateCcw, TrendingDown,
   AlertTriangle, Clock, Package, ArrowUpRight, Zap,
 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const fc = (n: number) =>
   new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(n);
@@ -46,29 +47,31 @@ function Skeleton({ className = "" }: { className?: string }) {
 }
 
 // ─── 1. Ad Attribution ────────────────────────────────────────────────────────
-function AdAttributionSection({ bestSource, breakdown }: { bestSource: AdSourceStat | null; breakdown: AdSourceStat[] }) {
-  const maxProfit = Math.max(...breakdown.map(s => Math.abs(s.profit)), 1);
+function AdAttributionSection({ bestSource, breakdown, showProfit }: { bestSource: AdSourceStat | null; breakdown: AdSourceStat[]; showProfit: boolean }) {
+  const maxVal = Math.max(...breakdown.map(s => showProfit ? Math.abs(s.profit) : s.revenue), 1);
   const best = bestSource ? getMeta(bestSource.source) : null;
 
   return (
     <div>
-      <SectionHeader icon={Zap} title="أفضل منصة إعلانية" subtitle="صافي الربح الحقيقي لكل قناة تسويقية" color="text-amber-500 dark:text-amber-400" />
+      <SectionHeader icon={Zap} title="أفضل منصة إعلانية" subtitle={showProfit ? "صافي الربح الحقيقي لكل قناة تسويقية" : "إيرادات كل قناة تسويقية"} color="text-amber-500 dark:text-amber-400" />
 
       {bestSource && best && (
         <div className={`mb-4 rounded-xl border-2 ${best.border} ${best.bg} p-4 flex flex-col sm:flex-row sm:items-center gap-4`}>
           <div className="flex items-center gap-3 flex-1">
             <span className="text-4xl">{best.emoji}</span>
             <div>
-              <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider">الأعلى ربحاً</p>
+              <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider">{showProfit ? "الأعلى ربحاً" : "الأعلى مبيعاً"}</p>
               <p className={`text-2xl font-black ${best.color}`}>{best.label}</p>
               <p className="text-xs text-muted-foreground mt-0.5">{fn(bestSource.orders)} طلب • {bestSource.returnRate}% مرتجع</p>
             </div>
           </div>
           <div className="flex gap-4 sm:text-right">
-            <div>
-              <p className="text-[10px] text-muted-foreground">صافي الربح</p>
-              <p className={`text-xl font-black ${bestSource.profit >= 0 ? "text-emerald-500 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}`}>{fc(bestSource.profit)}</p>
-            </div>
+            {showProfit && (
+              <div>
+                <p className="text-[10px] text-muted-foreground">صافي الربح</p>
+                <p className={`text-xl font-black ${bestSource.profit >= 0 ? "text-emerald-500 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}`}>{fc(bestSource.profit)}</p>
+              </div>
+            )}
             <div>
               <p className="text-[10px] text-muted-foreground">الإيرادات</p>
               <p className="text-lg font-bold text-primary">{fc(bestSource.revenue)}</p>
@@ -80,25 +83,29 @@ function AdAttributionSection({ bestSource, breakdown }: { bestSource: AdSourceS
       <div className="space-y-2">
         {breakdown.map((s) => {
           const meta = getMeta(s.source);
-          const barPct = Math.max(0, Math.round((s.profit / maxProfit) * 100));
+          const barPct = Math.max(0, Math.round(((showProfit ? Math.abs(s.profit) : s.revenue) / maxVal) * 100));
           return (
             <div key={s.source} className="flex items-center gap-3 py-2.5 px-3 rounded-lg bg-card border border-border">
               <span className="text-xl shrink-0">{meta.emoji}</span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-1">
                   <span className={`text-xs font-bold ${meta.color}`}>{meta.label}</span>
-                  <span className={`text-xs font-black ${s.profit >= 0 ? "text-emerald-500 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}`}>{fc(s.profit)}</span>
+                  {showProfit ? (
+                    <span className={`text-xs font-black ${s.profit >= 0 ? "text-emerald-500 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}`}>{fc(s.profit)}</span>
+                  ) : (
+                    <span className="text-xs font-black text-primary">{fc(s.revenue)}</span>
+                  )}
                 </div>
                 <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                   <div
-                    className={`h-full rounded-full transition-all duration-700 ${s.profit >= 0 ? "bg-emerald-500 dark:bg-emerald-400" : "bg-red-500 dark:bg-red-400"}`}
+                    className={`h-full rounded-full transition-all duration-700 ${showProfit && s.profit < 0 ? "bg-red-500 dark:bg-red-400" : "bg-primary"}`}
                     style={{ width: `${barPct}%` }}
                   />
                 </div>
                 <div className="flex gap-3 mt-1">
                   <span className="text-[10px] text-muted-foreground">{fn(s.orders)} طلب</span>
                   <span className="text-[10px] text-muted-foreground">{s.returnRate}% مرتجع</span>
-                  <span className="text-[10px] text-muted-foreground">إيرادات: {fc(s.revenue)}</span>
+                  {showProfit && <span className="text-[10px] text-muted-foreground">إيرادات: {fc(s.revenue)}</span>}
                 </div>
               </div>
             </div>
@@ -113,12 +120,12 @@ function AdAttributionSection({ bestSource, breakdown }: { bestSource: AdSourceS
 }
 
 // ─── 2. Stars vs Dead Stock ───────────────────────────────────────────────────
-function StarsSection({ stars, deadStock }: { stars: SmartProduct[]; deadStock: DeadStockItem[] }) {
+function StarsSection({ stars, deadStock, showProfit }: { stars: SmartProduct[]; deadStock: DeadStockItem[]; showProfit: boolean }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
       {/* Stars */}
       <div>
-        <SectionHeader icon={Star} title="المنتجات النجوم" subtitle="أعلى 5 منتجات بصافي ربح" color="text-amber-500 dark:text-amber-400" />
+        <SectionHeader icon={Star} title="المنتجات النجوم" subtitle={showProfit ? "أعلى 5 منتجات بصافي ربح" : "أعلى 5 منتجات مبيعاً"} color="text-amber-500 dark:text-amber-400" />
         <div className="space-y-2">
           {stars.map((p, i) => (
             <div key={p.name} className="flex items-center gap-3 p-3 rounded-lg bg-card border border-border">
@@ -127,11 +134,17 @@ function StarsSection({ stars, deadStock }: { stars: SmartProduct[]; deadStock: 
               }`}>{i + 1}</div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-xs truncate">{p.name}</p>
-                <p className="text-[10px] text-muted-foreground">{fn(p.quantity)} وحدة • {p.margin}% هامش</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {fn(p.quantity)} وحدة{showProfit ? ` • ${p.margin}% هامش` : ""}
+                </p>
               </div>
               <div className="text-left shrink-0">
-                <p className="text-xs font-black text-emerald-500 dark:text-emerald-400">{fc(p.profit)}</p>
-                <p className="text-[9px] text-muted-foreground">{p.returnRate}% رتجع</p>
+                {showProfit ? (
+                  <p className="text-xs font-black text-emerald-500 dark:text-emerald-400">{fc(p.profit)}</p>
+                ) : (
+                  <p className="text-xs font-black text-primary">{fn(p.quantity)} وحدة</p>
+                )}
+                <p className="text-[9px] text-muted-foreground">{p.returnRate}% مرتجع</p>
               </div>
             </div>
           ))}
@@ -305,13 +318,13 @@ function StockPredictorSection({ items }: { items: StockPredictorItem[] }) {
 }
 
 // ─── Summary Stats Bar ─────────────────────────────────────────────────────────
-function SummaryBar({ data }: { data: {
+function SummaryBar({ data, showProfit }: { data: {
   adAttribution: { bestSource: AdSourceStat | null; breakdown: AdSourceStat[] };
   stars: SmartProduct[];
   deadStock: DeadStockItem[];
   returnInsights: { totalReturnRate: number; highReturnProducts: HighReturnProduct[]; totalReturns: number; byReason: ReturnReasonItem[] };
   stockPredictor: StockPredictorItem[];
-}}) {
+}; showProfit: boolean }) {
   const totalFrozen = data.deadStock.reduce((s, i) => s + i.frozenCapital, 0);
   const critical = data.stockPredictor.filter(i => (i.daysUntilStockout ?? 99) <= 3).length;
   const highReturn = data.returnInsights.highReturnProducts.length;
@@ -327,7 +340,8 @@ function SummaryBar({ data }: { data: {
           {data.adAttribution.bestSource ? (
             <>
               <p className="font-black text-sm">{getMeta(data.adAttribution.bestSource.source).emoji} {getMeta(data.adAttribution.bestSource.source).label}</p>
-              <p className="text-[10px] text-emerald-500 dark:text-emerald-400 font-bold">{fc(data.adAttribution.bestSource.profit)}</p>
+              {showProfit && <p className="text-[10px] text-emerald-500 dark:text-emerald-400 font-bold">{fc(data.adAttribution.bestSource.profit)}</p>}
+              {!showProfit && <p className="text-[10px] text-primary font-bold">{fc(data.adAttribution.bestSource.revenue)}</p>}
             </>
           ) : (
             <p className="text-xs text-muted-foreground">لا بيانات</p>
@@ -377,6 +391,7 @@ function SummaryBar({ data }: { data: {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function SmartAnalytics() {
+  const { isAdmin } = useAuth();
   const { data, isLoading } = useQuery({
     queryKey: ["smart-insights"],
     queryFn: analyticsApi.smartInsights,
@@ -416,19 +431,19 @@ export default function SmartAnalytics() {
 
       {data && (
         <>
-          <SummaryBar data={data} />
+          <SummaryBar data={data} showProfit={isAdmin} />
 
           {/* Ad Attribution */}
           <Card className="border-border bg-card">
             <CardContent className="p-5">
-              <AdAttributionSection bestSource={data.adAttribution.bestSource} breakdown={data.adAttribution.breakdown} />
+              <AdAttributionSection bestSource={data.adAttribution.bestSource} breakdown={data.adAttribution.breakdown} showProfit={isAdmin} />
             </CardContent>
           </Card>
 
           {/* Stars vs Dead Stock */}
           <Card className="border-border bg-card">
             <CardContent className="p-5">
-              <StarsSection stars={data.stars} deadStock={data.deadStock} />
+              <StarsSection stars={data.stars} deadStock={data.deadStock} showProfit={isAdmin} />
             </CardContent>
           </Card>
 

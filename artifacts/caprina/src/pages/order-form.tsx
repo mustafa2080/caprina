@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { productsApi, variantsApi, shippingApi, warehousesApi, usersApi } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 const AD_SOURCES = [
   { value: "facebook", label: "📘 فيسبوك" },
@@ -61,6 +62,8 @@ export default function OrderForm() {
   const { data: shippingCompanies } = useQuery({ queryKey: ["shipping"], queryFn: shippingApi.list });
   const { data: warehouses } = useQuery({ queryKey: ["warehouses"], queryFn: warehousesApi.list });
   const { data: users } = useQuery({ queryKey: ["users"], queryFn: usersApi.list });
+
+  const { isAdmin } = useAuth();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -322,53 +325,55 @@ export default function OrderForm() {
                 </CardContent>
               </Card>
 
-              {/* Cost & Profit */}
-              <Card className="border-emerald-900/40 bg-emerald-900/5">
-                <CardHeader className="pb-2 pt-4 px-4 border-b border-border">
-                  <CardTitle className="text-sm font-bold flex items-center gap-2">
-                    <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
-                    بيانات التكلفة والربح
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-4 pb-4 pt-3 space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <FormField control={form.control} name="costPrice" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs">تكلفة الوحدة (ج.م)</FormLabel>
-                        <FormControl>
-                          <Input type="number" min="0" step="0.01" placeholder="0" className="h-9 text-sm" {...field} value={field.value ?? ""} onChange={e => field.onChange(e.target.value ? Number(e.target.value) : null)} />
-                        </FormControl>
-                      </FormItem>
-                    )} />
-                    <FormField control={form.control} name="shippingCost" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs">تكلفة الشحن (ج.م)</FormLabel>
-                        <FormControl>
-                          <Input type="number" min="0" step="0.01" placeholder="0" className="h-9 text-sm" {...field} value={field.value ?? ""} onChange={e => field.onChange(e.target.value ? Number(e.target.value) : 0)} />
-                        </FormControl>
-                      </FormItem>
-                    )} />
-                  </div>
-                  {costPrice > 0 && (
-                    <div className="grid grid-cols-3 gap-2 p-2 bg-background/50 rounded border border-border text-center">
-                      <div>
-                        <p className="text-[9px] text-muted-foreground">إيرادات</p>
-                        <p className="text-xs font-bold text-primary">{formatCurrency(revenue)}</p>
-                      </div>
-                      <div>
-                        <p className="text-[9px] text-muted-foreground">التكلفة الكلية</p>
-                        <p className="text-xs font-bold text-amber-400">{formatCurrency(cost + shippingCost)}</p>
-                      </div>
-                      <div>
-                        <p className="text-[9px] text-muted-foreground">الربح الصافي</p>
-                        <p className={`text-xs font-bold ${netProfit >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                          {formatCurrency(netProfit)}
-                        </p>
-                      </div>
+              {/* Cost & Profit — admin only */}
+              {isAdmin && (
+                <Card className="border-emerald-900/40 bg-emerald-900/5">
+                  <CardHeader className="pb-2 pt-4 px-4 border-b border-border">
+                    <CardTitle className="text-sm font-bold flex items-center gap-2">
+                      <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
+                      بيانات التكلفة والربح
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-4 pt-3 space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <FormField control={form.control} name="costPrice" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">تكلفة الوحدة (ج.م)</FormLabel>
+                          <FormControl>
+                            <Input type="number" min="0" step="0.01" placeholder="0" className="h-9 text-sm" {...field} value={field.value ?? ""} onChange={e => field.onChange(e.target.value ? Number(e.target.value) : null)} />
+                          </FormControl>
+                        </FormItem>
+                      )} />
+                      <FormField control={form.control} name="shippingCost" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">تكلفة الشحن (ج.م)</FormLabel>
+                          <FormControl>
+                            <Input type="number" min="0" step="0.01" placeholder="0" className="h-9 text-sm" {...field} value={field.value ?? ""} onChange={e => field.onChange(e.target.value ? Number(e.target.value) : 0)} />
+                          </FormControl>
+                        </FormItem>
+                      )} />
                     </div>
-                  )}
-                </CardContent>
-              </Card>
+                    {costPrice > 0 && (
+                      <div className="grid grid-cols-3 gap-2 p-2 bg-background/50 rounded border border-border text-center">
+                        <div>
+                          <p className="text-[9px] text-muted-foreground">إيرادات</p>
+                          <p className="text-xs font-bold text-primary">{formatCurrency(revenue)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] text-muted-foreground">التكلفة الكلية</p>
+                          <p className="text-xs font-bold text-amber-400">{formatCurrency(cost + shippingCost)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] text-muted-foreground">الربح الصافي</p>
+                          <p className={`text-xs font-bold ${netProfit >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                            {formatCurrency(netProfit)}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Tracking */}
               <Card className="border-purple-900/40 bg-purple-900/5">
@@ -455,7 +460,7 @@ export default function OrderForm() {
                       <span className="font-bold">إجمالي البيع</span>
                       <span className="font-bold text-base text-primary">{formatCurrency(revenue)}</span>
                     </div>
-                    {costPrice > 0 && (
+                    {isAdmin && costPrice > 0 && (
                       <>
                         <div className="flex justify-between"><span className="text-muted-foreground">التكلفة</span><span className="text-amber-400">-{formatCurrency(cost)}</span></div>
                         {shippingCost > 0 && <div className="flex justify-between"><span className="text-muted-foreground">الشحن</span><span className="text-amber-400">-{formatCurrency(shippingCost)}</span></div>}

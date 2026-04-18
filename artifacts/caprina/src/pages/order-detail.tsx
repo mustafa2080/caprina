@@ -565,8 +565,8 @@ export default function OrderDetail() {
             </CardContent>
           </Card>
 
-          {/* Profit breakdown (if cost data exists) */}
-          {(() => {
+          {/* Profit breakdown — admin only */}
+          {isAdmin && (() => {
             const costPrice = (order as any).costPrice as number | null;
             const shippingCost = (order as any).shippingCost as number | null;
             if (!costPrice) return null;
