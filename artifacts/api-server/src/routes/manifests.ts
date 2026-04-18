@@ -9,6 +9,11 @@ import {
 } from "@workspace/db";
 import { z } from "zod";
 import { requireAuth } from "../middlewares/requireAuth";
+import {
+  processDelivery,
+  reverseDelivery,
+  processReturn,
+} from "../lib/inventory";
 
 const router: IRouter = Router();
 router.use(requireAuth);
@@ -340,6 +345,7 @@ router.patch(
 
     const { deliveryStatus, deliveryNote, partialQuantity } = parsed.data;
 
+    // Fetch manifest order link
     const [link] = await db
       .select()
       .from(shippingManifestOrdersTable)
@@ -354,10 +360,22 @@ router.patch(
       return;
     }
 
-    const isDelivered =
-      deliveryStatus === "delivered" ||
-      deliveryStatus === "partial_received";
+    // Fetch current order (needed for inventory transitions)
+    const [existingOrder] = await db
+      .select()
+      .from(ordersTable)
+      .where(eq(ordersTable.id, orderId));
+    if (!existingOrder) {
+      res.status(404).json({ error: "الطلب غير موجود" });
+      return;
+    }
 
+    const oldStatus = existingOrder.status;
+    const newStatus = STATUS_MAP[deliveryStatus] ?? "in_shipping";
+    const isDelivered =
+      deliveryStatus === "delivered" || deliveryStatus === "partial_received";
+
+    // 1. Update manifest order row
     await db
       .update(shippingManifestOrdersTable)
       .set({
@@ -367,17 +385,76 @@ router.patch(
       })
       .where(eq(shippingManifestOrdersTable.id, link.id));
 
-    const orderUpdate: Record<string, unknown> = {
-      status: STATUS_MAP[deliveryStatus] ?? "in_shipping",
-    };
+    // 2. Update order status in orders table
+    const orderUpdate: Record<string, unknown> = { status: newStatus };
     if (deliveryStatus === "partial_received" && partialQuantity) {
       orderUpdate.partialQuantity = partialQuantity;
     }
-
     await db
       .update(ordersTable)
       .set(orderUpdate)
       .where(eq(ordersTable.id, orderId));
+
+    // 3. Apply inventory transitions (mirrors orders.ts logic)
+    if (newStatus !== oldStatus) {
+      const orderRef = {
+        variantId: existingOrder.variantId,
+        productId: existingOrder.productId,
+        product: existingOrder.product,
+        color: existingOrder.color,
+        size: existingOrder.size,
+      };
+
+      if (deliveryStatus === "delivered") {
+        // received: deduct full qty (accounting for any prior partial delivery)
+        if (oldStatus === "partial_received") {
+          const alreadyDeducted = existingOrder.partialQuantity ?? 0;
+          const remainder = existingOrder.quantity - alreadyDeducted;
+          if (remainder > 0)
+            await processDelivery(orderRef, remainder, "sale", orderId);
+        } else if (oldStatus !== "received") {
+          await processDelivery(
+            orderRef,
+            existingOrder.quantity,
+            "sale",
+            orderId
+          );
+        }
+      } else if (deliveryStatus === "partial_received") {
+        const newPartial = partialQuantity ?? 0;
+        const oldPartial =
+          (oldStatus === "partial_received"
+            ? existingOrder.partialQuantity
+            : 0) ?? 0;
+        const delta = newPartial - oldPartial;
+        if (delta > 0)
+          await processDelivery(orderRef, delta, "partial_sale", orderId);
+        else if (delta < 0)
+          await reverseDelivery(orderRef, Math.abs(delta), orderId);
+      } else if (deliveryStatus === "returned") {
+        // Return: restore stock only if the order was previously delivered
+        const wasFullyDelivered = oldStatus === "received";
+        const wasPartiallyDelivered = oldStatus === "partial_received";
+        const returnQty = wasPartiallyDelivered
+          ? (existingOrder.partialQuantity ?? existingOrder.quantity)
+          : existingOrder.quantity;
+        await processReturn(
+          { ...orderRef, quantity: returnQty },
+          wasFullyDelivered || wasPartiallyDelivered,
+          false, // not damaged — return to stock
+          orderId
+        );
+      } else {
+        // postponed / pending — reverse any previous delivery
+        if (oldStatus === "received") {
+          await reverseDelivery(orderRef, existingOrder.quantity, orderId);
+        } else if (oldStatus === "partial_received") {
+          const deducted = existingOrder.partialQuantity ?? 0;
+          if (deducted > 0)
+            await reverseDelivery(orderRef, deducted, orderId);
+        }
+      }
+    }
 
     res.json({ success: true, deliveryStatus, deliveryNote: deliveryNote ?? null });
   }
