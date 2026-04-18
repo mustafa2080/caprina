@@ -202,14 +202,101 @@ export interface FinancialSummary {
   returnCount: number;
   returnRate: number;
   totalOrders: number;
+  completedOrders: number;
+  avgProfitPerOrder: number;
+  avgOrderValue: number;
+  avgCostPerOrder: number;
   inventoryAtCost: number;
   inventoryAtSell: number;
   potentialInventoryProfit: number;
 }
 
+export interface ProductPerformance {
+  name: string;
+  productId: number | null;
+  totalOrders: number;
+  completedOrders: number;
+  totalSalesQty: number;
+  totalRevenue: number;
+  totalCost: number;
+  totalShipping: number;
+  returnCount: number;
+  returnCostLoss: number;
+  netProfit: number;
+  avgSalePrice: number;
+  margin: number;
+  returnRate: number;
+  roi: number;
+}
+
+export interface ProductPerformanceResponse {
+  products: ProductPerformance[];
+  byProfit: ProductPerformance[];
+  byLoss: ProductPerformance[];
+  byReturns: ProductPerformance[];
+  summary: {
+    totalProducts: number;
+    profitableCount: number;
+    losingCount: number;
+    highReturnCount: number;
+    totalNetProfit: number;
+    totalRevenue: number;
+  };
+}
+
+export type AlertType = "HIGH_RETURN" | "LOSING_PRODUCT" | "LOW_STOCK" | "LOW_MARGIN" | "STALE_STOCK" | "NO_COST_DATA";
+export type AlertSeverity = "high" | "medium" | "low";
+
+export interface Alert {
+  id: string;
+  type: AlertType;
+  severity: AlertSeverity;
+  title: string;
+  detail: string;
+  productName?: string;
+  value?: number;
+}
+
+export interface AlertsResponse {
+  alerts: Alert[];
+  counts: { total: number; high: number; medium: number; low: number };
+}
+
+export type StockCategory = "out" | "fast" | "medium" | "slow" | "stale";
+
+export interface StockIntelligenceItem {
+  name: string;
+  productId: number | null;
+  availableQty: number;
+  reservedQty: number;
+  soldQty: number;
+  costPrice: number;
+  unitPrice: number;
+  last30DaysSales: number;
+  velocityPerDay: number;
+  daysUntilStockout: number | null;
+  category: StockCategory;
+  frozenCapital: number;
+  potentialRevenue: number;
+}
+
+export interface StockIntelligenceResponse {
+  items: StockIntelligenceItem[];
+  summary: {
+    totalProducts: number;
+    fastMovers: number;
+    slowMovers: number;
+    outOfStock: number;
+    totalFrozenCapital: number;
+  };
+}
+
 export const analyticsApi = {
   profit: () => apiFetch<ProfitAnalytics>("/analytics/profit"),
   financialSummary: () => apiFetch<FinancialSummary>("/analytics/financial-summary"),
+  productPerformance: () => apiFetch<ProductPerformanceResponse>("/analytics/product-performance"),
+  alerts: () => apiFetch<AlertsResponse>("/analytics/alerts"),
+  stockIntelligence: () => apiFetch<StockIntelligenceResponse>("/analytics/stock-intelligence"),
 };
 
 export const ordersApi = {

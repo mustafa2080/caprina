@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { productsApi, variantsApi, type Product, type ProductVariant } from "@/lib/api";
+import { productsApi, variantsApi, analyticsApi, type Product, type ProductVariant, type StockIntelligenceItem } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -69,6 +69,11 @@ export default function Inventory() {
 
   const { data: products, isLoading } = useQuery({ queryKey: ["products"], queryFn: productsApi.list });
   const { data: allVariants } = useQuery({ queryKey: ["variants"], queryFn: variantsApi.listAll });
+  const { data: stockIntel } = useQuery({ queryKey: ["stock-intelligence"], queryFn: analyticsApi.stockIntelligence, staleTime: 60000 });
+
+  const stockMap = new Map<string, StockIntelligenceItem>(
+    stockIntel?.items.map(i => [i.name.trim().toLowerCase(), i]) ?? []
+  );
 
   const createProductMutation = useMutation({
     mutationFn: (data: typeof emptyProductForm) => productsApi.create({ ...data, totalQuantity: 0 }),
@@ -206,6 +211,31 @@ export default function Inventory() {
         </Card>
       </div>
 
+      {/* Stock Intelligence Summary */}
+      {stockIntel && (stockIntel.summary.fastMovers > 0 || stockIntel.summary.slowMovers > 0 || stockIntel.summary.totalFrozenCapital > 0) && (
+        <div className="flex items-center gap-4 rounded-lg border border-border bg-card/50 px-4 py-2.5 text-xs flex-wrap">
+          <span className="text-muted-foreground font-semibold">ذكاء المخزون:</span>
+          {stockIntel.summary.fastMovers > 0 && (
+            <span className="flex items-center gap-1 text-red-400 font-bold">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+              {stockIntel.summary.fastMovers} سريع النفاد (أقل من 7 أيام)
+            </span>
+          )}
+          {stockIntel.summary.slowMovers > 0 && (
+            <span className="flex items-center gap-1 text-muted-foreground">
+              <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground" />
+              {stockIntel.summary.slowMovers} بطيء الحركة
+            </span>
+          )}
+          {stockIntel.summary.totalFrozenCapital > 0 && (
+            <span className="text-amber-400/80">{fc(stockIntel.summary.totalFrozenCapital)} رأسمال متجمد</span>
+          )}
+          {stockIntel.summary.outOfStock > 0 && (
+            <span className="text-red-400/80">{stockIntel.summary.outOfStock} نفد مخزونه</span>
+          )}
+        </div>
+      )}
+
       {/* Search */}
       <div className="relative">
         <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
@@ -229,6 +259,7 @@ export default function Inventory() {
             const availableStock = variants.reduce((s, v) => s + Math.max(0, v.totalQuantity - v.reservedQuantity - v.soldQuantity), 0);
             const hasLowStock = variants.some(v => (v.totalQuantity - v.reservedQuantity - v.soldQuantity) <= v.lowStockThreshold);
             const productMargin = calcMargin(product.unitPrice, product.costPrice);
+            const intel = stockMap.get(product.name.trim().toLowerCase());
             const productValue = variants.reduce((s, v) => {
               const avail = Math.max(0, v.totalQuantity - v.reservedQuantity - v.soldQuantity);
               return s + avail * (v.costPrice ?? product.costPrice ?? product.unitPrice * 0.6);
@@ -262,6 +293,18 @@ export default function Inventory() {
                           <span className="text-[10px] text-amber-400">تكلفة: {fc(product.costPrice)}</span>
                         ) : null}
                         <MarginBadge margin={productMargin} />
+                        {intel && intel.velocityPerDay > 0 && (
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${
+                            intel.category === "fast" ? "border-red-800 text-red-400 bg-red-900/10"
+                            : intel.category === "medium" ? "border-amber-800 text-amber-400 bg-amber-900/10"
+                            : "border-border text-muted-foreground"
+                          }`}>
+                            {intel.daysUntilStockout === 0 ? "نفد" : intel.daysUntilStockout !== null ? `${intel.daysUntilStockout}ي للنفاد` : `${intel.velocityPerDay}/يوم`}
+                          </span>
+                        )}
+                        {intel && intel.frozenCapital > 0 && (intel.category === "slow" || intel.category === "stale") && (
+                          <span className="text-[9px] text-muted-foreground/60">{fc(intel.frozenCapital)} متجمد</span>
+                        )}
                       </div>
                     </div>
                   </div>

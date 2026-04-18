@@ -40,7 +40,10 @@ A full-stack order management system for CAPRINA, an artisan goods company. Buil
 - **Auto-populate costPrice**: On order creation, if costPrice not provided, it's auto-fetched from the linked variant or product.
 - **Analytics Endpoints**:
   - `GET /api/analytics/profit` — period stats (today/week/month/allTime), topProducts, losingProducts, inventoryValue
-  - `GET /api/analytics/financial-summary` — comprehensive P&L: cashIn, costOfGoods, shippingSpend, grossProfit/margin, netProfit/margin, returnLoss, returnRevLost, pendingRevenue, inventoryAtCost, inventoryAtSell, potentialInventoryProfit
+  - `GET /api/analytics/financial-summary` — comprehensive P&L + order metrics (avgProfitPerOrder, avgOrderValue, avgCostPerOrder)
+  - `GET /api/analytics/product-performance` — full per-product: revenue, profit, returnCostLoss, netProfit, margin, ROI, returnRate, avgSalePrice; sorted byProfit/byLoss/byReturns
+  - `GET /api/analytics/alerts` — smart alerts engine: HIGH_RETURN, LOSING_PRODUCT, LOW_STOCK, LOW_MARGIN, NO_COST_DATA; severity high/medium/low
+  - `GET /api/analytics/stock-intelligence` — stock velocity (units/day last 30d), daysUntilStockout, category (fast/medium/slow/stale/out), frozenCapital
 - **Cost Fields**: Orders have `costPrice` (per unit) and `shippingCost` (per order). Products have `costPrice`. Variants have `costPrice`.
 
 ## Data Model

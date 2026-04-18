@@ -5,10 +5,6 @@ import { eq } from "drizzle-orm";
 const router: IRouter = Router();
 
 // ─── Dynamic cost resolver ──────────────────────────────────────────────────────
-// For each order, we use the CURRENT cost from the linked product/variant.
-// If no product/variant linked (or cost not set there), we fall back to order's own costPrice.
-// This means changing a product's cost price automatically updates all profit calculations.
-
 function resolveCost(
   order: { costPrice: number | null; variantId: number | null; productId: number | null },
   variantMap: Map<number, number | null>,
@@ -53,7 +49,6 @@ function calcOrderProfit(
     const cost = order.quantity * resolvedCost;
     return { revenue: 0, cost, shippingCost: sc, netProfit: -(cost + sc) };
   }
-  // pending / in_shipping / delayed — projected
   const revenue = order.quantity * order.unitPrice;
   const cost = order.quantity * resolvedCost;
   return { revenue, cost, shippingCost: sc, netProfit: revenue - cost - sc };
@@ -108,17 +103,14 @@ router.get("/analytics/profit", async (_req, res): Promise<void> => {
     db.select().from(productVariantsTable),
   ]);
 
-  // Build lookup maps: current cost from products/variants
   const variantMap = new Map<number, number | null>(variants.map(v => [v.id, v.costPrice]));
   const productMap = new Map<number, number | null>(products.map(p => [p.id, p.costPrice]));
 
-  // Period stats
   const today = periodStats(filterByPeriod(allOrders, startOfToday), variantMap, productMap);
   const week = periodStats(filterByPeriod(allOrders, startOfWeek), variantMap, productMap);
   const month = periodStats(filterByPeriod(allOrders, startOfMonth), variantMap, productMap);
   const allTime = periodStats(allOrders, variantMap, productMap);
 
-  // Top products by profit
   const productProfitMap: Record<string, {
     name: string; revenue: number; cost: number; profit: number;
     quantity: number; orderCount: number; returnCount: number;
@@ -163,7 +155,6 @@ router.get("/analytics/profit", async (_req, res): Promise<void> => {
     .sort((a, b) => b.returnRate - a.returnRate)
     .slice(0, 5);
 
-  // Inventory value: use variants first, fall back to product-level
   const variantInventoryValue = variants.reduce((s, v) => {
     const avail = Math.max(0, v.totalQuantity - v.reservedQuantity - v.soldQuantity);
     return s + avail * (v.costPrice ?? 0);
@@ -186,7 +177,6 @@ router.get("/analytics/profit", async (_req, res): Promise<void> => {
 });
 
 // ─── GET /api/analytics/financial-summary ──────────────────────────────────────
-// Comprehensive financial view: real money in/out, net profit, losses from returns
 router.get("/analytics/financial-summary", async (_req, res): Promise<void> => {
   const [allOrders, products, variants] = await Promise.all([
     db.select().from(ordersTable),
@@ -197,30 +187,35 @@ router.get("/analytics/financial-summary", async (_req, res): Promise<void> => {
   const variantMap = new Map<number, number | null>(variants.map(v => [v.id, v.costPrice]));
   const productMap = new Map<number, number | null>(products.map(p => [p.id, p.costPrice]));
 
-  let cashIn = 0;         // actual money received (received orders)
-  let costOfGoods = 0;    // total cost of goods sold
-  let shippingSpend = 0;  // total shipping paid
-  let returnLoss = 0;     // loss from returns (cost + shipping on returned orders)
-  let returnRevLost = 0;  // revenue that was expected but lost to returns
-  let pendingRevenue = 0; // money in pipeline (pending/in_shipping orders)
+  let cashIn = 0, costOfGoods = 0, shippingSpend = 0;
+  let returnLoss = 0, returnRevLost = 0, pendingRevenue = 0;
+
+  const completedOrders: Array<{ profit: number; value: number; cost: number }> = [];
 
   for (const o of allOrders) {
     const rc = resolveCost(o, variantMap, productMap);
     const sc = o.shippingCost ?? 0;
 
     if (o.status === "received") {
-      cashIn += o.quantity * o.unitPrice;
-      costOfGoods += o.quantity * rc;
+      const revenue = o.quantity * o.unitPrice;
+      const cost = o.quantity * rc;
+      cashIn += revenue;
+      costOfGoods += cost;
       shippingSpend += sc;
+      completedOrders.push({ profit: revenue - cost - sc, value: revenue, cost: cost + sc });
     } else if (o.status === "partial_received") {
       const qty = o.partialQuantity ?? o.quantity;
-      cashIn += qty * o.unitPrice;
-      costOfGoods += qty * rc;
+      const revenue = qty * o.unitPrice;
+      const cost = qty * rc;
+      cashIn += revenue;
+      costOfGoods += cost;
       shippingSpend += sc;
+      completedOrders.push({ profit: revenue - cost - sc, value: revenue, cost: cost + sc });
     } else if (o.status === "returned") {
-      costOfGoods += o.quantity * rc;
+      const cost = o.quantity * rc;
+      costOfGoods += cost;
       shippingSpend += sc;
-      returnLoss += (o.quantity * rc) + sc;
+      returnLoss += cost + sc;
       returnRevLost += o.quantity * o.unitPrice;
     } else if (o.status === "pending" || o.status === "in_shipping" || o.status === "delayed") {
       pendingRevenue += o.quantity * o.unitPrice;
@@ -232,7 +227,17 @@ router.get("/analytics/financial-summary", async (_req, res): Promise<void> => {
   const grossMargin = cashIn > 0 ? Math.round((grossProfit / cashIn) * 100) : 0;
   const netMargin = cashIn > 0 ? Math.round((netProfit / cashIn) * 100) : 0;
 
-  // Inventory value
+  // Order metrics
+  const avgProfitPerOrder = completedOrders.length > 0
+    ? Math.round(completedOrders.reduce((s, o) => s + o.profit, 0) / completedOrders.length)
+    : 0;
+  const avgOrderValue = completedOrders.length > 0
+    ? Math.round(completedOrders.reduce((s, o) => s + o.value, 0) / completedOrders.length)
+    : 0;
+  const avgCostPerOrder = completedOrders.length > 0
+    ? Math.round(completedOrders.reduce((s, o) => s + o.cost, 0) / completedOrders.length)
+    : 0;
+
   const inventoryAtCost = variants.reduce((s, v) => {
     const avail = Math.max(0, v.totalQuantity - v.reservedQuantity - v.soldQuantity);
     return s + avail * (v.costPrice ?? 0);
@@ -253,22 +258,394 @@ router.get("/analytics/financial-summary", async (_req, res): Promise<void> => {
   const returnRate = allOrders.length > 0 ? Math.round((returnCount / allOrders.length) * 100) : 0;
 
   res.json({
-    cashIn,
-    costOfGoods,
-    shippingSpend,
-    grossProfit,
-    grossMargin,
-    netProfit,
-    netMargin,
-    returnLoss,
-    returnRevLost,
-    pendingRevenue,
-    returnCount,
-    returnRate,
+    cashIn, costOfGoods, shippingSpend, grossProfit, grossMargin, netProfit, netMargin,
+    returnLoss, returnRevLost, pendingRevenue, returnCount, returnRate,
     totalOrders: allOrders.length,
-    inventoryAtCost,
-    inventoryAtSell,
+    completedOrders: completedOrders.length,
+    avgProfitPerOrder, avgOrderValue, avgCostPerOrder,
+    inventoryAtCost, inventoryAtSell,
     potentialInventoryProfit: inventoryAtSell - inventoryAtCost,
+  });
+});
+
+// ─── GET /api/analytics/product-performance ─────────────────────────────────────
+// Full per-product breakdown: revenue, profit, returns, margin, avg price
+router.get("/analytics/product-performance", async (_req, res): Promise<void> => {
+  const [allOrders, products, variants] = await Promise.all([
+    db.select().from(ordersTable),
+    db.select().from(productsTable),
+    db.select().from(productVariantsTable),
+  ]);
+
+  const variantMap = new Map<number, number | null>(variants.map(v => [v.id, v.costPrice]));
+  const productMap = new Map<number, number | null>(products.map(p => [p.id, p.costPrice]));
+  // productId lookup by name
+  const productIdByName = new Map<string, number>(products.map(p => [p.name.trim().toLowerCase(), p.id]));
+
+  type ProductStats = {
+    name: string;
+    productId: number | null;
+    totalOrders: number;
+    completedOrders: number;
+    totalSalesQty: number;
+    totalRevenue: number;
+    totalCost: number;
+    totalShipping: number;
+    returnCount: number;
+    returnCostLoss: number;
+    netProfit: number;
+    avgSalePrice: number;
+    margin: number;
+    returnRate: number;
+    roi: number;
+  };
+
+  const statsMap = new Map<string, Omit<ProductStats, "avgSalePrice" | "margin" | "returnRate" | "roi">>();
+
+  for (const o of allOrders) {
+    const key = o.product.trim();
+    if (!statsMap.has(key)) {
+      const pid = o.productId ?? productIdByName.get(key.toLowerCase()) ?? null;
+      statsMap.set(key, {
+        name: key, productId: pid,
+        totalOrders: 0, completedOrders: 0, totalSalesQty: 0,
+        totalRevenue: 0, totalCost: 0, totalShipping: 0,
+        returnCount: 0, returnCostLoss: 0, netProfit: 0,
+      });
+    }
+
+    const s = statsMap.get(key)!;
+    const rc = resolveCost(o, variantMap, productMap);
+    const sc = o.shippingCost ?? 0;
+    s.totalOrders++;
+
+    if (o.status === "received") {
+      const qty = o.quantity;
+      const rev = qty * o.unitPrice;
+      const cost = qty * rc;
+      s.completedOrders++;
+      s.totalSalesQty += qty;
+      s.totalRevenue += rev;
+      s.totalCost += cost;
+      s.totalShipping += sc;
+      s.netProfit += rev - cost - sc;
+    } else if (o.status === "partial_received") {
+      const qty = o.partialQuantity ?? o.quantity;
+      const rev = qty * o.unitPrice;
+      const cost = qty * rc;
+      s.completedOrders++;
+      s.totalSalesQty += qty;
+      s.totalRevenue += rev;
+      s.totalCost += cost;
+      s.totalShipping += sc;
+      s.netProfit += rev - cost - sc;
+    } else if (o.status === "returned") {
+      const cost = o.quantity * rc;
+      s.returnCount++;
+      s.totalCost += cost;
+      s.totalShipping += sc;
+      s.returnCostLoss += cost + sc;
+      s.netProfit -= cost + sc;
+    }
+  }
+
+  const productList: ProductStats[] = Array.from(statsMap.values()).map(s => {
+    const avgSalePrice = s.totalSalesQty > 0 ? Math.round(s.totalRevenue / s.totalSalesQty) : 0;
+    const margin = s.totalRevenue > 0 ? Math.round((s.netProfit / s.totalRevenue) * 100) : 0;
+    const returnRate = s.totalOrders > 0 ? Math.round((s.returnCount / s.totalOrders) * 100) : 0;
+    const roi = s.totalCost > 0 ? Math.round((s.netProfit / s.totalCost) * 100) : 0;
+    return { ...s, avgSalePrice, margin, returnRate, roi };
+  });
+
+  // Sort variants: by profit desc, by loss asc, by return rate desc
+  const byProfit = [...productList].sort((a, b) => b.netProfit - a.netProfit);
+  const byLoss = [...productList].filter(p => p.netProfit < 0).sort((a, b) => a.netProfit - b.netProfit);
+  const byReturns = [...productList]
+    .filter(p => p.returnCount > 0)
+    .sort((a, b) => b.returnRate - a.returnRate || b.returnCount - a.returnCount);
+
+  res.json({
+    products: byProfit,
+    byProfit,
+    byLoss,
+    byReturns,
+    summary: {
+      totalProducts: productList.length,
+      profitableCount: productList.filter(p => p.netProfit > 0).length,
+      losingCount: productList.filter(p => p.netProfit < 0).length,
+      highReturnCount: productList.filter(p => p.returnRate >= 30).length,
+      totalNetProfit: productList.reduce((s, p) => s + p.netProfit, 0),
+      totalRevenue: productList.reduce((s, p) => s + p.totalRevenue, 0),
+    },
+  });
+});
+
+// ─── GET /api/analytics/alerts ──────────────────────────────────────────────────
+// Smart automatic alerts: high returns, losing products, low stock, low margin
+router.get("/analytics/alerts", async (_req, res): Promise<void> => {
+  const [allOrders, products, variants] = await Promise.all([
+    db.select().from(ordersTable),
+    db.select().from(productsTable),
+    db.select().from(productVariantsTable),
+  ]);
+
+  const variantMap = new Map<number, number | null>(variants.map(v => [v.id, v.costPrice]));
+  const productMap = new Map<number, number | null>(products.map(p => [p.id, p.costPrice]));
+
+  type Alert = {
+    id: string;
+    type: "HIGH_RETURN" | "LOSING_PRODUCT" | "LOW_STOCK" | "LOW_MARGIN" | "STALE_STOCK" | "NO_COST_DATA";
+    severity: "high" | "medium" | "low";
+    title: string;
+    detail: string;
+    productName?: string;
+    value?: number;
+  };
+
+  const alerts: Alert[] = [];
+
+  // Build product stats for alerts
+  const statsMap = new Map<string, { name: string; orders: number; returned: number; revenue: number; profit: number; costMissing: boolean }>();
+
+  for (const o of allOrders) {
+    const key = o.product.trim();
+    if (!statsMap.has(key)) {
+      statsMap.set(key, { name: key, orders: 0, returned: 0, revenue: 0, profit: 0, costMissing: false });
+    }
+    const s = statsMap.get(key)!;
+    const rc = resolveCost(o, variantMap, productMap);
+    if (rc === 0) s.costMissing = true;
+
+    s.orders++;
+    if (o.status === "returned") {
+      s.returned++;
+      s.profit -= (o.quantity * rc) + (o.shippingCost ?? 0);
+    } else if (o.status === "received" || o.status === "partial_received") {
+      const qty = o.status === "partial_received" ? (o.partialQuantity ?? o.quantity) : o.quantity;
+      const rev = qty * o.unitPrice;
+      const cost = qty * rc;
+      const sc = o.shippingCost ?? 0;
+      s.revenue += rev;
+      s.profit += rev - cost - sc;
+    }
+  }
+
+  for (const [, s] of statsMap) {
+    const returnRate = s.orders > 0 ? (s.returned / s.orders) * 100 : 0;
+    const margin = s.revenue > 0 ? (s.profit / s.revenue) * 100 : 0;
+
+    // Alert: high return rate (>= 30%, min 2 orders)
+    if (s.orders >= 2 && returnRate >= 30) {
+      alerts.push({
+        id: `high_return_${s.name}`,
+        type: "HIGH_RETURN",
+        severity: returnRate >= 50 ? "high" : "medium",
+        title: `نسبة إرجاع عالية`,
+        detail: `${s.name} — ${Math.round(returnRate)}% مرتجع (${s.returned} من ${s.orders} طلب)`,
+        productName: s.name,
+        value: Math.round(returnRate),
+      });
+    }
+
+    // Alert: losing product (negative profit, at least 1 completed order)
+    if (s.profit < 0 && s.orders - s.returned > 0) {
+      alerts.push({
+        id: `losing_${s.name}`,
+        type: "LOSING_PRODUCT",
+        severity: s.profit < -500 ? "high" : "medium",
+        title: `منتج خاسر`,
+        detail: `${s.name} — خسارة ${Math.abs(Math.round(s.profit))} ج.م`,
+        productName: s.name,
+        value: Math.round(s.profit),
+      });
+    }
+
+    // Alert: low margin (<= 10% and > 0, has sales)
+    if (s.revenue > 0 && margin > 0 && margin <= 10) {
+      alerts.push({
+        id: `low_margin_${s.name}`,
+        type: "LOW_MARGIN",
+        severity: "low",
+        title: `هامش ربح منخفض`,
+        detail: `${s.name} — هامش ${Math.round(margin)}% فقط`,
+        productName: s.name,
+        value: Math.round(margin),
+      });
+    }
+
+    // Alert: no cost data (orders exist but cost unknown)
+    if (s.costMissing && s.orders > 0) {
+      alerts.push({
+        id: `no_cost_${s.name}`,
+        type: "NO_COST_DATA",
+        severity: "low",
+        title: `بيانات تكلفة ناقصة`,
+        detail: `${s.name} — لا يوجد سعر تكلفة، الأرباح غير دقيقة`,
+        productName: s.name,
+      });
+    }
+  }
+
+  // Low stock alerts (products + variants)
+  for (const p of products) {
+    const avail = p.totalQuantity - p.reservedQuantity - p.soldQuantity;
+    if (avail <= p.lowStockThreshold && p.totalQuantity > 0) {
+      alerts.push({
+        id: `low_stock_p_${p.id}`,
+        type: "LOW_STOCK",
+        severity: avail <= 0 ? "high" : "medium",
+        title: avail <= 0 ? `نفد المخزون` : `مخزون منخفض`,
+        detail: `${p.name} — ${avail <= 0 ? "نفد الستوك" : `باقي ${avail} وحدة`}`,
+        productName: p.name,
+        value: avail,
+      });
+    }
+  }
+
+  for (const v of variants) {
+    const avail = v.totalQuantity - v.reservedQuantity - v.soldQuantity;
+    if (avail <= v.lowStockThreshold && v.totalQuantity > 0) {
+      const label = [v.color, v.size].filter(Boolean).join(" / ");
+      alerts.push({
+        id: `low_stock_v_${v.id}`,
+        type: "LOW_STOCK",
+        severity: avail <= 0 ? "high" : "medium",
+        title: avail <= 0 ? `نفد المخزون` : `مخزون منخفض`,
+        detail: `متغير ${label} — ${avail <= 0 ? "نفد الستوك" : `باقي ${avail} وحدة`}`,
+        value: avail,
+      });
+    }
+  }
+
+  // Sort: high → medium → low
+  const severityOrder = { high: 0, medium: 1, low: 2 };
+  alerts.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+
+  res.json({
+    alerts,
+    counts: {
+      total: alerts.length,
+      high: alerts.filter(a => a.severity === "high").length,
+      medium: alerts.filter(a => a.severity === "medium").length,
+      low: alerts.filter(a => a.severity === "low").length,
+    },
+  });
+});
+
+// ─── GET /api/analytics/stock-intelligence ──────────────────────────────────────
+// Stock velocity (units/day), days until stockout, frozen capital
+router.get("/analytics/stock-intelligence", async (_req, res): Promise<void> => {
+  const [allOrders, products, variants] = await Promise.all([
+    db.select().from(ordersTable),
+    db.select().from(productsTable),
+    db.select().from(productVariantsTable),
+  ]);
+
+  const variantMap = new Map<number, number | null>(variants.map(v => [v.id, v.costPrice]));
+  const productMap = new Map<number, number | null>(products.map(p => [p.id, p.costPrice]));
+
+  // Calculate sales velocity per product name
+  // Use last 30 days sold qty to estimate daily velocity
+  const now = new Date();
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+  // Days since first order per product (to determine active period)
+  const firstOrderDate = new Map<string, Date>();
+  const last30DaysSales = new Map<string, number>();
+  const allTimeSales = new Map<string, number>();
+
+  for (const o of allOrders) {
+    const key = o.product.trim();
+    const oDate = new Date(o.createdAt);
+
+    if (!firstOrderDate.has(key) || oDate < firstOrderDate.get(key)!) {
+      firstOrderDate.set(key, oDate);
+    }
+
+    if (o.status === "received" || o.status === "partial_received") {
+      const qty = o.status === "partial_received" ? (o.partialQuantity ?? o.quantity) : o.quantity;
+      allTimeSales.set(key, (allTimeSales.get(key) ?? 0) + qty);
+      if (oDate >= thirtyDaysAgo) {
+        last30DaysSales.set(key, (last30DaysSales.get(key) ?? 0) + qty);
+      }
+    }
+  }
+
+  type StockItem = {
+    name: string;
+    productId: number | null;
+    availableQty: number;
+    reservedQty: number;
+    soldQty: number;
+    costPrice: number;
+    unitPrice: number;
+    last30DaysSales: number;
+    velocityPerDay: number;      // units sold per day (last 30d)
+    daysUntilStockout: number | null; // null = never sold / infinite
+    category: "out" | "fast" | "medium" | "slow" | "stale";
+    frozenCapital: number;       // availableQty × costPrice
+    potentialRevenue: number;    // availableQty × unitPrice
+  };
+
+  const items: StockItem[] = products.map(p => {
+    const key = p.name.trim();
+    const avail = Math.max(0, p.totalQuantity - p.reservedQuantity - p.soldQuantity);
+    const sold30 = last30DaysSales.get(key) ?? 0;
+    const costPrice = (productMap.get(p.id) ?? 0);
+
+    // Velocity: avg per day over last 30 days
+    const velocity = sold30 / 30;
+
+    let daysUntilStockout: number | null = null;
+    if (avail <= 0) {
+      daysUntilStockout = 0;
+    } else if (velocity > 0) {
+      daysUntilStockout = Math.round(avail / velocity);
+    }
+
+    let category: StockItem["category"] = "stale";
+    if (avail <= 0) {
+      category = "out";
+    } else if (daysUntilStockout !== null) {
+      if (daysUntilStockout <= 7) category = "fast";
+      else if (daysUntilStockout <= 30) category = "medium";
+      else category = "slow";
+    }
+
+    return {
+      name: key,
+      productId: p.id,
+      availableQty: avail,
+      reservedQty: p.reservedQuantity,
+      soldQty: p.soldQuantity,
+      costPrice,
+      unitPrice: p.unitPrice,
+      last30DaysSales: sold30,
+      velocityPerDay: Math.round(velocity * 100) / 100,
+      daysUntilStockout,
+      category,
+      frozenCapital: avail * costPrice,
+      potentialRevenue: avail * p.unitPrice,
+    };
+  });
+
+  // Sort: fast first (most urgent), then medium, slow, stale, out
+  const categoryOrder = { fast: 0, medium: 1, slow: 2, stale: 3, out: 4 };
+  items.sort((a, b) => categoryOrder[a.category] - categoryOrder[b.category] || b.velocityPerDay - a.velocityPerDay);
+
+  const totalFrozenCapital = items.filter(i => i.category === "slow" || i.category === "stale").reduce((s, i) => s + i.frozenCapital, 0);
+  const totalFastMovers = items.filter(i => i.category === "fast").length;
+  const totalSlowMovers = items.filter(i => i.category === "slow" || i.category === "stale").length;
+
+  res.json({
+    items,
+    summary: {
+      totalProducts: items.length,
+      fastMovers: totalFastMovers,
+      slowMovers: totalSlowMovers,
+      outOfStock: items.filter(i => i.category === "out").length,
+      totalFrozenCapital,
+    },
   });
 });
 

@@ -6,10 +6,10 @@ import { Link } from "wouter";
 import {
   TrendingUp, TrendingDown, DollarSign, Package, AlertCircle,
   Plus, Activity, Boxes, ArrowUpRight, ArrowDownRight,
-  Star, Wallet, BarChart3, ShoppingCart, AlertTriangle, RefreshCw,
+  Star, Wallet, BarChart3, ShoppingCart, AlertTriangle, RefreshCw, Bell,
 } from "lucide-react";
 import {
-  analyticsApi, type PeriodProfit, type ProductProfit, type FinancialSummary,
+  analyticsApi, type PeriodProfit, type ProductProfit, type FinancialSummary, type Alert,
   productsApi,
 } from "@/lib/api";
 
@@ -123,6 +123,14 @@ export default function Dashboard() {
     queryFn: analyticsApi.financialSummary,
     staleTime: 30000,
   });
+  const { data: alertsData } = useQuery({
+    queryKey: ["analytics-alerts"],
+    queryFn: analyticsApi.alerts,
+    staleTime: 30000,
+  });
+
+  const highAlerts = alertsData?.alerts.filter(a => a.severity === "high") ?? [];
+  const allAlerts = alertsData?.alerts ?? [];
 
   const lowStockProducts = products?.filter(p =>
     (p.totalQuantity - p.reservedQuantity - p.soldQuantity) <= p.lowStockThreshold
@@ -227,15 +235,37 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* === LOW STOCK ALERT === */}
-      {lowStockProducts.length > 0 && (
-        <div className="flex items-start gap-3 bg-amber-900/20 border border-amber-800/40 rounded-lg p-3">
-          <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <p className="text-sm font-bold text-amber-400">تنبيه: مخزون منخفض</p>
-            <p className="text-xs text-amber-400/70 mt-0.5">{lowStockProducts.map(p => p.name).join("، ")}</p>
-          </div>
-          <Link href="/inventory" className="text-xs text-primary hover:underline shrink-0 self-center">إدارة المخزون</Link>
+      {/* === SMART ALERTS === */}
+      {allAlerts.length > 0 && (
+        <div className="space-y-1.5">
+          {/* High-severity alerts shown inline */}
+          {highAlerts.map(alert => (
+            <div key={alert.id} className="flex items-center gap-3 bg-red-900/20 border border-red-800/40 rounded-lg p-3">
+              <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-red-400">{alert.title}</p>
+                <p className="text-[11px] text-red-400/70 truncate">{alert.detail}</p>
+              </div>
+              {alert.type === "LOW_STOCK" && (
+                <Link href="/inventory" className="text-xs text-primary hover:underline shrink-0">إدارة</Link>
+              )}
+              {(alert.type === "HIGH_RETURN" || alert.type === "LOSING_PRODUCT") && (
+                <Link href="/product-performance" className="text-xs text-primary hover:underline shrink-0">تحليل</Link>
+              )}
+            </div>
+          ))}
+          {/* Summary row for medium/low alerts */}
+          {alertsData && alertsData.counts.total > highAlerts.length && (
+            <div className="flex items-center gap-3 bg-amber-900/15 border border-amber-800/30 rounded-lg p-2.5">
+              <Bell className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <p className="text-xs text-amber-400/80 flex-1">
+                {alertsData.counts.medium > 0 && `${alertsData.counts.medium} تنبيه متوسط`}
+                {alertsData.counts.medium > 0 && alertsData.counts.low > 0 && " • "}
+                {alertsData.counts.low > 0 && `${alertsData.counts.low} تنبيه منخفض`}
+              </p>
+              <Link href="/product-performance" className="text-xs text-primary hover:underline shrink-0">عرض الكل ←</Link>
+            </div>
+          )}
         </div>
       )}
 
@@ -446,6 +476,55 @@ export default function Dashboard() {
                 <div className="border-t border-border pt-2 flex justify-between text-xs mt-1">
                   <span className="text-muted-foreground font-bold">الإجمالي</span>
                   <span className="font-bold">{summary.totalOrders}</span>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Order metrics */}
+          {fin && fin.completedOrders > 0 && (
+            <Card className="border-border">
+              <CardContent className="p-4">
+                <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-1.5">
+                  <Activity className="w-3 h-3" />مقاييس الطلبات
+                </p>
+                <FinRow label="متوسط ربح الطلب" value={fc(fin.avgProfitPerOrder)} color={fin.avgProfitPerOrder >= 0 ? "text-primary" : "text-red-400"} />
+                <FinRow label="متوسط قيمة الطلب" value={fc(fin.avgOrderValue)} color="text-foreground" />
+                <FinRow label="متوسط تكلفة الطلب" value={fc(fin.avgCostPerOrder)} color="text-amber-400" />
+                <FinRow label="نسبة الإرجاع الكلية" value={`${fin.returnRate}%`} color={fin.returnRate >= 20 ? "text-red-400" : "text-muted-foreground"} />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Smart alerts detail */}
+          {allAlerts.length > 0 && (
+            <Card className="border-border">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                    <Bell className="w-3 h-3" />التنبيهات الذكية
+                  </p>
+                  <Badge variant="outline" className={`text-[9px] ${alertsData?.counts.high ? "border-red-800 text-red-400" : "border-amber-800 text-amber-400"}`}>
+                    {alertsData?.counts.total}
+                  </Badge>
+                </div>
+                <div className="space-y-2">
+                  {allAlerts.slice(0, 5).map(alert => (
+                    <div key={alert.id} className="flex items-start gap-2">
+                      <span className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${
+                        alert.severity === "high" ? "bg-red-400" : alert.severity === "medium" ? "bg-amber-400" : "bg-muted-foreground"
+                      }`} />
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-bold text-foreground truncate">{alert.title}</p>
+                        <p className="text-[9px] text-muted-foreground truncate">{alert.detail}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {allAlerts.length > 5 && (
+                    <Link href="/product-performance" className="text-[10px] text-primary hover:underline block text-center mt-1">
+                      +{allAlerts.length - 5} تنبيه آخر
+                    </Link>
+                  )}
                 </div>
               </CardContent>
             </Card>
