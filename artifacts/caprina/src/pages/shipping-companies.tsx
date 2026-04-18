@@ -92,7 +92,7 @@ function CompanyStats({ companyId }: { companyId: number }) {
   );
 }
 
-function CompanyManifests({ company }: { company: ShippingCompany }) {
+function CompanyManifests({ company, allCompanies }: { company: ShippingCompany; allCompanies: ShippingCompany[] }) {
   const [expanded, setExpanded] = useState(false);
   const [showNewDialog, setShowNewDialog] = useState(false);
   const { data: manifests } = useQuery({
@@ -140,6 +140,7 @@ function CompanyManifests({ company }: { company: ShippingCompany }) {
       {showNewDialog && (
         <CreateManifestDialog
           company={company}
+          allCompanies={allCompanies}
           onClose={() => setShowNewDialog(false)}
         />
       )}
@@ -147,41 +148,62 @@ function CompanyManifests({ company }: { company: ShippingCompany }) {
   );
 }
 
-function CreateManifestDialog({ company, onClose }: { company: ShippingCompany; onClose: () => void }) {
+function CreateManifestDialog({
+  company,
+  allCompanies,
+  onClose,
+}: {
+  company: ShippingCompany;
+  allCompanies: ShippingCompany[];
+  onClose: () => void;
+}) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [notes, setNotes] = useState("");
 
+  const companyMap = useMemo(() => {
+    const m: Record<number, string> = {};
+    for (const c of allCompanies) m[c.id] = c.name;
+    return m;
+  }, [allCompanies]);
+
   const { data: inShippingOrders, isLoading } = useQuery({
-    queryKey: ["orders-in-shipping", company.id],
-    queryFn: () => apiFetch<OrderRow[]>(`/orders?status=in_shipping&shippingCompanyId=${company.id}&limit=200`),
+    queryKey: ["orders-in-shipping-all"],
+    queryFn: () => apiFetch<OrderRow[]>(`/orders?status=in_shipping`),
   });
 
   const createMutation = useMutation({
-    mutationFn: () => manifestsApi.create({
-      shippingCompanyId: company.id,
-      orderIds: Array.from(selectedIds),
-      notes: notes.trim() || undefined,
-    }),
+    mutationFn: () =>
+      manifestsApi.create({
+        shippingCompanyId: company.id,
+        orderIds: Array.from(selectedIds),
+        notes: notes.trim() || undefined,
+      }),
     onSuccess: (manifest) => {
       queryClient.invalidateQueries({ queryKey: ["shipping-manifests", company.id] });
       queryClient.invalidateQueries({ queryKey: ["company-stats", company.id] });
-      toast({ title: "تم إنشاء البيان", description: `${manifest.manifestNumber} — ${manifest.orderCount} طلبية` });
+      queryClient.invalidateQueries({ queryKey: ["orders-in-shipping-all"] });
+      toast({
+        title: "تم إنشاء البيان",
+        description: `${manifest.manifestNumber} — ${manifest.orderCount} طلبية`,
+      });
       onClose();
     },
-    onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
+    onError: (e: any) =>
+      toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
 
   const filtered = useMemo(() => {
     if (!inShippingOrders) return [];
     if (!search.trim()) return inShippingOrders;
     const q = search.toLowerCase();
-    return inShippingOrders.filter(o =>
-      o.customerName.toLowerCase().includes(q) ||
-      o.product.toLowerCase().includes(q) ||
-      (o.phone && o.phone.includes(q))
+    return inShippingOrders.filter(
+      (o) =>
+        o.customerName.toLowerCase().includes(q) ||
+        o.product.toLowerCase().includes(q) ||
+        (o.phone && o.phone.includes(q))
     );
   }, [inShippingOrders, search]);
 
@@ -189,13 +211,16 @@ function CreateManifestDialog({ company, onClose }: { company: ShippingCompany; 
     if (selectedIds.size === filtered.length && filtered.length > 0) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(filtered.map(o => o.id)));
+      setSelectedIds(new Set(filtered.map((o) => o.id)));
     }
   };
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="bg-card border-border max-w-2xl max-h-[85vh] flex flex-col" dir="rtl">
+      <DialogContent
+        className="bg-card border-border max-w-3xl max-h-[90vh] flex flex-col"
+        dir="rtl"
+      >
         <DialogHeader>
           <DialogTitle className="text-right flex items-center gap-2">
             <Truck className="w-4 h-4 text-primary" />
@@ -204,77 +229,148 @@ function CreateManifestDialog({ company, onClose }: { company: ShippingCompany; 
         </DialogHeader>
 
         <div className="flex-1 overflow-hidden flex flex-col gap-3 mt-2">
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute right-2.5 top-2.5 w-3.5 h-3.5 text-muted-foreground" />
-            <Input
-              placeholder="بحث بالاسم / المنتج / الهاتف..."
-              className="h-9 text-sm bg-background pr-8"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
+          {/* Search + counter */}
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute right-2.5 top-2.5 w-3.5 h-3.5 text-muted-foreground" />
+              <Input
+                placeholder="بحث بالاسم / المنتج / الهاتف..."
+                className="h-9 text-sm bg-background pr-8"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            {!isLoading && (
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                {inShippingOrders?.length ?? 0} طلبية قيد الشحن
+              </span>
+            )}
           </div>
 
-          {/* Header row */}
+          {/* Select-all row */}
           {!isLoading && filtered.length > 0 && (
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2">
                 <Checkbox
-                  checked={selectedIds.size === filtered.length && filtered.length > 0}
+                  checked={
+                    selectedIds.size === filtered.length && filtered.length > 0
+                  }
                   onCheckedChange={toggleAll}
                 />
-                <span className="text-xs text-muted-foreground">تحديد الكل ({filtered.length})</span>
+                <span className="text-xs text-muted-foreground">
+                  تحديد الكل ({filtered.length})
+                </span>
               </div>
-              <span className="text-xs font-bold text-primary">{selectedIds.size} محدد</span>
+              <span className="text-xs font-bold text-primary">
+                {selectedIds.size} محدد
+              </span>
             </div>
           )}
 
-          {/* Orders list */}
+          {/* Orders table */}
           <div className="overflow-y-auto flex-1 border border-border rounded-md">
             {isLoading ? (
-              <div className="p-8 text-center text-muted-foreground text-sm animate-pulse">جاري التحميل...</div>
+              <div className="p-8 text-center text-muted-foreground text-sm animate-pulse">
+                جاري تحميل الطلبيات...
+              </div>
             ) : filtered.length === 0 ? (
-              <div className="p-8 text-center">
+              <div className="p-10 text-center">
                 <Truck className="w-8 h-8 mx-auto mb-2 text-muted-foreground opacity-20" />
                 <p className="text-sm text-muted-foreground">
                   {inShippingOrders?.length === 0
-                    ? "لا توجد طلبيات قيد الشحن لهذه الشركة"
-                    : "لا توجد نتائج للبحث"}
+                    ? "لا توجد طلبيات قيد الشحن حالياً"
+                    : "لا توجد نتائج تطابق البحث"}
                 </p>
               </div>
             ) : (
-              <div className="divide-y divide-border">
-                {filtered.map(order => (
-                  <div
-                    key={order.id}
-                    className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-muted/20 transition-colors ${selectedIds.has(order.id) ? "bg-primary/5" : ""}`}
-                    onClick={() => {
-                      const next = new Set(selectedIds);
-                      if (next.has(order.id)) next.delete(order.id);
-                      else next.add(order.id);
-                      setSelectedIds(next);
-                    }}
-                  >
-                    <Checkbox checked={selectedIds.has(order.id)} onCheckedChange={() => {}} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-mono text-muted-foreground">#{order.id.toString().padStart(4, "0")}</span>
-                        <span className="text-xs font-semibold truncate">{order.customerName}</span>
-                        {order.phone && <span className="text-[10px] text-muted-foreground">{order.phone}</span>}
+              <>
+                {/* Table header */}
+                <div className="grid grid-cols-[auto_1fr_1fr_80px_80px_90px] gap-0 border-b border-border bg-muted/20 px-3 py-2 text-[10px] font-semibold text-muted-foreground sticky top-0">
+                  <div className="w-5" />
+                  <div>العميل</div>
+                  <div>المنتج</div>
+                  <div className="text-center">الكمية</div>
+                  <div className="text-left">الإجمالي</div>
+                  <div>شركة الشحن</div>
+                </div>
+                {/* Rows */}
+                {filtered.map((order) => {
+                  const selected = selectedIds.has(order.id);
+                  const assignedCompany = order.shippingCompanyId
+                    ? companyMap[order.shippingCompanyId]
+                    : null;
+                  return (
+                    <div
+                      key={order.id}
+                      className={`grid grid-cols-[auto_1fr_1fr_80px_80px_90px] gap-0 items-center px-3 py-2.5 border-b border-border/50 cursor-pointer hover:bg-muted/20 transition-colors ${selected ? "bg-primary/5 hover:bg-primary/8" : ""}`}
+                      onClick={() => {
+                        const next = new Set(selectedIds);
+                        if (next.has(order.id)) next.delete(order.id);
+                        else next.add(order.id);
+                        setSelectedIds(next);
+                      }}
+                    >
+                      {/* Checkbox */}
+                      <div className="w-5 flex items-center">
+                        <Checkbox
+                          checked={selected}
+                          onCheckedChange={() => {}}
+                        />
                       </div>
-                      <p className="text-[10px] text-muted-foreground truncate">
-                        {order.product}
-                        {(order.color || order.size) && ` — ${[order.color, order.size].filter(Boolean).join(" / ")}`}
-                        {" · "}الكمية: {order.quantity}
-                      </p>
+                      {/* Customer */}
+                      <div className="min-w-0 pr-2">
+                        <p className="text-xs font-semibold truncate">
+                          {order.customerName}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                          <span className="font-mono">
+                            #{order.id.toString().padStart(4, "0")}
+                          </span>
+                          {order.phone && (
+                            <span className="text-muted-foreground/70">
+                              · {order.phone}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                      {/* Product */}
+                      <div className="min-w-0 pr-2">
+                        <p className="text-xs truncate">{order.product}</p>
+                        {(order.color || order.size) && (
+                          <p className="text-[10px] text-muted-foreground truncate">
+                            {[order.color, order.size]
+                              .filter(Boolean)
+                              .join(" / ")}
+                          </p>
+                        )}
+                      </div>
+                      {/* Qty */}
+                      <div className="text-center text-xs font-bold">
+                        {order.quantity}
+                      </div>
+                      {/* Price */}
+                      <div className="text-left text-xs font-bold">
+                        {formatCurrency(order.totalPrice)}
+                      </div>
+                      {/* Assigned company */}
+                      <div>
+                        {assignedCompany ? (
+                          <Badge
+                            variant="outline"
+                            className={`text-[9px] font-bold border truncate max-w-[85px] ${assignedCompany === company.name ? "border-primary/50 bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}
+                          >
+                            {assignedCompany}
+                          </Badge>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground/50">
+                            غير محدد
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-left shrink-0">
-                      <p className="text-xs font-bold">{formatCurrency(order.totalPrice)}</p>
-                      <p className="text-[10px] text-muted-foreground">{format(new Date(order.createdAt), "MM/dd")}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  );
+                })}
+              </>
             )}
           </div>
 
@@ -283,9 +379,9 @@ function CreateManifestDialog({ company, onClose }: { company: ShippingCompany; 
             <Label className="text-xs mb-1.5 block">ملاحظات (اختياري)</Label>
             <Textarea
               placeholder="ملاحظات على البيان..."
-              className="min-h-[55px] text-sm resize-none bg-background"
+              className="min-h-[50px] text-sm resize-none bg-background"
               value={notes}
-              onChange={e => setNotes(e.target.value)}
+              onChange={(e) => setNotes(e.target.value)}
             />
           </div>
 
@@ -296,9 +392,17 @@ function CreateManifestDialog({ company, onClose }: { company: ShippingCompany; 
               onClick={() => createMutation.mutate()}
               disabled={selectedIds.size === 0 || createMutation.isPending}
             >
-              {createMutation.isPending ? "جاري الإنشاء..." : `إنشاء البيان (${selectedIds.size} طلبية)`}
+              {createMutation.isPending
+                ? "جاري الإنشاء..."
+                : `إنشاء البيان (${selectedIds.size} طلبية)`}
             </Button>
-            <Button variant="outline" className="h-9 text-sm border-border" onClick={onClose}>إلغاء</Button>
+            <Button
+              variant="outline"
+              className="h-9 text-sm border-border"
+              onClick={onClose}
+            >
+              إلغاء
+            </Button>
           </div>
         </div>
       </DialogContent>
@@ -414,7 +518,7 @@ export default function ShippingCompanies() {
               </div>
 
               <CompanyStats companyId={company.id} />
-              <CompanyManifests company={company} />
+              <CompanyManifests company={company} allCompanies={companies ?? []} />
             </Card>
           ))}
         </div>
