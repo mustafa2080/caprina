@@ -10,6 +10,7 @@ import analyticsRouter from "./analytics";
 import authRouter from "./auth";
 import usersRouter from "./users";
 import auditRouter from "./audit";
+import manifestsRouter from "./manifests";
 import { requireAuth } from "../middlewares/requireAuth.js";
 
 const router: IRouter = Router();
@@ -29,5 +30,6 @@ router.use(variantsRouter);
 router.use(ordersRouter);
 router.use(productsRouter);
 router.use(shippingRouter);
+router.use(manifestsRouter);
 
 export default router;

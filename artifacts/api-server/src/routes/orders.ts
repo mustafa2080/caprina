@@ -65,6 +65,10 @@ router.get("/orders", async (req, res): Promise<void> => {
   if ((req.query as any).dateFrom) {
     conditions.push(gte(ordersTable.createdAt, new Date((req.query as any).dateFrom as string)));
   }
+  if ((req.query as any).shippingCompanyId) {
+    const cid = parseInt((req.query as any).shippingCompanyId as string);
+    if (!isNaN(cid)) conditions.push(eq(ordersTable.shippingCompanyId, cid));
+  }
 
   if (conditions.length === 1) query = query.where(conditions[0]);
   else if (conditions.length > 1) query = query.where(and(...conditions));

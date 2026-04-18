@@ -15,6 +15,7 @@ import Movements from "@/pages/movements";
 import ProductPerformance from "@/pages/product-performance";
 import UsersPage from "@/pages/users";
 import AuditLogsPage from "@/pages/audit-logs";
+import ShippingManifestPage from "@/pages/shipping-manifest";
 import Login from "@/pages/login";
 import Layout from "@/components/layout";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -66,6 +67,7 @@ function Router() {
         <Route path="/orders/:id" component={OrderDetail} />
         <Route path="/inventory" component={Inventory} />
         <Route path="/shipping" component={ShippingCompanies} />
+        <Route path="/shipping/manifests/:id" component={ShippingManifestPage} />
         <Route path="/invoices" component={Invoices} />
         <Route path="/import" component={Import} />
         <Route path="/movements" component={Movements} />

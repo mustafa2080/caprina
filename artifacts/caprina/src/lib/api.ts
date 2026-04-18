@@ -411,6 +411,57 @@ export interface MovementTotals {
   balance: number;
 }
 
+// ─── Shipping Manifests API ─────────────────────────────────────────────────
+export interface ShippingManifestListItem {
+  id: number;
+  manifestNumber: string;
+  shippingCompanyId: number;
+  companyName: string;
+  status: "open" | "closed";
+  notes: string | null;
+  orderCount: number;
+  createdAt: string;
+  closedAt: string | null;
+}
+
+export interface ManifestStats {
+  total: number;
+  delivered: number;
+  returned: number;
+  pending: number;
+  deliveryRate: number;
+  totalRevenue: number;
+  totalCost: number;
+  totalShippingCost: number;
+  returnLosses: number;
+  netProfit: number;
+}
+
+export interface ManifestCompanyStats extends ManifestStats {
+  manifestCount: number;
+}
+
+export interface ShippingManifestDetail extends ShippingManifestListItem {
+  companyPhone: string | null;
+  orders: Order[];
+  stats: ManifestStats;
+}
+
+export const manifestsApi = {
+  list: (companyId?: number) =>
+    apiFetch<ShippingManifestListItem[]>(`/shipping-manifests${companyId ? `?companyId=${companyId}` : ""}`),
+  get: (id: number) =>
+    apiFetch<ShippingManifestDetail>(`/shipping-manifests/${id}`),
+  create: (data: { shippingCompanyId: number; orderIds: number[]; notes?: string }) =>
+    apiFetch<ShippingManifestListItem>("/shipping-manifests", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: number, data: { status?: "open" | "closed"; notes?: string }) =>
+    apiFetch<ShippingManifestListItem>(`/shipping-manifests/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  delete: (id: number) =>
+    apiFetch<void>(`/shipping-manifests/${id}`, { method: "DELETE" }),
+  companyStats: (companyId: number) =>
+    apiFetch<ManifestCompanyStats>(`/shipping-companies/${companyId}/stats`),
+};
+
 export const movementsApi = {
   list: (filters?: MovementFilters) => {
     const params = new URLSearchParams();

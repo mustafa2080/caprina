@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { shippingApi, type ShippingCompany } from "@/lib/api";
+import { Link } from "wouter";
+import { shippingApi, manifestsApi, type ShippingCompany, type ShippingManifestListItem, type ManifestCompanyStats } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,22 +10,315 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Truck, Edit2, Trash2, Phone, Globe, ToggleLeft, ToggleRight } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Plus, Truck, Edit2, Trash2, Phone, Globe, ToggleLeft, ToggleRight, FileText, TrendingUp, TrendingDown, PackagePlus, ChevronDown, ChevronUp, Clock, CheckCircle2, RotateCcw, Search } from "lucide-react";
+import { format } from "date-fns";
+
+const BASE = "/api";
+function getToken() { return localStorage.getItem("caprina_token"); }
+async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
+  const token = getToken();
+  const authHeader = token ? { Authorization: `Bearer ${token}` } : {};
+  const res = await fetch(`${BASE}${path}`, { headers: { "Content-Type": "application/json", ...authHeader, ...options?.headers }, ...options });
+  if (res.status === 204) return undefined as unknown as T;
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data as T;
+}
+
+type OrderRow = {
+  id: number; customerName: string; phone: string | null;
+  product: string; color: string | null; size: string | null;
+  quantity: number; totalPrice: number; status: string;
+  shippingCompanyId: number | null; createdAt: string;
+};
 
 const emptyForm = { name: "", phone: "", website: "", notes: "", isActive: true };
+const formatCurrency = (n: number) => new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(n);
+
+function DeliveryBar({ rate }: { rate: number }) {
+  const color = rate >= 70 ? "bg-emerald-500" : rate >= 40 ? "bg-amber-500" : "bg-red-500";
+  const textColor = rate >= 70 ? "text-emerald-400" : rate >= 40 ? "text-amber-400" : "text-red-400";
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[10px] text-muted-foreground">نسبة التسليم</span>
+        <span className={`text-xs font-black ${textColor}`}>{rate}%</span>
+      </div>
+      <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+        <div className={`h-1.5 rounded-full ${color}`} style={{ width: `${rate}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function CompanyStats({ companyId }: { companyId: number }) {
+  const { data: stats } = useQuery({
+    queryKey: ["company-stats", companyId],
+    queryFn: () => manifestsApi.companyStats(companyId),
+    staleTime: 30000,
+  });
+  if (!stats) return null;
+  return (
+    <div className="mt-4 pt-4 border-t border-border space-y-3">
+      <DeliveryBar rate={stats.deliveryRate} />
+      <div className="grid grid-cols-3 gap-2 text-center">
+        <div className="bg-muted/20 rounded p-2">
+          <p className="text-[10px] text-muted-foreground">مُسلَّم</p>
+          <p className="text-sm font-black text-emerald-400">{stats.delivered}</p>
+        </div>
+        <div className="bg-muted/20 rounded p-2">
+          <p className="text-[10px] text-muted-foreground">مُرتجَع</p>
+          <p className="text-sm font-black text-red-400">{stats.returned}</p>
+        </div>
+        <div className="bg-muted/20 rounded p-2">
+          <p className="text-[10px] text-muted-foreground">معلّق</p>
+          <p className="text-sm font-black text-amber-400">{stats.pending}</p>
+        </div>
+      </div>
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-muted-foreground">صافي الربح / الخسارة</span>
+        <span className={`font-black ${stats.netProfit >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+          {stats.netProfit >= 0 ? <TrendingUp className="inline w-3 h-3 mr-0.5" /> : <TrendingDown className="inline w-3 h-3 mr-0.5" />}
+          {formatCurrency(Math.abs(stats.netProfit))}
+        </span>
+      </div>
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-muted-foreground">عدد البيانات</span>
+        <span className="font-bold">{stats.manifestCount}</span>
+      </div>
+    </div>
+  );
+}
+
+function CompanyManifests({ company }: { company: ShippingCompany }) {
+  const [expanded, setExpanded] = useState(false);
+  const [showNewDialog, setShowNewDialog] = useState(false);
+  const { data: manifests } = useQuery({
+    queryKey: ["shipping-manifests", company.id],
+    queryFn: () => manifestsApi.list(company.id),
+    enabled: expanded,
+  });
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border">
+        <Button variant="outline" size="sm" className="flex-1 h-7 text-[11px] gap-1 border-border text-muted-foreground" onClick={() => setExpanded(!expanded)}>
+          <FileText className="w-3 h-3" />البيانات
+          {expanded ? <ChevronUp className="w-3 h-3 mr-auto" /> : <ChevronDown className="w-3 h-3 mr-auto" />}
+        </Button>
+        <Button size="sm" className="h-7 text-[11px] gap-1 bg-primary text-primary-foreground hover:bg-primary/90 font-bold" onClick={() => setShowNewDialog(true)}>
+          <PackagePlus className="w-3 h-3" />بيان جديد
+        </Button>
+      </div>
+
+      {expanded && (
+        <div className="mt-2 space-y-1.5">
+          {!manifests ? (
+            <p className="text-xs text-muted-foreground text-center py-3">جاري التحميل...</p>
+          ) : manifests.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-3">لا توجد بيانات شحن بعد</p>
+          ) : (
+            manifests.map(m => (
+              <Link key={m.id} href={`/shipping/manifests/${m.id}`}>
+                <div className="flex items-center justify-between p-2.5 rounded-md bg-muted/20 hover:bg-muted/40 cursor-pointer transition-colors">
+                  <div>
+                    <p className="text-xs font-bold">{m.manifestNumber}</p>
+                    <p className="text-[10px] text-muted-foreground">{format(new Date(m.createdAt), "yyyy/MM/dd")} · {m.orderCount} طلب</p>
+                  </div>
+                  <Badge variant="outline" className={`text-[9px] font-bold border ${m.status === "open" ? "border-blue-700 bg-blue-900/20 text-blue-400" : "border-emerald-700 bg-emerald-900/20 text-emerald-400"}`}>
+                    {m.status === "open" ? "مفتوح" : "مغلق"}
+                  </Badge>
+                </div>
+              </Link>
+            ))
+          )}
+        </div>
+      )}
+
+      {showNewDialog && (
+        <CreateManifestDialog
+          company={company}
+          onClose={() => setShowNewDialog(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function CreateManifestDialog({ company, onClose }: { company: ShippingCompany; onClose: () => void }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [notes, setNotes] = useState("");
+
+  const { data: inShippingOrders, isLoading } = useQuery({
+    queryKey: ["orders-in-shipping", company.id],
+    queryFn: () => apiFetch<OrderRow[]>(`/orders?status=in_shipping&shippingCompanyId=${company.id}&limit=200`),
+  });
+
+  const createMutation = useMutation({
+    mutationFn: () => manifestsApi.create({
+      shippingCompanyId: company.id,
+      orderIds: Array.from(selectedIds),
+      notes: notes.trim() || undefined,
+    }),
+    onSuccess: (manifest) => {
+      queryClient.invalidateQueries({ queryKey: ["shipping-manifests", company.id] });
+      queryClient.invalidateQueries({ queryKey: ["company-stats", company.id] });
+      toast({ title: "تم إنشاء البيان", description: `${manifest.manifestNumber} — ${manifest.orderCount} طلبية` });
+      onClose();
+    },
+    onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
+  });
+
+  const filtered = useMemo(() => {
+    if (!inShippingOrders) return [];
+    if (!search.trim()) return inShippingOrders;
+    const q = search.toLowerCase();
+    return inShippingOrders.filter(o =>
+      o.customerName.toLowerCase().includes(q) ||
+      o.product.toLowerCase().includes(q) ||
+      (o.phone && o.phone.includes(q))
+    );
+  }, [inShippingOrders, search]);
+
+  const toggleAll = () => {
+    if (selectedIds.size === filtered.length && filtered.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map(o => o.id)));
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="bg-card border-border max-w-2xl max-h-[85vh] flex flex-col" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="text-right flex items-center gap-2">
+            <Truck className="w-4 h-4 text-primary" />
+            إنشاء بيان شحن — {company.name}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="flex-1 overflow-hidden flex flex-col gap-3 mt-2">
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute right-2.5 top-2.5 w-3.5 h-3.5 text-muted-foreground" />
+            <Input
+              placeholder="بحث بالاسم / المنتج / الهاتف..."
+              className="h-9 text-sm bg-background pr-8"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+
+          {/* Header row */}
+          {!isLoading && filtered.length > 0 && (
+            <div className="flex items-center justify-between px-1">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  checked={selectedIds.size === filtered.length && filtered.length > 0}
+                  onCheckedChange={toggleAll}
+                />
+                <span className="text-xs text-muted-foreground">تحديد الكل ({filtered.length})</span>
+              </div>
+              <span className="text-xs font-bold text-primary">{selectedIds.size} محدد</span>
+            </div>
+          )}
+
+          {/* Orders list */}
+          <div className="overflow-y-auto flex-1 border border-border rounded-md">
+            {isLoading ? (
+              <div className="p-8 text-center text-muted-foreground text-sm animate-pulse">جاري التحميل...</div>
+            ) : filtered.length === 0 ? (
+              <div className="p-8 text-center">
+                <Truck className="w-8 h-8 mx-auto mb-2 text-muted-foreground opacity-20" />
+                <p className="text-sm text-muted-foreground">
+                  {inShippingOrders?.length === 0
+                    ? "لا توجد طلبيات قيد الشحن لهذه الشركة"
+                    : "لا توجد نتائج للبحث"}
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {filtered.map(order => (
+                  <div
+                    key={order.id}
+                    className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-muted/20 transition-colors ${selectedIds.has(order.id) ? "bg-primary/5" : ""}`}
+                    onClick={() => {
+                      const next = new Set(selectedIds);
+                      if (next.has(order.id)) next.delete(order.id);
+                      else next.add(order.id);
+                      setSelectedIds(next);
+                    }}
+                  >
+                    <Checkbox checked={selectedIds.has(order.id)} onCheckedChange={() => {}} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-mono text-muted-foreground">#{order.id.toString().padStart(4, "0")}</span>
+                        <span className="text-xs font-semibold truncate">{order.customerName}</span>
+                        {order.phone && <span className="text-[10px] text-muted-foreground">{order.phone}</span>}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground truncate">
+                        {order.product}
+                        {(order.color || order.size) && ` — ${[order.color, order.size].filter(Boolean).join(" / ")}`}
+                        {" · "}الكمية: {order.quantity}
+                      </p>
+                    </div>
+                    <div className="text-left shrink-0">
+                      <p className="text-xs font-bold">{formatCurrency(order.totalPrice)}</p>
+                      <p className="text-[10px] text-muted-foreground">{format(new Date(order.createdAt), "MM/dd")}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Notes */}
+          <div>
+            <Label className="text-xs mb-1.5 block">ملاحظات (اختياري)</Label>
+            <Textarea
+              placeholder="ملاحظات على البيان..."
+              className="min-h-[55px] text-sm resize-none bg-background"
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+            />
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-2">
+            <Button
+              className="flex-1 h-9 text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90"
+              onClick={() => createMutation.mutate()}
+              disabled={selectedIds.size === 0 || createMutation.isPending}
+            >
+              {createMutation.isPending ? "جاري الإنشاء..." : `إنشاء البيان (${selectedIds.size} طلبية)`}
+            </Button>
+            <Button variant="outline" className="h-9 text-sm border-border" onClick={onClose}>إلغاء</Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function ShippingCompanies() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<ShippingCompany | null>(null);
+  const [deleteCompany, setDeleteCompany] = useState<ShippingCompany | null>(null);
   const [form, setForm] = useState(emptyForm);
 
   const { data: companies, isLoading } = useQuery({ queryKey: ["shipping"], queryFn: shippingApi.list });
 
   const createMutation = useMutation({
     mutationFn: (data: typeof emptyForm) => shippingApi.create(data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["shipping"] }); setDialogOpen(false); setForm(emptyForm); toast({ title: "تمت الإضافة", description: "تم إضافة شركة الشحن." }); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["shipping"] }); setDialogOpen(false); setForm(emptyForm); toast({ title: "تمت الإضافة" }); },
     onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
 
@@ -36,7 +330,7 @@ export default function ShippingCompanies() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => shippingApi.delete(id),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["shipping"] }); toast({ title: "تم الحذف" }); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["shipping"] }); setDeleteCompany(null); toast({ title: "تم الحذف" }); },
     onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
 
@@ -50,16 +344,14 @@ export default function ShippingCompanies() {
     else createMutation.mutate(data as any);
   };
 
-  const toggleActive = (c: ShippingCompany) => {
-    updateMutation.mutate({ id: c.id, data: { isActive: !c.isActive } });
-  };
+  const toggleActive = (c: ShippingCompany) => updateMutation.mutate({ id: c.id, data: { isActive: !c.isActive } });
 
   return (
     <div className="space-y-5 animate-in fade-in duration-500">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">شركات الشحن</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">إدارة شركاء الشحن والتوصيل</p>
+          <p className="text-muted-foreground text-sm mt-0.5">إدارة شركاء الشحن وبيانات التسليم</p>
         </div>
         <Button onClick={openAdd} className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-sm">
           <Plus className="w-4 h-4" />إضافة شركة
@@ -105,22 +397,24 @@ export default function ShippingCompanies() {
                   <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-primary" onClick={() => openEdit(company)}>
                     <Edit2 className="w-3.5 h-3.5" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-destructive" onClick={() => { if (confirm(`حذف "${company.name}"؟`)) deleteMutation.mutate(company.id); }}>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-destructive" onClick={() => setDeleteCompany(company)}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
                 </div>
               </div>
-              <div className="mt-4 space-y-1.5">
-                {company.phone && (
-                  <p className="text-xs text-muted-foreground flex items-center gap-2"><Phone className="w-3 h-3" />{company.phone}</p>
-                )}
+
+              <div className="mt-3 space-y-1.5">
+                {company.phone && <p className="text-xs text-muted-foreground flex items-center gap-2"><Phone className="w-3 h-3" />{company.phone}</p>}
                 {company.website && (
                   <p className="text-xs text-muted-foreground flex items-center gap-2"><Globe className="w-3 h-3" />
                     <a href={company.website} target="_blank" rel="noreferrer" className="text-primary hover:underline">{company.website}</a>
                   </p>
                 )}
-                {company.notes && <p className="text-xs text-muted-foreground mt-2 pt-2 border-t border-border">{company.notes}</p>}
+                {company.notes && <p className="text-xs text-muted-foreground pt-1 border-t border-border">{company.notes}</p>}
               </div>
+
+              <CompanyStats companyId={company.id} />
+              <CompanyManifests company={company} />
             </Card>
           ))}
         </div>
@@ -133,6 +427,7 @@ export default function ShippingCompanies() {
         </Card>
       )}
 
+      {/* Add/Edit Company Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="bg-card border-border max-w-md" dir="rtl">
           <DialogHeader>
@@ -172,6 +467,24 @@ export default function ShippingCompanies() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirm Dialog */}
+      <AlertDialog open={!!deleteCompany} onOpenChange={() => setDeleteCompany(null)}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+            <AlertDialogDescription>
+              هل أنت متأكد من حذف شركة الشحن "{deleteCompany?.name}"؟ لا يمكن التراجع عن هذا الإجراء.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction onClick={() => deleteCompany && deleteMutation.mutate(deleteCompany.id)} className="bg-red-600 hover:bg-red-700 text-white">
+              نعم، احذف
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
