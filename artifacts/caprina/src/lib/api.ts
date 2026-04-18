@@ -50,6 +50,25 @@ export interface ShippingCompany {
   createdAt: string;
 }
 
+export interface ParsedImport {
+  headers: string[];
+  sample: any[][];
+  totalRows: number;
+  allRows: any[][];
+}
+
+export interface ColumnMapping {
+  name: string;
+  phone: string;
+  address: string;
+  product: string;
+  color: string;
+  size: string;
+  quantity: string;
+  price: string;
+  notes: string;
+}
+
 export interface ImportResult {
   imported: number;
   failed: number;
@@ -83,6 +102,24 @@ export const shippingApi = {
 };
 
 export const importApi = {
+  parse: async (file: File): Promise<ParsedImport> => {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch(`${BASE}/orders/import/parse`, { method: "POST", body: form });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data;
+  },
+  execute: async (payload: { headers: string[]; rows: any[][]; mapping: ColumnMapping }): Promise<ImportResult> => {
+    const res = await fetch(`${BASE}/orders/import/execute`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data;
+  },
   uploadExcel: async (file: File): Promise<ImportResult> => {
     const form = new FormData();
     form.append("file", file);
