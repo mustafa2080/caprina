@@ -75,7 +75,19 @@ router.post("/orders", async (req, res): Promise<void> => {
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
   const totalPrice = parsed.data.quantity * parsed.data.unitPrice;
-  const [order] = await db.insert(ordersTable).values({ ...parsed.data, totalPrice, status: "pending" }).returning();
+
+  // Auto-populate costPrice from variant or product if not provided
+  let costPrice = (parsed.data as any).costPrice ?? null;
+  if (!costPrice && (parsed.data as any).variantId) {
+    const [variant] = await db.select().from(productVariantsTable).where(eq(productVariantsTable.id, (parsed.data as any).variantId));
+    if (variant?.costPrice) costPrice = variant.costPrice;
+  }
+  if (!costPrice && (parsed.data as any).productId) {
+    const [product] = await db.select().from(productsTable).where(eq(productsTable.id, (parsed.data as any).productId));
+    if (product?.costPrice) costPrice = product.costPrice;
+  }
+
+  const [order] = await db.insert(ordersTable).values({ ...parsed.data, totalPrice, status: "pending", costPrice }).returning();
 
   // New order always starts as pending → reserve inventory
   await adjustOrderInventory(

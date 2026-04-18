@@ -181,13 +181,35 @@ export interface ProfitAnalytics {
   losingProducts: ProductProfit[];
   inventoryValue: {
     byProduct: number;
+    byVariant: number;
+    total: number;
     totalUnits: number;
     lowStock: any[];
   };
 }
 
+export interface FinancialSummary {
+  cashIn: number;
+  costOfGoods: number;
+  shippingSpend: number;
+  grossProfit: number;
+  grossMargin: number;
+  netProfit: number;
+  netMargin: number;
+  returnLoss: number;
+  returnRevLost: number;
+  pendingRevenue: number;
+  returnCount: number;
+  returnRate: number;
+  totalOrders: number;
+  inventoryAtCost: number;
+  inventoryAtSell: number;
+  potentialInventoryProfit: number;
+}
+
 export const analyticsApi = {
   profit: () => apiFetch<ProfitAnalytics>("/analytics/profit"),
+  financialSummary: () => apiFetch<FinancialSummary>("/analytics/financial-summary"),
 };
 
 export const ordersApi = {

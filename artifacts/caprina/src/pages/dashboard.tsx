@@ -3,25 +3,30 @@ import { useGetOrdersSummary, useGetRecentOrders } from "@workspace/api-client-r
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
-import { format } from "date-fns";
 import {
   TrendingUp, TrendingDown, DollarSign, Package, AlertCircle,
-  Plus, RotateCcw, Layers, Star, Activity, Boxes,
-  ArrowUpRight, ArrowDownRight, Minus,
+  Plus, Activity, Boxes, ArrowUpRight, ArrowDownRight,
+  Star, Wallet, BarChart3, ShoppingCart, AlertTriangle, RefreshCw,
 } from "lucide-react";
-import { productsApi, ordersApi, analyticsApi, type PeriodProfit, type ProductProfit } from "@/lib/api";
+import {
+  analyticsApi, type PeriodProfit, type ProductProfit, type FinancialSummary,
+  productsApi,
+} from "@/lib/api";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fc = (n: number) =>
   new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(n);
-
 const fn = (n: number) => new Intl.NumberFormat("ar-EG").format(Math.round(n));
+const pct = (n: number, color = true) => {
+  if (!color) return `${n}%`;
+  return n;
+};
 
-const statusLabels: Record<string, string> = {
+const STATUS_LABELS: Record<string, string> = {
   pending: "قيد الانتظار", in_shipping: "قيد الشحن", received: "استلم",
   delayed: "مؤجل", returned: "مرتجع", partial_received: "استلم جزئي",
 };
-const statusClasses: Record<string, string> = {
+const STATUS_CLASSES: Record<string, string> = {
   pending: "bg-amber-900/30 text-amber-400 border-amber-800",
   in_shipping: "bg-sky-900/30 text-sky-400 border-sky-800",
   received: "bg-emerald-900/30 text-emerald-400 border-emerald-800",
@@ -30,33 +35,29 @@ const statusClasses: Record<string, string> = {
   partial_received: "bg-purple-900/30 text-purple-400 border-purple-800",
 };
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
-function ProfitCard({ label, data, accent }: { label: string; data: PeriodProfit; accent: string }) {
+// ─── Period Card ───────────────────────────────────────────────────────────────
+function PeriodCard({ label, data, accent }: { label: string; data: PeriodProfit; accent: string }) {
   const isProfit = data.netProfit >= 0;
   return (
-    <Card className={`border-border bg-card overflow-hidden`}>
+    <Card className="border-border bg-card overflow-hidden">
       <CardContent className="p-4 space-y-3">
         <div className="flex items-center justify-between">
           <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{label}</p>
           <Badge variant="outline" className={`text-[9px] font-bold border ${
             data.returnRate > 20 ? "border-red-800 text-red-400" : "border-border text-muted-foreground"
-          }`}>
-            {data.returnRate}% مرتجع
-          </Badge>
+          }`}>{data.returnRate}% مرتجع</Badge>
         </div>
-
         <div>
           <p className={`text-2xl font-black ${isProfit ? accent : "text-red-400"}`}>{fc(data.netProfit)}</p>
           <p className="text-[10px] text-muted-foreground">صافي الربح</p>
         </div>
-
         <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border">
           <div>
             <p className="text-[9px] text-muted-foreground">الإيرادات</p>
             <p className="text-xs font-bold text-primary">{fc(data.revenue)}</p>
           </div>
           <div>
-            <p className="text-[9px] text-muted-foreground">التكلفة الكلية</p>
+            <p className="text-[9px] text-muted-foreground">التكاليف</p>
             <p className="text-xs font-bold text-amber-400">{fc(data.cost + data.shippingCost)}</p>
           </div>
           <div>
@@ -73,6 +74,7 @@ function ProfitCard({ label, data, accent }: { label: string; data: PeriodProfit
   );
 }
 
+// ─── Product Row ───────────────────────────────────────────────────────────────
 function ProductRow({ product, rank }: { product: ProductProfit; rank: number }) {
   const isPositive = product.profit >= 0;
   return (
@@ -88,10 +90,20 @@ function ProductRow({ product, rank }: { product: ProductProfit; rank: number })
         <p className={`text-xs font-bold ${isPositive ? "text-emerald-400" : "text-red-400"}`}>{fc(product.profit)}</p>
         <p className="text-[9px] text-muted-foreground">{product.margin}% هامش</p>
       </div>
-      {isPositive
-        ? <ArrowUpRight className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-        : <ArrowDownRight className="w-3.5 h-3.5 text-red-400 shrink-0" />
-      }
+      {isPositive ? <ArrowUpRight className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> : <ArrowDownRight className="w-3.5 h-3.5 text-red-400 shrink-0" />}
+    </div>
+  );
+}
+
+// ─── Financial Row ─────────────────────────────────────────────────────────────
+function FinRow({ label, value, color = "text-foreground", sub }: { label: string; value: string; color?: string; sub?: string }) {
+  return (
+    <div className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <div className="text-right">
+        <span className={`text-xs font-bold ${color}`}>{value}</span>
+        {sub && <p className="text-[9px] text-muted-foreground">{sub}</p>}
+      </div>
     </div>
   );
 }
@@ -106,23 +118,26 @@ export default function Dashboard() {
     queryFn: analyticsApi.profit,
     staleTime: 30000,
   });
+  const { data: fin, isLoading: isFinLoading } = useQuery({
+    queryKey: ["analytics-financial"],
+    queryFn: analyticsApi.financialSummary,
+    staleTime: 30000,
+  });
 
   const lowStockProducts = products?.filter(p =>
     (p.totalQuantity - p.reservedQuantity - p.soldQuantity) <= p.lowStockThreshold
   ) ?? [];
 
-  const allTimeProfit = analytics?.allTime;
-  const margin = allTimeProfit && allTimeProfit.revenue > 0
-    ? Math.round((allTimeProfit.netProfit / allTimeProfit.revenue) * 100)
-    : 0;
+  const hasCostData = fin && (fin.cashIn > 0 || fin.inventoryAtCost > 0);
+  const noCostWarning = fin && fin.cashIn > 0 && fin.costOfGoods === 0;
 
   return (
     <div className="space-y-5 animate-in fade-in duration-500">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">لوحة الأرباح</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">CAPRINA — Profit Engine Dashboard</p>
+          <h1 className="text-2xl font-bold">لوحة المالية</h1>
+          <p className="text-muted-foreground text-sm mt-0.5">CAPRINA — Financial Engine Dashboard</p>
         </div>
         <Link href="/orders/new">
           <button className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-bold hover:bg-primary/90 transition-colors">
@@ -131,59 +146,86 @@ export default function Dashboard() {
         </Link>
       </div>
 
-      {/* === ALL-TIME PROFIT BAR === */}
-      {allTimeProfit && (
-        <Card className={`border ${allTimeProfit.netProfit >= 0 ? "border-emerald-800 bg-emerald-900/10" : "border-red-800 bg-red-900/10"} overflow-hidden`}>
-          <CardContent className="p-4">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">إجمالي الأرباح الكلية</p>
-                <div className="flex items-baseline gap-3">
-                  <p className={`text-4xl font-black ${allTimeProfit.netProfit >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                    {fc(allTimeProfit.netProfit)}
-                  </p>
-                  <Badge variant="outline" className={`text-xs border ${margin >= 20 ? "border-emerald-700 text-emerald-400" : margin >= 10 ? "border-amber-700 text-amber-400" : "border-red-700 text-red-400"}`}>
-                    {margin}% هامش
-                  </Badge>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-6 text-sm">
-                <div className="text-center">
-                  <p className="text-[9px] text-muted-foreground">إجمالي الإيرادات</p>
-                  <p className="font-bold text-primary">{fc(allTimeProfit.revenue)}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-[9px] text-muted-foreground">إجمالي التكلفة</p>
-                  <p className="font-bold text-amber-400">{fc(allTimeProfit.cost)}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-[9px] text-muted-foreground">تكلفة الشحن</p>
-                  <p className="font-bold text-orange-400">{fc(allTimeProfit.shippingCost)}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-[9px] text-muted-foreground">نسبة المرتجعات</p>
-                  <p className={`font-bold ${allTimeProfit.returnRate > 20 ? "text-red-400" : "text-muted-foreground"}`}>
-                    {allTimeProfit.returnRate}%
-                  </p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      {/* === NO COST DATA WARNING === */}
+      {noCostWarning && (
+        <div className="flex items-start gap-3 bg-amber-900/20 border border-amber-800/40 rounded-lg p-3">
+          <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-bold text-amber-400">تحذير: بيانات التكلفة غير مكتملة</p>
+            <p className="text-xs text-amber-400/70 mt-0.5">
+              بعض المنتجات ليس لها سعر تكلفة. أضف costPrice للمنتجات لتفعيل الحساب المالي الدقيق.
+            </p>
+          </div>
+          <Link href="/inventory" className="text-xs text-primary hover:underline shrink-0 self-center">المخزون</Link>
+        </div>
       )}
 
-      {/* === PERIOD PROFIT CARDS === */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {isAnalyticsLoading ? (
-          [1,2,3].map(i => <Card key={i} className="animate-pulse h-36 border-border" />)
-        ) : analytics ? (
-          <>
-            <ProfitCard label="اليوم" data={analytics.today} accent="text-primary" />
-            <ProfitCard label="هذا الأسبوع" data={analytics.week} accent="text-emerald-400" />
-            <ProfitCard label="هذا الشهر" data={analytics.month} accent="text-amber-400" />
-          </>
-        ) : null}
-      </div>
+      {/* === FINANCIAL OVERVIEW BANNER === */}
+      {fin && (
+        <div className={`rounded-xl border overflow-hidden ${fin.netProfit >= 0 ? "border-emerald-800/60 bg-emerald-900/5" : "border-red-800/60 bg-red-900/5"}`}>
+          <div className="p-4">
+            {/* Main profit */}
+            <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
+              <div>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">صافي الربح الحقيقي</p>
+                <div className="flex items-baseline gap-3">
+                  <p className={`text-4xl font-black ${fin.netProfit >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                    {fc(fin.netProfit)}
+                  </p>
+                  <div className="flex flex-col gap-0.5">
+                    <Badge variant="outline" className={`text-[9px] font-bold border ${
+                      fin.netMargin >= 20 ? "border-emerald-700 text-emerald-400" : fin.netMargin >= 10 ? "border-amber-700 text-amber-400" : "border-red-700 text-red-400"
+                    }`}>{fin.netMargin}% هامش صافي</Badge>
+                    <Badge variant="outline" className="text-[9px] font-bold border border-border text-muted-foreground">
+                      {fin.returnRate}% مرتجع
+                    </Badge>
+                  </div>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1">بعد خصم التكلفة والشحن والمرتجعات</p>
+              </div>
+              {fin.pendingRevenue > 0 && (
+                <div className="text-left bg-primary/5 border border-primary/20 rounded-lg px-4 py-3">
+                  <p className="text-[9px] text-muted-foreground">في الطريق (قيد التسليم)</p>
+                  <p className="text-lg font-black text-primary">{fc(fin.pendingRevenue)}</p>
+                  <p className="text-[9px] text-muted-foreground">إيرادات محتملة</p>
+                </div>
+              )}
+            </div>
+
+            {/* Cash flow grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3 bg-background/30 rounded-lg border border-border/40">
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-1 mb-1">
+                  <ArrowUpRight className="w-3 h-3 text-emerald-400" />
+                  <p className="text-[9px] font-bold text-muted-foreground">إجمالي المقبوض</p>
+                </div>
+                <p className="font-black text-emerald-400 text-sm">{fc(fin.cashIn)}</p>
+              </div>
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-1 mb-1">
+                  <ArrowDownRight className="w-3 h-3 text-amber-400" />
+                  <p className="text-[9px] font-bold text-muted-foreground">تكلفة البضاعة</p>
+                </div>
+                <p className="font-black text-amber-400 text-sm">{fc(fin.costOfGoods)}</p>
+              </div>
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-1 mb-1">
+                  <ArrowDownRight className="w-3 h-3 text-orange-400" />
+                  <p className="text-[9px] font-bold text-muted-foreground">تكلفة الشحن</p>
+                </div>
+                <p className="font-black text-orange-400 text-sm">{fc(fin.shippingSpend)}</p>
+              </div>
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-1 mb-1">
+                  <ArrowDownRight className="w-3 h-3 text-red-400" />
+                  <p className="text-[9px] font-bold text-muted-foreground">خسائر المرتجعات</p>
+                </div>
+                <p className="font-black text-red-400 text-sm">{fc(fin.returnLoss)}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* === LOW STOCK ALERT === */}
       {lowStockProducts.length > 0 && (
@@ -197,8 +239,23 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* === PERIOD CARDS === */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {isAnalyticsLoading ? (
+          [1,2,3].map(i => <Card key={i} className="animate-pulse h-36 border-border" />)
+        ) : analytics ? (
+          <>
+            <PeriodCard label="اليوم" data={analytics.today} accent="text-primary" />
+            <PeriodCard label="هذا الأسبوع" data={analytics.week} accent="text-emerald-400" />
+            <PeriodCard label="هذا الشهر" data={analytics.month} accent="text-amber-400" />
+          </>
+        ) : null}
+      </div>
+
+      {/* === MAIN GRID === */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* TOP PRODUCTS + LOSING PRODUCTS */}
+
+        {/* LEFT: Products + Recent Orders */}
         <div className="lg:col-span-2 space-y-4">
 
           {/* Top products by profit */}
@@ -207,6 +264,7 @@ export default function Dashboard() {
               <CardTitle className="text-sm font-bold flex items-center gap-2">
                 <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
                 أفضل المنتجات ربحاً
+                <span className="text-[10px] text-muted-foreground font-normal mr-auto">مرتبة بصافي الربح</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="p-3 px-4">
@@ -217,7 +275,7 @@ export default function Dashboard() {
               ) : (
                 <div className="py-6 text-center text-muted-foreground text-xs">
                   <Star className="w-6 h-6 mx-auto mb-2 opacity-20" />
-                  لم يتم تسجيل بيانات تكلفة بعد
+                  أضف بيانات التكلفة للمنتجات لتفعيل هذا القسم
                 </div>
               )}
             </CardContent>
@@ -229,18 +287,21 @@ export default function Dashboard() {
               <CardHeader className="py-3 px-4 border-b border-red-900/30">
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
                   <TrendingDown className="w-3.5 h-3.5 text-red-400" />
-                  منتجات خاسرة (نسبة إرجاع مرتفعة)
+                  منتجات ذات نسبة إرجاع مرتفعة
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-3 px-4">
-                {analytics.losingProducts.map((p, i) => (
+                {analytics.losingProducts.map((p) => (
                   <div key={p.name} className="flex items-center justify-between py-2 border-b border-red-900/20 last:border-0 text-xs">
                     <div>
                       <p className="font-semibold">{p.name}</p>
                       <p className="text-muted-foreground">{p.orderCount} طلب • {p.returnCount} مرتجع</p>
                     </div>
-                    <div className="text-right">
-                      <Badge variant="outline" className="border-red-800 text-red-400 text-[10px]">{p.returnRate}% مرتجع</Badge>
+                    <div className="text-right flex items-center gap-2">
+                      <div>
+                        <Badge variant="outline" className="border-red-800 text-red-400 text-[10px] block mb-1">{p.returnRate}% مرتجع</Badge>
+                        <p className="text-red-400 font-bold text-[10px]">{fc(p.profit)}</p>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -248,7 +309,7 @@ export default function Dashboard() {
             </Card>
           )}
 
-          {/* Recent Orders */}
+          {/* Recent orders */}
           <Card className="border-border overflow-hidden">
             <CardHeader className="py-3 px-4 border-b border-border">
               <div className="flex items-center justify-between">
@@ -275,8 +336,8 @@ export default function Dashboard() {
                     </div>
                     <div className="flex flex-col items-end gap-1">
                       <span className="font-bold text-xs text-primary">{fc(order.totalPrice)}</span>
-                      <Badge variant="outline" className={`text-[9px] font-bold border ${statusClasses[order.status] || ""}`}>
-                        {statusLabels[order.status] || order.status}
+                      <Badge variant="outline" className={`text-[9px] font-bold border ${STATUS_CLASSES[order.status] || ""}`}>
+                        {STATUS_LABELS[order.status] || order.status}
                       </Badge>
                     </div>
                   </Link>
@@ -304,19 +365,71 @@ export default function Dashboard() {
             <Link href="/inventory" className="w-full flex items-center gap-2 border border-border bg-card text-foreground hover:bg-muted/30 transition-colors py-2.5 px-4 rounded-md text-sm font-semibold">
               <Boxes className="w-4 h-4" />إدارة المخزون
             </Link>
-            <Link href="/movements" className="w-full flex items-center gap-2 border border-border bg-card text-foreground hover:bg-muted/30 transition-colors py-2.5 px-4 rounded-md text-sm font-semibold">
-              <Activity className="w-4 h-4" />حركات المخزون
-            </Link>
             <Link href="/import" className="w-full flex items-center gap-2 border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors py-2.5 px-4 rounded-md text-sm font-semibold">
               <TrendingUp className="w-4 h-4" />استيراد Excel
             </Link>
           </div>
 
+          {/* Inventory financial value */}
+          {fin && (
+            <Card className="border-border">
+              <CardContent className="p-4 space-y-1">
+                <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-1.5">
+                  <Boxes className="w-3 h-3" />قيمة المخزون
+                </p>
+                <FinRow
+                  label="بسعر التكلفة"
+                  value={fc(fin.inventoryAtCost)}
+                  color="text-amber-400"
+                />
+                <FinRow
+                  label="بسعر البيع"
+                  value={fc(fin.inventoryAtSell)}
+                  color="text-primary"
+                />
+                <div className="mt-1 pt-2 border-t border-border flex justify-between items-center">
+                  <span className="text-[10px] text-muted-foreground">الربح المحتمل</span>
+                  <span className={`text-xs font-black ${fin.potentialInventoryProfit >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                    {fc(fin.potentialInventoryProfit)}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Full financial breakdown */}
+          {fin && (
+            <Card className="border-border">
+              <CardContent className="p-4">
+                <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-1.5">
+                  <BarChart3 className="w-3 h-3" />التدفق النقدي الكلي
+                </p>
+                <FinRow label="إجمالي المقبوض" value={fc(fin.cashIn)} color="text-emerald-400" />
+                <FinRow label="تكلفة البضاعة" value={`(${fc(fin.costOfGoods)})`} color="text-amber-400" />
+                <FinRow label="تكلفة الشحن" value={`(${fc(fin.shippingSpend)})`} color="text-orange-400" />
+                <FinRow label="خسائر المرتجعات" value={`(${fc(fin.returnLoss)})`} color="text-red-400" sub={`${fin.returnCount} طلب مرتجع`} />
+                <div className={`mt-2 pt-2 border-t-2 flex justify-between items-center ${fin.netProfit >= 0 ? "border-emerald-800" : "border-red-800"}`}>
+                  <span className="text-sm font-bold">صافي الربح</span>
+                  <span className={`text-sm font-black ${fin.netProfit >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                    {fc(fin.netProfit)}
+                  </span>
+                </div>
+                {fin.grossMargin > 0 && (
+                  <p className="text-[9px] text-muted-foreground text-center mt-2">
+                    هامش إجمالي: {fin.grossMargin}% • هامش صافي: {fin.netMargin}%
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Order status summary */}
           {summary && (
             <Card className="border-border">
-              <CardContent className="p-4 space-y-2">
-                <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-3">ملخص الطلبات</p>
+              <CardContent className="p-4 space-y-1">
+                <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-1.5">
+                  <ShoppingCart className="w-3 h-3" />ملخص الطلبات
+                </p>
                 {[
                   { label: "قيد الانتظار", val: summary.pendingOrders, color: "text-amber-400" },
                   { label: "قيد الشحن", val: summary.shippingOrders ?? 0, color: "text-sky-400" },
@@ -325,12 +438,12 @@ export default function Dashboard() {
                   { label: "مرتجع", val: summary.returnedOrders ?? 0, color: "text-red-400" },
                   { label: "استلم جزئي", val: summary.partialOrders ?? 0, color: "text-purple-400" },
                 ].map(({ label, val, color }) => (
-                  <div key={label} className="flex justify-between text-xs">
+                  <div key={label} className="flex justify-between text-xs py-1 border-b border-border/30 last:border-0">
                     <span className="text-muted-foreground">{label}</span>
                     <span className={`font-bold ${color}`}>{val}</span>
                   </div>
                 ))}
-                <div className="border-t border-border pt-2 flex justify-between text-xs">
+                <div className="border-t border-border pt-2 flex justify-between text-xs mt-1">
                   <span className="text-muted-foreground font-bold">الإجمالي</span>
                   <span className="font-bold">{summary.totalOrders}</span>
                 </div>
@@ -338,23 +451,29 @@ export default function Dashboard() {
             </Card>
           )}
 
-          {/* Inventory value */}
-          {analytics?.inventoryValue && (
-            <Card className="border-border">
-              <CardContent className="p-4 space-y-2">
-                <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-2">قيمة المخزون</p>
-                <div className="flex items-center gap-2">
-                  <Boxes className="w-5 h-5 text-primary shrink-0" />
-                  <div>
-                    <p className="font-bold text-sm">{fc(analytics.inventoryValue.byProduct)}</p>
-                    <p className="text-[9px] text-muted-foreground">{fn(analytics.inventoryValue.totalUnits)} وحدة متاحة</p>
-                  </div>
+          {/* Return loss detail */}
+          {fin && fin.returnRevLost > 0 && (
+            <Card className="border-red-900/40 bg-red-900/5">
+              <CardContent className="p-4">
+                <p className="text-[9px] font-bold uppercase tracking-widest text-red-400/60 mb-3 flex items-center gap-1.5">
+                  <RefreshCw className="w-3 h-3" />تأثير المرتجعات
+                </p>
+                <FinRow
+                  label="إيرادات فُقدت"
+                  value={fc(fin.returnRevLost)}
+                  color="text-red-400"
+                  sub="بيع كان مخطط"
+                />
+                <FinRow
+                  label="تكلفة محملة"
+                  value={fc(fin.returnLoss)}
+                  color="text-red-400"
+                  sub="شحن + بضاعة"
+                />
+                <div className="mt-2 text-center">
+                  <p className={`text-xs font-black text-red-400`}>{fin.returnRate}% نسبة الإرجاع</p>
+                  <p className="text-[9px] text-muted-foreground">{fin.returnCount} من {fin.totalOrders} طلب</p>
                 </div>
-                {analytics.inventoryValue.lowStock?.length > 0 && (
-                  <div className="mt-2 p-2 bg-amber-900/20 rounded text-[10px] text-amber-400">
-                    {analytics.inventoryValue.lowStock.length} منتج في مستوى منخفض
-                  </div>
-                )}
               </CardContent>
             </Card>
           )}

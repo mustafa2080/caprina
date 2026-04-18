@@ -20,7 +20,7 @@ A full-stack order management system for CAPRINA, an artisan goods company. Buil
 
 ## Features
 
-- **Profit Engine Dashboard**: Real profit calculation per period (today/week/month/all-time), top profitable products with margin%, losing products (high return rate), low-stock alerts, inventory value, order status summary, recent orders, quick actions
+- **Financial Engine Dashboard**: Real financial system — صافي الربح الحقيقي banner with net margin%, cash flow grid (cash in / cost of goods / shipping spend / return losses), period cards (today/week/month), top products by profit, losing products (high return rate), inventory value at cost vs sell price with potential profit, full cash flow statement P&L, return impact card, pending revenue pipeline, low-stock alerts, recent orders
 - **Order List**: Search by name/product/phone, filter by status, filter by date (from), total count
 - **Create Order**: Form with customer info, product/variant selection, cost price + shipping cost fields, live profit preview in sidebar
 - **Order Detail**: View/edit individual orders, update status, delete with confirmation, **profit breakdown card** showing revenue/cost/shipping/net profit/margin (shown when cost data exists)
@@ -35,8 +35,12 @@ A full-stack order management system for CAPRINA, an artisan goods company. Buil
 
 ## Profit Engine
 
+- **Dynamic Cost Resolution**: `resolveCost()` in analytics.ts uses CURRENT costPrice from variant → product → order fallback. Changing a product's costPrice updates ALL profit calculations automatically.
 - **Profit Calculation**: Per-order profit = revenue - (costPrice × qty) - shippingCost. Returned orders = -(cost + shipping). Partial received uses partialQuantity.
-- **Analytics Endpoint**: `GET /api/analytics/profit` returns today/week/month/allTime stats with revenue, cost, shippingCost, netProfit, returnRate, topProducts, losingProducts, inventoryValue.
+- **Auto-populate costPrice**: On order creation, if costPrice not provided, it's auto-fetched from the linked variant or product.
+- **Analytics Endpoints**:
+  - `GET /api/analytics/profit` — period stats (today/week/month/allTime), topProducts, losingProducts, inventoryValue
+  - `GET /api/analytics/financial-summary` — comprehensive P&L: cashIn, costOfGoods, shippingSpend, grossProfit/margin, netProfit/margin, returnLoss, returnRevLost, pendingRevenue, inventoryAtCost, inventoryAtSell, potentialInventoryProfit
 - **Cost Fields**: Orders have `costPrice` (per unit) and `shippingCost` (per order). Products have `costPrice`. Variants have `costPrice`.
 
 ## Data Model
