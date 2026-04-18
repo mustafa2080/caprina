@@ -1,35 +1,572 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useParams, Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { manifestsApi, type ShippingManifestDetail } from "@/lib/api";
+import {
+  manifestsApi,
+  type ShippingManifestDetail,
+  type ManifestOrder,
+  type DeliveryStatus,
+} from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { ArrowRight, Truck, Package, TrendingUp, TrendingDown, AlertCircle, CheckCircle2, RotateCcw, Clock, Printer, Lock, Unlock, Trash2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  ArrowRight,
+  Truck,
+  Package,
+  TrendingUp,
+  TrendingDown,
+  AlertCircle,
+  CheckCircle2,
+  RotateCcw,
+  Clock,
+  Printer,
+  Lock,
+  Unlock,
+  Trash2,
+  Save,
+  Receipt,
+  Banknote,
+  AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+  Edit2,
+  X,
+  Check,
+  FileText,
+} from "lucide-react";
 import { format } from "date-fns";
 
 const formatCurrency = (n: number) =>
-  new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(n);
+  new Intl.NumberFormat("ar-EG", {
+    style: "currency",
+    currency: "EGP",
+    maximumFractionDigits: 0,
+  }).format(n);
 
-const statusLabels: Record<string, string> = {
-  pending: "قيد الانتظار",
-  in_shipping: "قيد الشحن",
-  received: "استلم ✓",
-  delayed: "مؤجل",
-  returned: "مرتجع",
-  partial_received: "استلم جزئي",
-};
+const DELIVERY_OPTIONS: { value: DeliveryStatus; label: string; color: string; bg: string }[] = [
+  { value: "pending",          label: "قيد الانتظار",   color: "text-muted-foreground",  bg: "border-border" },
+  { value: "delivered",        label: "مسلَّم ✓",        color: "text-emerald-400",       bg: "border-emerald-700 bg-emerald-900/20" },
+  { value: "postponed",        label: "مؤجل",            color: "text-orange-400",        bg: "border-orange-700 bg-orange-900/20" },
+  { value: "partial_received", label: "استلم جزئي",     color: "text-teal-400",          bg: "border-teal-700 bg-teal-900/20" },
+  { value: "returned",         label: "مرتجع",           color: "text-red-400",           bg: "border-red-700 bg-red-900/20" },
+];
 
-const statusClasses: Record<string, string> = {
-  pending: "border-amber-700 bg-amber-900/20 text-amber-400",
-  in_shipping: "border-blue-700 bg-blue-900/20 text-blue-400",
-  received: "border-emerald-700 bg-emerald-900/20 text-emerald-400",
-  delayed: "border-orange-700 bg-orange-900/20 text-orange-400",
-  returned: "border-red-700 bg-red-900/20 text-red-400",
-  partial_received: "border-teal-700 bg-teal-900/20 text-teal-400",
-};
+const deliveryOpt = (v: DeliveryStatus) =>
+  DELIVERY_OPTIONS.find((o) => o.value === v) ?? DELIVERY_OPTIONS[0];
+
+function OrderDeliveryRow({
+  order,
+  manifestId,
+  locked,
+  onSaved,
+}: {
+  order: ManifestOrder;
+  manifestId: number;
+  locked: boolean;
+  onSaved: () => void;
+}) {
+  const { toast } = useToast();
+  const [editing, setEditing] = useState(false);
+  const [status, setStatus] = useState<DeliveryStatus>(order.deliveryStatus);
+  const [note, setNote] = useState(order.deliveryNote ?? "");
+  const [partialQty, setPartialQty] = useState(
+    order.partialQuantity?.toString() ?? ""
+  );
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      manifestsApi.updateOrderDelivery(manifestId, order.id, {
+        deliveryStatus: status,
+        deliveryNote: note.trim() || null,
+        partialQuantity:
+          status === "partial_received" && partialQty
+            ? parseInt(partialQty)
+            : null,
+      }),
+    onSuccess: () => {
+      toast({ title: "تم حفظ حالة التسليم" });
+      setEditing(false);
+      onSaved();
+    },
+    onError: (e: any) =>
+      toast({ title: "خطأ", description: e.message, variant: "destructive" }),
+  });
+
+  const opt = deliveryOpt(order.deliveryStatus);
+  const needsNote = status === "postponed" || status === "returned";
+  const needsPartial = status === "partial_received";
+
+  const hasChanges =
+    status !== order.deliveryStatus ||
+    note !== (order.deliveryNote ?? "") ||
+    (status === "partial_received" &&
+      partialQty !== (order.partialQuantity?.toString() ?? ""));
+
+  return (
+    <div className={`border-b border-border/50 transition-colors ${editing ? "bg-primary/5" : "hover:bg-muted/10"}`}>
+      {/* Main row */}
+      <div className="grid grid-cols-[1fr_1fr_60px_80px_120px_80px] gap-0 items-start px-3 py-2.5 text-xs">
+        {/* Customer */}
+        <div className="min-w-0 pr-1">
+          <p className="font-semibold truncate">{order.customerName}</p>
+          <p className="text-muted-foreground text-[10px] flex gap-1">
+            <span className="font-mono">#{order.id.toString().padStart(4, "0")}</span>
+            {order.phone && <span>· {order.phone}</span>}
+          </p>
+        </div>
+        {/* Product */}
+        <div className="min-w-0 pr-2">
+          <p className="truncate">{order.product}</p>
+          {(order.color || order.size) && (
+            <p className="text-muted-foreground text-[10px]">
+              {[order.color, order.size].filter(Boolean).join(" / ")}
+            </p>
+          )}
+        </div>
+        {/* Qty */}
+        <div className="text-center font-bold">
+          {order.deliveryStatus === "partial_received" && order.partialQuantity ? (
+            <span>
+              <span className="text-teal-400">{order.partialQuantity}</span>
+              <span className="text-muted-foreground">/{order.quantity}</span>
+            </span>
+          ) : (
+            order.quantity
+          )}
+        </div>
+        {/* Price */}
+        <div className="text-left font-bold">{formatCurrency(order.totalPrice)}</div>
+        {/* Delivery Status Badge */}
+        <div>
+          <Badge
+            variant="outline"
+            className={`text-[9px] font-bold border ${opt.bg} ${opt.color}`}
+          >
+            {opt.label}
+          </Badge>
+          {order.deliveryNote && !editing && (
+            <p className="text-[10px] text-muted-foreground mt-0.5 truncate max-w-[110px]">
+              {order.deliveryNote}
+            </p>
+          )}
+        </div>
+        {/* Action */}
+        <div className="flex justify-end">
+          {!locked && (
+            editing ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-[10px] px-1.5 text-muted-foreground"
+                onClick={() => {
+                  setEditing(false);
+                  setStatus(order.deliveryStatus);
+                  setNote(order.deliveryNote ?? "");
+                }}
+              >
+                <X className="w-3 h-3" />
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-[10px] px-1.5 text-primary hover:text-primary"
+                onClick={() => setEditing(true)}
+              >
+                <Edit2 className="w-3 h-3 ml-0.5" />تقفيل
+              </Button>
+            )
+          )}
+          {locked && (
+            <Link href={`/orders/${order.id}`}>
+              <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2 text-primary hover:text-primary">
+                عرض
+              </Button>
+            </Link>
+          )}
+        </div>
+      </div>
+
+      {/* Editing panel */}
+      {editing && (
+        <div className="px-4 pb-3 flex flex-col gap-2 bg-primary/5 border-t border-primary/10">
+          <div className="flex flex-wrap gap-2 items-end mt-2">
+            <div>
+              <Label className="text-[10px] mb-1 block text-muted-foreground">حالة التسليم</Label>
+              <Select
+                value={status}
+                onValueChange={(v) => setStatus(v as DeliveryStatus)}
+              >
+                <SelectTrigger className="h-8 text-xs w-40 bg-background">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DELIVERY_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value} className="text-xs">
+                      <span className={o.color}>{o.label}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {needsPartial && (
+              <div>
+                <Label className="text-[10px] mb-1 block text-muted-foreground">
+                  الكمية المستلمة (من {order.quantity})
+                </Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={order.quantity}
+                  value={partialQty}
+                  onChange={(e) => setPartialQty(e.target.value)}
+                  className="h-8 text-xs w-28 bg-background"
+                  placeholder="الكمية"
+                />
+              </div>
+            )}
+          </div>
+
+          {(needsNote || needsPartial || status === "pending") && (
+            <div>
+              <Label className="text-[10px] mb-1 block text-muted-foreground">
+                {needsNote ? "سبب / ملاحظة (مطلوب)" : "ملاحظة (اختياري)"}
+              </Label>
+              <Input
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                className="h-8 text-xs bg-background"
+                placeholder={
+                  status === "postponed"
+                    ? "مثال: العميل طلب التأجيل أسبوعاً..."
+                    : status === "returned"
+                    ? "مثال: العميل رفض الاستلام..."
+                    : "ملاحظة..."
+                }
+              />
+            </div>
+          )}
+
+          <div className="flex gap-2 justify-end">
+            <Button
+              size="sm"
+              className="h-7 text-[11px] bg-primary text-primary-foreground hover:bg-primary/90 gap-1"
+              onClick={() => mutation.mutate()}
+              disabled={
+                mutation.isPending ||
+                !hasChanges ||
+                (needsNote && !note.trim()) ||
+                (needsPartial && (!partialQty || parseInt(partialQty) < 1))
+              }
+            >
+              <Save className="w-3 h-3" />
+              {mutation.isPending ? "جاري الحفظ..." : "حفظ"}
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InvoicePriceEditor({
+  manifestId,
+  current,
+  currentNotes,
+  onSaved,
+}: {
+  manifestId: number;
+  current: number | null;
+  currentNotes: string | null;
+  onSaved: () => void;
+}) {
+  const { toast } = useToast();
+  const [editing, setEditing] = useState(false);
+  const [price, setPrice] = useState(current?.toString() ?? "");
+  const [notes, setNotes] = useState(currentNotes ?? "");
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      manifestsApi.update(manifestId, {
+        invoicePrice: price ? parseFloat(price) : null,
+        invoiceNotes: notes.trim() || null,
+      }),
+    onSuccess: () => {
+      toast({ title: "تم حفظ سعر الفاتورة" });
+      setEditing(false);
+      onSaved();
+    },
+    onError: (e: any) =>
+      toast({ title: "خطأ", description: e.message, variant: "destructive" }),
+  });
+
+  if (!editing) {
+    return (
+      <div className="flex items-center gap-2">
+        <div>
+          {current != null ? (
+            <span className="text-lg font-black text-primary">
+              {formatCurrency(current)}
+            </span>
+          ) : (
+            <span className="text-sm text-muted-foreground">لم يُحدَّد بعد</span>
+          )}
+          {currentNotes && (
+            <p className="text-[10px] text-muted-foreground">{currentNotes}</p>
+          )}
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 text-[10px] gap-1 text-muted-foreground hover:text-foreground"
+          onClick={() => {
+            setPrice(current?.toString() ?? "");
+            setNotes(currentNotes ?? "");
+            setEditing(true);
+          }}
+        >
+          <Edit2 className="w-3 h-3" />تعديل
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-2">
+        <Input
+          type="number"
+          step="0.01"
+          min={0}
+          value={price}
+          onChange={(e) => setPrice(e.target.value)}
+          className="h-8 text-sm w-36 bg-background"
+          placeholder="0.00"
+          autoFocus
+        />
+        <span className="text-xs text-muted-foreground">ج.م</span>
+        <Button
+          size="sm"
+          className="h-7 text-xs gap-1 bg-primary text-primary-foreground"
+          onClick={() => mutation.mutate()}
+          disabled={mutation.isPending}
+        >
+          <Check className="w-3 h-3" />حفظ
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 text-xs"
+          onClick={() => setEditing(false)}
+        >
+          <X className="w-3 h-3" />
+        </Button>
+      </div>
+      <Input
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        className="h-8 text-xs bg-background"
+        placeholder="ملاحظات الفاتورة (اختياري)..."
+      />
+    </div>
+  );
+}
+
+function SettlementCard({ manifest }: { manifest: ShippingManifestDetail }) {
+  const s = manifest.stats;
+  const invoicePrice = manifest.invoicePrice ?? 0;
+
+  const deliveredTotal = s.deliveredGross;
+  const netBeforeInvoice = deliveredTotal - s.totalShippingCost;
+  const balance = invoicePrice > 0 ? invoicePrice - netBeforeInvoice : null;
+
+  return (
+    <Card className="border-primary/30 bg-primary/5 p-5">
+      <div className="flex items-center gap-2 mb-4">
+        <Receipt className="w-4 h-4 text-primary" />
+        <h2 className="font-bold text-sm">بيان التسوية — الحساب مع شركة الشحن</h2>
+        {manifest.status === "closed" && (
+          <Badge variant="outline" className="text-[9px] border-emerald-700 bg-emerald-900/20 text-emerald-400 mr-auto">
+            مُغلق
+          </Badge>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        <div className="bg-card rounded-md p-3 border border-border">
+          <p className="text-[10px] text-muted-foreground mb-1">إجمالي المسلَّم</p>
+          <p className="text-base font-black text-emerald-400">{formatCurrency(deliveredTotal)}</p>
+          <p className="text-[10px] text-emerald-600">{s.delivered} طلبية</p>
+        </div>
+        <div className="bg-card rounded-md p-3 border border-border">
+          <p className="text-[10px] text-muted-foreground mb-1">رسوم الشحن</p>
+          <p className="text-base font-black text-amber-400">−{formatCurrency(s.totalShippingCost)}</p>
+          <p className="text-[10px] text-amber-600">مُخصومة</p>
+        </div>
+        <div className="bg-card rounded-md p-3 border border-border">
+          <p className="text-[10px] text-muted-foreground mb-1">صافي المستحق</p>
+          <p className="text-base font-black text-primary">{formatCurrency(netBeforeInvoice)}</p>
+          <p className="text-[10px] text-muted-foreground">بعد الشحن</p>
+        </div>
+        <div className={`rounded-md p-3 border ${manifest.invoicePrice != null ? "bg-card border-border" : "bg-muted/20 border-dashed border-border"}`}>
+          <p className="text-[10px] text-muted-foreground mb-1">سعر الفاتورة المتفق</p>
+          {manifest.invoicePrice != null ? (
+            <>
+              <p className="text-base font-black">{formatCurrency(manifest.invoicePrice)}</p>
+              <p className="text-[10px] text-muted-foreground">المبلغ المتفق</p>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground/50">غير محدد</p>
+          )}
+        </div>
+      </div>
+
+      {/* Balance */}
+      {balance !== null && (
+        <div className={`rounded-md p-3 border flex items-center justify-between ${balance >= 0 ? "border-emerald-700 bg-emerald-900/10" : "border-red-700 bg-red-900/10"}`}>
+          <div>
+            <p className={`text-xs font-bold mb-0.5 ${balance >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+              {balance >= 0 ? "✓ فرق لصالحنا" : "⚠ فرق على حسابنا"}
+            </p>
+            <p className={`text-xl font-black ${balance >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+              {formatCurrency(Math.abs(balance))}
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              الفاتورة ({formatCurrency(invoicePrice)}) {balance >= 0 ? "أعلى" : "أقل"} من الصافي ({formatCurrency(netBeforeInvoice)})
+            </p>
+          </div>
+          {balance >= 0
+            ? <TrendingUp className="w-10 h-10 text-emerald-400 opacity-20" />
+            : <AlertTriangle className="w-10 h-10 text-red-400 opacity-20" />}
+        </div>
+      )}
+
+      {manifest.invoiceNotes && (
+        <p className="text-xs text-muted-foreground mt-3 border-t border-border pt-3">
+          ملاحظات الفاتورة: {manifest.invoiceNotes}
+        </p>
+      )}
+    </Card>
+  );
+}
+
+function CloseConfirmDialog({
+  manifest,
+  onClose,
+  onConfirm,
+  loading,
+}: {
+  manifest: ShippingManifestDetail;
+  onClose: () => void;
+  onConfirm: () => void;
+  loading: boolean;
+}) {
+  const s = manifest.stats;
+  const pendingCount = manifest.orders.filter(
+    (o) => o.deliveryStatus === "pending"
+  ).length;
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="bg-card border-border max-w-md" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="text-right flex items-center gap-2">
+            <Lock className="w-4 h-4 text-emerald-400" />
+            إغلاق البيان {manifest.manifestNumber}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-3 mt-2">
+          {pendingCount > 0 && (
+            <div className="flex items-start gap-2 p-3 rounded-md bg-amber-900/20 border border-amber-700">
+              <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+              <p className="text-xs text-amber-400">
+                يوجد <strong>{pendingCount}</strong> طلبية لم يُحدَّد وضعها بعد. هل تريد الإغلاق رغم ذلك؟
+              </p>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="p-2 rounded-md bg-muted/20 border border-border">
+              <p className="text-muted-foreground">إجمالي الطلبيات</p>
+              <p className="font-bold text-base">{s.total}</p>
+            </div>
+            <div className="p-2 rounded-md bg-emerald-900/10 border border-emerald-700">
+              <p className="text-emerald-400">مسلَّم</p>
+              <p className="font-bold text-base text-emerald-400">{s.delivered}</p>
+            </div>
+            <div className="p-2 rounded-md bg-orange-900/10 border border-orange-700">
+              <p className="text-orange-400">مؤجل</p>
+              <p className="font-bold text-base text-orange-400">
+                {manifest.orders.filter((o) => o.deliveryStatus === "postponed").length}
+              </p>
+            </div>
+            <div className="p-2 rounded-md bg-red-900/10 border border-red-700">
+              <p className="text-red-400">مرتجع</p>
+              <p className="font-bold text-base text-red-400">{s.returned}</p>
+            </div>
+          </div>
+
+          <div className="p-3 rounded-md bg-primary/10 border border-primary/30 text-xs">
+            <p className="text-muted-foreground mb-1">صافي المستحق من الشركة</p>
+            <p className="font-black text-lg text-primary">
+              {formatCurrency(s.deliveredGross - s.totalShippingCost)}
+            </p>
+            {manifest.invoicePrice != null && (
+              <p className="text-muted-foreground mt-1">
+                سعر الفاتورة المتفق: {formatCurrency(manifest.invoicePrice)}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter className="flex gap-2 mt-2">
+          <Button
+            className="flex-1 bg-emerald-700 hover:bg-emerald-600 text-white gap-1"
+            onClick={onConfirm}
+            disabled={loading}
+          >
+            <Lock className="w-3 h-3" />
+            {loading ? "جاري الإغلاق..." : "تأكيد الإغلاق"}
+          </Button>
+          <Button variant="outline" className="border-border" onClick={onClose}>
+            إلغاء
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function ShippingManifestPage() {
   const params = useParams();
@@ -37,6 +574,8 @@ export default function ShippingManifestPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showCloseDialog, setShowCloseDialog] = useState(false);
+  const [showOrders, setShowOrders] = useState(true);
 
   const { data: manifest, isLoading, error } = useQuery({
     queryKey: ["shipping-manifest", id],
@@ -44,12 +583,18 @@ export default function ShippingManifestPage() {
     enabled: !isNaN(id),
   });
 
+  const refetch = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ["shipping-manifest", id] });
+    queryClient.invalidateQueries({ queryKey: ["shipping-manifests"] });
+  }, [queryClient, id]);
+
   const updateMutation = useMutation({
-    mutationFn: (data: { status: "open" | "closed" }) => manifestsApi.update(id, data),
+    mutationFn: (data: { status: "open" | "closed" }) =>
+      manifestsApi.update(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["shipping-manifest", id] });
-      queryClient.invalidateQueries({ queryKey: ["shipping-manifests"] });
-      toast({ title: "تم التحديث" });
+      refetch();
+      setShowCloseDialog(false);
+      toast({ title: manifest?.status === "open" ? "تم إغلاق البيان" : "تم فتح البيان" });
     },
   });
 
@@ -60,86 +605,158 @@ export default function ShippingManifestPage() {
       toast({ title: "تم الحذف" });
       window.history.back();
     },
-    onError: () => toast({ title: "خطأ", description: "فشل حذف البيان", variant: "destructive" }),
+    onError: () =>
+      toast({
+        title: "خطأ",
+        description: "فشل حذف البيان",
+        variant: "destructive",
+      }),
   });
 
   const handlePrint = () => window.print();
 
-  if (isLoading) return <div className="p-12 text-center text-muted-foreground animate-pulse">جاري التحميل...</div>;
-  if (error || !manifest) return (
-    <div className="p-12 text-center">
-      <AlertCircle className="w-12 h-12 mx-auto mb-3 text-destructive opacity-50" />
-      <h2 className="text-lg font-bold mb-2">البيان غير موجود</h2>
-      <Link href="/shipping"><Button variant="outline" className="mt-3">العودة لشركات الشحن</Button></Link>
-    </div>
-  );
+  if (isLoading)
+    return (
+      <div className="p-12 text-center text-muted-foreground animate-pulse">
+        جاري التحميل...
+      </div>
+    );
+  if (error || !manifest)
+    return (
+      <div className="p-12 text-center">
+        <AlertCircle className="w-12 h-12 mx-auto mb-3 text-destructive opacity-50" />
+        <h2 className="text-lg font-bold mb-2">البيان غير موجود</h2>
+        <Link href="/shipping">
+          <Button variant="outline" className="mt-3">
+            العودة لشركات الشحن
+          </Button>
+        </Link>
+      </div>
+    );
 
   const s = manifest.stats;
+  const isLocked = manifest.status === "closed";
+  const pendingOrders = manifest.orders.filter(
+    (o) => o.deliveryStatus === "pending"
+  ).length;
 
   return (
     <div className="max-w-5xl mx-auto space-y-5 animate-in fade-in duration-500" dir="rtl">
-      {/* Header */}
+      {/* ─── Header ─── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Link href="/shipping">
-            <Button variant="outline" size="icon" className="h-8 w-8 rounded-full border-border">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8 rounded-full border-border"
+            >
               <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl font-bold">{manifest.manifestNumber}</h1>
-              <Badge variant="outline" className={`text-[10px] font-bold border ${manifest.status === "open" ? "border-blue-700 bg-blue-900/20 text-blue-400" : "border-emerald-700 bg-emerald-900/20 text-emerald-400"}`}>
-                {manifest.status === "open" ? "مفتوح" : "مغلق"}
+              <Badge
+                variant="outline"
+                className={`text-[10px] font-bold border ${
+                  isLocked
+                    ? "border-emerald-700 bg-emerald-900/20 text-emerald-400"
+                    : "border-blue-700 bg-blue-900/20 text-blue-400"
+                }`}
+              >
+                {isLocked ? "مغلق" : "مفتوح"}
               </Badge>
             </div>
             <div className="flex items-center gap-3 mt-0.5">
               <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <Truck className="w-3 h-3" />{manifest.companyName}
+                <Truck className="w-3 h-3" />
+                {manifest.companyName}
               </p>
-              <p className="text-xs text-muted-foreground">{format(new Date(manifest.createdAt), "yyyy/MM/dd")}</p>
+              <p className="text-xs text-muted-foreground">
+                {format(new Date(manifest.createdAt), "yyyy/MM/dd")}
+              </p>
+              {manifest.closedAt && (
+                <p className="text-xs text-emerald-600">
+                  أُغلق: {format(new Date(manifest.closedAt), "yyyy/MM/dd")}
+                </p>
+              )}
             </div>
           </div>
         </div>
         <div className="flex items-center gap-2 print:hidden">
-          <Button variant="outline" size="sm" className="h-8 text-xs gap-1 border-border" onClick={handlePrint}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs gap-1 border-border"
+            onClick={handlePrint}
+          >
             <Printer className="w-3 h-3" />طباعة
           </Button>
-          {manifest.status === "open" ? (
-            <Button variant="outline" size="sm" className="h-8 text-xs gap-1 border-emerald-800 text-emerald-400 hover:bg-emerald-900/20" onClick={() => updateMutation.mutate({ status: "closed" })} disabled={updateMutation.isPending}>
-              <Lock className="w-3 h-3" />إغلاق البيان
+          {isLocked ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs gap-1 border-amber-800 text-amber-400 hover:bg-amber-900/20"
+              onClick={() => updateMutation.mutate({ status: "open" })}
+              disabled={updateMutation.isPending}
+            >
+              <Unlock className="w-3 h-3" />فتح
             </Button>
           ) : (
-            <Button variant="outline" size="sm" className="h-8 text-xs gap-1 border-amber-800 text-amber-400 hover:bg-amber-900/20" onClick={() => updateMutation.mutate({ status: "open" })} disabled={updateMutation.isPending}>
-              <Unlock className="w-3 h-3" />فتح البيان
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs gap-1 border-emerald-800 text-emerald-400 hover:bg-emerald-900/20"
+              onClick={() => setShowCloseDialog(true)}
+            >
+              <Lock className="w-3 h-3" />إغلاق البيان
             </Button>
           )}
-          <Button variant="outline" size="sm" className="h-8 text-xs gap-1 border-red-800 text-red-400 hover:bg-red-900/20 hover:text-red-400" onClick={() => setShowDeleteDialog(true)}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs gap-1 border-red-800 text-red-400 hover:bg-red-900/20 hover:text-red-400"
+            onClick={() => setShowDeleteDialog(true)}
+          >
             <Trash2 className="w-3 h-3" />حذف
           </Button>
         </div>
       </div>
 
-      {/* KPI Cards */}
+      {/* ─── KPI Cards ─── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card className="border-border bg-card p-4">
           <p className="text-xs text-muted-foreground mb-1">إجمالي الطلبيات</p>
           <p className="text-2xl font-black">{s.total}</p>
+          {pendingOrders > 0 && !isLocked && (
+            <p className="text-[10px] text-amber-500 mt-0.5">
+              {pendingOrders} بانتظار التقفيل
+            </p>
+          )}
         </Card>
         <Card className="border-emerald-900/50 bg-emerald-900/10 p-4">
-          <p className="text-xs text-emerald-400 mb-1 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" />مُسلَّم</p>
+          <p className="text-xs text-emerald-400 mb-1 flex items-center gap-1">
+            <CheckCircle2 className="w-3 h-3" />مُسلَّم
+          </p>
           <p className="text-2xl font-black text-emerald-400">{s.delivered}</p>
-          <p className="text-xs text-emerald-600 mt-0.5 font-bold">{s.deliveryRate}% نسبة التسليم</p>
+          <p className="text-xs text-emerald-600 mt-0.5 font-bold">
+            {s.deliveryRate}% نسبة التسليم
+          </p>
         </Card>
         <Card className="border-red-900/50 bg-red-900/10 p-4">
-          <p className="text-xs text-red-400 mb-1 flex items-center gap-1"><RotateCcw className="w-3 h-3" />مُرتجَع</p>
+          <p className="text-xs text-red-400 mb-1 flex items-center gap-1">
+            <RotateCcw className="w-3 h-3" />مُرتجَع
+          </p>
           <p className="text-2xl font-black text-red-400">{s.returned}</p>
           <p className="text-xs text-red-600 mt-0.5 font-bold">
             {s.total > 0 ? Math.round((s.returned / s.total) * 100) : 0}% نسبة الإرجاع
           </p>
         </Card>
         <Card className="border-amber-900/50 bg-amber-900/10 p-4">
-          <p className="text-xs text-amber-400 mb-1 flex items-center gap-1"><Clock className="w-3 h-3" />معلّق</p>
+          <p className="text-xs text-amber-400 mb-1 flex items-center gap-1">
+            <Clock className="w-3 h-3" />مؤجل / معلَّق
+          </p>
           <p className="text-2xl font-black text-amber-400">{s.pending}</p>
           <p className="text-xs text-amber-600 mt-0.5 font-bold">
             {s.total > 0 ? Math.round((s.pending / s.total) * 100) : 0}% من الإجمالي
@@ -147,144 +764,211 @@ export default function ShippingManifestPage() {
         </Card>
       </div>
 
-      {/* Delivery Rate Bar */}
+      {/* ─── Delivery Rate Bar ─── */}
       <Card className="border-border bg-card p-4">
         <div className="flex items-center justify-between mb-2">
-          <p className="text-sm font-bold">نسبة التسليم الكلية</p>
-          <p className={`text-xl font-black ${s.deliveryRate >= 70 ? "text-emerald-400" : s.deliveryRate >= 40 ? "text-amber-400" : "text-red-400"}`}>
+          <p className="text-sm font-bold">نسبة التسليم</p>
+          <p
+            className={`text-xl font-black ${
+              s.deliveryRate >= 70
+                ? "text-emerald-400"
+                : s.deliveryRate >= 40
+                ? "text-amber-400"
+                : "text-red-400"
+            }`}
+          >
             {s.deliveryRate}%
           </p>
         </div>
-        <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
+        <div className="w-full bg-muted rounded-full h-3 overflow-hidden flex">
           <div
-            className={`h-3 rounded-full transition-all ${s.deliveryRate >= 70 ? "bg-emerald-500" : s.deliveryRate >= 40 ? "bg-amber-500" : "bg-red-500"}`}
-            style={{ width: `${s.deliveryRate}%` }}
+            className="h-3 bg-emerald-500 transition-all"
+            style={{ width: `${s.total > 0 ? (s.delivered / s.total) * 100 : 0}%` }}
+          />
+          <div
+            className="h-3 bg-orange-500 transition-all"
+            style={{
+              width: `${s.total > 0 ? (s.pending / s.total) * 100 : 0}%`,
+            }}
+          />
+          <div
+            className="h-3 bg-red-500 transition-all"
+            style={{ width: `${s.total > 0 ? (s.returned / s.total) * 100 : 0}%` }}
           />
         </div>
         <div className="flex justify-between mt-1.5 text-[10px] text-muted-foreground">
-          <span>مُسلَّم: {s.delivered} طلب</span>
-          <span>مُرتجَع: {s.returned} طلب</span>
-          <span>معلّق: {s.pending} طلب</span>
+          <span className="text-emerald-600">مُسلَّم: {s.delivered}</span>
+          <span className="text-orange-600">مؤجل: {s.pending}</span>
+          <span className="text-red-600">مُرتجَع: {s.returned}</span>
         </div>
       </Card>
 
-      {/* Financial Summary */}
+      {/* ─── Invoice Section ─── */}
+      <Card className="border-border bg-card p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Banknote className="w-4 h-4 text-muted-foreground" />
+          <h2 className="font-bold text-sm">فاتورة البيان</h2>
+        </div>
+        <div className="flex flex-col gap-1">
+          <p className="text-[10px] text-muted-foreground">
+            المبلغ المتفق عليه مع شركة الشحن (ما سيُدفع لنا)
+          </p>
+          <InvoicePriceEditor
+            manifestId={id}
+            current={manifest.invoicePrice}
+            currentNotes={manifest.invoiceNotes}
+            onSaved={refetch}
+          />
+        </div>
+      </Card>
+
+      {/* ─── Settlement Card ─── */}
+      <SettlementCard manifest={manifest} />
+
+      {/* ─── Orders Table ─── */}
+      <Card className="border-border bg-card overflow-hidden print:break-inside-avoid">
+        <div
+          className="flex items-center justify-between px-4 py-3 border-b border-border cursor-pointer hover:bg-muted/10 transition-colors"
+          onClick={() => setShowOrders(!showOrders)}
+        >
+          <h2 className="font-bold text-sm flex items-center gap-2">
+            <Package className="w-4 h-4 text-muted-foreground" />
+            الطلبيات في البيان
+            <Badge variant="outline" className="text-[9px]">
+              {manifest.orders.length}
+            </Badge>
+            {!isLocked && pendingOrders > 0 && (
+              <Badge
+                variant="outline"
+                className="text-[9px] border-amber-700 bg-amber-900/20 text-amber-400"
+              >
+                {pendingOrders} بانتظار التقفيل
+              </Badge>
+            )}
+          </h2>
+          {showOrders ? (
+            <ChevronUp className="w-4 h-4 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="w-4 h-4 text-muted-foreground" />
+          )}
+        </div>
+
+        {showOrders && (
+          <>
+            {manifest.orders.length === 0 ? (
+              <div className="p-8 text-center text-muted-foreground text-sm">
+                لا توجد طلبيات
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                {/* Table header */}
+                <div className="grid grid-cols-[1fr_1fr_60px_80px_120px_80px] gap-0 border-b border-border bg-muted/20 px-3 py-2 text-[10px] font-semibold text-muted-foreground">
+                  <div>العميل</div>
+                  <div>المنتج</div>
+                  <div className="text-center">الكمية</div>
+                  <div className="text-left">الإجمالي</div>
+                  <div>حالة التسليم</div>
+                  <div className="text-left">إجراء</div>
+                </div>
+                {manifest.orders.map((order) => (
+                  <OrderDeliveryRow
+                    key={order.id}
+                    order={order}
+                    manifestId={id}
+                    locked={isLocked}
+                    onSaved={refetch}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </Card>
+
+      {/* ─── P&L Summary (print visible) ─── */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <Card className="border-border bg-card p-4">
           <p className="text-xs text-muted-foreground mb-1">إجمالي الإيرادات</p>
-          <p className="text-lg font-black text-emerald-400">{formatCurrency(s.totalRevenue)}</p>
+          <p className="text-lg font-black text-emerald-400">
+            {formatCurrency(s.totalRevenue)}
+          </p>
         </Card>
         <Card className="border-border bg-card p-4">
           <p className="text-xs text-muted-foreground mb-1">تكلفة الشحن</p>
-          <p className="text-lg font-black text-amber-400">{formatCurrency(s.totalShippingCost)}</p>
+          <p className="text-lg font-black text-amber-400">
+            {formatCurrency(s.totalShippingCost)}
+          </p>
         </Card>
         <Card className="border-border bg-card p-4">
           <p className="text-xs text-muted-foreground mb-1">خسائر الإرجاع</p>
-          <p className="text-lg font-black text-red-400">{formatCurrency(s.returnLosses)}</p>
+          <p className="text-lg font-black text-red-400">
+            {formatCurrency(s.returnLosses)}
+          </p>
         </Card>
         <Card className="border-border bg-card p-4">
           <p className="text-xs text-muted-foreground mb-1">تكلفة البضاعة</p>
           <p className="text-lg font-black">{formatCurrency(s.totalCost)}</p>
         </Card>
-        <Card className={`col-span-2 p-4 border ${s.netProfit >= 0 ? "border-emerald-900/50 bg-emerald-900/10" : "border-red-900/50 bg-red-900/10"}`}>
+        <Card
+          className={`col-span-2 p-4 border ${
+            s.netProfit >= 0
+              ? "border-emerald-900/50 bg-emerald-900/10"
+              : "border-red-900/50 bg-red-900/10"
+          }`}
+        >
           <div className="flex items-center justify-between">
             <div>
-              <p className={`text-xs mb-1 font-bold ${s.netProfit >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+              <p
+                className={`text-xs mb-1 font-bold ${
+                  s.netProfit >= 0 ? "text-emerald-400" : "text-red-400"
+                }`}
+              >
                 {s.netProfit >= 0 ? "صافي الربح" : "صافي الخسارة"}
               </p>
-              <p className={`text-2xl font-black ${s.netProfit >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+              <p
+                className={`text-2xl font-black ${
+                  s.netProfit >= 0 ? "text-emerald-400" : "text-red-400"
+                }`}
+              >
                 {formatCurrency(Math.abs(s.netProfit))}
               </p>
             </div>
-            {s.netProfit >= 0
-              ? <TrendingUp className="w-10 h-10 text-emerald-400 opacity-30" />
-              : <TrendingDown className="w-10 h-10 text-red-400 opacity-30" />}
+            {s.netProfit >= 0 ? (
+              <TrendingUp className="w-10 h-10 text-emerald-400 opacity-30" />
+            ) : (
+              <TrendingDown className="w-10 h-10 text-red-400 opacity-30" />
+            )}
           </div>
           {s.totalRevenue > 0 && (
-            <p className={`text-xs mt-2 font-bold ${s.netProfit >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+            <p
+              className={`text-xs mt-2 font-bold ${
+                s.netProfit >= 0 ? "text-emerald-600" : "text-red-600"
+              }`}
+            >
               هامش الربح: {Math.round((s.netProfit / s.totalRevenue) * 100)}%
             </p>
           )}
         </Card>
       </div>
 
-      {/* Orders Table */}
-      <Card className="border-border bg-card overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-          <h2 className="font-bold text-sm flex items-center gap-2">
-            <Package className="w-4 h-4 text-muted-foreground" />
-            الطلبيات في البيان
-            <Badge variant="outline" className="text-[9px]">{manifest.orders.length}</Badge>
-          </h2>
-        </div>
-        {manifest.orders.length === 0 ? (
-          <div className="p-8 text-center text-muted-foreground text-sm">لا توجد طلبيات</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-border bg-muted/20">
-                  <th className="text-right font-semibold text-muted-foreground px-3 py-2.5">#</th>
-                  <th className="text-right font-semibold text-muted-foreground px-3 py-2.5">العميل</th>
-                  <th className="text-right font-semibold text-muted-foreground px-3 py-2.5">المنتج</th>
-                  <th className="text-right font-semibold text-muted-foreground px-3 py-2.5">الكمية</th>
-                  <th className="text-right font-semibold text-muted-foreground px-3 py-2.5">الإجمالي</th>
-                  <th className="text-right font-semibold text-muted-foreground px-3 py-2.5">الحالة</th>
-                  <th className="text-right font-semibold text-muted-foreground px-3 py-2.5 print:hidden">إجراء</th>
-                </tr>
-              </thead>
-              <tbody>
-                {manifest.orders.map((order, idx) => (
-                  <tr key={order.id} className={`border-b border-border/50 hover:bg-muted/10 transition-colors ${idx % 2 === 0 ? "" : "bg-muted/5"}`}>
-                    <td className="px-3 py-2.5 font-mono text-muted-foreground">
-                      {order.id.toString().padStart(4, "0")}
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <p className="font-semibold">{order.customerName}</p>
-                      {order.phone && <p className="text-muted-foreground text-[10px]">{order.phone}</p>}
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <p>{order.product}</p>
-                      {(order.color || order.size) && (
-                        <p className="text-muted-foreground text-[10px]">
-                          {[order.color, order.size].filter(Boolean).join(" / ")}
-                        </p>
-                      )}
-                    </td>
-                    <td className="px-3 py-2.5 text-center">
-                      {order.status === "partial_received" && order.partialQuantity
-                        ? <><span className="text-teal-400 font-bold">{order.partialQuantity}</span><span className="text-muted-foreground">/{order.quantity}</span></>
-                        : order.quantity
-                      }
-                    </td>
-                    <td className="px-3 py-2.5 font-bold">
-                      {formatCurrency(order.totalPrice)}
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <Badge variant="outline" className={`text-[9px] font-bold border ${statusClasses[order.status] || ""}`}>
-                        {statusLabels[order.status] || order.status}
-                      </Badge>
-                    </td>
-                    <td className="px-3 py-2.5 print:hidden">
-                      <Link href={`/orders/${order.id}`}>
-                        <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2 text-primary hover:text-primary">عرض</Button>
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+      {/* ─── Close Confirm Dialog ─── */}
+      {showCloseDialog && (
+        <CloseConfirmDialog
+          manifest={manifest}
+          onClose={() => setShowCloseDialog(false)}
+          onConfirm={() => updateMutation.mutate({ status: "closed" })}
+          loading={updateMutation.isPending}
+        />
+      )}
 
-      {/* Delete Dialog */}
+      {/* ─── Delete Dialog ─── */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent dir="rtl">
           <AlertDialogHeader>
             <AlertDialogTitle>تأكيد حذف البيان</AlertDialogTitle>
             <AlertDialogDescription>
-              هل أنت متأكد من حذف بيان الشحن {manifest.manifestNumber}؟ لن يتم حذف الطلبيات المرتبطة به.
+              هل أنت متأكد من حذف بيان الشحن {manifest.manifestNumber}؟ لن يتم
+              حذف الطلبيات المرتبطة به.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

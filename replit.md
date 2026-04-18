@@ -31,7 +31,8 @@ A full-stack order management system for CAPRINA, an artisan goods company. Buil
   - **Orders**: Upload CSV/XLSX to bulk-import customer orders with dynamic column mapping wizard
   - **Products**: Bulk-import products with costPrice+unitPrice+color+size; upserts by name, auto-creates variants
   - **Returns**: Bulk-mark existing orders as "returned" by orderId or customerName+product
-- **Shipping Companies**: Manage courier company records
+- **Shipping Companies**: Manage courier company records with delivery rate stats and per-company manifest history
+- **Shipping Manifests**: Bundle `in_shipping` orders into manifests per courier. Per-order delivery settlement (مسلَّم/مؤجل/مرتجع/استلم جزئي + reason). Editable invoice price + notes. Settlement card: delivered gross − shipping fees = net owed. Closing statement dialog with summary before locking. DB: `shipping_manifests` (invoicePrice, invoiceNotes) + `shipping_manifest_orders` (deliveryStatus, deliveryNote, deliveredAt). Route: PATCH `/shipping-manifests/:id/orders/:orderId` updates manifest delivery status and syncs order.status accordingly.
 
 ## Profit Engine
 

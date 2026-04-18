@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, numeric } from "drizzle-orm/pg-core";
 import { shippingCompaniesTable } from "./shipping_companies";
 import { ordersTable } from "./orders";
 
@@ -8,6 +8,8 @@ export const shippingManifestsTable = pgTable("shipping_manifests", {
   shippingCompanyId: integer("shipping_company_id").notNull().references(() => shippingCompaniesTable.id),
   status: text("status").notNull().default("open"),
   notes: text("notes"),
+  invoicePrice: numeric("invoice_price", { precision: 10, scale: 2 }),
+  invoiceNotes: text("invoice_notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   closedAt: timestamp("closed_at", { withTimezone: true }),
 });
@@ -16,6 +18,9 @@ export const shippingManifestOrdersTable = pgTable("shipping_manifest_orders", {
   id: serial("id").primaryKey(),
   manifestId: integer("manifest_id").notNull().references(() => shippingManifestsTable.id, { onDelete: "cascade" }),
   orderId: integer("order_id").notNull().references(() => ordersTable.id),
+  deliveryStatus: text("delivery_status").notNull().default("pending"),
+  deliveryNote: text("delivery_note"),
+  deliveredAt: timestamp("delivered_at", { withTimezone: true }),
   addedAt: timestamp("added_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

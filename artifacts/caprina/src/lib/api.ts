@@ -412,6 +412,8 @@ export interface MovementTotals {
 }
 
 // ─── Shipping Manifests API ─────────────────────────────────────────────────
+export type DeliveryStatus = "pending" | "delivered" | "postponed" | "partial_received" | "returned";
+
 export interface ShippingManifestListItem {
   id: number;
   manifestNumber: string;
@@ -419,6 +421,8 @@ export interface ShippingManifestListItem {
   companyName: string;
   status: "open" | "closed";
   notes: string | null;
+  invoicePrice: number | null;
+  invoiceNotes: string | null;
   orderCount: number;
   createdAt: string;
   closedAt: string | null;
@@ -435,15 +439,23 @@ export interface ManifestStats {
   totalShippingCost: number;
   returnLosses: number;
   netProfit: number;
+  deliveredGross: number;
 }
 
 export interface ManifestCompanyStats extends ManifestStats {
   manifestCount: number;
 }
 
+export interface ManifestOrder extends Order {
+  deliveryStatus: DeliveryStatus;
+  deliveryNote: string | null;
+  deliveredAt: string | null;
+  manifestOrderId: number;
+}
+
 export interface ShippingManifestDetail extends ShippingManifestListItem {
   companyPhone: string | null;
-  orders: Order[];
+  orders: ManifestOrder[];
   stats: ManifestStats;
 }
 
@@ -454,8 +466,17 @@ export const manifestsApi = {
     apiFetch<ShippingManifestDetail>(`/shipping-manifests/${id}`),
   create: (data: { shippingCompanyId: number; orderIds: number[]; notes?: string }) =>
     apiFetch<ShippingManifestListItem>("/shipping-manifests", { method: "POST", body: JSON.stringify(data) }),
-  update: (id: number, data: { status?: "open" | "closed"; notes?: string }) =>
+  update: (id: number, data: { status?: "open" | "closed"; notes?: string; invoicePrice?: number | null; invoiceNotes?: string | null }) =>
     apiFetch<ShippingManifestListItem>(`/shipping-manifests/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  updateOrderDelivery: (
+    manifestId: number,
+    orderId: number,
+    data: { deliveryStatus: DeliveryStatus; deliveryNote?: string | null; partialQuantity?: number | null }
+  ) =>
+    apiFetch<{ success: boolean; deliveryStatus: DeliveryStatus; deliveryNote: string | null }>(
+      `/shipping-manifests/${manifestId}/orders/${orderId}`,
+      { method: "PATCH", body: JSON.stringify(data) }
+    ),
   delete: (id: number) =>
     apiFetch<void>(`/shipping-manifests/${id}`, { method: "DELETE" }),
   companyStats: (companyId: number) =>
