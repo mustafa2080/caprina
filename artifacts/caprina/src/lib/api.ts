@@ -104,3 +104,69 @@ export const ordersApi = {
   stats: () => apiFetch<OrderStats>("/orders/stats"),
   delete: (id: number) => apiFetch<void>(`/orders/${id}`, { method: "DELETE" }),
 };
+
+export type MovementType = "IN" | "OUT";
+export type MovementReason = "sale" | "partial_sale" | "return" | "manual_in" | "manual_out" | "adjustment";
+
+export interface InventoryMovement {
+  id: number;
+  productId: number | null;
+  variantId: number | null;
+  product: string;
+  color: string | null;
+  size: string | null;
+  quantity: number;
+  type: MovementType;
+  reason: MovementReason;
+  orderId: number | null;
+  notes: string | null;
+  createdAt: string;
+}
+
+export interface MovementFilters {
+  type?: MovementType;
+  reason?: MovementReason;
+  productId?: number;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+export interface MovementTotals {
+  totalIn: number;
+  totalOut: number;
+  balance: number;
+}
+
+export const movementsApi = {
+  list: (filters?: MovementFilters) => {
+    const params = new URLSearchParams();
+    if (filters?.type) params.set("type", filters.type);
+    if (filters?.reason) params.set("reason", filters.reason);
+    if (filters?.productId) params.set("productId", String(filters.productId));
+    if (filters?.dateFrom) params.set("dateFrom", filters.dateFrom);
+    if (filters?.dateTo) params.set("dateTo", filters.dateTo);
+    const qs = params.toString();
+    return apiFetch<InventoryMovement[]>(`/inventory/movements${qs ? `?${qs}` : ""}`);
+  },
+  totals: (filters?: MovementFilters) => {
+    const params = new URLSearchParams();
+    if (filters?.type) params.set("type", filters.type);
+    if (filters?.reason) params.set("reason", filters.reason);
+    if (filters?.productId) params.set("productId", String(filters.productId));
+    if (filters?.dateFrom) params.set("dateFrom", filters.dateFrom);
+    if (filters?.dateTo) params.set("dateTo", filters.dateTo);
+    const qs = params.toString();
+    return apiFetch<MovementTotals>(`/inventory/movements/totals${qs ? `?${qs}` : ""}`);
+  },
+  create: (data: {
+    product: string;
+    color?: string | null;
+    size?: string | null;
+    quantity: number;
+    type: MovementType;
+    reason: MovementReason;
+    productId?: number | null;
+    variantId?: number | null;
+    notes?: string | null;
+  }) => apiFetch<InventoryMovement>("/inventory/movements", { method: "POST", body: JSON.stringify(data) }),
+};

@@ -1,5 +1,6 @@
 import { eq, ilike, and } from "drizzle-orm";
-import { db, productsTable, productVariantsTable } from "@workspace/db";
+import { db, productsTable, productVariantsTable, inventoryMovementsTable } from "@workspace/db";
+import type { MovementReason } from "@workspace/db";
 
 // Statuses that keep items "reserved" (in-flight, not yet delivered)
 export const RESERVED_STATUSES = ["pending", "in_shipping", "delayed"];
@@ -106,13 +107,40 @@ export async function resolveInventoryTarget(order: {
 }
 
 /**
+ * Derive the movement reason from a status transition.
+ * Returns null if no movement should be recorded.
+ *
+ * We only track ACTUAL stock changes (sold / returned) — not reservations.
+ *   soldDelta > 0 and newStatus = received       → sale
+ *   soldDelta > 0 and newStatus = partial_received→ partial_sale
+ *   soldDelta < 0                                 → return
+ */
+function deriveMovementReason(
+  newStatus: string,
+  soldDelta: number,
+): { type: "IN" | "OUT"; reason: MovementReason } | null {
+  if (soldDelta > 0) {
+    return {
+      type: "OUT",
+      reason: newStatus === "partial_received" ? "partial_sale" : "sale",
+    };
+  }
+  if (soldDelta < 0) {
+    return { type: "IN", reason: "return" };
+  }
+  return null;
+}
+
+/**
  * Adjust inventory when an order's status changes (or when it is first created / deleted).
+ * Also creates an inventory movement record for every actual stock change.
  *
  * @param order        - order data (needs variantId/productId/product/color/size/quantity)
  * @param oldStatus    - previous status ("none" for new orders)
  * @param newStatus    - incoming status ("deleted" when removing an order)
  * @param newPartialQty - partialQuantity being saved with this update
  * @param oldPartialQty - partialQuantity stored before this update
+ * @param orderId       - order id for linking the movement record
  */
 export async function adjustOrderInventory(
   order: {
@@ -128,6 +156,7 @@ export async function adjustOrderInventory(
   newStatus: string,
   newPartialQty?: number | null,
   oldPartialQty?: number | null,
+  orderId?: number | null,
 ): Promise<void> {
   if (oldStatus === newStatus && newStatus !== "partial_received") return;
 
@@ -144,9 +173,54 @@ export async function adjustOrderInventory(
 
   if (reservedDelta === 0 && soldDelta === 0) return;
 
+  // Apply numeric changes to the stock record
   if (variantId) {
     await applyVariantInventory(variantId, reservedDelta, soldDelta);
   } else if (productId) {
     await applyProductInventory(productId, reservedDelta, soldDelta);
   }
+
+  // Record movement for every actual sold/returned change
+  const movement = deriveMovementReason(newStatus, soldDelta);
+  if (movement && order.product) {
+    await db.insert(inventoryMovementsTable).values({
+      product: order.product,
+      color: order.color ?? null,
+      size: order.size ?? null,
+      quantity: Math.abs(soldDelta),
+      type: movement.type,
+      reason: movement.reason,
+      productId: productId ?? null,
+      variantId: variantId ?? null,
+      orderId: orderId ?? null,
+    });
+  }
+}
+
+/**
+ * Create a manual inventory movement (used by the inventory management page).
+ */
+export async function createManualMovement(data: {
+  product: string;
+  color?: string | null;
+  size?: string | null;
+  quantity: number;
+  type: "IN" | "OUT";
+  reason: MovementReason;
+  productId?: number | null;
+  variantId?: number | null;
+  notes?: string | null;
+}): Promise<void> {
+  await db.insert(inventoryMovementsTable).values({
+    product: data.product,
+    color: data.color ?? null,
+    size: data.size ?? null,
+    quantity: data.quantity,
+    type: data.type,
+    reason: data.reason,
+    productId: data.productId ?? null,
+    variantId: data.variantId ?? null,
+    orderId: null,
+    notes: data.notes ?? null,
+  });
 }

@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Package, Plus, Boxes, Truck, FileText, Upload } from "lucide-react";
+import { LayoutDashboard, Package, Plus, Boxes, Truck, FileText, Upload, Activity } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface LayoutProps {
@@ -11,6 +11,7 @@ const navItems = [
   { href: "/orders", label: "الطلبات", icon: Package },
   { href: "/orders/new", label: "طلب جديد", icon: Plus },
   { href: "/inventory", label: "المخزون", icon: Boxes },
+  { href: "/movements", label: "حركات المخزون", icon: Activity },
   { href: "/shipping", label: "شركات الشحن", icon: Truck },
   { href: "/invoices", label: "الفواتير", icon: FileText },
   { href: "/import", label: "استيراد Excel", icon: Upload },

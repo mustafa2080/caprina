@@ -82,6 +82,8 @@ router.post("/orders", async (req, res): Promise<void> => {
     { ...parsed.data, variantId: (parsed.data as any).variantId ?? null },
     "none",
     "pending",
+    null, null,
+    order.id,
   );
 
   res.status(201).json(GetOrderResponse.parse(order));
@@ -163,6 +165,7 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
       parsed.data.status,
       parsed.data.partialQuantity ?? null,
       existing.partialQuantity ?? null,
+      existing.id,
     );
   }
 
@@ -193,6 +196,7 @@ router.delete("/orders/:id", async (req, res): Promise<void> => {
     "deleted",
     null,
     existing.partialQuantity ?? null,
+    existing.id,
   );
 
   await db.delete(ordersTable).where(eq(ordersTable.id, id));

@@ -11,6 +11,7 @@ import Inventory from "@/pages/inventory";
 import ShippingCompanies from "@/pages/shipping-companies";
 import Invoices from "@/pages/invoices";
 import Import from "@/pages/import";
+import Movements from "@/pages/movements";
 import Layout from "@/components/layout";
 
 const queryClient = new QueryClient();
@@ -27,6 +28,7 @@ function Router() {
         <Route path="/shipping" component={ShippingCompanies} />
         <Route path="/invoices" component={Invoices} />
         <Route path="/import" component={Import} />
+        <Route path="/movements" component={Movements} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
