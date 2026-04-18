@@ -22,6 +22,7 @@ import AdsAnalyticsPage from "@/pages/ads-analytics";
 import TeamPage from "@/pages/team";
 import Login from "@/pages/login";
 import Layout from "@/components/layout";
+import { BrandLogoMark } from "@/components/brand-logo";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 
 const queryClient = new QueryClient();
@@ -34,7 +35,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center" dir="rtl">
         <div className="text-center">
-          <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-black text-lg mx-auto mb-3">C</div>
+          <BrandLogoMark size="md" className="mx-auto mb-3" />
           <p className="text-sm text-muted-foreground">جاري التحميل...</p>
         </div>
       </div>

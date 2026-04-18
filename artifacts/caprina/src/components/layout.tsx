@@ -1,5 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { LayoutDashboard, Package, Plus, Boxes, Truck, FileText, Upload, Activity, BarChart3, Users, Shield, LogOut, ChevronDown, KeyRound, Warehouse, Megaphone, UserCheck, UserCog } from "lucide-react";
+import { BrandFull } from "@/components/brand-logo";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState } from "react";
@@ -71,16 +72,13 @@ export default function Layout({ children }: LayoutProps) {
     <div className="flex min-h-screen bg-background" dir="rtl">
       {/* Sidebar */}
       <aside className="w-60 border-l border-sidebar-border bg-sidebar shrink-0 hidden md:flex md:flex-col">
-        <div className="p-5 border-b border-sidebar-border">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-sm bg-primary flex items-center justify-center text-primary-foreground font-bold text-base shrink-0">
-              C
-            </div>
-            <div>
-              <p className="text-sm font-bold text-sidebar-foreground">CAPRINA</p>
-              <p className="text-[9px] text-sidebar-foreground/40 tracking-widest uppercase">Sales Operations</p>
-            </div>
-          </div>
+        <div className="p-4 border-b border-sidebar-border">
+          <BrandFull
+            logoSize="sm"
+            layout="row"
+            nameClass="text-sm text-sidebar-foreground"
+            taglineClass="text-sidebar-foreground/40"
+          />
         </div>
 
         <nav className="px-2 py-3 flex-1 space-y-0.5 overflow-y-auto">
@@ -151,10 +149,7 @@ export default function Layout({ children }: LayoutProps) {
       <main className="flex-1 flex flex-col min-w-0">
         {/* Mobile header */}
         <header className="h-12 border-b border-sidebar-border bg-sidebar flex items-center justify-between px-4 md:hidden shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-sm bg-primary flex items-center justify-center text-primary-foreground font-bold text-xs">C</div>
-            <span className="text-sm font-bold text-sidebar-foreground">CAPRINA</span>
-          </div>
+          <BrandFull logoSize="sm" layout="row" nameClass="text-sm text-sidebar-foreground" />
           <div className="flex items-center gap-3 text-xs font-semibold text-sidebar-foreground/60">
             {can("dashboard") && <Link href="/">لوحة</Link>}
             {can("orders") && <Link href="/orders">طلبات</Link>}

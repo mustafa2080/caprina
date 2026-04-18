@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, Lock, User } from "lucide-react";
+import { BrandLogoMark } from "@/components/brand-logo";
+import { BRAND } from "@/lib/brand";
 
 export default function Login() {
   const { login } = useAuth();
@@ -37,11 +39,13 @@ export default function Login() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-primary mb-4">
-            <span className="text-xl font-black text-primary-foreground">C</span>
+          <div className="flex justify-center mb-4">
+            <BrandLogoMark size="lg" />
           </div>
-          <h1 className="text-2xl font-black tracking-tight text-foreground">CAPRINA</h1>
-          <p className="text-xs text-muted-foreground mt-1 uppercase tracking-widest">Sales Operations</p>
+          <h1 className="text-2xl font-black tracking-tight text-foreground">{BRAND.name}</h1>
+          {BRAND.tagline && (
+            <p className="text-xs text-muted-foreground mt-1 uppercase tracking-widest">{BRAND.tagline}</p>
+          )}
         </div>
 
         {/* Form */}
