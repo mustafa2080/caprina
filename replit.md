@@ -66,6 +66,46 @@ Inventory adjusts automatically on every status change. The core `computeInvento
 
 Inventory target is resolved in priority order: variantId → productId → SKU lookup (product name + color + size match against the inventory tables).
 
+## Security Layer
+
+### Authentication
+- **JWT-based auth**: Tokens stored in localStorage, 7-day expiry, bcrypt password hashing
+- **Login**: `POST /api/auth/login` → returns `{ token, user }`. Token injected as `Bearer` in all API requests.
+- **Default admin**: `admin / admin123` (seeded on startup if no users exist)
+- **Auth guard**: Frontend redirects to `/login` for unauthenticated users; auto-redirects on 401
+
+### Roles & Permissions
+| Role | Default Permissions |
+|---|---|
+| admin | All permissions (full access) |
+| employee | dashboard, orders |
+| warehouse | dashboard, inventory, movements |
+
+Permission keys: `dashboard`, `orders`, `inventory`, `movements`, `shipping`, `invoices`, `import`, `analytics`, `users`, `audit`
+
+Custom permissions can be toggled per-user in the Users management page.
+
+### Order Locking
+- Orders with status `received` or `partial_received` are **locked** for non-admins
+- Locked orders show a `مقفل` (locked) amber badge in the order detail header
+- Edit and Delete buttons are disabled with tooltip "مقفل — فقط المدير يمكنه التعديل/الحذف"
+- Backend also enforces locking (403 for non-admin on PATCH/DELETE)
+
+### Audit Logging
+- All create/update/delete/status-change operations are logged to `audit_logs` table
+- Logged for: orders, products, variants (add_stock too), users
+- Each entry includes: action, entityType, entityId, entityName, changesBefore, changesAfter, userId, userName
+- Viewable at `/audit-logs` (admin only) with filter/search and expandable diff view
+
+### New Routes
+- `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/change-password`
+- `GET/POST /api/users`, `PATCH/DELETE /api/users/:id` (admin only)
+- `GET /api/audit-logs` (admin only)
+
+### New Tables
+- `users`: id, username, password_hash, display_name, role, permissions (jsonb), is_active, created_at, updated_at
+- `audit_logs`: id, action, entity_type, entity_id, entity_name, changes_before, changes_after, user_id, user_name, created_at
+
 ## Key Commands
 
 - `pnpm run typecheck` — full typecheck across all packages

@@ -14,8 +14,12 @@ import {
   GetRecentOrdersResponse,
 } from "@workspace/api-zod";
 import { processDelivery, reverseDelivery, processReturn } from "../lib/inventory.js";
+import { logAudit, diffObjects } from "../lib/audit.js";
+import { isAdmin } from "../middlewares/requireRole.js";
 
 const router: IRouter = Router();
+
+const LOCKED_STATUSES = ["received", "partial_received"] as const;
 
 // ─── Stats ────────────────────────────────────────────────────────────────────
 
@@ -76,7 +80,6 @@ router.post("/orders", async (req, res): Promise<void> => {
 
   const totalPrice = parsed.data.quantity * parsed.data.unitPrice;
 
-  // Auto-populate costPrice from variant or product if not provided
   let costPrice = (parsed.data as any).costPrice ?? null;
   if (!costPrice && (parsed.data as any).variantId) {
     const [variant] = await db.select().from(productVariantsTable).where(eq(productVariantsTable.id, (parsed.data as any).variantId));
@@ -89,7 +92,15 @@ router.post("/orders", async (req, res): Promise<void> => {
 
   const [order] = await db.insert(ordersTable).values({ ...parsed.data, totalPrice, status: "pending", costPrice }).returning();
 
-  // NO inventory change on order creation — inventory only moves on delivery/return
+  await logAudit({
+    action: "create",
+    entityType: "order",
+    entityId: order.id,
+    entityName: `${order.customerName} — ${order.product}`,
+    after: { customerName: order.customerName, product: order.product, quantity: order.quantity, unitPrice: order.unitPrice, status: order.status },
+    userId: req.user?.id,
+    userName: req.user?.displayName,
+  });
 
   res.status(201).json(GetOrderResponse.parse(order));
 });
@@ -137,7 +148,6 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
   const params = UpdateOrderParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
-  // Read isDamaged before Zod strips unknown fields
   const isDamaged = req.body.isDamaged === true || req.body.isDamaged === "true";
 
   const parsed = UpdateOrderBody.safeParse(req.body);
@@ -145,6 +155,33 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
 
   const [existing] = await db.select().from(ordersTable).where(eq(ordersTable.id, params.data.id));
   if (!existing) { res.status(404).json({ error: "Order not found" }); return; }
+
+  // ── Lock check: only admin can edit delivered orders ─────────────────────
+  const isLockedStatus = LOCKED_STATUSES.includes(existing.status as any);
+  const isStatusTransitionToDelivered = parsed.data.status && LOCKED_STATUSES.includes(parsed.data.status as any);
+
+  // Non-admins can only CHANGE STATUS (not edit price/qty) of delivered orders
+  if (isLockedStatus && !isAdmin(req)) {
+    // Allow status transitions away from delivered (e.g., → returned)
+    const onlyChangingStatus = Object.keys(parsed.data).every(k => ["status", "partialQuantity", "returnReason", "returnNote"].includes(k));
+    if (!onlyChangingStatus) {
+      res.status(403).json({
+        error: "هذا الطلب مُسلَّم ومقفل — فقط المدير يمكنه تعديل بياناته",
+        locked: true,
+      });
+      return;
+    }
+  }
+
+  // Non-admins cannot edit price or quantity
+  if (!isAdmin(req) && (parsed.data.unitPrice !== undefined || parsed.data.quantity !== undefined)) {
+    const priceChanging = parsed.data.unitPrice !== undefined && parsed.data.unitPrice !== existing.unitPrice;
+    const qtyChanging = parsed.data.quantity !== undefined && parsed.data.quantity !== existing.quantity;
+    if (priceChanging || qtyChanging) {
+      res.status(403).json({ error: "تعديل السعر أو الكمية يتطلب صلاحية المدير" });
+      return;
+    }
+  }
 
   const quantity = parsed.data.quantity ?? existing.quantity;
   const unitPrice = parsed.data.unitPrice ?? existing.unitPrice;
@@ -169,57 +206,51 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
       size: order.size ?? existing.size,
     };
 
-    // ── Transition: → received ─────────────────────────────────────────────
     if (newStatus === "received") {
       if (oldStatus === "partial_received") {
-        // Already deducted partialQty; deduct the remainder
         const alreadyDeducted = existing.partialQuantity ?? 0;
         const remainder = order.quantity - alreadyDeducted;
-        if (remainder > 0) {
-          await processDelivery(orderRef, remainder, "sale", existing.id);
-        }
+        if (remainder > 0) await processDelivery(orderRef, remainder, "sale", existing.id);
       } else if (oldStatus !== "received") {
         await processDelivery(orderRef, order.quantity, "sale", existing.id);
       }
-    }
-
-    // ── Transition: → partial_received ────────────────────────────────────
-    else if (newStatus === "partial_received") {
+    } else if (newStatus === "partial_received") {
       const newPartial = parsed.data.partialQuantity ?? 0;
       const oldPartial = (oldStatus === "partial_received" ? existing.partialQuantity : 0) ?? 0;
       const delta = newPartial - oldPartial;
-      if (delta > 0) {
-        await processDelivery(orderRef, delta, "partial_sale", existing.id);
-      } else if (delta < 0) {
-        await reverseDelivery(orderRef, Math.abs(delta), existing.id);
-      }
-    }
-
-    // ── Transition: → returned ─────────────────────────────────────────────
-    else if (newStatus === "returned") {
+      if (delta > 0) await processDelivery(orderRef, delta, "partial_sale", existing.id);
+      else if (delta < 0) await reverseDelivery(orderRef, Math.abs(delta), existing.id);
+    } else if (newStatus === "returned") {
       const wasFullyReceived = oldStatus === "received";
       const wasPartiallyReceived = oldStatus === "partial_received";
-      const returnQty = wasPartiallyReceived
-        ? (existing.partialQuantity ?? order.quantity)
-        : order.quantity;
-      await processReturn(
-        { ...orderRef, quantity: returnQty },
-        wasFullyReceived || wasPartiallyReceived,
-        isDamaged,
-        existing.id,
-      );
-    }
-
-    // ── Transition: received/partial → non-delivery status ────────────────
-    else {
-      if (oldStatus === "received") {
-        await reverseDelivery(orderRef, order.quantity, existing.id);
-      } else if (oldStatus === "partial_received") {
+      const returnQty = wasPartiallyReceived ? (existing.partialQuantity ?? order.quantity) : order.quantity;
+      await processReturn({ ...orderRef, quantity: returnQty }, wasFullyReceived || wasPartiallyReceived, isDamaged, existing.id);
+    } else {
+      if (oldStatus === "received") await reverseDelivery(orderRef, order.quantity, existing.id);
+      else if (oldStatus === "partial_received") {
         const deducted = existing.partialQuantity ?? 0;
         if (deducted > 0) await reverseDelivery(orderRef, deducted, existing.id);
       }
     }
   }
+
+  // Audit log
+  const diff = diffObjects(
+    { status: existing.status, unitPrice: existing.unitPrice, quantity: existing.quantity, partialQuantity: existing.partialQuantity, notes: existing.notes, returnReason: existing.returnReason },
+    { status: order.status, unitPrice: order.unitPrice, quantity: order.quantity, partialQuantity: order.partialQuantity, notes: order.notes, returnReason: order.returnReason },
+  );
+
+  const auditAction = newStatus && newStatus !== oldStatus ? "status_change" : "update";
+  await logAudit({
+    action: auditAction,
+    entityType: "order",
+    entityId: order.id,
+    entityName: `${order.customerName} — ${order.product}`,
+    before: diff.before,
+    after: diff.after,
+    userId: req.user?.id,
+    userName: req.user?.displayName,
+  });
 
   res.json(UpdateOrderResponse.parse(order));
 });
@@ -233,24 +264,37 @@ router.delete("/orders/:id", async (req, res): Promise<void> => {
   const [existing] = await db.select().from(ordersTable).where(eq(ordersTable.id, id));
   if (!existing) { res.status(404).json({ error: "Order not found" }); return; }
 
-  // Reverse stock effect only if order had already been delivered
+  // Lock: only admin can delete delivered orders
+  if (LOCKED_STATUSES.includes(existing.status as any) && !isAdmin(req)) {
+    res.status(403).json({
+      error: "هذا الطلب مُسلَّم ومقفل — فقط المدير يمكنه حذفه",
+      locked: true,
+    });
+    return;
+  }
+
   if (existing.status === "received") {
     await reverseDelivery(
       { variantId: existing.variantId, productId: existing.productId, product: existing.product, color: existing.color, size: existing.size },
-      existing.quantity,
-      existing.id,
+      existing.quantity, existing.id,
     );
   } else if (existing.status === "partial_received") {
     const deducted = existing.partialQuantity ?? 0;
-    if (deducted > 0) {
-      await reverseDelivery(
-        { variantId: existing.variantId, productId: existing.productId, product: existing.product, color: existing.color, size: existing.size },
-        deducted,
-        existing.id,
-      );
-    }
+    if (deducted > 0) await reverseDelivery(
+      { variantId: existing.variantId, productId: existing.productId, product: existing.product, color: existing.color, size: existing.size },
+      deducted, existing.id,
+    );
   }
-  // returned / pending / in_shipping / delayed → no stock to reverse
+
+  await logAudit({
+    action: "delete",
+    entityType: "order",
+    entityId: id,
+    entityName: `${existing.customerName} — ${existing.product}`,
+    before: { status: existing.status, totalPrice: existing.totalPrice, quantity: existing.quantity },
+    userId: req.user?.id,
+    userName: req.user?.displayName,
+  });
 
   await db.delete(ordersTable).where(eq(ordersTable.id, id));
   res.status(204).end();

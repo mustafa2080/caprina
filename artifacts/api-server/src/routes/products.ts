@@ -3,6 +3,8 @@ import { eq, desc } from "drizzle-orm";
 import { db, productsTable } from "@workspace/db";
 import { z } from "zod";
 import { addStock } from "../lib/inventory.js";
+import { logAudit } from "../lib/audit.js";
+import { requireRole } from "../middlewares/requireRole.js";
 
 const router: IRouter = Router();
 
@@ -34,11 +36,14 @@ router.get("/products", async (_req, res): Promise<void> => {
   res.json(products);
 });
 
-router.post("/products", async (req, res): Promise<void> => {
+router.post("/products", requireRole("admin", "warehouse"), async (req, res): Promise<void> => {
   const parsed = CreateProductSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
   const [product] = await db.insert(productsTable).values(parsed.data).returning();
+
+  await logAudit({ action: "create", entityType: "product", entityId: product.id, entityName: product.name, after: { name: product.name, unitPrice: product.unitPrice, totalQuantity: product.totalQuantity }, userId: req.user?.id, userName: req.user?.displayName });
+
   res.status(201).json(product);
 });
 
@@ -51,30 +56,37 @@ router.get("/products/:id", async (req, res): Promise<void> => {
   res.json(product);
 });
 
-router.patch("/products/:id", async (req, res): Promise<void> => {
+router.patch("/products/:id", requireRole("admin", "warehouse"), async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
   const parsed = UpdateProductSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
+  const [before] = await db.select().from(productsTable).where(eq(productsTable.id, id));
   const [product] = await db.update(productsTable).set({ ...parsed.data, updatedAt: new Date() }).where(eq(productsTable.id, id)).returning();
   if (!product) { res.status(404).json({ error: "Product not found" }); return; }
+
+  if (before) await logAudit({ action: "update", entityType: "product", entityId: id, entityName: product.name, before: { name: before.name, unitPrice: before.unitPrice, lowStockThreshold: before.lowStockThreshold }, after: { name: product.name, unitPrice: product.unitPrice, lowStockThreshold: product.lowStockThreshold }, userId: req.user?.id, userName: req.user?.displayName });
+
   res.json(product);
 });
 
-router.delete("/products/:id", async (req, res): Promise<void> => {
+router.delete("/products/:id", requireRole("admin"), async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
   const [deleted] = await db.delete(productsTable).where(eq(productsTable.id, id)).returning();
   if (!deleted) { res.status(404).json({ error: "Product not found" }); return; }
+
+  await logAudit({ action: "delete", entityType: "product", entityId: id, entityName: deleted.name, before: { name: deleted.name }, userId: req.user?.id, userName: req.user?.displayName });
+
   res.status(204).send();
 });
 
 // ─── Add Stock ────────────────────────────────────────────────────────────────
 
-router.post("/products/:id/add-stock", async (req, res): Promise<void> => {
+router.post("/products/:id/add-stock", requireRole("admin", "warehouse"), async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
@@ -89,6 +101,8 @@ router.post("/products/:id/add-stock", async (req, res): Promise<void> => {
     parsed.data.quantity,
     parsed.data.notes ?? null,
   );
+
+  await logAudit({ action: "add_stock", entityType: "product", entityId: id, entityName: product.name, before: { totalQuantity: product.totalQuantity }, after: { totalQuantity: product.totalQuantity + parsed.data.quantity, added: parsed.data.quantity, notes: parsed.data.notes }, userId: req.user?.id, userName: req.user?.displayName });
 
   const [updated] = await db.select().from(productsTable).where(eq(productsTable.id, id));
   res.json(updated);

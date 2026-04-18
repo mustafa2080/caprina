@@ -7,10 +7,21 @@ import shippingRouter from "./shipping";
 import importRouter from "./import";
 import movementsRouter from "./movements";
 import analyticsRouter from "./analytics";
+import authRouter from "./auth";
+import usersRouter from "./users";
+import auditRouter from "./audit";
+import { requireAuth } from "../middlewares/requireAuth.js";
 
 const router: IRouter = Router();
 
+// Public routes (no auth required)
 router.use(healthRouter);
+router.use("/auth", authRouter);
+
+// All routes below require authentication
+router.use(requireAuth);
+router.use("/users", usersRouter);
+router.use("/audit-logs", auditRouter);
 router.use(importRouter);
 router.use(movementsRouter);
 router.use(analyticsRouter);

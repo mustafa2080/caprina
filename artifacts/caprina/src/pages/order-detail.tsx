@@ -1,6 +1,7 @@
 import { useParams, Link, useLocation } from "wouter";
 import { format } from "date-fns";
-import { ArrowRight, AlertCircle, Pencil, Save, X, Printer, Phone, MapPin, Trash2, RotateCcw, TrendingUp, TrendingDown, AlertTriangle } from "lucide-react";
+import { ArrowRight, AlertCircle, Pencil, Save, X, Printer, Phone, MapPin, Trash2, RotateCcw, TrendingUp, TrendingDown, AlertTriangle, Lock } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import { useState, useRef, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -52,6 +53,7 @@ export default function OrderDetail() {
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { isAdmin } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [showPartialInput, setShowPartialInput] = useState(false);
   const [partialQty, setPartialQty] = useState("");
@@ -193,6 +195,7 @@ export default function OrderDetail() {
   const shippingCompany = shippingCompanies?.find(c => c.id === order.shippingCompanyId);
   const orderReturnReason = (order as any).returnReason as string | null;
   const orderReturnNote = (order as any).returnNote as string | null;
+  const isOrderLocked = (order.status === "received" || order.status === "partial_received") && !isAdmin;
 
   return (
     <div className="max-w-4xl mx-auto space-y-5 animate-in fade-in duration-500">
@@ -207,6 +210,11 @@ export default function OrderDetail() {
               {!isEditing && (
                 <Badge variant="outline" className={`font-bold border text-[10px] ${statusClasses[order.status] || ""}`}>
                   {statusLabels[order.status] || order.status}
+                </Badge>
+              )}
+              {isOrderLocked && (
+                <Badge variant="outline" className="text-[9px] font-bold border-amber-700 bg-amber-900/10 text-amber-400 gap-1 flex items-center">
+                  <Lock className="w-2.5 h-2.5" /> مقفل
                 </Badge>
               )}
             </div>
@@ -230,13 +238,25 @@ export default function OrderDetail() {
                   </SelectContent>
                 </Select>
               </div>
-              <Button variant="outline" size="sm" onClick={() => setIsEditing(true)} className="h-8 text-xs gap-1 border-border">
-                <Pencil className="w-3 h-3" />تعديل
+              <Button
+                variant="outline" size="sm"
+                onClick={() => !isOrderLocked && setIsEditing(true)}
+                disabled={isOrderLocked}
+                title={isOrderLocked ? "الطلب مقفل — فقط المدير يمكنه التعديل" : undefined}
+                className="h-8 text-xs gap-1 border-border disabled:opacity-40"
+              >
+                {isOrderLocked ? <Lock className="w-3 h-3" /> : <Pencil className="w-3 h-3" />}تعديل
               </Button>
               <Button variant="outline" size="sm" onClick={handlePrint} className="h-8 text-xs gap-1 border-border">
                 <Printer className="w-3 h-3" />فاتورة
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setShowDeleteDialog(true)} className="h-8 text-xs gap-1 border-red-800 text-red-400 hover:bg-red-900/20 hover:text-red-400">
+              <Button
+                variant="outline" size="sm"
+                onClick={() => !isOrderLocked && setShowDeleteDialog(true)}
+                disabled={isOrderLocked}
+                title={isOrderLocked ? "الطلب مقفل — فقط المدير يمكنه الحذف" : undefined}
+                className="h-8 text-xs gap-1 border-red-800 text-red-400 hover:bg-red-900/20 hover:text-red-400 disabled:opacity-40"
+              >
                 <Trash2 className="w-3 h-3" />حذف
               </Button>
             </>

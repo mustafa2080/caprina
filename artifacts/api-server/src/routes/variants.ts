@@ -3,6 +3,8 @@ import { eq, desc, and } from "drizzle-orm";
 import { db, productVariantsTable, productsTable } from "@workspace/db";
 import { z } from "zod";
 import { addStock } from "../lib/inventory.js";
+import { logAudit } from "../lib/audit.js";
+import { requireRole } from "../middlewares/requireRole.js";
 
 const router: IRouter = Router();
 
@@ -70,7 +72,7 @@ router.get("/products/:productId/variants", async (req, res): Promise<void> => {
 });
 
 // Create variant
-router.post("/products/:productId/variants", async (req, res): Promise<void> => {
+router.post("/products/:productId/variants", requireRole("admin", "warehouse"), async (req, res): Promise<void> => {
   const productId = parseInt(req.params.productId);
   if (isNaN(productId)) { res.status(400).json({ error: "Invalid product ID" }); return; }
 
@@ -83,33 +85,36 @@ router.post("/products/:productId/variants", async (req, res): Promise<void> => 
   const sku = parsed.data.sku || `${product.name.substring(0, 3).toUpperCase()}-${parsed.data.color.substring(0, 3).toUpperCase()}-${parsed.data.size.toUpperCase()}`;
 
   const [variant] = await db.insert(productVariantsTable).values({
-    productId,
-    ...parsed.data,
-    sku,
-    reservedQuantity: 0,
-    soldQuantity: 0,
+    productId, ...parsed.data, sku, reservedQuantity: 0, soldQuantity: 0,
   }).returning();
+
+  await logAudit({ action: "create", entityType: "variant", entityId: variant.id, entityName: `${product.name} — ${variant.color} ${variant.size}`, after: { color: variant.color, size: variant.size, totalQuantity: variant.totalQuantity }, userId: req.user?.id, userName: req.user?.displayName });
+
   res.status(201).json(variant);
 });
 
 // Update variant
-router.patch("/products/:productId/variants/:variantId", async (req, res): Promise<void> => {
+router.patch("/products/:productId/variants/:variantId", requireRole("admin", "warehouse"), async (req, res): Promise<void> => {
   const variantId = parseInt(req.params.variantId);
   if (isNaN(variantId)) { res.status(400).json({ error: "Invalid variant ID" }); return; }
 
   const parsed = UpdateVariantSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
+  const [before] = await db.select().from(productVariantsTable).where(eq(productVariantsTable.id, variantId));
   const [variant] = await db.update(productVariantsTable)
     .set({ ...parsed.data, updatedAt: new Date() })
     .where(eq(productVariantsTable.id, variantId))
     .returning();
   if (!variant) { res.status(404).json({ error: "Variant not found" }); return; }
+
+  if (before) await logAudit({ action: "update", entityType: "variant", entityId: variantId, entityName: `${variant.color} ${variant.size}`, before: { unitPrice: before.unitPrice, lowStockThreshold: before.lowStockThreshold }, after: { unitPrice: variant.unitPrice, lowStockThreshold: variant.lowStockThreshold }, userId: req.user?.id, userName: req.user?.displayName });
+
   res.json(variant);
 });
 
 // Delete variant
-router.delete("/products/:productId/variants/:variantId", async (req, res): Promise<void> => {
+router.delete("/products/:productId/variants/:variantId", requireRole("admin"), async (req, res): Promise<void> => {
   const variantId = parseInt(req.params.variantId);
   if (isNaN(variantId)) { res.status(400).json({ error: "Invalid variant ID" }); return; }
 
@@ -117,6 +122,9 @@ router.delete("/products/:productId/variants/:variantId", async (req, res): Prom
     .where(and(eq(productVariantsTable.id, variantId), eq(productVariantsTable.productId, parseInt(req.params.productId))))
     .returning();
   if (!deleted) { res.status(404).json({ error: "Variant not found" }); return; }
+
+  await logAudit({ action: "delete", entityType: "variant", entityId: variantId, entityName: `${deleted.color} ${deleted.size}`, userId: req.user?.id, userName: req.user?.displayName });
+
   res.status(204).send();
 });
 

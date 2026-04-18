@@ -1,15 +1,86 @@
 const BASE = "/api";
 
+function getToken(): string | null {
+  return localStorage.getItem("caprina_token");
+}
+
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
+  const token = getToken();
+  const authHeader = token ? { Authorization: `Bearer ${token}` } : {};
   const res = await fetch(`${BASE}${path}`, {
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: { "Content-Type": "application/json", ...authHeader, ...options?.headers },
     ...options,
   });
   if (res.status === 204) return undefined as unknown as T;
+  if (res.status === 401) {
+    localStorage.removeItem("caprina_token");
+    localStorage.removeItem("caprina_user");
+    window.location.href = "/login";
+    throw new Error("غير مصرح");
+  }
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
   return data as T;
 }
+
+// ─── Auth API ──────────────────────────────────────────────────────────────
+export interface LoginResponse {
+  token: string;
+  user: {
+    id: number; username: string; displayName: string;
+    role: "admin" | "employee" | "warehouse";
+    permissions: string[]; isActive: boolean;
+    createdAt: string; updatedAt: string;
+  };
+}
+
+export const authApi = {
+  login: (username: string, password: string) =>
+    apiFetch<LoginResponse>("/auth/login", { method: "POST", body: JSON.stringify({ username, password }) }),
+  me: () => apiFetch<LoginResponse["user"]>("/auth/me"),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    apiFetch<{ success: boolean }>("/auth/change-password", { method: "POST", body: JSON.stringify({ currentPassword, newPassword }) }),
+};
+
+// ─── Users API ─────────────────────────────────────────────────────────────
+export interface AppUser {
+  id: number; username: string; displayName: string;
+  role: "admin" | "employee" | "warehouse";
+  permissions: string[]; isActive: boolean;
+  createdAt: string; updatedAt: string;
+}
+
+export const usersApi = {
+  list: () => apiFetch<AppUser[]>("/users"),
+  create: (data: { username: string; password: string; displayName: string; role: string; permissions?: string[] }) =>
+    apiFetch<AppUser>("/users", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: number, data: Partial<{ displayName: string; role: string; permissions: string[]; isActive: boolean; password: string }>) =>
+    apiFetch<AppUser>(`/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  delete: (id: number) => apiFetch<void>(`/users/${id}`, { method: "DELETE" }),
+};
+
+// ─── Audit Logs API ────────────────────────────────────────────────────────
+export interface AuditLogEntry {
+  id: number; action: string; entityType: string;
+  entityId: number | null; entityName: string | null;
+  changesBefore: Record<string, unknown> | null;
+  changesAfter: Record<string, unknown> | null;
+  userId: number | null; userName: string | null;
+  createdAt: string;
+}
+
+export const auditApi = {
+  list: (params?: { entityType?: string; action?: string; search?: string; limit?: number; from?: string; to?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.entityType) q.set("entityType", params.entityType);
+    if (params?.action) q.set("action", params.action);
+    if (params?.search) q.set("search", params.search);
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.from) q.set("from", params.from);
+    if (params?.to) q.set("to", params.to);
+    return apiFetch<AuditLogEntry[]>(`/audit-logs?${q.toString()}`);
+  },
+};
 
 export interface Product {
   id: number;
