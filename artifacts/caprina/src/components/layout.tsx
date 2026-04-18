@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Package, Plus, Boxes, Truck, FileText, Upload, Activity, BarChart3, Users, Shield, LogOut, ChevronDown, KeyRound } from "lucide-react";
+import { LayoutDashboard, Package, Plus, Boxes, Truck, FileText, Upload, Activity, BarChart3, Users, Shield, LogOut, ChevronDown, KeyRound, Warehouse, Megaphone, UserCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState } from "react";
@@ -17,9 +17,12 @@ interface LayoutProps {
 const ALL_NAV = [
   { href: "/", label: "لوحة التحكم", icon: LayoutDashboard, exact: true, permission: "dashboard" },
   { href: "/product-performance", label: "أداء المنتجات", icon: BarChart3, permission: "analytics" },
+  { href: "/team-performance", label: "أداء الفريق", icon: UserCheck, permission: "analytics" },
+  { href: "/ads-analytics", label: "تحليل الإعلانات", icon: Megaphone, permission: "analytics" },
   { href: "/orders", label: "الطلبات", icon: Package, permission: "orders" },
   { href: "/orders/new", label: "طلب جديد", icon: Plus, permission: "orders" },
   { href: "/inventory", label: "المخزون", icon: Boxes, permission: "inventory" },
+  { href: "/warehouses", label: "المخازن", icon: Warehouse, permission: "inventory" },
   { href: "/movements", label: "حركات المخزون", icon: Activity, permission: "movements" },
   { href: "/shipping", label: "شركات الشحن", icon: Truck, permission: "shipping" },
   { href: "/invoices", label: "الفواتير", icon: FileText, permission: "invoices" },

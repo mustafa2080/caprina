@@ -2,7 +2,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useLocation, Link } from "wouter";
-import { ArrowRight, Save, Phone, MapPin, Layers, TrendingUp, DollarSign } from "lucide-react";
+import { ArrowRight, Save, Phone, MapPin, Layers, TrendingUp, DollarSign, Megaphone, Warehouse, UserCheck } from "lucide-react";
 import { useCreateOrder, getListOrdersQueryKey, getGetOrdersSummaryQueryKey, getGetRecentOrdersQueryKey } from "@workspace/api-client-react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -13,7 +13,16 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { productsApi, variantsApi, shippingApi } from "@/lib/api";
+import { productsApi, variantsApi, shippingApi, warehousesApi, usersApi } from "@/lib/api";
+
+const AD_SOURCES = [
+  { value: "facebook", label: "📘 فيسبوك" },
+  { value: "tiktok", label: "🎵 تيك توك" },
+  { value: "instagram", label: "📷 إنستجرام" },
+  { value: "whatsapp", label: "💬 واتساب" },
+  { value: "organic", label: "🌱 عضوي" },
+  { value: "other", label: "📌 أخرى" },
+];
 
 const formSchema = z.object({
   customerName: z.string().min(2, "اسم العميل يجب أن يكون حرفين على الأقل."),
@@ -29,6 +38,10 @@ const formSchema = z.object({
   shippingCompanyId: z.coerce.number().optional().nullable(),
   productId: z.coerce.number().optional().nullable(),
   variantId: z.coerce.number().optional().nullable(),
+  warehouseId: z.coerce.number().optional().nullable(),
+  assignedUserId: z.coerce.number().optional().nullable(),
+  adSource: z.string().optional().nullable(),
+  adCampaign: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
 });
 
@@ -46,12 +59,15 @@ export default function OrderForm() {
   const { data: products } = useQuery({ queryKey: ["products"], queryFn: productsApi.list });
   const { data: allVariants } = useQuery({ queryKey: ["variants"], queryFn: variantsApi.listAll });
   const { data: shippingCompanies } = useQuery({ queryKey: ["shipping"], queryFn: shippingApi.list });
+  const { data: warehouses } = useQuery({ queryKey: ["warehouses"], queryFn: warehousesApi.list });
+  const { data: users } = useQuery({ queryKey: ["users"], queryFn: usersApi.list });
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       customerName: "", phone: "", address: "", product: "", color: "", size: "",
       quantity: 1, unitPrice: 0, costPrice: null, shippingCost: 0, notes: "",
+      warehouseId: null, assignedUserId: null, adSource: null, adCampaign: null,
     },
   });
 
@@ -88,6 +104,10 @@ export default function OrderForm() {
           size: values.size || null,
           costPrice: values.costPrice ?? null,
           shippingCost: values.shippingCost ?? 0,
+          warehouseId: values.warehouseId || null,
+          assignedUserId: values.assignedUserId || null,
+          adSource: values.adSource || null,
+          adCampaign: values.adCampaign || null,
         } as any,
       },
       {
@@ -347,6 +367,64 @@ export default function OrderForm() {
                       </div>
                     </div>
                   )}
+                </CardContent>
+              </Card>
+
+              {/* Tracking */}
+              <Card className="border-purple-900/40 bg-purple-900/5">
+                <CardHeader className="pb-2 pt-4 px-4 border-b border-border">
+                  <CardTitle className="text-sm font-bold flex items-center gap-2">
+                    <Megaphone className="w-3.5 h-3.5 text-purple-400" />
+                    تتبع الإعلان والفريق
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 pb-4 pt-3 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <FormField control={form.control} name="adSource" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs flex items-center gap-1"><Megaphone className="w-3 h-3" />مصدر الطلب</FormLabel>
+                        <Select value={field.value ?? "none"} onValueChange={v => field.onChange(v === "none" ? null : v)}>
+                          <SelectTrigger className="h-9 text-sm bg-card"><SelectValue placeholder="اختر المصدر" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">— غير محدد —</SelectItem>
+                            {AD_SOURCES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="adCampaign" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">اسم الحملة</FormLabel>
+                        <FormControl><Input placeholder="Summer 2025..." className="h-9 text-sm" {...field} value={field.value ?? ""} /></FormControl>
+                      </FormItem>
+                    )} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <FormField control={form.control} name="warehouseId" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs flex items-center gap-1"><Warehouse className="w-3 h-3" />المخزن</FormLabel>
+                        <Select value={field.value?.toString() ?? "none"} onValueChange={v => field.onChange(v === "none" ? null : Number(v))}>
+                          <SelectTrigger className="h-9 text-sm bg-card"><SelectValue placeholder="اختر مخزن" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">— غير محدد —</SelectItem>
+                            {warehouses?.map(w => <SelectItem key={w.id} value={String(w.id)}>{w.name}{w.isDefault ? " ★" : ""}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="assignedUserId" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs flex items-center gap-1"><UserCheck className="w-3 h-3" />الموظف المسؤول</FormLabel>
+                        <Select value={field.value?.toString() ?? "none"} onValueChange={v => field.onChange(v === "none" ? null : Number(v))}>
+                          <SelectTrigger className="h-9 text-sm bg-card"><SelectValue placeholder="اختر موظف" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">— غير محدد —</SelectItem>
+                            {users?.filter(u => u.isActive).map(u => <SelectItem key={u.id} value={String(u.id)}>{u.displayName}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </FormItem>
+                    )} />
+                  </div>
                 </CardContent>
               </Card>
 

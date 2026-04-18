@@ -11,6 +11,8 @@ import authRouter from "./auth";
 import usersRouter from "./users";
 import auditRouter from "./audit";
 import manifestsRouter from "./manifests";
+import warehousesRouter from "./warehouses";
+import teamAnalyticsRouter from "./team-analytics";
 import { requireAuth } from "../middlewares/requireAuth.js";
 
 const router: IRouter = Router();
@@ -31,5 +33,7 @@ router.use(ordersRouter);
 router.use(productsRouter);
 router.use(shippingRouter);
 router.use(manifestsRouter);
+router.use(warehousesRouter);
+router.use(teamAnalyticsRouter);
 
 export default router;

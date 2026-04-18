@@ -483,6 +483,96 @@ export const manifestsApi = {
     apiFetch<ManifestCompanyStats>(`/shipping-companies/${companyId}/stats`),
 };
 
+// ─── Warehouses API ─────────────────────────────────────────────────────────
+export interface Warehouse {
+  id: number;
+  name: string;
+  address: string | null;
+  notes: string | null;
+  isDefault: boolean;
+  totalUnits: number;
+  skuCount: number;
+  orderCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WarehouseStockItem {
+  id: number;
+  warehouseId: number;
+  productId: number | null;
+  variantId: number | null;
+  quantity: number;
+  productName: string | null;
+  productSku: string | null;
+  variantColor: string | null;
+  variantSize: string | null;
+  updatedAt: string;
+}
+
+export interface WarehouseDetail extends Warehouse {
+  stock: WarehouseStockItem[];
+}
+
+export const warehousesApi = {
+  list: () => apiFetch<Warehouse[]>("/warehouses"),
+  get: (id: number) => apiFetch<WarehouseDetail>(`/warehouses/${id}`),
+  create: (data: { name: string; address?: string | null; notes?: string | null; isDefault?: boolean }) =>
+    apiFetch<Warehouse>("/warehouses", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: number, data: Partial<{ name: string; address: string | null; notes: string | null; isDefault: boolean }>) =>
+    apiFetch<Warehouse>(`/warehouses/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  delete: (id: number) => apiFetch<void>(`/warehouses/${id}`, { method: "DELETE" }),
+  updateStock: (warehouseId: number, stockId: number, quantity: number) =>
+    apiFetch<WarehouseStockItem>(`/warehouses/${warehouseId}/stock/${stockId}`, { method: "PATCH", body: JSON.stringify({ quantity }) }),
+  addStock: (warehouseId: number, data: { productId?: number | null; variantId?: number | null; quantity: number }) =>
+    apiFetch<WarehouseStockItem>(`/warehouses/${warehouseId}/stock`, { method: "POST", body: JSON.stringify(data) }),
+};
+
+// ─── Team & Campaign Analytics API ──────────────────────────────────────────
+export interface TeamMemberStats {
+  userId: number;
+  userName: string;
+  displayName: string;
+  total: number;
+  delivered: number;
+  returned: number;
+  pending: number;
+  profit: number;
+  deliveryRate: number;
+  returnRate: number;
+}
+
+export interface CampaignStats {
+  adSource: string;
+  adCampaign: string | null;
+  total: number;
+  delivered: number;
+  returned: number;
+  pending: number;
+  revenue: number;
+  cost: number;
+  profit: number;
+  deliveryRate: number;
+  roi: number;
+}
+
+export const teamAnalyticsApi = {
+  teamPerformance: (dateFrom?: string, dateTo?: string) => {
+    const params = new URLSearchParams();
+    if (dateFrom) params.set("dateFrom", dateFrom);
+    if (dateTo) params.set("dateTo", dateTo);
+    const qs = params.toString();
+    return apiFetch<TeamMemberStats[]>(`/analytics/team-performance${qs ? `?${qs}` : ""}`);
+  },
+  campaigns: (dateFrom?: string, dateTo?: string) => {
+    const params = new URLSearchParams();
+    if (dateFrom) params.set("dateFrom", dateFrom);
+    if (dateTo) params.set("dateTo", dateTo);
+    const qs = params.toString();
+    return apiFetch<CampaignStats[]>(`/analytics/campaigns${qs ? `?${qs}` : ""}`);
+  },
+};
+
 export const movementsApi = {
   list: (filters?: MovementFilters) => {
     const params = new URLSearchParams();

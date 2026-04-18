@@ -6,3 +6,5 @@ export * from "./shipping_manifests";
 export * from "./movements";
 export * from "./users";
 export * from "./audit_logs";
+export * from "./warehouses";
+export * from "./warehouse_stock";

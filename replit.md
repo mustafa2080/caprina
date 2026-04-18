@@ -32,7 +32,12 @@ A full-stack order management system for CAPRINA, an artisan goods company. Buil
   - **Products**: Bulk-import products with costPrice+unitPrice+color+size; upserts by name, auto-creates variants
   - **Returns**: Bulk-mark existing orders as "returned" by orderId or customerName+product
 - **Shipping Companies**: Manage courier company records with delivery rate stats and per-company manifest history
-- **Shipping Manifests**: Bundle `in_shipping` orders into manifests per courier. Per-order delivery settlement (مسلَّم/مؤجل/مرتجع/استلم جزئي + reason). Editable invoice price + notes. Settlement card: delivered gross − shipping fees = net owed. Closing statement dialog with summary before locking. DB: `shipping_manifests` (invoicePrice, invoiceNotes) + `shipping_manifest_orders` (deliveryStatus, deliveryNote, deliveredAt). Route: PATCH `/shipping-manifests/:id/orders/:orderId` updates manifest delivery status and syncs order.status accordingly.
+- **Shipping Manifests**: Bundle `in_shipping` orders into manifests per courier. Per-order delivery settlement (مسلَّم/مؤجل/مرتجع/استلم جزئي + reason). Editable invoice price + notes. Settlement card: delivered gross − shipping fees = net owed. Closing statement dialog with summary before locking.
+- **Multi-Warehouse**: `warehouses` table + `warehouse_stock` table (per warehouse stock tracking). Each warehouse shows total units, SKU count, order count. Stock management UI with add/update per product/variant. Orders linked to warehouseId.
+- **Team Performance**: `/analytics/team-performance` endpoint + page. Per-employee: orders assigned, delivered, returned, profit generated, delivery rate, return rate. Sorted by profit. Trophy for top performer. Unassigned orders shown separately.
+- **Ads Tracking**: Orders have `adSource` (facebook/tiktok/instagram/organic/whatsapp/other) and `adCampaign` fields. Order form includes tracking card.
+- **Campaign Analytics**: `/analytics/campaigns` endpoint + `/ads-analytics` page. Per source+campaign: orders, revenue, cost, profit, ROI, delivery rate. Source breakdown summary. Date filter + source filter.
+- **Order Assignment**: Orders have `assignedUserId` field. Order form includes employee dropdown. Team performance analytics aggregates per assignedUserId.
 
 ## Profit Engine
 

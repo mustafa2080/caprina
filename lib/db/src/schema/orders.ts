@@ -5,6 +5,9 @@ import { z } from "zod/v4";
 export const ORDER_STATUSES = ["pending", "in_shipping", "received", "delayed", "returned", "partial_received"] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
+export const AD_SOURCES = ["facebook", "tiktok", "instagram", "organic", "whatsapp", "other"] as const;
+export type AdSource = (typeof AD_SOURCES)[number];
+
 export const ordersTable = pgTable("orders", {
   id: serial("id").primaryKey(),
   customerName: text("customer_name").notNull(),
@@ -21,6 +24,10 @@ export const ordersTable = pgTable("orders", {
   shippingCompanyId: integer("shipping_company_id"),
   productId: integer("product_id"),
   variantId: integer("variant_id"),
+  warehouseId: integer("warehouse_id"),
+  assignedUserId: integer("assigned_user_id"),
+  adSource: text("ad_source"),
+  adCampaign: text("ad_campaign"),
   costPrice: real("cost_price"),
   shippingCost: real("shipping_cost").default(0),
   notes: text("notes"),
