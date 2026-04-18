@@ -1,6 +1,6 @@
-import { useParams, Link } from "wouter";
+import { useParams, Link, useLocation } from "wouter";
 import { format } from "date-fns";
-import { ArrowRight, AlertCircle, Pencil, Save, X, Printer, Phone, MapPin } from "lucide-react";
+import { ArrowRight, AlertCircle, Pencil, Save, X, Printer, Phone, MapPin, Trash2 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -16,7 +16,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { shippingApi } from "@/lib/api";
+import { shippingApi, ordersApi } from "@/lib/api";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const statusLabels: Record<string, string> = {
   pending: "قيد الانتظار",
@@ -47,14 +57,20 @@ const editSchema = z.object({
 
 type EditFormValues = z.infer<typeof editSchema>;
 
+const formatCurrency = (n: number) =>
+  new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(n);
+
 export default function OrderDetail() {
   const params = useParams();
   const id = Number(params.id);
+  const [, navigate] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [showPartialInput, setShowPartialInput] = useState(false);
   const [partialQty, setPartialQty] = useState("");
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const initializedRef = useRef(false);
 
   const { data: order, isLoading, error } = useGetOrder(id, { query: { enabled: !!id, queryKey: getGetOrderQueryKey(id) } });
@@ -72,8 +88,6 @@ export default function OrderDetail() {
       initializedRef.current = true;
     }
   }, [order, form]);
-
-  const formatCurrency = (n: number) => new Intl.NumberFormat("ar-SA", { style: "currency", currency: "SAR" }).format(n);
 
   const handleStatusChange = (newStatus: string) => {
     if (!order || order.status === newStatus) return;
@@ -122,6 +136,25 @@ export default function OrderDetail() {
       },
       onError: () => toast({ title: "خطأ", description: "فشل الحفظ.", variant: "destructive" }),
     });
+  };
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await ordersApi.delete(id);
+      queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getGetOrdersSummaryQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getGetRecentOrdersQueryKey() });
+      queryClient.invalidateQueries({ queryKey: ["orders-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      toast({ title: "تم الحذف", description: "تم حذف الطلب بنجاح." });
+      navigate("/orders");
+    } catch {
+      toast({ title: "خطأ", description: "فشل حذف الطلب.", variant: "destructive" });
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteDialog(false);
+    }
   };
 
   const handlePrint = () => {
@@ -180,10 +213,31 @@ export default function OrderDetail() {
               <Button variant="outline" size="sm" onClick={handlePrint} className="h-8 text-xs gap-1 border-border">
                 <Printer className="w-3 h-3" />فاتورة
               </Button>
+              <Button variant="outline" size="sm" onClick={() => setShowDeleteDialog(true)} className="h-8 text-xs gap-1 border-red-800 text-red-400 hover:bg-red-900/20 hover:text-red-400">
+                <Trash2 className="w-3 h-3" />حذف
+              </Button>
             </>
           )}
         </div>
       </div>
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>تأكيد حذف الطلب</AlertDialogTitle>
+            <AlertDialogDescription>
+              هل أنت متأكد من حذف طلب #{order.id.toString().padStart(4,"0")} للعميل {order.customerName}؟ لا يمكن التراجع عن هذا الإجراء.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={isDeleting} className="bg-red-600 hover:bg-red-700 text-white">
+              {isDeleting ? "جاري الحذف..." : "نعم، احذف"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Partial received input */}
       {showPartialInput && (

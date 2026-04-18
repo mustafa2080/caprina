@@ -1,11 +1,11 @@
 import { useGetOrdersSummary, useGetRecentOrders } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Package, Clock, CheckCircle2, TrendingUp, Plus, RotateCcw, AlertCircle, Layers } from "lucide-react";
+import { Package, Clock, CheckCircle2, TrendingUp, Plus, RotateCcw, AlertCircle, Layers, Star, Calendar } from "lucide-react";
 import { Link } from "wouter";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
-import { productsApi } from "@/lib/api";
+import { productsApi, ordersApi } from "@/lib/api";
 
 const statusLabels: Record<string, string> = {
   pending: "قيد الانتظار",
@@ -23,13 +23,14 @@ const statusClasses: Record<string, string> = {
   partial_received: "bg-purple-900/30 text-purple-400 border-purple-800",
 };
 
+const formatCurrency = (amount: number) =>
+  new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(amount);
+
 export default function Dashboard() {
   const { data: summary, isLoading: isSummaryLoading } = useGetOrdersSummary();
   const { data: recentOrders, isLoading: isRecentLoading } = useGetRecentOrders();
-  const { data: products } = useQuery({ queryKey: ["products"], queryFn: productsApi.list });
-
-  const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat("ar-SA", { style: "currency", currency: "SAR" }).format(amount);
+  const { data: products } = useQuery({ queryKey: ["products"], queryFn: productsApi.list, staleTime: 60000 });
+  const { data: stats } = useQuery({ queryKey: ["orders-stats"], queryFn: ordersApi.stats, staleTime: 30000 });
 
   const lowStockProducts = products?.filter(p => (p.totalQuantity - p.reservedQuantity - p.soldQuantity) <= p.lowStockThreshold) ?? [];
 
@@ -46,6 +47,44 @@ export default function Dashboard() {
           </button>
         </Link>
       </div>
+
+      {/* Time-based Stats */}
+      {stats && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <Card className="border-border bg-card">
+            <CardHeader className="flex flex-row items-center justify-between pb-1 pt-4 px-4">
+              <CardTitle className="text-xs font-medium text-muted-foreground">اليوم</CardTitle>
+              <Calendar className="w-4 h-4 text-primary" />
+            </CardHeader>
+            <CardContent className="pb-4 px-4">
+              <div className="text-xl font-bold text-primary">{stats.today.orders} طلب</div>
+              <p className="text-xs text-muted-foreground mt-0.5">{formatCurrency(stats.today.revenue)} إيرادات</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border bg-card">
+            <CardHeader className="flex flex-row items-center justify-between pb-1 pt-4 px-4">
+              <CardTitle className="text-xs font-medium text-muted-foreground">هذا الأسبوع</CardTitle>
+              <TrendingUp className="w-4 h-4 text-emerald-400" />
+            </CardHeader>
+            <CardContent className="pb-4 px-4">
+              <div className="text-xl font-bold text-emerald-400">{stats.week.orders} طلب</div>
+              <p className="text-xs text-muted-foreground mt-0.5">{formatCurrency(stats.week.revenue)} إيرادات</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border bg-card">
+            <CardHeader className="flex flex-row items-center justify-between pb-1 pt-4 px-4">
+              <CardTitle className="text-xs font-medium text-muted-foreground">هذا الشهر</CardTitle>
+              <Star className="w-4 h-4 text-amber-400" />
+            </CardHeader>
+            <CardContent className="pb-4 px-4">
+              <div className="text-xl font-bold text-amber-400">{stats.month.orders} طلب</div>
+              <p className="text-xs text-muted-foreground mt-0.5">{formatCurrency(stats.month.revenue)} إيرادات</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* KPI Cards */}
       {isSummaryLoading ? (
@@ -190,6 +229,21 @@ export default function Dashboard() {
                     <span className={`font-bold ${color}`}>{val}</span>
                   </div>
                 ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {stats?.bestProduct && (
+            <Card className="border-primary/30 bg-primary/5">
+              <CardContent className="p-4">
+                <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-2">أكثر منتج مبيعاً</p>
+                <div className="flex items-center gap-2">
+                  <Star className="w-4 h-4 text-amber-400 shrink-0" />
+                  <div>
+                    <p className="text-sm font-bold text-foreground">{stats.bestProduct.name}</p>
+                    <p className="text-xs text-muted-foreground">{stats.bestProduct.quantity} وحدة مجموع</p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           )}

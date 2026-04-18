@@ -1,10 +1,42 @@
 import { Router, type IRouter } from "express";
 import multer from "multer";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import { db, ordersTable } from "@workspace/db";
 
 const router: IRouter = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+
+async function parseFile(buffer: Buffer, mimetype: string, originalname: string): Promise<Record<string, any>[]> {
+  const isCSV = originalname.match(/\.csv$/i) || mimetype === "text/csv";
+  const workbook = new ExcelJS.Workbook();
+
+  if (isCSV) {
+    const { Readable } = await import("stream");
+    const stream = Readable.from(buffer.toString("utf-8"));
+    await workbook.csv.read(stream);
+  } else {
+    await workbook.xlsx.load(buffer);
+  }
+
+  const worksheet = workbook.worksheets[0];
+  if (!worksheet) return [];
+
+  const rows: Record<string, any>[] = [];
+  let headers: string[] = [];
+
+  worksheet.eachRow((row, rowNum) => {
+    const values = (row.values as any[]).slice(1);
+    if (rowNum === 1) {
+      headers = values.map((v) => String(v ?? "").trim());
+    } else {
+      const obj: Record<string, any> = {};
+      headers.forEach((h, i) => { obj[h] = values[i] ?? ""; });
+      rows.push(obj);
+    }
+  });
+
+  return rows;
+}
 
 router.post("/orders/import", upload.single("file"), async (req, res): Promise<void> => {
   if (!req.file) {
@@ -13,10 +45,7 @@ router.post("/orders/import", upload.single("file"), async (req, res): Promise<v
   }
 
   try {
-    const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
-    const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+    const rows = await parseFile(req.file.buffer, req.file.mimetype, req.file.originalname);
 
     if (!rows.length) {
       res.status(400).json({ error: "Empty file or unsupported format" });

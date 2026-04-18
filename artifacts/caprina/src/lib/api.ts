@@ -92,3 +92,15 @@ export const importApi = {
     return data;
   },
 };
+
+export interface OrderStats {
+  today: { orders: number; revenue: number };
+  week: { orders: number; revenue: number };
+  month: { orders: number; revenue: number };
+  bestProduct: { name: string; quantity: number } | null;
+}
+
+export const ordersApi = {
+  stats: () => apiFetch<OrderStats>("/orders/stats"),
+  delete: (id: number) => apiFetch<void>(`/orders/${id}`, { method: "DELETE" }),
+};

@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, ilike, or } from "drizzle-orm";
+import { eq, desc, ilike, or, gte, and } from "drizzle-orm";
 import { db, ordersTable, productsTable, productVariantsTable } from "@workspace/db";
 import {
   ListOrdersQueryParams,
@@ -86,16 +86,51 @@ async function adjustInventory(
     .where(eq(productsTable.id, productId));
 }
 
+router.get("/orders/stats", async (req, res): Promise<void> => {
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfWeek = new Date(startOfToday);
+  startOfWeek.setDate(startOfToday.getDate() - startOfToday.getDay());
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const all = await db.select().from(ordersTable);
+
+  const filter = (from: Date) => all.filter(o => new Date(o.createdAt) >= from);
+  const revenue = (orders: typeof all) => orders.filter(o => o.status === "received" || o.status === "partial_received").reduce((s, o) => s + o.totalPrice, 0);
+
+  const todayOrders = filter(startOfToday);
+  const weekOrders = filter(startOfWeek);
+  const monthOrders = filter(startOfMonth);
+
+  const productCount: Record<string, number> = {};
+  all.forEach(o => { productCount[o.product] = (productCount[o.product] || 0) + o.quantity; });
+  const bestProduct = Object.entries(productCount).sort((a, b) => b[1] - a[1])[0];
+
+  res.json({
+    today: { orders: todayOrders.length, revenue: revenue(todayOrders) },
+    week: { orders: weekOrders.length, revenue: revenue(weekOrders) },
+    month: { orders: monthOrders.length, revenue: revenue(monthOrders) },
+    bestProduct: bestProduct ? { name: bestProduct[0], quantity: bestProduct[1] } : null,
+  });
+});
+
 router.get("/orders", async (req, res): Promise<void> => {
   const params = ListOrdersQueryParams.safeParse(req.query);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
   let query = db.select().from(ordersTable).orderBy(desc(ordersTable.createdAt)).$dynamic();
-  if (params.data.status) query = query.where(eq(ordersTable.status, params.data.status as any));
+
+  const conditions: any[] = [];
+  if (params.data.status) conditions.push(eq(ordersTable.status, params.data.status as any));
   if (params.data.search) {
     const s = `%${params.data.search}%`;
-    query = query.where(or(ilike(ordersTable.customerName, s), ilike(ordersTable.product, s)));
+    conditions.push(or(ilike(ordersTable.customerName, s), ilike(ordersTable.product, s), ilike(ordersTable.phone, s)));
   }
+  if ((req.query as any).dateFrom) {
+    conditions.push(gte(ordersTable.createdAt, new Date((req.query as any).dateFrom as string)));
+  }
+  if (conditions.length === 1) query = query.where(conditions[0]);
+  else if (conditions.length > 1) query = query.where(and(...conditions));
 
   const orders = await query;
   res.json(ListOrdersResponse.parse(orders));
@@ -174,6 +209,23 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
   }
 
   res.json(UpdateOrderResponse.parse(order));
+});
+
+router.delete("/orders/:id", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const [existing] = await db.select().from(ordersTable).where(eq(ordersTable.id, id));
+  if (!existing) { res.status(404).json({ error: "Order not found" }); return; }
+
+  if (existing.variantId) {
+    await adjustVariantInventory(existing.variantId, existing.status, "deleted", existing.quantity, existing.partialQuantity);
+  } else if (existing.productId) {
+    await adjustInventory(existing.productId, existing.status, "deleted", existing.quantity, existing.partialQuantity);
+  }
+
+  await db.delete(ordersTable).where(eq(ordersTable.id, id));
+  res.status(204).end();
 });
 
 export default router;

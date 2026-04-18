@@ -26,6 +26,9 @@ const statusClasses: Record<string, string> = {
   partial_received: "text-purple-600 border-purple-600",
 };
 
+const formatCurrency = (n: number) =>
+  new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(n);
+
 export default function Invoices() {
   const [location] = useLocation();
   const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
@@ -37,8 +40,6 @@ export default function Invoices() {
 
   const { data: orders, isLoading } = useListOrders({ status: statusFilter !== "all" ? statusFilter : undefined });
   const { data: shippingCompanies } = useQuery({ queryKey: ["shipping"], queryFn: shippingApi.list });
-
-  const formatCurrency = (n: number) => new Intl.NumberFormat("ar-SA", { style: "currency", currency: "SAR" }).format(n);
 
   const toggleSelect = (id: number) => {
     setSelectedIds(prev => {
@@ -65,30 +66,34 @@ export default function Invoices() {
     if (!printWindow) return;
 
     const styles = `
-      @page { size: A4; margin: 8mm; }
+      @page { size: A4; margin: 6mm; }
       * { box-sizing: border-box; margin: 0; padding: 0; }
-      body { font-family: 'Cairo', 'Segoe UI', sans-serif; direction: rtl; background: white; color: black; }
-      .page { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 4mm; width: 100%; height: 277mm; page-break-after: always; }
+      body { font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif; direction: rtl; background: white; color: #111; }
+      .page { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 5mm; width: 100%; height: 282mm; page-break-after: always; }
       .page:last-child { page-break-after: avoid; }
-      .invoice { border: 2px solid #111; padding: 5mm; background: white; overflow: hidden; }
-      .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #111; padding-bottom: 3mm; margin-bottom: 3mm; }
-      .brand { font-size: 16pt; font-weight: 900; letter-spacing: 1px; }
-      .brand-sub { font-size: 6pt; color: #666; letter-spacing: 2px; }
-      .order-no { font-size: 9pt; font-weight: bold; color: #111; }
-      .date { font-size: 7pt; color: #444; }
+      .invoice { border: 2px solid #222; border-radius: 3mm; padding: 5mm; background: white; overflow: hidden; display: flex; flex-direction: column; }
+      .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #222; padding-bottom: 3mm; margin-bottom: 3mm; }
+      .brand { font-size: 18pt; font-weight: 900; letter-spacing: 2px; color: #111; }
+      .brand-sub { font-size: 5.5pt; color: #888; letter-spacing: 3px; text-transform: uppercase; margin-top: 0.5mm; }
+      .order-no { font-size: 10pt; font-weight: 900; color: #111; }
+      .date { font-size: 7pt; color: #666; margin-top: 0.5mm; }
       .section { margin-bottom: 2.5mm; }
-      .section-label { font-size: 6.5pt; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 1mm; }
-      .section-val { font-size: 9pt; font-weight: bold; }
-      .divider { border: none; border-top: 1px dashed #ccc; margin: 2mm 0; }
-      .row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1mm; }
-      .total-row { border-top: 2pt solid #111; margin-top: 2mm; padding-top: 2mm; display: flex; justify-content: space-between; }
-      .total-label { font-size: 9pt; font-weight: bold; }
-      .total-val { font-size: 12pt; font-weight: 900; }
-      .status-badge { border: 1.5px solid; padding: 1mm 3mm; font-size: 7pt; font-weight: bold; display: inline-block; }
-      .footer { margin-top: auto; padding-top: 2mm; border-top: 1px solid #ccc; font-size: 6pt; color: #888; text-align: center; }
+      .section-label { font-size: 6pt; color: #999; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 0.8mm; }
+      .section-val { font-size: 9.5pt; font-weight: 700; color: #111; }
+      .contact { font-size: 7.5pt; color: #555; margin-top: 0.5mm; }
+      .divider { border: none; border-top: 1px dashed #bbb; margin: 2.5mm 0; }
+      .row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5mm; }
+      .row-label { font-size: 7pt; color: #888; }
+      .row-val { font-size: 8.5pt; font-weight: 600; color: #111; }
+      .total-box { margin-top: auto; border-top: 2.5pt solid #111; padding-top: 2.5mm; display: flex; justify-content: space-between; align-items: center; }
+      .total-label { font-size: 10pt; font-weight: 700; }
+      .total-val { font-size: 14pt; font-weight: 900; color: #111; }
+      .status-badge { border: 2px solid #111; padding: 1mm 4mm; font-size: 7.5pt; font-weight: 700; border-radius: 1mm; display: inline-block; margin-top: 2mm; }
+      .footer { border-top: 1px solid #ddd; margin-top: 2mm; padding-top: 1.5mm; font-size: 6pt; color: #aaa; text-align: center; }
+      .empty-slot { border: 1.5px dashed #e0e0e0; border-radius: 3mm; background: #fafafa; }
     `;
 
-    const invoiceHTML = (order: (typeof selected)[0], i: number) => {
+    const invoiceHTML = (order: (typeof selected)[0]) => {
       const company = shippingCompanies?.find(c => c.id === order.shippingCompanyId);
       return `
         <div class="invoice">
@@ -102,41 +107,49 @@ export default function Invoices() {
               <div class="date">${format(new Date(order.createdAt), "yyyy/MM/dd")}</div>
             </div>
           </div>
+
           <div class="section">
-            <div class="section-label">اسم العميل</div>
+            <div class="section-label">بيانات العميل</div>
             <div class="section-val">${order.customerName}</div>
-            ${order.phone ? `<div style="font-size:7.5pt;color:#444;margin-top:0.5mm">📞 ${order.phone}</div>` : ""}
-            ${order.address ? `<div style="font-size:7.5pt;color:#444;margin-top:0.5mm">📍 ${order.address}</div>` : ""}
+            ${order.phone ? `<div class="contact">هاتف: ${order.phone}</div>` : ""}
+            ${order.address ? `<div class="contact">العنوان: ${order.address}</div>` : ""}
           </div>
+
           <hr class="divider"/>
+
           <div class="section">
-            <div class="row"><span style="font-size:7pt;color:#888">المنتج</span><span style="font-size:8pt;font-weight:bold">${order.product}</span></div>
-            ${((order as any).color || (order as any).size) ? `<div class="row"><span style="font-size:7pt;color:#888">اللون / المقاس</span><span style="font-size:8pt">${[(order as any).color, (order as any).size].filter(Boolean).join(" — ")}</span></div>` : ""}
-            <div class="row"><span style="font-size:7pt;color:#888">الكمية</span><span style="font-size:8pt">${order.quantity}</span></div>
-            <div class="row"><span style="font-size:7pt;color:#888">سعر الوحدة</span><span style="font-size:8pt">${formatCurrency(order.unitPrice)}</span></div>
-            ${company ? `<div class="row"><span style="font-size:7pt;color:#888">شركة الشحن</span><span style="font-size:8pt">${company.name}</span></div>` : ""}
+            <div class="section-label">تفاصيل الطلب</div>
+            <div class="row"><span class="row-label">المنتج</span><span class="row-val">${order.product}</span></div>
+            ${((order as any).color || (order as any).size) ? `<div class="row"><span class="row-label">اللون / المقاس</span><span class="row-val">${[(order as any).color, (order as any).size].filter(Boolean).join(" · ")}</span></div>` : ""}
+            <div class="row"><span class="row-label">الكمية</span><span class="row-val">${order.quantity} وحدة</span></div>
+            <div class="row"><span class="row-label">سعر الوحدة</span><span class="row-val">${formatCurrency(order.unitPrice)}</span></div>
+            ${company ? `<div class="row"><span class="row-label">شركة الشحن</span><span class="row-val">${company.name}</span></div>` : ""}
           </div>
-          <div class="total-row">
+
+          <div class="total-box">
             <span class="total-label">الإجمالي</span>
             <span class="total-val">${formatCurrency(order.totalPrice)}</span>
           </div>
-          <div style="margin-top:2mm">
+
+          <div>
             <span class="status-badge">${statusLabels[order.status] || order.status}</span>
             ${order.partialQuantity ? `<span style="font-size:7pt;color:#666;margin-right:2mm">مستلم: ${order.partialQuantity} وحدة</span>` : ""}
           </div>
-          ${order.notes ? `<div style="margin-top:2mm;font-size:7pt;color:#666;font-style:italic">${order.notes}</div>` : ""}
-          <div class="footer">CAPRINA Sales System • WIN OR DIE</div>
+
+          ${order.notes ? `<div style="margin-top:2mm;font-size:7pt;color:#777;border-right:2px solid #ddd;padding-right:2mm">${order.notes}</div>` : ""}
+
+          <div class="footer">CAPRINA Sales System &bull; جنيه مصري &bull; WIN OR DIE</div>
         </div>
       `;
     };
 
     const pagesHTML = groups.map(group => {
-      const invoices = group.map((o, i) => invoiceHTML(o, i)).join("");
-      const empties = group.length < 4 ? Array(4 - group.length).fill('<div class="invoice" style="border:1px dashed #eee;background:#fafafa;"></div>').join("") : "";
+      const invoices = group.map(o => invoiceHTML(o)).join("");
+      const empties = group.length < 4 ? Array(4 - group.length).fill('<div class="empty-slot"></div>').join("") : "";
       return `<div class="page">${invoices}${empties}</div>`;
     }).join("");
 
-    printWindow.document.write(`<!DOCTYPE html><html lang="ar"><head><meta charset="UTF-8"><title>فواتير CAPRINA</title><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet"><style>${styles}</style></head><body>${pagesHTML}</body></html>`);
+    printWindow.document.write(`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>فواتير CAPRINA</title><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet"><style>${styles}</style></head><body>${pagesHTML}</body></html>`);
     printWindow.document.close();
     printWindow.onload = () => { printWindow.focus(); printWindow.print(); };
   };
@@ -153,7 +166,7 @@ export default function Invoices() {
         </Button>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-44 h-9 text-sm bg-card border-border">
             <SelectValue placeholder="تصفية" />
@@ -206,7 +219,7 @@ export default function Invoices() {
                 <div className="mt-3 space-y-1 text-xs">
                   <div className="flex justify-between text-muted-foreground">
                     <span>{order.product} × {order.quantity}</span>
-                    <span className="font-bold text-primary">{new Intl.NumberFormat("ar-SA", { style: "currency", currency: "SAR" }).format(order.totalPrice)}</span>
+                    <span className="font-bold text-primary">{formatCurrency(order.totalPrice)}</span>
                   </div>
                   {company && <p className="text-muted-foreground">🚚 {company.name}</p>}
                   {order.phone && <p className="text-muted-foreground">📞 {order.phone}</p>}

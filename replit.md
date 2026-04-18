@@ -2,7 +2,7 @@
 
 ## Overview
 
-A full-stack order management system for CAPRINA, an artisan goods company. Built with a pnpm workspace monorepo using TypeScript.
+A full-stack order management system for CAPRINA, an artisan goods company. Built with a pnpm workspace monorepo using TypeScript. Currency is Egyptian Pound (EGP / جنيه مصري).
 
 ## Stack
 
@@ -16,17 +16,23 @@ A full-stack order management system for CAPRINA, an artisan goods company. Buil
 - **Validation**: Zod (`zod/v4`), `drizzle-zod`
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
+- **Excel parsing**: exceljs (replaces vulnerable xlsx@0.18.5)
 
 ## Features
 
-- **Dashboard**: Overview with revenue, order counts by status, and recent activity
-- **Order List**: Searchable, filterable table of all orders with status badges
+- **Dashboard**: KPI cards (today/week/month orders & revenue), all-time summary, best-selling product, low-stock alert, recent orders
+- **Order List**: Search by name/product/phone, filter by status, filter by date (from), total count
 - **Create Order**: Form to create new orders with validation
-- **Order Detail**: View and edit individual orders, update status
+- **Order Detail**: View and edit individual orders, update status, delete with confirmation dialog
+- **Invoices**: Select orders and print 4-per-A4 page professional invoices
+- **Inventory**: Manage products and variants with stock tracking
+- **Import**: Upload CSV/XLSX to bulk-import orders
+- **Shipping Companies**: Manage courier company records
 
 ## Data Model
 
-- **Orders**: id, customerName, product, quantity, unitPrice, totalPrice, status (pending/processing/shipped/delivered/cancelled), notes, createdAt, updatedAt
+- **Orders**: id, customerName, phone, address, product, color, size, quantity, unitPrice, totalPrice, status, partialQuantity, shippingCompanyId, productId, variantId, notes, createdAt, updatedAt
+- **Statuses**: pending | received | delayed | returned | partial_received
 
 ## Key Commands
 
@@ -38,11 +44,13 @@ A full-stack order management system for CAPRINA, an artisan goods company. Buil
 
 ## API Endpoints
 
-- `GET /api/orders` — list orders (optional query params: status, search)
+- `GET /api/orders` — list orders (query params: status, search, dateFrom)
 - `POST /api/orders` — create an order
 - `GET /api/orders/:id` — get a single order
 - `PATCH /api/orders/:id` — update an order
-- `GET /api/orders/summary` — order statistics summary
-- `GET /api/orders/recent` — 5 most recent orders
+- `DELETE /api/orders/:id` — delete an order (reverses inventory adjustments)
+- `GET /api/orders/summary` — all-time order statistics
+- `GET /api/orders/recent` — 8 most recent orders
+- `GET /api/orders/stats` — today/week/month breakdowns + best product
 
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
