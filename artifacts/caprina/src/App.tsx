@@ -24,6 +24,7 @@ import Login from "@/pages/login";
 import Layout from "@/components/layout";
 import { BrandLogoMark } from "@/components/brand-logo";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { BrandProvider } from "@/contexts/BrandContext";
 
 const queryClient = new QueryClient();
 
@@ -94,11 +95,13 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <AuthProvider>
-            <AuthGuard>
-              <Router />
-            </AuthGuard>
-          </AuthProvider>
+          <BrandProvider>
+            <AuthProvider>
+              <AuthGuard>
+                <Router />
+              </AuthGuard>
+            </AuthProvider>
+          </BrandProvider>
         </WouterRouter>
         <Toaster />
       </TooltipProvider>

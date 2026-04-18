@@ -8,9 +8,10 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, Lock, User } from "lucide-react";
 import { BrandLogoMark } from "@/components/brand-logo";
-import { BRAND } from "@/lib/brand";
+import { useBrand } from "@/contexts/BrandContext";
 
 export default function Login() {
+  const { brand } = useBrand();
   const { login } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -42,9 +43,9 @@ export default function Login() {
           <div className="flex justify-center mb-4">
             <BrandLogoMark size="lg" />
           </div>
-          <h1 className="text-2xl font-black tracking-tight text-foreground">{BRAND.name}</h1>
-          {BRAND.tagline && (
-            <p className="text-xs text-muted-foreground mt-1 uppercase tracking-widest">{BRAND.tagline}</p>
+          <h1 className="text-2xl font-black tracking-tight text-foreground">{brand.name}</h1>
+          {brand.tagline && (
+            <p className="text-xs text-muted-foreground mt-1 uppercase tracking-widest">{brand.tagline}</p>
           )}
         </div>
 

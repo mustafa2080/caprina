@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { LayoutDashboard, Package, Plus, Boxes, Truck, FileText, Upload, Activity, BarChart3, Users, Shield, LogOut, ChevronDown, KeyRound, Warehouse, Megaphone, UserCheck, UserCog } from "lucide-react";
 import { BrandFull } from "@/components/brand-logo";
+import { BrandSettingsDialog } from "@/components/brand-settings-dialog";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState } from "react";
@@ -43,6 +44,7 @@ export default function Layout({ children }: LayoutProps) {
   const { toast } = useToast();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [pwDialogOpen, setPwDialogOpen] = useState(false);
+  const [brandSettingsOpen, setBrandSettingsOpen] = useState(false);
   const [currentPw, setCurrentPw] = useState("");
   const [newPw, setNewPw] = useState("");
   const [savingPw, setSavingPw] = useState(false);
@@ -78,6 +80,7 @@ export default function Layout({ children }: LayoutProps) {
             layout="row"
             nameClass="text-sm text-sidebar-foreground"
             taglineClass="text-sidebar-foreground/40"
+            onLogoClick={isAdmin ? () => setBrandSettingsOpen(true) : undefined}
           />
         </div>
 
@@ -165,6 +168,11 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         </div>
       </main>
+
+      {/* Brand Settings Dialog */}
+      {brandSettingsOpen && (
+        <BrandSettingsDialog open={brandSettingsOpen} onClose={() => setBrandSettingsOpen(false)} />
+      )}
 
       {/* Change Password Dialog */}
       <Dialog open={pwDialogOpen} onOpenChange={setPwDialogOpen}>

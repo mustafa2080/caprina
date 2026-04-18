@@ -14,6 +14,7 @@ import manifestsRouter from "./manifests";
 import warehousesRouter from "./warehouses";
 import teamAnalyticsRouter from "./team-analytics";
 import employeeRouter from "./employee";
+import brandRouter from "./brand";
 import { requireAuth } from "../middlewares/requireAuth.js";
 
 const router: IRouter = Router();
@@ -21,6 +22,7 @@ const router: IRouter = Router();
 // Public routes (no auth required)
 router.use(healthRouter);
 router.use("/auth", authRouter);
+router.use(brandRouter); // GET /brand + GET /brand/logo are public; PATCH/POST/DELETE self-protect with requireAuth+requireAdmin
 
 // All routes below require authentication
 router.use(requireAuth);
