@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, ilike, or, gte, and } from "drizzle-orm";
+import { eq, desc, ilike, or, gte, and, isNull, isNotNull } from "drizzle-orm";
 import { db, ordersTable, productsTable, productVariantsTable } from "@workspace/db";
 import {
   ListOrdersQueryParams,
@@ -30,7 +30,7 @@ router.get("/orders/stats", async (req, res): Promise<void> => {
   startOfWeek.setDate(startOfToday.getDate() - startOfToday.getDay());
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const all = await db.select().from(ordersTable);
+  const all = await db.select().from(ordersTable).where(isNull(ordersTable.deletedAt));
   const filter = (from: Date) => all.filter(o => new Date(o.createdAt) >= from);
   const revenue = (orders: typeof all) =>
     orders.filter(o => o.status === "received" || o.status === "partial_received")
@@ -55,7 +55,7 @@ router.get("/orders", async (req, res): Promise<void> => {
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
   let query = db.select().from(ordersTable).orderBy(desc(ordersTable.createdAt)).$dynamic();
-  const conditions: any[] = [];
+  const conditions: any[] = [isNull(ordersTable.deletedAt)];
 
   if (params.data.status) conditions.push(eq(ordersTable.status, params.data.status as any));
   if (params.data.search) {
@@ -112,7 +112,7 @@ router.post("/orders", async (req, res): Promise<void> => {
 // ─── Summary ──────────────────────────────────────────────────────────────────
 
 router.get("/orders/summary", async (_req, res): Promise<void> => {
-  const orders = await db.select().from(ordersTable);
+  const orders = await db.select().from(ordersTable).where(isNull(ordersTable.deletedAt));
   const summary = {
     totalOrders: orders.length,
     pendingOrders: orders.filter(o => o.status === "pending").length,
@@ -131,8 +131,40 @@ router.get("/orders/summary", async (_req, res): Promise<void> => {
 // ─── Recent orders ────────────────────────────────────────────────────────────
 
 router.get("/orders/recent", async (_req, res): Promise<void> => {
-  const orders = await db.select().from(ordersTable).orderBy(desc(ordersTable.createdAt)).limit(8);
+  const orders = await db.select().from(ordersTable).where(isNull(ordersTable.deletedAt)).orderBy(desc(ordersTable.createdAt)).limit(8);
   res.json(GetRecentOrdersResponse.parse(orders));
+});
+
+// ─── Archived orders ──────────────────────────────────────────────────────────
+
+router.get("/orders/archived", async (_req, res): Promise<void> => {
+  const orders = await db.select().from(ordersTable).where(isNotNull(ordersTable.deletedAt)).orderBy(desc(ordersTable.deletedAt));
+  res.json(orders);
+});
+
+// ─── Restore archived order ───────────────────────────────────────────────────
+
+router.post("/orders/:id/restore", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const [existing] = await db.select().from(ordersTable).where(eq(ordersTable.id, id));
+  if (!existing) { res.status(404).json({ error: "Order not found" }); return; }
+  if (!existing.deletedAt) { res.status(400).json({ error: "Order is not archived" }); return; }
+
+  const [restored] = await db.update(ordersTable).set({ deletedAt: null }).where(eq(ordersTable.id, id)).returning();
+
+  await logAudit({
+    action: "restore",
+    entityType: "order",
+    entityId: id,
+    entityName: `${existing.customerName} — ${existing.product}`,
+    after: { status: existing.status, restoredAt: new Date().toISOString() },
+    userId: req.user?.id,
+    userName: req.user?.displayName,
+  });
+
+  res.json(restored);
 });
 
 // ─── Get single order ─────────────────────────────────────────────────────────
@@ -141,7 +173,7 @@ router.get("/orders/:id", async (req, res): Promise<void> => {
   const params = GetOrderParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
-  const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, params.data.id));
+  const [order] = await db.select().from(ordersTable).where(and(eq(ordersTable.id, params.data.id), isNull(ordersTable.deletedAt)));
   if (!order) { res.status(404).json({ error: "Order not found" }); return; }
   res.json(GetOrderResponse.parse(order));
 });
@@ -300,7 +332,8 @@ router.delete("/orders/:id", async (req, res): Promise<void> => {
     userName: req.user?.displayName,
   });
 
-  await db.delete(ordersTable).where(eq(ordersTable.id, id));
+  // Soft delete — mark as deleted without removing from DB
+  await db.update(ordersTable).set({ deletedAt: new Date() }).where(eq(ordersTable.id, id));
   res.status(204).end();
 });
 

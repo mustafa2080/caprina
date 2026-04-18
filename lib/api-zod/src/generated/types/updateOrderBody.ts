@@ -22,6 +22,8 @@ export interface UpdateOrderBody {
   /** @nullable */
   partialQuantity?: number | null;
   /** @nullable */
+  trackingNumber?: string | null;
+  /** @nullable */
   shippingCompanyId?: number | null;
   /** @nullable */
   productId?: number | null;

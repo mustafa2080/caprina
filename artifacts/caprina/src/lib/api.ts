@@ -216,6 +216,20 @@ export const importApi = {
   // Returns
   parseReturns: (file: File) => parseFile(file, "returns/import/parse"),
   executeReturns: (payload: { headers: string[]; rows: any[][]; mapping: any }) => executeImport("returns/import/execute", payload),
+  // Inventory bulk update
+  uploadInventory: async (file: File): Promise<{ updated: number; failed: number; errors: string[]; items: any[] }> => {
+    const form = new FormData();
+    form.append("file", file);
+    const token = localStorage.getItem("caprina_token");
+    const res = await fetch(`${BASE}/import/inventory`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data;
+  },
 };
 
 export interface OrderStats {
@@ -441,11 +455,14 @@ export const analyticsApi = {
   alerts: () => apiFetch<AlertsResponse>("/analytics/alerts"),
   stockIntelligence: () => apiFetch<StockIntelligenceResponse>("/analytics/stock-intelligence"),
   smartInsights: () => apiFetch<SmartInsights>("/analytics/smart-insights"),
+  shippingFollowup: () => apiFetch<any[]>("/analytics/shipping-followup"),
 };
 
 export const ordersApi = {
   stats: () => apiFetch<OrderStats>("/orders/stats"),
   delete: (id: number) => apiFetch<void>(`/orders/${id}`, { method: "DELETE" }),
+  archived: () => apiFetch<any[]>("/orders/archived"),
+  restore: (id: number) => apiFetch<any>(`/orders/${id}/restore`, { method: "POST" }),
 };
 
 export type MovementType = "IN" | "OUT";

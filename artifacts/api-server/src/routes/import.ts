@@ -464,4 +464,66 @@ router.post("/orders/import", upload.single("file"), async (req, res): Promise<v
   }
 });
 
+// ─── POST /api/import/inventory ─────────────────────────────────────────────
+// Bulk inventory update via Excel/CSV: columns SKU, الكمية المضافة, سعر التكلفة (optional)
+router.post("/import/inventory", upload.single("file"), async (req, res): Promise<void> => {
+  if (!req.file) { res.status(400).json({ error: "لم يتم رفع ملف" }); return; }
+
+  try {
+    const { headers, rows } = await parseFileToRaw(req.file.buffer, req.file.originalname);
+
+    const findCol = (...names: string[]) => {
+      for (const h of headers) {
+        if (names.some(n => h.trim().toLowerCase().includes(n.toLowerCase()))) return headers.indexOf(h);
+      }
+      return -1;
+    };
+
+    const skuCol = findCol("sku", "باركود", "كود");
+    const qtyCol = findCol("الكمية المضافة", "كمية", "quantity", "qty");
+    const costCol = findCol("سعر التكلفة", "تكلفة", "cost");
+
+    if (skuCol === -1 || qtyCol === -1) {
+      res.status(400).json({
+        error: "الملف يجب أن يحتوي على أعمدة: SKU (أو باركود), الكمية المضافة",
+        headers,
+      });
+      return;
+    }
+
+    const allVariants = await db.select().from(productVariantsTable);
+    const variantBySku = new Map(allVariants.filter(v => v.sku).map(v => [v.sku!.trim().toLowerCase(), v]));
+
+    const updated: any[] = [];
+    const errors: string[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const sku = String(row[skuCol] ?? "").trim();
+      const qty = parseInt(String(row[qtyCol] ?? "0"));
+      const cost = costCol >= 0 ? parseFloat(String(row[costCol] ?? "")) : null;
+
+      if (!sku) continue;
+      if (isNaN(qty) || qty < 0) { errors.push(`صف ${i + 2}: كمية غير صالحة للـ SKU ${sku}`); continue; }
+
+      const variant = variantBySku.get(sku.toLowerCase());
+      if (!variant) { errors.push(`صف ${i + 2}: لم يُعثر على SKU ${sku}`); continue; }
+
+      const updateData: any = { totalQuantity: variant.totalQuantity + qty };
+      if (cost !== null && !isNaN(cost) && cost > 0) updateData.costPrice = cost;
+
+      const [up] = await db.update(productVariantsTable)
+        .set(updateData)
+        .where(eq(productVariantsTable.id, variant.id))
+        .returning();
+
+      updated.push({ sku, addedQty: qty, newTotal: up.totalQuantity });
+    }
+
+    res.json({ updated: updated.length, failed: errors.length, errors, items: updated });
+  } catch (err: any) {
+    res.status(500).json({ error: `فشل معالجة الملف: ${err.message}` });
+  }
+});
+
 export default router;

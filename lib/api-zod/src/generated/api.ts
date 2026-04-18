@@ -205,6 +205,7 @@ export const UpdateOrderBody = zod.object({
     ])
     .optional(),
   partialQuantity: zod.number().nullish(),
+  trackingNumber: zod.string().nullish(),
   shippingCompanyId: zod.number().nullish(),
   productId: zod.number().nullish(),
   variantId: zod.number().nullish(),

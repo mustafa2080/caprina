@@ -27,10 +27,14 @@ A full-stack order management system for CAPRINA, an artisan goods company. Buil
 - **Invoices**: Select orders and print 4-per-A4 page professional invoices
 - **Inventory**: Manage products and variants with costPrice, margin%, inventory value at cost. Professional KPI cards (total products, available units, low-stock count, inventory value). Per-variant table with selling price / cost price / margin% / status badges. Product + variant dialogs with live profit preview (unit profit, margin%, ROI).
 - **Inventory Movements**: Timeline of all stock movements (sale/partial_sale/return/manual) with KPI cards
-- **Import (3 modes)**:
+- **Soft Delete / Archive**: Orders deleted via trash button are soft-deleted (deletedAt timestamp set). Archive page `/archive` shows all deleted orders with restore functionality. All queries filter out soft-deleted records.
+- **Tracking Number**: Orders table has `trackingNumber` field. Order detail edit form includes a tracking number field (displayed under shipping company).
+- **Shipping Follow-Up Page** (`/shipping-followup`): Shows in_shipping orders pending > 3 days grouped by urgency (critical 10+, urgent 7-10, late 3-7). Includes tracking number display and direct phone links.
+- **Import (4 modes)**:
   - **Orders**: Upload CSV/XLSX to bulk-import customer orders with dynamic column mapping wizard
   - **Products**: Bulk-import products with costPrice+unitPrice+color+size; upserts by name, auto-creates variants
   - **Returns**: Bulk-mark existing orders as "returned" by orderId or customerName+product
+  - **Inventory** (Bulk stock update): Upload SKU+Quantity (±cost) CSV/XLSX — matches by SKU, adds to existing stock, no column mapping step needed
 - **Shipping Companies**: Manage courier company records with delivery rate stats and per-company manifest history
 - **Shipping Manifests**: Bundle `in_shipping` orders into manifests per courier. Per-order delivery settlement (مسلَّم/مؤجل/مرتجع/استلم جزئي + reason). Editable invoice price + notes. Settlement card: delivered gross − shipping fees = net owed. Closing statement dialog with summary before locking.
 - **Multi-Warehouse**: `warehouses` table + `warehouse_stock` table (per warehouse stock tracking). Each warehouse shows total units, SKU count, order count. Stock management UI with add/update per product/variant. Orders linked to warehouseId.

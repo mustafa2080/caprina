@@ -15,7 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Label } from "@/components/ui/label";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
-type ImportMode = "orders" | "products" | "returns";
+type ImportMode = "orders" | "products" | "returns" | "inventory";
 
 interface FieldDef {
   key: string;
@@ -137,9 +137,10 @@ function cellDisplay(v: any): string {
 
 // ─── Mode Selector ─────────────────────────────────────────────────────────────
 const MODES: { id: ImportMode; label: string; desc: string; icon: any; color: string }[] = [
-  { id: "orders",   label: "طلبات",    desc: "استورد قائمة طلبات العملاء",           icon: ShoppingCart, color: "border-primary/40 bg-primary/5 text-primary" },
-  { id: "products", label: "منتجات",   desc: "استورد منتجات بأسعار البيع والتكلفة",   icon: Package,      color: "border-amber-700/40 bg-amber-900/5 text-amber-400" },
-  { id: "returns",  label: "مرتجعات",  desc: "سجّل مرتجعات بالجملة من ملف Excel",    icon: Undo2,        color: "border-red-800/40 bg-red-900/5 text-red-400" },
+  { id: "orders",    label: "طلبات",      desc: "استورد قائمة طلبات العملاء",           icon: ShoppingCart, color: "border-primary/40 bg-primary/5 text-primary" },
+  { id: "products",  label: "منتجات",     desc: "استورد منتجات بأسعار البيع والتكلفة",   icon: Package,      color: "border-amber-700/40 bg-amber-900/5 text-amber-400" },
+  { id: "returns",   label: "مرتجعات",   desc: "سجّل مرتجعات بالجملة من ملف Excel",    icon: Undo2,        color: "border-red-800/40 bg-red-900/5 text-red-400" },
+  { id: "inventory", label: "مخزون",     desc: "تحديث كميات المخزون عبر SKU",          icon: Package,      color: "border-green-700/40 bg-green-900/5 text-green-400" },
 ];
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
@@ -158,7 +159,7 @@ export default function Import() {
   const [fileName, setFileName] = useState("");
   const [hasSavedMapping, setHasSavedMapping] = useState(false);
 
-  const currentFields = mode === "orders" ? ORDERS_FIELDS : mode === "products" ? PRODUCTS_FIELDS : RETURNS_FIELDS;
+  const currentFields = mode === "orders" ? ORDERS_FIELDS : mode === "products" ? PRODUCTS_FIELDS : RETURNS_FIELDS ?? [];
 
   useEffect(() => {
     if (mode) setHasSavedMapping(!!loadMapping(mode));
@@ -174,6 +175,22 @@ export default function Import() {
     if (!mode) return;
     if (!file.name.match(/\.(xlsx|xls|csv)$/i)) { setError("يرجى رفع ملف Excel (.xlsx, .xls) أو CSV."); return; }
     setError(null); setIsLoading(true); setFileName(file.name);
+
+    // Inventory mode: direct upload, no column mapping step
+    if (mode === "inventory") {
+      try {
+        const data = await importApi.uploadInventory(file);
+        setResult(data);
+        setStep(4);
+        queryClient.invalidateQueries({ queryKey: ["variants"] });
+      } catch (e: any) {
+        setError(e.message || "فشل معالجة الملف.");
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
+
     try {
       const parseFn = mode === "orders" ? importApi.parse
         : mode === "products" ? importApi.parseProducts
@@ -331,6 +348,19 @@ export default function Import() {
                 <p className="text-muted-foreground leading-relaxed">
                   كل صف يمثل منتجاً أو <span className="text-amber-400 font-bold">SKU (لون + مقاس)</span>. إذا كان المنتج موجوداً بنفس الاسم، سيتم تحديث أسعاره.
                   إذا أضفت لون ومقاس، سيُنشأ SKU جديد تحت نفس المنتج.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+          {mode === "inventory" && (
+            <Card className="border-green-900/40 bg-green-900/5">
+              <CardContent className="p-3 flex gap-3 text-xs">
+                <Info className="w-4 h-4 text-green-400 shrink-0 mt-0.5" />
+                <p className="text-muted-foreground leading-relaxed">
+                  الملف يجب أن يحتوي على عمود <span className="text-green-400 font-bold">SKU</span> (أو: باركود، كود)
+                  وعمود <span className="text-green-400 font-bold">الكمية المضافة</span> (أو: كمية، qty). يمكن إضافة
+                  عمود <span className="text-green-400 font-bold">سعر التكلفة</span> اختيارياً لتحديث التكلفة في نفس الوقت.
+                  الكميات تُضاف على الرصيد الحالي ولا تحل محله.
                 </p>
               </CardContent>
             </Card>
@@ -536,15 +566,32 @@ export default function Import() {
       {/* ── Step 4: Result ─────────────────────────────────────────────────────── */}
       {step === 4 && result && (
         <div className="space-y-4">
-          <Card className={`border ${result.imported > 0 ? "border-emerald-800 bg-emerald-900/10" : "border-amber-800 bg-amber-900/10"}`}>
+          <Card className={`border ${(result.imported ?? result.updated ?? 0) > 0 ? "border-emerald-800 bg-emerald-900/10" : "border-amber-800 bg-amber-900/10"}`}>
             <CardContent className="p-5">
               <div className="flex items-start gap-4">
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${result.imported > 0 ? "bg-emerald-500/20" : "bg-amber-500/20"}`}>
-                  <CheckCircle2 className={`w-6 h-6 ${result.imported > 0 ? "text-emerald-400" : "text-amber-400"}`} />
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${(result.imported ?? result.updated ?? 0) > 0 ? "bg-emerald-500/20" : "bg-amber-500/20"}`}>
+                  <CheckCircle2 className={`w-6 h-6 ${(result.imported ?? result.updated ?? 0) > 0 ? "text-emerald-400" : "text-amber-400"}`} />
                 </div>
                 <div className="flex-1">
-                  <p className="font-bold text-base mb-2">نتيجة الاستيراد</p>
+                  <p className="font-bold text-base mb-2">
+                    {mode === "inventory" ? "نتيجة تحديث المخزون" : "نتيجة الاستيراد"}
+                  </p>
                   <div className="flex flex-wrap gap-4 text-sm">
+                    {mode === "inventory" ? (
+                      <>
+                        <div className="text-center">
+                          <p className="text-2xl font-black text-emerald-400">{result.updated}</p>
+                          <p className="text-xs text-muted-foreground">SKU محدّث</p>
+                        </div>
+                        {result.failed > 0 && (
+                          <div className="text-center">
+                            <p className="text-2xl font-black text-red-400">{result.failed}</p>
+                            <p className="text-xs text-muted-foreground">فشل</p>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <>
                     <div className="text-center">
                       <p className="text-2xl font-black text-emerald-400">{result.imported}</p>
                       <p className="text-xs text-muted-foreground">تم استيراده</p>
@@ -566,6 +613,8 @@ export default function Import() {
                         <p className="text-2xl font-black text-red-400">{result.failed}</p>
                         <p className="text-xs text-muted-foreground">فشل</p>
                       </div>
+                    )}
+                      </>
                     )}
                   </div>
                 </div>

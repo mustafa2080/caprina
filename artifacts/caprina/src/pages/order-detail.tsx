@@ -39,6 +39,7 @@ const editSchema = z.object({
   quantity: z.coerce.number().int().min(1),
   unitPrice: z.coerce.number().min(0),
   shippingCompanyId: z.coerce.number().optional().nullable(),
+  trackingNumber: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
 });
 
@@ -79,7 +80,7 @@ export default function OrderDetail() {
 
   useEffect(() => {
     if (order && !initializedRef.current) {
-      form.reset({ customerName: order.customerName, phone: order.phone, address: order.address, product: order.product, quantity: order.quantity, unitPrice: order.unitPrice, shippingCompanyId: order.shippingCompanyId, notes: order.notes });
+      form.reset({ customerName: order.customerName, phone: order.phone, address: order.address, product: order.product, quantity: order.quantity, unitPrice: order.unitPrice, shippingCompanyId: order.shippingCompanyId, trackingNumber: (order as any).trackingNumber ?? null, notes: order.notes });
       initializedRef.current = true;
     }
   }, [order, form]);
@@ -377,17 +378,22 @@ export default function OrderDetail() {
                     <FormField control={form.control} name="address" render={({ field }) => (
                       <FormItem><FormLabel className="text-xs">العنوان</FormLabel><FormControl><Input className="h-8 text-sm" {...field} value={field.value ?? ""} /></FormControl></FormItem>
                     )} />
-                    <FormField control={form.control} name="shippingCompanyId" render={({ field }) => (
-                      <FormItem><FormLabel className="text-xs">شركة الشحن</FormLabel>
-                        <Select value={field.value?.toString() || "none"} onValueChange={v => field.onChange(v === "none" ? null : Number(v))}>
-                          <SelectTrigger className="h-8 text-sm bg-card"><SelectValue placeholder="بدون" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">بدون</SelectItem>
-                            {shippingCompanies?.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </FormItem>
-                    )} />
+                    <div className="grid grid-cols-2 gap-3">
+                      <FormField control={form.control} name="shippingCompanyId" render={({ field }) => (
+                        <FormItem><FormLabel className="text-xs">شركة الشحن</FormLabel>
+                          <Select value={field.value?.toString() || "none"} onValueChange={v => field.onChange(v === "none" ? null : Number(v))}>
+                            <SelectTrigger className="h-8 text-sm bg-card"><SelectValue placeholder="بدون" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">بدون</SelectItem>
+                              {shippingCompanies?.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
+                      )} />
+                      <FormField control={form.control} name="trackingNumber" render={({ field }) => (
+                        <FormItem><FormLabel className="text-xs">رقم التتبع</FormLabel><FormControl><Input className="h-8 text-sm font-mono" placeholder="TRK-12345" {...field} value={field.value ?? ""} /></FormControl></FormItem>
+                      )} />
+                    </div>
                     <div className="grid grid-cols-3 gap-3">
                       <FormField control={form.control} name="product" render={({ field }) => (
                         <FormItem className="col-span-1"><FormLabel className="text-xs">المنتج</FormLabel><FormControl><Input className="h-8 text-sm" {...field} /></FormControl></FormItem>

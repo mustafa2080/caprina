@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { db, ordersTable, productsTable, productVariantsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, ordersTable, productsTable, productVariantsTable, shippingCompaniesTable } from "@workspace/db";
+import { eq, isNull, and, desc, lte } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -98,7 +98,7 @@ router.get("/analytics/profit", async (_req, res): Promise<void> => {
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
   const [allOrders, products, variants] = await Promise.all([
-    db.select().from(ordersTable),
+    db.select().from(ordersTable).where(isNull(ordersTable.deletedAt)),
     db.select().from(productsTable),
     db.select().from(productVariantsTable),
   ]);
@@ -179,7 +179,7 @@ router.get("/analytics/profit", async (_req, res): Promise<void> => {
 // ─── GET /api/analytics/financial-summary ──────────────────────────────────────
 router.get("/analytics/financial-summary", async (_req, res): Promise<void> => {
   const [allOrders, products, variants] = await Promise.all([
-    db.select().from(ordersTable),
+    db.select().from(ordersTable).where(isNull(ordersTable.deletedAt)),
     db.select().from(productsTable),
     db.select().from(productVariantsTable),
   ]);
@@ -272,7 +272,7 @@ router.get("/analytics/financial-summary", async (_req, res): Promise<void> => {
 // Full per-product breakdown: revenue, profit, returns, margin, avg price
 router.get("/analytics/product-performance", async (_req, res): Promise<void> => {
   const [allOrders, products, variants] = await Promise.all([
-    db.select().from(ordersTable),
+    db.select().from(ordersTable).where(isNull(ordersTable.deletedAt)),
     db.select().from(productsTable),
     db.select().from(productVariantsTable),
   ]);
@@ -384,7 +384,7 @@ router.get("/analytics/product-performance", async (_req, res): Promise<void> =>
 // Smart automatic alerts: high returns, losing products, low stock, low margin
 router.get("/analytics/alerts", async (_req, res): Promise<void> => {
   const [allOrders, products, variants] = await Promise.all([
-    db.select().from(ordersTable),
+    db.select().from(ordersTable).where(isNull(ordersTable.deletedAt)),
     db.select().from(productsTable),
     db.select().from(productVariantsTable),
   ]);
@@ -536,7 +536,7 @@ router.get("/analytics/alerts", async (_req, res): Promise<void> => {
 // Stock velocity (units/day), days until stockout, frozen capital
 router.get("/analytics/stock-intelligence", async (_req, res): Promise<void> => {
   const [allOrders, products, variants] = await Promise.all([
-    db.select().from(ordersTable),
+    db.select().from(ordersTable).where(isNull(ordersTable.deletedAt)),
     db.select().from(productsTable),
     db.select().from(productVariantsTable),
   ]);
@@ -654,7 +654,7 @@ router.get("/analytics/stock-intelligence", async (_req, res): Promise<void> => 
 // return insights, stock predictor
 router.get("/analytics/smart-insights", async (_req, res): Promise<void> => {
   const [allOrders, products, variants] = await Promise.all([
-    db.select().from(ordersTable),
+    db.select().from(ordersTable).where(isNull(ordersTable.deletedAt)),
     db.select().from(productsTable),
     db.select().from(productVariantsTable),
   ]);
@@ -838,6 +838,43 @@ router.get("/analytics/smart-insights", async (_req, res): Promise<void> => {
     returnInsights: { byReason, highReturnProducts, totalReturnRate, totalReturns },
     stockPredictor,
   });
+});
+
+// ─── GET /api/analytics/shipping-followup ───────────────────────────────────
+// Returns in_shipping orders that have been pending for > 3 days
+router.get("/analytics/shipping-followup", async (_req, res): Promise<void> => {
+  const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+
+  const orders = await db
+    .select()
+    .from(ordersTable)
+    .where(
+      and(
+        isNull(ordersTable.deletedAt),
+        eq(ordersTable.status, "in_shipping" as any),
+        lte(ordersTable.updatedAt, threeDaysAgo),
+      )
+    )
+    .orderBy(desc(ordersTable.updatedAt));
+
+  const shippingCompanies = await db.select().from(shippingCompaniesTable);
+  const companyMap = new Map(shippingCompanies.map(c => [c.id, c.name]));
+
+  const result = orders.map(o => ({
+    id: o.id,
+    customerName: o.customerName,
+    phone: o.phone,
+    product: o.product,
+    city: o.city,
+    trackingNumber: o.trackingNumber,
+    shippingCompany: o.shippingCompanyId ? companyMap.get(o.shippingCompanyId) ?? null : null,
+    daysPending: Math.floor((Date.now() - new Date(o.updatedAt).getTime()) / (1000 * 60 * 60 * 24)),
+    totalPrice: o.totalPrice,
+    createdAt: o.createdAt,
+    updatedAt: o.updatedAt,
+  }));
+
+  res.json(result);
 });
 
 export default router;

@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Package, Plus, Boxes, Truck, FileText, Upload, Activity, BarChart3, Users, Shield, LogOut, ChevronDown, KeyRound, Warehouse, Megaphone, UserCheck, UserCog, Sun, Moon, Brain } from "lucide-react";
+import { LayoutDashboard, Package, Plus, Boxes, Truck, FileText, Upload, Activity, BarChart3, Users, Shield, LogOut, ChevronDown, KeyRound, Warehouse, Megaphone, UserCheck, UserCog, Sun, Moon, Brain, Archive, Clock } from "lucide-react";
 import { BrandFull } from "@/components/brand-logo";
 import { BrandSettingsDialog } from "@/components/brand-settings-dialog";
 import { cn } from "@/lib/utils";
@@ -26,6 +26,8 @@ const ALL_NAV = [
   { href: "/ads-analytics", label: "تحليل الإعلانات", icon: Megaphone, permission: "analytics" },
   { href: "/orders", label: "الطلبات", icon: Package, permission: "orders" },
   { href: "/orders/new", label: "طلب جديد", icon: Plus, permission: "orders" },
+  { href: "/archive", label: "الأرشيف 🗂️", icon: Archive, permission: "orders" },
+  { href: "/shipping-followup", label: "متابعة الشحن ⏱️", icon: Clock, permission: "orders" },
   { href: "/inventory", label: "المخزون", icon: Boxes, permission: "inventory" },
   { href: "/warehouses", label: "المخازن", icon: Warehouse, permission: "inventory" },
   { href: "/movements", label: "حركات المخزون", icon: Activity, permission: "movements" },

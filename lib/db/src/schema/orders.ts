@@ -33,6 +33,8 @@ export const ordersTable = pgTable("orders", {
   notes: text("notes"),
   returnReason: text("return_reason"),
   returnNote: text("return_note"),
+  trackingNumber: text("tracking_number"),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

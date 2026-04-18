@@ -21,6 +21,8 @@ import TeamPerformancePage from "@/pages/team-performance";
 import AdsAnalyticsPage from "@/pages/ads-analytics";
 import TeamPage from "@/pages/team";
 import SmartAnalyticsPage from "@/pages/smart-analytics";
+import ArchivePage from "@/pages/archive";
+import ShippingFollowupPage from "@/pages/shipping-followup";
 import Login from "@/pages/login";
 import Layout from "@/components/layout";
 import { BrandLogoMark } from "@/components/brand-logo";
@@ -87,6 +89,8 @@ function Router() {
         <Route path="/ads-analytics" component={AdsAnalyticsPage} />
         <Route path="/team" component={TeamPage} />
         <Route path="/smart" component={SmartAnalyticsPage} />
+        <Route path="/archive" component={ArchivePage} />
+        <Route path="/shipping-followup" component={ShippingFollowupPage} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
