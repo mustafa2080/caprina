@@ -13,6 +13,7 @@ import {
   analyticsApi, type PeriodProfit, type ProductProfit, type FinancialSummary, type Alert,
   productsApi,
 } from "@/lib/api";
+import { ChartsSection } from "@/components/charts-section";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fc = (n: number) =>
@@ -297,6 +298,9 @@ export default function Dashboard() {
           ) : null}
         </div>
       )}
+
+      {/* === VISUAL CHARTS === */}
+      <ChartsSection />
 
       {/* === SMART QUICK INSIGHTS === */}
       {smartData && (

@@ -469,6 +469,16 @@ export interface SmartInsights {
   stockPredictor: StockPredictorItem[];
 }
 
+export interface ChartStatusItem { status: string; count: number; pct: number; }
+export interface ChartDayItem { date: string; label: string; orders: number; revenue: number; }
+export interface ChartSourceItem { source: string; count: number; pct: number; }
+export interface ChartsData {
+  statusBreakdown: ChartStatusItem[];
+  weeklySales: ChartDayItem[];
+  adSourceBreakdown: ChartSourceItem[];
+  total: number;
+}
+
 export const analyticsApi = {
   profit: () => apiFetch<ProfitAnalytics>("/analytics/profit"),
   financialSummary: () => apiFetch<FinancialSummary>("/analytics/financial-summary"),
@@ -477,6 +487,7 @@ export const analyticsApi = {
   stockIntelligence: () => apiFetch<StockIntelligenceResponse>("/analytics/stock-intelligence"),
   smartInsights: () => apiFetch<SmartInsights>("/analytics/smart-insights"),
   shippingFollowup: () => apiFetch<any[]>("/analytics/shipping-followup"),
+  charts: () => apiFetch<ChartsData>("/analytics/charts"),
 };
 
 export const ordersApi = {

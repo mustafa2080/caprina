@@ -840,6 +840,65 @@ router.get("/analytics/smart-insights", async (_req, res): Promise<void> => {
   });
 });
 
+// ─── GET /api/analytics/charts ──────────────────────────────────────────────
+// Returns all data needed for visual charts: status breakdown, weekly sales, ad sources
+router.get("/analytics/charts", async (_req, res): Promise<void> => {
+  const allOrders = await db
+    .select()
+    .from(ordersTable)
+    .where(isNull(ordersTable.deletedAt));
+
+  // 1. Status breakdown
+  const statusCounts: Record<string, number> = {};
+  for (const o of allOrders) {
+    statusCounts[o.status] = (statusCounts[o.status] ?? 0) + 1;
+  }
+  const total = allOrders.length;
+  const statusBreakdown = Object.entries(statusCounts).map(([status, count]) => ({
+    status,
+    count,
+    pct: total > 0 ? Math.round((count / total) * 100) : 0,
+  }));
+
+  // 2. Weekly sales — last 7 days (today + 6 previous), counting by createdAt date
+  const days: { date: string; label: string; orders: number; revenue: number }[] = [];
+  const dayNames = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().split("T")[0];
+    days.push({ date: dateStr, label: dayNames[d.getDay()], orders: 0, revenue: 0 });
+  }
+  for (const o of allOrders) {
+    const dateStr = new Date(o.createdAt).toISOString().split("T")[0];
+    const day = days.find(d => d.date === dateStr);
+    if (day) {
+      day.orders += 1;
+      // only count revenue from completed orders
+      if (o.status === "received" || o.status === "partial_received") {
+        const qty = o.status === "partial_received" ? (o.partialQuantity ?? o.quantity) : o.quantity;
+        day.revenue += qty * o.unitPrice;
+      }
+    }
+  }
+
+  // 3. Ad source breakdown
+  const sourceCounts: Record<string, number> = {};
+  for (const o of allOrders) {
+    const src = o.adSource ?? "other";
+    sourceCounts[src] = (sourceCounts[src] ?? 0) + 1;
+  }
+  const adSourceBreakdown = Object.entries(sourceCounts)
+    .map(([source, count]) => ({
+      source,
+      count,
+      pct: total > 0 ? Math.round((count / total) * 100) : 0,
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  res.json({ statusBreakdown, weeklySales: days, adSourceBreakdown, total });
+});
+
 // ─── GET /api/analytics/shipping-followup ───────────────────────────────────
 // Returns in_shipping orders that have been pending for > 3 days
 router.get("/analytics/shipping-followup", async (_req, res): Promise<void> => {
