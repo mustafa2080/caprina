@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, ordersTable, productsTable, productVariantsTable, shippingCompaniesTable } from "@workspace/db";
 import { eq, isNull, and, desc, lte } from "drizzle-orm";
+import { requireAdmin } from "../middlewares/requireRole.js";
 
 const router: IRouter = Router();
 
@@ -90,7 +91,7 @@ function periodStats(
 }
 
 // ─── GET /api/analytics/profit ──────────────────────────────────────────────────
-router.get("/analytics/profit", async (_req, res): Promise<void> => {
+router.get("/analytics/profit", requireAdmin, async (_req, res): Promise<void> => {
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startOfWeek = new Date(startOfToday);
@@ -177,7 +178,7 @@ router.get("/analytics/profit", async (_req, res): Promise<void> => {
 });
 
 // ─── GET /api/analytics/financial-summary ──────────────────────────────────────
-router.get("/analytics/financial-summary", async (_req, res): Promise<void> => {
+router.get("/analytics/financial-summary", requireAdmin, async (_req, res): Promise<void> => {
   const [allOrders, products, variants] = await Promise.all([
     db.select().from(ordersTable).where(isNull(ordersTable.deletedAt)),
     db.select().from(productsTable),
@@ -270,7 +271,7 @@ router.get("/analytics/financial-summary", async (_req, res): Promise<void> => {
 
 // ─── GET /api/analytics/product-performance ─────────────────────────────────────
 // Full per-product breakdown: revenue, profit, returns, margin, avg price
-router.get("/analytics/product-performance", async (_req, res): Promise<void> => {
+router.get("/analytics/product-performance", requireAdmin, async (_req, res): Promise<void> => {
   const [allOrders, products, variants] = await Promise.all([
     db.select().from(ordersTable).where(isNull(ordersTable.deletedAt)),
     db.select().from(productsTable),

@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 import {
   Upload, FileSpreadsheet, CheckCircle2,
   ArrowRight, ArrowLeft, Settings2, Eye, Loader2,
@@ -146,6 +147,7 @@ const MODES: { id: ImportMode; label: string; desc: string; icon: any; color: st
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function Import() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [mode, setMode] = useState<ImportMode | null>(null);
@@ -239,6 +241,11 @@ export default function Import() {
         queryClient.invalidateQueries({ queryKey: ["products"] });
         queryClient.invalidateQueries({ queryKey: ["variants"] });
         queryClient.invalidateQueries({ queryKey: ["analytics-profit"] });
+        const modeLabel = mode === "orders" ? "طلبات" : mode === "products" ? "منتجات" : "مرتجعات";
+        toast({
+          title: `تم الاستيراد بنجاح`,
+          description: `تم استيراد ${res.imported} ${modeLabel} بنجاح.${res.errors?.length ? ` (${res.errors.length} أخطاء)` : ""}`,
+        });
       }
     } catch (e: any) {
       setError(e.message || "فشل الاستيراد.");

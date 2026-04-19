@@ -165,11 +165,13 @@ export default function Dashboard() {
     queryKey: ["analytics-profit"],
     queryFn: analyticsApi.profit,
     staleTime: 30000,
+    enabled: canViewFinancials,
   });
   const { data: fin, isLoading: isFinLoading } = useQuery({
     queryKey: ["analytics-financial"],
     queryFn: analyticsApi.financialSummary,
     staleTime: 30000,
+    enabled: canViewFinancials,
   });
   const { data: alertsData } = useQuery({
     queryKey: ["analytics-alerts"],

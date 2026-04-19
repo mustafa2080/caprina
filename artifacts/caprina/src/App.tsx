@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, Component, type ReactNode } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -8,6 +8,34 @@ import { BrandProvider } from "@/contexts/BrandContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { BrandLogoMark } from "@/components/brand-logo";
 import Layout from "@/components/layout";
+
+// ─── Global Error Boundary ───────────────────────────────────────────────────
+interface EBState { hasError: boolean }
+class ErrorBoundary extends Component<{ children: ReactNode }, EBState> {
+  state: EBState = { hasError: false };
+  static getDerivedStateFromError(): EBState { return { hasError: true }; }
+  componentDidCatch(err: unknown) { console.error("[ErrorBoundary]", err); }
+  render() {
+    if (!this.state.hasError) return this.props.children;
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6" dir="rtl">
+        <div className="text-center max-w-sm space-y-4">
+          <div className="w-14 h-14 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center mx-auto text-2xl">⚠️</div>
+          <div>
+            <p className="font-black text-foreground text-lg">حدث خطأ غير متوقع</p>
+            <p className="text-muted-foreground text-sm mt-1">يرجى إعادة المحاولة. إذا استمر الخطأ، أعد تحميل الصفحة.</p>
+          </div>
+          <button
+            onClick={() => this.setState({ hasError: false })}
+            className="bg-primary text-primary-foreground px-5 py-2 rounded-lg text-sm font-bold hover:bg-primary/90 transition-colors"
+          >
+            حاول مرة أخرى
+          </button>
+        </div>
+      </div>
+    );
+  }
+}
 
 // ─── Lazy-loaded pages (loaded only when navigated to) ───────────────────────
 const Dashboard             = lazy(() => import("@/pages/dashboard"));
@@ -139,7 +167,9 @@ function App() {
             <BrandProvider>
               <AuthProvider>
                 <AuthGuard>
-                  <Router />
+                  <ErrorBoundary>
+                    <Router />
+                  </ErrorBoundary>
                 </AuthGuard>
               </AuthProvider>
             </BrandProvider>

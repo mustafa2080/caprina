@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { analyticsApi, type AdSourceStat, type SmartProduct, type DeadStockItem, type ReturnReasonItem, type HighReturnProduct, type StockPredictorItem } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -391,12 +391,23 @@ function SummaryBar({ data, showProfit }: { data: {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function SmartAnalytics() {
-  const { isAdmin, canViewFinancials } = useAuth();
+  const { isAdmin, canViewFinancials, can } = useAuth();
+  const [, navigate] = useLocation();
   const { data, isLoading } = useQuery({
     queryKey: ["smart-insights"],
     queryFn: analyticsApi.smartInsights,
     staleTime: 60000,
   });
+
+  if (!can("analytics")) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground">
+        <Brain className="w-10 h-10 opacity-20" />
+        <p className="text-sm font-bold">هذه الصفحة للمديرين فقط</p>
+        <button onClick={() => navigate("/")} className="text-xs text-primary hover:underline">العودة للرئيسية</button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">

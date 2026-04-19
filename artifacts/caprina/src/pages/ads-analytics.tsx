@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Megaphone, TrendingUp, TrendingDown, DollarSign, Target, BarChart3, Package } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -134,6 +136,8 @@ function SourceSummary({ campaigns }: { campaigns: CampaignStats[] }) {
 }
 
 export default function AdsAnalyticsPage() {
+  const { can } = useAuth();
+  const [, navigate] = useLocation();
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [filterSource, setFilterSource] = useState("");
@@ -141,7 +145,18 @@ export default function AdsAnalyticsPage() {
   const { data: campaigns = [], isLoading } = useQuery({
     queryKey: ["campaigns", dateFrom, dateTo],
     queryFn: () => teamAnalyticsApi.campaigns(dateFrom || undefined, dateTo || undefined),
+    enabled: can("analytics"),
   });
+
+  if (!can("analytics")) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground">
+        <Megaphone className="w-10 h-10 opacity-20" />
+        <p className="text-sm font-bold">هذه الصفحة للمديرين فقط</p>
+        <button onClick={() => navigate("/")} className="text-xs text-primary hover:underline">العودة للرئيسية</button>
+      </div>
+    );
+  }
 
   const filtered = filterSource ? campaigns.filter(c => c.adSource === filterSource) : campaigns;
   const maxRevenue = Math.max(...filtered.map(c => c.revenue), 1);
