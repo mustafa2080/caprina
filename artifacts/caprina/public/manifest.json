@@ -1,0 +1,51 @@
+{
+  "name": "CAPRINA OS",
+  "short_name": "CAPRINA",
+  "description": "نظام إدارة الطلبات والمبيعات - CAPRINA Order Management System",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0a0a0a",
+  "theme_color": "#c9971c",
+  "lang": "ar",
+  "dir": "rtl",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "./logo.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any"
+    },
+    {
+      "src": "./logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "الطلبات",
+      "short_name": "طلبات",
+      "description": "قائمة الطلبات",
+      "url": "./orders",
+      "icons": [{ "src": "./logo.jpg", "sizes": "192x192" }]
+    },
+    {
+      "name": "طلب جديد",
+      "short_name": "جديد",
+      "description": "إضافة طلب جديد",
+      "url": "./orders/new",
+      "icons": [{ "src": "./logo.jpg", "sizes": "192x192" }]
+    }
+  ]
+}

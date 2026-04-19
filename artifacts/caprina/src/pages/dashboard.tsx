@@ -14,6 +14,7 @@ import {
   productsApi,
 } from "@/lib/api";
 import { ChartsSection } from "@/components/charts-section";
+import { usePwaInstall } from "@/hooks/usePwaInstall";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fc = (n: number) =>
@@ -105,6 +106,50 @@ function FinRow({ label, value, color = "text-foreground", sub }: { label: strin
       <div className="text-right">
         <span className={`text-xs font-bold ${color}`}>{value}</span>
         {sub && <p className="text-[9px] text-muted-foreground">{sub}</p>}
+      </div>
+    </div>
+  );
+}
+
+// ─── PWA Install Banner ───────────────────────────────────────────────────────
+function PwaInstallBanner() {
+  const { canInstall, isInstalled, install, dismiss, isDismissed } = usePwaInstall();
+
+  if (!canInstall || isInstalled || isDismissed) return null;
+
+  return (
+    <div className="flex items-center gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/8 px-4 py-3"
+         style={{ background: "linear-gradient(135deg, #c9971c0d 0%, #f0b4290a 100%)" }}>
+      {/* Icon */}
+      <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 border border-amber-500/30">
+        <img src="./logo.jpg" alt="CAPRINA" className="w-full h-full object-cover" />
+      </div>
+
+      {/* Text */}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-black text-foreground leading-tight">ثبّت التطبيق على جهازك</p>
+        <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight">
+          تجربة أسرع كتطبيق أصلي بدون متصفح — يعمل على أي جهاز
+        </p>
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-2 shrink-0">
+        <button
+          type="button"
+          onClick={dismiss}
+          className="text-[10px] text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-muted/20 transition-colors"
+        >
+          لاحقاً
+        </button>
+        <button
+          type="button"
+          onClick={install}
+          className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-black text-xs font-black px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
+        >
+          <span>⬇</span>
+          تثبيت
+        </button>
       </div>
     </div>
   );
@@ -298,6 +343,9 @@ export default function Dashboard() {
           ) : null}
         </div>
       )}
+
+      {/* === PWA INSTALL BANNER === */}
+      <PwaInstallBanner />
 
       {/* === VISUAL CHARTS === */}
       <ChartsSection />
