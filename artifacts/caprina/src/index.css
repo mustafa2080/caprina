@@ -370,3 +370,7 @@ html.light { color-scheme: light; }
     .status-pending   { color: #888; }
   }
 }
+
+/* Utility: hide scrollbar but keep scroll */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
