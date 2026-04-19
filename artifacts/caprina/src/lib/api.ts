@@ -181,18 +181,39 @@ export const shippingApi = {
 const parseFile = async (file: File, endpoint: string): Promise<ParsedImport> => {
   const form = new FormData();
   form.append("file", file);
-  const res = await fetch(`${BASE}/${endpoint}`, { method: "POST", body: form });
+  const token = getToken();
+  const res = await fetch(`${BASE}/${endpoint}`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  });
+  if (res.status === 401) {
+    localStorage.removeItem("caprina_token");
+    localStorage.removeItem("caprina_user");
+    window.location.href = "/login";
+    throw new Error("غير مصرح");
+  }
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
   return data;
 };
 
 const executeImport = async (endpoint: string, payload: { headers: string[]; rows: any[][]; mapping: any }): Promise<ImportResult> => {
+  const token = getToken();
   const res = await fetch(`${BASE}/${endpoint}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: JSON.stringify(payload),
   });
+  if (res.status === 401) {
+    localStorage.removeItem("caprina_token");
+    localStorage.removeItem("caprina_user");
+    window.location.href = "/login";
+    throw new Error("غير مصرح");
+  }
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
   return data;
