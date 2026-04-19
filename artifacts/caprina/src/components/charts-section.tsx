@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, memo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { analyticsApi, type ChartsData } from "@/lib/api";
 import {
@@ -141,9 +141,9 @@ function DonutTooltip({ active, payload }: any) {
 }
 
 // ─── Main Donut Card ────────────────────────────────────────────────────────
-function StatusDonut({ data, total }: { data: ChartsData["statusBreakdown"]; total: number }) {
+const StatusDonut = memo(function StatusDonut({ data, total }: { data: ChartsData["statusBreakdown"]; total: number }) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
-  const sorted = [...data].sort((a, b) => b.count - a.count);
+  const sorted = useMemo(() => [...data].sort((a, b) => b.count - a.count), [data]);
 
   return (
     <div className="space-y-5">
@@ -226,7 +226,7 @@ function StatusDonut({ data, total }: { data: ChartsData["statusBreakdown"]; tot
       </div>
     </div>
   );
-}
+});
 
 // ─── Bar tooltip ─────────────────────────────────────────────────────────────
 function BarTip({ active, payload, label }: any) {
@@ -246,11 +246,13 @@ function BarTip({ active, payload, label }: any) {
 }
 
 // ─── Weekly Sales Card ────────────────────────────────────────────────────────
-function WeeklyBars({ data }: { data: ChartsData["weeklySales"] }) {
-  const total = data.reduce((s, d) => s + d.orders, 0);
-  const peak = data.reduce((a, b) => b.orders > a.orders ? b : a, data[0]);
-  const revenue = data.reduce((s, d) => s + d.revenue, 0);
-  const hasData = total > 0;
+const WeeklyBars = memo(function WeeklyBars({ data }: { data: ChartsData["weeklySales"] }) {
+  const { total, peak, revenue, hasData } = useMemo(() => {
+    const total = data.reduce((s, d) => s + d.orders, 0);
+    const peak = data.reduce((a, b) => b.orders > a.orders ? b : a, data[0] ?? { label: "—", orders: 0, revenue: 0 });
+    const revenue = data.reduce((s, d) => s + d.revenue, 0);
+    return { total, peak, revenue, hasData: total > 0 };
+  }, [data]);
 
   return (
     <div className="space-y-4">
@@ -342,11 +344,11 @@ function WeeklyBars({ data }: { data: ChartsData["weeklySales"] }) {
       </div>
     </div>
   );
-}
+});
 
 // ─── Ad Sources Card ─────────────────────────────────────────────────────────
-function AdSources({ data }: { data: ChartsData["adSourceBreakdown"] }) {
-  const filtered = data.filter(d => d.count > 0);
+const AdSources = memo(function AdSources({ data }: { data: ChartsData["adSourceBreakdown"] }) {
+  const filtered = useMemo(() => data.filter(d => d.count > 0), [data]);
 
   if (!filtered.length) {
     return (
@@ -403,7 +405,7 @@ function AdSources({ data }: { data: ChartsData["adSourceBreakdown"] }) {
       })}
     </div>
   );
-}
+});
 
 // ─── Chart Card Wrapper ───────────────────────────────────────────────────────
 function ChartCard({
@@ -472,8 +474,8 @@ function Skeleton() {
 }
 
 // ─── KPI Strip ────────────────────────────────────────────────────────────────
-function KpiStrip({ data, total }: { data: ChartsData["statusBreakdown"]; total: number }) {
-  const sorted = [...data].sort((a, b) => b.count - a.count);
+const KpiStrip = memo(function KpiStrip({ data, total }: { data: ChartsData["statusBreakdown"]; total: number }) {
+  const sorted = useMemo(() => [...data].sort((a, b) => b.count - a.count), [data]);
   return (
     <div className="flex gap-2.5 overflow-x-auto pb-0.5 no-scrollbar">
       {/* Total pill */}
@@ -502,7 +504,7 @@ function KpiStrip({ data, total }: { data: ChartsData["statusBreakdown"]; total:
       })}
     </div>
   );
-}
+});
 
 // ─── Exported Component ──────────────────────────────────────────────────────
 export function ChartsSection() {

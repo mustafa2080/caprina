@@ -57,6 +57,27 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "vendor-react":  ["react", "react-dom"],
+          "vendor-query":  ["@tanstack/react-query"],
+          "vendor-charts": ["recharts"],
+          "vendor-ui": [
+            "@radix-ui/react-dialog",
+            "@radix-ui/react-select",
+            "@radix-ui/react-tooltip",
+            "@radix-ui/react-toast",
+            "@radix-ui/react-popover",
+            "@radix-ui/react-tabs",
+          ],
+          "vendor-icons":  ["lucide-react"],
+          "vendor-motion": ["framer-motion"],
+          "vendor-router": ["wouter"],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 800,
   },
   server: {
     port,
@@ -66,10 +87,23 @@ export default defineConfig({
       strict: true,
       deny: ["**/.*"],
     },
+    warmup: {
+      clientFiles: ["./src/App.tsx", "./src/main.tsx", "./src/index.css"],
+    },
   },
   preview: {
     port,
     host: "0.0.0.0",
     allowedHosts: true,
+  },
+  optimizeDeps: {
+    include: [
+      "react",
+      "react-dom",
+      "@tanstack/react-query",
+      "wouter",
+      "lucide-react",
+      "recharts",
+    ],
   },
 });

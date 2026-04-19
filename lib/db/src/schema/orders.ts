@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, real, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, real, timestamp, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -37,7 +37,16 @@ export const ordersTable = pgTable("orders", {
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-});
+},
+(t) => [
+  index("idx_orders_status").on(t.status),
+  index("idx_orders_deleted_at").on(t.deletedAt),
+  index("idx_orders_created_at").on(t.createdAt),
+  index("idx_orders_product_id").on(t.productId),
+  index("idx_orders_shipping_company_id").on(t.shippingCompanyId),
+  index("idx_orders_assigned_user_id").on(t.assignedUserId),
+  index("idx_orders_status_deleted").on(t.status, t.deletedAt),
+]);
 
 export const insertOrderSchema = createInsertSchema(ordersTable).omit({ id: true, createdAt: true, updatedAt: true, totalPrice: true });
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
