@@ -307,9 +307,61 @@ router.patch("/shipping-manifests/:id", async (req, res): Promise<void> => {
     res.status(404).json({ error: "البيان غير موجود" });
     return;
   }
+
+  // ── Rollover: when closing, move pending/postponed orders to a new manifest ──
+  let rolledOverManifest: { id: number; manifestNumber: string; orderCount: number } | null = null;
+
+  if (parsed.data.status === "closed") {
+    const pendingLinks = await db
+      .select()
+      .from(shippingManifestOrdersTable)
+      .where(
+        and(
+          eq(shippingManifestOrdersTable.manifestId, id),
+          inArray(shippingManifestOrdersTable.deliveryStatus, ["pending", "postponed"])
+        )
+      );
+
+    if (pendingLinks.length > 0) {
+      const pendingOrderIds = pendingLinks.map((l) => l.orderId);
+      const newManifestNumber = await generateManifestNumber(updated.shippingCompanyId);
+
+      const [newManifest] = await db
+        .insert(shippingManifestsTable)
+        .values({
+          manifestNumber: newManifestNumber,
+          shippingCompanyId: updated.shippingCompanyId,
+          notes: `مرحَّل من ${updated.manifestNumber}`,
+          status: "open",
+        })
+        .returning();
+
+      await db.insert(shippingManifestOrdersTable).values(
+        pendingOrderIds.map((orderId) => ({
+          manifestId: newManifest.id,
+          orderId,
+          deliveryStatus: "pending",
+        }))
+      );
+
+      // Reset order status back to in_shipping for rolled-over orders
+      await db
+        .update(ordersTable)
+        .set({ status: "in_shipping" })
+        .where(inArray(ordersTable.id, pendingOrderIds));
+
+      rolledOverManifest = {
+        id: newManifest.id,
+        manifestNumber: newManifest.manifestNumber,
+        orderCount: pendingOrderIds.length,
+      };
+    }
+  }
+
   res.json({
     ...updated,
     invoicePrice: updated.invoicePrice ? Number(updated.invoicePrice) : null,
+    rolledOverManifest,
   });
 });
 

@@ -148,14 +148,16 @@ function CompanyManifests({ company, allCompanies }: { company: ShippingCompany;
   );
 }
 
-function CreateManifestDialog({
+export function CreateManifestDialog({
   company,
   allCompanies,
   onClose,
+  onCreated,
 }: {
   company: ShippingCompany;
   allCompanies: ShippingCompany[];
   onClose: () => void;
+  onCreated?: (manifest: { id: number; manifestNumber: string; orderCount: number }) => void;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -189,7 +191,11 @@ function CreateManifestDialog({
         title: "تم إنشاء البيان",
         description: `${manifest.manifestNumber} — ${manifest.orderCount} طلبية`,
       });
-      onClose();
+      if (onCreated) {
+        onCreated({ id: manifest.id, manifestNumber: manifest.manifestNumber, orderCount: manifest.orderCount });
+      } else {
+        onClose();
+      }
     },
     onError: (e: any) =>
       toast({ title: "خطأ", description: e.message, variant: "destructive" }),
@@ -486,7 +492,9 @@ export default function ShippingCompanies() {
                     <Truck className="w-5 h-5 text-muted-foreground" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-sm">{company.name}</h3>
+                    <Link href={`/shipping/company/${company.id}`}>
+                      <h3 className="font-bold text-sm hover:text-primary hover:underline cursor-pointer transition-colors">{company.name}</h3>
+                    </Link>
                     <div className="flex items-center gap-2 mt-1">
                       <Badge variant="outline" className={`text-[9px] font-bold border ${company.isActive ? "border-emerald-800 bg-emerald-900/30 text-emerald-400" : "border-border text-muted-foreground"}`}>
                         {company.isActive ? "نشط" : "موقف"}

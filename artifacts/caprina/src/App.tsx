@@ -16,6 +16,7 @@ import ProductPerformance from "@/pages/product-performance";
 import UsersPage from "@/pages/users";
 import AuditLogsPage from "@/pages/audit-logs";
 import ShippingManifestPage from "@/pages/shipping-manifest";
+import ShippingCompanyDetailPage from "@/pages/shipping-company-detail";
 import WarehousesPage from "@/pages/warehouses";
 import TeamPerformancePage from "@/pages/team-performance";
 import AdsAnalyticsPage from "@/pages/ads-analytics";
@@ -79,6 +80,7 @@ function Router() {
         <Route path="/inventory" component={Inventory} />
         <Route path="/shipping" component={ShippingCompanies} />
         <Route path="/shipping/manifests/:id" component={ShippingManifestPage} />
+        <Route path="/shipping/company/:id" component={ShippingCompanyDetailPage} />
         <Route path="/invoices" component={Invoices} />
         <Route path="/import" component={Import} />
         <Route path="/movements" component={Movements} />

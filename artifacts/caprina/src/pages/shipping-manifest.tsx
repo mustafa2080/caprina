@@ -591,10 +591,18 @@ export default function ShippingManifestPage() {
   const updateMutation = useMutation({
     mutationFn: (data: { status: "open" | "closed" }) =>
       manifestsApi.update(id, data),
-    onSuccess: () => {
+    onSuccess: (result) => {
       refetch();
       setShowCloseDialog(false);
-      toast({ title: manifest?.status === "open" ? "تم إغلاق البيان" : "تم فتح البيان" });
+      if (result.rolledOverManifest) {
+        toast({
+          title: "✅ تم إغلاق البيان",
+          description: `${result.rolledOverManifest.orderCount} طلبية معلقة رُحِّلت تلقائياً إلى بيان جديد: ${result.rolledOverManifest.manifestNumber}`,
+        });
+        queryClient.invalidateQueries({ queryKey: ["shipping-manifests"] });
+      } else {
+        toast({ title: manifest?.status === "open" ? "تم إغلاق البيان" : "تم فتح البيان" });
+      }
     },
   });
 

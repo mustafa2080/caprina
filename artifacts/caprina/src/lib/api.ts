@@ -545,6 +545,10 @@ export interface ShippingManifestDetail extends ShippingManifestListItem {
   stats: ManifestStats;
 }
 
+export interface ManifestCloseResponse extends ShippingManifestListItem {
+  rolledOverManifest: { id: number; manifestNumber: string; orderCount: number } | null;
+}
+
 export const manifestsApi = {
   list: (companyId?: number) =>
     apiFetch<ShippingManifestListItem[]>(`/shipping-manifests${companyId ? `?companyId=${companyId}` : ""}`),
@@ -553,7 +557,7 @@ export const manifestsApi = {
   create: (data: { shippingCompanyId: number; orderIds: number[]; notes?: string }) =>
     apiFetch<ShippingManifestListItem>("/shipping-manifests", { method: "POST", body: JSON.stringify(data) }),
   update: (id: number, data: { status?: "open" | "closed"; notes?: string; invoicePrice?: number | null; invoiceNotes?: string | null }) =>
-    apiFetch<ShippingManifestListItem>(`/shipping-manifests/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    apiFetch<ManifestCloseResponse>(`/shipping-manifests/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   updateOrderDelivery: (
     manifestId: number,
     orderId: number,
