@@ -391,7 +391,7 @@ function SummaryBar({ data, showProfit }: { data: {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function SmartAnalytics() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, canViewFinancials } = useAuth();
   const { data, isLoading } = useQuery({
     queryKey: ["smart-insights"],
     queryFn: analyticsApi.smartInsights,
@@ -431,19 +431,19 @@ export default function SmartAnalytics() {
 
       {data && (
         <>
-          <SummaryBar data={data} showProfit={isAdmin} />
+          <SummaryBar data={data} showProfit={canViewFinancials} />
 
           {/* Ad Attribution */}
           <Card className="border-border bg-card">
             <CardContent className="p-5">
-              <AdAttributionSection bestSource={data.adAttribution.bestSource} breakdown={data.adAttribution.breakdown} showProfit={isAdmin} />
+              <AdAttributionSection bestSource={data.adAttribution.bestSource} breakdown={data.adAttribution.breakdown} showProfit={canViewFinancials} />
             </CardContent>
           </Card>
 
           {/* Stars vs Dead Stock */}
           <Card className="border-border bg-card">
             <CardContent className="p-5">
-              <StarsSection stars={data.stars} deadStock={data.deadStock} showProfit={isAdmin} />
+              <StarsSection stars={data.stars} deadStock={data.deadStock} showProfit={canViewFinancials} />
             </CardContent>
           </Card>
 

@@ -56,7 +56,7 @@ export default function OrderDetail() {
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { isAdmin } = useAuth();
+  const { isAdmin, canViewFinancials } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [showPartialInput, setShowPartialInput] = useState(false);
   const [partialQty, setPartialQty] = useState("");
@@ -566,7 +566,7 @@ export default function OrderDetail() {
           </Card>
 
           {/* Profit breakdown — admin only */}
-          {isAdmin && (() => {
+          {canViewFinancials && (() => {
             const costPrice = (order as any).costPrice as number | null;
             const shippingCost = (order as any).shippingCost as number | null;
             if (!costPrice) return null;

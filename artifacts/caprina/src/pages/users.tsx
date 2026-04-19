@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { UserPlus, Edit2, Trash2, Shield, Users, Eye, EyeOff, KeyRound } from "lucide-react";
+import { UserPlus, Edit2, Trash2, Shield, Users, Eye, EyeOff, KeyRound, TrendingUp } from "lucide-react";
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "مدير",
@@ -37,8 +37,10 @@ const ALL_PERMISSIONS = [
   { key: "audit", label: "سجل التعديلات" },
 ];
 
+const FINANCIAL_PERMISSION = { key: "view_financials", label: "عرض الأرباح والتكاليف", desc: "يرى الأرباح والخسائر والتكاليف في كل التقارير" };
+
 const DEFAULT_PERMISSIONS: Record<string, string[]> = {
-  admin: ALL_PERMISSIONS.map(p => p.key),
+  admin: [...ALL_PERMISSIONS.map(p => p.key), FINANCIAL_PERMISSION.key],
   employee: ["dashboard", "orders"],
   warehouse: ["dashboard", "inventory", "movements"],
 };
@@ -176,11 +178,16 @@ export default function UsersPage() {
                   <Badge variant="outline" className={`text-[10px] font-bold ${ROLE_COLORS[u.role]}`}>
                     <Shield className="w-2.5 h-2.5 mr-1" />{ROLE_LABELS[u.role]}
                   </Badge>
+                  {(u.permissions?.includes(FINANCIAL_PERMISSION.key) || u.role === "admin") && (
+                    <Badge variant="outline" className="text-[9px] font-bold border-amber-600/50 bg-amber-500/10 text-amber-600 dark:text-amber-400 gap-1">
+                      <TrendingUp className="w-2.5 h-2.5" />يرى الأرباح
+                    </Badge>
+                  )}
                   {!u.isActive && <Badge variant="outline" className="text-[9px] border-red-800 text-red-400">معطل</Badge>}
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-0.5 font-mono">{u.username}</p>
-                <p className="text-[10px] text-muted-foreground/70 mt-0.5">
-                  الصلاحيات: {(u.permissions?.length ? u.permissions : DEFAULT_PERMISSIONS[u.role] ?? []).join("، ")}
+                <p className="text-[10px] text-muted-foreground/70 mt-0.5 line-clamp-1">
+                  الصلاحيات: {(u.permissions?.filter(p => p !== FINANCIAL_PERMISSION.key).length ? u.permissions.filter(p => p !== FINANCIAL_PERMISSION.key) : DEFAULT_PERMISSIONS[u.role]?.filter(p => p !== FINANCIAL_PERMISSION.key) ?? []).join("، ")}
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -269,8 +276,28 @@ export default function UsersPage() {
               </div>
             </div>
 
+            {/* Financial visibility — prominent toggle */}
+            <div className={`rounded-xl border-2 p-3 transition-colors ${form.permissions.includes(FINANCIAL_PERMISSION.key) ? "border-amber-500/60 bg-amber-500/5" : "border-border bg-muted/10"}`}>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.permissions.includes(FINANCIAL_PERMISSION.key)}
+                  onChange={() => togglePermission(FINANCIAL_PERMISSION.key)}
+                  className="w-4 h-4 rounded accent-amber-500 shrink-0"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                    <span className="text-xs font-bold text-foreground">{FINANCIAL_PERMISSION.label}</span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold">حساسة</span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{FINANCIAL_PERMISSION.desc}</p>
+                </div>
+              </label>
+            </div>
+
             <div>
-              <Label className="text-xs mb-2 block">الصلاحيات المخصصة</Label>
+              <Label className="text-xs mb-2 block">صلاحيات الوصول للصفحات</Label>
               <div className="grid grid-cols-2 gap-1.5">
                 {ALL_PERMISSIONS.map(p => (
                   <label key={p.key} className="flex items-center gap-2 cursor-pointer group">

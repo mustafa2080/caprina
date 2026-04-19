@@ -111,7 +111,7 @@ function FinRow({ label, value, color = "text-foreground", sub }: { label: strin
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 export default function Dashboard() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, canViewFinancials } = useAuth();
   const { data: summary } = useGetOrdersSummary();
   const { data: recentOrders, isLoading: isRecentLoading } = useGetRecentOrders();
   const { data: products } = useQuery({ queryKey: ["products"], queryFn: productsApi.list, staleTime: 60000 });
@@ -169,7 +169,7 @@ export default function Dashboard() {
       </div>
 
       {/* === NO COST DATA WARNING (admin only) === */}
-      {isAdmin && noCostWarning && (
+      {canViewFinancials && noCostWarning && (
         <div className="flex items-start gap-3 bg-amber-900/20 border border-amber-800/40 rounded-lg p-3">
           <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
           <div className="flex-1">
@@ -183,7 +183,7 @@ export default function Dashboard() {
       )}
 
       {/* === FINANCIAL OVERVIEW BANNER (admin only) === */}
-      {isAdmin && fin && (
+      {canViewFinancials && fin && (
         <div className={`rounded-xl border overflow-hidden ${fin.netProfit >= 0 ? "border-emerald-800/60 bg-emerald-900/5" : "border-red-800/60 bg-red-900/5"}`}>
           <div className="p-4">
             {/* Main profit */}
@@ -284,7 +284,7 @@ export default function Dashboard() {
       )}
 
       {/* === PERIOD CARDS (admin only) === */}
-      {isAdmin && (
+      {canViewFinancials && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {isAnalyticsLoading ? (
             [1,2,3].map(i => <Card key={i} className="animate-pulse h-36 border-border" />)
@@ -318,7 +318,7 @@ export default function Dashboard() {
                        smartData.adAttribution.bestSource.source === "whatsapp" ? "💬 واتساب" :
                        smartData.adAttribution.bestSource.source === "organic" ? "🌱 عضوي" : "📌 أخرى"}
                     </p>
-                    {isAdmin && (
+                    {canViewFinancials && (
                       <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
                         {new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(smartData.adAttribution.bestSource.profit)}
                       </p>
@@ -396,7 +396,7 @@ export default function Dashboard() {
         <div className="lg:col-span-2 space-y-4">
 
           {/* Top products by profit (admin only) */}
-          {isAdmin && (
+          {canViewFinancials && (
             <Card className="border-border">
               <CardHeader className="py-3 px-4 border-b border-border">
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -421,7 +421,7 @@ export default function Dashboard() {
           )}
 
           {/* Losing products (admin only) */}
-          {isAdmin && analytics?.losingProducts && analytics.losingProducts.length > 0 && (
+          {canViewFinancials && analytics?.losingProducts && analytics.losingProducts.length > 0 && (
             <Card className="border-red-900/40 bg-red-900/5">
               <CardHeader className="py-3 px-4 border-b border-red-900/30">
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -510,7 +510,7 @@ export default function Dashboard() {
           </div>
 
           {/* Inventory financial value (admin only) */}
-          {isAdmin && fin && (
+          {canViewFinancials && fin && (
             <Card className="border-border">
               <CardContent className="p-4 space-y-1">
                 <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-1.5">
@@ -529,7 +529,7 @@ export default function Dashboard() {
           )}
 
           {/* Full financial breakdown (admin only) */}
-          {isAdmin && fin && (
+          {canViewFinancials && fin && (
             <Card className="border-border">
               <CardContent className="p-4">
                 <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-1.5">
@@ -583,7 +583,7 @@ export default function Dashboard() {
           )}
 
           {/* Order metrics (admin only) */}
-          {isAdmin && fin && fin.completedOrders > 0 && (
+          {canViewFinancials && fin && fin.completedOrders > 0 && (
             <Card className="border-border">
               <CardContent className="p-4">
                 <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-1.5">
@@ -632,7 +632,7 @@ export default function Dashboard() {
           )}
 
           {/* Return loss detail (admin only) */}
-          {isAdmin && fin && fin.returnRevLost > 0 && (
+          {canViewFinancials && fin && fin.returnRevLost > 0 && (
             <Card className="border-red-900/40 bg-red-900/5">
               <CardContent className="p-4">
                 <p className="text-[9px] font-bold uppercase tracking-widest text-red-400/60 mb-3 flex items-center gap-1.5">

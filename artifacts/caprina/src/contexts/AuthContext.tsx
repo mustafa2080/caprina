@@ -18,6 +18,7 @@ interface AuthContextValue {
   isEmployee: boolean;
   isWarehouse: boolean;
   can: (permission: string) => boolean;
+  canViewFinancials: boolean;
   loading: boolean;
 }
 
@@ -75,6 +76,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return allowed.includes("*") || allowed.includes(permission);
   };
 
+  const canViewFinancials = can("view_financials");
+
   return (
     <AuthContext.Provider value={{
       user, token,
@@ -83,6 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isEmployee: user?.role === "employee",
       isWarehouse: user?.role === "warehouse",
       can,
+      canViewFinancials,
       loading,
     }}>
       {children}

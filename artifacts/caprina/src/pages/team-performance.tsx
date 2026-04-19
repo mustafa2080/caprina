@@ -92,7 +92,7 @@ function MemberCard({ member, rank, maxProfit, showProfit }: { member: TeamMembe
 }
 
 export default function TeamPerformancePage() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, canViewFinancials } = useAuth();
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
@@ -139,7 +139,7 @@ export default function TeamPerformancePage() {
           { label: "مُسلَّم", value: fmtNum(totalDelivered), icon: TrendingUp, color: "text-emerald-400", adminOnly: false },
           { label: "مُرتجَع", value: fmtNum(totalReturned), icon: TrendingDown, color: "text-red-400", adminOnly: false },
           { label: "إجمالي الربح", value: fmt(members.reduce((s, m) => s + m.profit, 0)), icon: Trophy, color: "text-yellow-400", adminOnly: true },
-        ].filter(c => !c.adminOnly || isAdmin).map(card => (
+        ].filter(c => !c.adminOnly || canViewFinancials).map(card => (
           <Card key={card.label} className="border-border bg-card">
             <CardContent className="px-4 py-3 flex items-center gap-3">
               <card.icon className={`w-4 h-4 shrink-0 ${card.color}`} />
@@ -165,7 +165,7 @@ export default function TeamPerformancePage() {
       {assignedMembers.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {assignedMembers.map((m, i) => (
-            <MemberCard key={m.userId} member={m} rank={i + 1} maxProfit={maxProfit} showProfit={isAdmin} />
+            <MemberCard key={m.userId} member={m} rank={i + 1} maxProfit={maxProfit} showProfit={canViewFinancials} />
           ))}
         </div>
       )}
@@ -184,7 +184,7 @@ export default function TeamPerformancePage() {
               <div className="flex items-center gap-3 text-xs">
                 <span className="text-emerald-400">{fmtNum(unassigned.delivered)} مسلَّم</span>
                 <span className="text-red-400">{fmtNum(unassigned.returned)} مرتجع</span>
-                {isAdmin && (
+                {canViewFinancials && (
                   <Badge variant="outline" className={`text-[10px] ${unassigned.profit >= 0 ? "text-emerald-400 border-emerald-800" : "text-red-400 border-red-800"}`}>
                     {fmt(unassigned.profit)}
                   </Badge>

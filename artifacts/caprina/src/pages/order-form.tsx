@@ -63,7 +63,7 @@ export default function OrderForm() {
   const { data: warehouses } = useQuery({ queryKey: ["warehouses"], queryFn: warehousesApi.list });
   const { data: users } = useQuery({ queryKey: ["users"], queryFn: usersApi.list });
 
-  const { isAdmin } = useAuth();
+  const { isAdmin, canViewFinancials } = useAuth();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -326,7 +326,7 @@ export default function OrderForm() {
               </Card>
 
               {/* Cost & Profit — admin only */}
-              {isAdmin && (
+              {canViewFinancials && (
                 <Card className="border-emerald-900/40 bg-emerald-900/5">
                   <CardHeader className="pb-2 pt-4 px-4 border-b border-border">
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -460,7 +460,7 @@ export default function OrderForm() {
                       <span className="font-bold">إجمالي البيع</span>
                       <span className="font-bold text-base text-primary">{formatCurrency(revenue)}</span>
                     </div>
-                    {isAdmin && costPrice > 0 && (
+                    {canViewFinancials && costPrice > 0 && (
                       <>
                         <div className="flex justify-between"><span className="text-muted-foreground">التكلفة</span><span className="text-amber-400">-{formatCurrency(cost)}</span></div>
                         {shippingCost > 0 && <div className="flex justify-between"><span className="text-muted-foreground">الشحن</span><span className="text-amber-400">-{formatCurrency(shippingCost)}</span></div>}
