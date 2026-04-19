@@ -1,9 +1,9 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Users, Plus, Edit2, Trash2, Target, FileText, ChevronRight, Check, X,
   TrendingUp, TrendingDown, Printer, Star, AlertCircle, Trophy, Briefcase,
-  DollarSign, Calendar, BarChart2, Settings, ArrowLeft,
+  DollarSign, Calendar, BarChart2, Settings, ArrowLeft, Save, RefreshCw, UserPlus,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-import { employeeApi, usersApi, type EmployeeProfile, type EmployeeKpi, type EmployeeReport, type AppUser } from "@/lib/api";
+import { employeeApi, usersApi, type EmployeeProfile, type EmployeeKpi, type EmployeeReport, type AppUser, type DailyKpiEntry, type DailyLogDay } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 
 const fmt = (n: number) =>
@@ -442,6 +442,342 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
   );
 }
 
+// ─── Daily Tracker Tab ───────────────────────────────────────────────────────
+function DailyTrackerTab({ userId }: { userId: number }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [logValues, setLogValues] = useState<Record<number, string>>({});
+  const [saving, setSaving] = useState<Record<number, boolean>>({});
+
+  const { data: dailyData, isLoading, refetch } = useQuery({
+    queryKey: ["employee-daily-logs", userId, selectedDate],
+    queryFn: () => employeeApi.getDailyLogs(userId, selectedDate),
+  });
+
+  const { data: weekData } = useQuery({
+    queryKey: ["employee-week-logs", userId, selectedDate],
+    queryFn: () => employeeApi.getWeekLogs(userId, selectedDate),
+  });
+
+  useEffect(() => {
+    if (!dailyData) return;
+    const init: Record<number, string> = {};
+    dailyData.kpis.forEach(kpi => {
+      if (kpi.metric === "manual" && kpi.actualValue !== null) {
+        init[kpi.id] = String(kpi.actualValue);
+      }
+    });
+    setLogValues(init);
+  }, [dailyData]);
+
+  const handleSave = async (kpi: DailyKpiEntry) => {
+    const val = parseFloat(logValues[kpi.id] ?? "");
+    if (isNaN(val)) { toast({ title: "أدخل قيمة صحيحة", variant: "destructive" }); return; }
+    setSaving(s => ({ ...s, [kpi.id]: true }));
+    try {
+      await employeeApi.saveDailyLog({ userId, kpiId: kpi.id, date: selectedDate, value: val });
+      qc.invalidateQueries({ queryKey: ["employee-daily-logs", userId, selectedDate] });
+      qc.invalidateQueries({ queryKey: ["employee-week-logs", userId, selectedDate] });
+      toast({ title: "تم التسجيل ✅" });
+    } catch (e: any) {
+      toast({ title: "خطأ", description: e.message, variant: "destructive" });
+    } finally {
+      setSaving(s => ({ ...s, [kpi.id]: false }));
+    }
+  };
+
+  const achievedCount = dailyData?.kpis.filter(k => k.achieved === true).length ?? 0;
+  const totalCount = dailyData?.kpis.length ?? 0;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 flex-wrap">
+        <Input
+          type="date"
+          value={selectedDate}
+          onChange={e => setSelectedDate(e.target.value)}
+          className="w-36 h-7 text-xs"
+          max={new Date().toISOString().slice(0, 10)}
+        />
+        <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => refetch()}>
+          <RefreshCw className="w-3 h-3" />تحديث
+        </Button>
+        {totalCount > 0 && (
+          <Badge variant="outline" className={`text-xs mr-auto ${achievedCount === totalCount ? "border-emerald-700 text-emerald-400" : achievedCount > 0 ? "border-amber-700 text-amber-400" : "border-red-700 text-red-400"}`}>
+            {achievedCount}/{totalCount} محقق
+          </Badge>
+        )}
+      </div>
+
+      {isLoading && <p className="text-center text-muted-foreground text-xs py-8 animate-pulse">جاري التحميل...</p>}
+
+      {!isLoading && totalCount === 0 && (
+        <div className="text-center py-10 text-muted-foreground border border-dashed border-border rounded-lg">
+          <Target className="w-8 h-8 mx-auto mb-2 opacity-20" />
+          <p className="text-sm">لا توجد مؤشرات نشطة.</p>
+          <p className="text-xs mt-1">أضف مؤشرات من تاب «مؤشرات الأداء» أولاً.</p>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {(dailyData?.kpis ?? []).map(kpi => {
+          const rawPct = kpi.dailyTarget > 0
+            ? Math.min(100, ((kpi.actualValue ?? 0) / kpi.dailyTarget) * 100)
+            : 0;
+          const pct = kpi.direction === "lower_is_better"
+            ? (kpi.achieved ? 100 : Math.max(0, 100 - rawPct))
+            : rawPct;
+          const isManual = kpi.metric === "manual";
+
+          return (
+            <Card key={kpi.id} className={`border ${kpi.achieved === true ? "border-emerald-700/50 bg-emerald-950/10" : kpi.achieved === false ? "border-red-800/30" : "border-border"}`}>
+              <CardContent className="px-4 py-3 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {kpi.achieved === true
+                      ? <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                      : kpi.achieved === false
+                        ? <X className="w-4 h-4 text-red-400 shrink-0" />
+                        : <Target className="w-4 h-4 text-muted-foreground shrink-0" />}
+                    <p className="text-sm font-bold truncate">{kpi.name}</p>
+                    {!isManual && <Badge variant="outline" className="text-[8px] h-3.5 shrink-0">تلقائي</Badge>}
+                  </div>
+                  <Badge variant="outline" className={`text-[9px] shrink-0 ${kpi.achieved === true ? "border-emerald-700 text-emerald-400" : kpi.achieved === false ? "border-red-700 text-red-400" : "border-border text-muted-foreground"}`}>
+                    {kpi.achieved === true ? "✅ محقق" : kpi.achieved === false ? "❌ لم يُحقَّق" : "غير مسجل"}
+                  </Badge>
+                </div>
+
+                <Progress value={pct} className={`h-1.5 ${kpi.achieved === true ? "[&>div]:bg-emerald-500" : kpi.achieved === false ? "[&>div]:bg-red-400" : "[&>div]:bg-primary"}`} />
+
+                <div className="flex items-center gap-4 text-[10px] text-muted-foreground">
+                  <span>الهدف اليومي: <span className="font-bold text-foreground">{fmtNum(Math.round(kpi.dailyTarget * 10) / 10)} {kpi.unit}</span></span>
+                  <span>المحقق: <span className={`font-bold ${kpi.achieved === true ? "text-emerald-400" : kpi.achieved === false ? "text-red-400" : "text-foreground"}`}>
+                    {kpi.actualValue !== null ? `${fmtNum(kpi.actualValue)} ${kpi.unit}` : "—"}
+                  </span></span>
+                </div>
+
+                {isManual && (
+                  <div className="flex items-center gap-2 pt-0.5">
+                    <Input
+                      type="number"
+                      min="0"
+                      value={logValues[kpi.id] ?? ""}
+                      onChange={e => setLogValues(v => ({ ...v, [kpi.id]: e.target.value }))}
+                      placeholder={`أدخل القيمة (${kpi.unit})`}
+                      className="h-7 text-xs flex-1"
+                    />
+                    <Button
+                      size="sm"
+                      className="h-7 text-xs gap-1 shrink-0"
+                      disabled={saving[kpi.id] || !logValues[kpi.id]}
+                      onClick={() => handleSave(kpi)}
+                    >
+                      <Save className="w-3 h-3" />
+                      {saving[kpi.id] ? "..." : "تسجيل"}
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      {weekData && weekData.kpiWeeks.length > 0 && (
+        <div className="pt-2">
+          <p className="text-xs font-bold text-muted-foreground mb-3">آخر 7 أيام</p>
+          <div className="space-y-3">
+            {weekData.kpiWeeks.map(kpiWeek => (
+              <div key={kpiWeek.kpiId}>
+                <p className="text-[10px] text-muted-foreground mb-1.5">{kpiWeek.kpiName}</p>
+                <div className="flex gap-1">
+                  {kpiWeek.days.map(day => {
+                    const d = new Date(day.date + "T12:00:00");
+                    const dayName = d.toLocaleDateString("ar-EG", { weekday: "short" });
+                    const isToday = day.date === new Date().toISOString().slice(0, 10);
+                    return (
+                      <div key={day.date} className={`flex-1 text-center rounded p-1.5 text-[8px] border transition-colors ${
+                        day.achieved === true ? "bg-emerald-900/30 border-emerald-700/30 text-emerald-400" :
+                        day.achieved === false ? "bg-red-900/20 border-red-700/20 text-red-400" :
+                        "bg-muted/20 border-border text-muted-foreground"
+                      } ${isToday ? "ring-1 ring-primary/40" : ""}`}>
+                        <div className="font-bold text-[9px]">{day.achieved === true ? "✓" : day.achieved === false ? "✗" : "—"}</div>
+                        <div className="mt-0.5">{dayName}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Add Member Wizard ────────────────────────────────────────────────────────
+function AddMemberWizard({ open, onClose, onSuccess }: {
+  open: boolean; onClose: () => void; onSuccess: (userId: number) => void;
+}) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [step, setStep] = useState(1);
+  const [saving, setSaving] = useState(false);
+  const [createdUser, setCreatedUser] = useState<AppUser | null>(null);
+  const [displayName, setDisplayName] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState("employee");
+  const [jobTitle, setJobTitle] = useState("");
+  const [department, setDepartment] = useState("");
+  const [monthlySalary, setMonthlySalary] = useState("0");
+  const [hireDate, setHireDate] = useState(() => new Date().toISOString().slice(0, 10));
+
+  const reset = () => {
+    setStep(1); setSaving(false); setCreatedUser(null);
+    setDisplayName(""); setUsername(""); setPassword(""); setRole("employee");
+    setJobTitle(""); setDepartment(""); setMonthlySalary("0");
+    setHireDate(new Date().toISOString().slice(0, 10));
+  };
+
+  const handleCreateUser = async () => {
+    if (!displayName.trim() || !username.trim() || !password.trim()) {
+      toast({ title: "الاسم واسم المستخدم وكلمة المرور مطلوبة", variant: "destructive" }); return;
+    }
+    setSaving(true);
+    try {
+      const user = await usersApi.create({ displayName: displayName.trim(), username: username.trim(), password, role });
+      setCreatedUser(user);
+      setStep(2);
+      qc.invalidateQueries({ queryKey: ["users"] });
+    } catch (e: any) {
+      toast({ title: "خطأ", description: e.message || "فشل إنشاء الحساب", variant: "destructive" });
+    } finally { setSaving(false); }
+  };
+
+  const handleSaveProfile = async () => {
+    if (!createdUser) return;
+    setSaving(true);
+    try {
+      await employeeApi.upsertProfile({
+        userId: createdUser.id,
+        jobTitle: jobTitle || null,
+        department: department || null,
+        monthlySalary: parseFloat(monthlySalary) || 0,
+        hireDate: hireDate || null,
+      });
+      qc.invalidateQueries({ queryKey: ["employee-profiles"] });
+      toast({ title: `تم إضافة ${createdUser.displayName} للفريق ✅` });
+      const uid = createdUser.id;
+      reset(); onSuccess(uid);
+    } catch (e: any) {
+      toast({ title: "خطأ", description: e.message, variant: "destructive" });
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={v => { if (!v) { reset(); onClose(); }}}>
+      <DialogContent className="max-w-md" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <UserPlus className="w-4 h-4 text-primary" />
+            إضافة عضو جديد
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="flex items-center gap-2 text-[10px]">
+          <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full font-bold ${step === 1 ? "bg-primary text-primary-foreground" : "bg-emerald-600/20 text-emerald-400"}`}>
+            {step > 1 ? <Check className="w-3 h-3" /> : "١"} بيانات الحساب
+          </div>
+          <div className="flex-1 h-px bg-border" />
+          <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full font-bold ${step === 2 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+            ٢ بيانات الوظيفة
+          </div>
+        </div>
+
+        {step === 1 && (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-bold">الاسم الكامل *</Label>
+                <Input value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="محمد أحمد" className="h-8 text-xs mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs font-bold">اسم المستخدم *</Label>
+                <Input value={username} onChange={e => setUsername(e.target.value.toLowerCase())} placeholder="mohamed" className="h-8 text-xs mt-1" dir="ltr" />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs font-bold">كلمة المرور *</Label>
+              <Input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" className="h-8 text-xs mt-1" dir="ltr" />
+            </div>
+            <div>
+              <Label className="text-xs font-bold">الدور</Label>
+              <Select value={role} onValueChange={setRole}>
+                <SelectTrigger className="h-8 text-xs mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="employee">موظف</SelectItem>
+                  <SelectItem value="warehouse">مخزن</SelectItem>
+                  <SelectItem value="admin">مدير</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="space-y-3">
+            <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-400 flex items-center gap-2">
+              <Check className="w-3.5 h-3.5 shrink-0" />
+              تم إنشاء حساب <strong>{createdUser?.displayName}</strong> — أدخل بيانات الوظيفة
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-bold">المسمى الوظيفي</Label>
+                <Input value={jobTitle} onChange={e => setJobTitle(e.target.value)} placeholder="مسؤول مبيعات" className="h-8 text-xs mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs font-bold">القسم</Label>
+                <Input value={department} onChange={e => setDepartment(e.target.value)} placeholder="المبيعات" className="h-8 text-xs mt-1" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-bold">الراتب الشهري (ج.م)</Label>
+                <Input type="number" min="0" value={monthlySalary} onChange={e => setMonthlySalary(e.target.value)} className="h-8 text-xs mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs font-bold">تاريخ التعيين</Label>
+                <Input type="date" value={hireDate} onChange={e => setHireDate(e.target.value)} className="h-8 text-xs mt-1" />
+              </div>
+            </div>
+          </div>
+        )}
+
+        <DialogFooter>
+          {step === 1 ? (
+            <>
+              <Button variant="outline" onClick={() => { reset(); onClose(); }} className="text-xs h-7">إلغاء</Button>
+              <Button onClick={handleCreateUser} disabled={saving || !displayName.trim() || !username.trim() || !password.trim()} className="text-xs h-7 gap-1">
+                {saving ? "..." : <><Check className="w-3 h-3" />التالي</>}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="outline" onClick={() => setStep(1)} className="text-xs h-7">رجوع</Button>
+              <Button onClick={handleSaveProfile} disabled={saving} className="text-xs h-7 gap-1">
+                {saving ? "..." : <><Users className="w-3 h-3" />إضافة للفريق</>}
+              </Button>
+            </>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Employee Detail ──────────────────────────────────────────────────────────
 function EmployeeDetail({
   user, profile, onBack,
@@ -505,12 +841,18 @@ function EmployeeDetail({
         )}
       </div>
 
-      <Tabs defaultValue="kpis">
+      <Tabs defaultValue="daily">
         <TabsList className="h-8 text-xs">
+          <TabsTrigger value="daily" className="text-xs">متابعة يومية</TabsTrigger>
           <TabsTrigger value="kpis" className="text-xs">مؤشرات الأداء</TabsTrigger>
           <TabsTrigger value="report" className="text-xs">التقرير الشهري</TabsTrigger>
           <TabsTrigger value="profile" className="text-xs">الملف الشخصي</TabsTrigger>
         </TabsList>
+
+        {/* ─── Daily Tracker Tab ─── */}
+        <TabsContent value="daily" className="space-y-3 mt-3">
+          <DailyTrackerTab userId={user.id} />
+        </TabsContent>
 
         {/* ─── KPIs Tab ─── */}
         <TabsContent value="kpis" className="space-y-3 mt-3">
@@ -718,6 +1060,7 @@ export default function TeamPage() {
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [addProfileOpen, setAddProfileOpen] = useState(false);
   const [addingUser, setAddingUser] = useState<AppUser | null>(null);
+  const [wizardOpen, setWizardOpen] = useState(false);
 
   const { data: profiles = [], isLoading: profilesLoading } = useQuery({
     queryKey: ["employee-profiles"],
@@ -757,10 +1100,17 @@ export default function TeamPage() {
           </h1>
           <p className="text-muted-foreground text-xs mt-0.5">بيانات الموظفين، مؤشرات الأداء، والتقارير الشهرية</p>
         </div>
-        {isAdmin && unprofiledUsers.length > 0 && (
-          <Button size="sm" className="gap-1 h-8 text-xs" onClick={() => setAddProfileOpen(true)}>
-            <Plus className="w-3.5 h-3.5" />إضافة موظف
-          </Button>
+        {isAdmin && (
+          <div className="flex items-center gap-2">
+            {unprofiledUsers.length > 0 && (
+              <Button size="sm" variant="outline" className="gap-1 h-8 text-xs" onClick={() => setAddProfileOpen(true)}>
+                <UserPlus className="w-3.5 h-3.5" />موظف موجود
+              </Button>
+            )}
+            <Button size="sm" className="gap-1 h-8 text-xs" onClick={() => setWizardOpen(true)}>
+              <Plus className="w-3.5 h-3.5" />عضو جديد
+            </Button>
+          </div>
         )}
       </div>
 
@@ -827,7 +1177,14 @@ export default function TeamPage() {
         })}
       </div>
 
-      {/* Add profile dialog */}
+      {/* Add member wizard */}
+      <AddMemberWizard
+        open={wizardOpen}
+        onClose={() => setWizardOpen(false)}
+        onSuccess={(uid) => { setWizardOpen(false); setSelectedUserId(uid); }}
+      />
+
+      {/* Add profile dialog (existing users without profile) */}
       {addProfileOpen && (
         <Dialog open={addProfileOpen} onOpenChange={v => { if (!v) { setAddProfileOpen(false); setAddingUser(null); }}}>
           <DialogContent className="max-w-sm" dir="rtl">

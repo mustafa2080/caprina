@@ -703,6 +703,39 @@ export interface EmployeeReport {
   salary: number;
 }
 
+export interface DailyKpiEntry extends EmployeeKpi {
+  date: string;
+  actualValue: number | null;
+  dailyTarget: number;
+  logId: number | null;
+  logNotes: string | null;
+  score: number | null;
+  achieved: boolean | null;
+}
+
+export interface DailyLogDay {
+  date: string;
+  kpis: DailyKpiEntry[];
+}
+
+export interface WeekDay {
+  date: string;
+  actualValue: number | null;
+  dailyTarget: number;
+  achieved: boolean | null;
+}
+
+export interface KpiWeek {
+  kpiId: number;
+  kpiName: string;
+  days: WeekDay[];
+}
+
+export interface WeekLogsResult {
+  dates: string[];
+  kpiWeeks: KpiWeek[];
+}
+
 export const employeeApi = {
   listProfiles: () => apiFetch<EmployeeProfile[]>("/employee-profiles"),
   getProfile: (userId: number) => apiFetch<EmployeeProfile & { kpis: EmployeeKpi[] }>(`/employee-profiles/${userId}`),
@@ -734,6 +767,12 @@ export const employeeApi = {
   getReport: (userId: number, month?: string) =>
     apiFetch<EmployeeReport>(`/analytics/employee-report/${userId}${month ? `?month=${month}` : ""}`),
   listUsers: () => apiFetch<AppUser[]>("/users"),
+  getDailyLogs: (userId: number, date?: string) =>
+    apiFetch<DailyLogDay>(`/employee-daily-logs/${userId}${date ? `?date=${date}` : ""}`),
+  getWeekLogs: (userId: number, date?: string) =>
+    apiFetch<WeekLogsResult>(`/employee-daily-logs/${userId}/week${date ? `?date=${date}` : ""}`),
+  saveDailyLog: (data: { userId: number; kpiId: number; date: string; value: number; notes?: string | null }) =>
+    apiFetch<{ id: number }>("/employee-daily-logs", { method: "POST", body: JSON.stringify(data) }),
 };
 
 export const teamAnalyticsApi = {

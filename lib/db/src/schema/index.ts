@@ -10,4 +10,5 @@ export * from "./warehouses";
 export * from "./warehouse_stock";
 export * from "./employee_profiles";
 export * from "./employee_kpis";
+export * from "./employee_daily_logs";
 export * from "./app_settings";

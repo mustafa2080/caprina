@@ -6,6 +6,7 @@ import {
   ordersTable,
   employeeProfilesTable,
   employeeKpisTable,
+  employeeDailyLogsTable,
 } from "@workspace/db";
 import { z } from "zod";
 import { requireAuth } from "../middlewares/requireAuth";
@@ -443,6 +444,162 @@ router.get("/users-without-profile", async (req, res): Promise<void> => {
   const profiledUserIds = new Set(profiles.map((p) => p.userId));
   const unprofiledUsers = allUsers.filter((u) => !profiledUserIds.has(u.id));
   res.json(unprofiledUsers);
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// Daily Logs
+// ────────────────────────────────────────────────────────────────────────────
+
+// GET /employee-daily-logs/:userId?date=YYYY-MM-DD
+// Returns daily logs + auto-computed values for the given date
+router.get("/employee-daily-logs/:userId", async (req, res): Promise<void> => {
+  const userId = parseInt(req.params.userId);
+  if (isNaN(userId)) { res.status(400).json({ error: "Invalid userId" }); return; }
+
+  const date = (req.query.date as string) || new Date().toISOString().slice(0, 10);
+
+  const dayStart = new Date(`${date}T00:00:00.000Z`);
+  const dayEnd = new Date(`${date}T23:59:59.999Z`);
+
+  const [kpis, logs] = await Promise.all([
+    db.select().from(employeeKpisTable).where(
+      and(eq(employeeKpisTable.userId, userId), eq(employeeKpisTable.isActive, true))
+    ),
+    db.select().from(employeeDailyLogsTable).where(
+      and(eq(employeeDailyLogsTable.userId, userId), eq(employeeDailyLogsTable.date, date))
+    ),
+  ]);
+
+  const logsMap = new Map(logs.map(l => [l.kpiId, l]));
+
+  const result = await Promise.all(
+    kpis.map(async (kpi) => {
+      const log = logsMap.get(kpi.id);
+      let autoValue: number | null = null;
+      if (kpi.metric !== "manual") {
+        autoValue = await computeActualValue(kpi.metric, userId, dayStart, dayEnd);
+      }
+      const actualValue = kpi.metric === "manual" ? (log?.value ?? null) : autoValue;
+      const dailyTarget = kpi.targetValue / 30;
+      const score = actualValue !== null
+        ? computeKpiScore(actualValue, dailyTarget, kpi.direction)
+        : null;
+      const achieved = score !== null
+        ? (kpi.direction === "lower_is_better" ? actualValue! <= dailyTarget : actualValue! >= dailyTarget)
+        : null;
+
+      return {
+        ...kpi,
+        date,
+        actualValue,
+        dailyTarget,
+        logId: log?.id ?? null,
+        logNotes: log?.notes ?? null,
+        score,
+        achieved,
+      };
+    })
+  );
+
+  res.json({ date, kpis: result });
+});
+
+// GET /employee-daily-logs/:userId/week?date=YYYY-MM-DD
+// Returns last 7 days summary for each KPI
+router.get("/employee-daily-logs/:userId/week", async (req, res): Promise<void> => {
+  const userId = parseInt(req.params.userId);
+  if (isNaN(userId)) { res.status(400).json({ error: "Invalid userId" }); return; }
+
+  const endDate = (req.query.date as string) || new Date().toISOString().slice(0, 10);
+  const end = new Date(endDate);
+
+  const dates: string[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(end);
+    d.setDate(d.getDate() - i);
+    dates.push(d.toISOString().slice(0, 10));
+  }
+
+  const kpis = await db.select().from(employeeKpisTable).where(
+    and(eq(employeeKpisTable.userId, userId), eq(employeeKpisTable.isActive, true))
+  );
+
+  const logs = await db.select().from(employeeDailyLogsTable).where(
+    and(
+      eq(employeeDailyLogsTable.userId, userId),
+      gte(employeeDailyLogsTable.date, dates[0]),
+      lte(employeeDailyLogsTable.date, endDate)
+    )
+  );
+
+  // For each KPI, build a week array
+  const kpiWeeks = await Promise.all(
+    kpis.map(async (kpi) => {
+      const weekDays = await Promise.all(
+        dates.map(async (date) => {
+          const log = logs.find(l => l.kpiId === kpi.id && l.date === date);
+          let actualValue: number | null = null;
+          if (kpi.metric !== "manual") {
+            const dayStart = new Date(`${date}T00:00:00.000Z`);
+            const dayEnd = new Date(`${date}T23:59:59.999Z`);
+            actualValue = await computeActualValue(kpi.metric, userId, dayStart, dayEnd);
+          } else {
+            actualValue = log?.value ?? null;
+          }
+          const dailyTarget = kpi.targetValue / 30;
+          const achieved = actualValue !== null
+            ? (kpi.direction === "lower_is_better" ? actualValue <= dailyTarget : actualValue >= dailyTarget)
+            : null;
+          return { date, actualValue, dailyTarget, achieved };
+        })
+      );
+      return { kpiId: kpi.id, kpiName: kpi.name, days: weekDays };
+    })
+  );
+
+  res.json({ dates, kpiWeeks });
+});
+
+// POST /employee-daily-logs — upsert a daily log
+const DailyLogSchema = z.object({
+  userId: z.number().int().positive(),
+  kpiId: z.number().int().positive(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  value: z.number(),
+  notes: z.string().nullish(),
+});
+
+router.post("/employee-daily-logs", async (req, res): Promise<void> => {
+  const parsed = DailyLogSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+
+  const { userId, kpiId, date, value, notes } = parsed.data;
+
+  const [existing] = await db
+    .select()
+    .from(employeeDailyLogsTable)
+    .where(
+      and(
+        eq(employeeDailyLogsTable.userId, userId),
+        eq(employeeDailyLogsTable.kpiId, kpiId),
+        eq(employeeDailyLogsTable.date, date)
+      )
+    );
+
+  if (existing) {
+    const [updated] = await db
+      .update(employeeDailyLogsTable)
+      .set({ value, notes: notes ?? null, updatedAt: new Date() })
+      .where(eq(employeeDailyLogsTable.id, existing.id))
+      .returning();
+    res.json(updated);
+  } else {
+    const [created] = await db
+      .insert(employeeDailyLogsTable)
+      .values({ userId, kpiId, date, value, notes: notes ?? null })
+      .returning();
+    res.status(201).json(created);
+  }
 });
 
 export default router;
