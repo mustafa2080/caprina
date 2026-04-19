@@ -640,8 +640,145 @@ export default function ShippingManifestPage() {
     (o) => o.deliveryStatus === "pending"
   ).length;
 
+  const statusLabel = (st: DeliveryStatus) => {
+    switch (st) {
+      case "delivered":        return { label: "مسلَّم",          cls: "status-delivered" };
+      case "returned":         return { label: "مرتجع",           cls: "status-returned" };
+      case "postponed":        return { label: "مؤجل",            cls: "status-postponed" };
+      case "partial_received": return { label: "جزئي",            cls: "status-partial" };
+      default:                 return { label: "انتظار",          cls: "status-pending" };
+    }
+  };
+
+  const deliveredGross = manifest.orders
+    .filter(o => o.deliveryStatus === "delivered")
+    .reduce((sum, o) => sum + o.totalPrice, 0);
+
+  const partialGross = manifest.orders
+    .filter(o => o.deliveryStatus === "partial_received")
+    .reduce((sum, o) => {
+      const pct = o.partialQuantity && o.quantity ? o.partialQuantity / o.quantity : 1;
+      return sum + o.totalPrice * pct;
+    }, 0);
+
+  const totalCollected = deliveredGross + partialGross;
+
   return (
-    <div className="max-w-5xl mx-auto space-y-5 animate-in fade-in duration-500" dir="rtl">
+    <>
+    {/* ══════════════ PRINT-ONLY ══════════════ */}
+    <div className="manifest-print hidden" dir="rtl">
+      {/* Header */}
+      <div className="manifest-print-header">
+        <div>
+          <div className="manifest-print-title">بيان الشحن — {manifest.manifestNumber}</div>
+          <div className="manifest-print-meta">
+            شركة الشحن: {manifest.companyName} &nbsp;|&nbsp;
+            التاريخ: {format(new Date(manifest.createdAt), "yyyy/MM/dd")} &nbsp;|&nbsp;
+            الحالة: {manifest.status === "closed" ? "مغلق" : "مفتوح"}
+            {manifest.closedAt && ` | أُغلق: ${format(new Date(manifest.closedAt), "yyyy/MM/dd")}`}
+          </div>
+        </div>
+        <div style={{ textAlign: "left", fontSize: "8pt", color: "#555" }}>
+          <div style={{ fontWeight: 900, fontSize: "11pt" }}>CAPRINA</div>
+          <div>طُبع: {format(new Date(), "yyyy/MM/dd HH:mm")}</div>
+        </div>
+      </div>
+
+      {/* Stats row */}
+      <div className="manifest-print-stats">
+        <div className="manifest-print-stat">
+          <div className="manifest-print-stat-label">إجمالي الطلبيات</div>
+          <div className="manifest-print-stat-value">{s.total}</div>
+        </div>
+        <div className="manifest-print-stat">
+          <div className="manifest-print-stat-label">مسلَّم</div>
+          <div className="manifest-print-stat-value status-delivered">{s.delivered}</div>
+        </div>
+        <div className="manifest-print-stat">
+          <div className="manifest-print-stat-label">مرتجع</div>
+          <div className="manifest-print-stat-value status-returned">{s.returned}</div>
+        </div>
+        <div className="manifest-print-stat">
+          <div className="manifest-print-stat-label">مؤجل / انتظار</div>
+          <div className="manifest-print-stat-value status-postponed">{s.pending}</div>
+        </div>
+        <div className="manifest-print-stat">
+          <div className="manifest-print-stat-label">نسبة التسليم</div>
+          <div className="manifest-print-stat-value">{s.deliveryRate}%</div>
+        </div>
+      </div>
+
+      {/* Orders table */}
+      <table className="manifest-print-table">
+        <thead>
+          <tr>
+            <th style={{ width: "6%" }}>#</th>
+            <th style={{ width: "20%" }}>العميل</th>
+            <th style={{ width: "14%" }}>الهاتف</th>
+            <th style={{ width: "28%" }}>المنتج / المقاس / اللون</th>
+            <th style={{ width: "7%", textAlign: "center" }}>الكمية</th>
+            <th style={{ width: "12%", textAlign: "center" }}>الإجمالي</th>
+            <th style={{ width: "13%", textAlign: "center" }}>الحالة</th>
+          </tr>
+        </thead>
+        <tbody>
+          {manifest.orders.map((o, idx) => {
+            const { label, cls } = statusLabel(o.deliveryStatus);
+            const variant = [o.color, o.size].filter(Boolean).join(" / ");
+            return (
+              <tr key={o.id}>
+                <td style={{ textAlign: "center", color: "#888" }}>{idx + 1}</td>
+                <td style={{ fontWeight: 700 }}>{o.customerName}</td>
+                <td style={{ direction: "ltr", textAlign: "right" }}>{o.phone ?? "—"}</td>
+                <td>
+                  {o.product}
+                  {variant && <span style={{ color: "#666" }}> ({variant})</span>}
+                </td>
+                <td style={{ textAlign: "center" }}>
+                  {o.deliveryStatus === "partial_received" && o.partialQuantity
+                    ? `${o.partialQuantity}/${o.quantity}`
+                    : o.quantity}
+                </td>
+                <td style={{ textAlign: "center", fontWeight: 700 }}>
+                  {o.totalPrice.toLocaleString("ar-EG")} ج
+                </td>
+                <td style={{ textAlign: "center" }}>
+                  <span className={cls}>{label}</span>
+                  {o.deliveryNote && (
+                    <div style={{ fontSize: "7pt", color: "#777", marginTop: "0.5mm" }}>
+                      {o.deliveryNote}
+                    </div>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+
+      {/* Footer / Totals */}
+      <div className="manifest-print-footer">
+        <div>
+          <div className="manifest-print-total">
+            إجمالي المحصَّل: {totalCollected.toLocaleString("ar-EG")} ج.م
+          </div>
+          <div style={{ fontSize: "8pt", color: "#555", marginTop: "1.5mm" }}>
+            رسوم الشحن: {s.totalShippingCost.toLocaleString("ar-EG")} ج.م &nbsp;|&nbsp;
+            الصافي المستحق: {(totalCollected - s.totalShippingCost).toLocaleString("ar-EG")} ج.م
+            {manifest.invoicePrice != null && (
+              <> &nbsp;|&nbsp; سعر الفاتورة المتفق: {manifest.invoicePrice.toLocaleString("ar-EG")} ج.م</>
+            )}
+          </div>
+        </div>
+        <div className="manifest-print-sig">
+          <div>توقيع المندوب: ________________</div>
+          <div style={{ marginTop: "3mm" }}>توقيع المسؤول: ________________</div>
+        </div>
+      </div>
+    </div>
+
+    {/* ══════════════ SCREEN-ONLY ══════════════ */}
+    <div className="manifest-screen max-w-5xl mx-auto space-y-5 animate-in fade-in duration-500" dir="rtl">
       {/* ─── Header ─── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
@@ -984,5 +1121,6 @@ export default function ShippingManifestPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </>
   );
 }

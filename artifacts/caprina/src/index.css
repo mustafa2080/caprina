@@ -295,5 +295,78 @@ html.light { color-scheme: light; }
       font-size: 10pt;
       page-break-inside: avoid;
     }
+
+    /* Shipping Manifest Print */
+    .manifest-screen { display: none !important; }
+    .manifest-print {
+      display: block !important;
+      font-family: 'Cairo', 'Arial', sans-serif;
+      font-size: 9pt;
+      color: #111;
+      background: white;
+      direction: rtl;
+      width: 190mm;
+      margin: 0 auto;
+      padding: 8mm 0;
+    }
+    .manifest-print-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 2px solid #111;
+      padding-bottom: 4mm;
+      margin-bottom: 4mm;
+    }
+    .manifest-print-title { font-size: 14pt; font-weight: 900; }
+    .manifest-print-meta { font-size: 8pt; color: #555; margin-top: 1mm; }
+    .manifest-print-stats {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 2mm;
+      margin-bottom: 4mm;
+      border: 1px solid #ddd;
+      border-radius: 2mm;
+      overflow: hidden;
+    }
+    .manifest-print-stat {
+      padding: 2mm 3mm;
+      text-align: center;
+      border-left: 1px solid #eee;
+    }
+    .manifest-print-stat:last-child { border-left: none; }
+    .manifest-print-stat-label { font-size: 7pt; color: #666; }
+    .manifest-print-stat-value { font-size: 11pt; font-weight: 900; }
+    .manifest-print-table { width: 100%; border-collapse: collapse; }
+    .manifest-print-table th {
+      background: #111;
+      color: white;
+      font-size: 8pt;
+      padding: 2mm 2.5mm;
+      text-align: right;
+      font-weight: 700;
+      border: 1px solid #111;
+    }
+    .manifest-print-table td {
+      font-size: 8pt;
+      padding: 1.8mm 2.5mm;
+      border: 1px solid #ddd;
+      vertical-align: middle;
+    }
+    .manifest-print-table tr:nth-child(even) td { background: #f9f9f9; }
+    .manifest-print-footer {
+      margin-top: 4mm;
+      border-top: 2px solid #111;
+      padding-top: 3mm;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    .manifest-print-total { font-size: 10pt; font-weight: 900; }
+    .manifest-print-sig { font-size: 8pt; color: #555; text-align: left; }
+    .status-delivered { color: #15803d; font-weight: 700; }
+    .status-returned  { color: #dc2626; font-weight: 700; }
+    .status-postponed { color: #d97706; font-weight: 700; }
+    .status-partial   { color: #0f766e; font-weight: 700; }
+    .status-pending   { color: #888; }
   }
 }
