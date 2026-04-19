@@ -649,11 +649,12 @@ export interface CampaignStats {
 // ─── Employee Profiles & KPIs ────────────────────────────────────────────────
 export interface EmployeeProfile {
   id: number;
-  userId: number;
-  username: string;
-  displayName: string;
+  userId: number | null;
+  username: string | null;
+  displayName: string | null;
   role: string;
   isActive: boolean;
+  isSystemUser: boolean;
   jobTitle: string | null;
   department: string | null;
   monthlySalary: number | null;
@@ -665,7 +666,8 @@ export interface EmployeeProfile {
 
 export interface EmployeeKpi {
   id: number;
-  userId: number;
+  profileId: number | null;
+  userId: number | null;
   name: string;
   metric: string;
   targetValue: number;
@@ -742,25 +744,37 @@ export interface WeekLogsResult {
 
 export const employeeApi = {
   listProfiles: () => apiFetch<EmployeeProfile[]>("/employee-profiles"),
-  getProfile: (userId: number) => apiFetch<EmployeeProfile & { kpis: EmployeeKpi[] }>(`/employee-profiles/${userId}`),
-  upsertProfile: (data: {
-    userId: number;
+  getProfile: (profileId: number) => apiFetch<EmployeeProfile & { kpis: EmployeeKpi[] }>(`/employee-profiles/${profileId}`),
+  createProfile: (data: {
+    userId?: number;
+    displayName?: string;
     jobTitle?: string | null;
     department?: string | null;
     monthlySalary?: number | null;
     hireDate?: string | null;
     notes?: string | null;
   }) => apiFetch<EmployeeProfile>("/employee-profiles", { method: "POST", body: JSON.stringify(data) }),
-  updateProfile: (userId: number, data: Partial<{
+  upsertProfile: (data: {
+    userId?: number;
+    displayName?: string;
+    jobTitle?: string | null;
+    department?: string | null;
+    monthlySalary?: number | null;
+    hireDate?: string | null;
+    notes?: string | null;
+  }) => apiFetch<EmployeeProfile>("/employee-profiles", { method: "POST", body: JSON.stringify(data) }),
+  updateProfile: (profileId: number, data: Partial<{
+    displayName: string;
     jobTitle: string | null;
     department: string | null;
     monthlySalary: number | null;
     hireDate: string | null;
     notes: string | null;
-  }>) => apiFetch<EmployeeProfile>(`/employee-profiles/${userId}`, { method: "PATCH", body: JSON.stringify(data) }),
-  listKpis: (userId: number) => apiFetch<EmployeeKpi[]>(`/employee-kpis/${userId}`),
+  }>) => apiFetch<EmployeeProfile>(`/employee-profiles/${profileId}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteProfile: (profileId: number) => apiFetch<void>(`/employee-profiles/${profileId}`, { method: "DELETE" }),
+  listKpis: (profileId: number) => apiFetch<EmployeeKpi[]>(`/employee-kpis/${profileId}`),
   createKpi: (data: {
-    userId: number; name: string; metric: string;
+    profileId: number; name: string; metric: string;
     targetValue: number; unit: string;
     direction: "higher_is_better" | "lower_is_better";
     weight: number; isActive: boolean; description?: string | null;
@@ -768,14 +782,14 @@ export const employeeApi = {
   updateKpi: (kpiId: number, data: Partial<EmployeeKpi>) =>
     apiFetch<EmployeeKpi>(`/employee-kpis/${kpiId}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteKpi: (kpiId: number) => apiFetch<void>(`/employee-kpis/${kpiId}`, { method: "DELETE" }),
-  getReport: (userId: number, month?: string) =>
-    apiFetch<EmployeeReport>(`/analytics/employee-report/${userId}${month ? `?month=${month}` : ""}`),
+  getReport: (profileId: number, month?: string) =>
+    apiFetch<EmployeeReport>(`/analytics/employee-report/${profileId}${month ? `?month=${month}` : ""}`),
   listUsers: () => apiFetch<AppUser[]>("/users"),
-  getDailyLogs: (userId: number, date?: string) =>
-    apiFetch<DailyLogDay>(`/employee-daily-logs/${userId}${date ? `?date=${date}` : ""}`),
-  getWeekLogs: (userId: number, date?: string) =>
-    apiFetch<WeekLogsResult>(`/employee-daily-logs/${userId}/week${date ? `?date=${date}` : ""}`),
-  saveDailyLog: (data: { userId: number; kpiId: number; date: string; value: number; notes?: string | null }) =>
+  getDailyLogs: (profileId: number, date?: string) =>
+    apiFetch<DailyLogDay>(`/employee-daily-logs/${profileId}${date ? `?date=${date}` : ""}`),
+  getWeekLogs: (profileId: number, date?: string) =>
+    apiFetch<WeekLogsResult>(`/employee-daily-logs/${profileId}/week${date ? `?date=${date}` : ""}`),
+  saveDailyLog: (data: { profileId: number; kpiId: number; date: string; value: number; notes?: string | null }) =>
     apiFetch<{ id: number }>("/employee-daily-logs", { method: "POST", body: JSON.stringify(data) }),
 };
 

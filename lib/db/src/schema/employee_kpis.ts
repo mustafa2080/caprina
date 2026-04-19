@@ -1,5 +1,6 @@
 import { pgTable, serial, integer, real, text, boolean, timestamp } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
+import { employeeProfilesTable } from "./employee_profiles";
 
 export const KPI_METRICS = [
   "delivery_rate",
@@ -16,7 +17,8 @@ export type KpiDirection = (typeof KPI_DIRECTIONS)[number];
 
 export const employeeKpisTable = pgTable("employee_kpis", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  profileId: integer("profile_id").references(() => employeeProfilesTable.id, { onDelete: "cascade" }),
+  userId: integer("user_id").references(() => usersTable.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   metric: text("metric").notNull().default("manual"),
   targetValue: real("target_value").notNull(),

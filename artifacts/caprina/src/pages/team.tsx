@@ -44,12 +44,13 @@ const RATING_CONFIG: Record<string, { color: string; bg: string; label: string }
 
 // ─── Profile Form Dialog ──────────────────────────────────────────────────────
 function ProfileFormDialog({
-  open, onClose, user, existing,
+  open, onClose, profileId, displayName, isSystemUser, existing,
 }: {
-  open: boolean; onClose: () => void; user: AppUser; existing: EmployeeProfile | null;
+  open: boolean; onClose: () => void; profileId: number; displayName: string; isSystemUser: boolean; existing: EmployeeProfile | null;
 }) {
   const { toast } = useToast();
   const qc = useQueryClient();
+  const [memberName, setMemberName] = useState(existing?.displayName ?? displayName);
   const [jobTitle, setJobTitle] = useState(existing?.jobTitle ?? "");
   const [department, setDepartment] = useState(existing?.department ?? "");
   const [monthlySalary, setMonthlySalary] = useState(existing?.monthlySalary?.toString() ?? "0");
@@ -60,8 +61,8 @@ function ProfileFormDialog({
   const handleSave = async () => {
     setSaving(true);
     try {
-      await employeeApi.upsertProfile({
-        userId: user.id,
+      await employeeApi.updateProfile(profileId, {
+        displayName: memberName || undefined,
         jobTitle: jobTitle || null,
         department: department || null,
         monthlySalary: parseFloat(monthlySalary) || 0,
@@ -69,7 +70,7 @@ function ProfileFormDialog({
         notes: notes || null,
       });
       qc.invalidateQueries({ queryKey: ["employee-profiles"] });
-      toast({ title: "تم حفظ بيانات الموظف" });
+      toast({ title: "تم حفظ بيانات العضو" });
       onClose();
     } catch (e: any) {
       toast({ title: "خطأ", description: e.message, variant: "destructive" });
@@ -81,8 +82,14 @@ function ProfileFormDialog({
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
       <DialogContent className="max-w-md" dir="rtl">
-        <DialogHeader><DialogTitle>بيانات الموظف: {user.displayName}</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>بيانات العضو: {displayName}</DialogTitle></DialogHeader>
         <div className="space-y-3 py-2">
+          {!isSystemUser && (
+            <div className="space-y-1">
+              <Label className="text-xs font-bold">الاسم الكامل</Label>
+              <Input value={memberName} onChange={e => setMemberName(e.target.value)} placeholder="أحمد محمد" className="h-8 text-xs" />
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label className="text-xs">المسمى الوظيفي</Label>
@@ -119,9 +126,9 @@ function ProfileFormDialog({
 
 // ─── KPI Form Dialog ──────────────────────────────────────────────────────────
 function KpiFormDialog({
-  open, onClose, userId, existing,
+  open, onClose, profileId, isSystemUser, existing,
 }: {
-  open: boolean; onClose: () => void; userId: number; existing?: EmployeeKpi;
+  open: boolean; onClose: () => void; profileId: number; isSystemUser: boolean; existing?: EmployeeKpi;
 }) {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -160,13 +167,13 @@ function KpiFormDialog({
         toast({ title: "تم تحديث المؤشر" });
       } else {
         await employeeApi.createKpi({
-          userId, name, metric, targetValue: parseFloat(targetValue), unit,
+          profileId, name, metric, targetValue: parseFloat(targetValue), unit,
           direction, weight: parseFloat(weight), isActive, description: description || null,
         });
         toast({ title: "تم إضافة المؤشر" });
       }
-      qc.invalidateQueries({ queryKey: ["employee-kpis", userId] });
-      qc.invalidateQueries({ queryKey: ["employee-report", userId] });
+      qc.invalidateQueries({ queryKey: ["employee-kpis", profileId] });
+      qc.invalidateQueries({ queryKey: ["employee-report", profileId] });
       onClose();
     } catch (e: any) {
       toast({ title: "خطأ", description: e.message, variant: "destructive" });
@@ -185,9 +192,14 @@ function KpiFormDialog({
             <Select value={metric} onValueChange={handleMetricChange}>
               <SelectTrigger className="h-8 text-xs bg-card"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {METRIC_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                {(isSystemUser ? METRIC_OPTIONS : METRIC_OPTIONS.filter(o => o.value === "manual")).map(o => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
+            {!isSystemUser && (
+              <p className="text-[10px] text-muted-foreground">أعضاء الفريق بدون حساب نظام يدعمون المؤشرات اليدوية فقط</p>
+            )}
           </div>
           <div className="space-y-1">
             <Label className="text-xs">اسم المؤشر *</Label>
@@ -443,7 +455,7 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
 }
 
 // ─── Daily Tracker Tab ───────────────────────────────────────────────────────
-function DailyTrackerTab({ userId }: { userId: number }) {
+function DailyTrackerTab({ profileId }: { profileId: number }) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -451,13 +463,13 @@ function DailyTrackerTab({ userId }: { userId: number }) {
   const [saving, setSaving] = useState<Record<number, boolean>>({});
 
   const { data: dailyData, isLoading, refetch } = useQuery({
-    queryKey: ["employee-daily-logs", userId, selectedDate],
-    queryFn: () => employeeApi.getDailyLogs(userId, selectedDate),
+    queryKey: ["employee-daily-logs", profileId, selectedDate],
+    queryFn: () => employeeApi.getDailyLogs(profileId, selectedDate),
   });
 
   const { data: weekData } = useQuery({
-    queryKey: ["employee-week-logs", userId, selectedDate],
-    queryFn: () => employeeApi.getWeekLogs(userId, selectedDate),
+    queryKey: ["employee-week-logs", profileId, selectedDate],
+    queryFn: () => employeeApi.getWeekLogs(profileId, selectedDate),
   });
 
   useEffect(() => {
@@ -476,9 +488,9 @@ function DailyTrackerTab({ userId }: { userId: number }) {
     if (isNaN(val)) { toast({ title: "أدخل قيمة صحيحة", variant: "destructive" }); return; }
     setSaving(s => ({ ...s, [kpi.id]: true }));
     try {
-      await employeeApi.saveDailyLog({ userId, kpiId: kpi.id, date: selectedDate, value: val });
-      qc.invalidateQueries({ queryKey: ["employee-daily-logs", userId, selectedDate] });
-      qc.invalidateQueries({ queryKey: ["employee-week-logs", userId, selectedDate] });
+      await employeeApi.saveDailyLog({ profileId, kpiId: kpi.id, date: selectedDate, value: val });
+      qc.invalidateQueries({ queryKey: ["employee-daily-logs", profileId, selectedDate] });
+      qc.invalidateQueries({ queryKey: ["employee-week-logs", profileId, selectedDate] });
       toast({ title: "تم التسجيل ✅" });
     } catch (e: any) {
       toast({ title: "خطأ", description: e.message, variant: "destructive" });
@@ -619,10 +631,11 @@ function DailyTrackerTab({ userId }: { userId: number }) {
 
 // ─── Add Member Wizard ────────────────────────────────────────────────────────
 function AddMemberWizard({ open, onClose, onSuccess }: {
-  open: boolean; onClose: () => void; onSuccess: (userId: number) => void;
+  open: boolean; onClose: () => void; onSuccess: (profileId: number) => void;
 }) {
   const { toast } = useToast();
   const qc = useQueryClient();
+  const [mode, setMode] = useState<"system" | "team_only">("system");
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [createdUser, setCreatedUser] = useState<AppUser | null>(null);
@@ -636,12 +649,13 @@ function AddMemberWizard({ open, onClose, onSuccess }: {
   const [hireDate, setHireDate] = useState(() => new Date().toISOString().slice(0, 10));
 
   const reset = () => {
-    setStep(1); setSaving(false); setCreatedUser(null);
+    setStep(1); setSaving(false); setCreatedUser(null); setMode("system");
     setDisplayName(""); setUsername(""); setPassword(""); setRole("employee");
     setJobTitle(""); setDepartment(""); setMonthlySalary("0");
     setHireDate(new Date().toISOString().slice(0, 10));
   };
 
+  // System user flow: step1=account, step2=job info
   const handleCreateUser = async () => {
     if (!displayName.trim() || !username.trim() || !password.trim()) {
       toast({ title: "الاسم واسم المستخدم وكلمة المرور مطلوبة", variant: "destructive" }); return;
@@ -661,7 +675,7 @@ function AddMemberWizard({ open, onClose, onSuccess }: {
     if (!createdUser) return;
     setSaving(true);
     try {
-      await employeeApi.upsertProfile({
+      const profile = await employeeApi.upsertProfile({
         userId: createdUser.id,
         jobTitle: jobTitle || null,
         department: department || null,
@@ -670,8 +684,29 @@ function AddMemberWizard({ open, onClose, onSuccess }: {
       });
       qc.invalidateQueries({ queryKey: ["employee-profiles"] });
       toast({ title: `تم إضافة ${createdUser.displayName} للفريق ✅` });
-      const uid = createdUser.id;
-      reset(); onSuccess(uid);
+      reset(); onSuccess(profile.id);
+    } catch (e: any) {
+      toast({ title: "خطأ", description: e.message, variant: "destructive" });
+    } finally { setSaving(false); }
+  };
+
+  // Team-only flow: single step — name + job info only
+  const handleCreateTeamOnly = async () => {
+    if (!displayName.trim()) {
+      toast({ title: "الاسم مطلوب", variant: "destructive" }); return;
+    }
+    setSaving(true);
+    try {
+      const profile = await employeeApi.createProfile({
+        displayName: displayName.trim(),
+        jobTitle: jobTitle || null,
+        department: department || null,
+        monthlySalary: parseFloat(monthlySalary) || 0,
+        hireDate: hireDate || null,
+      });
+      qc.invalidateQueries({ queryKey: ["employee-profiles"] });
+      toast({ title: `تم إضافة ${displayName.trim()} للفريق ✅` });
+      reset(); onSuccess(profile.id);
     } catch (e: any) {
       toast({ title: "خطأ", description: e.message, variant: "destructive" });
     } finally { setSaving(false); }
@@ -687,60 +722,119 @@ function AddMemberWizard({ open, onClose, onSuccess }: {
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex items-center gap-2 text-[10px]">
-          <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full font-bold ${step === 1 ? "bg-primary text-primary-foreground" : "bg-emerald-600/20 text-emerald-400"}`}>
-            {step > 1 ? <Check className="w-3 h-3" /> : "١"} بيانات الحساب
-          </div>
-          <div className="flex-1 h-px bg-border" />
-          <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full font-bold ${step === 2 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
-            ٢ بيانات الوظيفة
-          </div>
-        </div>
-
+        {/* Mode toggle */}
         {step === 1 && (
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs font-bold">الاسم الكامل *</Label>
-                <Input value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="محمد أحمد" className="h-8 text-xs mt-1" />
-              </div>
-              <div>
-                <Label className="text-xs font-bold">اسم المستخدم *</Label>
-                <Input value={username} onChange={e => setUsername(e.target.value.toLowerCase())} placeholder="mohamed" className="h-8 text-xs mt-1" dir="ltr" />
-              </div>
-            </div>
-            <div>
-              <Label className="text-xs font-bold">كلمة المرور *</Label>
-              <Input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" className="h-8 text-xs mt-1" dir="ltr" />
-            </div>
-            <div>
-              <Label className="text-xs font-bold">الدور</Label>
-              <Select value={role} onValueChange={setRole}>
-                <SelectTrigger className="h-8 text-xs mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="employee">موظف</SelectItem>
-                  <SelectItem value="warehouse">مخزن</SelectItem>
-                  <SelectItem value="admin">مدير</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setMode("system")}
+              className={`p-3 rounded-lg border text-xs text-right transition-colors ${mode === "system" ? "border-primary bg-primary/5 text-primary font-bold" : "border-border hover:border-primary/40"}`}
+            >
+              <div className="font-bold mb-0.5">👤 عضو بحساب</div>
+              <div className="text-[10px] text-muted-foreground">يدخل للنظام ويتتبع الطلبيات</div>
+            </button>
+            <button
+              onClick={() => { setMode("team_only"); }}
+              className={`p-3 rounded-lg border text-xs text-right transition-colors ${mode === "team_only" ? "border-amber-600 bg-amber-900/10 text-amber-400 font-bold" : "border-border hover:border-amber-700/40"}`}
+            >
+              <div className="font-bold mb-0.5">🏷️ عضو فريق فقط</div>
+              <div className="text-[10px] text-muted-foreground">بدون حساب (مثل office boy)</div>
+            </button>
           </div>
         )}
 
-        {step === 2 && (
+        {/* System user — step 1: account */}
+        {mode === "system" && step === 1 && (
+          <>
+            <div className="flex items-center gap-2 text-[10px]">
+              <div className="flex items-center gap-1 px-2.5 py-1 rounded-full font-bold bg-primary text-primary-foreground">١ بيانات الحساب</div>
+              <div className="flex-1 h-px bg-border" />
+              <div className="flex items-center gap-1 px-2.5 py-1 rounded-full font-bold bg-muted text-muted-foreground">٢ بيانات الوظيفة</div>
+            </div>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs font-bold">الاسم الكامل *</Label>
+                  <Input value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="محمد أحمد" className="h-8 text-xs mt-1" />
+                </div>
+                <div>
+                  <Label className="text-xs font-bold">اسم المستخدم *</Label>
+                  <Input value={username} onChange={e => setUsername(e.target.value.toLowerCase())} placeholder="mohamed" className="h-8 text-xs mt-1" dir="ltr" />
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs font-bold">كلمة المرور *</Label>
+                <Input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" className="h-8 text-xs mt-1" dir="ltr" />
+              </div>
+              <div>
+                <Label className="text-xs font-bold">الدور</Label>
+                <Select value={role} onValueChange={setRole}>
+                  <SelectTrigger className="h-8 text-xs mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="employee">موظف</SelectItem>
+                    <SelectItem value="warehouse">مخزن</SelectItem>
+                    <SelectItem value="admin">مدير</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* System user — step 2: job info */}
+        {mode === "system" && step === 2 && (
+          <>
+            <div className="flex items-center gap-2 text-[10px]">
+              <div className="flex items-center gap-1 px-2.5 py-1 rounded-full font-bold bg-emerald-600/20 text-emerald-400"><Check className="w-3 h-3" /> بيانات الحساب</div>
+              <div className="flex-1 h-px bg-border" />
+              <div className="flex items-center gap-1 px-2.5 py-1 rounded-full font-bold bg-primary text-primary-foreground">٢ بيانات الوظيفة</div>
+            </div>
+            <div className="space-y-3">
+              <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-400 flex items-center gap-2">
+                <Check className="w-3.5 h-3.5 shrink-0" />
+                تم إنشاء حساب <strong>{createdUser?.displayName}</strong> — أدخل بيانات الوظيفة
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs font-bold">المسمى الوظيفي</Label>
+                  <Input value={jobTitle} onChange={e => setJobTitle(e.target.value)} placeholder="مسؤول مبيعات" className="h-8 text-xs mt-1" />
+                </div>
+                <div>
+                  <Label className="text-xs font-bold">القسم</Label>
+                  <Input value={department} onChange={e => setDepartment(e.target.value)} placeholder="المبيعات" className="h-8 text-xs mt-1" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs font-bold">الراتب الشهري (ج.م)</Label>
+                  <Input type="number" min="0" value={monthlySalary} onChange={e => setMonthlySalary(e.target.value)} className="h-8 text-xs mt-1" />
+                </div>
+                <div>
+                  <Label className="text-xs font-bold">تاريخ التعيين</Label>
+                  <Input type="date" value={hireDate} onChange={e => setHireDate(e.target.value)} className="h-8 text-xs mt-1" />
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Team-only — single step */}
+        {mode === "team_only" && (
           <div className="space-y-3">
-            <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-400 flex items-center gap-2">
-              <Check className="w-3.5 h-3.5 shrink-0" />
-              تم إنشاء حساب <strong>{createdUser?.displayName}</strong> — أدخل بيانات الوظيفة
+            <div className="p-2.5 rounded-lg bg-amber-900/10 border border-amber-700/30 text-xs text-amber-400 flex items-center gap-2">
+              🏷️ هذا العضو لن يمتلك حساب دخول للنظام — يمكنك تتبع أداؤه يدوياً عبر المؤشرات
+            </div>
+            <div>
+              <Label className="text-xs font-bold">الاسم الكامل *</Label>
+              <Input value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="أحمد الساعي" className="h-8 text-xs mt-1" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs font-bold">المسمى الوظيفي</Label>
-                <Input value={jobTitle} onChange={e => setJobTitle(e.target.value)} placeholder="مسؤول مبيعات" className="h-8 text-xs mt-1" />
+                <Input value={jobTitle} onChange={e => setJobTitle(e.target.value)} placeholder="office boy" className="h-8 text-xs mt-1" />
               </div>
               <div>
                 <Label className="text-xs font-bold">القسم</Label>
-                <Input value={department} onChange={e => setDepartment(e.target.value)} placeholder="المبيعات" className="h-8 text-xs mt-1" />
+                <Input value={department} onChange={e => setDepartment(e.target.value)} placeholder="الإدارة" className="h-8 text-xs mt-1" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -757,17 +851,26 @@ function AddMemberWizard({ open, onClose, onSuccess }: {
         )}
 
         <DialogFooter>
-          {step === 1 ? (
+          {mode === "system" && step === 1 && (
             <>
               <Button variant="outline" onClick={() => { reset(); onClose(); }} className="text-xs h-7">إلغاء</Button>
               <Button onClick={handleCreateUser} disabled={saving || !displayName.trim() || !username.trim() || !password.trim()} className="text-xs h-7 gap-1">
                 {saving ? "..." : <><Check className="w-3 h-3" />التالي</>}
               </Button>
             </>
-          ) : (
+          )}
+          {mode === "system" && step === 2 && (
             <>
               <Button variant="outline" onClick={() => setStep(1)} className="text-xs h-7">رجوع</Button>
               <Button onClick={handleSaveProfile} disabled={saving} className="text-xs h-7 gap-1">
+                {saving ? "..." : <><Users className="w-3 h-3" />إضافة للفريق</>}
+              </Button>
+            </>
+          )}
+          {mode === "team_only" && (
+            <>
+              <Button variant="outline" onClick={() => { reset(); onClose(); }} className="text-xs h-7">إلغاء</Button>
+              <Button onClick={handleCreateTeamOnly} disabled={saving || !displayName.trim()} className="text-xs h-7 gap-1 bg-amber-600 hover:bg-amber-700 text-white">
                 {saving ? "..." : <><Users className="w-3 h-3" />إضافة للفريق</>}
               </Button>
             </>
@@ -780,9 +883,9 @@ function AddMemberWizard({ open, onClose, onSuccess }: {
 
 // ─── Employee Detail ──────────────────────────────────────────────────────────
 function EmployeeDetail({
-  user, profile, onBack,
+  profileId, displayName, isSystemUser, username, onBack,
 }: {
-  user: AppUser; profile: EmployeeProfile | null; onBack: () => void;
+  profileId: number; displayName: string; isSystemUser: boolean; username?: string | null; onBack: () => void;
 }) {
   const { isAdmin } = useAuth();
   const { toast } = useToast();
@@ -796,21 +899,26 @@ function EmployeeDetail({
   });
 
   const { data: kpis = [], isLoading: kpisLoading } = useQuery({
-    queryKey: ["employee-kpis", user.id],
-    queryFn: () => employeeApi.listKpis(user.id),
+    queryKey: ["employee-kpis", profileId],
+    queryFn: () => employeeApi.listKpis(profileId),
+  });
+
+  const { data: fullProfile } = useQuery({
+    queryKey: ["employee-profile", profileId],
+    queryFn: () => employeeApi.getProfile(profileId),
   });
 
   const { data: report, isLoading: reportLoading } = useQuery({
-    queryKey: ["employee-report", user.id, reportMonth],
-    queryFn: () => employeeApi.getReport(user.id, reportMonth),
+    queryKey: ["employee-report", profileId, reportMonth],
+    queryFn: () => employeeApi.getReport(profileId, reportMonth),
   });
 
   const deleteKpi = async (kpiId: number) => {
     if (!confirm("حذف هذا المؤشر؟")) return;
     try {
       await employeeApi.deleteKpi(kpiId);
-      qc.invalidateQueries({ queryKey: ["employee-kpis", user.id] });
-      qc.invalidateQueries({ queryKey: ["employee-report", user.id] });
+      qc.invalidateQueries({ queryKey: ["employee-kpis", profileId] });
+      qc.invalidateQueries({ queryKey: ["employee-report", profileId] });
       toast({ title: "تم حذف المؤشر" });
     } catch (e: any) {
       toast({ title: "خطأ", description: e.message, variant: "destructive" });
@@ -827,18 +935,25 @@ function EmployeeDetail({
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
-          <h2 className="text-base font-bold">{user.displayName}</h2>
+          <h2 className="text-base font-bold">{displayName}</h2>
           <p className="text-xs text-muted-foreground">
-            {profile?.jobTitle && <span>{profile.jobTitle}</span>}
-            {profile?.department && <span> — {profile.department}</span>}
-            {!profile?.jobTitle && !profile?.department && <span>@{user.username}</span>}
+            {fullProfile?.jobTitle && <span>{fullProfile.jobTitle}</span>}
+            {fullProfile?.department && <span> — {fullProfile.department}</span>}
+            {!fullProfile?.jobTitle && !fullProfile?.department && (
+              isSystemUser && username ? <span>@{username}</span> : <span className="text-amber-400">عضو فريق · بدون حساب نظام</span>
+            )}
           </p>
         </div>
-        {isAdmin && (
-          <Button size="sm" variant="outline" className="mr-auto h-7 text-xs gap-1" onClick={() => setProfileOpen(true)}>
-            <Edit2 className="w-3 h-3" />تعديل البيانات
-          </Button>
-        )}
+        <div className="mr-auto flex items-center gap-2">
+          {!isSystemUser && (
+            <Badge variant="outline" className="text-[9px] h-5 border-amber-700 text-amber-400">فريق فقط</Badge>
+          )}
+          {isAdmin && (
+            <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setProfileOpen(true)}>
+              <Edit2 className="w-3 h-3" />تعديل البيانات
+            </Button>
+          )}
+        </div>
       </div>
 
       <Tabs defaultValue="daily">
@@ -851,7 +966,7 @@ function EmployeeDetail({
 
         {/* ─── Daily Tracker Tab ─── */}
         <TabsContent value="daily" className="space-y-3 mt-3">
-          <DailyTrackerTab userId={user.id} />
+          <DailyTrackerTab profileId={profileId} />
         </TabsContent>
 
         {/* ─── KPIs Tab ─── */}
@@ -1002,29 +1117,24 @@ function EmployeeDetail({
           <Card className="border-border bg-card">
             <CardContent className="px-4 py-4 space-y-3">
               {[
-                { label: "الاسم الكامل", value: user.displayName, icon: <Users className="w-3.5 h-3.5" /> },
-                { label: "اسم المستخدم", value: `@${user.username}`, icon: null },
-                { label: "المسمى الوظيفي", value: profile?.jobTitle || "—", icon: <Briefcase className="w-3.5 h-3.5" /> },
-                { label: "القسم", value: profile?.department || "—", icon: null },
-                { label: "الراتب الشهري", value: profile?.monthlySalary ? fmt(profile.monthlySalary) : "—", icon: <DollarSign className="w-3.5 h-3.5" /> },
-                { label: "تاريخ التعيين", value: profile?.hireDate ? new Date(profile.hireDate).toLocaleDateString("ar-EG") : "—", icon: <Calendar className="w-3.5 h-3.5" /> },
+                { label: "الاسم الكامل", value: displayName, icon: <Users className="w-3.5 h-3.5" /> },
+                ...(isSystemUser && username ? [{ label: "اسم المستخدم", value: `@${username}`, icon: null }] : []),
+                ...(isSystemUser ? [] : [{ label: "نوع العضوية", value: "فريق فقط (بدون حساب)", icon: null }]),
+                { label: "المسمى الوظيفي", value: fullProfile?.jobTitle || "—", icon: <Briefcase className="w-3.5 h-3.5" /> },
+                { label: "القسم", value: fullProfile?.department || "—", icon: null },
+                { label: "الراتب الشهري", value: fullProfile?.monthlySalary ? fmt(fullProfile.monthlySalary) : "—", icon: <DollarSign className="w-3.5 h-3.5" /> },
+                { label: "تاريخ التعيين", value: fullProfile?.hireDate ? new Date(fullProfile.hireDate).toLocaleDateString("ar-EG") : "—", icon: <Calendar className="w-3.5 h-3.5" /> },
               ].map(row => (
                 <div key={row.label} className="flex items-center justify-between py-1 border-b border-border/30 last:border-0">
                   <span className="text-xs text-muted-foreground flex items-center gap-1">{row.icon}{row.label}</span>
                   <span className="text-xs font-bold">{row.value}</span>
                 </div>
               ))}
-              {profile?.notes && (
+              {fullProfile?.notes && (
                 <div className="pt-1">
                   <p className="text-[10px] text-muted-foreground">ملاحظات:</p>
-                  <p className="text-xs mt-1">{profile.notes}</p>
+                  <p className="text-xs mt-1">{fullProfile.notes}</p>
                 </div>
-              )}
-              {!profile && (
-                <p className="text-center text-xs text-muted-foreground py-4">
-                  لم يتم إدخال بيانات الموظف بعد.
-                  {isAdmin && " اضغط 'تعديل البيانات' لإضافتها."}
-                </p>
               )}
             </CardContent>
           </Card>
@@ -1034,9 +1144,11 @@ function EmployeeDetail({
       {profileOpen && (
         <ProfileFormDialog
           open={profileOpen}
-          onClose={() => setProfileOpen(false)}
-          user={user}
-          existing={profile}
+          onClose={() => { setProfileOpen(false); qc.invalidateQueries({ queryKey: ["employee-profile", profileId] }); qc.invalidateQueries({ queryKey: ["employee-profiles"] }); }}
+          profileId={profileId}
+          displayName={displayName}
+          isSystemUser={isSystemUser}
+          existing={fullProfile ?? null}
         />
       )}
 
@@ -1044,7 +1156,8 @@ function EmployeeDetail({
         <KpiFormDialog
           open={kpiDialogOpen}
           onClose={() => { setKpiDialogOpen(false); setEditingKpi(undefined); }}
-          userId={user.id}
+          profileId={profileId}
+          isSystemUser={isSystemUser}
           existing={editingKpi}
         />
       )}
@@ -1057,7 +1170,7 @@ export default function TeamPage() {
   const { isAdmin } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
-  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [selectedProfileId, setSelectedProfileId] = useState<number | null>(null);
   const [addProfileOpen, setAddProfileOpen] = useState(false);
   const [addingUser, setAddingUser] = useState<AppUser | null>(null);
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -1072,19 +1185,20 @@ export default function TeamPage() {
     queryFn: usersApi.list,
   });
 
-  const profiledUserIds = new Set(profiles.map(p => p.userId));
+  const profiledUserIds = new Set(profiles.map(p => p.userId).filter(Boolean));
   const unprofiledUsers = allUsers.filter(u => !profiledUserIds.has(u.id) && u.isActive);
 
-  const selectedProfile = profiles.find(p => p.userId === selectedUserId);
-  const selectedUser = allUsers.find(u => u.id === selectedUserId);
+  const selectedProfile = profiles.find(p => p.id === selectedProfileId);
 
-  if (selectedUserId !== null && selectedUser) {
+  if (selectedProfileId !== null && selectedProfile) {
     return (
       <div className="max-w-3xl mx-auto animate-in fade-in duration-300">
         <EmployeeDetail
-          user={selectedUser}
-          profile={selectedProfile ?? null}
-          onBack={() => setSelectedUserId(null)}
+          profileId={selectedProfileId}
+          displayName={selectedProfile.displayName ?? "—"}
+          isSystemUser={!!(selectedProfile as any).isSystemUser}
+          username={(selectedProfile as any).username}
+          onBack={() => setSelectedProfileId(null)}
         />
       </div>
     );
@@ -1130,23 +1244,25 @@ export default function TeamPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {profiles.map(profile => {
-          const user = allUsers.find(u => u.id === profile.userId);
+          const isSystemUser = !!(profile as any).isSystemUser;
+          const roleLabel = (profile as any).role === "admin" ? "مدير" : (profile as any).role === "warehouse" ? "مخزن" : isSystemUser ? "موظف" : "فريق فقط";
+          const name = profile.displayName ?? "—";
           return (
             <Card
-              key={profile.userId}
+              key={profile.id}
               className="border-border bg-card hover:border-primary/40 transition-colors cursor-pointer"
-              onClick={() => setSelectedUserId(profile.userId)}
+              onClick={() => setSelectedProfileId(profile.id)}
             >
               <CardContent className="px-4 py-4 space-y-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-black text-primary shrink-0">
-                      {profile.displayName.charAt(0)}
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-black shrink-0 ${isSystemUser ? "bg-primary/10 text-primary" : "bg-amber-900/20 text-amber-400"}`}>
+                      {name.charAt(0)}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-bold truncate">{profile.displayName}</p>
+                      <p className="text-sm font-bold truncate">{name}</p>
                       <p className="text-[10px] text-muted-foreground truncate">
-                        {profile.jobTitle || profile.role === "admin" ? profile.jobTitle || "مدير" : "موظف"}
+                        {profile.jobTitle || (!isSystemUser ? "عضو فريق" : "موظف")}
                         {profile.department && ` · ${profile.department}`}
                       </p>
                     </div>
@@ -1167,8 +1283,8 @@ export default function TeamPage() {
                 </div>
                 <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1 border-t border-border/30">
                   <span className="flex items-center gap-1"><Target className="w-3 h-3" />عرض المؤشرات والتقرير</span>
-                  <Badge variant="outline" className="text-[9px] h-4">
-                    {profile.role === "admin" ? "مدير" : profile.role === "warehouse" ? "مخزن" : "موظف"}
+                  <Badge variant="outline" className={`text-[9px] h-4 ${!isSystemUser ? "border-amber-700 text-amber-400" : ""}`}>
+                    {roleLabel}
                   </Badge>
                 </div>
               </CardContent>
@@ -1181,7 +1297,7 @@ export default function TeamPage() {
       <AddMemberWizard
         open={wizardOpen}
         onClose={() => setWizardOpen(false)}
-        onSuccess={(uid) => { setWizardOpen(false); setSelectedUserId(uid); }}
+        onSuccess={(profileId) => { setWizardOpen(false); setSelectedProfileId(profileId); }}
       />
 
       {/* Add profile dialog (existing users without profile) */}
@@ -1214,18 +1330,22 @@ export default function TeamPage() {
               <Button variant="outline" onClick={() => { setAddProfileOpen(false); setAddingUser(null); }} className="text-xs h-7">إلغاء</Button>
               <Button
                 disabled={!addingUser}
-                onClick={() => {
+                onClick={async () => {
                   if (addingUser) {
-                    setAddProfileOpen(false);
-                    setSelectedUserId(addingUser.id);
-                    setTimeout(() => {
+                    try {
+                      const created = await employeeApi.upsertProfile({ userId: addingUser.id });
                       qc.invalidateQueries({ queryKey: ["employee-profiles"] });
-                    }, 100);
+                      setAddProfileOpen(false);
+                      setAddingUser(null);
+                      setSelectedProfileId(created.id);
+                    } catch {
+                      setAddProfileOpen(false);
+                    }
                   }
                 }}
                 className="text-xs h-7"
               >
-                متابعة
+                إضافة للفريق
               </Button>
             </DialogFooter>
           </DialogContent>

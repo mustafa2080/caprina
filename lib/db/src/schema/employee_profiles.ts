@@ -3,7 +3,8 @@ import { usersTable } from "./users";
 
 export const employeeProfilesTable = pgTable("employee_profiles", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().unique().references(() => usersTable.id, { onDelete: "cascade" }),
+  userId: integer("user_id").unique().references(() => usersTable.id, { onDelete: "cascade" }),
+  displayName: text("display_name"),
   jobTitle: text("job_title"),
   department: text("department"),
   monthlySalary: real("monthly_salary").default(0),

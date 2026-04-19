@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, gte, lte, desc } from "drizzle-orm";
+import { eq, and, gte, lte, desc, isNotNull, isNull } from "drizzle-orm";
 import {
   db,
   usersTable,
@@ -95,140 +95,154 @@ function computeKpiScore(
   target: number,
   direction: string
 ): number {
-  if (target <= 0) return 100;
+  if (target === 0) return actual === 0 ? 100 : 0;
   if (direction === "lower_is_better") {
-    if (actual <= target) return 100;
-    const over = (actual - target) / target;
-    return Math.max(0, Math.round(100 - over * 100));
-  } else {
-    return Math.min(100, Math.round((actual / target) * 100));
+    return actual <= target ? 100 : Math.max(0, Math.round((target / actual) * 100));
   }
+  return Math.min(100, Math.round((actual / target) * 100));
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Resolve profile with merged displayName
+// ────────────────────────────────────────────────────────────────────────────
+function mergeProfile(profile: typeof employeeProfilesTable.$inferSelect, user: typeof usersTable.$inferSelect | null) {
+  return {
+    ...profile,
+    displayName: profile.displayName ?? user?.displayName ?? "—",
+    username: user?.username ?? null,
+    role: user?.role ?? "team_only",
+    isActive: user?.isActive ?? true,
+    isSystemUser: user !== null,
+  };
 }
 
 // ────────────────────────────────────────────────────────────────────────────
 // Employee Profiles CRUD
 // ────────────────────────────────────────────────────────────────────────────
 
-const ProfileSchema = z.object({
-  userId: z.number().int().positive(),
-  jobTitle: z.string().nullish(),
-  department: z.string().nullish(),
-  monthlySalary: z.number().min(0).nullish(),
-  hireDate: z.string().nullish(),
-  notes: z.string().nullish(),
-});
-
 router.get("/employee-profiles", async (req, res): Promise<void> => {
-  const profiles = await db
+  const rows = await db
     .select({
       profile: employeeProfilesTable,
       user: usersTable,
     })
     .from(employeeProfilesTable)
-    .innerJoin(usersTable, eq(employeeProfilesTable.userId, usersTable.id))
-    .orderBy(usersTable.displayName);
+    .leftJoin(usersTable, eq(employeeProfilesTable.userId, usersTable.id));
 
-  res.json(
-    profiles.map((p) => ({
-      ...p.profile,
-      username: p.user.username,
-      displayName: p.user.displayName,
-      role: p.user.role,
-      isActive: p.user.isActive,
-    }))
-  );
+  res.json(rows.map((r) => mergeProfile(r.profile, r.user)));
 });
 
-router.get("/employee-profiles/:userId", async (req, res): Promise<void> => {
-  const userId = parseInt(req.params.userId);
-  if (isNaN(userId)) { res.status(400).json({ error: "Invalid userId" }); return; }
+// GET by profile ID
+router.get("/employee-profiles/:profileId", async (req, res): Promise<void> => {
+  const profileId = parseInt(req.params.profileId);
+  if (isNaN(profileId)) { res.status(400).json({ error: "Invalid profileId" }); return; }
 
   const [row] = await db
     .select({ profile: employeeProfilesTable, user: usersTable })
     .from(employeeProfilesTable)
-    .innerJoin(usersTable, eq(employeeProfilesTable.userId, usersTable.id))
-    .where(eq(employeeProfilesTable.userId, userId));
+    .leftJoin(usersTable, eq(employeeProfilesTable.userId, usersTable.id))
+    .where(eq(employeeProfilesTable.id, profileId));
 
   if (!row) { res.status(404).json({ error: "الموظف غير موجود" }); return; }
 
   const kpis = await db
     .select()
     .from(employeeKpisTable)
-    .where(eq(employeeKpisTable.userId, userId))
+    .where(eq(employeeKpisTable.profileId, profileId))
     .orderBy(employeeKpisTable.createdAt);
 
   res.json({
-    ...row.profile,
-    username: row.user.username,
-    displayName: row.user.displayName,
-    role: row.user.role,
-    isActive: row.user.isActive,
+    ...mergeProfile(row.profile, row.user),
     kpis,
   });
 });
 
+const ProfileSchema = z.object({
+  userId: z.number().int().positive().optional(),
+  displayName: z.string().min(1).optional(),
+  jobTitle: z.string().nullish(),
+  department: z.string().nullish(),
+  monthlySalary: z.number().min(0).optional(),
+  hireDate: z.string().nullish(),
+  notes: z.string().nullish(),
+});
+
+// POST — create or upsert profile
 router.post("/employee-profiles", requireAdmin, async (req, res): Promise<void> => {
   const parsed = ProfileSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+  const data = parsed.data;
 
-  // Upsert
-  const [existing] = await db
-    .select()
-    .from(employeeProfilesTable)
-    .where(eq(employeeProfilesTable.userId, parsed.data.userId));
+  // If userId given, check if profile already exists
+  if (data.userId) {
+    const [existing] = await db
+      .select()
+      .from(employeeProfilesTable)
+      .where(eq(employeeProfilesTable.userId, data.userId));
 
-  if (existing) {
-    const [updated] = await db
-      .update(employeeProfilesTable)
-      .set({
-        jobTitle: parsed.data.jobTitle ?? null,
-        department: parsed.data.department ?? null,
-        monthlySalary: parsed.data.monthlySalary ?? 0,
-        hireDate: parsed.data.hireDate ?? null,
-        notes: parsed.data.notes ?? null,
-      })
-      .where(eq(employeeProfilesTable.userId, parsed.data.userId))
-      .returning();
-    res.json(updated);
-  } else {
-    const [created] = await db
-      .insert(employeeProfilesTable)
-      .values({
-        userId: parsed.data.userId,
-        jobTitle: parsed.data.jobTitle ?? null,
-        department: parsed.data.department ?? null,
-        monthlySalary: parsed.data.monthlySalary ?? 0,
-        hireDate: parsed.data.hireDate ?? null,
-        notes: parsed.data.notes ?? null,
-      })
-      .returning();
-    res.status(201).json(created);
+    if (existing) {
+      const [updated] = await db
+        .update(employeeProfilesTable)
+        .set({
+          jobTitle: data.jobTitle ?? null,
+          department: data.department ?? null,
+          monthlySalary: data.monthlySalary ?? 0,
+          hireDate: data.hireDate ?? null,
+          notes: data.notes ?? null,
+        })
+        .where(eq(employeeProfilesTable.userId, data.userId))
+        .returning();
+      res.json(updated);
+      return;
+    }
   }
+
+  // Create new profile
+  const [created] = await db
+    .insert(employeeProfilesTable)
+    .values({
+      userId: data.userId ?? null,
+      displayName: data.displayName ?? null,
+      jobTitle: data.jobTitle ?? null,
+      department: data.department ?? null,
+      monthlySalary: data.monthlySalary ?? 0,
+      hireDate: data.hireDate ?? null,
+      notes: data.notes ?? null,
+    })
+    .returning();
+  res.status(201).json(created);
 });
 
-router.patch("/employee-profiles/:userId", requireAdmin, async (req, res): Promise<void> => {
-  const userId = parseInt(req.params.userId);
-  if (isNaN(userId)) { res.status(400).json({ error: "Invalid userId" }); return; }
+router.patch("/employee-profiles/:profileId", requireAdmin, async (req, res): Promise<void> => {
+  const profileId = parseInt(req.params.profileId);
+  if (isNaN(profileId)) { res.status(400).json({ error: "Invalid profileId" }); return; }
 
-  const Schema = ProfileSchema.partial().omit({ userId: true });
+  const Schema = ProfileSchema.partial();
   const parsed = Schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
   const [updated] = await db
     .update(employeeProfilesTable)
     .set(parsed.data as any)
-    .where(eq(employeeProfilesTable.userId, userId))
+    .where(eq(employeeProfilesTable.id, profileId))
     .returning();
   if (!updated) { res.status(404).json({ error: "الملف الشخصي غير موجود" }); return; }
   res.json(updated);
 });
 
+router.delete("/employee-profiles/:profileId", requireAdmin, async (req, res): Promise<void> => {
+  const profileId = parseInt(req.params.profileId);
+  if (isNaN(profileId)) { res.status(400).json({ error: "Invalid profileId" }); return; }
+  await db.delete(employeeProfilesTable).where(eq(employeeProfilesTable.id, profileId));
+  res.status(204).send();
+});
+
 // ────────────────────────────────────────────────────────────────────────────
-// Employee KPIs CRUD
+// Employee KPIs CRUD  (all keyed by profileId)
 // ────────────────────────────────────────────────────────────────────────────
 
 const KpiSchema = z.object({
-  userId: z.number().int().positive(),
+  profileId: z.number().int().positive(),
   name: z.string().min(1),
   metric: z.string().default("manual"),
   targetValue: z.number(),
@@ -239,13 +253,13 @@ const KpiSchema = z.object({
   description: z.string().nullish(),
 });
 
-router.get("/employee-kpis/:userId", async (req, res): Promise<void> => {
-  const userId = parseInt(req.params.userId);
-  if (isNaN(userId)) { res.status(400).json({ error: "Invalid userId" }); return; }
+router.get("/employee-kpis/:profileId", async (req, res): Promise<void> => {
+  const profileId = parseInt(req.params.profileId);
+  if (isNaN(profileId)) { res.status(400).json({ error: "Invalid profileId" }); return; }
   const kpis = await db
     .select()
     .from(employeeKpisTable)
-    .where(eq(employeeKpisTable.userId, userId))
+    .where(eq(employeeKpisTable.profileId, profileId))
     .orderBy(employeeKpisTable.createdAt);
   res.json(kpis);
 });
@@ -254,10 +268,18 @@ router.post("/employee-kpis", requireAdmin, async (req, res): Promise<void> => {
   const parsed = KpiSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
+  // Resolve userId from profile for auto-computed metrics
+  const [profile] = await db
+    .select()
+    .from(employeeProfilesTable)
+    .where(eq(employeeProfilesTable.id, parsed.data.profileId));
+  const userId = profile?.userId ?? null;
+
   const [kpi] = await db
     .insert(employeeKpisTable)
     .values({
-      userId: parsed.data.userId,
+      profileId: parsed.data.profileId,
+      userId,
       name: parsed.data.name,
       metric: parsed.data.metric,
       targetValue: parsed.data.targetValue,
@@ -275,7 +297,7 @@ router.patch("/employee-kpis/:kpiId", requireAdmin, async (req, res): Promise<vo
   const kpiId = parseInt(req.params.kpiId);
   if (isNaN(kpiId)) { res.status(400).json({ error: "Invalid kpiId" }); return; }
 
-  const Schema = KpiSchema.partial().omit({ userId: true });
+  const Schema = KpiSchema.partial().omit({ profileId: true });
   const parsed = Schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
@@ -296,14 +318,13 @@ router.delete("/employee-kpis/:kpiId", requireAdmin, async (req, res): Promise<v
 });
 
 // ────────────────────────────────────────────────────────────────────────────
-// Monthly Report
+// Monthly Report  (by profileId)
 // ────────────────────────────────────────────────────────────────────────────
 
-router.get("/analytics/employee-report/:userId", async (req, res): Promise<void> => {
-  const userId = parseInt(req.params.userId);
-  if (isNaN(userId)) { res.status(400).json({ error: "Invalid userId" }); return; }
+router.get("/analytics/employee-report/:profileId", async (req, res): Promise<void> => {
+  const profileId = parseInt(req.params.profileId);
+  if (isNaN(profileId)) { res.status(400).json({ error: "Invalid profileId" }); return; }
 
-  // Determine month range
   const monthParam = (req.query.month as string) || "";
   let dateFrom: Date, dateTo: Date;
   if (monthParam) {
@@ -316,124 +337,121 @@ router.get("/analytics/employee-report/:userId", async (req, res): Promise<void>
     dateTo = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
   }
 
-  // Get user + profile
-  const [userRow] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
-  if (!userRow) { res.status(404).json({ error: "المستخدم غير موجود" }); return; }
-
-  const [profile] = await db
-    .select()
+  const [row] = await db
+    .select({ profile: employeeProfilesTable, user: usersTable })
     .from(employeeProfilesTable)
-    .where(eq(employeeProfilesTable.userId, userId));
+    .leftJoin(usersTable, eq(employeeProfilesTable.userId, usersTable.id))
+    .where(eq(employeeProfilesTable.id, profileId));
 
-  // Get KPIs
+  if (!row) { res.status(404).json({ error: "الموظف غير موجود" }); return; }
+
+  const profile = row.profile;
+  const userRow = row.user;
+  const userId = profile.userId;
+
   const kpis = await db
     .select()
     .from(employeeKpisTable)
-    .where(and(eq(employeeKpisTable.userId, userId), eq(employeeKpisTable.isActive, true)));
+    .where(and(eq(employeeKpisTable.profileId, profileId), eq(employeeKpisTable.isActive, true)));
 
-  // Compute order stats for the period
-  const orders = await db
-    .select()
-    .from(ordersTable)
-    .where(
-      and(
-        eq(ordersTable.assignedUserId, userId),
-        gte(ordersTable.createdAt, dateFrom),
-        lte(ordersTable.createdAt, dateTo)
-      )
-    );
+  // Order stats (only for system users)
+  let orderStats = {
+    total: 0, delivered: 0, returned: 0, pending: 0,
+    deliveryRate: 0, returnRate: 0, totalRevenue: 0, totalProfit: 0,
+  };
 
-  const delivered = orders.filter(
-    (o) => o.status === "received" || o.status === "partial_received"
-  ).length;
-  const returned = orders.filter((o) => o.status === "returned").length;
-  const pending = orders.filter(
-    (o) => o.status !== "received" && o.status !== "partial_received" && o.status !== "returned"
-  ).length;
-  const totalRevenue = orders
-    .filter((o) => o.status === "received" || o.status === "partial_received")
-    .reduce((s, o) => {
-      const rev =
-        o.status === "partial_received" && o.partialQuantity
-          ? o.unitPrice * o.partialQuantity
-          : o.totalPrice;
-      return s + rev;
-    }, 0);
-  const totalProfit = orders.reduce((s, o) => s + profitFromOrder(o), 0);
-  const deliveryRate = orders.length > 0 ? Math.round((delivered / orders.length) * 100) : 0;
-  const returnRate = orders.length > 0 ? Math.round((returned / orders.length) * 100) : 0;
+  if (userId) {
+    const orders = await db
+      .select()
+      .from(ordersTable)
+      .where(
+        and(
+          eq(ordersTable.assignedUserId, userId),
+          gte(ordersTable.createdAt, dateFrom),
+          lte(ordersTable.createdAt, dateTo)
+        )
+      );
 
-  // Evaluate KPIs
+    const delivered = orders.filter(
+      (o) => o.status === "received" || o.status === "partial_received"
+    ).length;
+    const returned = orders.filter((o) => o.status === "returned").length;
+    const pending = orders.filter(
+      (o) => o.status !== "received" && o.status !== "partial_received" && o.status !== "returned"
+    ).length;
+    const totalRevenue = orders
+      .filter((o) => o.status === "received" || o.status === "partial_received")
+      .reduce((s, o) => {
+        const rev =
+          o.status === "partial_received" && o.partialQuantity
+            ? o.unitPrice * o.partialQuantity
+            : o.totalPrice;
+        return s + rev;
+      }, 0);
+    const totalProfit = orders.reduce((s, o) => s + profitFromOrder(o), 0);
+    orderStats = {
+      total: orders.length,
+      delivered,
+      returned,
+      pending,
+      deliveryRate: orders.length > 0 ? Math.round((delivered / orders.length) * 100) : 0,
+      returnRate: orders.length > 0 ? Math.round((returned / orders.length) * 100) : 0,
+      totalRevenue,
+      totalProfit,
+    };
+  }
+
   const evaluatedKpis = await Promise.all(
     kpis.map(async (kpi) => {
-      const actualValue = await computeActualValue(kpi.metric, userId, dateFrom, dateTo);
+      const actualValue = userId
+        ? await computeActualValue(kpi.metric, userId, dateFrom, dateTo)
+        : kpi.metric === "manual" ? null : 0;
       const score =
         actualValue !== null
           ? computeKpiScore(actualValue, kpi.targetValue, kpi.direction)
           : null;
       const achieved =
         score !== null ? (kpi.direction === "lower_is_better" ? score >= 70 : score >= 80) : null;
-
-      return {
-        ...kpi,
-        actualValue,
-        score,
-        achieved,
-      };
+      return { ...kpi, actualValue, score, achieved };
     })
   );
 
-  // Compute overall score (weighted average of non-null scores)
   const scoredKpis = evaluatedKpis.filter((k) => k.score !== null);
   let overallScore: number | null = null;
   if (scoredKpis.length > 0) {
     const totalWeight = scoredKpis.reduce((s, k) => s + k.weight, 0);
     overallScore =
       totalWeight > 0
-        ? Math.round(
-            scoredKpis.reduce((s, k) => s + k.score! * k.weight, 0) / totalWeight
-          )
+        ? Math.round(scoredKpis.reduce((s, k) => s + k.score! * k.weight, 0) / totalWeight)
         : null;
   }
 
   const rating =
-    overallScore === null
-      ? "غير محدد"
-      : overallScore >= 90
-      ? "ممتاز"
-      : overallScore >= 75
-      ? "جيد جداً"
-      : overallScore >= 60
-      ? "جيد"
-      : overallScore >= 40
-      ? "مقبول"
-      : "ضعيف";
+    overallScore === null ? "غير محدد"
+    : overallScore >= 90 ? "ممتاز"
+    : overallScore >= 75 ? "جيد جداً"
+    : overallScore >= 60 ? "جيد"
+    : overallScore >= 40 ? "مقبول"
+    : "ضعيف";
 
   res.json({
-    userId,
-    username: userRow.username,
-    displayName: userRow.displayName,
-    role: userRow.role,
-    profile: profile ?? null,
+    profileId,
+    userId: userId ?? null,
+    username: userRow?.username ?? null,
+    displayName: profile.displayName ?? userRow?.displayName ?? "—",
+    role: userRow?.role ?? "team_only",
+    isSystemUser: userRow !== null,
+    profile,
     period: {
       month: monthParam || `${dateFrom.getFullYear()}-${String(dateFrom.getMonth() + 1).padStart(2, "0")}`,
       from: dateFrom.toISOString(),
       to: dateTo.toISOString(),
     },
-    orderStats: {
-      total: orders.length,
-      delivered,
-      returned,
-      pending,
-      deliveryRate,
-      returnRate,
-      totalRevenue,
-      totalProfit,
-    },
+    orderStats,
     kpis: evaluatedKpis,
     overallScore,
     rating,
-    salary: profile?.monthlySalary ?? 0,
+    salary: profile.monthlySalary ?? 0,
   });
 });
 
@@ -441,32 +459,36 @@ router.get("/analytics/employee-report/:userId", async (req, res): Promise<void>
 router.get("/users-without-profile", async (req, res): Promise<void> => {
   const allUsers = await db.select().from(usersTable).where(eq(usersTable.isActive, true));
   const profiles = await db.select().from(employeeProfilesTable);
-  const profiledUserIds = new Set(profiles.map((p) => p.userId));
+  const profiledUserIds = new Set(profiles.map((p) => p.userId).filter(Boolean));
   const unprofiledUsers = allUsers.filter((u) => !profiledUserIds.has(u.id));
   res.json(unprofiledUsers);
 });
 
 // ────────────────────────────────────────────────────────────────────────────
-// Daily Logs
+// Daily Logs  (all keyed by profileId)
 // ────────────────────────────────────────────────────────────────────────────
 
-// GET /employee-daily-logs/:userId?date=YYYY-MM-DD
-// Returns daily logs + auto-computed values for the given date
-router.get("/employee-daily-logs/:userId", async (req, res): Promise<void> => {
-  const userId = parseInt(req.params.userId);
-  if (isNaN(userId)) { res.status(400).json({ error: "Invalid userId" }); return; }
+router.get("/employee-daily-logs/:profileId", async (req, res): Promise<void> => {
+  const profileId = parseInt(req.params.profileId);
+  if (isNaN(profileId)) { res.status(400).json({ error: "Invalid profileId" }); return; }
 
   const date = (req.query.date as string) || new Date().toISOString().slice(0, 10);
-
   const dayStart = new Date(`${date}T00:00:00.000Z`);
   const dayEnd = new Date(`${date}T23:59:59.999Z`);
 
+  // Get userId from profile for auto-computed metrics
+  const [profile] = await db
+    .select()
+    .from(employeeProfilesTable)
+    .where(eq(employeeProfilesTable.id, profileId));
+  const userId = profile?.userId ?? null;
+
   const [kpis, logs] = await Promise.all([
     db.select().from(employeeKpisTable).where(
-      and(eq(employeeKpisTable.userId, userId), eq(employeeKpisTable.isActive, true))
+      and(eq(employeeKpisTable.profileId, profileId), eq(employeeKpisTable.isActive, true))
     ),
     db.select().from(employeeDailyLogsTable).where(
-      and(eq(employeeDailyLogsTable.userId, userId), eq(employeeDailyLogsTable.date, date))
+      and(eq(employeeDailyLogsTable.profileId, profileId), eq(employeeDailyLogsTable.date, date))
     ),
   ]);
 
@@ -476,7 +498,7 @@ router.get("/employee-daily-logs/:userId", async (req, res): Promise<void> => {
     kpis.map(async (kpi) => {
       const log = logsMap.get(kpi.id);
       let autoValue: number | null = null;
-      if (kpi.metric !== "manual") {
+      if (kpi.metric !== "manual" && userId) {
         autoValue = await computeActualValue(kpi.metric, userId, dayStart, dayEnd);
       }
       const actualValue = kpi.metric === "manual" ? (log?.value ?? null) : autoValue;
@@ -487,7 +509,6 @@ router.get("/employee-daily-logs/:userId", async (req, res): Promise<void> => {
       const achieved = score !== null
         ? (kpi.direction === "lower_is_better" ? actualValue! <= dailyTarget : actualValue! >= dailyTarget)
         : null;
-
       return {
         ...kpi,
         date,
@@ -504,11 +525,9 @@ router.get("/employee-daily-logs/:userId", async (req, res): Promise<void> => {
   res.json({ date, kpis: result });
 });
 
-// GET /employee-daily-logs/:userId/week?date=YYYY-MM-DD
-// Returns last 7 days summary for each KPI
-router.get("/employee-daily-logs/:userId/week", async (req, res): Promise<void> => {
-  const userId = parseInt(req.params.userId);
-  if (isNaN(userId)) { res.status(400).json({ error: "Invalid userId" }); return; }
+router.get("/employee-daily-logs/:profileId/week", async (req, res): Promise<void> => {
+  const profileId = parseInt(req.params.profileId);
+  if (isNaN(profileId)) { res.status(400).json({ error: "Invalid profileId" }); return; }
 
   const endDate = (req.query.date as string) || new Date().toISOString().slice(0, 10);
   const end = new Date(endDate);
@@ -520,26 +539,31 @@ router.get("/employee-daily-logs/:userId/week", async (req, res): Promise<void> 
     dates.push(d.toISOString().slice(0, 10));
   }
 
+  const [profile] = await db
+    .select()
+    .from(employeeProfilesTable)
+    .where(eq(employeeProfilesTable.id, profileId));
+  const userId = profile?.userId ?? null;
+
   const kpis = await db.select().from(employeeKpisTable).where(
-    and(eq(employeeKpisTable.userId, userId), eq(employeeKpisTable.isActive, true))
+    and(eq(employeeKpisTable.profileId, profileId), eq(employeeKpisTable.isActive, true))
   );
 
   const logs = await db.select().from(employeeDailyLogsTable).where(
     and(
-      eq(employeeDailyLogsTable.userId, userId),
+      eq(employeeDailyLogsTable.profileId, profileId),
       gte(employeeDailyLogsTable.date, dates[0]),
       lte(employeeDailyLogsTable.date, endDate)
     )
   );
 
-  // For each KPI, build a week array
   const kpiWeeks = await Promise.all(
     kpis.map(async (kpi) => {
       const weekDays = await Promise.all(
         dates.map(async (date) => {
           const log = logs.find(l => l.kpiId === kpi.id && l.date === date);
           let actualValue: number | null = null;
-          if (kpi.metric !== "manual") {
+          if (kpi.metric !== "manual" && userId) {
             const dayStart = new Date(`${date}T00:00:00.000Z`);
             const dayEnd = new Date(`${date}T23:59:59.999Z`);
             actualValue = await computeActualValue(kpi.metric, userId, dayStart, dayEnd);
@@ -560,9 +584,8 @@ router.get("/employee-daily-logs/:userId/week", async (req, res): Promise<void> 
   res.json({ dates, kpiWeeks });
 });
 
-// POST /employee-daily-logs — upsert a daily log
 const DailyLogSchema = z.object({
-  userId: z.number().int().positive(),
+  profileId: z.number().int().positive(),
   kpiId: z.number().int().positive(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   value: z.number(),
@@ -573,14 +596,21 @@ router.post("/employee-daily-logs", async (req, res): Promise<void> => {
   const parsed = DailyLogSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
-  const { userId, kpiId, date, value, notes } = parsed.data;
+  const { profileId, kpiId, date, value, notes } = parsed.data;
+
+  // Resolve userId from profile
+  const [profile] = await db
+    .select()
+    .from(employeeProfilesTable)
+    .where(eq(employeeProfilesTable.id, profileId));
+  const userId = profile?.userId ?? null;
 
   const [existing] = await db
     .select()
     .from(employeeDailyLogsTable)
     .where(
       and(
-        eq(employeeDailyLogsTable.userId, userId),
+        eq(employeeDailyLogsTable.profileId, profileId),
         eq(employeeDailyLogsTable.kpiId, kpiId),
         eq(employeeDailyLogsTable.date, date)
       )
@@ -596,7 +626,7 @@ router.post("/employee-daily-logs", async (req, res): Promise<void> => {
   } else {
     const [created] = await db
       .insert(employeeDailyLogsTable)
-      .values({ userId, kpiId, date, value, notes: notes ?? null })
+      .values({ profileId, userId, kpiId, date, value, notes: notes ?? null })
       .returning();
     res.status(201).json(created);
   }
