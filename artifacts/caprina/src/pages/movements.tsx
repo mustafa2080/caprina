@@ -30,12 +30,12 @@ const REASON_LABELS: Record<MovementReason, string> = {
 };
 
 const REASON_COLORS: Record<MovementReason, string> = {
-  sale:         "bg-emerald-900/30 text-emerald-400 border-emerald-800",
-  partial_sale: "bg-purple-900/30 text-purple-400 border-purple-800",
-  return:       "bg-red-900/30 text-red-400 border-red-800",
-  manual_in:    "bg-sky-900/30 text-sky-400 border-sky-800",
-  manual_out:   "bg-orange-900/30 text-orange-400 border-orange-800",
-  adjustment:   "bg-zinc-800 text-zinc-400 border-zinc-700",
+  sale:         "bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800",
+  partial_sale: "bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800",
+  return:       "bg-red-100 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800",
+  manual_in:    "bg-sky-100 text-sky-700 border-sky-300 dark:bg-sky-900/30 dark:text-sky-400 dark:border-sky-800",
+  manual_out:   "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800",
+  adjustment:   "bg-muted text-muted-foreground border-border",
 };
 
 const formatQty = (type: MovementType, qty: number) =>
@@ -159,34 +159,34 @@ export default function Movements() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="border-emerald-900 bg-emerald-900/10">
+        <Card className="border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-900/10">
           <CardContent className="p-4 flex items-center gap-3">
-            <ArrowDownCircle className="w-8 h-8 text-emerald-500 shrink-0" />
+            <ArrowDownCircle className="w-8 h-8 text-emerald-600 dark:text-emerald-500 shrink-0" />
             <div>
-              <p className="text-[10px] text-emerald-400 uppercase tracking-widest font-bold">إجمالي الداخل</p>
-              <p className="text-2xl font-bold text-emerald-300">{formatNum(totals?.totalIn ?? 0)}</p>
+              <p className="text-[10px] text-emerald-700 dark:text-emerald-400 uppercase tracking-widest font-bold">إجمالي الداخل</p>
+              <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{formatNum(totals?.totalIn ?? 0)}</p>
               <p className="text-[10px] text-muted-foreground">وحدة</p>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-red-900 bg-red-900/10">
+        <Card className="border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-900/10">
           <CardContent className="p-4 flex items-center gap-3">
             <ArrowUpCircle className="w-8 h-8 text-red-500 shrink-0" />
             <div>
-              <p className="text-[10px] text-red-400 uppercase tracking-widest font-bold">إجمالي الخارج</p>
-              <p className="text-2xl font-bold text-red-300">{formatNum(totals?.totalOut ?? 0)}</p>
+              <p className="text-[10px] text-red-700 dark:text-red-400 uppercase tracking-widest font-bold">إجمالي الخارج</p>
+              <p className="text-2xl font-bold text-red-700 dark:text-red-300">{formatNum(totals?.totalOut ?? 0)}</p>
               <p className="text-[10px] text-muted-foreground">وحدة</p>
             </div>
           </CardContent>
         </Card>
 
-        <Card className={`border-${(totals?.balance ?? 0) >= 0 ? "sky" : "orange"}-900 bg-${(totals?.balance ?? 0) >= 0 ? "sky" : "orange"}-900/10`}>
+        <Card className={(totals?.balance ?? 0) >= 0 ? "border-sky-200 dark:border-sky-900 bg-sky-50 dark:bg-sky-900/10" : "border-orange-200 dark:border-orange-900 bg-orange-50 dark:bg-orange-900/10"}>
           <CardContent className="p-4 flex items-center gap-3">
             <BarChart3 className={`w-8 h-8 ${(totals?.balance ?? 0) >= 0 ? "text-sky-500" : "text-orange-500"} shrink-0`} />
             <div>
-              <p className={`text-[10px] ${(totals?.balance ?? 0) >= 0 ? "text-sky-400" : "text-orange-400"} uppercase tracking-widest font-bold`}>الرصيد</p>
-              <p className={`text-2xl font-bold ${(totals?.balance ?? 0) >= 0 ? "text-sky-300" : "text-orange-300"}`}>
+              <p className={`text-[10px] ${(totals?.balance ?? 0) >= 0 ? "text-sky-700 dark:text-sky-400" : "text-orange-700 dark:text-orange-400"} uppercase tracking-widest font-bold`}>الرصيد</p>
+              <p className={`text-2xl font-bold ${(totals?.balance ?? 0) >= 0 ? "text-sky-700 dark:text-sky-300" : "text-orange-700 dark:text-orange-300"}`}>
                 {formatNum(totals?.balance ?? 0)}
               </p>
               <p className="text-[10px] text-muted-foreground">وحدة</p>
@@ -296,13 +296,13 @@ export default function Movements() {
                     <TableCell className="text-center">
                       {m.type === "IN" ? (
                         <div className="flex items-center justify-center gap-1">
-                          <TrendingDown className="w-3.5 h-3.5 text-emerald-400" />
-                          <span className="text-[10px] font-bold text-emerald-400">دخول</span>
+                          <TrendingDown className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                          <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">دخول</span>
                         </div>
                       ) : (
                         <div className="flex items-center justify-center gap-1">
-                          <TrendingUp className="w-3.5 h-3.5 text-red-400" />
-                          <span className="text-[10px] font-bold text-red-400">خروج</span>
+                          <TrendingUp className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
+                          <span className="text-[10px] font-bold text-red-600 dark:text-red-400">خروج</span>
                         </div>
                       )}
                     </TableCell>
@@ -316,7 +316,7 @@ export default function Movements() {
                       ) : "—"}
                     </TableCell>
                     <TableCell className="text-center">
-                      <span className={`font-bold text-sm ${m.type === "IN" ? "text-emerald-400" : "text-red-400"}`}>
+                      <span className={`font-bold text-sm ${m.type === "IN" ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
                         {formatQty(m.type, m.quantity)}
                       </span>
                     </TableCell>

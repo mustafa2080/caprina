@@ -45,12 +45,12 @@ function ProductRow({ p, maxProfit, maxLoss, sort }: {
         <div className="flex items-center gap-2 mb-1">
           <span className="text-sm font-bold text-foreground truncate">{p.name}</span>
           {p.returnRate >= 30 && (
-            <Badge variant="outline" className="text-[9px] border-red-800 text-red-400 shrink-0">
+            <Badge variant="outline" className="text-[9px] border-red-400 text-red-700 dark:border-red-800 dark:text-red-400 shrink-0">
               {p.returnRate}% مرتجع
             </Badge>
           )}
           {isLosing && (
-            <Badge variant="outline" className="text-[9px] border-red-800 text-red-400 shrink-0">خاسر</Badge>
+            <Badge variant="outline" className="text-[9px] border-red-400 text-red-700 dark:border-red-800 dark:text-red-400 shrink-0">خاسر</Badge>
           )}
           {p.margin >= 40 && !isLosing && (
             <Badge variant="outline" className="text-[9px] border-primary text-primary shrink-0">هامش ممتاز</Badge>
@@ -60,7 +60,7 @@ function ProductRow({ p, maxProfit, maxLoss, sort }: {
           <span>{p.totalOrders} طلب</span>
           <span>·</span>
           <span>{p.totalSalesQty} وحدة مباعة</span>
-          {p.returnCount > 0 && <><span>·</span><span className="text-red-400">{p.returnCount} مرتجع</span></>}
+          {p.returnCount > 0 && <><span>·</span><span className="text-red-600 dark:text-red-400">{p.returnCount} مرتجع</span></>}
           <span>·</span>
           <span>هامش {pct(p.margin)}</span>
           <span>·</span>
@@ -70,12 +70,12 @@ function ProductRow({ p, maxProfit, maxLoss, sort }: {
       </div>
 
       <div className="text-left shrink-0 flex flex-col items-end justify-center gap-0.5">
-        <p className={`text-base font-black ${isLosing ? "text-red-400" : "text-primary"}`}>
+        <p className={`text-base font-black ${isLosing ? "text-red-600 dark:text-red-400" : "text-primary"}`}>
           {fc(p.netProfit)}
         </p>
         <p className="text-[9px] text-muted-foreground">إيرادات {fc(p.totalRevenue)}</p>
         {p.returnCostLoss > 0 && (
-          <p className="text-[9px] text-red-400/70">خسارة مرتجع {fc(p.returnCostLoss)}</p>
+          <p className="text-[9px] text-red-600/70 dark:text-red-400/70">خسارة مرتجع {fc(p.returnCostLoss)}</p>
         )}
       </div>
     </div>
@@ -113,7 +113,7 @@ export default function ProductPerformancePage() {
 
   if (error || !data) {
     return (
-      <div className="flex items-center justify-center h-64 text-red-400 text-sm">
+      <div className="flex items-center justify-center h-64 text-red-600 dark:text-red-400 text-sm">
         خطأ في تحميل البيانات
       </div>
     );
@@ -156,13 +156,13 @@ export default function ProductPerformancePage() {
         <Card className="border-border bg-card">
           <CardContent className="p-4">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">منتجات خاسرة</p>
-            <p className="text-2xl font-black text-red-400">{data.summary.losingCount}</p>
+            <p className="text-2xl font-black text-red-600 dark:text-red-400">{data.summary.losingCount}</p>
           </CardContent>
         </Card>
         <Card className="border-border bg-card">
           <CardContent className="p-4">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">مرتجعات عالية</p>
-            <p className="text-2xl font-black text-amber-400">{data.summary.highReturnCount}</p>
+            <p className="text-2xl font-black text-amber-700 dark:text-amber-400">{data.summary.highReturnCount}</p>
           </CardContent>
         </Card>
       </div>
@@ -244,7 +244,7 @@ export default function ProductPerformancePage() {
                     <td className="px-4 py-2.5">
                       <div className="flex items-center gap-1.5">
                         {isLosing
-                          ? <TrendingDown className="w-3 h-3 text-red-400 shrink-0" />
+                          ? <TrendingDown className="w-3 h-3 text-red-600 dark:text-red-400 shrink-0" />
                           : <TrendingUp className="w-3 h-3 text-primary shrink-0" />
                         }
                         <span className="font-semibold text-foreground">{p.name}</span>
@@ -253,24 +253,24 @@ export default function ProductPerformancePage() {
                     <td className="px-3 py-2.5 text-center text-muted-foreground">{p.totalOrders}</td>
                     <td className="px-3 py-2.5 text-center text-muted-foreground">{p.totalSalesQty}</td>
                     <td className="px-3 py-2.5 text-center">
-                      <span className={p.returnRate >= 30 ? "text-red-400 font-bold" : "text-muted-foreground"}>
+                      <span className={p.returnRate >= 30 ? "text-red-600 dark:text-red-400 font-bold" : "text-muted-foreground"}>
                         {p.returnRate}%
                       </span>
                     </td>
                     <td className="px-3 py-2.5 text-left text-foreground">{fc(p.totalRevenue)}</td>
                     <td className="px-3 py-2.5 text-left text-muted-foreground">{fc(p.totalCost + p.totalShipping)}</td>
                     <td className="px-3 py-2.5 text-left">
-                      <span className={`font-bold ${isLosing ? "text-red-400" : "text-primary"}`}>
+                      <span className={`font-bold ${isLosing ? "text-red-600 dark:text-red-400" : "text-primary"}`}>
                         {fc(p.netProfit)}
                       </span>
                     </td>
                     <td className="px-3 py-2.5 text-center">
-                      <span className={p.margin < 10 ? "text-amber-400" : p.margin >= 40 ? "text-primary font-bold" : "text-muted-foreground"}>
+                      <span className={p.margin < 10 ? "text-amber-700 dark:text-amber-400" : p.margin >= 40 ? "text-primary font-bold" : "text-muted-foreground"}>
                         {p.margin}%
                       </span>
                     </td>
                     <td className="px-3 py-2.5 text-center">
-                      <span className={p.roi < 0 ? "text-red-400" : "text-muted-foreground"}>
+                      <span className={p.roi < 0 ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}>
                         {p.roi}%
                       </span>
                     </td>

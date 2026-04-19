@@ -34,7 +34,7 @@ function MemberCard({ member, rank, maxProfit, showProfit }: { member: TeamMembe
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0
-              ${rank === 1 ? "bg-yellow-500/20 text-yellow-400" : rank === 2 ? "bg-zinc-400/20 text-zinc-400" : rank === 3 ? "bg-orange-700/20 text-orange-500" : "bg-muted/20 text-muted-foreground"}`}>
+              ${rank === 1 ? "bg-yellow-500/20 text-yellow-600 dark:text-yellow-400" : rank === 2 ? "bg-muted/40 text-muted-foreground" : rank === 3 ? "bg-orange-500/20 text-orange-700 dark:text-orange-500" : "bg-muted/20 text-muted-foreground"}`}>
               {rank === 1 ? <Trophy className="w-3.5 h-3.5" /> : `#${rank}`}
             </div>
             <div>
@@ -47,7 +47,7 @@ function MemberCard({ member, rank, maxProfit, showProfit }: { member: TeamMembe
           {showProfit && (
             <Badge
               variant="outline"
-              className={`text-[9px] font-bold ${member.profit >= 0 ? "border-emerald-800 text-emerald-400" : "border-red-800 text-red-400"}`}
+              className={`text-[9px] font-bold ${member.profit >= 0 ? "border-emerald-500 text-emerald-700 dark:border-emerald-800 dark:text-emerald-400" : "border-red-500 text-red-700 dark:border-red-800 dark:text-red-400"}`}
             >
               {fmt(member.profit)}
             </Badge>
@@ -62,26 +62,26 @@ function MemberCard({ member, rank, maxProfit, showProfit }: { member: TeamMembe
             <p className="text-sm font-bold">{fmtNum(member.total)}</p>
             <p className="text-[9px] text-muted-foreground">إجمالي</p>
           </div>
-          <div className="bg-emerald-900/20 rounded p-2">
-            <p className="text-sm font-bold text-emerald-400">{fmtNum(member.delivered)}</p>
+          <div className="bg-emerald-100 dark:bg-emerald-900/20 rounded p-2">
+            <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{fmtNum(member.delivered)}</p>
             <p className="text-[9px] text-muted-foreground">مُسلَّم</p>
           </div>
-          <div className="bg-red-900/20 rounded p-2">
-            <p className="text-sm font-bold text-red-400">{fmtNum(member.returned)}</p>
+          <div className="bg-red-100 dark:bg-red-900/20 rounded p-2">
+            <p className="text-sm font-bold text-red-600 dark:text-red-400">{fmtNum(member.returned)}</p>
             <p className="text-[9px] text-muted-foreground">مُرتجَع</p>
           </div>
           <div className="bg-muted/20 rounded p-2">
-            <p className="text-sm font-bold text-amber-400">{fmtNum(member.pending)}</p>
+            <p className="text-sm font-bold text-amber-700 dark:text-amber-400">{fmtNum(member.pending)}</p>
             <p className="text-[9px] text-muted-foreground">معلّق</p>
           </div>
         </div>
 
         <div className="flex items-center justify-between text-xs">
-          <div className="flex items-center gap-1 text-emerald-400">
+          <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
             <TrendingUp className="w-3 h-3" />
             <span>نسبة التسليم: <strong>{member.deliveryRate}%</strong></span>
           </div>
-          <div className="flex items-center gap-1 text-red-400">
+          <div className="flex items-center gap-1 text-red-600 dark:text-red-400">
             <RotateCcw className="w-3 h-3" />
             <span>نسبة الرجوع: <strong>{member.returnRate}%</strong></span>
           </div>
@@ -136,9 +136,9 @@ export default function TeamPerformancePage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
           { label: "إجمالي الطلبات", value: fmtNum(totalOrders), icon: Package, color: "text-primary", adminOnly: false },
-          { label: "مُسلَّم", value: fmtNum(totalDelivered), icon: TrendingUp, color: "text-emerald-400", adminOnly: false },
-          { label: "مُرتجَع", value: fmtNum(totalReturned), icon: TrendingDown, color: "text-red-400", adminOnly: false },
-          { label: "إجمالي الربح", value: fmt(members.reduce((s, m) => s + m.profit, 0)), icon: Trophy, color: "text-yellow-400", adminOnly: true },
+          { label: "مُسلَّم", value: fmtNum(totalDelivered), icon: TrendingUp, color: "text-emerald-600 dark:text-emerald-400", adminOnly: false },
+          { label: "مُرتجَع", value: fmtNum(totalReturned), icon: TrendingDown, color: "text-red-600 dark:text-red-400", adminOnly: false },
+          { label: "إجمالي الربح", value: fmt(members.reduce((s, m) => s + m.profit, 0)), icon: Trophy, color: "text-yellow-600 dark:text-yellow-400", adminOnly: true },
         ].filter(c => !c.adminOnly || canViewFinancials).map(card => (
           <Card key={card.label} className="border-border bg-card">
             <CardContent className="px-4 py-3 flex items-center gap-3">
@@ -182,10 +182,10 @@ export default function TeamPerformancePage() {
                 </div>
               </div>
               <div className="flex items-center gap-3 text-xs">
-                <span className="text-emerald-400">{fmtNum(unassigned.delivered)} مسلَّم</span>
-                <span className="text-red-400">{fmtNum(unassigned.returned)} مرتجع</span>
+                <span className="text-emerald-600 dark:text-emerald-400">{fmtNum(unassigned.delivered)} مسلَّم</span>
+                <span className="text-red-600 dark:text-red-400">{fmtNum(unassigned.returned)} مرتجع</span>
                 {canViewFinancials && (
-                  <Badge variant="outline" className={`text-[10px] ${unassigned.profit >= 0 ? "text-emerald-400 border-emerald-800" : "text-red-400 border-red-800"}`}>
+                  <Badge variant="outline" className={`text-[10px] ${unassigned.profit >= 0 ? "text-emerald-700 dark:text-emerald-400 border-emerald-500 dark:border-emerald-800" : "text-red-700 dark:text-red-400 border-red-500 dark:border-red-800"}`}>
                     {fmt(unassigned.profit)}
                   </Badge>
                 )}

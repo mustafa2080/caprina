@@ -197,7 +197,7 @@ export default function OrderForm() {
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-bold">المنتج والمقاس</CardTitle>
                     {selectedVariant && (
-                      <Badge variant="outline" className={`text-[9px] font-bold border ${availableQty !== null && availableQty <= selectedVariant.lowStockThreshold ? "border-red-800 text-red-400" : "border-emerald-800 text-emerald-400"}`}>
+                      <Badge variant="outline" className={`text-[9px] font-bold border ${availableQty !== null && availableQty <= selectedVariant.lowStockThreshold ? "border-red-400 text-red-700 dark:border-red-800 dark:text-red-400" : "border-emerald-400 text-emerald-700 dark:border-emerald-800 dark:text-emerald-400"}`}>
                         متاح: {availableQty ?? 0}
                       </Badge>
                     )}
@@ -327,10 +327,10 @@ export default function OrderForm() {
 
               {/* Cost & Profit — admin only */}
               {canViewFinancials && (
-                <Card className="border-emerald-900/40 bg-emerald-900/5">
+                <Card className="border-emerald-200 dark:border-emerald-900/40 bg-emerald-50 dark:bg-emerald-900/5">
                   <CardHeader className="pb-2 pt-4 px-4 border-b border-border">
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
-                      <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
+                      <DollarSign className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                       بيانات التكلفة والربح
                     </CardTitle>
                   </CardHeader>
@@ -361,11 +361,11 @@ export default function OrderForm() {
                         </div>
                         <div>
                           <p className="text-[9px] text-muted-foreground">التكلفة الكلية</p>
-                          <p className="text-xs font-bold text-amber-400">{formatCurrency(cost + shippingCost)}</p>
+                          <p className="text-xs font-bold text-amber-700 dark:text-amber-400">{formatCurrency(cost + shippingCost)}</p>
                         </div>
                         <div>
                           <p className="text-[9px] text-muted-foreground">الربح الصافي</p>
-                          <p className={`text-xs font-bold ${netProfit >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                          <p className={`text-xs font-bold ${netProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
                             {formatCurrency(netProfit)}
                           </p>
                         </div>
@@ -462,16 +462,16 @@ export default function OrderForm() {
                     </div>
                     {canViewFinancials && costPrice > 0 && (
                       <>
-                        <div className="flex justify-between"><span className="text-muted-foreground">التكلفة</span><span className="text-amber-400">-{formatCurrency(cost)}</span></div>
-                        {shippingCost > 0 && <div className="flex justify-between"><span className="text-muted-foreground">الشحن</span><span className="text-amber-400">-{formatCurrency(shippingCost)}</span></div>}
+                        <div className="flex justify-between"><span className="text-muted-foreground">التكلفة</span><span className="text-amber-700 dark:text-amber-400">-{formatCurrency(cost)}</span></div>
+                        {shippingCost > 0 && <div className="flex justify-between"><span className="text-muted-foreground">الشحن</span><span className="text-amber-700 dark:text-amber-400">-{formatCurrency(shippingCost)}</span></div>}
                         <div className="border-t border-border pt-2 flex justify-between">
                           <span className="font-bold">الربح الصافي</span>
-                          <span className={`font-bold text-base ${netProfit >= 0 ? "text-emerald-400" : "text-red-400"}`}>{formatCurrency(netProfit)}</span>
+                          <span className={`font-bold text-base ${netProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>{formatCurrency(netProfit)}</span>
                         </div>
                         {revenue > 0 && (
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">هامش الربح</span>
-                            <span className={`font-bold ${margin >= 20 ? "text-emerald-400" : margin >= 10 ? "text-amber-400" : "text-red-400"}`}>{margin}%</span>
+                            <span className={`font-bold ${margin >= 20 ? "text-emerald-600 dark:text-emerald-400" : margin >= 10 ? "text-amber-700 dark:text-amber-400" : "text-red-600 dark:text-red-400"}`}>{margin}%</span>
                           </div>
                         )}
                       </>

@@ -416,7 +416,7 @@ function SettlementCard({ manifest }: { manifest: ShippingManifestDetail }) {
         <Receipt className="w-4 h-4 text-primary" />
         <h2 className="font-bold text-sm">بيان التسوية — الحساب مع شركة الشحن</h2>
         {manifest.status === "closed" && (
-          <Badge variant="outline" className="text-[9px] border-emerald-700 bg-emerald-900/20 text-emerald-400 mr-auto">
+          <Badge variant="outline" className="text-[9px] border-emerald-500 bg-emerald-100 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 mr-auto">
             مُغلق
           </Badge>
         )}
@@ -425,12 +425,12 @@ function SettlementCard({ manifest }: { manifest: ShippingManifestDetail }) {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
         <div className="bg-card rounded-md p-3 border border-border">
           <p className="text-[10px] text-muted-foreground mb-1">إجمالي المسلَّم</p>
-          <p className="text-base font-black text-emerald-400">{formatCurrency(deliveredTotal)}</p>
-          <p className="text-[10px] text-emerald-600">{s.delivered} طلبية</p>
+          <p className="text-base font-black text-emerald-600 dark:text-emerald-400">{formatCurrency(deliveredTotal)}</p>
+          <p className="text-[10px] text-emerald-700 dark:text-emerald-600">{s.delivered} طلبية</p>
         </div>
         <div className="bg-card rounded-md p-3 border border-border">
           <p className="text-[10px] text-muted-foreground mb-1">رسوم الشحن</p>
-          <p className="text-base font-black text-amber-400">−{formatCurrency(s.totalShippingCost)}</p>
+          <p className="text-base font-black text-amber-700 dark:text-amber-400">−{formatCurrency(s.totalShippingCost)}</p>
           <p className="text-[10px] text-amber-600">مُخصومة</p>
         </div>
         <div className="bg-card rounded-md p-3 border border-border">
@@ -453,12 +453,12 @@ function SettlementCard({ manifest }: { manifest: ShippingManifestDetail }) {
 
       {/* Balance */}
       {balance !== null && (
-        <div className={`rounded-md p-3 border flex items-center justify-between ${balance >= 0 ? "border-emerald-700 bg-emerald-900/10" : "border-red-700 bg-red-900/10"}`}>
+        <div className={`rounded-md p-3 border flex items-center justify-between ${balance >= 0 ? "border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-900/10" : "border-red-300 bg-red-50 dark:border-red-700 dark:bg-red-900/10"}`}>
           <div>
-            <p className={`text-xs font-bold mb-0.5 ${balance >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+            <p className={`text-xs font-bold mb-0.5 ${balance >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400"}`}>
               {balance >= 0 ? "✓ فرق لصالحنا" : "⚠ فرق على حسابنا"}
             </p>
-            <p className={`text-xl font-black ${balance >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+            <p className={`text-xl font-black ${balance >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
               {formatCurrency(Math.abs(balance))}
             </p>
             <p className="text-[10px] text-muted-foreground mt-0.5">
@@ -466,8 +466,8 @@ function SettlementCard({ manifest }: { manifest: ShippingManifestDetail }) {
             </p>
           </div>
           {balance >= 0
-            ? <TrendingUp className="w-10 h-10 text-emerald-400 opacity-20" />
-            : <AlertTriangle className="w-10 h-10 text-red-400 opacity-20" />}
+            ? <TrendingUp className="w-10 h-10 text-emerald-500 dark:text-emerald-400 opacity-20" />
+            : <AlertTriangle className="w-10 h-10 text-red-500 dark:text-red-400 opacity-20" />}
         </div>
       )}
 
@@ -501,16 +501,16 @@ function CloseConfirmDialog({
       <DialogContent className="bg-card border-border max-w-md" dir="rtl">
         <DialogHeader>
           <DialogTitle className="text-right flex items-center gap-2">
-            <Lock className="w-4 h-4 text-emerald-400" />
+            <Lock className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
             إغلاق البيان {manifest.manifestNumber}
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-3 mt-2">
           {pendingCount > 0 && (
-            <div className="flex items-start gap-2 p-3 rounded-md bg-amber-900/20 border border-amber-700">
-              <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
-              <p className="text-xs text-amber-400">
+            <div className="flex items-start gap-2 p-3 rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700">
+              <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+              <p className="text-xs text-amber-700 dark:text-amber-400">
                 يوجد <strong>{pendingCount}</strong> طلبية لم يُحدَّد وضعها بعد. هل تريد الإغلاق رغم ذلك؟
               </p>
             </div>

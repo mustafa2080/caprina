@@ -45,9 +45,9 @@ const emptyVariantForm = { color: "", size: "", sku: "", totalQuantity: 0, lowSt
 // ─── Margin Badge ─────────────────────────────────────────────────────────────
 function MarginBadge({ margin }: { margin: number | null }) {
   if (margin === null) return <span className="text-muted-foreground">—</span>;
-  const cls = margin >= 40 ? "border-emerald-800 text-emerald-400 bg-emerald-900/20"
-    : margin >= 20 ? "border-amber-800 text-amber-400 bg-amber-900/20"
-    : "border-red-800 text-red-400 bg-red-900/20";
+  const cls = margin >= 40 ? "border-emerald-400 text-emerald-700 bg-emerald-100 dark:border-emerald-800 dark:text-emerald-400 dark:bg-emerald-900/20"
+    : margin >= 20 ? "border-amber-400 text-amber-700 bg-amber-100 dark:border-amber-800 dark:text-amber-400 dark:bg-amber-900/20"
+    : "border-red-400 text-red-700 bg-red-100 dark:border-red-800 dark:text-red-400 dark:bg-red-900/20";
   return <Badge variant="outline" className={`text-[9px] font-bold border ${cls}`}>{margin}%</Badge>;
 }
 
@@ -227,20 +227,20 @@ export default function Inventory() {
           <p className="text-2xl font-black">{products?.length ?? 0}</p>
           <p className="text-[10px] text-muted-foreground mt-1">{totalVariants} SKU إجمالي</p>
         </Card>
-        <Card className="border-emerald-900/40 bg-emerald-900/5 p-4">
+        <Card className="border-emerald-200 dark:border-emerald-900/40 bg-emerald-50 dark:bg-emerald-900/5 p-4">
           <div className="flex items-center gap-2 mb-2">
-            <Boxes className="w-4 h-4 text-emerald-400" />
+            <Boxes className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
             <p className="text-xs text-muted-foreground">متاح للبيع</p>
           </div>
-          <p className="text-2xl font-black text-emerald-400">{totalAvailable}</p>
+          <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{totalAvailable}</p>
           <p className="text-[10px] text-muted-foreground mt-1">وحدة متاحة</p>
         </Card>
-        <Card className={`border p-4 ${lowStockVariants > 0 ? "border-red-900/50 bg-red-900/5" : "border-border bg-card"}`}>
+        <Card className={`border p-4 ${lowStockVariants > 0 ? "border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/5" : "border-border bg-card"}`}>
           <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle className={`w-4 h-4 ${lowStockVariants > 0 ? "text-red-400" : "text-muted-foreground"}`} />
+            <AlertTriangle className={`w-4 h-4 ${lowStockVariants > 0 ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}`} />
             <p className="text-xs text-muted-foreground">مخزون منخفض</p>
           </div>
-          <p className={`text-2xl font-black ${lowStockVariants > 0 ? "text-red-400" : ""}`}>{lowStockVariants}</p>
+          <p className={`text-2xl font-black ${lowStockVariants > 0 ? "text-red-600 dark:text-red-400" : ""}`}>{lowStockVariants}</p>
           <p className="text-[10px] text-muted-foreground mt-1">SKU يحتاج تجديد</p>
         </Card>
         {canViewFinancials && (
@@ -260,8 +260,8 @@ export default function Inventory() {
         <div className="flex items-center gap-4 rounded-lg border border-border bg-card/50 px-4 py-2.5 text-xs flex-wrap">
           <span className="text-muted-foreground font-semibold">ذكاء المخزون:</span>
           {stockIntel.summary.fastMovers > 0 && (
-            <span className="flex items-center gap-1 text-red-400 font-bold">
-              <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+            <span className="flex items-center gap-1 text-red-600 dark:text-red-400 font-bold">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
               {stockIntel.summary.fastMovers} سريع النفاد (أقل من 7 أيام)
             </span>
           )}
@@ -272,10 +272,10 @@ export default function Inventory() {
             </span>
           )}
           {stockIntel.summary.totalFrozenCapital > 0 && (
-            <span className="text-amber-400/80">{fc(stockIntel.summary.totalFrozenCapital)} رأسمال متجمد</span>
+            <span className="text-amber-700/80 dark:text-amber-400/80">{fc(stockIntel.summary.totalFrozenCapital)} رأسمال متجمد</span>
           )}
           {stockIntel.summary.outOfStock > 0 && (
-            <span className="text-red-400/80">{stockIntel.summary.outOfStock} نفد مخزونه</span>
+            <span className="text-red-600/80 dark:text-red-400/80">{stockIntel.summary.outOfStock} نفد مخزونه</span>
           )}
         </div>
       )}
@@ -326,20 +326,20 @@ export default function Inventory() {
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-bold text-sm">{product.name}</p>
-                        {hasLowStock && <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />}
+                        {hasLowStock && <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />}
                         {product.sku && <span className="text-[9px] font-mono bg-muted px-1.5 py-0.5 rounded text-muted-foreground">{product.sku}</span>}
                       </div>
                       <div className="flex items-center gap-3 mt-1 flex-wrap">
                         <span className="text-[10px] text-muted-foreground">{variants.length} SKU</span>
                         <span className="text-[10px] text-primary font-semibold">{fc(product.unitPrice)}</span>
                         {canViewFinancials && product.costPrice ? (
-                          <span className="text-[10px] text-amber-400">تكلفة: {fc(product.costPrice)}</span>
+                          <span className="text-[10px] text-amber-700 dark:text-amber-400">تكلفة: {fc(product.costPrice)}</span>
                         ) : null}
                         {canViewFinancials && <MarginBadge margin={productMargin} />}
                         {intel && intel.velocityPerDay > 0 && (
                           <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${
-                            intel.category === "fast" ? "border-red-800 text-red-400 bg-red-900/10"
-                            : intel.category === "medium" ? "border-amber-800 text-amber-400 bg-amber-900/10"
+                            intel.category === "fast" ? "border-red-400 text-red-700 bg-red-100 dark:border-red-800 dark:text-red-400 dark:bg-red-900/10"
+                            : intel.category === "medium" ? "border-amber-400 text-amber-700 bg-amber-100 dark:border-amber-800 dark:text-amber-400 dark:bg-amber-900/10"
                             : "border-border text-muted-foreground"
                           }`}>
                             {intel.daysUntilStockout === 0 ? "نفد" : intel.daysUntilStockout !== null ? `${intel.daysUntilStockout}ي للنفاد` : `${intel.velocityPerDay}/يوم`}
@@ -357,7 +357,7 @@ export default function Inventory() {
                     <div className="text-left hidden sm:block">
                       <p className="text-[10px] text-muted-foreground">المتاح</p>
                       <p className="text-sm font-bold">
-                        <span className={availableStock === 0 ? "text-red-400" : "text-emerald-400"}>{availableStock}</span>
+                        <span className={availableStock === 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"}>{availableStock}</span>
                         <span className="text-muted-foreground"> وحدة</span>
                       </p>
                       <p className="text-[9px] text-muted-foreground">{fc(productValue)}</p>
@@ -423,14 +423,14 @@ export default function Inventory() {
                                   </td>
                                   <td className="py-2.5 px-3 font-mono text-muted-foreground text-[10px] hidden lg:table-cell">{v.sku || "—"}</td>
                                   <td className="py-2.5 px-3 text-center">
-                                    <span className={`font-bold text-sm ${isLow ? "text-amber-400" : available === 0 ? "text-red-400" : "text-emerald-400"}`}>{available}</span>
+                                    <span className={`font-bold text-sm ${isLow ? "text-amber-700 dark:text-amber-400" : available === 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"}`}>{available}</span>
                                   </td>
                                   <td className="py-2.5 px-3 text-center text-muted-foreground/60 hidden sm:table-cell">{v.soldQuantity}</td>
                                   <td className="py-2.5 px-3 text-primary font-bold">{fc(v.unitPrice)}</td>
                                   {canViewFinancials && (
                                     <td className="py-2.5 px-3">
                                       {v.costPrice ? (
-                                        <span className="text-amber-400 font-semibold">{fc(v.costPrice)}</span>
+                                        <span className="text-amber-700 dark:text-amber-400 font-semibold">{fc(v.costPrice)}</span>
                                       ) : (
                                         <span className="text-muted-foreground">—</span>
                                       )}
@@ -443,18 +443,18 @@ export default function Inventory() {
                                   )}
                                   <td className="py-2.5 px-3 text-center">
                                     {available === 0 ? (
-                                      <Badge variant="outline" className="text-[8px] font-bold border-red-900 bg-red-900/20 text-red-400">نفد</Badge>
+                                      <Badge variant="outline" className="text-[8px] font-bold border-red-400 bg-red-100 text-red-700 dark:border-red-900 dark:bg-red-900/20 dark:text-red-400">نفد</Badge>
                                     ) : isLow ? (
-                                      <Badge variant="outline" className="text-[8px] font-bold border-amber-800 bg-amber-900/20 text-amber-400">منخفض</Badge>
+                                      <Badge variant="outline" className="text-[8px] font-bold border-amber-400 bg-amber-100 text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400">منخفض</Badge>
                                     ) : (
-                                      <Badge variant="outline" className="text-[8px] font-bold border-emerald-800 bg-emerald-900/20 text-emerald-400">جيد</Badge>
+                                      <Badge variant="outline" className="text-[8px] font-bold border-emerald-400 bg-emerald-100 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-400">جيد</Badge>
                                     )}
                                   </td>
                                   <td className="py-2.5 px-3">
                                     <div className="flex items-center justify-center gap-1">
                                       <Button
                                         variant="ghost" size="sm"
-                                        className="h-6 px-2 text-[10px] font-bold text-emerald-400 hover:text-emerald-300 hover:bg-emerald-900/20 gap-1"
+                                        className="h-6 px-2 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/20 gap-1"
                                         title="إضافة مخزون"
                                         onClick={() => openAddVariantStock(v)}
                                       >
@@ -546,7 +546,7 @@ export default function Inventory() {
                 />
               </div>
               <div>
-                <Label className="text-xs mb-1.5 block text-amber-400">تكلفة الوحدة (ج.م)</Label>
+                <Label className="text-xs mb-1.5 block text-amber-700 dark:text-amber-400">تكلفة الوحدة (ج.م)</Label>
                 <Input
                   type="number" min="0" step="0.01"
                   placeholder="0"
@@ -562,13 +562,13 @@ export default function Inventory() {
               <div className="grid grid-cols-3 gap-2 p-3 bg-muted/10 rounded-md border border-border text-center text-xs">
                 <div>
                   <p className="text-[9px] text-muted-foreground">ربح الوحدة</p>
-                  <p className={`font-bold ${productForm.unitPrice - productForm.costPrice >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                  <p className={`font-bold ${productForm.unitPrice - productForm.costPrice >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
                     {fc(productForm.unitPrice - productForm.costPrice)}
                   </p>
                 </div>
                 <div>
                   <p className="text-[9px] text-muted-foreground">هامش الربح</p>
-                  <p className={`font-bold ${calcMargin(productForm.unitPrice, productForm.costPrice)! >= 20 ? "text-emerald-400" : "text-amber-400"}`}>
+                  <p className={`font-bold ${calcMargin(productForm.unitPrice, productForm.costPrice)! >= 20 ? "text-emerald-600 dark:text-emerald-400" : "text-amber-700 dark:text-amber-400"}`}>
                     {calcMargin(productForm.unitPrice, productForm.costPrice)}%
                   </p>
                 </div>
@@ -728,7 +728,7 @@ export default function Inventory() {
                 />
               </div>
               <div>
-                <Label className="text-xs mb-1.5 block text-amber-400">تكلفة الوحدة (ج.م)</Label>
+                <Label className="text-xs mb-1.5 block text-amber-700 dark:text-amber-400">تكلفة الوحدة (ج.م)</Label>
                 <Input
                   type="number" min="0" step="0.01"
                   placeholder="0"

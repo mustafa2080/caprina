@@ -174,7 +174,7 @@ export default function Orders() {
                           {statusLabels[order.status] || order.status}
                         </Badge>
                         {order.status === "returned" && retReason && (
-                          <span className="text-[9px] text-red-400">{retReason === "other" && retNote ? retNote : returnReasonLabel(retReason)}</span>
+                          <span className="text-[9px] text-red-600 dark:text-red-400">{retReason === "other" && retNote ? retNote : returnReasonLabel(retReason)}</span>
                         )}
                         <span className="text-[9px] text-muted-foreground mr-auto">{format(new Date(order.createdAt), "MM/dd")}</span>
                       </div>
@@ -227,7 +227,7 @@ export default function Orders() {
                           {order.status === "returned" && retReason && (
                             <div className="flex items-center justify-center gap-0.5 mt-1">
                               <RotateCcw className="w-2.5 h-2.5 text-red-500 shrink-0" />
-                              <span className="text-[9px] text-red-400 leading-none">
+                              <span className="text-[9px] text-red-600 dark:text-red-400 leading-none">
                                 {retReason === "other" && retNote ? retNote : returnReasonLabel(retReason)}
                               </span>
                             </div>
