@@ -47,10 +47,10 @@ export default function Orders() {
   const updateOrder = useUpdateOrder();
   const [waOrder, setWaOrder] = useState<WhatsAppOrderData | null>(null);
 
-  const { data: orders, isLoading } = useListOrders({
-    search: debouncedSearch || undefined,
-    status: status !== "all" ? status : undefined,
-  });
+  const { data: orders, isLoading } = useListOrders(
+    { search: debouncedSearch || undefined, status: status !== "all" ? status : undefined },
+    { query: { staleTime: 15_000, gcTime: 60_000 } }
+  );
 
   const handleWhatsApp = (e: React.MouseEvent, order: NonNullable<typeof orders>[0]) => {
     e.stopPropagation();

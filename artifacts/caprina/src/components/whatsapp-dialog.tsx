@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { MessageCircle, Send, Eye, ChevronDown, Phone } from "lucide-react";
+import { MessageCircle, Send, Eye, Phone, ArrowRight } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
@@ -18,6 +18,15 @@ interface Props {
   onSent?: () => void;
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  pending:          "قيد الانتظار",
+  in_shipping:      "قيد الشحن",
+  received:         "مستلم",
+  delayed:          "متأخر",
+  returned:         "مرتجع",
+  partial_received: "مستلم جزئياً",
+};
+
 export function WhatsAppDialog({ open, onOpenChange, order, onSent }: Props) {
   const [selectedId, setSelectedId] = useState<string>("");
   const [preview, setPreview] = useState("");
@@ -27,7 +36,7 @@ export function WhatsAppDialog({ open, onOpenChange, order, onSent }: Props) {
   const { data: settings } = useQuery<WaSettings>({
     queryKey: ["whatsapp-settings"],
     queryFn: () => apiFetch<WaSettings>("/whatsapp/settings"),
-    staleTime: 30_000,
+    staleTime: 60_000,
   });
 
   const templates = settings?.templates ?? [];
@@ -67,6 +76,8 @@ export function WhatsAppDialog({ open, onOpenChange, order, onSent }: Props) {
   if (!order) return null;
 
   const formattedPhone = order.phone ? formatEgyptianPhone(order.phone) : null;
+  const willChangeStatus = order.status === "pending";
+  const isReminder = order.status === "in_shipping" || order.status === "delayed";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -77,7 +88,7 @@ export function WhatsAppDialog({ open, onOpenChange, order, onSent }: Props) {
             إرسال واتساب — {order.customerName}
           </DialogTitle>
           <DialogDescription className="text-xs">
-            اختر قالباً أو عدّل الرسالة قبل الإرسال
+            {isReminder ? "إرسال تذكير للعميل" : "اختر قالباً أو عدّل الرسالة قبل الإرسال"}
           </DialogDescription>
         </DialogHeader>
 
@@ -85,11 +96,36 @@ export function WhatsAppDialog({ open, onOpenChange, order, onSent }: Props) {
         <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/40 border border-border text-sm">
           <Phone className="w-4 h-4 text-green-500 shrink-0" />
           <span className="font-bold">{order.customerName}</span>
-          <span className="text-muted-foreground font-mono text-xs mr-auto">{formattedPhone ?? "لا يوجد رقم"}</span>
+          <span className="text-muted-foreground font-mono text-xs mr-auto ltr">{formattedPhone ?? "لا يوجد رقم"}</span>
           {!order.phone && (
             <Badge variant="destructive" className="text-[9px]">لا يوجد رقم</Badge>
           )}
         </div>
+
+        {/* Auto status-change banner */}
+        {willChangeStatus && (
+          <div className="flex items-center gap-2 p-2.5 rounded-lg bg-sky-500/10 border border-sky-500/30 text-xs text-sky-400">
+            <ArrowRight className="w-3.5 h-3.5 shrink-0" />
+            <span>
+              بعد الإرسال ستتغير الحالة تلقائياً من
+              <span className="font-bold mx-1">«{STATUS_LABELS[order.status]}»</span>
+              إلى
+              <span className="font-bold mx-1 text-sky-300">«قيد الشحن»</span>
+            </span>
+          </div>
+        )}
+
+        {/* Reminder badge */}
+        {isReminder && (
+          <div className="flex items-center gap-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-amber-400">
+            <MessageCircle className="w-3.5 h-3.5 shrink-0" />
+            <span>
+              إرسال تذكير — الأوردر حالته
+              <span className="font-bold mx-1">«{STATUS_LABELS[order.status] ?? order.status}»</span>
+              ولن تتغير الحالة
+            </span>
+          </div>
+        )}
 
         {/* Template chooser */}
         {templates.length > 0 && (
@@ -155,7 +191,7 @@ export function WhatsAppDialog({ open, onOpenChange, order, onSent }: Props) {
             className="flex-1 bg-green-600 hover:bg-green-700 text-white gap-2 font-bold"
           >
             <Send className="w-4 h-4" />
-            فتح واتساب وإرسال
+            {isReminder ? "فتح واتساب — إرسال تذكير" : "فتح واتساب وإرسال"}
           </Button>
           <Button variant="outline" onClick={() => onOpenChange(false)} className="border-border">
             إلغاء

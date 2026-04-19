@@ -80,4 +80,5 @@ export const TEMPLATE_VARIABLES = [
   { var: "{product}", label: "المنتج" },
   { var: "{quantity}", label: "الكمية" },
   { var: "{amount}", label: "المبلغ الإجمالي" },
+  { var: "{status}", label: "حالة الأوردر" },
 ];
