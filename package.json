@@ -12,9 +12,10 @@
     "prettier": "^3.8.1",
     "typescript": "~5.9.2"
   },
-  "dependencies": {
-    "@rollup/rollup-win32-x64-msvc": "^4.60.2",
-    "@tailwindcss/oxide-win32-x64-msvc": "^4.2.2",
-    "lightningcss-win32-x64-msvc": "^1.32.0"
+  "pnpm": {
+    "supportedArchitectures": {
+      "os": ["linux", "win32"],
+      "cpu": ["x64"]
+    }
   }
 }
