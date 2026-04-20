@@ -13,6 +13,9 @@ import crypto from "node:crypto";
 
 const app: Express = express();
 
+// ─── Trust proxy (for Apache reverse proxy) ──────────────────────────────────
+app.set("trust proxy", 1);
+
 // ─── Security: Helmet (sets secure HTTP headers) ────────────────────────────
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
@@ -38,7 +41,7 @@ app.use(cors({
 
 // ─── Security: Global rate limiter ──────────────────────────────────────────
 const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: 500,
   standardHeaders: true,
   legacyHeaders: false,
