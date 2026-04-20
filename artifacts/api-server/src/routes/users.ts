@@ -52,14 +52,20 @@ router.post("/", async (req, res): Promise<void> => {
   }
 
   const passwordHash = await hashPassword(password);
-  const [newUser] = await db.insert(usersTable).values({
+  const insertResult = await db.insert(usersTable).values({
     username: username.trim().toLowerCase(),
     passwordHash,
     displayName: displayName.trim(),
     role: role as any,
     permissions: permissions ?? [],
     isActive: true,
-  }).returning({ id: usersTable.id, username: usersTable.username, displayName: usersTable.displayName, role: usersTable.role, permissions: usersTable.permissions, isActive: usersTable.isActive, createdAt: usersTable.createdAt, updatedAt: usersTable.updatedAt });
+  });
+  const insertId = (insertResult as any)[0]?.insertId ?? (insertResult as any).insertId;
+  const [newUser] = await db.select({
+    id: usersTable.id, username: usersTable.username, displayName: usersTable.displayName,
+    role: usersTable.role, permissions: usersTable.permissions, isActive: usersTable.isActive,
+    createdAt: usersTable.createdAt, updatedAt: usersTable.updatedAt,
+  }).from(usersTable).where(eq(usersTable.id, insertId));
 
   await logAudit({
     action: "create",
@@ -106,8 +112,12 @@ router.patch("/:id", async (req, res): Promise<void> => {
     updates.passwordHash = await hashPassword(password);
   }
 
-  const [updated] = await db.update(usersTable).set(updates).where(eq(usersTable.id, id))
-    .returning({ id: usersTable.id, username: usersTable.username, displayName: usersTable.displayName, role: usersTable.role, permissions: usersTable.permissions, isActive: usersTable.isActive, createdAt: usersTable.createdAt, updatedAt: usersTable.updatedAt });
+  await db.update(usersTable).set(updates).where(eq(usersTable.id, id));
+  const [updated] = await db.select({
+    id: usersTable.id, username: usersTable.username, displayName: usersTable.displayName,
+    role: usersTable.role, permissions: usersTable.permissions, isActive: usersTable.isActive,
+    createdAt: usersTable.createdAt, updatedAt: usersTable.updatedAt,
+  }).from(usersTable).where(eq(usersTable.id, id));
 
   await logAudit({
     action: "update",

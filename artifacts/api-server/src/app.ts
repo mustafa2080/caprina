@@ -1,14 +1,52 @@
 import express, { type Express } from "express";
 import cors from "cors";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
-import { db, usersTable, employeeProfilesTable, employeeKpisTable, employeeDailyLogsTable } from "@workspace/db";
+import { db, usersTable } from "@workspace/db";
 import { hashPassword } from "./lib/auth.js";
-import { eq, isNull, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
+
+import crypto from "node:crypto";
 
 const app: Express = express();
 
+// ─── Security: Helmet (sets secure HTTP headers) ────────────────────────────
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+}));
+
+// ─── Security: CORS — restrict to ALLOWED_ORIGINS env var ───────────────────
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(",").map((o) => o.trim())
+  : [];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    callback(new Error(`CORS: origin '${origin}' not allowed`));
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
+
+// ─── Security: Global rate limiter ──────────────────────────────────────────
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 500,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "طلبات كثيرة جداً، يرجى المحاولة بعد قليل" },
+});
+app.use(globalLimiter);
+
+// ─── Logging ─────────────────────────────────────────────────────────────────
 app.use(
   pinoHttp({
     logger,
@@ -21,26 +59,30 @@ app.use(
         };
       },
       res(res) {
-        return {
-          statusCode: res.statusCode,
-        };
+        return { statusCode: res.statusCode };
       },
     },
   }),
 );
-app.use(cors());
+
+// ─── Body parsing ─────────────────────────────────────────────────────────────
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 app.use("/api", router);
 
-// ─── Seed default admin on startup ─────────────────────────────────────────
+// ─── Seed default admin on startup ───────────────────────────────────────────
+// Generates a strong random password on first run and logs it ONCE.
+// Change this password immediately after first login.
 async function seedDefaultAdmin() {
   try {
     const existing = await db.select({ id: usersTable.id }).from(usersTable).limit(1);
     if (existing.length > 0) return;
 
-    const passwordHash = await hashPassword("admin123");
+    // Generate a secure random password instead of a hardcoded one
+    const randomPassword = crypto.randomBytes(12).toString("base64url");
+    const passwordHash = await hashPassword(randomPassword);
+
     await db.insert(usersTable).values({
       username: "admin",
       passwordHash,
@@ -49,37 +91,39 @@ async function seedDefaultAdmin() {
       permissions: [],
       isActive: true,
     });
-    logger.info("Default admin user created: admin / admin123");
+
+    // Log the password clearly — change it immediately after first login
+    logger.warn("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    logger.warn(`  DEFAULT ADMIN CREATED`);
+    logger.warn(`  Username : admin`);
+    logger.warn(`  Password : ${randomPassword}`);
+    logger.warn(`  ⚠️  Change this password immediately after first login!`);
+    logger.warn("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
   } catch (err) {
     logger.error({ err }, "Failed to seed default admin");
   }
 }
 
-// ─── Backfill: populate profileId + displayName for existing records ─────────
+// ─── Backfill: employee profile IDs + displayNames ───────────────────────────
 async function backfillEmployeeProfileIds() {
   try {
-    // 1. Fill profile.displayName from linked user where still null
     await db.execute(sql`
       UPDATE employee_profiles ep
-      SET display_name = u.display_name
-      FROM users u
-      WHERE ep.user_id = u.id AND ep.display_name IS NULL
+      JOIN users u ON ep.user_id = u.id
+      SET ep.display_name = u.display_name
+      WHERE ep.display_name IS NULL
     `);
-
-    // 2. Fill kpis.profileId where still null (match via userId)
     await db.execute(sql`
       UPDATE employee_kpis k
-      SET profile_id = ep.id
-      FROM employee_profiles ep
-      WHERE ep.user_id = k.user_id AND k.profile_id IS NULL AND k.user_id IS NOT NULL
+      JOIN employee_profiles ep ON ep.user_id = k.user_id
+      SET k.profile_id = ep.id
+      WHERE k.profile_id IS NULL AND k.user_id IS NOT NULL
     `);
-
-    // 3. Fill daily_logs.profileId where still null (match via userId)
     await db.execute(sql`
       UPDATE employee_daily_logs l
-      SET profile_id = ep.id
-      FROM employee_profiles ep
-      WHERE ep.user_id = l.user_id AND l.profile_id IS NULL AND l.user_id IS NOT NULL
+      JOIN employee_profiles ep ON ep.user_id = l.user_id
+      SET l.profile_id = ep.id
+      WHERE l.profile_id IS NULL AND l.user_id IS NOT NULL
     `);
   } catch (err) {
     logger.error({ err }, "Failed to backfill employee profile IDs");

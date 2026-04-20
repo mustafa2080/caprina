@@ -66,15 +66,16 @@ router.post("/warehouses", async (req, res): Promise<void> => {
       .where(eq(warehousesTable.isDefault, true));
   }
 
-  const [w] = await db
+  const insertResult = await db
     .insert(warehousesTable)
     .values({
       name: parsed.data.name,
       address: parsed.data.address ?? null,
       notes: parsed.data.notes ?? null,
       isDefault: parsed.data.isDefault ?? false,
-    })
-    .returning();
+    });
+  const insertId = (insertResult as any)[0]?.insertId ?? (insertResult as any).insertId;
+  const [w] = await db.select().from(warehousesTable).where(eq(warehousesTable.id, insertId));
   res.status(201).json(w);
 });
 
@@ -128,11 +129,11 @@ router.patch("/warehouses/:id", async (req, res): Promise<void> => {
     await db.update(warehousesTable).set({ isDefault: false }).where(eq(warehousesTable.isDefault, true));
   }
 
-  const [updated] = await db
+  await db
     .update(warehousesTable)
     .set(parsed.data)
-    .where(eq(warehousesTable.id, id))
-    .returning();
+    .where(eq(warehousesTable.id, id));
+  const [updated] = await db.select().from(warehousesTable).where(eq(warehousesTable.id, id));
   if (!updated) { res.status(404).json({ error: "المخزن غير موجود" }); return; }
   res.json(updated);
 });
@@ -142,8 +143,9 @@ router.delete("/warehouses/:id", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
-  const [deleted] = await db.delete(warehousesTable).where(eq(warehousesTable.id, id)).returning();
-  if (!deleted) { res.status(404).json({ error: "المخزن غير موجود" }); return; }
+  const [toDelete] = await db.select().from(warehousesTable).where(eq(warehousesTable.id, id));
+  if (!toDelete) { res.status(404).json({ error: "المخزن غير موجود" }); return; }
+  await db.delete(warehousesTable).where(eq(warehousesTable.id, id));
   res.status(204).send();
 });
 
@@ -157,14 +159,14 @@ router.patch("/warehouses/:id/stock/:stockId", async (req, res): Promise<void> =
   const parsed = Schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
-  const [updated] = await db
-    .update(warehouseStockTable)
-    .set({ quantity: parsed.data.quantity })
-    .where(and(
-      eq(warehouseStockTable.id, stockId),
-      eq(warehouseStockTable.warehouseId, warehouseId)
-    ))
-    .returning();
+  await db
+      .update(warehouseStockTable)
+      .set({ quantity: parsed.data.quantity })
+      .where(and(
+        eq(warehouseStockTable.id, stockId),
+        eq(warehouseStockTable.warehouseId, warehouseId)
+      ));
+  const [updated] = await db.select().from(warehouseStockTable).where(eq(warehouseStockTable.id, stockId));
   if (!updated) { res.status(404).json({ error: "عنصر المخزون غير موجود" }); return; }
   res.json(updated);
 });
@@ -196,22 +198,23 @@ router.post("/warehouses/:id/stock", async (req, res): Promise<void> => {
     );
 
   if (existing) {
-    const [updated] = await db
+    await db
       .update(warehouseStockTable)
       .set({ quantity: parsed.data.quantity })
-      .where(eq(warehouseStockTable.id, existing.id))
-      .returning();
+      .where(eq(warehouseStockTable.id, existing.id));
+    const [updated] = await db.select().from(warehouseStockTable).where(eq(warehouseStockTable.id, existing.id));
     res.json(updated);
   } else {
-    const [created] = await db
+    const insertResult = await db
       .insert(warehouseStockTable)
       .values({
         warehouseId,
         productId: parsed.data.productId ?? null,
         variantId: parsed.data.variantId ?? null,
         quantity: parsed.data.quantity,
-      })
-      .returning();
+      });
+    const insertId = (insertResult as any)[0]?.insertId ?? (insertResult as any).insertId;
+    const [created] = await db.select().from(warehouseStockTable).where(eq(warehouseStockTable.id, insertId));
     res.status(201).json(created);
   }
 });

@@ -2,7 +2,11 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import type { SafeUser } from "@workspace/db";
 
-const JWT_SECRET = process.env.JWT_SECRET || "caprina-secret-key-change-in-prod";
+const _jwtSecret = process.env.JWT_SECRET;
+if (!_jwtSecret) {
+  throw new Error("JWT_SECRET environment variable is required but was not set.");
+}
+const JWT_SECRET: string = _jwtSecret;
 const JWT_EXPIRES = "7d";
 
 export function signToken(user: SafeUser): string {
@@ -15,7 +19,7 @@ export function signToken(user: SafeUser): string {
 
 export function verifyToken(token: string): SafeUser | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as SafeUser;
+    return jwt.verify(token, JWT_SECRET) as unknown as SafeUser;
   } catch {
     return null;
   }

@@ -169,15 +169,16 @@ router.post("/shipping-manifests", async (req, res): Promise<void> => {
 
   const manifestNumber = await generateManifestNumber(shippingCompanyId);
 
-  const [manifest] = await db
+  const insertResult = await db
     .insert(shippingManifestsTable)
     .values({
       manifestNumber,
       shippingCompanyId,
       notes: notes ?? null,
       status: "open",
-    })
-    .returning();
+    });
+  const insertId = (insertResult as any)[0]?.insertId ?? (insertResult as any).insertId;
+  const [manifest] = await db.select().from(shippingManifestsTable).where(eq(shippingManifestsTable.id, insertId));
 
   await db.insert(shippingManifestOrdersTable).values(
     orderIds.map((orderId) => ({
@@ -298,11 +299,11 @@ router.patch("/shipping-manifests/:id", async (req, res): Promise<void> => {
   if (parsed.data.status === "closed") updateData.closedAt = new Date();
   if (parsed.data.status === "open") updateData.closedAt = null;
 
-  const [updated] = await db
+  await db
     .update(shippingManifestsTable)
     .set(updateData)
-    .where(eq(shippingManifestsTable.id, id))
-    .returning();
+    .where(eq(shippingManifestsTable.id, id));
+  const [updated] = await db.select().from(shippingManifestsTable).where(eq(shippingManifestsTable.id, id));
   if (!updated) {
     res.status(404).json({ error: "البيان غير موجود" });
     return;
@@ -326,15 +327,16 @@ router.patch("/shipping-manifests/:id", async (req, res): Promise<void> => {
       const pendingOrderIds = pendingLinks.map((l) => l.orderId);
       const newManifestNumber = await generateManifestNumber(updated.shippingCompanyId);
 
-      const [newManifest] = await db
+      const rollInsertResult = await db
         .insert(shippingManifestsTable)
         .values({
           manifestNumber: newManifestNumber,
           shippingCompanyId: updated.shippingCompanyId,
           notes: `مرحَّل من ${updated.manifestNumber}`,
           status: "open",
-        })
-        .returning();
+        });
+      const rollInsertId = (rollInsertResult as any)[0]?.insertId ?? (rollInsertResult as any).insertId;
+      const [newManifest] = await db.select().from(shippingManifestsTable).where(eq(shippingManifestsTable.id, rollInsertId));
 
       await db.insert(shippingManifestOrdersTable).values(
         pendingOrderIds.map((orderId) => ({
@@ -525,14 +527,12 @@ router.delete("/shipping-manifests/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  const [deleted] = await db
-    .delete(shippingManifestsTable)
-    .where(eq(shippingManifestsTable.id, id))
-    .returning();
-  if (!deleted) {
+  const [toDelete] = await db.select().from(shippingManifestsTable).where(eq(shippingManifestsTable.id, id));
+  if (!toDelete) {
     res.status(404).json({ error: "البيان غير موجود" });
     return;
   }
+  await db.delete(shippingManifestsTable).where(eq(shippingManifestsTable.id, id));
   res.status(204).send();
 });
 

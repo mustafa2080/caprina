@@ -1,4 +1,4 @@
-import { eq, ilike, and } from "drizzle-orm";
+import { eq, like, and } from "drizzle-orm";
 import { db, productsTable, productVariantsTable, inventoryMovementsTable } from "@workspace/db";
 import type { MovementReason } from "@workspace/db";
 
@@ -33,9 +33,9 @@ export async function resolveInventoryTarget(order: {
       .from(productVariantsTable)
       .innerJoin(productsTable, eq(productVariantsTable.productId, productsTable.id))
       .where(and(
-        ilike(productsTable.name, order.product),
-        ilike(productVariantsTable.color, order.color),
-        ilike(productVariantsTable.size, order.size),
+        like(productsTable.name, order.product),
+        like(productVariantsTable.color, order.color),
+        like(productVariantsTable.size, order.size),
       ));
     if (variants.length > 0) return { variantId: variants[0].id, productId: null };
   }
@@ -44,7 +44,7 @@ export async function resolveInventoryTarget(order: {
     const products = await db
       .select({ id: productsTable.id })
       .from(productsTable)
-      .where(ilike(productsTable.name, order.product));
+      .where(like(productsTable.name, order.product));
     if (products.length > 0) return { variantId: null, productId: products[0].id };
   }
 

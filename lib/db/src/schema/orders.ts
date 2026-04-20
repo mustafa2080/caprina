@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, real, timestamp, index } from "drizzle-orm/pg-core";
+import { mysqlTable, text, int, real, datetime, index, varchar } from "drizzle-orm/mysql-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -8,35 +8,35 @@ export type OrderStatus = (typeof ORDER_STATUSES)[number];
 export const AD_SOURCES = ["facebook", "tiktok", "instagram", "organic", "whatsapp", "other"] as const;
 export type AdSource = (typeof AD_SOURCES)[number];
 
-export const ordersTable = pgTable("orders", {
-  id: serial("id").primaryKey(),
-  customerName: text("customer_name").notNull(),
-  phone: text("phone"),
+export const ordersTable = mysqlTable("orders", {
+  id: int("id").primaryKey().autoincrement(),
+  customerName: varchar("customer_name", { length: 255 }).notNull(),
+  phone: varchar("phone", { length: 50 }),
   address: text("address"),
-  product: text("product").notNull(),
-  color: text("color"),
-  size: text("size"),
-  quantity: integer("quantity").notNull(),
+  product: varchar("product", { length: 255 }).notNull(),
+  color: varchar("color", { length: 100 }),
+  size: varchar("size", { length: 100 }),
+  quantity: int("quantity").notNull(),
   unitPrice: real("unit_price").notNull(),
   totalPrice: real("total_price").notNull(),
-  status: text("status", { enum: ORDER_STATUSES }).notNull().default("pending"),
-  partialQuantity: integer("partial_quantity"),
-  shippingCompanyId: integer("shipping_company_id"),
-  productId: integer("product_id"),
-  variantId: integer("variant_id"),
-  warehouseId: integer("warehouse_id"),
-  assignedUserId: integer("assigned_user_id"),
-  adSource: text("ad_source"),
-  adCampaign: text("ad_campaign"),
+  status: varchar("status", { length: 50 }).notNull().default("pending"),
+  partialQuantity: int("partial_quantity"),
+  shippingCompanyId: int("shipping_company_id"),
+  productId: int("product_id"),
+  variantId: int("variant_id"),
+  warehouseId: int("warehouse_id"),
+  assignedUserId: int("assigned_user_id"),
+  adSource: varchar("ad_source", { length: 100 }),
+  adCampaign: varchar("ad_campaign", { length: 255 }),
   costPrice: real("cost_price"),
   shippingCost: real("shipping_cost").default(0),
   notes: text("notes"),
   returnReason: text("return_reason"),
   returnNote: text("return_note"),
-  trackingNumber: text("tracking_number"),
-  deletedAt: timestamp("deleted_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  trackingNumber: varchar("tracking_number", { length: 255 }),
+  deletedAt: datetime("deleted_at"),
+  createdAt: datetime("created_at").notNull().default(new Date()),
+  updatedAt: datetime("updated_at").notNull().default(new Date()),
 },
 (t) => [
   index("idx_orders_status").on(t.status),
@@ -45,7 +45,6 @@ export const ordersTable = pgTable("orders", {
   index("idx_orders_product_id").on(t.productId),
   index("idx_orders_shipping_company_id").on(t.shippingCompanyId),
   index("idx_orders_assigned_user_id").on(t.assignedUserId),
-  index("idx_orders_status_deleted").on(t.status, t.deletedAt),
 ]);
 
 export const insertOrderSchema = createInsertSchema(ordersTable).omit({ id: true, createdAt: true, updatedAt: true, totalPrice: true });

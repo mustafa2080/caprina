@@ -181,7 +181,7 @@ router.post("/employee-profiles", requireAdmin, async (req, res): Promise<void> 
       .where(eq(employeeProfilesTable.userId, data.userId));
 
     if (existing) {
-      const [updated] = await db
+      await db
         .update(employeeProfilesTable)
         .set({
           jobTitle: data.jobTitle ?? null,
@@ -190,15 +190,15 @@ router.post("/employee-profiles", requireAdmin, async (req, res): Promise<void> 
           hireDate: data.hireDate ?? null,
           notes: data.notes ?? null,
         })
-        .where(eq(employeeProfilesTable.userId, data.userId))
-        .returning();
+        .where(eq(employeeProfilesTable.userId, data.userId));
+      const [updated] = await db.select().from(employeeProfilesTable).where(eq(employeeProfilesTable.userId, data.userId!));
       res.json(updated);
       return;
     }
   }
 
   // Create new profile
-  const [created] = await db
+  const insertResult = await db
     .insert(employeeProfilesTable)
     .values({
       userId: data.userId ?? null,
@@ -208,8 +208,9 @@ router.post("/employee-profiles", requireAdmin, async (req, res): Promise<void> 
       monthlySalary: data.monthlySalary ?? 0,
       hireDate: data.hireDate ?? null,
       notes: data.notes ?? null,
-    })
-    .returning();
+    });
+  const insertId = (insertResult as any)[0]?.insertId ?? (insertResult as any).insertId;
+  const [created] = await db.select().from(employeeProfilesTable).where(eq(employeeProfilesTable.id, insertId));
   res.status(201).json(created);
 });
 
@@ -221,12 +222,12 @@ router.patch("/employee-profiles/:profileId", requireAdmin, async (req, res): Pr
   const parsed = Schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
-  const [updated] = await db
+  const patchResult = await db
     .update(employeeProfilesTable)
     .set(parsed.data as any)
-    .where(eq(employeeProfilesTable.id, profileId))
-    .returning();
-  if (!updated) { res.status(404).json({ error: "الملف الشخصي غير موجود" }); return; }
+    .where(eq(employeeProfilesTable.id, profileId));
+  if (!(patchResult as any)[0]?.affectedRows) { res.status(404).json({ error: "الملف الشخصي غير موجود" }); return; }
+  const [updated] = await db.select().from(employeeProfilesTable).where(eq(employeeProfilesTable.id, profileId));
   res.json(updated);
 });
 
@@ -275,7 +276,7 @@ router.post("/employee-kpis", requireAdmin, async (req, res): Promise<void> => {
     .where(eq(employeeProfilesTable.id, parsed.data.profileId));
   const userId = profile?.userId ?? null;
 
-  const [kpi] = await db
+  const kpiInsertResult = await db
     .insert(employeeKpisTable)
     .values({
       profileId: parsed.data.profileId,
@@ -288,8 +289,9 @@ router.post("/employee-kpis", requireAdmin, async (req, res): Promise<void> => {
       weight: parsed.data.weight,
       isActive: parsed.data.isActive,
       description: parsed.data.description ?? null,
-    })
-    .returning();
+    });
+  const kpiInsertId = (kpiInsertResult as any)[0]?.insertId ?? (kpiInsertResult as any).insertId;
+  const [kpi] = await db.select().from(employeeKpisTable).where(eq(employeeKpisTable.id, kpiInsertId));
   res.status(201).json(kpi);
 });
 
@@ -301,12 +303,12 @@ router.patch("/employee-kpis/:kpiId", requireAdmin, async (req, res): Promise<vo
   const parsed = Schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
-  const [updated] = await db
+  const kpiUpdateResult = await db
     .update(employeeKpisTable)
     .set(parsed.data as any)
-    .where(eq(employeeKpisTable.id, kpiId))
-    .returning();
-  if (!updated) { res.status(404).json({ error: "المؤشر غير موجود" }); return; }
+    .where(eq(employeeKpisTable.id, kpiId));
+  if (!(kpiUpdateResult as any)[0]?.affectedRows) { res.status(404).json({ error: "المؤشر غير موجود" }); return; }
+  const [updated] = await db.select().from(employeeKpisTable).where(eq(employeeKpisTable.id, kpiId));
   res.json(updated);
 });
 
@@ -617,17 +619,18 @@ router.post("/employee-daily-logs", async (req, res): Promise<void> => {
     );
 
   if (existing) {
-    const [updated] = await db
+    await db
       .update(employeeDailyLogsTable)
       .set({ value, notes: notes ?? null, updatedAt: new Date() })
-      .where(eq(employeeDailyLogsTable.id, existing.id))
-      .returning();
+      .where(eq(employeeDailyLogsTable.id, existing.id));
+    const [updated] = await db.select().from(employeeDailyLogsTable).where(eq(employeeDailyLogsTable.id, existing.id));
     res.json(updated);
   } else {
-    const [created] = await db
+    const logInsertResult = await db
       .insert(employeeDailyLogsTable)
-      .values({ profileId, userId, kpiId, date, value, notes: notes ?? null })
-      .returning();
+      .values({ profileId, userId, kpiId, date, value, notes: notes ?? null });
+    const logInsertId = (logInsertResult as any)[0]?.insertId ?? (logInsertResult as any).insertId;
+    const [created] = await db.select().from(employeeDailyLogsTable).where(eq(employeeDailyLogsTable.id, logInsertId));
     res.status(201).json(created);
   }
 });

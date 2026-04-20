@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp } from "drizzle-orm/pg-core";
+import { mysqlTable, text, int, datetime, varchar } from "drizzle-orm/mysql-core";
 
 export const MOVEMENT_TYPES = ["IN", "OUT"] as const;
 export type MovementType = (typeof MOVEMENT_TYPES)[number];
@@ -14,19 +14,19 @@ export const MOVEMENT_REASONS = [
 ] as const;
 export type MovementReason = (typeof MOVEMENT_REASONS)[number];
 
-export const inventoryMovementsTable = pgTable("inventory_movements", {
-  id: serial("id").primaryKey(),
-  productId: integer("product_id"),
-  variantId: integer("variant_id"),
-  product: text("product").notNull(),
-  color: text("color"),
-  size: text("size"),
-  quantity: integer("quantity").notNull(),
-  type: text("type", { enum: MOVEMENT_TYPES }).notNull(),
-  reason: text("reason", { enum: MOVEMENT_REASONS }).notNull(),
-  orderId: integer("order_id"),
+export const inventoryMovementsTable = mysqlTable("inventory_movements", {
+  id: int("id").primaryKey().autoincrement(),
+  productId: int("product_id"),
+  variantId: int("variant_id"),
+  product: varchar("product", { length: 255 }).notNull(),
+  color: varchar("color", { length: 100 }),
+  size: varchar("size", { length: 100 }),
+  quantity: int("quantity").notNull(),
+  type: varchar("type", { length: 10 }).notNull(),
+  reason: varchar("reason", { length: 50 }).notNull(),
+  orderId: int("order_id"),
   notes: text("notes"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: datetime("created_at").notNull().default(new Date()),
 });
 
 export type InventoryMovement = typeof inventoryMovementsTable.$inferSelect;

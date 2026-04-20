@@ -40,7 +40,9 @@ router.post("/products", requireRole("admin", "warehouse"), async (req, res): Pr
   const parsed = CreateProductSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
-  const [product] = await db.insert(productsTable).values(parsed.data).returning();
+  const insertResult = await db.insert(productsTable).values(parsed.data);
+  const insertId = (insertResult as any)[0]?.insertId ?? (insertResult as any).insertId;
+  const [product] = await db.select().from(productsTable).where(eq(productsTable.id, insertId));
 
   await logAudit({ action: "create", entityType: "product", entityId: product.id, entityName: product.name, after: { name: product.name, unitPrice: product.unitPrice, totalQuantity: product.totalQuantity }, userId: req.user?.id, userName: req.user?.displayName });
 
@@ -64,7 +66,9 @@ router.patch("/products/:id", requireRole("admin", "warehouse"), async (req, res
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
   const [before] = await db.select().from(productsTable).where(eq(productsTable.id, id));
-  const [product] = await db.update(productsTable).set({ ...parsed.data, updatedAt: new Date() }).where(eq(productsTable.id, id)).returning();
+  if (!before) { res.status(404).json({ error: "Product not found" }); return; }
+  await db.update(productsTable).set({ ...parsed.data, updatedAt: new Date() }).where(eq(productsTable.id, id));
+  const [product] = await db.select().from(productsTable).where(eq(productsTable.id, id));
   if (!product) { res.status(404).json({ error: "Product not found" }); return; }
 
   if (before) await logAudit({ action: "update", entityType: "product", entityId: id, entityName: product.name, before: { name: before.name, unitPrice: before.unitPrice, lowStockThreshold: before.lowStockThreshold }, after: { name: product.name, unitPrice: product.unitPrice, lowStockThreshold: product.lowStockThreshold }, userId: req.user?.id, userName: req.user?.displayName });
@@ -76,10 +80,11 @@ router.delete("/products/:id", requireRole("admin"), async (req, res): Promise<v
   const id = parseInt(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
-  const [deleted] = await db.delete(productsTable).where(eq(productsTable.id, id)).returning();
-  if (!deleted) { res.status(404).json({ error: "Product not found" }); return; }
+  const [existing] = await db.select().from(productsTable).where(eq(productsTable.id, id));
+  if (!existing) { res.status(404).json({ error: "Product not found" }); return; }
+  await db.delete(productsTable).where(eq(productsTable.id, id));
 
-  await logAudit({ action: "delete", entityType: "product", entityId: id, entityName: deleted.name, before: { name: deleted.name }, userId: req.user?.id, userName: req.user?.displayName });
+  await logAudit({ action: "delete", entityType: "product", entityId: id, entityName: existing.name, before: { name: existing.name }, userId: req.user?.id, userName: req.user?.displayName });
 
   res.status(204).send();
 });

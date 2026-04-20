@@ -68,7 +68,7 @@ router.post("/inventory/movements", async (req, res): Promise<void> => {
     return;
   }
 
-  const [movement] = await db.insert(inventoryMovementsTable).values({
+  const insertResult = await db.insert(inventoryMovementsTable).values({
     product,
     color: color ?? null,
     size: size ?? null,
@@ -79,7 +79,9 @@ router.post("/inventory/movements", async (req, res): Promise<void> => {
     variantId: variantId ? parseInt(variantId) : null,
     notes: notes ?? null,
     orderId: null,
-  }).returning();
+  });
+  const insertId = (insertResult as any)[0]?.insertId ?? (insertResult as any).insertId;
+  const [movement] = await db.select().from(inventoryMovementsTable).where(eq(inventoryMovementsTable.id, insertId));
 
   res.status(201).json(movement);
 });

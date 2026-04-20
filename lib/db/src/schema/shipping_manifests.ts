@@ -1,27 +1,27 @@
-import { pgTable, text, serial, integer, timestamp, numeric } from "drizzle-orm/pg-core";
+import { mysqlTable, text, int, datetime, decimal, varchar } from "drizzle-orm/mysql-core";
 import { shippingCompaniesTable } from "./shipping_companies";
 import { ordersTable } from "./orders";
 
-export const shippingManifestsTable = pgTable("shipping_manifests", {
-  id: serial("id").primaryKey(),
-  manifestNumber: text("manifest_number").notNull(),
-  shippingCompanyId: integer("shipping_company_id").notNull().references(() => shippingCompaniesTable.id),
-  status: text("status").notNull().default("open"),
+export const shippingManifestsTable = mysqlTable("shipping_manifests", {
+  id: int("id").primaryKey().autoincrement(),
+  manifestNumber: varchar("manifest_number", { length: 100 }).notNull(),
+  shippingCompanyId: int("shipping_company_id").notNull().references(() => shippingCompaniesTable.id),
+  status: varchar("status", { length: 50 }).notNull().default("open"),
   notes: text("notes"),
-  invoicePrice: numeric("invoice_price", { precision: 10, scale: 2 }),
+  invoicePrice: decimal("invoice_price", { precision: 10, scale: 2 }),
   invoiceNotes: text("invoice_notes"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  closedAt: timestamp("closed_at", { withTimezone: true }),
+  createdAt: datetime("created_at").notNull().default(new Date()),
+  closedAt: datetime("closed_at"),
 });
 
-export const shippingManifestOrdersTable = pgTable("shipping_manifest_orders", {
-  id: serial("id").primaryKey(),
-  manifestId: integer("manifest_id").notNull().references(() => shippingManifestsTable.id, { onDelete: "cascade" }),
-  orderId: integer("order_id").notNull().references(() => ordersTable.id),
-  deliveryStatus: text("delivery_status").notNull().default("pending"),
+export const shippingManifestOrdersTable = mysqlTable("shipping_manifest_orders", {
+  id: int("id").primaryKey().autoincrement(),
+  manifestId: int("manifest_id").notNull().references(() => shippingManifestsTable.id, { onDelete: "cascade" }),
+  orderId: int("order_id").notNull().references(() => ordersTable.id),
+  deliveryStatus: varchar("delivery_status", { length: 50 }).notNull().default("pending"),
   deliveryNote: text("delivery_note"),
-  deliveredAt: timestamp("delivered_at", { withTimezone: true }),
-  addedAt: timestamp("added_at", { withTimezone: true }).notNull().defaultNow(),
+  deliveredAt: datetime("delivered_at"),
+  addedAt: datetime("added_at").notNull().default(new Date()),
 });
 
 export type ShippingManifest = typeof shippingManifestsTable.$inferSelect;

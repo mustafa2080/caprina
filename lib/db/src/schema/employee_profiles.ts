@@ -1,17 +1,17 @@
-import { pgTable, serial, integer, real, text, timestamp } from "drizzle-orm/pg-core";
+import { mysqlTable, int, real, text, datetime, varchar } from "drizzle-orm/mysql-core";
 import { usersTable } from "./users";
 
-export const employeeProfilesTable = pgTable("employee_profiles", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").unique().references(() => usersTable.id, { onDelete: "cascade" }),
-  displayName: text("display_name"),
-  jobTitle: text("job_title"),
-  department: text("department"),
+export const employeeProfilesTable = mysqlTable("employee_profiles", {
+  id: int("id").primaryKey().autoincrement(),
+  userId: int("user_id").unique().references(() => usersTable.id, { onDelete: "cascade" }),
+  displayName: varchar("display_name", { length: 255 }),
+  jobTitle: varchar("job_title", { length: 255 }),
+  department: varchar("department", { length: 255 }),
   monthlySalary: real("monthly_salary").default(0),
-  hireDate: text("hire_date"),
+  hireDate: varchar("hire_date", { length: 20 }),
   notes: text("notes"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  createdAt: datetime("created_at").notNull().default(new Date()),
+  updatedAt: datetime("updated_at").notNull().default(new Date()),
 });
 
 export type EmployeeProfile = typeof employeeProfilesTable.$inferSelect;

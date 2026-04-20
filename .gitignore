@@ -47,3 +47,9 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+.config/
+
+# Environment secrets — never commit
+.env
+.env.*
+!.env.example

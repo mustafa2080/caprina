@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, ilike, or, gte, and, isNull, isNotNull } from "drizzle-orm";
+import { eq, desc, like, or, gte, and, isNull, isNotNull } from "drizzle-orm";
 import { db, ordersTable, productsTable, productVariantsTable } from "@workspace/db";
 import {
   ListOrdersQueryParams,
@@ -60,7 +60,7 @@ router.get("/orders", async (req, res): Promise<void> => {
   if (params.data.status) conditions.push(eq(ordersTable.status, params.data.status as any));
   if (params.data.search) {
     const s = `%${params.data.search}%`;
-    conditions.push(or(ilike(ordersTable.customerName, s), ilike(ordersTable.product, s), ilike(ordersTable.phone, s)));
+    conditions.push(or(like(ordersTable.customerName, s), like(ordersTable.product, s), like(ordersTable.phone, s)));
   }
   if ((req.query as any).dateFrom) {
     conditions.push(gte(ordersTable.createdAt, new Date((req.query as any).dateFrom as string)));
@@ -94,7 +94,9 @@ router.post("/orders", async (req, res): Promise<void> => {
     if (product?.costPrice) costPrice = product.costPrice;
   }
 
-  const [order] = await db.insert(ordersTable).values({ ...parsed.data, totalPrice, status: "pending", costPrice }).returning();
+  const result = await db.insert(ordersTable).values({ ...parsed.data, totalPrice, status: "pending", costPrice });
+  const insertId = (result as any)[0]?.insertId ?? (result as any).insertId;
+  const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, insertId));
 
   await logAudit({
     action: "create",
@@ -152,7 +154,8 @@ router.post("/orders/:id/restore", async (req, res): Promise<void> => {
   if (!existing) { res.status(404).json({ error: "Order not found" }); return; }
   if (!existing.deletedAt) { res.status(400).json({ error: "Order is not archived" }); return; }
 
-  const [restored] = await db.update(ordersTable).set({ deletedAt: null }).where(eq(ordersTable.id, id)).returning();
+  await db.update(ordersTable).set({ deletedAt: null }).where(eq(ordersTable.id, id));
+  const [restored] = await db.select().from(ordersTable).where(eq(ordersTable.id, id));
 
   await logAudit({
     action: "restore",
@@ -223,11 +226,11 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
   const unitPrice = parsed.data.unitPrice ?? existing.unitPrice;
   const totalPrice = quantity * unitPrice;
 
-  const [order] = await db
+  await db
     .update(ordersTable)
     .set({ ...parsed.data, totalPrice })
-    .where(eq(ordersTable.id, params.data.id))
-    .returning();
+    .where(eq(ordersTable.id, params.data.id));
+  const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, params.data.id));
   if (!order) { res.status(404).json({ error: "Order not found" }); return; }
 
   const oldStatus = existing.status;

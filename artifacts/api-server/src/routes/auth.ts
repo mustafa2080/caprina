@@ -1,14 +1,25 @@
 import { Router, type IRouter } from "express";
+import rateLimit from "express-rate-limit";
 import { db, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { signToken, comparePassword, hashPassword } from "../lib/auth.js";
 import { requireAuth } from "../middlewares/requireAuth.js";
 import { logAudit } from "../lib/audit.js";
 
+// ─── Brute-force protection: max 10 login attempts per 15 min per IP ────────
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "محاولات تسجيل دخول كثيرة، يرجى الانتظار 15 دقيقة" },
+  skipSuccessfulRequests: true,
+});
+
 const router: IRouter = Router();
 
 // POST /auth/login
-router.post("/login", async (req, res): Promise<void> => {
+router.post("/login", loginLimiter, async (req, res): Promise<void> => {
   const { username, password } = req.body as { username: string; password: string };
   if (!username || !password) {
     res.status(400).json({ error: "اسم المستخدم وكلمة المرور مطلوبان" });

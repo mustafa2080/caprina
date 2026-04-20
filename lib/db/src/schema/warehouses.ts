@@ -1,13 +1,13 @@
-import { pgTable, serial, text, boolean, timestamp } from "drizzle-orm/pg-core";
+import { mysqlTable, int, boolean, datetime, text, varchar } from "drizzle-orm/mysql-core";
 
-export const warehousesTable = pgTable("warehouses", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
+export const warehousesTable = mysqlTable("warehouses", {
+  id: int("id").primaryKey().autoincrement(),
+  name: varchar("name", { length: 255 }).notNull(),
   address: text("address"),
   notes: text("notes"),
   isDefault: boolean("is_default").notNull().default(false),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  createdAt: datetime("created_at").notNull().default(new Date()),
+  updatedAt: datetime("updated_at").notNull().default(new Date()),
 });
 
 export type Warehouse = typeof warehousesTable.$inferSelect;

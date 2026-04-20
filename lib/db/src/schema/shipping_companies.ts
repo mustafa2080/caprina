@@ -1,15 +1,15 @@
-import { pgTable, text, serial, boolean, timestamp } from "drizzle-orm/pg-core";
+import { mysqlTable, text, int, boolean, datetime, varchar } from "drizzle-orm/mysql-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
-export const shippingCompaniesTable = pgTable("shipping_companies", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  phone: text("phone"),
-  website: text("website"),
+export const shippingCompaniesTable = mysqlTable("shipping_companies", {
+  id: int("id").primaryKey().autoincrement(),
+  name: varchar("name", { length: 255 }).notNull(),
+  phone: varchar("phone", { length: 50 }),
+  website: varchar("website", { length: 255 }),
   notes: text("notes"),
   isActive: boolean("is_active").notNull().default(true),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: datetime("created_at").notNull().default(new Date()),
 });
 
 export const insertShippingCompanySchema = createInsertSchema(shippingCompaniesTable).omit({ id: true, createdAt: true });

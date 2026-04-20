@@ -84,9 +84,11 @@ router.post("/products/:productId/variants", requireRole("admin", "warehouse"), 
 
   const sku = parsed.data.sku || `${product.name.substring(0, 3).toUpperCase()}-${parsed.data.color.substring(0, 3).toUpperCase()}-${parsed.data.size.toUpperCase()}`;
 
-  const [variant] = await db.insert(productVariantsTable).values({
+  const insertResult = await db.insert(productVariantsTable).values({
     productId, ...parsed.data, sku, reservedQuantity: 0, soldQuantity: 0,
-  }).returning();
+  });
+  const insertId = (insertResult as any)[0]?.insertId ?? (insertResult as any).insertId;
+  const [variant] = await db.select().from(productVariantsTable).where(eq(productVariantsTable.id, insertId));
 
   await logAudit({ action: "create", entityType: "variant", entityId: variant.id, entityName: `${product.name} — ${variant.color} ${variant.size}`, after: { color: variant.color, size: variant.size, totalQuantity: variant.totalQuantity }, userId: req.user?.id, userName: req.user?.displayName });
 
@@ -102,10 +104,10 @@ router.patch("/products/:productId/variants/:variantId", requireRole("admin", "w
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
   const [before] = await db.select().from(productVariantsTable).where(eq(productVariantsTable.id, variantId));
-  const [variant] = await db.update(productVariantsTable)
+  await db.update(productVariantsTable)
     .set({ ...parsed.data, updatedAt: new Date() })
-    .where(eq(productVariantsTable.id, variantId))
-    .returning();
+    .where(eq(productVariantsTable.id, variantId));
+  const [variant] = await db.select().from(productVariantsTable).where(eq(productVariantsTable.id, variantId));
   if (!variant) { res.status(404).json({ error: "Variant not found" }); return; }
 
   if (before) await logAudit({ action: "update", entityType: "variant", entityId: variantId, entityName: `${variant.color} ${variant.size}`, before: { unitPrice: before.unitPrice, lowStockThreshold: before.lowStockThreshold }, after: { unitPrice: variant.unitPrice, lowStockThreshold: variant.lowStockThreshold }, userId: req.user?.id, userName: req.user?.displayName });
@@ -118,12 +120,13 @@ router.delete("/products/:productId/variants/:variantId", requireRole("admin"), 
   const variantId = parseInt(req.params.variantId);
   if (isNaN(variantId)) { res.status(400).json({ error: "Invalid variant ID" }); return; }
 
-  const [deleted] = await db.delete(productVariantsTable)
-    .where(and(eq(productVariantsTable.id, variantId), eq(productVariantsTable.productId, parseInt(req.params.productId))))
-    .returning();
-  if (!deleted) { res.status(404).json({ error: "Variant not found" }); return; }
+  const [toDelete] = await db.select().from(productVariantsTable)
+    .where(and(eq(productVariantsTable.id, variantId), eq(productVariantsTable.productId, parseInt(req.params.productId))));
+  if (!toDelete) { res.status(404).json({ error: "Variant not found" }); return; }
+  await db.delete(productVariantsTable)
+    .where(and(eq(productVariantsTable.id, variantId), eq(productVariantsTable.productId, parseInt(req.params.productId))));
 
-  await logAudit({ action: "delete", entityType: "variant", entityId: variantId, entityName: `${deleted.color} ${deleted.size}`, userId: req.user?.id, userName: req.user?.displayName });
+  await logAudit({ action: "delete", entityType: "variant", entityId: variantId, entityName: `${toDelete.color} ${toDelete.size}`, userId: req.user?.id, userName: req.user?.displayName });
 
   res.status(204).send();
 });
