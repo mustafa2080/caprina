@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Package, Plus, Boxes, Truck, FileText, Upload, Activity, BarChart3, Users, Shield, LogOut, ChevronDown, KeyRound, Warehouse, Megaphone, UserCheck, UserCog, Sun, Moon, Brain, Archive, Clock, MessageCircle } from "lucide-react";
+import { LayoutDashboard, Package, Plus, Boxes, Truck, FileText, Upload, Activity, BarChart3, Users, Shield, LogOut, ChevronDown, KeyRound, Warehouse, Megaphone, UserCheck, UserCog, Sun, Moon, Brain, Archive, Clock, MessageCircle, Menu, X } from "lucide-react";
 import { BrandFull } from "@/components/brand-logo";
 import { BrandSettingsDialog } from "@/components/brand-settings-dialog";
 import { cn } from "@/lib/utils";
@@ -49,6 +49,7 @@ export default function Layout({ children }: LayoutProps) {
   const { theme, toggleTheme, setTheme } = useTheme();
   const { toast } = useToast();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [pwDialogOpen, setPwDialogOpen] = useState(false);
   const [brandSettingsOpen, setBrandSettingsOpen] = useState(false);
   const [currentPw, setCurrentPw] = useState("");
@@ -214,30 +215,97 @@ export default function Layout({ children }: LayoutProps) {
                   </span>
                 </Link>
               )}
+              {/* Hamburger */}
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(true)}
+                className="text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors p-1"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
             </div>
           </div>
-          {/* Mobile Nav - scrollable tabs showing ALL nav items */}
-          <div className="flex overflow-x-auto gap-1 px-3 pb-2 no-scrollbar">
-            {visibleNav.map((item) => {
-              const isActive = item.exact ? location === item.href : (location === item.href || location.startsWith(item.href + "/") || (item.href !== "/" && location.startsWith(item.href)));
-              const Icon = item.icon;
-              return (
-                <Link key={item.href} href={item.href}>
-                  <span className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-colors ${isActive ? "bg-primary text-primary-foreground" : "text-sidebar-foreground/60 hover:text-sidebar-foreground"}`}>
-                    <Icon className="w-3 h-3" />{item.label}
-                  </span>
-                </Link>
-              );
-            })}
-            <button
-              type="button"
-              onClick={logout}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap text-red-500 hover:bg-red-500/10 transition-colors shrink-0"
-            >
-              <LogOut className="w-3 h-3" />خروج
-            </button>
-          </div>
         </header>
+
+        {/* Mobile Drawer Overlay */}
+        {mobileMenuOpen && (
+          <div className="fixed inset-0 z-50 md:hidden" dir="rtl">
+            {/* Backdrop */}
+            <div
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+              onClick={() => setMobileMenuOpen(false)}
+            />
+            {/* Drawer panel - slides from right */}
+            <div className="absolute top-0 right-0 h-full w-72 bg-sidebar border-l border-sidebar-border flex flex-col shadow-2xl animate-in slide-in-from-right duration-200">
+              {/* Drawer header */}
+              <div className="flex items-center justify-between p-4 border-b border-sidebar-border">
+                <BrandFull logoSize="sm" layout="row" nameClass="text-sm text-sidebar-foreground" onLogoClick={isAdmin ? () => { setBrandSettingsOpen(true); setMobileMenuOpen(false); } : undefined} />
+                <button
+                  type="button"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="text-sidebar-foreground/50 hover:text-sidebar-foreground p-1 rounded-md hover:bg-foreground/5"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Nav links */}
+              <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
+                {visibleNav.map((item) => {
+                  const isActive = item.exact ? location === item.href : (location === item.href || location.startsWith(item.href + "/") || (item.href !== "/" && location.startsWith(item.href)));
+                  const Icon = item.icon;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-semibold transition-all",
+                        isActive
+                          ? "bg-primary text-primary-foreground"
+                          : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-foreground/5"
+                      )}
+                    >
+                      <Icon className="w-4 h-4 shrink-0" />
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </nav>
+
+              {/* Theme toggle */}
+              <div className="px-3 pb-2">
+                <div className="flex items-center rounded-lg bg-muted/50 border border-sidebar-border p-0.5 gap-0.5">
+                  <button type="button" onClick={() => setTheme("dark")} className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-[11px] font-bold transition-all ${theme === "dark" ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm" : "text-sidebar-foreground/50 hover:text-sidebar-foreground/80"}`}>
+                    <Moon className="w-3 h-3" />داكن
+                  </button>
+                  <button type="button" onClick={() => setTheme("light")} className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-[11px] font-bold transition-all ${theme === "light" ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm" : "text-sidebar-foreground/50 hover:text-sidebar-foreground/80"}`}>
+                    <Sun className="w-3 h-3" />فاتح
+                  </button>
+                </div>
+              </div>
+
+              {/* User + logout */}
+              <div className="border-t border-sidebar-border p-3 space-y-1">
+                <div className="flex items-center gap-2 px-1 py-1">
+                  <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-xs font-bold text-primary shrink-0">
+                    {user?.displayName?.charAt(0) ?? "?"}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-sidebar-foreground truncate">{user?.displayName}</p>
+                    <p className="text-[10px] text-sidebar-foreground/40">{ROLE_LABELS[user?.role ?? ""] ?? user?.role}</p>
+                  </div>
+                </div>
+                <button type="button" onClick={() => { setMobileMenuOpen(false); setPwDialogOpen(true); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs rounded-md hover:bg-foreground/5 transition-colors text-sidebar-foreground/70">
+                  <KeyRound className="w-3.5 h-3.5" />تغيير كلمة المرور
+                </button>
+                <button type="button" onClick={() => { setMobileMenuOpen(false); logout(); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs rounded-md text-red-400 hover:bg-red-500/10 transition-colors">
+                  <LogOut className="w-3.5 h-3.5" />تسجيل الخروج
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="flex-1 overflow-auto">
           <div className="mx-auto max-w-6xl p-4 md:p-6">
