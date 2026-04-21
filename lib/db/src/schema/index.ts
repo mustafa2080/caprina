@@ -12,3 +12,4 @@ export * from "./employee_profiles";
 export * from "./employee_kpis";
 export * from "./employee_daily_logs";
 export * from "./app_settings";
+export * from "./session_logs";

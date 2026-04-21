@@ -12,6 +12,7 @@ export interface AuthUser {
 interface AuthContextValue {
   user: AuthUser | null;
   token: string | null;
+  sessionId: number | null;
   login: (token: string, user: AuthUser) => void;
   logout: () => void;
   refreshUser: () => Promise<void>;
@@ -32,10 +33,34 @@ const USER_KEY  = "caprina_user";
 const POLL_INTERVAL_MS = 60_000;
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user,    setUser]    = useState<AuthUser | null>(null);
-  const [token,   setToken]   = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user,      setUser]      = useState<AuthUser | null>(null);
+  const [token,     setToken]     = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<number | null>(null);
+  const [loading,   setLoading]   = useState(true);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ─── تسجيل session login ───────────────────────────────────────────────────
+  const recordLogin = useCallback(async (tkn: string): Promise<number | null> => {
+    try {
+      const res = await fetch("/api/sessions/login", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${tkn}`, "Content-Type": "application/json" },
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.sessionId ?? null;
+    } catch { return null; }
+  }, []);
+
+  // ─── تسجيل session logout ──────────────────────────────────────────────────
+  const recordLogout = useCallback(async (tkn: string, sid: number) => {
+    try {
+      await fetch(`/api/sessions/${sid}/logout`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${tkn}` },
+      });
+    } catch { /* silent */ }
+  }, []);
 
   // ─── جيب بيانات اليوزر الحالي من API ─────────────────────────────────────
   const fetchMe = useCallback(async (tkn: string): Promise<AuthUser | null> => {
@@ -120,21 +145,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // ─── Login ────────────────────────────────────────────────────────────────
-  const login = (newToken: string, newUser: AuthUser) => {
+  const login = async (newToken: string, newUser: AuthUser) => {
     setToken(newToken);
     setUser(newUser);
     localStorage.setItem(TOKEN_KEY, newToken);
     localStorage.setItem(USER_KEY, JSON.stringify(newUser));
     startPolling(newToken);
+    // سجّل وقت الدخول
+    const sid = await recordLogin(newToken);
+    if (sid) {
+      setSessionId(sid);
+      localStorage.setItem("caprina_session_id", String(sid));
+    }
   };
 
   // ─── Logout ───────────────────────────────────────────────────────────────
   const logout = () => {
     if (pollRef.current) clearInterval(pollRef.current);
+    // سجّل وقت الخروج
+    const tkn = localStorage.getItem(TOKEN_KEY);
+    const sid = localStorage.getItem("caprina_session_id");
+    if (tkn && sid) recordLogout(tkn, parseInt(sid));
     setToken(null);
     setUser(null);
+    setSessionId(null);
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
+    localStorage.removeItem("caprina_session_id");
   };
 
   // ─── can() — الـ permissions من DB هي المرجع الوحيد ──────────────────────
@@ -149,7 +186,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={{
-      user, token,
+      user, token, sessionId,
       login, logout, refreshUser,
       isAdmin:    user?.role === "admin",
       isEmployee: user?.role === "employee",
