@@ -60,6 +60,7 @@ const SmartAnalyticsPage    = lazy(() => import("@/pages/smart-analytics"));
 const ArchivePage           = lazy(() => import("@/pages/archive"));
 const ShippingFollowupPage  = lazy(() => import("@/pages/shipping-followup"));
 const WhatsAppSettingsPage  = lazy(() => import("@/pages/whatsapp-settings"));
+const SessionsReportPage    = lazy(() => import("@/pages/sessions-report"));
 const NotFound              = lazy(() => import("@/pages/not-found"));
 const Login                 = lazy(() => import("@/pages/login"));
 
@@ -160,6 +161,7 @@ function Router() {
           <Route path="/archive"                  component={() => <ProtectedRoute permission="orders" component={ArchivePage} />} />
           <Route path="/shipping-followup"        component={() => <ProtectedRoute permission="orders" component={ShippingFollowupPage} />} />
           <Route path="/whatsapp"                 component={() => <ProtectedRoute permission="whatsapp" component={WhatsAppSettingsPage} />} />
+          <Route path="/sessions-report"          component={() => <ProtectedRoute permission="users" component={SessionsReportPage} />} />
           <Route                                  component={NotFound} />
         </Switch>
       </Suspense>

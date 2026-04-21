@@ -842,8 +842,47 @@ export const teamAnalyticsApi = {
   },
 };
 
-export const movementsApi = {
-  list: (filters?: MovementFilters) => {
+// ─── Sessions API ────────────────────────────────────────────────────────────
+export interface SessionLog {
+  id: number;
+  userId: number;
+  loginAt: string;
+  logoutAt: string | null;
+  duration: number | null;
+  ipAddress: string | null;
+  displayName?: string;
+  username?: string;
+  role?: string;
+}
+
+export interface SessionReport {
+  sessions: SessionLog[];
+  summary: {
+    userId: number;
+    displayName: string;
+    username: string;
+    role: string;
+    totalSessions: number;
+    totalDuration: number;
+    lastLogin: string | null;
+  }[];
+  period: string;
+  from: string;
+  to: string;
+}
+
+export const sessionsApi = {
+  report: (params?: { period?: string; from?: string; to?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.period) q.set("period", params.period);
+    if (params?.from) q.set("from", params.from);
+    if (params?.to) q.set("to", params.to);
+    return apiFetch<SessionReport>(`/sessions/report?${q.toString()}`);
+  },
+  me: () => apiFetch<SessionLog[]>("/sessions/me"),
+};
+
+export const movementsApi = {  list: (filters?: MovementFilters) => {
     const params = new URLSearchParams();
     if (filters?.type) params.set("type", filters.type);
     if (filters?.reason) params.set("reason", filters.reason);
