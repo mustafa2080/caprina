@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Shield, Search, ChevronDown, ChevronUp, RefreshCw, Filter } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const ACTION_LABELS: Record<string, string> = {
   create: "إنشاء",
@@ -128,28 +129,30 @@ export default function AuditLogsPage() {
           />
         </div>
         <div className="flex items-center gap-2">
-          <Filter className="w-3.5 h-3.5 text-muted-foreground" />
-          <select
-            className="h-9 px-3 text-sm bg-background border border-border rounded-md"
-            value={entityType}
-            onChange={e => setEntityType(e.target.value)}
-          >
-            <option value="">كل الأنواع</option>
-            <option value="order">طلبات</option>
-            <option value="product">منتجات</option>
-            <option value="variant">متغيرات</option>
-            <option value="user">مستخدمون</option>
-          </select>
-          <select
-            className="h-9 px-3 text-sm bg-background border border-border rounded-md"
-            value={action}
-            onChange={e => setAction(e.target.value)}
-          >
-            <option value="">كل الأحداث</option>
-            {Object.entries(ACTION_LABELS).map(([k, v]) => (
-              <option key={k} value={k}>{v}</option>
-            ))}
-          </select>
+          <Filter className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+          <Select value={entityType || "all_types"} onValueChange={v => setEntityType(v === "all_types" ? "" : v)}>
+            <SelectTrigger className="h-9 text-sm bg-background border-border w-36">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all_types">كل الأنواع</SelectItem>
+              <SelectItem value="order">طلبات</SelectItem>
+              <SelectItem value="product">منتجات</SelectItem>
+              <SelectItem value="variant">متغيرات</SelectItem>
+              <SelectItem value="user">مستخدمون</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={action || "all_actions"} onValueChange={v => setAction(v === "all_actions" ? "" : v)}>
+            <SelectTrigger className="h-9 text-sm bg-background border-border w-36">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all_actions">كل الأحداث</SelectItem>
+              {Object.entries(ACTION_LABELS).map(([k, v]) => (
+                <SelectItem key={k} value={k}>{v}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
