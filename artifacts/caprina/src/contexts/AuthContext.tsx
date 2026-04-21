@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from "react";
 
 export interface AuthUser {
   id: number;
@@ -26,61 +26,113 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 const TOKEN_KEY = "caprina_token";
-const USER_KEY = "caprina_user";
+const USER_KEY  = "caprina_user";
+
+// كل كام ثانية نجيب بيانات اليوزر من السيرفر (30 ثانية)
+const POLL_INTERVAL_MS = 30_000;
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [token, setToken] = useState<string | null>(null);
+  const [user,    setUser]    = useState<AuthUser | null>(null);
+  const [token,   setToken]   = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // ─── جيب بيانات اليوزر الحالي من API ─────────────────────────────────────
+  const fetchMe = useCallback(async (tkn: string): Promise<AuthUser | null> => {
+    try {
+      const res = await fetch("/api/auth/me", {
+        headers: { Authorization: `Bearer ${tkn}` },
+      });
+      if (!res.ok) return null;
+      return await res.json() as AuthUser;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  // ─── تحديث اليوزر يدوياً (بعد حفظ التعديلات) ─────────────────────────────
+  const refreshUser = useCallback(async () => {
+    const tkn = localStorage.getItem(TOKEN_KEY);
+    if (!tkn) return;
+    const updated = await fetchMe(tkn);
+    if (updated) {
+      setUser(updated);
+      localStorage.setItem(USER_KEY, JSON.stringify(updated));
+    }
+  }, [fetchMe]);
+
+  // ─── بدء الـ polling ──────────────────────────────────────────────────────
+  const startPolling = useCallback((tkn: string) => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(async () => {
+      const updated = await fetchMe(tkn);
+      if (updated) {
+        setUser(updated);
+        localStorage.setItem(USER_KEY, JSON.stringify(updated));
+      } else {
+        // لو الـ token انتهت صلاحيته أو اليوزر اتعطّل → logout
+        logout();
+      }
+    }, POLL_INTERVAL_MS);
+  }, [fetchMe]);
+
+  // ─── تحميل اليوزر من localStorage عند أول render ─────────────────────────
   useEffect(() => {
     const savedToken = localStorage.getItem(TOKEN_KEY);
-    const savedUser = localStorage.getItem(USER_KEY);
+    const savedUser  = localStorage.getItem(USER_KEY);
     if (savedToken && savedUser) {
       try {
+        const parsed = JSON.parse(savedUser) as AuthUser;
         setToken(savedToken);
-        setUser(JSON.parse(savedUser));
+        setUser(parsed);
+        // جيب بيانات fresh من API مباشرة بدل localStorage القديمة
+        fetchMe(savedToken).then(fresh => {
+          if (fresh) {
+            setUser(fresh);
+            localStorage.setItem(USER_KEY, JSON.stringify(fresh));
+          } else {
+            // token منتهية
+            localStorage.removeItem(TOKEN_KEY);
+            localStorage.removeItem(USER_KEY);
+            setToken(null);
+            setUser(null);
+          }
+          setLoading(false);
+        });
+        startPolling(savedToken);
       } catch {
         localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem(USER_KEY);
+        setLoading(false);
       }
+    } else {
+      setLoading(false);
     }
-    setLoading(false);
+
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, []);
 
+  // ─── Login ────────────────────────────────────────────────────────────────
   const login = (newToken: string, newUser: AuthUser) => {
     setToken(newToken);
     setUser(newUser);
     localStorage.setItem(TOKEN_KEY, newToken);
     localStorage.setItem(USER_KEY, JSON.stringify(newUser));
+    startPolling(newToken);
   };
 
+  // ─── Logout ───────────────────────────────────────────────────────────────
   const logout = () => {
+    if (pollRef.current) clearInterval(pollRef.current);
     setToken(null);
     setUser(null);
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
   };
 
-  // Refresh current user data from API (for realtime permissions update)
-  const refreshUser = useCallback(async () => {
-    const savedToken = localStorage.getItem(TOKEN_KEY);
-    if (!savedToken) return;
-    try {
-      const res = await fetch("/api/auth/me", {
-        headers: { Authorization: `Bearer ${savedToken}` },
-      });
-      if (!res.ok) return;
-      const updated: AuthUser = await res.json();
-      setUser(updated);
-      localStorage.setItem(USER_KEY, JSON.stringify(updated));
-    } catch { /* ignore */ }
-  }, []);
-
+  // ─── can() — الـ permissions من DB هي المرجع الوحيد ──────────────────────
   const can = (permission: string): boolean => {
     if (!user) return false;
-    // permissions from DB is the single source of truth
-    // If it contains "*" => full access (used for legacy admin records with no explicit perms)
     const perms: string[] = Array.isArray(user.permissions) ? user.permissions : [];
     if (perms.includes("*")) return true;
     return perms.includes(permission);
@@ -92,9 +144,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider value={{
       user, token,
       login, logout, refreshUser,
-      isAdmin: user?.role === "admin",
+      isAdmin:    user?.role === "admin",
       isEmployee: user?.role === "employee",
-      isWarehouse: user?.role === "warehouse",
+      isWarehouse:user?.role === "warehouse",
       can,
       canViewFinancials,
       loading,
