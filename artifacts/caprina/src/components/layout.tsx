@@ -216,54 +216,23 @@ export default function Layout({ children }: LayoutProps) {
               )}
             </div>
           </div>
-          {/* Mobile Nav Tabs */}
+          {/* Mobile Nav - scrollable tabs showing ALL nav items */}
           <div className="flex overflow-x-auto gap-1 px-3 pb-2 no-scrollbar">
-            {can("dashboard") && (
-              <Link href="/">
-                <span className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-colors ${location === "/" ? "bg-primary text-primary-foreground" : "text-sidebar-foreground/60 hover:text-sidebar-foreground"}`}>
-                  <LayoutDashboard className="w-3 h-3" />لوحة
-                </span>
-              </Link>
-            )}
-            {can("analytics") && (
-              <Link href="/smart">
-                <span className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-colors ${location === "/smart" ? "bg-primary text-primary-foreground" : "text-sidebar-foreground/60 hover:text-sidebar-foreground"}`}>
-                  🧠 ذكاء
-                </span>
-              </Link>
-            )}
-            {can("orders") && (
-              <Link href="/orders">
-                <span className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-colors ${location === "/orders" ? "bg-primary text-primary-foreground" : "text-sidebar-foreground/60 hover:text-sidebar-foreground"}`}>
-                  <Package className="w-3 h-3" />طلبات
-                </span>
-              </Link>
-            )}
-            {can("inventory") && (
-              <Link href="/inventory">
-                <span className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-colors ${location === "/inventory" ? "bg-primary text-primary-foreground" : "text-sidebar-foreground/60 hover:text-sidebar-foreground"}`}>
-                  <Boxes className="w-3 h-3" />مخزون
-                </span>
-              </Link>
-            )}
-            {can("analytics") && (
-              <Link href="/ads-analytics">
-                <span className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-colors ${location === "/ads-analytics" ? "bg-primary text-primary-foreground" : "text-sidebar-foreground/60 hover:text-sidebar-foreground"}`}>
-                  <Megaphone className="w-3 h-3" />إعلانات
-                </span>
-              </Link>
-            )}
-            {can("invoices") && (
-              <Link href="/invoices">
-                <span className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-colors ${location === "/invoices" ? "bg-primary text-primary-foreground" : "text-sidebar-foreground/60 hover:text-sidebar-foreground"}`}>
-                  <FileText className="w-3 h-3" />فواتير
-                </span>
-              </Link>
-            )}
+            {visibleNav.map((item) => {
+              const isActive = item.exact ? location === item.href : (location === item.href || location.startsWith(item.href + "/") || (item.href !== "/" && location.startsWith(item.href)));
+              const Icon = item.icon;
+              return (
+                <Link key={item.href} href={item.href}>
+                  <span className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-colors ${isActive ? "bg-primary text-primary-foreground" : "text-sidebar-foreground/60 hover:text-sidebar-foreground"}`}>
+                    <Icon className="w-3 h-3" />{item.label}
+                  </span>
+                </Link>
+              );
+            })}
             <button
               type="button"
               onClick={logout}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap text-red-500 hover:bg-red-500/10 transition-colors"
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap text-red-500 hover:bg-red-500/10 transition-colors shrink-0"
             >
               <LogOut className="w-3 h-3" />خروج
             </button>
