@@ -170,24 +170,32 @@ export default function AuditLogsPage() {
               <div key={log.id} className="border border-border rounded-lg overflow-hidden bg-card">
                 <button
                   type="button"
-                  className="w-full flex items-center gap-3 p-3 text-right hover:bg-muted/10 transition-colors"
+                  className="w-full flex flex-col gap-1 p-3 text-right hover:bg-muted/10 transition-colors"
                   onClick={() => hasDetails && toggleExpand(log.id)}
                 >
-                  <Badge variant="outline" className={`text-[10px] font-bold shrink-0 ${ACTION_COLORS[log.action] ?? ""}`}>
-                    {ACTION_LABELS[log.action] ?? log.action}
-                  </Badge>
-                  <span className="text-[10px] text-muted-foreground shrink-0">
-                    {ENTITY_LABELS[log.entityType] ?? log.entityType}
-                    {log.entityId ? ` #${log.entityId}` : ""}
-                  </span>
-                  <span className="text-xs text-foreground truncate flex-1 text-right">{log.entityName ?? "—"}</span>
-                  <span className="text-[10px] text-muted-foreground shrink-0">{log.userName ?? "—"}</span>
-                  <span className="text-[10px] text-muted-foreground shrink-0">{formatDate(log.createdAt)}</span>
-                  {hasDetails && (
-                    <span className="text-muted-foreground shrink-0">
-                      {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                  {/* Row 1: badge + entity name + chevron */}
+                  <div className="flex items-center gap-2 w-full min-w-0">
+                    <Badge variant="outline" className={`text-[10px] font-bold shrink-0 ${ACTION_COLORS[log.action] ?? ""}`}>
+                      {ACTION_LABELS[log.action] ?? log.action}
+                    </Badge>
+                    <span className="text-xs text-foreground font-medium truncate flex-1 text-right">{log.entityName ?? "—"}</span>
+                    {hasDetails && (
+                      <span className="text-muted-foreground shrink-0">
+                        {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                      </span>
+                    )}
+                  </div>
+                  {/* Row 2: entity type + user + date */}
+                  <div className="flex items-center gap-2 text-[10px] text-muted-foreground flex-wrap">
+                    <span className="shrink-0">
+                      {ENTITY_LABELS[log.entityType] ?? log.entityType}
+                      {log.entityId ? ` #${log.entityId}` : ""}
                     </span>
-                  )}
+                    <span className="shrink-0">•</span>
+                    <span className="shrink-0">{log.userName ?? "—"}</span>
+                    <span className="shrink-0">•</span>
+                    <span className="shrink-0">{formatDate(log.createdAt)}</span>
+                  </div>
                 </button>
                 {isExpanded && hasDetails && (
                   <div className="px-4 pb-3 border-t border-border/50">
