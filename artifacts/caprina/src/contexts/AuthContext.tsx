@@ -56,8 +56,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!tkn) return;
     const updated = await fetchMe(tkn);
     if (updated) {
-      setUser(updated);
-      localStorage.setItem(USER_KEY, JSON.stringify(updated));
+      // بس نحدث لو في فرق فعلي
+      setUser(prev => {
+        if (JSON.stringify(prev) === JSON.stringify(updated)) return prev;
+        localStorage.setItem(USER_KEY, JSON.stringify(updated));
+        return updated;
+      });
     }
   }, [fetchMe]);
 
@@ -67,10 +71,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     pollRef.current = setInterval(async () => {
       const updated = await fetchMe(tkn);
       if (updated) {
-        setUser(updated);
-        localStorage.setItem(USER_KEY, JSON.stringify(updated));
+        // بس نحدث لو في فرق فعلي — منع re-render زيادة
+        setUser(prev => {
+          if (JSON.stringify(prev) === JSON.stringify(updated)) return prev;
+          localStorage.setItem(USER_KEY, JSON.stringify(updated));
+          return updated;
+        });
       } else {
-        // لو الـ token انتهت صلاحيته أو اليوزر اتعطّل → logout
         logout();
       }
     }, POLL_INTERVAL_MS);
