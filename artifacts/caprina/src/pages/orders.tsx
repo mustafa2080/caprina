@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { format } from "date-fns";
-import { Search, Filter, Plus, Package, CalendarDays, X, RotateCcw, MessageCircle, Trash2, CheckSquare } from "lucide-react";
+import { Search, Filter, Plus, Package, CalendarDays, X, RotateCcw, MessageCircle, Trash2, CheckSquare, RefreshCw } from "lucide-react";
 import { useListOrders, useUpdateOrder, getListOrdersQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -13,6 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { returnReasonLabel } from "@/lib/order-constants";
 import { type WhatsAppOrderData } from "@/lib/whatsapp";
 import { WhatsAppDialog } from "@/components/whatsapp-dialog";
@@ -37,6 +38,15 @@ const statusClasses: Record<string, string> = {
   partial_received: "bg-purple-50  dark:bg-purple-900/30  text-purple-700  dark:text-purple-400  border-purple-300  dark:border-purple-800",
 };
 
+const STATUS_OPTIONS = [
+  { value: "pending",          label: "قيد الانتظار",  color: "text-amber-500" },
+  { value: "in_shipping",      label: "قيد الشحن",     color: "text-sky-500" },
+  { value: "received",         label: "استلم",          color: "text-emerald-500" },
+  { value: "delayed",          label: "مؤجل",           color: "text-blue-500" },
+  { value: "returned",         label: "مرتجع",          color: "text-red-500" },
+  { value: "partial_received", label: "استلم جزئي",    color: "text-purple-500" },
+];
+
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(amount);
 
@@ -54,6 +64,8 @@ export default function Orders() {
   const [bulkSelectMode, setBulkSelectMode] = useState(false);
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+  const [pendingBulkStatus, setPendingBulkStatus] = useState<string | null>(null);
 
   const { data: orders, isLoading } = useListOrders(
     { search: debouncedSearch || undefined, status: status !== "all" ? status : undefined },
@@ -67,33 +79,21 @@ export default function Orders() {
 
   const hasActiveFilter = search || status !== "all" || dateFrom;
 
-  const clearFilters = () => {
-    setSearch("");
-    setStatus("all");
-    setDateFrom("");
-  };
+  const clearFilters = () => { setSearch(""); setStatus("all"); setDateFrom(""); };
 
   const toggleSelect = (id: number) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
   };
 
   const toggleSelectAll = () => {
-    if (selectedIds.size === filtered.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(filtered.map(o => o.id)));
-    }
+    setSelectedIds(selectedIds.size === filtered.length ? new Set() : new Set(filtered.map(o => o.id)));
   };
 
-  const exitBulkMode = () => {
-    setBulkSelectMode(false);
-    setSelectedIds(new Set());
-  };
+  const exitBulkMode = () => { setBulkSelectMode(false); setSelectedIds(new Set()); };
 
   const handleBulkDelete = async () => {
     if (selectedIds.size === 0) return;
@@ -118,6 +118,34 @@ export default function Orders() {
     }
   };
 
+  const handleBulkStatusChange = async (newStatus: string) => {
+    if (selectedIds.size === 0) return;
+    setIsBulkUpdating(true);
+    let done = 0;
+    let failed = 0;
+    const ids = Array.from(selectedIds);
+    for (const id of ids) {
+      try {
+        await new Promise<void>((resolve, reject) => {
+          updateOrder.mutate(
+            { id, data: { status: newStatus as any } },
+            { onSuccess: () => resolve(), onError: () => reject() }
+          );
+        });
+        done++;
+      } catch {
+        failed++;
+      }
+    }
+    queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
+    const label = statusLabels[newStatus] ?? newStatus;
+    const failedMsg = failed > 0 ? ` (${failed} فشل)` : "";
+    toast({ title: `تم تحديث ${done} طلب ✅`, description: `تم تغيير الحالة إلى «${label}»${failedMsg}` });
+    setPendingBulkStatus(null);
+    exitBulkMode();
+    setIsBulkUpdating(false);
+  };
+
   const handleWhatsApp = (e: React.MouseEvent, order: NonNullable<typeof orders>[0]) => {
     e.stopPropagation();
     setWaOrder({ id: order.id, customerName: order.customerName, product: order.product, quantity: order.quantity, totalPrice: order.totalPrice, status: order.status, phone: order.phone });
@@ -127,12 +155,7 @@ export default function Orders() {
     if (currentStatus === "pending") {
       updateOrder.mutate(
         { id: orderId, data: { status: "in_shipping" } },
-        {
-          onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
-            toast({ title: "تم إرسال واتساب ✅", description: `تم تحويل الطلب #${orderId.toString().padStart(4,"0")} لـ «قيد الشحن»` });
-          },
-        }
+        { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() }); toast({ title: "تم إرسال واتساب ✅", description: `تم تحويل الطلب #${orderId.toString().padStart(4,"0")} لـ «قيد الشحن»` }); } }
       );
     } else {
       toast({ title: "تم فتح واتساب ✅", description: "الرسالة جاهزة للإرسال" });
@@ -146,17 +169,41 @@ export default function Orders() {
           <h1 className="text-2xl font-bold">الطلبات</h1>
           <p className="text-muted-foreground text-sm mt-0.5">إدارة وتتبع جميع الطلبات</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
           {bulkSelectMode ? (
             <>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1 text-xs h-9"
-                onClick={exitBulkMode}
-              >
+              <Button variant="outline" size="sm" className="gap-1 text-xs h-9" onClick={exitBulkMode}>
                 <X className="w-3.5 h-3.5" />إلغاء
               </Button>
+
+              {/* تغيير الحالة بالجملة */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1 text-xs h-9 border-primary/50 text-primary"
+                    disabled={selectedIds.size === 0 || isBulkUpdating}
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isBulkUpdating ? "animate-spin" : ""}`} />
+                    تغيير الحالة {selectedIds.size > 0 ? `(${selectedIds.size})` : ""}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-44" dir="rtl">
+                  {STATUS_OPTIONS.map(opt => (
+                    <DropdownMenuItem
+                      key={opt.value}
+                      className={`text-xs font-semibold gap-2 cursor-pointer ${opt.color}`}
+                      onClick={() => setPendingBulkStatus(opt.value)}
+                    >
+                      <span className="w-2 h-2 rounded-full bg-current shrink-0" />
+                      {opt.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* حذف بالجملة */}
               <Button
                 size="sm"
                 className="gap-1 text-xs h-9 bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -164,18 +211,12 @@ export default function Orders() {
                 onClick={() => setShowBulkDeleteConfirm(true)}
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                حذف {selectedIds.size > 0 ? `(${selectedIds.size})` : "المحدد"}
+                حذف {selectedIds.size > 0 ? `(${selectedIds.size})` : ""}
               </Button>
             </>
           ) : (
             <>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1 text-xs h-9"
-                onClick={() => setBulkSelectMode(true)}
-                title="تحديد متعدد للحذف"
-              >
+              <Button variant="outline" size="sm" className="gap-1 text-xs h-9" onClick={() => setBulkSelectMode(true)}>
                 <CheckSquare className="w-3.5 h-3.5" />تحديد
               </Button>
               <Link href="/orders/new">
@@ -210,7 +251,7 @@ export default function Orders() {
               </SelectContent>
             </Select>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <div className="relative">
               <CalendarDays className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
               <Input type="date" className="pr-9 bg-card text-sm h-8 w-48 text-xs" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
@@ -232,12 +273,12 @@ export default function Orders() {
           <div className="p-8 text-center text-muted-foreground text-sm">جاري التحميل...</div>
         ) : filtered.length > 0 ? (
           <>
-            {/* ── Mobile: card list ── */}
+            {/* ── Mobile ── */}
             <div className="sm:hidden divide-y divide-border">
               {filtered.map((order) => {
                 const canWhatsApp = !bulkSelectMode && (order.status === "pending" || order.status === "in_shipping" || order.status === "delayed");
                 const retReason = (order as any).returnReason as string | null;
-                const retNote = (order as any).returnNote as string | null;
+                const retNote   = (order as any).returnNote   as string | null;
                 const isSelected = selectedIds.has(order.id);
                 return (
                   <div
@@ -246,12 +287,7 @@ export default function Orders() {
                     onClick={() => bulkSelectMode ? toggleSelect(order.id) : (window.location.href = `/orders/${order.id}`)}
                   >
                     {bulkSelectMode && (
-                      <Checkbox
-                        checked={isSelected}
-                        onCheckedChange={() => toggleSelect(order.id)}
-                        onClick={e => e.stopPropagation()}
-                        className="shrink-0"
-                      />
+                      <Checkbox checked={isSelected} onCheckedChange={() => toggleSelect(order.id)} onClick={e => e.stopPropagation()} className="shrink-0" />
                     )}
                     <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-foreground shrink-0">
                       {order.customerName.charAt(0)}
@@ -276,10 +312,7 @@ export default function Orders() {
                       </div>
                     </div>
                     {canWhatsApp && (
-                      <button
-                        className="shrink-0 w-9 h-9 rounded-full text-green-500 hover:bg-green-500/10 flex items-center justify-center"
-                        onClick={(e) => handleWhatsApp(e, order)}
-                      >
+                      <button className="shrink-0 w-9 h-9 rounded-full text-green-500 hover:bg-green-500/10 flex items-center justify-center" onClick={(e) => handleWhatsApp(e, order)}>
                         <MessageCircle className="w-4.5 h-4.5" />
                       </button>
                     )}
@@ -288,17 +321,14 @@ export default function Orders() {
               })}
             </div>
 
-            {/* ── Desktop: table ── */}
+            {/* ── Desktop ── */}
             <div className="hidden sm:block overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="border-border hover:bg-transparent">
                     {bulkSelectMode && (
                       <TableHead className="w-10 text-center">
-                        <Checkbox
-                          checked={selectedIds.size === filtered.length && filtered.length > 0}
-                          onCheckedChange={toggleSelectAll}
-                        />
+                        <Checkbox checked={selectedIds.size === filtered.length && filtered.length > 0} onCheckedChange={toggleSelectAll} />
                       </TableHead>
                     )}
                     <TableHead className="text-right text-xs">#</TableHead>
@@ -313,10 +343,10 @@ export default function Orders() {
                 </TableHeader>
                 <TableBody>
                   {filtered.map((order) => {
-                    const retReason = (order as any).returnReason as string | null;
-                    const retNote = (order as any).returnNote as string | null;
+                    const retReason  = (order as any).returnReason as string | null;
+                    const retNote    = (order as any).returnNote   as string | null;
                     const canWhatsApp = !bulkSelectMode && (order.status === "pending" || order.status === "in_shipping" || order.status === "delayed");
-                    const isSelected = selectedIds.has(order.id);
+                    const isSelected  = selectedIds.has(order.id);
                     return (
                       <TableRow
                         key={order.id}
@@ -325,11 +355,7 @@ export default function Orders() {
                       >
                         {bulkSelectMode && (
                           <TableCell className="text-center p-2">
-                            <Checkbox
-                              checked={isSelected}
-                              onCheckedChange={() => toggleSelect(order.id)}
-                              onClick={e => e.stopPropagation()}
-                            />
+                            <Checkbox checked={isSelected} onCheckedChange={() => toggleSelect(order.id)} onClick={e => e.stopPropagation()} />
                           </TableCell>
                         )}
                         <TableCell className="font-mono text-xs text-primary font-bold">#{order.id.toString().padStart(4,"0")}</TableCell>
@@ -353,13 +379,7 @@ export default function Orders() {
                         </TableCell>
                         <TableCell className="text-center p-1">
                           {canWhatsApp && (
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-7 w-7 rounded-full text-green-500 hover:text-green-400 hover:bg-green-500/10"
-                              title={`إرسال واتساب لـ ${order.customerName}`}
-                              onClick={(e) => handleWhatsApp(e, order)}
-                            >
+                            <Button size="icon" variant="ghost" className="h-7 w-7 rounded-full text-green-500 hover:text-green-400 hover:bg-green-500/10" onClick={(e) => handleWhatsApp(e, order)}>
                               <MessageCircle className="w-4 h-4" />
                             </Button>
                           )}
@@ -375,9 +395,7 @@ export default function Orders() {
           <div className="p-12 text-center">
             <Package className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-20" />
             <p className="font-bold text-foreground">لا توجد طلبات</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              {hasActiveFilter ? "جرّب تغيير معايير البحث." : "لا يوجد طلبات حتى الآن."}
-            </p>
+            <p className="text-sm text-muted-foreground mt-1">{hasActiveFilter ? "جرّب تغيير معايير البحث." : "لا يوجد طلبات حتى الآن."}</p>
           </div>
         )}
       </Card>
@@ -390,30 +408,39 @@ export default function Orders() {
         </p>
       )}
 
-      <WhatsAppDialog
-        open={!!waOrder}
-        onOpenChange={open => { if (!open) setWaOrder(null); }}
-        order={waOrder}
-        onSent={() => waOrder && handleWaSent(waOrder.id, waOrder.status)}
-      />
+      <WhatsAppDialog open={!!waOrder} onOpenChange={open => { if (!open) setWaOrder(null); }} order={waOrder} onSent={() => waOrder && handleWaSent(waOrder.id, waOrder.status)} />
 
+      {/* تأكيد الحذف بالجملة */}
       <AlertDialog open={showBulkDeleteConfirm} onOpenChange={setShowBulkDeleteConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>تأكيد حذف الطلبات</AlertDialogTitle>
             <AlertDialogDescription>
-              هتحذف {selectedIds.size} طلب. الطلبات المسلّمة (استلم / استلم جزئي) لن تُحذف إلا إذا كنت مدير.
-              هذا الإجراء لا يمكن التراجع عنه.
+              هتحذف {selectedIds.size} طلب. الطلبات المسلّمة لن تُحذف إلا إذا كنت مدير. هذا الإجراء لا يمكن التراجع عنه.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>إلغاء</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={handleBulkDelete}
-              disabled={isBulkDeleting}
-            >
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={handleBulkDelete} disabled={isBulkDeleting}>
               {isBulkDeleting ? "جاري الحذف..." : `حذف ${selectedIds.size} طلب`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* تأكيد تغيير الحالة بالجملة */}
+      <AlertDialog open={!!pendingBulkStatus} onOpenChange={open => { if (!open) setPendingBulkStatus(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>تأكيد تغيير الحالة</AlertDialogTitle>
+            <AlertDialogDescription>
+              هتغير حالة {selectedIds.size} طلب إلى «{statusLabels[pendingBulkStatus ?? ""] ?? pendingBulkStatus}». هل أنت متأكد؟
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction onClick={() => pendingBulkStatus && handleBulkStatusChange(pendingBulkStatus)} disabled={isBulkUpdating}>
+              {isBulkUpdating ? "جاري التحديث..." : "تأكيد"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
