@@ -14,17 +14,8 @@ if ("serviceWorker" in navigator) {
       .then((reg) => {
         console.info("[PWA] Service worker registered", reg.scope);
 
-        // Auto-update: when a new SW is waiting, activate it immediately
-        reg.addEventListener("updatefound", () => {
-          const worker = reg.installing;
-          if (!worker) return;
-          worker.addEventListener("statechange", () => {
-            if (worker.state === "installed" && navigator.serviceWorker.controller) {
-              worker.postMessage({ type: "SKIP_WAITING" });
-              window.location.reload();
-            }
-          });
-        });
+        // No auto-reload on SW update — user will get update on next manual refresh
+
       })
       .catch((err) => console.warn("[PWA] SW registration failed:", err));
   });
