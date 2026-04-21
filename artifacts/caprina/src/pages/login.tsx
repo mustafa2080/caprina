@@ -99,9 +99,7 @@ export default function Login() {
             </Button>
           </form>
 
-          <p className="text-[10px] text-muted-foreground mt-4 text-center">
-            للدخول الأول: المستخدم <code className="bg-muted px-1 rounded">admin</code> / كلمة المرور <code className="bg-muted px-1 rounded">admin123</code>
-          </p>
+
         </div>
       </div>
     </div>
