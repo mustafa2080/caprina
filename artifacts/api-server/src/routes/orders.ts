@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, like, or, gte, and, isNull, isNotNull } from "drizzle-orm";
+import { eq, desc, like, or, gte, and, isNull, isNotNull, inArray } from "drizzle-orm";
 import { db, ordersTable, productsTable, productVariantsTable } from "@workspace/db";
 import {
   ListOrdersQueryParams,
@@ -292,6 +292,59 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
   });
 
   res.json(UpdateOrderResponse.parse(order));
+});
+
+// ─── Bulk Delete orders ───────────────────────────────────────────────────────
+
+router.delete("/orders/bulk", async (req, res): Promise<void> => {
+  const ids: number[] = req.body?.ids;
+  if (!Array.isArray(ids) || ids.length === 0) {
+    res.status(400).json({ error: "يجب إرسال قائمة ids" });
+    return;
+  }
+
+  const orders = await db.select().from(ordersTable).where(inArray(ordersTable.id, ids));
+  const deleted: number[] = [];
+  const skipped: number[] = [];
+
+  for (const existing of orders) {
+    // Lock: only admin can delete delivered orders
+    if (LOCKED_STATUSES.includes(existing.status as any) && !isAdmin(req)) {
+      skipped.push(existing.id);
+      continue;
+    }
+
+    if (existing.status === "received") {
+      await reverseDelivery(
+        { variantId: existing.variantId, productId: existing.productId, product: existing.product, color: existing.color, size: existing.size },
+        existing.quantity, existing.id,
+      );
+    } else if (existing.status === "partial_received") {
+      const deducted = existing.partialQuantity ?? 0;
+      if (deducted > 0) await reverseDelivery(
+        { variantId: existing.variantId, productId: existing.productId, product: existing.product, color: existing.color, size: existing.size },
+        deducted, existing.id,
+      );
+    }
+
+    await logAudit({
+      action: "delete",
+      entityType: "order",
+      entityId: existing.id,
+      entityName: `${existing.customerName} — ${existing.product}`,
+      before: { status: existing.status, totalPrice: existing.totalPrice, quantity: existing.quantity },
+      userId: req.user?.id,
+      userName: req.user?.displayName,
+    });
+
+    deleted.push(existing.id);
+  }
+
+  if (deleted.length > 0) {
+    await db.update(ordersTable).set({ deletedAt: new Date() }).where(inArray(ordersTable.id, deleted));
+  }
+
+  res.json({ deleted: deleted.length, skipped: skipped.length, skippedIds: skipped });
 });
 
 // ─── Delete order ─────────────────────────────────────────────────────────────

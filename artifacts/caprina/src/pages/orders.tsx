@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { format } from "date-fns";
-import { Search, Filter, Plus, Package, CalendarDays, X, RotateCcw, MessageCircle } from "lucide-react";
+import { Search, Filter, Plus, Package, CalendarDays, X, RotateCcw, MessageCircle, Trash2, CheckSquare } from "lucide-react";
 import { useListOrders, useUpdateOrder, getListOrdersQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -9,12 +9,15 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { returnReasonLabel } from "@/lib/order-constants";
 import { type WhatsAppOrderData } from "@/lib/whatsapp";
 import { WhatsAppDialog } from "@/components/whatsapp-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 const statusLabels: Record<string, string> = {
   pending: "قيد الانتظار",
@@ -44,13 +47,76 @@ export default function Orders() {
   const debouncedSearch = useDebounce(search, 300);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { user } = useAuth();
   const updateOrder = useUpdateOrder();
   const [waOrder, setWaOrder] = useState<WhatsAppOrderData | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkSelectMode, setBulkSelectMode] = useState(false);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   const { data: orders, isLoading } = useListOrders(
     { search: debouncedSearch || undefined, status: status !== "all" ? status : undefined },
     { query: { staleTime: 15_000, gcTime: 60_000 } }
   );
+
+  const filtered = orders?.filter(o => {
+    if (!dateFrom) return true;
+    return new Date(o.createdAt) >= new Date(dateFrom);
+  }) ?? [];
+
+  const hasActiveFilter = search || status !== "all" || dateFrom;
+
+  const clearFilters = () => {
+    setSearch("");
+    setStatus("all");
+    setDateFrom("");
+  };
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filtered.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map(o => o.id)));
+    }
+  };
+
+  const exitBulkMode = () => {
+    setBulkSelectMode(false);
+    setSelectedIds(new Set());
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    setIsBulkDeleting(true);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("/api/orders/bulk", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ ids: Array.from(selectedIds) }),
+      });
+      const data = await res.json();
+      queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
+      const skippedMsg = data.skipped > 0 ? ` (${data.skipped} محظور — مسلّمة)` : "";
+      toast({ title: `تم حذف ${data.deleted} طلب ✅`, description: `تم حذف الطلبات بنجاح${skippedMsg}` });
+      exitBulkMode();
+    } catch {
+      toast({ title: "خطأ", description: "فشل حذف الطلبات", variant: "destructive" });
+    } finally {
+      setIsBulkDeleting(false);
+      setShowBulkDeleteConfirm(false);
+    }
+  };
 
   const handleWhatsApp = (e: React.MouseEvent, order: NonNullable<typeof orders>[0]) => {
     e.stopPropagation();
@@ -73,19 +139,6 @@ export default function Orders() {
     }
   };
 
-  const filtered = orders?.filter(o => {
-    if (!dateFrom) return true;
-    return new Date(o.createdAt) >= new Date(dateFrom);
-  }) ?? [];
-
-  const hasActiveFilter = search || status !== "all" || dateFrom;
-
-  const clearFilters = () => {
-    setSearch("");
-    setStatus("all");
-    setDateFrom("");
-  };
-
   return (
     <div className="space-y-5 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -93,11 +146,46 @@ export default function Orders() {
           <h1 className="text-2xl font-bold">الطلبات</h1>
           <p className="text-muted-foreground text-sm mt-0.5">إدارة وتتبع جميع الطلبات</p>
         </div>
-        <Link href="/orders/new">
-          <Button className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-sm">
-            <Plus className="w-4 h-4" />طلب جديد
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          {bulkSelectMode ? (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1 text-xs h-9"
+                onClick={exitBulkMode}
+              >
+                <X className="w-3.5 h-3.5" />إلغاء
+              </Button>
+              <Button
+                size="sm"
+                className="gap-1 text-xs h-9 bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={selectedIds.size === 0}
+                onClick={() => setShowBulkDeleteConfirm(true)}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                حذف {selectedIds.size > 0 ? `(${selectedIds.size})` : "المحدد"}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1 text-xs h-9"
+                onClick={() => setBulkSelectMode(true)}
+                title="تحديد متعدد للحذف"
+              >
+                <CheckSquare className="w-3.5 h-3.5" />تحديد
+              </Button>
+              <Link href="/orders/new">
+                <Button className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-sm">
+                  <Plus className="w-4 h-4" />طلب جديد
+                </Button>
+              </Link>
+            </>
+          )}
+        </div>
       </div>
 
       <Card className="border-border overflow-hidden">
@@ -125,17 +213,16 @@ export default function Orders() {
           <div className="flex items-center gap-2">
             <div className="relative">
               <CalendarDays className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-              <Input
-                type="date"
-                className="pr-9 bg-card text-sm h-8 w-48 text-xs"
-                value={dateFrom}
-                onChange={e => setDateFrom(e.target.value)}
-                placeholder="من تاريخ"
-              />
+              <Input type="date" className="pr-9 bg-card text-sm h-8 w-48 text-xs" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
             </div>
             {hasActiveFilter && (
               <Button variant="ghost" size="sm" className="h-8 text-xs gap-1 text-muted-foreground" onClick={clearFilters}>
                 <X className="w-3 h-3" />مسح الفلاتر
+              </Button>
+            )}
+            {bulkSelectMode && filtered.length > 0 && (
+              <Button variant="ghost" size="sm" className="h-8 text-xs gap-1 mr-auto" onClick={toggleSelectAll}>
+                {selectedIds.size === filtered.length ? "إلغاء تحديد الكل" : `تحديد الكل (${filtered.length})`}
               </Button>
             )}
           </div>
@@ -148,15 +235,24 @@ export default function Orders() {
             {/* ── Mobile: card list ── */}
             <div className="sm:hidden divide-y divide-border">
               {filtered.map((order) => {
-                const canWhatsApp = order.status === "pending" || order.status === "in_shipping" || order.status === "delayed";
+                const canWhatsApp = !bulkSelectMode && (order.status === "pending" || order.status === "in_shipping" || order.status === "delayed");
                 const retReason = (order as any).returnReason as string | null;
                 const retNote = (order as any).returnNote as string | null;
+                const isSelected = selectedIds.has(order.id);
                 return (
                   <div
                     key={order.id}
-                    className="flex items-center gap-3 px-4 py-3 hover:bg-muted/10 active:bg-muted/20 cursor-pointer"
-                    onClick={() => window.location.href = `/orders/${order.id}`}
+                    className={`flex items-center gap-3 px-4 py-3 hover:bg-muted/10 active:bg-muted/20 cursor-pointer ${isSelected ? "bg-primary/5" : ""}`}
+                    onClick={() => bulkSelectMode ? toggleSelect(order.id) : (window.location.href = `/orders/${order.id}`)}
                   >
+                    {bulkSelectMode && (
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => toggleSelect(order.id)}
+                        onClick={e => e.stopPropagation()}
+                        className="shrink-0"
+                      />
+                    )}
                     <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-foreground shrink-0">
                       {order.customerName.charAt(0)}
                     </div>
@@ -197,6 +293,14 @@ export default function Orders() {
               <Table>
                 <TableHeader>
                   <TableRow className="border-border hover:bg-transparent">
+                    {bulkSelectMode && (
+                      <TableHead className="w-10 text-center">
+                        <Checkbox
+                          checked={selectedIds.size === filtered.length && filtered.length > 0}
+                          onCheckedChange={toggleSelectAll}
+                        />
+                      </TableHead>
+                    )}
                     <TableHead className="text-right text-xs">#</TableHead>
                     <TableHead className="text-right text-xs">التاريخ</TableHead>
                     <TableHead className="text-right text-xs">العميل</TableHead>
@@ -211,9 +315,23 @@ export default function Orders() {
                   {filtered.map((order) => {
                     const retReason = (order as any).returnReason as string | null;
                     const retNote = (order as any).returnNote as string | null;
-                    const canWhatsApp = order.status === "pending" || order.status === "in_shipping" || order.status === "delayed";
+                    const canWhatsApp = !bulkSelectMode && (order.status === "pending" || order.status === "in_shipping" || order.status === "delayed");
+                    const isSelected = selectedIds.has(order.id);
                     return (
-                      <TableRow key={order.id} className="border-border hover:bg-muted/20 cursor-pointer" onClick={() => window.location.href = `/orders/${order.id}`}>
+                      <TableRow
+                        key={order.id}
+                        className={`border-border hover:bg-muted/20 cursor-pointer ${isSelected ? "bg-primary/5" : ""}`}
+                        onClick={() => bulkSelectMode ? toggleSelect(order.id) : (window.location.href = `/orders/${order.id}`)}
+                      >
+                        {bulkSelectMode && (
+                          <TableCell className="text-center p-2">
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() => toggleSelect(order.id)}
+                              onClick={e => e.stopPropagation()}
+                            />
+                          </TableCell>
+                        )}
                         <TableCell className="font-mono text-xs text-primary font-bold">#{order.id.toString().padStart(4,"0")}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">{format(new Date(order.createdAt), "yyyy/MM/dd")}</TableCell>
                         <TableCell className="text-sm font-semibold">{order.customerName}</TableCell>
@@ -268,6 +386,7 @@ export default function Orders() {
         <p className="text-xs text-muted-foreground text-left">
           إجمالي {filtered.length} طلب
           {orders && filtered.length !== orders.length && ` (من ${orders.length})`}
+          {bulkSelectMode && selectedIds.size > 0 && ` — محدد: ${selectedIds.size}`}
         </p>
       )}
 
@@ -277,6 +396,28 @@ export default function Orders() {
         order={waOrder}
         onSent={() => waOrder && handleWaSent(waOrder.id, waOrder.status)}
       />
+
+      <AlertDialog open={showBulkDeleteConfirm} onOpenChange={setShowBulkDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>تأكيد حذف الطلبات</AlertDialogTitle>
+            <AlertDialogDescription>
+              هتحذف {selectedIds.size} طلب. الطلبات المسلّمة (استلم / استلم جزئي) لن تُحذف إلا إذا كنت مدير.
+              هذا الإجراء لا يمكن التراجع عنه.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleBulkDelete}
+              disabled={isBulkDeleting}
+            >
+              {isBulkDeleting ? "جاري الحذف..." : `حذف ${selectedIds.size} طلب`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
