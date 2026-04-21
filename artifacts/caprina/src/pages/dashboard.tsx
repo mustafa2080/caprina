@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { useGetOrdersSummary, useGetRecentOrders } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +9,7 @@ import {
   TrendingUp, TrendingDown, DollarSign, Package, AlertCircle,
   Plus, Activity, Boxes, ArrowUpRight, ArrowDownRight,
   Star, Wallet, BarChart3, ShoppingCart, AlertTriangle, RefreshCw, Bell, Brain, Zap, Archive, Clock,
+  CalendarDays, Filter,
 } from "lucide-react";
 import {
   analyticsApi, type PeriodProfit, type ProductProfit, type FinancialSummary, type Alert,
@@ -156,28 +158,48 @@ function PwaInstallBanner() {
 }
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
+type Period = "all" | "week" | "month" | "year" | "custom";
+
 export default function Dashboard() {
   const { isAdmin, canViewFinancials } = useAuth();
+
+  // ── فلتر التقارير ──
+  const [period, setPeriod]   = useState<Period>("all");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate]     = useState("");
+
+  const filterParams = (() => {
+    if (period === "custom" && fromDate && toDate) return { from: fromDate, to: toDate };
+    if (period !== "all" && period !== "custom") return { period };
+    return {};
+  })();
+
+  const filterActive = period !== "all";
+
   const { data: summary } = useGetOrdersSummary();
   const { data: recentOrders, isLoading: isRecentLoading } = useGetRecentOrders();
   const { data: products } = useQuery({ queryKey: ["products"], queryFn: productsApi.list, staleTime: 60000 });
+
   const { data: analytics, isLoading: isAnalyticsLoading } = useQuery({
-    queryKey: ["analytics-profit"],
-    queryFn: analyticsApi.profit,
+    queryKey: ["analytics-profit", period, fromDate, toDate],
+    queryFn: () => analyticsApi.profit(filterParams),
     staleTime: 30000,
     enabled: canViewFinancials,
   });
+
   const { data: fin, isLoading: isFinLoading } = useQuery({
-    queryKey: ["analytics-financial"],
-    queryFn: analyticsApi.financialSummary,
+    queryKey: ["analytics-financial", period, fromDate, toDate],
+    queryFn: () => analyticsApi.financialSummary(filterParams),
     staleTime: 30000,
     enabled: canViewFinancials,
   });
+
   const { data: alertsData } = useQuery({
     queryKey: ["analytics-alerts"],
     queryFn: analyticsApi.alerts,
     staleTime: 30000,
   });
+
   const { data: smartData } = useQuery({
     queryKey: ["smart-insights"],
     queryFn: analyticsApi.smartInsights,
@@ -215,6 +237,57 @@ export default function Dashboard() {
           </Link>
         </div>
       </div>
+
+      {/* ── فلتر التقارير ── */}
+      {canViewFinancials && (
+        <div className="flex flex-wrap items-center gap-2 p-3 rounded-xl border border-border bg-card">
+          <CalendarDays className="w-4 h-4 text-muted-foreground shrink-0" />
+          <span className="text-xs font-bold text-muted-foreground shrink-0">فترة التقرير:</span>
+          <div className="flex flex-wrap gap-1.5">
+            {([
+              { key: "all",   label: "الكل" },
+              { key: "week",  label: "أسبوعي" },
+              { key: "month", label: "شهري" },
+              { key: "year",  label: "سنوي" },
+              { key: "custom",label: "مخصص" },
+            ] as { key: Period; label: string }[]).map(p => (
+              <button
+                key={p.key}
+                onClick={() => setPeriod(p.key)}
+                className={`px-3 py-1 rounded-lg text-[11px] font-bold border transition-all ${
+                  period === p.key
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+          {period === "custom" && (
+            <div className="flex items-center gap-2 mr-1">
+              <input
+                type="date"
+                value={fromDate}
+                onChange={e => setFromDate(e.target.value)}
+                className="h-7 px-2 text-[11px] rounded-lg border border-border bg-background text-foreground"
+              />
+              <span className="text-xs text-muted-foreground">إلى</span>
+              <input
+                type="date"
+                value={toDate}
+                onChange={e => setToDate(e.target.value)}
+                className="h-7 px-2 text-[11px] rounded-lg border border-border bg-background text-foreground"
+              />
+            </div>
+          )}
+          {filterActive && (
+            <span className="mr-auto text-[10px] text-primary font-bold border border-primary/30 bg-primary/5 px-2 py-0.5 rounded-full">
+              {period === "week" ? "آخر أسبوع" : period === "month" ? "هذا الشهر" : period === "year" ? "هذا العام" : `${fromDate} → ${toDate}`}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* === NO COST DATA WARNING (admin only) === */}
       {canViewFinancials && noCostWarning && (

@@ -91,14 +91,19 @@ function periodStats(
 }
 
 // ─── GET /api/analytics/profit ──────────────────────────────────────────────────
-router.get("/analytics/profit", requireAdmin, async (_req, res): Promise<void> => {
+router.get("/analytics/profit", requireAdmin, async (req, res): Promise<void> => {
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startOfWeek = new Date(startOfToday);
   startOfWeek.setDate(startOfToday.getDate() - startOfToday.getDay());
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const [allOrders, products, variants] = await Promise.all([
+  // ── فلتر من/إلى ──
+  const fromParam = req.query.from as string | undefined;
+  const toParam   = req.query.to   as string | undefined;
+  const period    = req.query.period as string | undefined;
+
+  const [allOrdersRaw, products, variants] = await Promise.all([
     db.select().from(ordersTable).where(isNull(ordersTable.deletedAt)),
     db.select().from(productsTable),
     db.select().from(productVariantsTable),
@@ -106,6 +111,36 @@ router.get("/analytics/profit", requireAdmin, async (_req, res): Promise<void> =
 
   const variantMap = new Map<number, number | null>(variants.map(v => [v.id, v.costPrice]));
   const productMap = new Map<number, number | null>(products.map(p => [p.id, p.costPrice]));
+
+  // تحديد نطاق الفلتر
+  let filteredOrders = allOrdersRaw;
+  if (fromParam || toParam || period) {
+    let fromDate: Date | null = null;
+    let toDate: Date | null = null;
+
+    if (period === "week") {
+      fromDate = startOfWeek;
+      toDate = now;
+    } else if (period === "month") {
+      fromDate = startOfMonth;
+      toDate = now;
+    } else if (period === "year") {
+      fromDate = new Date(now.getFullYear(), 0, 1);
+      toDate = now;
+    } else if (fromParam || toParam) {
+      fromDate = fromParam ? new Date(fromParam) : null;
+      toDate   = toParam   ? new Date(new Date(toParam).setHours(23, 59, 59, 999)) : null;
+    }
+
+    filteredOrders = allOrdersRaw.filter(o => {
+      const d = new Date(o.createdAt);
+      if (fromDate && d < fromDate) return false;
+      if (toDate   && d > toDate)   return false;
+      return true;
+    });
+  }
+
+  const allOrders = filteredOrders;
 
   const today = periodStats(filterByPeriod(allOrders, startOfToday), variantMap, productMap);
   const week = periodStats(filterByPeriod(allOrders, startOfWeek), variantMap, productMap);
@@ -178,12 +213,40 @@ router.get("/analytics/profit", requireAdmin, async (_req, res): Promise<void> =
 });
 
 // ─── GET /api/analytics/financial-summary ──────────────────────────────────────
-router.get("/analytics/financial-summary", requireAdmin, async (_req, res): Promise<void> => {
-  const [allOrders, products, variants] = await Promise.all([
+router.get("/analytics/financial-summary", requireAdmin, async (req, res): Promise<void> => {
+  const fromParam = req.query.from as string | undefined;
+  const toParam   = req.query.to   as string | undefined;
+  const period    = req.query.period as string | undefined;
+  const now = new Date();
+
+  const [allOrdersRaw, products, variants] = await Promise.all([
     db.select().from(ordersTable).where(isNull(ordersTable.deletedAt)),
     db.select().from(productsTable),
     db.select().from(productVariantsTable),
   ]);
+
+  // فلتر التاريخ
+  let allOrders = allOrdersRaw;
+  if (fromParam || toParam || period) {
+    let fromDate: Date | null = null;
+    let toDate: Date | null = null;
+    if (period === "week") {
+      fromDate = new Date(now); fromDate.setDate(now.getDate() - 7);
+    } else if (period === "month") {
+      fromDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    } else if (period === "year") {
+      fromDate = new Date(now.getFullYear(), 0, 1);
+    } else {
+      fromDate = fromParam ? new Date(fromParam) : null;
+      toDate   = toParam   ? new Date(new Date(toParam).setHours(23, 59, 59, 999)) : null;
+    }
+    allOrders = allOrdersRaw.filter(o => {
+      const d = new Date(o.createdAt);
+      if (fromDate && d < fromDate) return false;
+      if (toDate   && d > toDate)   return false;
+      return true;
+    });
+  }
 
   const variantMap = new Map<number, number | null>(variants.map(v => [v.id, v.costPrice]));
   const productMap = new Map<number, number | null>(products.map(p => [p.id, p.costPrice]));

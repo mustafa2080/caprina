@@ -480,8 +480,22 @@ export interface ChartsData {
 }
 
 export const analyticsApi = {
-  profit: () => apiFetch<ProfitAnalytics>("/analytics/profit"),
-  financialSummary: () => apiFetch<FinancialSummary>("/analytics/financial-summary"),
+  profit: (params?: { period?: string; from?: string; to?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.period) q.set("period", params.period);
+    if (params?.from)   q.set("from", params.from);
+    if (params?.to)     q.set("to", params.to);
+    const qs = q.toString();
+    return apiFetch<ProfitAnalytics>(`/analytics/profit${qs ? `?${qs}` : ""}`);
+  },
+  financialSummary: (params?: { period?: string; from?: string; to?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.period) q.set("period", params.period);
+    if (params?.from)   q.set("from", params.from);
+    if (params?.to)     q.set("to", params.to);
+    const qs = q.toString();
+    return apiFetch<FinancialSummary>(`/analytics/financial-summary${qs ? `?${qs}` : ""}`);
+  },
   productPerformance: () => apiFetch<ProductPerformanceResponse>("/analytics/product-performance"),
   alerts: () => apiFetch<AlertsResponse>("/analytics/alerts"),
   stockIntelligence: () => apiFetch<StockIntelligenceResponse>("/analytics/stock-intelligence"),
