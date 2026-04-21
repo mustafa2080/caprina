@@ -60,7 +60,7 @@ const emptyForm = (): UserForm => ({
 });
 
 export default function UsersPage() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, refreshUser } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -84,7 +84,14 @@ export default function UsersPage() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: any }) => usersApi.update(id, data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["users"] }); setDialogOpen(false); setResetPasswordOpen(false); toast({ title: "تم تحديث المستخدم" }); },
+    onSuccess: async () => {
+      qc.invalidateQueries({ queryKey: ["users"] });
+      setDialogOpen(false);
+      setResetPasswordOpen(false);
+      toast({ title: "تم تحديث المستخدم" });
+      // Refresh logged-in user's permissions in real-time
+      await refreshUser();
+    },
     onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
 

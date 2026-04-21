@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
 
 export interface AuthUser {
   id: number;
@@ -14,6 +14,7 @@ interface AuthContextValue {
   token: string | null;
   login: (token: string, user: AuthUser) => void;
   logout: () => void;
+  refreshUser: () => Promise<void>;
   isAdmin: boolean;
   isEmployee: boolean;
   isWarehouse: boolean;
@@ -61,11 +62,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(USER_KEY);
   };
 
+  // Refresh current user data from API (for realtime permissions update)
+  const refreshUser = useCallback(async () => {
+    const savedToken = localStorage.getItem(TOKEN_KEY);
+    const savedUser = localStorage.getItem(USER_KEY);
+    if (!savedToken || !savedUser) return;
+    try {
+      const currentUser: AuthUser = JSON.parse(savedUser);
+      const res = await fetch("/api/users", {
+        headers: { Authorization: `Bearer ${savedToken}` },
+      });
+      if (!res.ok) return;
+      const users: AuthUser[] = await res.json();
+      const updated = users.find(u => u.id === currentUser.id);
+      if (updated) {
+        setUser(updated);
+        localStorage.setItem(USER_KEY, JSON.stringify(updated));
+      }
+    } catch { /* ignore */ }
+  }, []);
+
   const can = (permission: string): boolean => {
     if (!user) return false;
-    // Admin always has access to everything
-    if (user.role === "admin") return true;
-    // If user has explicit permissions saved, use them
+    // Use explicit permissions if saved
     if (user.permissions && user.permissions.length > 0) {
       return user.permissions.includes("*") || user.permissions.includes(permission);
     }
@@ -84,7 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider value={{
       user, token,
-      login, logout,
+      login, logout, refreshUser,
       isAdmin: user?.role === "admin",
       isEmployee: user?.role === "employee",
       isWarehouse: user?.role === "warehouse",
