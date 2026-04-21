@@ -32,9 +32,10 @@ const ALL_PERMISSIONS = [
   { key: "shipping", label: "شركات الشحن" },
   { key: "invoices", label: "الفواتير" },
   { key: "import", label: "استيراد Excel" },
-  { key: "analytics", label: "أداء المنتجات" },
+  { key: "analytics", label: "التحليلات والتقارير" },
   { key: "users", label: "إدارة المستخدمين" },
   { key: "audit", label: "سجل التعديلات" },
+  { key: "whatsapp", label: "إعدادات واتساب" },
 ];
 
 const FINANCIAL_PERMISSION = { key: "view_financials", label: "عرض الأرباح والتكاليف", desc: "يرى الأرباح والخسائر والتكاليف في كل التقارير" };

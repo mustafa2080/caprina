@@ -10,6 +10,15 @@ const router: IRouter = Router();
 router.use(requireAuth);
 router.use(requireAdmin);
 
+// Helper: parse permissions from DB (MariaDB returns JSON as string)
+function parsePermissions(permissions: any): string[] {
+  if (Array.isArray(permissions)) return permissions;
+  if (typeof permissions === "string") {
+    try { return JSON.parse(permissions); } catch { return []; }
+  }
+  return [];
+}
+
 // GET /users
 router.get("/", async (_req, res): Promise<void> => {
   const users = await db.select({
@@ -22,7 +31,7 @@ router.get("/", async (_req, res): Promise<void> => {
     createdAt: usersTable.createdAt,
     updatedAt: usersTable.updatedAt,
   }).from(usersTable).orderBy(usersTable.createdAt);
-  res.json(users);
+  res.json(users.map(u => ({ ...u, permissions: parsePermissions(u.permissions) })));
 });
 
 // POST /users
@@ -77,7 +86,7 @@ router.post("/", async (req, res): Promise<void> => {
     userName: req.user!.displayName,
   });
 
-  res.status(201).json(newUser);
+  res.status(201).json({ ...newUser, permissions: parsePermissions(newUser.permissions) });
 });
 
 // PATCH /users/:id
@@ -130,7 +139,7 @@ router.patch("/:id", async (req, res): Promise<void> => {
     userName: req.user!.displayName,
   });
 
-  res.json(updated);
+  res.json({ ...updated, permissions: parsePermissions(updated.permissions) });
 });
 
 // DELETE /users/:id

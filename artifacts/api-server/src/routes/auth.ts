@@ -6,6 +6,15 @@ import { signToken, comparePassword, hashPassword } from "../lib/auth.js";
 import { requireAuth } from "../middlewares/requireAuth.js";
 import { logAudit } from "../lib/audit.js";
 
+// Helper: parse permissions from MariaDB (returns JSON as string)
+function parsePermissions(permissions: any): string[] {
+  if (Array.isArray(permissions)) return permissions;
+  if (typeof permissions === "string") {
+    try { return JSON.parse(permissions); } catch { return []; }
+  }
+  return [];
+}
+
 // ─── Brute-force protection: max 10 login attempts per 15 min per IP ────────
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -50,7 +59,7 @@ router.post("/login", loginLimiter, async (req, res): Promise<void> => {
   });
 
   const { passwordHash: _, ...safeUser } = user;
-  res.json({ token, user: safeUser });
+  res.json({ token, user: { ...safeUser, permissions: parsePermissions(safeUser.permissions) } });
 });
 
 // GET /auth/me
@@ -58,7 +67,7 @@ router.get("/me", requireAuth, async (req, res): Promise<void> => {
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.user!.id)).limit(1);
   if (!user) { res.status(404).json({ error: "المستخدم غير موجود" }); return; }
   const { passwordHash: _, ...safeUser } = user;
-  res.json(safeUser);
+  res.json({ ...safeUser, permissions: parsePermissions(safeUser.permissions) });
 });
 
 // POST /auth/change-password

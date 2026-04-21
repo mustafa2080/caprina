@@ -63,10 +63,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const can = (permission: string): boolean => {
     if (!user) return false;
+    // Admin always has access to everything
     if (user.role === "admin") return true;
+    // If user has explicit permissions saved, use them
     if (user.permissions && user.permissions.length > 0) {
       return user.permissions.includes("*") || user.permissions.includes(permission);
     }
+    // Fallback defaults if no permissions saved
     const defaults: Record<string, string[]> = {
       admin: ["*"],
       employee: ["orders", "dashboard"],

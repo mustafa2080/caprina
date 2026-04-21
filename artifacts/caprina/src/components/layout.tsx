@@ -28,7 +28,7 @@ const ALL_NAV = [
   { href: "/orders/new", label: "طلب جديد", icon: Plus, permission: "orders" },
   { href: "/archive", label: "الأرشيف 🗂️", icon: Archive, permission: "orders" },
   { href: "/shipping-followup", label: "متابعة الشحن ⏱️", icon: Clock, permission: "orders" },
-  { href: "/whatsapp", label: "إعدادات واتساب", icon: MessageCircle, permission: "admin" },
+  { href: "/whatsapp", label: "إعدادات واتساب", icon: MessageCircle, permission: "whatsapp" },
   { href: "/inventory", label: "المخزون", icon: Boxes, permission: "inventory" },
   { href: "/warehouses", label: "المخازن", icon: Warehouse, permission: "inventory" },
   { href: "/movements", label: "حركات المخزون", icon: Activity, permission: "movements" },
