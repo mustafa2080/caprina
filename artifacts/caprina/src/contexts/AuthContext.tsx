@@ -84,18 +84,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const can = (permission: string): boolean => {
     if (!user) return false;
-    // Use explicit permissions if saved
-    if (user.permissions && user.permissions.length > 0) {
-      return user.permissions.includes("*") || user.permissions.includes(permission);
-    }
-    // Fallback defaults if no permissions saved
-    const defaults: Record<string, string[]> = {
-      admin: ["*"],
-      employee: ["orders", "dashboard"],
-      warehouse: ["inventory", "movements", "dashboard"],
-    };
-    const allowed = defaults[user.role] || [];
-    return allowed.includes("*") || allowed.includes(permission);
+    // permissions from DB is the single source of truth
+    // If it contains "*" => full access (used for legacy admin records with no explicit perms)
+    const perms: string[] = Array.isArray(user.permissions) ? user.permissions : [];
+    if (perms.includes("*")) return true;
+    return perms.includes(permission);
   };
 
   const canViewFinancials = can("view_financials");

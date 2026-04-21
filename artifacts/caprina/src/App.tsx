@@ -107,6 +107,23 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// ─── Permission-protected route ───────────────────────────────────────────────
+function ProtectedRoute({ permission, component: Comp }: { permission: string; component: React.ComponentType }) {
+  const { can } = useAuth();
+  if (!can(permission)) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]" dir="rtl">
+        <div className="text-center space-y-3">
+          <div className="w-14 h-14 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center mx-auto text-2xl">🔒</div>
+          <p className="font-black text-foreground text-lg">غير مصرح لك</p>
+          <p className="text-muted-foreground text-sm">ليس لديك صلاحية الوصول لهذه الصفحة</p>
+        </div>
+      </div>
+    );
+  }
+  return <Comp />;
+}
+
 // ─── Router ───────────────────────────────────────────────────────────────────
 function Router() {
   const { user } = useAuth();
@@ -128,28 +145,28 @@ function Router() {
     <Layout>
       <Suspense fallback={<PageLoader />}>
         <Switch>
-          <Route path="/"                         component={Dashboard} />
-          <Route path="/orders"                   component={Orders} />
-          <Route path="/orders/new"               component={OrderForm} />
-          <Route path="/orders/:id"               component={OrderDetail} />
-          <Route path="/inventory"                component={Inventory} />
-          <Route path="/shipping"                 component={ShippingCompanies} />
-          <Route path="/shipping/manifests/:id"   component={ShippingManifestPage} />
-          <Route path="/shipping/company/:id"     component={ShippingCompanyDetail} />
-          <Route path="/invoices"                 component={Invoices} />
-          <Route path="/import"                   component={Import} />
-          <Route path="/movements"                component={Movements} />
-          <Route path="/product-performance"      component={ProductPerformance} />
-          <Route path="/users"                    component={UsersPage} />
-          <Route path="/audit-logs"               component={AuditLogsPage} />
-          <Route path="/warehouses"               component={WarehousesPage} />
-          <Route path="/team-performance"         component={TeamPerformancePage} />
-          <Route path="/ads-analytics"            component={AdsAnalyticsPage} />
-          <Route path="/team"                     component={TeamPage} />
-          <Route path="/smart"                    component={SmartAnalyticsPage} />
-          <Route path="/archive"                  component={ArchivePage} />
-          <Route path="/shipping-followup"        component={ShippingFollowupPage} />
-          <Route path="/whatsapp"                 component={WhatsAppSettingsPage} />
+          <Route path="/"                         component={() => <ProtectedRoute permission="dashboard" component={Dashboard} />} />
+          <Route path="/orders"                   component={() => <ProtectedRoute permission="orders" component={Orders} />} />
+          <Route path="/orders/new"               component={() => <ProtectedRoute permission="orders" component={OrderForm} />} />
+          <Route path="/orders/:id"               component={() => <ProtectedRoute permission="orders" component={OrderDetail} />} />
+          <Route path="/inventory"                component={() => <ProtectedRoute permission="inventory" component={Inventory} />} />
+          <Route path="/shipping"                 component={() => <ProtectedRoute permission="shipping" component={ShippingCompanies} />} />
+          <Route path="/shipping/manifests/:id"   component={() => <ProtectedRoute permission="shipping" component={ShippingManifestPage} />} />
+          <Route path="/shipping/company/:id"     component={() => <ProtectedRoute permission="shipping" component={ShippingCompanyDetail} />} />
+          <Route path="/invoices"                 component={() => <ProtectedRoute permission="invoices" component={Invoices} />} />
+          <Route path="/import"                   component={() => <ProtectedRoute permission="import" component={Import} />} />
+          <Route path="/movements"                component={() => <ProtectedRoute permission="movements" component={Movements} />} />
+          <Route path="/product-performance"      component={() => <ProtectedRoute permission="analytics" component={ProductPerformance} />} />
+          <Route path="/users"                    component={() => <ProtectedRoute permission="users" component={UsersPage} />} />
+          <Route path="/audit-logs"               component={() => <ProtectedRoute permission="audit" component={AuditLogsPage} />} />
+          <Route path="/warehouses"               component={() => <ProtectedRoute permission="inventory" component={WarehousesPage} />} />
+          <Route path="/team-performance"         component={() => <ProtectedRoute permission="analytics" component={TeamPerformancePage} />} />
+          <Route path="/ads-analytics"            component={() => <ProtectedRoute permission="analytics" component={AdsAnalyticsPage} />} />
+          <Route path="/team"                     component={() => <ProtectedRoute permission="analytics" component={TeamPage} />} />
+          <Route path="/smart"                    component={() => <ProtectedRoute permission="analytics" component={SmartAnalyticsPage} />} />
+          <Route path="/archive"                  component={() => <ProtectedRoute permission="orders" component={ArchivePage} />} />
+          <Route path="/shipping-followup"        component={() => <ProtectedRoute permission="orders" component={ShippingFollowupPage} />} />
+          <Route path="/whatsapp"                 component={() => <ProtectedRoute permission="whatsapp" component={WhatsAppSettingsPage} />} />
           <Route                                  component={NotFound} />
         </Switch>
       </Suspense>
