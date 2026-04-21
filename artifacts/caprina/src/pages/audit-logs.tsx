@@ -56,24 +56,48 @@ function ChangeDetails({ before, after }: { before: Record<string, unknown> | nu
     if (val === null || val === undefined) return "—";
     if (key === "status") return STATUS_LABELS[String(val)] || String(val);
     if (key === "isActive") return val ? "مفعل" : "معطل";
+    if (typeof val === "object") return JSON.stringify(val, null, 0);
     if (typeof val === "number") return String(val);
     return String(val);
   };
 
   if (!before && !after) return null;
-  const keys = Object.keys({ ...before, ...after });
-  if (!keys.length) return null;
+
+  // لو الـ after كله object كبير (بيانات الطلب كامل) نعرضه بشكل مختصر
+  const isSingleObjectAfter =
+    !before &&
+    after &&
+    Object.keys(after).length > 4 &&
+    Object.values(after).every(v => typeof v !== "object" || v === null);
+
+  const keys = Object.keys({ ...before, ...after }).filter(k =>
+    FIELD_LABELS[k] !== undefined
+  );
+
+  // لو مفيش keys معروفة نعرض ملخص مختصر
+  if (!keys.length) {
+    const summary = after
+      ? Object.entries(after)
+          .filter(([k]) => FIELD_LABELS[k])
+          .map(([k, v]) => `${FIELD_LABELS[k]}: ${translate(k, v)}`)
+          .join(" • ")
+      : "";
+    if (!summary) return null;
+    return (
+      <div className="mt-2 text-[10px] text-muted-foreground leading-relaxed">{summary}</div>
+    );
+  }
 
   return (
     <div className="mt-2 grid grid-cols-1 gap-1">
       {keys.map(key => (
         <div key={key} className="flex items-center gap-2 text-[10px]">
-          <span className="text-muted-foreground">{FIELD_LABELS[key] ?? key}:</span>
+          <span className="text-muted-foreground shrink-0">{FIELD_LABELS[key] ?? key}:</span>
           {before && before[key] !== undefined && (
-            <span className="px-1.5 py-0.5 bg-red-900/20 text-red-400 rounded line-through">{translate(key, before[key])}</span>
+            <span className="px-1.5 py-0.5 bg-red-900/20 text-red-400 rounded line-through max-w-[120px] truncate">{translate(key, before[key])}</span>
           )}
           {after && after[key] !== undefined && (
-            <span className="px-1.5 py-0.5 bg-emerald-900/20 text-emerald-400 rounded">{translate(key, after[key])}</span>
+            <span className="px-1.5 py-0.5 bg-emerald-900/20 text-emerald-400 rounded max-w-[120px] truncate">{translate(key, after[key])}</span>
           )}
         </div>
       ))}
