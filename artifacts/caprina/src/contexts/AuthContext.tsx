@@ -65,20 +65,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Refresh current user data from API (for realtime permissions update)
   const refreshUser = useCallback(async () => {
     const savedToken = localStorage.getItem(TOKEN_KEY);
-    const savedUser = localStorage.getItem(USER_KEY);
-    if (!savedToken || !savedUser) return;
+    if (!savedToken) return;
     try {
-      const currentUser: AuthUser = JSON.parse(savedUser);
-      const res = await fetch("/api/users", {
+      const res = await fetch("/api/auth/me", {
         headers: { Authorization: `Bearer ${savedToken}` },
       });
       if (!res.ok) return;
-      const users: AuthUser[] = await res.json();
-      const updated = users.find(u => u.id === currentUser.id);
-      if (updated) {
-        setUser(updated);
-        localStorage.setItem(USER_KEY, JSON.stringify(updated));
-      }
+      const updated: AuthUser = await res.json();
+      setUser(updated);
+      localStorage.setItem(USER_KEY, JSON.stringify(updated));
     } catch { /* ignore */ }
   }, []);
 

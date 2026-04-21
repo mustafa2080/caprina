@@ -110,12 +110,14 @@ export default function UsersPage() {
 
   const openEdit = (u: AppUser) => {
     setEditingUser(u);
+    // استخدم الصلاحيات المحفوظة في DB دايماً — حتى لو فاضية
+    // مش بنستخدم DEFAULT_PERMISSIONS عشان ده بيكسر التحكم في الصلاحيات
     setForm({
       username: u.username,
       password: "",
       displayName: u.displayName,
       role: u.role,
-      permissions: u.permissions?.length ? u.permissions : DEFAULT_PERMISSIONS[u.role] ?? [],
+      permissions: Array.isArray(u.permissions) ? u.permissions : [],
     });
     setShowPassword(false);
     setDialogOpen(true);
