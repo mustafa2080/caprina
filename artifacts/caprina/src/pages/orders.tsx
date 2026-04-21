@@ -99,14 +99,14 @@ export default function Orders() {
     if (selectedIds.size === 0) return;
     setIsBulkDeleting(true);
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("caprina_token");
       const res = await fetch("/api/orders/bulk", {
         method: "DELETE",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ ids: Array.from(selectedIds) }),
       });
       const data = await res.json();
-      queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
+      await queryClient.refetchQueries({ queryKey: getListOrdersQueryKey() });
       const skippedMsg = data.skipped > 0 ? ` (${data.skipped} محظور — مسلّمة)` : "";
       toast({ title: `تم حذف ${data.deleted} طلب ✅`, description: `تم حذف الطلبات بنجاح${skippedMsg}` });
       exitBulkMode();

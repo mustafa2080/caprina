@@ -170,15 +170,19 @@ export default function OrderDetail() {
     setIsDeleting(true);
     try {
       await ordersApi.delete(id);
-      queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
+      // Remove this order from cache immediately so it won't show on return
+      queryClient.removeQueries({ queryKey: getGetOrderQueryKey(id) });
+      // Force-refetch the orders list (bypass staleTime)
+      await queryClient.refetchQueries({ queryKey: getListOrdersQueryKey() });
       queryClient.invalidateQueries({ queryKey: getGetOrdersSummaryQueryKey() });
       queryClient.invalidateQueries({ queryKey: getGetRecentOrdersQueryKey() });
       queryClient.invalidateQueries({ queryKey: ["orders-stats"] });
       queryClient.invalidateQueries({ queryKey: ["products"] });
       toast({ title: "تم الحذف", description: "تم حذف الطلب بنجاح." });
       navigate("/orders");
-    } catch {
-      toast({ title: "خطأ", description: "فشل حذف الطلب.", variant: "destructive" });
+    } catch (err: any) {
+      const msg = err?.message || "فشل حذف الطلب.";
+      toast({ title: "خطأ", description: msg, variant: "destructive" });
     } finally {
       setIsDeleting(false);
       setShowDeleteDialog(false);
