@@ -64,6 +64,9 @@ router.post("/login", loginLimiter, async (req, res): Promise<void> => {
 
 // GET /auth/me
 router.get("/me", requireAuth, async (req, res): Promise<void> => {
+  // منع الـ caching عشان الصلاحيات تيجي fresh من الـ DB دايماً
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+  res.setHeader("Pragma", "no-cache");
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.user!.id)).limit(1);
   if (!user) { res.status(404).json({ error: "المستخدم غير موجود" }); return; }
   const { passwordHash: _, ...safeUser } = user;
