@@ -35,8 +35,8 @@ export const ordersTable = mysqlTable("orders", {
   returnNote: text("return_note"),
   trackingNumber: varchar("tracking_number", { length: 255 }),
   deletedAt: datetime("deleted_at"),
-  createdAt: datetime("created_at").notNull().default(new Date()),
-  updatedAt: datetime("updated_at").notNull().default(new Date()),
+  createdAt: datetime("created_at").notNull(),
+  updatedAt: datetime("updated_at").notNull(),
 },
 (t) => [
   index("idx_orders_status").on(t.status),

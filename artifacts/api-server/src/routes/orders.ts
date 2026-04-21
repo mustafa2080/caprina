@@ -94,7 +94,7 @@ router.post("/orders", async (req, res): Promise<void> => {
     if (product?.costPrice) costPrice = product.costPrice;
   }
 
-  const result = await db.insert(ordersTable).values({ ...parsed.data, totalPrice, status: "pending", costPrice });
+  const result = await db.insert(ordersTable).values({ ...parsed.data, totalPrice, status: "pending", costPrice, createdAt: new Date(), updatedAt: new Date() });
   const insertId = (result as any)[0]?.insertId ?? (result as any).insertId;
   const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, insertId));
 
@@ -228,7 +228,7 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
 
   await db
     .update(ordersTable)
-    .set({ ...parsed.data, totalPrice })
+    .set({ ...parsed.data, totalPrice, updatedAt: new Date() })
     .where(eq(ordersTable.id, params.data.id));
   const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, params.data.id));
   if (!order) { res.status(404).json({ error: "Order not found" }); return; }
