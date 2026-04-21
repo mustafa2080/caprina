@@ -197,7 +197,7 @@ export default function UsersPage() {
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-0.5 font-mono">{u.username}</p>
                 <p className="text-[10px] text-muted-foreground/70 mt-0.5 line-clamp-1">
-                  الصلاحيات: {(u.permissions?.filter(p => p !== FINANCIAL_PERMISSION.key).length ? u.permissions.filter(p => p !== FINANCIAL_PERMISSION.key) : DEFAULT_PERMISSIONS[u.role]?.filter(p => p !== FINANCIAL_PERMISSION.key) ?? []).join("، ")}
+                  الصلاحيات: {(u.permissions?.filter(p => p !== FINANCIAL_PERMISSION.key) ?? []).join("، ") || "—"}
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">

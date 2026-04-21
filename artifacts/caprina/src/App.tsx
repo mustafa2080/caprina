@@ -108,18 +108,11 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 }
 
 // ─── Permission-protected route ───────────────────────────────────────────────
+// لو الصلاحية اتشالت (realtime) → redirect للـ dashboard تلقائي
 function ProtectedRoute({ permission, component: Comp }: { permission: string; component: React.ComponentType }) {
   const { can } = useAuth();
   if (!can(permission)) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]" dir="rtl">
-        <div className="text-center space-y-3">
-          <div className="w-14 h-14 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center mx-auto text-2xl">🔒</div>
-          <p className="font-black text-foreground text-lg">غير مصرح لك</p>
-          <p className="text-muted-foreground text-sm">ليس لديك صلاحية الوصول لهذه الصفحة</p>
-        </div>
-      </div>
-    );
+    return <Redirect to="/" />;
   }
   return <Comp />;
 }

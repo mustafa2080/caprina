@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from "react";
+import { toast } from "@/hooks/use-toast";
 
 export interface AuthUser {
   id: number;
@@ -28,8 +29,8 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 const TOKEN_KEY = "caprina_token";
 const USER_KEY  = "caprina_user";
 
-// كل كام ثانية نجيب بيانات اليوزر من السيرفر (30 ثانية)
-const POLL_INTERVAL_MS = 30_000;
+// كل كام ثانية نجيب بيانات اليوزر من السيرفر (8 ثواني عشان الصلاحيات تتحدث بسرعة)
+const POLL_INTERVAL_MS = 8_000;
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user,    setUser]    = useState<AuthUser | null>(null);
@@ -67,7 +68,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     pollRef.current = setInterval(async () => {
       const updated = await fetchMe(tkn);
       if (updated) {
-        setUser(updated);
+        // لو الصلاحيات اتغيرت → نبلّغ اليوزر
+        setUser(prev => {
+          if (prev) {
+            const prevPerms = JSON.stringify([...(prev.permissions ?? [])].sort());
+            const newPerms  = JSON.stringify([...(updated.permissions ?? [])].sort());
+            if (prevPerms !== newPerms) {
+              toast({ title: "تم تحديث صلاحياتك", description: "تم تعديل صلاحيات وصولك من قِبَل المدير." });
+            }
+          }
+          return updated;
+        });
         localStorage.setItem(USER_KEY, JSON.stringify(updated));
       } else {
         // لو الـ token انتهت صلاحيته أو اليوزر اتعطّل → logout
