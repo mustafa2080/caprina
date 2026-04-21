@@ -32,7 +32,17 @@ router.get("/", async (req, res): Promise<void> => {
     .limit(Math.min(parseInt(limit), 500))
     .offset(parseInt(offset));
 
-  res.json(logs);
+  const parsed = logs.map(log => ({
+    ...log,
+    changesBefore: typeof log.changesBefore === "string"
+      ? (() => { try { return JSON.parse(log.changesBefore as string); } catch { return log.changesBefore; } })()
+      : log.changesBefore,
+    changesAfter: typeof log.changesAfter === "string"
+      ? (() => { try { return JSON.parse(log.changesAfter as string); } catch { return log.changesAfter; } })()
+      : log.changesAfter,
+  }));
+
+  res.json(parsed);
 });
 
 export default router;
