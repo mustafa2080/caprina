@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { usersApi, appSettingsApi, type AppUser } from "@/lib/api";
+import { usersApi, type AppUser } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { UserPlus, Edit2, Trash2, Shield, Users, Eye, EyeOff, TrendingUp, Package, BarChart3, Settings2 } from "lucide-react";
+import { UserPlus, Edit2, Trash2, Shield, Users, Eye, EyeOff, TrendingUp, Package, BarChart3 } from "lucide-react";
 
 
 const ROLE_LABELS: Record<string, string> = {
@@ -74,17 +74,6 @@ export default function UsersPage() {
   const [resetTarget, setResetTarget] = useState<AppUser | null>(null);
   const [newPassword, setNewPassword] = useState("");
 
-
-  const { data: appSettings, refetch: refetchSettings } = useQuery({
-    queryKey: ["app-settings"],
-    queryFn: appSettingsApi.get,
-  });
-  const showAddMember = appSettings?.showAddTeamMember ?? true;
-  const toggleAddMember = async (val: boolean) => {
-    await appSettingsApi.update({ showAddTeamMember: val });
-    refetchSettings();
-    qc.invalidateQueries({ queryKey: ["app-settings"] });
-  };
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["users"],
@@ -180,7 +169,11 @@ export default function UsersPage() {
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">تحكم في الأدوار والصلاحيات</p>
         </div>
-
+        {isAdmin && (
+          <Button onClick={openCreate} className="h-9 text-sm font-bold gap-2">
+            <UserPlus className="w-4 h-4" /> إضافة مستخدم جديد
+          </Button>
+        )}
       </div>
 
       {/* Users list */}
@@ -245,21 +238,7 @@ export default function UsersPage() {
         </div>
       )}
 
-      {/* App Settings Section — admin only */}
-      {isAdmin && (
-      <div className="mt-8 pt-6 border-t border-border">
-        <h2 className="text-sm font-bold flex items-center gap-2 mb-4 text-muted-foreground">
-          <Settings2 className="w-4 h-4" /> إعدادات الصفحات
-        </h2>
-        <div className="flex items-center justify-between p-4 rounded-xl border border-border bg-card">
-          <div>
-            <p className="text-sm font-bold">زرار إضافة عضو جديد في الفريق</p>
-            <p className="text-xs text-muted-foreground mt-0.5">إظهار أو إخفاء زرار "عضو جديد" في صفحة إدارة الفريق</p>
-          </div>
-          <Switch checked={showAddMember} onCheckedChange={toggleAddMember} />
-        </div>
-      </div>
-      )}
+
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
