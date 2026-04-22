@@ -1034,8 +1034,8 @@ export default function ShippingManifestPage() {
         )}
       </Card>
 
-      {/* ─── P&L Summary (admin only — hidden in print) ─── */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 print:hidden">
+      {/* ─── P&L Summary (financials only — hidden in print) ─── */}
+      {canViewFinancials && <div className="grid grid-cols-2 md:grid-cols-3 gap-3 print:hidden">
         <Card className="border-border bg-card p-4">
           <p className="text-xs text-muted-foreground mb-1">إجمالي الإيرادات</p>
           <p className="text-lg font-black text-emerald-400">
@@ -1098,7 +1098,7 @@ export default function ShippingManifestPage() {
             </p>
           )}
         </Card>
-      </div>
+      </div>}
 
       {/* ─── Close Confirm Dialog ─── */}
       {showCloseDialog && (
