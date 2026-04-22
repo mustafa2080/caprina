@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { usersApi, type AppUser } from "@/lib/api";
+import { usersApi, appSettingsApi, type AppUser } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { UserPlus, Edit2, Trash2, Shield, Users, Eye, EyeOff, TrendingUp, Package, BarChart3 } from "lucide-react";
+import { UserPlus, Edit2, Trash2, Shield, Users, Eye, EyeOff, TrendingUp, Package, BarChart3, UserCheck } from "lucide-react";
 
 
 const ROLE_LABELS: Record<string, string> = {
@@ -74,6 +74,18 @@ export default function UsersPage() {
   const [resetTarget, setResetTarget] = useState<AppUser | null>(null);
   const [newPassword, setNewPassword] = useState("");
 
+
+  const { data: appSettings, refetch: refetchSettings } = useQuery({
+    queryKey: ["app-settings"],
+    queryFn: appSettingsApi.get,
+    enabled: isAdmin,
+  });
+  const showAddMember = appSettings?.showAddTeamMember ?? true;
+  const toggleAddMember = async (val: boolean) => {
+    await appSettingsApi.update({ showAddTeamMember: val });
+    refetchSettings();
+    qc.invalidateQueries({ queryKey: ["app-settings"] });
+  };
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["users"],
@@ -358,6 +370,37 @@ export default function UsersPage() {
                 ))}
               </div>
             </div>
+
+            {/* إعدادات الصفحات — يظهر فقط للأدمن وفقط في وضع التعديل */}
+            {isAdmin && editingUser && (
+              <>
+                <Separator />
+                <div>
+                  <Label className="text-xs mb-2 flex items-center gap-1.5 text-muted-foreground">
+                    <UserCheck className="w-3.5 h-3.5" /> إعدادات إدارة الفريق
+                  </Label>
+                  <div className={`rounded-xl border-2 p-3 transition-colors ${showAddMember ? "border-primary/50 bg-primary/5" : "border-border bg-muted/10"}`}>
+                    <label className="flex items-center gap-3 cursor-pointer" onClick={() => toggleAddMember(!showAddMember)}>
+                      <input
+                        type="checkbox"
+                        checked={showAddMember}
+                        onChange={e => toggleAddMember(e.target.checked)}
+                        className="w-4 h-4 rounded accent-primary shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <UserCheck className="w-3.5 h-3.5 text-primary shrink-0" />
+                          <span className="text-xs font-bold text-foreground">إظهار زرار "عضو جديد" في إدارة الفريق</span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          {showAddMember ? "الزرار ظاهر حالياً في صفحة إدارة الفريق" : "الزرار مخفي حالياً من صفحة إدارة الفريق"}
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Sticky save buttons — دايماً ظاهرة في الأسفل */}
