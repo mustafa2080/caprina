@@ -24,7 +24,6 @@ export function BrandSettingsDialog({ open, onClose }: BrandSettingsDialogProps)
     queryFn: appSettingsApi.get,
   });
   const isLocked = appSettings?.allowBrandEdit === false;
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState(brand.name);
   const [tagline, setTagline] = useState(brand.tagline);
