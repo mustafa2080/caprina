@@ -29,6 +29,22 @@ async function setSetting(key: string, value: string | null): Promise<void> {
   );
 }
 
+// Middleware: يسمح لو allowBrandEdit=true (لأي يوزر logged in)، أو لو الـ user أدمن دايماً
+async function requireBrandEdit(req: any, res: any, next: any): Promise<void> {
+  try {
+    const rows = await db.select().from(appSettingsTable).where(eq(appSettingsTable.key, "global"));
+    const data = rows[0]?.value ? JSON.parse(rows[0].value) : {};
+    const allowBrandEdit = data.allowBrandEdit ?? true;
+    if (allowBrandEdit || req.user?.role === "admin") {
+      next();
+    } else {
+      res.status(403).json({ error: "تعديل بيانات العلامة التجارية مقفول من قِبل المدير" });
+    }
+  } catch {
+    res.status(500).json({ error: "خطأ في التحقق من الصلاحيات" });
+  }
+}
+
 // GET /api/brand — public, no auth needed
 router.get("/brand", async (req, res): Promise<void> => {
   const [name, tagline, logoData] = await Promise.all([
@@ -68,8 +84,8 @@ router.get("/brand/logo", async (req, res): Promise<void> => {
   res.send(buffer);
 });
 
-// PATCH /api/brand — update name/tagline (admin only)
-router.patch("/brand", requireAuth, requireAdmin, async (req, res): Promise<void> => {
+// PATCH /api/brand — update name/tagline
+router.patch("/brand", requireAuth, requireBrandEdit, async (req, res): Promise<void> => {
   const { name, tagline } = req.body as { name?: string; tagline?: string };
 
   if (name !== undefined) await setSetting("brand_name", name || DEFAULTS.brand_name);
@@ -88,9 +104,8 @@ router.patch("/brand", requireAuth, requireAdmin, async (req, res): Promise<void
   });
 });
 
-// POST /api/brand/logo — upload logo (admin only)
-// Accepts { dataUrl: "data:image/..;base64,.." }
-router.post("/brand/logo", requireAuth, requireAdmin, async (req, res): Promise<void> => {
+// POST /api/brand/logo — upload logo
+router.post("/brand/logo", requireAuth, requireBrandEdit, async (req, res): Promise<void> => {
   const { dataUrl } = req.body as { dataUrl?: string };
 
   if (!dataUrl) {
@@ -115,8 +130,8 @@ router.post("/brand/logo", requireAuth, requireAdmin, async (req, res): Promise<
   res.json({ success: true, logoUrl: "/api/brand/logo" });
 });
 
-// DELETE /api/brand/logo — reset to fallback (admin only)
-router.delete("/brand/logo", requireAuth, requireAdmin, async (req, res): Promise<void> => {
+// DELETE /api/brand/logo — reset to fallback
+router.delete("/brand/logo", requireAuth, requireBrandEdit, async (req, res): Promise<void> => {
   await setSetting("brand_logo_data", null);
   res.json({ success: true });
 });
