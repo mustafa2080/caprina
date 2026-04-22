@@ -152,9 +152,13 @@ async function ensureAppSettingsTable() {
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS app_settings (
         \`key\` VARCHAR(100) NOT NULL PRIMARY KEY,
-        \`value\` TEXT,
+        \`value\` LONGTEXT,
         \`updated_at\` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )
+    `);
+    // Migrate existing TEXT column to LONGTEXT (safe to run multiple times)
+    await db.execute(sql`
+      ALTER TABLE app_settings MODIFY COLUMN \`value\` LONGTEXT
     `);
     logger.info("app_settings table ensured");
   } catch (err) {
