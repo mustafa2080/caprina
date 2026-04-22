@@ -17,7 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-import { employeeApi, usersApi, type EmployeeProfile, type EmployeeKpi, type EmployeeReport, type AppUser, type DailyKpiEntry, type DailyLogDay, appSettingsApi, type AppSettings } from "@/lib/api";
+import { employeeApi, usersApi, type EmployeeProfile, type EmployeeKpi, type EmployeeReport, type AppUser, type DailyKpiEntry, type DailyLogDay, appSettingsApi } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 
 const fmt = (n: number) =>
@@ -1167,13 +1167,14 @@ function EmployeeDetail({
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function TeamPage() {
-  const { isAdmin, can } = useAuth();
+  const { isAdmin } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
   const [selectedProfileId, setSelectedProfileId] = useState<number | null>(null);
   const [addProfileOpen, setAddProfileOpen] = useState(false);
   const [addingUser, setAddingUser] = useState<AppUser | null>(null);
   const [wizardOpen, setWizardOpen] = useState(false);
+  const showAddMemberBtn = appSettings?.showAddTeamMember ?? true;
 
   const { data: profiles = [], isLoading: profilesLoading } = useQuery({
     queryKey: ["employee-profiles"],
@@ -1184,8 +1185,6 @@ export default function TeamPage() {
     queryKey: ["app-settings"],
     queryFn: appSettingsApi.get,
   });
-
-  const showAddMemberBtn = (appSettings?.showAddTeamMember ?? true) && (isAdmin || can("add_team_member"));
   
   const { data: allUsers = [] } = useQuery({
     queryKey: ["users"],
@@ -1226,7 +1225,7 @@ export default function TeamPage() {
             <UserPlus className="w-3.5 h-3.5" />موظف موجود
           </Button>
         )}
-        {showAddMemberBtn && (
+        {isAdmin && showAddMemberBtn && (
           <Button size="sm" className="gap-1 h-8 text-xs" onClick={() => setWizardOpen(true)}>
             <Plus className="w-3.5 h-3.5" />عضو جديد
           </Button>
