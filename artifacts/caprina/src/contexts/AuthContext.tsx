@@ -174,11 +174,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("caprina_session_id");
   };
 
-  // ─── can() — الـ permissions من DB هي المرجع الوحيد ──────────────────────
+  // ─── can() — الـ permissions من DB هي المرجع الوحيد (حتى للأدمن) ─────────
   const can = (permission: string): boolean => {
     if (!user) return false;
-    // الأدمن دايماً عنده كل الصلاحيات بغض النظر عن الـ permissions array
-    if (user.role === "admin") return true;
     const perms: string[] = Array.isArray(user.permissions) ? user.permissions : [];
     if (perms.includes("*")) return true;
     return perms.includes(permission);
