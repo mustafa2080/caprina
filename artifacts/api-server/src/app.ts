@@ -74,6 +74,16 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 app.use("/api", router);
 
+// ─── Global JSON error handler (must be AFTER routes) ────────────────────────
+// Ensures all unhandled errors return JSON instead of an HTML error page.
+import type { Request, Response, NextFunction } from "express";
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  console.error("[global error handler]", err);
+  res.status(err.status ?? 500).json({
+    error: err.message ?? "حدث خطأ غير متوقع",
+  });
+});
+
 // ─── Seed default admin on startup ───────────────────────────────────────────
 // Generates a strong random password on first run and logs it ONCE.
 // Change this password immediately after first login.
@@ -135,5 +145,22 @@ async function backfillEmployeeProfileIds() {
 
 seedDefaultAdmin();
 backfillEmployeeProfileIds();
+
+// ─── Ensure app_settings table exists (safe for VPS without migrations) ──────
+async function ensureAppSettingsTable() {
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS app_settings (
+        \`key\` VARCHAR(100) NOT NULL PRIMARY KEY,
+        \`value\` TEXT,
+        \`updated_at\` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
+    logger.info("app_settings table ensured");
+  } catch (err) {
+    logger.error({ err }, "Failed to ensure app_settings table");
+  }
+}
+ensureAppSettingsTable();
 
 export default app;
