@@ -85,7 +85,7 @@ function WarehouseFormDialog({
   );
 }
 
-function StockEditor({ warehouseId, onClose }: { warehouseId: number; onClose: () => void }) {
+function StockEditor({ warehouseId, onClose, canEdit }: { warehouseId: number; onClose: () => void; canEdit: boolean }) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const { data: warehouse, isLoading } = useQuery({
@@ -140,7 +140,8 @@ function StockEditor({ warehouseId, onClose }: { warehouseId: number; onClose: (
         <h2 className="text-base font-bold">مخزون: {warehouse?.name}</h2>
       </div>
 
-      {/* Add stock row */}
+      {/* Add stock row — فقط لو عنده صلاحية تعديل المخزون */}
+      {canEdit && (
       <Card className="border-primary/30">
         <CardHeader className="pb-2 pt-3 px-4"><CardTitle className="text-xs font-bold text-primary">إضافة / تحديث منتج</CardTitle></CardHeader>
         <CardContent className="px-4 pb-4 space-y-3">
@@ -178,6 +179,7 @@ function StockEditor({ warehouseId, onClose }: { warehouseId: number; onClose: (
           </Button>
         </CardContent>
       </Card>
+      )}
 
       {/* Stock table */}
       <div className="rounded-md border border-border overflow-hidden">
@@ -204,11 +206,12 @@ function StockEditor({ warehouseId, onClose }: { warehouseId: number; onClose: (
                   <Input
                     type="number" min="0"
                     defaultValue={item.quantity}
-                    onBlur={e => {
+                    readOnly={!canEdit}
+                    onBlur={canEdit ? e => {
                       const v = parseInt(e.target.value);
                       if (!isNaN(v) && v !== item.quantity) handleUpdateQty(item.id, v);
-                    }}
-                    className="h-7 w-20 text-xs text-center mx-auto"
+                    } : undefined}
+                    className={`h-7 w-20 text-xs text-center mx-auto ${!canEdit ? "opacity-60 cursor-not-allowed" : ""}`}
                   />
                 </TableCell>
                 <TableCell className="text-xs text-muted-foreground">
@@ -224,7 +227,8 @@ function StockEditor({ warehouseId, onClose }: { warehouseId: number; onClose: (
 }
 
 export default function WarehousesPage() {
-  const { isAdmin } = useAuth();
+  const { can } = useAuth();
+  const canEdit = can("edit_inventory");
   const { toast } = useToast();
   const qc = useQueryClient();
   const [formOpen, setFormOpen] = useState(false);
@@ -250,7 +254,7 @@ export default function WarehousesPage() {
   if (stockViewId !== null) {
     return (
       <div className="max-w-4xl mx-auto">
-        <StockEditor warehouseId={stockViewId} onClose={() => setStockViewId(null)} />
+        <StockEditor warehouseId={stockViewId} onClose={() => setStockViewId(null)} canEdit={canEdit} />
       </div>
     );
   }
@@ -262,7 +266,7 @@ export default function WarehousesPage() {
           <h1 className="text-xl font-bold">المخازن</h1>
           <p className="text-muted-foreground text-xs mt-0.5">إدارة المخازن ومخزون كل فرع</p>
         </div>
-        {isAdmin && (
+        {canEdit && (
           <Button size="sm" className="gap-2 h-8 text-xs" onClick={() => { setEditingWarehouse(undefined); setFormOpen(true); }}>
             <Plus className="w-3.5 h-3.5" />إضافة مخزن
           </Button>
@@ -292,7 +296,7 @@ export default function WarehousesPage() {
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   {w.isDefault && <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />}
-                  {isAdmin && (
+                  {canEdit && (
                     <>
                       <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-primary"
                         onClick={() => { setEditingWarehouse(w); setFormOpen(true); }}>
