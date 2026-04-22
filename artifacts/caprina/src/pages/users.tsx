@@ -371,8 +371,8 @@ export default function UsersPage() {
               </div>
             </div>
 
-            {/* إعدادات الصفحات — يظهر فقط للأدمن وفقط في وضع التعديل */}
-            {isAdmin && editingUser && (
+            {/* إعدادات الصفحات — يظهر للأدمن في الإضافة والتعديل */}
+            {isAdmin && (
               <>
                 <Separator />
                 <div>
