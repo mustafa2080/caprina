@@ -54,7 +54,7 @@ function DeliveryBar({ rate }: { rate: number }) {
   );
 }
 
-function CompanyStats({ companyId }: { companyId: number }) {
+function CompanyStats({ companyId, canViewFinancials }: { companyId: number; canViewFinancials: boolean }) {
   const { data: stats } = useQuery({
     queryKey: ["company-stats", companyId],
     queryFn: () => manifestsApi.companyStats(companyId),
@@ -78,13 +78,15 @@ function CompanyStats({ companyId }: { companyId: number }) {
           <p className="text-sm font-black text-amber-400">{stats.pending}</p>
         </div>
       </div>
-      <div className="flex items-center justify-between text-xs">
-        <span className="text-muted-foreground">صافي الربح / الخسارة</span>
-        <span className={`font-black ${stats.netProfit >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-          {stats.netProfit >= 0 ? <TrendingUp className="inline w-3 h-3 mr-0.5" /> : <TrendingDown className="inline w-3 h-3 mr-0.5" />}
-          {formatCurrency(Math.abs(stats.netProfit))}
-        </span>
-      </div>
+      {canViewFinancials && (
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-muted-foreground">صافي الربح / الخسارة</span>
+          <span className={`font-black ${stats.netProfit >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+            {stats.netProfit >= 0 ? <TrendingUp className="inline w-3 h-3 mr-0.5" /> : <TrendingDown className="inline w-3 h-3 mr-0.5" />}
+            {formatCurrency(Math.abs(stats.netProfit))}
+          </span>
+        </div>
+      )}
       <div className="flex items-center justify-between text-xs">
         <span className="text-muted-foreground">عدد البيانات</span>
         <span className="font-bold">{stats.manifestCount}</span>
@@ -421,7 +423,7 @@ export function CreateManifestDialog({
 
 export default function ShippingCompanies() {
   const { toast } = useToast();
-  const { isAdmin } = useAuth();
+  const { isAdmin, canViewFinancials } = useAuth();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<ShippingCompany | null>(null);
@@ -535,7 +537,7 @@ export default function ShippingCompanies() {
                 {company.notes && <p className="text-xs text-muted-foreground pt-1 border-t border-border">{company.notes}</p>}
               </div>
 
-              <CompanyStats companyId={company.id} />
+              <CompanyStats companyId={company.id} canViewFinancials={canViewFinancials} />
               <CompanyManifests company={company} allCompanies={companies ?? []} isAdmin={isAdmin} />
             </Card>
           ))}

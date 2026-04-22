@@ -257,7 +257,7 @@ export default function Inventory() {
       </div>
 
       {/* Stock Intelligence Summary */}
-      {stockIntel && (stockIntel.summary.fastMovers > 0 || stockIntel.summary.slowMovers > 0 || stockIntel.summary.totalFrozenCapital > 0) && (
+      {stockIntel && canViewFinancials && (stockIntel.summary.fastMovers > 0 || stockIntel.summary.slowMovers > 0 || stockIntel.summary.totalFrozenCapital > 0) && (
         <div className="flex items-center gap-4 rounded-lg border border-border bg-card/50 px-4 py-2.5 text-xs flex-wrap">
           <span className="text-muted-foreground font-semibold">ذكاء المخزون:</span>
           {stockIntel.summary.fastMovers > 0 && (
@@ -346,7 +346,7 @@ export default function Inventory() {
                             {intel.daysUntilStockout === 0 ? "نفد" : intel.daysUntilStockout !== null ? `${intel.daysUntilStockout}ي للنفاد` : `${intel.velocityPerDay}/يوم`}
                           </span>
                         )}
-                        {intel && intel.frozenCapital > 0 && (intel.category === "slow" || intel.category === "stale") && (
+                        {canViewFinancials && intel && intel.frozenCapital > 0 && (intel.category === "slow" || intel.category === "stale") && (
                           <span className="text-[9px] text-muted-foreground/60">{fc(intel.frozenCapital)} متجمد</span>
                         )}
                       </div>
@@ -361,7 +361,7 @@ export default function Inventory() {
                         <span className={availableStock === 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"}>{availableStock}</span>
                         <span className="text-muted-foreground"> وحدة</span>
                       </p>
-                      <p className="text-[9px] text-muted-foreground">{fc(productValue)}</p>
+                      {canViewFinancials && <p className="text-[9px] text-muted-foreground">{fc(productValue)}</p>}
                     </div>
                     {/* Actions */}
                     <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
