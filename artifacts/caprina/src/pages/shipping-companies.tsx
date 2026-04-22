@@ -95,7 +95,7 @@ function CompanyStats({ companyId, canViewFinancials }: { companyId: number; can
   );
 }
 
-function CompanyManifests({ company, allCompanies, isAdmin }: { company: ShippingCompany; allCompanies: ShippingCompany[]; isAdmin: boolean }) {
+function CompanyManifests({ company, allCompanies, canShipping }: { company: ShippingCompany; allCompanies: ShippingCompany[]; canShipping: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const [showNewDialog, setShowNewDialog] = useState(false);
   const { data: manifests } = useQuery({
@@ -111,7 +111,7 @@ function CompanyManifests({ company, allCompanies, isAdmin }: { company: Shippin
           <FileText className="w-3 h-3" />البيانات
           {expanded ? <ChevronUp className="w-3 h-3 mr-auto" /> : <ChevronDown className="w-3 h-3 mr-auto" />}
         </Button>
-        {isAdmin && (
+        {canShipping && (
           <Button size="sm" className="h-7 text-[11px] gap-1 bg-primary text-primary-foreground hover:bg-primary/90 font-bold" onClick={() => setShowNewDialog(true)}>
             <PackagePlus className="w-3 h-3" />بيان جديد
           </Button>
@@ -423,7 +423,7 @@ export function CreateManifestDialog({
 
 export default function ShippingCompanies() {
   const { toast } = useToast();
-  const { isAdmin, canViewFinancials } = useAuth();
+  const { can, canViewFinancials } = useAuth();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<ShippingCompany | null>(null);
@@ -469,7 +469,7 @@ export default function ShippingCompanies() {
           <h1 className="text-2xl font-bold">شركات الشحن</h1>
           <p className="text-muted-foreground text-sm mt-0.5">إدارة شركاء الشحن وبيانات التسليم</p>
         </div>
-        {isAdmin && (
+        {can("shipping") && (
           <Button onClick={openAdd} className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-sm">
             <Plus className="w-4 h-4" />إضافة شركة
           </Button>
@@ -511,7 +511,7 @@ export default function ShippingCompanies() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
-                  {isAdmin && (
+                  {can("shipping") && (
                     <>
                       <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-primary" onClick={() => toggleActive(company)}>
                         {company.isActive ? <ToggleRight className="w-4 h-4 text-emerald-400" /> : <ToggleLeft className="w-4 h-4" />}
@@ -538,7 +538,7 @@ export default function ShippingCompanies() {
               </div>
 
               <CompanyStats companyId={company.id} canViewFinancials={canViewFinancials} />
-              <CompanyManifests company={company} allCompanies={companies ?? []} isAdmin={isAdmin} />
+              <CompanyManifests company={company} allCompanies={companies ?? []} canShipping={can("shipping")} />
             </Card>
           ))}
         </div>
@@ -547,7 +547,7 @@ export default function ShippingCompanies() {
           <Truck className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-20" />
           <p className="font-bold">لا توجد شركات شحن</p>
           <p className="text-sm text-muted-foreground mt-1">أضف شركات الشحن التي تتعامل معها.</p>
-          {isAdmin && <Button onClick={openAdd} className="mt-4 gap-2 text-sm"><Plus className="w-4 h-4" />إضافة شركة</Button>}
+          {can("shipping") && <Button onClick={openAdd} className="mt-4 gap-2 text-sm"><Plus className="w-4 h-4" />إضافة شركة</Button>}
         </Card>
       )}
 
