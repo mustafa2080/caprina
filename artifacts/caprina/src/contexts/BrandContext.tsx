@@ -19,7 +19,7 @@ interface BrandContextValue {
 const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
 async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T> {
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("caprina_token");
   const res = await fetch(`${BASE_URL}/api${path}`, {
     ...opts,
     headers: {
