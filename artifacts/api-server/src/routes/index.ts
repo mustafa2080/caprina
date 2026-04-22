@@ -15,6 +15,7 @@ import warehousesRouter from "./warehouses";
 import teamAnalyticsRouter from "./team-analytics";
 import employeeRouter from "./employee";
 import brandRouter from "./brand";
+import settingsRouter from "./settings";
 import whatsappRouter from "./whatsapp";
 import sessionsRouter from "./sessions";
 import { requireAuth } from "../middlewares/requireAuth.js";
@@ -24,7 +25,8 @@ const router: IRouter = Router();
 // Public routes (no auth required)
 router.use(healthRouter);
 router.use("/auth", authRouter);
-router.use(brandRouter); // GET /brand + GET /brand/logo are public; PATCH/POST/DELETE + GET/PATCH /settings self-protect internally
+router.use(brandRouter); // GET /brand + GET /brand/logo are public; PATCH/POST/DELETE self-protect internally
+router.use(settingsRouter); // GET/PATCH /settings — app feature flags
 
 // All routes below require authentication
 router.use(requireAuth);
