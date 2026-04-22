@@ -180,9 +180,7 @@ export default function UsersPage() {
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">تحكم في الأدوار والصلاحيات</p>
         </div>
-        <Button onClick={openCreate} className="gap-2 bg-primary text-primary-foreground font-bold">
-          <UserPlus className="w-4 h-4" /> مستخدم جديد
-        </Button>
+
       </div>
 
       {/* Users list */}
