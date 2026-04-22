@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
+import { apiFetch } from "@/lib/api";
 
 export interface BrandSettings {
   name: string;
@@ -14,26 +15,6 @@ interface BrandContextValue {
   uploadLogo: (dataUrl: string) => Promise<void>;
   deleteLogo: () => Promise<void>;
   loading: boolean;
-}
-
-const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
-
-async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T> {
-  const token = localStorage.getItem("caprina_token");
-  const res = await fetch(`${BASE_URL}/api${path}`, {
-    ...opts,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...opts?.headers,
-    },
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error || res.statusText);
-  }
-  if (res.status === 204) return undefined as T;
-  return res.json();
 }
 
 const DEFAULTS: BrandSettings = {
@@ -64,7 +45,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         name: data.name,
         tagline: data.tagline,
         hasLogo: data.hasLogo,
-        logoUrl: data.hasLogo ? `${BASE_URL}/api/brand/logo?v=${logoVersion}` : null,
+        logoUrl: data.hasLogo ? `/api/brand/logo?v=${logoVersion}` : null,
       });
     } catch {
       // keep defaults
@@ -99,7 +80,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     setBrand(prev => ({
       ...prev,
       hasLogo: true,
-      logoUrl: `${BASE_URL}/api/brand/logo?v=${v}`,
+      logoUrl: `/api/brand/logo?v=${v}`,
     }));
   }, []);
 
