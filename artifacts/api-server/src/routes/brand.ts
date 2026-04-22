@@ -119,4 +119,22 @@ router.delete("/brand/logo", requireAuth, requireAdmin, async (req, res): Promis
   res.json({ success: true });
 });
 
+// GET /api/settings — get app feature flags (auth required)
+router.get("/settings", requireAuth, async (_req, res): Promise<void> => {
+  const showAddTeamMember = await getSetting("show_add_team_member");
+  res.json({
+    showAddTeamMember: showAddTeamMember !== "false", // default: true
+  });
+});
+
+// PATCH /api/settings — update app feature flags (admin only)
+router.patch("/settings", requireAuth, requireAdmin, async (req, res): Promise<void> => {
+  const { showAddTeamMember } = req.body as { showAddTeamMember?: boolean };
+  if (showAddTeamMember !== undefined) {
+    await setSetting("show_add_team_member", showAddTeamMember ? "true" : "false");
+  }
+  const val = await getSetting("show_add_team_member");
+  res.json({ showAddTeamMember: val !== "false" });
+});
+
 export default router;

@@ -928,3 +928,14 @@ export const movementsApi = {  list: (filters?: MovementFilters) => {
     notes?: string | null;
   }) => apiFetch<InventoryMovement>("/inventory/movements", { method: "POST", body: JSON.stringify(data) }),
 };
+
+// ─── App Settings API ─────────────────────────────────────────────────────
+export interface AppSettings {
+  showAddTeamMember: boolean;
+}
+
+export const appSettingsApi = {
+  get: () => apiFetch<AppSettings>("/settings"),
+  update: (data: Partial<AppSettings>) =>
+    apiFetch<AppSettings>("/settings", { method: "PATCH", body: JSON.stringify(data) }),
+};
