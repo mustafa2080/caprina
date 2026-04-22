@@ -1168,7 +1168,7 @@ function EmployeeDetail({
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function TeamPage() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, can } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
   const [selectedProfileId, setSelectedProfileId] = useState<number | null>(null);
@@ -1186,7 +1186,7 @@ export default function TeamPage() {
     queryFn: appSettingsApi.get,
   });
 
-  const showAddMemberBtn = appSettings?.showAddTeamMember ?? true;
+  const showAddMemberBtn = (appSettings?.showAddTeamMember ?? true) && (isAdmin || can("add_team_member"));
   
   const { data: allUsers = [] } = useQuery({
     queryKey: ["users"],

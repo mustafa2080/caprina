@@ -41,12 +41,14 @@ const ALL_PERMISSIONS = [
   { key: "whatsapp", label: "إعدادات واتساب" },
 ];
 
+const ADD_TEAM_MEMBER_PERMISSION = { key: "add_team_member", label: "إضافة عضو جديد للفريق", desc: "يظهر زرار 'عضو جديد' في صفحة إدارة الفريق" };
+
 const FINANCIAL_PERMISSION = { key: "view_financials", label: "عرض الأرباح والتكاليف", desc: "يرى الأرباح والخسائر والتكاليف في كل التقارير" };
 const EDIT_INVENTORY_PERMISSION = { key: "edit_inventory", label: "تعديل المخزون", desc: "يقدر يضيف ويعدل ويحذف المنتجات والمقاسات" };
 const VIEW_PRODUCT_PERF_PERMISSION = { key: "view_product_performance", label: "عرض أداء المنتجات", desc: "يرى تحليل أداء وأرباح كل منتج" };
 
 const DEFAULT_PERMISSIONS: Record<string, string[]> = {
-  admin: [...ALL_PERMISSIONS.map(p => p.key), FINANCIAL_PERMISSION.key, EDIT_INVENTORY_PERMISSION.key, VIEW_PRODUCT_PERF_PERMISSION.key],
+  admin: [...ALL_PERMISSIONS.map(p => p.key), FINANCIAL_PERMISSION.key, EDIT_INVENTORY_PERMISSION.key, VIEW_PRODUCT_PERF_PERMISSION.key, ADD_TEAM_MEMBER_PERMISSION.key],
   employee: ["dashboard", "orders"],
   warehouse: ["dashboard", "inventory", "movements", EDIT_INVENTORY_PERMISSION.key],
 };
@@ -366,6 +368,20 @@ export default function UsersPage() {
                     <span className="text-xs font-bold text-foreground">{VIEW_PRODUCT_PERF_PERMISSION.label}</span>
                   </div>
                   <p className="text-[10px] text-muted-foreground mt-0.5">{VIEW_PRODUCT_PERF_PERMISSION.desc}</p>
+                </div>
+              </label>
+            </div>
+
+            {/* Add team member */}
+            <div className={`rounded-xl border-2 p-3 transition-colors ${form.permissions.includes(ADD_TEAM_MEMBER_PERMISSION.key) ? "border-purple-500/60 bg-purple-500/5" : "border-border bg-muted/10"}`}>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" checked={form.permissions.includes(ADD_TEAM_MEMBER_PERMISSION.key)} onChange={() => togglePermission(ADD_TEAM_MEMBER_PERMISSION.key)} className="w-4 h-4 rounded accent-purple-500 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <UserPlus className="w-3.5 h-3.5 text-purple-500 shrink-0" />
+                    <span className="text-xs font-bold text-foreground">{ADD_TEAM_MEMBER_PERMISSION.label}</span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{ADD_TEAM_MEMBER_PERMISSION.desc}</p>
                 </div>
               </label>
             </div>
