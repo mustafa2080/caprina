@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Plus, Package, AlertTriangle, Edit2, Trash2, ChevronDown, ChevronRight,
-  Layers, Tag, TrendingUp, DollarSign, Boxes, BarChart3, Search, PackagePlus
+  Layers, Tag, TrendingUp, DollarSign, Boxes, BarChart3, Search, PackagePlus, Archive
 } from "lucide-react";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -53,7 +53,8 @@ function MarginBadge({ margin }: { margin: number | null }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function Inventory() {
-  const { can, canViewFinancials } = useAuth();  const { toast } = useToast();
+  const { can, canViewFinancials } = useAuth();
+  const canEdit = can("edit_inventory");  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [expandedProductId, setExpandedProductId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
@@ -96,8 +97,8 @@ export default function Inventory() {
   });
 
   const deleteProductMutation = useMutation({
-    mutationFn: (id: number) => productsApi.delete(id),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["products"] }); queryClient.invalidateQueries({ queryKey: ["variants"] }); toast({ title: "تم الحذف" }); },
+    mutationFn: (id: number) => productsApi.update(id, { isArchived: true } as any),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["products"] }); queryClient.invalidateQueries({ queryKey: ["variants"] }); toast({ title: "تم أرشفة المنتج", description: "يمكن استعادته من الأرشيف لاحقاً." }); },
     onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
 
@@ -211,7 +212,7 @@ export default function Inventory() {
           <h1 className="text-2xl font-bold">المخزون</h1>
           <p className="text-muted-foreground text-sm mt-0.5">إدارة المنتجات • الألوان • المقاسات • التكاليف</p>
         </div>
-        {can("inventory") && (
+        {canEdit && (
           <Button onClick={openAddProduct} className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-sm">
             <Plus className="w-4 h-4" />منتج جديد
           </Button>
@@ -365,7 +366,7 @@ export default function Inventory() {
                     </div>
                     {/* Actions */}
                     <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                      {can("inventory") && (
+                      {canEdit && (
                         <>
                           <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-primary" title="إضافة SKU" onClick={() => openAddVariant(product.id)}>
                             <Plus className="w-3.5 h-3.5" />
@@ -373,8 +374,8 @@ export default function Inventory() {
                           <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-primary" title="تعديل" onClick={() => openEditProduct(product)}>
                             <Edit2 className="w-3.5 h-3.5" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-destructive" title="حذف" onClick={() => { if (confirm(`حذف "${product.name}" وكل مقاساته؟`)) deleteProductMutation.mutate(product.id); }}>
-                            <Trash2 className="w-3.5 h-3.5" />
+                          <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-amber-500" title="أرشفة" onClick={() => { if (confirm(`أرشفة "${product.name}"؟ يمكن استعادته لاحقاً.`)) deleteProductMutation.mutate(product.id); }}>
+                            <Archive className="w-3.5 h-3.5" />
                           </Button>
                         </>
                       )}
@@ -389,7 +390,7 @@ export default function Inventory() {
                       <div className="p-8 text-center">
                         <Layers className="w-8 h-8 mx-auto mb-2 text-muted-foreground opacity-20" />
                         <p className="text-sm text-muted-foreground">لا توجد مقاسات/ألوان بعد</p>
-                        {can("inventory") && (
+                        {canEdit && (
                           <Button size="sm" className="mt-3 h-7 text-xs gap-1" onClick={() => openAddVariant(product.id)}>
                             <Plus className="w-3 h-3" />إضافة أول SKU
                           </Button>
@@ -459,7 +460,7 @@ export default function Inventory() {
                                   </td>
                                   <td className="py-2.5 px-3">
                                     <div className="flex items-center justify-center gap-1">
-                                      {can("inventory") && (
+                                      {canEdit && (
                                         <>
                                           <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/20 gap-1" onClick={() => openAddVariantStock(v)}>
                                             <Plus className="w-3 h-3" />مخزون
@@ -478,7 +479,7 @@ export default function Inventory() {
                               );
                             })}
                           </tbody>
-                          {variants.length > 0 && can("inventory") && (
+                          {variants.length > 0 && canEdit && (
                             <tfoot>
                               <tr className="bg-muted/5">
                                 <td colSpan={12} className="px-4 py-2">
@@ -505,7 +506,7 @@ export default function Inventory() {
           <p className="text-sm text-muted-foreground mt-1">
             {search ? "جرب بحثاً مختلفاً" : "أضف منتجاتك ثم أضف لكل منتج الألوان والمقاسات."}
           </p>
-          {!search && can("inventory") && <Button onClick={openAddProduct} className="mt-4 gap-2 text-sm"><Plus className="w-4 h-4" />إضافة أول منتج</Button>}
+          {!search && canEdit && <Button onClick={openAddProduct} className="mt-4 gap-2 text-sm"><Plus className="w-4 h-4" />إضافة أول منتج</Button>}
         </Card>
       )}
 

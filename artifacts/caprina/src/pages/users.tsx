@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { UserPlus, Edit2, Trash2, Shield, Users, Eye, EyeOff, KeyRound, TrendingUp } from "lucide-react";
+import { UserPlus, Edit2, Trash2, Shield, Users, Eye, EyeOff, KeyRound, TrendingUp, Package, BarChart3 } from "lucide-react";
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "مدير",
@@ -39,11 +39,13 @@ const ALL_PERMISSIONS = [
 ];
 
 const FINANCIAL_PERMISSION = { key: "view_financials", label: "عرض الأرباح والتكاليف", desc: "يرى الأرباح والخسائر والتكاليف في كل التقارير" };
+const EDIT_INVENTORY_PERMISSION = { key: "edit_inventory", label: "تعديل المخزون", desc: "يقدر يضيف ويعدل ويحذف المنتجات والمقاسات" };
+const VIEW_PRODUCT_PERF_PERMISSION = { key: "view_product_performance", label: "عرض أداء المنتجات", desc: "يرى تحليل أداء وأرباح كل منتج" };
 
 const DEFAULT_PERMISSIONS: Record<string, string[]> = {
-  admin: [...ALL_PERMISSIONS.map(p => p.key), FINANCIAL_PERMISSION.key],
+  admin: [...ALL_PERMISSIONS.map(p => p.key), FINANCIAL_PERMISSION.key, EDIT_INVENTORY_PERMISSION.key, VIEW_PRODUCT_PERF_PERMISSION.key],
   employee: ["dashboard", "orders"],
-  warehouse: ["dashboard", "inventory", "movements"],
+  warehouse: ["dashboard", "inventory", "movements", EDIT_INVENTORY_PERMISSION.key],
 };
 
 interface UserForm {
@@ -192,6 +194,16 @@ export default function UsersPage() {
                       <TrendingUp className="w-2.5 h-2.5" />يرى الأرباح
                     </Badge>
                   )}
+                  {(u.permissions?.includes(EDIT_INVENTORY_PERMISSION.key) || u.role === "admin") && (
+                    <Badge variant="outline" className="text-[9px] font-bold border-emerald-600/50 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 gap-1">
+                      <Package className="w-2.5 h-2.5" />يعدل المخزون
+                    </Badge>
+                  )}
+                  {(u.permissions?.includes(VIEW_PRODUCT_PERF_PERMISSION.key) || u.role === "admin") && (
+                    <Badge variant="outline" className="text-[9px] font-bold border-blue-600/50 bg-blue-500/10 text-blue-600 dark:text-blue-400 gap-1">
+                      <BarChart3 className="w-2.5 h-2.5" />أداء المنتجات
+                    </Badge>
+                  )}
                   {!u.isActive && <Badge variant="outline" className="text-[9px] border-red-800 text-red-400">معطل</Badge>}
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-0.5 font-mono">{u.username}</p>
@@ -285,7 +297,7 @@ export default function UsersPage() {
               </div>
             </div>
 
-            {/* Financial visibility — prominent toggle */}
+            {/* Financial visibility */}
             <div className={`rounded-xl border-2 p-3 transition-colors ${form.permissions.includes(FINANCIAL_PERMISSION.key) ? "border-amber-500/60 bg-amber-500/5" : "border-border bg-muted/10"}`}>
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
@@ -301,6 +313,44 @@ export default function UsersPage() {
                     <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold">حساسة</span>
                   </div>
                   <p className="text-[10px] text-muted-foreground mt-0.5">{FINANCIAL_PERMISSION.desc}</p>
+                </div>
+              </label>
+            </div>
+
+            {/* Edit inventory */}
+            <div className={`rounded-xl border-2 p-3 transition-colors ${form.permissions.includes(EDIT_INVENTORY_PERMISSION.key) ? "border-emerald-500/60 bg-emerald-500/5" : "border-border bg-muted/10"}`}>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.permissions.includes(EDIT_INVENTORY_PERMISSION.key)}
+                  onChange={() => togglePermission(EDIT_INVENTORY_PERMISSION.key)}
+                  className="w-4 h-4 rounded accent-emerald-500 shrink-0"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <Package className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span className="text-xs font-bold text-foreground">{EDIT_INVENTORY_PERMISSION.label}</span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{EDIT_INVENTORY_PERMISSION.desc}</p>
+                </div>
+              </label>
+            </div>
+
+            {/* View product performance */}
+            <div className={`rounded-xl border-2 p-3 transition-colors ${form.permissions.includes(VIEW_PRODUCT_PERF_PERMISSION.key) ? "border-blue-500/60 bg-blue-500/5" : "border-border bg-muted/10"}`}>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.permissions.includes(VIEW_PRODUCT_PERF_PERMISSION.key)}
+                  onChange={() => togglePermission(VIEW_PRODUCT_PERF_PERMISSION.key)}
+                  className="w-4 h-4 rounded accent-blue-500 shrink-0"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                    <span className="text-xs font-bold text-foreground">{VIEW_PRODUCT_PERF_PERMISSION.label}</span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{VIEW_PRODUCT_PERF_PERMISSION.desc}</p>
                 </div>
               </label>
             </div>

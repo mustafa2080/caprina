@@ -83,15 +83,15 @@ function ProductRow({ p, maxProfit, maxLoss, sort }: {
 }
 
 export default function ProductPerformancePage() {
-  const { isAdmin, canViewFinancials } = useAuth();
+  const { can } = useAuth();
   const [, navigate] = useLocation();
   const [sort, setSort] = useState<SortMode>("profit");
 
-  if (!canViewFinancials) {
+  if (!can("view_product_performance")) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground">
         <BarChart3 className="w-10 h-10 opacity-20" />
-        <p className="text-sm font-bold">هذه الصفحة للمديرين فقط</p>
+        <p className="text-sm font-bold">ليس لديك صلاحية لعرض هذه الصفحة</p>
         <button onClick={() => navigate("/")} className="text-xs text-primary hover:underline">العودة للرئيسية</button>
       </div>
     );

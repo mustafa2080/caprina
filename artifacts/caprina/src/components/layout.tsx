@@ -18,7 +18,7 @@ interface LayoutProps {
 
 const ALL_NAV = [
   { href: "/", label: "لوحة التحكم", icon: LayoutDashboard, exact: true, permission: "dashboard" },
-  { href: "/product-performance", label: "أداء المنتجات", icon: BarChart3, permission: "analytics" },
+  { href: "/product-performance", label: "أداء المنتجات", icon: BarChart3, permission: "view_product_performance" },
   { href: "/team-performance", label: "أداء الفريق", icon: UserCheck, permission: "analytics" },
   { href: "/team", label: "إدارة الفريق", icon: UserCog, permission: "analytics" },
   { href: "/smart", label: "التحليل الذكي 🧠", icon: Brain, permission: "analytics" },
