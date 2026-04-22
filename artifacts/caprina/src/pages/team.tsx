@@ -1174,16 +1174,17 @@ export default function TeamPage() {
   const [addProfileOpen, setAddProfileOpen] = useState(false);
   const [addingUser, setAddingUser] = useState<AppUser | null>(null);
   const [wizardOpen, setWizardOpen] = useState(false);
+
+  const { data: appSettings } = useQuery({
+    queryKey: ["app-settings"],
+    queryFn: appSettingsApi.get,
+  });
+
   const showAddMemberBtn = appSettings?.showAddTeamMember ?? true;
 
   const { data: profiles = [], isLoading: profilesLoading } = useQuery({
     queryKey: ["employee-profiles"],
     queryFn: employeeApi.listProfiles,
-  });
-
-  const { data: appSettings } = useQuery({
-    queryKey: ["app-settings"],
-    queryFn: appSettingsApi.get,
   });
   
   const { data: allUsers = [] } = useQuery({

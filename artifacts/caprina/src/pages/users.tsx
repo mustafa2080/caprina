@@ -63,7 +63,7 @@ const emptyForm = (): UserForm => ({
 });
 
 export default function UsersPage() {
-  const { user: currentUser, refreshUser } = useAuth();
+  const { user: currentUser, refreshUser, isAdmin } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -247,7 +247,8 @@ export default function UsersPage() {
         </div>
       )}
 
-      {/* App Settings Section */}
+      {/* App Settings Section — admin only */}
+      {isAdmin && (
       <div className="mt-8 pt-6 border-t border-border">
         <h2 className="text-sm font-bold flex items-center gap-2 mb-4 text-muted-foreground">
           <Settings2 className="w-4 h-4" /> إعدادات الصفحات
@@ -260,6 +261,7 @@ export default function UsersPage() {
           <Switch checked={showAddMember} onCheckedChange={toggleAddMember} />
         </div>
       </div>
+      )}
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
