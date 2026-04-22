@@ -1214,17 +1214,10 @@ export default function TeamPage() {
           </h1>
           <p className="text-muted-foreground text-xs mt-0.5">بيانات الموظفين، مؤشرات الأداء، والتقارير الشهرية</p>
         </div>
-        {isAdmin && (
-          <div className="flex items-center gap-2">
-            {unprofiledUsers.length > 0 && (
-              <Button size="sm" variant="outline" className="gap-1 h-8 text-xs" onClick={() => setAddProfileOpen(true)}>
-                <UserPlus className="w-3.5 h-3.5" />موظف موجود
-              </Button>
-            )}
-            <Button size="sm" className="gap-1 h-8 text-xs" onClick={() => setWizardOpen(true)}>
-              <Plus className="w-3.5 h-3.5" />عضو جديد
-            </Button>
-          </div>
+        {isAdmin && unprofiledUsers.length > 0 && (
+          <Button size="sm" variant="outline" className="gap-1 h-8 text-xs" onClick={() => setAddProfileOpen(true)}>
+            <UserPlus className="w-3.5 h-3.5" />موظف موجود
+          </Button>
         )}
       </div>
 

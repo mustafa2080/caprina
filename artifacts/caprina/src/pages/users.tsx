@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { Edit2, Trash2, Shield, Users, Eye, EyeOff, TrendingUp, Package, BarChart3 } from "lucide-react";
+import { UserPlus, Edit2, Trash2, Shield, Users, Eye, EyeOff, TrendingUp, Package, BarChart3 } from "lucide-react";
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "مدير",
@@ -167,7 +167,9 @@ export default function UsersPage() {
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">تحكم في الأدوار والصلاحيات</p>
         </div>
-
+        <Button onClick={openCreate} className="gap-2 bg-primary text-primary-foreground font-bold">
+          <UserPlus className="w-4 h-4" /> مستخدم جديد
+        </Button>
       </div>
 
       {/* Users list */}
