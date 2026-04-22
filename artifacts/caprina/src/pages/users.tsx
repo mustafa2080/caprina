@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { UserPlus, Edit2, Trash2, Shield, Users, Eye, EyeOff, TrendingUp, Package, BarChart3, UserCheck } from "lucide-react";
+import { UserPlus, Edit2, Trash2, Shield, Users, Eye, EyeOff, TrendingUp, Package, BarChart3, UserCheck, Lock } from "lucide-react";
 
 
 const ROLE_LABELS: Record<string, string> = {
@@ -81,8 +81,16 @@ export default function UsersPage() {
     enabled: isAdmin,
   });
   const showAddMember = appSettings?.showAddTeamMember ?? true;
+  const allowBrandEdit = appSettings?.allowBrandEdit ?? true;
+
   const toggleAddMember = async (val: boolean) => {
     await appSettingsApi.update({ showAddTeamMember: val });
+    refetchSettings();
+    qc.invalidateQueries({ queryKey: ["app-settings"] });
+  };
+
+  const toggleBrandEdit = async (val: boolean) => {
+    await appSettingsApi.update({ allowBrandEdit: val });
     refetchSettings();
     qc.invalidateQueries({ queryKey: ["app-settings"] });
   };
@@ -394,6 +402,27 @@ export default function UsersPage() {
                         </div>
                         <p className="text-[10px] text-muted-foreground mt-0.5">
                           {showAddMember ? "الزرار ظاهر حالياً في صفحة إدارة الفريق" : "الزرار مخفي حالياً من صفحة إدارة الفريق"}
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+
+                  <div className={`rounded-xl border-2 p-3 transition-colors ${allowBrandEdit ? "border-emerald-500/50 bg-emerald-500/5" : "border-amber-600/50 bg-amber-900/10"}`}>
+                    <label className="flex items-center gap-3 cursor-pointer" onClick={() => toggleBrandEdit(!allowBrandEdit)}>
+                      <input
+                        type="checkbox"
+                        checked={allowBrandEdit}
+                        onChange={e => toggleBrandEdit(e.target.checked)}
+                        className="w-4 h-4 rounded accent-emerald-500 shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <Lock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                          <span className="text-xs font-bold text-foreground">السماح بتعديل بيانات العلامة التجارية</span>
+                          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold">حساسة</span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          {allowBrandEdit ? "مسموح بتعديل الاسم والشعار والـ tagline" : "التعديل مقفول — الأيقونة المدورة لن تسمح بالحفظ"}
                         </p>
                       </div>
                     </label>

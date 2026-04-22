@@ -1,11 +1,13 @@
 import { useState, useRef } from "react";
-import { Upload, X, RotateCcw, Save, ImageIcon } from "lucide-react";
+import { Upload, X, RotateCcw, Save, ImageIcon, Lock } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useBrand } from "@/contexts/BrandContext";
+import { useQuery } from "@tanstack/react-query";
+import { appSettingsApi } from "@/lib/api";
 
 interface BrandSettingsDialogProps {
   open: boolean;
@@ -15,6 +17,13 @@ interface BrandSettingsDialogProps {
 export function BrandSettingsDialog({ open, onClose }: BrandSettingsDialogProps) {
   const { brand, update, uploadLogo, deleteLogo } = useBrand();
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { data: appSettings } = useQuery({
+    queryKey: ["app-settings"],
+    queryFn: appSettingsApi.get,
+  });
+  const isLocked = appSettings?.allowBrandEdit === false;
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState(brand.name);
@@ -103,14 +112,22 @@ export function BrandSettingsDialog({ open, onClose }: BrandSettingsDialogProps)
         </DialogHeader>
 
         <div className="space-y-5 py-1">
+          {/* Locked banner */}
+          {isLocked && (
+            <div className="flex items-center gap-2 rounded-lg border border-amber-600/40 bg-amber-900/15 px-3 py-2 text-xs text-amber-400">
+              <Lock className="w-3.5 h-3.5 shrink-0" />
+              <span>التعديل مقفول — يمكن للمدير فتحه من إدارة المستخدمين</span>
+            </div>
+          )}
+
           {/* Logo Section */}
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">اللوجو</Label>
             <div className="flex items-center gap-4">
               {/* Preview */}
               <div
-                className="w-16 h-16 rounded-xl border-2 border-dashed border-border bg-muted/20 flex items-center justify-center overflow-hidden shrink-0 cursor-pointer hover:border-primary/50 transition-colors"
-                onClick={() => fileInputRef.current?.click()}
+                className={`w-16 h-16 rounded-xl border-2 border-dashed border-border bg-muted/20 flex items-center justify-center overflow-hidden shrink-0 transition-colors ${isLocked ? "opacity-60 cursor-not-allowed" : "cursor-pointer hover:border-primary/50"}`}
+                onClick={() => !isLocked && fileInputRef.current?.click()}
               >
                 {currentLogoSrc ? (
                   <img
@@ -133,6 +150,7 @@ export function BrandSettingsDialog({ open, onClose }: BrandSettingsDialogProps)
                   size="sm"
                   className="h-7 text-xs gap-1.5 w-full justify-start"
                   onClick={() => fileInputRef.current?.click()}
+                  disabled={isLocked}
                 >
                   <Upload className="w-3 h-3" />
                   رفع صورة جديدة
@@ -143,7 +161,7 @@ export function BrandSettingsDialog({ open, onClose }: BrandSettingsDialogProps)
                     size="sm"
                     className="h-7 text-xs gap-1.5 w-full justify-start text-destructive hover:text-destructive border-destructive/30 hover:border-destructive/60"
                     onClick={handleRemoveLogo}
-                    disabled={removing}
+                    disabled={removing || isLocked}
                   >
                     <X className="w-3 h-3" />
                     {removing ? "جاري الحذف..." : pendingLogo ? "إلغاء" : "حذف اللوجو"}
@@ -169,6 +187,7 @@ export function BrandSettingsDialog({ open, onClose }: BrandSettingsDialogProps)
               onChange={e => setName(e.target.value)}
               className="h-8 text-xs"
               placeholder="CAPRINA"
+              disabled={isLocked}
             />
           </div>
 
@@ -180,6 +199,7 @@ export function BrandSettingsDialog({ open, onClose }: BrandSettingsDialogProps)
               onChange={e => setTagline(e.target.value)}
               className="h-8 text-xs"
               placeholder="WIN OR DIE"
+              disabled={isLocked}
             />
             <p className="text-[10px] text-muted-foreground/50">
               يظهر تحت الاسم في الشريط الجانبي وصفحة الدخول
@@ -189,9 +209,9 @@ export function BrandSettingsDialog({ open, onClose }: BrandSettingsDialogProps)
 
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={onClose} className="text-xs h-7">إلغاء</Button>
-          <Button onClick={handleSave} disabled={saving} className="text-xs h-7 gap-1.5">
-            <Save className="w-3 h-3" />
-            {saving ? "جاري الحفظ..." : "حفظ"}
+          <Button onClick={handleSave} disabled={saving || isLocked} className="text-xs h-7 gap-1.5">
+            {isLocked ? <Lock className="w-3 h-3" /> : <Save className="w-3 h-3" />}
+            {saving ? "جاري الحفظ..." : isLocked ? "مقفول" : "حفظ"}
           </Button>
         </DialogFooter>
       </DialogContent>

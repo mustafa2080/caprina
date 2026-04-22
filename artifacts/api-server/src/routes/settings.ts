@@ -26,6 +26,7 @@ router.get("/settings", requireAuth, async (_req, res): Promise<void> => {
     const data = rows[0] ? parseValue(rows[0].value) : {};
     res.json({
       showAddTeamMember: data.showAddTeamMember ?? true,
+      allowBrandEdit: data.allowBrandEdit ?? true,
     });
   } catch (err: any) {
     console.error("[settings GET] error:", err);
@@ -61,6 +62,7 @@ router.patch("/settings", requireAuth, requireAdmin, async (req, res): Promise<v
 
     res.json({
       showAddTeamMember: merged.showAddTeamMember ?? true,
+      allowBrandEdit: merged.allowBrandEdit ?? true,
     });
   } catch (err: any) {
     console.error("[settings PATCH] error:", err);
