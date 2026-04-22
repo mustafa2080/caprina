@@ -63,6 +63,7 @@ import {
   Check,
   FileText,
 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 
 const formatCurrency = (n: number) =>
@@ -573,6 +574,7 @@ export default function ShippingManifestPage() {
   const id = Number(params.id);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { canViewFinancials } = useAuth();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showCloseDialog, setShowCloseDialog] = useState(false);
   const [showOrders, setShowOrders] = useState(true);
@@ -949,26 +951,28 @@ export default function ShippingManifestPage() {
       </Card>
 
       {/* ─── Invoice Section ─── */}
-      <Card className="border-border bg-card p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Banknote className="w-4 h-4 text-muted-foreground" />
-          <h2 className="font-bold text-sm">فاتورة البيان</h2>
-        </div>
-        <div className="flex flex-col gap-1">
-          <p className="text-[10px] text-muted-foreground">
-            المبلغ المتفق عليه مع شركة الشحن (ما سيُدفع لنا)
-          </p>
-          <InvoicePriceEditor
-            manifestId={id}
-            current={manifest.invoicePrice}
-            currentNotes={manifest.invoiceNotes}
-            onSaved={refetch}
-          />
-        </div>
-      </Card>
+      {canViewFinancials && (
+        <Card className="border-border bg-card p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Banknote className="w-4 h-4 text-muted-foreground" />
+            <h2 className="font-bold text-sm">فاتورة البيان</h2>
+          </div>
+          <div className="flex flex-col gap-1">
+            <p className="text-[10px] text-muted-foreground">
+              المبلغ المتفق عليه مع شركة الشحن (ما سيُدفع لنا)
+            </p>
+            <InvoicePriceEditor
+              manifestId={id}
+              current={manifest.invoicePrice}
+              currentNotes={manifest.invoiceNotes}
+              onSaved={refetch}
+            />
+          </div>
+        </Card>
+      )}
 
       {/* ─── Settlement Card ─── */}
-      <SettlementCard manifest={manifest} />
+      {canViewFinancials && <SettlementCard manifest={manifest} />}
 
       {/* ─── Orders Table ─── */}
       <Card className="border-border bg-card overflow-hidden print:break-inside-avoid">

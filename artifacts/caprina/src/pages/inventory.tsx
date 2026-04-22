@@ -551,20 +551,22 @@ export default function Inventory() {
                   onChange={e => setProductForm(f => ({ ...f, unitPrice: Number(e.target.value) }))}
                 />
               </div>
-              <div>
-                <Label className="text-xs mb-1.5 block text-amber-700 dark:text-amber-400">تكلفة الوحدة (ج.م)</Label>
-                <Input
-                  type="number" min="0" step="0.01"
-                  placeholder="0"
-                  className="h-9 text-sm bg-background border-amber-900/30"
-                  value={productForm.costPrice ?? ""}
-                  onChange={e => setProductForm(f => ({ ...f, costPrice: e.target.value ? Number(e.target.value) : null }))}
-                />
-              </div>
+              {canViewFinancials && (
+                <div>
+                  <Label className="text-xs mb-1.5 block text-amber-700 dark:text-amber-400">تكلفة الوحدة (ج.م)</Label>
+                  <Input
+                    type="number" min="0" step="0.01"
+                    placeholder="0"
+                    className="h-9 text-sm bg-background border-amber-900/30"
+                    value={productForm.costPrice ?? ""}
+                    onChange={e => setProductForm(f => ({ ...f, costPrice: e.target.value ? Number(e.target.value) : null }))}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Profit preview */}
-            {productForm.costPrice && productForm.unitPrice > 0 && (
+            {canViewFinancials && productForm.costPrice && productForm.unitPrice > 0 && (
               <div className="grid grid-cols-3 gap-2 p-3 bg-muted/10 rounded-md border border-border text-center text-xs">
                 <div>
                   <p className="text-[9px] text-muted-foreground">ربح الوحدة</p>
@@ -733,20 +735,22 @@ export default function Inventory() {
                   onChange={e => setVariantForm(f => ({ ...f, unitPrice: Number(e.target.value) }))}
                 />
               </div>
-              <div>
-                <Label className="text-xs mb-1.5 block text-amber-700 dark:text-amber-400">تكلفة الوحدة (ج.م)</Label>
-                <Input
-                  type="number" min="0" step="0.01"
-                  placeholder="0"
-                  className="h-9 text-sm bg-background border-amber-900/30"
-                  value={variantForm.costPrice ?? ""}
-                  onChange={e => setVariantForm(f => ({ ...f, costPrice: e.target.value ? Number(e.target.value) : null }))}
-                />
-              </div>
+              {canViewFinancials && (
+                <div>
+                  <Label className="text-xs mb-1.5 block text-amber-700 dark:text-amber-400">تكلفة الوحدة (ج.م)</Label>
+                  <Input
+                    type="number" min="0" step="0.01"
+                    placeholder="0"
+                    className="h-9 text-sm bg-background border-amber-900/30"
+                    value={variantForm.costPrice ?? ""}
+                    onChange={e => setVariantForm(f => ({ ...f, costPrice: e.target.value ? Number(e.target.value) : null }))}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Profit preview for variant */}
-            {variantForm.costPrice && variantForm.unitPrice > 0 && (
+            {canViewFinancials && variantForm.costPrice && variantForm.unitPrice > 0 && (
               <div className="p-3 bg-muted/10 rounded border border-border">
                 <div className="grid grid-cols-3 gap-2 text-center text-xs">
                   <div>
