@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db, appSettingsTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
 import { requireAdmin } from "../middlewares/requireRole";
@@ -21,10 +21,12 @@ async function getSetting(key: string): Promise<string | null> {
 }
 
 async function setSetting(key: string, value: string | null): Promise<void> {
-  await db
-    .insert(appSettingsTable)
-    .values({ key, value: value ?? "" })
-    .onConflictDoUpdate({ target: appSettingsTable.key, set: { value: value ?? "", updatedAt: new Date() } });
+  // MySQL doesn't support onConflictDoUpdate — use INSERT ... ON DUPLICATE KEY UPDATE
+  await db.execute(
+    sql`INSERT INTO app_settings (\`key\`, \`value\`, \`updated_at\`)
+        VALUES (${key}, ${value ?? ""}, NOW())
+        ON DUPLICATE KEY UPDATE \`value\` = ${value ?? ""}, \`updated_at\` = NOW()`
+  );
 }
 
 // GET /api/brand — public, no auth needed
@@ -121,20 +123,30 @@ router.delete("/brand/logo", requireAuth, requireAdmin, async (req, res): Promis
 
 // GET /api/settings — get app feature flags (auth required)
 router.get("/settings", requireAuth, async (_req, res): Promise<void> => {
-  const showAddTeamMember = await getSetting("show_add_team_member");
-  res.json({
-    showAddTeamMember: showAddTeamMember !== "false", // default: true
-  });
+  try {
+    const showAddTeamMember = await getSetting("show_add_team_member");
+    res.json({
+      showAddTeamMember: showAddTeamMember !== "false", // default: true
+    });
+  } catch (err: any) {
+    console.error("[settings GET] error:", err);
+    res.status(500).json({ error: "فشل تحميل الإعدادات", detail: err?.message });
+  }
 });
 
 // PATCH /api/settings — update app feature flags (admin only)
 router.patch("/settings", requireAuth, requireAdmin, async (req, res): Promise<void> => {
-  const { showAddTeamMember } = req.body as { showAddTeamMember?: boolean };
-  if (showAddTeamMember !== undefined) {
-    await setSetting("show_add_team_member", showAddTeamMember ? "true" : "false");
+  try {
+    const { showAddTeamMember } = req.body as { showAddTeamMember?: boolean };
+    if (showAddTeamMember !== undefined) {
+      await setSetting("show_add_team_member", showAddTeamMember ? "true" : "false");
+    }
+    const val = await getSetting("show_add_team_member");
+    res.json({ showAddTeamMember: val !== "false" });
+  } catch (err: any) {
+    console.error("[settings PATCH] error:", err);
+    res.status(500).json({ error: "فشل حفظ الإعدادات", detail: err?.message });
   }
-  const val = await getSetting("show_add_team_member");
-  res.json({ showAddTeamMember: val !== "false" });
 });
 
 export default router;

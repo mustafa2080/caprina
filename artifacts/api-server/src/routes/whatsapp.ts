@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, appSettingsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { requireAdmin } from "../middlewares/requireRole";
 
 const router: IRouter = Router();
@@ -14,10 +14,12 @@ async function getSetting(key: string): Promise<string | null> {
 }
 
 async function setSetting(key: string, value: string): Promise<void> {
-  await db
-    .insert(appSettingsTable)
-    .values({ key, value })
-    .onConflictDoUpdate({ target: appSettingsTable.key, set: { value, updatedAt: new Date() } });
+  // MySQL doesn't support onConflictDoUpdate — use INSERT ... ON DUPLICATE KEY UPDATE
+  await db.execute(
+    sql`INSERT INTO app_settings (\`key\`, \`value\`, \`updated_at\`)
+        VALUES (${key}, ${value}, NOW())
+        ON DUPLICATE KEY UPDATE \`value\` = ${value}, \`updated_at\` = NOW()`
+  );
 }
 
 interface WaTemplate {

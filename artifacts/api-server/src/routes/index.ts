@@ -24,7 +24,7 @@ const router: IRouter = Router();
 // Public routes (no auth required)
 router.use(healthRouter);
 router.use("/auth", authRouter);
-router.use(brandRouter); // GET /brand + GET /brand/logo are public; PATCH/POST/DELETE self-protect with requireAuth+requireAdmin
+router.use(brandRouter); // GET /brand + GET /brand/logo are public; PATCH/POST/DELETE + GET/PATCH /settings self-protect internally
 
 // All routes below require authentication
 router.use(requireAuth);
