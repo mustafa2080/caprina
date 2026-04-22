@@ -5,7 +5,6 @@ import {
   TrendingUp, TrendingDown, Printer, Star, AlertCircle, Trophy, Briefcase,
   DollarSign, Calendar, BarChart2, Settings, ArrowLeft, Save, RefreshCw, UserPlus,
 } from "lucide-react";
-import { TEAM_ADD_MEMBER_KEY } from "./users";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-import { employeeApi, usersApi, type EmployeeProfile, type EmployeeKpi, type EmployeeReport, type AppUser, type DailyKpiEntry, type DailyLogDay, appSettingsApi } from "@/lib/api";
+import { employeeApi, usersApi, type EmployeeProfile, type EmployeeKpi, type EmployeeReport, type AppUser, type DailyKpiEntry, type DailyLogDay, appSettingsApi, type AppSettings } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 
 const fmt = (n: number) =>
@@ -1227,7 +1226,7 @@ export default function TeamPage() {
             <UserPlus className="w-3.5 h-3.5" />موظف موجود
           </Button>
         )}
-        {isAdmin && showAddMemberBtn && (
+        {showAddMemberBtn && (
           <Button size="sm" className="gap-1 h-8 text-xs" onClick={() => setWizardOpen(true)}>
             <Plus className="w-3.5 h-3.5" />عضو جديد
           </Button>

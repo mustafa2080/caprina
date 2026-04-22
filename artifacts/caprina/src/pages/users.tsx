@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { usersApi, type AppUser } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -13,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { UserPlus, Edit2, Trash2, Shield, Users, Eye, EyeOff, TrendingUp, Package, BarChart3, Settings2 } from "lucide-react";
 import { usersApi, appSettingsApi, type AppUser } from "@/lib/api";
 
-export const TEAM_ADD_MEMBER_KEY = "caprina_show_add_member";
+export const TEAM_ADD_MEMBER_KEY = "add_team_member";
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "مدير",
