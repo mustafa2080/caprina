@@ -91,6 +91,7 @@ export default function Inventory() {
   // Warehouse distribution for new variant
   const [warehouseDist, setWarehouseDist] = useState<WarehouseDistEntry[]>([]);
   const [useWarehouseDist, setUseWarehouseDist] = useState(false);
+  const [isVariantSubmitting, setIsVariantSubmitting] = useState(false);
 
   const { data: products, isLoading } = useQuery({ queryKey: ["products"], queryFn: productsApi.list });
   const { data: allVariants } = useQuery({ queryKey: ["variants"], queryFn: variantsApi.listAll });
@@ -210,29 +211,55 @@ export default function Inventory() {
     if (editingVariant) {
       const { totalQuantity: _qty, ...editData } = variantForm;
       updateVariantMutation.mutate({ productId: activeProductId, id: editingVariant.id, data: editData });
-    } else {
-      try {
-        const newVariant = await variantsApi.create(activeProductId, variantForm);
-        // After creating the variant, distribute to warehouses if enabled
+      return;
+    }
+
+    // ─── Create new variant ───────────────────────────────────────────────────
+    setIsVariantSubmitting(true);
+    try {
+      const newVariant = await variantsApi.create(activeProductId, variantForm);
+
+      if (variantForm.totalQuantity > 0) {
         if (useWarehouseDist && warehouseDist.length > 0) {
+          // توزيع على مخازن متعددة
           const distEntries = warehouseDist.filter(d => d.warehouseId && d.quantity > 0);
           await Promise.all(
             distEntries.map(d =>
               warehousesApi.addStock(d.warehouseId, { variantId: newVariant.id, productId: activeProductId, quantity: d.quantity })
             )
           );
+        } else {
+          // بدون توزيع — تسجيل في addStock العادي (يضيف movement ويحدث warehouse افتراضي لو موجود)
+          await variantsApi.addStock(activeProductId, newVariant.id, variantForm.totalQuantity, "مخزون افتتاحي");
+
+          // لو في مخزن افتراضي، سجّل فيه كمان
+          const defaultWh = warehouses?.find(w => w.isDefault);
+          if (defaultWh) {
+            await warehousesApi.addStock(defaultWh.id, { variantId: newVariant.id, productId: activeProductId, quantity: variantForm.totalQuantity });
+          }
         }
-        queryClient.invalidateQueries({ queryKey: ["variants"] });
-        queryClient.invalidateQueries({ queryKey: ["analytics-profit"] });
-        queryClient.invalidateQueries({ queryKey: ["warehouses"] });
-        setVariantDialogOpen(false);
-        setVariantForm(emptyVariantForm);
-        setWarehouseDist([]);
-        setUseWarehouseDist(false);
-        toast({ title: "تمت إضافة المقاس/اللون", description: useWarehouseDist && warehouseDist.length > 0 ? "تم توزيع المخزون على المخازن المحددة." : undefined });
-      } catch (e: any) {
-        toast({ title: "خطأ", description: e.message, variant: "destructive" });
       }
+
+      queryClient.invalidateQueries({ queryKey: ["variants"] });
+      queryClient.invalidateQueries({ queryKey: ["analytics-profit"] });
+      queryClient.invalidateQueries({ queryKey: ["warehouses"] });
+      queryClient.invalidateQueries({ queryKey: ["stock-intelligence"] });
+      setVariantDialogOpen(false);
+      setVariantForm(emptyVariantForm);
+      setWarehouseDist([]);
+      setUseWarehouseDist(false);
+      toast({
+        title: "تمت إضافة المقاس/اللون",
+        description: useWarehouseDist && warehouseDist.length > 0
+          ? `تم توزيع ${variantForm.totalQuantity} وحدة على ${warehouseDist.length} مخازن.`
+          : variantForm.totalQuantity > 0
+            ? `تم تسجيل ${variantForm.totalQuantity} وحدة في المخزون.`
+            : undefined,
+      });
+    } catch (e: any) {
+      toast({ title: "خطأ", description: e.message, variant: "destructive" });
+    } finally {
+      setIsVariantSubmitting(false);
     }
   };
 
