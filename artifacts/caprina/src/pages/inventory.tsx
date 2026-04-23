@@ -13,8 +13,10 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Plus, Package, AlertTriangle, Edit2, Trash2, ChevronDown, ChevronRight,
-  Layers, Tag, TrendingUp, DollarSign, Boxes, BarChart3, Search, PackagePlus, Archive
+  Layers, Tag, TrendingUp, DollarSign, Boxes, BarChart3, Search, PackagePlus, Archive,
+  Filter, X, SortAsc, SortDesc, ChevronDown as ChevronDownIcon
 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fc = (n: number) =>
@@ -58,6 +60,13 @@ export default function Inventory() {
   const queryClient = useQueryClient();
   const [expandedProductId, setExpandedProductId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
+
+  // ─── Filter & Sort state ──────────────────────────────────────────────────
+  const [filterColor, setFilterColor] = useState<string>("all");
+  const [filterSize, setFilterSize] = useState<string>("all");
+  const [filterStatus, setFilterStatus] = useState<string>("all"); // all | good | low | out
+  const [sortBy, setSortBy] = useState<string>("name"); // name | stock_asc | stock_desc | price_asc | price_desc
+  const [showFilters, setShowFilters] = useState(false);
 
   // Product dialog
   const [productDialogOpen, setProductDialogOpen] = useState(false);
@@ -197,9 +206,52 @@ export default function Inventory() {
     return s + Math.max(0, v.totalQuantity) * (v.costPrice ?? v.unitPrice * 0.6);
   }, 0) ?? 0;
 
-  const filteredProducts = products?.filter(p =>
-    p.name.toLowerCase().includes(search.toLowerCase()) || (p.sku ?? "").toLowerCase().includes(search.toLowerCase())
-  ) ?? [];
+  // ─── Derive available colors & sizes from variants ────────────────────────
+  const allColors = [...new Set(allVariants?.map(v => v.color) ?? [])].sort();
+  const allSizes = [...new Set(allVariants?.map(v => v.size) ?? [])].sort();
+
+  const activeFiltersCount = [
+    filterColor !== "all",
+    filterSize !== "all",
+    filterStatus !== "all",
+    sortBy !== "name",
+  ].filter(Boolean).length;
+
+  const filteredProducts = (products?.filter(p => {
+    const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) || (p.sku ?? "").toLowerCase().includes(search.toLowerCase());
+    if (!matchesSearch) return false;
+
+    const variants = getProductVariants(p.id);
+
+    // Color filter — show product if any variant matches
+    if (filterColor !== "all" && !variants.some(v => v.color === filterColor)) return false;
+
+    // Size filter
+    if (filterSize !== "all" && !variants.some(v => v.size === filterSize)) return false;
+
+    // Status filter
+    if (filterStatus !== "all") {
+      const relevantVariants = variants.filter(v =>
+        (filterColor === "all" || v.color === filterColor) &&
+        (filterSize === "all" || v.size === filterSize)
+      );
+      if (filterStatus === "out" && !relevantVariants.some(v => v.totalQuantity === 0)) return false;
+      if (filterStatus === "low" && !relevantVariants.some(v => v.totalQuantity > 0 && v.totalQuantity <= v.lowStockThreshold)) return false;
+      if (filterStatus === "good" && !relevantVariants.some(v => v.totalQuantity > v.lowStockThreshold)) return false;
+    }
+
+    return true;
+  }) ?? []).sort((a, b) => {
+    const varA = getProductVariants(a.id);
+    const varB = getProductVariants(b.id);
+    const stockA = varA.reduce((s, v) => s + v.totalQuantity, 0);
+    const stockB = varB.reduce((s, v) => s + v.totalQuantity, 0);
+    if (sortBy === "stock_desc") return stockB - stockA;
+    if (sortBy === "stock_asc") return stockA - stockB;
+    if (sortBy === "price_desc") return b.unitPrice - a.unitPrice;
+    if (sortBy === "price_asc") return a.unitPrice - b.unitPrice;
+    return a.name.localeCompare(b.name, "ar");
+  });
 
   const isPending = createProductMutation.isPending || updateProductMutation.isPending;
   const isVariantPending = createVariantMutation.isPending || updateVariantMutation.isPending;
@@ -283,15 +335,161 @@ export default function Inventory() {
       )}
 
       {/* Search */}
-      <div className="relative">
-        <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-        <Input
-          placeholder="بحث باسم المنتج أو SKU..."
-          className="pr-9 h-9 text-sm bg-card border-border"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="بحث باسم المنتج أو SKU..."
+            className="pr-9 h-9 text-sm bg-card border-border"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+        <Button
+          variant={showFilters ? "default" : "outline"}
+          size="sm"
+          className="h-9 gap-1.5 text-xs font-bold shrink-0"
+          onClick={() => setShowFilters(v => !v)}
+        >
+          <Filter className="w-3.5 h-3.5" />
+          فلتر
+          {activeFiltersCount > 0 && (
+            <span className="bg-primary-foreground text-primary rounded-full w-4 h-4 text-[9px] font-black flex items-center justify-center">
+              {activeFiltersCount}
+            </span>
+          )}
+        </Button>
       </div>
+
+      {/* ─── Filter Panel ─────────────────────────────────────────────────────── */}
+      {showFilters && (
+        <div className="rounded-lg border border-border bg-card/60 p-3 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {/* Color */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">اللون</label>
+              <Select value={filterColor} onValueChange={setFilterColor}>
+                <SelectTrigger className="h-8 text-xs bg-background border-border">
+                  <SelectValue placeholder="كل الألوان" />
+                </SelectTrigger>
+                <SelectContent dir="rtl">
+                  <SelectItem value="all">كل الألوان</SelectItem>
+                  {allColors.map(c => (
+                    <SelectItem key={c} value={c}>
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full border border-border/50 shrink-0" style={{ background: getColorHex(c) }} />
+                        {c}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Size */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">المقاس</label>
+              <Select value={filterSize} onValueChange={setFilterSize}>
+                <SelectTrigger className="h-8 text-xs bg-background border-border">
+                  <SelectValue placeholder="كل المقاسات" />
+                </SelectTrigger>
+                <SelectContent dir="rtl">
+                  <SelectItem value="all">كل المقاسات</SelectItem>
+                  {allSizes.map(s => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Status */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">الحالة</label>
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger className="h-8 text-xs bg-background border-border">
+                  <SelectValue placeholder="كل الحالات" />
+                </SelectTrigger>
+                <SelectContent dir="rtl">
+                  <SelectItem value="all">كل الحالات</SelectItem>
+                  <SelectItem value="good">
+                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500" />مخزون جيد</span>
+                  </SelectItem>
+                  <SelectItem value="low">
+                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500" />مخزون منخفض</span>
+                  </SelectItem>
+                  <SelectItem value="out">
+                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500" />نفد المخزون</span>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Sort */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">ترتيب حسب</label>
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="h-8 text-xs bg-background border-border">
+                  <SelectValue placeholder="الاسم" />
+                </SelectTrigger>
+                <SelectContent dir="rtl">
+                  <SelectItem value="name">الاسم (أ-ي)</SelectItem>
+                  <SelectItem value="stock_desc">المخزون: الأعلى أولاً</SelectItem>
+                  <SelectItem value="stock_asc">المخزون: الأقل أولاً</SelectItem>
+                  <SelectItem value="price_desc">السعر: الأعلى أولاً</SelectItem>
+                  <SelectItem value="price_asc">السعر: الأقل أولاً</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Active filters chips + reset */}
+          {activeFiltersCount > 0 && (
+            <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-border">
+              <span className="text-[10px] text-muted-foreground">الفلاتر النشطة:</span>
+              {filterColor !== "all" && (
+                <button
+                  onClick={() => setFilterColor("all")}
+                  className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 transition-colors"
+                >
+                  <div className="w-2.5 h-2.5 rounded-full" style={{ background: getColorHex(filterColor) }} />
+                  {filterColor} <X className="w-2.5 h-2.5" />
+                </button>
+              )}
+              {filterSize !== "all" && (
+                <button
+                  onClick={() => setFilterSize("all")}
+                  className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 transition-colors"
+                >
+                  {filterSize} <X className="w-2.5 h-2.5" />
+                </button>
+              )}
+              {filterStatus !== "all" && (
+                <button
+                  onClick={() => setFilterStatus("all")}
+                  className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 transition-colors"
+                >
+                  {filterStatus === "good" ? "مخزون جيد" : filterStatus === "low" ? "منخفض" : "نفد"}
+                  <X className="w-2.5 h-2.5" />
+                </button>
+              )}
+              {sortBy !== "name" && (
+                <button
+                  onClick={() => setSortBy("name")}
+                  className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 transition-colors"
+                >
+                  ترتيب مخصص <X className="w-2.5 h-2.5" />
+                </button>
+              )}
+              <button
+                onClick={() => { setFilterColor("all"); setFilterSize("all"); setFilterStatus("all"); setSortBy("name"); }}
+                className="text-[10px] text-muted-foreground hover:text-destructive transition-colors mr-auto"
+              >
+                مسح الكل
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Products list */}
       {isLoading ? (
