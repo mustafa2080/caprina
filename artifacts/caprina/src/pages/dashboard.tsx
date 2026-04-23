@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useGetOrdersSummary, useGetRecentOrders } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -163,6 +163,15 @@ type Period = "all" | "week" | "month" | "year" | "custom";
 export default function Dashboard() {
   const { isAdmin, canViewFinancials } = useAuth();
 
+  // ── الوقت الحالي ──
+  const [currentTime, setCurrentTime] = useState(new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  const timeStr = currentTime.toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+  const dateStr = currentTime.toLocaleDateString("ar-EG", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+
   // ── فلتر التقارير ──
   const [period, setPeriod]   = useState<Period>("all");
   const [fromDate, setFromDate] = useState("");
@@ -222,7 +231,8 @@ export default function Dashboard() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold">لوحة المالية</h1>
-          <p className="text-muted-foreground text-xs sm:text-sm mt-0.5">CAPRINA — Financial Engine Dashboard</p>
+          <p className="text-muted-foreground text-xs sm:text-sm">{dateStr}</p>
+          <p className="text-xl sm:text-2xl font-bold text-primary mt-1">{timeStr}</p>
         </div>
         <div className="flex items-center gap-2">
           <Link href="/smart">

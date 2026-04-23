@@ -62,26 +62,32 @@ router.get("/brand", async (req, res): Promise<void> => {
 
 // GET /api/brand/logo — returns image binary, public
 router.get("/brand/logo", async (req, res): Promise<void> => {
-  const logoData = await getSetting("brand_logo_data");
+  try {
+    const logoData = await getSetting("brand_logo_data");
 
-  if (!logoData) {
-    res.status(404).json({ error: "No logo set" });
-    return;
+    if (!logoData) {
+      res.status(404).json({ error: "No logo set" });
+      return;
+    }
+
+    // logoData is stored as "data:<mime>;base64,<data>"
+    const match = logoData.match(/^data:([^;]+);base64,(.+)$/s);
+    if (!match) {
+      console.error("[brand/logo] Invalid logo data format, length:", logoData.length);
+      res.status(400).json({ error: "Invalid logo data" });
+      return;
+    }
+
+    const [, mimeType, base64] = match;
+    const buffer = Buffer.from(base64, "base64");
+
+    res.set("Content-Type", mimeType);
+    res.set("Cache-Control", "public, max-age=3600");
+    res.send(buffer);
+  } catch (err: any) {
+    console.error("[brand/logo GET] error:", err?.message);
+    res.status(500).json({ error: "فشل تحميل الشعار", detail: err?.message });
   }
-
-  // logoData is stored as "data:<mime>;base64,<data>"
-  const match = logoData.match(/^data:([^;]+);base64,(.+)$/);
-  if (!match) {
-    res.status(400).json({ error: "Invalid logo data" });
-    return;
-  }
-
-  const [, mimeType, base64] = match;
-  const buffer = Buffer.from(base64, "base64");
-
-  res.set("Content-Type", mimeType);
-  res.set("Cache-Control", "public, max-age=3600");
-  res.send(buffer);
 });
 
 // PATCH /api/brand — update name/tagline
