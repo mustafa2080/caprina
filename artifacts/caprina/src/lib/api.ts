@@ -643,6 +643,9 @@ export interface WarehouseStockItem {
   productSku: string | null;
   variantColor: string | null;
   variantSize: string | null;
+  unitPrice: number | null;
+  costPrice: number | null;
+  lowStockThreshold: number;
   updatedAt: string;
 }
 

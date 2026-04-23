@@ -129,6 +129,9 @@ router.get("/warehouses/:id", async (req, res): Promise<void> => {
     productSku: r.product?.sku ?? null,
     variantColor: r.variant?.color ?? null,
     variantSize: r.variant?.size ?? null,
+    unitPrice: r.variant?.unitPrice ?? r.product?.unitPrice ?? null,
+    costPrice: r.variant?.costPrice ?? r.product?.costPrice ?? null,
+    lowStockThreshold: r.variant?.lowStockThreshold ?? r.product?.lowStockThreshold ?? 5,
     updatedAt: r.stock.updatedAt,
   }));
 

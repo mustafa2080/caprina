@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Warehouse, Package, Edit2, Trash2, Star, ArrowLeft } from "lucide-react";
+import { Plus, Warehouse, Package, Edit2, Trash2, Star, ArrowLeft, Printer, TrendingDown, DollarSign, BoxIcon, ShoppingBag } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -101,6 +101,86 @@ function StockEditor({ warehouseId, onClose, canEdit }: { warehouseId: number; o
 
   const productVariants = allVariants?.filter(v => v.productId === Number(selectedProductId)) ?? [];
 
+  // ── حسابات المخزون ──────────────────────────────────────────────────────────
+  const stockItems = warehouse?.stock ?? [];
+  const totalUnits    = stockItems.reduce((s, i) => s + i.quantity, 0);
+  const availableQty  = stockItems.filter(i => i.quantity > 0).reduce((s, i) => s + i.quantity, 0);
+  const lowStockCount = stockItems.filter(i => i.quantity > 0 && i.quantity <= (i.lowStockThreshold ?? 5)).length;
+  const stockValue    = stockItems.reduce((s, i) => s + i.quantity * (i.costPrice ?? i.unitPrice ?? 0), 0);
+
+  // ── طباعة المخزون ───────────────────────────────────────────────────────────
+  const handlePrint = () => {
+    if (!warehouse) return;
+    const printDate = new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" });
+    const rows = stockItems.map(item => `
+      <tr>
+        <td>${item.productName ?? "—"}</td>
+        <td>${item.variantColor ? `${item.variantColor} / ${item.variantSize}` : "إجمالي"}</td>
+        <td style="text-align:center;font-weight:bold;color:${item.quantity <= (item.lowStockThreshold ?? 5) && item.quantity > 0 ? "#dc2626" : "#16a34a"}">${item.quantity}</td>
+        <td style="text-align:center">${item.costPrice ?? item.unitPrice ?? "—"}</td>
+        <td style="text-align:center">${((item.costPrice ?? item.unitPrice ?? 0) * item.quantity).toLocaleString("ar-EG")}</td>
+        <td style="text-align:center">${new Date(item.updatedAt).toLocaleDateString("ar-EG")}</td>
+      </tr>`).join("");
+
+    const win = window.open("", "_blank", "width=900,height=700");
+    if (!win) return;
+    win.document.write(`<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <title>جرد مخزن: ${warehouse.name}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, sans-serif; padding: 24px; color: #111; font-size: 13px; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 2px solid #111; padding-bottom: 12px; }
+    .header h1 { font-size: 20px; font-weight: bold; }
+    .header p  { font-size: 12px; color: #555; margin-top: 4px; }
+    .stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 20px; }
+    .stat { border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; text-align: center; }
+    .stat .val { font-size: 20px; font-weight: 900; }
+    .stat .lbl { font-size: 10px; color: #666; margin-top: 2px; }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #f3f4f6; font-size: 11px; padding: 8px 10px; text-align: right; border-bottom: 2px solid #d1d5db; }
+    td { padding: 7px 10px; font-size: 12px; border-bottom: 1px solid #e5e7eb; }
+    tr:nth-child(even) td { background: #f9fafb; }
+    .footer { margin-top: 20px; font-size: 11px; color: #888; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 10px; }
+    @media print { button { display: none; } body { padding: 12px; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1>📦 جرد مخزن: ${warehouse.name}</h1>
+      <p>${warehouse.address ? `📍 ${warehouse.address}` : ""}</p>
+    </div>
+    <div style="text-align:left">
+      <p style="font-size:12px">تاريخ الطباعة: ${printDate}</p>
+      ${warehouse.isDefault ? '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:11px">مخزن افتراضي</span>' : ""}
+    </div>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="val">${totalUnits.toLocaleString("ar-EG")}</div><div class="lbl">إجمالي الوحدات</div></div>
+    <div class="stat"><div class="val" style="color:#16a34a">${availableQty.toLocaleString("ar-EG")}</div><div class="lbl">متاح للبيع</div></div>
+    <div class="stat"><div class="val" style="color:#dc2626">${lowStockCount}</div><div class="lbl">مخزون منخفض</div></div>
+    <div class="stat"><div class="val" style="color:#2563eb">${stockValue.toLocaleString("ar-EG")} ج.م</div><div class="lbl">قيمة المخزون</div></div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>المنتج</th><th>النوع</th><th style="text-align:center">الكمية</th>
+        <th style="text-align:center">سعر التكلفة</th><th style="text-align:center">القيمة الإجمالية</th>
+        <th style="text-align:center">آخر تحديث</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="footer">كابرينا — نظام إدارة المخزون | ${printDate}</div>
+  <script>window.onload = () => window.print();</script>
+</body>
+</html>`);
+    win.document.close();
+  };
+
   const handleAddStock = async () => {
     if (!selectedProductId) { toast({ title: "اختر منتجاً", variant: "destructive" }); return; }
     setAdding(true);
@@ -135,9 +215,74 @@ function StockEditor({ warehouseId, onClose, canEdit }: { warehouseId: number; o
 
   return (
     <div className="space-y-4" dir="rtl">
-      <div className="flex items-center gap-2 mb-2">
-        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}><ArrowLeft className="h-4 w-4" /></Button>
-        <h2 className="text-base font-bold">مخزون: {warehouse?.name}</h2>
+
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}><ArrowLeft className="h-4 w-4" /></Button>
+          <div>
+            <h2 className="text-base font-bold flex items-center gap-1.5">
+              <Warehouse className="w-4 h-4 text-primary" />
+              {warehouse?.name}
+              {warehouse?.isDefault && <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />}
+            </h2>
+            {warehouse?.address && <p className="text-xs text-muted-foreground">{warehouse.address}</p>}
+          </div>
+        </div>
+        <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5" onClick={handlePrint}>
+          <Printer className="w-3.5 h-3.5" />طباعة الجرد
+        </Button>
+      </div>
+
+      {/* ── الأربع مربعات ── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Card className="border-border bg-card">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <BoxIcon className="w-4 h-4 text-primary" />
+            </div>
+            <div>
+              <p className="text-lg font-black leading-tight">{fmt(totalUnits)}</p>
+              <p className="text-[10px] text-muted-foreground">إجمالي المنتجات</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border bg-card">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0">
+              <ShoppingBag className="w-4 h-4 text-green-600" />
+            </div>
+            <div>
+              <p className="text-lg font-black leading-tight text-green-600">{fmt(availableQty)}</p>
+              <p className="text-[10px] text-muted-foreground">متاح للبيع</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border bg-card">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${lowStockCount > 0 ? "bg-red-500/10" : "bg-muted/40"}`}>
+              <TrendingDown className={`w-4 h-4 ${lowStockCount > 0 ? "text-red-500" : "text-muted-foreground"}`} />
+            </div>
+            <div>
+              <p className={`text-lg font-black leading-tight ${lowStockCount > 0 ? "text-red-500" : ""}`}>{lowStockCount}</p>
+              <p className="text-[10px] text-muted-foreground">مخزون منخفض</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border bg-card">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
+              <DollarSign className="w-4 h-4 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-lg font-black leading-tight text-blue-600">{fmt(Math.round(stockValue))}</p>
+              <p className="text-[10px] text-muted-foreground">قيمة المخزون (ج.م)</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Add stock row — فقط لو عنده صلاحية تعديل المخزون */}
