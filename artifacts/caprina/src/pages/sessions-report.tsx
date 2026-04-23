@@ -177,20 +177,24 @@ export default function SessionsReportPage() {
                     </div>
                     <p className="text-[11px] text-muted-foreground font-mono">{u.username}</p>
                   </div>
-                  <div className="flex items-center gap-4 text-center shrink-0 flex-wrap">
-                    <div>
-                      <p className="text-lg font-black text-primary">{u.totalSessions}</p>
-                      <p className="text-[10px] text-muted-foreground">جلسة</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-amber-500">{formatDuration(u.totalDuration)}</p>
-                      <p className="text-[10px] text-muted-foreground">وقت العمل</p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold">{formatDateTime(u.lastLogin)}</p>
-                      <p className="text-[10px] text-muted-foreground">آخر دخول</p>
-                    </div>
-                  </div>
+                 <div className="flex items-center gap-4 text-center shrink-0 flex-wrap">
+                     <div>
+                       <p className="text-lg font-black text-primary">{u.totalSessions}</p>
+                       <p className="text-[10px] text-muted-foreground">جلسة</p>
+                     </div>
+                     <div>
+                       <p className="text-sm font-bold text-amber-500">{formatDuration(u.totalDuration)}</p>
+                       <p className="text-[10px] text-muted-foreground">وقت العمل</p>
+                     </div>
+                     <div>
+                       <p className="text-xs font-bold">{formatDateTime(u.lastLogin)}</p>
+                       <p className="text-[10px] text-muted-foreground">آخر دخول</p>
+                     </div>
+                     <div>
+                       <p className="text-xs font-bold text-muted-foreground">{u.lastIp ?? "—"}</p>
+                       <p className="text-[10px] text-muted-foreground">آخر IP</p>
+                     </div>
+                   </div>
                 </div>
               </CardContent>
             </Card>
