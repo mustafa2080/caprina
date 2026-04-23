@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Package, Plus, Boxes, Truck, FileText, Upload, Activity, BarChart3, Users, Shield, LogOut, ChevronDown, KeyRound, Warehouse, Megaphone, UserCheck, UserCog, Sun, Moon, Brain, Archive, Clock, MessageCircle, Menu, X } from "lucide-react";import { BrandFull } from "@/components/brand-logo";
+import { LayoutDashboard, Package, Plus, Boxes, Truck, FileText, Upload, Activity, BarChart3, Users, Shield, LogOut, ChevronDown, KeyRound, Warehouse, Megaphone, UserCheck, UserCog, Sun, Moon, Brain, Archive, Clock, MessageCircle, Menu, X, Download } from "lucide-react";import { BrandFull } from "@/components/brand-logo";
 import { BrandSettingsDialog } from "@/components/brand-settings-dialog";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -34,6 +34,7 @@ const ALL_NAV = [
   { href: "/shipping", label: "شركات الشحن", icon: Truck, permission: "shipping" },
   { href: "/invoices", label: "الفواتير", icon: FileText, permission: "invoices" },
   { href: "/import", label: "استيراد Excel", icon: Upload, permission: "import" },
+  { href: "/export", label: "تصدير البيانات", icon: Download, permission: "import" },
   { href: "/users", label: "إدارة المستخدمين", icon: Users, permission: "users" },
   { href: "/sessions-report", label: "تقرير الجلسات", icon: Clock, permission: "users" },
   { href: "/audit-logs", label: "سجل التعديلات", icon: Shield, permission: "audit" },

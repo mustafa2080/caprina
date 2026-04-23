@@ -61,6 +61,7 @@ const ArchivePage           = lazy(() => import("@/pages/archive"));
 const ShippingFollowupPage  = lazy(() => import("@/pages/shipping-followup"));
 const WhatsAppSettingsPage  = lazy(() => import("@/pages/whatsapp-settings"));
 const SessionsReportPage    = lazy(() => import("@/pages/sessions-report"));
+const ExportPage            = lazy(() => import("@/pages/export"));
 const NotFound              = lazy(() => import("@/pages/not-found"));
 const Login                 = lazy(() => import("@/pages/login"));
 
@@ -162,6 +163,7 @@ function Router() {
           <Route path="/shipping-followup"        component={() => <ProtectedRoute permission="orders" component={ShippingFollowupPage} />} />
           <Route path="/whatsapp"                 component={() => <ProtectedRoute permission="whatsapp" component={WhatsAppSettingsPage} />} />
           <Route path="/sessions-report"          component={() => <ProtectedRoute permission="users" component={SessionsReportPage} />} />
+          <Route path="/export"                   component={() => <ProtectedRoute permission="import" component={ExportPage} />} />
           <Route                                  component={NotFound} />
         </Switch>
       </Suspense>

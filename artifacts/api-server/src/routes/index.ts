@@ -16,6 +16,7 @@ import teamAnalyticsRouter from "./team-analytics";
 import employeeRouter from "./employee";
 import brandRouter from "./brand";
 import settingsRouter from "./settings";
+import exportRouter from "./export";
 import whatsappRouter from "./whatsapp";
 import sessionsRouter from "./sessions";
 import { requireAuth } from "../middlewares/requireAuth.js";
@@ -43,6 +44,7 @@ router.use(manifestsRouter);
 router.use(warehousesRouter);
 router.use(teamAnalyticsRouter);
 router.use(employeeRouter);
+router.use(exportRouter);
 router.use(whatsappRouter);
 router.use("/sessions", sessionsRouter);
 
