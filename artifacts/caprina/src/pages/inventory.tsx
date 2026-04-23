@@ -212,6 +212,7 @@ export default function Inventory() {
   const [warehouseDist, setWarehouseDist] = useState<WarehouseDistEntry[]>([]);
   const [useWarehouseDist, setUseWarehouseDist] = useState(false);
   const [isVariantSubmitting, setIsVariantSubmitting] = useState(false);
+  const [editWarehouseDist, setEditWarehouseDist] = useState<WarehouseDistEntry[]>([]);
 
   const { data: products, isLoading } = useQuery({ queryKey: ["products"], queryFn: productsApi.list });
   const { data: allVariants } = useQuery({ queryKey: ["variants"], queryFn: variantsApi.listAll });
@@ -280,10 +281,21 @@ export default function Inventory() {
     }
     setVariantDialogOpen(true);
   };
-  const openEditVariant = (v: ProductVariant) => {
+  const openEditVariant = async (v: ProductVariant) => {
     setActiveProductId(v.productId);
     setEditingVariant(v);
     setVariantForm({ color: v.color, size: v.size, sku: v.sku ?? "", totalQuantity: 0, lowStockThreshold: v.lowStockThreshold, unitPrice: v.unitPrice, costPrice: v.costPrice });
+    // جيب كميات المخازن الحالية
+    try {
+      const whStock = await warehousesApi.stockByVariant(v.id);
+      const dist: WarehouseDistEntry[] = (warehouses ?? []).map(wh => {
+        const found = whStock.find(s => s.warehouseId === wh.id);
+        return { warehouseId: wh.id, quantity: found?.quantity ?? 0 };
+      });
+      setEditWarehouseDist(dist);
+    } catch {
+      setEditWarehouseDist((warehouses ?? []).map(wh => ({ warehouseId: wh.id, quantity: 0 })));
+    }
     setVariantDialogOpen(true);
   };
   const openAddVariantStock = (v: ProductVariant) => {
@@ -309,10 +321,44 @@ export default function Inventory() {
     }
     if (!activeProductId) return;
 
-    // تعديل SKU موجود — بدون كميات
+    // تعديل SKU موجود
     if (editingVariant) {
       const { totalQuantity: _qty, ...editData } = variantForm;
-      updateVariantMutation.mutate({ productId: activeProductId, id: editingVariant.id, data: editData });
+      setIsVariantSubmitting(true);
+      try {
+        // حفظ بيانات الـ SKU
+        await new Promise<void>((resolve, reject) => {
+          updateVariantMutation.mutate(
+            { productId: activeProductId, id: editingVariant.id, data: editData },
+            { onSuccess: () => resolve(), onError: (e) => reject(e) }
+          );
+        });
+        // حفظ كميات المخازن
+        const activeEditEntries = editWarehouseDist.filter(d => d.quantity >= 0);
+        if (activeEditEntries.length > 0) {
+          await Promise.all(
+            activeEditEntries.map(d =>
+              warehousesApi.addStock(d.warehouseId, {
+                variantId: editingVariant.id,
+                productId: activeProductId,
+                quantity: d.quantity,
+              })
+            )
+          );
+          queryClient.invalidateQueries({ queryKey: ["variant-wh-stock", editingVariant.id] });
+          queryClient.invalidateQueries({ queryKey: ["warehouses"] });
+          queryClient.invalidateQueries({ queryKey: ["variants"] });
+          queryClient.invalidateQueries({ queryKey: ["stock-intelligence"] });
+        }
+        setVariantDialogOpen(false);
+        setEditingVariant(null);
+        setVariantForm(emptyVariantForm);
+        toast({ title: "✅ تم حفظ التعديلات", description: "تم تحديث بيانات SKU والمخازن" });
+      } catch (e: any) {
+        toast({ title: "خطأ", description: e.message, variant: "destructive" });
+      } finally {
+        setIsVariantSubmitting(false);
+      }
       return;
     }
 
@@ -753,93 +799,97 @@ export default function Inventory() {
               </div>
             </div>
 
-            {/* ── توزيع الكميات على المخازن (إضافة جديدة فقط) ── */}
-            {!editingVariant && (
-              <>
-                <Separator />
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <WarehouseIcon className="w-4 h-4 text-primary" />
-                    <span className="text-sm font-bold">توزيع الكميات على المخازن</span>
-                    {warehouses && warehouses.length > 0 && (
-                      <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
-                        {warehouses.length} مخزن
-                      </span>
-                    )}
-                  </div>
-
-                  {!warehouses || warehouses.length === 0 ? (
-                    <div className="rounded-lg border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
-                      <WarehouseIcon className="w-6 h-6 mx-auto mb-1.5 opacity-30" />
-                      لا توجد مخازن مضافة. أضف مخازن أولاً من قسم المخازن.
-                    </div>
-                  ) : (
-                    <div className="rounded-xl border border-border overflow-hidden">
-                      {/* Header */}
-                      <div className="grid grid-cols-[1fr_100px] gap-3 px-4 py-2 bg-muted/50 text-[10px] font-bold text-muted-foreground border-b border-border">
-                        <span>المخزن</span>
-                        <span className="text-center">الكمية</span>
-                      </div>
-                      {/* Warehouse Rows */}
-                      {warehouses.map((wh, idx) => {
-                        const entry = warehouseDist.find(d => d.warehouseId === wh.id);
-                        const qty = entry?.quantity ?? 0;
-                        return (
-                          <div
-                            key={wh.id}
-                            className={`grid grid-cols-[1fr_100px] gap-3 px-4 py-3 items-center transition-colors
-                              ${idx !== 0 ? "border-t border-border/50" : ""}
-                              ${qty > 0 ? "bg-primary/5" : "hover:bg-muted/30"}`}
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <div className={`w-2.5 h-2.5 rounded-full shrink-0 transition-colors ${qty > 0 ? "bg-primary" : "bg-muted-foreground/25"}`} />
-                              <span className="text-xs font-semibold truncate">{wh.name}</span>
-                              {wh.isDefault && (
-                                <span className="text-[9px] text-amber-600 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded-full font-bold shrink-0">
-                                  افتراضي
-                                </span>
-                              )}
-                              {wh.address && (
-                                <span className="text-[10px] text-muted-foreground truncate hidden sm:block">{wh.address}</span>
-                              )}
-                            </div>
-                            <Input
-                              type="number"
-                              min="0"
-                              value={qty || ""}
-                              placeholder="0"
-                              className={`h-9 text-sm text-center font-bold transition-all
-                                ${qty > 0 ? "border-primary/60 bg-primary/5 text-primary" : ""}`}
-                              onChange={e => {
-                                const newQty = parseInt(e.target.value) || 0;
-                                setWarehouseDist(prev => {
-                                  const existing = prev.find(d => d.warehouseId === wh.id);
-                                  if (existing) return prev.map(d => d.warehouseId === wh.id ? { ...d, quantity: newQty } : d);
-                                  return [...prev, { warehouseId: wh.id, quantity: newQty }];
-                                });
-                              }}
-                            />
-                          </div>
-                        );
-                      })}
-                      {/* Total Footer */}
-                      {(() => {
-                        const distTotal = warehouseDist.reduce((s, d) => s + (d.quantity || 0), 0);
-                        return (
-                          <div className={`grid grid-cols-[1fr_100px] gap-3 px-4 py-2.5 border-t-2 items-center
-                            ${distTotal > 0 ? "border-primary/40 bg-primary/10" : "border-border bg-muted/30"}`}>
-                            <span className="text-xs font-bold text-foreground">إجمالي الكميات</span>
-                            <span className={`text-center text-base font-black ${distTotal > 0 ? "text-primary" : "text-muted-foreground"}`}>
-                              {distTotal}
-                            </span>
-                          </div>
-                        );
-                      })()}
-                    </div>
+            {/* ── توزيع الكميات على المخازن ── */}
+            <>
+              <Separator />
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <WarehouseIcon className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-bold">
+                    {editingVariant ? "كميات المخازن الحالية" : "توزيع الكميات على المخازن"}
+                  </span>
+                  {warehouses && warehouses.length > 0 && (
+                    <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
+                      {warehouses.length} مخزن
+                    </span>
                   )}
                 </div>
-              </>
-            )}
+
+                {!warehouses || warehouses.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+                    <WarehouseIcon className="w-6 h-6 mx-auto mb-1.5 opacity-30" />
+                    لا توجد مخازن مضافة. أضف مخازن أولاً من قسم المخازن.
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-border overflow-hidden">
+                    {/* Header */}
+                    <div className="grid grid-cols-[1fr_100px] gap-3 px-4 py-2 bg-muted/50 text-[10px] font-bold text-muted-foreground border-b border-border">
+                      <span>المخزن</span>
+                      <span className="text-center">الكمية</span>
+                    </div>
+                    {/* Warehouse Rows */}
+                    {warehouses.map((wh, idx) => {
+                      const distList = editingVariant ? editWarehouseDist : warehouseDist;
+                      const entry = distList.find(d => d.warehouseId === wh.id);
+                      const qty = entry?.quantity ?? 0;
+                      return (
+                        <div
+                          key={wh.id}
+                          className={`grid grid-cols-[1fr_100px] gap-3 px-4 py-3 items-center transition-colors
+                            ${idx !== 0 ? "border-t border-border/50" : ""}
+                            ${qty > 0 ? "bg-primary/5" : "hover:bg-muted/30"}`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className={`w-2.5 h-2.5 rounded-full shrink-0 transition-colors ${qty > 0 ? "bg-primary" : "bg-muted-foreground/25"}`} />
+                            <span className="text-xs font-semibold truncate">{wh.name}</span>
+                            {wh.isDefault && (
+                              <span className="text-[9px] text-amber-600 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded-full font-bold shrink-0">
+                                افتراضي
+                              </span>
+                            )}
+                            {wh.address && (
+                              <span className="text-[10px] text-muted-foreground truncate hidden sm:block">{wh.address}</span>
+                            )}
+                          </div>
+                          <Input
+                            type="number"
+                            min="0"
+                            value={qty || ""}
+                            placeholder="0"
+                            className={`h-9 text-sm text-center font-bold transition-all
+                              ${qty > 0 ? "border-primary/60 bg-primary/5 text-primary" : ""}`}
+                            onChange={e => {
+                              const newQty = parseInt(e.target.value) || 0;
+                              const updater = (prev: WarehouseDistEntry[]) => {
+                                const existing = prev.find(d => d.warehouseId === wh.id);
+                                if (existing) return prev.map(d => d.warehouseId === wh.id ? { ...d, quantity: newQty } : d);
+                                return [...prev, { warehouseId: wh.id, quantity: newQty }];
+                              };
+                              if (editingVariant) setEditWarehouseDist(updater);
+                              else setWarehouseDist(updater);
+                            }}
+                          />
+                        </div>
+                      );
+                    })}
+                    {/* Total Footer */}
+                    {(() => {
+                      const distList = editingVariant ? editWarehouseDist : warehouseDist;
+                      const distTotal = distList.reduce((s, d) => s + (d.quantity || 0), 0);
+                      return (
+                        <div className={`grid grid-cols-[1fr_100px] gap-3 px-4 py-2.5 border-t-2 items-center
+                          ${distTotal > 0 ? "border-primary/40 bg-primary/10" : "border-border bg-muted/30"}`}>
+                          <span className="text-xs font-bold text-foreground">إجمالي الكميات</span>
+                          <span className={`text-center text-base font-black ${distTotal > 0 ? "text-primary" : "text-muted-foreground"}`}>
+                            {distTotal}
+                          </span>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+              </div>
+            </>
 
             {/* ── حد التنبيه ── */}
             <div>
