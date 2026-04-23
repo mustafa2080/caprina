@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Plus, Package, AlertTriangle, Edit2, Trash2, ChevronDown, ChevronRight,
   Layers, Tag, TrendingUp, DollarSign, Boxes, BarChart3, Search, PackagePlus, Archive,
-  Filter, X, SortAsc, SortDesc, ChevronDown as ChevronDownIcon, Warehouse as WarehouseIcon, MapPin
+  Filter, X, SortAsc, SortDesc, ChevronDown as ChevronDownIcon, Warehouse as WarehouseIcon, MapPin, Printer
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -54,6 +54,94 @@ function MarginBadge({ margin }: { margin: number | null }) {
     : margin >= 20 ? "border-amber-400 text-amber-700 bg-amber-100 dark:border-amber-800 dark:text-amber-400 dark:bg-amber-900/20"
     : "border-red-400 text-red-700 bg-red-100 dark:border-red-800 dark:text-red-400 dark:bg-red-900/20";
   return <Badge variant="outline" className={`text-[9px] font-bold border ${cls}`}>{margin}%</Badge>;
+}
+
+// ─── Print Inventory for a single product ─────────────────────────────────────
+function printProductInventory(product: Product, variants: ProductVariant[], warehouses: Warehouse[] | undefined, canViewFinancials: boolean) {
+  const fc = (n: number) =>
+    new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(n);
+
+  const totalStock = variants.reduce((s, v) => s + v.totalQuantity, 0);
+  const now = new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" });
+
+  const rows = variants.map(v => {
+    const isOut = v.totalQuantity === 0;
+    const isLow = v.totalQuantity > 0 && v.totalQuantity <= v.lowStockThreshold;
+    const status = isOut ? "نفد" : isLow ? "منخفض" : "متاح";
+    const statusColor = isOut ? "#dc2626" : isLow ? "#d97706" : "#16a34a";
+    const margin = canViewFinancials && v.costPrice ? Math.round(((v.unitPrice - v.costPrice) / v.unitPrice) * 100) : null;
+    return `
+      <tr>
+        <td>${v.color}</td>
+        <td>${v.size}</td>
+        <td>${v.sku ?? "—"}</td>
+        <td style="text-align:center;font-weight:bold;color:${statusColor}">${v.totalQuantity}</td>
+        <td style="text-align:center;color:${statusColor};font-weight:bold">${status}</td>
+        ${canViewFinancials ? `<td style="text-align:center">${fc(v.unitPrice)}</td>` : ""}
+        ${canViewFinancials ? `<td style="text-align:center">${margin !== null ? margin + "%" : "—"}</td>` : ""}
+      </tr>`;
+  }).join("");
+
+  const html = `<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8"/>
+  <title>جرد مخزون - ${product.name}</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Cairo', Arial, sans-serif; direction: rtl; padding: 24px; color: #111; font-size: 13px; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 2px solid #111; padding-bottom: 12px; }
+    .brand { font-size: 22px; font-weight: 900; }
+    .meta { text-align: left; font-size: 11px; color: #555; }
+    .product-title { font-size: 18px; font-weight: 900; margin-bottom: 4px; }
+    .product-sub { font-size: 11px; color: #666; margin-bottom: 16px; }
+    .kpi { display: flex; gap: 20px; margin-bottom: 20px; }
+    .kpi-box { border: 1px solid #ddd; border-radius: 8px; padding: 10px 16px; text-align: center; }
+    .kpi-box .val { font-size: 20px; font-weight: 900; }
+    .kpi-box .lbl { font-size: 10px; color: #777; }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #111; color: #fff; padding: 8px 10px; font-size: 11px; font-weight: 700; }
+    td { padding: 7px 10px; border-bottom: 1px solid #eee; font-size: 12px; }
+    tr:nth-child(even) td { background: #f9f9f9; }
+    .footer { margin-top: 24px; font-size: 10px; color: #999; text-align: center; border-top: 1px solid #eee; padding-top: 10px; }
+    @media print { body { padding: 12px; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="brand">🧺 كابرينا</div>
+    <div class="meta"><div>تقرير جرد المخزون</div><div>${now}</div></div>
+  </div>
+  <div class="product-title">${product.name}${product.sku ? ` <span style="font-size:12px;color:#999;font-weight:400">(${product.sku})</span>` : ""}</div>
+  <div class="product-sub">إدارة المنتجات • الألوان • المقاسات • التكاليف</div>
+  <div class="kpi">
+    <div class="kpi-box"><div class="val">${variants.length}</div><div class="lbl">إجمالي SKU</div></div>
+    <div class="kpi-box"><div class="val" style="color:#16a34a">${totalStock}</div><div class="lbl">وحدة متاحة</div></div>
+    <div class="kpi-box"><div class="val" style="color:#dc2626">${variants.filter(v => v.totalQuantity === 0).length}</div><div class="lbl">نفد مخزونه</div></div>
+    <div class="kpi-box"><div class="val" style="color:#d97706">${variants.filter(v => v.totalQuantity > 0 && v.totalQuantity <= v.lowStockThreshold).length}</div><div class="lbl">مخزون منخفض</div></div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>اللون</th><th>المقاس</th><th>SKU</th>
+        <th style="text-align:center">الكمية</th>
+        <th style="text-align:center">الحالة</th>
+        ${canViewFinancials ? "<th style='text-align:center'>سعر البيع</th>" : ""}
+        ${canViewFinancials ? "<th style='text-align:center'>هامش الربح</th>" : ""}
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="footer">تم إنشاء هذا التقرير بواسطة نظام كابرينا • ${now}</div>
+</body>
+</html>`;
+
+  const win = window.open("", "_blank");
+  if (!win) return;
+  win.document.write(html);
+  win.document.close();
+  win.onload = () => { win.print(); };
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -446,6 +534,9 @@ export default function Inventory() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
+                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-primary" title="طباعة الجرد" onClick={e => { e.stopPropagation(); printProductInventory(product, variants, warehouses, canViewFinancials); }}>
+                      <Printer className="w-3.5 h-3.5" />
+                    </Button>
                     {canEdit && (
                       <>
                         <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={e => { e.stopPropagation(); openEditProduct(product); }}>
