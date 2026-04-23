@@ -21,6 +21,25 @@ const WarehouseSchema = z.object({
   isDefault: z.boolean().optional(),
 });
 
+// ─── Get stock breakdown by variant ───────────────────────────────────────────
+router.get("/warehouses/stock/by-variant/:variantId", async (req, res): Promise<void> => {
+  const variantId = parseInt(req.params.variantId);
+  if (isNaN(variantId)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+  const rows = await db
+    .select({
+      warehouseId: warehouseStockTable.warehouseId,
+      warehouseName: warehousesTable.name,
+      isDefault: warehousesTable.isDefault,
+      quantity: warehouseStockTable.quantity,
+    })
+    .from(warehouseStockTable)
+    .innerJoin(warehousesTable, eq(warehouseStockTable.warehouseId, warehousesTable.id))
+    .where(eq(warehouseStockTable.variantId, variantId));
+
+  res.json(rows);
+});
+
 // ─── List ──────────────────────────────────────────────────────────────────────
 router.get("/warehouses", async (req, res): Promise<void> => {
   const warehouses = await db

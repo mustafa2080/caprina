@@ -650,9 +650,17 @@ export interface WarehouseDetail extends Warehouse {
   stock: WarehouseStockItem[];
 }
 
+export interface VariantWarehouseStock {
+  warehouseId: number;
+  warehouseName: string;
+  isDefault: boolean;
+  quantity: number;
+}
+
 export const warehousesApi = {
   list: () => apiFetch<Warehouse[]>("/warehouses"),
   get: (id: number) => apiFetch<WarehouseDetail>(`/warehouses/${id}`),
+  stockByVariant: (variantId: number) => apiFetch<VariantWarehouseStock[]>(`/warehouses/stock/by-variant/${variantId}`),
   create: (data: { name: string; address?: string | null; notes?: string | null; isDefault?: boolean }) =>
     apiFetch<Warehouse>("/warehouses", { method: "POST", body: JSON.stringify(data) }),
   update: (id: number, data: Partial<{ name: string; address: string | null; notes: string | null; isDefault: boolean }>) =>

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
-import { productsApi, variantsApi, analyticsApi, warehousesApi, type Product, type ProductVariant, type StockIntelligenceItem, type Warehouse } from "@/lib/api";
+import { productsApi, variantsApi, analyticsApi, warehousesApi, type Product, type ProductVariant, type StockIntelligenceItem, type Warehouse, type VariantWarehouseStock } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,37 @@ const emptyVariantForm = { color: "", size: "", sku: "", totalQuantity: 0, lowSt
 
 // Warehouse distribution entry
 type WarehouseDistEntry = { warehouseId: number; quantity: number };
+
+// ─── Warehouse Breakdown per SKU ──────────────────────────────────────────────
+function VariantWarehouseBreakdown({ variantId }: { variantId: number }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["variant-wh-stock", variantId],
+    queryFn: () => warehousesApi.stockByVariant(variantId),
+    staleTime: 30000,
+  });
+
+  if (isLoading) return <span className="text-[10px] text-muted-foreground">...</span>;
+  if (!data || data.length === 0) return null;
+
+  const active = data.filter(d => d.quantity > 0);
+  if (active.length === 0) return null;
+
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+      {active.map(d => (
+        <span
+          key={d.warehouseId}
+          className="inline-flex items-center gap-1 text-[9px] font-semibold bg-primary/8 border border-primary/20 text-primary/80 px-1.5 py-0.5 rounded-full"
+          title={d.warehouseName}
+        >
+          <WarehouseIcon className="w-2.5 h-2.5" />
+          {d.warehouseName.length > 8 ? d.warehouseName.slice(0, 8) + "…" : d.warehouseName}
+          <span className="font-black">{d.quantity}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
 
 // ─── Margin Badge ─────────────────────────────────────────────────────────────
 function MarginBadge({ margin }: { margin: number | null }) {
@@ -278,39 +309,51 @@ export default function Inventory() {
     }
     if (!activeProductId) return;
 
-    if (!editingVariant && useWarehouseDist && warehouseDist.length > 0) {
-      const distTotal = warehouseDist.reduce((s, d) => s + (d.quantity || 0), 0);
-      if (variantForm.totalQuantity > 0 && distTotal !== variantForm.totalQuantity) {
-        toast({ title: "خطأ في التوزيع", description: `مجموع المخازن (${distTotal}) لا يساوي الكمية الإجمالية (${variantForm.totalQuantity}).`, variant: "destructive" });
-        return;
-      }
-    }
-
+    // تعديل SKU موجود — بدون كميات
     if (editingVariant) {
       const { totalQuantity: _qty, ...editData } = variantForm;
       updateVariantMutation.mutate({ productId: activeProductId, id: editingVariant.id, data: editData });
       return;
     }
 
+    // إضافة SKU جديد
+    const activeEntries = warehouseDist.filter(d => d.quantity > 0);
+    const distTotal = activeEntries.reduce((s, d) => s + d.quantity, 0);
+
     setIsVariantSubmitting(true);
     try {
-      const newVariant = await variantsApi.create(activeProductId, variantForm);
-      if (variantForm.totalQuantity > 0) {
-        const activeEntries = warehouseDist.filter(d => d.warehouseId && d.quantity > 0);
-        if (useWarehouseDist && activeEntries.length > 0) {
+      // إنشاء الـ variant بكمية = مجموع توزيع المخازن
+      const newVariant = await variantsApi.create(activeProductId, {
+        ...variantForm,
+        totalQuantity: distTotal,
+      });
+
+      if (distTotal > 0) {
+        if (activeEntries.length > 0) {
+          // توزيع على المخازن المحددة
           await Promise.all(
             activeEntries.map(d =>
-              warehousesApi.addStock(d.warehouseId, { variantId: newVariant.id, productId: activeProductId, quantity: d.quantity })
+              warehousesApi.addStock(d.warehouseId, {
+                variantId: newVariant.id,
+                productId: activeProductId,
+                quantity: d.quantity,
+              })
             )
           );
         } else {
-          await variantsApi.addStock(activeProductId, newVariant.id, variantForm.totalQuantity, "مخزون افتتاحي");
+          // لو مفيش مخازن — يحط في المخزن الافتراضي
+          await variantsApi.addStock(activeProductId, newVariant.id, distTotal, "مخزون افتتاحي");
           const defaultWh = warehouses?.find(w => w.isDefault);
           if (defaultWh) {
-            await warehousesApi.addStock(defaultWh.id, { variantId: newVariant.id, productId: activeProductId, quantity: variantForm.totalQuantity });
+            await warehousesApi.addStock(defaultWh.id, {
+              variantId: newVariant.id,
+              productId: activeProductId,
+              quantity: distTotal,
+            });
           }
         }
       }
+
       queryClient.invalidateQueries({ queryKey: ["variants"] });
       queryClient.invalidateQueries({ queryKey: ["analytics-profit"] });
       queryClient.invalidateQueries({ queryKey: ["warehouses"] });
@@ -319,14 +362,14 @@ export default function Inventory() {
       setVariantForm(emptyVariantForm);
       setWarehouseDist([]);
       setUseWarehouseDist(false);
-      const activeEntries = warehouseDist.filter(d => d.quantity > 0);
+
       toast({
-        title: "تمت إضافة المقاس/اللون",
+        title: "✅ تمت إضافة المقاس/اللون",
         description: activeEntries.length > 0
-          ? `تم توزيع ${variantForm.totalQuantity} وحدة على ${activeEntries.length} مخزن`
-          : variantForm.totalQuantity > 0
-            ? `تم تسجيل ${variantForm.totalQuantity} وحدة في المخزون`
-            : undefined,
+          ? `تم توزيع ${distTotal} وحدة على ${activeEntries.length} مخزن`
+          : distTotal > 0
+            ? `تم تسجيل ${distTotal} وحدة في المخزون`
+            : "تمت الإضافة بدون مخزون",
       });
     } catch (e: any) {
       toast({ title: "خطأ", description: e.message, variant: "destructive" });
@@ -570,11 +613,14 @@ export default function Inventory() {
                         const isLow = v.totalQuantity > 0 && v.totalQuantity <= v.lowStockThreshold;
                         const isOut = v.totalQuantity === 0;
                         return (
-                          <div key={v.id} className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 px-4 py-2 border-t border-border/50 items-center hover:bg-muted/10">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className="w-3 h-3 rounded-full shrink-0 border border-border/50" style={{ background: getColorHex(v.color) }} />
-                              <span className="text-xs font-medium truncate">{v.color} / {v.size}</span>
-                              {v.sku && <span className="text-[9px] text-muted-foreground bg-muted px-1 rounded font-mono hidden sm:block">{v.sku}</span>}
+                          <div key={v.id} className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 px-4 py-2.5 border-t border-border/50 items-start hover:bg-muted/10">
+                            <div className="flex flex-col gap-0.5 min-w-0">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="w-3 h-3 rounded-full shrink-0 border border-border/50" style={{ background: getColorHex(v.color) }} />
+                                <span className="text-xs font-medium truncate">{v.color} / {v.size}</span>
+                                {v.sku && <span className="text-[9px] text-muted-foreground bg-muted px-1 rounded font-mono hidden sm:block">{v.sku}</span>}
+                              </div>
+                              <VariantWarehouseBreakdown variantId={v.id} />
                             </div>
                             <div className={`text-center w-16 text-xs font-bold ${isOut ? "text-red-600 dark:text-red-400" : isLow ? "text-amber-600" : "text-emerald-600 dark:text-emerald-400"}`}>
                               {v.totalQuantity}
@@ -655,14 +701,17 @@ export default function Inventory() {
 
       {/* ─── Variant Dialog ─── */}
       <Dialog open={variantDialogOpen} onOpenChange={setVariantDialogOpen}>
-        <DialogContent className="max-w-lg" dir="rtl">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" dir="rtl">
           <DialogHeader>
-            <DialogTitle>{editingVariant ? "تعديل SKU" : "إضافة SKU جديد"}</DialogTitle>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              {editingVariant ? <><Edit2 className="w-4 h-4" />تعديل SKU</> : <><Plus className="w-4 h-4" />إضافة SKU جديد</>}
+            </DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 pt-2">
-            {/* Color */}
+
+          <div className="space-y-4 pt-1">
+            {/* ── اللون ── */}
             <div>
-              <Label className="text-xs font-semibold mb-1.5 block">اللون *</Label>
+              <Label className="text-[11px] font-bold mb-2 block text-muted-foreground">اللون *</Label>
               <div className="flex flex-wrap gap-1.5 mb-2">
                 {COMMON_COLORS.map(c => (
                   <button key={c} onClick={() => setVariantForm(f => ({ ...f, color: c }))}
@@ -671,11 +720,12 @@ export default function Inventory() {
                   </button>
                 ))}
               </div>
-              <Input value={variantForm.color} onChange={e => setVariantForm(f => ({ ...f, color: e.target.value }))} placeholder="أو اكتب لوناً آخر" className="h-8 text-sm" />
+              <Input value={variantForm.color} onChange={e => setVariantForm(f => ({ ...f, color: e.target.value }))} placeholder="أو اكتب لوناً آخر..." className="h-8 text-sm" />
             </div>
-            {/* Size */}
+
+            {/* ── المقاس ── */}
             <div>
-              <Label className="text-xs font-semibold mb-1.5 block">المقاس *</Label>
+              <Label className="text-[11px] font-bold mb-2 block text-muted-foreground">المقاس *</Label>
               <div className="flex flex-wrap gap-1.5 mb-2">
                 {COMMON_SIZES.map(s => (
                   <button key={s} onClick={() => setVariantForm(f => ({ ...f, size: s }))}
@@ -684,115 +734,125 @@ export default function Inventory() {
                   </button>
                 ))}
               </div>
-              <Input value={variantForm.size} onChange={e => setVariantForm(f => ({ ...f, size: e.target.value }))} placeholder="أو اكتب مقاساً آخر" className="h-8 text-sm" />
+              <Input value={variantForm.size} onChange={e => setVariantForm(f => ({ ...f, size: e.target.value }))} placeholder="أو اكتب مقاساً آخر..." className="h-8 text-sm" />
             </div>
-            {/* SKU + Prices */}
+
+            {/* ── SKU + Prices ── */}
             <div className="grid grid-cols-3 gap-2">
               <div>
-                <Label className="text-xs font-semibold mb-1.5 block">SKU</Label>
+                <Label className="text-[11px] font-bold mb-1.5 block text-muted-foreground">كود SKU</Label>
                 <Input value={variantForm.sku} onChange={e => setVariantForm(f => ({ ...f, sku: e.target.value }))} placeholder="اختياري" className="h-8 text-xs font-mono" />
               </div>
               <div>
-                <Label className="text-xs font-semibold mb-1.5 block">سعر البيع</Label>
+                <Label className="text-[11px] font-bold mb-1.5 block text-muted-foreground">سعر البيع</Label>
                 <Input type="number" value={variantForm.unitPrice || ""} onChange={e => setVariantForm(f => ({ ...f, unitPrice: parseFloat(e.target.value) || 0 }))} className="h-8 text-xs" />
               </div>
               <div>
-                <Label className="text-xs font-semibold mb-1.5 block">سعر التكلفة</Label>
+                <Label className="text-[11px] font-bold mb-1.5 block text-muted-foreground">سعر التكلفة</Label>
                 <Input type="number" value={variantForm.costPrice ?? ""} onChange={e => setVariantForm(f => ({ ...f, costPrice: e.target.value ? parseFloat(e.target.value) : null }))} placeholder="اختياري" className="h-8 text-xs" />
               </div>
             </div>
 
-            {/* Initial Quantity & Warehouse Distribution */}
+            {/* ── توزيع الكميات على المخازن (إضافة جديدة فقط) ── */}
             {!editingVariant && (
-              <div className="space-y-3">
+              <>
+                <Separator />
                 <div>
-                  <Label className="text-xs font-semibold mb-1.5 block">الكمية الإجمالية الأولية</Label>
-                  <Input type="number" value={variantForm.totalQuantity || ""} onChange={e => {
-                    const qty = parseInt(e.target.value) || 0;
-                    setVariantForm(f => ({ ...f, totalQuantity: qty }));
-                  }} placeholder="0" className="h-8 text-sm" />
-                </div>
-
-                {/* Warehouse Distribution Section */}
-                {warehouses && warehouses.length > 0 && variantForm.totalQuantity > 0 && (
-                  <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <WarehouseIcon className="w-4 h-4 text-primary" />
-                        <span className="text-xs font-bold">توزيع على المخازن</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setUseWarehouseDist(v => !v)}
-                        className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold transition-colors ${useWarehouseDist ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/50"}`}
-                      >
-                        {useWarehouseDist ? "✓ مفعل" : "تفعيل"}
-                      </button>
-                    </div>
-
-                    {useWarehouseDist && (
-                      <>
-                        <p className="text-[10px] text-muted-foreground">
-                          وزّع الـ {variantForm.totalQuantity} وحدة على المخازن. المجموع يجب = الكمية الإجمالية.
-                        </p>
-                        <div className="space-y-2">
-                          {warehouses.map(wh => {
-                            const entry = warehouseDist.find(d => d.warehouseId === wh.id);
-                            const qty = entry?.quantity ?? 0;
-                            return (
-                              <div key={wh.id} className="flex items-center gap-2">
-                                <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                                  <MapPin className="w-3 h-3 text-muted-foreground shrink-0" />
-                                  <span className="text-xs font-medium truncate">{wh.name}</span>
-                                  {wh.isDefault && <span className="text-[9px] text-primary bg-primary/10 px-1 rounded">افتراضي</span>}
-                                </div>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  value={qty || ""}
-                                  placeholder="0"
-                                  className="h-7 w-20 text-xs text-center"
-                                  onChange={e => {
-                                    const newQty = parseInt(e.target.value) || 0;
-                                    setWarehouseDist(prev => {
-                                      const existing = prev.find(d => d.warehouseId === wh.id);
-                                      if (existing) return prev.map(d => d.warehouseId === wh.id ? { ...d, quantity: newQty } : d);
-                                      return [...prev, { warehouseId: wh.id, quantity: newQty }];
-                                    });
-                                  }}
-                                />
-                              </div>
-                            );
-                          })}
-                        </div>
-                        {/* Distribution Summary */}
-                        <div className={`flex items-center justify-between text-[10px] pt-1 border-t border-border/50 ${
-                          warehouseDist.reduce((s, d) => s + d.quantity, 0) === variantForm.totalQuantity
-                            ? "text-emerald-600" : "text-amber-600"
-                        }`}>
-                          <span>المجموع الموزع:</span>
-                          <span className="font-bold">
-                            {warehouseDist.reduce((s, d) => s + d.quantity, 0)} / {variantForm.totalQuantity}
-                          </span>
-                        </div>
-                      </>
+                  <div className="flex items-center gap-2 mb-3">
+                    <WarehouseIcon className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-bold">توزيع الكميات على المخازن</span>
+                    {warehouses && warehouses.length > 0 && (
+                      <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
+                        {warehouses.length} مخزن
+                      </span>
                     )}
                   </div>
-                )}
-              </div>
+
+                  {!warehouses || warehouses.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+                      <WarehouseIcon className="w-6 h-6 mx-auto mb-1.5 opacity-30" />
+                      لا توجد مخازن مضافة. أضف مخازن أولاً من قسم المخازن.
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-border overflow-hidden">
+                      {/* Header */}
+                      <div className="grid grid-cols-[1fr_100px] gap-3 px-4 py-2 bg-muted/50 text-[10px] font-bold text-muted-foreground border-b border-border">
+                        <span>المخزن</span>
+                        <span className="text-center">الكمية</span>
+                      </div>
+                      {/* Warehouse Rows */}
+                      {warehouses.map((wh, idx) => {
+                        const entry = warehouseDist.find(d => d.warehouseId === wh.id);
+                        const qty = entry?.quantity ?? 0;
+                        return (
+                          <div
+                            key={wh.id}
+                            className={`grid grid-cols-[1fr_100px] gap-3 px-4 py-3 items-center transition-colors
+                              ${idx !== 0 ? "border-t border-border/50" : ""}
+                              ${qty > 0 ? "bg-primary/5" : "hover:bg-muted/30"}`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className={`w-2.5 h-2.5 rounded-full shrink-0 transition-colors ${qty > 0 ? "bg-primary" : "bg-muted-foreground/25"}`} />
+                              <span className="text-xs font-semibold truncate">{wh.name}</span>
+                              {wh.isDefault && (
+                                <span className="text-[9px] text-amber-600 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded-full font-bold shrink-0">
+                                  افتراضي
+                                </span>
+                              )}
+                              {wh.address && (
+                                <span className="text-[10px] text-muted-foreground truncate hidden sm:block">{wh.address}</span>
+                              )}
+                            </div>
+                            <Input
+                              type="number"
+                              min="0"
+                              value={qty || ""}
+                              placeholder="0"
+                              className={`h-9 text-sm text-center font-bold transition-all
+                                ${qty > 0 ? "border-primary/60 bg-primary/5 text-primary" : ""}`}
+                              onChange={e => {
+                                const newQty = parseInt(e.target.value) || 0;
+                                setWarehouseDist(prev => {
+                                  const existing = prev.find(d => d.warehouseId === wh.id);
+                                  if (existing) return prev.map(d => d.warehouseId === wh.id ? { ...d, quantity: newQty } : d);
+                                  return [...prev, { warehouseId: wh.id, quantity: newQty }];
+                                });
+                              }}
+                            />
+                          </div>
+                        );
+                      })}
+                      {/* Total Footer */}
+                      {(() => {
+                        const distTotal = warehouseDist.reduce((s, d) => s + (d.quantity || 0), 0);
+                        return (
+                          <div className={`grid grid-cols-[1fr_100px] gap-3 px-4 py-2.5 border-t-2 items-center
+                            ${distTotal > 0 ? "border-primary/40 bg-primary/10" : "border-border bg-muted/30"}`}>
+                            <span className="text-xs font-bold text-foreground">إجمالي الكميات</span>
+                            <span className={`text-center text-base font-black ${distTotal > 0 ? "text-primary" : "text-muted-foreground"}`}>
+                              {distTotal}
+                            </span>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+                </div>
+              </>
             )}
 
-            {/* Low Stock Threshold */}
+            {/* ── حد التنبيه ── */}
             <div>
-              <Label className="text-xs font-semibold mb-1.5 block">حد المخزون المنخفض</Label>
+              <Label className="text-[11px] font-bold mb-1.5 block text-muted-foreground">حد التنبيه (مخزون منخفض)</Label>
               <Input type="number" value={variantForm.lowStockThreshold} onChange={e => setVariantForm(f => ({ ...f, lowStockThreshold: parseInt(e.target.value) || 5 }))} className="h-8 text-sm" />
             </div>
           </div>
-          <div className="flex gap-2 pt-2">
-            <Button onClick={handleVariantSubmit} disabled={isVariantPending || isVariantSubmitting} className="flex-1 h-9 text-sm font-bold">
+
+          <div className="flex gap-2 pt-3 border-t border-border mt-2">
+            <Button onClick={handleVariantSubmit} disabled={isVariantPending || isVariantSubmitting} className="flex-1 h-9 text-sm font-bold gap-2">
               {(isVariantPending || isVariantSubmitting) ? "جاري الحفظ..." : editingVariant ? "حفظ التعديلات" : "إضافة SKU"}
             </Button>
-            <Button variant="outline" onClick={() => setVariantDialogOpen(false)} className="h-9 text-sm">إلغاء</Button>
+            <Button variant="outline" onClick={() => setVariantDialogOpen(false)} className="h-9 text-sm px-6">إلغاء</Button>
           </div>
         </DialogContent>
       </Dialog>
