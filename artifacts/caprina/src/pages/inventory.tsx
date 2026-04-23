@@ -497,7 +497,19 @@ export default function Inventory() {
       ) : filteredProducts.length ? (
         <div className="space-y-3">
           {filteredProducts.map((product) => {
-            const variants = getProductVariants(product.id);
+            // All variants for this product (unfiltered — used for product-level stats)
+            const allProductVariants = getProductVariants(product.id);
+
+            // Filtered variants — apply color / size / status filters HERE
+            const variants = allProductVariants.filter(v => {
+              if (filterColor !== "all" && v.color !== filterColor) return false;
+              if (filterSize !== "all" && v.size !== filterSize) return false;
+              if (filterStatus === "out" && v.totalQuantity !== 0) return false;
+              if (filterStatus === "low" && !(v.totalQuantity > 0 && v.totalQuantity <= v.lowStockThreshold)) return false;
+              if (filterStatus === "good" && !(v.totalQuantity > v.lowStockThreshold)) return false;
+              return true;
+            });
+
             const isExpanded = expandedProductId === product.id;
             const totalStock = variants.reduce((s, v) => s + v.totalQuantity, 0);
             const availableStock = totalStock; // availableQty = totalQuantity (movement-based)
@@ -530,7 +542,12 @@ export default function Inventory() {
                         {product.sku && <span className="text-[9px] font-mono bg-muted px-1.5 py-0.5 rounded text-muted-foreground">{product.sku}</span>}
                       </div>
                       <div className="flex items-center gap-3 mt-1 flex-wrap">
-                        <span className="text-[10px] text-muted-foreground">{variants.length} SKU</span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {variants.length} SKU
+                          {(filterColor !== "all" || filterSize !== "all" || filterStatus !== "all") && allProductVariants.length !== variants.length && (
+                            <span className="text-muted-foreground/50"> / {allProductVariants.length}</span>
+                          )}
+                        </span>
                         <span className="text-[10px] text-primary font-semibold">{fc(product.unitPrice)}</span>
                         {canViewFinancials && product.costPrice ? (
                           <span className="text-[10px] text-amber-700 dark:text-amber-400">تكلفة: {fc(product.costPrice)}</span>
