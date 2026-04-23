@@ -26,6 +26,10 @@ router.get("/settings", requireAuth, async (_req, res): Promise<void> => {
     res.json({
       showAddTeamMember: data.showAddTeamMember ?? true,
       allowBrandEdit: data.allowBrandEdit ?? true,
+      showTeamPerformance: data.showTeamPerformance ?? true,
+      showTeamManagement: data.showTeamManagement ?? true,
+      showSmartAnalytics: data.showSmartAnalytics ?? true,
+      showAdsAnalytics: data.showAdsAnalytics ?? true,
     });
   } catch (err: any) {
     console.error("[settings GET] error:", err);
@@ -62,6 +66,10 @@ router.patch("/settings", requireAuth, requireAdmin, async (req, res): Promise<v
     res.json({
       showAddTeamMember: merged.showAddTeamMember ?? true,
       allowBrandEdit: merged.allowBrandEdit ?? true,
+      showTeamPerformance: merged.showTeamPerformance ?? true,
+      showTeamManagement: merged.showTeamManagement ?? true,
+      showSmartAnalytics: merged.showSmartAnalytics ?? true,
+      showAdsAnalytics: merged.showAdsAnalytics ?? true,
     });
   } catch (err: any) {
     console.error("[settings PATCH] error:", err);

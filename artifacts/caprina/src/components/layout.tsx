@@ -5,7 +5,8 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useState } from "react";
-import { authApi } from "@/lib/api";
+import { authApi, appSettingsApi } from "@/lib/api";
+import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -57,7 +58,26 @@ export default function Layout({ children }: LayoutProps) {
   const [newPw, setNewPw] = useState("");
   const [savingPw, setSavingPw] = useState(false);
 
-  const visibleNav = ALL_NAV.filter(item => can(item.permission));
+  // ─── App settings — control sidebar sections visibility ──────────────────
+  const { data: appSettings } = useQuery({
+    queryKey: ["app-settings"],
+    queryFn: appSettingsApi.get,
+    staleTime: 30000,
+  });
+  const showTeamPerformance = appSettings?.showTeamPerformance ?? true;
+  const showTeamManagement  = appSettings?.showTeamManagement  ?? true;
+  const showSmartAnalytics  = appSettings?.showSmartAnalytics  ?? true;
+  const showAdsAnalytics    = appSettings?.showAdsAnalytics    ?? true;
+
+  const visibleNav = ALL_NAV.filter(item => {
+    if (!can(item.permission)) return false;
+    // Hide sections controlled by admin settings
+    if (item.href === "/team-performance" && !showTeamPerformance) return false;
+    if (item.href === "/team"             && !showTeamManagement)  return false;
+    if (item.href === "/smart"            && !showSmartAnalytics)  return false;
+    if (item.href === "/ads-analytics"    && !showAdsAnalytics)    return false;
+    return true;
+  });
 
   const handleChangePassword = async () => {
     if (!currentPw || newPw.length < 6) {

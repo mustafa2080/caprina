@@ -933,6 +933,10 @@ export const movementsApi = {  list: (filters?: MovementFilters) => {
 export interface AppSettings {
   showAddTeamMember: boolean;
   allowBrandEdit: boolean;
+  showTeamPerformance: boolean;
+  showTeamManagement: boolean;
+  showSmartAnalytics: boolean;
+  showAdsAnalytics: boolean;
 }
 
 export const appSettingsApi = {

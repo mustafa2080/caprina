@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { UserPlus, Edit2, Trash2, Shield, Users, Eye, EyeOff, TrendingUp, Package, BarChart3, UserCheck, Lock } from "lucide-react";
+import { UserPlus, Edit2, Trash2, Shield, Users, Eye, EyeOff, TrendingUp, Package, BarChart3, UserCheck, Lock, UserCog, Brain, Megaphone, LayoutGrid } from "lucide-react";
 
 
 const ROLE_LABELS: Record<string, string> = {
@@ -80,20 +80,21 @@ export default function UsersPage() {
     queryFn: appSettingsApi.get,
     enabled: isAdmin,
   });
-  const showAddMember = appSettings?.showAddTeamMember ?? true;
-  const allowBrandEdit = appSettings?.allowBrandEdit ?? true;
+  const showAddMember      = appSettings?.showAddTeamMember    ?? true;
+  const allowBrandEdit     = appSettings?.allowBrandEdit        ?? true;
+  const showTeamPerf       = appSettings?.showTeamPerformance   ?? true;
+  const showTeamMgmt       = appSettings?.showTeamManagement    ?? true;
+  const showSmartAnalytics = appSettings?.showSmartAnalytics    ?? true;
+  const showAdsAnalytics   = appSettings?.showAdsAnalytics      ?? true;
 
-  const toggleAddMember = async (val: boolean) => {
-    await appSettingsApi.update({ showAddTeamMember: val });
+  const toggleSetting = async (key: string, val: boolean) => {
+    await appSettingsApi.update({ [key]: val } as any);
     refetchSettings();
     qc.invalidateQueries({ queryKey: ["app-settings"] });
   };
 
-  const toggleBrandEdit = async (val: boolean) => {
-    await appSettingsApi.update({ allowBrandEdit: val });
-    refetchSettings();
-    qc.invalidateQueries({ queryKey: ["app-settings"] });
-  };
+  const toggleAddMember  = (val: boolean) => toggleSetting("showAddTeamMember",  val);
+  const toggleBrandEdit  = (val: boolean) => toggleSetting("allowBrandEdit",      val);
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["users"],
@@ -402,6 +403,73 @@ export default function UsersPage() {
               <>
                 <Separator />
                 <div>
+                  <Label className="text-xs mb-3 flex items-center gap-1.5 text-muted-foreground">
+                    <LayoutGrid className="w-3.5 h-3.5" /> إعدادات ظهور الأقسام في الـ Sidebar
+                  </Label>
+
+                  {/* ── الأقسام الأربعة ─────────────────────────────────── */}
+                  <div className="space-y-2 mb-3">
+                    {[
+                      {
+                        key: "showTeamPerformance",
+                        val: showTeamPerf,
+                        icon: <UserCheck className="w-3.5 h-3.5 text-blue-400 shrink-0" />,
+                        label: "أداء الفريق",
+                        desc: "قسم عرض تقارير وإحصائيات أداء الفريق",
+                        color: "border-blue-500/50 bg-blue-500/5",
+                      },
+                      {
+                        key: "showTeamManagement",
+                        val: showTeamMgmt,
+                        icon: <UserCog className="w-3.5 h-3.5 text-purple-400 shrink-0" />,
+                        label: "إدارة الفريق",
+                        desc: "قسم إدارة أعضاء الفريق وبياناتهم",
+                        color: "border-purple-500/50 bg-purple-500/5",
+                      },
+                      {
+                        key: "showSmartAnalytics",
+                        val: showSmartAnalytics,
+                        icon: <Brain className="w-3.5 h-3.5 text-emerald-400 shrink-0" />,
+                        label: "التحليل الذكي 🧠",
+                        desc: "قسم التحليلات الذكية المدعومة بالذكاء الاصطناعي",
+                        color: "border-emerald-500/50 bg-emerald-500/5",
+                      },
+                      {
+                        key: "showAdsAnalytics",
+                        val: showAdsAnalytics,
+                        icon: <Megaphone className="w-3.5 h-3.5 text-orange-400 shrink-0" />,
+                        label: "تحليل الإعلانات",
+                        desc: "قسم تحليل أداء الحملات الإعلانية",
+                        color: "border-orange-500/50 bg-orange-500/5",
+                      },
+                    ].map(({ key, val, icon, label, desc, color }) => (
+                      <div
+                        key={key}
+                        className={`rounded-xl border-2 p-3 transition-colors ${val ? color : "border-border bg-muted/10"}`}
+                      >
+                        <label className="flex items-center gap-3 cursor-pointer" onClick={() => toggleSetting(key, !val)}>
+                          <input
+                            type="checkbox"
+                            checked={val}
+                            onChange={e => toggleSetting(key, e.target.checked)}
+                            className="w-4 h-4 rounded accent-primary shrink-0"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              {icon}
+                              <span className="text-xs font-bold text-foreground">{label}</span>
+                              <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${val ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400" : "bg-red-500/20 text-red-600 dark:text-red-400"}`}>
+                                {val ? "ظاهر" : "مخفي"}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">{desc}</p>
+                          </div>
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+
+                  <Separator className="my-3" />
                   <Label className="text-xs mb-2 flex items-center gap-1.5 text-muted-foreground">
                     <UserCheck className="w-3.5 h-3.5" /> إعدادات إدارة الفريق
                   </Label>
