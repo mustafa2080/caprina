@@ -180,18 +180,20 @@ export default function UsersPage() {
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto" dir="rtl">
+    <div className="p-3 sm:p-6 max-w-4xl mx-auto" dir="rtl">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-black flex items-center gap-2">
-            <Users className="w-6 h-6 text-primary" /> إدارة المستخدمين
+      <div className="flex items-center justify-between mb-4 sm:mb-6 gap-2">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-black flex items-center gap-2">
+            <Users className="w-5 h-5 sm:w-6 sm:h-6 text-primary shrink-0" /> إدارة المستخدمين
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">تحكم في الأدوار والصلاحيات</p>
         </div>
         {isAdmin && (
-          <Button onClick={openCreate} className="h-9 text-sm font-bold gap-2">
-            <UserPlus className="w-4 h-4" /> إضافة مستخدم جديد
+          <Button onClick={openCreate} className="h-9 text-xs sm:text-sm font-bold gap-1.5 shrink-0">
+            <UserPlus className="w-4 h-4" />
+            <span className="hidden sm:inline">إضافة مستخدم جديد</span>
+            <span className="sm:hidden">إضافة</span>
           </Button>
         )}
       </div>
@@ -202,17 +204,29 @@ export default function UsersPage() {
       ) : (
         <div className="space-y-3">
           {users.map(u => (
-            <div key={u.id} className={`flex items-center gap-4 p-4 rounded-xl border ${u.isActive ? "border-border bg-card" : "border-border/40 bg-muted/20 opacity-60"}`}>
-              <div className="w-10 h-10 rounded-full bg-muted/30 flex items-center justify-center text-base font-bold border border-border">
+            <div key={u.id} className={`flex items-start gap-2 sm:gap-4 p-3 sm:p-4 rounded-xl border ${u.isActive ? "border-border bg-card" : "border-border/40 bg-muted/20 opacity-60"}`}>
+              {/* Avatar */}
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-muted/30 flex items-center justify-center text-sm sm:text-base font-bold border border-border shrink-0 mt-0.5">
                 {u.displayName.charAt(0)}
               </div>
+
+              {/* Info */}
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
+                {/* الاسم + الدور */}
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="font-bold text-sm">{u.displayName}</span>
                   {u.id === currentUser?.id && <Badge variant="outline" className="text-[9px] border-primary/50 text-primary">أنت</Badge>}
                   <Badge variant="outline" className={`text-[10px] font-bold ${ROLE_COLORS[u.role]}`}>
                     <Shield className="w-2.5 h-2.5 mr-1" />{ROLE_LABELS[u.role]}
                   </Badge>
+                  {!u.isActive && <Badge variant="outline" className="text-[9px] border-red-800 text-red-400">معطل</Badge>}
+                </div>
+
+                {/* username */}
+                <p className="text-[11px] text-muted-foreground mt-0.5 font-mono truncate">{u.username}</p>
+
+                {/* permission badges */}
+                <div className="flex flex-wrap gap-1 mt-1">
                   {(u.permissions?.includes(FINANCIAL_PERMISSION.key) || u.role === "admin") && (
                     <Badge variant="outline" className="text-[9px] font-bold border-amber-600/50 bg-amber-500/10 text-amber-600 dark:text-amber-400 gap-1">
                       <TrendingUp className="w-2.5 h-2.5" />يرى الأرباح
@@ -228,30 +242,34 @@ export default function UsersPage() {
                       <BarChart3 className="w-2.5 h-2.5" />أداء المنتجات
                     </Badge>
                   )}
-                  {!u.isActive && <Badge variant="outline" className="text-[9px] border-red-800 text-red-400">معطل</Badge>}
                 </div>
-                <p className="text-[11px] text-muted-foreground mt-0.5 font-mono">{u.username}</p>
-                <p className="text-[10px] text-muted-foreground/70 mt-0.5 line-clamp-1">
+
+                {/* permissions list — sm فقط */}
+                <p className="hidden sm:block text-[10px] text-muted-foreground/70 mt-0.5 line-clamp-1">
                   الصلاحيات: {(u.permissions?.filter(p => p !== FINANCIAL_PERMISSION.key) ?? []).join("، ") || "—"}
                 </p>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+
+              {/* Actions */}
+              <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 shrink-0">
                 <Switch
                   checked={u.isActive}
                   onCheckedChange={() => handleToggleActive(u)}
                   disabled={u.id === currentUser?.id}
                   title={u.isActive ? "تعطيل الحساب" : "تفعيل الحساب"}
                 />
-                <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-primary" onClick={() => openEdit(u)}>
-                  <Edit2 className="w-3.5 h-3.5" />
-                </Button>
-                <Button
-                  variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive"
-                  onClick={() => handleDelete(u)}
-                  disabled={u.id === currentUser?.id}
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-primary" onClick={() => openEdit(u)}>
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive"
+                    onClick={() => handleDelete(u)}
+                    disabled={u.id === currentUser?.id}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
               </div>
             </div>
           ))}
@@ -262,13 +280,13 @@ export default function UsersPage() {
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="bg-card border-border max-w-md flex flex-col max-h-[90vh]" dir="rtl">
+        <DialogContent className="bg-card border-border w-[95vw] max-w-md flex flex-col max-h-[90dvh] sm:max-h-[90vh]" dir="rtl">
           <DialogHeader className="shrink-0">
             <DialogTitle>{editingUser ? "تعديل مستخدم" : "إضافة مستخدم جديد"}</DialogTitle>
           </DialogHeader>
           {/* Scrollable body */}
           <div className="flex-1 overflow-y-auto space-y-4 mt-2 pb-2 px-1">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs mb-1.5 block">الاسم الكامل *</Label>
                 <Input
