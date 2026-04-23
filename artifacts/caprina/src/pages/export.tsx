@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Download, FileSpreadsheet, Package, Truck, Users,
-  DatabaseBackup, Loader2, CheckCircle2, ShoppingCart,
+  DatabaseBackup, Loader2, CheckCircle2, ShoppingCart, ArrowLeftRight,
 } from "lucide-react";
 
 interface ExportItem {
@@ -16,29 +16,41 @@ interface ExportItem {
   color: string;
   endpoint: string;
   adminOnly?: boolean;
+  tags?: string[];
 }
 
 const EXPORTS: ExportItem[] = [
   {
     key: "orders",
     label: "الطلبات",
-    desc: "كل الطلبات النشطة مع بيانات الشحن والأسعار",
+    desc: "كل الطلبات مع بيانات الشحن، الموظف المسؤول، صافي الربح لكل طلب، ومصدر الإعلان",
     icon: ShoppingCart,
     color: "border-primary/40 bg-primary/5 text-primary",
     endpoint: "/api/export/orders",
+    tags: ["ربح كل طلب", "مصدر الإعلان", "الموظف المسؤول", "ملخص مالي"],
   },
   {
     key: "products",
     label: "المنتجات والمخزون",
-    desc: "المنتجات والـ SKUs مع الأسعار والكميات",
+    desc: "المنتجات، SKUs، توزيع المخازن، هوامش الربح، وقيمة المخزون الكلية",
     icon: Package,
     color: "border-amber-700/40 bg-amber-900/5 text-amber-400",
     endpoint: "/api/export/products",
+    tags: ["هامش الربح %", "توزيع المخازن", "مخزون منخفض", "قيمة المخزون"],
+  },
+  {
+    key: "movements",
+    label: "حركات المخزون",
+    desc: "كل الحركات الواردة والصادرة مع الأسباب والطلبات المرتبطة",
+    icon: ArrowLeftRight,
+    color: "border-violet-700/40 bg-violet-900/5 text-violet-400",
+    endpoint: "/api/export/movements",
+    tags: ["وارد / صادر", "أسباب الحركة", "إجمالي الفرق"],
   },
   {
     key: "shipping",
     label: "شركات الشحن",
-    desc: "بيانات شركات الشحن المسجلة",
+    desc: "بيانات شركات الشحن المسجلة مع حالة كل شركة",
     icon: Truck,
     color: "border-blue-700/40 bg-blue-900/5 text-blue-400",
     endpoint: "/api/export/shipping",
@@ -57,7 +69,7 @@ const EXPORTS: ExportItem[] = [
 const BACKUP: ExportItem = {
   key: "backup",
   label: "نسخة احتياطية كاملة",
-  desc: "كل البيانات في ملف Excel واحد — طلبات، منتجات، SKUs، شحن، مستخدمين",
+  desc: "كل البيانات في ملف Excel واحد — 7 sheets: طلبات، منتجات، SKUs، حركات المخزون، مخازن، شحن، مستخدمين + ملخص مالي",
   icon: DatabaseBackup,
   color: "border-emerald-600/50 bg-emerald-900/10 text-emerald-400",
   endpoint: "/api/export/backup",
@@ -142,6 +154,13 @@ export default function ExportPage() {
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-sm text-foreground">{item.label}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">{item.desc}</p>
+                    {item.tags && item.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {item.tags.map(tag => (
+                          <span key={tag} className="text-[9px] px-1.5 py-0.5 rounded-full bg-background/40 border border-current/20 opacity-70">{tag}</span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <Button
                     size="sm"
