@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
-import { productsApi, variantsApi, analyticsApi, type Product, type ProductVariant, type StockIntelligenceItem } from "@/lib/api";
+import { productsApi, variantsApi, analyticsApi, warehousesApi, type Product, type ProductVariant, type StockIntelligenceItem, type Warehouse } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Plus, Package, AlertTriangle, Edit2, Trash2, ChevronDown, ChevronRight,
   Layers, Tag, TrendingUp, DollarSign, Boxes, BarChart3, Search, PackagePlus, Archive,
-  Filter, X, SortAsc, SortDesc, ChevronDown as ChevronDownIcon
+  Filter, X, SortAsc, SortDesc, ChevronDown as ChevronDownIcon, Warehouse as WarehouseIcon, MapPin
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -43,6 +43,9 @@ const COMMON_SIZES = ["XS", "S", "M", "L", "XL", "XXL", "3XL", "28", "30", "32",
 
 const emptyProductForm = { name: "", sku: "", lowStockThreshold: 5, unitPrice: 0, costPrice: null as number | null };
 const emptyVariantForm = { color: "", size: "", sku: "", totalQuantity: 0, lowStockThreshold: 5, unitPrice: 0, costPrice: null as number | null };
+
+// Warehouse distribution entry: { warehouseId, quantity }
+type WarehouseDistEntry = { warehouseId: number; quantity: number };
 
 // ─── Margin Badge ─────────────────────────────────────────────────────────────
 function MarginBadge({ margin }: { margin: number | null }) {
@@ -85,9 +88,14 @@ export default function Inventory() {
   const [addStockQty, setAddStockQty] = useState("");
   const [addStockNotes, setAddStockNotes] = useState("");
 
+  // Warehouse distribution for new variant
+  const [warehouseDist, setWarehouseDist] = useState<WarehouseDistEntry[]>([]);
+  const [useWarehouseDist, setUseWarehouseDist] = useState(false);
+
   const { data: products, isLoading } = useQuery({ queryKey: ["products"], queryFn: productsApi.list });
   const { data: allVariants } = useQuery({ queryKey: ["variants"], queryFn: variantsApi.listAll });
   const { data: stockIntel } = useQuery({ queryKey: ["stock-intelligence"], queryFn: analyticsApi.stockIntelligence, staleTime: 60000 });
+  const { data: warehouses } = useQuery({ queryKey: ["warehouses"], queryFn: warehousesApi.list });
 
   const stockMap = new Map<string, StockIntelligenceItem>(
     stockIntel?.items.map(i => [i.name.trim().toLowerCase(), i]) ?? []
@@ -155,6 +163,8 @@ export default function Inventory() {
     setEditingVariant(null);
     const p = products?.find(p => p.id === productId);
     setVariantForm({ ...emptyVariantForm, unitPrice: p?.unitPrice ?? 0, costPrice: p?.costPrice ?? null });
+    setWarehouseDist([]);
+    setUseWarehouseDist(false);
     setVariantDialogOpen(true);
   };
   const openEditVariant = (v: ProductVariant) => {
@@ -184,15 +194,45 @@ export default function Inventory() {
     else createProductMutation.mutate(productForm);
   };
 
-  const handleVariantSubmit = () => {
+  const handleVariantSubmit = async () => {
     if (!variantForm.color.trim() || !variantForm.size.trim()) { toast({ title: "خطأ", description: "اللون والمقاس مطلوبان.", variant: "destructive" }); return; }
     if (!activeProductId) return;
+
+    // Validate warehouse distribution if enabled
+    if (!editingVariant && useWarehouseDist && warehouseDist.length > 0) {
+      const distTotal = warehouseDist.reduce((s, d) => s + (d.quantity || 0), 0);
+      if (distTotal !== variantForm.totalQuantity) {
+        toast({ title: "خطأ في التوزيع", description: `مجموع المخازن (${distTotal}) لا يساوي الكمية الإجمالية (${variantForm.totalQuantity}).`, variant: "destructive" });
+        return;
+      }
+    }
+
     if (editingVariant) {
-      // Don't send totalQuantity on edit — use Add Stock instead
       const { totalQuantity: _qty, ...editData } = variantForm;
       updateVariantMutation.mutate({ productId: activeProductId, id: editingVariant.id, data: editData });
     } else {
-      createVariantMutation.mutate({ productId: activeProductId, data: variantForm });
+      try {
+        const newVariant = await variantsApi.create(activeProductId, variantForm);
+        // After creating the variant, distribute to warehouses if enabled
+        if (useWarehouseDist && warehouseDist.length > 0) {
+          const distEntries = warehouseDist.filter(d => d.warehouseId && d.quantity > 0);
+          await Promise.all(
+            distEntries.map(d =>
+              warehousesApi.addStock(d.warehouseId, { variantId: newVariant.id, productId: activeProductId, quantity: d.quantity })
+            )
+          );
+        }
+        queryClient.invalidateQueries({ queryKey: ["variants"] });
+        queryClient.invalidateQueries({ queryKey: ["analytics-profit"] });
+        queryClient.invalidateQueries({ queryKey: ["warehouses"] });
+        setVariantDialogOpen(false);
+        setVariantForm(emptyVariantForm);
+        setWarehouseDist([]);
+        setUseWarehouseDist(false);
+        toast({ title: "تمت إضافة المقاس/اللون", description: useWarehouseDist && warehouseDist.length > 0 ? "تم توزيع المخزون على المخازن المحددة." : undefined });
+      } catch (e: any) {
+        toast({ title: "خطأ", description: e.message, variant: "destructive" });
+      }
     }
   };
 
@@ -254,7 +294,7 @@ export default function Inventory() {
   });
 
   const isPending = createProductMutation.isPending || updateProductMutation.isPending;
-  const isVariantPending = createVariantMutation.isPending || updateVariantMutation.isPending;
+  const isVariantPending = updateVariantMutation.isPending;
 
   return (
     <div className="space-y-5 animate-in fade-in duration-500">
@@ -907,37 +947,127 @@ export default function Inventory() {
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs mb-1.5 block">الكمية الأولية</Label>
-                  <Input
-                    type="number" min="0"
-                    className="h-9 text-sm bg-background"
-                    value={variantForm.totalQuantity}
-                    onChange={e => setVariantForm(f => ({ ...f, totalQuantity: Number(e.target.value) }))}
-                  />
-                  <p className="text-[9px] text-muted-foreground mt-1">يمكن إضافة مخزون لاحقاً عبر زر "+مخزون"</p>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs mb-1.5 block">الكمية الإجمالية</Label>
+                    <Input
+                      type="number" min="0"
+                      className="h-9 text-sm bg-background"
+                      value={variantForm.totalQuantity}
+                      onChange={e => setVariantForm(f => ({ ...f, totalQuantity: Number(e.target.value) }))}
+                    />
+                    <p className="text-[9px] text-muted-foreground mt-1">يمكن توزيعها على مخازن متعددة</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs mb-1.5 block">حد التنبيه</Label>
+                    <Input
+                      type="number" min="0"
+                      className="h-9 text-sm bg-background"
+                      value={variantForm.lowStockThreshold}
+                      onChange={e => setVariantForm(f => ({ ...f, lowStockThreshold: Number(e.target.value) }))}
+                    />
+                  </div>
                 </div>
-                <div>
-                  <Label className="text-xs mb-1.5 block">حد التنبيه</Label>
-                  <Input
-                    type="number" min="0"
-                    className="h-9 text-sm bg-background"
-                    value={variantForm.lowStockThreshold}
-                    onChange={e => setVariantForm(f => ({ ...f, lowStockThreshold: Number(e.target.value) }))}
-                  />
-                </div>
-              </div>
-            )}
-            {!editingVariant ? null : (
-              <div>
-                <Label className="text-xs mb-1.5 block">حد التنبيه</Label>
-                <Input
-                  type="number" min="0"
-                  className="h-9 text-sm bg-background"
-                  value={variantForm.lowStockThreshold}
-                  onChange={e => setVariantForm(f => ({ ...f, lowStockThreshold: Number(e.target.value) }))}
-                />
+
+                {/* Warehouse Distribution Toggle */}
+                {warehouses && warehouses.length > 0 && variantForm.totalQuantity > 0 && (
+                  <div className="rounded-lg border border-border bg-muted/5 p-3 space-y-3">
+                    <button
+                      type="button"
+                      className="flex items-center gap-2 w-full text-right"
+                      onClick={() => {
+                        const next = !useWarehouseDist;
+                        setUseWarehouseDist(next);
+                        if (!next) setWarehouseDist([]);
+                      }}
+                    >
+                      <div className={`w-8 h-4 rounded-full transition-colors flex items-center ${useWarehouseDist ? "bg-primary" : "bg-muted"}`}>
+                        <div className={`w-3 h-3 rounded-full bg-white mx-0.5 transition-transform ${useWarehouseDist ? "translate-x-4" : "translate-x-0"}`} />
+                      </div>
+                      <WarehouseIcon className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className="text-xs font-bold">توزيع على مخازن متعددة</span>
+                    </button>
+
+                    {useWarehouseDist && (
+                      <div className="space-y-2">
+                        {/* Already-added distributions */}
+                        {warehouseDist.map((entry, idx) => {
+                          const wh = warehouses.find(w => w.id === entry.warehouseId);
+                          const usedIds = warehouseDist.map(d => d.warehouseId);
+                          return (
+                            <div key={idx} className="flex items-center gap-2">
+                              <Select
+                                value={String(entry.warehouseId || "")}
+                                onValueChange={val => setWarehouseDist(prev => prev.map((d, i) => i === idx ? { ...d, warehouseId: Number(val) } : d))}
+                              >
+                                <SelectTrigger className="h-8 text-xs bg-background flex-1">
+                                  <SelectValue placeholder="اختر مخزن" />
+                                </SelectTrigger>
+                                <SelectContent dir="rtl">
+                                  {warehouses.map(w => (
+                                    <SelectItem
+                                      key={w.id}
+                                      value={String(w.id)}
+                                      disabled={usedIds.includes(w.id) && w.id !== entry.warehouseId}
+                                    >
+                                      <div className="flex items-center gap-1.5">
+                                        <WarehouseIcon className="w-3 h-3 text-muted-foreground" />
+                                        {w.name}
+                                        {w.isDefault && <span className="text-[9px] text-primary">(افتراضي)</span>}
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <Input
+                                type="number" min="0"
+                                className="h-8 text-xs bg-background w-20 shrink-0"
+                                placeholder="كمية"
+                                value={entry.quantity || ""}
+                                onChange={e => setWarehouseDist(prev => prev.map((d, i) => i === idx ? { ...d, quantity: Number(e.target.value) } : d))}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setWarehouseDist(prev => prev.filter((_, i) => i !== idx))}
+                                className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          );
+                        })}
+
+                        {/* Add warehouse button */}
+                        {warehouseDist.length < warehouses.length && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs gap-1 text-muted-foreground hover:text-primary w-full border border-dashed border-border"
+                            onClick={() => {
+                              const usedIds = new Set(warehouseDist.map(d => d.warehouseId));
+                              const nextWh = warehouses.find(w => !usedIds.has(w.id));
+                              if (nextWh) setWarehouseDist(prev => [...prev, { warehouseId: nextWh.id, quantity: 0 }]);
+                            }}
+                          >
+                            <Plus className="w-3 h-3" />إضافة مخزن
+                          </Button>
+                        )}
+
+                        {/* Distribution summary */}
+                        {warehouseDist.length > 0 && (
+                          <div className="flex items-center justify-between text-[10px] pt-1 border-t border-border">
+                            <span className="text-muted-foreground">المجموع:</span>
+                            <span className={`font-bold ${warehouseDist.reduce((s, d) => s + (d.quantity || 0), 0) === variantForm.totalQuantity ? "text-emerald-500" : "text-amber-500"}`}>
+                              {warehouseDist.reduce((s, d) => s + (d.quantity || 0), 0)} / {variantForm.totalQuantity}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
