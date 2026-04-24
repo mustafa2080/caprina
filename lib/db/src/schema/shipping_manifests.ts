@@ -10,7 +10,7 @@ export const shippingManifestsTable = mysqlTable("shipping_manifests", {
   notes: text("notes"),
   invoicePrice: decimal("invoice_price", { precision: 10, scale: 2 }),
   invoiceNotes: text("invoice_notes"),
-  createdAt: datetime("created_at").notNull().default(new Date()),
+  createdAt: datetime("created_at").notNull(),
   closedAt: datetime("closed_at"),
 });
 
@@ -21,7 +21,7 @@ export const shippingManifestOrdersTable = mysqlTable("shipping_manifest_orders"
   deliveryStatus: varchar("delivery_status", { length: 50 }).notNull().default("pending"),
   deliveryNote: text("delivery_note"),
   deliveredAt: datetime("delivered_at"),
-  addedAt: datetime("added_at").notNull().default(new Date()),
+  addedAt: datetime("added_at").notNull(),
 });
 
 export type ShippingManifest = typeof shippingManifestsTable.$inferSelect;

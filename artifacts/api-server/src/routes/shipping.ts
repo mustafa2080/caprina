@@ -24,7 +24,7 @@ router.post("/shipping-companies", async (req, res): Promise<void> => {
   const parsed = CreateSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
-  const insertResult = await db.insert(shippingCompaniesTable).values(parsed.data);
+  const insertResult = await db.insert(shippingCompaniesTable).values({ ...parsed.data, createdAt: new Date() });
   const insertId = (insertResult as any)[0]?.insertId ?? (insertResult as any).insertId;
   const [company] = await db.select().from(shippingCompaniesTable).where(eq(shippingCompaniesTable.id, insertId));
   res.status(201).json(company);

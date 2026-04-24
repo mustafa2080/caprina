@@ -178,6 +178,7 @@ router.post("/shipping-manifests", async (req, res): Promise<void> => {
       shippingCompanyId,
       notes: notes ?? null,
       status: "open",
+      createdAt: new Date(),
     });
   const insertId = (insertResult as any)[0]?.insertId ?? (insertResult as any).insertId;
   const [manifest] = await db.select().from(shippingManifestsTable).where(eq(shippingManifestsTable.id, insertId));
@@ -187,6 +188,7 @@ router.post("/shipping-manifests", async (req, res): Promise<void> => {
       manifestId: manifest.id,
       orderId,
       deliveryStatus: "pending",
+      addedAt: new Date(),
     }))
   );
 
@@ -356,6 +358,7 @@ router.patch("/shipping-manifests/:id", async (req, res): Promise<void> => {
           shippingCompanyId: updated.shippingCompanyId,
           notes: `مرحَّل من ${updated.manifestNumber}`,
           status: "open",
+          createdAt: new Date(),
         });
       const rollInsertId = (rollInsertResult as any)[0]?.insertId ?? (rollInsertResult as any).insertId;
       const [newManifest] = await db.select().from(shippingManifestsTable).where(eq(shippingManifestsTable.id, rollInsertId));
@@ -365,6 +368,7 @@ router.patch("/shipping-manifests/:id", async (req, res): Promise<void> => {
           manifestId: newManifest.id,
           orderId,
           deliveryStatus: "pending",
+          addedAt: new Date(),
         }))
       );
 

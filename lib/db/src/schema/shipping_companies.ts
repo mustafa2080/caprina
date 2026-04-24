@@ -9,7 +9,7 @@ export const shippingCompaniesTable = mysqlTable("shipping_companies", {
   website: varchar("website", { length: 255 }),
   notes: text("notes"),
   isActive: boolean("is_active").notNull().default(true),
-  createdAt: datetime("created_at").notNull().default(new Date()),
+  createdAt: datetime("created_at").notNull(),
 });
 
 export const insertShippingCompanySchema = createInsertSchema(shippingCompaniesTable).omit({ id: true, createdAt: true });
