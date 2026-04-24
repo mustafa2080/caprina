@@ -172,6 +172,7 @@ export default function Movements() {
           <td style="text-align:center;font-weight:bold;color:${isIn ? "#16a34a" : "#dc2626"}">${isIn ? "+" : "-"}${m.quantity}</td>
           <td style="text-align:center">${REASON_LABELS[m.reason] ?? m.reason}</td>
           <td style="text-align:center">${m.orderId ? `#${String(m.orderId).padStart(4, "0")}` : "—"}</td>
+          <td style="text-align:center">${(m as any).warehouseName ?? "—"}</td>
           <td style="color:#6b7280">${m.notes ?? "—"}</td>
         </tr>`;
     }).join("");
@@ -263,6 +264,7 @@ export default function Movements() {
         <th style="text-align:center">الكمية</th>
         <th style="text-align:center">السبب</th>
         <th style="text-align:center">رقم الطلب</th>
+        <th style="text-align:center">المخزن</th>
         <th>ملاحظات</th>
       </tr>
     </thead>
@@ -432,6 +434,7 @@ export default function Movements() {
                   <TableHead className="text-center text-xs">الكمية</TableHead>
                   <TableHead className="text-center text-xs">السبب</TableHead>
                   <TableHead className="text-center text-xs">طلب</TableHead>
+                  <TableHead className="text-center text-xs">المخزن</TableHead>
                   <TableHead className="text-right text-xs">ملاحظات</TableHead>
                 </TableRow>
               </TableHeader>
@@ -480,6 +483,9 @@ export default function Movements() {
                           #{String(m.orderId).padStart(4, "0")}
                         </a>
                       ) : "—"}
+                    </TableCell>
+                    <TableCell className="text-center text-xs text-muted-foreground">
+                      {(m as any).warehouseName ?? "—"}
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground max-w-[140px] truncate">
                       {m.notes || "—"}
