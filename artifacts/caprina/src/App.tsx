@@ -1,4 +1,4 @@
-import { lazy, Suspense, Component, type ReactNode } from "react";
+import { lazy, Suspense, Component, type ReactNode, useRef, useEffect } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -87,6 +87,23 @@ function PageLoader() {
       </div>
     </div>
   );
+}
+
+// ─── Refresh permissions on every route change ───────────────────────────────
+function PermissionRefresher() {
+  const { user, refreshUser } = useAuth();
+  const [location] = useLocation();
+  const prevLocation = useRef<string | null>(null);
+
+  useEffect(() => {
+    // نعمل refresh لما يتغير الـ route — عشان التغييرات في الصلاحيات تنعكس فوراً
+    if (user && prevLocation.current !== null && prevLocation.current !== location) {
+      refreshUser();
+    }
+    prevLocation.current = location;
+  }, [location, user]);
+
+  return null;
 }
 
 // ─── Auth guard (shown once, blocks pre-auth rendering) ──────────────────────
@@ -182,6 +199,7 @@ function App() {
               <AuthProvider>
                 <AuthGuard>
                   <ErrorBoundary>
+                    <PermissionRefresher />
                     <Router />
                   </ErrorBoundary>
                 </AuthGuard>
