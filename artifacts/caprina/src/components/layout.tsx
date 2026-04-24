@@ -58,26 +58,15 @@ export default function Layout({ children }: LayoutProps) {
   const [newPw, setNewPw] = useState("");
   const [savingPw, setSavingPw] = useState(false);
 
-  // ─── App settings — control sidebar sections visibility ──────────────────
-  const { data: appSettings } = useQuery({
-    queryKey: ["app-settings"],
-    queryFn: appSettingsApi.get,
-    staleTime: 30000,
-  });
-  const showTeamPerformance = appSettings?.showTeamPerformance ?? true;
-  const showTeamManagement  = appSettings?.showTeamManagement  ?? true;
-  const showSmartAnalytics  = appSettings?.showSmartAnalytics  ?? true;
-  const showAdsAnalytics    = appSettings?.showAdsAnalytics    ?? true;
-  const showExportData      = appSettings?.showExportData      ?? true;
-
+  // ─── Sidebar sections visibility — controlled per-user via permissions ───
   const visibleNav = ALL_NAV.filter(item => {
     if (!can(item.permission)) return false;
-    // Hide sections controlled by admin settings
-    if (item.href === "/team-performance" && !showTeamPerformance) return false;
-    if (item.href === "/team"             && !showTeamManagement)  return false;
-    if (item.href === "/smart"            && !showSmartAnalytics)  return false;
-    if (item.href === "/ads-analytics"    && !showAdsAnalytics)    return false;
-    if (item.href === "/export"           && !showExportData)      return false;
+    // Hide sections based on per-user section permissions
+    if (item.href === "/team-performance" && !can("section_team_performance")) return false;
+    if (item.href === "/team"             && !can("section_team_management"))  return false;
+    if (item.href === "/smart"            && !can("section_smart_analytics"))  return false;
+    if (item.href === "/ads-analytics"    && !can("section_ads_analytics"))    return false;
+    if (item.href === "/export"           && !can("section_export_data"))      return false;
     return true;
   });
 

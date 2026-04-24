@@ -81,12 +81,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!tkn) return;
     const updated = await fetchMe(tkn);
     if (updated) {
-      // بس نحدث لو في فرق فعلي
-      setUser(prev => {
-        if (JSON.stringify(prev) === JSON.stringify(updated)) return prev;
-        localStorage.setItem(USER_KEY, JSON.stringify(updated));
-        return updated;
-      });
+      // دايماً نحدث بـ new object عشان التغييرات في الـ permissions تنعكس على الـ sidebar فوراً
+      const freshUser = { ...updated, permissions: Array.isArray(updated.permissions) ? [...updated.permissions] : [] };
+      localStorage.setItem(USER_KEY, JSON.stringify(freshUser));
+      setUser(freshUser);
     }
   }, [fetchMe]);
 
@@ -181,8 +179,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) return false;
     const perms: string[] = Array.isArray(user.permissions) ? user.permissions : [];
     if (perms.includes("*")) return true;
-    // section_* صلاحيات دايمًا per-user (حتى للأدمن)
-    if (permission.startsWith("section_")) return perms.includes(permission);
+    // section_* صلاحيات per-user
+    // لو الأدمن مش عنده أي section_* في الـ DB، نديله كلها تلقائياً (backward compat)
+    if (permission.startsWith("section_")) {
+      if (user.role === "admin") {
+        // لو الأدمن عنده section permissions محددة — نستخدمها
+        // لو مش عنده أي section permissions خالص — نديله كلها تلقائياً
+        const hasSomeSection = perms.some(p => p.startsWith("section_"));
+        if (!hasSomeSection) return true; // default: كل الأقسام ظاهرة للأدمن
+        return perms.includes(permission);
+      }
+      return perms.includes(permission);
+    }
     // الأدمن يملك كل الصلاحيات العادية تلقائيًا
     if (user.role === "admin") return true;
     return perms.includes(permission);
