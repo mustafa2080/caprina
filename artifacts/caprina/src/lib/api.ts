@@ -509,6 +509,7 @@ export const ordersApi = {
   delete: (id: number) => apiFetch<void>(`/orders/${id}`, { method: "DELETE" }),
   archived: () => apiFetch<any[]>("/orders/archived"),
   restore: (id: number) => apiFetch<any>(`/orders/${id}/restore`, { method: "POST" }),
+  inManifestIds: () => apiFetch<{ ids: number[] }>("/orders/in-manifest-ids"),
 };
 
 export type MovementType = "IN" | "OUT";

@@ -13,6 +13,8 @@ import {
   processDelivery,
   reverseDelivery,
   processReturn,
+  processToShipping,
+  reverseShipping,
 } from "../lib/inventory";
 
 const router: IRouter = Router();
@@ -193,6 +195,26 @@ router.post("/shipping-manifests", async (req, res): Promise<void> => {
     .update(ordersTable)
     .set({ shippingCompanyId: shippingCompanyId })
     .where(inArray(ordersTable.id, orderIds));
+
+  // Transfer stock from warehouse to shipping company for each order
+  const ordersToShip = await db
+    .select()
+    .from(ordersTable)
+    .where(inArray(ordersTable.id, orderIds));
+
+  for (const order of ordersToShip) {
+    await processToShipping(
+      {
+        variantId: order.variantId,
+        productId: order.productId,
+        product: order.product,
+        color: order.color,
+        size: order.size,
+      },
+      order.quantity,
+      order.id,
+    );
+  }
 
   res.status(201).json({
     ...manifest,
@@ -532,6 +554,40 @@ router.delete("/shipping-manifests/:id", async (req, res): Promise<void> => {
     res.status(404).json({ error: "البيان غير موجود" });
     return;
   }
+
+  // Reverse stock: return qty from shipping company back to warehouse for pending orders
+  const pendingLinks = await db
+    .select()
+    .from(shippingManifestOrdersTable)
+    .where(
+      and(
+        eq(shippingManifestOrdersTable.manifestId, id),
+        inArray(shippingManifestOrdersTable.deliveryStatus, ["pending", "postponed"])
+      )
+    );
+
+  if (pendingLinks.length > 0) {
+    const pendingOrderIds = pendingLinks.map((l) => l.orderId);
+    const pendingOrders = await db
+      .select()
+      .from(ordersTable)
+      .where(inArray(ordersTable.id, pendingOrderIds));
+
+    for (const order of pendingOrders) {
+      await reverseShipping(
+        {
+          variantId: order.variantId,
+          productId: order.productId,
+          product: order.product,
+          color: order.color,
+          size: order.size,
+        },
+        order.quantity,
+        order.id,
+      );
+    }
+  }
+
   await db.delete(shippingManifestsTable).where(eq(shippingManifestsTable.id, id));
   res.status(204).send();
 });

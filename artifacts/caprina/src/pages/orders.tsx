@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { format } from "date-fns";
-import { Search, Filter, Plus, Package, CalendarDays, X, RotateCcw, MessageCircle, Trash2, CheckSquare, RefreshCw } from "lucide-react";
+import { Search, Filter, Plus, Package, CalendarDays, X, RotateCcw, MessageCircle, Trash2, CheckSquare, RefreshCw, Warehouse } from "lucide-react";
 import { useListOrders, useUpdateOrder, getListOrdersQueryKey } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDebounce } from "@/hooks/use-debounce";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,7 @@ import { type WhatsAppOrderData } from "@/lib/whatsapp";
 import { WhatsAppDialog } from "@/components/whatsapp-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { ordersApi } from "@/lib/api";
 
 const statusLabels: Record<string, string> = {
   pending: "قيد الانتظار",
@@ -71,6 +72,14 @@ export default function Orders() {
     { search: debouncedSearch || undefined, status: status !== "all" ? status : undefined },
     { query: { staleTime: 15_000, gcTime: 60_000 } }
   );
+
+  // IDs of orders already in a shipping manifest (to detect "still in warehouse")
+  const { data: inManifestData } = useQuery({
+    queryKey: ["orders-in-manifest-ids"],
+    queryFn: () => ordersApi.inManifestIds(),
+    staleTime: 30_000,
+  });
+  const inManifestSet = new Set(inManifestData?.ids ?? []);
 
   const filtered = orders?.filter(o => {
     if (!dateFrom) return true;
@@ -305,6 +314,11 @@ export default function Orders() {
                         <Badge variant="outline" className={`text-[9px] font-bold border ${statusClasses[order.status] || ""}`}>
                           {statusLabels[order.status] || order.status}
                         </Badge>
+                        {order.status === "in_shipping" && !inManifestSet.has(order.id) && (
+                          <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-orange-600 dark:text-orange-400">
+                            <Warehouse className="w-2.5 h-2.5" />ما زال في المخزن
+                          </span>
+                        )}
                         {order.status === "returned" && retReason && (
                           <span className="text-[9px] text-red-600 dark:text-red-400">{retReason === "other" && retNote ? retNote : returnReasonLabel(retReason)}</span>
                         )}
@@ -368,6 +382,12 @@ export default function Orders() {
                           <Badge variant="outline" className={`text-[9px] font-bold border ${statusClasses[order.status] || ""}`}>
                             {statusLabels[order.status] || order.status}
                           </Badge>
+                          {order.status === "in_shipping" && !inManifestSet.has(order.id) && (
+                            <div className="flex items-center justify-center gap-0.5 mt-1">
+                              <Warehouse className="w-2.5 h-2.5 text-orange-500 shrink-0" />
+                              <span className="text-[9px] font-bold text-orange-600 dark:text-orange-400 leading-none">ما زال في المخزن</span>
+                            </div>
+                          )}
                           {order.status === "returned" && retReason && (
                             <div className="flex items-center justify-center gap-0.5 mt-1">
                               <RotateCcw className="w-2.5 h-2.5 text-red-500 shrink-0" />

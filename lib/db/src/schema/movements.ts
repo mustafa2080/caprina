@@ -11,6 +11,8 @@ export const MOVEMENT_REASONS = [
   "manual_in",
   "manual_out",
   "adjustment",
+  "to_shipping",
+  "from_shipping",
 ] as const;
 export type MovementReason = (typeof MOVEMENT_REASONS)[number];
 

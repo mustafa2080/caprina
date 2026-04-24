@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, like, or, gte, and, isNull, isNotNull, inArray } from "drizzle-orm";
-import { db, ordersTable, productsTable, productVariantsTable } from "@workspace/db";
+import { db, ordersTable, productsTable, productVariantsTable, shippingManifestOrdersTable } from "@workspace/db";
 import {
   ListOrdersQueryParams,
   ListOrdersResponse,
@@ -142,6 +142,18 @@ router.get("/orders/recent", async (_req, res): Promise<void> => {
 router.get("/orders/archived", async (_req, res): Promise<void> => {
   const orders = await db.select().from(ordersTable).where(isNotNull(ordersTable.deletedAt)).orderBy(desc(ordersTable.deletedAt));
   res.json(orders);
+});
+
+// ─── Orders that have a shipping manifest ─────────────────────────────────────
+// Returns a Set of order IDs that are already in a manifest (in_shipping + in manifest)
+// Used by frontend to show "still in warehouse" badge
+
+router.get("/orders/in-manifest-ids", async (_req, res): Promise<void> => {
+  const rows = await db
+    .select({ orderId: shippingManifestOrdersTable.orderId })
+    .from(shippingManifestOrdersTable);
+  const ids = rows.map((r) => r.orderId);
+  res.json({ ids });
 });
 
 // ─── Restore archived order ───────────────────────────────────────────────────

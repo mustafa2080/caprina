@@ -301,5 +301,80 @@ export async function createManualMovement(data: {
   });
 }
 
+/**
+ * Transfer stock to shipping company:
+ * Deducts qty from warehouse (OUT / to_shipping).
+ * Called when order is added to a shipping manifest.
+ */
+export async function processToShipping(
+  order: {
+    variantId?: number | null;
+    productId?: number | null;
+    product?: string | null;
+    color?: string | null;
+    size?: string | null;
+  },
+  qty: number,
+  orderId?: number | null,
+): Promise<void> {
+  if (qty <= 0) return;
+  const { variantId, productId } = await resolveInventoryTarget(order);
+  if (!variantId && !productId) return;
+
+  await adjustQty(variantId, productId, -qty, 0);
+
+  if (order.product) {
+    await recordMovement({
+      product: order.product,
+      color: order.color,
+      size: order.size,
+      quantity: qty,
+      type: "OUT",
+      reason: "to_shipping",
+      productId,
+      variantId,
+      orderId,
+      notes: "تحويل لشركة الشحن",
+    });
+  }
+}
+
+/**
+ * Reverse shipping transfer (order removed from manifest or manifest deleted):
+ * Add qty back to warehouse (IN / from_shipping).
+ */
+export async function reverseShipping(
+  order: {
+    variantId?: number | null;
+    productId?: number | null;
+    product?: string | null;
+    color?: string | null;
+    size?: string | null;
+  },
+  qty: number,
+  orderId?: number | null,
+): Promise<void> {
+  if (qty <= 0) return;
+  const { variantId, productId } = await resolveInventoryTarget(order);
+  if (!variantId && !productId) return;
+
+  await adjustQty(variantId, productId, qty, 0);
+
+  if (order.product) {
+    await recordMovement({
+      product: order.product,
+      color: order.color,
+      size: order.size,
+      quantity: qty,
+      type: "IN",
+      reason: "from_shipping",
+      productId,
+      variantId,
+      orderId,
+      notes: "إرجاع من شركة الشحن للمخزن",
+    });
+  }
+}
+
 // Legacy
 export const RESERVED_STATUSES: string[] = [];
