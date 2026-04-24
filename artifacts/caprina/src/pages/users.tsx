@@ -148,6 +148,8 @@ export default function UsersPage() {
   // لو اليوزر عنده "*" في الـ DB (الأدمن القديم)، نفرد كل الصلاحيات الحقيقية
   const expandPermissions = (perms: string[], role: string): string[] => {
     if (perms.includes("*")) return DEFAULT_PERMISSIONS[role]?.() ?? DEFAULT_PERMISSIONS["admin"]!();
+    // الأدمن اللي عنده [] في الـ DB (قديم) نفرد ليه كل الصلاحيات تلقائياً
+    if (role === "admin" && perms.length === 0) return DEFAULT_PERMISSIONS["admin"]!();
     return perms;
   };
 
@@ -181,7 +183,8 @@ export default function UsersPage() {
     } else {
       if (!form.username.trim()) { toast({ title: "خطأ", description: "اسم المستخدم مطلوب", variant: "destructive" }); return; }
       if (form.password.length < 6) { toast({ title: "خطأ", description: "كلمة المرور 6 أحرف على الأقل", variant: "destructive" }); return; }
-      const permissions = form.role === "admin" ? [] : form.permissions;
+      // نبعت الـ permissions كما هي دايماً — سواء أدمن أو موظف
+      const permissions = form.permissions;
       createMutation.mutate({ username: form.username.trim(), password: form.password, displayName: form.displayName.trim(), role: form.role, permissions });
     }
   };
