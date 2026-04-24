@@ -18,6 +18,7 @@ export const inventoryMovementsTable = mysqlTable("inventory_movements", {
   id: int("id").primaryKey().autoincrement(),
   productId: int("product_id"),
   variantId: int("variant_id"),
+  warehouseId: int("warehouse_id"),
   product: varchar("product", { length: 255 }).notNull(),
   color: varchar("color", { length: 100 }),
   size: varchar("size", { length: 100 }),
