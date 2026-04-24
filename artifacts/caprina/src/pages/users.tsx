@@ -77,7 +77,7 @@ const emptyForm = (): UserForm => ({
 });
 
 export default function UsersPage() {
-  const { user: currentUser, isAdmin } = useAuth();
+  const { user: currentUser, isAdmin, refreshUser } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
 
@@ -102,7 +102,14 @@ export default function UsersPage() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: any }) => usersApi.update(id, data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["users"] }); setDialogOpen(false); setResetPasswordOpen(false); toast({ title: "تم تحديث المستخدم" }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["users"] });
+      setDialogOpen(false);
+      setResetPasswordOpen(false);
+      toast({ title: "تم تحديث المستخدم" });
+      // تحديث الـ sidebar فوراً لو المستخدم عدّل نفسه
+      refreshUser();
+    },
     onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
 
@@ -114,9 +121,16 @@ export default function UsersPage() {
 
   const openCreate = () => { setEditingUser(null); setForm(emptyForm()); setShowPassword(false); setDialogOpen(true); };
 
+  // لو اليوزر عنده "*" في الـ DB (الأدمن القديم)، نفرد كل الصلاحيات الحقيقية
+  const expandPermissions = (perms: string[], role: string): string[] => {
+    if (perms.includes("*")) return DEFAULT_PERMISSIONS[role]?.() ?? DEFAULT_PERMISSIONS["admin"]!();
+    return perms;
+  };
+
   const openEdit = (u: AppUser) => {
     setEditingUser(u);
-    setForm({ username: u.username, password: "", displayName: u.displayName, role: u.role, permissions: Array.isArray(u.permissions) ? [...u.permissions] : [] });
+    const rawPerms = Array.isArray(u.permissions) ? u.permissions : [];
+    setForm({ username: u.username, password: "", displayName: u.displayName, role: u.role, permissions: expandPermissions(rawPerms, u.role) });
     setShowPassword(false);
     setDialogOpen(true);
   };
