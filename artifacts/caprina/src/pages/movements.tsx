@@ -6,7 +6,7 @@ import {
   Filter, Package, Plus, RotateCcw, X, TrendingDown, TrendingUp, Activity, Printer,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { movementsApi, productsApi, type MovementType, type MovementReason, type InventoryMovement } from "@/lib/api";
+import { movementsApi, productsApi, warehousesApi, type MovementType, type MovementReason, type InventoryMovement } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -69,6 +69,7 @@ export default function Movements() {
     notes: "",
     productId: "",
     variantId: "",
+    warehouseId: "",
   });
 
   const filters = useMemo(() => ({
@@ -94,6 +95,11 @@ export default function Movements() {
     queryFn: productsApi.list,
   });
 
+  const { data: warehouses = [] } = useQuery({
+    queryKey: ["warehouses"],
+    queryFn: warehousesApi.list,
+  });
+
   const createMutation = useMutation({
     mutationFn: movementsApi.create,
     onSuccess: () => {
@@ -106,7 +112,7 @@ export default function Movements() {
     onError: () => toast({ title: "خطأ", description: "فشل تسجيل الحركة.", variant: "destructive" }),
   });
 
-  const resetForm = () => setForm({ product: "", color: "", size: "", quantity: "1", type: "IN", reason: "manual_in", notes: "", productId: "", variantId: "" });
+  const resetForm = () => setForm({ product: "", color: "", size: "", quantity: "1", type: "IN", reason: "manual_in", notes: "", productId: "", variantId: "", warehouseId: "" });
 
   const hasFilter = filterType !== "all" || filterReason !== "all" || filterProduct !== "all" || dateFrom || dateTo;
 
@@ -133,6 +139,7 @@ export default function Movements() {
       notes: form.notes.trim() || null,
       productId: form.productId ? parseInt(form.productId) : null,
       variantId: form.variantId ? parseInt(form.variantId) : null,
+      warehouseId: form.warehouseId ? parseInt(form.warehouseId) : null,
     });
   };
 
@@ -579,6 +586,21 @@ export default function Movements() {
                 <Label className="text-xs mb-1.5 block">الكمية *</Label>
                 <Input type="number" min="1" className="h-9 text-sm bg-background" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} />
               </div>
+            </div>
+
+            <div>
+              <Label className="text-xs mb-1.5 block">المخزن</Label>
+              <Select value={form.warehouseId || "none"} onValueChange={v => setForm(f => ({ ...f, warehouseId: v === "none" ? "" : v }))}>
+                <SelectTrigger className="h-9 text-sm bg-background"><SelectValue placeholder="اختر مخزناً..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">بدون مخزن</SelectItem>
+                  {warehouses.map((w: any) => (
+                    <SelectItem key={w.id} value={String(w.id)}>
+                      {w.name}{w.isDefault ? " ★" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div>
