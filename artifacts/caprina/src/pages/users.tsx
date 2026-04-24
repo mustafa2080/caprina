@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
-import { UserPlus, Edit2, Trash2, Shield, Users, Eye, EyeOff, TrendingUp, Package, BarChart3, UserCheck, UserCog, Brain, Megaphone, LayoutGrid, FileSpreadsheet } from "lucide-react";
+import { UserPlus, Edit2, Trash2, Shield, Users, Eye, EyeOff, TrendingUp, Package, BarChart3, LayoutGrid, Lock, User, Settings2, ChevronDown, ChevronUp } from "lucide-react";
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "مدير",
@@ -109,6 +109,10 @@ export default function UsersPage() {
   const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
   const [resetTarget, setResetTarget] = useState<AppUser | null>(null);
   const [newPassword, setNewPassword] = useState("");
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+    "🏠 عام": true, "📊 التحليلات": true, "📦 الطلبات": true,
+    "🏪 المخزون": true, "🚚 الشحن والفواتير": true, "📁 البيانات": true, "⚙️ الإدارة": true,
+  });
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["users"],
@@ -277,159 +281,286 @@ export default function UsersPage() {
 
       {/* ── Create / Edit Dialog ── */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="bg-card border-border w-[95vw] max-w-md flex flex-col max-h-[90dvh] sm:max-h-[90vh]" dir="rtl">
-          <DialogHeader className="shrink-0">
-            <DialogTitle>{editingUser ? "تعديل مستخدم" : "إضافة مستخدم جديد"}</DialogTitle>
+        <DialogContent className="bg-card border-border w-[95vw] max-w-lg flex flex-col max-h-[92dvh]" dir="rtl">
+
+          {/* ── Header ── */}
+          <DialogHeader className="shrink-0 pb-3 border-b border-border">
+            <DialogTitle className="flex items-center gap-2 text-base font-black">
+              {editingUser
+                ? <><Edit2 className="w-4 h-4 text-primary" /> تعديل: {editingUser.displayName}</>
+                : <><UserPlus className="w-4 h-4 text-primary" /> إضافة مستخدم جديد</>}
+            </DialogTitle>
           </DialogHeader>
-          <div className="flex-1 overflow-y-auto space-y-4 mt-2 pb-2 px-1">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs mb-1.5 block">الاسم الكامل *</Label>
-                <Input className="h-9 text-sm bg-background" value={form.displayName} onChange={e => setForm(f => ({ ...f, displayName: e.target.value }))} placeholder="مثال: أحمد محمد" />
+
+          <div className="flex-1 overflow-y-auto space-y-5 py-4 px-1">
+
+            {/* ── القسم 1: بيانات الحساب ── */}
+            <section>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <User className="w-3.5 h-3.5 text-primary" />
+                </div>
+                <span className="text-xs font-black text-foreground uppercase tracking-wide">بيانات الحساب</span>
               </div>
-              <div>
-                <Label className="text-xs mb-1.5 block">اسم المستخدم *</Label>
-                <Input className="h-9 text-sm bg-background font-mono" value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value.toLowerCase() }))} placeholder="ahmed" disabled={!!editingUser} />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs text-muted-foreground mb-1.5 block">الاسم الكامل *</Label>
+                  <Input className="h-9 text-sm bg-background" value={form.displayName}
+                    onChange={e => setForm(f => ({ ...f, displayName: e.target.value }))} placeholder="مثال: أحمد محمد" />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground mb-1.5 block">اسم المستخدم *</Label>
+                  <Input className="h-9 text-sm bg-background font-mono" value={form.username}
+                    onChange={e => setForm(f => ({ ...f, username: e.target.value.toLowerCase() }))}
+                    placeholder="ahmed" disabled={!!editingUser} />
+                </div>
               </div>
-            </div>
-            <div>
-              <Label className="text-xs mb-1.5 block">{editingUser ? "كلمة مرور جديدة (اتركها فارغة إن لم تريد تغييرها)" : "كلمة المرور *"}</Label>
-              <div className="relative">
-                <Input type={showPassword ? "text" : "password"} className="h-9 text-sm bg-background pl-9" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder={editingUser ? "••••••••" : "6 أحرف على الأقل"} />
-                <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground">
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
+              <div className="mt-3">
+                <Label className="text-xs text-muted-foreground mb-1.5 block">
+                  <Lock className="w-3 h-3 inline ml-1" />
+                  {editingUser ? "كلمة مرور جديدة (اتركها فارغة إن لم تريد تغييرها)" : "كلمة المرور *"}
+                </Label>
+                <div className="relative">
+                  <Input type={showPassword ? "text" : "password"} className="h-9 text-sm bg-background pl-9"
+                    value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                    placeholder={editingUser ? "••••••••" : "6 أحرف على الأقل"} />
+                  <button type="button" onClick={() => setShowPassword(v => !v)}
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
-            </div>
+            </section>
+
             <Separator />
-            <div>
-              <Label className="text-xs mb-2 block">الدور الوظيفي</Label>
+
+            {/* ── القسم 2: الدور الوظيفي ── */}
+            <section>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <Shield className="w-3.5 h-3.5 text-primary" />
+                </div>
+                <span className="text-xs font-black text-foreground uppercase tracking-wide">الدور الوظيفي</span>
+              </div>
               <div className="grid grid-cols-3 gap-2">
-                {["admin", "employee", "warehouse"].map(role => (
-                  <button key={role} type="button" onClick={() => handleRoleChange(role)} className={`p-2.5 rounded-lg border text-xs font-bold transition-all ${form.role === role ? ROLE_COLORS[role] : "border-border text-muted-foreground hover:border-muted-foreground"}`}>
+                {(["admin", "employee", "warehouse"] as const).map(role => (
+                  <button key={role} type="button" onClick={() => handleRoleChange(role)}
+                    className={`py-3 rounded-xl border-2 text-xs font-bold transition-all flex flex-col items-center gap-1
+                      ${form.role === role ? ROLE_COLORS[role] + " scale-[1.03]" : "border-border text-muted-foreground hover:border-muted-foreground bg-muted/10"}`}>
+                    {role === "admin" && <Shield className="w-4 h-4" />}
+                    {role === "employee" && <User className="w-4 h-4" />}
+                    {role === "warehouse" && <Package className="w-4 h-4" />}
                     {ROLE_LABELS[role]}
                   </button>
                 ))}
               </div>
-            </div>
-            {/* صلاحية الأرباح */}
-            <div className={`rounded-xl border-2 p-3 transition-colors ${form.permissions.includes(FINANCIAL_PERMISSION.key) ? "border-amber-500/60 bg-amber-500/5" : "border-border bg-muted/10"}`}>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input type="checkbox" checked={form.permissions.includes(FINANCIAL_PERMISSION.key)} onChange={() => togglePermission(FINANCIAL_PERMISSION.key)} className="w-4 h-4 rounded accent-amber-500 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                    <span className="text-xs font-bold text-foreground">{FINANCIAL_PERMISSION.label}</span>
-                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold">حساسة</span>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">{FINANCIAL_PERMISSION.desc}</p>
-                </div>
-              </label>
-            </div>
-            {/* صلاحية المخزون */}
-            <div className={`rounded-xl border-2 p-3 transition-colors ${form.permissions.includes(EDIT_INVENTORY_PERMISSION.key) ? "border-emerald-500/60 bg-emerald-500/5" : "border-border bg-muted/10"}`}>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input type="checkbox" checked={form.permissions.includes(EDIT_INVENTORY_PERMISSION.key)} onChange={() => togglePermission(EDIT_INVENTORY_PERMISSION.key)} className="w-4 h-4 rounded accent-emerald-500 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <Package className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                    <span className="text-xs font-bold text-foreground">{EDIT_INVENTORY_PERMISSION.label}</span>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">{EDIT_INVENTORY_PERMISSION.desc}</p>
-                </div>
-              </label>
-            </div>
-            {/* صلاحية أداء المنتجات */}
-            <div className={`rounded-xl border-2 p-3 transition-colors ${form.permissions.includes(VIEW_PRODUCT_PERF_PERMISSION.key) ? "border-blue-500/60 bg-blue-500/5" : "border-border bg-muted/10"}`}>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input type="checkbox" checked={form.permissions.includes(VIEW_PRODUCT_PERF_PERMISSION.key)} onChange={() => togglePermission(VIEW_PRODUCT_PERF_PERMISSION.key)} className="w-4 h-4 rounded accent-blue-500 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <BarChart3 className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                    <span className="text-xs font-bold text-foreground">{VIEW_PRODUCT_PERF_PERMISSION.label}</span>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">{VIEW_PRODUCT_PERF_PERMISSION.desc}</p>
-                </div>
-              </label>
-            </div>
-            {/* صلاحيات الصفحات */}
-            <div>
-              <Label className="text-xs mb-2 block">صلاحيات الوصول للصفحات</Label>
-              <div className="grid grid-cols-2 gap-1.5">
-                {ALL_PERMISSIONS.map(p => (
-                  <label key={p.key} className="flex items-center gap-2 cursor-pointer group">
-                    <input type="checkbox" checked={form.permissions.includes(p.key)} onChange={() => togglePermission(p.key)} className="w-3.5 h-3.5 rounded accent-primary" />
-                    <span className="text-xs text-muted-foreground group-hover:text-foreground">{p.label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-            {/* ظهور الأقسام في الـ Sidebar لهذا المستخدم */}
+            </section>
+
             <Separator />
-            <div>
-              <Label className="text-xs mb-2 flex items-center gap-1.5 text-muted-foreground">
-                <LayoutGrid className="w-3.5 h-3.5" /> ظهور الأقسام في الـ Sidebar
-              </Label>
+
+            {/* ── القسم 3: الصلاحيات الخاصة ── */}
+            <section>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <Settings2 className="w-3.5 h-3.5 text-primary" />
+                </div>
+                <span className="text-xs font-black text-foreground uppercase tracking-wide">الصلاحيات الخاصة</span>
+              </div>
+              <div className="space-y-2">
+                {[
+                  { perm: FINANCIAL_PERMISSION,       color: "amber",   icon: <TrendingUp className="w-3.5 h-3.5 text-amber-500" />,   badge: "حساسة" },
+                  { perm: EDIT_INVENTORY_PERMISSION,  color: "emerald", icon: <Package    className="w-3.5 h-3.5 text-emerald-500" />, badge: null    },
+                  { perm: VIEW_PRODUCT_PERF_PERMISSION,color:"blue",    icon: <BarChart3  className="w-3.5 h-3.5 text-blue-500" />,    badge: null    },
+                ].map(({ perm, color, icon, badge }) => {
+                  const active = form.permissions.includes(perm.key);
+                  return (
+                    <label key={perm.key} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all
+                      ${active
+                        ? color === "amber"   ? "border-amber-500/50 bg-amber-500/5"
+                        : color === "emerald" ? "border-emerald-500/50 bg-emerald-500/5"
+                                              : "border-blue-500/50 bg-blue-500/5"
+                        : "border-border bg-muted/10 hover:border-muted-foreground/40"}`}>
+                      <input type="checkbox" checked={active} onChange={() => togglePermission(perm.key)}
+                        className={`w-4 h-4 rounded shrink-0 ${color === "amber" ? "accent-amber-500" : color === "emerald" ? "accent-emerald-500" : "accent-blue-500"}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          {icon}
+                          <span className="text-xs font-bold">{perm.label}</span>
+                          {badge && <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-600 dark:text-amber-400`}>{badge}</span>}
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{perm.desc}</p>
+                      </div>
+                      <div className={`w-2 h-2 rounded-full shrink-0 ${active ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
+                    </label>
+                  );
+                })}
+              </div>
+            </section>
+
+            <Separator />
+
+            {/* ── القسم 4: صلاحيات الصفحات + الـ Sidebar مدمجين ── */}
+            <section>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <LayoutGrid className="w-3.5 h-3.5 text-primary" />
+                </div>
+                <span className="text-xs font-black text-foreground uppercase tracking-wide">الصفحات والأقسام</span>
+                <span className="text-[10px] text-muted-foreground mr-auto">الوصول + الظهور في القائمة</span>
+              </div>
+
+              {/* كل group فيه: صلاحية الصفحة + صلاحية الظهور مدمجين */}
               {[
-                { group: "🏠 عام",        keys: ["section_dashboard"] },
-                { group: "📊 التحليلات", keys: ["section_product_performance","section_team_performance","section_team_management","section_smart_analytics","section_ads_analytics"] },
-                { group: "📦 الطلبات",   keys: ["section_orders","section_new_order","section_archive","section_shipping_followup","section_whatsapp"] },
-                { group: "🏪 المخزون",   keys: ["section_inventory","section_warehouses","section_movements"] },
-                { group: "🚚 الشحن والفواتير", keys: ["section_shipping","section_invoices"] },
-                { group: "📁 البيانات",  keys: ["section_import","section_export_data"] },
-                { group: "⚙️ الإدارة",   keys: ["section_users","section_sessions_report","section_audit"] },
-              ].map(({ group, keys }) => {
-                const groupItems = SIDEBAR_SECTION_PERMISSIONS.filter(p => keys.includes(p.key));
-                if (!groupItems.length) return null;
-                const allOn  = groupItems.every(p => form.permissions.includes(p.key));
-                const someOn = groupItems.some(p => form.permissions.includes(p.key));
+                {
+                  group: "🏠 عام",
+                  items: [
+                    { label: "لوحة التحكم", pageKey: "dashboard", sectionKey: "section_dashboard" },
+                  ]
+                },
+                {
+                  group: "📊 التحليلات",
+                  items: [
+                    { label: "التحليلات والتقارير",  pageKey: "analytics",               sectionKey: null },
+                    { label: "أداء المنتجات",         pageKey: "view_product_performance", sectionKey: "section_product_performance" },
+                    { label: "أداء الفريق",            pageKey: null,                       sectionKey: "section_team_performance" },
+                    { label: "إدارة الفريق",           pageKey: null,                       sectionKey: "section_team_management" },
+                    { label: "التحليل الذكي 🧠",      pageKey: null,                       sectionKey: "section_smart_analytics" },
+                    { label: "تحليل الإعلانات",        pageKey: null,                       sectionKey: "section_ads_analytics" },
+                  ]
+                },
+                {
+                  group: "📦 الطلبات",
+                  items: [
+                    { label: "الطلبات",        pageKey: "orders", sectionKey: "section_orders" },
+                    { label: "طلب جديد",       pageKey: null,     sectionKey: "section_new_order" },
+                    { label: "الأرشيف 🗂️",    pageKey: null,     sectionKey: "section_archive" },
+                    { label: "متابعة الشحن ⏱️",pageKey: null,     sectionKey: "section_shipping_followup" },
+                    { label: "إعدادات واتساب", pageKey: "whatsapp",sectionKey: "section_whatsapp" },
+                  ]
+                },
+                {
+                  group: "🏪 المخزون",
+                  items: [
+                    { label: "المخزون",        pageKey: "inventory", sectionKey: "section_inventory" },
+                    { label: "المخازن",         pageKey: null,        sectionKey: "section_warehouses" },
+                    { label: "حركات المخزون",   pageKey: "movements", sectionKey: "section_movements" },
+                  ]
+                },
+                {
+                  group: "🚚 الشحن والفواتير",
+                  items: [
+                    { label: "شركات الشحن", pageKey: "shipping",  sectionKey: "section_shipping" },
+                    { label: "الفواتير",     pageKey: "invoices",  sectionKey: "section_invoices" },
+                  ]
+                },
+                {
+                  group: "📁 البيانات",
+                  items: [
+                    { label: "استيراد Excel",  pageKey: "import", sectionKey: "section_import" },
+                    { label: "تصدير البيانات", pageKey: null,     sectionKey: "section_export_data" },
+                  ]
+                },
+                {
+                  group: "⚙️ الإدارة",
+                  items: [
+                    { label: "إدارة المستخدمين", pageKey: "users", sectionKey: "section_users" },
+                    { label: "تقرير الجلسات",     pageKey: null,    sectionKey: "section_sessions_report" },
+                    { label: "سجل التعديلات",     pageKey: "audit", sectionKey: "section_audit" },
+                  ]
+                },
+              ].map(({ group, items }) => {
+                const allKeys = items.flatMap(i => [i.pageKey, i.sectionKey].filter(Boolean) as string[]);
+                const allOn  = allKeys.every(k => form.permissions.includes(k));
+                const someOn = allKeys.some(k => form.permissions.includes(k));
+                const open = openGroups[group] ?? true;
                 const toggleGroup = () => {
-                  if (allOn) {
-                    setForm(f => ({ ...f, permissions: f.permissions.filter(k => !keys.includes(k)) }));
-                  } else {
-                    setForm(f => ({ ...f, permissions: [...new Set([...f.permissions, ...keys])] }));
-                  }
+                  if (allOn) setForm(f => ({ ...f, permissions: f.permissions.filter(k => !allKeys.includes(k)) }));
+                  else       setForm(f => ({ ...f, permissions: [...new Set([...f.permissions, ...allKeys])] }));
                 };
                 return (
-                  <div key={group} className="mb-3">
-                    <button type="button" onClick={toggleGroup} className="flex items-center gap-2 mb-1.5 w-full text-right group">
-                      <span className="text-[11px] font-bold text-muted-foreground group-hover:text-foreground transition-colors">{group}</span>
-                      <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ml-auto ${allOn ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400" : someOn ? "bg-amber-500/20 text-amber-600 dark:text-amber-400" : "bg-red-500/20 text-red-500"}`}>
-                        {allOn ? "كل شيء ظاهر" : someOn ? "جزئي" : "كل شيء مخفي"}
-                      </span>
-                    </button>
-                    <div className="space-y-1">
-                      {groupItems.map(p => {
-                        const active = form.permissions.includes(p.key);
-                        return (
-                          <div key={p.key} className={`rounded-lg border px-2.5 py-2 transition-colors ${active ? "border-primary/40 bg-primary/5" : "border-border bg-muted/10"}`}>
-                            <label className="flex items-center gap-2.5 cursor-pointer">
-                              <input type="checkbox" checked={active} onChange={() => togglePermission(p.key)} className="w-3.5 h-3.5 rounded accent-primary shrink-0" />
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="text-xs font-bold text-foreground">{p.label}</span>
-                                  <span className={`text-[9px] px-1 py-0.5 rounded-full font-bold ${active ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400" : "bg-red-500/20 text-red-600 dark:text-red-400"}`}>
-                                    {active ? "ظاهر" : "مخفي"}
-                                  </span>
-                                </div>
-                                <p className="text-[10px] text-muted-foreground">{p.desc}</p>
-                              </div>
-                            </label>
-                          </div>
-                        );
-                      })}
+                  <div key={group} className="rounded-xl border border-border overflow-hidden mb-2">
+                    {/* Group Header */}
+                    <div className="flex items-center gap-2 px-3 py-2 bg-muted/20">
+                      <button type="button" onClick={() => setOpenGroups(g => ({ ...g, [group]: !open }))} className="flex items-center gap-2 flex-1 text-right">
+                        {open ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />}
+                        <span className="text-[11px] font-black text-foreground">{group}</span>
+                      </button>
+                      <button type="button" onClick={toggleGroup}
+                        className={`text-[9px] px-2 py-0.5 rounded-full font-bold transition-colors
+                          ${allOn  ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/30"
+                          : someOn ? "bg-amber-500/20 text-amber-600 dark:text-amber-400 hover:bg-amber-500/30"
+                                   : "bg-red-500/15 text-red-500 hover:bg-red-500/25"}`}>
+                        {allOn ? "✓ الكل" : someOn ? "جزئي" : "× لا شيء"}
+                      </button>
                     </div>
+                    {/* Group Items */}
+                    {open && (
+                      <div className="divide-y divide-border/50">
+                        {items.map(({ label, pageKey, sectionKey }) => {
+                          const pageActive    = pageKey    ? form.permissions.includes(pageKey)    : null;
+                          const sectionActive = sectionKey ? form.permissions.includes(sectionKey) : null;
+                          return (
+                            <div key={label} className="flex items-center gap-3 px-3 py-2.5 hover:bg-muted/10 transition-colors">
+                              <span className="text-xs text-foreground flex-1 font-medium">{label}</span>
+                              {/* صلاحية الصفحة */}
+                              {pageKey ? (
+                                <label className="flex items-center gap-1.5 cursor-pointer">
+                                  <input type="checkbox" checked={!!pageActive} onChange={() => togglePermission(pageKey)}
+                                    className="w-3.5 h-3.5 rounded accent-primary" />
+                                  <span className={`text-[9px] font-bold w-10 text-center ${pageActive ? "text-primary" : "text-muted-foreground/50"}`}>
+                                    وصول
+                                  </span>
+                                </label>
+                              ) : (
+                                <div className="w-[74px]" />
+                              )}
+                              {/* صلاحية الظهور في Sidebar */}
+                              {sectionKey ? (
+                                <label className="flex items-center gap-1.5 cursor-pointer">
+                                  <input type="checkbox" checked={!!sectionActive} onChange={() => togglePermission(sectionKey)}
+                                    className="w-3.5 h-3.5 rounded accent-emerald-500" />
+                                  <span className={`text-[9px] font-bold w-10 text-center ${sectionActive ? "text-emerald-500" : "text-muted-foreground/50"}`}>
+                                    قائمة
+                                  </span>
+                                </label>
+                              ) : (
+                                <div className="w-[74px]" />
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 );
               })}
-            </div>
+
+              {/* Legend */}
+              <div className="flex items-center gap-4 mt-2 px-1">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded border-2 border-primary bg-primary/20" />
+                  <span className="text-[10px] text-muted-foreground">وصول = يقدر يفتح الصفحة</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded border-2 border-emerald-500 bg-emerald-500/20" />
+                  <span className="text-[10px] text-muted-foreground">قائمة = يظهر في الـ Sidebar</span>
+                </div>
+              </div>
+            </section>
+
           </div>
-          <div className="shrink-0 flex gap-2 pt-3 border-t border-border mt-1">
-            <Button className="flex-1 h-10 text-sm font-bold bg-primary text-primary-foreground" onClick={handleSubmit} disabled={createMutation.isPending || updateMutation.isPending}>
-              {createMutation.isPending || updateMutation.isPending ? "جاري الحفظ..." : editingUser ? "حفظ التعديلات" : "إضافة المستخدم"}
+
+          {/* ── Footer ── */}
+          <div className="shrink-0 flex gap-2 pt-3 border-t border-border">
+            <Button variant="outline" className="h-10 text-sm border-border px-5" onClick={() => setDialogOpen(false)}>إلغاء</Button>
+            <Button className="flex-1 h-10 text-sm font-bold" onClick={handleSubmit}
+              disabled={createMutation.isPending || updateMutation.isPending}>
+              {createMutation.isPending || updateMutation.isPending
+                ? <span className="flex items-center gap-2"><span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />جاري الحفظ...</span>
+                : editingUser ? "💾 حفظ التعديلات" : "✚ إضافة المستخدم"}
             </Button>
-            <Button variant="outline" className="h-10 text-sm border-border" onClick={() => setDialogOpen(false)}>إلغاء</Button>
           </div>
+
         </DialogContent>
       </Dialog>
 
