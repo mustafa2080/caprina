@@ -114,7 +114,11 @@ router.patch("/:id", async (req, res): Promise<void> => {
   const updates: Partial<typeof usersTable.$inferInsert> = {};
   if (displayName !== undefined) updates.displayName = displayName.trim();
   if (role !== undefined && USER_ROLES.includes(role as any)) updates.role = role as any;
-  if (permissions !== undefined) updates.permissions = permissions;
+  if (permissions !== undefined) {
+    // تأكد إن الـ permissions array وليست string
+    updates.permissions = Array.isArray(permissions) ? permissions : [];
+    console.log(`[PATCH /users/${id}] saving permissions:`, JSON.stringify(updates.permissions));
+  }
   if (isActive !== undefined) updates.isActive = isActive;
   if (password) {
     if (password.length < 6) { res.status(400).json({ error: "كلمة المرور يجب أن تكون 6 أحرف على الأقل" }); return; }

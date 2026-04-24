@@ -124,16 +124,18 @@ export default function UsersPage() {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: any }) => usersApi.update(id, data),
     onSuccess: (_result, variables) => {
+      // دايماً نعمل invalidate عشان القايمة تتحدث
       qc.invalidateQueries({ queryKey: ["users"] });
       setDialogOpen(false);
       setResetPasswordOpen(false);
-      toast({ title: "تم تحديث المستخدم" });
-      // تحديث الـ sidebar فوراً — سواء عدّل نفسه أو عدّل حد تاني
-      // لو عدّل نفسه: refreshUser بيجيب البيانات الجديدة فوراً
-      // لو عدّل حد تاني: نعمل invalidate للـ cache عشان أي صفحة تاخد البيانات الجديدة
-      refreshUser();
+      toast({ title: "تم تحديث المستخدم بنجاح" });
+      // لو الأدمن عدّل نفسه — نعمل refreshUser عشان الـ sidebar يتحدث فوراً
+      // لو عدّل حد تاني — الـ polling بتاعه هيجيب البيانات الجديدة في 3 ثواني
+      if (variables.id === currentUser?.id) {
+        refreshUser();
+      }
     },
-    onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
+    onError: (e: any) => toast({ title: "خطأ في الحفظ", description: e.message, variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
@@ -168,10 +170,13 @@ export default function UsersPage() {
   const handleSubmit = () => {
     if (!form.displayName.trim()) { toast({ title: "خطأ", description: "الاسم مطلوب", variant: "destructive" }); return; }
     if (editingUser) {
-      const data: any = { displayName: form.displayName, role: form.role, permissions: form.permissions };
-      // الأدمن دايماً يشوف كل حاجة — مش محتاج permissions محددة (بيتجاهلها الـ can())
-      // بس لازم نبعتها عشان مياجيبش خطأ — نبعت array فاضي للأدمن
-      if (form.role === "admin") data.permissions = [];
+      const data: any = {
+        displayName: form.displayName,
+        role: form.role,
+        // الأدمن دايماً يشوف كل حاجة بحكم الـ can() — بس نحفظ الـ permissions الفعلية عشان الـ DB يكون صح
+        // مانمسحش الـ permissions للأدمن — نبعتها كما هي
+        permissions: form.permissions,
+      };
       if (form.password) data.password = form.password;
       updateMutation.mutate({ id: editingUser.id, data });
     } else {
