@@ -1,10 +1,11 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Package, Plus, Boxes, Truck, FileText, Upload, Activity, BarChart3, Users, Shield, LogOut, ChevronDown, KeyRound, Warehouse, Megaphone, UserCheck, UserCog, Sun, Moon, Brain, Archive, Clock, MessageCircle, Menu, X, Download } from "lucide-react";import { BrandFull } from "@/components/brand-logo";
+import { useState, useMemo } from "react";
+import { LayoutDashboard, Package, Plus, Boxes, Truck, FileText, Upload, Activity, BarChart3, Users, Shield, LogOut, ChevronDown, KeyRound, Warehouse, Megaphone, UserCheck, UserCog, Sun, Moon, Brain, Archive, Clock, MessageCircle, Menu, X, Download } from "lucide-react";
+import { BrandFull } from "@/components/brand-logo";
 import { BrandSettingsDialog } from "@/components/brand-settings-dialog";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
-import { useState } from "react";
 import { authApi, appSettingsApi } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -60,14 +61,15 @@ export default function Layout({ children }: LayoutProps) {
   const [newPw, setNewPw] = useState("");
   const [savingPw, setSavingPw] = useState(false);
 
-  // ─── Sidebar sections visibility — controlled per-user via permissions ───
-  const visibleNav = ALL_NAV.filter(item => {
-    // أولاً: لازم يكون عنده صلاحية الوصول للصفحة
-    if (!can(item.permission)) return false;
-    // ثانياً: لو في section permission، نتحقق منها — بدون استثناء لأي عنصر
-    if (item.section && !can(item.section)) return false;
-    return true;
-  });
+  // ─── Sidebar sections visibility — reactive على user.permissions ──────────
+  // useMemo يعتمد على can اللي بيتغير مع user — فـ visibleNav بيتحدث تلقائياً
+  const visibleNav = useMemo(() => {
+    return ALL_NAV.filter((item) => {
+      if (!can(item.permission)) return false;
+      if (item.section && !can(item.section)) return false;
+      return true;
+    });
+  }, [can]); // can بيتغير لما user.permissions تتغير
 
   const handleChangePassword = async () => {
     if (!currentPw || newPw.length < 6) {
