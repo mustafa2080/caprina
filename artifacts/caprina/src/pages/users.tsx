@@ -44,11 +44,32 @@ const VIEW_PRODUCT_PERF_PERMISSION = { key: "view_product_performance", label: "
 
 // صلاحيات ظهور الأقسام في الـ Sidebar — per-user
 const SIDEBAR_SECTION_PERMISSIONS = [
-  { key: "section_team_performance", label: "أداء الفريق",      desc: "قسم عرض تقارير وإحصائيات أداء الفريق"                  },
-  { key: "section_team_management",  label: "إدارة الفريق",     desc: "قسم إدارة أعضاء الفريق وبياناتهم"                      },
-  { key: "section_smart_analytics",  label: "التحليل الذكي 🧠", desc: "قسم التحليلات الذكية المدعومة بالذكاء الاصطناعي"       },
-  { key: "section_ads_analytics",    label: "تحليل الإعلانات",  desc: "قسم تحليل أداء الحملات الإعلانية"                      },
-  { key: "section_export_data",      label: "تصدير البيانات",   desc: "قسم تصدير البيانات إلى ملفات Excel والنسخ الاحتياطية" },
+  // ── التحليلات ──
+  { key: "section_product_performance", label: "أداء المنتجات",      desc: "قسم تحليل أداء وأرباح كل منتج"                              },
+  { key: "section_team_performance",    label: "أداء الفريق",        desc: "قسم عرض تقارير وإحصائيات أداء الفريق"                      },
+  { key: "section_team_management",     label: "إدارة الفريق",       desc: "قسم إدارة أعضاء الفريق وبياناتهم"                          },
+  { key: "section_smart_analytics",     label: "التحليل الذكي 🧠",   desc: "قسم التحليلات الذكية المدعومة بالذكاء الاصطناعي"           },
+  { key: "section_ads_analytics",       label: "تحليل الإعلانات",    desc: "قسم تحليل أداء الحملات الإعلانية"                          },
+  // ── الطلبات ──
+  { key: "section_orders",              label: "الطلبات",             desc: "قسم عرض وإدارة الطلبات"                                    },
+  { key: "section_new_order",           label: "طلب جديد",            desc: "زر وصفحة إضافة طلب جديد"                                   },
+  { key: "section_archive",             label: "الأرشيف 🗂️",          desc: "قسم أرشيف الطلبات القديمة والمنتهية"                       },
+  { key: "section_shipping_followup",   label: "متابعة الشحن ⏱️",     desc: "قسم متابعة حالة شحن الطلبات"                               },
+  { key: "section_whatsapp",            label: "إعدادات واتساب",      desc: "قسم إعدادات وتكامل واتساب"                                 },
+  // ── المخزون ──
+  { key: "section_inventory",           label: "المخزون",             desc: "قسم عرض وإدارة المنتجات والمخزون"                          },
+  { key: "section_warehouses",          label: "المخازن",             desc: "قسم إدارة المخازن المختلفة"                                },
+  { key: "section_movements",           label: "حركات المخزون",       desc: "قسم تتبع حركات الدخول والخروج في المخزون"                  },
+  // ── الشحن والفواتير ──
+  { key: "section_shipping",            label: "شركات الشحن",         desc: "قسم إدارة شركات الشحن وتفاصيلها"                           },
+  { key: "section_invoices",            label: "الفواتير",             desc: "قسم عرض وإدارة الفواتير"                                   },
+  // ── البيانات ──
+  { key: "section_import",              label: "استيراد Excel",        desc: "قسم استيراد البيانات من ملفات Excel"                        },
+  { key: "section_export_data",         label: "تصدير البيانات",       desc: "قسم تصدير البيانات إلى ملفات Excel والنسخ الاحتياطية"     },
+  // ── الإدارة ──
+  { key: "section_users",               label: "إدارة المستخدمين",    desc: "قسم إدارة المستخدمين والصلاحيات"                           },
+  { key: "section_sessions_report",     label: "تقرير الجلسات",        desc: "قسم عرض سجل دخول وخروج الموظفين"                           },
+  { key: "section_audit",               label: "سجل التعديلات",        desc: "قسم تتبع كل التعديلات والعمليات في النظام"                 },
 ];
 
 const DEFAULT_PERMISSIONS: Record<string, () => string[]> = {
@@ -59,8 +80,8 @@ const DEFAULT_PERMISSIONS: Record<string, () => string[]> = {
     VIEW_PRODUCT_PERF_PERMISSION.key,
     ...SIDEBAR_SECTION_PERMISSIONS.map(p => p.key),
   ],
-  employee: () => ["dashboard", "orders"],
-  warehouse: () => ["dashboard", "inventory", "movements", EDIT_INVENTORY_PERMISSION.key],
+  employee: () => ["dashboard", "orders", "section_orders", "section_new_order", "section_archive", "section_shipping_followup"],
+  warehouse: () => ["dashboard", "inventory", "movements", EDIT_INVENTORY_PERMISSION.key, "section_inventory", "section_warehouses", "section_movements"],
 };
 
 interface UserForm {
@@ -102,12 +123,14 @@ export default function UsersPage() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: any }) => usersApi.update(id, data),
-    onSuccess: () => {
+    onSuccess: (_result, variables) => {
       qc.invalidateQueries({ queryKey: ["users"] });
       setDialogOpen(false);
       setResetPasswordOpen(false);
       toast({ title: "تم تحديث المستخدم" });
-      // تحديث الـ sidebar فوراً لو المستخدم عدّل نفسه
+      // تحديث الـ sidebar فوراً — سواء عدّل نفسه أو عدّل حد تاني
+      // لو عدّل نفسه: refreshUser بيجيب البيانات الجديدة فوراً
+      // لو عدّل حد تاني: نعمل invalidate للـ cache عشان أي صفحة تاخد البيانات الجديدة
       refreshUser();
     },
     onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
@@ -146,8 +169,9 @@ export default function UsersPage() {
     if (!form.displayName.trim()) { toast({ title: "خطأ", description: "الاسم مطلوب", variant: "destructive" }); return; }
     if (editingUser) {
       const data: any = { displayName: form.displayName, role: form.role, permissions: form.permissions };
-      // الأدمن مياثرش تعديل الـ permissions عليه — بيشوف كل حاجة دايماً
-      if (form.role === "admin") delete data.permissions;
+      // الأدمن دايماً يشوف كل حاجة — مش محتاج permissions محددة (بيتجاهلها الـ can())
+      // بس لازم نبعتها عشان مياجيبش خطأ — نبعت array فاضي للأدمن
+      if (form.role === "admin") data.permissions = [];
       if (form.password) data.password = form.password;
       updateMutation.mutate({ id: editingUser.id, data });
     } else {
@@ -324,27 +348,57 @@ export default function UsersPage() {
               <Label className="text-xs mb-2 flex items-center gap-1.5 text-muted-foreground">
                 <LayoutGrid className="w-3.5 h-3.5" /> ظهور الأقسام في الـ Sidebar
               </Label>
-              <div className="space-y-1.5">
-                {SIDEBAR_SECTION_PERMISSIONS.map(p => {
-                  const active = form.permissions.includes(p.key);
-                  return (
-                    <div key={p.key} className={`rounded-lg border p-2.5 transition-colors ${active ? "border-primary/40 bg-primary/5" : "border-border bg-muted/10"}`}>
-                      <label className="flex items-center gap-2.5 cursor-pointer">
-                        <input type="checkbox" checked={active} onChange={() => togglePermission(p.key)} className="w-3.5 h-3.5 rounded accent-primary shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-bold text-foreground">{p.label}</span>
-                            <span className={`text-[9px] px-1 py-0.5 rounded-full font-bold ${active ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400" : "bg-red-500/20 text-red-600 dark:text-red-400"}`}>
-                              {active ? "ظاهر" : "مخفي"}
-                            </span>
+              {[
+                { group: "📊 التحليلات", keys: ["section_product_performance","section_team_performance","section_team_management","section_smart_analytics","section_ads_analytics"] },
+                { group: "📦 الطلبات",   keys: ["section_orders","section_new_order","section_archive","section_shipping_followup","section_whatsapp"] },
+                { group: "🏪 المخزون",   keys: ["section_inventory","section_warehouses","section_movements"] },
+                { group: "🚚 الشحن والفواتير", keys: ["section_shipping","section_invoices"] },
+                { group: "📁 البيانات",  keys: ["section_import","section_export_data"] },
+                { group: "⚙️ الإدارة",   keys: ["section_users","section_sessions_report","section_audit"] },
+              ].map(({ group, keys }) => {
+                const groupItems = SIDEBAR_SECTION_PERMISSIONS.filter(p => keys.includes(p.key));
+                if (!groupItems.length) return null;
+                const allOn  = groupItems.every(p => form.permissions.includes(p.key));
+                const someOn = groupItems.some(p => form.permissions.includes(p.key));
+                const toggleGroup = () => {
+                  if (allOn) {
+                    setForm(f => ({ ...f, permissions: f.permissions.filter(k => !keys.includes(k)) }));
+                  } else {
+                    setForm(f => ({ ...f, permissions: [...new Set([...f.permissions, ...keys])] }));
+                  }
+                };
+                return (
+                  <div key={group} className="mb-3">
+                    <button type="button" onClick={toggleGroup} className="flex items-center gap-2 mb-1.5 w-full text-right group">
+                      <span className="text-[11px] font-bold text-muted-foreground group-hover:text-foreground transition-colors">{group}</span>
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ml-auto ${allOn ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400" : someOn ? "bg-amber-500/20 text-amber-600 dark:text-amber-400" : "bg-red-500/20 text-red-500"}`}>
+                        {allOn ? "كل شيء ظاهر" : someOn ? "جزئي" : "كل شيء مخفي"}
+                      </span>
+                    </button>
+                    <div className="space-y-1">
+                      {groupItems.map(p => {
+                        const active = form.permissions.includes(p.key);
+                        return (
+                          <div key={p.key} className={`rounded-lg border px-2.5 py-2 transition-colors ${active ? "border-primary/40 bg-primary/5" : "border-border bg-muted/10"}`}>
+                            <label className="flex items-center gap-2.5 cursor-pointer">
+                              <input type="checkbox" checked={active} onChange={() => togglePermission(p.key)} className="w-3.5 h-3.5 rounded accent-primary shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-xs font-bold text-foreground">{p.label}</span>
+                                  <span className={`text-[9px] px-1 py-0.5 rounded-full font-bold ${active ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400" : "bg-red-500/20 text-red-600 dark:text-red-400"}`}>
+                                    {active ? "ظاهر" : "مخفي"}
+                                  </span>
+                                </div>
+                                <p className="text-[10px] text-muted-foreground">{p.desc}</p>
+                              </div>
+                            </label>
                           </div>
-                          <p className="text-[10px] text-muted-foreground">{p.desc}</p>
-                        </div>
-                      </label>
+                        );
+                      })}
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
           <div className="shrink-0 flex gap-2 pt-3 border-t border-border mt-1">

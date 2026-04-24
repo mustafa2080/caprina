@@ -29,8 +29,8 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 const TOKEN_KEY = "caprina_token";
 const USER_KEY  = "caprina_user";
 
-// كل كام ثانية نجيب بيانات اليوزر من السيرفر (10 ثوان — عشان تغييرات الصلاحيات تنعكس بسرعة)
-const POLL_INTERVAL_MS = 10_000;
+// كل كام ثانية نجيب بيانات اليوزر من السيرفر (3 ثوان — عشان تغييرات الصلاحيات تنعكس بسرعة)
+const POLL_INTERVAL_MS = 3_000;
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user,      setUser]      = useState<AuthUser | null>(null);

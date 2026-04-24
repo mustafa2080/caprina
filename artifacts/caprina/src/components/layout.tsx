@@ -20,7 +20,7 @@ interface LayoutProps {
 // permission = صلاحية الوصول للصفحة (هل الرول عنده حق يدخلها)
 // section   = صلاحية ظهور القسم في الـ sidebar (per-user toggle)
 const ALL_NAV = [
-  { href: "/",                  label: "لوحة التحكم",        icon: LayoutDashboard, exact: true, permission: "dashboard",              section: "section_dashboard"         },
+  { href: "/",                  label: "لوحة التحكم",        icon: LayoutDashboard, exact: true, permission: "dashboard",              section: null                        },
   { href: "/product-performance",label: "أداء المنتجات",     icon: BarChart3,                   permission: "view_product_performance",section: "section_product_performance"},
   { href: "/team-performance",  label: "أداء الفريق",        icon: UserCheck,                   permission: "analytics",               section: "section_team_performance"  },
   { href: "/team",              label: "إدارة الفريق",       icon: UserCog,                     permission: "analytics",               section: "section_team_management"   },
