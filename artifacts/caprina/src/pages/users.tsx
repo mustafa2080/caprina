@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { usersApi, appSettingsApi, type AppUser } from "@/lib/api";
+import { usersApi, type AppUser } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { UserPlus, Edit2, Trash2, Shield, Users, Eye, EyeOff, TrendingUp, Package, BarChart3, UserCheck, Lock, UserCog, Brain, Megaphone, LayoutGrid, FileSpreadsheet } from "lucide-react";
+import { UserPlus, Edit2, Trash2, Shield, Users, Eye, EyeOff, TrendingUp, Package, BarChart3, UserCheck, UserCog, Brain, Megaphone, LayoutGrid, FileSpreadsheet } from "lucide-react";
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "مدير",
@@ -42,9 +42,23 @@ const FINANCIAL_PERMISSION = { key: "view_financials", label: "عرض الأرب
 const EDIT_INVENTORY_PERMISSION = { key: "edit_inventory", label: "تعديل المخزون", desc: "يقدر يضيف ويعدل ويحذف المنتجات والمقاسات" };
 const VIEW_PRODUCT_PERF_PERMISSION = { key: "view_product_performance", label: "عرض أداء المنتجات", desc: "يرى تحليل أداء وأرباح كل منتج" };
 
-// factory — كل call بترجع array جديدة منفصلة عشان منشاركش مرجع
+// صلاحيات ظهور الأقسام في الـ Sidebar — per-user
+const SIDEBAR_SECTION_PERMISSIONS = [
+  { key: "section_team_performance", label: "أداء الفريق",      desc: "قسم عرض تقارير وإحصائيات أداء الفريق"                  },
+  { key: "section_team_management",  label: "إدارة الفريق",     desc: "قسم إدارة أعضاء الفريق وبياناتهم"                      },
+  { key: "section_smart_analytics",  label: "التحليل الذكي 🧠", desc: "قسم التحليلات الذكية المدعومة بالذكاء الاصطناعي"       },
+  { key: "section_ads_analytics",    label: "تحليل الإعلانات",  desc: "قسم تحليل أداء الحملات الإعلانية"                      },
+  { key: "section_export_data",      label: "تصدير البيانات",   desc: "قسم تصدير البيانات إلى ملفات Excel والنسخ الاحتياطية" },
+];
+
 const DEFAULT_PERMISSIONS: Record<string, () => string[]> = {
-  admin: () => [...ALL_PERMISSIONS.map(p => p.key), FINANCIAL_PERMISSION.key, EDIT_INVENTORY_PERMISSION.key, VIEW_PRODUCT_PERF_PERMISSION.key],
+  admin: () => [
+    ...ALL_PERMISSIONS.map(p => p.key),
+    FINANCIAL_PERMISSION.key,
+    EDIT_INVENTORY_PERMISSION.key,
+    VIEW_PRODUCT_PERF_PERMISSION.key,
+    ...SIDEBAR_SECTION_PERMISSIONS.map(p => p.key),
+  ],
   employee: () => ["dashboard", "orders"],
   warehouse: () => ["dashboard", "inventory", "movements", EDIT_INVENTORY_PERMISSION.key],
 };
@@ -75,135 +89,55 @@ export default function UsersPage() {
   const [resetTarget, setResetTarget] = useState<AppUser | null>(null);
   const [newPassword, setNewPassword] = useState("");
 
-  // ── App Settings ──────────────────────────────────────────────
-  const { data: appSettings, refetch: refetchSettings } = useQuery({
-    queryKey: ["app-settings"],
-    queryFn: appSettingsApi.get,
-    enabled: isAdmin,
-  });
-  const showAddMember      = appSettings?.showAddTeamMember    ?? true;
-  const allowBrandEdit     = appSettings?.allowBrandEdit        ?? true;
-  const showTeamPerf       = appSettings?.showTeamPerformance   ?? true;
-  const showTeamMgmt       = appSettings?.showTeamManagement    ?? true;
-  const showSmartAnalytics = appSettings?.showSmartAnalytics    ?? true;
-  const showAdsAnalytics   = appSettings?.showAdsAnalytics      ?? true;
-  const showExportData     = appSettings?.showExportData        ?? true;
-
-  const toggleSetting = async (key: string, val: boolean) => {
-    await appSettingsApi.update({ [key]: val } as any);
-    refetchSettings();
-    qc.invalidateQueries({ queryKey: ["app-settings"] });
-  };
-  const toggleAddMember = (val: boolean) => toggleSetting("showAddTeamMember", val);
-  const toggleBrandEdit = (val: boolean) => toggleSetting("allowBrandEdit",     val);
-
-  // ── Users Query ───────────────────────────────────────────────
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["users"],
     queryFn: usersApi.list,
   });
 
-  // ── Mutations ─────────────────────────────────────────────────
   const createMutation = useMutation({
     mutationFn: usersApi.create,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["users"] });
-      setDialogOpen(false);
-      toast({ title: "تم إضافة المستخدم" });
-    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["users"] }); setDialogOpen(false); toast({ title: "تم إضافة المستخدم" }); },
     onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: any }) => usersApi.update(id, data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["users"] });
-      setDialogOpen(false);
-      setResetPasswordOpen(false);
-      toast({ title: "تم تحديث المستخدم" });
-    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["users"] }); setDialogOpen(false); setResetPasswordOpen(false); toast({ title: "تم تحديث المستخدم" }); },
     onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
     mutationFn: usersApi.delete,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["users"] });
-      toast({ title: "تم حذف المستخدم" });
-    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["users"] }); toast({ title: "تم حذف المستخدم" }); },
     onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
 
-  // ── Handlers ──────────────────────────────────────────────────
-  const openCreate = () => {
-    setEditingUser(null);
-    setForm(emptyForm());
-    setShowPassword(false);
-    setDialogOpen(true);
-  };
+  const openCreate = () => { setEditingUser(null); setForm(emptyForm()); setShowPassword(false); setDialogOpen(true); };
 
   const openEdit = (u: AppUser) => {
     setEditingUser(u);
-    // نستخدم الصلاحيات المحفوظة في DB للمستخدم المحدد فقط
-    setForm({
-      username: u.username,
-      password: "",
-      displayName: u.displayName,
-      role: u.role,
-      permissions: Array.isArray(u.permissions) ? [...u.permissions] : [],
-    });
+    setForm({ username: u.username, password: "", displayName: u.displayName, role: u.role, permissions: Array.isArray(u.permissions) ? [...u.permissions] : [] });
     setShowPassword(false);
     setDialogOpen(true);
   };
 
-  const handleRoleChange = (role: string) => {
-    // تغيير الدور يعيد ضبط الصلاحيات للـ defaults — بس للمستخدم المحدد فقط
-    setForm(f => ({ ...f, role, permissions: DEFAULT_PERMISSIONS[role]?.() ?? [] }));
-  };
+  const handleRoleChange = (role: string) => setForm(f => ({ ...f, role, permissions: DEFAULT_PERMISSIONS[role]?.() ?? [] }));
 
-  const togglePermission = (key: string) => {
-    // يعدل فقط الـ form state المحلي — مش بيأثر على باقي اليوزرز
-    setForm(f => {
-      const has = f.permissions.includes(key);
-      return {
-        ...f,
-        permissions: has
-          ? f.permissions.filter(p => p !== key)
-          : [...f.permissions, key],
-      };
-    });
-  };
+  const togglePermission = (key: string) => setForm(f => {
+    const has = f.permissions.includes(key);
+    return { ...f, permissions: has ? f.permissions.filter(p => p !== key) : [...f.permissions, key] };
+  });
 
   const handleSubmit = () => {
-    if (!form.displayName.trim()) {
-      toast({ title: "خطأ", description: "الاسم مطلوب", variant: "destructive" });
-      return;
-    }
+    if (!form.displayName.trim()) { toast({ title: "خطأ", description: "الاسم مطلوب", variant: "destructive" }); return; }
     if (editingUser) {
-      // PATCH /users/:id — بيبعت للـ id المحدد فقط
-      const data: any = {
-        displayName: form.displayName,
-        role: form.role,
-        permissions: form.permissions,
-      };
+      const data: any = { displayName: form.displayName, role: form.role, permissions: form.permissions };
       if (form.password) data.password = form.password;
       updateMutation.mutate({ id: editingUser.id, data });
     } else {
-      if (!form.username.trim()) {
-        toast({ title: "خطأ", description: "اسم المستخدم مطلوب", variant: "destructive" });
-        return;
-      }
-      if (form.password.length < 6) {
-        toast({ title: "خطأ", description: "كلمة المرور 6 أحرف على الأقل", variant: "destructive" });
-        return;
-      }
-      createMutation.mutate({
-        username: form.username.trim(),
-        password: form.password,
-        displayName: form.displayName.trim(),
-        role: form.role,
-        permissions: form.permissions,
-      });
+      if (!form.username.trim()) { toast({ title: "خطأ", description: "اسم المستخدم مطلوب", variant: "destructive" }); return; }
+      if (form.password.length < 6) { toast({ title: "خطأ", description: "كلمة المرور 6 أحرف على الأقل", variant: "destructive" }); return; }
+      createMutation.mutate({ username: form.username.trim(), password: form.password, displayName: form.displayName.trim(), role: form.role, permissions: form.permissions });
     }
   };
 
@@ -212,15 +146,10 @@ export default function UsersPage() {
     deleteMutation.mutate(u.id);
   };
 
-  const handleToggleActive = (u: AppUser) => {
-    updateMutation.mutate({ id: u.id, data: { isActive: !u.isActive } });
-  };
+  const handleToggleActive = (u: AppUser) => updateMutation.mutate({ id: u.id, data: { isActive: !u.isActive } });
 
-  // ── Render ────────────────────────────────────────────────────
   return (
     <div className="p-3 sm:p-6 max-w-4xl mx-auto" dir="rtl">
-
-      {/* ── Header ── */}
       <div className="flex items-center justify-between mb-4 sm:mb-6 gap-2">
         <div className="min-w-0">
           <h1 className="text-xl sm:text-2xl font-black flex items-center gap-2">
@@ -237,79 +166,45 @@ export default function UsersPage() {
         )}
       </div>
 
-      {/* ── Users List ── */}
       {isLoading ? (
         <p className="text-muted-foreground text-sm">جاري التحميل...</p>
       ) : (
         <div className="space-y-3">
           {users.map(u => (
-            <div
-              key={u.id}
-              className={`flex items-start gap-2 sm:gap-4 p-3 sm:p-4 rounded-xl border ${
-                u.isActive ? "border-border bg-card" : "border-border/40 bg-muted/20 opacity-60"
-              }`}
-            >
+            <div key={u.id} className={`flex items-start gap-2 sm:gap-4 p-3 sm:p-4 rounded-xl border ${u.isActive ? "border-border bg-card" : "border-border/40 bg-muted/20 opacity-60"}`}>
               <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-muted/30 flex items-center justify-center text-sm sm:text-base font-bold border border-border shrink-0 mt-0.5">
                 {u.displayName.charAt(0)}
               </div>
-
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="font-bold text-sm">{u.displayName}</span>
-                  {u.id === currentUser?.id && (
-                    <Badge variant="outline" className="text-[9px] border-primary/50 text-primary">أنت</Badge>
-                  )}
+                  {u.id === currentUser?.id && <Badge variant="outline" className="text-[9px] border-primary/50 text-primary">أنت</Badge>}
                   <Badge variant="outline" className={`text-[10px] font-bold ${ROLE_COLORS[u.role]}`}>
                     <Shield className="w-2.5 h-2.5 mr-1" />{ROLE_LABELS[u.role]}
                   </Badge>
-                  {!u.isActive && (
-                    <Badge variant="outline" className="text-[9px] border-red-800 text-red-400">معطل</Badge>
-                  )}
+                  {!u.isActive && <Badge variant="outline" className="text-[9px] border-red-800 text-red-400">معطل</Badge>}
                 </div>
-
                 <p className="text-[11px] text-muted-foreground mt-0.5 font-mono truncate">{u.username}</p>
-
                 <div className="flex flex-wrap gap-1 mt-1">
                   {(u.permissions?.includes(FINANCIAL_PERMISSION.key) || u.role === "admin") && (
-                    <Badge variant="outline" className="text-[9px] font-bold border-amber-600/50 bg-amber-500/10 text-amber-600 dark:text-amber-400 gap-1">
-                      <TrendingUp className="w-2.5 h-2.5" />يرى الأرباح
-                    </Badge>
+                    <Badge variant="outline" className="text-[9px] font-bold border-amber-600/50 bg-amber-500/10 text-amber-600 dark:text-amber-400 gap-1"><TrendingUp className="w-2.5 h-2.5" />يرى الأرباح</Badge>
                   )}
                   {(u.permissions?.includes(EDIT_INVENTORY_PERMISSION.key) || u.role === "admin") && (
-                    <Badge variant="outline" className="text-[9px] font-bold border-emerald-600/50 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 gap-1">
-                      <Package className="w-2.5 h-2.5" />يعدل المخزون
-                    </Badge>
+                    <Badge variant="outline" className="text-[9px] font-bold border-emerald-600/50 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 gap-1"><Package className="w-2.5 h-2.5" />يعدل المخزون</Badge>
                   )}
                   {(u.permissions?.includes(VIEW_PRODUCT_PERF_PERMISSION.key) || u.role === "admin") && (
-                    <Badge variant="outline" className="text-[9px] font-bold border-blue-600/50 bg-blue-500/10 text-blue-600 dark:text-blue-400 gap-1">
-                      <BarChart3 className="w-2.5 h-2.5" />أداء المنتجات
-                    </Badge>
+                    <Badge variant="outline" className="text-[9px] font-bold border-blue-600/50 bg-blue-500/10 text-blue-600 dark:text-blue-400 gap-1"><BarChart3 className="w-2.5 h-2.5" />أداء المنتجات</Badge>
                   )}
                 </div>
-
                 <p className="hidden sm:block text-[10px] text-muted-foreground/70 mt-0.5 line-clamp-1">
                   الصلاحيات: {(u.permissions?.filter(p => p !== FINANCIAL_PERMISSION.key && p !== EDIT_INVENTORY_PERMISSION.key && p !== VIEW_PRODUCT_PERF_PERMISSION.key) ?? []).join("، ") || "—"}
                 </p>
               </div>
-
               <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 shrink-0">
-                <Switch
-                  checked={u.isActive}
-                  onCheckedChange={() => handleToggleActive(u)}
-                  disabled={u.id === currentUser?.id}
-                  title={u.isActive ? "تعطيل الحساب" : "تفعيل الحساب"}
-                />
+                <Switch checked={u.isActive} onCheckedChange={() => handleToggleActive(u)} disabled={u.id === currentUser?.id} title={u.isActive ? "تعطيل الحساب" : "تفعيل الحساب"} />
                 <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-primary" onClick={() => openEdit(u)}>
-                    <Edit2 className="w-3.5 h-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive"
-                    onClick={() => handleDelete(u)}
-                    disabled={u.id === currentUser?.id}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-primary" onClick={() => openEdit(u)}><Edit2 className="w-3.5 h-3.5" /></Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" onClick={() => handleDelete(u)} disabled={u.id === currentUser?.id}><Trash2 className="w-3.5 h-3.5" /></Button>
                 </div>
               </div>
             </div>
@@ -323,83 +218,41 @@ export default function UsersPage() {
           <DialogHeader className="shrink-0">
             <DialogTitle>{editingUser ? "تعديل مستخدم" : "إضافة مستخدم جديد"}</DialogTitle>
           </DialogHeader>
-
           <div className="flex-1 overflow-y-auto space-y-4 mt-2 pb-2 px-1">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs mb-1.5 block">الاسم الكامل *</Label>
-                <Input
-                  className="h-9 text-sm bg-background"
-                  value={form.displayName}
-                  onChange={e => setForm(f => ({ ...f, displayName: e.target.value }))}
-                  placeholder="مثال: أحمد محمد"
-                />
+                <Input className="h-9 text-sm bg-background" value={form.displayName} onChange={e => setForm(f => ({ ...f, displayName: e.target.value }))} placeholder="مثال: أحمد محمد" />
               </div>
               <div>
                 <Label className="text-xs mb-1.5 block">اسم المستخدم *</Label>
-                <Input
-                  className="h-9 text-sm bg-background font-mono"
-                  value={form.username}
-                  onChange={e => setForm(f => ({ ...f, username: e.target.value.toLowerCase() }))}
-                  placeholder="ahmed"
-                  disabled={!!editingUser}
-                />
+                <Input className="h-9 text-sm bg-background font-mono" value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value.toLowerCase() }))} placeholder="ahmed" disabled={!!editingUser} />
               </div>
             </div>
-
             <div>
-              <Label className="text-xs mb-1.5 block">
-                {editingUser ? "كلمة مرور جديدة (اتركها فارغة إن لم تريد تغييرها)" : "كلمة المرور *"}
-              </Label>
+              <Label className="text-xs mb-1.5 block">{editingUser ? "كلمة مرور جديدة (اتركها فارغة إن لم تريد تغييرها)" : "كلمة المرور *"}</Label>
               <div className="relative">
-                <Input
-                  type={showPassword ? "text" : "password"}
-                  className="h-9 text-sm bg-background pl-9"
-                  value={form.password}
-                  onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-                  placeholder={editingUser ? "••••••••" : "6 أحرف على الأقل"}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(v => !v)}
-                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
-                >
+                <Input type={showPassword ? "text" : "password"} className="h-9 text-sm bg-background pl-9" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder={editingUser ? "••••••••" : "6 أحرف على الأقل"} />
+                <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground">
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
-
             <Separator />
-
             <div>
               <Label className="text-xs mb-2 block">الدور الوظيفي</Label>
               <div className="grid grid-cols-3 gap-2">
                 {["admin", "employee", "warehouse"].map(role => (
-                  <button
-                    key={role}
-                    type="button"
-                    onClick={() => handleRoleChange(role)}
-                    className={`p-2.5 rounded-lg border text-xs font-bold transition-all ${
-                      form.role === role
-                        ? ROLE_COLORS[role]
-                        : "border-border text-muted-foreground hover:border-muted-foreground"
-                    }`}
-                  >
+                  <button key={role} type="button" onClick={() => handleRoleChange(role)} className={`p-2.5 rounded-lg border text-xs font-bold transition-all ${form.role === role ? ROLE_COLORS[role] : "border-border text-muted-foreground hover:border-muted-foreground"}`}>
                     {ROLE_LABELS[role]}
                   </button>
                 ))}
               </div>
             </div>
-
             {/* صلاحية الأرباح */}
             <div className={`rounded-xl border-2 p-3 transition-colors ${form.permissions.includes(FINANCIAL_PERMISSION.key) ? "border-amber-500/60 bg-amber-500/5" : "border-border bg-muted/10"}`}>
               <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={form.permissions.includes(FINANCIAL_PERMISSION.key)}
-                  onChange={() => togglePermission(FINANCIAL_PERMISSION.key)}
-                  className="w-4 h-4 rounded accent-amber-500 shrink-0"
-                />
+                <input type="checkbox" checked={form.permissions.includes(FINANCIAL_PERMISSION.key)} onChange={() => togglePermission(FINANCIAL_PERMISSION.key)} className="w-4 h-4 rounded accent-amber-500 shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <TrendingUp className="w-3.5 h-3.5 text-amber-500 shrink-0" />
@@ -410,16 +263,10 @@ export default function UsersPage() {
                 </div>
               </label>
             </div>
-
             {/* صلاحية المخزون */}
             <div className={`rounded-xl border-2 p-3 transition-colors ${form.permissions.includes(EDIT_INVENTORY_PERMISSION.key) ? "border-emerald-500/60 bg-emerald-500/5" : "border-border bg-muted/10"}`}>
               <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={form.permissions.includes(EDIT_INVENTORY_PERMISSION.key)}
-                  onChange={() => togglePermission(EDIT_INVENTORY_PERMISSION.key)}
-                  className="w-4 h-4 rounded accent-emerald-500 shrink-0"
-                />
+                <input type="checkbox" checked={form.permissions.includes(EDIT_INVENTORY_PERMISSION.key)} onChange={() => togglePermission(EDIT_INVENTORY_PERMISSION.key)} className="w-4 h-4 rounded accent-emerald-500 shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <Package className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
@@ -429,16 +276,10 @@ export default function UsersPage() {
                 </div>
               </label>
             </div>
-
             {/* صلاحية أداء المنتجات */}
             <div className={`rounded-xl border-2 p-3 transition-colors ${form.permissions.includes(VIEW_PRODUCT_PERF_PERMISSION.key) ? "border-blue-500/60 bg-blue-500/5" : "border-border bg-muted/10"}`}>
               <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={form.permissions.includes(VIEW_PRODUCT_PERF_PERMISSION.key)}
-                  onChange={() => togglePermission(VIEW_PRODUCT_PERF_PERMISSION.key)}
-                  className="w-4 h-4 rounded accent-blue-500 shrink-0"
-                />
+                <input type="checkbox" checked={form.permissions.includes(VIEW_PRODUCT_PERF_PERMISSION.key)} onChange={() => togglePermission(VIEW_PRODUCT_PERF_PERMISSION.key)} className="w-4 h-4 rounded accent-blue-500 shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <BarChart3 className="w-3.5 h-3.5 text-blue-500 shrink-0" />
@@ -448,39 +289,52 @@ export default function UsersPage() {
                 </div>
               </label>
             </div>
-
             {/* صلاحيات الصفحات */}
             <div>
               <Label className="text-xs mb-2 block">صلاحيات الوصول للصفحات</Label>
               <div className="grid grid-cols-2 gap-1.5">
                 {ALL_PERMISSIONS.map(p => (
                   <label key={p.key} className="flex items-center gap-2 cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      checked={form.permissions.includes(p.key)}
-                      onChange={() => togglePermission(p.key)}
-                      className="w-3.5 h-3.5 rounded accent-primary"
-                    />
+                    <input type="checkbox" checked={form.permissions.includes(p.key)} onChange={() => togglePermission(p.key)} className="w-3.5 h-3.5 rounded accent-primary" />
                     <span className="text-xs text-muted-foreground group-hover:text-foreground">{p.label}</span>
                   </label>
                 ))}
               </div>
             </div>
+            {/* ظهور الأقسام في الـ Sidebar لهذا المستخدم */}
+            <Separator />
+            <div>
+              <Label className="text-xs mb-2 flex items-center gap-1.5 text-muted-foreground">
+                <LayoutGrid className="w-3.5 h-3.5" /> ظهور الأقسام في الـ Sidebar
+              </Label>
+              <div className="space-y-1.5">
+                {SIDEBAR_SECTION_PERMISSIONS.map(p => {
+                  const active = form.permissions.includes(p.key);
+                  return (
+                    <div key={p.key} className={`rounded-lg border p-2.5 transition-colors ${active ? "border-primary/40 bg-primary/5" : "border-border bg-muted/10"}`}>
+                      <label className="flex items-center gap-2.5 cursor-pointer">
+                        <input type="checkbox" checked={active} onChange={() => togglePermission(p.key)} className="w-3.5 h-3.5 rounded accent-primary shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-foreground">{p.label}</span>
+                            <span className={`text-[9px] px-1 py-0.5 rounded-full font-bold ${active ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400" : "bg-red-500/20 text-red-600 dark:text-red-400"}`}>
+                              {active ? "ظاهر" : "مخفي"}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground">{p.desc}</p>
+                        </div>
+                      </label>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
-
           <div className="shrink-0 flex gap-2 pt-3 border-t border-border mt-1">
-            <Button
-              className="flex-1 h-10 text-sm font-bold bg-primary text-primary-foreground"
-              onClick={handleSubmit}
-              disabled={createMutation.isPending || updateMutation.isPending}
-            >
-              {createMutation.isPending || updateMutation.isPending
-                ? "جاري الحفظ..."
-                : editingUser ? "حفظ التعديلات" : "إضافة المستخدم"}
+            <Button className="flex-1 h-10 text-sm font-bold bg-primary text-primary-foreground" onClick={handleSubmit} disabled={createMutation.isPending || updateMutation.isPending}>
+              {createMutation.isPending || updateMutation.isPending ? "جاري الحفظ..." : editingUser ? "حفظ التعديلات" : "إضافة المستخدم"}
             </Button>
-            <Button variant="outline" className="h-10 text-sm border-border" onClick={() => setDialogOpen(false)}>
-              إلغاء
-            </Button>
+            <Button variant="outline" className="h-10 text-sm border-border" onClick={() => setDialogOpen(false)}>إلغاء</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -488,42 +342,20 @@ export default function UsersPage() {
       {/* ── Reset Password Dialog ── */}
       <Dialog open={resetPasswordOpen} onOpenChange={setResetPasswordOpen}>
         <DialogContent className="bg-card border-border w-[95vw] max-w-sm" dir="rtl">
-          <DialogHeader>
-            <DialogTitle>إعادة تعيين كلمة المرور</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>إعادة تعيين كلمة المرور</DialogTitle></DialogHeader>
           <div className="space-y-3 mt-2">
-            <p className="text-sm text-muted-foreground">
-              تغيير كلمة مرور: <span className="font-bold text-foreground">{resetTarget?.displayName}</span>
-            </p>
+            <p className="text-sm text-muted-foreground">تغيير كلمة مرور: <span className="font-bold text-foreground">{resetTarget?.displayName}</span></p>
             <div className="relative">
-              <Input
-                type={showPassword ? "text" : "password"}
-                className="h-9 text-sm bg-background pl-9"
-                value={newPassword}
-                onChange={e => setNewPassword(e.target.value)}
-                placeholder="كلمة المرور الجديدة (6 أحرف على الأقل)"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(v => !v)}
-                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
-              >
+              <Input type={showPassword ? "text" : "password"} className="h-9 text-sm bg-background pl-9" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="كلمة المرور الجديدة (6 أحرف على الأقل)" />
+              <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground">
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
             <div className="flex gap-2 pt-1">
-              <Button
-                className="flex-1 h-9 text-sm font-bold"
-                onClick={() => {
-                  if (resetTarget && newPassword.length >= 6) {
-                    updateMutation.mutate({ id: resetTarget.id, data: { password: newPassword } });
-                    setNewPassword("");
-                  } else {
-                    toast({ title: "خطأ", description: "كلمة المرور 6 أحرف على الأقل", variant: "destructive" });
-                  }
-                }}
-                disabled={updateMutation.isPending}
-              >
+              <Button className="flex-1 h-9 text-sm font-bold" onClick={() => {
+                if (resetTarget && newPassword.length >= 6) { updateMutation.mutate({ id: resetTarget.id, data: { password: newPassword } }); setNewPassword(""); }
+                else toast({ title: "خطأ", description: "كلمة المرور 6 أحرف على الأقل", variant: "destructive" });
+              }} disabled={updateMutation.isPending}>
                 {updateMutation.isPending ? "جاري الحفظ..." : "تغيير"}
               </Button>
               <Button variant="outline" className="h-9 text-sm" onClick={() => setResetPasswordOpen(false)}>إلغاء</Button>
@@ -532,104 +364,6 @@ export default function UsersPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ══════════════════════════════════════════════════════════
-           إعدادات النظام العامة — منفصلة تماماً عن الـ Dialog
-           تتحكم في الـ Sidebar وليس في صلاحيات يوزر بعينه
-         ══════════════════════════════════════════════════════════ */}
-      {isAdmin && (
-        <div className="mt-8 space-y-4">
-          <Separator />
-
-          {/* ── Section toggles ── */}
-          <div>
-            <Label className="text-sm font-bold mb-3 flex items-center gap-1.5">
-              <LayoutGrid className="w-4 h-4 text-primary" /> إعدادات ظهور الأقسام في الـ Sidebar
-            </Label>
-            <div className="space-y-2">
-              {[
-                { key: "showTeamPerformance", val: showTeamPerf,       icon: <UserCheck       className="w-3.5 h-3.5 text-blue-400   shrink-0" />, label: "أداء الفريق",       desc: "قسم عرض تقارير وإحصائيات أداء الفريق",                          color: "border-blue-500/50   bg-blue-500/5"   },
-                { key: "showTeamManagement",  val: showTeamMgmt,       icon: <UserCog         className="w-3.5 h-3.5 text-purple-400 shrink-0" />, label: "إدارة الفريق",      desc: "قسم إدارة أعضاء الفريق وبياناتهم",                              color: "border-purple-500/50 bg-purple-500/5" },
-                { key: "showSmartAnalytics",  val: showSmartAnalytics, icon: <Brain           className="w-3.5 h-3.5 text-emerald-400 shrink-0"/>, label: "التحليل الذكي 🧠",  desc: "قسم التحليلات الذكية المدعومة بالذكاء الاصطناعي",               color: "border-emerald-500/50 bg-emerald-500/5"},
-                { key: "showAdsAnalytics",    val: showAdsAnalytics,   icon: <Megaphone       className="w-3.5 h-3.5 text-orange-400 shrink-0" />, label: "تحليل الإعلانات",   desc: "قسم تحليل أداء الحملات الإعلانية",                              color: "border-orange-500/50 bg-orange-500/5" },
-                { key: "showExportData",      val: showExportData,     icon: <FileSpreadsheet className="w-3.5 h-3.5 text-green-400  shrink-0" />, label: "تصدير البيانات",    desc: "قسم تصدير البيانات إلى ملفات Excel والنسخ الاحتياطية",         color: "border-green-500/50  bg-green-500/5"  },
-              ].map(({ key, val, icon, label, desc, color }) => (
-                <div key={key} className={`rounded-xl border-2 p-3 transition-colors ${val ? color : "border-border bg-muted/10"}`}>
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={val}
-                      onChange={e => toggleSetting(key, e.target.checked)}
-                      className="w-4 h-4 rounded accent-primary shrink-0"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        {icon}
-                        <span className="text-xs font-bold text-foreground">{label}</span>
-                        <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${val ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400" : "bg-red-500/20 text-red-600 dark:text-red-400"}`}>
-                          {val ? "ظاهر" : "مخفي"}
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">{desc}</p>
-                    </div>
-                  </label>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* ── Team management extra ── */}
-          <div>
-            <Label className="text-xs mb-2 flex items-center gap-1.5 text-muted-foreground">
-              <UserCog className="w-3.5 h-3.5" /> إعدادات إدارة الفريق
-            </Label>
-            <div className="space-y-2">
-              <div className={`rounded-xl border-2 p-3 transition-colors ${showAddMember ? "border-primary/50 bg-primary/5" : "border-border bg-muted/10"}`}>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={showAddMember}
-                    onChange={e => toggleAddMember(e.target.checked)}
-                    className="w-4 h-4 rounded accent-primary shrink-0"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <UserPlus className="w-3.5 h-3.5 text-primary shrink-0" />
-                      <span className="text-xs font-bold text-foreground">إظهار زرار "عضو جديد" في إدارة الفريق</span>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                      {showAddMember ? "الزرار ظاهر حالياً في صفحة إدارة الفريق" : "الزرار مخفي حالياً من صفحة إدارة الفريق"}
-                    </p>
-                  </div>
-                </label>
-              </div>
-
-              <div className={`rounded-xl border-2 p-3 transition-colors ${allowBrandEdit ? "border-emerald-500/50 bg-emerald-500/5" : "border-amber-600/50 bg-amber-900/10"}`}>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={allowBrandEdit}
-                    onChange={e => toggleBrandEdit(e.target.checked)}
-                    className="w-4 h-4 rounded accent-emerald-500 shrink-0"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <Lock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                      <span className="text-xs font-bold text-foreground">السماح بتعديل بيانات العلامة التجارية</span>
-                      <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold">حساسة</span>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                      {allowBrandEdit ? "مسموح بتعديل الاسم والشعار والـ tagline" : "التعديل مقفول — لن يُسمح بالحفظ"}
-                    </p>
-                  </div>
-                </label>
-              </div>
-            </div>
-          </div>
-
-        </div>
-      )}
     </div>
   );
 }
