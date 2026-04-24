@@ -3,7 +3,7 @@ import { format } from "date-fns";
 import { arEG } from "date-fns/locale";
 import {
   ArrowDownCircle, ArrowUpCircle, BarChart3, CalendarDays,
-  Filter, Package, Plus, RotateCcw, X, TrendingDown, TrendingUp, Activity,
+  Filter, Package, Plus, RotateCcw, X, TrendingDown, TrendingUp, Activity, Printer,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { movementsApi, productsApi, type MovementType, type MovementReason, type InventoryMovement } from "@/lib/api";
@@ -141,6 +141,141 @@ export default function Movements() {
     setForm(f => ({ ...f, type: t, reason: t === "IN" ? "manual_in" : "manual_out" }));
   };
 
+  // ─── Print ────────────────────────────────────────────────────────────────
+  const handlePrint = () => {
+    const printDate = new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" });
+
+    // وصف الفلاتر النشطة
+    const activeFilters: string[] = [];
+    if (filterType !== "all")    activeFilters.push(`النوع: ${filterType === "IN" ? "دخول" : "خروج"}`);
+    if (filterReason !== "all")  activeFilters.push(`السبب: ${REASON_LABELS[filterReason as MovementReason] ?? filterReason}`);
+    if (filterProduct !== "all") {
+      const pName = products.find(p => String(p.id) === filterProduct)?.name ?? filterProduct;
+      activeFilters.push(`المنتج: ${pName}`);
+    }
+    if (dateFrom) activeFilters.push(`من: ${dateFrom}`);
+    if (dateTo)   activeFilters.push(`إلى: ${dateTo}`);
+
+    const filtersRow = activeFilters.length > 0
+      ? `<div class="filters">🔍 فلاتر مطبقة: ${activeFilters.join(" &nbsp;|&nbsp; ")}</div>`
+      : `<div class="filters">عرض: كل الحركات</div>`;
+
+    const rows = movements.map(m => {
+      const isIn = m.type === "IN";
+      const dateStr = format(new Date(m.createdAt), "yyyy/MM/dd HH:mm", { locale: arEG });
+      return `
+        <tr>
+          <td>${dateStr}</td>
+          <td style="text-align:center;font-weight:bold;color:${isIn ? "#16a34a" : "#dc2626"}">${isIn ? "⬆ دخول" : "⬇ خروج"}</td>
+          <td style="font-weight:600">${m.product}</td>
+          <td style="text-align:center">${[m.color, m.size].filter(Boolean).join(" / ") || "—"}</td>
+          <td style="text-align:center;font-weight:bold;color:${isIn ? "#16a34a" : "#dc2626"}">${isIn ? "+" : "-"}${m.quantity}</td>
+          <td style="text-align:center">${REASON_LABELS[m.reason] ?? m.reason}</td>
+          <td style="text-align:center">${m.orderId ? `#${String(m.orderId).padStart(4, "0")}` : "—"}</td>
+          <td style="color:#6b7280">${m.notes ?? "—"}</td>
+        </tr>`;
+    }).join("");
+
+    const win = window.open("", "_blank", "width=1000,height=750");
+    if (!win) return;
+    win.document.write(`<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8"/>
+  <title>حركات المخزون</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Segoe UI',Tahoma,Arial,sans-serif; padding:24px; color:#111; font-size:12px; }
+
+    /* ── Header ── */
+    .header { display:flex; justify-content:space-between; align-items:flex-start;
+              border-bottom:3px solid #1a1a2e; padding-bottom:14px; margin-bottom:14px; }
+    .header h1 { font-size:20px; font-weight:900; color:#1a1a2e; }
+    .header .meta { text-align:left; font-size:11px; color:#6b7280; }
+
+    /* ── Filters pill ── */
+    .filters { background:#f3f4f6; border:1px solid #e5e7eb; border-radius:6px;
+               padding:7px 12px; font-size:11px; color:#374151; margin-bottom:14px; }
+
+    /* ── KPIs ── */
+    .kpis { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:16px; }
+    .kpi { border:1px solid #e5e7eb; border-radius:8px; padding:10px 14px; text-align:center; }
+    .kpi .val { font-size:22px; font-weight:900; }
+    .kpi .lbl { font-size:10px; color:#6b7280; margin-top:2px; }
+    .kpi.in  { border-color:#86efac; background:#f0fdf4; }
+    .kpi.out { border-color:#fca5a5; background:#fef2f2; }
+    .kpi.bal { border-color:#93c5fd; background:#eff6ff; }
+
+    /* ── Table ── */
+    table { width:100%; border-collapse:collapse; }
+    thead tr { background:#1a1a2e; }
+    thead th { color:#fff; font-size:11px; padding:8px 10px; text-align:right; font-weight:700; }
+    tbody td { padding:7px 10px; font-size:11px; border-bottom:1px solid #f3f4f6; }
+    tbody tr:nth-child(even) td { background:#f9fafb; }
+    tbody tr:last-child td { border-bottom:none; }
+
+    /* ── Footer ── */
+    .footer { margin-top:18px; font-size:10px; color:#9ca3af; text-align:center;
+              border-top:1px solid #e5e7eb; padding-top:10px; }
+
+    @media print {
+      body { padding:10px; }
+      .no-print { display:none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1>📦 تقرير حركات المخزون</h1>
+      <p style="font-size:11px;color:#6b7280;margin-top:4px">كابرينا — نظام إدارة المخزون</p>
+    </div>
+    <div class="meta">
+      <div>تاريخ الطباعة: ${printDate}</div>
+      <div style="margin-top:4px">إجمالي السجلات: <strong>${movements.length} حركة</strong></div>
+    </div>
+  </div>
+
+  ${filtersRow}
+
+  <div class="kpis">
+    <div class="kpi in">
+      <div class="val" style="color:#16a34a">+${formatNum(totals?.totalIn ?? 0)}</div>
+      <div class="lbl">إجمالي الداخل</div>
+    </div>
+    <div class="kpi out">
+      <div class="val" style="color:#dc2626">-${formatNum(totals?.totalOut ?? 0)}</div>
+      <div class="lbl">إجمالي الخارج</div>
+    </div>
+    <div class="kpi bal">
+      <div class="val" style="color:${(totals?.balance ?? 0) >= 0 ? "#2563eb" : "#ea580c"}">${formatNum(totals?.balance ?? 0)}</div>
+      <div class="lbl">الرصيد الصافي</div>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>التاريخ والوقت</th>
+        <th style="text-align:center">النوع</th>
+        <th>المنتج</th>
+        <th style="text-align:center">اللون / المقاس</th>
+        <th style="text-align:center">الكمية</th>
+        <th style="text-align:center">السبب</th>
+        <th style="text-align:center">رقم الطلب</th>
+        <th>ملاحظات</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>
+
+  <div class="footer">كابرينا — تقرير حركات المخزون | ${printDate}</div>
+  <script>window.onload = () => { window.print(); }</script>
+</body>
+</html>`);
+    win.document.close();
+  };
+
   return (
     <div className="space-y-5 animate-in fade-in duration-500">
       {/* Header */}
@@ -152,9 +287,22 @@ export default function Movements() {
           </h1>
           <p className="text-muted-foreground text-sm mt-0.5">سجل كامل لكل دخول وخروج في المخزن</p>
         </div>
-        <Button className="gap-2 bg-primary text-primary-foreground font-bold text-sm" onClick={() => setShowDialog(true)}>
-          <Plus className="w-4 h-4" />حركة يدوية
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            className="gap-2 text-sm font-bold h-9"
+            onClick={handlePrint}
+            disabled={movements.length === 0}
+            title="طباعة الحركات الظاهرة حالياً"
+          >
+            <Printer className="w-4 h-4" />
+            <span className="hidden sm:inline">طباعة</span>
+            {hasFilter && <span className="text-[9px] bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 font-bold">مفلترة</span>}
+          </Button>
+          <Button className="gap-2 bg-primary text-primary-foreground font-bold text-sm" onClick={() => setShowDialog(true)}>
+            <Plus className="w-4 h-4" />حركة يدوية
+          </Button>
+        </div>
       </div>
 
       {/* KPI Cards */}
