@@ -65,11 +65,14 @@ export default function Layout({ children }: LayoutProps) {
   // useMemo يعتمد على can اللي بيتغير مع user — فـ visibleNav بيتحدث تلقائياً
   const visibleNav = useMemo(() => {
     return ALL_NAV.filter((item) => {
+      // لازم يكون عنده وصول للصفحة
       if (!can(item.permission)) return false;
-      if (item.section && !can(item.section)) return false;
+      // لو فيه section — يظهر لو section مفعّل
+      // لو مفيش section — يظهر بناءً على الوصول بس
+      if (item.section) return can(item.section);
       return true;
     });
-  }, [can]); // can بيتغير لما user.permissions تتغير
+  }, [can]);
 
   const handleChangePassword = async () => {
     if (!currentPw || newPw.length < 6) {
