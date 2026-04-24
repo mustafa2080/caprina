@@ -43,7 +43,8 @@ const VIEW_PRODUCT_PERF_PERMISSION = { key: "view_product_performance", label: "
 
 // صلاحيات ظهور الأقسام في الـ Sidebar — per-user
 const SIDEBAR_SECTION_PERMISSIONS = [
-  // ── التحليلات ──
+  // ── عام ──
+  { key: "section_dashboard",        label: "لوحة التحكم",       desc: "الصفحة الرئيسية ولوحة التحكم"                              },
   { key: "section_product_performance", label: "أداء المنتجات",      desc: "قسم تحليل أداء وأرباح كل منتج"                              },
   { key: "section_team_performance",    label: "أداء الفريق",        desc: "قسم عرض تقارير وإحصائيات أداء الفريق"                      },
   { key: "section_team_management",     label: "إدارة الفريق",       desc: "قسم إدارة أعضاء الفريق وبياناتهم"                          },
@@ -370,6 +371,7 @@ export default function UsersPage() {
                 <LayoutGrid className="w-3.5 h-3.5" /> ظهور الأقسام في الـ Sidebar
               </Label>
               {[
+                { group: "🏠 عام",        keys: ["section_dashboard"] },
                 { group: "📊 التحليلات", keys: ["section_product_performance","section_team_performance","section_team_management","section_smart_analytics","section_ads_analytics"] },
                 { group: "📦 الطلبات",   keys: ["section_orders","section_new_order","section_archive","section_shipping_followup","section_whatsapp"] },
                 { group: "🏪 المخزون",   keys: ["section_inventory","section_warehouses","section_movements"] },
