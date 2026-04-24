@@ -13,7 +13,7 @@ import {
   GetOrdersSummaryResponse,
   GetRecentOrdersResponse,
 } from "@workspace/api-zod";
-import { processDelivery, reverseDelivery, processReturn } from "../lib/inventory.js";
+import { processDelivery, reverseDelivery, processReturn, processToShipping, reverseShipping } from "../lib/inventory.js";
 import { logAudit, diffObjects } from "../lib/audit.js";
 import { isAdmin } from "../middlewares/requireRole.js";
 
@@ -257,31 +257,110 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
       size: order.size ?? existing.size,
     };
 
-    if (newStatus === "received") {
-      if (oldStatus === "partial_received") {
-        const alreadyDeducted = existing.partialQuantity ?? 0;
-        const remainder = order.quantity - alreadyDeducted;
-        if (remainder > 0) await processDelivery(orderRef, remainder, "sale", existing.id);
-      } else if (oldStatus !== "received") {
-        await processDelivery(orderRef, order.quantity, "sale", existing.id);
-      }
-    } else if (newStatus === "partial_received") {
+    // ══════════════════════════════════════════════════════════════════════
+    // منطق المخزن:
+    //   pending       = الطلب في المخزن (لم يُخصم بعد)
+    //   in_shipping   = الطلب عند شركة الشحن (خُصم من المخزن بـ to_shipping)
+    //   received      = سُلِّم للعميل (الخصم اتعمل قبل كده عند الشحن)
+    //   returned      = مرتجع للمخزن
+    // ══════════════════════════════════════════════════════════════════════
+
+    // ── pending → in_shipping: خصم من المخزن وتحويل لشركة الشحن ──────────
+    if (newStatus === "in_shipping" && oldStatus === "pending") {
+      await processToShipping(orderRef, order.quantity, existing.id);
+    }
+
+    // ── pending/delayed → in_shipping من غير manifest: نفس الخصم ──────────
+    else if (newStatus === "in_shipping" && oldStatus === "delayed") {
+      await processToShipping(orderRef, order.quantity, existing.id);
+    }
+
+    // ── in_shipping → received: البضاعة وصلت للعميل ──────────────────────
+    // الكمية اتخصمت من المخزن قبل كده بـ processToShipping
+    // هنا بنسجل البيع بس في حركة المخزن (OUT/sale) بدون خصم إضافي
+    else if (newStatus === "received" && oldStatus === "in_shipping") {
+      // نسجل حركة البيع فقط — الخصم الفعلي اتعمل عند processToShipping
+      await processDelivery(orderRef, order.quantity, "sale", existing.id);
+      // نعمل reverse للـ to_shipping عشان الرصيد يفضل صح
+      // (processToShipping خصم → processDelivery خصم مرة تانية → reverseShipping يرجع واحدة)
+      await reverseShipping(orderRef, order.quantity, existing.id);
+    }
+
+    // ── pending/delayed → received مباشرة (بدون مرحلة شحن) ──────────────
+    else if (newStatus === "received" && (oldStatus === "pending" || oldStatus === "delayed")) {
+      await processDelivery(orderRef, order.quantity, "sale", existing.id);
+    }
+
+    // ── partial_received → received: تسليم باقي الكمية ───────────────────
+    else if (newStatus === "received" && oldStatus === "partial_received") {
+      const alreadyDeducted = existing.partialQuantity ?? 0;
+      const remainder = order.quantity - alreadyDeducted;
+      if (remainder > 0) await processDelivery(orderRef, remainder, "sale", existing.id);
+    }
+
+    // ── in_shipping → partial_received ────────────────────────────────────
+    // الكمية الكلية اتخصمت بـ to_shipping
+    // نرجع الكمية الكلية ونخصم الجزء المسلَّم فعلاً
+    else if (newStatus === "partial_received" && oldStatus === "in_shipping") {
+      const newPartial = parsed.data.partialQuantity ?? 0;
+      await reverseShipping(orderRef, order.quantity, existing.id);
+      if (newPartial > 0) await processDelivery(orderRef, newPartial, "partial_sale", existing.id);
+    }
+
+    // ── any → partial_received (من pending/delayed) ───────────────────────
+    else if (newStatus === "partial_received") {
       const newPartial = parsed.data.partialQuantity ?? 0;
       const oldPartial = (oldStatus === "partial_received" ? existing.partialQuantity : 0) ?? 0;
       const delta = newPartial - oldPartial;
       if (delta > 0) await processDelivery(orderRef, delta, "partial_sale", existing.id);
       else if (delta < 0) await reverseDelivery(orderRef, Math.abs(delta), existing.id);
-    } else if (newStatus === "returned") {
-      const wasFullyReceived = oldStatus === "received";
-      const wasPartiallyReceived = oldStatus === "partial_received";
-      const returnQty = wasPartiallyReceived ? (existing.partialQuantity ?? order.quantity) : order.quantity;
-      await processReturn({ ...orderRef, quantity: returnQty }, wasFullyReceived || wasPartiallyReceived, isDamaged, existing.id);
-    } else {
-      if (oldStatus === "received") await reverseDelivery(orderRef, order.quantity, existing.id);
-      else if (oldStatus === "partial_received") {
-        const deducted = existing.partialQuantity ?? 0;
-        if (deducted > 0) await reverseDelivery(orderRef, deducted, existing.id);
-      }
+    }
+
+    // ── in_shipping → returned: مرتجع من شركة الشحن ─────────────────────
+    else if (newStatus === "returned" && oldStatus === "in_shipping") {
+      // كانت عند الشحن (خُصمت بـ to_shipping) — نرجعها للمخزن
+      await reverseShipping(orderRef, order.quantity, existing.id);
+    }
+
+    // ── received/partial_received → returned ──────────────────────────────
+    else if (newStatus === "returned" && (oldStatus === "received" || oldStatus === "partial_received")) {
+      const wasPartially = oldStatus === "partial_received";
+      const returnQty = wasPartially
+        ? (existing.partialQuantity ?? order.quantity)
+        : order.quantity;
+      await processReturn(
+        { ...orderRef, quantity: returnQty },
+        true, // كانت مستلَمة فعلاً
+        isDamaged,
+        existing.id,
+      );
+    }
+
+    // ── pending/delayed → returned ────────────────────────────────────────
+    else if (newStatus === "returned") {
+      // لم تخصم من المخزن أصلاً — مجرد تسجيل
+      await processReturn(
+        { ...orderRef, quantity: order.quantity },
+        false, // لم تُسلَّم
+        isDamaged,
+        existing.id,
+      );
+    }
+
+    // ── in_shipping → pending/delayed (إلغاء الشحن) ───────────────────────
+    else if (oldStatus === "in_shipping" && (newStatus === "pending" || newStatus === "delayed")) {
+      await reverseShipping(orderRef, order.quantity, existing.id);
+    }
+
+    // ── received → other (تراجع عن التسليم) ──────────────────────────────
+    else if (oldStatus === "received") {
+      await reverseDelivery(orderRef, order.quantity, existing.id);
+    }
+
+    // ── partial_received → other (تراجع عن التسليم الجزئي) ───────────────
+    else if (oldStatus === "partial_received") {
+      const deducted = existing.partialQuantity ?? 0;
+      if (deducted > 0) await reverseDelivery(orderRef, deducted, existing.id);
     }
   }
 
