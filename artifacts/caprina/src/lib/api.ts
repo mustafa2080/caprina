@@ -546,37 +546,6 @@ export interface MovementTotals {
   balance: number;
 }
 
-export const movementsApi = {
-  list: (filters?: MovementFilters) => {
-    const q = new URLSearchParams();
-    if (filters?.type)       q.set("type", filters.type);
-    if (filters?.reason)     q.set("reason", filters.reason);
-    if (filters?.productId)  q.set("productId", String(filters.productId));
-    if (filters?.warehouseId) q.set("warehouseId", String(filters.warehouseId));
-    if (filters?.dateFrom)   q.set("dateFrom", filters.dateFrom);
-    if (filters?.dateTo)     q.set("dateTo", filters.dateTo);
-    const qs = q.toString();
-    return apiFetch<InventoryMovement[]>(`/inventory/movements${qs ? `?${qs}` : ""}`);
-  },
-  totals: (filters?: MovementFilters) => {
-    const q = new URLSearchParams();
-    if (filters?.type)       q.set("type", filters.type);
-    if (filters?.reason)     q.set("reason", filters.reason);
-    if (filters?.productId)  q.set("productId", String(filters.productId));
-    if (filters?.warehouseId) q.set("warehouseId", String(filters.warehouseId));
-    if (filters?.dateFrom)   q.set("dateFrom", filters.dateFrom);
-    if (filters?.dateTo)     q.set("dateTo", filters.dateTo);
-    const qs = q.toString();
-    return apiFetch<MovementTotals>(`/inventory/movements/totals${qs ? `?${qs}` : ""}`);
-  },
-  create: (data: { product: string; color?: string | null; size?: string | null; quantity: number; type: MovementType; reason: MovementReason; notes?: string | null; productId?: number | null; variantId?: number | null; warehouseId?: number | null }) =>
-    apiFetch<InventoryMovement>("/inventory/movements", { method: "POST", body: JSON.stringify(data) }),
-  update: (id: number, data: { product: string; color?: string | null; size?: string | null; quantity: number; type: MovementType; reason: MovementReason; notes?: string | null; warehouseId?: number | null }) =>
-    apiFetch<InventoryMovement>(`/inventory/movements/${id}`, { method: "PUT", body: JSON.stringify(data) }),
-  delete: (id: number) =>
-    apiFetch<void>(`/inventory/movements/${id}`, { method: "DELETE" }),
-};
-
 // ─── Shipping Manifests API ─────────────────────────────────────────────────
 export type DeliveryStatus = "pending" | "delivered" | "postponed" | "partial_received" | "returned";
 
