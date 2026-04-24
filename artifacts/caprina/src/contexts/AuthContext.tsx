@@ -173,26 +173,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   // ─── can() ─────────────────────────────────────────────────────────────────
-  // صلاحيات الأقسام (section_*) دايمًا per-user حتى للأدمن
-  // باقي الصلاحيات: الأدمن يملك كلها تلقائيًا
+  // الأدمن يملك كل الصلاحيات دايماً بدون استثناء (مياثرش تعديل الـ permissions عليه)
+  // باقي اليوزرين: بيتحكم فيهم الـ permissions الـ per-user
   const can = (permission: string): boolean => {
     if (!user) return false;
+    // الأدمن دايماً يشوف كل حاجة — مش بيتأثر بأي تعديل في الـ permissions
+    if (user.role === "admin") return true;
     const perms: string[] = Array.isArray(user.permissions) ? user.permissions : [];
     if (perms.includes("*")) return true;
-    // section_* صلاحيات per-user
-    // لو الأدمن مش عنده أي section_* في الـ DB، نديله كلها تلقائياً (backward compat)
-    if (permission.startsWith("section_")) {
-      if (user.role === "admin") {
-        // لو الأدمن عنده section permissions محددة — نستخدمها
-        // لو مش عنده أي section permissions خالص — نديله كلها تلقائياً
-        const hasSomeSection = perms.some(p => p.startsWith("section_"));
-        if (!hasSomeSection) return true; // default: كل الأقسام ظاهرة للأدمن
-        return perms.includes(permission);
-      }
-      return perms.includes(permission);
-    }
-    // الأدمن يملك كل الصلاحيات العادية تلقائيًا
-    if (user.role === "admin") return true;
     return perms.includes(permission);
   };
 

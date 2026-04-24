@@ -146,12 +146,15 @@ export default function UsersPage() {
     if (!form.displayName.trim()) { toast({ title: "خطأ", description: "الاسم مطلوب", variant: "destructive" }); return; }
     if (editingUser) {
       const data: any = { displayName: form.displayName, role: form.role, permissions: form.permissions };
+      // الأدمن مياثرش تعديل الـ permissions عليه — بيشوف كل حاجة دايماً
+      if (form.role === "admin") delete data.permissions;
       if (form.password) data.password = form.password;
       updateMutation.mutate({ id: editingUser.id, data });
     } else {
       if (!form.username.trim()) { toast({ title: "خطأ", description: "اسم المستخدم مطلوب", variant: "destructive" }); return; }
       if (form.password.length < 6) { toast({ title: "خطأ", description: "كلمة المرور 6 أحرف على الأقل", variant: "destructive" }); return; }
-      createMutation.mutate({ username: form.username.trim(), password: form.password, displayName: form.displayName.trim(), role: form.role, permissions: form.permissions });
+      const permissions = form.role === "admin" ? [] : form.permissions;
+      createMutation.mutate({ username: form.username.trim(), password: form.password, displayName: form.displayName.trim(), role: form.role, permissions });
     }
   };
 
