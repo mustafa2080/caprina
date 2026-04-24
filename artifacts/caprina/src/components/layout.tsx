@@ -17,28 +17,30 @@ interface LayoutProps {
   children: React.ReactNode;
 }
 
+// permission = صلاحية الوصول للصفحة (هل الرول عنده حق يدخلها)
+// section   = صلاحية ظهور القسم في الـ sidebar (per-user toggle)
 const ALL_NAV = [
-  { href: "/", label: "لوحة التحكم", icon: LayoutDashboard, exact: true, permission: "dashboard" },
-  { href: "/product-performance", label: "أداء المنتجات", icon: BarChart3, permission: "view_product_performance" },
-  { href: "/team-performance", label: "أداء الفريق", icon: UserCheck, permission: "analytics" },
-  { href: "/team", label: "إدارة الفريق", icon: UserCog, permission: "analytics" },
-  { href: "/smart", label: "التحليل الذكي 🧠", icon: Brain, permission: "analytics" },
-  { href: "/ads-analytics", label: "تحليل الإعلانات", icon: Megaphone, permission: "analytics" },
-  { href: "/orders", label: "الطلبات", icon: Package, permission: "orders" },
-  { href: "/orders/new", label: "طلب جديد", icon: Plus, permission: "orders" },
-  { href: "/archive", label: "الأرشيف 🗂️", icon: Archive, permission: "orders" },
-  { href: "/shipping-followup", label: "متابعة الشحن ⏱️", icon: Clock, permission: "orders" },
-  { href: "/whatsapp", label: "إعدادات واتساب", icon: MessageCircle, permission: "whatsapp" },
-  { href: "/inventory", label: "المخزون", icon: Boxes, permission: "inventory" },
-  { href: "/warehouses", label: "المخازن", icon: Warehouse, permission: "inventory" },
-  { href: "/movements", label: "حركات المخزون", icon: Activity, permission: "movements" },
-  { href: "/shipping", label: "شركات الشحن", icon: Truck, permission: "shipping" },
-  { href: "/invoices", label: "الفواتير", icon: FileText, permission: "invoices" },
-  { href: "/import", label: "استيراد Excel", icon: Upload, permission: "import" },
-  { href: "/export", label: "تصدير البيانات", icon: Download, permission: "import" },
-  { href: "/users", label: "إدارة المستخدمين", icon: Users, permission: "users" },
-  { href: "/sessions-report", label: "تقرير الجلسات", icon: Clock, permission: "users" },
-  { href: "/audit-logs", label: "سجل التعديلات", icon: Shield, permission: "audit" },
+  { href: "/",                  label: "لوحة التحكم",        icon: LayoutDashboard, exact: true, permission: "dashboard",              section: "section_dashboard"         },
+  { href: "/product-performance",label: "أداء المنتجات",     icon: BarChart3,                   permission: "view_product_performance",section: "section_product_performance"},
+  { href: "/team-performance",  label: "أداء الفريق",        icon: UserCheck,                   permission: "analytics",               section: "section_team_performance"  },
+  { href: "/team",              label: "إدارة الفريق",       icon: UserCog,                     permission: "analytics",               section: "section_team_management"   },
+  { href: "/smart",             label: "التحليل الذكي 🧠",   icon: Brain,                       permission: "analytics",               section: "section_smart_analytics"   },
+  { href: "/ads-analytics",     label: "تحليل الإعلانات",    icon: Megaphone,                   permission: "analytics",               section: "section_ads_analytics"     },
+  { href: "/orders",            label: "الطلبات",             icon: Package,                     permission: "orders",                  section: "section_orders"            },
+  { href: "/orders/new",        label: "طلب جديد",            icon: Plus,                        permission: "orders",                  section: "section_new_order"         },
+  { href: "/archive",           label: "الأرشيف 🗂️",         icon: Archive,                     permission: "orders",                  section: "section_archive"           },
+  { href: "/shipping-followup", label: "متابعة الشحن ⏱️",    icon: Clock,                       permission: "orders",                  section: "section_shipping_followup" },
+  { href: "/whatsapp",          label: "إعدادات واتساب",     icon: MessageCircle,               permission: "whatsapp",                section: "section_whatsapp"          },
+  { href: "/inventory",         label: "المخزون",             icon: Boxes,                       permission: "inventory",               section: "section_inventory"         },
+  { href: "/warehouses",        label: "المخازن",             icon: Warehouse,                   permission: "inventory",               section: "section_warehouses"        },
+  { href: "/movements",         label: "حركات المخزون",       icon: Activity,                    permission: "movements",               section: "section_movements"         },
+  { href: "/shipping",          label: "شركات الشحن",         icon: Truck,                       permission: "shipping",                section: "section_shipping"          },
+  { href: "/invoices",          label: "الفواتير",             icon: FileText,                    permission: "invoices",                section: "section_invoices"          },
+  { href: "/import",            label: "استيراد Excel",       icon: Upload,                      permission: "import",                  section: "section_import"            },
+  { href: "/export",            label: "تصدير البيانات",      icon: Download,                    permission: "import",                  section: "section_export_data"       },
+  { href: "/users",             label: "إدارة المستخدمين",   icon: Users,                       permission: "users",                   section: "section_users"             },
+  { href: "/sessions-report",   label: "تقرير الجلسات",       icon: Clock,                       permission: "users",                   section: "section_sessions_report"   },
+  { href: "/audit-logs",        label: "سجل التعديلات",       icon: Shield,                      permission: "audit",                   section: "section_audit"             },
 ];
 
 const ROLE_LABELS: Record<string, string> = {
@@ -60,13 +62,12 @@ export default function Layout({ children }: LayoutProps) {
 
   // ─── Sidebar sections visibility — controlled per-user via permissions ───
   const visibleNav = ALL_NAV.filter(item => {
+    // أولاً: لازم يكون عنده صلاحية الوصول للصفحة
     if (!can(item.permission)) return false;
-    // Hide sections based on per-user section permissions
-    if (item.href === "/team-performance" && !can("section_team_performance")) return false;
-    if (item.href === "/team"             && !can("section_team_management"))  return false;
-    if (item.href === "/smart"            && !can("section_smart_analytics"))  return false;
-    if (item.href === "/ads-analytics"    && !can("section_ads_analytics"))    return false;
-    if (item.href === "/export"           && !can("section_export_data"))      return false;
+    // ثانياً: لو في section permission محددة لهذا العنصر، نتحقق منها (عدا لوحة التحكم دايمًا تظهر)
+    if (item.section && item.section !== "section_dashboard") {
+      if (!can(item.section)) return false;
+    }
     return true;
   });
 
