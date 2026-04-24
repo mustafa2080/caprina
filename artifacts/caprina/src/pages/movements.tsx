@@ -3,7 +3,7 @@ import { format } from "date-fns";
 import { arEG } from "date-fns/locale";
 import {
   ArrowDownCircle, ArrowUpCircle, BarChart3, CalendarDays,
-  Filter, Package, Plus, RotateCcw, X, TrendingDown, TrendingUp, Activity, Printer, Pencil, Trash2,
+  Filter, Package, Plus, X, TrendingDown, TrendingUp, Activity, Printer, Pencil,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { movementsApi, productsApi, warehousesApi, type MovementType, type MovementReason, type InventoryMovement } from "@/lib/api";
@@ -17,11 +17,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel,
-  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
-  AlertDialogHeader, AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 
 // ─── Label helpers ────────────────────────────────────────────────────────────
 
@@ -32,6 +27,9 @@ const REASON_LABELS: Record<MovementReason, string> = {
   manual_in:    "إضافة يدوية",
   manual_out:   "خصم يدوي",
   adjustment:   "تسوية",
+  to_shipping:  "تحويل لشركة الشحن",
+  from_shipping:"إرجاع من شركة الشحن",
+  damaged:      "تالف",
 };
 
 const REASON_COLORS: Record<MovementReason, string> = {
@@ -41,6 +39,9 @@ const REASON_COLORS: Record<MovementReason, string> = {
   manual_in:    "bg-sky-100 text-sky-700 border-sky-300 dark:bg-sky-900/30 dark:text-sky-400 dark:border-sky-800",
   manual_out:   "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800",
   adjustment:   "bg-muted text-muted-foreground border-border",
+  to_shipping:  "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800",
+  from_shipping:"bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-900/30 dark:text-teal-400 dark:border-teal-800",
+  damaged:      "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800",
 };
 
 const formatQty = (type: MovementType, qty: number) =>
@@ -62,10 +63,9 @@ export default function Movements() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
-  // Manual movement dialog
+  // Dialogs
   const [showDialog, setShowDialog] = useState(false);
   const [editingMovement, setEditingMovement] = useState<InventoryMovement | null>(null);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [form, setForm] = useState({
     product: "",
     color: "",
@@ -131,34 +131,23 @@ export default function Movements() {
     onError: () => toast({ title: "خطأ", description: "فشل تعديل الحركة.", variant: "destructive" }),
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: movementsApi.delete,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["movements"] });
-      queryClient.invalidateQueries({ queryKey: ["movements-totals"] });
-      setDeletingId(null);
-      toast({ title: "تم الحذف", description: "تم حذف الحركة بنجاح." });
-    },
-    onError: () => toast({ title: "خطأ", description: "فشل حذف الحركة.", variant: "destructive" }),
+  const resetForm = () => setForm({
+    product: "", color: "", size: "", quantity: "1",
+    type: "IN", reason: "manual_in", notes: "",
+    productId: "", variantId: "", warehouseId: "",
   });
-
-  const resetForm = () => setForm({ product: "", color: "", size: "", quantity: "1", type: "IN", reason: "manual_in", notes: "", productId: "", variantId: "", warehouseId: "" });
 
   const hasFilter = filterType !== "all" || filterReason !== "all" || filterProduct !== "all" || dateFrom || dateTo;
 
   const clearFilters = () => {
-    setFilterType("all");
-    setFilterReason("all");
-    setFilterProduct("all");
-    setDateFrom("");
-    setDateTo("");
+    setFilterType("all"); setFilterReason("all");
+    setFilterProduct("all"); setDateFrom(""); setDateTo("");
   };
 
   const handleCreate = () => {
     if (!form.product.trim()) { toast({ title: "خطأ", description: "أدخل اسم المنتج.", variant: "destructive" }); return; }
     const qty = parseInt(form.quantity);
     if (!qty || qty < 1) { toast({ title: "خطأ", description: "أدخل كمية صحيحة.", variant: "destructive" }); return; }
-
     createMutation.mutate({
       product: form.product.trim(),
       color: form.color.trim() || null,
@@ -173,7 +162,6 @@ export default function Movements() {
     });
   };
 
-  // Auto-set reason when type changes
   const handleTypeChange = (t: MovementType) => {
     setForm(f => ({ ...f, type: t, reason: t === "IN" ? "manual_in" : "manual_out" }));
   };
@@ -181,12 +169,8 @@ export default function Movements() {
   const openEdit = (m: InventoryMovement) => {
     setEditingMovement(m);
     setForm({
-      product: m.product,
-      color: m.color ?? "",
-      size: m.size ?? "",
-      quantity: String(m.quantity),
-      type: m.type,
-      reason: m.reason,
+      product: m.product, color: m.color ?? "", size: m.size ?? "",
+      quantity: String(m.quantity), type: m.type, reason: m.reason,
       notes: m.notes ?? "",
       productId: m.productId ? String(m.productId) : "",
       variantId: m.variantId ? String(m.variantId) : "",
@@ -199,12 +183,9 @@ export default function Movements() {
     const qty = parseInt(form.quantity);
     if (!qty || qty < 1) { toast({ title: "خطأ", description: "أدخل كمية صحيحة.", variant: "destructive" }); return; }
     const payload = {
-      product: form.product.trim(),
-      color: form.color.trim() || null,
-      size: form.size.trim() || null,
-      quantity: qty,
-      type: form.type,
-      reason: form.reason,
+      product: form.product.trim(), color: form.color.trim() || null,
+      size: form.size.trim() || null, quantity: qty,
+      type: form.type, reason: form.reason,
       notes: form.notes.trim() || null,
       warehouseId: form.warehouseId ? parseInt(form.warehouseId) : null,
     };
@@ -215,11 +196,8 @@ export default function Movements() {
     }
   };
 
-  // ─── Print ────────────────────────────────────────────────────────────────
   const handlePrint = () => {
     const printDate = new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" });
-
-    // وصف الفلاتر النشطة
     const activeFilters: string[] = [];
     if (filterType !== "all")    activeFilters.push(`النوع: ${filterType === "IN" ? "دخول" : "خروج"}`);
     if (filterReason !== "all")  activeFilters.push(`السبب: ${REASON_LABELS[filterReason as MovementReason] ?? filterReason}`);
@@ -229,150 +207,66 @@ export default function Movements() {
     }
     if (dateFrom) activeFilters.push(`من: ${dateFrom}`);
     if (dateTo)   activeFilters.push(`إلى: ${dateTo}`);
-
     const filtersRow = activeFilters.length > 0
       ? `<div class="filters">🔍 فلاتر مطبقة: ${activeFilters.join(" &nbsp;|&nbsp; ")}</div>`
       : `<div class="filters">عرض: كل الحركات</div>`;
-
     const rows = movements.map(m => {
       const isIn = m.type === "IN";
       const dateStr = format(new Date(m.createdAt), "yyyy/MM/dd HH:mm", { locale: arEG });
-      return `
-        <tr>
-          <td>${dateStr}</td>
-          <td style="text-align:center;font-weight:bold;color:${isIn ? "#16a34a" : "#dc2626"}">${isIn ? "⬆ دخول" : "⬇ خروج"}</td>
-          <td style="font-weight:600">${m.product}</td>
-          <td style="text-align:center">${[m.color, m.size].filter(Boolean).join(" / ") || "—"}</td>
-          <td style="text-align:center;font-weight:bold;color:${isIn ? "#16a34a" : "#dc2626"}">${isIn ? "+" : "-"}${m.quantity}</td>
-          <td style="text-align:center">${REASON_LABELS[m.reason] ?? m.reason}</td>
-          <td style="text-align:center">${m.orderId ? `#${String(m.orderId).padStart(4, "0")}` : "—"}</td>
-          <td style="text-align:center">${(m as any).warehouseName ?? "—"}</td>
-          <td style="color:#6b7280">${m.notes ?? "—"}</td>
-        </tr>`;
+      return `<tr>
+        <td>${dateStr}</td>
+        <td style="text-align:center;font-weight:bold;color:${isIn ? "#16a34a" : "#dc2626"}">${isIn ? "⬆ دخول" : "⬇ خروج"}</td>
+        <td style="font-weight:600">${m.product}</td>
+        <td style="text-align:center">${[m.color, m.size].filter(Boolean).join(" / ") || "—"}</td>
+        <td style="text-align:center;font-weight:bold;color:${isIn ? "#16a34a" : "#dc2626"}">${isIn ? "+" : "-"}${m.quantity}</td>
+        <td style="text-align:center">${REASON_LABELS[m.reason] ?? m.reason}</td>
+        <td style="text-align:center">${m.orderId ? `#${String(m.orderId).padStart(4, "0")}` : "—"}</td>
+        <td style="text-align:center">${(m as any).warehouseName ?? "—"}</td>
+        <td style="color:#6b7280">${m.notes ?? "—"}</td>
+      </tr>`;
     }).join("");
-
     const win = window.open("", "_blank", "width=1000,height=750");
     if (!win) return;
-    win.document.write(`<!DOCTYPE html>
-<html dir="rtl" lang="ar">
-<head>
-  <meta charset="UTF-8"/>
-  <title>حركات المخزون</title>
-  <style>
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family:'Segoe UI',Tahoma,Arial,sans-serif; padding:24px; color:#111; font-size:12px; }
-
-    /* ── Header ── */
-    .header { display:flex; justify-content:space-between; align-items:flex-start;
-              border-bottom:3px solid #1a1a2e; padding-bottom:14px; margin-bottom:14px; }
-    .header h1 { font-size:20px; font-weight:900; color:#1a1a2e; }
-    .header .meta { text-align:left; font-size:11px; color:#6b7280; }
-
-    /* ── Filters pill ── */
-    .filters { background:#f3f4f6; border:1px solid #e5e7eb; border-radius:6px;
-               padding:7px 12px; font-size:11px; color:#374151; margin-bottom:14px; }
-
-    /* ── KPIs ── */
-    .kpis { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:16px; }
-    .kpi { border:1px solid #e5e7eb; border-radius:8px; padding:10px 14px; text-align:center; }
-    .kpi .val { font-size:22px; font-weight:900; }
-    .kpi .lbl { font-size:10px; color:#6b7280; margin-top:2px; }
-    .kpi.in  { border-color:#86efac; background:#f0fdf4; }
-    .kpi.out { border-color:#fca5a5; background:#fef2f2; }
-    .kpi.bal { border-color:#93c5fd; background:#eff6ff; }
-
-    /* ── Table ── */
-    table { width:100%; border-collapse:collapse; }
-    thead tr { background:#1a1a2e; }
-    thead th { color:#fff; font-size:11px; padding:8px 10px; text-align:right; font-weight:700; }
-    tbody td { padding:7px 10px; font-size:11px; border-bottom:1px solid #f3f4f6; }
-    tbody tr:nth-child(even) td { background:#f9fafb; }
-    tbody tr:last-child td { border-bottom:none; }
-
-    /* ── Footer ── */
-    .footer { margin-top:18px; font-size:10px; color:#9ca3af; text-align:center;
-              border-top:1px solid #e5e7eb; padding-top:10px; }
-
-    @media print {
-      body { padding:10px; }
-      .no-print { display:none; }
-    }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div>
-      <h1>📦 تقرير حركات المخزون</h1>
-      <p style="font-size:11px;color:#6b7280;margin-top:4px">كابرينا — نظام إدارة المخزون</p>
-    </div>
-    <div class="meta">
-      <div>تاريخ الطباعة: ${printDate}</div>
-      <div style="margin-top:4px">إجمالي السجلات: <strong>${movements.length} حركة</strong></div>
-    </div>
-  </div>
-
-  ${filtersRow}
-
-  <div class="kpis">
-    <div class="kpi in">
-      <div class="val" style="color:#16a34a">+${formatNum(totals?.totalIn ?? 0)}</div>
-      <div class="lbl">إجمالي الداخل</div>
-    </div>
-    <div class="kpi out">
-      <div class="val" style="color:#dc2626">-${formatNum(totals?.totalOut ?? 0)}</div>
-      <div class="lbl">إجمالي الخارج</div>
-    </div>
-    <div class="kpi bal">
-      <div class="val" style="color:${(totals?.balance ?? 0) >= 0 ? "#2563eb" : "#ea580c"}">${formatNum(totals?.balance ?? 0)}</div>
-      <div class="lbl">الرصيد الصافي</div>
-    </div>
-  </div>
-
-  <table>
-    <thead>
-      <tr>
-        <th>التاريخ والوقت</th>
-        <th style="text-align:center">النوع</th>
-        <th>المنتج</th>
-        <th style="text-align:center">اللون / المقاس</th>
-        <th style="text-align:center">الكمية</th>
-        <th style="text-align:center">السبب</th>
-        <th style="text-align:center">رقم الطلب</th>
-        <th style="text-align:center">المخزن</th>
-        <th>ملاحظات</th>
-      </tr>
-    </thead>
-    <tbody>${rows}</tbody>
-  </table>
-
-  <div class="footer">كابرينا — تقرير حركات المخزون | ${printDate}</div>
-  <script>window.onload = () => { window.print(); }</script>
-</body>
-</html>`);
+    win.document.write(`<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"/><title>حركات المخزون</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;padding:24px;color:#111;font-size:12px}
+.header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1a1a2e;padding-bottom:14px;margin-bottom:14px}
+.header h1{font-size:20px;font-weight:900;color:#1a1a2e}.header .meta{text-align:left;font-size:11px;color:#6b7280}
+.filters{background:#f3f4f6;border:1px solid #e5e7eb;border-radius:6px;padding:7px 12px;font-size:11px;color:#374151;margin-bottom:14px}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.kpi{border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px;text-align:center}
+.kpi .val{font-size:22px;font-weight:900}.kpi .lbl{font-size:10px;color:#6b7280;margin-top:2px}
+.kpi.in{border-color:#86efac;background:#f0fdf4}.kpi.out{border-color:#fca5a5;background:#fef2f2}.kpi.bal{border-color:#93c5fd;background:#eff6ff}
+table{width:100%;border-collapse:collapse}thead tr{background:#1a1a2e}
+thead th{color:#fff;font-size:11px;padding:8px 10px;text-align:right;font-weight:700}
+tbody td{padding:7px 10px;font-size:11px;border-bottom:1px solid #f3f4f6}
+tbody tr:nth-child(even) td{background:#f9fafb}tbody tr:last-child td{border-bottom:none}
+.footer{margin-top:18px;font-size:10px;color:#9ca3af;text-align:center;border-top:1px solid #e5e7eb;padding-top:10px}
+</style></head><body>
+<div class="header"><div><h1>📦 تقرير حركات المخزون</h1><p style="font-size:11px;color:#6b7280;margin-top:4px">كابرينا — نظام إدارة المخزون</p></div>
+<div class="meta"><div>تاريخ الطباعة: ${printDate}</div><div style="margin-top:4px">إجمالي السجلات: <strong>${movements.length} حركة</strong></div></div></div>
+${filtersRow}
+<div class="kpis">
+<div class="kpi in"><div class="val" style="color:#16a34a">+${formatNum(totals?.totalIn ?? 0)}</div><div class="lbl">إجمالي الداخل</div></div>
+<div class="kpi out"><div class="val" style="color:#dc2626">-${formatNum(totals?.totalOut ?? 0)}</div><div class="lbl">إجمالي الخارج</div></div>
+<div class="kpi bal"><div class="val" style="color:${(totals?.balance ?? 0) >= 0 ? "#2563eb" : "#ea580c"}">${formatNum(totals?.balance ?? 0)}</div><div class="lbl">الرصيد الصافي</div></div>
+</div>
+<table><thead><tr><th>التاريخ والوقت</th><th style="text-align:center">النوع</th><th>المنتج</th><th style="text-align:center">اللون/المقاس</th><th style="text-align:center">الكمية</th><th style="text-align:center">السبب</th><th style="text-align:center">رقم الطلب</th><th style="text-align:center">المخزن</th><th>ملاحظات</th></tr></thead>
+<tbody>${rows}</tbody></table>
+<div class="footer">كابرينا — تقرير حركات المخزون | ${printDate}</div>
+<script>window.onload=()=>{window.print()}</script></body></html>`);
     win.document.close();
   };
 
   return (
     <div className="space-y-5 animate-in fade-in duration-500">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Activity className="w-6 h-6 text-primary" />
-            حركات المخزون
-          </h1>
+          <h1 className="text-2xl font-bold flex items-center gap-2"><Activity className="w-6 h-6 text-primary" />حركات المخزون</h1>
           <p className="text-muted-foreground text-sm mt-0.5">سجل كامل لكل دخول وخروج في المخزن</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            className="gap-2 text-sm font-bold h-9"
-            onClick={handlePrint}
-            disabled={movements.length === 0}
-            title="طباعة الحركات الظاهرة حالياً"
-          >
-            <Printer className="w-4 h-4" />
-            <span className="hidden sm:inline">طباعة</span>
+          <Button variant="outline" className="gap-2 text-sm font-bold h-9" onClick={handlePrint} disabled={movements.length === 0}>
+            <Printer className="w-4 h-4" /><span className="hidden sm:inline">طباعة</span>
             {hasFilter && <span className="text-[9px] bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 font-bold">مفلترة</span>}
           </Button>
           <Button className="gap-2 bg-primary text-primary-foreground font-bold text-sm" onClick={() => setShowDialog(true)}>
@@ -381,45 +275,33 @@ export default function Movements() {
         </div>
       </div>
 
-      {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-900/10">
           <CardContent className="p-4 flex items-center gap-3">
             <ArrowDownCircle className="w-8 h-8 text-emerald-600 dark:text-emerald-500 shrink-0" />
-            <div>
-              <p className="text-[10px] text-emerald-700 dark:text-emerald-400 uppercase tracking-widest font-bold">إجمالي الداخل</p>
-              <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{formatNum(totals?.totalIn ?? 0)}</p>
-              <p className="text-[10px] text-muted-foreground">وحدة</p>
-            </div>
+            <div><p className="text-[10px] text-emerald-700 dark:text-emerald-400 uppercase tracking-widest font-bold">إجمالي الداخل</p>
+            <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{formatNum(totals?.totalIn ?? 0)}</p>
+            <p className="text-[10px] text-muted-foreground">وحدة</p></div>
           </CardContent>
         </Card>
-
         <Card className="border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-900/10">
           <CardContent className="p-4 flex items-center gap-3">
             <ArrowUpCircle className="w-8 h-8 text-red-500 shrink-0" />
-            <div>
-              <p className="text-[10px] text-red-700 dark:text-red-400 uppercase tracking-widest font-bold">إجمالي الخارج</p>
-              <p className="text-2xl font-bold text-red-700 dark:text-red-300">{formatNum(totals?.totalOut ?? 0)}</p>
-              <p className="text-[10px] text-muted-foreground">وحدة</p>
-            </div>
+            <div><p className="text-[10px] text-red-700 dark:text-red-400 uppercase tracking-widest font-bold">إجمالي الخارج</p>
+            <p className="text-2xl font-bold text-red-700 dark:text-red-300">{formatNum(totals?.totalOut ?? 0)}</p>
+            <p className="text-[10px] text-muted-foreground">وحدة</p></div>
           </CardContent>
         </Card>
-
         <Card className={(totals?.balance ?? 0) >= 0 ? "border-sky-200 dark:border-sky-900 bg-sky-50 dark:bg-sky-900/10" : "border-orange-200 dark:border-orange-900 bg-orange-50 dark:bg-orange-900/10"}>
           <CardContent className="p-4 flex items-center gap-3">
             <BarChart3 className={`w-8 h-8 ${(totals?.balance ?? 0) >= 0 ? "text-sky-500" : "text-orange-500"} shrink-0`} />
-            <div>
-              <p className={`text-[10px] ${(totals?.balance ?? 0) >= 0 ? "text-sky-700 dark:text-sky-400" : "text-orange-700 dark:text-orange-400"} uppercase tracking-widest font-bold`}>الرصيد</p>
-              <p className={`text-2xl font-bold ${(totals?.balance ?? 0) >= 0 ? "text-sky-700 dark:text-sky-300" : "text-orange-700 dark:text-orange-300"}`}>
-                {formatNum(totals?.balance ?? 0)}
-              </p>
-              <p className="text-[10px] text-muted-foreground">وحدة</p>
-            </div>
+            <div><p className={`text-[10px] ${(totals?.balance ?? 0) >= 0 ? "text-sky-700 dark:text-sky-400" : "text-orange-700 dark:text-orange-400"} uppercase tracking-widest font-bold`}>الرصيد</p>
+            <p className={`text-2xl font-bold ${(totals?.balance ?? 0) >= 0 ? "text-sky-700 dark:text-sky-300" : "text-orange-700 dark:text-orange-300"}`}>{formatNum(totals?.balance ?? 0)}</p>
+            <p className="text-[10px] text-muted-foreground">وحدة</p></div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Filters */}
       <Card className="border-border">
         <CardContent className="p-3">
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
@@ -433,7 +315,6 @@ export default function Movements() {
                 <SelectItem value="OUT">خروج (OUT)</SelectItem>
               </SelectContent>
             </Select>
-
             <Select value={filterReason} onValueChange={setFilterReason}>
               <SelectTrigger className="h-8 text-xs bg-card border-border"><SelectValue placeholder="السبب" /></SelectTrigger>
               <SelectContent>
@@ -444,9 +325,10 @@ export default function Movements() {
                 <SelectItem value="manual_in">إضافة يدوية</SelectItem>
                 <SelectItem value="manual_out">خصم يدوي</SelectItem>
                 <SelectItem value="adjustment">تسوية</SelectItem>
+                <SelectItem value="to_shipping">تحويل لشركة الشحن</SelectItem>
+                <SelectItem value="from_shipping">إرجاع من شركة الشحن</SelectItem>
               </SelectContent>
             </Select>
-
             <Select value={filterProduct} onValueChange={setFilterProduct}>
               <SelectTrigger className="h-8 text-xs bg-card border-border">
                 <div className="flex items-center gap-1.5"><Package className="w-3 h-3 text-muted-foreground" /><SelectValue placeholder="المنتج" /></div>
@@ -456,18 +338,15 @@ export default function Movements() {
                 {products.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}
               </SelectContent>
             </Select>
-
             <div className="relative">
               <CalendarDays className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
-              <Input type="date" className="h-8 text-xs pr-7 bg-card border-border" value={dateFrom} onChange={e => setDateFrom(e.target.value)} placeholder="من" />
+              <Input type="date" className="h-8 text-xs pr-7 bg-card border-border" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
             </div>
-
             <div className="relative">
               <CalendarDays className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
-              <Input type="date" className="h-8 text-xs pr-7 bg-card border-border" value={dateTo} onChange={e => setDateTo(e.target.value)} placeholder="إلى" />
+              <Input type="date" className="h-8 text-xs pr-7 bg-card border-border" value={dateTo} onChange={e => setDateTo(e.target.value)} />
             </div>
           </div>
-
           {hasFilter && (
             <div className="mt-2 flex justify-end">
               <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-muted-foreground" onClick={clearFilters}>
@@ -478,7 +357,6 @@ export default function Movements() {
         </CardContent>
       </Card>
 
-      {/* Timeline Table */}
       <Card className="border-border overflow-hidden">
         <CardHeader className="py-3 px-4 border-b border-border">
           <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -487,7 +365,6 @@ export default function Movements() {
             {!isLoading && <Badge variant="outline" className="text-[9px] font-normal border-border text-muted-foreground mr-1">{movements.length} حركة</Badge>}
           </CardTitle>
         </CardHeader>
-
         {isLoading ? (
           <div className="p-8 text-center text-muted-foreground text-sm">جاري التحميل...</div>
         ) : movements.length === 0 ? (
@@ -510,7 +387,7 @@ export default function Movements() {
                   <TableHead className="text-center text-xs">طلب</TableHead>
                   <TableHead className="text-center text-xs">المخزن</TableHead>
                   <TableHead className="text-right text-xs">ملاحظات</TableHead>
-                  <TableHead className="text-center text-xs w-20">إجراءات</TableHead>
+                  <TableHead className="text-center text-xs w-14">تعديل</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -547,43 +424,23 @@ export default function Movements() {
                       </span>
                     </TableCell>
                     <TableCell className="text-center">
-                      <Badge variant="outline" className={`text-[9px] font-bold border ${REASON_COLORS[m.reason]}`}>
-                        {REASON_LABELS[m.reason]}
+                      <Badge variant="outline" className={`text-[9px] font-bold border ${REASON_COLORS[m.reason] ?? "bg-muted text-muted-foreground border-border"}`}>
+                        {REASON_LABELS[m.reason] ?? m.reason}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-center">
                       {m.orderId ? (
-                        <a href={`/orders/${m.orderId}`} onClick={e => e.stopPropagation()}
-                          className="text-[10px] font-mono text-primary hover:underline">
+                        <a href={`/orders/${m.orderId}`} onClick={e => e.stopPropagation()} className="text-[10px] font-mono text-primary hover:underline">
                           #{String(m.orderId).padStart(4, "0")}
                         </a>
                       ) : "—"}
                     </TableCell>
-                    <TableCell className="text-center text-xs text-muted-foreground">
-                      {(m as any).warehouseName ?? "—"}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground max-w-[140px] truncate">
-                      {m.notes || "—"}
-                    </TableCell>
+                    <TableCell className="text-center text-xs text-muted-foreground">{(m as any).warehouseName ?? "—"}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground max-w-[140px] truncate">{m.notes || "—"}</TableCell>
                     <TableCell className="text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <Button
-                          variant="ghost" size="icon"
-                          className="h-6 w-6 text-muted-foreground hover:text-primary hover:bg-primary/10"
-                          title="تعديل"
-                          onClick={() => openEdit(m)}
-                        >
-                          <Pencil className="w-3 h-3" />
-                        </Button>
-                        <Button
-                          variant="ghost" size="icon"
-                          className="h-6 w-6 text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                          title="حذف"
-                          onClick={() => setDeletingId(m.id)}
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
-                      </div>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-primary hover:bg-primary/10" title="تعديل" onClick={() => openEdit(m)}>
+                        <Pencil className="w-3 h-3" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -593,28 +450,17 @@ export default function Movements() {
         )}
       </Card>
 
-      {/* Manual Movement Dialog */}
+      {/* Create Dialog */}
       <Dialog open={showDialog} onOpenChange={v => { setShowDialog(v); if (!v) resetForm(); }}>
         <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Plus className="w-4 h-4 text-primary" />
-              تسجيل حركة يدوية
-            </DialogTitle>
-          </DialogHeader>
-
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><Plus className="w-4 h-4 text-primary" />تسجيل حركة يدوية</DialogTitle></DialogHeader>
           <div className="space-y-3 py-1">
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs mb-1.5 block">النوع *</Label>
                 <Select value={form.type} onValueChange={v => handleTypeChange(v as MovementType)}>
-                  <SelectTrigger className="h-9 text-sm bg-background">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="IN">دخول (IN)</SelectItem>
-                    <SelectItem value="OUT">خروج (OUT)</SelectItem>
-                  </SelectContent>
+                  <SelectTrigger className="h-9 text-sm bg-background"><SelectValue /></SelectTrigger>
+                  <SelectContent><SelectItem value="IN">دخول (IN)</SelectItem><SelectItem value="OUT">خروج (OUT)</SelectItem></SelectContent>
                 </Select>
               </div>
               <div>
@@ -622,81 +468,39 @@ export default function Movements() {
                 <Select value={form.reason} onValueChange={v => setForm(f => ({ ...f, reason: v as MovementReason }))}>
                   <SelectTrigger className="h-9 text-sm bg-background"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {form.type === "IN" ? (
-                      <>
-                        <SelectItem value="manual_in">إضافة يدوية</SelectItem>
-                        <SelectItem value="return">مرتجع</SelectItem>
-                        <SelectItem value="adjustment">تسوية</SelectItem>
-                      </>
-                    ) : (
-                      <>
-                        <SelectItem value="manual_out">خصم يدوي</SelectItem>
-                        <SelectItem value="sale">بيع</SelectItem>
-                        <SelectItem value="adjustment">تسوية</SelectItem>
-                      </>
-                    )}
+                    {form.type === "IN" ? (<><SelectItem value="manual_in">إضافة يدوية</SelectItem><SelectItem value="return">مرتجع</SelectItem><SelectItem value="adjustment">تسوية</SelectItem></>)
+                    : (<><SelectItem value="manual_out">خصم يدوي</SelectItem><SelectItem value="sale">بيع</SelectItem><SelectItem value="adjustment">تسوية</SelectItem></>)}
                   </SelectContent>
                 </Select>
               </div>
             </div>
-
             <div>
               <Label className="text-xs mb-1.5 block">المنتج *</Label>
               <Select value={form.productId || "manual"} onValueChange={v => {
-                if (v === "manual") {
-                  setForm(f => ({ ...f, productId: "", product: "" }));
-                } else {
-                  const p = products.find(p => String(p.id) === v);
-                  setForm(f => ({ ...f, productId: v, product: p?.name ?? "" }));
-                }
+                if (v === "manual") { setForm(f => ({ ...f, productId: "", product: "" })); }
+                else { const p = products.find(p => String(p.id) === v); setForm(f => ({ ...f, productId: v, product: p?.name ?? "" })); }
               }}>
                 <SelectTrigger className="h-9 text-sm bg-background"><SelectValue placeholder="اختر أو اكتب..." /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="manual">كتابة يدوية</SelectItem>
-                  {products.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}
-                </SelectContent>
+                <SelectContent><SelectItem value="manual">كتابة يدوية</SelectItem>{products.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}</SelectContent>
               </Select>
               {(!form.productId || form.productId === "manual") && (
                 <Input className="h-9 text-sm mt-1.5 bg-background" placeholder="اسم المنتج..." value={form.product} onChange={e => setForm(f => ({ ...f, product: e.target.value }))} />
               )}
             </div>
-
             <div className="grid grid-cols-3 gap-2">
-              <div>
-                <Label className="text-xs mb-1.5 block">اللون</Label>
-                <Input className="h-9 text-sm bg-background" placeholder="أسود..." value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))} />
-              </div>
-              <div>
-                <Label className="text-xs mb-1.5 block">المقاس</Label>
-                <Input className="h-9 text-sm bg-background" placeholder="M, L..." value={form.size} onChange={e => setForm(f => ({ ...f, size: e.target.value }))} />
-              </div>
-              <div>
-                <Label className="text-xs mb-1.5 block">الكمية *</Label>
-                <Input type="number" min="1" className="h-9 text-sm bg-background" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} />
-              </div>
+              <div><Label className="text-xs mb-1.5 block">اللون</Label><Input className="h-9 text-sm bg-background" placeholder="أسود..." value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))} /></div>
+              <div><Label className="text-xs mb-1.5 block">المقاس</Label><Input className="h-9 text-sm bg-background" placeholder="M, L..." value={form.size} onChange={e => setForm(f => ({ ...f, size: e.target.value }))} /></div>
+              <div><Label className="text-xs mb-1.5 block">الكمية *</Label><Input type="number" min="1" className="h-9 text-sm bg-background" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} /></div>
             </div>
-
             <div>
               <Label className="text-xs mb-1.5 block">المخزن</Label>
               <Select value={form.warehouseId || "none"} onValueChange={v => setForm(f => ({ ...f, warehouseId: v === "none" ? "" : v }))}>
                 <SelectTrigger className="h-9 text-sm bg-background"><SelectValue placeholder="اختر مخزناً..." /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">بدون مخزن</SelectItem>
-                  {warehouses.map((w: any) => (
-                    <SelectItem key={w.id} value={String(w.id)}>
-                      {w.name}{w.isDefault ? " ★" : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
+                <SelectContent><SelectItem value="none">بدون مخزن</SelectItem>{warehouses.map((w: any) => <SelectItem key={w.id} value={String(w.id)}>{w.name}{w.isDefault ? " ★" : ""}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-
-            <div>
-              <Label className="text-xs mb-1.5 block">ملاحظات</Label>
-              <Textarea className="min-h-[60px] text-sm resize-none bg-background" placeholder="سبب إضافي..." value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
-            </div>
+            <div><Label className="text-xs mb-1.5 block">ملاحظات</Label><Textarea className="min-h-[60px] text-sm resize-none bg-background" placeholder="سبب إضافي..." value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} /></div>
           </div>
-
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => { setShowDialog(false); resetForm(); }}>إلغاء</Button>
             <Button size="sm" onClick={handleCreate} disabled={createMutation.isPending} className="gap-1">
@@ -706,26 +510,17 @@ export default function Movements() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Movement Dialog */}
+      {/* Edit Dialog */}
       <Dialog open={!!editingMovement} onOpenChange={v => { if (!v) { setEditingMovement(null); resetForm(); } }}>
         <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Pencil className="w-4 h-4 text-primary" />
-              تعديل الحركة
-            </DialogTitle>
-          </DialogHeader>
-
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><Pencil className="w-4 h-4 text-primary" />تعديل الحركة</DialogTitle></DialogHeader>
           <div className="space-y-3 py-1">
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs mb-1.5 block">النوع *</Label>
                 <Select value={form.type} onValueChange={v => handleTypeChange(v as MovementType)}>
                   <SelectTrigger className="h-9 text-sm bg-background"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="IN">دخول (IN)</SelectItem>
-                    <SelectItem value="OUT">خروج (OUT)</SelectItem>
-                  </SelectContent>
+                  <SelectContent><SelectItem value="IN">دخول (IN)</SelectItem><SelectItem value="OUT">خروج (OUT)</SelectItem></SelectContent>
                 </Select>
               </div>
               <div>
@@ -733,63 +528,27 @@ export default function Movements() {
                 <Select value={form.reason} onValueChange={v => setForm(f => ({ ...f, reason: v as MovementReason }))}>
                   <SelectTrigger className="h-9 text-sm bg-background"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {form.type === "IN" ? (
-                      <>
-                        <SelectItem value="manual_in">إضافة يدوية</SelectItem>
-                        <SelectItem value="return">مرتجع</SelectItem>
-                        <SelectItem value="adjustment">تسوية</SelectItem>
-                      </>
-                    ) : (
-                      <>
-                        <SelectItem value="manual_out">خصم يدوي</SelectItem>
-                        <SelectItem value="sale">بيع</SelectItem>
-                        <SelectItem value="adjustment">تسوية</SelectItem>
-                      </>
-                    )}
+                    {form.type === "IN" ? (<><SelectItem value="manual_in">إضافة يدوية</SelectItem><SelectItem value="return">مرتجع</SelectItem><SelectItem value="adjustment">تسوية</SelectItem></>)
+                    : (<><SelectItem value="manual_out">خصم يدوي</SelectItem><SelectItem value="sale">بيع</SelectItem><SelectItem value="adjustment">تسوية</SelectItem></>)}
                   </SelectContent>
                 </Select>
               </div>
             </div>
-
-            <div>
-              <Label className="text-xs mb-1.5 block">المنتج *</Label>
-              <Input className="h-9 text-sm bg-background" value={form.product} onChange={e => setForm(f => ({ ...f, product: e.target.value }))} />
-            </div>
-
+            <div><Label className="text-xs mb-1.5 block">المنتج *</Label><Input className="h-9 text-sm bg-background" value={form.product} onChange={e => setForm(f => ({ ...f, product: e.target.value }))} /></div>
             <div className="grid grid-cols-3 gap-2">
-              <div>
-                <Label className="text-xs mb-1.5 block">اللون</Label>
-                <Input className="h-9 text-sm bg-background" value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))} />
-              </div>
-              <div>
-                <Label className="text-xs mb-1.5 block">المقاس</Label>
-                <Input className="h-9 text-sm bg-background" value={form.size} onChange={e => setForm(f => ({ ...f, size: e.target.value }))} />
-              </div>
-              <div>
-                <Label className="text-xs mb-1.5 block">الكمية *</Label>
-                <Input type="number" min="1" className="h-9 text-sm bg-background" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} />
-              </div>
+              <div><Label className="text-xs mb-1.5 block">اللون</Label><Input className="h-9 text-sm bg-background" value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))} /></div>
+              <div><Label className="text-xs mb-1.5 block">المقاس</Label><Input className="h-9 text-sm bg-background" value={form.size} onChange={e => setForm(f => ({ ...f, size: e.target.value }))} /></div>
+              <div><Label className="text-xs mb-1.5 block">الكمية *</Label><Input type="number" min="1" className="h-9 text-sm bg-background" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} /></div>
             </div>
-
             <div>
               <Label className="text-xs mb-1.5 block">المخزن</Label>
               <Select value={form.warehouseId || "none"} onValueChange={v => setForm(f => ({ ...f, warehouseId: v === "none" ? "" : v }))}>
                 <SelectTrigger className="h-9 text-sm bg-background"><SelectValue placeholder="اختر مخزناً..." /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">بدون مخزن</SelectItem>
-                  {warehouses.map((w: any) => (
-                    <SelectItem key={w.id} value={String(w.id)}>{w.name}{w.isDefault ? " ★" : ""}</SelectItem>
-                  ))}
-                </SelectContent>
+                <SelectContent><SelectItem value="none">بدون مخزن</SelectItem>{warehouses.map((w: any) => <SelectItem key={w.id} value={String(w.id)}>{w.name}{w.isDefault ? " ★" : ""}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-
-            <div>
-              <Label className="text-xs mb-1.5 block">ملاحظات</Label>
-              <Textarea className="min-h-[60px] text-sm resize-none bg-background" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
-            </div>
+            <div><Label className="text-xs mb-1.5 block">ملاحظات</Label><Textarea className="min-h-[60px] text-sm resize-none bg-background" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} /></div>
           </div>
-
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => { setEditingMovement(null); resetForm(); }}>إلغاء</Button>
             <Button size="sm" onClick={handleSave} disabled={updateMutation.isPending} className="gap-1">
@@ -798,28 +557,6 @@ export default function Movements() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Delete Confirm */}
-      <AlertDialog open={deletingId !== null} onOpenChange={v => { if (!v) setDeletingId(null); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
-            <AlertDialogDescription>
-              هل أنت متأكد من حذف هذه الحركة؟ لا يمكن التراجع عن هذا الإجراء.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>إلغاء</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-red-600 hover:bg-red-700 text-white"
-              onClick={() => { if (deletingId !== null) deleteMutation.mutate(deletingId); }}
-              disabled={deleteMutation.isPending}
-            >
-              {deleteMutation.isPending ? "جاري الحذف..." : "تأكيد الحذف"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
