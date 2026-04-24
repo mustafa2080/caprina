@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
-
 import { UserPlus, Edit2, Trash2, Shield, Users, Eye, EyeOff, TrendingUp, Package, BarChart3, UserCheck, UserCog, Brain, Megaphone, LayoutGrid, FileSpreadsheet } from "lucide-react";
 
 const ROLE_LABELS: Record<string, string> = {
