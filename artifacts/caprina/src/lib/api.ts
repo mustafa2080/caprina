@@ -518,6 +518,8 @@ export interface InventoryMovement {
   id: number;
   productId: number | null;
   variantId: number | null;
+  warehouseId: number | null;
+  warehouseName: string | null;
   product: string;
   color: string | null;
   size: string | null;
@@ -533,6 +535,7 @@ export interface MovementFilters {
   type?: MovementType;
   reason?: MovementReason;
   productId?: number;
+  warehouseId?: number;
   dateFrom?: string;
   dateTo?: string;
 }
@@ -542,6 +545,37 @@ export interface MovementTotals {
   totalOut: number;
   balance: number;
 }
+
+export const movementsApi = {
+  list: (filters?: MovementFilters) => {
+    const q = new URLSearchParams();
+    if (filters?.type)       q.set("type", filters.type);
+    if (filters?.reason)     q.set("reason", filters.reason);
+    if (filters?.productId)  q.set("productId", String(filters.productId));
+    if (filters?.warehouseId) q.set("warehouseId", String(filters.warehouseId));
+    if (filters?.dateFrom)   q.set("dateFrom", filters.dateFrom);
+    if (filters?.dateTo)     q.set("dateTo", filters.dateTo);
+    const qs = q.toString();
+    return apiFetch<InventoryMovement[]>(`/inventory/movements${qs ? `?${qs}` : ""}`);
+  },
+  totals: (filters?: MovementFilters) => {
+    const q = new URLSearchParams();
+    if (filters?.type)       q.set("type", filters.type);
+    if (filters?.reason)     q.set("reason", filters.reason);
+    if (filters?.productId)  q.set("productId", String(filters.productId));
+    if (filters?.warehouseId) q.set("warehouseId", String(filters.warehouseId));
+    if (filters?.dateFrom)   q.set("dateFrom", filters.dateFrom);
+    if (filters?.dateTo)     q.set("dateTo", filters.dateTo);
+    const qs = q.toString();
+    return apiFetch<MovementTotals>(`/inventory/movements/totals${qs ? `?${qs}` : ""}`);
+  },
+  create: (data: { product: string; color?: string | null; size?: string | null; quantity: number; type: MovementType; reason: MovementReason; notes?: string | null; productId?: number | null; variantId?: number | null; warehouseId?: number | null }) =>
+    apiFetch<InventoryMovement>("/inventory/movements", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: number, data: { product: string; color?: string | null; size?: string | null; quantity: number; type: MovementType; reason: MovementReason; notes?: string | null; warehouseId?: number | null }) =>
+    apiFetch<InventoryMovement>(`/inventory/movements/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  delete: (id: number) =>
+    apiFetch<void>(`/inventory/movements/${id}`, { method: "DELETE" }),
+};
 
 // ─── Shipping Manifests API ─────────────────────────────────────────────────
 export type DeliveryStatus = "pending" | "delivered" | "postponed" | "partial_received" | "returned";
@@ -907,23 +941,26 @@ export const sessionsApi = {
   me: () => apiFetch<SessionLog[]>("/sessions/me"),
 };
 
-export const movementsApi = {  list: (filters?: MovementFilters) => {
+export const movementsApi = {
+  list: (filters?: MovementFilters) => {
     const params = new URLSearchParams();
-    if (filters?.type) params.set("type", filters.type);
-    if (filters?.reason) params.set("reason", filters.reason);
-    if (filters?.productId) params.set("productId", String(filters.productId));
-    if (filters?.dateFrom) params.set("dateFrom", filters.dateFrom);
-    if (filters?.dateTo) params.set("dateTo", filters.dateTo);
+    if (filters?.type)        params.set("type",        filters.type);
+    if (filters?.reason)      params.set("reason",      filters.reason);
+    if (filters?.productId)   params.set("productId",   String(filters.productId));
+    if (filters?.warehouseId) params.set("warehouseId", String(filters.warehouseId));
+    if (filters?.dateFrom)    params.set("dateFrom",    filters.dateFrom);
+    if (filters?.dateTo)      params.set("dateTo",      filters.dateTo);
     const qs = params.toString();
     return apiFetch<InventoryMovement[]>(`/inventory/movements${qs ? `?${qs}` : ""}`);
   },
   totals: (filters?: MovementFilters) => {
     const params = new URLSearchParams();
-    if (filters?.type) params.set("type", filters.type);
-    if (filters?.reason) params.set("reason", filters.reason);
-    if (filters?.productId) params.set("productId", String(filters.productId));
-    if (filters?.dateFrom) params.set("dateFrom", filters.dateFrom);
-    if (filters?.dateTo) params.set("dateTo", filters.dateTo);
+    if (filters?.type)        params.set("type",        filters.type);
+    if (filters?.reason)      params.set("reason",      filters.reason);
+    if (filters?.productId)   params.set("productId",   String(filters.productId));
+    if (filters?.warehouseId) params.set("warehouseId", String(filters.warehouseId));
+    if (filters?.dateFrom)    params.set("dateFrom",    filters.dateFrom);
+    if (filters?.dateTo)      params.set("dateTo",      filters.dateTo);
     const qs = params.toString();
     return apiFetch<MovementTotals>(`/inventory/movements/totals${qs ? `?${qs}` : ""}`);
   },
@@ -936,8 +973,20 @@ export const movementsApi = {  list: (filters?: MovementFilters) => {
     reason: MovementReason;
     productId?: number | null;
     variantId?: number | null;
+    warehouseId?: number | null;
     notes?: string | null;
   }) => apiFetch<InventoryMovement>("/inventory/movements", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: number, data: {
+    product: string;
+    color?: string | null;
+    size?: string | null;
+    quantity: number;
+    type: MovementType;
+    reason: MovementReason;
+    warehouseId?: number | null;
+    notes?: string | null;
+  }) => apiFetch<InventoryMovement>(`/inventory/movements/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  delete: (id: number) => apiFetch<{ success: boolean }>(`/inventory/movements/${id}`, { method: "DELETE" }),
 };
 
 // ─── App Settings API ─────────────────────────────────────────────────────

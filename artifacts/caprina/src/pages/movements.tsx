@@ -3,7 +3,7 @@ import { format } from "date-fns";
 import { arEG } from "date-fns/locale";
 import {
   ArrowDownCircle, ArrowUpCircle, BarChart3, CalendarDays,
-  Filter, Package, Plus, RotateCcw, X, TrendingDown, TrendingUp, Activity, Printer,
+  Filter, Package, Plus, RotateCcw, X, TrendingDown, TrendingUp, Activity, Printer, Pencil, Trash2,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { movementsApi, productsApi, warehousesApi, type MovementType, type MovementReason, type InventoryMovement } from "@/lib/api";
@@ -17,6 +17,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // ─── Label helpers ────────────────────────────────────────────────────────────
 
@@ -59,6 +64,8 @@ export default function Movements() {
 
   // Manual movement dialog
   const [showDialog, setShowDialog] = useState(false);
+  const [editingMovement, setEditingMovement] = useState<InventoryMovement | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [form, setForm] = useState({
     product: "",
     color: "",
@@ -112,6 +119,29 @@ export default function Movements() {
     onError: () => toast({ title: "خطأ", description: "فشل تسجيل الحركة.", variant: "destructive" }),
   });
 
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) => movementsApi.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["movements"] });
+      queryClient.invalidateQueries({ queryKey: ["movements-totals"] });
+      setEditingMovement(null);
+      resetForm();
+      toast({ title: "تم التعديل", description: "تم تعديل الحركة بنجاح." });
+    },
+    onError: () => toast({ title: "خطأ", description: "فشل تعديل الحركة.", variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: movementsApi.delete,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["movements"] });
+      queryClient.invalidateQueries({ queryKey: ["movements-totals"] });
+      setDeletingId(null);
+      toast({ title: "تم الحذف", description: "تم حذف الحركة بنجاح." });
+    },
+    onError: () => toast({ title: "خطأ", description: "فشل حذف الحركة.", variant: "destructive" }),
+  });
+
   const resetForm = () => setForm({ product: "", color: "", size: "", quantity: "1", type: "IN", reason: "manual_in", notes: "", productId: "", variantId: "", warehouseId: "" });
 
   const hasFilter = filterType !== "all" || filterReason !== "all" || filterProduct !== "all" || dateFrom || dateTo;
@@ -146,6 +176,43 @@ export default function Movements() {
   // Auto-set reason when type changes
   const handleTypeChange = (t: MovementType) => {
     setForm(f => ({ ...f, type: t, reason: t === "IN" ? "manual_in" : "manual_out" }));
+  };
+
+  const openEdit = (m: InventoryMovement) => {
+    setEditingMovement(m);
+    setForm({
+      product: m.product,
+      color: m.color ?? "",
+      size: m.size ?? "",
+      quantity: String(m.quantity),
+      type: m.type,
+      reason: m.reason,
+      notes: m.notes ?? "",
+      productId: m.productId ? String(m.productId) : "",
+      variantId: m.variantId ? String(m.variantId) : "",
+      warehouseId: m.warehouseId ? String(m.warehouseId) : "",
+    });
+  };
+
+  const handleSave = () => {
+    if (!form.product.trim()) { toast({ title: "خطأ", description: "أدخل اسم المنتج.", variant: "destructive" }); return; }
+    const qty = parseInt(form.quantity);
+    if (!qty || qty < 1) { toast({ title: "خطأ", description: "أدخل كمية صحيحة.", variant: "destructive" }); return; }
+    const payload = {
+      product: form.product.trim(),
+      color: form.color.trim() || null,
+      size: form.size.trim() || null,
+      quantity: qty,
+      type: form.type,
+      reason: form.reason,
+      notes: form.notes.trim() || null,
+      warehouseId: form.warehouseId ? parseInt(form.warehouseId) : null,
+    };
+    if (editingMovement) {
+      updateMutation.mutate({ id: editingMovement.id, data: payload });
+    } else {
+      createMutation.mutate({ ...payload, productId: form.productId ? parseInt(form.productId) : null, variantId: form.variantId ? parseInt(form.variantId) : null });
+    }
   };
 
   // ─── Print ────────────────────────────────────────────────────────────────
@@ -443,6 +510,7 @@ export default function Movements() {
                   <TableHead className="text-center text-xs">طلب</TableHead>
                   <TableHead className="text-center text-xs">المخزن</TableHead>
                   <TableHead className="text-right text-xs">ملاحظات</TableHead>
+                  <TableHead className="text-center text-xs w-20">إجراءات</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -496,6 +564,26 @@ export default function Movements() {
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground max-w-[140px] truncate">
                       {m.notes || "—"}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <Button
+                          variant="ghost" size="icon"
+                          className="h-6 w-6 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                          title="تعديل"
+                          onClick={() => openEdit(m)}
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          variant="ghost" size="icon"
+                          className="h-6 w-6 text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                          title="حذف"
+                          onClick={() => setDeletingId(m.id)}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -617,6 +705,121 @@ export default function Movements() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Movement Dialog */}
+      <Dialog open={!!editingMovement} onOpenChange={v => { if (!v) { setEditingMovement(null); resetForm(); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="w-4 h-4 text-primary" />
+              تعديل الحركة
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3 py-1">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs mb-1.5 block">النوع *</Label>
+                <Select value={form.type} onValueChange={v => handleTypeChange(v as MovementType)}>
+                  <SelectTrigger className="h-9 text-sm bg-background"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="IN">دخول (IN)</SelectItem>
+                    <SelectItem value="OUT">خروج (OUT)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs mb-1.5 block">السبب *</Label>
+                <Select value={form.reason} onValueChange={v => setForm(f => ({ ...f, reason: v as MovementReason }))}>
+                  <SelectTrigger className="h-9 text-sm bg-background"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {form.type === "IN" ? (
+                      <>
+                        <SelectItem value="manual_in">إضافة يدوية</SelectItem>
+                        <SelectItem value="return">مرتجع</SelectItem>
+                        <SelectItem value="adjustment">تسوية</SelectItem>
+                      </>
+                    ) : (
+                      <>
+                        <SelectItem value="manual_out">خصم يدوي</SelectItem>
+                        <SelectItem value="sale">بيع</SelectItem>
+                        <SelectItem value="adjustment">تسوية</SelectItem>
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs mb-1.5 block">المنتج *</Label>
+              <Input className="h-9 text-sm bg-background" value={form.product} onChange={e => setForm(f => ({ ...f, product: e.target.value }))} />
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <Label className="text-xs mb-1.5 block">اللون</Label>
+                <Input className="h-9 text-sm bg-background" value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))} />
+              </div>
+              <div>
+                <Label className="text-xs mb-1.5 block">المقاس</Label>
+                <Input className="h-9 text-sm bg-background" value={form.size} onChange={e => setForm(f => ({ ...f, size: e.target.value }))} />
+              </div>
+              <div>
+                <Label className="text-xs mb-1.5 block">الكمية *</Label>
+                <Input type="number" min="1" className="h-9 text-sm bg-background" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} />
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs mb-1.5 block">المخزن</Label>
+              <Select value={form.warehouseId || "none"} onValueChange={v => setForm(f => ({ ...f, warehouseId: v === "none" ? "" : v }))}>
+                <SelectTrigger className="h-9 text-sm bg-background"><SelectValue placeholder="اختر مخزناً..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">بدون مخزن</SelectItem>
+                  {warehouses.map((w: any) => (
+                    <SelectItem key={w.id} value={String(w.id)}>{w.name}{w.isDefault ? " ★" : ""}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label className="text-xs mb-1.5 block">ملاحظات</Label>
+              <Textarea className="min-h-[60px] text-sm resize-none bg-background" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => { setEditingMovement(null); resetForm(); }}>إلغاء</Button>
+            <Button size="sm" onClick={handleSave} disabled={updateMutation.isPending} className="gap-1">
+              <Pencil className="w-3.5 h-3.5" />{updateMutation.isPending ? "جاري..." : "حفظ التعديلات"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirm */}
+      <AlertDialog open={deletingId !== null} onOpenChange={v => { if (!v) setDeletingId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+            <AlertDialogDescription>
+              هل أنت متأكد من حذف هذه الحركة؟ لا يمكن التراجع عن هذا الإجراء.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={() => { if (deletingId !== null) deleteMutation.mutate(deletingId); }}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? "جاري الحذف..." : "تأكيد الحذف"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
