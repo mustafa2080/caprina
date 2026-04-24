@@ -64,10 +64,8 @@ export default function Layout({ children }: LayoutProps) {
   const visibleNav = ALL_NAV.filter(item => {
     // أولاً: لازم يكون عنده صلاحية الوصول للصفحة
     if (!can(item.permission)) return false;
-    // ثانياً: لو في section permission محددة لهذا العنصر، نتحقق منها (عدا لوحة التحكم دايمًا تظهر)
-    if (item.section && item.section !== "section_dashboard") {
-      if (!can(item.section)) return false;
-    }
+    // ثانياً: لو في section permission، نتحقق منها — بدون استثناء لأي عنصر
+    if (item.section && !can(item.section)) return false;
     return true;
   });
 
