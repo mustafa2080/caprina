@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
+
 import { UserPlus, Edit2, Trash2, Shield, Users, Eye, EyeOff, TrendingUp, Package, BarChart3, UserCheck, UserCog, Brain, Megaphone, LayoutGrid, FileSpreadsheet } from "lucide-react";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -247,7 +247,21 @@ export default function UsersPage() {
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 shrink-0">
-                <Switch checked={u.isActive} onCheckedChange={() => handleToggleActive(u)} disabled={u.id === currentUser?.id} title={u.isActive ? "تعطيل الحساب" : "تفعيل الحساب"} />
+                <label
+                  className={`flex flex-col items-center gap-1 cursor-pointer group ${u.id === currentUser?.id ? "opacity-40 pointer-events-none" : ""}`}
+                  title={u.isActive ? "تعطيل الحساب" : "تفعيل الحساب"}
+                >
+                  <input
+                    type="checkbox"
+                    checked={u.isActive}
+                    onChange={() => handleToggleActive(u)}
+                    disabled={u.id === currentUser?.id}
+                    className="w-4 h-4 rounded accent-primary cursor-pointer"
+                  />
+                  <span className={`text-[9px] font-bold ${u.isActive ? "text-emerald-500" : "text-red-500"}`}>
+                    {u.isActive ? "نشط" : "معطل"}
+                  </span>
+                </label>
                 <div className="flex items-center gap-1">
                   <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-primary" onClick={() => openEdit(u)}><Edit2 className="w-3.5 h-3.5" /></Button>
                   <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" onClick={() => handleDelete(u)} disabled={u.id === currentUser?.id}><Trash2 className="w-3.5 h-3.5" /></Button>
