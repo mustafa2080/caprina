@@ -238,21 +238,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const can = useCallback(
     (permission: string): boolean => {
       if (!user) return false;
-      const perms: string[] = Array.isArray(user.permissions)
-        ? user.permissions
-        : [];
+      const perms: string[] = Array.isArray(user.permissions) ? user.permissions : [];
       if (perms.includes("*")) return true;
-      // الأدمن → صلاحيات الصفحات دايماً true
-      // أما الـ sections → لو عنده permissions فعلية نتحقق منها
-      //                    لو عنده [] (قديم) نعتبره شايف كل حاجة
-      if (user.role === "admin") {
-        if (!permission.startsWith("section_")) return true;
-        if (perms.length === 0) return true; // أدمن قديم بـ [] → كل شيء ظاهر
-        return perms.includes(permission);
-      }
+
+      // الأدمن اللي عنده [] في الـ DB (قديم) → كل شيء مسموح
+      if (user.role === "admin" && perms.length === 0) return true;
+
+      // غير كده — حتى الأدمن بيتحقق من الـ DB الفعلية
       return perms.includes(permission);
     },
-    [user] // ← مهم جداً: بيتحدث لما user يتغير
+    [user]
   );
 
   const canViewFinancials = useMemo(
