@@ -30,6 +30,7 @@ router.get("/settings", requireAuth, async (_req, res): Promise<void> => {
       showTeamManagement: data.showTeamManagement ?? true,
       showSmartAnalytics: data.showSmartAnalytics ?? true,
       showAdsAnalytics: data.showAdsAnalytics ?? true,
+      showExportData: data.showExportData ?? true,
     });
   } catch (err: any) {
     console.error("[settings GET] error:", err);
@@ -70,6 +71,7 @@ router.patch("/settings", requireAuth, requireAdmin, async (req, res): Promise<v
       showTeamManagement: merged.showTeamManagement ?? true,
       showSmartAnalytics: merged.showSmartAnalytics ?? true,
       showAdsAnalytics: merged.showAdsAnalytics ?? true,
+      showExportData: merged.showExportData ?? true,
     });
   } catch (err: any) {
     console.error("[settings PATCH] error:", err);

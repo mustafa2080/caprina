@@ -68,6 +68,7 @@ export default function Layout({ children }: LayoutProps) {
   const showTeamManagement  = appSettings?.showTeamManagement  ?? true;
   const showSmartAnalytics  = appSettings?.showSmartAnalytics  ?? true;
   const showAdsAnalytics    = appSettings?.showAdsAnalytics    ?? true;
+  const showExportData      = appSettings?.showExportData      ?? true;
 
   const visibleNav = ALL_NAV.filter(item => {
     if (!can(item.permission)) return false;
@@ -76,6 +77,7 @@ export default function Layout({ children }: LayoutProps) {
     if (item.href === "/team"             && !showTeamManagement)  return false;
     if (item.href === "/smart"            && !showSmartAnalytics)  return false;
     if (item.href === "/ads-analytics"    && !showAdsAnalytics)    return false;
+    if (item.href === "/export"           && !showExportData)      return false;
     return true;
   });
 

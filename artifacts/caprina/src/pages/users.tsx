@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { UserPlus, Edit2, Trash2, Shield, Users, Eye, EyeOff, TrendingUp, Package, BarChart3, UserCheck, Lock, UserCog, Brain, Megaphone, LayoutGrid } from "lucide-react";
+import { UserPlus, Edit2, Trash2, Shield, Users, Eye, EyeOff, TrendingUp, Package, BarChart3, UserCheck, Lock, UserCog, Brain, Megaphone, LayoutGrid, FileSpreadsheet } from "lucide-react";
 
 
 const ROLE_LABELS: Record<string, string> = {
@@ -86,6 +86,7 @@ export default function UsersPage() {
   const showTeamMgmt       = appSettings?.showTeamManagement    ?? true;
   const showSmartAnalytics = appSettings?.showSmartAnalytics    ?? true;
   const showAdsAnalytics   = appSettings?.showAdsAnalytics      ?? true;
+  const showExportData     = appSettings?.showExportData        ?? true;
 
   const toggleSetting = async (key: string, val: boolean) => {
     await appSettingsApi.update({ [key]: val } as any);
@@ -441,6 +442,14 @@ export default function UsersPage() {
                         label: "تحليل الإعلانات",
                         desc: "قسم تحليل أداء الحملات الإعلانية",
                         color: "border-orange-500/50 bg-orange-500/5",
+                      },
+                      {
+                        key: "showExportData",
+                        val: showExportData,
+                        icon: <FileSpreadsheet className="w-3.5 h-3.5 text-green-400 shrink-0" />,
+                        label: "تصدير البيانات",
+                        desc: "قسم تصدير البيانات إلى ملفات Excel والنسخ الاحتياطية",
+                        color: "border-green-500/50 bg-green-500/5",
                       },
                     ].map(({ key, val, icon, label, desc, color }) => (
                       <div

@@ -948,6 +948,7 @@ export interface AppSettings {
   showTeamManagement: boolean;
   showSmartAnalytics: boolean;
   showAdsAnalytics: boolean;
+  showExportData: boolean;
 }
 
 export const appSettingsApi = {
