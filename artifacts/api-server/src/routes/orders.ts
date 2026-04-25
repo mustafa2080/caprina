@@ -260,19 +260,20 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
     // ══════════════════════════════════════════════════════════════════════
     // منطق المخزن:
     //   pending       = الطلب في المخزن (لم يُخصم بعد)
-    //   in_shipping   = الطلب عند شركة الشحن (خُصم من المخزن بـ to_shipping)
-    //   received      = سُلِّم للعميل (الخصم اتعمل قبل كده عند الشحن)
+    //   in_shipping   = قيد الشحن — لا يخصم من المخزون حتى يتعمل بيان شحن
+    //   received      = سُلِّم للعميل (الخصم اتعمل عند إنشاء البيان)
     //   returned      = مرتجع للمخزن
     // ══════════════════════════════════════════════════════════════════════
 
-    // ── pending → in_shipping: خصم من المخزن وتحويل لشركة الشحن ──────────
+    // ── pending → in_shipping: لا يخصم من المخزن هنا ──────────────────────
+    // الخصم بيحصل فقط لما يتعمل بيان شحن في manifests.ts
     if (newStatus === "in_shipping" && oldStatus === "pending") {
-      await processToShipping(orderRef, order.quantity, existing.id);
+      // لا يوجد خصم — الطلب لسه في المخزن حتى يتعمل البيان
     }
 
-    // ── pending/delayed → in_shipping من غير manifest: نفس الخصم ──────────
+    // ── delayed → in_shipping: نفس المنطق ────────────────────────────────
     else if (newStatus === "in_shipping" && oldStatus === "delayed") {
-      await processToShipping(orderRef, order.quantity, existing.id);
+      // لا يوجد خصم — الخصم يحصل عند إنشاء البيان فقط
     }
 
     // ── in_shipping → received: البضاعة وصلت للعميل ──────────────────────
@@ -348,8 +349,16 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
     }
 
     // ── in_shipping → pending/delayed (إلغاء الشحن) ───────────────────────
+    // لو عنده بيان → ارجع الخصم. لو مفيش بيان → مفيش خصم حصل أصلاً
     else if (oldStatus === "in_shipping" && (newStatus === "pending" || newStatus === "delayed")) {
-      await reverseShipping(orderRef, order.quantity, existing.id);
+      const [manifestLink] = await db
+        .select()
+        .from(shippingManifestOrdersTable)
+        .where(eq(shippingManifestOrdersTable.orderId, existing.id))
+        .limit(1);
+      if (manifestLink) {
+        await reverseShipping(orderRef, order.quantity, existing.id);
+      }
     }
 
     // ── received → other (تراجع عن التسليم) ──────────────────────────────
