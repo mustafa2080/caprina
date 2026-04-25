@@ -192,6 +192,9 @@ export function CreateManifestDialog({
       queryClient.invalidateQueries({ queryKey: ["shipping-manifests", company.id] });
       queryClient.invalidateQueries({ queryKey: ["company-stats", company.id] });
       queryClient.invalidateQueries({ queryKey: ["orders-in-shipping-all"] });
+      queryClient.invalidateQueries({ queryKey: ["warehouses"] });
+      queryClient.invalidateQueries({ queryKey: ["variants"] });
+      queryClient.invalidateQueries({ queryKey: ["variants-all"] });
       toast({
         title: "تم إنشاء البيان",
         description: `${manifest.manifestNumber} — ${manifest.orderCount} طلبية`,
