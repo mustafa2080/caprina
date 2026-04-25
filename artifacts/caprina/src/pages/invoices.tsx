@@ -116,7 +116,7 @@ export default function Invoices() {
         grid-template-rows: 1fr 1fr;
         gap: 3mm;
         width: 100%;
-        height: 194mm;
+        min-height: 194mm;
         page-break-after: always;
       }
       .page:last-child { page-break-after: avoid; }
@@ -132,6 +132,9 @@ export default function Invoices() {
         font-size: 9.5pt;
         min-height: 0;
       }
+
+      /* لو الملاحظات طويلة — الـ card تكبر عمودياً بدل ما تقطعها */
+      .inv.has-notes { overflow: visible; }
 
       /* ── Top bar: brand row ──────────────────── */
       .top-bar {
@@ -258,11 +261,11 @@ export default function Invoices() {
         gap: 2mm;
         align-items: flex-start;
         flex-shrink: 0;
-        min-height: 8mm;
+        overflow: visible;
         box-shadow: 0 1px 3px rgba(245,158,11,0.15);
       }
-      .notes-box .nl { font-size: 9pt; font-weight: 900; color: #b45309; white-space: nowrap; padding-top: 0.3mm; }
-      .notes-box .nv { font-size: 9.5pt; font-weight: 700; color: #1a1a1a; line-height: 1.6; white-space: normal; word-break: break-word; }
+      .notes-box .nl { font-size: 8.5pt; font-weight: 900; color: #b45309; white-space: nowrap; padding-top: 0.3mm; }
+      .notes-box .nv { font-size: 9pt; font-weight: 700; color: #1a1a1a; line-height: 1.5; white-space: normal; word-break: break-word; }
 
       /* ── Confirm shipping row ─────────────── */
       .confirm-box {
@@ -323,7 +326,7 @@ export default function Invoices() {
       const address = order.address ?? "";
 
       return `
-        <div class="inv">
+        <div class="inv${notes ? " has-notes" : ""}">
           <!-- TOP BAR -->
           <div class="top-bar">
             <div class="logo-wrap">
