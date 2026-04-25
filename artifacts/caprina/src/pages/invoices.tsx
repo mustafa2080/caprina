@@ -106,7 +106,7 @@ export default function Invoices() {
         direction: rtl;
         background: white;
         color: #111;
-        font-size: 10pt;
+        font-size: 11.5pt;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
       }
@@ -129,7 +129,7 @@ export default function Invoices() {
         flex-direction: column;
         overflow: hidden;
         background: white;
-        font-size: 8.5pt;
+        font-size: 9.5pt;
         min-height: 0;
       }
 
@@ -146,10 +146,10 @@ export default function Invoices() {
       }
       .logo-wrap { display: flex; align-items: center; gap: 1.5mm; }
       .logo-img { width: 8mm; height: 8mm; object-fit: contain; border-radius: 1mm; }
-      .logo-txt { font-size: 11pt; font-weight: 900; letter-spacing: 2px; line-height: 1; }
-      .logo-sub { font-size: 5pt; letter-spacing: 2px; opacity: 0.7; }
-      .brand-city { font-size: 9pt; font-weight: 700; letter-spacing: 1px; opacity: 0.9; }
-      .inv-date { font-size: 7.5pt; opacity: 0.85; white-space: nowrap; }
+      .logo-txt { font-size: 12pt; font-weight: 900; letter-spacing: 2px; line-height: 1; }
+      .logo-sub { font-size: 6pt; letter-spacing: 2px; opacity: 0.7; }
+      .brand-city { font-size: 10pt; font-weight: 700; letter-spacing: 1px; opacity: 0.9; }
+      .inv-date { font-size: 8.5pt; opacity: 0.85; white-space: nowrap; }
 
       /* ── Body ─────────────────────────────────── */
       .inv-body {
@@ -170,10 +170,10 @@ export default function Invoices() {
         padding-bottom: 1mm;
         gap: 2mm;
       }
-      .customer-name { font-size: 10.5pt; font-weight: 900; color: #111; }
-      .order-id { font-size: 7.5pt; color: #999; font-family: monospace; }
+      .customer-name { font-size: 12pt; font-weight: 900; color: #111; }
+      .order-id { font-size: 8.5pt; color: #999; font-family: monospace; }
       .phone-badge {
-        font-size: 9.5pt;
+        font-size: 11pt;
         font-weight: 900;
         color: #111;
         direction: ltr;
@@ -187,7 +187,7 @@ export default function Invoices() {
       .prod-table {
         width: 100%;
         border-collapse: collapse;
-        font-size: 8pt;
+        font-size: 9pt;
         flex-shrink: 0;
       }
       .prod-table th {
@@ -196,20 +196,20 @@ export default function Invoices() {
         border: 0.5px solid #333;
         padding: 1.2mm 1.5mm;
         font-weight: 700;
-        font-size: 7.5pt;
+        font-size: 8.5pt;
         text-align: center;
       }
       .prod-table td {
         border: 0.5px solid #ddd;
         padding: 1.2mm 1.5mm;
         text-align: center;
-        font-size: 8pt;
+        font-size: 9pt;
         vertical-align: middle;
       }
       .prod-table td.name-col {
         text-align: right;
         font-weight: 700;
-        font-size: 8.5pt;
+        font-size: 9.5pt;
         max-width: 35mm;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -219,7 +219,7 @@ export default function Invoices() {
         background: #f0f0f0;
         color: #111;
         font-weight: 900;
-        font-size: 9pt;
+        font-size: 10pt;
         border-color: #ccc;
       }
 
@@ -242,8 +242,8 @@ export default function Invoices() {
       }
       .info-cell.span2 { grid-column: span 2; }
       .info-cell.span3 { grid-column: span 3; }
-      .ic-label { font-size: 6.5pt; color: #999; white-space: nowrap; }
-      .ic-val { font-size: 8pt; font-weight: 700; min-height: 3.5mm; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .ic-label { font-size: 7.5pt; color: #999; white-space: nowrap; }
+      .ic-val { font-size: 9pt; font-weight: 700; min-height: 3.5mm; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .ic-val.wrap { white-space: normal; line-height: 1.3; }
 
       /* ── Notes box ──────────────────────────────── */
@@ -258,15 +258,15 @@ export default function Invoices() {
         flex-shrink: 0;
         min-height: 6mm;
       }
-      .notes-box .nl { font-size: 6.5pt; font-weight: 900; color: #c77800; white-space: nowrap; padding-top: 0.5mm; }
-      .notes-box .nv { font-size: 7pt; color: #444; line-height: 1.5; white-space: normal; word-break: break-word; }
+      .notes-box .nl { font-size: 7.5pt; font-weight: 900; color: #c77800; white-space: nowrap; padding-top: 0.5mm; }
+      .notes-box .nv { font-size: 8pt; color: #444; line-height: 1.5; white-space: normal; word-break: break-word; }
 
       /* ── Confirm shipping row ─────────────── */
       .confirm-box {
         border: 0.5px solid #1a1a1a;
         border-radius: 1mm;
         padding: 1.5mm 2mm;
-        font-size: 7pt;
+        font-size: 8pt;
         color: #444;
         display: flex;
         gap: 1.5mm;
@@ -277,7 +277,7 @@ export default function Invoices() {
         font-weight: 900;
         white-space: nowrap;
         color: #111;
-        font-size: 7.5pt;
+        font-size: 8.5pt;
       }
 
       /* ── Footer: policy only (no phone repeat) ──────────── */
@@ -290,7 +290,7 @@ export default function Invoices() {
         background: #f9f9f9;
         flex-shrink: 0;
       }
-      .policy-txt { font-size: 6pt; color: #666; text-align: center; line-height: 1.4; }
+      .policy-txt { font-size: 7pt; color: #666; text-align: center; line-height: 1.4; }
 
       /* ── Empty slot ───────────────────────── */
       .empty-slot {
