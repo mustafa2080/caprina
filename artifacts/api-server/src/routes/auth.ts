@@ -13,7 +13,7 @@ function parsePermissions(permissions: any): string[] {
     try { parsed = JSON.parse(parsed); } catch { return []; }
   }
   if (!Array.isArray(parsed)) return [];
-  // flatten لأي nested arrays (نتيجة JSON_ARRAY_APPEND خاطئة)
+  // flatten لأي nested arrays
   const flat: string[] = [];
   for (const item of parsed) {
     if (typeof item === "string") flat.push(item);
@@ -22,28 +22,6 @@ function parsePermissions(permissions: any): string[] {
     }
   }
   return [...new Set(flat)];
-}
-
-// صلاحيات يجب أن يمتلكها الأدمن دايماً — تُضاف تلقائياً لو ناقصة
-const ADMIN_DEFAULT_PERMISSIONS = ["edit_brand"];
-
-/**
- * يضيف الصلاحيات الافتراضية للأدمن لو ناقصة في الـ DB ويحفظها.
- * بيتعمل عند login و /me عشان الأدمنز القدامى يتحدثوا تلقائياً.
- */
-async function ensureAdminDefaults(user: typeof usersTable.$inferSelect): Promise<string[]> {
-  const perms = parsePermissions(user.permissions);
-  if (user.role !== "admin") return perms;
-
-  const missing = ADMIN_DEFAULT_PERMISSIONS.filter(p => !perms.includes(p));
-  if (missing.length === 0) return perms;
-
-  const updated = [...perms, ...missing];
-  await db
-    .update(usersTable)
-    .set({ permissions: JSON.stringify(updated) })
-    .where(eq(usersTable.id, user.id));
-  return updated;
 }
 
 // ─── Brute-force protection: max 10 login attempts per 15 min per IP ────────
@@ -89,7 +67,7 @@ router.post("/login", loginLimiter, async (req, res): Promise<void> => {
     userName: user.displayName,
   });
 
-  const finalPerms = await ensureAdminDefaults(user);
+  const finalPerms = parsePermissions(user.permissions);
   const { passwordHash: _, ...safeUser } = user;
   res.json({ token, user: { ...safeUser, permissions: finalPerms } });
 });
@@ -101,7 +79,7 @@ router.get("/me", requireAuth, async (req, res): Promise<void> => {
   res.setHeader("Pragma", "no-cache");
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.user!.id)).limit(1);
   if (!user) { res.status(404).json({ error: "المستخدم غير موجود" }); return; }
-  const finalPerms = await ensureAdminDefaults(user);
+  const finalPerms = parsePermissions(user.permissions);
   const { passwordHash: _, ...safeUser } = user;
   res.json({ ...safeUser, permissions: finalPerms });
 });
