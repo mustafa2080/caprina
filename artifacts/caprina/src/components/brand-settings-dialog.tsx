@@ -15,12 +15,12 @@ interface BrandSettingsDialogProps {
 
 export function BrandSettingsDialog({ open, onClose }: BrandSettingsDialogProps) {
   const { brand, update, uploadLogo, deleteLogo } = useBrand();
-  const { can, isAdmin } = useAuth();
+  const { can } = useAuth();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // مقفول لو اليوزر مش عنده صلاحية edit_brand ومش أدمن
-  const isLocked = !isAdmin && !can("edit_brand");
+  // مقفول لو اليوزر مش عنده صلاحية edit_brand — بدون استثناء لأي دور
+  const isLocked = !can("edit_brand");
 
   const [name, setName] = useState(brand.name);
   const [tagline, setTagline] = useState(brand.tagline);

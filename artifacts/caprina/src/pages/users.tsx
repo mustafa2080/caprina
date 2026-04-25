@@ -161,6 +161,12 @@ export default function UsersPage() {
     if (perms.includes("*")) return DEFAULT_PERMISSIONS[role]?.() ?? DEFAULT_PERMISSIONS["admin"]!();
     // الأدمن اللي عنده [] في الـ DB (قديم) نفرد ليه كل الصلاحيات تلقائياً
     if (role === "admin" && perms.length === 0) return DEFAULT_PERMISSIONS["admin"]!();
+    // الأدمن اللي عنده permissions في الـ DB — نضيف أي صلاحيات جديدة ناقصة من الـ defaults
+    if (role === "admin") {
+      const defaults = DEFAULT_PERMISSIONS["admin"]!();
+      const merged = [...new Set([...perms, ...defaults])];
+      return merged;
+    }
     return perms;
   };
 

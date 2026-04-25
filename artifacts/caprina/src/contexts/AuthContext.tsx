@@ -244,7 +244,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // الأدمن اللي عنده [] في الـ DB (قديم) → كل شيء مسموح
       if (user.role === "admin" && perms.length === 0) return true;
 
-      // غير كده — حتى الأدمن بيتحقق من الـ DB الفعلية
+      // الأدمن دايماً عنده edit_brand — صلاحية أساسية للمدير
+      if (user.role === "admin" && permission === "edit_brand") return true;
+
+      // غير كده — بيتحقق من الـ DB الفعلية
       return perms.includes(permission);
     },
     [user]
