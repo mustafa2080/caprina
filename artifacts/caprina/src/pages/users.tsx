@@ -193,12 +193,14 @@ export default function UsersPage() {
   const handleSubmit = () => {
     if (!form.displayName.trim()) { toast({ title: "خطأ", description: "الاسم مطلوب", variant: "destructive" }); return; }
     if (editingUser) {
+      // لو الدور أدمن — نتأكد إن كل الـ defaults موجودة دايماً قبل الحفظ
+      const finalPermissions = form.role === "admin"
+        ? [...new Set([...form.permissions, ...DEFAULT_PERMISSIONS["admin"]!()])]
+        : form.permissions;
       const data: any = {
         displayName: form.displayName,
         role: form.role,
-        // الأدمن دايماً يشوف كل حاجة بحكم الـ can() — بس نحفظ الـ permissions الفعلية عشان الـ DB يكون صح
-        // مانمسحش الـ permissions للأدمن — نبعتها كما هي
-        permissions: form.permissions,
+        permissions: finalPermissions,
       };
       if (form.password) data.password = form.password;
       updateMutation.mutate({ id: editingUser.id, data });
