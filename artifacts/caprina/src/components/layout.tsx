@@ -329,9 +329,7 @@ export default function Layout({ children }: LayoutProps) {
       </main>
 
       {/* Brand Settings Dialog */}
-      {brandSettingsOpen && (
-        <BrandSettingsDialog open={brandSettingsOpen} onClose={() => setBrandSettingsOpen(false)} />
-      )}
+      <BrandSettingsDialog open={brandSettingsOpen} onClose={() => setBrandSettingsOpen(false)} />
 
       {/* Change Password Dialog */}
       <Dialog open={pwDialogOpen} onOpenChange={setPwDialogOpen}>
