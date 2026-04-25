@@ -1,13 +1,12 @@
 import { useState, useRef } from "react";
-import { Upload, X, RotateCcw, Save, ImageIcon, Lock } from "lucide-react";
+import { Upload, X, Save, ImageIcon, Lock } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useBrand } from "@/contexts/BrandContext";
-import { useQuery } from "@tanstack/react-query";
-import { appSettingsApi } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface BrandSettingsDialogProps {
   open: boolean;
@@ -16,14 +15,12 @@ interface BrandSettingsDialogProps {
 
 export function BrandSettingsDialog({ open, onClose }: BrandSettingsDialogProps) {
   const { brand, update, uploadLogo, deleteLogo } = useBrand();
+  const { can, isAdmin } = useAuth();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { data: appSettings } = useQuery({
-    queryKey: ["app-settings"],
-    queryFn: appSettingsApi.get,
-  });
-  const isLocked = appSettings?.allowBrandEdit === false;
+  // مقفول لو اليوزر مش عنده صلاحية edit_brand ومش أدمن
+  const isLocked = !isAdmin && !can("edit_brand");
 
   const [name, setName] = useState(brand.name);
   const [tagline, setTagline] = useState(brand.tagline);
@@ -115,7 +112,7 @@ export function BrandSettingsDialog({ open, onClose }: BrandSettingsDialogProps)
           {isLocked && (
             <div className="flex items-center gap-2 rounded-lg border border-amber-600/40 bg-amber-900/15 px-3 py-2 text-xs text-amber-400">
               <Lock className="w-3.5 h-3.5 shrink-0" />
-              <span>التعديل مقفول — يمكن للمدير فتحه من إدارة المستخدمين</span>
+              <span>ليس لديك صلاحية تعديل هوية الشركة — تواصل مع المدير</span>
             </div>
           )}
 

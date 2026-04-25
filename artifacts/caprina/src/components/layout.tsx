@@ -101,7 +101,7 @@ export default function Layout({ children }: LayoutProps) {
             layout="row"
             nameClass="text-sm text-sidebar-foreground"
             taglineClass="text-sidebar-foreground/40"
-            onLogoClick={isAdmin ? () => setBrandSettingsOpen(true) : undefined}
+            onLogoClick={(isAdmin || can("edit_brand")) ? () => setBrandSettingsOpen(true) : undefined}
           />
         </div>
 
@@ -253,7 +253,7 @@ export default function Layout({ children }: LayoutProps) {
             <div className="absolute top-0 right-0 h-full w-72 bg-sidebar border-l border-sidebar-border flex flex-col shadow-2xl animate-in slide-in-from-right duration-200">
               {/* Drawer header */}
               <div className="flex items-center justify-between p-4 border-b border-sidebar-border">
-                <BrandFull logoSize="sm" layout="row" nameClass="text-sm text-sidebar-foreground" onLogoClick={isAdmin ? () => { setBrandSettingsOpen(true); setMobileMenuOpen(false); } : undefined} />
+                <BrandFull logoSize="sm" layout="row" nameClass="text-sm text-sidebar-foreground" onLogoClick={(isAdmin || can("edit_brand")) ? () => { setBrandSettingsOpen(true); setMobileMenuOpen(false); } : undefined} />
                 <button
                   type="button"
                   onClick={() => setMobileMenuOpen(false)}
