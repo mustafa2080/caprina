@@ -10,13 +10,24 @@ const router: IRouter = Router();
 router.use(requireAuth);
 router.use(requireAdmin);
 
-// Helper: parse permissions from DB (MariaDB returns JSON as string)
+// Helper: parse permissions from DB (MariaDB returns JSON as string, sometimes nested)
 function parsePermissions(permissions: any): string[] {
-  if (Array.isArray(permissions)) return permissions;
-  if (typeof permissions === "string") {
-    try { return JSON.parse(permissions); } catch { return []; }
+  let parsed = permissions;
+  // لو string — نعمل parse
+  if (typeof parsed === "string") {
+    try { parsed = JSON.parse(parsed); } catch { return []; }
   }
-  return [];
+  if (!Array.isArray(parsed)) return [];
+  // نعمل flatten لأي nested arrays (نتيجة JSON_ARRAY_APPEND خاطئة)
+  const flat: string[] = [];
+  for (const item of parsed) {
+    if (typeof item === "string") flat.push(item);
+    else if (Array.isArray(item)) {
+      for (const sub of item) { if (typeof sub === "string") flat.push(sub); }
+    }
+  }
+  // نشيل الـ duplicates
+  return [...new Set(flat)];
 }
 
 // GET /users

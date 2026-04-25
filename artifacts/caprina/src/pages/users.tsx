@@ -158,16 +158,21 @@ export default function UsersPage() {
 
   // لو اليوزر عنده "*" في الـ DB (الأدمن القديم)، نفرد كل الصلاحيات الحقيقية
   const expandPermissions = (perms: string[], role: string): string[] => {
-    if (perms.includes("*")) return DEFAULT_PERMISSIONS[role]?.() ?? DEFAULT_PERMISSIONS["admin"]!();
+    // تنظيف: نتأكد إن كل عنصر string حقيقي (وليس nested array أو object)
+    const clean = perms
+      .map(p => (typeof p === "string" ? p : null))
+      .filter((p): p is string => p !== null && p.trim() !== "");
+
+    if (clean.includes("*")) return DEFAULT_PERMISSIONS[role]?.() ?? DEFAULT_PERMISSIONS["admin"]!();
     // الأدمن اللي عنده [] في الـ DB (قديم) نفرد ليه كل الصلاحيات تلقائياً
-    if (role === "admin" && perms.length === 0) return DEFAULT_PERMISSIONS["admin"]!();
+    if (role === "admin" && clean.length === 0) return DEFAULT_PERMISSIONS["admin"]!();
     // الأدمن اللي عنده permissions في الـ DB — نضيف أي صلاحيات جديدة ناقصة من الـ defaults
     if (role === "admin") {
       const defaults = DEFAULT_PERMISSIONS["admin"]!();
-      const merged = [...new Set([...perms, ...defaults])];
+      const merged = [...new Set([...clean, ...defaults])];
       return merged;
     }
-    return perms;
+    return clean;
   };
 
   const openEdit = (u: AppUser) => {

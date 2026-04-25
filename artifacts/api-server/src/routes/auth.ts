@@ -6,13 +6,22 @@ import { signToken, comparePassword, hashPassword } from "../lib/auth.js";
 import { requireAuth } from "../middlewares/requireAuth.js";
 import { logAudit } from "../lib/audit.js";
 
-// Helper: parse permissions from MariaDB (returns JSON as string)
+// Helper: parse permissions from MariaDB (returns JSON as string, sometimes nested from JSON_ARRAY_APPEND)
 function parsePermissions(permissions: any): string[] {
-  if (Array.isArray(permissions)) return permissions;
-  if (typeof permissions === "string") {
-    try { return JSON.parse(permissions); } catch { return []; }
+  let parsed = permissions;
+  if (typeof parsed === "string") {
+    try { parsed = JSON.parse(parsed); } catch { return []; }
   }
-  return [];
+  if (!Array.isArray(parsed)) return [];
+  // flatten لأي nested arrays (نتيجة JSON_ARRAY_APPEND خاطئة)
+  const flat: string[] = [];
+  for (const item of parsed) {
+    if (typeof item === "string") flat.push(item);
+    else if (Array.isArray(item)) {
+      for (const sub of item) { if (typeof sub === "string") flat.push(sub); }
+    }
+  }
+  return [...new Set(flat)];
 }
 
 // صلاحيات يجب أن يمتلكها الأدمن دايماً — تُضاف تلقائياً لو ناقصة
