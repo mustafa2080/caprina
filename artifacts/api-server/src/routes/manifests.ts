@@ -561,37 +561,65 @@ router.delete("/shipping-manifests/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  // Reverse stock: return qty from shipping company back to warehouse for pending orders
-  const pendingLinks = await db
+  // جيب كل الطلبات في البيان مع حالتها
+  const allLinks = await db
     .select()
     .from(shippingManifestOrdersTable)
-    .where(
-      and(
-        eq(shippingManifestOrdersTable.manifestId, id),
-        inArray(shippingManifestOrdersTable.deliveryStatus, ["pending", "postponed"])
-      )
-    );
+    .where(eq(shippingManifestOrdersTable.manifestId, id));
 
-  if (pendingLinks.length > 0) {
-    const pendingOrderIds = pendingLinks.map((l) => l.orderId);
-    const pendingOrders = await db
+  if (allLinks.length > 0) {
+    const allOrderIds = allLinks.map((l) => l.orderId);
+    const allOrders = await db
       .select()
       .from(ordersTable)
-      .where(inArray(ordersTable.id, pendingOrderIds));
+      .where(inArray(ordersTable.id, allOrderIds));
 
-    for (const order of pendingOrders) {
-      await reverseShipping(
-        {
-          variantId: order.variantId,
-          productId: order.productId,
-          product: order.product,
-          color: order.color,
-          size: order.size,
-          warehouseId: order.warehouseId,
-        },
-        order.quantity,
-        order.id,
-      );
+    const linkMap = new Map(allLinks.map((l) => [l.orderId, l]));
+
+    for (const order of allOrders) {
+      const link = linkMap.get(order.id);
+      if (!link) continue;
+
+      const orderRef = {
+        variantId: order.variantId,
+        productId: order.productId,
+        product: order.product,
+        color: order.color,
+        size: order.size,
+        warehouseId: order.warehouseId,
+      };
+
+      const deliveryStatus = link.deliveryStatus;
+
+      if (deliveryStatus === "pending" || deliveryStatus === "postponed") {
+        // لسه في الشحن → ارجع الكمية للمخزن
+        await reverseShipping(orderRef, order.quantity, order.id);
+
+      } else if (deliveryStatus === "delivered") {
+        // اتسلم كامل → الخصم حصل مرتين (to_shipping + sale) → ارجع مرتين
+        await reverseShipping(orderRef, order.quantity, order.id);
+        await reverseDelivery(orderRef, order.quantity, order.id);
+
+      } else if (deliveryStatus === "partial_received") {
+        // اتسلم جزئي
+        const deliveredQty = order.partialQuantity ?? 0;
+        const remainingQty = order.quantity - deliveredQty;
+
+        // الجزء اللي اتسلم → عكس sale + عكس to_shipping
+        if (deliveredQty > 0) {
+          await reverseDelivery(orderRef, deliveredQty, order.id);
+          await reverseShipping(orderRef, deliveredQty, order.id);
+        }
+        // الجزء اللي لسه في الشحن → عكس to_shipping بس
+        if (remainingQty > 0) {
+          await reverseShipping(orderRef, remainingQty, order.id);
+        }
+
+      } else if (deliveryStatus === "returned") {
+        // مرتجع → processReturn رجّع للمخزون العام
+        // reverseShipping يرجع للـ warehouseStock اللي ما اتأثرش بـ processReturn
+        await reverseShipping(orderRef, order.quantity, order.id);
+      }
     }
   }
 
