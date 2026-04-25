@@ -162,11 +162,18 @@ router.post("/orders/import/execute", async (req, res): Promise<void> => {
 
   let inserted: any[] = [];
   if (validOrders.length > 0) {
-    inserted = await db.insert(ordersTable).values(validOrders).returning();
+    const result = await db.insert(ordersTable).values(validOrders);
+    const insertId = (result as any)[0]?.insertId;
+    if (insertId) {
+      const { gte } = await import("drizzle-orm");
+      inserted = await db.select().from(ordersTable)
+        .where(gte(ordersTable.id, insertId))
+        .limit(validOrders.length);
+    }
   }
 
   res.json({
-    imported: inserted.length,
+    imported: inserted.length || validOrders.length,
     failed: errors.length,
     errors: errors.slice(0, 30),
     orders: inserted,
@@ -455,10 +462,17 @@ router.post("/orders/import", upload.single("file"), async (req, res): Promise<v
 
     let inserted: any[] = [];
     if (validOrders.length > 0) {
-      inserted = await db.insert(ordersTable).values(validOrders).returning();
+      const result = await db.insert(ordersTable).values(validOrders);
+      const insertId = (result as any)[0]?.insertId;
+      if (insertId) {
+        const { gte } = await import("drizzle-orm");
+        inserted = await db.select().from(ordersTable)
+          .where(gte(ordersTable.id, insertId))
+          .limit(validOrders.length);
+      }
     }
 
-    res.json({ imported: inserted.length, failed: errors.length, errors: errors.slice(0, 20), orders: inserted });
+    res.json({ imported: inserted.length || validOrders.length, failed: errors.length, errors: errors.slice(0, 20), orders: inserted });
   } catch (err: any) {
     res.status(500).json({ error: `فشل قراءة الملف: ${err.message}` });
   }
@@ -512,12 +526,11 @@ router.post("/import/inventory", upload.single("file"), async (req, res): Promis
       const updateData: any = { totalQuantity: variant.totalQuantity + qty };
       if (cost !== null && !isNaN(cost) && cost > 0) updateData.costPrice = cost;
 
-      const [up] = await db.update(productVariantsTable)
+      await db.update(productVariantsTable)
         .set(updateData)
-        .where(eq(productVariantsTable.id, variant.id))
-        .returning();
+        .where(eq(productVariantsTable.id, variant.id));
 
-      updated.push({ sku, addedQty: qty, newTotal: up.totalQuantity });
+      updated.push({ sku, addedQty: qty, newTotal: variant.totalQuantity + qty });
     }
 
     res.json({ updated: updated.length, failed: errors.length, errors, items: updated });
