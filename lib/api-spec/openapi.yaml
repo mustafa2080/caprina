@@ -377,6 +377,8 @@ components:
           type: ["string", "null"]
         address:
           type: ["string", "null"]
+        city:
+          type: ["string", "null"]
         product:
           type: string
         quantity:
@@ -413,6 +415,7 @@ components:
         - customerName
         - phone
         - address
+        - city
         - product
         - quantity
         - unitPrice

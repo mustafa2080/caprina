@@ -12,6 +12,7 @@ export const ordersTable = mysqlTable("orders", {
   id: int("id").primaryKey().autoincrement(),
   customerName: varchar("customer_name", { length: 255 }).notNull(),
   phone: varchar("phone", { length: 50 }),
+  city: varchar("city", { length: 255 }),
   address: text("address"),
   product: varchar("product", { length: 255 }).notNull(),
   color: varchar("color", { length: 100 }),
