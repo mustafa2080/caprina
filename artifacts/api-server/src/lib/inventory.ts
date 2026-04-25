@@ -74,7 +74,19 @@ async function adjustWarehouseStock(
         : eq(warehouseStockTable.productId, productId!),
     );
     const [row] = await db.select().from(warehouseStockTable).where(condition);
-    if (!row) return;
+    if (!row) {
+      // لو مفيش row وده إرجاع (delta > 0) → insert جديد
+      if (delta > 0) {
+        await db.insert(warehouseStockTable).values({
+          warehouseId,
+          variantId: variantId ?? null,
+          productId: productId ?? null,
+          quantity: delta,
+          updatedAt: new Date(),
+        });
+      }
+      return;
+    }
     const newQty = Math.max(0, row.quantity + delta);
     await db.update(warehouseStockTable).set({ quantity: newQty, updatedAt: new Date() }).where(condition);
   } else {
@@ -88,6 +100,7 @@ async function adjustWarehouseStock(
           : eq(warehouseStockTable.productId, productId!),
       );
 
+    if (delta > 0 && rows.length === 0) return; // مفيش مخزن أصلاً، مش هينفع نرجع
     if (rows.length === 0) return;
 
     if (delta > 0) {
@@ -255,6 +268,7 @@ export async function processReturn(
     color?: string | null;
     size?: string | null;
     quantity: number;
+    warehouseId?: number | null;
   },
   wasReceived: boolean,
   isDamaged: boolean,
@@ -266,6 +280,8 @@ export async function processReturn(
 
   if (!isDamaged) {
     await adjustQty(variantId, productId, order.quantity, -order.quantity);
+    // رجّع للـ warehouseStock كمان
+    await adjustWarehouseStock(order.warehouseId, variantId, productId, order.quantity);
   }
 
   if (order.product) {

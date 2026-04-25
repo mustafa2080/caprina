@@ -274,6 +274,7 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
       product: order.product ?? existing.product,
       color: order.color ?? existing.color,
       size: order.size ?? existing.size,
+      warehouseId: existing.warehouseId ?? null,
     };
 
     // ══════════════════════════════════════════════════════════════════════
