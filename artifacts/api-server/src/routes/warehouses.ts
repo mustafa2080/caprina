@@ -10,6 +10,7 @@ import {
 } from "@workspace/db";
 import { z } from "zod";
 import { requireAuth } from "../middlewares/requireAuth";
+import { syncProductQuantityFromWarehouses } from "../lib/inventory.js";
 
 const router: IRouter = Router();
 router.use(requireAuth);
@@ -190,6 +191,10 @@ router.patch("/warehouses/:id/stock/:stockId", async (req, res): Promise<void> =
       ));
   const [updated] = await db.select().from(warehouseStockTable).where(eq(warehouseStockTable.id, stockId));
   if (!updated) { res.status(404).json({ error: "عنصر المخزون غير موجود" }); return; }
+
+  // ── مزامنة تلقائية: حدّث totalQuantity للمنتج/variant من مجموع المخازن ──
+  await syncProductQuantityFromWarehouses(updated.variantId ?? null, updated.productId ?? null);
+
   res.json(updated);
 });
 
@@ -225,6 +230,13 @@ router.post("/warehouses/:id/stock", async (req, res): Promise<void> => {
       .set({ quantity: parsed.data.quantity })
       .where(eq(warehouseStockTable.id, existing.id));
     const [updated] = await db.select().from(warehouseStockTable).where(eq(warehouseStockTable.id, existing.id));
+
+    // ── مزامنة تلقائية ──
+    await syncProductQuantityFromWarehouses(
+      parsed.data.variantId ?? null,
+      parsed.data.productId ?? null,
+    );
+
     res.json(updated);
   } else {
     const insertResult = await db
@@ -237,6 +249,13 @@ router.post("/warehouses/:id/stock", async (req, res): Promise<void> => {
       });
     const insertId = (insertResult as any)[0]?.insertId ?? (insertResult as any).insertId;
     const [created] = await db.select().from(warehouseStockTable).where(eq(warehouseStockTable.id, insertId));
+
+    // ── مزامنة تلقائية ──
+    await syncProductQuantityFromWarehouses(
+      parsed.data.variantId ?? null,
+      parsed.data.productId ?? null,
+    );
+
     res.status(201).json(created);
   }
 });

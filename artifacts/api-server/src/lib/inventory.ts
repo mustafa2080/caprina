@@ -1,4 +1,4 @@
-import { eq, like, and } from "drizzle-orm";
+import { eq, like, and, sum } from "drizzle-orm";
 import { db, productsTable, productVariantsTable, inventoryMovementsTable, warehouseStockTable } from "@workspace/db";
 import type { MovementReason } from "@workspace/db";
 
@@ -14,6 +14,66 @@ import type { MovementReason } from "@workspace/db";
  *  Delivery reversed  → totalQuantity += qty   (IN / adjustment)
  *  soldQuantity updated on delivery/reversal for analytics only.
  */
+
+// ─── Sync: مزامنة totalQuantity من مجموع المخازن ──────────────────────────────
+/**
+ * تحسب مجموع كميات المنتج/variant في كل المخازن،
+ * وتكتبها في products.totalQuantity أو product_variants.totalQuantity.
+ * تُستدعى تلقائياً بعد أي تعديل على warehouse_stock.
+ */
+export async function syncProductQuantityFromWarehouses(
+  variantId: number | null,
+  productId: number | null,
+): Promise<void> {
+  if (variantId) {
+    // مجموع كل المخازن للـ variant ده
+    const [row] = await db
+      .select({ total: sum(warehouseStockTable.quantity) })
+      .from(warehouseStockTable)
+      .where(eq(warehouseStockTable.variantId, variantId));
+    const total = Number(row?.total ?? 0);
+    await db
+      .update(productVariantsTable)
+      .set({ totalQuantity: total, updatedAt: new Date() })
+      .where(eq(productVariantsTable.id, variantId));
+
+    // بعدين حدّث المنتج الأب = مجموع كل variants بتاعته
+    const [variant] = await db
+      .select({ productId: productVariantsTable.productId })
+      .from(productVariantsTable)
+      .where(eq(productVariantsTable.id, variantId));
+    if (variant) {
+      await syncParentProductFromVariants(variant.productId);
+    }
+  } else if (productId) {
+    // منتج بدون variants — مجموع المخازن بتاعته
+    const [row] = await db
+      .select({ total: sum(warehouseStockTable.quantity) })
+      .from(warehouseStockTable)
+      .where(eq(warehouseStockTable.productId, productId));
+    const total = Number(row?.total ?? 0);
+    await db
+      .update(productsTable)
+      .set({ totalQuantity: total, updatedAt: new Date() })
+      .where(eq(productsTable.id, productId));
+  }
+}
+
+/**
+ * يحدّث totalQuantity للمنتج الأب
+ * = مجموع totalQuantity لكل variants بتاعته.
+ */
+async function syncParentProductFromVariants(productId: number): Promise<void> {
+  const variants = await db
+    .select({ qty: productVariantsTable.totalQuantity })
+    .from(productVariantsTable)
+    .where(eq(productVariantsTable.productId, productId));
+  const total = variants.reduce((s, v) => s + (v.qty ?? 0), 0);
+  await db
+    .update(productsTable)
+    .set({ totalQuantity: total, updatedAt: new Date() })
+    .where(eq(productsTable.id, productId));
+}
 
 // ─── Resolve inventory target ─────────────────────────────────────────────────
 

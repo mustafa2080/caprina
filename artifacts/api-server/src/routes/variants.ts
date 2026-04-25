@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, and } from "drizzle-orm";
-import { db, productVariantsTable, productsTable } from "@workspace/db";
+import { db, productVariantsTable, productsTable, warehousesTable, warehouseStockTable } from "@workspace/db";
 import { z } from "zod";
 import { addStock } from "../lib/inventory.js";
 import { logAudit } from "../lib/audit.js";
@@ -158,6 +158,37 @@ router.post("/products/:productId/variants/:variantId/add-stock", async (req, re
     parsed.data.quantity,
     parsed.data.notes ?? null,
   );
+
+  // ── مزامنة تلقائية: وزّع الكمية على المخزن الافتراضي ──────────────────────
+  const [defaultWarehouse] = await db
+    .select()
+    .from(warehousesTable)
+    .where(eq(warehousesTable.isDefault, true));
+  if (defaultWarehouse) {
+    const allStock = await db
+      .select()
+      .from(warehouseStockTable)
+      .where(eq(warehouseStockTable.warehouseId, defaultWarehouse.id));
+    const existing = allStock.find(r => r.variantId === variantId);
+
+    if (existing) {
+      await db
+        .update(warehouseStockTable)
+        .set({ quantity: existing.quantity + parsed.data.quantity, updatedAt: new Date() })
+        .where(eq(warehouseStockTable.id, existing.id));
+    } else {
+      await db
+        .insert(warehouseStockTable)
+        .values({
+          warehouseId: defaultWarehouse.id,
+          productId,
+          variantId,
+          quantity: parsed.data.quantity,
+          updatedAt: new Date(),
+        });
+    }
+  }
+  // ──────────────────────────────────────────────────────────────────────────
 
   const [updated] = await db.select().from(productVariantsTable).where(eq(productVariantsTable.id, variantId));
   res.json(updated);
