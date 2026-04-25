@@ -191,16 +191,21 @@ export async function processDelivery(
     product?: string | null;
     color?: string | null;
     size?: string | null;
+    warehouseId?: number | null;
   },
   deliveredQty: number,
   reason: "sale" | "partial_sale",
   orderId?: number | null,
+  skipWarehouseStock = false, // true لما البضاعة كانت اتخصمت من المخزن مسبقاً (بـ processToShipping)
 ): Promise<void> {
   if (deliveredQty <= 0) return;
   const { variantId, productId } = await resolveInventoryTarget(order);
   if (!variantId && !productId) return;
 
   await adjustQty(variantId, productId, -deliveredQty, deliveredQty);
+  if (!skipWarehouseStock) {
+    await adjustWarehouseStock(order.warehouseId, variantId, productId, -deliveredQty);
+  }
 
   if (order.product) {
     await recordMovement({
@@ -228,6 +233,7 @@ export async function reverseDelivery(
     product?: string | null;
     color?: string | null;
     size?: string | null;
+    warehouseId?: number | null;
   },
   deliveredQty: number,
   orderId?: number | null,
@@ -237,6 +243,7 @@ export async function reverseDelivery(
   if (!variantId && !productId) return;
 
   await adjustQty(variantId, productId, deliveredQty, -deliveredQty);
+  await adjustWarehouseStock(order.warehouseId, variantId, productId, deliveredQty);
 
   if (order.product) {
     await recordMovement({

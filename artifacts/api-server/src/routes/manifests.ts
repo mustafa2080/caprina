@@ -494,29 +494,21 @@ router.patch(
       };
 
       if (deliveryStatus === "delivered") {
-        // received: deduct full qty (accounting for any prior partial delivery)
+        // البضاعة كانت اتخصمت من المخزن بـ processToShipping — skipWarehouseStock = true
         if (oldStatus === "partial_received") {
           const alreadyDeducted = existingOrder.partialQuantity ?? 0;
           const remainder = existingOrder.quantity - alreadyDeducted;
           if (remainder > 0)
-            await processDelivery(orderRef, remainder, "sale", orderId);
+            await processDelivery(orderRef, remainder, "sale", orderId, true);
         } else if (oldStatus !== "received") {
-          await processDelivery(
-            orderRef,
-            existingOrder.quantity,
-            "sale",
-            orderId
-          );
+          await processDelivery(orderRef, existingOrder.quantity, "sale", orderId, true);
         }
       } else if (deliveryStatus === "partial_received") {
         const newPartial = partialQuantity ?? 0;
-        const oldPartial =
-          (oldStatus === "partial_received"
-            ? existingOrder.partialQuantity
-            : 0) ?? 0;
+        const oldPartial = (oldStatus === "partial_received" ? existingOrder.partialQuantity : 0) ?? 0;
         const delta = newPartial - oldPartial;
         if (delta > 0)
-          await processDelivery(orderRef, delta, "partial_sale", orderId);
+          await processDelivery(orderRef, delta, "partial_sale", orderId, true);
         else if (delta < 0)
           await reverseDelivery(orderRef, Math.abs(delta), orderId);
       } else if (deliveryStatus === "returned") {

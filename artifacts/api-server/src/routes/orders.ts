@@ -300,15 +300,14 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
     // الكمية اتخصمت من المخزن قبل كده بـ processToShipping
     // هنا بنسجل البيع بس في حركة المخزن (OUT/sale) بدون خصم إضافي
     else if (newStatus === "received" && oldStatus === "in_shipping") {
-      // نسجل حركة البيع فقط — الخصم الفعلي اتعمل عند processToShipping
-      await processDelivery(orderRef, order.quantity, "sale", existing.id);
-      // نعمل reverse للـ to_shipping عشان الرصيد يفضل صح
-      // (processToShipping خصم → processDelivery خصم مرة تانية → reverseShipping يرجع واحدة)
+      // البضاعة اتخصمت من المخزن بـ processToShipping — skipWarehouseStock = true
+      await processDelivery(orderRef, order.quantity, "sale", existing.id, true);
       await reverseShipping(orderRef, order.quantity, existing.id);
     }
 
     // ── pending/delayed → received مباشرة (بدون مرحلة شحن) ──────────────
     else if (newStatus === "received" && (oldStatus === "pending" || oldStatus === "delayed")) {
+      // المخزن لم يتأثر بعد — خصم عادي
       await processDelivery(orderRef, order.quantity, "sale", existing.id);
     }
 
@@ -316,12 +315,10 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
     else if (newStatus === "received" && oldStatus === "partial_received") {
       const alreadyDeducted = existing.partialQuantity ?? 0;
       const remainder = order.quantity - alreadyDeducted;
-      if (remainder > 0) await processDelivery(orderRef, remainder, "sale", existing.id);
+      if (remainder > 0) await processDelivery(orderRef, remainder, "sale", existing.id, true);
     }
 
     // ── in_shipping → partial_received ────────────────────────────────────
-    // الكمية الكلية اتخصمت بـ to_shipping
-    // نرجع الكمية الكلية ونخصم الجزء المسلَّم فعلاً
     else if (newStatus === "partial_received" && oldStatus === "in_shipping") {
       const newPartial = parsed.data.partialQuantity ?? 0;
       await reverseShipping(orderRef, order.quantity, existing.id);
