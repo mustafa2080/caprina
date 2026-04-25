@@ -1,12 +1,11 @@
 import { useListOrders } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
-import { shippingApi } from "@/lib/api";
-import { useState } from "react";
+import { shippingApi, ordersApi } from "@/lib/api";
+import { useState, useMemo } from "react";
 import { format } from "date-fns";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Printer, FileText, CheckSquare, Square } from "lucide-react";
 import { useBrand } from "@/contexts/BrandContext";
 import { useLocation } from "wouter";
@@ -39,10 +38,23 @@ export default function Invoices() {
   const preselectedId = params.get("orderId") ? Number(params.get("orderId")) : null;
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(preselectedId ? new Set([preselectedId]) : new Set());
-  const [statusFilter, setStatusFilter] = useState("all");
 
-  const { data: orders, isLoading } = useListOrders({ status: statusFilter !== "all" ? statusFilter : undefined });
+  // نجيب بس الطلبات اللي حالتها in_shipping
+  const { data: allInShipping, isLoading } = useListOrders({ status: "in_shipping" });
   const { data: shippingCompanies } = useQuery({ queryKey: ["shipping"], queryFn: shippingApi.list });
+
+  // نجيب الـ IDs اللي في بيانات فعلياً
+  const { data: manifestData } = useQuery({
+    queryKey: ["in-manifest-ids"],
+    queryFn: ordersApi.inManifestIds,
+  });
+
+  // فلتر — بس اللي في بيان
+  const orders = useMemo(() => {
+    if (!allInShipping || !manifestData) return [];
+    const manifestSet = new Set(manifestData.ids);
+    return allInShipping.filter(o => manifestSet.has(o.id));
+  }, [allInShipping, manifestData]);
 
   const toggleSelect = (id: number) => {
     setSelectedIds(prev => {
@@ -54,12 +66,12 @@ export default function Invoices() {
   };
 
   const selectAll = () => {
-    if (orders) setSelectedIds(new Set(orders.map(o => o.id)));
+    setSelectedIds(new Set(orders.map(o => o.id)));
   };
   const clearAll = () => setSelectedIds(new Set());
 
   const handlePrint = async () => {
-    const selected = orders?.filter(o => selectedIds.has(o.id)) ?? [];
+    const selected = orders.filter(o => selectedIds.has(o.id));
     if (!selected.length) { alert("اختر طلبات للطباعة أولاً."); return; }
 
     // Fetch logo as base64 for embedding in print window
@@ -453,7 +465,7 @@ export default function Invoices() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold">الفواتير</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">اختر الطلبات واطبع 4 فواتير في صفحة A4 واحدة</p>
+          <p className="text-muted-foreground text-sm mt-0.5">طلبات قيد الشحن المدرجة في بيانات — اختر واطبع 4 فواتير في صفحة A4</p>
         </div>
         <Button
           onClick={handlePrint}
@@ -466,21 +478,6 @@ export default function Invoices() {
       </div>
 
       <div className="flex items-center gap-3 flex-wrap">
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-44 h-9 text-sm bg-card border-border">
-            <SelectValue placeholder="تصفية بالحالة" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">جميع الطلبات</SelectItem>
-            <SelectItem value="pending">قيد الانتظار</SelectItem>
-            <SelectItem value="in_shipping">قيد الشحن</SelectItem>
-            <SelectItem value="received">استلم</SelectItem>
-            <SelectItem value="delayed">مؤجل</SelectItem>
-            <SelectItem value="returned">مرتجع</SelectItem>
-            <SelectItem value="partial_received">استلم جزئي</SelectItem>
-          </SelectContent>
-        </Select>
-
         <Button variant="outline" size="sm" className="h-9 text-xs gap-1 border-border" onClick={selectAll}>
           <CheckSquare className="w-3.5 h-3.5" />تحديد الكل
         </Button>
@@ -494,12 +491,16 @@ export default function Invoices() {
         {selectedIds.size > 0 && (
           <span className="text-xs text-primary font-bold">{selectedIds.size} محدد للطباعة</span>
         )}
+
+        {!isLoading && (
+          <span className="text-xs text-muted-foreground mr-auto">{orders.length} طلب في بيانات الشحن</span>
+        )}
       </div>
 
       {/* Preview cards */}
       {isLoading ? (
         <div className="p-8 text-center text-muted-foreground text-sm">جاري التحميل...</div>
-      ) : orders?.length ? (
+      ) : orders.length ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {orders.map((order) => {
             const isSelected = selectedIds.has(order.id);
@@ -554,8 +555,8 @@ export default function Invoices() {
       ) : (
         <Card className="border-border p-12 text-center">
           <FileText className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-20" />
-          <p className="font-bold">لا توجد طلبات</p>
-          <p className="text-sm text-muted-foreground mt-1">سيظهر هنا الطلبات بعد إنشائها</p>
+          <p className="font-bold">لا توجد طلبات في بيانات شحن</p>
+          <p className="text-sm text-muted-foreground mt-1">الفواتير تظهر فقط للطلبات قيد الشحن المدرجة في بيان</p>
         </Card>
       )}
     </div>
