@@ -158,7 +158,8 @@ export default function Invoices() {
         display: flex;
         flex-direction: column;
         gap: 1mm;
-        overflow: hidden;
+        overflow: visible;
+        min-height: 0;
       }
 
       /* ── Customer row ──────────────────────────── */
@@ -248,18 +249,20 @@ export default function Invoices() {
 
       /* ── Notes box ──────────────────────────────── */
       .notes-box {
-        background: #fff8e1;
-        border: 0.5px solid #ffe082;
-        border-radius: 1mm;
-        padding: 1.5mm 2mm;
+        background: #fffbea;
+        border: 1.5px solid #f59e0b;
+        border-right: 4px solid #f59e0b;
+        border-radius: 1.5mm;
+        padding: 2mm 3mm;
         display: flex;
-        gap: 1mm;
+        gap: 2mm;
         align-items: flex-start;
         flex-shrink: 0;
-        min-height: 6mm;
+        min-height: 8mm;
+        box-shadow: 0 1px 3px rgba(245,158,11,0.15);
       }
-      .notes-box .nl { font-size: 7.5pt; font-weight: 900; color: #c77800; white-space: nowrap; padding-top: 0.5mm; }
-      .notes-box .nv { font-size: 8pt; color: #444; line-height: 1.5; white-space: normal; word-break: break-word; }
+      .notes-box .nl { font-size: 9pt; font-weight: 900; color: #b45309; white-space: nowrap; padding-top: 0.3mm; }
+      .notes-box .nv { font-size: 9.5pt; font-weight: 700; color: #1a1a1a; line-height: 1.6; white-space: normal; word-break: break-word; }
 
       /* ── Confirm shipping row ─────────────── */
       .confirm-box {
@@ -402,12 +405,11 @@ export default function Invoices() {
               </div>
             </div>
 
-            ${notes ? `
-            <!-- Customer notes -->
+            <!-- Customer notes — always shown -->
             <div class="notes-box">
               <span class="nl">📝 ملاحظات:</span>
-              <span class="nv">${notes}</span>
-            </div>` : ""}
+              <span class="nv">${notes || "—"}</span>
+            </div>
 
             <!-- Shipping confirmation -->
             <div class="confirm-box">
