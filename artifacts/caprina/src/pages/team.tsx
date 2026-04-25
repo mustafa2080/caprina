@@ -1182,6 +1182,8 @@ export default function TeamPage() {
   });
 
   const showAddMemberBtn = appSettings?.showAddTeamMember ?? true;
+  // لو عنده صلاحية add_team_member → يظهر الزرار بغض النظر عن appSettings
+  const canShowWizard = canAddMember && (showAddMemberBtn || can("add_team_member"));
 
   const { data: profiles = [], isLoading: profilesLoading } = useQuery({
     queryKey: ["employee-profiles"],
@@ -1227,7 +1229,7 @@ export default function TeamPage() {
             <UserPlus className="w-3.5 h-3.5" />موظف موجود
           </Button>
         )}
-        {canAddMember && showAddMemberBtn && (
+        {canShowWizard && (
           <Button size="sm" className="gap-1 h-8 text-xs" onClick={() => setWizardOpen(true)}>
             <Plus className="w-3.5 h-3.5" />عضو جديد
           </Button>
