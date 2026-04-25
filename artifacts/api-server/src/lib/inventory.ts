@@ -53,22 +53,63 @@ export async function resolveInventoryTarget(order: {
 
 // ─── Warehouse stock helper ───────────────────────────────────────────────────
 
+/**
+ * لو warehouseId محدد → خصم/إرجاع من المخزن ده بالظبط
+ * لو مفيش warehouseId → خصم من المخازن اللي فيها رصيد بالترتيب (الأكبر أولاً)
+ */
 async function adjustWarehouseStock(
-  warehouseId: number,
+  warehouseId: number | null | undefined,
   variantId: number | null,
   productId: number | null,
   delta: number, // سالب = خصم، موجب = إرجاع
 ): Promise<void> {
-  const condition = and(
-    eq(warehouseStockTable.warehouseId, warehouseId),
-    variantId
-      ? eq(warehouseStockTable.variantId, variantId)
-      : eq(warehouseStockTable.productId, productId!),
-  );
-  const [row] = await db.select().from(warehouseStockTable).where(condition);
-  if (!row) return; // لو مفيش سجل للمخزن ده — مش بنعمل حاجة
-  const newQty = Math.max(0, row.quantity + delta);
-  await db.update(warehouseStockTable).set({ quantity: newQty, updatedAt: new Date() }).where(condition);
+  if (!variantId && !productId) return;
+
+  if (warehouseId) {
+    // مخزن محدد
+    const condition = and(
+      eq(warehouseStockTable.warehouseId, warehouseId),
+      variantId
+        ? eq(warehouseStockTable.variantId, variantId)
+        : eq(warehouseStockTable.productId, productId!),
+    );
+    const [row] = await db.select().from(warehouseStockTable).where(condition);
+    if (!row) return;
+    const newQty = Math.max(0, row.quantity + delta);
+    await db.update(warehouseStockTable).set({ quantity: newQty, updatedAt: new Date() }).where(condition);
+  } else {
+    // بدون مخزن محدد — وزّع الخصم على المخازن اللي فيها رصيد
+    const rows = await db
+      .select()
+      .from(warehouseStockTable)
+      .where(
+        variantId
+          ? eq(warehouseStockTable.variantId, variantId)
+          : eq(warehouseStockTable.productId, productId!),
+      );
+
+    if (rows.length === 0) return;
+
+    if (delta > 0) {
+      // إرجاع → ضيف للمخزن الأول
+      const first = rows[0];
+      await db.update(warehouseStockTable)
+        .set({ quantity: first.quantity + delta, updatedAt: new Date() })
+        .where(eq(warehouseStockTable.id, first.id));
+    } else {
+      // خصم → خصم من المخازن اللي فيها رصيد بالترتيب
+      let remaining = Math.abs(delta);
+      const sorted = rows.filter(r => r.quantity > 0).sort((a, b) => b.quantity - a.quantity);
+      for (const row of sorted) {
+        if (remaining <= 0) break;
+        const deduct = Math.min(row.quantity, remaining);
+        await db.update(warehouseStockTable)
+          .set({ quantity: row.quantity - deduct, updatedAt: new Date() })
+          .where(eq(warehouseStockTable.id, row.id));
+        remaining -= deduct;
+      }
+    }
+  }
 }
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
@@ -345,10 +386,8 @@ export async function processToShipping(
   // خصم من totalQuantity الكلي
   await adjustQty(variantId, productId, -qty, 0);
 
-  // خصم من المخزن المحدد في الطلب
-  if (order.warehouseId) {
-    await adjustWarehouseStock(order.warehouseId, variantId, productId, -qty);
-  }
+  // خصم من المخزن — لو محدد من المخزن ده، لو لأ من المخازن بالترتيب
+  await adjustWarehouseStock(order.warehouseId, variantId, productId, -qty);
 
   if (order.product) {
     await recordMovement({
@@ -389,10 +428,8 @@ export async function reverseShipping(
   // إرجاع للـ totalQuantity الكلي
   await adjustQty(variantId, productId, qty, 0);
 
-  // إرجاع للمخزن المحدد في الطلب
-  if (order.warehouseId) {
-    await adjustWarehouseStock(order.warehouseId, variantId, productId, qty);
-  }
+  // إرجاع للمخزن — لو محدد للمخزن ده، لو لأ للمخزن الأول
+  await adjustWarehouseStock(order.warehouseId, variantId, productId, qty);
 
   if (order.product) {
     await recordMovement({
