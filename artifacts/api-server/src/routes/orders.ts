@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, like, or, gte, and, isNull, isNotNull, inArray, notInArray } from "drizzle-orm";
-import { db, ordersTable, productsTable, productVariantsTable, shippingManifestOrdersTable } from "@workspace/db";
+import { db, ordersTable, productsTable, productVariantsTable, shippingManifestOrdersTable, shippingManifestsTable } from "@workspace/db";
 import {
   ListOrdersQueryParams,
   ListOrdersResponse,
@@ -59,14 +59,22 @@ router.get("/orders", async (req, res): Promise<void> => {
 
   if (params.data.status) conditions.push(eq(ordersTable.status, params.data.status as any));
 
-  // لو بيجيب in_shipping — اشيل اللي عندها بيان مفتوح بالفعل
+  // لو بيجيب in_shipping — اشيل بس اللي في بيان مفتوح حالياً
   if (params.data.status === "in_shipping" && !(req.query as any).includeInManifest) {
-    const inManifest = await db
-      .select({ orderId: shippingManifestOrdersTable.orderId })
-      .from(shippingManifestOrdersTable);
-    const inManifestIds = inManifest.map(r => r.orderId);
-    if (inManifestIds.length > 0) {
-      conditions.push(notInArray(ordersTable.id, inManifestIds));
+    const openManifests = await db
+      .select({ id: shippingManifestsTable.id })
+      .from(shippingManifestsTable)
+      .where(eq(shippingManifestsTable.status, "open"));
+    const openManifestIds = openManifests.map(m => m.id);
+    if (openManifestIds.length > 0) {
+      const inManifest = await db
+        .select({ orderId: shippingManifestOrdersTable.orderId })
+        .from(shippingManifestOrdersTable)
+        .where(inArray(shippingManifestOrdersTable.manifestId, openManifestIds));
+      const inManifestIds = inManifest.map(r => r.orderId);
+      if (inManifestIds.length > 0) {
+        conditions.push(notInArray(ordersTable.id, inManifestIds));
+      }
     }
   }
   if (params.data.search) {
