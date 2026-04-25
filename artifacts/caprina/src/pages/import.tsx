@@ -27,15 +27,20 @@ interface FieldDef {
 
 // ─── Field definitions per mode ────────────────────────────────────────────────
 const ORDERS_FIELDS: FieldDef[] = [
-  { key: "name",     label: "اسم العميل",    required: true,  hint: "customer, name, اسم, عميل" },
-  { key: "phone",    label: "رقم الهاتف",    required: false, hint: "phone, mobile, هاتف, رقم" },
-  { key: "address",  label: "العنوان",        required: false, hint: "address, عنوان, city" },
-  { key: "product",  label: "المنتج",         required: true,  hint: "product, item, منتج" },
-  { key: "color",    label: "اللون",          required: false, hint: "color, colour, لون" },
-  { key: "size",     label: "المقاس",         required: false, hint: "size, مقاس" },
-  { key: "quantity", label: "الكمية",         required: true,  hint: "qty, quantity, كمية" },
-  { key: "price",    label: "سعر الوحدة",    required: false, hint: "price, unit_price, سعر" },
-  { key: "notes",    label: "ملاحظات",        required: false, hint: "notes, remarks, ملاحظات" },
+  { key: "name",            label: "اسم العميل",          required: true,  hint: "اسم العميل، customer، name" },
+  { key: "phone",           label: "رقم الهاتف",          required: false, hint: "رقم الهاتف، phone، mobile" },
+  { key: "city",            label: "المحافظة",            required: false, hint: "المحافظة، city، محافظة" },
+  { key: "address",         label: "العنوان",             required: false, hint: "العنوان، address" },
+  { key: "product",         label: "الصنف",              required: true,  hint: "الصنف، المنتج، product، item" },
+  { key: "notes",           label: "ملاحظات",             required: false, hint: "ملاحظات، notes، remarks" },
+  { key: "color",           label: "اللون",               required: false, hint: "اللون، color، colour" },
+  { key: "quantity",        label: "العدد",               required: true,  hint: "العدد، الكمية، quantity، qty" },
+  { key: "size",            label: "المقاس المعادل",     required: false, hint: "المقاس المعادل، المقاس، size" },
+  { key: "price",           label: "السعر",              required: false, hint: "السعر، سعر الوحدة، price" },
+  { key: "adSource",        label: "مصدر الطلب",         required: false, hint: "مصدر الطلب، adSource، المصدر" },
+  { key: "warehouseId",     label: "المخزن الصادر منه",  required: false, hint: "المخزن، warehouse" },
+  { key: "assignedUserId",  label: "الموظف المسؤول",     required: false, hint: "الموظف، assignedUser" },
+  { key: "shippingCost",    label: "تكلفة الشحن",        required: false, hint: "تكلفة الشحن، شحن، shippingCost" },
 ];
 
 const PRODUCTS_FIELDS: FieldDef[] = [
@@ -58,27 +63,37 @@ const RETURNS_FIELDS: FieldDef[] = [
 
 // ─── Auto-detect ───────────────────────────────────────────────────────────────
 function autoDetect(headers: string[], fields: FieldDef[]): Record<string, string> {
-  const norm = (s: string) => s.toLowerCase().replace(/[_\s-]/g, "");
+  const norm = (s: string) =>
+    s.toLowerCase()
+      .replace(/[_\s\-]/g, "")          // شيل المسافات والشرطات
+      .replace(/ة/g, "ه")               // توحيد التاء المربوطة
+      .replace(/أ|إ|آ/g, "ا")           // توحيد الألف
+      .replace(/ى/g, "ي");              // توحيد الألف المقصورة
   const result: Record<string, string> = Object.fromEntries(fields.map(f => [f.key, ""]));
   const used = new Set<string>();
   const PATTERNS: Record<string, string[]> = {
-    name:             ["اسمالعميل", "اسم", "customerName", "name", "customer", "عميل"],
-    phone:            ["رقمالهاتف", "هاتف", "phone", "mobile", "tel"],
-    address:          ["العنوان", "عنوان", "address", "addr", "city"],
-    product:          ["المنتج", "منتج", "product", "item"],
+    name:             ["اسمالعميل", "اسم", "customername", "name", "customer", "عميل"],
+    phone:            ["رقمالهاتف", "هاتف", "phone", "mobile", "tel", "رقم"],
+    city:             ["المحافظه", "محافظه", "city"],
+    address:          ["العنوان", "عنوان", "address", "addr"],
+    product:          ["الصنف", "صنف", "المنتج", "منتج", "product", "item"],
     color:            ["اللون", "لون", "color", "colour"],
-    size:             ["المقاس", "مقاس", "size"],
-    quantity:         ["الكمية", "كمية", "quantity", "qty"],
-    price:            ["سعرالوحدة", "السعر", "سعر", "price", "unitprice"],
-    notes:            ["ملاحظات", "notes", "remarks"],
+    size:             ["المقاسالمعادل", "المقاس", "مقاس", "size"],
+    quantity:         ["العدد", "عدد", "الكميه", "كميه", "quantity", "qty"],
+    price:            ["السعر", "سعر", "سعرالوحده", "price", "unitprice"],
+    notes:            ["ملاحظات", "ملاحظه", "notes", "remarks"],
+    adSource:         ["مصدرالطلب", "مصدرطلب", "المصدر", "مصدر", "adsource", "source"],
+    warehouseId:      ["المخزنالصادرمنه", "المخزنالصادر", "المخزن", "مخزن", "warehouse"],
+    assignedUserId:   ["الموظفالمسؤول", "الموظفمسؤول", "موظف", "الموظف", "assigneduser"],
+    shippingCost:     ["تكلفهالشحن", "شحن", "shippingcost", "shipping"],
     unitPrice:        ["سعرالبيع", "بيع", "selling", "unitprice", "price", "سعر"],
-    costPrice:        ["سعرالتكلفة", "تكلفة", "cost", "شراء", "buying"],
-    totalQuantity:    ["الكمية", "كمية", "quantity", "qty", "stock"],
+    costPrice:        ["سعرالتكلفه", "تكلفه", "cost", "شراء", "buying"],
+    totalQuantity:    ["الكميه", "كميه", "quantity", "qty", "stock"],
     lowStockThreshold:["حدالتنبيه", "حد", "threshold", "minimum", "تنبيه"],
     sku:              ["sku", "code", "كود", "رمز"],
     orderId:          ["رقمالطلب", "id", "orderid", "رقم", "طلب"],
     customerName:     ["اسمالعميل", "اسم", "customer", "name", "عميل"],
-    reason:           ["سبب", "reason", "ملاحظة", "notes"],
+    reason:           ["سبب", "reason", "ملاحظه", "notes"],
   };
   for (const field of fields) {
     const patterns = PATTERNS[field.key] ?? [];
