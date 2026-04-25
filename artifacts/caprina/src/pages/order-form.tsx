@@ -28,6 +28,7 @@ const AD_SOURCES = [
 const formSchema = z.object({
   customerName: z.string().min(2, "اسم العميل يجب أن يكون حرفين على الأقل."),
   phone: z.string().optional().nullable(),
+  city: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
   product: z.string().min(1, "اسم المنتج مطلوب."),
   color: z.string().optional().nullable(),
@@ -68,7 +69,7 @@ export default function OrderForm() {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      customerName: "", phone: "", address: "", product: "", color: "", size: "",
+      customerName: "", phone: "", city: "", address: "", product: "", color: "", size: "",
       quantity: 1, unitPrice: 0, costPrice: null, shippingCost: 0, notes: "",
       warehouseId: null, assignedUserId: null, adSource: null, adCampaign: null,
     },
@@ -100,6 +101,7 @@ export default function OrderForm() {
       {
         data: {
           ...values,
+          city: values.city || null,
           shippingCompanyId: values.shippingCompanyId || null,
           productId: values.productId || null,
           variantId: values.variantId || null,
@@ -182,12 +184,20 @@ export default function OrderForm() {
                       </FormItem>
                     )} />
                   </div>
-                  <FormField control={form.control} name="address" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs flex items-center gap-1"><MapPin className="w-3 h-3" />عنوان التوصيل</FormLabel>
-                      <FormControl><Input placeholder="المدينة، الحي، الشارع..." className="h-9 text-sm" {...field} value={field.value ?? ""} /></FormControl>
-                    </FormItem>
-                  )} />
+                  <div className="grid grid-cols-2 gap-3">
+                    <FormField control={form.control} name="city" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs flex items-center gap-1"><MapPin className="w-3 h-3" />المحافظة</FormLabel>
+                        <FormControl><Input placeholder="القاهرة، الإسكندرية..." className="h-9 text-sm" {...field} value={field.value ?? ""} /></FormControl>
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="address" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs flex items-center gap-1"><MapPin className="w-3 h-3" />العنوان بالتفصيل</FormLabel>
+                        <FormControl><Input placeholder="الحي، الشارع، رقم المنزل..." className="h-9 text-sm" {...field} value={field.value ?? ""} /></FormControl>
+                      </FormItem>
+                    )} />
+                  </div>
                 </CardContent>
               </Card>
 
