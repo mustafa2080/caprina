@@ -37,6 +37,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 const TOKEN_KEY = "caprina_token";
 const USER_KEY = "caprina_user";
+const EDIT_BRAND_KEY = "edit_brand";
 
 // polling كل 3 ثوان عشان تغييرات الصلاحيات تنعكس بسرعة
 const POLL_INTERVAL_MS = 3_000;
@@ -257,6 +258,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const perms: string[] = flattenPermissions(user.permissions);
       if (perms.includes("*")) return true;
       if (user.role === "admin" && perms.length === 0) return true;
+      // الأدمن عنده كل الصلاحيات الأساسية دايماً ماعدا edit_brand (اختيارية)
+      if (user.role === "admin" && permission !== EDIT_BRAND_KEY) return true;
       return perms.includes(permission);
     },
     [user]
