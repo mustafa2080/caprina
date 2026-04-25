@@ -164,13 +164,12 @@ export default function UsersPage() {
       .filter((p): p is string => p !== null && p.trim() !== "");
 
     if (clean.includes("*")) return DEFAULT_PERMISSIONS[role]?.() ?? DEFAULT_PERMISSIONS["admin"]!();
-    // الأدمن اللي عنده [] في الـ DB (قديم) نفرد ليه كل الصلاحيات تلقائياً
     if (role === "admin" && clean.length === 0) return DEFAULT_PERMISSIONS["admin"]!();
-    // الأدمن اللي عنده permissions في الـ DB — نضيف أي صلاحيات جديدة ناقصة من الـ defaults
     if (role === "admin") {
-      const defaults = DEFAULT_PERMISSIONS["admin"]!();
-      const merged = [...new Set([...clean, ...defaults])];
-      return merged;
+      // edit_brand اختيارية — نحافظ على اختيار الأدمن فيها ومانضيفهاش إجبارياً
+      const OPTIONAL_PERMS = [EDIT_BRAND_PERMISSION.key];
+      const forcedDefaults = DEFAULT_PERMISSIONS["admin"]!().filter(p => !OPTIONAL_PERMS.includes(p));
+      return [...new Set([...clean, ...forcedDefaults])];
     }
     return clean;
   };
@@ -193,9 +192,11 @@ export default function UsersPage() {
   const handleSubmit = () => {
     if (!form.displayName.trim()) { toast({ title: "خطأ", description: "الاسم مطلوب", variant: "destructive" }); return; }
     if (editingUser) {
-      // لو الدور أدمن — نتأكد إن كل الـ defaults موجودة دايماً قبل الحفظ
+      // لو الدور أدمن — نضمن كل الـ defaults الأساسية ماعدا edit_brand (دي اختيارية)
+      const OPTIONAL_PERMS = [EDIT_BRAND_PERMISSION.key];
+      const forcedDefaults = DEFAULT_PERMISSIONS["admin"]!().filter(p => !OPTIONAL_PERMS.includes(p));
       const finalPermissions = form.role === "admin"
-        ? [...new Set([...form.permissions, ...DEFAULT_PERMISSIONS["admin"]!()])]
+        ? [...new Set([...form.permissions, ...forcedDefaults])]
         : form.permissions;
       const data: any = {
         displayName: form.displayName,
