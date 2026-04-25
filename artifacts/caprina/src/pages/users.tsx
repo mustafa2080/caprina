@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
-import { UserPlus, Edit2, Trash2, Shield, Users, Eye, EyeOff, TrendingUp, Package, BarChart3, LayoutGrid, Lock, User, Settings2, ChevronDown, ChevronUp } from "lucide-react";
+import { UserPlus, Edit2, Trash2, Shield, Users, Eye, EyeOff, TrendingUp, Package, BarChart3, LayoutGrid, Lock, User, Settings2, ChevronDown, ChevronUp, ToggleLeft } from "lucide-react";
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "مدير",
@@ -39,7 +39,9 @@ const ALL_PERMISSIONS = [
 
 const FINANCIAL_PERMISSION = { key: "view_financials", label: "عرض الأرباح والتكاليف", desc: "يرى الأرباح والخسائر والتكاليف في كل التقارير" };
 const EDIT_INVENTORY_PERMISSION = { key: "edit_inventory", label: "تعديل المخزون", desc: "يقدر يضيف ويعدل ويحذف المنتجات والمقاسات" };
+const EDIT_DELETE_INVENTORY_PERMISSION = { key: "edit_delete_inventory", label: "إظهار أزرار التعديل والحذف في المخزون", desc: "يظهر أزرار تعديل وحذف المنتجات والـ SKU في صفحة المخزون" };
 const VIEW_PRODUCT_PERF_PERMISSION = { key: "view_product_performance", label: "عرض أداء المنتجات", desc: "يرى تحليل أداء وأرباح كل منتج" };
+const ADD_TEAM_MEMBER_PERMISSION = { key: "add_team_member", label: "إضافة موظف جديد", desc: "يظهر زرار إضافة موظف جديد في إدارة الفريق" };
 
 // صلاحيات ظهور الأقسام في الـ Sidebar — per-user
 const SIDEBAR_SECTION_PERMISSIONS = [
@@ -77,11 +79,13 @@ const DEFAULT_PERMISSIONS: Record<string, () => string[]> = {
     ...ALL_PERMISSIONS.map(p => p.key),
     FINANCIAL_PERMISSION.key,
     EDIT_INVENTORY_PERMISSION.key,
+    EDIT_DELETE_INVENTORY_PERMISSION.key,
     VIEW_PRODUCT_PERF_PERMISSION.key,
+    ADD_TEAM_MEMBER_PERMISSION.key,
     ...SIDEBAR_SECTION_PERMISSIONS.map(p => p.key),
   ],
   employee: () => ["dashboard", "orders", "section_orders", "section_new_order", "section_archive", "section_shipping_followup"],
-  warehouse: () => ["dashboard", "inventory", "movements", EDIT_INVENTORY_PERMISSION.key, "section_inventory", "section_warehouses", "section_movements"],
+  warehouse: () => ["dashboard", "inventory", "movements", EDIT_INVENTORY_PERMISSION.key, EDIT_DELETE_INVENTORY_PERMISSION.key, "section_inventory", "section_warehouses", "section_movements"],
 };
 
 interface UserForm {
@@ -368,9 +372,11 @@ export default function UsersPage() {
               </div>
               <div className="space-y-2">
                 {[
-                  { perm: FINANCIAL_PERMISSION,       color: "amber",   icon: <TrendingUp className="w-3.5 h-3.5 text-amber-500" />,   badge: "حساسة" },
-                  { perm: EDIT_INVENTORY_PERMISSION,  color: "emerald", icon: <Package    className="w-3.5 h-3.5 text-emerald-500" />, badge: null    },
-                  { perm: VIEW_PRODUCT_PERF_PERMISSION,color:"blue",    icon: <BarChart3  className="w-3.5 h-3.5 text-blue-500" />,    badge: null    },
+                  { perm: FINANCIAL_PERMISSION,              color: "amber",   icon: <TrendingUp  className="w-3.5 h-3.5 text-amber-500" />,   badge: "حساسة" },
+                  { perm: EDIT_INVENTORY_PERMISSION,         color: "emerald", icon: <Package     className="w-3.5 h-3.5 text-emerald-500" />, badge: null    },
+                  { perm: EDIT_DELETE_INVENTORY_PERMISSION,  color: "rose",    icon: <ToggleLeft  className="w-3.5 h-3.5 text-rose-500" />,    badge: null    },
+                  { perm: VIEW_PRODUCT_PERF_PERMISSION,      color: "blue",    icon: <BarChart3   className="w-3.5 h-3.5 text-blue-500" />,    badge: null    },
+                  { perm: ADD_TEAM_MEMBER_PERMISSION,        color: "violet",  icon: <Users       className="w-3.5 h-3.5 text-violet-500" />,  badge: null    },
                 ].map(({ perm, color, icon, badge }) => {
                   const active = form.permissions.includes(perm.key);
                   return (
@@ -378,10 +384,12 @@ export default function UsersPage() {
                       ${active
                         ? color === "amber"   ? "border-amber-500/50 bg-amber-500/5"
                         : color === "emerald" ? "border-emerald-500/50 bg-emerald-500/5"
-                                              : "border-blue-500/50 bg-blue-500/5"
+                        : color === "rose"    ? "border-rose-500/50 bg-rose-500/5"
+                        : color === "violet"  ? "border-violet-500/50 bg-violet-500/5"
+                                             : "border-blue-500/50 bg-blue-500/5"
                         : "border-border bg-muted/10 hover:border-muted-foreground/40"}`}>
                       <input type="checkbox" checked={active} onChange={() => togglePermission(perm.key)}
-                        className={`w-4 h-4 rounded shrink-0 ${color === "amber" ? "accent-amber-500" : color === "emerald" ? "accent-emerald-500" : "accent-blue-500"}`} />
+                        className={`w-4 h-4 rounded shrink-0 ${color === "amber" ? "accent-amber-500" : color === "emerald" ? "accent-emerald-500" : color === "rose" ? "accent-rose-500" : color === "violet" ? "accent-violet-500" : "accent-blue-500"}`} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           {icon}

@@ -1167,7 +1167,8 @@ function EmployeeDetail({
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function TeamPage() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, can } = useAuth();
+  const canAddMember = isAdmin || can("add_team_member");
   const { toast } = useToast();
   const qc = useQueryClient();
   const [selectedProfileId, setSelectedProfileId] = useState<number | null>(null);
@@ -1221,12 +1222,12 @@ export default function TeamPage() {
           </h1>
           <p className="text-muted-foreground text-xs mt-0.5">بيانات الموظفين، مؤشرات الأداء، والتقارير الشهرية</p>
         </div>
-        {isAdmin && unprofiledUsers.length > 0 && (
+        {canAddMember && unprofiledUsers.length > 0 && (
           <Button size="sm" variant="outline" className="gap-1 h-8 text-xs" onClick={() => setAddProfileOpen(true)}>
             <UserPlus className="w-3.5 h-3.5" />موظف موجود
           </Button>
         )}
-        {isAdmin && showAddMemberBtn && (
+        {canAddMember && showAddMemberBtn && (
           <Button size="sm" className="gap-1 h-8 text-xs" onClick={() => setWizardOpen(true)}>
             <Plus className="w-3.5 h-3.5" />عضو جديد
           </Button>
@@ -1239,7 +1240,7 @@ export default function TeamPage() {
         <div className="text-center py-16 text-muted-foreground">
           <Users className="w-10 h-10 mx-auto mb-3 opacity-20" />
           <p className="text-sm">لا توجد ملفات موظفين بعد.</p>
-          {isAdmin && unprofiledUsers.length > 0 && (
+          {canAddMember && unprofiledUsers.length > 0 && (
             <Button size="sm" className="mt-3 text-xs" onClick={() => setAddProfileOpen(true)}>
               إضافة موظف
             </Button>
