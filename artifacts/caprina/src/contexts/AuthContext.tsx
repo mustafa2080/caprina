@@ -48,12 +48,28 @@ function permissionsChanged(a: string[], b: string[]): boolean {
   return b.some((p) => !setA.has(p));
 }
 
+function flattenPermissions(raw: any): string[] {
+  if (!Array.isArray(raw)) {
+    if (typeof raw === "string") {
+      try { raw = JSON.parse(raw); } catch { return []; }
+      if (!Array.isArray(raw)) return [];
+    } else return [];
+  }
+  // flatten: لو في nested arrays (نتيجة JSON_ARRAY_APPEND خاطئة)
+  const flat: string[] = [];
+  for (const item of raw) {
+    if (typeof item === "string") flat.push(item);
+    else if (Array.isArray(item)) {
+      for (const sub of item) { if (typeof sub === "string") flat.push(sub); }
+    }
+  }
+  return [...new Set(flat)];
+}
+
 function normalizeUser(u: AuthUser): AuthUser {
   return {
     ...u,
-    permissions: Array.isArray(u.permissions)
-      ? [...u.permissions].sort()
-      : [],
+    permissions: flattenPermissions(u.permissions).sort(),
   };
 }
 
@@ -238,15 +254,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const can = useCallback(
     (permission: string): boolean => {
       if (!user) return false;
-      const perms: string[] = Array.isArray(user.permissions) ? user.permissions : [];
+      const perms: string[] = flattenPermissions(user.permissions);
       if (perms.includes("*")) return true;
-
-      // الأدمن اللي عنده [] في الـ DB (قديم) → كل شيء مسموح
-      // ملاحظة: ensureAdminDefaults في السيرفر بيضيف edit_brand تلقائياً للأدمن
-      // فالـ perms مش هتكون فارغة إلا قبل أول login بعد التحديث
       if (user.role === "admin" && perms.length === 0) return true;
-
-      // كل الصلاحيات بيتحقق منها من الـ DB الفعلية — بدون استثناءات
       return perms.includes(permission);
     },
     [user]
