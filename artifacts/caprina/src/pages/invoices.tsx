@@ -118,6 +118,7 @@ export default function Invoices() {
         overflow: hidden;
         background: white;
         font-size: 7.5pt;
+        min-height: 0;
       }
 
       /* ── Top bar: brand row ──────────────────── */
@@ -129,56 +130,62 @@ export default function Invoices() {
         justify-content: space-between;
         padding: 1.5mm 3mm;
         gap: 2mm;
+        flex-shrink: 0;
       }
       .logo-wrap { display: flex; align-items: center; gap: 1.5mm; }
       .logo-img { width: 8mm; height: 8mm; object-fit: contain; border-radius: 1mm; }
       .logo-txt { font-size: 11pt; font-weight: 900; letter-spacing: 2px; line-height: 1; }
       .logo-sub { font-size: 5pt; letter-spacing: 2px; opacity: 0.7; }
       .brand-city { font-size: 9pt; font-weight: 700; letter-spacing: 1px; opacity: 0.9; }
-      .inv-date { font-size: 7.5pt; opacity: 0.85; }
+      .inv-date { font-size: 7.5pt; opacity: 0.85; white-space: nowrap; }
 
       /* ── Body ─────────────────────────────────── */
-      .inv-body { padding: 2mm 3mm; flex: 1; display: flex; flex-direction: column; gap: 1.5mm; }
-
-      /* ── Field row ──────────────────────────────── */
-      .field-row {
-        display: flex;
-        align-items: baseline;
-        gap: 1mm;
-        border-bottom: 0.5px solid #e0e0e0;
-        padding-bottom: 1mm;
-      }
-      .field-label {
-        font-size: 6pt;
-        color: #888;
-        white-space: nowrap;
-        min-width: 18mm;
-        text-align: left;
-        flex-shrink: 0;
-      }
-      .field-val {
-        font-size: 8.5pt;
-        font-weight: 700;
-        color: #111;
+      .inv-body {
+        padding: 1.5mm 3mm;
         flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 1mm;
+        overflow: hidden;
       }
-      .field-val.large { font-size: 9.5pt; }
+
+      /* ── Customer row ──────────────────────────── */
+      .customer-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid #e0e0e0;
+        padding-bottom: 1mm;
+        gap: 2mm;
+      }
+      .customer-name { font-size: 9pt; font-weight: 900; color: #111; }
+      .order-id { font-size: 7pt; color: #999; font-family: monospace; }
+      .phone-badge {
+        font-size: 8.5pt;
+        font-weight: 900;
+        color: #111;
+        direction: ltr;
+        background: #f0f0f0;
+        border-radius: 1mm;
+        padding: 0.5mm 2mm;
+        white-space: nowrap;
+      }
 
       /* ── Product Table ───────────────────────────── */
       .prod-table {
         width: 100%;
         border-collapse: collapse;
-        margin: 1mm 0;
         font-size: 7pt;
+        flex-shrink: 0;
       }
       .prod-table th {
-        background: #f0f0f0;
-        border: 0.5px solid #ccc;
+        background: #1a1a1a;
+        color: white;
+        border: 0.5px solid #333;
         padding: 1mm 1.5mm;
         font-weight: 700;
         font-size: 6.5pt;
         text-align: center;
-        color: #333;
       }
       .prod-table td {
         border: 0.5px solid #ddd;
@@ -189,64 +196,74 @@ export default function Invoices() {
       }
       .prod-table td.name-col {
         text-align: right;
-        font-weight: 600;
+        font-weight: 700;
         font-size: 7.5pt;
+        max-width: 35mm;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
       .prod-table .total-row td {
-        background: #1a1a1a;
-        color: white;
+        background: #f0f0f0;
+        color: #111;
         font-weight: 900;
         font-size: 8pt;
-        border-color: #333;
+        border-color: #ccc;
       }
 
-      /* ── Address Grid ────────────────────────── */
-      .addr-grid {
+      /* ── Info grid: 3 cols ────────────────────── */
+      .info-grid {
         display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 0.5mm 2mm;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 1mm;
+        flex-shrink: 0;
       }
-      .addr-field {
+      .info-grid.two-col { grid-template-columns: 1fr 1fr; }
+      .info-cell {
+        border: 0.5px solid #ddd;
+        border-radius: 1mm;
+        padding: 1mm 1.5mm;
+        background: #fafafa;
         display: flex;
         flex-direction: column;
-        border: 0.5px solid #ddd;
-        border-radius: 1mm;
-        padding: 1mm 1.5mm;
-        background: #fafafa;
+        min-width: 0;
       }
-      .addr-field .al { font-size: 5.5pt; color: #999; }
-      .addr-field .av { font-size: 7pt; font-weight: 600; min-height: 3.5mm; }
+      .info-cell.span2 { grid-column: span 2; }
+      .info-cell.span3 { grid-column: span 3; }
+      .ic-label { font-size: 5.5pt; color: #999; white-space: nowrap; }
+      .ic-val { font-size: 7pt; font-weight: 700; min-height: 3.5mm; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .ic-val.wrap { white-space: normal; line-height: 1.3; }
 
-      /* ── Delivery Row ───────────────────────── */
-      .delivery-row {
-        display: flex;
-        gap: 2mm;
-      }
-      .delivery-field {
-        flex: 1;
-        border: 0.5px solid #ddd;
-        border-radius: 1mm;
-        padding: 1mm 1.5mm;
-        background: #fafafa;
-      }
-      .delivery-field .dl { font-size: 5.5pt; color: #999; }
-      .delivery-field .dv { font-size: 6.5pt; font-weight: 600; min-height: 3.5mm; }
-
-      /* ── Notes / instruction box ────────────── */
-      .note-box {
+      /* ── Notes box ──────────────────────────────── */
+      .notes-box {
         background: #fff8e1;
         border: 0.5px solid #ffe082;
+        border-radius: 1mm;
+        padding: 1mm 2mm;
+        display: flex;
+        gap: 1mm;
+        align-items: baseline;
+        flex-shrink: 0;
+      }
+      .notes-box .nl { font-size: 6pt; font-weight: 900; color: #c77800; white-space: nowrap; }
+      .notes-box .nv { font-size: 6.5pt; color: #555; line-height: 1.4; }
+
+      /* ── Communication note ─────────────────── */
+      .note-box {
+        background: #f5f5f5;
+        border: 0.5px solid #ddd;
         border-radius: 1mm;
         padding: 1mm 2mm;
         font-size: 6pt;
         color: #555;
         line-height: 1.5;
+        flex-shrink: 0;
       }
-      .note-box b { color: #c77800; }
+      .note-box b { color: #333; }
 
       /* ── Confirm shipping row ─────────────── */
       .confirm-box {
-        border: 0.5px solid #ddd;
+        border: 0.5px solid #1a1a1a;
         border-radius: 1mm;
         padding: 1mm 2mm;
         font-size: 6pt;
@@ -254,6 +271,7 @@ export default function Invoices() {
         display: flex;
         gap: 1.5mm;
         align-items: flex-start;
+        flex-shrink: 0;
       }
       .confirm-box .cb-label {
         font-weight: 900;
@@ -271,6 +289,7 @@ export default function Invoices() {
         gap: 2mm;
         padding: 1mm 3mm;
         background: #f9f9f9;
+        flex-shrink: 0;
       }
       .phone-block { display: flex; flex-direction: column; }
       .phone-label { font-size: 5.5pt; color: #999; }
@@ -290,12 +309,18 @@ export default function Invoices() {
       const trackingNumber = (order as any).trackingNumber ?? "";
       const color = (order as any).color ?? "";
       const size = (order as any).size ?? "";
+      const notes = (order as any).notes ?? "";
+      const shippingCost = (order as any).shippingCost ?? 0;
+      const partialQty = (order as any).partialQuantity;
       const dateStr = format(new Date(order.createdAt), "yyyy/MM/dd");
       const logoEl = logoB64
         ? `<img src="${logoB64}" class="logo-img" alt="${brandName}" />`
         : ``;
 
-      // Parse city from address (use first word or the whole short address as city)
+      // الكمية المستلمة فعلياً (لو partial)
+      const displayQty = partialQty ? `${partialQty} / ${order.quantity}` : `${order.quantity}`;
+
+      // Parse city from address
       const address = order.address ?? "";
 
       return `
@@ -309,107 +334,109 @@ export default function Invoices() {
                 <div class="logo-sub">${brandTagline}</div>
               </div>
             </div>
-            <div class="brand-city">${brandName} CAIRO</div>
+            <div style="display:flex;flex-direction:column;align-items:center">
+              <div class="brand-city">${brandName}</div>
+              <div style="font-size:5.5pt;opacity:0.7;letter-spacing:1px">ORDER #${String(order.id).padStart(4,"0")}</div>
+            </div>
             <div class="inv-date">${dateStr}</div>
           </div>
 
           <!-- BODY -->
           <div class="inv-body">
 
-            <!-- Customer -->
-            <div class="field-row">
-              <span class="field-label">اسم العميل</span>
-              <span class="field-val large">الاسم: ${order.customerName}</span>
+            <!-- Customer + Phone -->
+            <div class="customer-row">
+              <div>
+                <div class="customer-name">${order.customerName}</div>
+              </div>
+              <div class="phone-badge">📞 ${order.phone ?? "—"}</div>
             </div>
 
             <!-- Product table -->
             <table class="prod-table">
               <thead>
                 <tr>
-                  <th>الصنف</th>
+                  <th style="width:35%">الصنف</th>
                   <th>المقاس</th>
                   <th>اللون</th>
                   <th>العدد</th>
-                  <th>القيمة بالجنيه</th>
+                  <th>السعر</th>
+                  <th>الإجمالي</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td class="name-col">${order.product}</td>
+                  <td class="name-col" title="${order.product}">${order.product}</td>
                   <td>${size || "—"}</td>
                   <td>${color || "—"}</td>
-                  <td>${order.quantity}</td>
+                  <td style="font-weight:900">${displayQty}</td>
                   <td>${formatCurrency(order.unitPrice)}</td>
+                  <td style="font-weight:900;color:#111">${formatCurrency(order.totalPrice)}</td>
                 </tr>
+                ${shippingCost > 0 ? `
+                <tr>
+                  <td class="name-col" colspan="4" style="color:#666;font-size:6.5pt">مصاريف الشحن</td>
+                  <td colspan="2" style="font-weight:700">${formatCurrency(shippingCost)}</td>
+                </tr>` : ""}
                 <tr class="total-row">
-                  <td colspan="3" style="text-align:right">الإجمالي</td>
-                  <td>${order.quantity}</td>
-                  <td>${formatCurrency(order.totalPrice)}</td>
+                  <td colspan="3" style="text-align:right;font-size:7.5pt">💰 الإجمالي الكلي</td>
+                  <td>${displayQty}</td>
+                  <td colspan="2" style="font-size:9pt">${formatCurrency(order.totalPrice + shippingCost)}</td>
                 </tr>
               </tbody>
             </table>
 
-            <!-- Address -->
-            <div class="addr-grid">
-              <div class="addr-field">
-                <span class="al">المحافظة</span>
-                <span class="av">${order.city ?? ""}</span>
+            <!-- Address info -->
+            <div class="info-grid">
+              <div class="info-cell">
+                <span class="ic-label">المحافظة</span>
+                <span class="ic-val">${order.city ?? "—"}</span>
               </div>
-              <div class="addr-field">
-                <span class="al">المركز/المنطقة</span>
-                <span class="av">&nbsp;</span>
+              <div class="info-cell">
+                <span class="ic-label">شركة الشحن</span>
+                <span class="ic-val">${company ? company.name : "—"}</span>
               </div>
-              <div class="addr-field" style="grid-column:span 2">
-                <span class="al">اسم الشارع</span>
-                <span class="av">${address}</span>
+              <div class="info-cell">
+                <span class="ic-label">رقم التتبع</span>
+                <span class="ic-val" style="direction:ltr;text-align:right">${trackingNumber || "—"}</span>
               </div>
-              <div class="addr-field">
-                <span class="al">منزل رقم</span>
-                <span class="av">&nbsp;</span>
-              </div>
-              <div class="addr-field">
-                <span class="al">رقم التتبع</span>
-                <span class="av">${trackingNumber || "&nbsp;"}</span>
+              <div class="info-cell span3">
+                <span class="ic-label">العنوان بالتفصيل</span>
+                <span class="ic-val wrap">${address || "—"}</span>
               </div>
             </div>
 
-            <!-- Delivery -->
-            <div class="delivery-row">
-              <div class="delivery-field">
-                <span class="dl">تاريخ التسليم الملزم</span>
-                <span class="dv">&nbsp;</span>
-              </div>
-              <div class="delivery-field">
-                <span class="dl">الوقت المتاح للتسليم</span>
-                <span class="dv">${company ? "شركة: " + company.name : "&nbsp;"}</span>
-              </div>
-            </div>
+            ${notes ? `
+            <!-- Customer notes -->
+            <div class="notes-box">
+              <span class="nl">📝 ملاحظات:</span>
+              <span class="nv">${notes}</span>
+            </div>` : ""}
 
             <!-- Communication note -->
             <div class="note-box">
               <b>في حاله هناك مشاكل تواصل:</b>
-              (الذهاب للعنوان مباشره)
-              ( - عدم الذهاب الا بالتاكيد المسبق )
+              الذهاب للعنوان مباشره — عدم الذهاب إلا بالتأكيد المسبق
             </div>
 
             <!-- Shipping confirmation -->
             <div class="confirm-box">
-              <span class="cb-label">التاكيد علي الشحن:</span>
-              <span>تم التاكيد مع العميل — في حاله عدم الاستلام بيتم دفع مصاريف الشحن كامله المتفق عليها</span>
+              <span class="cb-label">✓ التأكيد على الشحن:</span>
+              <span>تم التأكيد مع العميل — في حالة عدم الاستلام يتم دفع مصاريف الشحن كاملة المتفق عليها</span>
             </div>
 
           </div>
 
-          <!-- FOOTER: phone + policy -->
+          <!-- FOOTER -->
           <div class="inv-footer">
             <div class="phone-block">
-              <span class="phone-label">رقم الهاتف</span>
+              <span class="phone-label">رقم هاتف العميل</span>
               <span class="phone-val">${order.phone ?? "—"}</span>
             </div>
             <div class="policy-txt">
-              <b style="color:#111;font-size:6pt">سياسه التعامل:</b>
-              الاسترجاع فقط اثناء تواجد المندوب. الاستبدال خلال 7 أيام من الشحن.
-              المنتج بضمان 6 أشهر. يلزم الحفاظ بالفاتوره.
+              <b style="color:#111;font-size:6pt">سياسة التعامل:</b>
+              الاسترجاع فقط أثناء تواجد المندوب. الاستبدال خلال 7 أيام من الشحن.
+              المنتج بضمان 6 أشهر. يلزم الاحتفاظ بالفاتورة.
             </div>
           </div>
         </div>
