@@ -158,19 +158,15 @@ export default function UsersPage() {
 
   // لو اليوزر عنده "*" في الـ DB (الأدمن القديم)، نفرد كل الصلاحيات الحقيقية
   const expandPermissions = (perms: string[], role: string): string[] => {
-    // تنظيف: نتأكد إن كل عنصر string حقيقي (وليس nested array أو object)
     const clean = perms
       .map(p => (typeof p === "string" ? p : null))
       .filter((p): p is string => p !== null && p.trim() !== "");
 
+    // لو "*" أو فاضية تماماً — استخدم الـ defaults (فقط للمستخدمين القدامى)
     if (clean.includes("*")) return DEFAULT_PERMISSIONS[role]?.() ?? DEFAULT_PERMISSIONS["admin"]!();
-    if (role === "admin" && clean.length === 0) return DEFAULT_PERMISSIONS["admin"]!();
-    if (role === "admin") {
-      // edit_brand اختيارية — نحافظ على اختيار الأدمن فيها ومانضيفهاش إجبارياً
-      const OPTIONAL_PERMS = [EDIT_BRAND_PERMISSION.key];
-      const forcedDefaults = DEFAULT_PERMISSIONS["admin"]!().filter(p => !OPTIONAL_PERMS.includes(p));
-      return [...new Set([...clean, ...forcedDefaults])];
-    }
+    if (clean.length === 0)  return DEFAULT_PERMISSIONS[role]?.() ?? [];
+
+    // لو فيه permissions فعلية — استخدمها كما هي بدون إضافة أي شيء قسراً
     return clean;
   };
 
@@ -192,25 +188,18 @@ export default function UsersPage() {
   const handleSubmit = () => {
     if (!form.displayName.trim()) { toast({ title: "خطأ", description: "الاسم مطلوب", variant: "destructive" }); return; }
     if (editingUser) {
-      // لو الدور أدمن — نضمن كل الـ defaults الأساسية ماعدا edit_brand (دي اختيارية)
-      const OPTIONAL_PERMS = [EDIT_BRAND_PERMISSION.key];
-      const forcedDefaults = DEFAULT_PERMISSIONS["admin"]!().filter(p => !OPTIONAL_PERMS.includes(p));
-      const finalPermissions = form.role === "admin"
-        ? [...new Set([...form.permissions, ...forcedDefaults])]
-        : form.permissions;
+      // نحفظ الـ permissions كما اختارها المستخدم بدون إضافة أي شيء قسراً
       const data: any = {
         displayName: form.displayName,
         role: form.role,
-        permissions: finalPermissions,
+        permissions: form.permissions,
       };
       if (form.password) data.password = form.password;
       updateMutation.mutate({ id: editingUser.id, data });
     } else {
       if (!form.username.trim()) { toast({ title: "خطأ", description: "اسم المستخدم مطلوب", variant: "destructive" }); return; }
       if (form.password.length < 6) { toast({ title: "خطأ", description: "كلمة المرور 6 أحرف على الأقل", variant: "destructive" }); return; }
-      // نبعت الـ permissions كما هي دايماً — سواء أدمن أو موظف
-      const permissions = form.permissions;
-      createMutation.mutate({ username: form.username.trim(), password: form.password, displayName: form.displayName.trim(), role: form.role, permissions });
+      createMutation.mutate({ username: form.username.trim(), password: form.password, displayName: form.displayName.trim(), role: form.role, permissions: form.permissions });
     }
   };
 
