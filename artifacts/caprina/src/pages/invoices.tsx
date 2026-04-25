@@ -251,14 +251,15 @@ export default function Invoices() {
         background: #fff8e1;
         border: 0.5px solid #ffe082;
         border-radius: 1mm;
-        padding: 1mm 2mm;
+        padding: 1.5mm 2mm;
         display: flex;
         gap: 1mm;
-        align-items: baseline;
+        align-items: flex-start;
         flex-shrink: 0;
+        min-height: 6mm;
       }
-      .notes-box .nl { font-size: 6pt; font-weight: 900; color: #c77800; white-space: nowrap; }
-      .notes-box .nv { font-size: 6.5pt; color: #555; line-height: 1.4; }
+      .notes-box .nl { font-size: 6.5pt; font-weight: 900; color: #c77800; white-space: nowrap; padding-top: 0.5mm; }
+      .notes-box .nv { font-size: 7pt; color: #444; line-height: 1.5; white-space: normal; word-break: break-word; }
 
       /* ── Confirm shipping row ─────────────── */
       .confirm-box {
@@ -279,21 +280,17 @@ export default function Invoices() {
         font-size: 7.5pt;
       }
 
-      /* ── Footer: phone + policy ──────────── */
+      /* ── Footer: policy only (no phone repeat) ──────────── */
       .inv-footer {
-        border-top: 1px solid #1a1a1a;
+        border-top: 1px solid #ccc;
         display: flex;
-        justify-content: space-between;
+        justify-content: center;
         align-items: center;
-        gap: 2mm;
         padding: 1mm 3mm;
         background: #f9f9f9;
         flex-shrink: 0;
       }
-      .phone-block { display: flex; flex-direction: column; }
-      .phone-label { font-size: 6.5pt; color: #999; }
-      .phone-val { font-size: 10pt; font-weight: 900; color: #111; direction: ltr; text-align: right; }
-      .policy-txt { font-size: 6.5pt; color: #666; max-width: 60mm; text-align: left; line-height: 1.5; }
+      .policy-txt { font-size: 6pt; color: #666; text-align: center; line-height: 1.4; }
 
       /* ── Empty slot ───────────────────────── */
       .empty-slot {
@@ -420,16 +417,10 @@ export default function Invoices() {
 
           </div>
 
-          <!-- FOOTER -->
+          <!-- FOOTER: policy only, no repeated phone -->
           <div class="inv-footer">
-            <div class="phone-block">
-              <span class="phone-label">رقم هاتف العميل</span>
-              <span class="phone-val">${order.phone ?? "—"}</span>
-            </div>
             <div class="policy-txt">
-              <b style="color:#111;font-size:6pt">سياسة التعامل:</b>
-              الاسترجاع فقط أثناء تواجد المندوب. الاستبدال خلال 7 أيام من الشحن.
-              المنتج بضمان 6 أشهر. يلزم الاحتفاظ بالفاتورة.
+              الاسترجاع فقط أثناء تواجد المندوب &nbsp;·&nbsp; الاستبدال خلال 7 أيام من الشحن &nbsp;·&nbsp; المنتج بضمان 6 أشهر &nbsp;·&nbsp; يلزم الاحتفاظ بالفاتورة
             </div>
           </div>
         </div>
