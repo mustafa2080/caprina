@@ -91,9 +91,11 @@ function StockEditor({ warehouseId, onClose, canEdit }: { warehouseId: number; o
   const { data: warehouse, isLoading } = useQuery({
     queryKey: ["warehouses", warehouseId],
     queryFn: () => warehousesApi.get(warehouseId),
+    staleTime: 0,
+    refetchInterval: 5000,
   });
-  const { data: products } = useQuery({ queryKey: ["products"], queryFn: productsApi.list });
-  const { data: allVariants } = useQuery({ queryKey: ["variants-all"], queryFn: variantsApi.listAll });
+  const { data: products } = useQuery({ queryKey: ["products"], queryFn: productsApi.list, staleTime: 0 });
+  const { data: allVariants } = useQuery({ queryKey: ["variants-all"], queryFn: variantsApi.listAll, staleTime: 0, refetchInterval: 5000 });
   const [selectedProductId, setSelectedProductId] = useState<number | "">("");
   const [selectedVariantId, setSelectedVariantId] = useState<number | "">("");
   const [qty, setQty] = useState(0);
@@ -383,6 +385,9 @@ export default function WarehousesPage() {
   const { data: warehouses = [], isLoading } = useQuery({
     queryKey: ["warehouses"],
     queryFn: warehousesApi.list,
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
 
   const deleteWarehouse = async (id: number) => {

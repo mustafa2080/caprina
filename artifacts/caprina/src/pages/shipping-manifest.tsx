@@ -588,6 +588,9 @@ export default function ShippingManifestPage() {
   const refetch = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ["shipping-manifest", id] });
     queryClient.invalidateQueries({ queryKey: ["shipping-manifests"] });
+    queryClient.invalidateQueries({ queryKey: ["warehouses"] });
+    queryClient.invalidateQueries({ queryKey: ["variants"] });
+    queryClient.invalidateQueries({ queryKey: ["variants-all"] });
   }, [queryClient, id]);
 
   const updateMutation = useMutation({
@@ -612,6 +615,9 @@ export default function ShippingManifestPage() {
     mutationFn: () => manifestsApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["shipping-manifests"] });
+      queryClient.invalidateQueries({ queryKey: ["warehouses"] });
+      queryClient.invalidateQueries({ queryKey: ["variants"] });
+      queryClient.invalidateQueries({ queryKey: ["variants-all"] });
       toast({ title: "تم الحذف" });
       window.history.back();
     },
