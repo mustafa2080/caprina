@@ -242,12 +242,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (perms.includes("*")) return true;
 
       // الأدمن اللي عنده [] في الـ DB (قديم) → كل شيء مسموح
+      // ملاحظة: ensureAdminDefaults في السيرفر بيضيف edit_brand تلقائياً للأدمن
+      // فالـ perms مش هتكون فارغة إلا قبل أول login بعد التحديث
       if (user.role === "admin" && perms.length === 0) return true;
 
-      // الأدمن دايماً عنده edit_brand — صلاحية أساسية للمدير
-      if (user.role === "admin" && permission === "edit_brand") return true;
-
-      // غير كده — بيتحقق من الـ DB الفعلية
+      // كل الصلاحيات بيتحقق منها من الـ DB الفعلية — بدون استثناءات
       return perms.includes(permission);
     },
     [user]
