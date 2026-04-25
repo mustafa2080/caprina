@@ -7,6 +7,10 @@
     "hello": "tsx ./src/hello.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
+  "dependencies": {
+    "mysql2": "^3.11.5",
+    "dotenv": "^16.4.7"
+  },
   "devDependencies": {
     "@types/node": "catalog:",
     "tsx": "catalog:"
