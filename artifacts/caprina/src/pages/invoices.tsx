@@ -49,11 +49,11 @@ export default function Invoices() {
     queryFn: ordersApi.inManifestIds,
   });
 
-  // فلتر — بس اللي في بيان
+  // فلتر — بس اللي لسه في المخزن (مش في بيان)
   const orders = useMemo(() => {
     if (!allInShipping || !manifestData) return [];
     const manifestSet = new Set(manifestData.ids);
-    return allInShipping.filter(o => manifestSet.has(o.id));
+    return allInShipping.filter(o => !manifestSet.has(o.id));
   }, [allInShipping, manifestData]);
 
   const toggleSelect = (id: number) => {
@@ -465,7 +465,7 @@ export default function Invoices() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold">الفواتير</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">طلبات قيد الشحن المدرجة في بيانات — اختر واطبع 4 فواتير في صفحة A4</p>
+          <p className="text-muted-foreground text-sm mt-0.5">طلبات قيد الشحن اللي لسه في المخزن (لم تُدرج في بيان) — اختر واطبع 4 فواتير في صفحة A4</p>
         </div>
         <Button
           onClick={handlePrint}
@@ -493,7 +493,7 @@ export default function Invoices() {
         )}
 
         {!isLoading && (
-          <span className="text-xs text-muted-foreground mr-auto">{orders.length} طلب في بيانات الشحن</span>
+          <span className="text-xs text-muted-foreground mr-auto">{orders.length} طلب في المخزن جاهز للشحن</span>
         )}
       </div>
 
@@ -555,8 +555,8 @@ export default function Invoices() {
       ) : (
         <Card className="border-border p-12 text-center">
           <FileText className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-20" />
-          <p className="font-bold">لا توجد طلبات في بيانات شحن</p>
-          <p className="text-sm text-muted-foreground mt-1">الفواتير تظهر فقط للطلبات قيد الشحن المدرجة في بيان</p>
+          <p className="font-bold">لا توجد طلبات في المخزن جاهزة للشحن</p>
+          <p className="text-sm text-muted-foreground mt-1">الفواتير تظهر للطلبات قيد الشحن اللي لم تُدرج في بيان بعد</p>
         </Card>
       )}
     </div>
