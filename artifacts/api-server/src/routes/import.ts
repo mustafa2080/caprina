@@ -88,6 +88,7 @@ router.post("/orders/import/execute", async (req, res): Promise<void> => {
     mapping: {
       name: string;
       phone: string;
+      city: string;
       address: string;
       product: string;
       color: string;
@@ -95,6 +96,10 @@ router.post("/orders/import/execute", async (req, res): Promise<void> => {
       quantity: string;
       price: string;
       notes: string;
+      adSource: string;
+      warehouseId: string;
+      assignedUserId: string;
+      shippingCost: string;
     };
   };
 
@@ -128,10 +133,15 @@ router.post("/orders/import/execute", async (req, res): Promise<void> => {
     const rawQty = getCell(row, mapping.quantity);
     const rawPrice = getCell(row, mapping.price).replace(/,/g, "");
     const phone = getCell(row, mapping.phone) || null;
+    const city = getCell(row, mapping.city) || null;
     const address = getCell(row, mapping.address) || null;
     const color = getCell(row, mapping.color) || null;
     const size = getCell(row, mapping.size) || null;
     const notes = getCell(row, mapping.notes) || null;
+    const adSourceRaw = getCell(row, mapping.adSource) || null;
+    const rawWarehouseId = getCell(row, mapping.warehouseId);
+    const rawAssignedUserId = getCell(row, mapping.assignedUserId);
+    const rawShippingCost = getCell(row, mapping.shippingCost).replace(/,/g, "");
 
     // Skip completely empty rows
     if (!customerName && !product && !rawQty) continue;
@@ -145,6 +155,22 @@ router.post("/orders/import/execute", async (req, res): Promise<void> => {
     const unitPrice = rawPrice ? parseFloat(rawPrice) : 0;
     if (rawPrice && isNaN(unitPrice)) { errors.push(`الصف ${rowNum}: السعر غير صحيح ("${rawPrice}")`); continue; }
 
+    const shippingCost = rawShippingCost ? parseFloat(rawShippingCost) : 0;
+    const warehouseId = rawWarehouseId ? parseInt(rawWarehouseId) || null : null;
+    const assignedUserId = rawAssignedUserId ? parseInt(rawAssignedUserId) || null : null;
+
+    // Normalize adSource to known values
+    const AD_SOURCE_MAP: Record<string, string> = {
+      "فيسبوك": "facebook", "facebook": "facebook",
+      "تيكتوك": "tiktok", "tiktok": "tiktok",
+      "انستجرام": "instagram", "instagram": "instagram",
+      "واتساب": "whatsapp", "whatsapp": "whatsapp",
+      "عضوي": "organic", "organic": "organic",
+    };
+    const adSource = adSourceRaw
+      ? (AD_SOURCE_MAP[adSourceRaw.toLowerCase()] ?? AD_SOURCE_MAP[adSourceRaw] ?? "other")
+      : null;
+
     validOrders.push({
       customerName,
       product,
@@ -154,8 +180,13 @@ router.post("/orders/import/execute", async (req, res): Promise<void> => {
       unitPrice: unitPrice || 0,
       totalPrice: quantity * (unitPrice || 0),
       phone,
+      city,
       address,
       notes,
+      adSource,
+      warehouseId,
+      assignedUserId,
+      shippingCost: shippingCost || 0,
       status: "pending" as const,
     });
   }

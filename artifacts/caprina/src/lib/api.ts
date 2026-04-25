@@ -145,6 +145,7 @@ export interface ParsedImport {
 export interface ColumnMapping {
   name: string;
   phone: string;
+  city: string;
   address: string;
   product: string;
   color: string;
@@ -152,6 +153,10 @@ export interface ColumnMapping {
   quantity: string;
   price: string;
   notes: string;
+  adSource: string;
+  warehouseId: string;
+  assignedUserId: string;
+  shippingCost: string;
 }
 
 export interface ImportResult {
