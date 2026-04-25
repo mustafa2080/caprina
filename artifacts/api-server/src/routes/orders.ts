@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, like, or, gte, and, isNull, isNotNull, inArray } from "drizzle-orm";
+import { eq, desc, like, or, gte, and, isNull, isNotNull, inArray, notInArray } from "drizzle-orm";
 import { db, ordersTable, productsTable, productVariantsTable, shippingManifestOrdersTable } from "@workspace/db";
 import {
   ListOrdersQueryParams,
@@ -58,6 +58,17 @@ router.get("/orders", async (req, res): Promise<void> => {
   const conditions: any[] = [isNull(ordersTable.deletedAt)];
 
   if (params.data.status) conditions.push(eq(ordersTable.status, params.data.status as any));
+
+  // لو بيجيب in_shipping — اشيل اللي عندها بيان مفتوح بالفعل
+  if (params.data.status === "in_shipping" && !(req.query as any).includeInManifest) {
+    const inManifest = await db
+      .select({ orderId: shippingManifestOrdersTable.orderId })
+      .from(shippingManifestOrdersTable);
+    const inManifestIds = inManifest.map(r => r.orderId);
+    if (inManifestIds.length > 0) {
+      conditions.push(notInArray(ordersTable.id, inManifestIds));
+    }
+  }
   if (params.data.search) {
     const s = `%${params.data.search}%`;
     conditions.push(or(like(ordersTable.customerName, s), like(ordersTable.product, s), like(ordersTable.phone, s)));
