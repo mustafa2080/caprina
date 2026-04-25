@@ -240,24 +240,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // ─── can() — المنطق الصحيح للصلاحيات ──────────────────────────────────
   // الأولوية:
   // 1. لو "*" → كل الصلاحيات
-  // 2. الأدمن → كل الصلاحيات ماعدا edit_brand (اختيارية)
-  // 3. لو permissions فاضية → استخدم الافتراضية للدور
-  // 4. لو permissions موجودة → تحقق منها
+  // 2. لو permissions فاضية تماماً → استخدم الافتراضية للدور (للمستخدمين القدامى)
+  // 3. لو permissions موجودة → تحقق منها بشكل صريح (حتى للأدمن)
   const can = useCallback(
     (permission: string): boolean => {
       if (!user) return false;
       const rawPerms = flattenPermissions(user.permissions);
 
+      // "*" يعني كل الصلاحيات
       if (rawPerms.includes("*")) return true;
 
-      if (user.role === "admin" && permission !== EDIT_BRAND_KEY) return true;
-
       // لو permissions فاضية تماماً — استخدم الافتراضية للدور
+      // ده للمستخدمين القدامى اللي اتعملوا قبل نظام الصلاحيات
       if (rawPerms.length === 0) {
         const defaults = ROLE_DEFAULT_PERMISSIONS[user.role] ?? [];
         return defaults.includes(permission);
       }
 
+      // تحقق من الـ permissions المخزنة فعلاً — لكل الأدوار بما فيهم الأدمن
       return rawPerms.includes(permission);
     },
     [user]
