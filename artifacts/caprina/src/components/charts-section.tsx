@@ -229,67 +229,137 @@ const StatusDonut = memo(function StatusDonut({ data, total }: { data: ChartsDat
 });
 
 // ─── Bar tooltip ─────────────────────────────────────────────────────────────
-function BarTip({ active, payload, label }: any) {
+function BarTip({ active, payload }: any) {
   if (!active || !payload?.length) return null;
+  const d = payload[0].payload;
+  const isToday = d.isToday;
+  // format date from d.date (YYYY-MM-DD)
+  const dateFormatted = d.date
+    ? new Date(d.date).toLocaleDateString("ar-EG", { day: "numeric", month: "long" })
+    : "";
   return (
     <div
-      className="rounded-xl border border-border px-3 py-2 text-xs shadow-xl"
-      style={{ background: "hsl(var(--card))" }}
+      className="rounded-xl border px-3 py-2.5 text-xs shadow-xl min-w-[130px]"
+      style={{
+        background: "hsl(var(--card))",
+        borderColor: isToday ? "#f59e0b88" : "hsl(var(--border))",
+      }}
     >
-      <p className="font-bold text-foreground mb-1">{label}</p>
-      <p style={{ color: BAR_COLOR }}>{payload[0]?.value} طلب</p>
-      {payload[1]?.value > 0 && (
-        <p className="text-emerald-500">{fc(payload[1].value)}</p>
+      {/* Day name + date */}
+      <div className="flex items-center gap-1.5 mb-2 pb-1.5 border-b border-border/50">
+        {isToday && <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0" />}
+        <p className="font-black text-foreground">{d.label}</p>
+        <p className="text-muted-foreground text-[10px] mr-auto">{dateFormatted}</p>
+      </div>
+      {/* Orders */}
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-muted-foreground">الطلبات</span>
+        <span className="font-black" style={{ color: BAR_COLOR }}>{d.orders} طلب</span>
+      </div>
+      {/* Revenue */}
+      {d.revenue > 0 && (
+        <div className="flex items-center justify-between gap-3 mt-1">
+          <span className="text-muted-foreground">الإيرادات</span>
+          <span className="font-bold text-emerald-500 text-[11px]">{fc(d.revenue)}</span>
+        </div>
+      )}
+      {d.orders === 0 && (
+        <p className="text-muted-foreground/60 text-[10px] mt-1 text-center">لا طلبات هذا اليوم</p>
       )}
     </div>
   );
 }
 
+// ─── Custom X-Axis Tick ────────────────────────────────────────────────────────
+function CustomXTick({ x, y, payload }: any) {
+  const d = payload?.value ?? {};
+  const isToday = d.isToday;
+  const shortDate = d.date
+    ? new Date(d.date).toLocaleDateString("ar-EG", { day: "numeric", month: "numeric" })
+    : "";
+  return (
+    <g transform={`translate(${x},${y})`}>
+      {/* Day name */}
+      <text
+        x={0} y={0} dy={12}
+        textAnchor="middle"
+        fill={isToday ? "#f59e0b" : "hsl(var(--muted-foreground))"}
+        fontSize={isToday ? 10 : 9}
+        fontWeight={isToday ? 900 : 600}
+      >
+        {d.label ?? ""}
+      </text>
+      {/* Date */}
+      <text
+        x={0} y={0} dy={24}
+        textAnchor="middle"
+        fill={isToday ? "#f59e0baa" : "hsl(var(--muted-foreground)/0.6)"}
+        fontSize={8}
+      >
+        {shortDate}
+      </text>
+    </g>
+  );
+}
+
 // ─── Weekly Sales Card ────────────────────────────────────────────────────────
 const WeeklyBars = memo(function WeeklyBars({ data }: { data: ChartsData["weeklySales"] }) {
-  const { total, peak, revenue, hasData } = useMemo(() => {
-    const total = data.reduce((s, d) => s + d.orders, 0);
-    const peak = data.reduce((a, b) => b.orders > a.orders ? b : a, data[0] ?? { label: "—", orders: 0, revenue: 0 });
-    const revenue = data.reduce((s, d) => s + d.revenue, 0);
-    return { total, peak, revenue, hasData: total > 0 };
-  }, [data]);
+  // Mark today and enrich data
+  const todayStr = new Date().toISOString().split("T")[0];
+  const enriched = useMemo(() =>
+    data.map(d => ({ ...d, isToday: d.date === todayStr }))
+  , [data, todayStr]);
+
+  const { total, peak, revenue, hasData, todayOrders } = useMemo(() => {
+    const total = enriched.reduce((s, d) => s + d.orders, 0);
+    const peak = enriched.reduce((a, b) => b.orders > a.orders ? b : a, enriched[0] ?? { label: "—", orders: 0, revenue: 0, date: "", isToday: false });
+    const revenue = enriched.reduce((s, d) => s + d.revenue, 0);
+    const todayOrders = enriched.find(d => d.isToday)?.orders ?? 0;
+    return { total, peak, revenue, hasData: total > 0, todayOrders };
+  }, [enriched]);
+
+  // avg per day (excluding zero days)
+  const activeDays = enriched.filter(d => d.orders > 0).length;
+  const avgPerDay = activeDays > 0 ? Math.round(total / activeDays) : 0;
 
   return (
     <div className="space-y-4">
       {/* KPI row */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-4 gap-1.5">
         {[
           { label: "طلبات الأسبوع", value: String(total), color: "#f59e0b" },
-          { label: "أعلى يوم", value: peak.label, color: "#22c55e" },
-          { label: "الإيرادات", value: fc(revenue), color: "#8b5cf6", small: true },
+          { label: "اليوم", value: String(todayOrders), color: "#3b82f6" },
+          { label: "أعلى يوم", value: `${peak.label} (${peak.orders})`, color: "#22c55e", small: true },
+          { label: "متوسط يومي", value: String(avgPerDay), color: "#8b5cf6" },
         ].map(s => (
           <div
             key={s.label}
-            className="rounded-xl px-2 py-2.5 text-center"
+            className="rounded-xl px-1.5 py-2 text-center"
             style={{ background: s.color + "14", border: `1px solid ${s.color}30` }}
           >
             <p
-              className={`font-black leading-none ${s.small ? "text-[10px]" : "text-base"}`}
+              className={`font-black leading-none ${s.small ? "text-[9px]" : "text-sm"}`}
               style={{ color: s.color }}
             >
               {s.value}
             </p>
-            <p className="text-[9px] text-muted-foreground mt-1">{s.label}</p>
+            <p className="text-[8px] text-muted-foreground mt-1">{s.label}</p>
           </div>
         ))}
       </div>
 
       {/* Bar chart */}
       {hasData ? (
-        <div style={{ height: 180 }}>
+        <div style={{ height: 190 }}>
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} margin={{ top: 10, right: 8, left: -22, bottom: 0 }}>
+            <BarChart data={enriched} margin={{ top: 10, right: 4, left: -26, bottom: 20 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
               <XAxis
-                dataKey="label"
-                tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))", fontWeight: 600 }}
+                dataKey={(d) => d}
+                tick={<CustomXTick />}
                 axisLine={false}
                 tickLine={false}
+                interval={0}
               />
               <YAxis
                 tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }}
@@ -297,18 +367,13 @@ const WeeklyBars = memo(function WeeklyBars({ data }: { data: ChartsData["weekly
                 tickLine={false}
                 allowDecimals={false}
               />
-              <Tooltip content={<BarTip />} cursor={{ fill: "hsl(var(--muted))", opacity: 0.4, radius: 4 }} />
-              <Bar
-                dataKey="orders"
-                fill={BAR_COLOR}
-                radius={[5, 5, 0, 0]}
-                maxBarSize={38}
-              >
-                {data.map((d, i) => (
+              <Tooltip content={<BarTip />} cursor={{ fill: "hsl(var(--muted))", opacity: 0.3, radius: 4 }} />
+              <Bar dataKey="orders" radius={[6, 6, 0, 0]} maxBarSize={36}>
+                {enriched.map((d, i) => (
                   <Cell
                     key={i}
-                    fill={d.orders > 0 ? BAR_COLOR : "hsl(var(--muted))"}
-                    opacity={d.orders > 0 ? 1 : 0.4}
+                    fill={d.isToday ? "#3b82f6" : d.orders > 0 ? BAR_COLOR : "hsl(var(--muted))"}
+                    opacity={d.orders > 0 ? 1 : 0.3}
                   />
                 ))}
               </Bar>
@@ -322,22 +387,36 @@ const WeeklyBars = memo(function WeeklyBars({ data }: { data: ChartsData["weekly
         </div>
       )}
 
-      {/* Day-by-day mini dots */}
-      <div className="flex items-end gap-1 pt-1 border-t border-border/40">
-        {data.map((d, i) => {
-          const max = Math.max(...data.map(x => x.orders), 1);
-          const h = Math.max(4, Math.round((d.orders / max) * 24));
+      {/* Day-by-day detail row */}
+      <div className="grid grid-cols-7 gap-1 pt-2 border-t border-border/40">
+        {enriched.map((d, i) => {
+          const max = Math.max(...enriched.map(x => x.orders), 1);
+          const barH = Math.max(3, Math.round((d.orders / max) * 20));
+          const isToday = d.isToday;
+          const shortDate = d.date
+            ? new Date(d.date).toLocaleDateString("ar-EG", { day: "numeric", month: "numeric" })
+            : "";
           return (
-            <div key={i} className="flex-1 flex flex-col items-center gap-1">
+            <div key={i} className="flex flex-col items-center gap-1">
+              {/* Orders count */}
+              <p className={`text-[10px] font-black ${isToday ? "text-blue-500" : d.orders > 0 ? "text-amber-500" : "text-muted-foreground/40"}`}>
+                {d.orders > 0 ? d.orders : "·"}
+              </p>
+              {/* Mini bar */}
               <div
-                className="w-full rounded-sm transition-all"
+                className="w-full rounded-sm"
                 style={{
-                  height: h,
-                  background: d.orders > 0 ? BAR_COLOR : "hsl(var(--muted))",
-                  opacity: d.orders > 0 ? 1 : 0.3,
+                  height: barH,
+                  background: isToday ? "#3b82f6" : d.orders > 0 ? BAR_COLOR : "hsl(var(--muted))",
+                  opacity: d.orders > 0 ? 1 : 0.25,
                 }}
               />
-              <p className="text-[8px] text-muted-foreground">{d.label.slice(0, 3)}</p>
+              {/* Day name short */}
+              <p className={`text-[8px] font-bold ${isToday ? "text-blue-500" : "text-muted-foreground"}`}>
+                {d.label.slice(0, 2)}
+              </p>
+              {/* Date */}
+              <p className="text-[7px] text-muted-foreground/60">{shortDate}</p>
             </div>
           );
         })}
