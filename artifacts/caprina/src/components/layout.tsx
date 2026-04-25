@@ -65,10 +65,11 @@ export default function Layout({ children }: LayoutProps) {
   // useMemo يعتمد على can اللي بيتغير مع user — فـ visibleNav بيتحدث تلقائياً
   const visibleNav = useMemo(() => {
     return ALL_NAV.filter((item) => {
-      const hasAccess  = can(item.permission);
-      const hasSection = item.section ? can(item.section) : false;
-      // يظهر لو عنده وصول أو قائمة — أي واحد يكفي
-      return hasAccess || hasSection;
+      // يظهر في الـ sidebar فقط لو عنده صلاحية القائمة (section)
+      // صلاحية الوصول (permission) وحدها لا تكفي للظهور في القائمة
+      if (item.section) return can(item.section);
+      // لو مفيش section محدد — يكفي صلاحية الوصول
+      return can(item.permission);
     });
   }, [can]);
 
