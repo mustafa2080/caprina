@@ -127,10 +127,25 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 }
 
 // ─── Permission-protected route ───────────────────────────────────────────────
-// لو الصلاحية اتشالت (realtime) → redirect للـ dashboard تلقائي
+// لو الصلاحية اتشالت (realtime) → redirect للـ أول صفحة مسموح بيها — بدون loop
 function ProtectedRoute({ permission, component: Comp }: { permission: string; component: React.ComponentType }) {
-  const { can } = useAuth();
+  const { can, user } = useAuth();
   if (!can(permission)) {
+    // لو كان الـ permission نفسه dashboard نبعد عن الـ loop
+    if (permission === "dashboard") {
+      if (can("orders"))    return <Redirect to="/orders" />;
+      if (can("inventory")) return <Redirect to="/inventory" />;
+      // مفيش صلاحيات خالص — اعرض رسالة
+      return (
+        <div className="flex items-center justify-center min-h-[60vh]" dir="rtl">
+          <div className="text-center space-y-3 p-6">
+            <p className="text-lg font-bold text-foreground">مرحباً {user?.displayName} 👋</p>
+            <p className="text-sm text-muted-foreground">ليس لديك صلاحية الوصول لأي صفحة حتى الآن.</p>
+            <p className="text-xs text-muted-foreground">تواصل مع المدير لإضافة الصلاحيات المناسبة.</p>
+          </div>
+        </div>
+      );
+    }
     return <Redirect to="/" />;
   }
   return <Comp />;

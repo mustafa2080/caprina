@@ -42,6 +42,33 @@ const EDIT_BRAND_KEY = "edit_brand";
 // polling كل 3 ثوان عشان تغييرات الصلاحيات تنعكس بسرعة
 const POLL_INTERVAL_MS = 3_000;
 
+// الصلاحيات الافتراضية لكل دور — تُستخدم فقط لو permissions فاضية تماماً
+// (للمستخدمين القدامى اللي اتعملوا قبل نظام الصلاحيات)
+const ROLE_DEFAULT_PERMISSIONS: Record<string, string[]> = {
+  admin: [
+    "dashboard", "orders", "inventory", "movements", "shipping", "invoices",
+    "import", "analytics", "users", "audit", "whatsapp",
+    "view_financials", "edit_inventory", "edit_delete_inventory",
+    "view_product_performance", "add_team_member", "edit_brand",
+    "section_dashboard", "section_product_performance", "section_team_performance",
+    "section_team_management", "section_smart_analytics", "section_ads_analytics",
+    "section_orders", "section_new_order", "section_archive", "section_shipping_followup",
+    "section_whatsapp", "section_inventory", "section_warehouses", "section_movements",
+    "section_shipping", "section_invoices", "section_import", "section_export_data",
+    "section_users", "section_sessions_report", "section_audit",
+  ],
+  employee: [
+    "dashboard", "orders",
+    "section_dashboard", "section_orders", "section_new_order",
+    "section_archive", "section_shipping_followup",
+  ],
+  warehouse: [
+    "dashboard", "inventory", "movements",
+    "edit_inventory", "edit_delete_inventory",
+    "section_dashboard", "section_inventory", "section_warehouses", "section_movements",
+  ],
+};
+
 // مقارنة الـ permissions بغض النظر عن الترتيب
 function permissionsChanged(a: string[], b: string[]): boolean {
   if (a.length !== b.length) return true;
@@ -56,7 +83,6 @@ function flattenPermissions(raw: any): string[] {
       if (!Array.isArray(raw)) return [];
     } else return [];
   }
-  // flatten: لو في nested arrays (نتيجة JSON_ARRAY_APPEND خاطئة)
   const flat: string[] = [];
   for (const item of raw) {
     if (typeof item === "string") flat.push(item);
@@ -81,40 +107,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // ─── تسجيل session login ──────────────────────────────────────────────────
   const recordLogin = useCallback(
     async (tkn: string): Promise<number | null> => {
       try {
         const res = await fetch("/api/sessions/login", {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${tkn}`,
-            "Content-Type": "application/json",
-          },
+          headers: { Authorization: `Bearer ${tkn}`, "Content-Type": "application/json" },
         });
         if (!res.ok) return null;
         const data = await res.json();
         return data.sessionId ?? null;
-      } catch {
-        return null;
-      }
-    },
-    []
+      } catch { return null; }
+    }, []
   );
 
-  // ─── تسجيل session logout ─────────────────────────────────────────────────
   const recordLogout = useCallback(async (tkn: string, sid: number) => {
     try {
       await fetch(`/api/sessions/${sid}/logout`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${tkn}` },
       });
-    } catch {
-      /* silent */
-    }
+    } catch { /* silent */ }
   }, []);
 
-  // ─── Logout ref عشان يُستخدم آمناً داخل setInterval ──────────────────────
   const logoutRef = useRef<() => void>(() => {});
 
   const logout = useCallback(() => {
@@ -122,38 +137,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const tkn = localStorage.getItem(TOKEN_KEY);
     const sid = localStorage.getItem("caprina_session_id");
     if (tkn && sid) recordLogout(tkn, parseInt(sid));
-    setToken(null);
-    setUser(null);
-    setSessionId(null);
+    setToken(null); setUser(null); setSessionId(null);
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     localStorage.removeItem("caprina_session_id");
   }, [recordLogout]);
 
-  // نحدّث الـ ref دايماً عشان الـ interval يستخدم النسخة الأحدث
-  useEffect(() => {
-    logoutRef.current = logout;
-  }, [logout]);
+  useEffect(() => { logoutRef.current = logout; }, [logout]);
 
-  // ─── جيب بيانات اليوزر الحالي من API ────────────────────────────────────
-  const fetchMe = useCallback(
-    async (tkn: string): Promise<AuthUser | null> => {
-      try {
-        const res = await fetch("/api/auth/me", {
-          headers: { Authorization: `Bearer ${tkn}` },
-          cache: "no-store",
-        });
-        if (!res.ok) return null;
-        const data = (await res.json()) as AuthUser;
-        return normalizeUser(data);
-      } catch {
-        return null;
-      }
-    },
-    []
-  );
+  const fetchMe = useCallback(async (tkn: string): Promise<AuthUser | null> => {
+    try {
+      const res = await fetch("/api/auth/me", {
+        headers: { Authorization: `Bearer ${tkn}` },
+        cache: "no-store",
+      });
+      if (!res.ok) return null;
+      return normalizeUser((await res.json()) as AuthUser);
+    } catch { return null; }
+  }, []);
 
-  // ─── تحديث اليوزر يدوياً (بعد حفظ التعديلات) ────────────────────────────
   const refreshUser = useCallback(async () => {
     const tkn = localStorage.getItem(TOKEN_KEY);
     if (!tkn) return;
@@ -161,42 +163,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (updated) {
       const fresh = normalizeUser(updated);
       localStorage.setItem(USER_KEY, JSON.stringify(fresh));
-      // دايماً new object عشان React يعمل re-render ويحدث الـ sidebar
       setUser({ ...fresh });
     }
   }, [fetchMe]);
 
-  // ─── بدء الـ polling ─────────────────────────────────────────────────────
-  const startPolling = useCallback(
-    (tkn: string) => {
-      if (pollRef.current) clearInterval(pollRef.current);
-      pollRef.current = setInterval(async () => {
-        const updated = await fetchMe(tkn);
-        if (updated) {
-          setUser((prev) => {
-            if (!prev) return normalizeUser(updated);
-            const roleChanged = prev.role !== updated.role;
-            const activeChanged = prev.isActive !== updated.isActive;
-            const permsChanged = permissionsChanged(
-              prev.permissions,
-              updated.permissions
-            );
-            if (!roleChanged && !activeChanged && !permsChanged) return prev;
-            // في تغيير فعلي — نرجع object جديد كلياً عشان React يعمل re-render
-            const fresh = normalizeUser(updated);
-            localStorage.setItem(USER_KEY, JSON.stringify(fresh));
-            return { ...fresh };
-          });
-        } else {
-          // token انتهت أو مشكلة — نستخدم الـ ref عشان نتجنب stale closure
-          logoutRef.current();
-        }
-      }, POLL_INTERVAL_MS);
-    },
-    [fetchMe]
-  );
+  const startPolling = useCallback((tkn: string) => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(async () => {
+      const updated = await fetchMe(tkn);
+      if (updated) {
+        setUser((prev) => {
+          if (!prev) return normalizeUser(updated);
+          const roleChanged = prev.role !== updated.role;
+          const activeChanged = prev.isActive !== updated.isActive;
+          const permsChanged = permissionsChanged(prev.permissions, updated.permissions);
+          if (!roleChanged && !activeChanged && !permsChanged) return prev;
+          const fresh = normalizeUser(updated);
+          localStorage.setItem(USER_KEY, JSON.stringify(fresh));
+          return { ...fresh };
+        });
+      } else {
+        logoutRef.current();
+      }
+    }, POLL_INTERVAL_MS);
+  }, [fetchMe]);
 
-  // ─── تحميل اليوزر من localStorage عند أول render ────────────────────────
   useEffect(() => {
     const savedToken = localStorage.getItem(TOKEN_KEY);
     const savedUser = localStorage.getItem(USER_KEY);
@@ -205,7 +196,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const parsed = JSON.parse(savedUser) as AuthUser;
         setToken(savedToken);
         setUser(normalizeUser(parsed));
-        // جيب بيانات fresh من API مباشرة
         fetchMe(savedToken).then((fresh) => {
           if (fresh) {
             const normalized = normalizeUser(fresh);
@@ -214,8 +204,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           } else {
             localStorage.removeItem(TOKEN_KEY);
             localStorage.removeItem(USER_KEY);
-            setToken(null);
-            setUser(null);
+            setToken(null); setUser(null);
           }
           setLoading(false);
         });
@@ -228,12 +217,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else {
       setLoading(false);
     }
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── Login ────────────────────────────────────────────────────────────────
   const login = useCallback(
     async (newToken: string, newUser: AuthUser) => {
       const normalized = normalizeUser(newUser);
@@ -251,42 +237,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [startPolling, recordLogin]
   );
 
-  // ─── can() — useCallback يعتمد على user عشان يتحدث لما الـ user يتغير ──
+  // ─── can() — المنطق الصحيح للصلاحيات ──────────────────────────────────
+  // الأولوية:
+  // 1. لو "*" → كل الصلاحيات
+  // 2. الأدمن → كل الصلاحيات ماعدا edit_brand (اختيارية)
+  // 3. لو permissions فاضية → استخدم الافتراضية للدور
+  // 4. لو permissions موجودة → تحقق منها
   const can = useCallback(
     (permission: string): boolean => {
       if (!user) return false;
-      const perms: string[] = flattenPermissions(user.permissions);
-      if (perms.includes("*")) return true;
-      if (user.role === "admin" && perms.length === 0) return true;
-      // الأدمن عنده كل الصلاحيات الأساسية دايماً ماعدا edit_brand (اختيارية)
+      const rawPerms = flattenPermissions(user.permissions);
+
+      if (rawPerms.includes("*")) return true;
+
       if (user.role === "admin" && permission !== EDIT_BRAND_KEY) return true;
-      return perms.includes(permission);
+
+      // لو permissions فاضية تماماً — استخدم الافتراضية للدور
+      if (rawPerms.length === 0) {
+        const defaults = ROLE_DEFAULT_PERMISSIONS[user.role] ?? [];
+        return defaults.includes(permission);
+      }
+
+      return rawPerms.includes(permission);
     },
     [user]
   );
 
-  const canViewFinancials = useMemo(
-    () => can("view_financials"),
-    [can]
-  );
+  const canViewFinancials = useMemo(() => can("view_financials"), [can]);
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        token,
-        sessionId,
-        login,
-        logout,
-        refreshUser,
-        isAdmin: user?.role === "admin",
-        isEmployee: user?.role === "employee",
-        isWarehouse: user?.role === "warehouse",
-        can,
-        canViewFinancials,
-        loading,
-      }}
-    >
+    <AuthContext.Provider value={{
+      user, token, sessionId, login, logout, refreshUser,
+      isAdmin: user?.role === "admin",
+      isEmployee: user?.role === "employee",
+      isWarehouse: user?.role === "warehouse",
+      can, canViewFinancials, loading,
+    }}>
       {children}
     </AuthContext.Provider>
   );
