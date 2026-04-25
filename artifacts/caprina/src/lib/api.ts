@@ -50,12 +50,24 @@ export interface AppUser {
   createdAt: string; updatedAt: string;
 }
 
+function parseUserPermissions(u: any): AppUser {
+  const perms = u.permissions;
+  return {
+    ...u,
+    permissions: Array.isArray(perms)
+      ? perms
+      : typeof perms === "string"
+        ? (() => { try { return JSON.parse(perms); } catch { return []; } })()
+        : [],
+  };
+}
+
 export const usersApi = {
-  list: () => apiFetch<AppUser[]>("/users"),
+  list: () => apiFetch<AppUser[]>("/users").then(arr => arr.map(parseUserPermissions)),
   create: (data: { username: string; password: string; displayName: string; role: string; permissions?: string[] }) =>
-    apiFetch<AppUser>("/users", { method: "POST", body: JSON.stringify(data) }),
+    apiFetch<AppUser>("/users", { method: "POST", body: JSON.stringify(data) }).then(parseUserPermissions),
   update: (id: number, data: Partial<{ displayName: string; role: string; permissions: string[]; isActive: boolean; password: string }>) =>
-    apiFetch<AppUser>(`/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    apiFetch<AppUser>(`/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }).then(parseUserPermissions),
   delete: (id: number) => apiFetch<void>(`/users/${id}`, { method: "DELETE" }),
 };
 
