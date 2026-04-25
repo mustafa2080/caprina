@@ -1,5 +1,5 @@
 import { eq, like, and } from "drizzle-orm";
-import { db, productsTable, productVariantsTable, inventoryMovementsTable } from "@workspace/db";
+import { db, productsTable, productVariantsTable, inventoryMovementsTable, warehouseStockTable } from "@workspace/db";
 import type { MovementReason } from "@workspace/db";
 
 /**
@@ -49,6 +49,26 @@ export async function resolveInventoryTarget(order: {
   }
 
   return { variantId: null, productId: null };
+}
+
+// ─── Warehouse stock helper ───────────────────────────────────────────────────
+
+async function adjustWarehouseStock(
+  warehouseId: number,
+  variantId: number | null,
+  productId: number | null,
+  delta: number, // سالب = خصم، موجب = إرجاع
+): Promise<void> {
+  const condition = and(
+    eq(warehouseStockTable.warehouseId, warehouseId),
+    variantId
+      ? eq(warehouseStockTable.variantId, variantId)
+      : eq(warehouseStockTable.productId, productId!),
+  );
+  const [row] = await db.select().from(warehouseStockTable).where(condition);
+  if (!row) return; // لو مفيش سجل للمخزن ده — مش بنعمل حاجة
+  const newQty = Math.max(0, row.quantity + delta);
+  await db.update(warehouseStockTable).set({ quantity: newQty, updatedAt: new Date() }).where(condition);
 }
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
@@ -313,6 +333,7 @@ export async function processToShipping(
     product?: string | null;
     color?: string | null;
     size?: string | null;
+    warehouseId?: number | null;
   },
   qty: number,
   orderId?: number | null,
@@ -321,7 +342,13 @@ export async function processToShipping(
   const { variantId, productId } = await resolveInventoryTarget(order);
   if (!variantId && !productId) return;
 
+  // خصم من totalQuantity الكلي
   await adjustQty(variantId, productId, -qty, 0);
+
+  // خصم من المخزن المحدد في الطلب
+  if (order.warehouseId) {
+    await adjustWarehouseStock(order.warehouseId, variantId, productId, -qty);
+  }
 
   if (order.product) {
     await recordMovement({
@@ -350,6 +377,7 @@ export async function reverseShipping(
     product?: string | null;
     color?: string | null;
     size?: string | null;
+    warehouseId?: number | null;
   },
   qty: number,
   orderId?: number | null,
@@ -358,7 +386,13 @@ export async function reverseShipping(
   const { variantId, productId } = await resolveInventoryTarget(order);
   if (!variantId && !productId) return;
 
+  // إرجاع للـ totalQuantity الكلي
   await adjustQty(variantId, productId, qty, 0);
+
+  // إرجاع للمخزن المحدد في الطلب
+  if (order.warehouseId) {
+    await adjustWarehouseStock(order.warehouseId, variantId, productId, qty);
+  }
 
   if (order.product) {
     await recordMovement({

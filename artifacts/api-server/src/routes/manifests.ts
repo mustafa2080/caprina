@@ -212,6 +212,7 @@ router.post("/shipping-manifests", async (req, res): Promise<void> => {
         product: order.product,
         color: order.color,
         size: order.size,
+        warehouseId: order.warehouseId,
       },
       order.quantity,
       order.id,
