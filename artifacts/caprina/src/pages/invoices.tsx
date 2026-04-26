@@ -108,9 +108,17 @@ export default function Invoices() {
         border-radius: 1mm;
         display: flex;
         flex-direction: column;
+        justify-content: space-between;
         overflow: hidden;
         background: #fff;
         min-height: 0;
+      }
+      .inv-body {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        justify-content: space-evenly;
+        padding-bottom: 1mm;
       }
       .hdr {
         background: #1a1a1a;
@@ -152,13 +160,13 @@ export default function Invoices() {
       .tbl .tot td  { background: #eee; font-weight: 900; font-size: 8pt; }
       .info {
         display: grid; grid-template-columns: 1fr 1fr 1fr;
-        gap: 0.8mm; padding: 1mm 2.5mm 0; flex-shrink: 0;
+        gap: 0.8mm; padding: 0 2.5mm; flex-shrink: 0;
       }
-      .inf { border: 0.5px solid #ddd; border-radius: 0.8mm; padding: 0.4mm 0.8mm; background: #fafafa; }
+      .inf { border: 0.5px solid #ddd; border-radius: 0.8mm; padding: 0.5mm 0.8mm; background: #fafafa; }
       .inf-l { font-size: 5.5pt; color: #999; }
       .inf-v  { font-size: 7pt; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .addr {
-        margin: 0.8mm 2.5mm 0;
+        margin: 0 2.5mm;
         border: 1px solid #333;
         border-radius: 0.8mm;
         padding: 0.8mm 1.5mm;
@@ -175,9 +183,9 @@ export default function Invoices() {
         overflow: hidden; word-break: break-word;
       }
       .notes {
-        margin: 0.8mm 2.5mm 0; background: #fffbea;
+        margin: 0 2.5mm; background: #fffbea;
         border: 0.8px solid #f59e0b; border-right: 3px solid #f59e0b;
-        border-radius: 0.8mm; padding: 0.5mm 1.2mm;
+        border-radius: 0.8mm; padding: 0.6mm 1.2mm;
         display: flex; gap: 1mm; flex-shrink: 0; overflow: hidden;
       }
       .notes-l { font-size: 6pt; font-weight: 900; color: #b45309; white-space: nowrap; flex-shrink: 0; }
@@ -187,14 +195,14 @@ export default function Invoices() {
         overflow: hidden; word-break: break-word; line-height: 1.35;
       }
       .confirm {
-        margin: 0.8mm 2.5mm 0; border: 0.5px solid #bbb; border-radius: 0.8mm;
-        padding: 0.5mm 1.2mm; font-size: 6pt; color: #444; line-height: 1.35;
+        margin: 0 2.5mm; border: 0.5px solid #bbb; border-radius: 0.8mm;
+        padding: 0.6mm 1.2mm; font-size: 6pt; color: #444; line-height: 1.35;
         flex-shrink: 0; overflow: hidden;
       }
       .confirm strong { color: #111; font-weight: 900; }
       .ftr {
-        margin-top: auto; border-top: 0.8px solid #ddd; background: #f5f5f5;
-        padding: 0.6mm 2.5mm; flex-shrink: 0; text-align: center;
+        border-top: 0.8px solid #ddd; background: #f5f5f5;
+        padding: 0.8mm 2.5mm; flex-shrink: 0; text-align: center;
       }
       .ftr-txt { font-size: 5pt; color: #888; line-height: 1.35; }
       .empty { border: 1px dashed #ddd; border-radius: 1mm; background: #fafafa; min-height: 0; }
@@ -230,6 +238,7 @@ export default function Invoices() {
             <div class="cust-name">${order.customerName}</div>
             <div class="cust-phone">📞 ${order.phone ?? "—"}</div>
           </div>
+          <div class="inv-body">
           <table class="tbl">
             <colgroup>
               <col style="width:30%"><col style="width:13%"><col style="width:19%">
@@ -273,6 +282,7 @@ export default function Invoices() {
           </div>
           <div class="confirm">
             <strong>✓ التأكيد على الشحن:</strong> تم التأكيد مع العميل — في حالة عدم الاستلام يتم دفع مصاريف الشحن كاملة
+          </div>
           </div>
           <div class="ftr">
             <div class="ftr-txt">الاسترجاع أثناء تواجد المندوب · الاستبدال خلال 7 أيام · ضمان 6 أشهر · احتفظ بالفاتورة</div>
