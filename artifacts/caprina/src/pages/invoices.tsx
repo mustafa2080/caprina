@@ -176,38 +176,39 @@ export default function Invoices() {
       .notes-box {
         background: #fff8e1; border: 0.5px solid #ffe082;
         border-right: 3px solid #f59e0b; border-radius: 1mm;
-        padding: 0.8mm 1.5mm; font-size: 6pt; color: #555;
-        display: flex; gap: 1mm; flex-shrink: 0; line-height: 1.4;
+        padding: 1.2mm 2mm; font-size: 6.5pt; color: #333;
+        display: flex; gap: 1.5mm; flex-shrink: 0; line-height: 1.5;
       }
-      .notes-box b { color: #c77800; white-space: nowrap; }
+      .notes-box b { color: #b45309; white-space: nowrap; font-size: 7pt; }
 
       /* CONFIRM */
       .confirm-box {
-        border: 0.5px solid #ddd; border-radius: 1mm; padding: 0.8mm 1.5mm;
-        font-size: 5.5pt; color: #444; flex-shrink: 0;
-        display: flex; gap: 1mm; align-items: flex-start; line-height: 1.4;
+        border: 0.8px solid #bbb; border-radius: 1mm;
+        padding: 1.2mm 2mm; font-size: 6pt; color: #333; flex-shrink: 0;
+        display: flex; gap: 1.5mm; align-items: flex-start; line-height: 1.5;
+        background: #fafafa;
       }
-      .confirm-box .cb-lbl { font-weight: 900; color: #111; font-size: 6pt; white-space: nowrap; }
+      .confirm-box .cb-lbl { font-weight: 900; color: #111; font-size: 6.5pt; white-space: nowrap; }
 
       /* FOOTER */
       .inv-footer {
-        border-top: 1px solid #1a1a1a; background: #f9f9f9;
-        padding: 0.8mm 3mm; flex-shrink: 0;
+        border-top: 1.5px solid #1a1a1a; background: #1a1a1a;
+        padding: 1.5mm 3mm; flex-shrink: 0;
         display: flex; justify-content: space-between; align-items: center; gap: 2mm;
       }
-      .policy-txt  { font-size: 5pt; color: #888; text-align: left; line-height: 1.4; }
-      .footer-brand { font-size: 6pt; font-weight: 900; color: #555; letter-spacing: 1px; }
+      .policy-txt   { font-size: 5.5pt; color: #aaa; text-align: left; line-height: 1.5; }
+      .footer-brand { font-size: 7pt; font-weight: 900; color: #fff; letter-spacing: 2px; }
 
       .empty-slot { border: 1px dashed #ddd; border-radius: 2mm; background: #fafafa; }
     `;
 
     const invoiceHTML = (order: (typeof selected)[0]) => {
       const company        = shippingCompanies?.find(c => c.id === order.shippingCompanyId);
-      const trackingNumber = (order as any).trackingNumber ?? "";
+      const trackingNumber = (order as any).trackingNumber ?? (order as any).tracking_number ?? "";
       const color          = (order as any).color          ?? "";
       const size           = (order as any).size           ?? "";
-      const notes          = (order as any).notes          ?? "";
-      const shippingCost   = (order as any).shippingCost   ?? 0;
+      const notes          = (order as any).notes          ?? (order as any).note ?? (order as any).orderNotes ?? "";
+      const shippingCost   = (order as any).shippingCost   ?? (order as any).shipping_cost ?? 0;
       const partialQty     = (order as any).partialQuantity;
       const displayQty     = partialQty ? `${partialQty} / ${order.quantity}` : `${order.quantity}`;
       const dateStr        = format(new Date(order.createdAt), "yyyy/MM/dd");
@@ -300,7 +301,11 @@ export default function Invoices() {
               <div class="addr-val">${address || "&#8212;"}</div>
             </div>
 
-            ${notes ? `<div class="notes-box"><b>ملاحظات:</b> ${notes}</div>` : ""}
+            <!-- الملاحظات — تظهر دايماً -->
+            <div class="notes-box">
+              <b>&#128203; ملاحظات:</b>
+              <span>${notes || "&#8212;"}</span>
+            </div>
 
             <!-- التاكيد على الشحن -->
             <div class="confirm-box">
