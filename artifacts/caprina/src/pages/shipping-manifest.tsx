@@ -67,7 +67,7 @@ import {
   Search,
   PackagePlus,
   FileSpreadsheet,
-  Upload,
+  Download,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/contexts/AuthContext";
@@ -643,250 +643,253 @@ function CloseConfirmDialog({
   );
 }
 
-// ─── Status Normalization ─────────────────────────────────────────────────────
-const STATUS_MAP: Record<string, string> = {
-  "مسلم": "delivered", "مسلَّم": "delivered", "مسلم ": "delivered", "delivered": "delivered", "تسليم": "delivered",
-  "مرتجع": "returned", "returned": "returned", "رجع": "returned",
-  "مؤجل": "postponed", "postponed": "postponed", "تأجيل": "postponed", "اجل": "postponed",
-  "جزئي": "partial_received", "partial_received": "partial_received",
-  "استلم جزئي": "partial_received", "partial": "partial_received", "جزئى": "partial_received",
-  "انتظار": "pending", "pending": "pending", "في الانتظار": "pending", "قيد الانتظار": "pending",
+// ─── Status label helper ──────────────────────────────────────────────────────
+const STATUS_LABEL_AR: Record<string, string> = {
+  delivered:        "مسلَّم",
+  returned:         "مرتجع",
+  postponed:        "مؤجل",
+  partial_received: "استلم جزئي",
+  pending:          "قيد الانتظار",
 };
 
-function normalizeStatus(val: string): string | null {
-  if (!val || !val.trim()) return null;
-  const lower = val.trim().toLowerCase();
-  for (const [key, mapped] of Object.entries(STATUS_MAP)) {
-    if (lower === key.toLowerCase().trim()) return mapped;
-  }
-  return null;
-}
-
-// ─── Excel Import Dialog ─────────────────────────────────────────────────────
-type ExcelRow = {
-  orderId?: number;
-  customerName?: string;
-  deliveryStatus?: string;
-  deliveryNote?: string;
-  partialQuantity?: number;
-};
-
-function ExcelImportDialog({
+// ─── Export Dialog (Excel + PDF) ──────────────────────────────────────────────
+function ExportDialog({
   manifest,
   onClose,
-  onImported,
 }: {
   manifest: ShippingManifestDetail;
   onClose: () => void;
-  onImported: () => void;
 }) {
-  const { toast } = useToast();
-  const [rows, setRows] = useState<ExcelRow[]>([]);
-  const [unmatchedRows, setUnmatchedRows] = useState<{ name: string; status: string }[]>([]);
-  const [importing, setImporting] = useState(false);
-  const [fileName, setFileName] = useState("");
-  const [rawCount, setRawCount] = useState(0);
+  const s = manifest.stats;
+  const effectiveShipping = manifest.manualShippingCost ?? s.totalShippingCost;
 
-  // normalize Arabic text: remove tashkeel + normalize spaces
-  const normalizeAr = (s: string) =>
-    s.trim()
-      .replace(/[\u064B-\u065F\u0670]/g, "")   // remove harakat
-      .replace(/\s+/g, " ")
-      .toLowerCase();
+  const deliveredGross = manifest.orders
+    .filter(o => o.deliveryStatus === "delivered")
+    .reduce((sum, o) => sum + o.totalPrice, 0);
+  const partialGross = manifest.orders
+    .filter(o => o.deliveryStatus === "partial_received")
+    .reduce((sum, o) => {
+      const pct = o.partialQuantity && o.quantity ? o.partialQuantity / o.quantity : 1;
+      return sum + o.totalPrice * pct;
+    }, 0);
+  const totalCollected = deliveredGross + partialGross;
+  const netDue = totalCollected - effectiveShipping;
 
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const data = new Uint8Array(ev.target?.result as ArrayBuffer);
-      const workbook = XLSX.read(data, { type: "array" });
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const json: Record<string, unknown>[] = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+  // ── Excel Export ────────────────────────────────────────────────────────────
+  const exportExcel = () => {
+    const wb = XLSX.utils.book_new();
 
-      setRawCount(json.length);
+    // ── Sheet 1: Orders ──
+    const ordersHeader = [
+      ["#", "رقم الطلب", "اسم العميل", "الهاتف", "المنتج", "اللون", "المقاس",
+       "الكمية", "الكمية المستلمة", "الإجمالي (ج.م)", "حالة التسليم", "ملاحظة"],
+    ];
+    const ordersRows = manifest.orders.map((o, idx) => [
+      idx + 1,
+      o.id,
+      o.customerName,
+      o.phone ?? "",
+      o.product,
+      o.color ?? "",
+      o.size ?? "",
+      o.quantity,
+      o.deliveryStatus === "partial_received" ? (o.partialQuantity ?? "") : "",
+      o.totalPrice,
+      STATUS_LABEL_AR[o.deliveryStatus] ?? o.deliveryStatus,
+      o.deliveryNote ?? "",
+    ]);
 
-      const matched: ExcelRow[] = [];
-      const unmatched: { name: string; status: string }[] = [];
+    const ws1 = XLSX.utils.aoa_to_sheet([...ordersHeader, ...ordersRows]);
 
-      for (const r of json) {
-        const idVal   = r["رقم الطلب"] ?? r["order_id"] ?? r["id"] ?? r["ID"] ?? r["رقم"] ?? "";
-        const nameVal = String(r["اسم العميل"] ?? r["customer"] ?? r["الاسم"] ?? r["name"] ?? r["العميل"] ?? "").trim();
-        const statusVal = String(r["الحالة"] ?? r["status"] ?? r["delivery_status"] ?? r["التسليم"] ?? "").trim();
-        const noteVal   = String(r["ملاحظة"] ?? r["note"] ?? r["notes"] ?? r["ملاحظات"] ?? "").trim();
-        const partialQty = Number(r["الكمية المستلمة"] ?? r["partial_quantity"] ?? 0);
+    // column widths
+    ws1["!cols"] = [
+      { wch: 4 }, { wch: 8 }, { wch: 22 }, { wch: 14 }, { wch: 24 },
+      { wch: 10 }, { wch: 10 }, { wch: 8 }, { wch: 12 }, { wch: 14 },
+      { wch: 14 }, { wch: 28 },
+    ];
 
-        // match by id first, then by normalized name
-        const matchedOrder = manifest.orders.find((o) => {
-          if (idVal !== "" && Number(idVal) === o.id) return true;
-          if (nameVal && normalizeAr(o.customerName ?? "") === normalizeAr(nameVal)) return true;
-          return false;
-        });
-
-        const mappedStatus = normalizeStatus(statusVal) ?? undefined;
-
-        if (matchedOrder && mappedStatus) {
-          matched.push({
-            orderId: matchedOrder.id,
-            customerName: matchedOrder.customerName,
-            deliveryStatus: mappedStatus,
-            deliveryNote: noteVal || undefined,
-            partialQuantity: partialQty || undefined,
-          });
-        } else {
-          // only log rows that have some content
-          if (nameVal || idVal) {
-            unmatched.push({
-              name: nameVal || String(idVal),
-              status: statusVal || "—",
-            });
-          }
-        }
-      }
-
-      setRows(matched);
-      setUnmatchedRows(unmatched);
-    };
-    reader.readAsArrayBuffer(file);
-  };
-
-  const handleImport = async () => {
-    if (rows.length === 0) return;
-    setImporting(true);
-    let success = 0;
-    let failed = 0;
-    for (const row of rows) {
-      try {
-        await apiFetch(`/shipping-manifests/${manifest.id}/orders/${row.orderId}`, {
-          method: "PATCH",
-          body: JSON.stringify({
-            deliveryStatus: row.deliveryStatus,
-            deliveryNote: row.deliveryNote ?? null,
-            partialQuantity: row.partialQuantity ?? null,
-          }),
-        });
-        success++;
-      } catch {
-        failed++;
-      }
+    // header style
+    const range = XLSX.utils.decode_range(ws1["!ref"] ?? "A1");
+    for (let C = range.s.c; C <= range.e.c; C++) {
+      const cellAddr = XLSX.utils.encode_cell({ r: 0, c: C });
+      if (!ws1[cellAddr]) continue;
+      ws1[cellAddr].s = {
+        font: { bold: true, color: { rgb: "FFFFFF" } },
+        fill: { fgColor: { rgb: "1E293B" } },
+        alignment: { horizontal: "center" },
+      };
     }
-    setImporting(false);
-    toast({
-      title: "اكتمل الاستيراد",
-      description: `تم تحديث ${success} طلبية${failed > 0 ? ` — فشل ${failed}` : ""}`,
-      variant: failed > 0 ? "destructive" : "default",
+
+    XLSX.utils.book_append_sheet(wb, ws1, "الطلبيات");
+
+    // ── Sheet 2: Summary ──
+    const summaryData = [
+      ["بيان الشحن", manifest.manifestNumber],
+      ["شركة الشحن", manifest.companyName],
+      ["تاريخ الإنشاء", format(new Date(manifest.createdAt), "yyyy/MM/dd")],
+      ["الحالة", manifest.status === "closed" ? "مغلق" : "مفتوح"],
+      [],
+      ["── إحصائيات التسليم ──", ""],
+      ["إجمالي الطلبيات", s.total],
+      ["مسلَّم", s.delivered],
+      ["مرتجع", s.returned],
+      ["مؤجل", manifest.orders.filter(o => o.deliveryStatus === "postponed").length],
+      ["استلم جزئي", manifest.orders.filter(o => o.deliveryStatus === "partial_received").length],
+      ["قيد الانتظار", manifest.orders.filter(o => o.deliveryStatus === "pending").length],
+      ["نسبة التسليم", `${s.deliveryRate}%`],
+      [],
+      ["── الحساب المالي ──", ""],
+      ["إجمالي المحصَّل (ج.م)", totalCollected],
+      ["رسوم الشحن (ج.م)", effectiveShipping],
+      ["صافي المستحق (ج.م)", netDue],
+      ...(manifest.invoicePrice != null
+        ? [["سعر الفاتورة المتفق (ج.م)", manifest.invoicePrice]]
+        : []),
+    ];
+
+    const ws2 = XLSX.utils.aoa_to_sheet(summaryData);
+    ws2["!cols"] = [{ wch: 28 }, { wch: 22 }];
+
+    // bold the section headers
+    [5, 14].forEach(r => {
+      const cell = XLSX.utils.encode_cell({ r, c: 0 });
+      if (ws2[cell]) ws2[cell].s = { font: { bold: true, color: { rgb: "B8860B" } } };
     });
-    if (success > 0) {
-      onImported();
-      onClose();
-    }
+
+    XLSX.utils.book_append_sheet(wb, ws2, "ملخص البيان");
+
+    // ── Sheet 3: by status ──
+    const statuses: DeliveryStatus[] = ["delivered", "returned", "postponed", "partial_received", "pending"];
+    statuses.forEach(st => {
+      const filtered = manifest.orders.filter(o => o.deliveryStatus === st);
+      if (filtered.length === 0) return;
+      const header = [["#", "رقم الطلب", "اسم العميل", "الهاتف", "المنتج", "الكمية", "الإجمالي (ج.م)", "ملاحظة"]];
+      const rows = filtered.map((o, idx) => [
+        idx + 1, o.id, o.customerName, o.phone ?? "",
+        o.product, o.quantity, o.totalPrice, o.deliveryNote ?? "",
+      ]);
+      const ws = XLSX.utils.aoa_to_sheet([...header, ...rows]);
+      ws["!cols"] = [{ wch: 4 }, { wch: 8 }, { wch: 22 }, { wch: 14 }, { wch: 24 }, { wch: 8 }, { wch: 14 }, { wch: 28 }];
+      XLSX.utils.book_append_sheet(wb, ws, STATUS_LABEL_AR[st]);
+    });
+
+    XLSX.writeFile(wb, `بيان-${manifest.manifestNumber}-${format(new Date(), "yyyy-MM-dd")}.xlsx`);
   };
+
+  // ── PDF Export (via print) ──────────────────────────────────────────────────
+  const exportPDF = () => {
+    onClose();
+    setTimeout(() => window.print(), 150);
+  };
+
+  // stats for preview
+  const statusGroups = [
+    { label: "مسلَّم", count: s.delivered, color: "#15803d", bg: "#dcfce7" },
+    { label: "مرتجع", count: s.returned, color: "#dc2626", bg: "#fee2e2" },
+    { label: "مؤجل", count: manifest.orders.filter(o => o.deliveryStatus === "postponed").length, color: "#d97706", bg: "#fef3c7" },
+    { label: "جزئي", count: manifest.orders.filter(o => o.deliveryStatus === "partial_received").length, color: "#0f766e", bg: "#ccfbf1" },
+    { label: "انتظار", count: manifest.orders.filter(o => o.deliveryStatus === "pending").length, color: "#64748b", bg: "#f1f5f9" },
+  ];
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="bg-card border-border max-w-xl" dir="rtl">
+      <DialogContent className="bg-card border-border max-w-lg" dir="rtl">
         <DialogHeader>
           <DialogTitle className="text-right flex items-center gap-2">
-            <FileSpreadsheet className="w-4 h-4 text-primary" />
-            استيراد حالات التسليم من Excel
+            <Download className="w-4 h-4 text-primary" />
+            تصدير البيان — {manifest.manifestNumber}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 mt-2">
-          {/* Instructions */}
-          <div className="text-xs text-muted-foreground bg-muted/30 border border-border rounded-md p-3 space-y-1">
-            <p className="font-semibold text-foreground mb-1">أعمدة الملف المطلوبة:</p>
-            <p>• <span className="font-mono bg-muted px-1 rounded">رقم الطلب</span> أو <span className="font-mono bg-muted px-1 rounded">اسم العميل</span> — للمطابقة</p>
-            <p>• <span className="font-mono bg-muted px-1 rounded">الحالة</span> — مسلَّم / مرتجع / مؤجل / استلم جزئي / انتظار</p>
-            <p className="text-muted-foreground/70 mt-1">اختياري: <span className="font-mono bg-muted px-1 rounded">ملاحظة</span> &nbsp; <span className="font-mono bg-muted px-1 rounded">الكمية المستلمة</span></p>
+        <div className="space-y-4 mt-1">
+          {/* Preview card */}
+          <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-black text-base">{manifest.manifestNumber}</p>
+                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                  <Truck className="w-3 h-3" />{manifest.companyName}
+                </p>
+              </div>
+              <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
+                manifest.status === "closed"
+                  ? "bg-emerald-900/30 text-emerald-400 border border-emerald-700"
+                  : "bg-blue-900/30 text-blue-400 border border-blue-700"
+              }`}>
+                {manifest.status === "closed" ? "✓ مغلق" : "● مفتوح"}
+              </span>
+            </div>
+
+            {/* Status pills */}
+            <div className="flex flex-wrap gap-1.5">
+              {statusGroups.filter(g => g.count > 0).map(g => (
+                <span key={g.label} className="text-[10px] font-bold px-2 py-0.5 rounded-full border"
+                  style={{ color: g.color, backgroundColor: g.bg + "33", borderColor: g.color + "44" }}>
+                  {g.label}: {g.count}
+                </span>
+              ))}
+            </div>
+
+            {/* Financials */}
+            <div className="grid grid-cols-3 gap-2 pt-1 border-t border-border">
+              <div className="text-center">
+                <p className="text-[9px] text-muted-foreground mb-0.5">محصَّل</p>
+                <p className="text-xs font-black text-emerald-400">{totalCollected.toLocaleString("ar-EG")} ج</p>
+              </div>
+              <div className="text-center border-x border-border">
+                <p className="text-[9px] text-muted-foreground mb-0.5">شحن</p>
+                <p className="text-xs font-black text-amber-400">−{effectiveShipping.toLocaleString("ar-EG")} ج</p>
+              </div>
+              <div className="text-center">
+                <p className="text-[9px] text-muted-foreground mb-0.5">صافي</p>
+                <p className="text-xs font-black text-primary">{netDue.toLocaleString("ar-EG")} ج</p>
+              </div>
+            </div>
           </div>
 
-          {/* File picker */}
-          <label className="flex flex-col items-center justify-center border-2 border-dashed border-border rounded-lg p-5 cursor-pointer hover:border-primary transition-colors gap-2">
-            <Upload className="w-6 h-6 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">
-              {fileName ? <span className="text-primary font-medium">{fileName}</span> : "اضغط لاختيار ملف Excel / CSV"}
-            </span>
-            <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFile} />
-          </label>
-
-          {/* Results after file is loaded */}
-          {fileName && (
-            <div className="space-y-2">
-              {/* Summary bar */}
-              <div className="flex items-center gap-3 text-xs">
-                <span className="text-muted-foreground">إجمالي صفوف الملف: <strong>{rawCount}</strong></span>
-                <span className="text-emerald-500">✓ مطابق: <strong>{rows.length}</strong></span>
-                {unmatchedRows.length > 0 && (
-                  <span className="text-amber-500">⚠ غير مطابق: <strong>{unmatchedRows.length}</strong></span>
-                )}
+          {/* Export options */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Excel */}
+            <button
+              onClick={exportExcel}
+              className="group flex flex-col items-center gap-3 p-5 rounded-xl border-2 border-border hover:border-emerald-600 bg-card hover:bg-emerald-900/10 transition-all"
+            >
+              <div className="w-12 h-12 rounded-xl bg-emerald-900/20 border border-emerald-700/50 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <FileSpreadsheet className="w-6 h-6 text-emerald-400" />
               </div>
+              <div className="text-center">
+                <p className="font-black text-sm text-foreground">تصدير Excel</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">3 شيتات: الطلبيات · الملخص · حسب الحالة</p>
+              </div>
+              <span className="text-[10px] font-bold text-emerald-400 bg-emerald-900/20 border border-emerald-800 px-2.5 py-0.5 rounded-full">
+                .xlsx
+              </span>
+            </button>
 
-              {/* Matched rows */}
-              {rows.length > 0 && (
-                <div className="border border-emerald-600/30 rounded-md overflow-hidden">
-                  <div className="bg-emerald-900/20 px-3 py-1.5 text-xs font-semibold border-b border-emerald-600/20 text-emerald-400">
-                    ✓ سيتم تحديث {rows.length} طلبية
-                  </div>
-                  <div className="max-h-36 overflow-y-auto">
-                    {rows.map((row, i) => {
-                      const opt = DELIVERY_OPTIONS.find(o => o.value === row.deliveryStatus);
-                      return (
-                        <div key={i} className="flex items-center justify-between px-3 py-1.5 text-xs border-b border-border/50 last:border-0">
-                          <span className="font-medium truncate max-w-[55%]">{row.customerName}</span>
-                          <Badge variant="outline" className={`text-[10px] shrink-0 ${opt?.color ?? ""}`}>
-                            {opt?.label ?? row.deliveryStatus}
-                          </Badge>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+            {/* PDF */}
+            <button
+              onClick={exportPDF}
+              className="group flex flex-col items-center gap-3 p-5 rounded-xl border-2 border-border hover:border-red-600 bg-card hover:bg-red-900/10 transition-all"
+            >
+              <div className="w-12 h-12 rounded-xl bg-red-900/20 border border-red-700/50 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <FileText className="w-6 h-6 text-red-400" />
+              </div>
+              <div className="text-center">
+                <p className="font-black text-sm text-foreground">تصدير PDF</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">بيان رسمي مع الإحصائيات والأرقام</p>
+              </div>
+              <span className="text-[10px] font-bold text-red-400 bg-red-900/20 border border-red-800 px-2.5 py-0.5 rounded-full">
+                .pdf
+              </span>
+            </button>
+          </div>
 
-              {/* Unmatched rows warning */}
-              {unmatchedRows.length > 0 && (
-                <div className="border border-amber-600/30 rounded-md overflow-hidden">
-                  <div className="bg-amber-900/20 px-3 py-1.5 text-xs font-semibold border-b border-amber-600/20 text-amber-400">
-                    ⚠ {unmatchedRows.length} صف لم يُطابَق — تحقق من الأسماء أو أرقام الطلبات
-                  </div>
-                  <div className="max-h-28 overflow-y-auto">
-                    {unmatchedRows.map((r, i) => (
-                      <div key={i} className="flex items-center justify-between px-3 py-1.5 text-xs border-b border-border/50 last:border-0 text-muted-foreground">
-                        <span className="truncate max-w-[60%]">{r.name}</span>
-                        <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded">{r.status}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* No match at all */}
-              {rows.length === 0 && rawCount > 0 && (
-                <div className="flex items-start gap-2 p-3 rounded-md bg-red-900/10 border border-red-700/30 text-xs text-red-400">
-                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-semibold mb-1">لم يتم مطابقة أي صف مع طلبيات البيان</p>
-                    <p className="text-muted-foreground">تأكد أن الملف يحتوي على عمود <span className="font-mono bg-muted/30 px-1">رقم الطلب</span> أو أن الأسماء مطابقة تماماً لأسماء العملاء في البيان.</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+          {/* Info note */}
+          <p className="text-[10px] text-muted-foreground text-center border-t border-border pt-3">
+            Excel: {manifest.orders.length} طلبية في {[...new Set(manifest.orders.map(o => o.deliveryStatus))].length} حالات مختلفة &nbsp;·&nbsp;
+            PDF: طباعة البيان الرسمي بصيغة A4
+          </p>
         </div>
-
-        <DialogFooter className="flex gap-2 mt-2">
-          <Button
-            className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 gap-1"
-            onClick={handleImport}
-            disabled={importing || rows.length === 0}
-          >
-            <Upload className="w-3.5 h-3.5" />
-            {importing ? "جاري الاستيراد..." : rows.length > 0 ? `استيراد ${rows.length} طلبية` : "استيراد"}
-          </Button>
-          <Button variant="outline" className="border-border" onClick={onClose}>إلغاء</Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
@@ -1089,7 +1092,7 @@ export default function ShippingManifestPage() {
   const [showCloseDialog, setShowCloseDialog] = useState(false);
   const [showReopenDialog, setShowReopenDialog] = useState(false);
   const [showAddOrdersDialog, setShowAddOrdersDialog] = useState(false);
-  const [showExcelImportDialog, setShowExcelImportDialog] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
   const [showOrders, setShowOrders] = useState(true);
 
   const { data: manifest, isLoading, error } = useQuery({
@@ -1401,16 +1404,14 @@ export default function ShippingManifestPage() {
           >
             <Printer className="w-3 h-3" />طباعة
           </Button>
-          {!isLocked && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 text-xs gap-1 border-emerald-700/50 text-emerald-500 hover:bg-emerald-900/20"
-              onClick={() => setShowExcelImportDialog(true)}
-            >
-              <FileSpreadsheet className="w-3 h-3" />استيراد Excel
-            </Button>
-          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs gap-1 border-primary/50 text-primary hover:bg-primary/10"
+            onClick={() => setShowExportDialog(true)}
+          >
+            <Download className="w-3 h-3" />تصدير
+          </Button>
           {/* إضافة طلبيات — أدمن فقط + البيان مفتوح */}
           {isAdmin && !isLocked && (
             <Button
@@ -1766,11 +1767,10 @@ export default function ShippingManifestPage() {
       </AlertDialog>
 
       {/* ─── Add Orders Dialog ─── */}
-            {showExcelImportDialog && manifest && !isLocked && (
-        <ExcelImportDialog
+      {showExportDialog && manifest && (
+        <ExportDialog
           manifest={manifest}
-          onClose={() => setShowExcelImportDialog(false)}
-          onImported={refetch}
+          onClose={() => setShowExportDialog(false)}
         />
       )}
 
