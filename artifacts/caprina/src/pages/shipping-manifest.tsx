@@ -71,6 +71,7 @@ import {
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBrand } from "@/contexts/BrandContext";
 import { format } from "date-fns";
 
 const formatCurrency = (n: number) =>
@@ -662,6 +663,7 @@ function ExportDialog({
 }) {
   const s = manifest.stats;
   const effectiveShipping = manifest.manualShippingCost ?? s.totalShippingCost;
+  const { brand } = useBrand();
 
   const deliveredGross = manifest.orders
     .filter(o => o.deliveryStatus === "delivered")
@@ -675,275 +677,528 @@ function ExportDialog({
   const totalCollected = deliveredGross + partialGross;
   const netDue = totalCollected - effectiveShipping;
 
-  // ── Excel Export — Professional Styled ──────────────────────────────────────
+  // ── Excel Export — XML-based with real styles ────────────────────────────────
   const exportExcel = () => {
 
-    // ── Color palette ──
-    const C = {
-      headerBg:    "1E293B",  // header الجدول — كحلي داكن
-      headerFont:  "FFFFFF",
-      titleBg:     "0F172A",  // عنوان البيان
-      titleFont:   "F59E0B",  // ذهبي
-      altRow:      "F8FAFC",  // صفوف بديلة — رمادي خفيف جداً
-      whiteBg:     "FFFFFF",
-      borderColor: "CBD5E1",
-      sectionBg:   "1E3A5F",  // عناوين الأقسام
-      sectionFont: "F59E0B",
-      // حالات
-      delivered:   { bg: "DCFCE7", font: "15803D", border: "86EFAC" },
-      returned:    { bg: "FEE2E2", font: "DC2626", border: "FCA5A5" },
-      postponed:   { bg: "FEF3C7", font: "D97706", border: "FCD34D" },
-      partial:     { bg: "CCFBF1", font: "0F766E", border: "5EEAD4" },
-      pending:     { bg: "F1F5F9", font: "64748B", border: "CBD5E1" },
-      // totals
-      totalBg:     "0F172A",
-      totalFont:   "F59E0B",
-      netBg:       "166534",
-      netFont:     "FFFFFF",
-      shippingBg:  "92400E",
-      shippingFont:"FFFFFF",
+    const brandName   = brand.name || "CAPRINA";
+    const brandTagline = brand.tagline || "";
+    const manifestDate = format(new Date(manifest.createdAt), "yyyy/MM/dd");
+    const printDate    = format(new Date(), "yyyy/MM/dd HH:mm");
+    const postponedCnt = manifest.orders.filter(o => o.deliveryStatus === "postponed").length;
+    const partialCnt   = manifest.orders.filter(o => o.deliveryStatus === "partial_received").length;
+    const pendingCnt   = manifest.orders.filter(o => o.deliveryStatus === "pending").length;
+
+    const fmtMoney = (n: number) => `${n.toLocaleString("ar-EG")} ج.م`;
+
+    // ── XML escape ──
+    const esc = (v: unknown) => String(v ?? "")
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+    // ── Style indices (defined in styles.xml below) ──
+    // 0=default 1=title(gold/dark) 2=header 3=white 4=altGray
+    // 5=delivered 6=returned 7=postponed 8=partial 9=pending
+    // 10=totalDark 11=netGreen 12=shippingBrown 13=invoiceBlue
+    // 14=sectionBlue 15=labelGray 16=moneyGreen 17=moneyRed
+    // 18=subHeader 19=whiteNum 20=altNum 21=brandTitle 22=printInfo 23=spacer
+
+    const SI = {
+      title: 1, header: 2, white: 3, alt: 4,
+      delivered: 5, returned: 6, postponed: 7, partial: 8, pending: 9,
+      totalDark: 10, netGreen: 11, shippingBrown: 12, invoiceBlue: 13,
+      sectionBlue: 14, labelGray: 15, moneyGreen: 16, moneyRed: 17,
+      subHeader: 18, whiteNum: 19, altNum: 20,
+      brandTitle: 21, printInfo: 22, spacer: 23,
     };
 
-    // helper: خلية بـ style
-    const cell = (v: string | number, s: Record<string, unknown> = {}): XLSX.CellObject => ({
-      v,
-      t: typeof v === "number" ? "n" : "s",
-      s,
-    });
+    const statusSI = (st: string) => ({
+      delivered: SI.delivered, returned: SI.returned,
+      postponed: SI.postponed, partial_received: SI.partial, pending: SI.pending,
+    }[st] ?? SI.pending);
 
-    const boldFont   = (color = "000000", sz = 10) => ({ bold: true, color: { rgb: color }, name: "Cairo", sz });
-    const normalFont = (color = "000000", sz = 10) => ({ color: { rgb: color }, name: "Cairo", sz });
-    const center     = { horizontal: "center" as const, vertical: "center" as const };
-    const right      = { horizontal: "right" as const, vertical: "center" as const };
-    const thinBorder = { style: "thin" as const, color: { rgb: C.borderColor } };
-    const allBorders = { top: thinBorder, bottom: thinBorder, left: thinBorder, right: thinBorder };
+    // ── Cell builders ──
+    const sCell = (si: number, v: string, t = "s") =>
+      `<c s="${si}" t="${t}"><v>${esc(v)}</v></c>`;
+    const nCell = (si: number, v: number) =>
+      `<c s="${si}" t="n"><v>${v}</v></c>`;
+    const empty = (si: number) =>
+      `<c s="${si}" t="s"><v></v></c>`;
+    const merged = (si: number, v: string) =>
+      `<c s="${si}" t="s"><v>${esc(v)}</v></c>`;
 
-    // status → style colors
-    const statusStyle = (st: string) => {
-      const map: Record<string, typeof C.delivered> = {
-        delivered: C.delivered, returned: C.returned,
-        postponed: C.postponed, partial_received: C.partial, pending: C.pending,
-      };
-      return map[st] ?? C.pending;
+    // ── Build sheet XML ──
+    const buildSheet = (rows: string[], colWidths: number[], merges: string[] = []) => {
+      const cols = colWidths.map(w => `<col width="${w}" customWidth="1"/>`).join("");
+      const mergeCells = merges.length
+        ? `<mergeCells count="${merges.length}">${merges.map(m => `<mergeCell ref="${m}"/>`).join("")}</mergeCells>`
+        : "";
+      return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="x14ac xr xr2 xr3"
+  xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac"
+  xmlns:xr="http://schemas.microsoft.com/office/spreadsheetml/2014/revision"
+  xmlns:xr2="http://schemas.microsoft.com/office/spreadsheetml/2015/revision2"
+  xmlns:xr3="http://schemas.microsoft.com/office/spreadsheetml/2016/revision3">
+  <sheetPr><outlinePr summaryBelow="0" summaryRight="0"/></sheetPr>
+  <sheetViews><sheetView rightToLeft="1" showGridLines="1" tabSelected="1" workbookViewId="0"/></sheetViews>
+  <sheetFormatPr baseColWidth="10" defaultRowHeight="16"/>
+  <cols>${cols}</cols>
+  <sheetData>${rows.join("")}</sheetData>
+  ${mergeCells}
+</worksheet>`;
     };
 
-    // ════════════════════════════════════════════════════════════
-    // SHEET 1 — الطلبيات الكاملة
-    // ════════════════════════════════════════════════════════════
-    const wb = XLSX.utils.book_new();
+    // ── Row builder ──
+    let rowIdx = 0;
+    const resetRow = () => { rowIdx = 0; };
+    const mkRow = (ht: number, cells: string) => {
+      rowIdx++;
+      return `<row r="${rowIdx}" ht="${ht}" customHeight="1">${cells}</row>`;
+    };
 
-    const COLS1 = ["#", "رقم الطلب", "اسم العميل", "الهاتف", "المنتج", "اللون / المقاس", "الكمية", "المستلم", "الإجمالي", "الحالة", "ملاحظة"];
-    const COL_W1 = [4, 9, 24, 15, 26, 16, 8, 8, 14, 14, 30];
+    // ═══════════════════════════════════════════════
+    // SHEET 1 — الطلبيات
+    // ═══════════════════════════════════════════════
+    resetRow();
+    const sheet1Rows: string[] = [];
+    const nCols = 10; // A..J
 
-    // صف العنوان الكبير (merged)
-    const titleRow1: XLSX.CellObject[] = [
-      cell(`بيان الشحن — ${manifest.manifestNumber} | ${manifest.companyName} | ${format(new Date(manifest.createdAt), "yyyy/MM/dd")}`, {
-        font: boldFont(C.titleFont, 12),
-        fill: { fgColor: { rgb: C.titleBg } },
-        alignment: { ...center, wrapText: true },
-      }),
-      ...Array(COLS1.length - 1).fill({ v: "", t: "s", s: { fill: { fgColor: { rgb: C.titleBg } } } }),
-    ];
+    // Row 1: اسم الشركة كبير (merged A1:J1)
+    const companyTitle = `${brandName}${brandTagline ? "  ·  " + brandTagline : ""}`;
+    sheet1Rows.push(mkRow(38,
+      merged(SI.brandTitle, companyTitle) + Array(nCols - 1).fill(empty(SI.brandTitle)).join("")
+    ));
 
-    // صف الهيدر
-    const headerRow1: XLSX.CellObject[] = COLS1.map(h => cell(h, {
-      font: boldFont(C.headerFont, 10),
-      fill: { fgColor: { rgb: C.headerBg } },
-      alignment: center,
-      border: allBorders,
-    }));
+    // Row 2: عنوان البيان (merged A2:J2)
+    const titleText = `بيان الشحن — ${manifest.manifestNumber}   |   ${manifest.companyName}   |   ${manifestDate}`;
+    sheet1Rows.push(mkRow(26,
+      merged(SI.title, titleText) + Array(nCols - 1).fill(empty(SI.title)).join("")
+    ));
 
-    // صفوف البيانات
-    const dataRows1: XLSX.CellObject[][] = manifest.orders.map((o, idx) => {
+    // Row 3: معلومات الطباعة (merged A3:J3)
+    sheet1Rows.push(mkRow(18,
+      merged(SI.printInfo, `طُبع: ${printDate}   |   إجمالي الطلبيات: ${manifest.orders.length}   |   نسبة التسليم: ${s.deliveryRate}%`) + Array(nCols - 1).fill(empty(SI.printInfo)).join("")
+    ));
+
+    // Row 4: فراغ
+    sheet1Rows.push(mkRow(8, Array(nCols).fill(empty(SI.spacer)).join("")));
+
+    // Row 5: Header columns
+    const hdrs = ["#", "رقم الطلب", "اسم العميل", "الهاتف", "المنتج", "اللون / المقاس", "الكمية", "الإجمالي", "حالة التسليم", "ملاحظة"];
+    sheet1Rows.push(mkRow(22, hdrs.map(h => sCell(SI.header, h)).join("")));
+
+    // Rows: data
+    manifest.orders.forEach((o, idx) => {
       const isAlt = idx % 2 === 1;
-      const bg = isAlt ? C.altRow : C.whiteBg;
-      const sc = statusStyle(o.deliveryStatus);
-      const baseStyle = { fill: { fgColor: { rgb: bg } }, border: allBorders, alignment: right };
-
-      return [
-        cell(idx + 1,  { ...baseStyle, font: normalFont("94A3B8"), alignment: center }),
-        cell(o.id,     { ...baseStyle, font: boldFont("1E293B"),   alignment: center }),
-        cell(o.customerName, { ...baseStyle, font: boldFont("0F172A") }),
-        cell(o.phone ?? "—", { ...baseStyle, font: normalFont("475569") }),
-        cell(o.product,      { ...baseStyle, font: normalFont("1E293B") }),
-        cell([o.color, o.size].filter(Boolean).join(" / ") || "—", { ...baseStyle, font: normalFont("64748B") }),
-        cell(o.quantity, { ...baseStyle, font: boldFont("1E293B"), alignment: center }),
-        cell(
-          o.deliveryStatus === "partial_received" && o.partialQuantity ? o.partialQuantity : (o.deliveryStatus === "delivered" ? o.quantity : "—"),
-          { ...baseStyle, font: normalFont("0F766E"), alignment: center }
-        ),
-        cell(o.totalPrice, {
-          ...baseStyle,
-          font: boldFont("0F172A"),
-          alignment: { horizontal: "left" as const, vertical: "center" as const },
-          numFmt: '#,##0 "ج.م"',
-        }),
-        cell(STATUS_LABEL_AR[o.deliveryStatus] ?? o.deliveryStatus, {
-          fill: { fgColor: { rgb: sc.bg } },
-          font: boldFont(sc.font, 9),
-          alignment: center,
-          border: { top: { style: "thin" as const, color: { rgb: sc.border } }, bottom: { style: "thin" as const, color: { rgb: sc.border } }, left: { style: "thin" as const, color: { rgb: sc.border } }, right: { style: "thin" as const, color: { rgb: sc.border } } },
-        }),
-        cell(o.deliveryNote ?? "", { ...baseStyle, font: normalFont("64748B"), alignment: { ...right, wrapText: true } }),
-      ];
+      const base  = isAlt ? SI.alt : SI.white;
+      const baseN = isAlt ? SI.altNum : SI.whiteNum;
+      const stSI  = statusSI(o.deliveryStatus);
+      const variant = [o.color, o.size].filter(Boolean).join(" / ") || "—";
+      sheet1Rows.push(mkRow(20, [
+        nCell(base, idx + 1),
+        nCell(base, o.id),
+        sCell(base, o.customerName),
+        sCell(base, o.phone ?? "—"),
+        sCell(base, o.product),
+        sCell(base, variant),
+        nCell(baseN, o.quantity),
+        nCell(baseN, o.totalPrice),
+        sCell(stSI, STATUS_LABEL_AR[o.deliveryStatus] ?? o.deliveryStatus),
+        sCell(base, o.deliveryNote ?? ""),
+      ].join("")));
     });
 
-    // صف المجاميع
-    const totalRow1: XLSX.CellObject[] = [
-      cell("الإجمالي", { fill: { fgColor: { rgb: C.totalBg } }, font: boldFont(C.totalFont, 10), alignment: right, border: allBorders }),
-      ...Array(7).fill(cell("", { fill: { fgColor: { rgb: C.totalBg } }, border: allBorders })),
-      cell(manifest.orders.reduce((s, o) => s + o.totalPrice, 0), {
-        fill: { fgColor: { rgb: C.netBg } }, font: boldFont(C.netFont, 11),
-        alignment: { horizontal: "left" as const, vertical: "center" as const },
-        border: allBorders, numFmt: '#,##0 "ج.م"',
-      }),
-      cell(`${s.deliveryRate}% نسبة تسليم`, { fill: { fgColor: { rgb: C.totalBg } }, font: boldFont(C.titleFont), alignment: center, border: allBorders }),
-      cell("", { fill: { fgColor: { rgb: C.totalBg } }, border: allBorders }),
-    ];
+    // Row: totals
+    const grandTotal = manifest.orders.reduce((s, o) => s + o.totalPrice, 0);
+    sheet1Rows.push(mkRow(24, [
+      sCell(SI.totalDark, "الإجمالي الكلي"),
+      ...Array(6).fill(empty(SI.totalDark)),
+      nCell(SI.netGreen, grandTotal),
+      sCell(SI.totalDark, `${s.deliveryRate}% نسبة تسليم`),
+      empty(SI.totalDark),
+    ].join("")));
 
-    // بناء الـ sheet
-    const ws1Data = [titleRow1, headerRow1, ...dataRows1, totalRow1];
-    const ws1 = XLSX.utils.aoa_to_sheet(ws1Data as any[]);
-    ws1["!cols"] = COL_W1.map(w => ({ wch: w }));
-    ws1["!rows"] = [{ hpt: 28 }, { hpt: 22 }, ...manifest.orders.map(() => ({ hpt: 20 })), { hpt: 24 }];
-    // merge صف العنوان
-    ws1["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: COLS1.length - 1 } }];
-    XLSX.utils.book_append_sheet(wb, ws1, "📋 الطلبيات");
+    const sheet1 = buildSheet(sheet1Rows,
+      [5, 9, 22, 14, 24, 14, 7, 13, 13, 28],
+      [`A1:J1`, `A2:J2`, `A3:J3`, `A4:J4`]
+    );
 
-    // ════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════
     // SHEET 2 — ملخص البيان
-    // ════════════════════════════════════════════════════════════
-    const postponedCount = manifest.orders.filter(o => o.deliveryStatus === "postponed").length;
-    const partialCount   = manifest.orders.filter(o => o.deliveryStatus === "partial_received").length;
-    const pendingCount   = manifest.orders.filter(o => o.deliveryStatus === "pending").length;
+    // ═══════════════════════════════════════════════
+    resetRow();
+    const sheet2Rows: string[] = [];
 
-    const mkSection = (title: string): XLSX.CellObject[] => [
-      cell(title, { fill: { fgColor: { rgb: C.sectionBg } }, font: boldFont(C.sectionFont, 10), alignment: right, border: allBorders }),
-      cell("", { fill: { fgColor: { rgb: C.sectionBg } }, border: allBorders }),
-    ];
-    const mkRow = (label: string, value: string | number, valColor = "1E293B", valBold = false): XLSX.CellObject[] => [
-      cell(label, { fill: { fgColor: { rgb: C.whiteBg } }, font: normalFont("475569"), alignment: right, border: allBorders }),
-      cell(value, { fill: { fgColor: { rgb: C.whiteBg } }, font: valBold ? boldFont(valColor) : normalFont(valColor), alignment: { horizontal: "left" as const, vertical: "center" as const }, border: allBorders }),
-    ];
-    const mkMoneyRow = (label: string, value: number, bg: string, font: string): XLSX.CellObject[] => [
-      cell(label, { fill: { fgColor: { rgb: bg } }, font: boldFont(font, 10), alignment: right, border: allBorders }),
-      cell(value,  { fill: { fgColor: { rgb: bg } }, font: boldFont(font, 12), alignment: { horizontal: "left" as const, vertical: "center" as const }, border: allBorders, numFmt: '#,##0 "ج.م"' }),
+    const mkSection2 = (label: string) => {
+      sheet2Rows.push(mkRow(22,
+        merged(SI.sectionBlue, label) + empty(SI.sectionBlue)
+      ));
+    };
+    const mkInfoRow = (label: string, val: string, valSI = SI.white) => {
+      sheet2Rows.push(mkRow(20,
+        sCell(SI.labelGray, label) + sCell(valSI, val)
+      ));
+    };
+    const mkMoneyRow2 = (label: string, val: number, rowSI: number) => {
+      sheet2Rows.push(mkRow(22,
+        sCell(rowSI, label) + sCell(rowSI, fmtMoney(val))
+      ));
+    };
+
+    // عنوان Sheet 2
+    sheet2Rows.push(mkRow(40,
+      merged(SI.brandTitle, `${brandName}${brandTagline ? "  ·  " + brandTagline : ""}`) + empty(SI.brandTitle)
+    ));
+    sheet2Rows.push(mkRow(26,
+      merged(SI.title, `ملخص بيان الشحن — ${manifest.manifestNumber}`) + empty(SI.title)
+    ));
+    sheet2Rows.push(mkRow(8, empty(SI.spacer) + empty(SI.spacer)));
+
+    mkSection2("معلومات البيان");
+    mkInfoRow("رقم البيان",     manifest.manifestNumber, SI.subHeader);
+    mkInfoRow("شركة الشحن",    manifest.companyName,     SI.subHeader);
+    mkInfoRow("تاريخ الإنشاء", manifestDate);
+    mkInfoRow("الحالة",         manifest.status === "closed" ? "مغلق" : "مفتوح",
+      manifest.status === "closed" ? SI.moneyGreen : SI.invoiceBlue);
+    if (manifest.closedAt)
+      mkInfoRow("تاريخ الإغلاق", format(new Date(manifest.closedAt), "yyyy/MM/dd"));
+
+    sheet2Rows.push(mkRow(8, empty(SI.white) + empty(SI.white)));
+    mkSection2("إحصائيات التسليم");
+    mkInfoRow("إجمالي الطلبيات", String(s.total),       SI.subHeader);
+    mkInfoRow("مسلَّم",           String(s.delivered),   SI.delivered);
+    mkInfoRow("مرتجع",            String(s.returned),    SI.returned);
+    mkInfoRow("مؤجل",             String(postponedCnt),  SI.postponed);
+    mkInfoRow("استلم جزئي",      String(partialCnt),    SI.partial);
+    mkInfoRow("قيد الانتظار",    String(pendingCnt),    SI.pending);
+    mkInfoRow("نسبة التسليم",    `${s.deliveryRate}%`,
+      s.deliveryRate >= 70 ? SI.moneyGreen : s.deliveryRate >= 40 ? SI.postponed : SI.returned);
+
+    sheet2Rows.push(mkRow(8, empty(SI.white) + empty(SI.white)));
+    mkSection2("الحساب المالي");
+    mkMoneyRow2("اجمالي المحصَّل",   totalCollected,   SI.moneyGreen);
+    mkMoneyRow2("رسوم الشحن",        effectiveShipping, SI.shippingBrown);
+    mkMoneyRow2("صافي المستحق",      netDue,            SI.netGreen);
+    if (manifest.invoicePrice != null) {
+      mkMoneyRow2("سعر الفاتورة المتفق", manifest.invoicePrice, SI.invoiceBlue);
+      const diff = manifest.invoicePrice - netDue;
+      mkMoneyRow2(
+        diff >= 0 ? "فرق لصالحنا" : "فرق علينا",
+        Math.abs(diff),
+        diff >= 0 ? SI.moneyGreen : SI.moneyRed
+      );
+    }
+
+    const sheet2 = buildSheet(sheet2Rows, [26, 24], [`A1:B1`, `A2:B2`, `A3:B3`]);
+
+    // ═══════════════════════════════════════════════
+    // SHEET 3..N — كل حالة
+    // ═══════════════════════════════════════════════
+    const statusDefs: { key: DeliveryStatus; label: string; si: number }[] = [
+      { key: "delivered",        label: "مسلَّم",        si: SI.delivered },
+      { key: "returned",         label: "مرتجع",         si: SI.returned  },
+      { key: "postponed",        label: "مؤجل",          si: SI.postponed },
+      { key: "partial_received", label: "استلم جزئي",   si: SI.partial   },
+      { key: "pending",          label: "قيد الانتظار", si: SI.pending   },
     ];
 
-    // عنوان الـ sheet
-    const summaryTitleRow: XLSX.CellObject[] = [
-      cell("ملخص البيان — CAPRINA", { fill: { fgColor: { rgb: C.titleBg } }, font: boldFont(C.titleFont, 14), alignment: center }),
-      cell("", { fill: { fgColor: { rgb: C.titleBg } } }),
-    ];
+    const statusSheets: { name: string; xml: string }[] = [];
 
-    const ws2Data: XLSX.CellObject[][] = [
-      summaryTitleRow,
-      [cell(""), cell("")],
-      mkSection("📦 معلومات البيان"),
-      mkRow("رقم البيان",     manifest.manifestNumber, "1E293B", true),
-      mkRow("شركة الشحن",    manifest.companyName,     "1E293B", true),
-      mkRow("تاريخ الإنشاء", format(new Date(manifest.createdAt), "yyyy/MM/dd")),
-      mkRow("الحالة",         manifest.status === "closed" ? "✅ مغلق" : "🔵 مفتوح", manifest.status === "closed" ? "15803D" : "1D4ED8", true),
-      manifest.closedAt ? mkRow("تاريخ الإغلاق", format(new Date(manifest.closedAt), "yyyy/MM/dd")) : [cell(""), cell("")],
-      [cell(""), cell("")],
-      mkSection("📊 إحصائيات التسليم"),
-      mkRow("إجمالي الطلبيات", s.total,       "1E293B", true),
-      mkRow("✅ مسلَّم",        s.delivered,   "15803D", true),
-      mkRow("↩️ مرتجع",         s.returned,    "DC2626", true),
-      mkRow("⏳ مؤجل",          postponedCount,"D97706", true),
-      mkRow("📦 استلم جزئي",   partialCount,  "0F766E", true),
-      mkRow("🕐 قيد الانتظار", pendingCount,  "64748B", true),
-      mkRow("نسبة التسليم",    `${s.deliveryRate}%`, s.deliveryRate >= 70 ? "15803D" : s.deliveryRate >= 40 ? "D97706" : "DC2626", true),
-      [cell(""), cell("")],
-      mkSection("💰 الحساب المالي"),
-      mkMoneyRow("إجمالي المحصَّل", totalCollected,     "166534", "FFFFFF"),
-      mkMoneyRow("رسوم الشحن",      effectiveShipping,  "92400E", "FFFFFF"),
-      mkMoneyRow("صافي المستحق",    netDue,             "1E3A5F", "F59E0B"),
-      ...(manifest.invoicePrice != null
-        ? [mkMoneyRow("سعر الفاتورة المتفق", manifest.invoicePrice, "1E293B", "E2E8F0")]
-        : []),
-      ...(manifest.invoicePrice != null
-        ? [mkMoneyRow(
-            manifest.invoicePrice >= netDue ? "✅ فرق لصالحنا" : "⚠️ فرق علينا",
-            Math.abs(manifest.invoicePrice - netDue),
-            manifest.invoicePrice >= netDue ? "14532D" : "7F1D1D",
-            "FFFFFF"
-          )]
-        : []),
-    ];
-
-    const ws2 = XLSX.utils.aoa_to_sheet(ws2Data as any[]);
-    ws2["!cols"] = [{ wch: 28 }, { wch: 26 }];
-    ws2["!rows"] = ws2Data.map((_, i) => ({ hpt: i === 0 ? 32 : 20 }));
-    ws2["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 1 } }];
-    XLSX.utils.book_append_sheet(wb, ws2, "📊 ملخص البيان");
-
-    // ════════════════════════════════════════════════════════════
-    // SHEET 3..N — كل حالة منفصلة
-    // ════════════════════════════════════════════════════════════
-    const statusSheets: { key: DeliveryStatus; label: string; icon: string }[] = [
-      { key: "delivered",        label: "مسلَّم",         icon: "✅" },
-      { key: "returned",         label: "مرتجع",          icon: "↩️" },
-      { key: "postponed",        label: "مؤجل",           icon: "⏳" },
-      { key: "partial_received", label: "استلم جزئي",    icon: "📦" },
-      { key: "pending",          label: "قيد الانتظار",  icon: "🕐" },
-    ];
-
-    statusSheets.forEach(({ key, label, icon }) => {
+    statusDefs.forEach(({ key, label, si }) => {
       const orders = manifest.orders.filter(o => o.deliveryStatus === key);
       if (orders.length === 0) return;
-      const sc = statusStyle(key);
 
-      const sheetTitle: XLSX.CellObject[] = [
-        cell(`${icon} ${label} — ${orders.length} طلبية`, {
-          fill: { fgColor: { rgb: sc.bg } }, font: boldFont(sc.font, 12),
-          alignment: center,
-          border: { top: { style: "thin" as const, color: { rgb: sc.border } }, bottom: { style: "thin" as const, color: { rgb: sc.border } }, left: { style: "thin" as const, color: { rgb: sc.border } }, right: { style: "thin" as const, color: { rgb: sc.border } } },
-        }),
-        ...Array(6).fill(cell("", { fill: { fgColor: { rgb: sc.bg } } })),
-      ];
+      resetRow();
+      const rows: string[] = [];
 
-      const sheetHeader: XLSX.CellObject[] = ["#", "رقم الطلب", "اسم العميل", "الهاتف", "المنتج", "الكمية", "الإجمالي", "ملاحظة"].map(h =>
-        cell(h, { fill: { fgColor: { rgb: C.headerBg } }, font: boldFont(C.headerFont, 10), alignment: center, border: allBorders })
-      );
+      // عنوان
+      rows.push(mkRow(28,
+        merged(si, `${label} — ${orders.length} طلبية`) +
+        Array(7).fill(empty(si)).join("")
+      ));
+      // هيدر
+      rows.push(mkRow(20, ["#", "رقم الطلب", "اسم العميل", "الهاتف", "المنتج", "الكمية", "الإجمالي", "ملاحظة"]
+        .map(h => sCell(SI.header, h)).join("")));
 
-      const sheetRows: XLSX.CellObject[][] = orders.map((o, idx) => {
+      orders.forEach((o, idx) => {
         const isAlt = idx % 2 === 1;
-        const bg = isAlt ? C.altRow : C.whiteBg;
-        const base = { fill: { fgColor: { rgb: bg } }, border: allBorders, alignment: right };
-        return [
-          cell(idx + 1,     { ...base, font: normalFont("94A3B8"), alignment: center }),
-          cell(o.id,        { ...base, font: boldFont("1E293B"), alignment: center }),
-          cell(o.customerName, { ...base, font: boldFont("0F172A") }),
-          cell(o.phone ?? "—", { ...base, font: normalFont("475569") }),
-          cell(o.product,   { ...base, font: normalFont("1E293B") }),
-          cell(o.quantity,  { ...base, font: boldFont("1E293B"), alignment: center }),
-          cell(o.totalPrice,{ ...base, font: boldFont("0F172A"), alignment: { horizontal: "left" as const, vertical: "center" as const }, numFmt: '#,##0 "ج.م"' }),
-          cell(o.deliveryNote ?? "", { ...base, font: normalFont("64748B"), alignment: { ...right, wrapText: true } }),
-        ];
+        const base  = isAlt ? SI.alt : SI.white;
+        const baseN = isAlt ? SI.altNum : SI.whiteNum;
+        rows.push(mkRow(20, [
+          nCell(base, idx + 1),
+          nCell(base, o.id),
+          sCell(base, o.customerName),
+          sCell(base, o.phone ?? "—"),
+          sCell(base, o.product),
+          nCell(baseN, o.quantity),
+          nCell(baseN, o.totalPrice),
+          sCell(base, o.deliveryNote ?? ""),
+        ].join("")));
       });
 
-      // صف مجموع الحالة
-      const subtotalRow: XLSX.CellObject[] = [
-        cell(`المجموع (${orders.length})`, { fill: { fgColor: { rgb: sc.bg } }, font: boldFont(sc.font), alignment: right, border: allBorders }),
-        ...Array(5).fill(cell("", { fill: { fgColor: { rgb: sc.bg } }, border: allBorders })),
-        cell(orders.reduce((sum, o) => sum + o.totalPrice, 0), {
-          fill: { fgColor: { rgb: sc.bg } }, font: boldFont(sc.font, 12),
-          alignment: { horizontal: "left" as const, vertical: "center" as const },
-          border: allBorders, numFmt: '#,##0 "ج.م"',
-        }),
-        cell("", { fill: { fgColor: { rgb: sc.bg } }, border: allBorders }),
-      ];
+      // مجموع
+      const sub = orders.reduce((sum, o) => sum + o.totalPrice, 0);
+      rows.push(mkRow(22, [
+        sCell(si, `المجموع (${orders.length})`),
+        ...Array(5).fill(empty(si)),
+        sCell(si, fmtMoney(sub)),
+        empty(si),
+      ].join("")));
 
-      const wsData = [sheetTitle, sheetHeader, ...sheetRows, subtotalRow];
-      const ws = XLSX.utils.aoa_to_sheet(wsData as any[]);
-      ws["!cols"] = [4, 9, 24, 15, 26, 8, 14, 30].map(w => ({ wch: w }));
-      ws["!rows"] = [{ hpt: 26 }, { hpt: 20 }, ...orders.map(() => ({ hpt: 20 })), { hpt: 22 }];
-      ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 7 } }];
-      XLSX.utils.book_append_sheet(wb, ws, `${icon} ${label}`);
+      statusSheets.push({
+        name: label,
+        xml: buildSheet(rows, [5, 9, 22, 14, 24, 7, 13, 28], [`A1:H1`]),
+      });
     });
 
-    XLSX.writeFile(wb, `بيان-${manifest.manifestNumber}-${format(new Date(), "yyyy-MM-dd")}.xlsx`, { cellStyles: true });
+    // ═══════════════════════════════════════════════
+    // Assemble XLSX (ZIP)
+    // ═══════════════════════════════════════════════
+    const allSheets = [
+      { name: "الطلبيات", xml: sheet1 },
+      { name: "ملخص البيان", xml: sheet2 },
+      ...statusSheets,
+    ];
+
+    const sharedStrings = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="0" uniqueCount="0"/>`;
+
+    const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <fonts count="12">
+    <font><sz val="11"/><name val="Calibri"/></font>
+    <font><b/><sz val="13"/><color rgb="F59E0B"/><name val="Cairo"/></font>
+    <font><b/><sz val="10"/><color rgb="FFFFFF"/><name val="Cairo"/></font>
+    <font><sz val="10"/><color rgb="1E293B"/><name val="Cairo"/></font>
+    <font><sz val="10"/><color rgb="475569"/><name val="Cairo"/></font>
+    <font><b/><sz val="10"/><color rgb="15803D"/><name val="Cairo"/></font>
+    <font><b/><sz val="10"/><color rgb="DC2626"/><name val="Cairo"/></font>
+    <font><b/><sz val="10"/><color rgb="D97706"/><name val="Cairo"/></font>
+    <font><b/><sz val="10"/><color rgb="0F766E"/><name val="Cairo"/></font>
+    <font><b/><sz val="10"/><color rgb="64748B"/><name val="Cairo"/></font>
+    <font><b/><sz val="18"/><color rgb="F59E0B"/><name val="Cairo"/></font>
+    <font><sz val="9"/><color rgb="94A3B8"/><name val="Cairo"/></font>
+  </fonts>
+  <fills count="22">
+    <fill><patternFill patternType="none"/></fill>
+    <fill><patternFill patternType="gray125"/></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="0F172A"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="1E293B"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFFFFF"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="F8FAFC"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="DCFCE7"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FEE2E2"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FEF3C7"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="CCFBF1"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="F1F5F9"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="0F172A"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="166534"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="7F1D1D"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="92400E"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="1E3A5F"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="1D4ED8"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="334155"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="E0F2FE"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="DCFCE7"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFF7ED"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FEE2E2"/></patternFill></fill>
+  </fills>
+  <borders count="3">
+    <border><left/><right/><top/><bottom/><diagonal/></border>
+    <border><left style="thin"><color rgb="CBD5E1"/></left><right style="thin"><color rgb="CBD5E1"/></right><top style="thin"><color rgb="CBD5E1"/></top><bottom style="thin"><color rgb="CBD5E1"/></bottom><diagonal/></border>
+    <border><left style="medium"><color rgb="94A3B8"/></left><right style="medium"><color rgb="94A3B8"/></right><top style="medium"><color rgb="94A3B8"/></top><bottom style="medium"><color rgb="94A3B8"/></bottom><diagonal/></border>
+  </borders>
+  <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+  <cellXfs count="24">
+    <!-- 0: default -->
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+    <!-- 1: title gold on dark -->
+    <xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1" readingOrder="2"/></xf>
+    <!-- 2: header white on navy -->
+    <xf numFmtId="0" fontId="2" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" readingOrder="2"/></xf>
+    <!-- 3: white row text -->
+    <xf numFmtId="0" fontId="3" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center" readingOrder="2"/></xf>
+    <!-- 4: alt row text -->
+    <xf numFmtId="0" fontId="3" fillId="5" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center" readingOrder="2"/></xf>
+    <!-- 5: delivered -->
+    <xf numFmtId="0" fontId="5" fillId="6" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" readingOrder="2"/></xf>
+    <!-- 6: returned -->
+    <xf numFmtId="0" fontId="6" fillId="7" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" readingOrder="2"/></xf>
+    <!-- 7: postponed -->
+    <xf numFmtId="0" fontId="7" fillId="8" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" readingOrder="2"/></xf>
+    <!-- 8: partial -->
+    <xf numFmtId="0" fontId="8" fillId="9" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" readingOrder="2"/></xf>
+    <!-- 9: pending -->
+    <xf numFmtId="0" fontId="9" fillId="10" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" readingOrder="2"/></xf>
+    <!-- 10: totalDark gold -->
+    <xf numFmtId="0" fontId="1" fillId="11" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center" readingOrder="2"/></xf>
+    <!-- 11: netGreen white -->
+    <xf numFmtId="0" fontId="2" fillId="12" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center" readingOrder="2"/></xf>
+    <!-- 12: shippingBrown white -->
+    <xf numFmtId="0" fontId="2" fillId="14" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center" readingOrder="2"/></xf>
+    <!-- 13: invoiceBlue white -->
+    <xf numFmtId="0" fontId="2" fillId="16" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center" readingOrder="2"/></xf>
+    <!-- 14: sectionBlue gold -->
+    <xf numFmtId="0" fontId="1" fillId="15" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center" readingOrder="2"/></xf>
+    <!-- 15: labelGray -->
+    <xf numFmtId="0" fontId="4" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center" readingOrder="2"/></xf>
+    <!-- 16: moneyGreen (text) -->
+    <xf numFmtId="0" fontId="5" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center" readingOrder="2"/></xf>
+    <!-- 17: moneyRed (text) -->
+    <xf numFmtId="0" fontId="6" fillId="5" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center" readingOrder="2"/></xf>
+    <!-- 18: subHeader navy bold -->
+    <xf numFmtId="0" fontId="2" fillId="17" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center" readingOrder="2"/></xf>
+    <!-- 19: whiteNum (numbers, center) -->
+    <xf numFmtId="0" fontId="3" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" readingOrder="2"/></xf>
+    <!-- 20: altNum (numbers, center, alt bg) -->
+    <xf numFmtId="0" fontId="3" fillId="5" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" readingOrder="2"/></xf>
+    <!-- 21: brandTitle — large gold on very dark -->
+    <xf numFmtId="0" fontId="10" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="0" readingOrder="2"/></xf>
+    <!-- 22: printInfo — small gray on dark -->
+    <xf numFmtId="0" fontId="11" fillId="3" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center" readingOrder="2"/></xf>
+    <!-- 23: spacer — empty dark -->
+    <xf numFmtId="0" fontId="0" fillId="3" borderId="0" xfId="0" applyFill="1"/></xf>
+  </cellXfs>
+</styleSheet>`;
+
+    // Workbook XML
+    const sheetRels = allSheets.map((_, i) =>
+      `<sheet name="${esc(allSheets[i].name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`
+    ).join("");
+    const workbookXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <bookViews><workbookView xWindow="0" yWindow="0" windowWidth="22260" windowHeight="12780"/></bookViews>
+  <sheets>${sheetRels}</sheets>
+</workbook>`;
+
+    const wbRels = allSheets.map((_, i) =>
+      `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`
+    ).join("");
+    const workbookRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId${allSheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+  <Relationship Id="rId${allSheets.length + 2}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/>
+  ${wbRels}
+</Relationships>`;
+
+    const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+  <Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>
+  ${allSheets.map((_, i) =>
+    `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`
+  ).join("")}
+</Types>`;
+
+    const rootRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>`;
+
+    // Build ZIP using XLSX.build (it accepts raw files)
+    const files: { name: string; content: string }[] = [
+      { name: "[Content_Types].xml",      content: contentTypes },
+      { name: "_rels/.rels",              content: rootRels },
+      { name: "xl/workbook.xml",          content: workbookXml },
+      { name: "xl/_rels/workbook.xml.rels", content: workbookRelsXml },
+      { name: "xl/styles.xml",            content: stylesXml },
+      { name: "xl/sharedStrings.xml",     content: sharedStrings },
+      ...allSheets.map((sh, i) => ({
+        name: `xl/worksheets/sheet${i + 1}.xml`,
+        content: sh.xml,
+      })),
+    ];
+
+    // Use XLSX to write the zip
+    const wb = XLSX.utils.book_new();
+    // dummy sheet to init structure
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([[""]]), "_");
+
+    // Override with our custom files via blob
+    // Build zip manually using JSZip-like approach via XLSX internals
+    // Actually we'll use the simpler approach: build ArrayBuffer from XML directly
+    const enc = new TextEncoder();
+    const toU8 = (s: string) => enc.encode(s);
+
+    // Simple ZIP builder
+    function makeZip(entries: { name: string; data: Uint8Array }[]): Uint8Array {
+      const localHeaders: Uint8Array[] = [];
+      const centralHeaders: Uint8Array[] = [];
+      let offset = 0;
+
+      const crc32 = (data: Uint8Array): number => {
+        const table = new Uint32Array(256);
+        for (let i = 0; i < 256; i++) {
+          let c = i;
+          for (let j = 0; j < 8; j++) c = (c & 1) ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+          table[i] = c;
+        }
+        let crc = 0xFFFFFFFF;
+        for (const b of data) crc = table[(crc ^ b) & 0xFF] ^ (crc >>> 8);
+        return (crc ^ 0xFFFFFFFF) >>> 0;
+      };
+
+      const u16 = (n: number) => new Uint8Array([n & 0xFF, (n >> 8) & 0xFF]);
+      const u32 = (n: number) => new Uint8Array([n & 0xFF, (n >> 8) & 0xFF, (n >> 16) & 0xFF, (n >> 24) & 0xFF]);
+      const concat = (...arrays: Uint8Array[]) => {
+        const total = arrays.reduce((s, a) => s + a.length, 0);
+        const result = new Uint8Array(total);
+        let off = 0;
+        for (const a of arrays) { result.set(a, off); off += a.length; }
+        return result;
+      };
+
+      for (const { name, data } of entries) {
+        const nameBytes = new TextEncoder().encode(name);
+        const crc = crc32(data);
+        const localHeader = concat(
+          new Uint8Array([0x50, 0x4B, 0x03, 0x04]),
+          u16(20), u16(0), u16(0),
+          u16(0), u16(0),
+          u32(crc), u32(data.length), u32(data.length),
+          u16(nameBytes.length), u16(0),
+          nameBytes,
+        );
+        const centralHeader = concat(
+          new Uint8Array([0x50, 0x4B, 0x01, 0x02]),
+          u16(20), u16(20), u16(0), u16(0),
+          u16(0), u16(0), u16(0),
+          u32(crc), u32(data.length), u32(data.length),
+          u16(nameBytes.length), u16(0), u16(0),
+          u16(0), u16(0), u32(0),
+          u32(offset),
+          nameBytes,
+        );
+        localHeaders.push(concat(localHeader, data));
+        centralHeaders.push(centralHeader);
+        offset += localHeader.length + data.length;
+      }
+
+      const centralDir = concat(...centralHeaders);
+      const eocd = concat(
+        new Uint8Array([0x50, 0x4B, 0x05, 0x06]),
+        u16(0), u16(0),
+        u16(entries.length), u16(entries.length),
+        u32(centralDir.length), u32(offset),
+        u16(0),
+      );
+      return concat(...localHeaders, centralDir, eocd);
+    }
+
+    const zipEntries = files.map(f => ({ name: f.name, data: toU8(f.content) }));
+    const zipBytes = makeZip(zipEntries);
+    const blob = new Blob([zipBytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `بيان-${manifest.manifestNumber}-${format(new Date(), "yyyy-MM-dd")}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   // ── PDF Export (via print) ──────────────────────────────────────────────────
