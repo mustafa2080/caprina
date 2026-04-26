@@ -9,7 +9,7 @@ import {
   TrendingUp, TrendingDown, DollarSign, Package, AlertCircle,
   Plus, Activity, Boxes, ArrowUpRight, ArrowDownRight,
   Star, Wallet, BarChart3, ShoppingCart, AlertTriangle, RefreshCw, Bell, Brain, Zap, Archive, Clock,
-  CalendarDays, Filter,
+  CalendarDays,
 } from "lucide-react";
 import {
   analyticsApi, type PeriodProfit, type ProductProfit, type FinancialSummary, type Alert,
@@ -122,93 +122,76 @@ function PwaInstallBanner() {
   return (
     <div className="flex items-center gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/8 px-4 py-3"
          style={{ background: "linear-gradient(135deg, #c9971c0d 0%, #f0b4290a 100%)" }}>
-      {/* Icon */}
       <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 border border-amber-500/30">
         <img src="./logo.jpg" alt="CAPRINA" className="w-full h-full object-cover" />
       </div>
-
-      {/* Text */}
       <div className="flex-1 min-w-0">
         <p className="text-sm font-black text-foreground leading-tight">ثبّت التطبيق على جهازك</p>
         <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight">
           تجربة أسرع كتطبيق أصلي بدون متصفح — يعمل على أي جهاز
         </p>
       </div>
-
-      {/* Actions */}
       <div className="flex items-center gap-2 shrink-0">
-        <button
-          type="button"
-          onClick={dismiss}
-          className="text-[10px] text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-muted/20 transition-colors"
-        >
+        <button type="button" onClick={dismiss}
+          className="text-[10px] text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-muted/20 transition-colors">
           لاحقاً
         </button>
-        <button
-          type="button"
-          onClick={install}
-          className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-black text-xs font-black px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
-        >
-          <span>⬇</span>
-          تثبيت
+        <button type="button" onClick={install}
+          className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-black text-xs font-black px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">
+          <span>⬇</span>تثبيت
         </button>
       </div>
     </div>
   );
 }
 
+// ─── Live Clock ───────────────────────────────────────────────────────────────
+function LiveClock() {
+  const [time, setTime] = useState(new Date());
+  useEffect(() => {
+    const id = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const h = time.getHours();
+  const ampm = h >= 12 ? "م" : "ص";
+  const h12 = h % 12 || 12;
+  const mm = String(time.getMinutes()).padStart(2, "0");
+  const ss = String(time.getSeconds()).padStart(2, "0");
+  return (
+    <div className="flex items-center gap-1.5 text-muted-foreground text-xs font-mono select-none">
+      <Clock className="w-3.5 h-3.5 shrink-0" />
+      <span className="font-bold text-foreground tabular-nums">{h12}:{mm}:{ss}</span>
+      <span className="text-[10px]">{ampm}</span>
+    </div>
+  );
+}
+
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
-type Period = "all" | "week" | "month" | "year" | "custom";
+type Period = "today" | "week" | "month";
 
 export default function Dashboard() {
   const { isAdmin, canViewFinancials } = useAuth();
-
-  // ── الوقت الحالي ──
-  const [currentTime, setCurrentTime] = useState(new Date());
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-  const timeStr = currentTime.toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true });
-  const dateStr = currentTime.toLocaleDateString("ar-EG", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
-
-  // ── فلتر التقارير ──
-  const [period, setPeriod]   = useState<Period>("all");
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate]     = useState("");
-
-  const filterParams = (() => {
-    if (period === "custom" && fromDate && toDate) return { from: fromDate, to: toDate };
-    if (period !== "all" && period !== "custom") return { period };
-    return {};
-  })();
-
-  const filterActive = period !== "all";
-
+  const [period, setPeriod] = useState<Period>("today");
   const { data: summary } = useGetOrdersSummary();
   const { data: recentOrders, isLoading: isRecentLoading } = useGetRecentOrders();
   const { data: products } = useQuery({ queryKey: ["products"], queryFn: productsApi.list, staleTime: 60000 });
-
   const { data: analytics, isLoading: isAnalyticsLoading } = useQuery({
-    queryKey: ["analytics-profit", period, fromDate, toDate],
-    queryFn: () => analyticsApi.profit(filterParams),
+    queryKey: ["analytics-profit"],
+    queryFn: analyticsApi.profit,
     staleTime: 30000,
     enabled: canViewFinancials,
   });
-
   const { data: fin, isLoading: isFinLoading } = useQuery({
-    queryKey: ["analytics-financial", period, fromDate, toDate],
-    queryFn: () => analyticsApi.financialSummary(filterParams),
+    queryKey: ["analytics-financial"],
+    queryFn: analyticsApi.financialSummary,
     staleTime: 30000,
     enabled: canViewFinancials,
   });
-
   const { data: alertsData } = useQuery({
     queryKey: ["analytics-alerts"],
     queryFn: analyticsApi.alerts,
     staleTime: 30000,
   });
-
   const { data: smartData } = useQuery({
     queryKey: ["smart-insights"],
     queryFn: analyticsApi.smartInsights,
@@ -231,10 +214,34 @@ export default function Dashboard() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold">لوحة المالية</h1>
-          <p className="text-muted-foreground text-xs sm:text-sm">{dateStr}</p>
-          <p className="text-xl sm:text-2xl font-bold text-primary mt-1">{timeStr}</p>
+          <p className="text-muted-foreground text-xs sm:text-sm mt-0.5">CAPRINA — Financial Engine Dashboard</p>
+          <div className="mt-1.5">
+            <LiveClock />
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Period Filter */}
+          {canViewFinancials && (
+            <div className="flex items-center gap-1 border border-border rounded-md p-0.5 bg-muted/30">
+              {([
+                { key: "today", label: "اليوم" },
+                { key: "week",  label: "الأسبوع" },
+                { key: "month", label: "الشهر" },
+              ] as { key: Period; label: string }[]).map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => setPeriod(key)}
+                  className={`px-3 py-1 rounded text-xs font-bold transition-colors ${
+                    period === key
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
           <Link href="/smart">
             <button className="flex items-center gap-1.5 border border-primary/30 text-primary hover:bg-primary/5 px-3 py-2 rounded-md text-xs font-bold transition-colors">
               <Brain className="w-3.5 h-3.5" />ذكاء
@@ -247,57 +254,6 @@ export default function Dashboard() {
           </Link>
         </div>
       </div>
-
-      {/* ── فلتر التقارير ── */}
-      {canViewFinancials && (
-        <div className="flex flex-wrap items-center gap-2 p-3 rounded-xl border border-border bg-card">
-          <CalendarDays className="w-4 h-4 text-muted-foreground shrink-0" />
-          <span className="text-xs font-bold text-muted-foreground shrink-0">فترة التقرير:</span>
-          <div className="flex flex-wrap gap-1.5">
-            {([
-              { key: "all",   label: "الكل" },
-              { key: "week",  label: "أسبوعي" },
-              { key: "month", label: "شهري" },
-              { key: "year",  label: "سنوي" },
-              { key: "custom",label: "مخصص" },
-            ] as { key: Period; label: string }[]).map(p => (
-              <button
-                key={p.key}
-                onClick={() => setPeriod(p.key)}
-                className={`px-3 py-1 rounded-lg text-[11px] font-bold border transition-all ${
-                  period === p.key
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                }`}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-          {period === "custom" && (
-            <div className="flex items-center gap-2 mr-1">
-              <input
-                type="date"
-                value={fromDate}
-                onChange={e => setFromDate(e.target.value)}
-                className="h-7 px-2 text-[11px] rounded-lg border border-border bg-background text-foreground"
-              />
-              <span className="text-xs text-muted-foreground">إلى</span>
-              <input
-                type="date"
-                value={toDate}
-                onChange={e => setToDate(e.target.value)}
-                className="h-7 px-2 text-[11px] rounded-lg border border-border bg-background text-foreground"
-              />
-            </div>
-          )}
-          {filterActive && (
-            <span className="mr-auto text-[10px] text-primary font-bold border border-primary/30 bg-primary/5 px-2 py-0.5 rounded-full">
-              {period === "week" ? "آخر أسبوع" : period === "month" ? "هذا الشهر" : period === "year" ? "هذا العام" : `${fromDate} → ${toDate}`}
-            </span>
-          )}
-        </div>
-      )}
 
       {/* === NO COST DATA WARNING (admin only) === */}
       {canViewFinancials && noCostWarning && (
@@ -317,7 +273,6 @@ export default function Dashboard() {
       {canViewFinancials && fin && (
         <div className={`rounded-xl border overflow-hidden ${fin.netProfit >= 0 ? "border-emerald-300 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-900/5" : "border-red-300 dark:border-red-800/60 bg-red-50 dark:bg-red-900/5"}`}>
           <div className="p-4">
-            {/* Main profit */}
             <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
               <div>
                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">صافي الربح الحقيقي</p>
@@ -344,8 +299,6 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
-
-            {/* Cash flow grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3 bg-background/30 rounded-lg border border-border/40">
               <div className="text-center">
                 <div className="flex items-center justify-center gap-1 mb-1">
@@ -383,7 +336,6 @@ export default function Dashboard() {
       {/* === SMART ALERTS === */}
       {allAlerts.length > 0 && (
         <div className="space-y-1.5">
-          {/* High-severity alerts shown inline */}
           {highAlerts.map(alert => (
             <div key={alert.id} className="flex items-center gap-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/40 rounded-lg p-3">
               <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0" />
@@ -399,7 +351,6 @@ export default function Dashboard() {
               )}
             </div>
           ))}
-          {/* Summary row for medium/low alerts */}
           {alertsData && alertsData.counts.total > highAlerts.length && (
             <div className="flex items-center gap-3 bg-amber-50 dark:bg-amber-900/15 border border-amber-200 dark:border-amber-800/30 rounded-lg p-2.5">
               <Bell className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
@@ -421,7 +372,7 @@ export default function Dashboard() {
             [1,2,3].map(i => <Card key={i} className="animate-pulse h-36 border-border" />)
           ) : analytics ? (
             <>
-              <PeriodCard label="اليوم" data={analytics.today} accent="text-primary" />
+              <PeriodCard label="اليوم" data={analytics.today} accent={period === "today" ? "text-primary ring-2 ring-primary/20 rounded-xl" : "text-primary"} />
               <PeriodCard label="هذا الأسبوع" data={analytics.week} accent="text-emerald-600 dark:text-emerald-400" />
               <PeriodCard label="هذا الشهر" data={analytics.month} accent="text-amber-700 dark:text-amber-400" />
             </>
@@ -438,7 +389,6 @@ export default function Dashboard() {
       {/* === SMART QUICK INSIGHTS === */}
       {smartData && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {/* Best platform */}
           <Link href="/smart">
             <div className="flex items-center gap-2.5 p-3 rounded-xl border border-border bg-card hover:bg-primary/5 hover:border-primary/30 transition-colors cursor-pointer">
               <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
@@ -466,7 +416,6 @@ export default function Dashboard() {
             </div>
           </Link>
 
-          {/* Stars & Dead Stock */}
           <Link href="/smart">
             <div className="flex items-center gap-2.5 p-3 rounded-xl border border-border bg-card hover:bg-primary/5 hover:border-primary/30 transition-colors cursor-pointer">
               <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
@@ -480,7 +429,6 @@ export default function Dashboard() {
             </div>
           </Link>
 
-          {/* Return alert */}
           <Link href="/smart">
             <div className={`flex items-center gap-2.5 p-3 rounded-xl border bg-card hover:bg-primary/5 transition-colors cursor-pointer ${
               smartData.returnInsights.highReturnProducts.length > 0 ? "border-red-300 dark:border-red-800" : "border-border"
@@ -502,7 +450,6 @@ export default function Dashboard() {
             </div>
           </Link>
 
-          {/* Stock predictor */}
           <Link href="/smart">
             <div className={`flex items-center gap-2.5 p-3 rounded-xl border bg-card hover:bg-primary/5 transition-colors cursor-pointer ${
               smartData.stockPredictor.some(i => (i.daysUntilStockout ?? 99) <= 3) ? "border-red-300 dark:border-red-800" : "border-border"
@@ -528,11 +475,7 @@ export default function Dashboard() {
 
       {/* === MAIN GRID === */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-
-        {/* LEFT: Products + Recent Orders */}
         <div className="lg:col-span-2 space-y-4">
-
-          {/* Top products by profit (admin only) */}
           {canViewFinancials && (
             <Card className="border-border">
               <CardHeader className="py-3 px-4 border-b border-border">
@@ -557,7 +500,6 @@ export default function Dashboard() {
             </Card>
           )}
 
-          {/* Losing products (admin only) */}
           {canViewFinancials && analytics?.losingProducts && analytics.losingProducts.length > 0 && (
             <Card className="border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/5">
               <CardHeader className="py-3 px-4 border-b border-red-200 dark:border-red-900/30">
@@ -585,7 +527,6 @@ export default function Dashboard() {
             </Card>
           )}
 
-          {/* Recent orders */}
           <Card className="border-border overflow-hidden">
             <CardHeader className="py-3 px-4 border-b border-border">
               <div className="flex items-center justify-between">
@@ -631,8 +572,6 @@ export default function Dashboard() {
 
         {/* RIGHT SIDEBAR */}
         <div className="space-y-4">
-
-          {/* Quick actions */}
           <div className="space-y-2">
             <h2 className="text-sm font-bold">إجراءات سريعة</h2>
             <Link href="/orders/new" className="w-full flex items-center gap-2 bg-primary text-primary-foreground py-2.5 px-4 rounded-md text-sm font-bold hover:bg-primary/90 transition-colors">
@@ -646,7 +585,6 @@ export default function Dashboard() {
             </Link>
           </div>
 
-          {/* Inventory financial value (admin only) */}
           {canViewFinancials && fin && (
             <Card className="border-border">
               <CardContent className="p-4 space-y-1">
@@ -665,7 +603,6 @@ export default function Dashboard() {
             </Card>
           )}
 
-          {/* Full financial breakdown (admin only) */}
           {canViewFinancials && fin && (
             <Card className="border-border">
               <CardContent className="p-4">
@@ -691,7 +628,6 @@ export default function Dashboard() {
             </Card>
           )}
 
-          {/* Order status summary */}
           {summary && (
             <Card className="border-border">
               <CardContent className="p-4 space-y-1">
@@ -719,7 +655,6 @@ export default function Dashboard() {
             </Card>
           )}
 
-          {/* Order metrics (admin only) */}
           {canViewFinancials && fin && fin.completedOrders > 0 && (
             <Card className="border-border">
               <CardContent className="p-4">
@@ -734,7 +669,6 @@ export default function Dashboard() {
             </Card>
           )}
 
-          {/* Smart alerts detail */}
           {allAlerts.length > 0 && (
             <Card className="border-border">
               <CardContent className="p-4">
@@ -768,25 +702,14 @@ export default function Dashboard() {
             </Card>
           )}
 
-          {/* Return loss detail (admin only) */}
           {canViewFinancials && fin && fin.returnRevLost > 0 && (
             <Card className="border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/5">
               <CardContent className="p-4">
                 <p className="text-[9px] font-bold uppercase tracking-widest text-red-500/70 dark:text-red-400/60 mb-3 flex items-center gap-1.5">
                   <RefreshCw className="w-3 h-3" />تأثير المرتجعات
                 </p>
-                <FinRow
-                  label="إيرادات فُقدت"
-                  value={fc(fin.returnRevLost)}
-                  color="text-red-600 dark:text-red-400"
-                  sub="بيع كان مخطط"
-                />
-                <FinRow
-                  label="تكلفة محملة"
-                  value={fc(fin.returnLoss)}
-                  color="text-red-600 dark:text-red-400"
-                  sub="شحن + بضاعة"
-                />
+                <FinRow label="إيرادات فُقدت" value={fc(fin.returnRevLost)} color="text-red-600 dark:text-red-400" sub="بيع كان مخطط" />
+                <FinRow label="تكلفة محملة" value={fc(fin.returnLoss)} color="text-red-600 dark:text-red-400" sub="شحن + بضاعة" />
                 <div className="mt-2 text-center">
                   <p className="text-xs font-black text-red-600 dark:text-red-400">{fin.returnRate}% نسبة الإرجاع</p>
                   <p className="text-[9px] text-muted-foreground">{fin.returnCount} من {fin.totalOrders} طلب</p>
