@@ -682,8 +682,17 @@ function ExcelImportDialog({
 }) {
   const { toast } = useToast();
   const [rows, setRows] = useState<ExcelRow[]>([]);
+  const [unmatchedRows, setUnmatchedRows] = useState<{ name: string; status: string }[]>([]);
   const [importing, setImporting] = useState(false);
   const [fileName, setFileName] = useState("");
+  const [rawCount, setRawCount] = useState(0);
+
+  // normalize Arabic text: remove tashkeel + normalize spaces
+  const normalizeAr = (s: string) =>
+    s.trim()
+      .replace(/[\u064B-\u065F\u0670]/g, "")   // remove harakat
+      .replace(/\s+/g, " ")
+      .toLowerCase();
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -696,31 +705,48 @@ function ExcelImportDialog({
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const json: Record<string, unknown>[] = XLSX.utils.sheet_to_json(sheet, { defval: "" });
 
-      const parsed: ExcelRow[] = json.map((r) => {
-        // Try to find orderId by matching customerName or explicit id column
-        const idVal = r["رقم الطلب"] ?? r["order_id"] ?? r["id"] ?? r["ID"];
-        const nameVal = String(r["اسم العميل"] ?? r["customer"] ?? r["الاسم"] ?? r["name"] ?? "");
-        const statusVal = String(r["الحالة"] ?? r["status"] ?? r["delivery_status"] ?? "");
-        const noteVal = String(r["ملاحظة"] ?? r["note"] ?? r["notes"] ?? "");
+      setRawCount(json.length);
+
+      const matched: ExcelRow[] = [];
+      const unmatched: { name: string; status: string }[] = [];
+
+      for (const r of json) {
+        const idVal   = r["رقم الطلب"] ?? r["order_id"] ?? r["id"] ?? r["ID"] ?? r["رقم"] ?? "";
+        const nameVal = String(r["اسم العميل"] ?? r["customer"] ?? r["الاسم"] ?? r["name"] ?? r["العميل"] ?? "").trim();
+        const statusVal = String(r["الحالة"] ?? r["status"] ?? r["delivery_status"] ?? r["التسليم"] ?? "").trim();
+        const noteVal   = String(r["ملاحظة"] ?? r["note"] ?? r["notes"] ?? r["ملاحظات"] ?? "").trim();
         const partialQty = Number(r["الكمية المستلمة"] ?? r["partial_quantity"] ?? 0);
 
-        // Match to manifest orders by id or name
+        // match by id first, then by normalized name
         const matchedOrder = manifest.orders.find((o) => {
-          if (idVal && Number(idVal) === o.id) return true;
-          if (nameVal && o.customerName?.trim().toLowerCase() === nameVal.trim().toLowerCase()) return true;
+          if (idVal !== "" && Number(idVal) === o.id) return true;
+          if (nameVal && normalizeAr(o.customerName ?? "") === normalizeAr(nameVal)) return true;
           return false;
         });
 
-        return {
-          orderId: matchedOrder?.id,
-          customerName: matchedOrder?.customerName ?? nameVal,
-          deliveryStatus: normalizeStatus(statusVal) ?? undefined,
-          deliveryNote: noteVal || undefined,
-          partialQuantity: partialQty || undefined,
-        };
-      }).filter((r) => r.orderId && r.deliveryStatus);
+        const mappedStatus = normalizeStatus(statusVal) ?? undefined;
 
-      setRows(parsed);
+        if (matchedOrder && mappedStatus) {
+          matched.push({
+            orderId: matchedOrder.id,
+            customerName: matchedOrder.customerName,
+            deliveryStatus: mappedStatus,
+            deliveryNote: noteVal || undefined,
+            partialQuantity: partialQty || undefined,
+          });
+        } else {
+          // only log rows that have some content
+          if (nameVal || idVal) {
+            unmatched.push({
+              name: nameVal || String(idVal),
+              status: statusVal || "—",
+            });
+          }
+        }
+      }
+
+      setRows(matched);
+      setUnmatchedRows(unmatched);
     };
     reader.readAsArrayBuffer(file);
   };
@@ -768,39 +794,84 @@ function ExcelImportDialog({
         </DialogHeader>
 
         <div className="space-y-4 mt-2">
+          {/* Instructions */}
           <div className="text-xs text-muted-foreground bg-muted/30 border border-border rounded-md p-3 space-y-1">
-            <p className="font-semibold text-foreground mb-1">تعليمات الاستيراد:</p>
-            <p>• الملف يحتاج أعمدة: <span className="font-mono">رقم الطلب</span> أو <span className="font-mono">اسم العميل</span></p>
-            <p>• عمود الحالة: <span className="font-mono">الحالة</span> — القيم: مسلَّم، مرتجع، مؤجل، استلم جزئي، انتظار</p>
-            <p>• عمود اختياري: <span className="font-mono">ملاحظة</span>، <span className="font-mono">الكمية المستلمة</span></p>
+            <p className="font-semibold text-foreground mb-1">أعمدة الملف المطلوبة:</p>
+            <p>• <span className="font-mono bg-muted px-1 rounded">رقم الطلب</span> أو <span className="font-mono bg-muted px-1 rounded">اسم العميل</span> — للمطابقة</p>
+            <p>• <span className="font-mono bg-muted px-1 rounded">الحالة</span> — مسلَّم / مرتجع / مؤجل / استلم جزئي / انتظار</p>
+            <p className="text-muted-foreground/70 mt-1">اختياري: <span className="font-mono bg-muted px-1 rounded">ملاحظة</span> &nbsp; <span className="font-mono bg-muted px-1 rounded">الكمية المستلمة</span></p>
           </div>
 
-          <label className="flex flex-col items-center justify-center border-2 border-dashed border-border rounded-lg p-6 cursor-pointer hover:border-primary transition-colors gap-2">
+          {/* File picker */}
+          <label className="flex flex-col items-center justify-center border-2 border-dashed border-border rounded-lg p-5 cursor-pointer hover:border-primary transition-colors gap-2">
             <Upload className="w-6 h-6 text-muted-foreground" />
             <span className="text-sm text-muted-foreground">
-              {fileName ? fileName : "اضغط لاختيار ملف Excel"}
+              {fileName ? <span className="text-primary font-medium">{fileName}</span> : "اضغط لاختيار ملف Excel / CSV"}
             </span>
             <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFile} />
           </label>
 
-          {rows.length > 0 && (
-            <div className="border border-border rounded-md overflow-hidden">
-              <div className="bg-muted/30 px-3 py-2 text-xs font-semibold border-b border-border">
-                تم العثور على {rows.length} طلبية قابلة للتحديث
+          {/* Results after file is loaded */}
+          {fileName && (
+            <div className="space-y-2">
+              {/* Summary bar */}
+              <div className="flex items-center gap-3 text-xs">
+                <span className="text-muted-foreground">إجمالي صفوف الملف: <strong>{rawCount}</strong></span>
+                <span className="text-emerald-500">✓ مطابق: <strong>{rows.length}</strong></span>
+                {unmatchedRows.length > 0 && (
+                  <span className="text-amber-500">⚠ غير مطابق: <strong>{unmatchedRows.length}</strong></span>
+                )}
               </div>
-              <div className="max-h-48 overflow-y-auto">
-                {rows.map((row, i) => {
-                  const opt = DELIVERY_OPTIONS.find(o => o.value === row.deliveryStatus);
-                  return (
-                    <div key={i} className="flex items-center justify-between px-3 py-2 text-xs border-b border-border last:border-0">
-                      <span className="font-medium">{row.customerName}</span>
-                      <Badge variant="outline" className={`text-[10px] ${opt?.color ?? ""}`}>
-                        {opt?.label ?? row.deliveryStatus}
-                      </Badge>
-                    </div>
-                  );
-                })}
-              </div>
+
+              {/* Matched rows */}
+              {rows.length > 0 && (
+                <div className="border border-emerald-600/30 rounded-md overflow-hidden">
+                  <div className="bg-emerald-900/20 px-3 py-1.5 text-xs font-semibold border-b border-emerald-600/20 text-emerald-400">
+                    ✓ سيتم تحديث {rows.length} طلبية
+                  </div>
+                  <div className="max-h-36 overflow-y-auto">
+                    {rows.map((row, i) => {
+                      const opt = DELIVERY_OPTIONS.find(o => o.value === row.deliveryStatus);
+                      return (
+                        <div key={i} className="flex items-center justify-between px-3 py-1.5 text-xs border-b border-border/50 last:border-0">
+                          <span className="font-medium truncate max-w-[55%]">{row.customerName}</span>
+                          <Badge variant="outline" className={`text-[10px] shrink-0 ${opt?.color ?? ""}`}>
+                            {opt?.label ?? row.deliveryStatus}
+                          </Badge>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Unmatched rows warning */}
+              {unmatchedRows.length > 0 && (
+                <div className="border border-amber-600/30 rounded-md overflow-hidden">
+                  <div className="bg-amber-900/20 px-3 py-1.5 text-xs font-semibold border-b border-amber-600/20 text-amber-400">
+                    ⚠ {unmatchedRows.length} صف لم يُطابَق — تحقق من الأسماء أو أرقام الطلبات
+                  </div>
+                  <div className="max-h-28 overflow-y-auto">
+                    {unmatchedRows.map((r, i) => (
+                      <div key={i} className="flex items-center justify-between px-3 py-1.5 text-xs border-b border-border/50 last:border-0 text-muted-foreground">
+                        <span className="truncate max-w-[60%]">{r.name}</span>
+                        <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded">{r.status}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* No match at all */}
+              {rows.length === 0 && rawCount > 0 && (
+                <div className="flex items-start gap-2 p-3 rounded-md bg-red-900/10 border border-red-700/30 text-xs text-red-400">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold mb-1">لم يتم مطابقة أي صف مع طلبيات البيان</p>
+                    <p className="text-muted-foreground">تأكد أن الملف يحتوي على عمود <span className="font-mono bg-muted/30 px-1">رقم الطلب</span> أو أن الأسماء مطابقة تماماً لأسماء العملاء في البيان.</p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -812,7 +883,7 @@ function ExcelImportDialog({
             disabled={importing || rows.length === 0}
           >
             <Upload className="w-3.5 h-3.5" />
-            {importing ? "جاري الاستيراد..." : `استيراد ${rows.length > 0 ? rows.length + " طلبية" : ""}`}
+            {importing ? "جاري الاستيراد..." : rows.length > 0 ? `استيراد ${rows.length} طلبية` : "استيراد"}
           </Button>
           <Button variant="outline" className="border-border" onClick={onClose}>إلغاء</Button>
         </DialogFooter>
