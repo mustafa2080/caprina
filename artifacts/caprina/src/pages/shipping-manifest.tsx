@@ -643,6 +643,25 @@ function CloseConfirmDialog({
   );
 }
 
+// ─── Status Normalization ─────────────────────────────────────────────────────
+const STATUS_MAP: Record<string, string> = {
+  "مسلم": "delivered", "مسلَّم": "delivered", "مسلم ": "delivered", "delivered": "delivered", "تسليم": "delivered",
+  "مرتجع": "returned", "returned": "returned", "رجع": "returned",
+  "مؤجل": "postponed", "postponed": "postponed", "تأجيل": "postponed", "اجل": "postponed",
+  "جزئي": "partial_received", "partial_received": "partial_received",
+  "استلم جزئي": "partial_received", "partial": "partial_received", "جزئى": "partial_received",
+  "انتظار": "pending", "pending": "pending", "في الانتظار": "pending", "قيد الانتظار": "pending",
+};
+
+function normalizeStatus(val: string): string | null {
+  if (!val || !val.trim()) return null;
+  const lower = val.trim().toLowerCase();
+  for (const [key, mapped] of Object.entries(STATUS_MAP)) {
+    if (lower === key.toLowerCase().trim()) return mapped;
+  }
+  return null;
+}
+
 // ─── Excel Import Dialog ─────────────────────────────────────────────────────
 type ExcelRow = {
   orderId?: number;
