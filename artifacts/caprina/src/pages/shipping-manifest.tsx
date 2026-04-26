@@ -713,7 +713,7 @@ function ExcelImportDialog({
     let failed = 0;
     for (const row of rows) {
       try {
-        await apiFetch(`/manifests/${manifest.id}/orders/${row.orderId}/delivery`, {
+        await apiFetch(`/shipping-manifests/${manifest.id}/orders/${row.orderId}`, {
           method: "PATCH",
           body: JSON.stringify({
             deliveryStatus: row.deliveryStatus,
