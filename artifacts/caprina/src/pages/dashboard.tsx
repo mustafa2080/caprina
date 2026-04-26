@@ -390,40 +390,6 @@ export default function Dashboard() {
       {/* === PWA INSTALL BANNER === */}
       <PwaInstallBanner />
 
-      {/* === WEEKLY SALES HIGHLIGHT (admin only) === */}
-      {canViewFinancials && analytics && (
-        <div className="rounded-xl border border-emerald-300 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-900/5 p-4">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
-              <CalendarDays className="w-3.5 h-3.5" />المبيعات الأسبوعية
-            </p>
-            <Badge variant="outline" className={`text-[9px] font-bold border ${
-              analytics.week.returnRate > 20 ? "border-red-400 text-red-600 dark:border-red-800 dark:text-red-400" : "border-emerald-400 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400"
-            }`}>{analytics.week.returnRate}% مرتجع</Badge>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div>
-              <p className="text-[9px] text-muted-foreground mb-0.5">صافي الربح</p>
-              <p className={`text-2xl font-black ${analytics.week.netProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
-                {fc(analytics.week.netProfit)}
-              </p>
-            </div>
-            <div>
-              <p className="text-[9px] text-muted-foreground mb-0.5">الإيرادات</p>
-              <p className="text-lg font-black text-primary">{fc(analytics.week.revenue)}</p>
-            </div>
-            <div>
-              <p className="text-[9px] text-muted-foreground mb-0.5">الطلبات</p>
-              <p className="text-lg font-black">{fn(analytics.week.orders)}</p>
-            </div>
-            <div>
-              <p className="text-[9px] text-muted-foreground mb-0.5">التكاليف</p>
-              <p className="text-lg font-black text-amber-700 dark:text-amber-400">{fc(analytics.week.cost + analytics.week.shippingCost)}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* === VISUAL CHARTS === */}
       {chartsData ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -440,13 +406,49 @@ export default function Dashboard() {
             />
           </ChartCard>
 
-          {/* المبيعات الأسبوعية */}
+          {/* المبيعات الأسبوعية — بانر + شارت */}
           <ChartCard
             title="المبيعات الأسبوعية"
             subtitle="Weekly Sales — Last 7 Days"
             dot="#f59e0b"
           >
-            <WeeklyBars data={chartsData.weeklySales} />
+            <div className="space-y-4">
+              {/* البانر النصي (admin only) */}
+              {canViewFinancials && analytics && (
+                <div className="rounded-xl border border-emerald-300 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-900/5 p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1">
+                      <CalendarDays className="w-3 h-3" />ملخص الأسبوع
+                    </p>
+                    <Badge variant="outline" className={`text-[9px] font-bold border ${
+                      analytics.week.returnRate > 20 ? "border-red-400 text-red-600 dark:border-red-800 dark:text-red-400" : "border-emerald-400 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400"
+                    }`}>{analytics.week.returnRate}% مرتجع</Badge>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div>
+                      <p className="text-[9px] text-muted-foreground mb-0.5">صافي الربح</p>
+                      <p className={`text-lg font-black ${analytics.week.netProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                        {fc(analytics.week.netProfit)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] text-muted-foreground mb-0.5">الإيرادات</p>
+                      <p className="text-lg font-black text-primary">{fc(analytics.week.revenue)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] text-muted-foreground mb-0.5">الطلبات</p>
+                      <p className="text-lg font-black">{fn(analytics.week.orders)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] text-muted-foreground mb-0.5">التكاليف</p>
+                      <p className="text-lg font-black text-amber-700 dark:text-amber-400">{fc(analytics.week.cost + analytics.week.shippingCost)}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {/* الشارت */}
+              <WeeklyBars data={chartsData.weeklySales} />
+            </div>
           </ChartCard>
         </div>
       ) : (
