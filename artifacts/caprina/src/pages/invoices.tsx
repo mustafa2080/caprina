@@ -157,8 +157,18 @@ export default function Invoices() {
       .inf { border: 0.5px solid #ddd; border-radius: 0.8mm; padding: 0.4mm 0.8mm; background: #fafafa; }
       .inf-l { font-size: 5.5pt; color: #999; }
       .inf-v  { font-size: 7pt; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .addr { padding: 0.8mm 2.5mm 0; flex-shrink: 0; display: flex; gap: 1mm; align-items: flex-start; }
-      .addr-l { font-size: 6.5pt; color: #999; white-space: nowrap; padding-top: 0.3mm; flex-shrink: 0; }
+      .addr {
+        margin: 0.8mm 2.5mm 0;
+        border: 1px solid #333;
+        border-radius: 0.8mm;
+        padding: 0.8mm 1.5mm;
+        flex-shrink: 0;
+        display: flex;
+        gap: 1.5mm;
+        align-items: flex-start;
+        background: #fff;
+      }
+      .addr-l { font-size: 6.5pt; color: #555; font-weight: 700; white-space: nowrap; padding-top: 0.3mm; flex-shrink: 0; }
       .addr-v {
         font-size: 7.5pt; font-weight: 700; line-height: 1.3;
         display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
