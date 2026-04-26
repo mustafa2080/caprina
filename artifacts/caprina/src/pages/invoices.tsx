@@ -139,7 +139,7 @@ export default function Invoices() {
       .cust-name  { font-size: 11pt; font-weight: 900; }
 
       /* BODY */
-      .inv-body { padding: 1.5mm 3mm; flex: 1; display: flex; flex-direction: column; gap: 1mm; }
+      .inv-body { padding: 1.5mm 3mm; flex: 1; display: flex; flex-direction: column; gap: 0; justify-content: space-between; }
 
       /* PRODUCT TABLE — header داكن زي الصورة */
       .prod-table { width: 100%; border-collapse: collapse; font-size: 7pt; flex-shrink: 0; }
