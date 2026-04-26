@@ -154,14 +154,18 @@ const StatusDonut = memo(function StatusDonut({
   selectedStatus?: string | null;
 }) {
   const sorted = useMemo(() => [...data].sort((a, b) => b.count - a.count), [data]);
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
   return (
     <div className="space-y-5">
       <div className="relative" style={{ height: 240 }}>
-        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
-          <p className="text-4xl font-black text-foreground leading-none">{total}</p>
-          <p className="text-xs text-muted-foreground mt-1">إجمالي الطلبات</p>
-        </div>
+        {/* Show center total only when nothing is hovered */}
+        {activeIndex === null && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
+            <p className="text-4xl font-black text-foreground leading-none">{total}</p>
+            <p className="text-xs text-muted-foreground mt-1">إجمالي الطلبات</p>
+          </div>
+        )}
 
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
@@ -178,7 +182,11 @@ const StatusDonut = memo(function StatusDonut({
               startAngle={90}
               endAngle={-270}
               labelLine={false}
-              label={<PctLabel />}
+              label={activeIndex === null ? <PctLabel /> : undefined}
+              activeIndex={activeIndex ?? undefined}
+              activeShape={ActiveDonutShape}
+              onMouseEnter={(_, index) => setActiveIndex(index)}
+              onMouseLeave={() => setActiveIndex(null)}
               onClick={(entry) => onStatusClick?.(
                 selectedStatus === entry.status ? null : entry.status
               )}
