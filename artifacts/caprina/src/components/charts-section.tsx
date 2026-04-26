@@ -204,7 +204,6 @@ const StatusDonut = memo(function StatusDonut({
                 );
               })}
             </Pie>
-            <Tooltip content={<DonutTooltip />} cursor={false} />
           </PieChart>
         </ResponsiveContainer>
       </div>
