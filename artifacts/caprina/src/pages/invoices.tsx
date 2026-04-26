@@ -95,8 +95,8 @@ export default function Invoices() {
         display: grid;
         grid-template-columns: 1fr 1fr;
         grid-template-rows: 1fr 1fr;
-        gap: 1.5mm;
-        padding: 2.5mm;
+        gap: 2mm;
+        padding: 3mm;
         width: 297mm;
         height: 210mm;
         page-break-after: always;
@@ -104,106 +104,94 @@ export default function Invoices() {
       }
       .page:last-child { page-break-after: avoid; }
       .inv {
-        border: 1px solid #333;
-        border-radius: 1mm;
+        border: 1.5px solid #222;
+        border-radius: 1.5mm;
         display: flex;
         flex-direction: column;
-        justify-content: space-between;
         overflow: hidden;
         background: #fff;
         min-height: 0;
       }
-      .inv-body {
-        display: flex;
-        flex-direction: column;
-        flex: 1;
-        overflow: hidden;
-      }
+      .inv-body { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+      /* HEADER */
       .hdr {
-        background: #1a1a1a;
-        color: #fff;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 1mm 2.5mm;
-        flex-shrink: 0;
+        background: #1a1a1a; color: #fff;
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 1.5mm 3mm; flex-shrink: 0;
       }
-      .hdr-logo { display: flex; align-items: center; gap: 1mm; }
-      .hdr-img  { width: 6mm; height: 6mm; object-fit: contain; border-radius: 0.5mm; }
-      .hdr-name { font-size: 9pt; font-weight: 900; letter-spacing: 1px; }
-      .hdr-sub  { font-size: 4.5pt; opacity: 0.6; letter-spacing: 1px; }
-      .hdr-order { font-size: 6.5pt; opacity: 0.8; text-align: center; line-height: 1.4; }
-      .hdr-date  { font-size: 6.5pt; opacity: 0.85; }
+      .hdr-left { display: flex; align-items: center; gap: 1.5mm; }
+      .hdr-img  { width: 7mm; height: 7mm; object-fit: contain; border-radius: 0.8mm; }
+      .hdr-name { font-size: 10.5pt; font-weight: 900; letter-spacing: 1.5px; line-height: 1.1; }
+      .hdr-sub  { font-size: 5pt; opacity: 0.55; letter-spacing: 1.5px; }
+      .hdr-center { text-align: center; line-height: 1.4; }
+      .hdr-brand  { font-size: 8.5pt; font-weight: 700; letter-spacing: 1px; }
+      .hdr-order  { font-size: 6pt; opacity: 0.65; font-weight: 400; }
+      .hdr-date   { font-size: 7.5pt; opacity: 0.85; font-weight: 600; }
+      /* CUSTOMER */
       .cust {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 1mm 2.5mm;
-        border-bottom: 0.8px solid #ddd;
-        flex-shrink: 0;
-        gap: 2mm;
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 1.3mm 3mm; border-bottom: 1px solid #ccc;
+        flex-shrink: 0; gap: 2mm; background: #f7f7f7;
       }
-      .cust-name  { font-size: 10pt; font-weight: 900; }
-      .cust-phone { font-size: 9pt;  font-weight: 900; direction: ltr; }
+      .cust-name  { font-size: 11.5pt; font-weight: 900; }
+      .cust-phone { font-size: 10pt; font-weight: 700; direction: ltr; }
+      /* TABLE */
       .tbl { width: 100%; border-collapse: collapse; flex-shrink: 0; table-layout: fixed; }
       .tbl th {
-        background: #1a1a1a; color: #fff; border: 0.4px solid #333;
-        padding: 0.7mm 1mm; font-size: 7pt; font-weight: 700; text-align: center;
+        background: #1a1a1a; color: #fff; border: 0.5px solid #333;
+        padding: 1.2mm 1.5mm; font-size: 8pt; font-weight: 700; text-align: center;
       }
       .tbl td {
-        border: 0.4px solid #ccc; padding: 0.7mm 1mm; font-size: 7.5pt;
+        border: 0.5px solid #bbb; padding: 1.2mm 1.5mm; font-size: 8.5pt;
         text-align: center; vertical-align: middle;
         overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
       }
-      .tbl td.pname { text-align: right; font-weight: 700; font-size: 8pt; }
-      .tbl .tot td  { background: #eee; font-weight: 900; font-size: 8pt; }
-      .info {
-        display: grid; grid-template-columns: 1fr 1fr 1fr;
-        gap: 0.8mm; padding: 1mm 2.5mm 0; flex-shrink: 0;
-      }
-      .inf { border: 0.5px solid #ddd; border-radius: 0.8mm; padding: 0.5mm 0.8mm; background: #fafafa; }
-      .inf-l { font-size: 5.5pt; color: #999; }
-      .inf-v  { font-size: 7pt; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      /* مربع العنوان — يملا كل الفراغ المتبقي */
+      .tbl td.pname { text-align: right; font-weight: 700; font-size: 9pt; }
+      .tbl .tot td  { background: #e8e8e8; font-weight: 900; font-size: 9pt; border-color: #999; }
+      /* META ROW */
+      .meta { display: flex; border-bottom: 0.5px solid #ddd; flex-shrink: 0; background: #fafafa; }
+      .meta-cell { flex: 1; padding: 0.8mm 2.5mm; border-left: 0.5px solid #ddd; display: flex; flex-direction: column; }
+      .meta-cell:last-child { border-left: none; }
+      .meta-l { font-size: 5.5pt; color: #888; }
+      .meta-v { font-size: 7.5pt; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      /* ADDRESS */
       .addr {
-        margin: 1mm 2.5mm 0;
-        border: 1px solid #333;
-        border-radius: 0.8mm;
-        padding: 1mm 1.5mm;
-        flex: 1;
-        display: flex;
-        gap: 1.5mm;
-        align-items: flex-start;
-        background: #fff;
-        min-height: 0;
+        margin: 1.5mm 3mm 0; border: 1.2px solid #333; border-radius: 1mm;
+        padding: 1.2mm 2mm; flex: 1;
+        display: flex; gap: 2mm; align-items: flex-start;
+        background: #fff; min-height: 0;
       }
-      .addr-l { font-size: 6.5pt; color: #555; font-weight: 700; white-space: nowrap; padding-top: 0.3mm; flex-shrink: 0; }
-      .addr-v { font-size: 7.5pt; font-weight: 700; line-height: 1.5; overflow: hidden; word-break: break-word; }
-      /* ملاحظات وتأكيد — تحت المربع مباشرة بدون فراغ */
+      .addr-l { font-size: 7pt; color: #444; font-weight: 700; white-space: nowrap; padding-top: 0.3mm; flex-shrink: 0; }
+      .addr-v { font-size: 8.5pt; font-weight: 700; line-height: 1.5; overflow: hidden; word-break: break-word; }
+      /* NOTES */
       .notes {
-        margin: 1mm 2.5mm 0; background: #fffbea;
+        margin: 1.2mm 3mm 0; background: #fffbea;
         border: 0.8px solid #f59e0b; border-right: 3px solid #f59e0b;
-        border-radius: 0.8mm; padding: 0.6mm 1.2mm;
-        display: flex; gap: 1mm; flex-shrink: 0; overflow: hidden;
+        border-radius: 0.8mm; padding: 0.8mm 1.5mm;
+        display: flex; gap: 1.5mm; flex-shrink: 0; overflow: hidden;
       }
-      .notes-l { font-size: 6pt; font-weight: 900; color: #b45309; white-space: nowrap; flex-shrink: 0; }
+      .notes-l { font-size: 6.5pt; font-weight: 900; color: #b45309; white-space: nowrap; flex-shrink: 0; }
       .notes-v {
-        font-size: 6.5pt; font-weight: 700; color: #111;
+        font-size: 7pt; font-weight: 700; color: #111;
         display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-        overflow: hidden; word-break: break-word; line-height: 1.35;
+        overflow: hidden; word-break: break-word; line-height: 1.4;
       }
+      /* CONFIRM */
       .confirm {
-        margin: 1mm 2.5mm 1mm; border: 0.5px solid #bbb; border-radius: 0.8mm;
-        padding: 0.6mm 1.2mm; font-size: 6pt; color: #444; line-height: 1.35;
+        margin: 1mm 3mm 1.5mm; border: 0.5px solid #bbb; border-radius: 0.8mm;
+        padding: 0.8mm 1.5mm; font-size: 6.5pt; color: #444; line-height: 1.4;
         flex-shrink: 0; overflow: hidden;
       }
       .confirm strong { color: #111; font-weight: 900; }
+      /* FOOTER */
       .ftr {
-        border-top: 0.8px solid #ddd; background: #f5f5f5;
-        padding: 0.8mm 2.5mm; flex-shrink: 0; text-align: center;
+        border-top: 0.8px solid #ddd; background: #f0f0f0;
+        padding: 0.8mm 3mm; flex-shrink: 0;
+        display: flex; justify-content: space-between; align-items: center;
       }
-      .ftr-txt { font-size: 5pt; color: #888; line-height: 1.35; }
-      .empty { border: 1px dashed #ddd; border-radius: 1mm; background: #fafafa; min-height: 0; }
+      .ftr-txt   { font-size: 5.5pt; color: #888; line-height: 1.4; }
+      .ftr-brand { font-size: 6.5pt; font-weight: 900; color: #555; letter-spacing: 1px; }
+      .empty { border: 1.5px dashed #ddd; border-radius: 1.5mm; background: #fafafa; min-height: 0; }
     `;
 
     const invoiceHTML = (order: (typeof selected)[0]) => {
@@ -222,14 +210,17 @@ export default function Invoices() {
       return `
         <div class="inv">
           <div class="hdr">
-            <div class="hdr-logo">
+            <div class="hdr-left">
               ${logoEl}
               <div>
                 <div class="hdr-name">${brandName}</div>
                 <div class="hdr-sub">${brandTagline}</div>
               </div>
             </div>
-            <div class="hdr-order">${brandName}<br><span style="font-size:5pt;opacity:0.65;font-weight:400">ORDER #${String(order.id).padStart(4,"0")}</span></div>
+            <div class="hdr-center">
+              <div class="hdr-brand">${brandName}</div>
+              <div class="hdr-order">ORDER #${String(order.id).padStart(4,"0")}</div>
+            </div>
             <div class="hdr-date">${dateStr}</div>
           </div>
           <div class="cust">
@@ -265,25 +256,35 @@ export default function Invoices() {
               </tr>
             </tbody>
           </table>
-          <div class="info">
-            <div class="inf"><div class="inf-l">المحافظة</div><div class="inf-v">${order.city ?? "—"}</div></div>
-            <div class="inf"><div class="inf-l">شركة الشحن</div><div class="inf-v">${company ? company.name : "—"}</div></div>
-            <div class="inf"><div class="inf-l">رقم التتبع</div><div class="inf-v" style="direction:ltr;text-align:right">${trackingNumber || "—"}</div></div>
+          <div class="meta">
+            <div class="meta-cell">
+              <span class="meta-l">رقم التتبع</span>
+              <span class="meta-v" style="direction:ltr;text-align:right">${trackingNumber || "—"}</span>
+            </div>
+            <div class="meta-cell">
+              <span class="meta-l">شركة الشحن</span>
+              <span class="meta-v">${company ? company.name : "—"}</span>
+            </div>
+            <div class="meta-cell">
+              <span class="meta-l">المحافظة</span>
+              <span class="meta-v">${order.city ?? "—"}</span>
+            </div>
           </div>
           <div class="addr">
             <span class="addr-l">العنوان:</span>
             <span class="addr-v">${address || "—"}</span>
           </div>
-          <div class="notes">
+          ${notes ? `<div class="notes">
             <span class="notes-l">📝 ملاحظات:</span>
-            <span class="notes-v">${notes || "—"}</span>
-          </div>
+            <span class="notes-v">${notes}</span>
+          </div>` : ""}
           <div class="confirm">
             <strong>✓ التأكيد على الشحن:</strong> تم التأكيد مع العميل — في حالة عدم الاستلام يتم دفع مصاريف الشحن كاملة
           </div>
           </div>
           <div class="ftr">
-            <div class="ftr-txt">الاسترجاع أثناء تواجد المندوب · الاستبدال خلال 7 أيام · ضمان 6 أشهر · احتفظ بالفاتورة</div>
+            <span class="ftr-txt">الاسترجاع أثناء تواجد المندوب · الاستبدال خلال 7 أيام · احتفظ بالفاتورة</span>
+            <span class="ftr-brand">${brandName}</span>
           </div>
         </div>
       `;
