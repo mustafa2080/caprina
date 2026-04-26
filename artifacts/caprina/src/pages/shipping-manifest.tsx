@@ -1,4 +1,5 @@
-import { useState, useCallback, useMemo } from "react";
+﻿import { useState, useCallback, useMemo } from "react";
+import * as XLSX from "xlsx";
 import { useParams, Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -65,6 +66,8 @@ import {
   FileText,
   Search,
   PackagePlus,
+  FileSpreadsheet,
+  Upload,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/contexts/AuthContext";
@@ -640,6 +643,165 @@ function CloseConfirmDialog({
   );
 }
 
+// ─── Excel Import Dialog ─────────────────────────────────────────────────────
+type ExcelRow = {
+  orderId?: number;
+  customerName?: string;
+  deliveryStatus?: string;
+  deliveryNote?: string;
+  partialQuantity?: number;
+};
+
+function ExcelImportDialog({
+  manifest,
+  onClose,
+  onImported,
+}: {
+  manifest: ShippingManifestDetail;
+  onClose: () => void;
+  onImported: () => void;
+}) {
+  const { toast } = useToast();
+  const [rows, setRows] = useState<ExcelRow[]>([]);
+  const [importing, setImporting] = useState(false);
+  const [fileName, setFileName] = useState("");
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const data = new Uint8Array(ev.target?.result as ArrayBuffer);
+      const workbook = XLSX.read(data, { type: "array" });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const json: Record<string, unknown>[] = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+
+      const parsed: ExcelRow[] = json.map((r) => {
+        // Try to find orderId by matching customerName or explicit id column
+        const idVal = r["رقم الطلب"] ?? r["order_id"] ?? r["id"] ?? r["ID"];
+        const nameVal = String(r["اسم العميل"] ?? r["customer"] ?? r["الاسم"] ?? r["name"] ?? "");
+        const statusVal = String(r["الحالة"] ?? r["status"] ?? r["delivery_status"] ?? "");
+        const noteVal = String(r["ملاحظة"] ?? r["note"] ?? r["notes"] ?? "");
+        const partialQty = Number(r["الكمية المستلمة"] ?? r["partial_quantity"] ?? 0);
+
+        // Match to manifest orders by id or name
+        const matchedOrder = manifest.orders.find((o) => {
+          if (idVal && Number(idVal) === o.id) return true;
+          if (nameVal && o.customerName?.trim().toLowerCase() === nameVal.trim().toLowerCase()) return true;
+          return false;
+        });
+
+        return {
+          orderId: matchedOrder?.id,
+          customerName: matchedOrder?.customerName ?? nameVal,
+          deliveryStatus: normalizeStatus(statusVal) ?? undefined,
+          deliveryNote: noteVal || undefined,
+          partialQuantity: partialQty || undefined,
+        };
+      }).filter((r) => r.orderId && r.deliveryStatus);
+
+      setRows(parsed);
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const handleImport = async () => {
+    if (rows.length === 0) return;
+    setImporting(true);
+    let success = 0;
+    let failed = 0;
+    for (const row of rows) {
+      try {
+        await apiFetch(`/manifests/${manifest.id}/orders/${row.orderId}/delivery`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            deliveryStatus: row.deliveryStatus,
+            deliveryNote: row.deliveryNote ?? null,
+            partialQuantity: row.partialQuantity ?? null,
+          }),
+        });
+        success++;
+      } catch {
+        failed++;
+      }
+    }
+    setImporting(false);
+    toast({
+      title: "اكتمل الاستيراد",
+      description: `تم تحديث ${success} طلبية${failed > 0 ? ` — فشل ${failed}` : ""}`,
+      variant: failed > 0 ? "destructive" : "default",
+    });
+    if (success > 0) {
+      onImported();
+      onClose();
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="bg-card border-border max-w-xl" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="text-right flex items-center gap-2">
+            <FileSpreadsheet className="w-4 h-4 text-primary" />
+            استيراد حالات التسليم من Excel
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 mt-2">
+          <div className="text-xs text-muted-foreground bg-muted/30 border border-border rounded-md p-3 space-y-1">
+            <p className="font-semibold text-foreground mb-1">تعليمات الاستيراد:</p>
+            <p>• الملف يحتاج أعمدة: <span className="font-mono">رقم الطلب</span> أو <span className="font-mono">اسم العميل</span></p>
+            <p>• عمود الحالة: <span className="font-mono">الحالة</span> — القيم: مسلَّم، مرتجع، مؤجل، استلم جزئي، انتظار</p>
+            <p>• عمود اختياري: <span className="font-mono">ملاحظة</span>، <span className="font-mono">الكمية المستلمة</span></p>
+          </div>
+
+          <label className="flex flex-col items-center justify-center border-2 border-dashed border-border rounded-lg p-6 cursor-pointer hover:border-primary transition-colors gap-2">
+            <Upload className="w-6 h-6 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">
+              {fileName ? fileName : "اضغط لاختيار ملف Excel"}
+            </span>
+            <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFile} />
+          </label>
+
+          {rows.length > 0 && (
+            <div className="border border-border rounded-md overflow-hidden">
+              <div className="bg-muted/30 px-3 py-2 text-xs font-semibold border-b border-border">
+                تم العثور على {rows.length} طلبية قابلة للتحديث
+              </div>
+              <div className="max-h-48 overflow-y-auto">
+                {rows.map((row, i) => {
+                  const opt = DELIVERY_OPTIONS.find(o => o.value === row.deliveryStatus);
+                  return (
+                    <div key={i} className="flex items-center justify-between px-3 py-2 text-xs border-b border-border last:border-0">
+                      <span className="font-medium">{row.customerName}</span>
+                      <Badge variant="outline" className={`text-[10px] ${opt?.color ?? ""}`}>
+                        {opt?.label ?? row.deliveryStatus}
+                      </Badge>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="flex gap-2 mt-2">
+          <Button
+            className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 gap-1"
+            onClick={handleImport}
+            disabled={importing || rows.length === 0}
+          >
+            <Upload className="w-3.5 h-3.5" />
+            {importing ? "جاري الاستيراد..." : `استيراد ${rows.length > 0 ? rows.length + " طلبية" : ""}`}
+          </Button>
+          <Button variant="outline" className="border-border" onClick={onClose}>إلغاء</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Add Orders Dialog ────────────────────────────────────────────────────────
 type OrderRow = {
   id: number; customerName: string; phone: string | null;
@@ -837,6 +999,7 @@ export default function ShippingManifestPage() {
   const [showCloseDialog, setShowCloseDialog] = useState(false);
   const [showReopenDialog, setShowReopenDialog] = useState(false);
   const [showAddOrdersDialog, setShowAddOrdersDialog] = useState(false);
+  const [showExcelImportDialog, setShowExcelImportDialog] = useState(false);
   const [showOrders, setShowOrders] = useState(true);
 
   const { data: manifest, isLoading, error } = useQuery({
@@ -943,24 +1106,28 @@ export default function ShippingManifestPage() {
     <>
     {/* ══════════════ PRINT-ONLY ══════════════ */}
     <div className="manifest-print hidden" dir="rtl">
-      {/* Header */}
+
+      {/* ─── Header ─── */}
       <div className="manifest-print-header">
         <div>
+          <div className="manifest-print-brand">CAPRINA</div>
+          <div className="manifest-print-brand-sub">SHIPPING MANIFEST</div>
+        </div>
+        <div className="manifest-print-info">
           <div className="manifest-print-title">بيان الشحن — {manifest.manifestNumber}</div>
           <div className="manifest-print-meta">
-            شركة الشحن: {manifest.companyName} &nbsp;|&nbsp;
-            التاريخ: {format(new Date(manifest.createdAt), "yyyy/MM/dd")} &nbsp;|&nbsp;
-            الحالة: {manifest.status === "closed" ? "مغلق" : "مفتوح"}
-            {manifest.closedAt && ` | أُغلق: ${format(new Date(manifest.closedAt), "yyyy/MM/dd")}`}
+            شركة الشحن: <strong style={{ color: "#fff" }}>{manifest.companyName}</strong><br />
+            تاريخ الإنشاء: {format(new Date(manifest.createdAt), "yyyy/MM/dd")}&emsp;
+            {manifest.closedAt && <>أُغلق: {format(new Date(manifest.closedAt), "yyyy/MM/dd")}</>}<br />
+            طُبع: {format(new Date(), "yyyy/MM/dd — HH:mm")}
           </div>
-        </div>
-        <div style={{ textAlign: "left", fontSize: "8pt", color: "#555" }}>
-          <div style={{ fontWeight: 900, fontSize: "11pt" }}>CAPRINA</div>
-          <div>طُبع: {format(new Date(), "yyyy/MM/dd HH:mm")}</div>
+          <span className={`manifest-print-badge ${manifest.status === "closed" ? "manifest-print-badge-closed" : "manifest-print-badge-open"}`}>
+            {manifest.status === "closed" ? "✓ مغلق" : "● مفتوح"}
+          </span>
         </div>
       </div>
 
-      {/* Stats row */}
+      {/* ─── Stats strip ─── */}
       <div className="manifest-print-stats">
         <div className="manifest-print-stat">
           <div className="manifest-print-stat-label">إجمالي الطلبيات</div>
@@ -975,8 +1142,16 @@ export default function ShippingManifestPage() {
           <div className="manifest-print-stat-value status-returned">{s.returned}</div>
         </div>
         <div className="manifest-print-stat">
-          <div className="manifest-print-stat-label">مؤجل / انتظار</div>
-          <div className="manifest-print-stat-value status-postponed">{s.pending}</div>
+          <div className="manifest-print-stat-label">مؤجل</div>
+          <div className="manifest-print-stat-value status-postponed">
+            {manifest.orders.filter(o => o.deliveryStatus === "postponed").length}
+          </div>
+        </div>
+        <div className="manifest-print-stat">
+          <div className="manifest-print-stat-label">جزئي</div>
+          <div className="manifest-print-stat-value status-partial">
+            {manifest.orders.filter(o => o.deliveryStatus === "partial_received").length}
+          </div>
         </div>
         <div className="manifest-print-stat">
           <div className="manifest-print-stat-label">نسبة التسليم</div>
@@ -984,17 +1159,18 @@ export default function ShippingManifestPage() {
         </div>
       </div>
 
-      {/* Orders table */}
+      {/* ─── Orders table ─── */}
       <table className="manifest-print-table">
         <thead>
           <tr>
-            <th style={{ width: "6%" }}>#</th>
-            <th style={{ width: "20%" }}>العميل</th>
-            <th style={{ width: "14%" }}>الهاتف</th>
-            <th style={{ width: "28%" }}>المنتج / المقاس / اللون</th>
+            <th style={{ width: "5%", textAlign: "center" }}>#</th>
+            <th style={{ width: "18%" }}>العميل</th>
+            <th style={{ width: "13%" }}>الهاتف</th>
+            <th style={{ width: "26%" }}>المنتج / المواصفات</th>
             <th style={{ width: "7%", textAlign: "center" }}>الكمية</th>
             <th style={{ width: "12%", textAlign: "center" }}>الإجمالي</th>
-            <th style={{ width: "13%", textAlign: "center" }}>الحالة</th>
+            <th style={{ width: "11%", textAlign: "center" }}>الحالة</th>
+            <th style={{ width: "8%" }}>ملاحظة</th>
           </tr>
         </thead>
         <tbody>
@@ -1003,16 +1179,21 @@ export default function ShippingManifestPage() {
             const variant = [o.color, o.size].filter(Boolean).join(" / ");
             return (
               <tr key={o.id}>
-                <td style={{ textAlign: "center", color: "#888" }}>{idx + 1}</td>
-                <td style={{ fontWeight: 700 }}>{o.customerName}</td>
-                <td style={{ direction: "ltr", textAlign: "right" }}>{o.phone ?? "—"}</td>
+                <td style={{ textAlign: "center", color: "#9ca3af", fontSize: "7pt" }}>{idx + 1}</td>
+                <td style={{ fontWeight: 700 }}>
+                  {o.customerName}
+                  <div style={{ fontSize: "6.5pt", color: "#9ca3af", fontWeight: 400 }}>
+                    #{o.id.toString().padStart(4, "0")}
+                  </div>
+                </td>
+                <td style={{ direction: "ltr", textAlign: "right", fontSize: "7.5pt" }}>{o.phone ?? "—"}</td>
                 <td>
                   {o.product}
-                  {variant && <span style={{ color: "#666" }}> ({variant})</span>}
+                  {variant && <span style={{ color: "#6b7280", fontSize: "7.5pt" }}> ({variant})</span>}
                 </td>
-                <td style={{ textAlign: "center" }}>
+                <td style={{ textAlign: "center", fontWeight: 700 }}>
                   {o.deliveryStatus === "partial_received" && o.partialQuantity
-                    ? `${o.partialQuantity}/${o.quantity}`
+                    ? <><span style={{ color: "#0f766e" }}>{o.partialQuantity}</span><span style={{ color: "#9ca3af" }}>/{o.quantity}</span></>
                     : o.quantity}
                 </td>
                 <td style={{ textAlign: "center", fontWeight: 700 }}>
@@ -1020,37 +1201,61 @@ export default function ShippingManifestPage() {
                 </td>
                 <td style={{ textAlign: "center" }}>
                   <span className={cls}>{label}</span>
-                  {o.deliveryNote && (
-                    <div style={{ fontSize: "7pt", color: "#777", marginTop: "0.5mm" }}>
-                      {o.deliveryNote}
-                    </div>
-                  )}
                 </td>
+                <td style={{ fontSize: "7pt", color: "#6b7280" }}>{o.deliveryNote ?? ""}</td>
               </tr>
             );
           })}
         </tbody>
       </table>
 
-      {/* Footer / Totals */}
-      <div className="manifest-print-footer">
-        <div>
-          <div className="manifest-print-total">
-            إجمالي المحصَّل: {totalCollected.toLocaleString("ar-EG")} ج.م
-          </div>
-          <div style={{ fontSize: "8pt", color: "#555", marginTop: "1.5mm" }}>
-            رسوم الشحن: {s.totalShippingCost.toLocaleString("ar-EG")} ج.م &nbsp;|&nbsp;
-            الصافي المستحق: {(totalCollected - s.totalShippingCost).toLocaleString("ar-EG")} ج.م
-            {manifest.invoicePrice != null && (
-              <> &nbsp;|&nbsp; سعر الفاتورة المتفق: {manifest.invoicePrice.toLocaleString("ar-EG")} ج.م</>
-            )}
+      {/* ─── Totals cards ─── */}
+      <div className="manifest-print-totals">
+        <div className="manifest-print-total-card">
+          <div className="manifest-print-total-label">إجمالي المحصَّل</div>
+          <div className="manifest-print-total-value">{totalCollected.toLocaleString("ar-EG")} ج.م</div>
+        </div>
+        <div className="manifest-print-total-card">
+          <div className="manifest-print-total-label">رسوم الشحن</div>
+          <div className="manifest-print-total-value" style={{ color: "#d97706" }}>
+            {(manifest.manualShippingCost ?? s.totalShippingCost).toLocaleString("ar-EG")} ج.م
           </div>
         </div>
-        <div className="manifest-print-sig">
-          <div>توقيع المندوب: ________________</div>
-          <div style={{ marginTop: "3mm" }}>توقيع المسؤول: ________________</div>
+        <div className="manifest-print-total-card highlight">
+          <div className="manifest-print-total-label">الصافي المستحق</div>
+          <div className="manifest-print-total-value">
+            {(totalCollected - (manifest.manualShippingCost ?? s.totalShippingCost)).toLocaleString("ar-EG")} ج.م
+          </div>
+        </div>
+        {manifest.invoicePrice != null && (
+          <div className="manifest-print-total-card">
+            <div className="manifest-print-total-label">سعر الفاتورة المتفق</div>
+            <div className="manifest-print-total-value" style={{ color: "#1d4ed8" }}>
+              {manifest.invoicePrice.toLocaleString("ar-EG")} ج.م
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ─── Footer / Signatures ─── */}
+      <div className="manifest-print-footer">
+        <div className="manifest-print-watermark">
+          CAPRINA · {manifest.manifestNumber} · {format(new Date(), "yyyy")}
+        </div>
+        <div style={{ display: "flex", gap: "4mm" }}>
+          <div className="manifest-print-sig-box">
+            <div className="manifest-print-sig-title">توقيع المندوب</div>
+            <div className="manifest-print-sig-line" />
+            <div className="manifest-print-sig-name">الاسم: ___________</div>
+          </div>
+          <div className="manifest-print-sig-box">
+            <div className="manifest-print-sig-title">توقيع المسؤول</div>
+            <div className="manifest-print-sig-line" />
+            <div className="manifest-print-sig-name">الاسم: ___________</div>
+          </div>
         </div>
       </div>
+
     </div>
 
     {/* ══════════════ SCREEN-ONLY ══════════════ */}
@@ -1106,6 +1311,16 @@ export default function ShippingManifestPage() {
           >
             <Printer className="w-3 h-3" />طباعة
           </Button>
+          {!isLocked && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs gap-1 border-emerald-700/50 text-emerald-500 hover:bg-emerald-900/20"
+              onClick={() => setShowExcelImportDialog(true)}
+            >
+              <FileSpreadsheet className="w-3 h-3" />استيراد Excel
+            </Button>
+          )}
           {/* إضافة طلبيات — أدمن فقط + البيان مفتوح */}
           {isAdmin && !isLocked && (
             <Button
@@ -1461,6 +1676,14 @@ export default function ShippingManifestPage() {
       </AlertDialog>
 
       {/* ─── Add Orders Dialog ─── */}
+            {showExcelImportDialog && manifest && !isLocked && (
+        <ExcelImportDialog
+          manifest={manifest}
+          onClose={() => setShowExcelImportDialog(false)}
+          onImported={refetch}
+        />
+      )}
+
       {showAddOrdersDialog && manifest && (
         <AddOrdersToManifestDialog
           manifestId={id}
