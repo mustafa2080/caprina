@@ -574,7 +574,7 @@ export default function ShippingManifestPage() {
   const id = Number(params.id);
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { canViewFinancials } = useAuth();
+  const { canViewFinancials, isAdmin } = useAuth();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showCloseDialog, setShowCloseDialog] = useState(false);
   const [showOrders, setShowOrders] = useState(true);
@@ -846,34 +846,40 @@ export default function ShippingManifestPage() {
           >
             <Printer className="w-3 h-3" />طباعة
           </Button>
-          {isLocked ? (
+          {/* إغلاق / فتح البيان — أدمن فقط */}
+          {isAdmin && (
+            isLocked ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs gap-1 border-amber-800 text-amber-400 hover:bg-amber-900/20"
+                onClick={() => updateMutation.mutate({ status: "open" })}
+                disabled={updateMutation.isPending}
+              >
+                <Unlock className="w-3 h-3" />فتح
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs gap-1 border-emerald-800 text-emerald-400 hover:bg-emerald-900/20"
+                onClick={() => setShowCloseDialog(true)}
+              >
+                <Lock className="w-3 h-3" />إغلاق البيان
+              </Button>
+            )
+          )}
+          {/* حذف البيان — أدمن فقط */}
+          {isAdmin && (
             <Button
               variant="outline"
               size="sm"
-              className="h-8 text-xs gap-1 border-amber-800 text-amber-400 hover:bg-amber-900/20"
-              onClick={() => updateMutation.mutate({ status: "open" })}
-              disabled={updateMutation.isPending}
+              className="h-8 text-xs gap-1 border-red-800 text-red-400 hover:bg-red-900/20 hover:text-red-400"
+              onClick={() => setShowDeleteDialog(true)}
             >
-              <Unlock className="w-3 h-3" />فتح
-            </Button>
-          ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 text-xs gap-1 border-emerald-800 text-emerald-400 hover:bg-emerald-900/20"
-              onClick={() => setShowCloseDialog(true)}
-            >
-              <Lock className="w-3 h-3" />إغلاق البيان
+              <Trash2 className="w-3 h-3" />حذف
             </Button>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 text-xs gap-1 border-red-800 text-red-400 hover:bg-red-900/20 hover:text-red-400"
-            onClick={() => setShowDeleteDialog(true)}
-          >
-            <Trash2 className="w-3 h-3" />حذف
-          </Button>
         </div>
       </div>
 

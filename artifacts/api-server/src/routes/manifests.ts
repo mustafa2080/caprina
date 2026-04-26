@@ -9,6 +9,7 @@ import {
 } from "@workspace/db";
 import { z } from "zod";
 import { requireAuth } from "../middlewares/requireAuth";
+import { requireAdmin } from "../middlewares/requireRole";
 import {
   processDelivery,
   reverseDelivery,
@@ -292,7 +293,7 @@ router.get("/shipping-manifests/:id", async (req, res): Promise<void> => {
   });
 });
 
-router.patch("/shipping-manifests/:id", async (req, res): Promise<void> => {
+router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid ID" });
@@ -540,7 +541,7 @@ router.patch(
   }
 );
 
-router.delete("/shipping-manifests/:id", async (req, res): Promise<void> => {
+router.delete("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid ID" });
