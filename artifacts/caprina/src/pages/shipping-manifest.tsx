@@ -425,10 +425,11 @@ function SettlementCard({ manifest, onSaved }: { manifest: ShippingManifestDetai
   const [shippingVal, setShippingVal] = useState(manifest.manualShippingCost?.toString() ?? "");
 
   const shippingMutation = useMutation({
-    mutationFn: () =>
-      manifestsApi.update(manifest.id, {
-        manualShippingCost: shippingVal ? parseFloat(shippingVal) : null,
-      }),
+    mutationFn: (val: string) => {
+      const parsed = val.trim() === "" ? null : parseFloat(val);
+      if (parsed !== null && isNaN(parsed)) throw new Error("قيمة غير صحيحة");
+      return manifestsApi.update(manifest.id, { manualShippingCost: parsed });
+    },
     onSuccess: () => {
       toast({ title: "تم حفظ تكلفة الشحن" });
       setEditingShipping(false);
@@ -481,7 +482,7 @@ function SettlementCard({ manifest, onSaved }: { manifest: ShippingManifestDetai
                 autoFocus
               />
               <span className="text-[10px] text-muted-foreground">ج.م</span>
-              <button onClick={() => shippingMutation.mutate()} disabled={shippingMutation.isPending}
+              <button onClick={() => shippingMutation.mutate(shippingVal)} disabled={shippingMutation.isPending}
                 className="text-[10px] text-emerald-500 hover:text-emerald-400 font-bold px-1">
                 <Check className="w-3.5 h-3.5" />
               </button>
