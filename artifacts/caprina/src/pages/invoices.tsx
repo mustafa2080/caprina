@@ -281,19 +281,19 @@ export default function Invoices() {
               </tbody>
             </table>
 
-            <!-- INFO: رقم التتبع | شركة الشحن | المحافظة -->
+            <!-- INFO: المحافظة | شركة الشحن | رقم التتبع -->
             <div class="info-strip">
               <div class="info-cell">
-                <span class="info-lbl">رقم التتبع</span>
-                <span class="info-val" style="direction:ltr;text-align:right">${trackingNumber || "&#8212;"}</span>
+                <span class="info-lbl">المحافظة</span>
+                <span class="info-val">${city || "&#8212;"}</span>
               </div>
               <div class="info-cell">
                 <span class="info-lbl">شركة الشحن</span>
                 <span class="info-val">${company ? company.name : "&#8212;"}</span>
               </div>
               <div class="info-cell">
-                <span class="info-lbl">المحافظة</span>
-                <span class="info-val">${city || "&#8212;"}</span>
+                <span class="info-lbl">رقم التتبع</span>
+                <span class="info-val" style="direction:ltr;text-align:right">${trackingNumber || "&#8212;"}</span>
               </div>
             </div>
 
