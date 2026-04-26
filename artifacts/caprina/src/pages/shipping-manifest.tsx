@@ -726,31 +726,51 @@ function ExportDialog({
       postponed: SI.postponed, partial_received: SI.partial, pending: SI.pending,
     }[st] ?? SI.pending);
 
+    // ── Column letter helper ──
+    const colLetter = (idx: number): string => {
+      let s = "";
+      let n = idx + 1;
+      while (n > 0) { s = String.fromCharCode(64 + (n % 26 || 26)) + s; n = Math.floor((n - 1) / 26); }
+      return s;
+    };
+
     // ── Cell builders — use shared string indices for text ──
-    const sCell = (style: number, v: string) =>
-      `<c s="${style}" t="s"><v>${si(v)}</v></c>`;
-    const nCell = (style: number, v: number) =>
-      `<c s="${style}" t="n"><v>${v}</v></c>`;
-    const empty = (style: number) =>
-      `<c s="${style}" t="s"><v>${si("")}</v></c>`;
-    const merged = (style: number, v: string) =>
-      `<c s="${style}" t="s"><v>${si(v)}</v></c>`;
+    // colIdx is the 0-based column position, rowNum is the 1-based row number
+    let _curRow = 0;
+    let _curCol = 0;
+    const resetCellCol = () => { _curCol = 0; };
+
+    // Stateful builders that auto-track column position
+    const sCell = (style: number, v: string) => {
+      const ref = `${colLetter(_curCol)}${_curRow}`;
+      _curCol++;
+      return `<c r="${ref}" s="${style}" t="s"><v>${si(v)}</v></c>`;
+    };
+    const nCell = (style: number, v: number) => {
+      const ref = `${colLetter(_curCol)}${_curRow}`;
+      _curCol++;
+      return `<c r="${ref}" s="${style}" t="n"><v>${v}</v></c>`;
+    };
+    const empty = (style: number) => {
+      const ref = `${colLetter(_curCol)}${_curRow}`;
+      _curCol++;
+      return `<c r="${ref}" s="${style}"/>`;
+    };
+    const merged = (style: number, v: string) => {
+      const ref = `${colLetter(_curCol)}${_curRow}`;
+      _curCol++;
+      return `<c r="${ref}" s="${style}" t="s"><v>${si(v)}</v></c>`;
+    };
 
     // ── Build sheet XML ──
     const buildSheet = (rows: string[], colWidths: number[], merges: string[] = []) => {
-      const cols = colWidths.map(w => `<col width="${w}" customWidth="1"/>`).join("");
+      const cols = colWidths.map((w, i) => `<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join("");
       const mergeCells = merges.length
         ? `<mergeCells count="${merges.length}">${merges.map(m => `<mergeCell ref="${m}"/>`).join("")}</mergeCells>`
         : "";
       return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
-  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
-  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="x14ac xr xr2 xr3"
-  xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac"
-  xmlns:xr="http://schemas.microsoft.com/office/spreadsheetml/2014/revision"
-  xmlns:xr2="http://schemas.microsoft.com/office/spreadsheetml/2015/revision2"
-  xmlns:xr3="http://schemas.microsoft.com/office/spreadsheetml/2016/revision3">
-  <sheetPr><outlinePr summaryBelow="0" summaryRight="0"/></sheetPr>
+  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
   <sheetViews><sheetView rightToLeft="1" showGridLines="1" tabSelected="1" workbookViewId="0"/></sheetViews>
   <sheetFormatPr baseColWidth="10" defaultRowHeight="16"/>
   <cols>${cols}</cols>
@@ -762,9 +782,20 @@ function ExportDialog({
     // ── Row builder ──
     let rowIdx = 0;
     const resetRow = () => { rowIdx = 0; };
-    const mkRow = (ht: number, cells: string) => {
+    // startRow must be called BEFORE building cells, then mkRow after
+    const startRow = () => {
       rowIdx++;
-      return `<row r="${rowIdx}" ht="${ht}" customHeight="1">${cells}</row>`;
+      _curRow = rowIdx;
+      _curCol = 0;
+      return rowIdx;
+    };
+    const mkRow = (ht: number, cells: string) => {
+      return `<row r="${_curRow}" ht="${ht}" customHeight="1">${cells}</row>`;
+    };
+    // Convenience: start + build cells + close row in one call
+    const row = (ht: number, buildCells: () => string) => {
+      startRow();
+      return mkRow(ht, buildCells());
     };
 
     // ═══════════════════════════════════════════════
@@ -776,27 +807,21 @@ function ExportDialog({
 
     // Row 1: اسم الشركة كبير (merged A1:J1)
     const companyTitle = `${brandName}${brandTagline ? "  ·  " + brandTagline : ""}`;
-    sheet1Rows.push(mkRow(38,
-      merged(SI.brandTitle, companyTitle) + Array(nCols - 1).fill(empty(SI.brandTitle)).join("")
-    ));
+    sheet1Rows.push(row(38, () => merged(SI.brandTitle, companyTitle) + Array.from({length: nCols - 1}, () => empty(SI.brandTitle)).join("")));
 
     // Row 2: عنوان البيان (merged A2:J2)
     const titleText = `بيان الشحن — ${manifest.manifestNumber}   |   ${manifest.companyName}   |   ${manifestDate}`;
-    sheet1Rows.push(mkRow(26,
-      merged(SI.title, titleText) + Array(nCols - 1).fill(empty(SI.title)).join("")
-    ));
+    sheet1Rows.push(row(26, () => merged(SI.title, titleText) + Array.from({length: nCols - 1}, () => empty(SI.title)).join("")));
 
     // Row 3: معلومات الطباعة (merged A3:J3)
-    sheet1Rows.push(mkRow(18,
-      merged(SI.printInfo, `طُبع: ${printDate}   |   إجمالي الطلبيات: ${manifest.orders.length}   |   نسبة التسليم: ${s.deliveryRate}%`) + Array(nCols - 1).fill(empty(SI.printInfo)).join("")
-    ));
+    sheet1Rows.push(row(18, () => merged(SI.printInfo, `طُبع: ${printDate}   |   إجمالي الطلبيات: ${manifest.orders.length}   |   نسبة التسليم: ${s.deliveryRate}%`) + Array.from({length: nCols - 1}, () => empty(SI.printInfo)).join("")));
 
     // Row 4: فراغ
-    sheet1Rows.push(mkRow(8, Array(nCols).fill(empty(SI.spacer)).join("")));
+    sheet1Rows.push(row(8, () => Array.from({length: nCols}, () => empty(SI.spacer)).join("")));
 
     // Row 5: Header columns
     const hdrs = ["#", "رقم الطلب", "اسم العميل", "الهاتف", "المنتج", "اللون / المقاس", "الكمية", "الإجمالي", "حالة التسليم", "ملاحظة"];
-    sheet1Rows.push(mkRow(22, hdrs.map(h => sCell(SI.header, h)).join("")));
+    sheet1Rows.push(row(22, () => hdrs.map(h => sCell(SI.header, h)).join("")));
 
     // Rows: data
     manifest.orders.forEach((o, idx) => {
@@ -805,7 +830,7 @@ function ExportDialog({
       const baseN = isAlt ? SI.altNum : SI.whiteNum;
       const stSI  = statusSI(o.deliveryStatus);
       const variant = [o.color, o.size].filter(Boolean).join(" / ") || "—";
-      sheet1Rows.push(mkRow(20, [
+      sheet1Rows.push(row(20, () => [
         nCell(base, idx + 1),
         nCell(base, o.id),
         sCell(base, o.customerName),
@@ -821,9 +846,10 @@ function ExportDialog({
 
     // Row: totals
     const grandTotal = manifest.orders.reduce((s, o) => s + o.totalPrice, 0);
-    sheet1Rows.push(mkRow(24, [
+    sheet1Rows.push(row(24, () => [
       sCell(SI.totalDark, "الإجمالي الكلي"),
-      ...Array(6).fill(empty(SI.totalDark)),
+      empty(SI.totalDark), empty(SI.totalDark), empty(SI.totalDark),
+      empty(SI.totalDark), empty(SI.totalDark), empty(SI.totalDark),
       nCell(SI.netGreen, grandTotal),
       sCell(SI.totalDark, `${s.deliveryRate}% نسبة تسليم`),
       empty(SI.totalDark),
@@ -841,29 +867,19 @@ function ExportDialog({
     const sheet2Rows: string[] = [];
 
     const mkSection2 = (label: string) => {
-      sheet2Rows.push(mkRow(22,
-        merged(SI.sectionBlue, label) + empty(SI.sectionBlue)
-      ));
+      sheet2Rows.push(row(22, () => merged(SI.sectionBlue, label) + empty(SI.sectionBlue)));
     };
     const mkInfoRow = (label: string, val: string, valSI = SI.white) => {
-      sheet2Rows.push(mkRow(20,
-        sCell(SI.labelGray, label) + sCell(valSI, val)
-      ));
+      sheet2Rows.push(row(20, () => sCell(SI.labelGray, label) + sCell(valSI, val)));
     };
     const mkMoneyRow2 = (label: string, val: number, rowSI: number) => {
-      sheet2Rows.push(mkRow(22,
-        sCell(rowSI, label) + sCell(rowSI, fmtMoney(val))
-      ));
+      sheet2Rows.push(row(22, () => sCell(rowSI, label) + sCell(rowSI, fmtMoney(val))));
     };
 
     // عنوان Sheet 2
-    sheet2Rows.push(mkRow(40,
-      merged(SI.brandTitle, `${brandName}${brandTagline ? "  ·  " + brandTagline : ""}`) + empty(SI.brandTitle)
-    ));
-    sheet2Rows.push(mkRow(26,
-      merged(SI.title, `ملخص بيان الشحن — ${manifest.manifestNumber}`) + empty(SI.title)
-    ));
-    sheet2Rows.push(mkRow(8, empty(SI.spacer) + empty(SI.spacer)));
+    sheet2Rows.push(row(40, () => merged(SI.brandTitle, `${brandName}${brandTagline ? "  ·  " + brandTagline : ""}`) + empty(SI.brandTitle)));
+    sheet2Rows.push(row(26, () => merged(SI.title, `ملخص بيان الشحن — ${manifest.manifestNumber}`) + empty(SI.title)));
+    sheet2Rows.push(row(8, () => empty(SI.spacer) + empty(SI.spacer)));
 
     mkSection2("معلومات البيان");
     mkInfoRow("رقم البيان",     manifest.manifestNumber, SI.subHeader);
@@ -874,7 +890,7 @@ function ExportDialog({
     if (manifest.closedAt)
       mkInfoRow("تاريخ الإغلاق", format(new Date(manifest.closedAt), "yyyy/MM/dd"));
 
-    sheet2Rows.push(mkRow(8, empty(SI.white) + empty(SI.white)));
+    sheet2Rows.push(row(8, () => empty(SI.white) + empty(SI.white)));
     mkSection2("إحصائيات التسليم");
     mkInfoRow("إجمالي الطلبيات", String(s.total),       SI.subHeader);
     mkInfoRow("مسلَّم",           String(s.delivered),   SI.delivered);
@@ -885,7 +901,7 @@ function ExportDialog({
     mkInfoRow("نسبة التسليم",    `${s.deliveryRate}%`,
       s.deliveryRate >= 70 ? SI.moneyGreen : s.deliveryRate >= 40 ? SI.postponed : SI.returned);
 
-    sheet2Rows.push(mkRow(8, empty(SI.white) + empty(SI.white)));
+    sheet2Rows.push(row(8, () => empty(SI.white) + empty(SI.white)));
     mkSection2("الحساب المالي");
     mkMoneyRow2("اجمالي المحصَّل",   totalCollected,   SI.moneyGreen);
     mkMoneyRow2("رسوم الشحن",        effectiveShipping, SI.shippingBrown);
@@ -923,19 +939,15 @@ function ExportDialog({
       const rows: string[] = [];
 
       // عنوان
-      rows.push(mkRow(28,
-        merged(si, `${label} — ${orders.length} طلبية`) +
-        Array(7).fill(empty(si)).join("")
-      ));
+      rows.push(row(28, () => merged(si, `${label} — ${orders.length} طلبية`) + Array.from({length: 7}, () => empty(si)).join("")));
       // هيدر
-      rows.push(mkRow(20, ["#", "رقم الطلب", "اسم العميل", "الهاتف", "المنتج", "الكمية", "الإجمالي", "ملاحظة"]
-        .map(h => sCell(SI.header, h)).join("")));
+      rows.push(row(20, () => ["#", "رقم الطلب", "اسم العميل", "الهاتف", "المنتج", "الكمية", "الإجمالي", "ملاحظة"].map(h => sCell(SI.header, h)).join("")));
 
       orders.forEach((o, idx) => {
         const isAlt = idx % 2 === 1;
         const base  = isAlt ? SI.alt : SI.white;
         const baseN = isAlt ? SI.altNum : SI.whiteNum;
-        rows.push(mkRow(20, [
+        rows.push(row(20, () => [
           nCell(base, idx + 1),
           nCell(base, o.id),
           sCell(base, o.customerName),
@@ -949,9 +961,9 @@ function ExportDialog({
 
       // مجموع
       const sub = orders.reduce((sum, o) => sum + o.totalPrice, 0);
-      rows.push(mkRow(22, [
+      rows.push(row(22, () => [
         sCell(si, `المجموع (${orders.length})`),
-        ...Array(5).fill(empty(si)),
+        empty(si), empty(si), empty(si), empty(si), empty(si),
         sCell(si, fmtMoney(sub)),
         empty(si),
       ].join("")));
@@ -1071,7 +1083,7 @@ ${ssArr.map(s => `<si><t xml:space="preserve">${esc(s)}</t></si>`).join("")}
     <!-- 22: printInfo — small gray on dark -->
     <xf numFmtId="0" fontId="11" fillId="3" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center" readingOrder="2"/></xf>
     <!-- 23: spacer — empty dark -->
-    <xf numFmtId="0" fontId="0" fillId="3" borderId="0" xfId="0" applyFill="1"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="3" borderId="0" xfId="0" applyFill="1"/>
   </cellXfs>
 </styleSheet>`;
 
