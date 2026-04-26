@@ -117,7 +117,8 @@ export default function Invoices() {
         display: flex;
         flex-direction: column;
         flex: 1;
-        gap: 0;
+        justify-content: space-between;
+        padding: 0 0 1mm 0;
         overflow: hidden;
       }
       .hdr {
@@ -170,17 +171,17 @@ export default function Invoices() {
         border: 1px solid #333;
         border-radius: 0.8mm;
         padding: 1mm 1.5mm;
-        flex: 1;
+        flex-shrink: 0;
         display: flex;
         gap: 1.5mm;
-        align-items: flex-start;
+        align-items: stretch;
         background: #fff;
-        min-height: 6mm;
+        min-height: 7mm;
       }
       .addr-l { font-size: 6.5pt; color: #555; font-weight: 700; white-space: nowrap; padding-top: 0.3mm; flex-shrink: 0; }
       .addr-v {
         font-size: 7.5pt; font-weight: 700; line-height: 1.5;
-        overflow: hidden; word-break: break-word;
+        overflow: hidden; word-break: break-word; flex: 1;
       }
       .notes {
         margin: 1mm 2.5mm 0; background: #fffbea;
