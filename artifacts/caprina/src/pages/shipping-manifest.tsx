@@ -1327,7 +1327,7 @@ export default function ShippingManifestPage() {
         <Card className="border-border bg-card p-4">
           <p className="text-xs text-muted-foreground mb-1">تكلفة الشحن</p>
           <p className="text-lg font-black text-amber-400">
-            {formatCurrency(s.totalShippingCost)}
+            {formatCurrency(manifest.manualShippingCost ?? s.totalShippingCost)}
           </p>
         </Card>
         <Card className="border-border bg-card p-4">
