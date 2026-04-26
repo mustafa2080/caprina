@@ -70,6 +70,17 @@ export default function Invoices() {
     if (!selected.length) { alert("اختر طلبات للطباعة اولا."); return; }
 
     let logoB64 = "";
+    if (brand.logoUrl) {
+      try {
+        const r = await fetch(brand.logoUrl);
+        const blob = await r.blob();
+        logoB64 = await new Promise<string>(res => {
+          const reader = new FileReader();
+          reader.onload = () => res(reader.result as string);
+          reader.readAsDataURL(blob);
+        });
+      } catch {}
+    }
     const brandName    = brand.name    || "CAPRINA";
     const brandTagline = brand.tagline || "WIN OR DIE";
 
