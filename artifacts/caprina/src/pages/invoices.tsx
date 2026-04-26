@@ -67,7 +67,7 @@ export default function Invoices() {
 
   const handlePrint = async () => {
     const selected = orders.filter(o => selectedIds.has(o.id));
-    if (!selected.length) { alert("اختر طلبات للطباعة أولاً."); return; }
+    if (!selected.length) { alert("اختر طلبات للطباعة اولا."); return; }
 
     let logoB64 = "";
     const brandName    = brand.name    || "CAPRINA";
@@ -113,7 +113,6 @@ export default function Invoices() {
         min-height: 0;
       }
       .inv-body { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
-      /* HEADER */
       .hdr {
         background: #1a1a1a; color: #fff;
         display: flex; align-items: center; justify-content: space-between;
@@ -127,7 +126,6 @@ export default function Invoices() {
       .hdr-brand  { font-size: 8.5pt; font-weight: 700; letter-spacing: 1px; }
       .hdr-order  { font-size: 6pt; opacity: 0.65; font-weight: 400; }
       .hdr-date   { font-size: 7.5pt; opacity: 0.85; font-weight: 600; }
-      /* CUSTOMER */
       .cust {
         display: flex; align-items: center; justify-content: space-between;
         padding: 1.3mm 3mm; border-bottom: 1px solid #ccc;
@@ -135,7 +133,6 @@ export default function Invoices() {
       }
       .cust-name  { font-size: 11.5pt; font-weight: 900; }
       .cust-phone { font-size: 10pt; font-weight: 700; direction: ltr; }
-      /* TABLE */
       .tbl { width: 100%; border-collapse: collapse; flex-shrink: 0; table-layout: fixed; }
       .tbl th {
         background: #1a1a1a; color: #fff; border: 0.5px solid #333;
@@ -148,13 +145,11 @@ export default function Invoices() {
       }
       .tbl td.pname { text-align: right; font-weight: 700; font-size: 9pt; }
       .tbl .tot td  { background: #e8e8e8; font-weight: 900; font-size: 9pt; border-color: #999; }
-      /* META ROW */
       .meta { display: flex; border-bottom: 0.5px solid #ddd; flex-shrink: 0; background: #fafafa; }
       .meta-cell { flex: 1; padding: 0.8mm 2.5mm; border-left: 0.5px solid #ddd; display: flex; flex-direction: column; }
       .meta-cell:last-child { border-left: none; }
       .meta-l { font-size: 5.5pt; color: #888; }
       .meta-v { font-size: 7.5pt; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      /* ADDRESS */
       .addr {
         margin: 1.5mm 3mm 0; border: 1.2px solid #333; border-radius: 1mm;
         padding: 1.2mm 2mm; flex-shrink: 0;
@@ -163,9 +158,6 @@ export default function Invoices() {
       }
       .addr-l { font-size: 7pt; color: #444; font-weight: 700; white-space: nowrap; padding-top: 0.3mm; flex-shrink: 0; }
       .addr-v { font-size: 8.5pt; font-weight: 700; line-height: 1.5; word-break: break-word; }
-      /* SPACER — يبتلع الفراغ الزيادة */
-      .spacer { flex: 1; min-height: 0; }
-      /* NOTES */
       .notes {
         margin: 1.2mm 3mm 0; background: #fffbea;
         border: 0.8px solid #f59e0b; border-right: 3px solid #f59e0b;
@@ -178,14 +170,13 @@ export default function Invoices() {
         display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
         overflow: hidden; word-break: break-word; line-height: 1.4;
       }
-      /* CONFIRM */
       .confirm {
-        margin: 1mm 3mm 1.5mm; border: 0.5px solid #bbb; border-radius: 0.8mm;
+        margin: auto 3mm 1.5mm;
+        border: 0.5px solid #bbb; border-radius: 0.8mm;
         padding: 0.8mm 1.5mm; font-size: 6.5pt; color: #444; line-height: 1.4;
         flex-shrink: 0; overflow: hidden;
       }
       .confirm strong { color: #111; font-weight: 900; }
-      /* FOOTER */
       .ftr {
         border-top: 0.8px solid #ddd; background: #f0f0f0;
         padding: 0.8mm 3mm; flex-shrink: 0;
@@ -227,66 +218,65 @@ export default function Invoices() {
           </div>
           <div class="cust">
             <div class="cust-name">${order.customerName}</div>
-            <div class="cust-phone">📞 ${order.phone ?? "—"}</div>
+            <div class="cust-phone">&#128222; ${order.phone ?? "&#8212;"}</div>
           </div>
           <div class="inv-body">
-          <table class="tbl">
-            <colgroup>
-              <col style="width:30%"><col style="width:13%"><col style="width:19%">
-              <col style="width:9%"><col style="width:14%"><col style="width:15%">
-            </colgroup>
-            <thead>
-              <tr><th>الصنف</th><th>المقاس</th><th>اللون</th><th>العدد</th><th>السعر</th><th>الإجمالي</th></tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td class="pname" title="${order.product}">${order.product}</td>
-                <td>${size || "—"}</td>
-                <td>${color || "—"}</td>
-                <td style="font-weight:900">${displayQty}</td>
-                <td>${formatCurrency(order.unitPrice)}</td>
-                <td style="font-weight:900">${formatCurrency(order.totalPrice)}</td>
-              </tr>
-              ${shippingCost > 0 ? `<tr>
-                <td class="pname" colspan="4" style="color:#777;font-size:6pt">مصاريف الشحن</td>
-                <td colspan="2" style="font-weight:700">${formatCurrency(shippingCost)}</td>
-              </tr>` : ""}
-              <tr class="tot">
-                <td colspan="3" style="text-align:right">💰 الإجمالي الكلي</td>
-                <td>${displayQty}</td>
-                <td colspan="2">${formatCurrency(order.totalPrice + shippingCost)}</td>
-              </tr>
-            </tbody>
-          </table>
-          <div class="meta">
-            <div class="meta-cell">
-              <span class="meta-l">رقم التتبع</span>
-              <span class="meta-v" style="direction:ltr;text-align:right">${trackingNumber || "—"}</span>
+            <table class="tbl">
+              <colgroup>
+                <col style="width:30%"><col style="width:13%"><col style="width:19%">
+                <col style="width:9%"><col style="width:14%"><col style="width:15%">
+              </colgroup>
+              <thead>
+                <tr><th>الصنف</th><th>المقاس</th><th>اللون</th><th>العدد</th><th>السعر</th><th>الاجمالي</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="pname" title="${order.product}">${order.product}</td>
+                  <td>${size || "&#8212;"}</td>
+                  <td>${color || "&#8212;"}</td>
+                  <td style="font-weight:900">${displayQty}</td>
+                  <td>${formatCurrency(order.unitPrice)}</td>
+                  <td style="font-weight:900">${formatCurrency(order.totalPrice)}</td>
+                </tr>
+                ${shippingCost > 0 ? `<tr>
+                  <td class="pname" colspan="4" style="color:#777;font-size:6pt">مصاريف الشحن</td>
+                  <td colspan="2" style="font-weight:700">${formatCurrency(shippingCost)}</td>
+                </tr>` : ""}
+                <tr class="tot">
+                  <td colspan="3" style="text-align:right">الاجمالي الكلي</td>
+                  <td>${displayQty}</td>
+                  <td colspan="2">${formatCurrency(order.totalPrice + shippingCost)}</td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="meta">
+              <div class="meta-cell">
+                <span class="meta-l">رقم التتبع</span>
+                <span class="meta-v" style="direction:ltr;text-align:right">${trackingNumber || "&#8212;"}</span>
+              </div>
+              <div class="meta-cell">
+                <span class="meta-l">شركة الشحن</span>
+                <span class="meta-v">${company ? company.name : "&#8212;"}</span>
+              </div>
+              <div class="meta-cell">
+                <span class="meta-l">المحافظة</span>
+                <span class="meta-v">${order.city ?? "&#8212;"}</span>
+              </div>
             </div>
-            <div class="meta-cell">
-              <span class="meta-l">شركة الشحن</span>
-              <span class="meta-v">${company ? company.name : "—"}</span>
+            <div class="addr">
+              <span class="addr-l">العنوان:</span>
+              <span class="addr-v">${address || "&#8212;"}</span>
             </div>
-            <div class="meta-cell">
-              <span class="meta-l">المحافظة</span>
-              <span class="meta-v">${order.city ?? "—"}</span>
+            ${notes ? `<div class="notes">
+              <span class="notes-l">ملاحظات:</span>
+              <span class="notes-v">${notes}</span>
+            </div>` : ""}
+            <div class="confirm">
+              <strong>التاكيد على الشحن:</strong> تم التاكيد مع العميل &#8212; في حالة عدم الاستلام يتم دفع مصاريف الشحن كاملة
             </div>
-          </div>
-          <div class="addr">
-            <span class="addr-l">العنوان:</span>
-            <span class="addr-v">${address || "—"}</span>
-          </div>
-          <div class="spacer"></div>
-          ${notes ? `<div class="notes">
-            <span class="notes-l">📝 ملاحظات:</span>
-            <span class="notes-v">${notes}</span>
-          </div>` : ""}
-          <div class="confirm">
-            <strong>✓ التأكيد على الشحن:</strong> تم التأكيد مع العميل — في حالة عدم الاستلام يتم دفع مصاريف الشحن كاملة
-          </div>
           </div>
           <div class="ftr">
-            <span class="ftr-txt">الاسترجاع أثناء تواجد المندوب · الاستبدال خلال 7 أيام · احتفظ بالفاتورة</span>
+            <span class="ftr-txt">الاسترجاع اثناء تواجد المندوب &middot; الاستبدال خلال 7 ايام &middot; احتفظ بالفاتورة</span>
             <span class="ftr-brand">${brandName}</span>
           </div>
         </div>
@@ -305,7 +295,6 @@ export default function Invoices() {
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>فواتير ${brandName}</title>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;900&display=swap" rel="stylesheet">
   <style>${styles}</style>
@@ -318,12 +307,11 @@ export default function Invoices() {
 
   return (
     <div className="space-y-4 animate-in fade-in duration-500" dir="rtl">
-      {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold">الفواتير</h1>
           <p className="text-muted-foreground text-xs sm:text-sm mt-0.5">
-            طلبات قيد الشحن في المخزن (لم تُدرج في بيان) — اختر واطبع 4 فواتير في صفحة A4
+            طلبات قيد الشحن في المخزن (لم تدرج في بيان) — اختر واطبع 4 فواتير في صفحة A4
           </p>
         </div>
         <Button onClick={handlePrint} className="gap-2 font-bold text-sm" disabled={selectedIds.size === 0}>
@@ -332,14 +320,13 @@ export default function Invoices() {
         </Button>
       </div>
 
-      {/* Actions */}
       <div className="flex items-center gap-2 flex-wrap">
         <Button variant="outline" size="sm" className="h-8 text-xs gap-1 border-border" onClick={selectAll}>
           <CheckSquare className="w-3.5 h-3.5" />تحديد الكل
         </Button>
         {selectedIds.size > 0 && (
           <Button variant="ghost" size="sm" className="h-8 text-xs gap-1" onClick={clearAll}>
-            <Square className="w-3.5 h-3.5" />إلغاء التحديد
+            <Square className="w-3.5 h-3.5" />الغاء التحديد
           </Button>
         )}
         {selectedIds.size > 0 && (
@@ -350,7 +337,6 @@ export default function Invoices() {
         )}
       </div>
 
-      {/* Cards — responsive grid */}
       {isLoading ? (
         <div className="p-8 text-center text-muted-foreground text-sm">جاري التحميل...</div>
       ) : orders.length ? (
@@ -394,7 +380,7 @@ export default function Invoices() {
                   </div>
                   {(color || size) && <p className="truncate">{[color, size].filter(Boolean).join(" · ")}</p>}
                   <div className="flex gap-3">
-                    <span>× {order.quantity} وحدة</span>
+                    <span>x {order.quantity} وحدة</span>
                     {company && <span className="truncate">🚚 {company.name}</span>}
                   </div>
                   {order.phone && <p className="font-mono text-[11px]">📞 {order.phone}</p>}
@@ -410,7 +396,7 @@ export default function Invoices() {
           <FileText className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-20" />
           <p className="font-bold">لا توجد طلبات في المخزن جاهزة للشحن</p>
           <p className="text-sm text-muted-foreground mt-1">
-            الفواتير تظهر للطلبات قيد الشحن اللي لم تُدرج في بيان بعد
+            الفواتير تظهر للطلبات قيد الشحن اللي لم تدرج في بيان بعد
           </p>
         </Card>
       )}
