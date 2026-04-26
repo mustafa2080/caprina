@@ -1,18 +1,16 @@
 // ─── CAPRINA OS — Service Worker ──────────────────────────────────────────────
 // Strategy:
-//   • Static assets (JS/CSS/fonts/images) → Cache First
-//   • Navigation (HTML) → Network First → fallback to cache
-//   • API calls (/api/*) → Network Only (never cache)
+//   • JS/CSS (hashed assets) → Network First → Cache Fallback
+//   • Images/fonts          → Cache First
+//   • Navigation (HTML)     → Network First → fallback to cache
+//   • API calls (/api/*)    → Network Only (never cache)
 
-const CACHE_VERSION = "caprina-v2";
+const CACHE_VERSION = "caprina-v4";
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const NAV_CACHE     = `${CACHE_VERSION}-nav`;
 const ALL_CACHES    = [STATIC_CACHE, NAV_CACHE];
 
-// Assets to pre-cache on install — keep minimal to avoid fetch errors
-const PRECACHE_URLS = [
-  "./",
-];
+const PRECACHE_URLS = ["./"];
 
 // ─── Install ──────────────────────────────────────────────────────────────────
 self.addEventListener("install", (event) => {
@@ -44,8 +42,8 @@ self.addEventListener("fetch", (event) => {
   // 1. Skip non-GET and cross-origin requests
   if (request.method !== "GET" || url.origin !== self.location.origin) return;
 
-  // 2. API calls → Network Only (always fresh data from server)
-  if (url.pathname.includes("/api/")) {
+  // 2. API calls → Network Only
+  if (url.pathname.startsWith("/api/")) {
     event.respondWith(
       fetch(request).catch(() =>
         new Response(JSON.stringify({ error: "لا يوجد اتصال بالسيرفر" }), {
@@ -57,26 +55,45 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // 3. Static assets (JS, CSS, images, fonts) → Cache First
-  const isStaticAsset =
-    url.pathname.match(/\.(js|css|png|jpg|jpeg|svg|ico|woff2?|ttf|eot|webp|gif)$/);
+  // 3. JS & CSS (Vite hashed files) → Network First → Cache Fallback
+  //    عشان لما يتغير الـ hash بعد build جديد يجيب الجديد دايماً
+  if (url.pathname.match(/\.(js|css)$/)) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(STATIC_CACHE).then((cache) => cache.put(request, clone));
+          }
+          return response;
+        })
+        .catch(() =>
+          caches.match(request).then(
+            (cached) => cached ?? new Response("", { status: 404 })
+          )
+        )
+    );
+    return;
+  }
 
-  if (isStaticAsset) {
+  // 4. Images & fonts → Cache First (بيتغيروش كتير)
+  if (url.pathname.match(/\.(png|jpg|jpeg|svg|ico|woff2?|ttf|eot|webp|gif)$/)) {
     event.respondWith(
       caches.match(request).then((cached) => {
         if (cached) return cached;
         return fetch(request).then((response) => {
-          if (!response.ok) return response;
-          const clone = response.clone();
-          caches.open(STATIC_CACHE).then((cache) => cache.put(request, clone));
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(STATIC_CACHE).then((cache) => cache.put(request, clone));
+          }
           return response;
-        }).catch(() => cached ?? new Response("", { status: 404 }));
+        }).catch(() => new Response("", { status: 404 }));
       })
     );
     return;
   }
 
-  // 4. Navigation (HTML pages) → Network First → Cache Fallback
+  // 5. Navigation (HTML) → Network First → Cache Fallback
   if (request.mode === "navigate" || request.headers.get("accept")?.includes("text/html")) {
     event.respondWith(
       fetch(request)
@@ -85,23 +102,28 @@ self.addEventListener("fetch", (event) => {
           caches.open(NAV_CACHE).then((cache) => cache.put(request, clone));
           return response;
         })
-        .catch(() => caches.match(request).then((cached) => cached ?? caches.match("./")))
+        .catch(() =>
+          caches.match(request).then((cached) => cached ?? caches.match("./"))
+        )
     );
     return;
   }
 
-  // 5. Everything else → Stale-While-Revalidate
+  // 6. Everything else → Network First
   event.respondWith(
-    caches.match(request).then((cached) => {
-      const networkFetch = fetch(request).then((response) => {
+    fetch(request)
+      .then((response) => {
         if (response.ok) {
           const clone = response.clone();
           caches.open(STATIC_CACHE).then((cache) => cache.put(request, clone));
         }
         return response;
-      }).catch(() => cached ?? new Response("", { status: 404 }));
-      return cached ?? networkFetch;
-    })
+      })
+      .catch(() =>
+        caches.match(request).then(
+          (cached) => cached ?? new Response("", { status: 404 })
+        )
+      )
   );
 });
 
