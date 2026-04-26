@@ -4,17 +4,14 @@
 //   • Navigation (HTML) → Network First → fallback to cache
 //   • API calls (/api/*) → Network Only (never cache)
 
-const CACHE_VERSION = "caprina-v1";
+const CACHE_VERSION = "caprina-v2";
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const NAV_CACHE     = `${CACHE_VERSION}-nav`;
 const ALL_CACHES    = [STATIC_CACHE, NAV_CACHE];
 
-// Assets to pre-cache on install
+// Assets to pre-cache on install — keep minimal to avoid fetch errors
 const PRECACHE_URLS = [
   "./",
-  "./manifest.json",
-  "./logo.jpg",
-  "./icon-maskable.svg",
 ];
 
 // ─── Install ──────────────────────────────────────────────────────────────────
@@ -49,7 +46,14 @@ self.addEventListener("fetch", (event) => {
 
   // 2. API calls → Network Only (always fresh data from server)
   if (url.pathname.includes("/api/")) {
-    event.respondWith(fetch(request));
+    event.respondWith(
+      fetch(request).catch(() =>
+        new Response(JSON.stringify({ error: "لا يوجد اتصال بالسيرفر" }), {
+          status: 503,
+          headers: { "Content-Type": "application/json" },
+        })
+      )
+    );
     return;
   }
 
@@ -66,7 +70,7 @@ self.addEventListener("fetch", (event) => {
           const clone = response.clone();
           caches.open(STATIC_CACHE).then((cache) => cache.put(request, clone));
           return response;
-        });
+        }).catch(() => cached ?? new Response("", { status: 404 }));
       })
     );
     return;
@@ -95,13 +99,13 @@ self.addEventListener("fetch", (event) => {
           caches.open(STATIC_CACHE).then((cache) => cache.put(request, clone));
         }
         return response;
-      });
+      }).catch(() => cached ?? new Response("", { status: 404 }));
       return cached ?? networkFetch;
     })
   );
 });
 
-// ─── Background sync (push notifications placeholder) ─────────────────────────
+// ─── Message handler ──────────────────────────────────────────────────────────
 self.addEventListener("message", (event) => {
   if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
 });
