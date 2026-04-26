@@ -835,6 +835,7 @@ export default function ShippingManifestPage() {
   const { canViewFinancials, isAdmin } = useAuth();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showCloseDialog, setShowCloseDialog] = useState(false);
+  const [showReopenDialog, setShowReopenDialog] = useState(false);
   const [showAddOrdersDialog, setShowAddOrdersDialog] = useState(false);
   const [showOrders, setShowOrders] = useState(true);
 
@@ -1123,8 +1124,7 @@ export default function ShippingManifestPage() {
                 variant="outline"
                 size="sm"
                 className="h-8 text-xs gap-1 border-amber-800 text-amber-400 hover:bg-amber-900/20"
-                onClick={() => updateMutation.mutate({ status: "open" })}
-                disabled={updateMutation.isPending}
+                onClick={() => setShowReopenDialog(true)}
               >
                 <Unlock className="w-3 h-3" />فتح
               </Button>
@@ -1152,6 +1152,40 @@ export default function ShippingManifestPage() {
           )}
         </div>
       </div>
+
+      {/* ─── بانر البيان المغلق — للموظف فقط ─── */}
+      {isLocked && !isAdmin && (
+        <div className="flex items-center gap-3 rounded-xl border border-red-800/50 bg-red-900/10 px-4 py-3">
+          <Lock className="w-5 h-5 text-red-400 shrink-0" />
+          <div>
+            <p className="text-sm font-bold text-red-400">هذا البيان مغلق</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              لا يمكن إجراء أي تعديلات على بيان مغلق. تواصل مع الأدمن لإعادة فتحه.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ─── بانر البيان المغلق — للأدمن ─── */}
+      {isLocked && isAdmin && (
+        <div className="flex items-center gap-3 rounded-xl border border-amber-800/50 bg-amber-900/10 px-4 py-3">
+          <Lock className="w-5 h-5 text-amber-400 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-bold text-amber-400">البيان مغلق</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              أُغلق بتاريخ {manifest.closedAt ? format(new Date(manifest.closedAt), "yyyy/MM/dd") : "—"} · لإعادة الفتح اضغط زر "فتح" في الأعلى
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs gap-1 border-amber-800 text-amber-400 hover:bg-amber-900/20 shrink-0"
+            onClick={() => setShowReopenDialog(true)}
+          >
+            <Unlock className="w-3 h-3" />فتح البيان
+          </Button>
+        </div>
+      )}
 
       {/* ─── KPI Cards ─── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -1391,6 +1425,40 @@ export default function ShippingManifestPage() {
           loading={updateMutation.isPending}
         />
       )}
+
+      {/* ─── Reopen Confirm Dialog — أدمن فقط ─── */}
+      <AlertDialog open={showReopenDialog} onOpenChange={setShowReopenDialog}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-amber-500">
+              <Unlock className="w-5 h-5" />
+              تأكيد إعادة فتح البيان
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-right space-y-2">
+              <span className="block">
+                هل تريد إعادة فتح البيان <strong className="text-foreground">{manifest.manifestNumber}</strong>؟
+              </span>
+              <span className="block text-amber-600 dark:text-amber-400 font-medium">
+                ⚠ هذا الإجراء متاح للأدمن فقط. بعد الفتح يمكن تعديل حالات التسليم مجدداً.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-amber-600 hover:bg-amber-500 text-white gap-1"
+              onClick={() => {
+                setShowReopenDialog(false);
+                updateMutation.mutate({ status: "open" });
+              }}
+              disabled={updateMutation.isPending}
+            >
+              <Unlock className="w-3.5 h-3.5" />
+              نعم، افتح البيان
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* ─── Add Orders Dialog ─── */}
       {showAddOrdersDialog && manifest && (
