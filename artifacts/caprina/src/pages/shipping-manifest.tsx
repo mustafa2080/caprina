@@ -695,6 +695,16 @@ function ExportDialog({
       .replace(/&/g, "&amp;").replace(/</g, "&lt;")
       .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
+    // ── Shared Strings table — avoids repeating text inline in every cell ──
+    const ssMap = new Map<string, number>();
+    const ssArr: string[] = [];
+    const si = (str: string): number => {
+      const s = String(str ?? "");
+      let idx = ssMap.get(s);
+      if (idx === undefined) { idx = ssArr.length; ssMap.set(s, idx); ssArr.push(s); }
+      return idx;
+    };
+
     // ── Style indices (defined in styles.xml below) ──
     // 0=default 1=title(gold/dark) 2=header 3=white 4=altGray
     // 5=delivered 6=returned 7=postponed 8=partial 9=pending
@@ -716,15 +726,15 @@ function ExportDialog({
       postponed: SI.postponed, partial_received: SI.partial, pending: SI.pending,
     }[st] ?? SI.pending);
 
-    // ── Cell builders ──
-    const sCell = (si: number, v: string, t = "s") =>
-      `<c s="${si}" t="${t}"><v>${esc(v)}</v></c>`;
-    const nCell = (si: number, v: number) =>
-      `<c s="${si}" t="n"><v>${v}</v></c>`;
-    const empty = (si: number) =>
-      `<c s="${si}" t="s"><v></v></c>`;
-    const merged = (si: number, v: string) =>
-      `<c s="${si}" t="s"><v>${esc(v)}</v></c>`;
+    // ── Cell builders — use shared string indices for text ──
+    const sCell = (style: number, v: string) =>
+      `<c s="${style}" t="s"><v>${si(v)}</v></c>`;
+    const nCell = (style: number, v: number) =>
+      `<c s="${style}" t="n"><v>${v}</v></c>`;
+    const empty = (style: number) =>
+      `<c s="${style}" t="s"><v>${si("")}</v></c>`;
+    const merged = (style: number, v: string) =>
+      `<c s="${style}" t="s"><v>${si(v)}</v></c>`;
 
     // ── Build sheet XML ──
     const buildSheet = (rows: string[], colWidths: number[], merges: string[] = []) => {
@@ -961,8 +971,11 @@ function ExportDialog({
       ...statusSheets,
     ];
 
+    // ── Build sharedStrings XML after all sheets are built ──
     const sharedStrings = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="0" uniqueCount="0"/>`;
+<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${ssArr.length}" uniqueCount="${ssArr.length}">
+${ssArr.map(s => `<si><t xml:space="preserve">${esc(s)}</t></si>`).join("")}
+</sst>`;
 
     const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
@@ -1125,26 +1138,27 @@ function ExportDialog({
     const enc = new TextEncoder();
     const toU8 = (s: string) => enc.encode(s);
 
-    // Simple ZIP builder
+    // Simple ZIP builder — CRC table built once outside loop
     function makeZip(entries: { name: string; data: Uint8Array }[]): Uint8Array {
-      const localHeaders: Uint8Array[] = [];
-      const centralHeaders: Uint8Array[] = [];
-      let offset = 0;
-
+      // Build CRC32 table once
+      const crcTable = new Uint32Array(256);
+      for (let i = 0; i < 256; i++) {
+        let c = i;
+        for (let j = 0; j < 8; j++) c = (c & 1) ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+        crcTable[i] = c;
+      }
       const crc32 = (data: Uint8Array): number => {
-        const table = new Uint32Array(256);
-        for (let i = 0; i < 256; i++) {
-          let c = i;
-          for (let j = 0; j < 8; j++) c = (c & 1) ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
-          table[i] = c;
-        }
         let crc = 0xFFFFFFFF;
-        for (const b of data) crc = table[(crc ^ b) & 0xFF] ^ (crc >>> 8);
+        for (let i = 0; i < data.length; i++) crc = crcTable[(crc ^ data[i]) & 0xFF] ^ (crc >>> 8);
         return (crc ^ 0xFFFFFFFF) >>> 0;
       };
 
+      const localHeaders: Uint8Array[] = [];
+      const centralHeaders: Uint8Array[] = [];
+      let offset = 0;
       const u16 = (n: number) => new Uint8Array([n & 0xFF, (n >> 8) & 0xFF]);
       const u32 = (n: number) => new Uint8Array([n & 0xFF, (n >> 8) & 0xFF, (n >> 16) & 0xFF, (n >> 24) & 0xFF]);
+      const encInner = new TextEncoder(); // reuse one instance
       const concat = (...arrays: Uint8Array[]) => {
         const total = arrays.reduce((s, a) => s + a.length, 0);
         const result = new Uint8Array(total);
@@ -1154,7 +1168,7 @@ function ExportDialog({
       };
 
       for (const { name, data } of entries) {
-        const nameBytes = new TextEncoder().encode(name);
+        const nameBytes = encInner.encode(name);
         const crc = crc32(data);
         const localHeader = concat(
           new Uint8Array([0x50, 0x4B, 0x03, 0x04]),
