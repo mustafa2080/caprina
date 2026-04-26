@@ -158,10 +158,10 @@ function LiveClock() {
   const mm = String(time.getMinutes()).padStart(2, "0");
   const ss = String(time.getSeconds()).padStart(2, "0");
   return (
-    <div className="flex items-center gap-1.5 text-muted-foreground text-xs font-mono select-none">
-      <Clock className="w-3.5 h-3.5 shrink-0" />
-      <span className="font-bold text-foreground tabular-nums">{h12}:{mm}:{ss}</span>
-      <span className="text-[10px]">{ampm}</span>
+    <div className="flex items-center gap-2 select-none">
+      <Clock className="w-5 h-5 shrink-0" style={{ color: "hsl(43 74% 50%)" }} />
+      <span className="font-black text-xl tabular-nums" style={{ color: "hsl(43 74% 50%)" }}>{h12}:{mm}:{ss}</span>
+      <span className="text-sm font-bold" style={{ color: "hsl(43 74% 50%)" }}>{ampm}</span>
     </div>
   );
 }
@@ -382,6 +382,40 @@ export default function Dashboard() {
 
       {/* === PWA INSTALL BANNER === */}
       <PwaInstallBanner />
+
+      {/* === WEEKLY SALES HIGHLIGHT (admin only) === */}
+      {canViewFinancials && analytics && (
+        <div className="rounded-xl border border-emerald-300 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-900/5 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+              <CalendarDays className="w-3.5 h-3.5" />المبيعات الأسبوعية
+            </p>
+            <Badge variant="outline" className={`text-[9px] font-bold border ${
+              analytics.week.returnRate > 20 ? "border-red-400 text-red-600 dark:border-red-800 dark:text-red-400" : "border-emerald-400 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400"
+            }`}>{analytics.week.returnRate}% مرتجع</Badge>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div>
+              <p className="text-[9px] text-muted-foreground mb-0.5">صافي الربح</p>
+              <p className={`text-2xl font-black ${analytics.week.netProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                {fc(analytics.week.netProfit)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[9px] text-muted-foreground mb-0.5">الإيرادات</p>
+              <p className="text-lg font-black text-primary">{fc(analytics.week.revenue)}</p>
+            </div>
+            <div>
+              <p className="text-[9px] text-muted-foreground mb-0.5">الطلبات</p>
+              <p className="text-lg font-black">{fn(analytics.week.orders)}</p>
+            </div>
+            <div>
+              <p className="text-[9px] text-muted-foreground mb-0.5">التكاليف</p>
+              <p className="text-lg font-black text-amber-700 dark:text-amber-400">{fc(analytics.week.cost + analytics.week.shippingCost)}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* === VISUAL CHARTS === */}
       <ChartsSection />
