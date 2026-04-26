@@ -386,6 +386,19 @@ html.light { color-scheme: light; }
   -webkit-tap-highlight-color: transparent;
 }
 .recharts-pie-sector path,
-.recharts-sector path {
+.recharts-sector path,
+.recharts-wrapper svg,
+.recharts-wrapper svg *,
+.recharts-surface * {
   outline: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
+.recharts-pie-sector:focus,
+.recharts-sector:focus,
+.recharts-layer:focus,
+.recharts-surface:focus,
+.recharts-wrapper:focus,
+.recharts-wrapper *:focus {
+  outline: none !important;
+  box-shadow: none !important;
 }

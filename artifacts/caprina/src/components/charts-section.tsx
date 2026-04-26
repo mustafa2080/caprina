@@ -35,7 +35,7 @@ const BAR_COLOR = "#f59e0b";
 const fc = (n: number) =>
   new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(n);
 
-// ─── Hover (active) shape — expands and shows detail in center ──────────────
+// ─── Hover (active) shape — smooth expand with glow ────────────────────────
 function ActiveDonutShape(props: any) {
   const {
     cx, cy, innerRadius, outerRadius,
@@ -45,61 +45,46 @@ function ActiveDonutShape(props: any) {
   const cfg = STATUS_CFG[payload.status] ?? { label: payload.status, color: fill };
 
   return (
-    <g style={{ outline: "none" }}>
-      {/* Outer glow ring */}
+    <g tabIndex={-1} style={{ outline: "none" }}>
+      {/* Glow ring */}
       <Sector
         cx={cx} cy={cy}
-        innerRadius={outerRadius + 4}
+        innerRadius={outerRadius + 5}
+        outerRadius={outerRadius + 9}
+        startAngle={startAngle}
+        endAngle={endAngle}
+        fill={fill}
+        opacity={0.2}
+        cornerRadius={6}
+      />
+      {/* Main segment — slightly expanded */}
+      <Sector
+        cx={cx} cy={cy}
+        innerRadius={innerRadius - 4}
         outerRadius={outerRadius + 7}
         startAngle={startAngle}
         endAngle={endAngle}
         fill={fill}
-        opacity={0.25}
-        cornerRadius={4}
+        cornerRadius={6}
+        tabIndex={-1}
+        style={{ outline: "none" }}
       />
-      {/* Main segment (expanded) */}
-      <Sector
-        cx={cx} cy={cy}
-        innerRadius={innerRadius - 3}
-        outerRadius={outerRadius + 6}
-        startAngle={startAngle}
-        endAngle={endAngle}
-        fill={fill}
-        cornerRadius={5}
-      />
-      {/* Center: count */}
-      <text
-        x={cx} y={cy - 14}
-        textAnchor="middle"
-        fill="hsl(var(--foreground))"
-        fontSize={26}
-        fontWeight={900}
-        fontFamily="inherit"
-        style={{ outline: "none", userSelect: "none" }}
-      >
+      {/* Center text: count */}
+      <text x={cx} y={cy - 14} textAnchor="middle"
+        fill="hsl(var(--foreground))" fontSize={26} fontWeight={900}
+        fontFamily="inherit" style={{ pointerEvents: "none", userSelect: "none" }}>
         {value}
       </text>
-      {/* Center: label */}
-      <text
-        x={cx} y={cy + 8}
-        textAnchor="middle"
-        fill="hsl(var(--muted-foreground))"
-        fontSize={11}
-        fontFamily="inherit"
-        style={{ outline: "none", userSelect: "none" }}
-      >
+      {/* Center text: label */}
+      <text x={cx} y={cy + 8} textAnchor="middle"
+        fill="hsl(var(--muted-foreground))" fontSize={11}
+        fontFamily="inherit" style={{ pointerEvents: "none", userSelect: "none" }}>
         {cfg.label}
       </text>
-      {/* Center: percentage */}
-      <text
-        x={cx} y={cy + 26}
-        textAnchor="middle"
-        fill={fill}
-        fontSize={14}
-        fontWeight={800}
-        fontFamily="inherit"
-        style={{ outline: "none", userSelect: "none" }}
-      >
+      {/* Center text: percent */}
+      <text x={cx} y={cy + 26} textAnchor="middle"
+        fill={fill} fontSize={14} fontWeight={800}
+        fontFamily="inherit" style={{ pointerEvents: "none", userSelect: "none" }}>
         {`${(percent * 100).toFixed(0)}%`}
       </text>
     </g>
@@ -171,7 +156,7 @@ const StatusDonut = memo(function StatusDonut({
         )}
 
         <ResponsiveContainer width="100%" height="100%">
-          <PieChart style={{ outline: "none" }}>
+          <PieChart tabIndex={-1} style={{ outline: "none" }}>
             <Pie
               data={sorted}
               cx="50%"
@@ -188,7 +173,9 @@ const StatusDonut = memo(function StatusDonut({
               label={activeIndex === null ? <PctLabel /> : undefined}
               activeIndex={activeIndex ?? undefined}
               activeShape={ActiveDonutShape}
-              isAnimationActive={false}
+              animationBegin={0}
+              animationDuration={600}
+              animationEasing="ease-out"
               onMouseEnter={(_, index) => setActiveIndex(index)}
               onMouseLeave={() => setActiveIndex(null)}
               onClick={(entry) => onStatusClick?.(
