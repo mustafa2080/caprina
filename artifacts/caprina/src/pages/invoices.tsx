@@ -76,17 +76,8 @@ export default function Invoices() {
 
     // Fetch logo as base64 for embedding in print window
     let logoB64 = "";
-    if (brand.logoUrl) {
-      try {
-        const r = await fetch(brand.logoUrl);
-        const blob = await r.blob();
-        logoB64 = await new Promise<string>(res => {
-          const reader = new FileReader();
-          reader.onload = () => res(reader.result as string);
-          reader.readAsDataURL(blob);
-        });
-      } catch {}
-    }
+    // Logo disabled — causes background rendering issues in PDF
+    // if (brand.logoUrl) { ... }
 
     const brandName = brand.name || "CAPRINA";
     const brandTagline = brand.tagline || "WIN OR DIE";
