@@ -374,3 +374,18 @@ html.light { color-scheme: light; }
 /* Utility: hide scrollbar but keep scroll */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Recharts — remove all focus/click outlines from SVG elements */
+.recharts-wrapper,
+.recharts-surface,
+.recharts-pie,
+.recharts-pie-sector,
+.recharts-sector,
+.recharts-layer {
+  outline: none !important;
+  -webkit-tap-highlight-color: transparent;
+}
+.recharts-pie-sector path,
+.recharts-sector path {
+  outline: none !important;
+}

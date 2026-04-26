@@ -6,8 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
 import { format } from "date-fns";
 import {
-  PieChart, Pie, Cell, Sector, Tooltip, ResponsiveContainer,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  PieChart, Pie, Cell, Sector, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
 } from "recharts";
 
 // ─── Color palette — modern flat ───────────────────────────────────────────
@@ -45,7 +45,7 @@ function ActiveDonutShape(props: any) {
   const cfg = STATUS_CFG[payload.status] ?? { label: payload.status, color: fill };
 
   return (
-    <g>
+    <g style={{ outline: "none" }}>
       {/* Outer glow ring */}
       <Sector
         cx={cx} cy={cy}
@@ -75,6 +75,7 @@ function ActiveDonutShape(props: any) {
         fontSize={26}
         fontWeight={900}
         fontFamily="inherit"
+        style={{ outline: "none", userSelect: "none" }}
       >
         {value}
       </text>
@@ -85,6 +86,7 @@ function ActiveDonutShape(props: any) {
         fill="hsl(var(--muted-foreground))"
         fontSize={11}
         fontFamily="inherit"
+        style={{ outline: "none", userSelect: "none" }}
       >
         {cfg.label}
       </text>
@@ -96,6 +98,7 @@ function ActiveDonutShape(props: any) {
         fontSize={14}
         fontWeight={800}
         fontFamily="inherit"
+        style={{ outline: "none", userSelect: "none" }}
       >
         {`${(percent * 100).toFixed(0)}%`}
       </text>
@@ -168,7 +171,7 @@ const StatusDonut = memo(function StatusDonut({
         )}
 
         <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
+          <PieChart style={{ outline: "none" }}>
             <Pie
               data={sorted}
               cx="50%"
@@ -185,12 +188,13 @@ const StatusDonut = memo(function StatusDonut({
               label={activeIndex === null ? <PctLabel /> : undefined}
               activeIndex={activeIndex ?? undefined}
               activeShape={ActiveDonutShape}
+              isAnimationActive={false}
               onMouseEnter={(_, index) => setActiveIndex(index)}
               onMouseLeave={() => setActiveIndex(null)}
               onClick={(entry) => onStatusClick?.(
                 selectedStatus === entry.status ? null : entry.status
               )}
-              style={{ cursor: onStatusClick ? "pointer" : "default" }}
+              style={{ cursor: onStatusClick ? "pointer" : "default", outline: "none" }}
             >
               {sorted.map((d, i) => {
                 const cfg = STATUS_CFG[d.status];
