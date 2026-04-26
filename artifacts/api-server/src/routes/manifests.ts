@@ -330,6 +330,11 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
   if (parsed.data.status === "closed") updateData.closedAt = new Date();
   if (parsed.data.status === "open") updateData.closedAt = null;
 
+  if (Object.keys(updateData).length === 0) {
+    res.status(400).json({ error: "لا توجد بيانات للتحديث" });
+    return;
+  }
+
   await db
     .update(shippingManifestsTable)
     .set(updateData)
