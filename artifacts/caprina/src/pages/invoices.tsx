@@ -117,8 +117,8 @@ export default function Invoices() {
         display: flex;
         flex-direction: column;
         flex: 1;
-        justify-content: space-evenly;
-        padding-bottom: 1mm;
+        gap: 0;
+        overflow: hidden;
       }
       .hdr {
         background: #1a1a1a;
@@ -160,30 +160,30 @@ export default function Invoices() {
       .tbl .tot td  { background: #eee; font-weight: 900; font-size: 8pt; }
       .info {
         display: grid; grid-template-columns: 1fr 1fr 1fr;
-        gap: 0.8mm; padding: 0 2.5mm; flex-shrink: 0;
+        gap: 0.8mm; padding: 1.2mm 2.5mm 0; flex-shrink: 0;
       }
       .inf { border: 0.5px solid #ddd; border-radius: 0.8mm; padding: 0.5mm 0.8mm; background: #fafafa; }
       .inf-l { font-size: 5.5pt; color: #999; }
       .inf-v  { font-size: 7pt; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .addr {
-        margin: 0 2.5mm;
+        margin: 1.2mm 2.5mm 0;
         border: 1px solid #333;
         border-radius: 0.8mm;
-        padding: 0.8mm 1.5mm;
-        flex-shrink: 0;
+        padding: 1mm 1.5mm;
+        flex: 1;
         display: flex;
         gap: 1.5mm;
         align-items: flex-start;
         background: #fff;
+        min-height: 6mm;
       }
       .addr-l { font-size: 6.5pt; color: #555; font-weight: 700; white-space: nowrap; padding-top: 0.3mm; flex-shrink: 0; }
       .addr-v {
-        font-size: 7.5pt; font-weight: 700; line-height: 1.3;
-        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+        font-size: 7.5pt; font-weight: 700; line-height: 1.5;
         overflow: hidden; word-break: break-word;
       }
       .notes {
-        margin: 0 2.5mm; background: #fffbea;
+        margin: 1mm 2.5mm 0; background: #fffbea;
         border: 0.8px solid #f59e0b; border-right: 3px solid #f59e0b;
         border-radius: 0.8mm; padding: 0.6mm 1.2mm;
         display: flex; gap: 1mm; flex-shrink: 0; overflow: hidden;
@@ -191,11 +191,11 @@ export default function Invoices() {
       .notes-l { font-size: 6pt; font-weight: 900; color: #b45309; white-space: nowrap; flex-shrink: 0; }
       .notes-v {
         font-size: 6.5pt; font-weight: 700; color: #111;
-        display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical;
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
         overflow: hidden; word-break: break-word; line-height: 1.35;
       }
       .confirm {
-        margin: 0 2.5mm; border: 0.5px solid #bbb; border-radius: 0.8mm;
+        margin: 1mm 2.5mm 1mm; border: 0.5px solid #bbb; border-radius: 0.8mm;
         padding: 0.6mm 1.2mm; font-size: 6pt; color: #444; line-height: 1.35;
         flex-shrink: 0; overflow: hidden;
       }
