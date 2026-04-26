@@ -10,6 +10,7 @@ export const shippingManifestsTable = mysqlTable("shipping_manifests", {
   notes: text("notes"),
   invoicePrice: decimal("invoice_price", { precision: 10, scale: 2 }),
   invoiceNotes: text("invoice_notes"),
+  manualShippingCost: decimal("manual_shipping_cost", { precision: 10, scale: 2 }),
   createdAt: datetime("created_at").notNull(),
   closedAt: datetime("closed_at"),
 });

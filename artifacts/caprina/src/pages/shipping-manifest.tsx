@@ -407,13 +407,36 @@ function InvoicePriceEditor({
   );
 }
 
-function SettlementCard({ manifest }: { manifest: ShippingManifestDetail }) {
+function SettlementCard({ manifest, onSaved }: { manifest: ShippingManifestDetail; onSaved: () => void }) {
+  const { toast } = useToast();
   const s = manifest.stats;
   const invoicePrice = manifest.invoicePrice ?? 0;
 
+  // تكلفة الشحن الفعلية = اليدوية لو موجودة، وإلا من الأوردرات
+  const effectiveShippingCost = manifest.manualShippingCost ?? s.totalShippingCost;
+  const hasManualCost = manifest.manualShippingCost != null;
+
   const deliveredTotal = s.deliveredGross;
-  const netBeforeInvoice = deliveredTotal - s.totalShippingCost;
+  const netBeforeInvoice = deliveredTotal - effectiveShippingCost;
   const balance = invoicePrice > 0 ? invoicePrice - netBeforeInvoice : null;
+
+  // editor state
+  const [editingShipping, setEditingShipping] = useState(false);
+  const [shippingVal, setShippingVal] = useState(manifest.manualShippingCost?.toString() ?? "");
+
+  const shippingMutation = useMutation({
+    mutationFn: () =>
+      manifestsApi.update(manifest.id, {
+        manualShippingCost: shippingVal ? parseFloat(shippingVal) : null,
+      }),
+    onSuccess: () => {
+      toast({ title: "تم حفظ تكلفة الشحن" });
+      setEditingShipping(false);
+      onSaved();
+    },
+    onError: (e: any) =>
+      toast({ title: "خطأ", description: e.message, variant: "destructive" }),
+  });
 
   return (
     <Card className="border-primary/30 bg-primary/5 p-5">
@@ -433,10 +456,53 @@ function SettlementCard({ manifest }: { manifest: ShippingManifestDetail }) {
           <p className="text-base font-black text-emerald-600 dark:text-emerald-400">{formatCurrency(deliveredTotal)}</p>
           <p className="text-[10px] text-emerald-700 dark:text-emerald-600">{s.delivered} طلبية</p>
         </div>
-        <div className="bg-card rounded-md p-3 border border-border">
-          <p className="text-[10px] text-muted-foreground mb-1">رسوم الشحن</p>
-          <p className="text-base font-black text-amber-700 dark:text-amber-400">−{formatCurrency(s.totalShippingCost)}</p>
-          <p className="text-[10px] text-amber-600">مُخصومة</p>
+        <div className={`bg-card rounded-md p-3 border ${hasManualCost ? "border-amber-500/40" : effectiveShippingCost === 0 ? "border-dashed border-amber-500/40" : "border-border"}`}>
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-[10px] text-muted-foreground">رسوم الشحن</p>
+            {!editingShipping && (
+              <button
+                onClick={() => { setShippingVal(manifest.manualShippingCost?.toString() ?? ""); setEditingShipping(true); }}
+                className="text-[9px] text-primary hover:underline"
+              >
+                {hasManualCost ? "تعديل" : "إضافة يدوي"}
+              </button>
+            )}
+          </div>
+          {editingShipping ? (
+            <div className="flex items-center gap-1 mt-1">
+              <Input
+                type="number"
+                min={0}
+                step="0.01"
+                value={shippingVal}
+                onChange={e => setShippingVal(e.target.value)}
+                className="h-7 text-xs w-28 bg-background"
+                placeholder="0.00"
+                autoFocus
+              />
+              <span className="text-[10px] text-muted-foreground">ج.م</span>
+              <button onClick={() => shippingMutation.mutate()} disabled={shippingMutation.isPending}
+                className="text-[10px] text-emerald-500 hover:text-emerald-400 font-bold px-1">
+                <Check className="w-3.5 h-3.5" />
+              </button>
+              <button onClick={() => setEditingShipping(false)} className="text-[10px] text-muted-foreground hover:text-foreground px-1">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <>
+              <p className="text-base font-black text-amber-700 dark:text-amber-400">
+                −{formatCurrency(effectiveShippingCost)}
+              </p>
+              {hasManualCost ? (
+                <p className="text-[10px] text-amber-600">يدوي ✏️</p>
+              ) : effectiveShippingCost === 0 ? (
+                <p className="text-[10px] text-muted-foreground/60">لم تُحدَّد — اضغط إضافة</p>
+              ) : (
+                <p className="text-[10px] text-amber-600">مُخصومة</p>
+              )}
+            </>
+          )}
         </div>
         <div className="bg-card rounded-md p-3 border border-border">
           <p className="text-[10px] text-muted-foreground mb-1">صافي المستحق</p>
@@ -1187,7 +1253,7 @@ export default function ShippingManifestPage() {
       )}
 
       {/* ─── Settlement Card ─── */}
-      {canViewFinancials && <SettlementCard manifest={manifest} />}
+      {canViewFinancials && <SettlementCard manifest={manifest} onSaved={refetch} />}
 
       {/* ─── Orders Table ─── */}
       <Card className="border-border bg-card overflow-hidden print:break-inside-avoid">

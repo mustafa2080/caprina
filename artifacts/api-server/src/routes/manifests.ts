@@ -283,9 +283,8 @@ router.get("/shipping-manifests/:id", async (req, res): Promise<void> => {
 
   res.json({
     ...row.manifest,
-    invoicePrice: row.manifest.invoicePrice
-      ? Number(row.manifest.invoicePrice)
-      : null,
+    invoicePrice: row.manifest.invoicePrice ? Number(row.manifest.invoicePrice) : null,
+    manualShippingCost: row.manifest.manualShippingCost ? Number(row.manifest.manualShippingCost) : null,
     companyName: row.company?.name ?? "غير محدد",
     companyPhone: row.company?.phone ?? null,
     orders,
@@ -305,6 +304,7 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
     notes: z.string().nullish(),
     invoicePrice: z.number().nonnegative().nullish(),
     invoiceNotes: z.string().nullish(),
+    manualShippingCost: z.number().nonnegative().nullish(),
   });
   const parsed = Schema.safeParse(req.body);
   if (!parsed.success) {
@@ -322,6 +322,11 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
         : null;
   if ("invoiceNotes" in parsed.data)
     updateData.invoiceNotes = parsed.data.invoiceNotes ?? null;
+  if ("manualShippingCost" in parsed.data)
+    updateData.manualShippingCost =
+      parsed.data.manualShippingCost != null
+        ? String(parsed.data.manualShippingCost)
+        : null;
   if (parsed.data.status === "closed") updateData.closedAt = new Date();
   if (parsed.data.status === "open") updateData.closedAt = null;
 

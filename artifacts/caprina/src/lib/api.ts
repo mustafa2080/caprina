@@ -610,6 +610,7 @@ export interface ShippingManifestDetail extends ShippingManifestListItem {
   companyPhone: string | null;
   orders: ManifestOrder[];
   stats: ManifestStats;
+  manualShippingCost: number | null;
 }
 
 export interface ManifestCloseResponse extends ShippingManifestListItem {
@@ -623,7 +624,7 @@ export const manifestsApi = {
     apiFetch<ShippingManifestDetail>(`/shipping-manifests/${id}`),
   create: (data: { shippingCompanyId: number; orderIds: number[]; notes?: string }) =>
     apiFetch<ShippingManifestListItem>("/shipping-manifests", { method: "POST", body: JSON.stringify(data) }),
-  update: (id: number, data: { status?: "open" | "closed"; notes?: string; invoicePrice?: number | null; invoiceNotes?: string | null }) =>
+  update: (id: number, data: { status?: "open" | "closed"; notes?: string; invoicePrice?: number | null; invoiceNotes?: string | null; manualShippingCost?: number | null }) =>
     apiFetch<ManifestCloseResponse>(`/shipping-manifests/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   updateOrderDelivery: (
     manifestId: number,
