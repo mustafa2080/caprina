@@ -100,198 +100,195 @@ export default function Invoices() {
     const styles = `
       @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
 
-      @page {
-        size: A4 landscape;
-        margin: 5mm;
-      }
+      @page { size: A4 landscape; margin: 4mm; }
 
       * { box-sizing: border-box; margin: 0; padding: 0; }
 
       body {
-        font-family: 'Cairo', 'Segoe UI', Tahoma, Arial, sans-serif;
+        font-family: 'Cairo', sans-serif;
         direction: rtl;
-        background: white;
+        background: #fff;
         color: #111;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
       }
 
-      /* ─── صفحة A4 landscape = 297mm × 210mm ────────────── */
-      /* بعد margin 5mm من كل ناحية = 287mm × 200mm */
-      /* كل فاتورة = نص العرض و نص الارتفاع مع gap 3mm */
-      /* = (287-3)/2 = 142mm عرض ، (200-3)/2 = 98.5mm ارتفاع */
+      /*
+        A4 landscape = 297 × 210 mm
+        margin 4mm جميع الجهات → print area = 289 × 202 mm
+        2 cols × 2 rows  gap 3mm
+        card W = (289 - 3) / 2 = 143mm
+        card H = (202 - 3) / 2 = 99.5mm
+      */
 
       .page {
         display: grid;
-        grid-template-columns: 1fr 1fr;
-        grid-template-rows: 1fr 1fr;
+        grid-template-columns: 143mm 143mm;
+        grid-template-rows: 99.5mm 99.5mm;
         gap: 3mm;
-        width: 287mm;
-        height: 200mm;
+        width: 289mm;
+        height: 202mm;
         page-break-after: always;
         overflow: hidden;
       }
       .page:last-child { page-break-after: avoid; }
 
-      /* ── Invoice Card ─────────────────────────── */
+      /* ══ CARD ══════════════════════════════════════════ */
       .inv {
-        border: 1.2px solid #1a1a1a;
-        border-radius: 2mm;
+        width: 143mm;
+        height: 99.5mm;
+        border: 1px solid #222;
+        border-radius: 1.5mm;
         display: flex;
         flex-direction: column;
         overflow: hidden;
-        background: white;
-        height: 98.5mm;
-        max-height: 98.5mm;
+        background: #fff;
       }
 
-      /* ── Top bar ────────────────────────────── */
-      .top-bar {
+      /* ── Header bar ──────────────────────────────────── */
+      .hdr {
         background: #1a1a1a;
-        color: white;
+        color: #fff;
+        height: 9mm;
+        min-height: 9mm;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 1.2mm 2.5mm;
-        gap: 1.5mm;
+        padding: 0 2.5mm;
         flex-shrink: 0;
-        height: 10mm;
       }
-      .logo-wrap { display: flex; align-items: center; gap: 1.2mm; }
-      .logo-img { width: 7mm; height: 7mm; object-fit: contain; border-radius: 1mm; }
-      .logo-txt { font-size: 10pt; font-weight: 900; letter-spacing: 2px; line-height: 1; }
-      .logo-sub { font-size: 5pt; letter-spacing: 2px; opacity: 0.7; }
-      .brand-center { font-size: 8pt; font-weight: 700; letter-spacing: 1px; opacity: 0.9; text-align: center; }
-      .inv-date { font-size: 7.5pt; opacity: 0.85; white-space: nowrap; }
+      .hdr-brand { display: flex; align-items: center; gap: 1.5mm; }
+      .hdr-logo { width: 6.5mm; height: 6.5mm; object-fit: contain; border-radius: 0.8mm; }
+      .hdr-name { font-size: 9.5pt; font-weight: 900; letter-spacing: 1.5px; line-height: 1; }
+      .hdr-sub  { font-size: 4.5pt; letter-spacing: 1.5px; opacity: 0.65; margin-top: 0.5mm; }
+      .hdr-mid  { font-size: 7pt; font-weight: 700; letter-spacing: 0.5px; opacity: 0.85; text-align: center; line-height: 1.4; }
+      .hdr-date { font-size: 7pt; opacity: 0.8; white-space: nowrap; }
 
-      /* ── Body ─────────────────────────────────── */
-      .inv-body {
-        padding: 1.5mm 2.5mm;
+      /* ── Body ────────────────────────────────────────── */
+      .body {
         flex: 1;
+        min-height: 0;
         display: flex;
         flex-direction: column;
-        gap: 1mm;
+        padding: 1.2mm 2mm;
+        gap: 0.8mm;
         overflow: hidden;
-        min-height: 0;
       }
 
-      /* ── Customer row ──────────────────────── */
-      .customer-row {
+      /* ── Customer row ────────────────────────────────── */
+      .cust {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        border-bottom: 1px solid #e0e0e0;
-        padding-bottom: 1mm;
         gap: 1.5mm;
+        padding-bottom: 1mm;
+        border-bottom: 0.8px solid #ddd;
         flex-shrink: 0;
       }
-      .customer-name { font-size: 11pt; font-weight: 900; color: #111; line-height: 1.1; }
-      .phone-badge {
-        font-size: 9.5pt;
+      .cust-name {
+        font-size: 10.5pt;
         font-weight: 900;
-        color: #111;
-        direction: ltr;
-        background: #f0f0f0;
-        border-radius: 1mm;
-        padding: 0.5mm 1.5mm;
+        line-height: 1.1;
+        overflow: hidden;
+        text-overflow: ellipsis;
         white-space: nowrap;
+        flex: 1;
+      }
+      .cust-phone {
+        font-size: 8.5pt;
+        font-weight: 900;
+        direction: ltr;
+        background: #f2f2f2;
+        border-radius: 0.8mm;
+        padding: 0.4mm 1.5mm;
+        white-space: nowrap;
+        flex-shrink: 0;
+        border: 0.5px solid #ddd;
       }
 
-      /* ── Product Table ───────────────────────── */
-      .prod-table {
+      /* ── Table ───────────────────────────────────────── */
+      .tbl {
         width: 100%;
         border-collapse: collapse;
         flex-shrink: 0;
+        table-layout: fixed;
       }
-      .prod-table th {
-        background: #1a1a1a;
-        color: white;
-        border: 0.4px solid #333;
-        padding: 1mm 1.2mm;
+      .tbl th {
+        background: #222;
+        color: #fff;
+        border: 0.4px solid #444;
+        padding: 0.8mm 1mm;
+        font-size: 7pt;
         font-weight: 700;
+        text-align: center;
+        overflow: hidden;
+      }
+      .tbl td {
+        border: 0.4px solid #ddd;
+        padding: 0.8mm 1mm;
         font-size: 7.5pt;
         text-align: center;
-      }
-      .prod-table td {
-        border: 0.4px solid #ddd;
-        padding: 1mm 1.2mm;
-        text-align: center;
-        font-size: 8pt;
         vertical-align: middle;
         line-height: 1.2;
-      }
-      .prod-table td.name-col {
-        text-align: right;
-        font-weight: 700;
-        font-size: 8.5pt;
-        max-width: 30mm;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
       }
-      .prod-table .total-row td {
+      .tbl td.prod-name {
+        text-align: right;
+        font-weight: 700;
+        font-size: 8pt;
+      }
+      .tbl .tot td {
         background: #f0f0f0;
         font-weight: 900;
-        font-size: 8.5pt;
+        font-size: 8pt;
         border-color: #bbb;
       }
 
-      /* ── Info grid ────────────────────────── */
-      .info-grid {
+      /* ── Info row (3 cells) ──────────────────────────── */
+      .info-row {
         display: grid;
         grid-template-columns: 1fr 1fr 1fr;
-        gap: 0.8mm;
+        gap: 0.7mm;
         flex-shrink: 0;
       }
-      .info-cell {
+      .ic {
         border: 0.4px solid #ddd;
-        border-radius: 0.8mm;
-        padding: 0.7mm 1.2mm;
+        border-radius: 0.7mm;
+        padding: 0.5mm 1mm;
         background: #fafafa;
-        display: flex;
-        flex-direction: column;
         min-width: 0;
         overflow: hidden;
       }
-      .info-cell.span2 { grid-column: span 2; }
-      .info-cell.span3 { grid-column: span 3; }
-      .ic-label { font-size: 6.5pt; color: #999; white-space: nowrap; line-height: 1.3; }
-      .ic-val {
-        font-size: 8pt;
+      .ic-l { font-size: 5.5pt; color: #aaa; line-height: 1.3; white-space: nowrap; }
+      .ic-v {
+        font-size: 7.5pt;
         font-weight: 700;
         line-height: 1.3;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
       }
-      .ic-val.wrap {
-        white-space: normal;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-      }
 
-      /* ── Notes box ──────────────────────────── */
-      .notes-box {
-        background: #fffbea;
-        border: 1px solid #f59e0b;
-        border-right: 3px solid #f59e0b;
-        border-radius: 1mm;
-        padding: 1mm 2mm;
+      /* ── Address full-width ──────────────────────────── */
+      .addr-row {
         display: flex;
-        gap: 1.5mm;
         align-items: flex-start;
+        gap: 1mm;
+        border: 0.4px solid #ddd;
+        border-radius: 0.7mm;
+        padding: 0.5mm 1mm;
+        background: #fafafa;
         flex-shrink: 0;
         overflow: hidden;
+        min-height: 6mm;
       }
-      .notes-box .nl { font-size: 7.5pt; font-weight: 900; color: #b45309; white-space: nowrap; }
-      .notes-box .nv {
+      .addr-lbl { font-size: 5.5pt; color: #aaa; white-space: nowrap; padding-top: 0.3mm; flex-shrink: 0; }
+      .addr-val {
         font-size: 7.5pt;
         font-weight: 700;
-        color: #1a1a1a;
-        line-height: 1.4;
-        white-space: normal;
+        line-height: 1.35;
         word-break: break-word;
         display: -webkit-box;
         -webkit-line-clamp: 2;
@@ -299,45 +296,67 @@ export default function Invoices() {
         overflow: hidden;
       }
 
-      /* ── Confirm box ─────────────────────── */
-      .confirm-box {
-        border: 0.5px solid #ccc;
-        border-radius: 1mm;
-        padding: 1mm 1.5mm;
-        font-size: 7pt;
-        color: #555;
+      /* ── Notes ───────────────────────────────────────── */
+      .notes {
         display: flex;
-        gap: 1mm;
         align-items: flex-start;
+        gap: 1mm;
+        background: #fffbea;
+        border: 0.8px solid #f59e0b;
+        border-right: 3px solid #f59e0b;
+        border-radius: 0.8mm;
+        padding: 0.7mm 1.2mm;
         flex-shrink: 0;
-        line-height: 1.3;
+        overflow: hidden;
+        min-height: 6mm;
       }
-      .confirm-box .cb-label {
-        font-weight: 900;
-        white-space: nowrap;
-        color: #111;
-        font-size: 7.5pt;
+      .notes-lbl { font-size: 6pt; font-weight: 900; color: #b45309; white-space: nowrap; flex-shrink: 0; padding-top: 0.2mm; }
+      .notes-val {
+        font-size: 7pt;
+        font-weight: 700;
+        color: #1a1a1a;
+        line-height: 1.35;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        word-break: break-word;
       }
 
-      /* ── Footer ─────────────────────────── */
-      .inv-footer {
-        border-top: 1px solid #ddd;
+      /* ── Confirm strip ───────────────────────────────── */
+      .confirm {
+        border: 0.4px solid #ccc;
+        border-radius: 0.7mm;
+        padding: 0.6mm 1mm;
+        font-size: 6.5pt;
+        color: #555;
+        line-height: 1.35;
+        flex-shrink: 0;
+        overflow: hidden;
+      }
+      .confirm strong { color: #111; font-weight: 900; }
+
+      /* ── Footer ──────────────────────────────────────── */
+      .ftr {
+        border-top: 0.8px solid #ddd;
+        background: #f7f7f7;
+        padding: 0.6mm 2mm;
+        flex-shrink: 0;
         display: flex;
-        justify-content: center;
         align-items: center;
-        padding: 0.8mm 2mm;
-        background: #f9f9f9;
-        flex-shrink: 0;
-        min-height: 5mm;
+        justify-content: center;
+        min-height: 4.5mm;
+        overflow: hidden;
       }
-      .policy-txt { font-size: 6.5pt; color: #777; text-align: center; line-height: 1.4; }
+      .ftr-txt { font-size: 5.5pt; color: #888; text-align: center; line-height: 1.4; }
 
-      /* ── Empty slot ─────────────────────── */
-      .empty-slot {
-        border: 1px dashed #e0e0e0;
-        border-radius: 2mm;
+      /* ── Empty slot ──────────────────────────────────── */
+      .empty {
+        width: 143mm;
+        height: 99.5mm;
+        border: 1px dashed #ddd;
+        border-radius: 1.5mm;
         background: #fafafa;
-        height: 98.5mm;
       }
     `;
 
@@ -362,107 +381,96 @@ export default function Invoices() {
 
       return `
         <div class="inv">
-          <!-- TOP BAR -->
-          <div class="top-bar">
-            <div class="logo-wrap">
+
+          <div class="hdr">
+            <div class="hdr-brand">
               ${logoEl}
               <div>
-                <div class="logo-txt">${brandName}</div>
-                <div class="logo-sub">${brandTagline}</div>
+                <div class="hdr-name">${brandName}</div>
+                <div class="hdr-sub">${brandTagline}</div>
               </div>
             </div>
-            <div style="display:flex;flex-direction:column;align-items:center">
-              <div class="brand-center">${brandName}</div>
-              <div style="font-size:5pt;opacity:0.7;letter-spacing:1px">ORDER #${String(order.id).padStart(4,"0")}</div>
-            </div>
-            <div class="inv-date">${dateStr}</div>
+            <div class="hdr-mid">${brandName}<br><span style="font-size:5.5pt;opacity:0.7;font-weight:400">ORDER #${String(order.id).padStart(4,"0")}</span></div>
+            <div class="hdr-date">${dateStr}</div>
           </div>
 
-          <!-- BODY -->
-          <div class="inv-body">
+          <div class="body">
 
-            <!-- Customer + Phone -->
-            <div class="customer-row">
-              <div>
-                <div class="customer-name">${order.customerName}</div>
-              </div>
-              <div class="phone-badge">📞 ${order.phone ?? "—"}</div>
+            <div class="cust">
+              <div class="cust-name">${order.customerName}</div>
+              <div class="cust-phone">📞 ${order.phone ?? "—"}</div>
             </div>
 
-            <!-- Product table -->
-            <table class="prod-table">
+            <table class="tbl">
+              <colgroup>
+                <col style="width:32%">
+                <col style="width:12%">
+                <col style="width:18%">
+                <col style="width:9%">
+                <col style="width:14%">
+                <col style="width:15%">
+              </colgroup>
               <thead>
                 <tr>
-                  <th style="width:35%">الصنف</th>
-                  <th>المقاس</th>
-                  <th>اللون</th>
-                  <th>العدد</th>
-                  <th>السعر</th>
-                  <th>الإجمالي</th>
+                  <th>الصنف</th><th>المقاس</th><th>اللون</th><th>العدد</th><th>السعر</th><th>الإجمالي</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td class="name-col" title="${order.product}">${order.product}</td>
+                  <td class="prod-name" title="${order.product}">${order.product}</td>
                   <td>${size || "—"}</td>
                   <td>${color || "—"}</td>
                   <td style="font-weight:900">${displayQty}</td>
                   <td>${formatCurrency(order.unitPrice)}</td>
-                  <td style="font-weight:900;color:#111">${formatCurrency(order.totalPrice)}</td>
+                  <td style="font-weight:900">${formatCurrency(order.totalPrice)}</td>
                 </tr>
-                ${shippingCost > 0 ? `
-                <tr>
-                  <td class="name-col" colspan="4" style="color:#666;font-size:6.5pt">مصاريف الشحن</td>
+                ${shippingCost > 0 ? `<tr>
+                  <td class="prod-name" colspan="4" style="color:#777;font-size:6.5pt">مصاريف الشحن</td>
                   <td colspan="2" style="font-weight:700">${formatCurrency(shippingCost)}</td>
                 </tr>` : ""}
-                <tr class="total-row">
-                  <td colspan="3" style="text-align:right;font-size:7.5pt">💰 الإجمالي الكلي</td>
+                <tr class="tot">
+                  <td colspan="3" style="text-align:right">💰 الإجمالي الكلي</td>
                   <td>${displayQty}</td>
-                  <td colspan="2" style="font-size:9pt">${formatCurrency(order.totalPrice + shippingCost)}</td>
+                  <td colspan="2">${formatCurrency(order.totalPrice + shippingCost)}</td>
                 </tr>
               </tbody>
             </table>
 
-            <!-- Address info -->
-            <div class="info-grid">
-              <div class="info-cell">
-                <span class="ic-label">المحافظة</span>
-                <span class="ic-val">${order.city ?? "—"}</span>
+            <div class="info-row">
+              <div class="ic">
+                <div class="ic-l">المحافظة</div>
+                <div class="ic-v">${order.city ?? "—"}</div>
               </div>
-              <div class="info-cell">
-                <span class="ic-label">شركة الشحن</span>
-                <span class="ic-val">${company ? company.name : "—"}</span>
+              <div class="ic">
+                <div class="ic-l">شركة الشحن</div>
+                <div class="ic-v">${company ? company.name : "—"}</div>
               </div>
-              <div class="info-cell">
-                <span class="ic-label">رقم التتبع</span>
-                <span class="ic-val" style="direction:ltr;text-align:right">${trackingNumber || "—"}</span>
-              </div>
-              <div class="info-cell span3">
-                <span class="ic-label">العنوان بالتفصيل</span>
-                <span class="ic-val wrap">${address || "—"}</span>
+              <div class="ic">
+                <div class="ic-l">رقم التتبع</div>
+                <div class="ic-v" style="direction:ltr;text-align:right">${trackingNumber || "—"}</div>
               </div>
             </div>
 
-            <!-- Customer notes — always shown -->
-            <div class="notes-box">
-              <span class="nl">📝 ملاحظات:</span>
-              <span class="nv">${notes || "—"}</span>
+            <div class="addr-row">
+              <span class="addr-lbl">📍 العنوان:</span>
+              <span class="addr-val">${address || "—"}</span>
             </div>
 
-            <!-- Shipping confirmation -->
-            <div class="confirm-box">
-              <span class="cb-label">✓ التأكيد على الشحن:</span>
-              <span>تم التأكيد مع العميل — في حالة عدم الاستلام يتم دفع مصاريف الشحن كاملة المتفق عليها</span>
+            <div class="notes">
+              <span class="notes-lbl">📝 ملاحظات:</span>
+              <span class="notes-val">${notes || "—"}</span>
+            </div>
+
+            <div class="confirm">
+              <strong>✓ التأكيد على الشحن:</strong> تم التأكيد مع العميل — في حالة عدم الاستلام يتم دفع مصاريف الشحن كاملة
             </div>
 
           </div>
 
-          <!-- FOOTER: policy only, no repeated phone -->
-          <div class="inv-footer">
-            <div class="policy-txt">
-              الاسترجاع فقط أثناء تواجد المندوب &nbsp;·&nbsp; الاستبدال خلال 7 أيام من الشحن &nbsp;·&nbsp; المنتج بضمان 6 أشهر &nbsp;·&nbsp; يلزم الاحتفاظ بالفاتورة
-            </div>
+          <div class="ftr">
+            <div class="ftr-txt">الاسترجاع أثناء تواجد المندوب &nbsp;·&nbsp; الاستبدال خلال 7 أيام &nbsp;·&nbsp; ضمان 6 أشهر &nbsp;·&nbsp; احتفظ بالفاتورة</div>
           </div>
+
         </div>
       `;
     };
@@ -470,7 +478,7 @@ export default function Invoices() {
     const pagesHTML = groups.map(group => {
       const invoices = group.map(o => invoiceHTML(o)).join("");
       const empties = group.length < 4
-        ? Array(4 - group.length).fill('<div class="empty-slot"></div>').join("")
+        ? Array(4 - group.length).fill('<div class="empty"></div>').join("")
         : "";
       return `<div class="page">${invoices}${empties}</div>`;
     }).join("");
