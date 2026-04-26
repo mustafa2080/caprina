@@ -157,12 +157,14 @@ export default function Invoices() {
       /* ADDRESS */
       .addr {
         margin: 1.5mm 3mm 0; border: 1.2px solid #333; border-radius: 1mm;
-        padding: 1.2mm 2mm; flex: 1;
+        padding: 1.2mm 2mm; flex-shrink: 0;
         display: flex; gap: 2mm; align-items: flex-start;
-        background: #fff; min-height: 0;
+        background: #fff;
       }
       .addr-l { font-size: 7pt; color: #444; font-weight: 700; white-space: nowrap; padding-top: 0.3mm; flex-shrink: 0; }
-      .addr-v { font-size: 8.5pt; font-weight: 700; line-height: 1.5; overflow: hidden; word-break: break-word; }
+      .addr-v { font-size: 8.5pt; font-weight: 700; line-height: 1.5; word-break: break-word; }
+      /* SPACER — يبتلع الفراغ الزيادة */
+      .spacer { flex: 1; min-height: 0; }
       /* NOTES */
       .notes {
         margin: 1.2mm 3mm 0; background: #fffbea;
@@ -274,6 +276,7 @@ export default function Invoices() {
             <span class="addr-l">العنوان:</span>
             <span class="addr-v">${address || "—"}</span>
           </div>
+          <div class="spacer"></div>
           ${notes ? `<div class="notes">
             <span class="notes-l">📝 ملاحظات:</span>
             <span class="notes-v">${notes}</span>
