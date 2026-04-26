@@ -101,9 +101,7 @@ export default function Invoices() {
       @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
 
       @page { size: A4 landscape; margin: 4mm; }
-
       * { box-sizing: border-box; margin: 0; padding: 0; }
-
       body {
         font-family: 'Cairo', sans-serif;
         direction: rtl;
@@ -113,14 +111,9 @@ export default function Invoices() {
         print-color-adjust: exact;
       }
 
-      /*
-        A4 landscape = 297 × 210 mm
-        margin 4mm جميع الجهات → print area = 289 × 202 mm
-        2 cols × 2 rows  gap 3mm
-        card W = (289 - 3) / 2 = 143mm
-        card H = (202 - 3) / 2 = 99.5mm
-      */
-
+      /* A4 landscape 297×210mm, margin 4mm → area 289×202mm
+         2cols × 2rows, gap 3mm
+         card: 143mm × 99.5mm */
       .page {
         display: grid;
         grid-template-columns: 143mm 143mm;
@@ -133,229 +126,163 @@ export default function Invoices() {
       }
       .page:last-child { page-break-after: avoid; }
 
-      /* ══ CARD ══════════════════════════════════════════ */
       .inv {
         width: 143mm;
         height: 99.5mm;
-        border: 1px solid #222;
-        border-radius: 1.5mm;
+        border: 1px solid #333;
+        border-radius: 1mm;
         display: flex;
         flex-direction: column;
         overflow: hidden;
         background: #fff;
       }
 
-      /* ── Header bar ──────────────────────────────────── */
+      /* ── Header ── */
       .hdr {
         background: #1a1a1a;
         color: #fff;
-        height: 9mm;
-        min-height: 9mm;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0 2.5mm;
+        padding: 1.5mm 3mm;
         flex-shrink: 0;
       }
-      .hdr-brand { display: flex; align-items: center; gap: 1.5mm; }
-      .hdr-logo { width: 6.5mm; height: 6.5mm; object-fit: contain; border-radius: 0.8mm; }
-      .hdr-name { font-size: 9.5pt; font-weight: 900; letter-spacing: 1.5px; line-height: 1; }
-      .hdr-sub  { font-size: 4.5pt; letter-spacing: 1.5px; opacity: 0.65; margin-top: 0.5mm; }
-      .hdr-mid  { font-size: 7pt; font-weight: 700; letter-spacing: 0.5px; opacity: 0.85; text-align: center; line-height: 1.4; }
-      .hdr-date { font-size: 7pt; opacity: 0.8; white-space: nowrap; }
+      .hdr-logo { display: flex; align-items: center; gap: 1.5mm; }
+      .hdr-img  { width: 7mm; height: 7mm; object-fit: contain; border-radius: 0.5mm; }
+      .hdr-name { font-size: 10pt; font-weight: 900; letter-spacing: 1px; }
+      .hdr-sub  { font-size: 5pt; opacity: 0.6; letter-spacing: 1px; }
+      .hdr-order { font-size: 7pt; opacity: 0.8; text-align: center; line-height: 1.5; }
+      .hdr-date  { font-size: 7.5pt; opacity: 0.85; }
 
-      /* ── Body ────────────────────────────────────────── */
-      .body {
-        flex: 1;
-        min-height: 0;
-        display: flex;
-        flex-direction: column;
-        padding: 1.2mm 2mm;
-        gap: 0.8mm;
-        overflow: hidden;
-      }
-
-      /* ── Customer row ────────────────────────────────── */
+      /* ── Customer ── */
       .cust {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 1.5mm;
-        padding-bottom: 1mm;
-        border-bottom: 0.8px solid #ddd;
+        padding: 1.5mm 3mm;
+        border-bottom: 1px solid #ddd;
         flex-shrink: 0;
+        gap: 2mm;
       }
-      .cust-name {
-        font-size: 10.5pt;
-        font-weight: 900;
-        line-height: 1.1;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        flex: 1;
-      }
-      .cust-phone {
-        font-size: 8.5pt;
-        font-weight: 900;
-        direction: ltr;
-        background: #f2f2f2;
-        border-radius: 0.8mm;
-        padding: 0.4mm 1.5mm;
-        white-space: nowrap;
-        flex-shrink: 0;
-        border: 0.5px solid #ddd;
-      }
+      .cust-name  { font-size: 11pt; font-weight: 900; }
+      .cust-phone { font-size: 10pt; font-weight: 900; direction: ltr; }
 
-      /* ── Table ───────────────────────────────────────── */
-      .tbl {
-        width: 100%;
-        border-collapse: collapse;
-        flex-shrink: 0;
-        table-layout: fixed;
-      }
+      /* ── Table ── */
+      .tbl { width: 100%; border-collapse: collapse; flex-shrink: 0; table-layout: fixed; }
       .tbl th {
-        background: #222;
+        background: #1a1a1a;
         color: #fff;
-        border: 0.4px solid #444;
-        padding: 0.8mm 1mm;
-        font-size: 7pt;
+        border: 0.4px solid #333;
+        padding: 1mm 1.5mm;
+        font-size: 7.5pt;
         font-weight: 700;
         text-align: center;
-        overflow: hidden;
       }
       .tbl td {
-        border: 0.4px solid #ddd;
-        padding: 0.8mm 1mm;
-        font-size: 7.5pt;
+        border: 0.4px solid #ccc;
+        padding: 1mm 1.5mm;
+        font-size: 8pt;
         text-align: center;
         vertical-align: middle;
-        line-height: 1.2;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
       }
-      .tbl td.prod-name {
-        text-align: right;
-        font-weight: 700;
-        font-size: 8pt;
-      }
-      .tbl .tot td {
-        background: #f0f0f0;
-        font-weight: 900;
-        font-size: 8pt;
-        border-color: #bbb;
-      }
+      .tbl td.pname { text-align: right; font-weight: 700; font-size: 8.5pt; }
+      .tbl .tot td  { background: #eee; font-weight: 900; font-size: 8.5pt; }
 
-      /* ── Info row (3 cells) ──────────────────────────── */
-      .info-row {
+      /* ── Info section ── */
+      .info {
         display: grid;
         grid-template-columns: 1fr 1fr 1fr;
-        gap: 0.7mm;
-        flex-shrink: 0;
-      }
-      .ic {
-        border: 0.4px solid #ddd;
-        border-radius: 0.7mm;
-        padding: 0.5mm 1mm;
-        background: #fafafa;
-        min-width: 0;
-        overflow: hidden;
-      }
-      .ic-l { font-size: 5.5pt; color: #aaa; line-height: 1.3; white-space: nowrap; }
-      .ic-v {
-        font-size: 7.5pt;
-        font-weight: 700;
-        line-height: 1.3;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      /* ── Address full-width ──────────────────────────── */
-      .addr-row {
-        display: flex;
-        align-items: flex-start;
         gap: 1mm;
-        border: 0.4px solid #ddd;
-        border-radius: 0.7mm;
+        padding: 1.5mm 3mm 0;
+        flex-shrink: 0;
+      }
+      .inf {
+        border: 0.5px solid #ddd;
+        border-radius: 0.8mm;
         padding: 0.5mm 1mm;
         background: #fafafa;
-        flex-shrink: 0;
-        overflow: hidden;
-        min-height: 6mm;
       }
-      .addr-lbl { font-size: 5.5pt; color: #aaa; white-space: nowrap; padding-top: 0.3mm; flex-shrink: 0; }
-      .addr-val {
-        font-size: 7.5pt;
+      .inf-l { font-size: 6pt; color: #999; }
+      .inf-v { font-size: 7.5pt; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+      /* ── Address ── */
+      .addr {
+        padding: 1mm 3mm 0;
+        flex-shrink: 0;
+        display: flex;
+        gap: 1mm;
+        align-items: flex-start;
+      }
+      .addr-l { font-size: 7pt; color: #999; white-space: nowrap; padding-top: 0.5mm; flex-shrink: 0; }
+      .addr-v {
+        font-size: 8pt;
         font-weight: 700;
         line-height: 1.35;
-        word-break: break-word;
         display: -webkit-box;
         -webkit-line-clamp: 2;
         -webkit-box-orient: vertical;
         overflow: hidden;
+        word-break: break-word;
       }
 
-      /* ── Notes ───────────────────────────────────────── */
+      /* ── Notes ── */
       .notes {
-        display: flex;
-        align-items: flex-start;
-        gap: 1mm;
+        margin: 1mm 3mm 0;
         background: #fffbea;
         border: 0.8px solid #f59e0b;
         border-right: 3px solid #f59e0b;
         border-radius: 0.8mm;
-        padding: 0.7mm 1.2mm;
+        padding: 0.8mm 1.5mm;
+        display: flex;
+        gap: 1mm;
         flex-shrink: 0;
         overflow: hidden;
-        min-height: 6mm;
       }
-      .notes-lbl { font-size: 6pt; font-weight: 900; color: #b45309; white-space: nowrap; flex-shrink: 0; padding-top: 0.2mm; }
-      .notes-val {
+      .notes-l { font-size: 6.5pt; font-weight: 900; color: #b45309; white-space: nowrap; flex-shrink: 0; }
+      .notes-v {
         font-size: 7pt;
         font-weight: 700;
-        color: #1a1a1a;
-        line-height: 1.35;
+        color: #111;
         display: -webkit-box;
         -webkit-line-clamp: 2;
         -webkit-box-orient: vertical;
         overflow: hidden;
         word-break: break-word;
+        line-height: 1.4;
       }
 
-      /* ── Confirm strip ───────────────────────────────── */
+      /* ── Confirm ── */
       .confirm {
-        border: 0.4px solid #ccc;
-        border-radius: 0.7mm;
-        padding: 0.6mm 1mm;
+        margin: 1mm 3mm 0;
+        border: 0.5px solid #bbb;
+        border-radius: 0.8mm;
+        padding: 0.8mm 1.5mm;
         font-size: 6.5pt;
-        color: #555;
-        line-height: 1.35;
+        color: #444;
+        line-height: 1.4;
         flex-shrink: 0;
         overflow: hidden;
       }
       .confirm strong { color: #111; font-weight: 900; }
 
-      /* ── Footer ──────────────────────────────────────── */
+      /* ── Footer ── */
       .ftr {
+        margin-top: auto;
         border-top: 0.8px solid #ddd;
-        background: #f7f7f7;
-        padding: 0.6mm 2mm;
+        background: #f5f5f5;
+        padding: 0.8mm 3mm;
         flex-shrink: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 4.5mm;
-        overflow: hidden;
+        text-align: center;
       }
-      .ftr-txt { font-size: 5.5pt; color: #888; text-align: center; line-height: 1.4; }
+      .ftr-txt { font-size: 5.5pt; color: #888; line-height: 1.4; }
 
-      /* ── Empty slot ──────────────────────────────────── */
       .empty {
-        width: 143mm;
-        height: 99.5mm;
+        width: 143mm; height: 99.5mm;
         border: 1px dashed #ddd;
-        border-radius: 1.5mm;
+        border-radius: 1mm;
         background: #fafafa;
       }
     `;
@@ -383,92 +310,82 @@ export default function Invoices() {
         <div class="inv">
 
           <div class="hdr">
-            <div class="hdr-brand">
+            <div class="hdr-logo">
               ${logoEl}
               <div>
                 <div class="hdr-name">${brandName}</div>
                 <div class="hdr-sub">${brandTagline}</div>
               </div>
             </div>
-            <div class="hdr-mid">${brandName}<br><span style="font-size:5.5pt;opacity:0.7;font-weight:400">ORDER #${String(order.id).padStart(4,"0")}</span></div>
+            <div class="hdr-order">${brandName}<br><span style="font-size:5.5pt;opacity:0.65;font-weight:400">ORDER #${String(order.id).padStart(4,"0")}</span></div>
             <div class="hdr-date">${dateStr}</div>
           </div>
 
-          <div class="body">
+          <div class="cust">
+            <div class="cust-name">${order.customerName}</div>
+            <div class="cust-phone">📞 ${order.phone ?? "—"}</div>
+          </div>
 
-            <div class="cust">
-              <div class="cust-name">${order.customerName}</div>
-              <div class="cust-phone">📞 ${order.phone ?? "—"}</div>
+          <table class="tbl">
+            <colgroup>
+              <col style="width:30%"><col style="width:13%"><col style="width:19%">
+              <col style="width:9%"><col style="width:14%"><col style="width:15%">
+            </colgroup>
+            <thead>
+              <tr><th>الصنف</th><th>المقاس</th><th>اللون</th><th>العدد</th><th>السعر</th><th>الإجمالي</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="pname" title="${order.product}">${order.product}</td>
+                <td>${size || "—"}</td>
+                <td>${color || "—"}</td>
+                <td style="font-weight:900">${displayQty}</td>
+                <td>${formatCurrency(order.unitPrice)}</td>
+                <td style="font-weight:900">${formatCurrency(order.totalPrice)}</td>
+              </tr>
+              ${shippingCost > 0 ? `<tr>
+                <td class="pname" colspan="4" style="color:#777;font-size:6.5pt">مصاريف الشحن</td>
+                <td colspan="2" style="font-weight:700">${formatCurrency(shippingCost)}</td>
+              </tr>` : ""}
+              <tr class="tot">
+                <td colspan="3" style="text-align:right">💰 الإجمالي الكلي</td>
+                <td>${displayQty}</td>
+                <td colspan="2">${formatCurrency(order.totalPrice + shippingCost)}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="info">
+            <div class="inf">
+              <div class="inf-l">المحافظة</div>
+              <div class="inf-v">${order.city ?? "—"}</div>
             </div>
-
-            <table class="tbl">
-              <colgroup>
-                <col style="width:32%">
-                <col style="width:12%">
-                <col style="width:18%">
-                <col style="width:9%">
-                <col style="width:14%">
-                <col style="width:15%">
-              </colgroup>
-              <thead>
-                <tr>
-                  <th>الصنف</th><th>المقاس</th><th>اللون</th><th>العدد</th><th>السعر</th><th>الإجمالي</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td class="prod-name" title="${order.product}">${order.product}</td>
-                  <td>${size || "—"}</td>
-                  <td>${color || "—"}</td>
-                  <td style="font-weight:900">${displayQty}</td>
-                  <td>${formatCurrency(order.unitPrice)}</td>
-                  <td style="font-weight:900">${formatCurrency(order.totalPrice)}</td>
-                </tr>
-                ${shippingCost > 0 ? `<tr>
-                  <td class="prod-name" colspan="4" style="color:#777;font-size:6.5pt">مصاريف الشحن</td>
-                  <td colspan="2" style="font-weight:700">${formatCurrency(shippingCost)}</td>
-                </tr>` : ""}
-                <tr class="tot">
-                  <td colspan="3" style="text-align:right">💰 الإجمالي الكلي</td>
-                  <td>${displayQty}</td>
-                  <td colspan="2">${formatCurrency(order.totalPrice + shippingCost)}</td>
-                </tr>
-              </tbody>
-            </table>
-
-            <div class="info-row">
-              <div class="ic">
-                <div class="ic-l">المحافظة</div>
-                <div class="ic-v">${order.city ?? "—"}</div>
-              </div>
-              <div class="ic">
-                <div class="ic-l">شركة الشحن</div>
-                <div class="ic-v">${company ? company.name : "—"}</div>
-              </div>
-              <div class="ic">
-                <div class="ic-l">رقم التتبع</div>
-                <div class="ic-v" style="direction:ltr;text-align:right">${trackingNumber || "—"}</div>
-              </div>
+            <div class="inf">
+              <div class="inf-l">شركة الشحن</div>
+              <div class="inf-v">${company ? company.name : "—"}</div>
             </div>
-
-            <div class="addr-row">
-              <span class="addr-lbl">📍 العنوان:</span>
-              <span class="addr-val">${address || "—"}</span>
+            <div class="inf">
+              <div class="inf-l">رقم التتبع</div>
+              <div class="inf-v" style="direction:ltr;text-align:right">${trackingNumber || "—"}</div>
             </div>
+          </div>
 
-            <div class="notes">
-              <span class="notes-lbl">📝 ملاحظات:</span>
-              <span class="notes-val">${notes || "—"}</span>
-            </div>
+          <div class="addr">
+            <span class="addr-l">العنوان:</span>
+            <span class="addr-v">${address || "—"}</span>
+          </div>
 
-            <div class="confirm">
-              <strong>✓ التأكيد على الشحن:</strong> تم التأكيد مع العميل — في حالة عدم الاستلام يتم دفع مصاريف الشحن كاملة
-            </div>
+          <div class="notes">
+            <span class="notes-l">📝 ملاحظات:</span>
+            <span class="notes-v">${notes || "—"}</span>
+          </div>
 
+          <div class="confirm">
+            <strong>✓ التأكيد على الشحن:</strong> تم التأكيد مع العميل — في حالة عدم الاستلام يتم دفع مصاريف الشحن كاملة
           </div>
 
           <div class="ftr">
-            <div class="ftr-txt">الاسترجاع أثناء تواجد المندوب &nbsp;·&nbsp; الاستبدال خلال 7 أيام &nbsp;·&nbsp; ضمان 6 أشهر &nbsp;·&nbsp; احتفظ بالفاتورة</div>
+            <div class="ftr-txt">الاسترجاع أثناء تواجد المندوب · الاستبدال خلال 7 أيام · ضمان 6 أشهر · احتفظ بالفاتورة</div>
           </div>
 
         </div>
