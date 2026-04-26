@@ -275,6 +275,40 @@ html.light { color-scheme: light; }
   /* Print styles */
   @media print {
     body { background: white !important; color: black !important; direction: rtl; }
+
+    /* ── إخفاء الـ sidebar والـ header عند الطباعة ── */
+    aside,
+    header,
+    [data-sidebar],
+    [class*="sidebar"],
+    [class*="Sidebar"],
+    .sidebar,
+    #sidebar {
+      display: none !important;
+    }
+
+    /* الـ layout الرئيسي: flex-row يحتوي على aside + main */
+    /* نخلي main يأخذ كامل العرض */
+    body > div,
+    .flex.min-h-screen {
+      display: block !important;
+    }
+
+    main {
+      width: 100% !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      overflow: visible !important;
+    }
+
+    /* الـ inner container */
+    main > div,
+    main > div > div {
+      max-width: 100% !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      overflow: visible !important;
+    }
     .no-print { display: none !important; }
     .print-container { display: block !important; }
     .invoice-grid {
