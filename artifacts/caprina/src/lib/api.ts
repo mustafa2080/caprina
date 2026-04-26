@@ -636,6 +636,10 @@ export const manifestsApi = {
     ),
   delete: (id: number) =>
     apiFetch<void>(`/shipping-manifests/${id}`, { method: "DELETE" }),
+  addOrders: (manifestId: number, orderIds: number[]) =>
+    apiFetch<{ added: number; manifestNumber: string }>(`/shipping-manifests/${manifestId}/orders`, {
+      method: "POST", body: JSON.stringify({ orderIds }),
+    }),
   companyStats: (companyId: number) =>
     apiFetch<ManifestCompanyStats>(`/shipping-companies/${companyId}/stats`),
 };

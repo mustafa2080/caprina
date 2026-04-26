@@ -1,8 +1,9 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useParams, Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   manifestsApi,
+  apiFetch,
   type ShippingManifestDetail,
   type ManifestOrder,
   type DeliveryStatus,
@@ -62,7 +63,10 @@ import {
   X,
   Check,
   FileText,
+  Search,
+  PackagePlus,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 
@@ -569,6 +573,193 @@ function CloseConfirmDialog({
   );
 }
 
+// ─── Add Orders Dialog ────────────────────────────────────────────────────────
+type OrderRow = {
+  id: number; customerName: string; phone: string | null;
+  product: string; color: string | null; size: string | null;
+  quantity: number; totalPrice: number; status: string;
+};
+
+function AddOrdersToManifestDialog({
+  manifestId,
+  manifestNumber,
+  existingOrderIds,
+  onClose,
+  onAdded,
+}: {
+  manifestId: number;
+  manifestNumber: string;
+  existingOrderIds: Set<number>;
+  onClose: () => void;
+  onAdded: () => void;
+}) {
+  const { toast } = useToast();
+  const [search, setSearch] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
+  const { data: inShippingOrders, isLoading } = useQuery({
+    queryKey: ["orders-in-shipping-all"],
+    queryFn: () => apiFetch<OrderRow[]>(`/orders?status=in_shipping`),
+    staleTime: 10000,
+  });
+
+  const addMutation = useMutation({
+    mutationFn: () => manifestsApi.addOrders(manifestId, Array.from(selectedIds)),
+    onSuccess: (res) => {
+      toast({ title: `✅ تمت الإضافة`, description: `تم إضافة ${res.added} طلبية للبيان ${res.manifestNumber}` });
+      onAdded();
+      onClose();
+    },
+    onError: (e: any) =>
+      toast({ title: "خطأ", description: e.message, variant: "destructive" }),
+  });
+
+  // استبعد الأوردرات الموجودة بالفعل في البيان
+  const available = useMemo(() => {
+    if (!inShippingOrders) return [];
+    return inShippingOrders.filter(o => !existingOrderIds.has(o.id));
+  }, [inShippingOrders, existingOrderIds]);
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return available;
+    const q = search.toLowerCase();
+    return available.filter(o =>
+      o.customerName.toLowerCase().includes(q) ||
+      o.product.toLowerCase().includes(q) ||
+      (o.phone && o.phone.includes(q))
+    );
+  }, [available, search]);
+
+  const toggleAll = () => {
+    if (selectedIds.size === filtered.length && filtered.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map(o => o.id)));
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="bg-card border-border max-w-3xl max-h-[90vh] flex flex-col" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="text-right flex items-center gap-2">
+            <PackagePlus className="w-4 h-4 text-primary" />
+            إضافة طلبيات إلى البيان — {manifestNumber}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="flex-1 overflow-hidden flex flex-col gap-3 mt-2">
+          {/* Search + counter */}
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute right-2.5 top-2.5 w-3.5 h-3.5 text-muted-foreground" />
+              <Input
+                placeholder="بحث بالاسم / المنتج / الهاتف..."
+                className="h-9 text-sm bg-background pr-8"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
+            {!isLoading && (
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                {available.length} طلبية متاحة
+              </span>
+            )}
+          </div>
+
+          {/* Select-all */}
+          {!isLoading && filtered.length > 0 && (
+            <div className="flex items-center justify-between px-1">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  checked={selectedIds.size === filtered.length && filtered.length > 0}
+                  onCheckedChange={toggleAll}
+                />
+                <span className="text-xs text-muted-foreground">تحديد الكل ({filtered.length})</span>
+              </div>
+              <span className="text-xs font-bold text-primary">{selectedIds.size} محدد</span>
+            </div>
+          )}
+
+          {/* Orders list */}
+          <div className="overflow-y-auto flex-1 border border-border rounded-md">
+            {isLoading ? (
+              <div className="p-8 text-center text-muted-foreground text-sm animate-pulse">جاري تحميل الطلبيات...</div>
+            ) : filtered.length === 0 ? (
+              <div className="p-10 text-center">
+                <PackagePlus className="w-8 h-8 mx-auto mb-2 text-muted-foreground opacity-20" />
+                <p className="text-sm text-muted-foreground">
+                  {available.length === 0 ? "لا توجد طلبيات قيد الشحن متاحة للإضافة" : "لا توجد نتائج تطابق البحث"}
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Header */}
+                <div className="grid grid-cols-[auto_1fr_1fr_70px_80px] gap-0 border-b border-border bg-muted/20 px-3 py-2 text-[10px] font-semibold text-muted-foreground sticky top-0">
+                  <div className="w-5" />
+                  <div>العميل</div>
+                  <div>المنتج / المواصفات</div>
+                  <div className="text-center">الكمية</div>
+                  <div className="text-left">الإجمالي</div>
+                </div>
+                {/* Rows */}
+                {filtered.map(order => {
+                  const selected = selectedIds.has(order.id);
+                  return (
+                    <div
+                      key={order.id}
+                      className={`grid grid-cols-[auto_1fr_1fr_70px_80px] gap-0 items-center px-3 py-2.5 border-b border-border/50 cursor-pointer hover:bg-muted/20 transition-colors ${selected ? "bg-primary/5" : ""}`}
+                      onClick={() => {
+                        const next = new Set(selectedIds);
+                        if (next.has(order.id)) next.delete(order.id);
+                        else next.add(order.id);
+                        setSelectedIds(next);
+                      }}
+                    >
+                      <div className="w-5 flex items-center">
+                        <Checkbox checked={selected} onCheckedChange={() => {}} />
+                      </div>
+                      <div className="min-w-0 pr-2">
+                        <p className="font-semibold text-xs truncate">{order.customerName}</p>
+                        <p className="text-muted-foreground text-[10px]">
+                          #{order.id.toString().padStart(4, "0")}
+                          {order.phone && ` · ${order.phone}`}
+                        </p>
+                      </div>
+                      <div className="min-w-0 pr-2">
+                        <p className="text-xs truncate">{order.product}</p>
+                        {(order.color || order.size) && (
+                          <p className="text-muted-foreground text-[10px]">
+                            {[order.color, order.size].filter(Boolean).join(" / ")}
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-center text-xs font-bold">{order.quantity}</div>
+                      <div className="text-left text-xs font-bold text-primary">{formatCurrency(order.totalPrice)}</div>
+                    </div>
+                  );
+                })}
+              </>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter className="flex gap-2 mt-2">
+          <Button
+            className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 gap-1"
+            onClick={() => addMutation.mutate()}
+            disabled={addMutation.isPending || selectedIds.size === 0}
+          >
+            <PackagePlus className="w-3.5 h-3.5" />
+            {addMutation.isPending ? "جاري الإضافة..." : `إضافة ${selectedIds.size > 0 ? selectedIds.size + " طلبيات" : ""}`}
+          </Button>
+          <Button variant="outline" className="border-border" onClick={onClose}>إلغاء</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function ShippingManifestPage() {
   const params = useParams();
   const id = Number(params.id);
@@ -577,6 +768,7 @@ export default function ShippingManifestPage() {
   const { canViewFinancials, isAdmin } = useAuth();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showCloseDialog, setShowCloseDialog] = useState(false);
+  const [showAddOrdersDialog, setShowAddOrdersDialog] = useState(false);
   const [showOrders, setShowOrders] = useState(true);
 
   const { data: manifest, isLoading, error } = useQuery({
@@ -846,6 +1038,17 @@ export default function ShippingManifestPage() {
           >
             <Printer className="w-3 h-3" />طباعة
           </Button>
+          {/* إضافة طلبيات — أدمن فقط + البيان مفتوح */}
+          {isAdmin && !isLocked && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs gap-1 border-primary/50 text-primary hover:bg-primary/10"
+              onClick={() => setShowAddOrdersDialog(true)}
+            >
+              <PackagePlus className="w-3 h-3" />إضافة طلبيات
+            </Button>
+          )}
           {/* إغلاق / فتح البيان — أدمن فقط */}
           {isAdmin && (
             isLocked ? (
@@ -1119,6 +1322,17 @@ export default function ShippingManifestPage() {
           onClose={() => setShowCloseDialog(false)}
           onConfirm={() => updateMutation.mutate({ status: "closed" })}
           loading={updateMutation.isPending}
+        />
+      )}
+
+      {/* ─── Add Orders Dialog ─── */}
+      {showAddOrdersDialog && manifest && (
+        <AddOrdersToManifestDialog
+          manifestId={id}
+          manifestNumber={manifest.manifestNumber}
+          existingOrderIds={new Set(manifest.orders.map(o => o.id))}
+          onClose={() => setShowAddOrdersDialog(false)}
+          onAdded={refetch}
         />
       )}
 

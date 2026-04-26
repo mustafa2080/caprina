@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, and, inArray, sql, count } from "drizzle-orm";
+import { eq, desc, and, inArray, sql, count, isNull } from "drizzle-orm";
 import {
   db,
   shippingManifestsTable,
@@ -540,6 +540,52 @@ router.patch(
     res.json({ success: true, deliveryStatus, deliveryNote: deliveryNote ?? null });
   }
 );
+
+// ─── POST /shipping-manifests/:id/orders — إضافة أوردرات لبيان مفتوح ──────
+router.post("/shipping-manifests/:id/orders", requireAdmin, async (req, res): Promise<void> => {
+  const manifestId = parseInt(req.params.id);
+  if (isNaN(manifestId)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+  const parsed = z.object({ orderIds: z.array(z.number().int().positive()).min(1) }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "orderIds مطلوب" }); return; }
+
+  const { orderIds } = parsed.data;
+
+  // تأكد إن البيان موجود ومفتوح
+  const [manifest] = await db.select().from(shippingManifestsTable).where(eq(shippingManifestsTable.id, manifestId));
+  if (!manifest) { res.status(404).json({ error: "البيان غير موجود" }); return; }
+  if (manifest.status === "closed") { res.status(400).json({ error: "البيان مغلق لا يمكن الإضافة إليه" }); return; }
+
+  // تأكد إن الأوردرات موجودة وحالتها in_shipping
+  const orders = await db.select().from(ordersTable).where(
+    and(inArray(ordersTable.id, orderIds), isNull(ordersTable.deletedAt))
+  );
+  if (orders.length === 0) { res.status(400).json({ error: "لم يتم العثور على الطلبيات" }); return; }
+
+  // استبعد أي أوردر موجود بالفعل في هذا البيان
+  const existing = await db.select({ orderId: shippingManifestOrdersTable.orderId })
+    .from(shippingManifestOrdersTable)
+    .where(and(
+      eq(shippingManifestOrdersTable.manifestId, manifestId),
+      inArray(shippingManifestOrdersTable.orderId, orderIds)
+    ));
+  const existingIds = new Set(existing.map(e => e.orderId));
+  const toAdd = orders.filter(o => !existingIds.has(o.id));
+  if (toAdd.length === 0) { res.status(400).json({ error: "جميع الطلبيات المختارة موجودة بالفعل في البيان" }); return; }
+
+  // أضف الأوردرات للبيان
+  await db.insert(shippingManifestOrdersTable).values(
+    toAdd.map(o => ({
+      manifestId,
+      orderId: o.id,
+      deliveryStatus: "pending" as const,
+      deliveryNote: null,
+      deliveredAt: null,
+    }))
+  );
+
+  res.json({ added: toAdd.length, manifestNumber: manifest.manifestNumber });
+});
 
 router.delete("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
