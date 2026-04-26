@@ -1,6 +1,10 @@
 import React, { useState, useMemo, memo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useListOrders } from "@workspace/api-client-react";
 import { analyticsApi, type ChartsData } from "@/lib/api";
+import { Badge } from "@/components/ui/badge";
+import { Link } from "wouter";
+import { format } from "date-fns";
 import {
   PieChart, Pie, Cell, Sector, Tooltip, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -141,7 +145,14 @@ function DonutTooltip({ active, payload }: any) {
 }
 
 // ─── Main Donut Card ────────────────────────────────────────────────────────
-const StatusDonut = memo(function StatusDonut({ data, total }: { data: ChartsData["statusBreakdown"]; total: number }) {
+const StatusDonut = memo(function StatusDonut({
+  data, total, onStatusClick, selectedStatus,
+}: {
+  data: ChartsData["statusBreakdown"];
+  total: number;
+  onStatusClick?: (status: string | null) => void;
+  selectedStatus?: string | null;
+}) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const sorted = useMemo(() => [...data].sort((a, b) => b.count - a.count), [data]);
 
@@ -149,7 +160,6 @@ const StatusDonut = memo(function StatusDonut({ data, total }: { data: ChartsDat
     <div className="space-y-5">
       {/* Donut chart */}
       <div className="relative" style={{ height: 240 }}>
-        {/* Default center (no hover) */}
         {activeIndex === null && (
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
             <p className="text-4xl font-black text-foreground leading-none">{total}</p>
@@ -177,50 +187,58 @@ const StatusDonut = memo(function StatusDonut({ data, total }: { data: ChartsDat
               label={activeIndex === null ? <PctLabel /> : undefined}
               onMouseEnter={(_, idx) => setActiveIndex(idx)}
               onMouseLeave={() => setActiveIndex(null)}
+              onClick={(entry) => onStatusClick?.(
+                selectedStatus === entry.status ? null : entry.status
+              )}
+              style={{ cursor: onStatusClick ? "pointer" : "default" }}
             >
               {sorted.map((d, i) => {
                 const cfg = STATUS_CFG[d.status];
-                return <Cell key={i} fill={cfg?.color ?? "#888"} />;
+                const isSelected = selectedStatus === d.status;
+                return (
+                  <Cell
+                    key={i}
+                    fill={cfg?.color ?? "#888"}
+                    opacity={selectedStatus && !isSelected ? 0.35 : 1}
+                  />
+                );
               })}
             </Pie>
-            <Tooltip
-              content={<DonutTooltip />}
-              cursor={false}
-            />
+            <Tooltip content={<DonutTooltip />} cursor={false} />
           </PieChart>
         </ResponsiveContainer>
       </div>
 
-      {/* Legend */}
+      {/* Legend — قابلة للضغط */}
       <div className="space-y-2">
         {sorted.map(item => {
           const cfg = STATUS_CFG[item.status] ?? { label: item.status, color: "#888", bg: "#88881a" };
+          const isSelected = selectedStatus === item.status;
           return (
-            <div key={item.status} className="flex items-center gap-3">
-              {/* Color dot */}
-              <span
-                className="w-3 h-3 rounded-full shrink-0"
-                style={{ background: cfg.color }}
-              />
-              {/* Label */}
-              <span className="text-xs font-semibold text-foreground flex-1 truncate">
-                {cfg.label}
-              </span>
-              {/* Count */}
-              <span
-                className="text-xs font-bold px-2 py-0.5 rounded-md shrink-0"
-                style={{ background: cfg.bg, color: cfg.color }}
-              >
+            <button
+              key={item.status}
+              type="button"
+              onClick={() => onStatusClick?.(isSelected ? null : item.status)}
+              className="w-full flex items-center gap-3 rounded-lg px-2 py-1 transition-all text-right"
+              style={{
+                background: isSelected ? cfg.bg : "transparent",
+                border: isSelected ? `1px solid ${cfg.color}55` : "1px solid transparent",
+                cursor: onStatusClick ? "pointer" : "default",
+              }}
+            >
+              <span className="w-3 h-3 rounded-full shrink-0" style={{ background: cfg.color }} />
+              <span className="text-xs font-semibold text-foreground flex-1 truncate">{cfg.label}</span>
+              <span className="text-xs font-bold px-2 py-0.5 rounded-md shrink-0"
+                style={{ background: cfg.bg, color: cfg.color }}>
                 {item.count}
               </span>
-              {/* Pct */}
-              <span
-                className="text-xs font-black w-9 text-right shrink-0"
-                style={{ color: cfg.color }}
-              >
+              <span className="text-xs font-black w-9 text-right shrink-0" style={{ color: cfg.color }}>
                 {item.pct}%
               </span>
-            </div>
+              {isSelected && (
+                <span className="text-[9px] font-bold shrink-0" style={{ color: cfg.color }}>▼</span>
+              )}
+            </button>
           );
         })}
       </div>
@@ -584,6 +602,104 @@ const KpiStrip = memo(function KpiStrip({ data, total }: { data: ChartsData["sta
     </div>
   );
 });
+
+// ─── Filtered Orders List ─────────────────────────────────────────────────────
+export function FilteredOrdersList({ status }: { status: string }) {
+  const cfg = STATUS_CFG[status] ?? { label: status, color: "#888", bg: "#88881a" };
+  const { data: orders, isLoading } = useListOrders({ status });
+  const fc = (n: number) =>
+    new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(n);
+
+  return (
+    <div
+      className="mt-3 rounded-xl border overflow-hidden"
+      style={{ borderColor: cfg.color + "44", background: cfg.bg }}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-2.5 border-b" style={{ borderColor: cfg.color + "33" }}>
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full" style={{ background: cfg.color }} />
+          <span className="text-xs font-bold" style={{ color: cfg.color }}>{cfg.label}</span>
+          {!isLoading && orders && (
+            <span className="text-[10px] text-muted-foreground">({orders.length} طلب)</span>
+          )}
+        </div>
+        <Link href={`/orders?status=${status}`} className="text-[10px] font-bold hover:underline" style={{ color: cfg.color }}>
+          عرض الكل ←
+        </Link>
+      </div>
+
+      {/* Body */}
+      {isLoading ? (
+        <div className="p-4 text-center text-xs text-muted-foreground">جاري التحميل...</div>
+      ) : !orders?.length ? (
+        <div className="p-4 text-center text-xs text-muted-foreground">لا توجد طلبات</div>
+      ) : (
+        <div className="divide-y" style={{ borderColor: cfg.color + "22" }}>
+          {orders.slice(0, 8).map(order => (
+            <Link
+              key={order.id}
+              href={`/orders/${order.id}`}
+              className="flex items-center justify-between px-4 py-2.5 hover:bg-black/5 transition-colors"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 text-white"
+                  style={{ background: cfg.color }}>
+                  {order.customerName.charAt(0)}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold truncate">{order.customerName}</p>
+                  <p className="text-[10px] text-muted-foreground truncate">
+                    #{order.id.toString().padStart(4, "0")} • {order.product}
+                    {order.city ? ` • ${order.city}` : ""}
+                  </p>
+                </div>
+              </div>
+              <div className="text-left shrink-0 mr-2">
+                <p className="text-xs font-black" style={{ color: cfg.color }}>{fc(order.totalPrice)}</p>
+                <p className="text-[9px] text-muted-foreground">
+                  {format(new Date(order.createdAt), "dd/MM")}
+                </p>
+              </div>
+            </Link>
+          ))}
+          {orders.length > 8 && (
+            <div className="px-4 py-2 text-center">
+              <Link href={`/orders?status=${status}`} className="text-[10px] font-bold hover:underline" style={{ color: cfg.color }}>
+                + {orders.length - 8} طلب آخر
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Exported Weekly Bars (standalone) ───────────────────────────────────────
+export { WeeklyBars };
+
+// ─── Exported Chart Card Wrapper ─────────────────────────────────────────────
+export { ChartCard };
+
+// ─── Status Donut + Expandable Orders (للاستخدام في الداشبورد) ───────────────
+export function StatusDonutWithOrders({ data, total }: { data: ChartsData["statusBreakdown"]; total: number }) {
+  const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+
+  return (
+    <div>
+      <StatusDonut
+        data={data}
+        total={total}
+        selectedStatus={selectedStatus}
+        onStatusClick={setSelectedStatus}
+      />
+      {selectedStatus && (
+        <FilteredOrdersList status={selectedStatus} />
+      )}
+    </div>
+  );
+}
 
 // ─── Exported Component ──────────────────────────────────────────────────────
 export function ChartsSection() {

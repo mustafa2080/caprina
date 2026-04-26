@@ -15,7 +15,7 @@ import {
   analyticsApi, type PeriodProfit, type ProductProfit, type FinancialSummary, type Alert,
   productsApi,
 } from "@/lib/api";
-import { ChartsSection } from "@/components/charts-section";
+import { ChartsSection, WeeklyBars, ChartCard, StatusDonutWithOrders } from "@/components/charts-section";
 import { usePwaInstall } from "@/hooks/usePwaInstall";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -196,6 +196,13 @@ export default function Dashboard() {
     queryKey: ["smart-insights"],
     queryFn: analyticsApi.smartInsights,
     staleTime: 60000,
+  });
+
+  const { data: chartsData } = useQuery({
+    queryKey: ["analytics-charts"],
+    queryFn: analyticsApi.charts,
+    staleTime: 30000,
+    refetchInterval: 60000,
   });
 
   const highAlerts = alertsData?.alerts.filter(a => a.severity === "high") ?? [];
@@ -418,7 +425,33 @@ export default function Dashboard() {
       )}
 
       {/* === VISUAL CHARTS === */}
-      <ChartsSection />
+      {chartsData ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* توزيع حالات الطلبات — قابل للضغط */}
+          <ChartCard
+            title="توزيع حالات الطلبات"
+            subtitle="اضغط على الحالة لعرض طلباتها"
+            dot="#22c55e"
+            liveTag
+          >
+            <StatusDonutWithOrders
+              data={chartsData.statusBreakdown}
+              total={chartsData.total}
+            />
+          </ChartCard>
+
+          {/* المبيعات الأسبوعية */}
+          <ChartCard
+            title="المبيعات الأسبوعية"
+            subtitle="Weekly Sales — Last 7 Days"
+            dot="#f59e0b"
+          >
+            <WeeklyBars data={chartsData.weeklySales} />
+          </ChartCard>
+        </div>
+      ) : (
+        <ChartsSection />
+      )}
 
       {/* === SMART QUICK INSIGHTS === */}
       {smartData && (
