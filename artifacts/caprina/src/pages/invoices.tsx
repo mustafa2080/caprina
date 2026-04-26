@@ -98,211 +98,246 @@ export default function Invoices() {
     if (!printWindow) return;
 
     const styles = `
-      @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;900&display=swap');
-      @page { size: A4 landscape; margin: 4mm; }
+      @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
+
+      @page {
+        size: A4 landscape;
+        margin: 5mm;
+      }
+
       * { box-sizing: border-box; margin: 0; padding: 0; }
+
       body {
         font-family: 'Cairo', 'Segoe UI', Tahoma, Arial, sans-serif;
         direction: rtl;
         background: white;
         color: #111;
-        font-size: 11.5pt;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
       }
+
+      /* ─── صفحة A4 landscape = 297mm × 210mm ────────────── */
+      /* بعد margin 5mm من كل ناحية = 287mm × 200mm */
+      /* كل فاتورة = نص العرض و نص الارتفاع مع gap 3mm */
+      /* = (287-3)/2 = 142mm عرض ، (200-3)/2 = 98.5mm ارتفاع */
+
       .page {
         display: grid;
         grid-template-columns: 1fr 1fr;
         grid-template-rows: 1fr 1fr;
         gap: 3mm;
-        width: 100%;
-        min-height: 194mm;
+        width: 287mm;
+        height: 200mm;
         page-break-after: always;
+        overflow: hidden;
       }
       .page:last-child { page-break-after: avoid; }
 
       /* ── Invoice Card ─────────────────────────── */
       .inv {
-        border: 1.5px solid #1a1a1a;
+        border: 1.2px solid #1a1a1a;
         border-radius: 2mm;
         display: flex;
         flex-direction: column;
         overflow: hidden;
         background: white;
-        font-size: 9.5pt;
-        min-height: 0;
+        height: 98.5mm;
+        max-height: 98.5mm;
       }
 
-      /* لو الملاحظات طويلة — الـ card تكبر عمودياً بدل ما تقطعها */
-      .inv.has-notes { overflow: visible; }
-
-      /* ── Top bar: brand row ──────────────────── */
+      /* ── Top bar ────────────────────────────── */
       .top-bar {
         background: #1a1a1a;
         color: white;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 1.5mm 3mm;
-        gap: 2mm;
+        padding: 1.2mm 2.5mm;
+        gap: 1.5mm;
         flex-shrink: 0;
+        height: 10mm;
       }
-      .logo-wrap { display: flex; align-items: center; gap: 1.5mm; }
-      .logo-img { width: 8mm; height: 8mm; object-fit: contain; border-radius: 1mm; }
-      .logo-txt { font-size: 12pt; font-weight: 900; letter-spacing: 2px; line-height: 1; }
-      .logo-sub { font-size: 6pt; letter-spacing: 2px; opacity: 0.7; }
-      .brand-city { font-size: 10pt; font-weight: 700; letter-spacing: 1px; opacity: 0.9; }
-      .inv-date { font-size: 8.5pt; opacity: 0.85; white-space: nowrap; }
+      .logo-wrap { display: flex; align-items: center; gap: 1.2mm; }
+      .logo-img { width: 7mm; height: 7mm; object-fit: contain; border-radius: 1mm; }
+      .logo-txt { font-size: 10pt; font-weight: 900; letter-spacing: 2px; line-height: 1; }
+      .logo-sub { font-size: 5pt; letter-spacing: 2px; opacity: 0.7; }
+      .brand-center { font-size: 8pt; font-weight: 700; letter-spacing: 1px; opacity: 0.9; text-align: center; }
+      .inv-date { font-size: 7.5pt; opacity: 0.85; white-space: nowrap; }
 
       /* ── Body ─────────────────────────────────── */
       .inv-body {
-        padding: 1.5mm 3mm;
+        padding: 1.5mm 2.5mm;
         flex: 1;
         display: flex;
         flex-direction: column;
         gap: 1mm;
-        overflow: visible;
+        overflow: hidden;
         min-height: 0;
       }
 
-      /* ── Customer row ──────────────────────────── */
+      /* ── Customer row ──────────────────────── */
       .customer-row {
         display: flex;
         align-items: center;
         justify-content: space-between;
         border-bottom: 1px solid #e0e0e0;
         padding-bottom: 1mm;
-        gap: 2mm;
+        gap: 1.5mm;
+        flex-shrink: 0;
       }
-      .customer-name { font-size: 12pt; font-weight: 900; color: #111; }
-      .order-id { font-size: 8.5pt; color: #999; font-family: monospace; }
+      .customer-name { font-size: 11pt; font-weight: 900; color: #111; line-height: 1.1; }
       .phone-badge {
-        font-size: 11pt;
+        font-size: 9.5pt;
         font-weight: 900;
         color: #111;
         direction: ltr;
         background: #f0f0f0;
         border-radius: 1mm;
-        padding: 0.5mm 2mm;
+        padding: 0.5mm 1.5mm;
         white-space: nowrap;
       }
 
-      /* ── Product Table ───────────────────────────── */
+      /* ── Product Table ───────────────────────── */
       .prod-table {
         width: 100%;
         border-collapse: collapse;
-        font-size: 9pt;
         flex-shrink: 0;
       }
       .prod-table th {
         background: #1a1a1a;
         color: white;
-        border: 0.5px solid #333;
-        padding: 1.2mm 1.5mm;
+        border: 0.4px solid #333;
+        padding: 1mm 1.2mm;
         font-weight: 700;
-        font-size: 8.5pt;
+        font-size: 7.5pt;
         text-align: center;
       }
       .prod-table td {
-        border: 0.5px solid #ddd;
-        padding: 1.2mm 1.5mm;
+        border: 0.4px solid #ddd;
+        padding: 1mm 1.2mm;
         text-align: center;
-        font-size: 9pt;
+        font-size: 8pt;
         vertical-align: middle;
+        line-height: 1.2;
       }
       .prod-table td.name-col {
         text-align: right;
         font-weight: 700;
-        font-size: 9.5pt;
-        max-width: 35mm;
+        font-size: 8.5pt;
+        max-width: 30mm;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
       }
       .prod-table .total-row td {
         background: #f0f0f0;
-        color: #111;
         font-weight: 900;
-        font-size: 10pt;
-        border-color: #ccc;
+        font-size: 8.5pt;
+        border-color: #bbb;
       }
 
-      /* ── Info grid: 3 cols ────────────────────── */
+      /* ── Info grid ────────────────────────── */
       .info-grid {
         display: grid;
         grid-template-columns: 1fr 1fr 1fr;
-        gap: 1mm;
+        gap: 0.8mm;
         flex-shrink: 0;
       }
-      .info-grid.two-col { grid-template-columns: 1fr 1fr; }
       .info-cell {
-        border: 0.5px solid #ddd;
-        border-radius: 1mm;
-        padding: 1mm 1.5mm;
+        border: 0.4px solid #ddd;
+        border-radius: 0.8mm;
+        padding: 0.7mm 1.2mm;
         background: #fafafa;
         display: flex;
         flex-direction: column;
         min-width: 0;
+        overflow: hidden;
       }
       .info-cell.span2 { grid-column: span 2; }
       .info-cell.span3 { grid-column: span 3; }
-      .ic-label { font-size: 7.5pt; color: #999; white-space: nowrap; }
-      .ic-val { font-size: 9pt; font-weight: 700; min-height: 3.5mm; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .ic-val.wrap { white-space: normal; line-height: 1.3; }
+      .ic-label { font-size: 6.5pt; color: #999; white-space: nowrap; line-height: 1.3; }
+      .ic-val {
+        font-size: 8pt;
+        font-weight: 700;
+        line-height: 1.3;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .ic-val.wrap {
+        white-space: normal;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
 
-      /* ── Notes box ──────────────────────────────── */
+      /* ── Notes box ──────────────────────────── */
       .notes-box {
         background: #fffbea;
-        border: 1.5px solid #f59e0b;
-        border-right: 4px solid #f59e0b;
-        border-radius: 1.5mm;
-        padding: 2mm 3mm;
-        display: flex;
-        gap: 2mm;
-        align-items: flex-start;
-        flex-shrink: 0;
-        overflow: visible;
-        box-shadow: 0 1px 3px rgba(245,158,11,0.15);
-      }
-      .notes-box .nl { font-size: 8.5pt; font-weight: 900; color: #b45309; white-space: nowrap; padding-top: 0.3mm; }
-      .notes-box .nv { font-size: 9pt; font-weight: 700; color: #1a1a1a; line-height: 1.5; white-space: normal; word-break: break-word; }
-
-      /* ── Confirm shipping row ─────────────── */
-      .confirm-box {
-        border: 0.5px solid #1a1a1a;
+        border: 1px solid #f59e0b;
+        border-right: 3px solid #f59e0b;
         border-radius: 1mm;
-        padding: 1.5mm 2mm;
-        font-size: 8pt;
-        color: #444;
+        padding: 1mm 2mm;
         display: flex;
         gap: 1.5mm;
         align-items: flex-start;
         flex-shrink: 0;
+        overflow: hidden;
+      }
+      .notes-box .nl { font-size: 7.5pt; font-weight: 900; color: #b45309; white-space: nowrap; }
+      .notes-box .nv {
+        font-size: 7.5pt;
+        font-weight: 700;
+        color: #1a1a1a;
+        line-height: 1.4;
+        white-space: normal;
+        word-break: break-word;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+
+      /* ── Confirm box ─────────────────────── */
+      .confirm-box {
+        border: 0.5px solid #ccc;
+        border-radius: 1mm;
+        padding: 1mm 1.5mm;
+        font-size: 7pt;
+        color: #555;
+        display: flex;
+        gap: 1mm;
+        align-items: flex-start;
+        flex-shrink: 0;
+        line-height: 1.3;
       }
       .confirm-box .cb-label {
         font-weight: 900;
         white-space: nowrap;
         color: #111;
-        font-size: 8.5pt;
+        font-size: 7.5pt;
       }
 
-      /* ── Footer: policy only (no phone repeat) ──────────── */
+      /* ── Footer ─────────────────────────── */
       .inv-footer {
-        border-top: 1px solid #ccc;
+        border-top: 1px solid #ddd;
         display: flex;
         justify-content: center;
         align-items: center;
-        padding: 1mm 3mm;
+        padding: 0.8mm 2mm;
         background: #f9f9f9;
         flex-shrink: 0;
+        min-height: 5mm;
       }
-      .policy-txt { font-size: 7pt; color: #666; text-align: center; line-height: 1.4; }
+      .policy-txt { font-size: 6.5pt; color: #777; text-align: center; line-height: 1.4; }
 
-      /* ── Empty slot ───────────────────────── */
+      /* ── Empty slot ─────────────────────── */
       .empty-slot {
-        border: 1px dashed #ddd;
+        border: 1px dashed #e0e0e0;
         border-radius: 2mm;
         background: #fafafa;
+        height: 98.5mm;
       }
     `;
 
@@ -326,7 +361,7 @@ export default function Invoices() {
       const address = order.address ?? "";
 
       return `
-        <div class="inv${notes ? " has-notes" : ""}">
+        <div class="inv">
           <!-- TOP BAR -->
           <div class="top-bar">
             <div class="logo-wrap">
@@ -337,8 +372,8 @@ export default function Invoices() {
               </div>
             </div>
             <div style="display:flex;flex-direction:column;align-items:center">
-              <div class="brand-city">${brandName}</div>
-              <div style="font-size:5.5pt;opacity:0.7;letter-spacing:1px">ORDER #${String(order.id).padStart(4,"0")}</div>
+              <div class="brand-center">${brandName}</div>
+              <div style="font-size:5pt;opacity:0.7;letter-spacing:1px">ORDER #${String(order.id).padStart(4,"0")}</div>
             </div>
             <div class="inv-date">${dateStr}</div>
           </div>
