@@ -675,105 +675,275 @@ function ExportDialog({
   const totalCollected = deliveredGross + partialGross;
   const netDue = totalCollected - effectiveShipping;
 
-  // ── Excel Export ────────────────────────────────────────────────────────────
+  // ── Excel Export — Professional Styled ──────────────────────────────────────
   const exportExcel = () => {
+
+    // ── Color palette ──
+    const C = {
+      headerBg:    "1E293B",  // header الجدول — كحلي داكن
+      headerFont:  "FFFFFF",
+      titleBg:     "0F172A",  // عنوان البيان
+      titleFont:   "F59E0B",  // ذهبي
+      altRow:      "F8FAFC",  // صفوف بديلة — رمادي خفيف جداً
+      whiteBg:     "FFFFFF",
+      borderColor: "CBD5E1",
+      sectionBg:   "1E3A5F",  // عناوين الأقسام
+      sectionFont: "F59E0B",
+      // حالات
+      delivered:   { bg: "DCFCE7", font: "15803D", border: "86EFAC" },
+      returned:    { bg: "FEE2E2", font: "DC2626", border: "FCA5A5" },
+      postponed:   { bg: "FEF3C7", font: "D97706", border: "FCD34D" },
+      partial:     { bg: "CCFBF1", font: "0F766E", border: "5EEAD4" },
+      pending:     { bg: "F1F5F9", font: "64748B", border: "CBD5E1" },
+      // totals
+      totalBg:     "0F172A",
+      totalFont:   "F59E0B",
+      netBg:       "166534",
+      netFont:     "FFFFFF",
+      shippingBg:  "92400E",
+      shippingFont:"FFFFFF",
+    };
+
+    // helper: خلية بـ style
+    const cell = (v: string | number, s: Record<string, unknown> = {}): XLSX.CellObject => ({
+      v,
+      t: typeof v === "number" ? "n" : "s",
+      s,
+    });
+
+    const boldFont   = (color = "000000", sz = 10) => ({ bold: true, color: { rgb: color }, name: "Cairo", sz });
+    const normalFont = (color = "000000", sz = 10) => ({ color: { rgb: color }, name: "Cairo", sz });
+    const center     = { horizontal: "center" as const, vertical: "center" as const };
+    const right      = { horizontal: "right" as const, vertical: "center" as const };
+    const thinBorder = { style: "thin" as const, color: { rgb: C.borderColor } };
+    const allBorders = { top: thinBorder, bottom: thinBorder, left: thinBorder, right: thinBorder };
+
+    // status → style colors
+    const statusStyle = (st: string) => {
+      const map: Record<string, typeof C.delivered> = {
+        delivered: C.delivered, returned: C.returned,
+        postponed: C.postponed, partial_received: C.partial, pending: C.pending,
+      };
+      return map[st] ?? C.pending;
+    };
+
+    // ════════════════════════════════════════════════════════════
+    // SHEET 1 — الطلبيات الكاملة
+    // ════════════════════════════════════════════════════════════
     const wb = XLSX.utils.book_new();
 
-    // ── Sheet 1: Orders ──
-    const ordersHeader = [
-      ["#", "رقم الطلب", "اسم العميل", "الهاتف", "المنتج", "اللون", "المقاس",
-       "الكمية", "الكمية المستلمة", "الإجمالي (ج.م)", "حالة التسليم", "ملاحظة"],
-    ];
-    const ordersRows = manifest.orders.map((o, idx) => [
-      idx + 1,
-      o.id,
-      o.customerName,
-      o.phone ?? "",
-      o.product,
-      o.color ?? "",
-      o.size ?? "",
-      o.quantity,
-      o.deliveryStatus === "partial_received" ? (o.partialQuantity ?? "") : "",
-      o.totalPrice,
-      STATUS_LABEL_AR[o.deliveryStatus] ?? o.deliveryStatus,
-      o.deliveryNote ?? "",
-    ]);
+    const COLS1 = ["#", "رقم الطلب", "اسم العميل", "الهاتف", "المنتج", "اللون / المقاس", "الكمية", "المستلم", "الإجمالي", "الحالة", "ملاحظة"];
+    const COL_W1 = [4, 9, 24, 15, 26, 16, 8, 8, 14, 14, 30];
 
-    const ws1 = XLSX.utils.aoa_to_sheet([...ordersHeader, ...ordersRows]);
-
-    // column widths
-    ws1["!cols"] = [
-      { wch: 4 }, { wch: 8 }, { wch: 22 }, { wch: 14 }, { wch: 24 },
-      { wch: 10 }, { wch: 10 }, { wch: 8 }, { wch: 12 }, { wch: 14 },
-      { wch: 14 }, { wch: 28 },
+    // صف العنوان الكبير (merged)
+    const titleRow1: XLSX.CellObject[] = [
+      cell(`بيان الشحن — ${manifest.manifestNumber} | ${manifest.companyName} | ${format(new Date(manifest.createdAt), "yyyy/MM/dd")}`, {
+        font: boldFont(C.titleFont, 12),
+        fill: { fgColor: { rgb: C.titleBg } },
+        alignment: { ...center, wrapText: true },
+      }),
+      ...Array(COLS1.length - 1).fill({ v: "", t: "s", s: { fill: { fgColor: { rgb: C.titleBg } } } }),
     ];
 
-    // header style
-    const range = XLSX.utils.decode_range(ws1["!ref"] ?? "A1");
-    for (let C = range.s.c; C <= range.e.c; C++) {
-      const cellAddr = XLSX.utils.encode_cell({ r: 0, c: C });
-      if (!ws1[cellAddr]) continue;
-      ws1[cellAddr].s = {
-        font: { bold: true, color: { rgb: "FFFFFF" } },
-        fill: { fgColor: { rgb: "1E293B" } },
-        alignment: { horizontal: "center" },
-      };
-    }
+    // صف الهيدر
+    const headerRow1: XLSX.CellObject[] = COLS1.map(h => cell(h, {
+      font: boldFont(C.headerFont, 10),
+      fill: { fgColor: { rgb: C.headerBg } },
+      alignment: center,
+      border: allBorders,
+    }));
 
-    XLSX.utils.book_append_sheet(wb, ws1, "الطلبيات");
+    // صفوف البيانات
+    const dataRows1: XLSX.CellObject[][] = manifest.orders.map((o, idx) => {
+      const isAlt = idx % 2 === 1;
+      const bg = isAlt ? C.altRow : C.whiteBg;
+      const sc = statusStyle(o.deliveryStatus);
+      const baseStyle = { fill: { fgColor: { rgb: bg } }, border: allBorders, alignment: right };
 
-    // ── Sheet 2: Summary ──
-    const summaryData = [
-      ["بيان الشحن", manifest.manifestNumber],
-      ["شركة الشحن", manifest.companyName],
-      ["تاريخ الإنشاء", format(new Date(manifest.createdAt), "yyyy/MM/dd")],
-      ["الحالة", manifest.status === "closed" ? "مغلق" : "مفتوح"],
-      [],
-      ["── إحصائيات التسليم ──", ""],
-      ["إجمالي الطلبيات", s.total],
-      ["مسلَّم", s.delivered],
-      ["مرتجع", s.returned],
-      ["مؤجل", manifest.orders.filter(o => o.deliveryStatus === "postponed").length],
-      ["استلم جزئي", manifest.orders.filter(o => o.deliveryStatus === "partial_received").length],
-      ["قيد الانتظار", manifest.orders.filter(o => o.deliveryStatus === "pending").length],
-      ["نسبة التسليم", `${s.deliveryRate}%`],
-      [],
-      ["── الحساب المالي ──", ""],
-      ["إجمالي المحصَّل (ج.م)", totalCollected],
-      ["رسوم الشحن (ج.م)", effectiveShipping],
-      ["صافي المستحق (ج.م)", netDue],
+      return [
+        cell(idx + 1,  { ...baseStyle, font: normalFont("94A3B8"), alignment: center }),
+        cell(o.id,     { ...baseStyle, font: boldFont("1E293B"),   alignment: center }),
+        cell(o.customerName, { ...baseStyle, font: boldFont("0F172A") }),
+        cell(o.phone ?? "—", { ...baseStyle, font: normalFont("475569") }),
+        cell(o.product,      { ...baseStyle, font: normalFont("1E293B") }),
+        cell([o.color, o.size].filter(Boolean).join(" / ") || "—", { ...baseStyle, font: normalFont("64748B") }),
+        cell(o.quantity, { ...baseStyle, font: boldFont("1E293B"), alignment: center }),
+        cell(
+          o.deliveryStatus === "partial_received" && o.partialQuantity ? o.partialQuantity : (o.deliveryStatus === "delivered" ? o.quantity : "—"),
+          { ...baseStyle, font: normalFont("0F766E"), alignment: center }
+        ),
+        cell(o.totalPrice, {
+          ...baseStyle,
+          font: boldFont("0F172A"),
+          alignment: { horizontal: "left" as const, vertical: "center" as const },
+          numFmt: '#,##0 "ج.م"',
+        }),
+        cell(STATUS_LABEL_AR[o.deliveryStatus] ?? o.deliveryStatus, {
+          fill: { fgColor: { rgb: sc.bg } },
+          font: boldFont(sc.font, 9),
+          alignment: center,
+          border: { top: { style: "thin" as const, color: { rgb: sc.border } }, bottom: { style: "thin" as const, color: { rgb: sc.border } }, left: { style: "thin" as const, color: { rgb: sc.border } }, right: { style: "thin" as const, color: { rgb: sc.border } } },
+        }),
+        cell(o.deliveryNote ?? "", { ...baseStyle, font: normalFont("64748B"), alignment: { ...right, wrapText: true } }),
+      ];
+    });
+
+    // صف المجاميع
+    const totalRow1: XLSX.CellObject[] = [
+      cell("الإجمالي", { fill: { fgColor: { rgb: C.totalBg } }, font: boldFont(C.totalFont, 10), alignment: right, border: allBorders }),
+      ...Array(7).fill(cell("", { fill: { fgColor: { rgb: C.totalBg } }, border: allBorders })),
+      cell(manifest.orders.reduce((s, o) => s + o.totalPrice, 0), {
+        fill: { fgColor: { rgb: C.netBg } }, font: boldFont(C.netFont, 11),
+        alignment: { horizontal: "left" as const, vertical: "center" as const },
+        border: allBorders, numFmt: '#,##0 "ج.م"',
+      }),
+      cell(`${s.deliveryRate}% نسبة تسليم`, { fill: { fgColor: { rgb: C.totalBg } }, font: boldFont(C.titleFont), alignment: center, border: allBorders }),
+      cell("", { fill: { fgColor: { rgb: C.totalBg } }, border: allBorders }),
+    ];
+
+    // بناء الـ sheet
+    const ws1Data = [titleRow1, headerRow1, ...dataRows1, totalRow1];
+    const ws1 = XLSX.utils.aoa_to_sheet(ws1Data as any[]);
+    ws1["!cols"] = COL_W1.map(w => ({ wch: w }));
+    ws1["!rows"] = [{ hpt: 28 }, { hpt: 22 }, ...manifest.orders.map(() => ({ hpt: 20 })), { hpt: 24 }];
+    // merge صف العنوان
+    ws1["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: COLS1.length - 1 } }];
+    XLSX.utils.book_append_sheet(wb, ws1, "📋 الطلبيات");
+
+    // ════════════════════════════════════════════════════════════
+    // SHEET 2 — ملخص البيان
+    // ════════════════════════════════════════════════════════════
+    const postponedCount = manifest.orders.filter(o => o.deliveryStatus === "postponed").length;
+    const partialCount   = manifest.orders.filter(o => o.deliveryStatus === "partial_received").length;
+    const pendingCount   = manifest.orders.filter(o => o.deliveryStatus === "pending").length;
+
+    const mkSection = (title: string): XLSX.CellObject[] => [
+      cell(title, { fill: { fgColor: { rgb: C.sectionBg } }, font: boldFont(C.sectionFont, 10), alignment: right, border: allBorders }),
+      cell("", { fill: { fgColor: { rgb: C.sectionBg } }, border: allBorders }),
+    ];
+    const mkRow = (label: string, value: string | number, valColor = "1E293B", valBold = false): XLSX.CellObject[] => [
+      cell(label, { fill: { fgColor: { rgb: C.whiteBg } }, font: normalFont("475569"), alignment: right, border: allBorders }),
+      cell(value, { fill: { fgColor: { rgb: C.whiteBg } }, font: valBold ? boldFont(valColor) : normalFont(valColor), alignment: { horizontal: "left" as const, vertical: "center" as const }, border: allBorders }),
+    ];
+    const mkMoneyRow = (label: string, value: number, bg: string, font: string): XLSX.CellObject[] => [
+      cell(label, { fill: { fgColor: { rgb: bg } }, font: boldFont(font, 10), alignment: right, border: allBorders }),
+      cell(value,  { fill: { fgColor: { rgb: bg } }, font: boldFont(font, 12), alignment: { horizontal: "left" as const, vertical: "center" as const }, border: allBorders, numFmt: '#,##0 "ج.م"' }),
+    ];
+
+    // عنوان الـ sheet
+    const summaryTitleRow: XLSX.CellObject[] = [
+      cell("ملخص البيان — CAPRINA", { fill: { fgColor: { rgb: C.titleBg } }, font: boldFont(C.titleFont, 14), alignment: center }),
+      cell("", { fill: { fgColor: { rgb: C.titleBg } } }),
+    ];
+
+    const ws2Data: XLSX.CellObject[][] = [
+      summaryTitleRow,
+      [cell(""), cell("")],
+      mkSection("📦 معلومات البيان"),
+      mkRow("رقم البيان",     manifest.manifestNumber, "1E293B", true),
+      mkRow("شركة الشحن",    manifest.companyName,     "1E293B", true),
+      mkRow("تاريخ الإنشاء", format(new Date(manifest.createdAt), "yyyy/MM/dd")),
+      mkRow("الحالة",         manifest.status === "closed" ? "✅ مغلق" : "🔵 مفتوح", manifest.status === "closed" ? "15803D" : "1D4ED8", true),
+      manifest.closedAt ? mkRow("تاريخ الإغلاق", format(new Date(manifest.closedAt), "yyyy/MM/dd")) : [cell(""), cell("")],
+      [cell(""), cell("")],
+      mkSection("📊 إحصائيات التسليم"),
+      mkRow("إجمالي الطلبيات", s.total,       "1E293B", true),
+      mkRow("✅ مسلَّم",        s.delivered,   "15803D", true),
+      mkRow("↩️ مرتجع",         s.returned,    "DC2626", true),
+      mkRow("⏳ مؤجل",          postponedCount,"D97706", true),
+      mkRow("📦 استلم جزئي",   partialCount,  "0F766E", true),
+      mkRow("🕐 قيد الانتظار", pendingCount,  "64748B", true),
+      mkRow("نسبة التسليم",    `${s.deliveryRate}%`, s.deliveryRate >= 70 ? "15803D" : s.deliveryRate >= 40 ? "D97706" : "DC2626", true),
+      [cell(""), cell("")],
+      mkSection("💰 الحساب المالي"),
+      mkMoneyRow("إجمالي المحصَّل", totalCollected,     "166534", "FFFFFF"),
+      mkMoneyRow("رسوم الشحن",      effectiveShipping,  "92400E", "FFFFFF"),
+      mkMoneyRow("صافي المستحق",    netDue,             "1E3A5F", "F59E0B"),
       ...(manifest.invoicePrice != null
-        ? [["سعر الفاتورة المتفق (ج.م)", manifest.invoicePrice]]
+        ? [mkMoneyRow("سعر الفاتورة المتفق", manifest.invoicePrice, "1E293B", "E2E8F0")]
+        : []),
+      ...(manifest.invoicePrice != null
+        ? [mkMoneyRow(
+            manifest.invoicePrice >= netDue ? "✅ فرق لصالحنا" : "⚠️ فرق علينا",
+            Math.abs(manifest.invoicePrice - netDue),
+            manifest.invoicePrice >= netDue ? "14532D" : "7F1D1D",
+            "FFFFFF"
+          )]
         : []),
     ];
 
-    const ws2 = XLSX.utils.aoa_to_sheet(summaryData);
-    ws2["!cols"] = [{ wch: 28 }, { wch: 22 }];
+    const ws2 = XLSX.utils.aoa_to_sheet(ws2Data as any[]);
+    ws2["!cols"] = [{ wch: 28 }, { wch: 26 }];
+    ws2["!rows"] = ws2Data.map((_, i) => ({ hpt: i === 0 ? 32 : 20 }));
+    ws2["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 1 } }];
+    XLSX.utils.book_append_sheet(wb, ws2, "📊 ملخص البيان");
 
-    // bold the section headers
-    [5, 14].forEach(r => {
-      const cell = XLSX.utils.encode_cell({ r, c: 0 });
-      if (ws2[cell]) ws2[cell].s = { font: { bold: true, color: { rgb: "B8860B" } } };
+    // ════════════════════════════════════════════════════════════
+    // SHEET 3..N — كل حالة منفصلة
+    // ════════════════════════════════════════════════════════════
+    const statusSheets: { key: DeliveryStatus; label: string; icon: string }[] = [
+      { key: "delivered",        label: "مسلَّم",         icon: "✅" },
+      { key: "returned",         label: "مرتجع",          icon: "↩️" },
+      { key: "postponed",        label: "مؤجل",           icon: "⏳" },
+      { key: "partial_received", label: "استلم جزئي",    icon: "📦" },
+      { key: "pending",          label: "قيد الانتظار",  icon: "🕐" },
+    ];
+
+    statusSheets.forEach(({ key, label, icon }) => {
+      const orders = manifest.orders.filter(o => o.deliveryStatus === key);
+      if (orders.length === 0) return;
+      const sc = statusStyle(key);
+
+      const sheetTitle: XLSX.CellObject[] = [
+        cell(`${icon} ${label} — ${orders.length} طلبية`, {
+          fill: { fgColor: { rgb: sc.bg } }, font: boldFont(sc.font, 12),
+          alignment: center,
+          border: { top: { style: "thin" as const, color: { rgb: sc.border } }, bottom: { style: "thin" as const, color: { rgb: sc.border } }, left: { style: "thin" as const, color: { rgb: sc.border } }, right: { style: "thin" as const, color: { rgb: sc.border } } },
+        }),
+        ...Array(6).fill(cell("", { fill: { fgColor: { rgb: sc.bg } } })),
+      ];
+
+      const sheetHeader: XLSX.CellObject[] = ["#", "رقم الطلب", "اسم العميل", "الهاتف", "المنتج", "الكمية", "الإجمالي", "ملاحظة"].map(h =>
+        cell(h, { fill: { fgColor: { rgb: C.headerBg } }, font: boldFont(C.headerFont, 10), alignment: center, border: allBorders })
+      );
+
+      const sheetRows: XLSX.CellObject[][] = orders.map((o, idx) => {
+        const isAlt = idx % 2 === 1;
+        const bg = isAlt ? C.altRow : C.whiteBg;
+        const base = { fill: { fgColor: { rgb: bg } }, border: allBorders, alignment: right };
+        return [
+          cell(idx + 1,     { ...base, font: normalFont("94A3B8"), alignment: center }),
+          cell(o.id,        { ...base, font: boldFont("1E293B"), alignment: center }),
+          cell(o.customerName, { ...base, font: boldFont("0F172A") }),
+          cell(o.phone ?? "—", { ...base, font: normalFont("475569") }),
+          cell(o.product,   { ...base, font: normalFont("1E293B") }),
+          cell(o.quantity,  { ...base, font: boldFont("1E293B"), alignment: center }),
+          cell(o.totalPrice,{ ...base, font: boldFont("0F172A"), alignment: { horizontal: "left" as const, vertical: "center" as const }, numFmt: '#,##0 "ج.م"' }),
+          cell(o.deliveryNote ?? "", { ...base, font: normalFont("64748B"), alignment: { ...right, wrapText: true } }),
+        ];
+      });
+
+      // صف مجموع الحالة
+      const subtotalRow: XLSX.CellObject[] = [
+        cell(`المجموع (${orders.length})`, { fill: { fgColor: { rgb: sc.bg } }, font: boldFont(sc.font), alignment: right, border: allBorders }),
+        ...Array(5).fill(cell("", { fill: { fgColor: { rgb: sc.bg } }, border: allBorders })),
+        cell(orders.reduce((sum, o) => sum + o.totalPrice, 0), {
+          fill: { fgColor: { rgb: sc.bg } }, font: boldFont(sc.font, 12),
+          alignment: { horizontal: "left" as const, vertical: "center" as const },
+          border: allBorders, numFmt: '#,##0 "ج.م"',
+        }),
+        cell("", { fill: { fgColor: { rgb: sc.bg } }, border: allBorders }),
+      ];
+
+      const wsData = [sheetTitle, sheetHeader, ...sheetRows, subtotalRow];
+      const ws = XLSX.utils.aoa_to_sheet(wsData as any[]);
+      ws["!cols"] = [4, 9, 24, 15, 26, 8, 14, 30].map(w => ({ wch: w }));
+      ws["!rows"] = [{ hpt: 26 }, { hpt: 20 }, ...orders.map(() => ({ hpt: 20 })), { hpt: 22 }];
+      ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 7 } }];
+      XLSX.utils.book_append_sheet(wb, ws, `${icon} ${label}`);
     });
 
-    XLSX.utils.book_append_sheet(wb, ws2, "ملخص البيان");
-
-    // ── Sheet 3: by status ──
-    const statuses: DeliveryStatus[] = ["delivered", "returned", "postponed", "partial_received", "pending"];
-    statuses.forEach(st => {
-      const filtered = manifest.orders.filter(o => o.deliveryStatus === st);
-      if (filtered.length === 0) return;
-      const header = [["#", "رقم الطلب", "اسم العميل", "الهاتف", "المنتج", "الكمية", "الإجمالي (ج.م)", "ملاحظة"]];
-      const rows = filtered.map((o, idx) => [
-        idx + 1, o.id, o.customerName, o.phone ?? "",
-        o.product, o.quantity, o.totalPrice, o.deliveryNote ?? "",
-      ]);
-      const ws = XLSX.utils.aoa_to_sheet([...header, ...rows]);
-      ws["!cols"] = [{ wch: 4 }, { wch: 8 }, { wch: 22 }, { wch: 14 }, { wch: 24 }, { wch: 8 }, { wch: 14 }, { wch: 28 }];
-      XLSX.utils.book_append_sheet(wb, ws, STATUS_LABEL_AR[st]);
-    });
-
-    XLSX.writeFile(wb, `بيان-${manifest.manifestNumber}-${format(new Date(), "yyyy-MM-dd")}.xlsx`);
+    XLSX.writeFile(wb, `بيان-${manifest.manifestNumber}-${format(new Date(), "yyyy-MM-dd")}.xlsx`, { cellStyles: true });
   };
 
   // ── PDF Export (via print) ──────────────────────────────────────────────────
