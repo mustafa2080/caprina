@@ -98,11 +98,23 @@ function CompanyStats({ companyId, canViewFinancials }: { companyId: number; can
 function CompanyManifests({ company, allCompanies, canShipping }: { company: ShippingCompany; allCompanies: ShippingCompany[]; canShipping: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const [showNewDialog, setShowNewDialog] = useState(false);
+  const [showBlockedAlert, setShowBlockedAlert] = useState(false);
+
   const { data: manifests } = useQuery({
     queryKey: ["shipping-manifests", company.id],
     queryFn: () => manifestsApi.list(company.id),
-    enabled: expanded,
+    staleTime: 10000,
   });
+
+  const openManifest = manifests?.find(m => m.status === "open");
+
+  const handleNewManifest = () => {
+    if (openManifest) {
+      setShowBlockedAlert(true);
+    } else {
+      setShowNewDialog(true);
+    }
+  };
 
   return (
     <div>
@@ -112,11 +124,43 @@ function CompanyManifests({ company, allCompanies, canShipping }: { company: Shi
           {expanded ? <ChevronUp className="w-3 h-3 mr-auto" /> : <ChevronDown className="w-3 h-3 mr-auto" />}
         </Button>
         {canShipping && (
-          <Button size="sm" className="h-7 text-[11px] gap-1 bg-primary text-primary-foreground hover:bg-primary/90 font-bold" onClick={() => setShowNewDialog(true)}>
+          <Button size="sm" className="h-7 text-[11px] gap-1 bg-primary text-primary-foreground hover:bg-primary/90 font-bold" onClick={handleNewManifest}>
             <PackagePlus className="w-3 h-3" />بيان جديد
           </Button>
         )}
       </div>
+
+      {/* تحذير: يوجد بيان مفتوح */}
+      <AlertDialog open={showBlockedAlert} onOpenChange={setShowBlockedAlert}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-amber-500">
+              <Clock className="w-5 h-5" />
+              لا يمكن إنشاء بيان جديد
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-right space-y-2">
+              <span className="block">يوجد بيان مفتوح حالياً لشركة <strong>{company.name}</strong>:</span>
+              <span className="block font-bold text-foreground">
+                {openManifest?.manifestNumber} — {openManifest?.orderCount} طلبية
+              </span>
+              <span className="block text-muted-foreground">
+                يرجى تقفيل البيان الحالي أولاً قبل إنشاء بيان جديد.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel>إغلاق</AlertDialogCancel>
+            {openManifest && (
+              <AlertDialogAction
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+                onClick={() => { setShowBlockedAlert(false); setExpanded(true); }}
+              >
+                عرض البيان المفتوح
+              </AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {expanded && (
         <div className="mt-2 space-y-1.5">
