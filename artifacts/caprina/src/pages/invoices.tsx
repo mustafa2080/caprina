@@ -91,7 +91,7 @@ export default function Invoices() {
     const styles = `
       @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
 
-      @page { size: A4 landscape; margin: 4mm; }
+      @page { size: A4 landscape; margin: 0; }
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body {
         font-family: 'Cairo', sans-serif;
@@ -102,30 +102,34 @@ export default function Invoices() {
         print-color-adjust: exact;
       }
 
-      /* A4 landscape 297×210mm, margin 4mm → area 289×202mm
-         2cols × 2rows, gap 3mm
-         card: 143mm × 99.5mm */
+      /*
+        A4 landscape = 297 × 210 mm, margin 0
+        2 cols × 2 rows, gap 2mm, padding 3mm من كل ناحية
+        usable = 291mm × 204mm
+        card W = (291 - 2) / 2 = 144.5mm
+        card H = (204 - 2) / 2 = 101mm
+      */
       .page {
         display: grid;
-        grid-template-columns: 143mm 143mm;
-        grid-template-rows: 99.5mm 99.5mm;
-        gap: 3mm;
-        width: 289mm;
-        height: 202mm;
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: 1fr 1fr;
+        gap: 2mm;
+        padding: 3mm;
+        width: 297mm;
+        height: 210mm;
         page-break-after: always;
         overflow: hidden;
       }
       .page:last-child { page-break-after: avoid; }
 
       .inv {
-        width: 143mm;
-        height: 99.5mm;
         border: 1px solid #333;
         border-radius: 1mm;
         display: flex;
         flex-direction: column;
         overflow: hidden;
         background: #fff;
+        min-height: 0;
       }
 
       /* ── Header ── */
@@ -271,10 +275,10 @@ export default function Invoices() {
       .ftr-txt { font-size: 5.5pt; color: #888; line-height: 1.4; }
 
       .empty {
-        width: 143mm; height: 99.5mm;
         border: 1px dashed #ddd;
         border-radius: 1mm;
         background: #fafafa;
+        min-height: 0;
       }
     `;
 
