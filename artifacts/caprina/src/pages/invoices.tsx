@@ -94,7 +94,7 @@ export default function Invoices() {
 
     const styles = `
       @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;900&display=swap');
-      @page { size: A4 landscape; margin: 4mm; }
+      @page { size: A4 landscape; margin: 0; }
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body {
         font-family: 'Cairo', 'Segoe UI', Tahoma, Arial, sans-serif;
@@ -103,7 +103,8 @@ export default function Invoices() {
       }
       .page {
         display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;
-        gap: 3mm; width: 100%; height: 194mm; page-break-after: always;
+        gap: 2mm; width: 297mm; height: 210mm; padding: 3mm;
+        page-break-after: always;
       }
       .page:last-child { page-break-after: avoid; }
 
@@ -217,6 +218,7 @@ export default function Invoices() {
         : ``;
       const address        = order.address ?? "";
       const orderNum       = String(order.id).padStart(4, "0");
+      const city           = order.city ?? "";
 
       return `
         <div class="inv">
@@ -291,7 +293,7 @@ export default function Invoices() {
               </div>
               <div class="info-cell">
                 <span class="info-lbl">المحافظة</span>
-                <span class="info-val">${order.city ?? "&#8212;"}</span>
+                <span class="info-val">${city || "&#8212;"}</span>
               </div>
             </div>
 
