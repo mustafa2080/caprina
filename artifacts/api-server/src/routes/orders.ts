@@ -278,6 +278,21 @@ router.post("/orders/:id/restore", async (req, res): Promise<void> => {
   res.json(restored);
 });
 
+// ─── Get orders by invoiceNumber ──────────────────────────────────────────────
+
+router.get("/orders/by-invoice/:invoiceNumber", async (req, res): Promise<void> => {
+  const { invoiceNumber } = req.params;
+  if (!invoiceNumber) { res.status(400).json({ error: "invoiceNumber مطلوب" }); return; }
+
+  const orders = await db
+    .select()
+    .from(ordersTable)
+    .where(and(eq(ordersTable.invoiceNumber, invoiceNumber), isNull(ordersTable.deletedAt)))
+    .orderBy(ordersTable.id);
+
+  res.json(orders);
+});
+
 // ─── Get single order ─────────────────────────────────────────────────────────
 
 router.get("/orders/:id", async (req, res): Promise<void> => {

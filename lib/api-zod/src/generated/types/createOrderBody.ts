@@ -11,8 +11,14 @@ export interface CreateOrderBody {
   /** @nullable */
   phone?: string | null;
   /** @nullable */
+  city?: string | null;
+  /** @nullable */
   address?: string | null;
   product: string;
+  /** @nullable */
+  color?: string | null;
+  /** @nullable */
+  size?: string | null;
   /** @minimum 1 */
   quantity: number;
   /** @minimum 0 */
@@ -37,4 +43,6 @@ export interface CreateOrderBody {
   shippingCost?: number | null;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  invoiceNumber?: string | null;
 }

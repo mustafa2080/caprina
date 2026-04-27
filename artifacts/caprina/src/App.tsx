@@ -62,6 +62,7 @@ const ShippingFollowupPage  = lazy(() => import("@/pages/shipping-followup"));
 const WhatsAppSettingsPage  = lazy(() => import("@/pages/whatsapp-settings"));
 const SessionsReportPage    = lazy(() => import("@/pages/sessions-report"));
 const ExportPage            = lazy(() => import("@/pages/export"));
+const InvoiceGroupPage      = lazy(() => import("@/pages/invoice-group"));
 const NotFound              = lazy(() => import("@/pages/not-found"));
 const Login                 = lazy(() => import("@/pages/login"));
 
@@ -175,6 +176,7 @@ function Router() {
           <Route path="/"                         component={() => <ProtectedRoute permission="dashboard" component={Dashboard} />} />
           <Route path="/orders"                   component={() => <ProtectedRoute permission="orders" component={Orders} />} />
           <Route path="/orders/new"               component={() => <ProtectedRoute permission="orders" component={OrderForm} />} />
+          <Route path="/invoices/:invoiceNumber"  component={() => <ProtectedRoute permission="invoices" component={InvoiceGroupPage} />} />
           <Route path="/orders/:id"               component={() => <ProtectedRoute permission="orders" component={OrderDetail} />} />
           <Route path="/inventory"                component={() => <ProtectedRoute permission="inventory" component={Inventory} />} />
           <Route path="/shipping"                 component={() => <ProtectedRoute permission="shipping" component={ShippingCompanies} />} />

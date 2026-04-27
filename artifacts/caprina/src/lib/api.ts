@@ -521,12 +521,45 @@ export const analyticsApi = {
   charts: () => apiFetch<ChartsData>("/analytics/charts"),
 };
 
+export interface BatchCreateOrderBody {
+  customerName: string;
+  phone?: string | null;
+  city?: string | null;
+  address?: string | null;
+  shippingCost?: number | null;
+  shippingCompanyId?: number | null;
+  warehouseId?: number | null;
+  assignedUserId?: number | null;
+  adSource?: string | null;
+  adCampaign?: string | null;
+  notes?: string | null;
+  items: {
+    product: string;
+    color?: string | null;
+    size?: string | null;
+    quantity: number;
+    unitPrice: number;
+    costPrice?: number | null;
+    productId?: number | null;
+    variantId?: number | null;
+  }[];
+}
+
+export interface BatchCreateOrderResponse {
+  invoiceNumber: string;
+  orders: any[];
+}
+
 export const ordersApi = {
   stats: () => apiFetch<OrderStats>("/orders/stats"),
   delete: (id: number) => apiFetch<void>(`/orders/${id}`, { method: "DELETE" }),
   archived: () => apiFetch<any[]>("/orders/archived"),
   restore: (id: number) => apiFetch<any>(`/orders/${id}/restore`, { method: "POST" }),
   inManifestIds: () => apiFetch<{ ids: number[] }>("/orders/in-manifest-ids"),
+  byInvoice: (invoiceNumber: string) =>
+    apiFetch<any[]>(`/orders/by-invoice/${encodeURIComponent(invoiceNumber)}`),
+  batchCreate: (data: BatchCreateOrderBody) =>
+    apiFetch<BatchCreateOrderResponse>("/orders/batch", { method: "POST", body: JSON.stringify(data) }),
 };
 
 export type MovementType = "IN" | "OUT";
@@ -998,20 +1031,3 @@ export const appSettingsApi = {
     apiFetch<AppSettings>("/settings", { method: "PATCH", body: JSON.stringify(data) }),
 };
 
-export const ordersApi = {
-  stats: () => apiFetch<OrderStats>("/orders/stats"),
-  delete: (id: number) => apiFetch<void>(`/orders/${id}`, { method: "DELETE" }),
-  archived: () => apiFetch<any[]>("/orders/archived"),
-  restore: (id: number) => apiFetch<any>(`/orders/${id}/restore`, { method: "POST" }),
-  inManifestIds: () => apiFetch<{ ids: number[] }>("/orders/in-manifest-ids"),
-  batchCreate: (data: {
-    items: Array<{
-      product: string; color?: string | null; size?: string | null;
-      quantity: number; unitPrice: number; costPrice?: number | null;
-      productId?: number | null; variantId?: number | null;
-    }>;
-    customerName: string; phone?: string | null; city?: string | null; address?: string | null;
-    shippingCost?: number | null; shippingCompanyId?: number | null; warehouseId?: number | null;
-    assignedUserId?: number | null; adSource?: string | null; adCampaign?: string | null; notes?: string | null;
-  }) => apiFetch<{ invoiceNumber: string; orders: any[] }>("/orders/batch", { method: "POST", body: JSON.stringify(data) }),
-};

@@ -339,7 +339,7 @@ export default function OrderForm() {
       if (result.orders.length === 1) {
         setLocation(`/orders/${result.orders[0].id}`);
       } else {
-        setLocation("/orders");
+        setLocation(`/invoices/${encodeURIComponent(result.invoiceNumber)}`);
       }
     } catch (e: any) {
       toast({ title: "خطأ", description: e?.message || "فشل إنشاء الطلب.", variant: "destructive" });

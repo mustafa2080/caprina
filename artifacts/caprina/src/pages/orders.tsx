@@ -332,13 +332,13 @@ export default function Orders() {
                 const isGroup = !!(order as any)._isGroup;
                 const groupCount = (order as any)._groupCount as number | undefined;
                 const navTarget = isGroup
-                  ? `/orders?invoiceNumber=${encodeURIComponent((order as any).invoiceNumber ?? "")}`
+                  ? `/invoices/${encodeURIComponent((order as any).invoiceNumber ?? "")}`
                   : `/orders/${order.id}`;
                 return (
                   <div
                     key={order.id}
                     className={`flex items-center gap-3 px-4 py-3 hover:bg-muted/10 active:bg-muted/20 cursor-pointer ${isSelected ? "bg-primary/5" : ""}`}
-                    onClick={() => bulkSelectMode ? toggleSelect(order) : (window.location.href = `/orders/${order.id}`)}
+                    onClick={() => bulkSelectMode ? toggleSelect(order) : (window.location.href = navTarget)}
                   >
                     {bulkSelectMode && (
                       <Checkbox checked={isSelected} onCheckedChange={() => toggleSelect(order)} onClick={e => e.stopPropagation()} className="shrink-0" />
@@ -411,11 +411,14 @@ export default function Orders() {
                     const isSelected  = isGroupSelected(order);
                     const isGroup = !!(order as any)._isGroup;
                     const groupCount = (order as any)._groupCount as number | undefined;
+                    const navTarget = isGroup
+                      ? `/invoices/${encodeURIComponent((order as any).invoiceNumber ?? "")}`
+                      : `/orders/${order.id}`;
                     return (
                       <TableRow
                         key={order.id}
                         className={`border-border hover:bg-muted/20 cursor-pointer ${isSelected ? "bg-primary/5" : ""}`}
-                        onClick={() => bulkSelectMode ? toggleSelect(order) : (window.location.href = `/orders/${order.id}`)}
+                        onClick={() => bulkSelectMode ? toggleSelect(order) : (window.location.href = navTarget)}
                       >
                         {bulkSelectMode && (
                           <TableCell className="text-center p-2">

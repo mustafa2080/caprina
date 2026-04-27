@@ -26,11 +26,19 @@ export interface Order {
   /** @nullable */
   phone: string | null;
   /** @nullable */
+  city: string | null;
+  /** @nullable */
   address: string | null;
   product: string;
+  /** @nullable */
+  color: string | null;
+  /** @nullable */
+  size: string | null;
   quantity: number;
   unitPrice: number;
   totalPrice: number;
+  /** @nullable */
+  shippingCost: number | null;
   status: OrderStatus;
   /** @nullable */
   partialQuantity: number | null;
@@ -44,6 +52,8 @@ export interface Order {
   returnReason: string | null;
   /** @nullable */
   returnNote: string | null;
+  /** @nullable */
+  trackingNumber: string | null;
   createdAt: string;
   updatedAt: string;
 }
