@@ -5,7 +5,7 @@
 //   • Navigation (HTML)     → Network First → fallback to cache
 //   • API calls (/api/*)    → Network Only (never cache)
 
-const CACHE_VERSION = "caprina-v4";
+const CACHE_VERSION = "caprina-v5";
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const NAV_CACHE     = `${CACHE_VERSION}-nav`;
 const ALL_CACHES    = [STATIC_CACHE, NAV_CACHE];
@@ -93,17 +93,17 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // 5. Navigation (HTML) → Network First → Cache Fallback
+  // 5. Navigation (HTML) → always serve index.html (SPA routing)
   if (request.mode === "navigate" || request.headers.get("accept")?.includes("text/html")) {
     event.respondWith(
-      fetch(request)
+      fetch("/index.html")
         .then((response) => {
           const clone = response.clone();
-          caches.open(NAV_CACHE).then((cache) => cache.put(request, clone));
+          caches.open(NAV_CACHE).then((cache) => cache.put("/index.html", clone));
           return response;
         })
         .catch(() =>
-          caches.match(request).then((cached) => cached ?? caches.match("./"))
+          caches.match("/index.html").then((cached) => cached ?? caches.match("./"))
         )
     );
     return;
