@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, ordersTable, productsTable, productVariantsTable, shippingCompaniesTable } from "@workspace/db";
+import { db, ordersTable, productsTable, productVariantsTable, shippingCompaniesTable, shippingManifestsTable } from "@workspace/db";
 import { eq, isNull, and, desc, lte } from "drizzle-orm";
 import { requireAdmin } from "../middlewares/requireRole.js";
 
@@ -219,10 +219,12 @@ router.get("/analytics/financial-summary", requireAdmin, async (req, res): Promi
   const period    = req.query.period as string | undefined;
   const now = new Date();
 
-  const [allOrdersRaw, products, variants] = await Promise.all([
+  const [allOrdersRaw, products, variants, allManifests] = await Promise.all([
     db.select().from(ordersTable).where(isNull(ordersTable.deletedAt)),
     db.select().from(productsTable),
     db.select().from(productVariantsTable),
+    db.select({ manualShippingCost: shippingManifestsTable.manualShippingCost, createdAt: shippingManifestsTable.createdAt })
+      .from(shippingManifestsTable),
   ]);
 
   // فلتر التاريخ
@@ -250,6 +252,30 @@ router.get("/analytics/financial-summary", requireAdmin, async (req, res): Promi
 
   const variantMap = new Map<number, number | null>(variants.map(v => [v.id, v.costPrice]));
   const productMap = new Map<number, number | null>(products.map(p => [p.id, p.costPrice]));
+
+  // تكلفة الشحن اليدوية من البيانات (مفلترة بنفس الفترة الزمنية)
+  let fromDate2: Date | null = null;
+  let toDate2: Date | null = null;
+  if (period === "today") {
+    fromDate2 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    toDate2 = now;
+  } else if (period === "week") {
+    fromDate2 = new Date(now); fromDate2.setDate(now.getDate() - 7);
+    toDate2 = now;
+  } else if (period === "month") {
+    fromDate2 = new Date(now.getFullYear(), now.getMonth(), 1);
+    toDate2 = now;
+  }
+  const manualShippingTotal = allManifests
+    .filter(m => {
+      if (!m.manualShippingCost) return false;
+      if (!fromDate2 && !toDate2) return true;
+      const d = new Date(m.createdAt);
+      if (fromDate2 && d < fromDate2) return false;
+      if (toDate2 && d > toDate2) return false;
+      return true;
+    })
+    .reduce((sum, m) => sum + Number(m.manualShippingCost ?? 0), 0);
 
   let cashIn = 0, costOfGoods = 0, shippingSpend = 0;
   let returnLoss = 0, returnRevLost = 0, pendingRevenue = 0;
@@ -285,6 +311,9 @@ router.get("/analytics/financial-summary", requireAdmin, async (req, res): Promi
       pendingRevenue += o.quantity * o.unitPrice;
     }
   }
+
+  // أضف تكلفة الشحن اليدوية من البيانات (manualShippingCost) للـ shippingSpend
+  shippingSpend += manualShippingTotal;
 
   const netProfit = cashIn - costOfGoods - shippingSpend;
   const grossProfit = cashIn - costOfGoods;
