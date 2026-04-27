@@ -176,14 +176,14 @@ export default function Dashboard() {
   const { data: recentOrders, isLoading: isRecentLoading } = useGetRecentOrders();
   const { data: products } = useQuery({ queryKey: ["products"], queryFn: productsApi.list, staleTime: 60000 });
   const { data: analytics, isLoading: isAnalyticsLoading } = useQuery({
-    queryKey: ["analytics-profit"],
-    queryFn: analyticsApi.profit,
+    queryKey: ["analytics-profit", period],
+    queryFn: () => analyticsApi.profit({ period }),
     staleTime: 30000,
     enabled: canViewFinancials,
   });
   const { data: fin, isLoading: isFinLoading } = useQuery({
-    queryKey: ["analytics-financial"],
-    queryFn: analyticsApi.financialSummary,
+    queryKey: ["analytics-financial", period],
+    queryFn: () => analyticsApi.financialSummary({ period }),
     staleTime: 30000,
     enabled: canViewFinancials,
   });
@@ -282,7 +282,9 @@ export default function Dashboard() {
           <div className="p-4">
             <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
               <div>
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">صافي الربح الحقيقي</p>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">
+                  صافي الربح الحقيقي — {{ today: "اليوم", week: "هذا الأسبوع", month: "هذا الشهر" }[period]}
+                </p>
                 <div className="flex items-baseline gap-3">
                   <p className={`text-4xl font-black ${fin.netProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
                     {fc(fin.netProfit)}
@@ -379,9 +381,23 @@ export default function Dashboard() {
             [1,2,3].map(i => <Card key={i} className="animate-pulse h-36 border-border" />)
           ) : analytics ? (
             <>
-              <PeriodCard label="اليوم" data={analytics.today} accent={period === "today" ? "text-primary ring-2 ring-primary/20 rounded-xl" : "text-primary"} />
-              <PeriodCard label="هذا الأسبوع" data={analytics.week} accent="text-emerald-600 dark:text-emerald-400" />
-              <PeriodCard label="هذا الشهر" data={analytics.month} accent="text-amber-700 dark:text-amber-400" />
+              {([
+                { key: "today" as Period, label: "اليوم",        data: analytics.today, accent: "text-primary" },
+                { key: "week"  as Period, label: "هذا الأسبوع", data: analytics.week,  accent: "text-emerald-600 dark:text-emerald-400" },
+                { key: "month" as Period, label: "هذا الشهر",   data: analytics.month, accent: "text-amber-700 dark:text-amber-400" },
+              ]).map(({ key, label, data, accent }) => (
+                <div
+                  key={key}
+                  onClick={() => setPeriod(key)}
+                  className={`rounded-xl cursor-pointer transition-all duration-200 ${
+                    period === key
+                      ? "ring-2 ring-primary shadow-md scale-[1.02]"
+                      : "opacity-70 hover:opacity-90 hover:shadow-sm"
+                  }`}
+                >
+                  <PeriodCard label={label} data={data} accent={period === key ? accent : "text-muted-foreground"} />
+                </div>
+              ))}
             </>
           ) : null}
         </div>
