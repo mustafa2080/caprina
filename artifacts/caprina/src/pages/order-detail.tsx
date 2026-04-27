@@ -1,6 +1,6 @@
 import { useParams, Link, useLocation } from "wouter";
 import { format } from "date-fns";
-import { ArrowRight, AlertCircle, Pencil, Save, X, Printer, Phone, MapPin, Trash2, RotateCcw, TrendingUp, TrendingDown, AlertTriangle, Lock, MessageCircle } from "lucide-react";
+import { ArrowRight, AlertCircle, Pencil, Save, X, Printer, Phone, MapPin, Trash2, RotateCcw, TrendingUp, TrendingDown, AlertTriangle, Lock, MessageCircle, Package } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState, useRef, useEffect } from "react";
 import { useForm } from "react-hook-form";
@@ -18,6 +18,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { ToastAction } from "@/components/ui/toast";
 import { shippingApi, ordersApi } from "@/lib/api";
 import { type WhatsAppOrderData } from "@/lib/whatsapp";
 import { WhatsAppDialog } from "@/components/whatsapp-dialog";
@@ -100,10 +101,22 @@ export default function OrderDetail() {
     if (newStatus === "returned") { setShowReturnInput(true); return; }
 
     updateOrder.mutate({ id, data: { status: newStatus as any } }, {
-      onSuccess: (updated) => {
+      onSuccess: (updated: any) => {
         queryClient.setQueryData(getGetOrderQueryKey(id), updated);
         invalidateAll();
-        toast({ title: "تم تحديث الحالة", description: `الطلب أصبح: ${statusLabels[newStatus]}` });
+        if (newStatus === "in_shipping" && updated.manifestId) {
+          toast({
+            title: "✅ تم التحويل لقيد الشحن",
+            description: "تم خصم المخزون وإضافة الطلب لبيان الشحن",
+            action: (
+              <ToastAction altText="عرض البيان" onClick={() => navigate(`/shipping/manifests/${updated.manifestId}`)}>
+                عرض البيان ←
+              </ToastAction>
+            ),
+          });
+        } else {
+          toast({ title: "تم تحديث الحالة", description: `الطلب أصبح: ${statusLabels[newStatus]}` });
+        }
       },
       onError: () => toast({ title: "خطأ", description: "فشل تحديث الحالة.", variant: "destructive" }),
     });
@@ -199,10 +212,22 @@ export default function OrderDetail() {
       updateOrder.mutate(
         { id, data: { status: "in_shipping" } },
         {
-          onSuccess: (updated) => {
+          onSuccess: (updated: any) => {
             queryClient.setQueryData(getGetOrderQueryKey(id), updated);
             invalidateAll();
-            toast({ title: "تم إرسال واتساب ✅", description: "تم تحويل الطلب لـ «قيد الشحن» تلقائياً" });
+            if (updated.manifestId) {
+              toast({
+                title: "تم إرسال واتساب ✅",
+                description: "تم تحويل الطلب لـ «قيد الشحن» وإضافته للبيان",
+                action: (
+                  <ToastAction altText="عرض البيان" onClick={() => navigate(`/shipping/manifests/${updated.manifestId}`)}>
+                    عرض البيان ←
+                  </ToastAction>
+                ),
+              });
+            } else {
+              toast({ title: "تم إرسال واتساب ✅", description: "تم تحويل الطلب لـ «قيد الشحن» تلقائياً" });
+            }
           },
         }
       );
