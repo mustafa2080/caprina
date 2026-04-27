@@ -304,8 +304,8 @@ export default function Orders() {
                 const isSelected = isGroupSelected(order);
                 const isGroup = !!(order as any)._groupCount && (order as any)._groupCount > 1;
                 const groupCount = (order as any)._groupCount as number | undefined;
-                const navTarget = isGroup
-                  ? `/invoices/${encodeURIComponent(order.invoiceNumber ?? "")}`
+                const navTarget = isGroup && order.invoiceNumber
+                  ? `/invoices/${encodeURIComponent(order.invoiceNumber)}`
                   : `/orders/${order.id}`;
                 return (
                   <div
@@ -384,8 +384,8 @@ export default function Orders() {
                     const isSelected  = isGroupSelected(order);
                     const isGroup = !!(order as any)._groupCount && (order as any)._groupCount > 1;
                     const groupCount = (order as any)._groupCount as number | undefined;
-                    const navTarget = isGroup
-                      ? `/invoices/${encodeURIComponent(order.invoiceNumber ?? "")}`
+                    const navTarget = isGroup && order.invoiceNumber
+                      ? `/invoices/${encodeURIComponent(order.invoiceNumber)}`
                       : `/orders/${order.id}`;
                     return (
                       <TableRow

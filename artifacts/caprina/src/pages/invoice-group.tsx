@@ -114,7 +114,11 @@ export default function InvoiceGroup() {
       <AlertCircle className="w-12 h-12 mx-auto mb-3 text-destructive opacity-50" />
       <h2 className="text-lg font-bold mb-2">حدث خطأ في تحميل الفاتورة</h2>
       <p className="text-sm text-muted-foreground mb-3">{(error as any)?.message || "تعذر الاتصال بالسيرفر"}</p>
-      <Link href="/orders"><Button variant="outline">العودة للطلبات</Button></Link>
+      <p className="text-xs text-muted-foreground mb-4 font-mono bg-muted/20 p-2 rounded">رقم الفاتورة: {invoiceNumber || "(فارغ)"}</p>
+      <div className="flex gap-2 justify-center">
+        <Button variant="outline" onClick={() => window.location.reload()}>إعادة المحاولة</Button>
+        <Link href="/orders"><Button variant="outline">العودة للطلبات</Button></Link>
+      </div>
     </div>
   );
   if (!orders?.length) return (
