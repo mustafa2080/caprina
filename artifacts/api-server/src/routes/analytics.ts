@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, ordersTable, productsTable, productVariantsTable, shippingCompaniesTable, shippingManifestsTable } from "@workspace/db";
+import { db, ordersTable, productsTable, productVariantsTable, shippingCompaniesTable, shippingManifestsTable, shippingManifestOrdersTable } from "@workspace/db";
 import { eq, isNull, and, desc, lte } from "drizzle-orm";
 import { requireAdmin } from "../middlewares/requireRole.js";
 
@@ -63,6 +63,7 @@ function periodStats(
   orders: any[],
   variantMap: Map<number, number | null>,
   productMap: Map<number, number | null>,
+  shippingPerOrder: Map<number, number>,
 ) {
   const completed = orders.filter(o => o.status === "received" || o.status === "partial_received");
   const returned = orders.filter(o => o.status === "returned");
@@ -70,7 +71,8 @@ function periodStats(
   let revenue = 0, cost = 0, shipping = 0, netProfit = 0;
   for (const o of completed) {
     const rc = resolveCost(o, variantMap, productMap);
-    const p = calcOrderProfit(o, rc);
+    const sc = (o.shippingCost ?? 0) + (shippingPerOrder.get(o.id) ?? 0);
+    const p = calcOrderProfit({ ...o, shippingCost: sc }, rc);
     revenue += p.revenue;
     cost += p.cost;
     shipping += p.shippingCost;
@@ -78,7 +80,8 @@ function periodStats(
   }
   for (const o of returned) {
     const rc = resolveCost(o, variantMap, productMap);
-    const p = calcOrderProfit(o, rc);
+    const sc = (o.shippingCost ?? 0) + (shippingPerOrder.get(o.id) ?? 0);
+    const p = calcOrderProfit({ ...o, shippingCost: sc }, rc);
     cost += p.cost;
     shipping += p.shippingCost;
     netProfit += p.netProfit;
@@ -103,11 +106,29 @@ router.get("/analytics/profit", requireAdmin, async (req, res): Promise<void> =>
   const toParam   = req.query.to   as string | undefined;
   const period    = req.query.period as string | undefined;
 
-  const [allOrdersRaw, products, variants] = await Promise.all([
+  const [allOrdersRaw, products, variants, manifests, manifestOrders] = await Promise.all([
     db.select().from(ordersTable).where(isNull(ordersTable.deletedAt)),
     db.select().from(productsTable),
     db.select().from(productVariantsTable),
+    db.select({ id: shippingManifestsTable.id, manualShippingCost: shippingManifestsTable.manualShippingCost }).from(shippingManifestsTable),
+    db.select({ manifestId: shippingManifestOrdersTable.manifestId, orderId: shippingManifestOrdersTable.orderId }).from(shippingManifestOrdersTable),
   ]);
+
+  // بناء map: orderId → تكلفة شحن موزعة (manualShippingCost ÷ عدد الطلبيات في البيان)
+  const manifestOrderCount = new Map<number, number>();
+  for (const mo of manifestOrders) {
+    manifestOrderCount.set(mo.manifestId, (manifestOrderCount.get(mo.manifestId) ?? 0) + 1);
+  }
+  const shippingPerOrder = new Map<number, number>();
+  for (const mo of manifestOrders) {
+    const manifest = manifests.find(m => m.id === mo.manifestId);
+    const cost = Number(manifest?.manualShippingCost ?? 0);
+    if (cost > 0) {
+      const count = manifestOrderCount.get(mo.manifestId) ?? 1;
+      const existing = shippingPerOrder.get(mo.orderId) ?? 0;
+      shippingPerOrder.set(mo.orderId, existing + cost / count);
+    }
+  }
 
   const variantMap = new Map<number, number | null>(variants.map(v => [v.id, v.costPrice]));
   const productMap = new Map<number, number | null>(products.map(p => [p.id, p.costPrice]));
@@ -142,10 +163,10 @@ router.get("/analytics/profit", requireAdmin, async (req, res): Promise<void> =>
 
   const allOrders = filteredOrders;
 
-  const today = periodStats(filterByPeriod(allOrders, startOfToday), variantMap, productMap);
-  const week = periodStats(filterByPeriod(allOrders, startOfWeek), variantMap, productMap);
-  const month = periodStats(filterByPeriod(allOrders, startOfMonth), variantMap, productMap);
-  const allTime = periodStats(allOrders, variantMap, productMap);
+  const today = periodStats(filterByPeriod(allOrders, startOfToday), variantMap, productMap, shippingPerOrder);
+  const week = periodStats(filterByPeriod(allOrders, startOfWeek), variantMap, productMap, shippingPerOrder);
+  const month = periodStats(filterByPeriod(allOrders, startOfMonth), variantMap, productMap, shippingPerOrder);
+  const allTime = periodStats(allOrders, variantMap, productMap, shippingPerOrder);
 
   const productProfitMap: Record<string, {
     name: string; revenue: number; cost: number; profit: number;
@@ -159,14 +180,15 @@ router.get("/analytics/profit", requireAdmin, async (req, res): Promise<void> =>
     }
     const pm = productProfitMap[key];
     const rc = resolveCost(o, variantMap, productMap);
+    const sc = (o.shippingCost ?? 0) + (shippingPerOrder.get(o.id) ?? 0);
     pm.orderCount++;
     if (o.status === "returned") {
       pm.returnCount++;
-      const p = calcOrderProfit(o, rc);
+      const p = calcOrderProfit({ ...o, shippingCost: sc }, rc);
       pm.cost += p.cost;
       pm.profit += p.netProfit;
     } else if (o.status === "received" || o.status === "partial_received") {
-      const p = calcOrderProfit(o, rc);
+      const p = calcOrderProfit({ ...o, shippingCost: sc }, rc);
       const qty = o.status === "partial_received" ? (o.partialQuantity ?? o.quantity) : o.quantity;
       pm.revenue += p.revenue;
       pm.cost += p.cost;
