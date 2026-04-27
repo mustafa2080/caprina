@@ -335,11 +335,16 @@ export default function Orders() {
                         <Badge variant="outline" className={`text-[9px] font-bold border ${statusClasses[order.status] || ""}`}>
                           {statusLabels[order.status] || order.status}
                         </Badge>
-                        {order.status === "in_shipping" && !inManifestSet.has(order.id) && (
-                          <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-orange-600 dark:text-orange-400">
-                            <Warehouse className="w-2.5 h-2.5" />ما زال في المخزن
-                          </span>
-                        )}
+                        {order.status === "in_shipping" && (() => {
+                            const groupIds: number[] = (order as any)._groupIds ?? [order.id];
+                            const anyInManifest = groupIds.some(id => inManifestSet.has(id));
+                            if (anyInManifest) return null;
+                            return (
+                              <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-orange-600 dark:text-orange-400">
+                                <Warehouse className="w-2.5 h-2.5" />ما زال في المخزن
+                              </span>
+                            );
+                          })()}
                         {order.status === "returned" && retReason && (
                           <span className="text-[9px] text-red-600 dark:text-red-400">{retReason === "other" && retNote ? retNote : returnReasonLabel(retReason)}</span>
                         )}
@@ -416,12 +421,17 @@ export default function Orders() {
                           <Badge variant="outline" className={`text-[9px] font-bold border ${statusClasses[order.status] || ""}`}>
                             {statusLabels[order.status] || order.status}
                           </Badge>
-                          {order.status === "in_shipping" && !isGroup && !inManifestSet.has(order.id) && (
-                            <div className="flex items-center justify-center gap-0.5 mt-1">
-                              <Warehouse className="w-2.5 h-2.5 text-orange-500 shrink-0" />
-                              <span className="text-[9px] font-bold text-orange-600 dark:text-orange-400 leading-none">ما زال في المخزن</span>
-                            </div>
-                          )}
+                          {order.status === "in_shipping" && (() => {
+                            const groupIds: number[] = (order as any)._groupIds ?? [order.id];
+                            const anyInManifest = groupIds.some(id => inManifestSet.has(id));
+                            if (anyInManifest) return null;
+                            return (
+                              <div className="flex items-center justify-center gap-0.5 mt-1">
+                                <Warehouse className="w-2.5 h-2.5 text-orange-500 shrink-0" />
+                                <span className="text-[9px] font-bold text-orange-600 dark:text-orange-400 leading-none">ما زال في المخزن</span>
+                              </div>
+                            );
+                          })()}
                           {order.status === "returned" && retReason && (
                             <div className="flex items-center justify-center gap-0.5 mt-1">
                               <RotateCcw className="w-2.5 h-2.5 text-red-500 shrink-0" />
