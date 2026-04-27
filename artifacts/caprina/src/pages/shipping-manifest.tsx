@@ -421,6 +421,8 @@ function SettlementCard({ manifest, onSaved }: { manifest: ShippingManifestDetai
   const hasManualCost = manifest.manualShippingCost != null;
 
   const deliveredTotal = s.deliveredGross;
+  // صافي الربح الحقيقي = إجمالي الإيرادات − تكلفة البضاعة − تكلفة الشحن − خسائر الإرجاع
+  const netProfit = s.totalRevenue - s.totalCost - effectiveShippingCost - s.returnLosses;
   const netBeforeInvoice = deliveredTotal - effectiveShippingCost;
   const balance = invoicePrice > 0 ? invoicePrice - netBeforeInvoice : null;
 
@@ -510,9 +512,9 @@ function SettlementCard({ manifest, onSaved }: { manifest: ShippingManifestDetai
           )}
         </div>
         <div className="bg-card rounded-md p-3 border border-border">
-          <p className="text-[10px] text-muted-foreground mb-1">صافي المستحق</p>
+          <p className="text-[10px] text-muted-foreground mb-1">صافي المستحق من الشركة</p>
           <p className="text-base font-black text-primary">{formatCurrency(netBeforeInvoice)}</p>
-          <p className="text-[10px] text-muted-foreground">بعد الشحن</p>
+          <p className="text-[10px] text-muted-foreground">إيرادات − شحن</p>
         </div>
         <div className={`rounded-md p-3 border ${manifest.invoicePrice != null ? "bg-card border-border" : "bg-muted/20 border-dashed border-border"}`}>
           <p className="text-[10px] text-muted-foreground mb-1">سعر الفاتورة المتفق</p>
@@ -525,6 +527,25 @@ function SettlementCard({ manifest, onSaved }: { manifest: ShippingManifestDetai
             <p className="text-sm text-muted-foreground/50">غير محدد</p>
           )}
         </div>
+      </div>
+
+      {/* صافي الربح الحقيقي = إيرادات − تكلفة البضاعة − تكلفة الشحن − خسائر الإرجاع */}
+      <div className={`rounded-md p-4 border flex items-center justify-between ${netProfit >= 0 ? "border-emerald-700/40 bg-emerald-900/10" : "border-red-700/40 bg-red-900/10"}`}>
+        <div>
+          <p className="text-[10px] font-bold text-muted-foreground mb-1">صافي الربح الحقيقي</p>
+          <p className={`text-2xl font-black ${netProfit >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+            {formatCurrency(netProfit)}
+          </p>
+          <p className="text-[10px] text-muted-foreground mt-1">
+            {formatCurrency(s.totalRevenue)} إيرادات
+            &nbsp;−&nbsp;{formatCurrency(s.totalCost)} تكلفة بضاعة
+            &nbsp;−&nbsp;{formatCurrency(effectiveShippingCost)} شحن
+            {s.returnLosses > 0 && <>&nbsp;−&nbsp;{formatCurrency(s.returnLosses)} خسائر مرتجع</>}
+          </p>
+        </div>
+        {netProfit >= 0
+          ? <TrendingUp className="w-10 h-10 text-emerald-500 opacity-20" />
+          : <TrendingDown className="w-10 h-10 text-red-500 opacity-20" />}
       </div>
 
       {/* Balance */}
