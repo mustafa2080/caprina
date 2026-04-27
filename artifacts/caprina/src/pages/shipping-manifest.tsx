@@ -708,7 +708,7 @@ function ExportDialog({
       const s = { style, color: { rgb: color } };
       return { top: s, bottom: s, left: s, right: s };
     };
-    const align = (h: "center"|"left"|"right" = "right", wrap = false) =>
+    const align = (h: "center"|"left"|"right" = "center", wrap = false) =>
       ({ horizontal: h, vertical: "center" as const, readingOrder: 2, wrapText: wrap });
 
     // Predefined cell styles
@@ -754,6 +754,7 @@ function ExportDialog({
       rows: (XLSX.CellObject | null)[][],
       colWidths: number[],
       merges: XLSX.Range[] = [],
+      tableOpts?: { headerRow: number; totalRows: number; name: string },
     ): XLSX.WorkSheet => {
       const ws: XLSX.WorkSheet = {};
       let maxR = 0, maxC = 0;
@@ -770,6 +771,23 @@ function ExportDialog({
       ws["!cols"] = colWidths.map(w => ({ wch: w }));
       if (merges.length) ws["!merges"] = merges;
       ws["!sheetview"] = [{ rightToLeft: true }] as any;
+
+      // Add Excel Table for auto-filter + banding
+      if (tableOpts) {
+        const { headerRow, totalRows, name } = tableOpts;
+        const tableRef = XLSX.utils.encode_range({
+          s: { r: headerRow, c: 0 },
+          e: { r: headerRow + totalRows, c: maxC },
+        });
+        const cols = rows[headerRow]
+          .map((cell, i) => ({
+            name: (cell?.v as string) ?? `Col${i + 1}`,
+            filterButton: true,
+          }));
+        ws["!tables"] = ws["!tables"] || [];
+        (ws["!tables"] as any[]).push({ name, ref: tableRef, columns: cols, style: { name: "TableStyleMedium9", showRowStripes: true } });
+      }
+
       return ws;
     };
 
@@ -841,6 +859,7 @@ function ExportDialog({
     const ws1 = makeWS(sheet1Data,
       [5, 9, 22, 14, 24, 14, 7, 13, 13, 28],
       [merge("A1:J1"), merge("A2:J2"), merge("A3:J3"), merge("A4:J4")],
+      { headerRow: 4, totalRows: manifest.orders.length, name: "OrdersTable" },
     );
 
     // ══════════════════════════════════════════════════════════════════
@@ -927,7 +946,8 @@ function ExportDialog({
       });
       const sub = orders.reduce((sum, o) => sum + o.totalPrice, 0);
       data.push([sc(`المجموع (${orders.length})`, sty), ...Array(5).fill(sc("", sty)), sc(fmtMoney(sub), sty), sc("", sty)]);
-      statusSheets2.push({ name: label, ws: makeWS(data, [5,9,22,14,24,7,13,28], [merge("A1:H1")]) });
+      statusSheets2.push({ name: label, ws: makeWS(data, [5,9,22,14,24,7,13,28], [merge("A1:H1")],
+        { headerRow: 1, totalRows: orders.length, name: `Table_${key}` }) });
     });
 
     // ══════════════════════════════════════════════════════════════════
