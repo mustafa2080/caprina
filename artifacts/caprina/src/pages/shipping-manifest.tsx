@@ -1132,9 +1132,17 @@ function AddOrdersToManifestDialog({
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
-  const { data: inShippingOrders, isLoading } = useQuery({
-    queryKey: ["orders-in-shipping-all"],
-    queryFn: () => apiFetch<OrderRow[]>(`/orders?status=in_shipping`),
+  // جيب pending + delayed + in_shipping (كلهم ممكن يتضافوا لمانيفست)
+  const { data: allAvailableOrders, isLoading } = useQuery({
+    queryKey: ["orders-available-for-manifest"],
+    queryFn: async () => {
+      const [pending, delayed, inShipping] = await Promise.all([
+        apiFetch<OrderRow[]>(`/orders?status=pending`),
+        apiFetch<OrderRow[]>(`/orders?status=delayed`),
+        apiFetch<OrderRow[]>(`/orders?status=in_shipping`),
+      ]);
+      return [...pending, ...delayed, ...inShipping];
+    },
     staleTime: 10000,
   });
 
@@ -1151,9 +1159,9 @@ function AddOrdersToManifestDialog({
 
   // استبعد الأوردرات الموجودة بالفعل في البيان
   const available = useMemo(() => {
-    if (!inShippingOrders) return [];
-    return inShippingOrders.filter(o => !existingOrderIds.has(o.id));
-  }, [inShippingOrders, existingOrderIds]);
+    if (!allAvailableOrders) return [];
+    return allAvailableOrders.filter(o => !existingOrderIds.has(o.id));
+  }, [allAvailableOrders, existingOrderIds]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return available;

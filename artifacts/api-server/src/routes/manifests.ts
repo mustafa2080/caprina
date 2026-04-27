@@ -566,11 +566,12 @@ router.post("/shipping-manifests/:id/orders", requireAdmin, async (req, res): Pr
   if (!manifest) { res.status(404).json({ error: "البيان غير موجود" }); return; }
   if (manifest.status === "closed") { res.status(400).json({ error: "البيان مغلق لا يمكن الإضافة إليه" }); return; }
 
-  // تأكد إن الأوردرات موجودة وحالتها in_shipping
+  // جيب الطلبات اللي حالتها pending أو delayed أو in_shipping (كلهم مؤهلون للشحن)
+  const SHIPPABLE_STATUSES = ["pending", "delayed", "in_shipping"] as const;
   const orders = await db.select().from(ordersTable).where(
-    and(inArray(ordersTable.id, orderIds), isNull(ordersTable.deletedAt))
+    and(inArray(ordersTable.id, orderIds), isNull(ordersTable.deletedAt), inArray(ordersTable.status, [...SHIPPABLE_STATUSES]))
   );
-  if (orders.length === 0) { res.status(400).json({ error: "لم يتم العثور على الطلبيات" }); return; }
+  if (orders.length === 0) { res.status(400).json({ error: "لم يتم العثور على طلبيات مؤهلة (يجب أن تكون pending أو delayed أو in_shipping)" }); return; }
 
   // استبعد أي أوردر موجود بالفعل في هذا البيان
   const existing = await db.select({ orderId: shippingManifestOrdersTable.orderId })
@@ -593,6 +594,39 @@ router.post("/shipping-manifests/:id/orders", requireAdmin, async (req, res): Pr
       deliveredAt: null,
     }))
   );
+
+  // لكل طلب لسه مش in_shipping → حوله لـ in_shipping + اخصم من المخزن
+  const needsShipping = toAdd.filter(o => o.status !== "in_shipping");
+  if (needsShipping.length > 0) {
+    await db
+      .update(ordersTable)
+      .set({ status: "in_shipping", shippingCompanyId: manifest.shippingCompanyId })
+      .where(inArray(ordersTable.id, needsShipping.map(o => o.id)));
+
+    for (const order of needsShipping) {
+      await processToShipping(
+        {
+          variantId: order.variantId,
+          productId: order.productId,
+          product: order.product,
+          color: order.color,
+          size: order.size,
+          warehouseId: order.warehouseId,
+        },
+        order.quantity,
+        order.id,
+      );
+    }
+  }
+
+  // الطلبات اللي كانت in_shipping بالفعل — بس حدّث shippingCompanyId
+  const alreadyShipping = toAdd.filter(o => o.status === "in_shipping");
+  if (alreadyShipping.length > 0) {
+    await db
+      .update(ordersTable)
+      .set({ shippingCompanyId: manifest.shippingCompanyId })
+      .where(inArray(ordersTable.id, alreadyShipping.map(o => o.id)));
+  }
 
   res.json({ added: toAdd.length, manifestNumber: manifest.manifestNumber });
 });
