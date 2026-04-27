@@ -19,7 +19,7 @@ import {
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ordersApi } from "@/lib/api";
+import { ordersApi, apiFetch } from "@/lib/api";
 import { STATUS_LABELS as statusLabels, STATUS_CLASSES as statusClasses } from "@/lib/order-constants";
 
 const formatCurrency = (n: number) =>
@@ -42,7 +42,7 @@ export default function InvoiceGroup() {
   // ─── Fetch all orders in this invoice ─────────────────────────────────────
   const { data: orders, isLoading, error } = useQuery({
     queryKey: ["invoice-group", invoiceNumber],
-    queryFn: () => ordersApi.byInvoice(invoiceNumber),
+    queryFn: () => apiFetch<any[]>(`/orders/by-invoice/${encodeURIComponent(invoiceNumber)}`),
     enabled: !!invoiceNumber,
     staleTime: 0,
     retry: 3,
