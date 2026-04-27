@@ -315,7 +315,8 @@ router.get("/analytics/financial-summary", requireAdmin, async (req, res): Promi
   // أضف تكلفة الشحن اليدوية من البيانات (manualShippingCost) للـ shippingSpend
   shippingSpend += manualShippingTotal;
 
-  const netProfit = cashIn - costOfGoods - shippingSpend;
+  // صافي الربح = إجمالي المقبوض − تكلفة البضاعة − تكلفة الشحن − خسائر المرتجعات
+  const netProfit = cashIn - costOfGoods - shippingSpend - returnLoss;
   const grossProfit = cashIn - costOfGoods;
   const grossMargin = cashIn > 0 ? Math.round((grossProfit / cashIn) * 100) : 0;
   const netMargin = cashIn > 0 ? Math.round((netProfit / cashIn) * 100) : 0;
