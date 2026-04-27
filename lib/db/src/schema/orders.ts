@@ -35,6 +35,7 @@ export const ordersTable = mysqlTable("orders", {
   returnReason: text("return_reason"),
   returnNote: text("return_note"),
   trackingNumber: varchar("tracking_number", { length: 255 }),
+  invoiceNumber: varchar("invoice_number", { length: 50 }),
   deletedAt: datetime("deleted_at"),
   createdAt: datetime("created_at").notNull(),
   updatedAt: datetime("updated_at").notNull(),
@@ -46,6 +47,7 @@ export const ordersTable = mysqlTable("orders", {
   index("idx_orders_product_id").on(t.productId),
   index("idx_orders_shipping_company_id").on(t.shippingCompanyId),
   index("idx_orders_assigned_user_id").on(t.assignedUserId),
+  index("idx_orders_invoice_number").on(t.invoiceNumber),
 ]);
 
 export const insertOrderSchema = createInsertSchema(ordersTable).omit({ id: true, createdAt: true, updatedAt: true, totalPrice: true });

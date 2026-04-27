@@ -21,6 +21,16 @@ const router: IRouter = Router();
 
 const LOCKED_STATUSES = ["received", "partial_received"] as const;
 
+// ─── Helper: generate invoice number ─────────────────────────────────────────
+function generateInvoiceNumber(): string {
+  const now = new Date();
+  const yy = String(now.getFullYear()).slice(-2);
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  const rand = Math.floor(1000 + Math.random() * 9000);
+  return `INV-${yy}${mm}${dd}-${rand}`;
+}
+
 // ─── Stats ────────────────────────────────────────────────────────────────────
 
 router.get("/orders/stats", async (req, res): Promise<void> => {
@@ -59,7 +69,6 @@ router.get("/orders", async (req, res): Promise<void> => {
 
   if (params.data.status) conditions.push(eq(ordersTable.status, params.data.status as any));
 
-  // لو بيجيب in_shipping — اشيل بس اللي في بيان مفتوح حالياً
   if (params.data.status === "in_shipping" && !(req.query as any).includeInManifest) {
     const openManifests = await db
       .select({ id: shippingManifestsTable.id })
@@ -95,7 +104,7 @@ router.get("/orders", async (req, res): Promise<void> => {
   res.json(ListOrdersResponse.parse(await query));
 });
 
-// ─── Create order ─────────────────────────────────────────────────────────────
+// ─── Create order (single) ────────────────────────────────────────────────────
 
 router.post("/orders", async (req, res): Promise<void> => {
   const parsed = CreateOrderBody.safeParse(req.body);
@@ -113,7 +122,8 @@ router.post("/orders", async (req, res): Promise<void> => {
     if (product?.costPrice) costPrice = product.costPrice;
   }
 
-  const result = await db.insert(ordersTable).values({ ...parsed.data, totalPrice, status: "pending", costPrice, createdAt: new Date(), updatedAt: new Date() });
+  const invoiceNumber = (parsed.data as any).invoiceNumber || generateInvoiceNumber();
+  const result = await db.insert(ordersTable).values({ ...parsed.data, totalPrice, status: "pending", costPrice, invoiceNumber, createdAt: new Date(), updatedAt: new Date() });
   const insertId = (result as any)[0]?.insertId ?? (result as any).insertId;
   const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, insertId));
 
@@ -128,6 +138,75 @@ router.post("/orders", async (req, res): Promise<void> => {
   });
 
   res.status(201).json(GetOrderResponse.parse(order));
+});
+
+// ─── Create batch orders (multiple items = one invoice) ───────────────────────
+
+router.post("/orders/batch", async (req, res): Promise<void> => {
+  const { items, ...sharedFields } = req.body;
+
+  if (!Array.isArray(items) || items.length === 0) {
+    res.status(400).json({ error: "يجب إرسال قائمة منتجات (items)" });
+    return;
+  }
+
+  const invoiceNumber = generateInvoiceNumber();
+  const shippingPerItem = sharedFields.shippingCost
+    ? Number(sharedFields.shippingCost) / items.length
+    : 0;
+
+  const createdOrders = [];
+
+  for (const item of items) {
+    const parsed = CreateOrderBody.safeParse({
+      ...sharedFields,
+      product:   item.product,
+      color:     item.color ?? null,
+      size:      item.size ?? null,
+      quantity:  item.quantity,
+      unitPrice: item.unitPrice,
+      costPrice: item.costPrice ?? null,
+      shippingCost: shippingPerItem,
+      productId: item.productId ?? null,
+      variantId: item.variantId ?? null,
+    });
+
+    if (!parsed.success) {
+      res.status(400).json({ error: `منتج غير صالح: ${parsed.error.message}` });
+      return;
+    }
+
+    const totalPrice = parsed.data.quantity * parsed.data.unitPrice;
+    let costPrice = (parsed.data as any).costPrice ?? null;
+    if (!costPrice && (parsed.data as any).variantId) {
+      const [variant] = await db.select().from(productVariantsTable).where(eq(productVariantsTable.id, (parsed.data as any).variantId));
+      if (variant?.costPrice) costPrice = variant.costPrice;
+    }
+    if (!costPrice && (parsed.data as any).productId) {
+      const [product] = await db.select().from(productsTable).where(eq(productsTable.id, (parsed.data as any).productId));
+      if (product?.costPrice) costPrice = product.costPrice;
+    }
+
+    const result = await db.insert(ordersTable).values({
+      ...parsed.data, totalPrice, status: "pending", costPrice, invoiceNumber,
+      createdAt: new Date(), updatedAt: new Date(),
+    });
+    const insertId = (result as any)[0]?.insertId ?? (result as any).insertId;
+    const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, insertId));
+    createdOrders.push(order);
+
+    await logAudit({
+      action: "create",
+      entityType: "order",
+      entityId: order.id,
+      entityName: `${order.customerName} — ${order.product} [${invoiceNumber}]`,
+      after: { customerName: order.customerName, product: order.product, quantity: order.quantity, unitPrice: order.unitPrice, status: order.status, invoiceNumber },
+      userId: req.user?.id,
+      userName: req.user?.displayName,
+    });
+  }
+
+  res.status(201).json({ invoiceNumber, orders: createdOrders });
 });
 
 // ─── Summary ──────────────────────────────────────────────────────────────────
@@ -164,8 +243,6 @@ router.get("/orders/archived", async (_req, res): Promise<void> => {
 });
 
 // ─── Orders that have a shipping manifest ─────────────────────────────────────
-// Returns a Set of order IDs that are already in a manifest (in_shipping + in manifest)
-// Used by frontend to show "still in warehouse" badge
 
 router.get("/orders/in-manifest-ids", async (_req, res): Promise<void> => {
   const rows = await db
@@ -226,24 +303,16 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
   const [existing] = await db.select().from(ordersTable).where(eq(ordersTable.id, params.data.id));
   if (!existing) { res.status(404).json({ error: "Order not found" }); return; }
 
-  // ── Lock check: only admin can edit delivered orders ─────────────────────
   const isLockedStatus = LOCKED_STATUSES.includes(existing.status as any);
-  const isStatusTransitionToDelivered = parsed.data.status && LOCKED_STATUSES.includes(parsed.data.status as any);
 
-  // Non-admins can only CHANGE STATUS (not edit price/qty) of delivered orders
   if (isLockedStatus && !isAdmin(req)) {
-    // Allow status transitions away from delivered (e.g., → returned)
     const onlyChangingStatus = Object.keys(parsed.data).every(k => ["status", "partialQuantity", "returnReason", "returnNote"].includes(k));
     if (!onlyChangingStatus) {
-      res.status(403).json({
-        error: "هذا الطلب مُسلَّم ومقفل — فقط المدير يمكنه تعديل بياناته",
-        locked: true,
-      });
+      res.status(403).json({ error: "هذا الطلب مُسلَّم ومقفل — فقط المدير يمكنه تعديل بياناته", locked: true });
       return;
     }
   }
 
-  // Non-admins cannot edit price or quantity
   if (!isAdmin(req) && (parsed.data.unitPrice !== undefined || parsed.data.quantity !== undefined)) {
     const priceChanging = parsed.data.unitPrice !== undefined && parsed.data.unitPrice !== existing.unitPrice;
     const qtyChanging = parsed.data.quantity !== undefined && parsed.data.quantity !== existing.quantity;
@@ -257,10 +326,7 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
   const unitPrice = parsed.data.unitPrice ?? existing.unitPrice;
   const totalPrice = quantity * unitPrice;
 
-  await db
-    .update(ordersTable)
-    .set({ ...parsed.data, totalPrice, updatedAt: new Date() })
-    .where(eq(ordersTable.id, params.data.id));
+  await db.update(ordersTable).set({ ...parsed.data, totalPrice, updatedAt: new Date() }).where(eq(ordersTable.id, params.data.id));
   const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, params.data.id));
   if (!order) { res.status(404).json({ error: "Order not found" }); return; }
 
@@ -277,120 +343,46 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
       warehouseId: existing.warehouseId ?? null,
     };
 
-    // ══════════════════════════════════════════════════════════════════════
-    // منطق المخزن:
-    //   pending       = الطلب في المخزن (لم يُخصم بعد)
-    //   in_shipping   = قيد الشحن — لا يخصم من المخزون حتى يتعمل بيان شحن
-    //   received      = سُلِّم للعميل (الخصم اتعمل عند إنشاء البيان)
-    //   returned      = مرتجع للمخزن
-    // ══════════════════════════════════════════════════════════════════════
-
-    // ── pending → in_shipping: لا يخصم من المخزن هنا ──────────────────────
-    // الخصم بيحصل فقط لما يتعمل بيان شحن في manifests.ts
-    if (newStatus === "in_shipping" && oldStatus === "pending") {
-      // لا يوجد خصم — الطلب لسه في المخزن حتى يتعمل البيان
-    }
-
-    // ── delayed → in_shipping: نفس المنطق ────────────────────────────────
-    else if (newStatus === "in_shipping" && oldStatus === "delayed") {
-      // لا يوجد خصم — الخصم يحصل عند إنشاء البيان فقط
-    }
-
-    // ── in_shipping → received: البضاعة وصلت للعميل ──────────────────────
-    // الكمية اتخصمت من المخزن قبل كده بـ processToShipping
-    // هنا بنسجل البيع بس في حركة المخزن (OUT/sale) بدون خصم إضافي
-    else if (newStatus === "received" && oldStatus === "in_shipping") {
-      // البضاعة اتخصمت من المخزن بـ processToShipping — skipWarehouseStock = true
+    if (newStatus === "in_shipping" && (oldStatus === "pending" || oldStatus === "delayed")) {
+      // no deduction — happens at manifest creation
+    } else if (newStatus === "received" && oldStatus === "in_shipping") {
       await processDelivery(orderRef, order.quantity, "sale", existing.id, true);
       await reverseShipping(orderRef, order.quantity, existing.id);
-    }
-
-    // ── pending/delayed → received مباشرة (بدون مرحلة شحن) ──────────────
-    else if (newStatus === "received" && (oldStatus === "pending" || oldStatus === "delayed")) {
-      // المخزن لم يتأثر بعد — خصم عادي
+    } else if (newStatus === "received" && (oldStatus === "pending" || oldStatus === "delayed")) {
       await processDelivery(orderRef, order.quantity, "sale", existing.id);
-    }
-
-    // ── partial_received → received: تسليم باقي الكمية ───────────────────
-    else if (newStatus === "received" && oldStatus === "partial_received") {
+    } else if (newStatus === "received" && oldStatus === "partial_received") {
       const alreadyDeducted = existing.partialQuantity ?? 0;
       const remainder = order.quantity - alreadyDeducted;
       if (remainder > 0) await processDelivery(orderRef, remainder, "sale", existing.id, true);
-    }
-
-    // ── in_shipping → partial_received ────────────────────────────────────
-    else if (newStatus === "partial_received" && oldStatus === "in_shipping") {
+    } else if (newStatus === "partial_received" && oldStatus === "in_shipping") {
       const newPartial = parsed.data.partialQuantity ?? 0;
       await reverseShipping(orderRef, order.quantity, existing.id);
       if (newPartial > 0) await processDelivery(orderRef, newPartial, "partial_sale", existing.id);
-    }
-
-    // ── any → partial_received (من pending/delayed) ───────────────────────
-    else if (newStatus === "partial_received") {
+    } else if (newStatus === "partial_received") {
       const newPartial = parsed.data.partialQuantity ?? 0;
       const oldPartial = (oldStatus === "partial_received" ? existing.partialQuantity : 0) ?? 0;
       const delta = newPartial - oldPartial;
       if (delta > 0) await processDelivery(orderRef, delta, "partial_sale", existing.id);
       else if (delta < 0) await reverseDelivery(orderRef, Math.abs(delta), existing.id);
-    }
-
-    // ── in_shipping → returned: مرتجع من شركة الشحن ─────────────────────
-    else if (newStatus === "returned" && oldStatus === "in_shipping") {
-      // كانت عند الشحن (خُصمت بـ to_shipping) — نرجعها للمخزن
+    } else if (newStatus === "returned" && oldStatus === "in_shipping") {
       await reverseShipping(orderRef, order.quantity, existing.id);
-    }
-
-    // ── received/partial_received → returned ──────────────────────────────
-    else if (newStatus === "returned" && (oldStatus === "received" || oldStatus === "partial_received")) {
+    } else if (newStatus === "returned" && (oldStatus === "received" || oldStatus === "partial_received")) {
       const wasPartially = oldStatus === "partial_received";
-      const returnQty = wasPartially
-        ? (existing.partialQuantity ?? order.quantity)
-        : order.quantity;
-      await processReturn(
-        { ...orderRef, quantity: returnQty },
-        true, // كانت مستلَمة فعلاً
-        isDamaged,
-        existing.id,
-      );
-    }
-
-    // ── pending/delayed → returned ────────────────────────────────────────
-    else if (newStatus === "returned") {
-      // لم تخصم من المخزن أصلاً — مجرد تسجيل
-      await processReturn(
-        { ...orderRef, quantity: order.quantity },
-        false, // لم تُسلَّم
-        isDamaged,
-        existing.id,
-      );
-    }
-
-    // ── in_shipping → pending/delayed (إلغاء الشحن) ───────────────────────
-    // لو عنده بيان → ارجع الخصم. لو مفيش بيان → مفيش خصم حصل أصلاً
-    else if (oldStatus === "in_shipping" && (newStatus === "pending" || newStatus === "delayed")) {
-      const [manifestLink] = await db
-        .select()
-        .from(shippingManifestOrdersTable)
-        .where(eq(shippingManifestOrdersTable.orderId, existing.id))
-        .limit(1);
-      if (manifestLink) {
-        await reverseShipping(orderRef, order.quantity, existing.id);
-      }
-    }
-
-    // ── received → other (تراجع عن التسليم) ──────────────────────────────
-    else if (oldStatus === "received") {
+      const returnQty = wasPartially ? (existing.partialQuantity ?? order.quantity) : order.quantity;
+      await processReturn({ ...orderRef, quantity: returnQty }, true, isDamaged, existing.id);
+    } else if (newStatus === "returned") {
+      await processReturn({ ...orderRef, quantity: order.quantity }, false, isDamaged, existing.id);
+    } else if (oldStatus === "in_shipping" && (newStatus === "pending" || newStatus === "delayed")) {
+      const [manifestLink] = await db.select().from(shippingManifestOrdersTable).where(eq(shippingManifestOrdersTable.orderId, existing.id)).limit(1);
+      if (manifestLink) await reverseShipping(orderRef, order.quantity, existing.id);
+    } else if (oldStatus === "received") {
       await reverseDelivery(orderRef, order.quantity, existing.id);
-    }
-
-    // ── partial_received → other (تراجع عن التسليم الجزئي) ───────────────
-    else if (oldStatus === "partial_received") {
+    } else if (oldStatus === "partial_received") {
       const deducted = existing.partialQuantity ?? 0;
       if (deducted > 0) await reverseDelivery(orderRef, deducted, existing.id);
     }
   }
 
-  // Audit log
   const diff = diffObjects(
     { status: existing.status, unitPrice: existing.unitPrice, quantity: existing.quantity, partialQuantity: existing.partialQuantity, notes: existing.notes, returnReason: existing.returnReason },
     { status: order.status, unitPrice: order.unitPrice, quantity: order.quantity, partialQuantity: order.partialQuantity, notes: order.notes, returnReason: order.returnReason },
@@ -425,7 +417,6 @@ router.delete("/orders/bulk", async (req, res): Promise<void> => {
   const skipped: number[] = [];
 
   for (const existing of orders) {
-    // Lock: only admin can delete delivered orders
     if (LOCKED_STATUSES.includes(existing.status as any) && !isAdmin(req)) {
       skipped.push(existing.id);
       continue;
@@ -473,12 +464,8 @@ router.delete("/orders/:id", async (req, res): Promise<void> => {
   const [existing] = await db.select().from(ordersTable).where(eq(ordersTable.id, id));
   if (!existing) { res.status(404).json({ error: "Order not found" }); return; }
 
-  // Lock: only admin can delete delivered orders
   if (LOCKED_STATUSES.includes(existing.status as any) && !isAdmin(req)) {
-    res.status(403).json({
-      error: "هذا الطلب مُسلَّم ومقفل — فقط المدير يمكنه حذفه",
-      locked: true,
-    });
+    res.status(403).json({ error: "هذا الطلب مُسلَّم ومقفل — فقط المدير يمكنه حذفه", locked: true });
     return;
   }
 
@@ -505,7 +492,6 @@ router.delete("/orders/:id", async (req, res): Promise<void> => {
     userName: req.user?.displayName,
   });
 
-  // Soft delete — mark as deleted without removing from DB
   await db.update(ordersTable).set({ deletedAt: new Date() }).where(eq(ordersTable.id, id));
   res.status(204).end();
 });

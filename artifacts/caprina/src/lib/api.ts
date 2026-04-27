@@ -997,3 +997,21 @@ export const appSettingsApi = {
   update: (data: Partial<AppSettings>) =>
     apiFetch<AppSettings>("/settings", { method: "PATCH", body: JSON.stringify(data) }),
 };
+
+export const ordersApi = {
+  stats: () => apiFetch<OrderStats>("/orders/stats"),
+  delete: (id: number) => apiFetch<void>(`/orders/${id}`, { method: "DELETE" }),
+  archived: () => apiFetch<any[]>("/orders/archived"),
+  restore: (id: number) => apiFetch<any>(`/orders/${id}/restore`, { method: "POST" }),
+  inManifestIds: () => apiFetch<{ ids: number[] }>("/orders/in-manifest-ids"),
+  batchCreate: (data: {
+    items: Array<{
+      product: string; color?: string | null; size?: string | null;
+      quantity: number; unitPrice: number; costPrice?: number | null;
+      productId?: number | null; variantId?: number | null;
+    }>;
+    customerName: string; phone?: string | null; city?: string | null; address?: string | null;
+    shippingCost?: number | null; shippingCompanyId?: number | null; warehouseId?: number | null;
+    assignedUserId?: number | null; adSource?: string | null; adCampaign?: string | null; notes?: string | null;
+  }) => apiFetch<{ invoiceNumber: string; orders: any[] }>("/orders/batch", { method: "POST", body: JSON.stringify(data) }),
+};
