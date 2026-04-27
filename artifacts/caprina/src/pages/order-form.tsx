@@ -1,8 +1,11 @@
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useLocation, Link } from "wouter";
-import { ArrowRight, Save, Phone, MapPin, Layers, TrendingUp, DollarSign, Megaphone, Warehouse, UserCheck } from "lucide-react";
+import {
+  ArrowRight, Save, Phone, MapPin, Layers, DollarSign, Megaphone,
+  Warehouse, UserCheck, Plus, Trash2, Package, ChevronDown, ChevronUp,
+} from "lucide-react";
 import { useCreateOrder, getListOrdersQueryKey, getGetOrdersSummaryQueryKey, getGetRecentOrdersQueryKey } from "@workspace/api-client-react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -15,121 +18,418 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { productsApi, variantsApi, shippingApi, warehousesApi, usersApi } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { useState } from "react";
 
 const AD_SOURCES = [
-  { value: "facebook", label: "📘 فيسبوك" },
-  { value: "tiktok", label: "🎵 تيك توك" },
-  { value: "instagram", label: "📷 إنستجرام" },
+  { value: "facebook",  label: "📘 فيسبوك" },
+  { value: "tiktok",   label: "🎵 تيك توك" },
+  { value: "instagram",label: "📷 إنستجرام" },
   { value: "whatsapp", label: "💬 واتساب" },
-  { value: "organic", label: "🌱 عضوي" },
-  { value: "other", label: "📌 أخرى" },
+  { value: "organic",  label: "🌱 عضوي" },
+  { value: "other",    label: "📌 أخرى" },
 ];
 
+// ── Item schema (single product line) ────────────────────────────────────────
+const itemSchema = z.object({
+  product:     z.string().min(1, "اسم المنتج مطلوب."),
+  color:       z.string().optional().nullable(),
+  size:        z.string().optional().nullable(),
+  quantity:    z.coerce.number().int().min(1, "الكمية 1 على الأقل."),
+  unitPrice:   z.coerce.number().min(0, "السعر يجب أن يكون موجباً."),
+  costPrice:   z.coerce.number().min(0).optional().nullable(),
+  productId:   z.coerce.number().optional().nullable(),
+  variantId:   z.coerce.number().optional().nullable(),
+});
+
 const formSchema = z.object({
-  customerName: z.string().min(2, "اسم العميل يجب أن يكون حرفين على الأقل."),
-  phone: z.string().optional().nullable(),
-  city: z.string().optional().nullable(),
-  address: z.string().optional().nullable(),
-  product: z.string().min(1, "اسم المنتج مطلوب."),
-  color: z.string().optional().nullable(),
-  size: z.string().optional().nullable(),
-  quantity: z.coerce.number().int().min(1, "الكمية يجب أن تكون 1 على الأقل."),
-  unitPrice: z.coerce.number().min(0, "السعر يجب أن يكون موجباً."),
-  costPrice: z.coerce.number().min(0).optional().nullable(),
-  shippingCost: z.coerce.number().min(0).optional().nullable(),
+  // ── Customer ──────────────────────────────────────────────────────────────
+  customerName:      z.string().min(2, "اسم العميل يجب أن يكون حرفين على الأقل."),
+  phone:             z.string().optional().nullable(),
+  city:              z.string().optional().nullable(),
+  address:           z.string().optional().nullable(),
+  // ── Shared order fields ───────────────────────────────────────────────────
+  shippingCost:      z.coerce.number().min(0).optional().nullable(),
   shippingCompanyId: z.coerce.number().optional().nullable(),
-  productId: z.coerce.number().optional().nullable(),
-  variantId: z.coerce.number().optional().nullable(),
-  warehouseId: z.coerce.number().optional().nullable(),
-  assignedUserId: z.coerce.number().optional().nullable(),
-  adSource: z.string().optional().nullable(),
-  adCampaign: z.string().optional().nullable(),
-  notes: z.string().optional().nullable(),
+  warehouseId:       z.coerce.number().optional().nullable(),
+  assignedUserId:    z.coerce.number().optional().nullable(),
+  adSource:          z.string().optional().nullable(),
+  adCampaign:        z.string().optional().nullable(),
+  notes:             z.string().optional().nullable(),
+  // ── Products list ─────────────────────────────────────────────────────────
+  items: z.array(itemSchema).min(1, "أضف منتجاً واحداً على الأقل."),
 });
 
 type FormValues = z.infer<typeof formSchema>;
+type ItemValues = z.infer<typeof itemSchema>;
 
 const formatCurrency = (n: number) =>
   new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(n);
 
+const emptyItem = (): ItemValues => ({
+  product: "", color: "", size: "", quantity: 1,
+  unitPrice: 0, costPrice: null, productId: null, variantId: null,
+});
+
+// ── Single product item row ───────────────────────────────────────────────────
+function ProductItem({
+  index, control, watch, setValue, remove, products, allVariants, canViewFinancials, isOnly,
+}: {
+  index: number;
+  control: any; watch: any; setValue: any;
+  remove: () => void;
+  products: any[] | undefined;
+  allVariants: any[] | undefined;
+  canViewFinancials: boolean;
+  isOnly: boolean;
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+
+  const productId  = watch(`items.${index}.productId`);
+  const color      = watch(`items.${index}.color`);
+  const variantId  = watch(`items.${index}.variantId`);
+  const qty        = watch(`items.${index}.quantity`) || 0;
+  const price      = watch(`items.${index}.unitPrice`) || 0;
+  const cost       = watch(`items.${index}.costPrice`) || 0;
+  const productName = watch(`items.${index}.product`) || `منتج ${index + 1}`;
+
+  const productVariants = allVariants?.filter(v => v.productId === Number(productId)) ?? [];
+  const availableColors = [...new Set(productVariants.map(v => v.color))];
+  const availableSizes  = productVariants.filter(v => v.color === color).map(v => v.size);
+  const selectedVariant = allVariants?.find(v => v.id === Number(variantId));
+  const availableQty    = selectedVariant
+    ? selectedVariant.totalQuantity - selectedVariant.reservedQuantity - selectedVariant.soldQuantity
+    : null;
+
+  const revenue   = qty * price;
+  const costTotal = qty * cost;
+  const profit    = revenue - costTotal;
+  const margin    = revenue > 0 ? Math.round((profit / revenue) * 100) : 0;
+
+  return (
+    <Card className="border-border bg-card overflow-hidden">
+      {/* Header row */}
+      <div
+        className="flex items-center justify-between px-4 py-2.5 border-b border-border cursor-pointer select-none bg-muted/20 hover:bg-muted/30 transition-colors"
+        onClick={() => setCollapsed(c => !c)}
+      >
+        <div className="flex items-center gap-2">
+          <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary shrink-0">
+            {index + 1}
+          </div>
+          <Package className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+          <span className="text-xs font-bold truncate max-w-[140px]">{productName}</span>
+          {qty > 0 && price > 0 && (
+            <Badge variant="outline" className="text-[9px] font-bold border-primary/30 text-primary">
+              {qty} × {formatCurrency(price)}
+            </Badge>
+          )}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {!isOnly && (
+            <button
+              type="button"
+              onClick={e => { e.stopPropagation(); remove(); }}
+              className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+          {collapsed
+            ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+            : <ChevronUp   className="w-3.5 h-3.5 text-muted-foreground" />}
+        </div>
+      </div>
+
+      {/* Body */}
+      {!collapsed && (
+        <CardContent className="px-4 pb-4 pt-3 space-y-3">
+          {/* Product picker from inventory */}
+          <FormField control={control} name={`items.${index}.productId`} render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-xs flex items-center gap-1"><Layers className="w-3 h-3" />اختر من المخزون (اختياري)</FormLabel>
+              <Select value={field.value?.toString() || "none"} onValueChange={v => {
+                if (v && v !== "none") {
+                  const pid = Number(v);
+                  field.onChange(pid);
+                  const p = products?.find(p => p.id === pid);
+                  if (p) {
+                    setValue(`items.${index}.product`, p.name);
+                    if (p.costPrice) setValue(`items.${index}.costPrice`, p.costPrice);
+                  }
+                  setValue(`items.${index}.variantId`, null);
+                  setValue(`items.${index}.color`, "");
+                  setValue(`items.${index}.size`, "");
+                } else {
+                  field.onChange(null);
+                  setValue(`items.${index}.variantId`, null);
+                  setValue(`items.${index}.color`, "");
+                  setValue(`items.${index}.size`, "");
+                }
+              }}>
+                <SelectTrigger className="h-9 text-sm bg-card"><SelectValue placeholder="اختر منتج من المخزون..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">— إدخال يدوي —</SelectItem>
+                  {products?.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </FormItem>
+          )} />
+
+          {/* Variant pickers (if inventory product selected) */}
+          {productId && productVariants.length > 0 && (
+            <div className="grid grid-cols-2 gap-3 p-3 bg-muted/10 rounded-md border border-border/40">
+              <FormField control={control} name={`items.${index}.color`} render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs">اللون</FormLabel>
+                  <Select value={field.value || "none"} onValueChange={v => {
+                    field.onChange(v === "none" ? "" : v);
+                    setValue(`items.${index}.size`, "");
+                    setValue(`items.${index}.variantId`, null);
+                  }}>
+                    <SelectTrigger className="h-9 text-sm bg-card"><SelectValue placeholder="اختر لون" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">اختر لون...</SelectItem>
+                      {availableColors.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+              )} />
+              <FormField control={control} name={`items.${index}.size`} render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs">المقاس</FormLabel>
+                  <Select value={field.value || "none"} disabled={!color} onValueChange={v => {
+                    field.onChange(v === "none" ? "" : v);
+                    const variant = productVariants.find(pv => pv.color === color && pv.size === v);
+                    if (variant) {
+                      setValue(`items.${index}.variantId`, variant.id);
+                      setValue(`items.${index}.unitPrice`, variant.unitPrice);
+                      if ((variant as any).costPrice) setValue(`items.${index}.costPrice`, (variant as any).costPrice);
+                    }
+                  }}>
+                    <SelectTrigger className="h-9 text-sm bg-card"><SelectValue placeholder={color ? "اختر مقاس" : "اختر لون أولاً"} /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">اختر مقاس...</SelectItem>
+                      {availableSizes.map(s => {
+                        const variant = productVariants.find(pv => pv.color === color && pv.size === s);
+                        const avail = variant ? variant.totalQuantity - variant.reservedQuantity - variant.soldQuantity : 0;
+                        return (
+                          <SelectItem key={s} value={s} disabled={avail === 0}>
+                            {s} {avail === 0 ? "(نفد)" : `(${avail} متاح)`}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+              )} />
+              {selectedVariant && (
+                <div className="col-span-2">
+                  <Badge variant="outline" className={`text-[9px] font-bold border ${
+                    availableQty !== null && availableQty <= selectedVariant.lowStockThreshold
+                      ? "border-red-400 text-red-700 dark:border-red-800 dark:text-red-400"
+                      : "border-emerald-400 text-emerald-700 dark:border-emerald-800 dark:text-emerald-400"
+                  }`}>متاح: {availableQty ?? 0}</Badge>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Manual product name */}
+          <FormField control={control} name={`items.${index}.product`} render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-xs">اسم المنتج *</FormLabel>
+              <FormControl><Input placeholder="اسم المنتج" className="h-9 text-sm" {...field} /></FormControl>
+              <FormMessage className="text-xs" />
+            </FormItem>
+          )} />
+
+          {/* Manual color/size (no inventory product) */}
+          {!productId && (
+            <div className="grid grid-cols-2 gap-3">
+              <FormField control={control} name={`items.${index}.color`} render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs">اللون</FormLabel>
+                  <FormControl><Input placeholder="أسود، بيج..." className="h-9 text-sm" {...field} value={field.value ?? ""} /></FormControl>
+                </FormItem>
+              )} />
+              <FormField control={control} name={`items.${index}.size`} render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs">المقاس</FormLabel>
+                  <FormControl><Input placeholder="M, L, XL..." className="h-9 text-sm" {...field} value={field.value ?? ""} /></FormControl>
+                </FormItem>
+              )} />
+            </div>
+          )}
+
+          {/* Qty & Price */}
+          <div className="grid grid-cols-2 gap-3">
+            <FormField control={control} name={`items.${index}.quantity`} render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs">الكمية *</FormLabel>
+                <FormControl><Input type="number" min="1" className="h-9 text-sm" {...field} /></FormControl>
+                <FormMessage className="text-xs" />
+              </FormItem>
+            )} />
+            <FormField control={control} name={`items.${index}.unitPrice`} render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs">سعر البيع (ج.م) *</FormLabel>
+                <FormControl><Input type="number" min="0" step="0.01" className="h-9 text-sm" {...field} /></FormControl>
+                <FormMessage className="text-xs" />
+              </FormItem>
+            )} />
+          </div>
+
+          {/* Cost (admin only) */}
+          {canViewFinancials && (
+            <div className="space-y-2">
+              <FormField control={control} name={`items.${index}.costPrice`} render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs flex items-center gap-1"><DollarSign className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />تكلفة الوحدة (ج.م)</FormLabel>
+                  <FormControl>
+                    <Input type="number" min="0" step="0.01" placeholder="0" className="h-9 text-sm"
+                      {...field} value={field.value ?? ""}
+                      onChange={e => field.onChange(e.target.value ? Number(e.target.value) : null)} />
+                  </FormControl>
+                </FormItem>
+              )} />
+              {cost > 0 && (
+                <div className="grid grid-cols-3 gap-2 p-2 bg-background/50 rounded border border-border text-center">
+                  <div>
+                    <p className="text-[9px] text-muted-foreground">إيرادات</p>
+                    <p className="text-xs font-bold text-primary">{formatCurrency(revenue)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] text-muted-foreground">التكلفة</p>
+                    <p className="text-xs font-bold text-amber-700 dark:text-amber-400">{formatCurrency(costTotal)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] text-muted-foreground">الربح</p>
+                    <p className={`text-xs font-bold ${profit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                      {formatCurrency(profit)}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      )}
+    </Card>
+  );
+}
+
+// ── Main Form ─────────────────────────────────────────────────────────────────
 export default function OrderForm() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const createOrder = useCreateOrder();
 
-  const { data: products } = useQuery({ queryKey: ["products"], queryFn: productsApi.list });
-  const { data: allVariants } = useQuery({ queryKey: ["variants"], queryFn: variantsApi.listAll });
-  const { data: shippingCompanies } = useQuery({ queryKey: ["shipping"], queryFn: shippingApi.list });
-  const { data: warehouses } = useQuery({ queryKey: ["warehouses"], queryFn: warehousesApi.list });
-  const { data: users } = useQuery({ queryKey: ["users"], queryFn: usersApi.list });
-
+  const { data: products }         = useQuery({ queryKey: ["products"],   queryFn: productsApi.list });
+  const { data: allVariants }      = useQuery({ queryKey: ["variants"],   queryFn: variantsApi.listAll });
+  const { data: shippingCompanies} = useQuery({ queryKey: ["shipping"],   queryFn: shippingApi.list });
+  const { data: warehouses }       = useQuery({ queryKey: ["warehouses"], queryFn: warehousesApi.list });
+  const { data: users }            = useQuery({ queryKey: ["users"],      queryFn: usersApi.list });
   const { isAdmin, canViewFinancials } = useAuth();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      customerName: "", phone: "", city: "", address: "", product: "", color: "", size: "",
-      quantity: 1, unitPrice: 0, costPrice: null, shippingCost: 0, notes: "",
+      customerName: "", phone: "", city: "", address: "",
+      shippingCost: 0, notes: "",
       warehouseId: null, assignedUserId: null, adSource: null, adCampaign: null,
+      shippingCompanyId: null,
+      items: [emptyItem()],
     },
   });
 
-  const selectedProductId = form.watch("productId");
-  const selectedVariantId = form.watch("variantId");
-  const quantity = form.watch("quantity") || 0;
-  const unitPrice = form.watch("unitPrice") || 0;
-  const costPrice = form.watch("costPrice") || 0;
+  const { fields, append, remove } = useFieldArray({ control: form.control, name: "items" });
+
+  const items        = form.watch("items");
   const shippingCost = form.watch("shippingCost") || 0;
 
-  const revenue = quantity * unitPrice;
-  const cost = quantity * costPrice;
-  const netProfit = revenue - cost - shippingCost;
-  const margin = revenue > 0 ? Math.round((netProfit / revenue) * 100) : 0;
+  const totalRevenue = items.reduce((s, it) => s + (it.quantity || 0) * (it.unitPrice || 0), 0);
+  const totalCost    = items.reduce((s, it) => s + (it.quantity || 0) * (it.costPrice || 0), 0);
+  const totalProfit  = totalRevenue - totalCost - shippingCost;
+  const totalMargin  = totalRevenue > 0 ? Math.round((totalProfit / totalRevenue) * 100) : 0;
+  const totalQty     = items.reduce((s, it) => s + (it.quantity || 0), 0);
 
-  const productVariants = allVariants?.filter(v => v.productId === Number(selectedProductId)) ?? [];
-  const availableColors = [...new Set(productVariants.map(v => v.color))];
-  const selectedColor = form.watch("color");
-  const availableSizes = productVariants.filter(v => v.color === selectedColor).map(v => v.size);
-  const selectedVariant = allVariants?.find(v => v.id === Number(selectedVariantId));
-  const availableQty = selectedVariant
-    ? selectedVariant.totalQuantity - selectedVariant.reservedQuantity - selectedVariant.soldQuantity
-    : null;
+  const [submitting, setSubmitting] = useState(false);
 
-  const onSubmit = (values: FormValues) => {
-    createOrder.mutate(
-      {
-        data: {
-          ...values,
-          city: values.city || null,
-          shippingCompanyId: values.shippingCompanyId || null,
-          productId: values.productId || null,
-          variantId: values.variantId || null,
-          color: values.color || null,
-          size: values.size || null,
-          costPrice: values.costPrice ?? null,
-          shippingCost: values.shippingCost ?? 0,
-          warehouseId: values.warehouseId || null,
-          assignedUserId: values.assignedUserId || null,
-          adSource: values.adSource || null,
-          adCampaign: values.adCampaign || null,
-        } as any,
-      },
-      {
-        onSuccess: (newOrder) => {
-          queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getGetOrdersSummaryQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getGetRecentOrdersQueryKey() });
-          queryClient.invalidateQueries({ queryKey: ["products"] });
-          queryClient.invalidateQueries({ queryKey: ["analytics-profit"] });
-          toast({ title: "تم إنشاء الطلب", description: `الطلب #${newOrder.id} تم إنشاؤه بنجاح.` });
-          setLocation(`/orders/${newOrder.id}`);
-        },
-        onError: (error: any) => {
-          toast({ title: "خطأ", description: error?.error || "فشل إنشاء الطلب.", variant: "destructive" });
-        },
+  const onSubmit = async (values: FormValues) => {
+    setSubmitting(true);
+    try {
+      const sharedFields = {
+        customerName:      values.customerName,
+        phone:             values.phone || null,
+        city:              values.city || null,
+        address:           values.address || null,
+        shippingCompanyId: values.shippingCompanyId || null,
+        warehouseId:       values.warehouseId || null,
+        assignedUserId:    values.assignedUserId || null,
+        adSource:          values.adSource || null,
+        adCampaign:        values.adCampaign || null,
+        notes:             values.notes || null,
+      };
+
+      // Distribute shippingCost across items equally
+      const shippingPerItem = values.items.length > 0
+        ? (values.shippingCost || 0) / values.items.length
+        : 0;
+
+      const results = await Promise.allSettled(
+        values.items.map(item =>
+          createOrder.mutateAsync({
+            data: {
+              ...sharedFields,
+              product:   item.product,
+              color:     item.color || null,
+              size:      item.size || null,
+              quantity:  item.quantity,
+              unitPrice: item.unitPrice,
+              costPrice: item.costPrice ?? null,
+              shippingCost: shippingPerItem,
+              productId: item.productId || null,
+              variantId: item.variantId || null,
+            } as any,
+          })
+        )
+      );
+
+      const succeeded = results.filter(r => r.status === "fulfilled");
+      const failed    = results.filter(r => r.status === "rejected");
+
+      queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getGetOrdersSummaryQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getGetRecentOrdersQueryKey() });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["analytics-profit"] });
+
+      if (failed.length === 0) {
+        toast({
+          title: values.items.length > 1 ? `تم إنشاء ${succeeded.length} طلبات` : "تم إنشاء الطلب",
+          description: values.items.length > 1
+            ? `تم إنشاء جميع الطلبات بنجاح للعميل ${values.customerName}`
+            : `الطلب #${(results[0] as PromiseFulfilledResult<any>).value?.id} تم إنشاؤه بنجاح.`,
+        });
+        if (succeeded.length === 1) {
+          setLocation(`/orders/${(results[0] as PromiseFulfilledResult<any>).value?.id}`);
+        } else {
+          setLocation("/orders");
+        }
+      } else {
+        toast({
+          title: `تم ${succeeded.length} — فشل ${failed.length}`,
+          description: "تم إنشاء بعض الطلبات وفشل بعضها. راجع قسم الطلبات.",
+          variant: "destructive",
+        });
+        setLocation("/orders");
       }
-    );
+    } catch (e: any) {
+      toast({ title: "خطأ", description: e?.error || "فشل إنشاء الطلب.", variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -151,7 +451,7 @@ export default function OrderForm() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="md:col-span-2 space-y-4">
 
-              {/* Customer */}
+              {/* ── Customer ─────────────────────────────────────────────── */}
               <Card className="border-border bg-card">
                 <CardHeader className="pb-3 pt-4 px-4"><CardTitle className="text-sm font-bold">بيانات العميل</CardTitle></CardHeader>
                 <CardContent className="px-4 pb-4 space-y-3">
@@ -201,191 +501,77 @@ export default function OrderForm() {
                 </CardContent>
               </Card>
 
-              {/* Product */}
-              <Card className="border-border bg-card">
-                <CardHeader className="pb-3 pt-4 px-4 border-b border-border">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm font-bold">المنتج والمقاس</CardTitle>
-                    {selectedVariant && (
-                      <Badge variant="outline" className={`text-[9px] font-bold border ${availableQty !== null && availableQty <= selectedVariant.lowStockThreshold ? "border-red-400 text-red-700 dark:border-red-800 dark:text-red-400" : "border-emerald-400 text-emerald-700 dark:border-emerald-800 dark:text-emerald-400"}`}>
-                        متاح: {availableQty ?? 0}
-                      </Badge>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent className="px-4 pb-4 pt-4 space-y-3">
-                  <FormField control={form.control} name="productId" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs flex items-center gap-1"><Layers className="w-3 h-3" />اختر من المخزون (اختياري)</FormLabel>
-                      <Select value={field.value?.toString() || "none"} onValueChange={v => {
-                        if (v && v !== "none") {
-                          const productId = Number(v);
-                          field.onChange(productId);
-                          const p = products?.find(p => p.id === productId);
-                          if (p) {
-                            form.setValue("product", p.name);
-                            if (p.costPrice) form.setValue("costPrice", p.costPrice);
-                          }
-                          form.setValue("variantId", null); form.setValue("color", ""); form.setValue("size", "");
-                        } else {
-                          field.onChange(null);
-                          form.setValue("variantId", null); form.setValue("color", ""); form.setValue("size", "");
-                        }
-                      }}>
-                        <SelectTrigger className="h-9 text-sm bg-card"><SelectValue placeholder="اختر منتج من المخزون..." /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">— إدخال يدوي —</SelectItem>
-                          {products?.map(p => (
-                            <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </FormItem>
-                  )} />
+              {/* ── Products list ─────────────────────────────────────────── */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-bold flex items-center gap-2">
+                    <Package className="w-4 h-4 text-primary" />
+                    المنتجات
+                    <Badge variant="outline" className="text-[10px] font-bold border-primary/30 text-primary">
+                      {fields.length} {fields.length === 1 ? "منتج" : "منتجات"}
+                    </Badge>
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={() => append(emptyItem())}
+                    className="flex items-center gap-1.5 text-xs font-bold text-primary border border-primary/30 hover:bg-primary/5 px-3 py-1.5 rounded-md transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />أضف منتجاً
+                  </button>
+                </div>
 
-                  {selectedProductId && productVariants.length > 0 && (
-                    <div className="grid grid-cols-2 gap-3 p-3 bg-muted/10 rounded-md border border-border/40">
-                      <FormField control={form.control} name="color" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs">اللون *</FormLabel>
-                          <Select value={field.value || "none"} onValueChange={v => {
-                            field.onChange(v === "none" ? "" : v);
-                            form.setValue("size", ""); form.setValue("variantId", null);
-                          }}>
-                            <SelectTrigger className="h-9 text-sm bg-card"><SelectValue placeholder="اختر لون" /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">اختر لون...</SelectItem>
-                              {availableColors.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                        </FormItem>
-                      )} />
-                      <FormField control={form.control} name="size" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs">المقاس *</FormLabel>
-                          <Select value={field.value || "none"} onValueChange={v => {
-                            field.onChange(v === "none" ? "" : v);
-                            const variant = productVariants.find(pv => pv.color === selectedColor && pv.size === v);
-                            if (variant) {
-                              form.setValue("variantId", variant.id);
-                              form.setValue("unitPrice", variant.unitPrice);
-                              if ((variant as any).costPrice) form.setValue("costPrice", (variant as any).costPrice);
-                            }
-                          }} disabled={!selectedColor}>
-                            <SelectTrigger className="h-9 text-sm bg-card"><SelectValue placeholder={selectedColor ? "اختر مقاس" : "اختر لون أولاً"} /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">اختر مقاس...</SelectItem>
-                              {availableSizes.map(s => {
-                                const variant = productVariants.find(v => v.color === selectedColor && v.size === s);
-                                const avail = variant ? variant.totalQuantity - variant.reservedQuantity - variant.soldQuantity : 0;
-                                return (
-                                  <SelectItem key={s} value={s} disabled={avail === 0}>
-                                    {s} {avail === 0 ? "(نفد)" : `(${avail} متاح)`}
-                                  </SelectItem>
-                                );
-                              })}
-                            </SelectContent>
-                          </Select>
-                        </FormItem>
-                      )} />
-                    </div>
-                  )}
+                {fields.map((field, index) => (
+                  <ProductItem
+                    key={field.id}
+                    index={index}
+                    control={form.control}
+                    watch={form.watch}
+                    setValue={form.setValue}
+                    remove={() => remove(index)}
+                    products={products}
+                    allVariants={allVariants}
+                    canViewFinancials={canViewFinancials}
+                    isOnly={fields.length === 1}
+                  />
+                ))}
 
-                  <FormField control={form.control} name="product" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs">اسم المنتج *</FormLabel>
-                      <FormControl><Input placeholder="اسم المنتج" className="h-9 text-sm" {...field} /></FormControl>
-                      <FormMessage className="text-xs" />
-                    </FormItem>
-                  )} />
+                {/* Add button at bottom too (if more than 2 items) */}
+                {fields.length >= 2 && (
+                  <button
+                    type="button"
+                    onClick={() => append(emptyItem())}
+                    className="w-full flex items-center justify-center gap-2 text-xs font-bold text-muted-foreground border border-dashed border-border hover:border-primary/50 hover:text-primary py-3 rounded-lg transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />أضف منتجاً آخر
+                  </button>
+                )}
+              </div>
 
-                  {!selectedProductId && (
-                    <div className="grid grid-cols-2 gap-3">
-                      <FormField control={form.control} name="color" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs">اللون</FormLabel>
-                          <FormControl><Input placeholder="أسود، بيج..." className="h-9 text-sm" {...field} value={field.value ?? ""} /></FormControl>
-                        </FormItem>
-                      )} />
-                      <FormField control={form.control} name="size" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs">المقاس</FormLabel>
-                          <FormControl><Input placeholder="M, L, XL..." className="h-9 text-sm" {...field} value={field.value ?? ""} /></FormControl>
-                        </FormItem>
-                      )} />
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <FormField control={form.control} name="quantity" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs">الكمية *</FormLabel>
-                        <FormControl><Input type="number" min="1" className="h-9 text-sm" {...field} /></FormControl>
-                        <FormMessage className="text-xs" />
-                      </FormItem>
-                    )} />
-                    <FormField control={form.control} name="unitPrice" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs">سعر البيع (ج.م) *</FormLabel>
-                        <FormControl><Input type="number" min="0" step="0.01" className="h-9 text-sm" {...field} /></FormControl>
-                        <FormMessage className="text-xs" />
-                      </FormItem>
-                    )} />
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Cost & Profit — admin only */}
+              {/* ── Shared cost (admin) ───────────────────────────────────── */}
               {canViewFinancials && (
                 <Card className="border-emerald-200 dark:border-emerald-900/40 bg-emerald-50 dark:bg-emerald-900/5">
                   <CardHeader className="pb-2 pt-4 px-4 border-b border-border">
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
                       <DollarSign className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                      بيانات التكلفة والربح
+                      تكلفة الشحن الكلية
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="px-4 pb-4 pt-3 space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      <FormField control={form.control} name="costPrice" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs">تكلفة الوحدة (ج.م)</FormLabel>
-                          <FormControl>
-                            <Input type="number" min="0" step="0.01" placeholder="0" className="h-9 text-sm" {...field} value={field.value ?? ""} onChange={e => field.onChange(e.target.value ? Number(e.target.value) : null)} />
-                          </FormControl>
-                        </FormItem>
-                      )} />
-                      <FormField control={form.control} name="shippingCost" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs">تكلفة الشحن (ج.م)</FormLabel>
-                          <FormControl>
-                            <Input type="number" min="0" step="0.01" placeholder="0" className="h-9 text-sm" {...field} value={field.value ?? ""} onChange={e => field.onChange(e.target.value ? Number(e.target.value) : 0)} />
-                          </FormControl>
-                        </FormItem>
-                      )} />
-                    </div>
-                    {costPrice > 0 && (
-                      <div className="grid grid-cols-3 gap-2 p-2 bg-background/50 rounded border border-border text-center">
-                        <div>
-                          <p className="text-[9px] text-muted-foreground">إيرادات</p>
-                          <p className="text-xs font-bold text-primary">{formatCurrency(revenue)}</p>
-                        </div>
-                        <div>
-                          <p className="text-[9px] text-muted-foreground">التكلفة الكلية</p>
-                          <p className="text-xs font-bold text-amber-700 dark:text-amber-400">{formatCurrency(cost + shippingCost)}</p>
-                        </div>
-                        <div>
-                          <p className="text-[9px] text-muted-foreground">الربح الصافي</p>
-                          <p className={`text-xs font-bold ${netProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
-                            {formatCurrency(netProfit)}
-                          </p>
-                        </div>
-                      </div>
-                    )}
+                  <CardContent className="px-4 pb-4 pt-3">
+                    <FormField control={form.control} name="shippingCost" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">تكلفة الشحن (ج.م) — تُوزَّع على المنتجات</FormLabel>
+                        <FormControl>
+                          <Input type="number" min="0" step="0.01" placeholder="0" className="h-9 text-sm"
+                            {...field} value={field.value ?? ""}
+                            onChange={e => field.onChange(e.target.value ? Number(e.target.value) : 0)} />
+                        </FormControl>
+                      </FormItem>
+                    )} />
                   </CardContent>
                 </Card>
               )}
 
-              {/* Tracking */}
+              {/* ── Tracking ─────────────────────────────────────────────── */}
               <Card className="border-purple-900/40 bg-purple-900/5">
                 <CardHeader className="pb-2 pt-4 px-4 border-b border-border">
                   <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -451,44 +637,74 @@ export default function OrderForm() {
               )} />
             </div>
 
-            {/* Summary */}
+            {/* ── Summary sidebar ──────────────────────────────────────────── */}
             <div>
               <Card className="border-primary/30 bg-card sticky top-4">
-                <CardHeader className="pb-3 pt-4 px-4"><CardTitle className="text-sm font-bold text-primary">الملخص</CardTitle></CardHeader>
+                <CardHeader className="pb-3 pt-4 px-4">
+                  <CardTitle className="text-sm font-bold text-primary">الملخص</CardTitle>
+                </CardHeader>
                 <CardContent className="px-4 pb-4 space-y-3">
-                  {selectedVariant && (
-                    <div className="p-2 bg-primary/5 rounded border border-primary/20 space-y-1">
-                      <p className="text-[9px] font-bold text-primary uppercase tracking-wider">SKU محدد</p>
-                      <p className="text-xs font-bold">{selectedVariant.productName || form.watch("product")}</p>
-                      <p className="text-xs text-muted-foreground">{selectedVariant.color} — {selectedVariant.size}</p>
+                  {/* Items summary */}
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                    {items.map((it, i) => it.product && (
+                      <div key={i} className="flex items-center justify-between text-xs py-1 border-b border-border/40 last:border-0">
+                        <span className="text-muted-foreground truncate max-w-[100px]">{it.product}</span>
+                        <span className="font-bold shrink-0">{formatCurrency((it.quantity || 0) * (it.unitPrice || 0))}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="space-y-2 text-xs pt-1">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">عدد المنتجات</span>
+                      <span>{fields.length}</span>
                     </div>
-                  )}
-                  <div className="space-y-2 text-xs">
-                    <div className="flex justify-between"><span className="text-muted-foreground">الكمية</span><span>{quantity}</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground">سعر البيع</span><span>{formatCurrency(unitPrice)}</span></div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">إجمالي الكمية</span>
+                      <span>{totalQty}</span>
+                    </div>
                     <div className="border-t border-border pt-2 flex justify-between">
                       <span className="font-bold">إجمالي البيع</span>
-                      <span className="font-bold text-base text-primary">{formatCurrency(revenue)}</span>
+                      <span className="font-bold text-base text-primary">{formatCurrency(totalRevenue)}</span>
                     </div>
-                    {canViewFinancials && costPrice > 0 && (
+                    {canViewFinancials && totalCost > 0 && (
                       <>
-                        <div className="flex justify-between"><span className="text-muted-foreground">التكلفة</span><span className="text-amber-700 dark:text-amber-400">-{formatCurrency(cost)}</span></div>
-                        {shippingCost > 0 && <div className="flex justify-between"><span className="text-muted-foreground">الشحن</span><span className="text-amber-700 dark:text-amber-400">-{formatCurrency(shippingCost)}</span></div>}
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">التكلفة</span>
+                          <span className="text-amber-700 dark:text-amber-400">-{formatCurrency(totalCost)}</span>
+                        </div>
+                        {shippingCost > 0 && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">الشحن</span>
+                            <span className="text-amber-700 dark:text-amber-400">-{formatCurrency(shippingCost)}</span>
+                          </div>
+                        )}
                         <div className="border-t border-border pt-2 flex justify-between">
                           <span className="font-bold">الربح الصافي</span>
-                          <span className={`font-bold text-base ${netProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>{formatCurrency(netProfit)}</span>
+                          <span className={`font-bold text-base ${totalProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                            {formatCurrency(totalProfit)}
+                          </span>
                         </div>
-                        {revenue > 0 && (
+                        {totalRevenue > 0 && (
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">هامش الربح</span>
-                            <span className={`font-bold ${margin >= 20 ? "text-emerald-600 dark:text-emerald-400" : margin >= 10 ? "text-amber-700 dark:text-amber-400" : "text-red-600 dark:text-red-400"}`}>{margin}%</span>
+                            <span className={`font-bold ${totalMargin >= 20 ? "text-emerald-600 dark:text-emerald-400" : totalMargin >= 10 ? "text-amber-700 dark:text-amber-400" : "text-red-600 dark:text-red-400"}`}>
+                              {totalMargin}%
+                            </span>
                           </div>
                         )}
                       </>
                     )}
                   </div>
-                  <Button type="submit" className="w-full gap-2 bg-primary text-primary-foreground font-bold text-sm h-9" disabled={createOrder.isPending}>
-                    {createOrder.isPending ? "جاري الحفظ..." : <><Save className="w-4 h-4" />إنشاء الطلب</>}
+
+                  <Button
+                    type="submit"
+                    className="w-full gap-2 bg-primary text-primary-foreground font-bold text-sm h-9"
+                    disabled={submitting}
+                  >
+                    {submitting
+                      ? "جاري الحفظ..."
+                      : <><Save className="w-4 h-4" />{fields.length > 1 ? `إنشاء ${fields.length} طلبات` : "إنشاء الطلب"}</>}
                   </Button>
                 </CardContent>
               </Card>
