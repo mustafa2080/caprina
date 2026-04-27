@@ -41,19 +41,37 @@ router.get("/orders/stats", async (req, res): Promise<void> => {
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
   const all = await db.select().from(ordersTable).where(isNull(ordersTable.deletedAt));
-  const filter = (from: Date) => all.filter(o => new Date(o.createdAt) >= from);
-  const revenue = (orders: typeof all) =>
-    orders.filter(o => o.status === "received" || o.status === "partial_received")
-      .reduce((s, o) => s + o.totalPrice, 0);
+
+  // ── Group DB records by invoiceNumber into logical "orders" (invoices) ────
+  const groupByInvoice = (records: typeof all) => {
+    const seen = new Set<string>();
+    const grouped: typeof all = [];
+    const aggregated = new Map<string, { totalPrice: number; status: string; createdAt: Date }>();
+    for (const o of records) {
+      const key = o.invoiceNumber ?? `solo-${o.id}`;
+      if (!aggregated.has(key)) {
+        aggregated.set(key, { totalPrice: 0, status: o.status, createdAt: o.createdAt });
+      }
+      aggregated.get(key)!.totalPrice += o.totalPrice;
+    }
+    return Array.from(aggregated.values());
+  };
+
+  const allGroups = groupByInvoice(all);
+  const filterGroups = (from: Date) =>
+    allGroups.filter(g => new Date(g.createdAt) >= from);
+  const revenue = (groups: ReturnType<typeof groupByInvoice>) =>
+    groups.filter(g => g.status === "received" || g.status === "partial_received")
+      .reduce((s, g) => s + g.totalPrice, 0);
 
   const productCount: Record<string, number> = {};
   all.forEach(o => { productCount[o.product] = (productCount[o.product] || 0) + o.quantity; });
   const bestProduct = Object.entries(productCount).sort((a, b) => b[1] - a[1])[0];
 
   res.json({
-    today: { orders: filter(startOfToday).length, revenue: revenue(filter(startOfToday)) },
-    week: { orders: filter(startOfWeek).length, revenue: revenue(filter(startOfWeek)) },
-    month: { orders: filter(startOfMonth).length, revenue: revenue(filter(startOfMonth)) },
+    today: { orders: filterGroups(startOfToday).length, revenue: revenue(filterGroups(startOfToday)) },
+    week: { orders: filterGroups(startOfWeek).length, revenue: revenue(filterGroups(startOfWeek)) },
+    month: { orders: filterGroups(startOfMonth).length, revenue: revenue(filterGroups(startOfMonth)) },
     bestProduct: bestProduct ? { name: bestProduct[0], quantity: bestProduct[1] } : null,
   });
 });
@@ -212,16 +230,31 @@ router.post("/orders/batch", async (req, res): Promise<void> => {
 // ─── Summary ──────────────────────────────────────────────────────────────────
 
 router.get("/orders/summary", async (_req, res): Promise<void> => {
-  const orders = await db.select().from(ordersTable).where(isNull(ordersTable.deletedAt));
+  const rows = await db.select().from(ordersTable).where(isNull(ordersTable.deletedAt));
+
+  // Group DB rows by invoiceNumber — each unique invoice = one logical order
+  type InvoiceGroup = { status: string; totalPrice: number };
+  const invoiceMap = new Map<string, InvoiceGroup>();
+  for (const o of rows) {
+    const key = o.invoiceNumber ?? `solo-${o.id}`;
+    if (!invoiceMap.has(key)) {
+      invoiceMap.set(key, { status: o.status, totalPrice: 0 });
+    }
+    invoiceMap.get(key)!.totalPrice += o.totalPrice;
+    // Use the worst/latest status if rows in same invoice differ
+    invoiceMap.get(key)!.status = o.status;
+  }
+  const invoices = Array.from(invoiceMap.values());
+
   const summary = {
-    totalOrders: orders.length,
-    pendingOrders: orders.filter(o => o.status === "pending").length,
-    shippingOrders: orders.filter(o => o.status === "in_shipping").length,
-    receivedOrders: orders.filter(o => o.status === "received").length,
-    delayedOrders: orders.filter(o => o.status === "delayed").length,
-    returnedOrders: orders.filter(o => o.status === "returned").length,
-    partialOrders: orders.filter(o => o.status === "partial_received").length,
-    totalRevenue: orders
+    totalOrders: invoices.length,
+    pendingOrders: invoices.filter(o => o.status === "pending").length,
+    shippingOrders: invoices.filter(o => o.status === "in_shipping").length,
+    receivedOrders: invoices.filter(o => o.status === "received").length,
+    delayedOrders: invoices.filter(o => o.status === "delayed").length,
+    returnedOrders: invoices.filter(o => o.status === "returned").length,
+    partialOrders: invoices.filter(o => o.status === "partial_received").length,
+    totalRevenue: invoices
       .filter(o => o.status === "received" || o.status === "partial_received")
       .reduce((s, o) => s + o.totalPrice, 0),
   };
@@ -231,8 +264,22 @@ router.get("/orders/summary", async (_req, res): Promise<void> => {
 // ─── Recent orders ────────────────────────────────────────────────────────────
 
 router.get("/orders/recent", async (_req, res): Promise<void> => {
-  const orders = await db.select().from(ordersTable).where(isNull(ordersTable.deletedAt)).orderBy(desc(ordersTable.createdAt)).limit(8);
-  res.json(GetRecentOrdersResponse.parse(orders));
+  // Fetch more rows to ensure we get 8 unique invoices after grouping
+  const rows = await db.select().from(ordersTable).where(isNull(ordersTable.deletedAt)).orderBy(desc(ordersTable.createdAt)).limit(80);
+
+  // Deduplicate by invoiceNumber — keep the first (most recent) row per invoice
+  const seen = new Set<string>();
+  const unique: typeof rows = [];
+  for (const o of rows) {
+    const key = o.invoiceNumber ?? `solo-${o.id}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(o);
+      if (unique.length === 8) break;
+    }
+  }
+
+  res.json(GetRecentOrdersResponse.parse(unique));
 });
 
 // ─── Archived orders ──────────────────────────────────────────────────────────
