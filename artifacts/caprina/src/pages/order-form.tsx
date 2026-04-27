@@ -330,17 +330,13 @@ export default function OrderForm() {
       queryClient.invalidateQueries({ queryKey: ["analytics-profit"] });
 
       toast({
-        title: result.orders.length > 1 ? `تم إنشاء الطلب — فاتورة ${result.invoiceNumber}` : "تم إنشاء الطلب",
+        title: `تم إنشاء الطلب — فاتورة ${result.invoiceNumber}`,
         description: result.orders.length > 1
           ? `${result.orders.length} منتجات في فاتورة واحدة للعميل ${values.customerName}`
-          : `الطلب #${result.orders[0]?.id} تم إنشاؤه بنجاح.`,
+          : `الطلب #${result.orders[0]?.id} تم إنشاؤه بنجاح للعميل ${values.customerName}`,
       });
 
-      if (result.orders.length === 1) {
-        setLocation(`/orders/${result.orders[0].id}`);
-      } else {
-        setLocation(`/invoices/${encodeURIComponent(result.invoiceNumber)}`);
-      }
+      setLocation(`/invoices/${encodeURIComponent(result.invoiceNumber)}`);
     } catch (e: any) {
       toast({ title: "خطأ", description: e?.message || "فشل إنشاء الطلب.", variant: "destructive" });
     } finally {

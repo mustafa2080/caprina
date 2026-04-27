@@ -69,7 +69,7 @@ export default function Invoices() {
   const invoiceGroups = useMemo<InvoiceGroup[]>(() => {
     const map = new Map<string, typeof rawOrders>();
     for (const o of rawOrders) {
-      const key = (o as any).invoiceNumber ?? `solo-${o.id}`;
+      const key = o.invoiceNumber ?? `solo-${o.id}`;
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(o);
     }
@@ -82,7 +82,7 @@ export default function Invoices() {
       status: grp[0].status,
       createdAt: grp[0].createdAt,
       phone: grp[0].phone ?? null,
-      city: (grp[0] as any).city ?? null,
+      city: grp[0].city ?? null,
     }));
   }, [rawOrders]);
 

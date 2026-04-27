@@ -54,6 +54,20 @@ export interface Order {
   returnNote: string | null;
   /** @nullable */
   trackingNumber: string | null;
+  /** @nullable */
+  invoiceNumber: string | null;
+  /** @nullable */
+  variantId: number | null;
+  /** @nullable */
+  costPrice: number | null;
+  /** @nullable */
+  warehouseId: number | null;
+  /** @nullable */
+  assignedUserId: number | null;
+  /** @nullable */
+  adSource: string | null;
+  /** @nullable */
+  adCampaign: string | null;
   createdAt: string;
   updatedAt: string;
 }

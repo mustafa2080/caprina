@@ -91,7 +91,7 @@ export default function Orders() {
   const filtered = (() => {
     const groups = new Map<string, typeof rawFiltered>();
     for (const o of rawFiltered) {
-      const key = (o as any).invoiceNumber ?? `solo-${o.id}`;
+      const key = o.invoiceNumber ?? `solo-${o.id}`;
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(o);
     }
@@ -102,8 +102,6 @@ export default function Orders() {
       const totalPrice = grp.reduce((s, o) => s + o.totalPrice, 0);
       const totalQty = grp.reduce((s, o) => s + o.quantity, 0);
       const products = grp.map(o => `${o.product}×${o.quantity}`).join("، ");
-      // Determine group status: if any differs, show mixed
-      const allSameStatus = grp.every(o => o.status === rep.status);
       return {
         ...rep,
         totalPrice,
@@ -112,7 +110,7 @@ export default function Orders() {
         _isGroup: true,
         _groupIds: grp.map(o => o.id),
         _groupCount: grp.length,
-        status: allSameStatus ? rep.status : rep.status,
+        status: rep.status,
       };
     });
   })();
@@ -332,7 +330,7 @@ export default function Orders() {
                 const isGroup = !!(order as any)._isGroup;
                 const groupCount = (order as any)._groupCount as number | undefined;
                 const navTarget = isGroup
-                  ? `/invoices/${encodeURIComponent((order as any).invoiceNumber ?? "")}`
+                  ? `/invoices/${encodeURIComponent(order.invoiceNumber ?? "")}`
                   : `/orders/${order.id}`;
                 return (
                   <div
@@ -412,7 +410,7 @@ export default function Orders() {
                     const isGroup = !!(order as any)._isGroup;
                     const groupCount = (order as any)._groupCount as number | undefined;
                     const navTarget = isGroup
-                      ? `/invoices/${encodeURIComponent((order as any).invoiceNumber ?? "")}`
+                      ? `/invoices/${encodeURIComponent(order.invoiceNumber ?? "")}`
                       : `/orders/${order.id}`;
                     return (
                       <TableRow
