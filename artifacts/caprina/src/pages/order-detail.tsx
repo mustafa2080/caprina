@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { ToastAction } from "@/components/ui/toast";
-import { shippingApi, ordersApi } from "@/lib/api";
+import { shippingApi, ordersApi, productsApi, variantsApi } from "@/lib/api";
 import { type WhatsAppOrderData } from "@/lib/whatsapp";
 import { WhatsAppDialog } from "@/components/whatsapp-dialog";
 import { RETURN_REASONS, returnReasonLabel, STATUS_LABELS as statusLabels, STATUS_CLASSES as statusClasses } from "@/lib/order-constants";
@@ -75,7 +75,13 @@ export default function OrderDetail() {
 
   const { data: order, isLoading, error } = useGetOrder(id, { query: { enabled: !!id, queryKey: getGetOrderQueryKey(id) } });
   const { data: shippingCompanies } = useQuery({ queryKey: ["shipping"], queryFn: shippingApi.list });
+  const { data: products } = useQuery({ queryKey: ["products"], queryFn: productsApi.list });
+  const { data: allVariants } = useQuery({ queryKey: ["variants"], queryFn: variantsApi.listAll });
   const updateOrder = useUpdateOrder();
+
+  // Track selected product for stock display in edit mode
+  const [editProductId, setEditProductId] = useState<number | null>(null);
+  const [editColor, setEditColor] = useState<string>("");
 
   const form = useForm<EditFormValues>({
     resolver: zodResolver(editSchema),
@@ -467,9 +473,107 @@ export default function OrderDetail() {
                         <FormItem><FormLabel className="text-xs">رقم التتبع</FormLabel><FormControl><Input className="h-8 text-sm font-mono" placeholder="TRK-12345" {...field} value={field.value ?? ""} /></FormControl></FormItem>
                       )} />
                     </div>
+                    {/* Product picker from inventory */}
+                    <div className="space-y-2 p-3 bg-muted/10 rounded border border-border/50">
+                      <p className="text-[10px] text-muted-foreground font-bold flex items-center gap-1"><Package className="w-3 h-3" />اختر من المخزون (اختياري)</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {/* Product dropdown */}
+                        <div>
+                          <p className="text-[10px] text-muted-foreground mb-1">المنتج</p>
+                          <Select
+                            value={editProductId?.toString() || "none"}
+                            onValueChange={v => {
+                              if (v === "none") {
+                                setEditProductId(null);
+                                setEditColor("");
+                              } else {
+                                const pid = Number(v);
+                                setEditProductId(pid);
+                                setEditColor("");
+                                const p = products?.find(p => p.id === pid);
+                                if (p) form.setValue("product", p.name);
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="اختر من المخزون..." /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">— إدخال يدوي —</SelectItem>
+                              {products?.map(p => {
+                                const avail = p.totalQuantity - p.reservedQuantity - p.soldQuantity;
+                                return (
+                                  <SelectItem key={p.id} value={String(p.id)}>
+                                    {p.name} ({avail} متاح)
+                                  </SelectItem>
+                                );
+                              })}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        {/* Color dropdown (only if product has variants) */}
+                        {editProductId && allVariants?.some(v => v.productId === editProductId) && (
+                          <div>
+                            <p className="text-[10px] text-muted-foreground mb-1">اللون / المقاس</p>
+                            <Select
+                              value={editColor || "none"}
+                              onValueChange={v => {
+                                setEditColor(v === "none" ? "" : v);
+                                const variant = allVariants?.find(va => va.productId === editProductId && `${va.color}-${va.size}` === v);
+                                if (variant) form.setValue("unitPrice", variant.unitPrice);
+                              }}
+                            >
+                              <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="اختر..." /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">— بدون تحديد —</SelectItem>
+                                {allVariants
+                                  ?.filter(v => v.productId === editProductId)
+                                  .map(v => {
+                                    const avail = v.totalQuantity - v.reservedQuantity - v.soldQuantity;
+                                    const key = `${v.color}-${v.size}`;
+                                    return (
+                                      <SelectItem key={v.id} value={key} disabled={avail === 0}>
+                                        {v.color} / {v.size} — {avail === 0 ? "نفد" : `${avail} متاح`}
+                                      </SelectItem>
+                                    );
+                                  })}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                      </div>
+                      {/* Stock badge */}
+                      {editProductId && (() => {
+                        const variants = allVariants?.filter(v => v.productId === editProductId) ?? [];
+                        if (variants.length === 0) {
+                          const p = products?.find(p => p.id === editProductId);
+                          if (!p) return null;
+                          const avail = p.totalQuantity - p.reservedQuantity - p.soldQuantity;
+                          return (
+                            <Badge variant="outline" className={`text-[9px] font-bold border ${avail <= p.lowStockThreshold ? "border-red-700 text-red-400" : "border-emerald-700 text-emerald-400"}`}>
+                              متاح في المخزون: {avail} وحدة
+                            </Badge>
+                          );
+                        }
+                        if (editColor) {
+                          const variant = variants.find(v => `${v.color}-${v.size}` === editColor);
+                          if (!variant) return null;
+                          const avail = variant.totalQuantity - variant.reservedQuantity - variant.soldQuantity;
+                          return (
+                            <Badge variant="outline" className={`text-[9px] font-bold border ${avail <= variant.lowStockThreshold ? "border-red-700 text-red-400" : "border-emerald-700 text-emerald-400"}`}>
+                              متاح ({variant.color} / {variant.size}): {avail} وحدة
+                            </Badge>
+                          );
+                        }
+                        const totalAvail = variants.reduce((s, v) => s + v.totalQuantity - v.reservedQuantity - v.soldQuantity, 0);
+                        return (
+                          <Badge variant="outline" className="text-[9px] font-bold border-primary/40 text-primary">
+                            إجمالي المتاح: {totalAvail} وحدة ({variants.length} متغيرات)
+                          </Badge>
+                        );
+                      })()}
+                    </div>
                     <div className="grid grid-cols-3 gap-3">
                       <FormField control={form.control} name="product" render={({ field }) => (
-                        <FormItem className="col-span-1"><FormLabel className="text-xs">المنتج</FormLabel><FormControl><Input className="h-8 text-sm" {...field} /></FormControl></FormItem>
+                        <FormItem className="col-span-1"><FormLabel className="text-xs">اسم المنتج</FormLabel><FormControl><Input className="h-8 text-sm" {...field} /></FormControl></FormItem>
                       )} />
                       <FormField control={form.control} name="quantity" render={({ field }) => (
                         <FormItem><FormLabel className="text-xs">الكمية</FormLabel><FormControl><Input type="number" min="1" className="h-8 text-sm" {...field} /></FormControl></FormItem>
@@ -485,7 +589,7 @@ export default function OrderDetail() {
                       <Button type="submit" size="sm" className="h-8 text-xs gap-1" disabled={updateOrder.isPending}>
                         <Save className="w-3 h-3" />{updateOrder.isPending ? "جاري..." : "حفظ"}
                       </Button>
-                      <Button type="button" variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { setIsEditing(false); initializedRef.current = false; }}>
+                      <Button type="button" variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { setIsEditing(false); initializedRef.current = false; setEditProductId(null); setEditColor(""); }}>
                         <X className="w-3 h-3 ml-1" />إلغاء
                       </Button>
                     </div>
