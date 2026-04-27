@@ -86,34 +86,9 @@ export default function Orders() {
     return new Date(o.createdAt) >= new Date(dateFrom);
   }) ?? [];
 
-  // ─── Group orders by invoiceNumber into "invoice groups" ─────────────────
-  // Orders with same invoiceNumber are merged into one displayed row
-  const filtered = (() => {
-    const groups = new Map<string, typeof rawFiltered>();
-    for (const o of rawFiltered) {
-      const key = o.invoiceNumber ?? `solo-${o.id}`;
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(o);
-    }
-    // Return one representative per group (the first order), with aggregated data
-    return Array.from(groups.values()).map(grp => {
-      if (grp.length === 1) return grp[0];
-      const rep = grp[0];
-      const totalPrice = grp.reduce((s, o) => s + o.totalPrice, 0);
-      const totalQty = grp.reduce((s, o) => s + o.quantity, 0);
-      const products = grp.map(o => `${o.product}×${o.quantity}`).join("، ");
-      return {
-        ...rep,
-        totalPrice,
-        quantity: totalQty,
-        product: products,
-        _isGroup: true,
-        _groupIds: grp.map(o => o.id),
-        _groupCount: grp.length,
-        status: rep.status,
-      };
-    });
-  })();
+  // ─── Orders already grouped by invoiceNumber from the backend ───────────
+  // Backend returns one merged row per invoice, with _groupIds & _groupCount
+  const filtered = rawFiltered;
 
   const hasActiveFilter = search || status !== "all" || dateFrom;
 
@@ -327,7 +302,7 @@ export default function Orders() {
                 const retReason = (order as any).returnReason as string | null;
                 const retNote   = (order as any).returnNote   as string | null;
                 const isSelected = isGroupSelected(order);
-                const isGroup = !!(order as any)._isGroup;
+                const isGroup = !!(order as any)._groupCount && (order as any)._groupCount > 1;
                 const groupCount = (order as any)._groupCount as number | undefined;
                 const navTarget = isGroup
                   ? `/invoices/${encodeURIComponent(order.invoiceNumber ?? "")}`
@@ -405,9 +380,9 @@ export default function Orders() {
                   {filtered.map((order) => {
                     const retReason  = (order as any).returnReason as string | null;
                     const retNote    = (order as any).returnNote   as string | null;
-                    const canWhatsApp = !bulkSelectMode && !((order as any)._isGroup) && (order.status === "pending" || order.status === "in_shipping" || order.status === "delayed");
+                    const canWhatsApp = !bulkSelectMode && !(order as any)._groupCount && (order.status === "pending" || order.status === "in_shipping" || order.status === "delayed");
                     const isSelected  = isGroupSelected(order);
-                    const isGroup = !!(order as any)._isGroup;
+                    const isGroup = !!(order as any)._groupCount && (order as any)._groupCount > 1;
                     const groupCount = (order as any)._groupCount as number | undefined;
                     const navTarget = isGroup
                       ? `/invoices/${encodeURIComponent(order.invoiceNumber ?? "")}`

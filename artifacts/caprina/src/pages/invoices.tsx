@@ -49,8 +49,12 @@ export default function Invoices() {
   const rawOrders = useMemo(() => {
     if (!allOrders) return [];
     if (!manifestData) return allOrders;
+    // استخدم _groupIds لو موجودة، وإلا استخدم id العادي
     const manifestSet = new Set(manifestData.ids);
-    return allOrders.filter(o => !manifestSet.has(o.id));
+    return allOrders.filter(o => {
+      const ids: number[] = (o as any)._groupIds ?? [o.id];
+      return !ids.every(id => manifestSet.has(id));
+    });
   }, [allOrders, manifestData]);
 
   // ─── Group orders by invoiceNumber ───────────────────────────────────────
@@ -67,22 +71,16 @@ export default function Invoices() {
   };
 
   const invoiceGroups = useMemo<InvoiceGroup[]>(() => {
-    const map = new Map<string, typeof rawOrders>();
-    for (const o of rawOrders) {
-      const key = o.invoiceNumber ?? `solo-${o.id}`;
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(o);
-    }
-    return Array.from(map.entries()).map(([invNum, grp]) => ({
-      invoiceNumber: invNum,
-      representativeId: grp[0].id,
-      orders: grp,
-      customerName: grp[0].customerName,
-      totalPrice: grp.reduce((s, o) => s + o.totalPrice, 0),
-      status: grp[0].status,
-      createdAt: grp[0].createdAt,
-      phone: grp[0].phone ?? null,
-      city: grp[0].city ?? null,
+    return rawOrders.map(o => ({
+      invoiceNumber: o.invoiceNumber ?? `solo-${o.id}`,
+      representativeId: o.id,
+      orders: [o],
+      customerName: o.customerName,
+      totalPrice: o.totalPrice,
+      status: o.status,
+      createdAt: o.createdAt,
+      phone: o.phone ?? null,
+      city: o.city ?? null,
     }));
   }, [rawOrders]);
 

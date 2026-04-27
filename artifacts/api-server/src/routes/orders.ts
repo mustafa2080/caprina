@@ -119,7 +119,28 @@ router.get("/orders", async (req, res): Promise<void> => {
   if (conditions.length === 1) query = query.where(conditions[0]);
   else if (conditions.length > 1) query = query.where(and(...conditions));
 
-  res.json(ListOrdersResponse.parse(await query));
+  const rows = ListOrdersResponse.parse(await query);
+
+  // ─── Group rows by invoiceNumber — return one merged row per invoice ──────
+  const groupMap = new Map<string, typeof rows>();
+  for (const o of rows) {
+    const key = o.invoiceNumber ?? `solo-${o.id}`;
+    if (!groupMap.has(key)) groupMap.set(key, []);
+    groupMap.get(key)!.push(o);
+  }
+
+  const grouped = Array.from(groupMap.values()).map(grp => {
+    if (grp.length === 1) return grp[0];
+    const rep = { ...grp[0] };
+    rep.totalPrice = grp.reduce((s, o) => s + o.totalPrice, 0);
+    rep.quantity   = grp.reduce((s, o) => s + o.quantity,   0);
+    rep.product    = grp.map(o => `${o.product}×${o.quantity}`).join("، ");
+    (rep as any)._groupIds   = grp.map(o => o.id);
+    (rep as any)._groupCount = grp.length;
+    return rep;
+  });
+
+  res.json(grouped);
 });
 
 // ─── Create order (single) ────────────────────────────────────────────────────
