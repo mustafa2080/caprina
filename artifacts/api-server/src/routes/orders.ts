@@ -427,7 +427,8 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
     };
 
     if (newStatus === "in_shipping" && (oldStatus === "pending" || oldStatus === "delayed")) {
-      // no deduction — happens at manifest creation
+      // خصم من المخزون فوراً عند التحويل لقيد الشحن
+      await processToShipping(orderRef, order.quantity, existing.id);
     } else if (newStatus === "received" && oldStatus === "in_shipping") {
       await processDelivery(orderRef, order.quantity, "sale", existing.id, true);
       await reverseShipping(orderRef, order.quantity, existing.id);

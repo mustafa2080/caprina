@@ -193,19 +193,19 @@ router.post("/shipping-manifests", async (req, res): Promise<void> => {
     }))
   );
 
-  // Sync shippingCompanyId on all included orders
-  await db
-    .update(ordersTable)
-    .set({ shippingCompanyId: shippingCompanyId })
-    .where(inArray(ordersTable.id, orderIds));
-
   // Transfer stock from warehouse to shipping company for each order
+  // الطلبات اللي كانت pending/delayed → اخصم الآن
+  // الطلبات اللي كانت in_shipping بالفعل → الخصم حصل قبل كده، تجاهل
   const ordersToShip = await db
     .select()
     .from(ordersTable)
     .where(inArray(ordersTable.id, orderIds));
 
   for (const order of ordersToShip) {
+    if (order.status === "in_shipping") {
+      // الخصم حصل بالفعل لما الحالة اتغيرت يدوياً — تخطّى
+      continue;
+    }
     await processToShipping(
       {
         variantId: order.variantId,
@@ -219,6 +219,12 @@ router.post("/shipping-manifests", async (req, res): Promise<void> => {
       order.id,
     );
   }
+
+  // حوّل كل الطلبات لـ in_shipping (بما فيهم اللي كانوا in_shipping بالفعل)
+  await db
+    .update(ordersTable)
+    .set({ status: "in_shipping", shippingCompanyId: shippingCompanyId })
+    .where(inArray(ordersTable.id, orderIds));
 
   res.status(201).json({
     ...manifest,
