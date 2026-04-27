@@ -44,7 +44,9 @@ export default function InvoiceGroup() {
     queryKey: ["invoice-group", invoiceNumber],
     queryFn: () => ordersApi.byInvoice(invoiceNumber),
     enabled: !!invoiceNumber,
-    staleTime: 15_000,
+    staleTime: 0,
+    retry: 3,
+    retryDelay: 1000,
   });
 
   const invalidateAll = () => {
@@ -107,10 +109,19 @@ export default function InvoiceGroup() {
 
   // ─── Loading / error states ───────────────────────────────────────────────
   if (isLoading) return <div className="p-12 text-center text-muted-foreground animate-pulse">جاري التحميل...</div>;
-  if (error || !orders?.length) return (
+  if (error) return (
+    <div className="p-12 text-center">
+      <AlertCircle className="w-12 h-12 mx-auto mb-3 text-destructive opacity-50" />
+      <h2 className="text-lg font-bold mb-2">حدث خطأ في تحميل الفاتورة</h2>
+      <p className="text-sm text-muted-foreground mb-3">{(error as any)?.message || "تعذر الاتصال بالسيرفر"}</p>
+      <Link href="/orders"><Button variant="outline">العودة للطلبات</Button></Link>
+    </div>
+  );
+  if (!orders?.length) return (
     <div className="p-12 text-center">
       <AlertCircle className="w-12 h-12 mx-auto mb-3 text-destructive opacity-50" />
       <h2 className="text-lg font-bold mb-2">الفاتورة غير موجودة</h2>
+      <p className="text-sm text-muted-foreground mb-3">رقم الفاتورة: {invoiceNumber}</p>
       <Link href="/orders"><Button variant="outline" className="mt-3">العودة للطلبات</Button></Link>
     </div>
   );
