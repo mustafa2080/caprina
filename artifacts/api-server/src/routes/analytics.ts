@@ -67,6 +67,8 @@ function periodStats(
 ) {
   const completed = orders.filter(o => o.status === "received" || o.status === "partial_received");
   const returned = orders.filter(o => o.status === "returned");
+  // نسبة المرتجعات من الطلبات المنتهية فعلاً بس (مش pending/in_shipping)
+  const closedOrders = completed.length + returned.length;
 
   let revenue = 0, cost = 0, shipping = 0, netProfit = 0;
   for (const o of completed) {
@@ -81,16 +83,15 @@ function periodStats(
   for (const o of returned) {
     const rc = resolveCost(o, variantMap, productMap);
     const sc = (o.shippingCost ?? 0) + (shippingPerOrder.get(o.id) ?? 0);
-    const p = calcOrderProfit({ ...o, shippingCost: sc }, rc);
-    cost += p.cost;
-    shipping += p.shippingCost;
-    netProfit += p.netProfit;
+    // المرتجع: خسارة التكلفة + الشحن فقط (مش بنضيف cost لـ costOfGoods)
+    const lossCost = o.quantity * rc;
+    shipping += sc;
+    netProfit -= (lossCost + sc);
   }
 
-  const totalOrders = orders.length;
-  const returnRate = totalOrders > 0 ? Math.round((returned.length / totalOrders) * 100) : 0;
+  const returnRate = closedOrders > 0 ? Math.round((returned.length / closedOrders) * 100) : 0;
 
-  return { orders: totalOrders, revenue, cost, shippingCost: shipping, netProfit, returnRate, returnCount: returned.length };
+  return { orders: orders.length, revenue, cost, shippingCost: shipping, netProfit, returnRate, returnCount: returned.length };
 }
 
 // ─── GET /api/analytics/profit ──────────────────────────────────────────────────
@@ -170,13 +171,13 @@ router.get("/analytics/profit", requireAdmin, async (req, res): Promise<void> =>
 
   const productProfitMap: Record<string, {
     name: string; revenue: number; cost: number; profit: number;
-    quantity: number; orderCount: number; returnCount: number;
+    quantity: number; orderCount: number; closedCount: number; returnCount: number;
   }> = {};
 
   for (const o of allOrders) {
     const key = o.product;
     if (!productProfitMap[key]) {
-      productProfitMap[key] = { name: o.product, revenue: 0, cost: 0, profit: 0, quantity: 0, orderCount: 0, returnCount: 0 };
+      productProfitMap[key] = { name: o.product, revenue: 0, cost: 0, profit: 0, quantity: 0, orderCount: 0, closedCount: 0, returnCount: 0 };
     }
     const pm = productProfitMap[key];
     const rc = resolveCost(o, variantMap, productMap);
@@ -184,12 +185,14 @@ router.get("/analytics/profit", requireAdmin, async (req, res): Promise<void> =>
     pm.orderCount++;
     if (o.status === "returned") {
       pm.returnCount++;
+      pm.closedCount++;
       const p = calcOrderProfit({ ...o, shippingCost: sc }, rc);
       pm.cost += p.cost;
       pm.profit += p.netProfit;
     } else if (o.status === "received" || o.status === "partial_received") {
       const p = calcOrderProfit({ ...o, shippingCost: sc }, rc);
       const qty = o.status === "partial_received" ? (o.partialQuantity ?? o.quantity) : o.quantity;
+      pm.closedCount++;
       pm.revenue += p.revenue;
       pm.cost += p.cost;
       pm.profit += p.netProfit;
@@ -199,7 +202,8 @@ router.get("/analytics/profit", requireAdmin, async (req, res): Promise<void> =>
 
   const productList = Object.values(productProfitMap).map(p => ({
     ...p,
-    returnRate: p.orderCount > 0 ? Math.round((p.returnCount / p.orderCount) * 100) : 0,
+    // نسبة المرتجعات من الطلبات المغلقة فقط (received + partial_received + returned)
+    returnRate: p.closedCount > 0 ? Math.round((p.returnCount / p.closedCount) * 100) : 0,
     margin: p.revenue > 0 ? Math.round((p.profit / p.revenue) * 100) : 0,
   }));
 
@@ -209,7 +213,7 @@ router.get("/analytics/profit", requireAdmin, async (req, res): Promise<void> =>
     .slice(0, 10);
 
   const losingProducts = productList
-    .filter(p => p.orderCount >= 2 && p.returnRate > 30)
+    .filter(p => p.closedCount >= 2 && p.returnRate > 30)
     .sort((a, b) => b.returnRate - a.returnRate)
     .slice(0, 5);
 
@@ -342,7 +346,7 @@ router.get("/analytics/financial-summary", requireAdmin, async (req, res): Promi
       completedOrders.push({ profit: revenue - cost - sc, value: revenue, cost: cost + sc });
     } else if (o.status === "returned") {
       const cost = o.quantity * rc;
-      costOfGoods += cost;
+      // returnLoss = تكلفة البضاعة + تكلفة الشحن فقط (مش بنضيفها لـ costOfGoods عشان ما اتباعتش)
       shippingSpend += sc;
       returnLoss += cost + sc;
       returnRevLost += o.quantity * o.unitPrice;
@@ -388,7 +392,9 @@ router.get("/analytics/financial-summary", requireAdmin, async (req, res): Promi
   }, 0);
 
   const returnCount = allOrders.filter(o => o.status === "returned").length;
-  const returnRate = allOrders.length > 0 ? Math.round((returnCount / allOrders.length) * 100) : 0;
+  // نسبة المرتجعات من الطلبات المنتهية فعلاً (received + partial_received + returned)
+  const closedOrders = allOrders.filter(o => ["received", "partial_received", "returned"].includes(o.status)).length;
+  const returnRate = closedOrders > 0 ? Math.round((returnCount / closedOrders) * 100) : 0;
 
   res.json({
     cashIn, costOfGoods, shippingSpend, grossProfit, grossMargin, netProfit, netMargin,
@@ -485,7 +491,9 @@ router.get("/analytics/product-performance", requireAdmin, async (_req, res): Pr
   const productList: ProductStats[] = Array.from(statsMap.values()).map(s => {
     const avgSalePrice = s.totalSalesQty > 0 ? Math.round(s.totalRevenue / s.totalSalesQty) : 0;
     const margin = s.totalRevenue > 0 ? Math.round((s.netProfit / s.totalRevenue) * 100) : 0;
-    const returnRate = s.totalOrders > 0 ? Math.round((s.returnCount / s.totalOrders) * 100) : 0;
+    // نسبة المرتجعات من الطلبات المنتهية فقط (received + partial_received + returned)
+    const closedOrders = s.completedOrders + s.returnCount;
+    const returnRate = closedOrders > 0 ? Math.round((s.returnCount / closedOrders) * 100) : 0;
     const roi = s.totalCost > 0 ? Math.round((s.netProfit / s.totalCost) * 100) : 0;
     return { ...s, avgSalePrice, margin, returnRate, roi };
   });
@@ -538,50 +546,54 @@ router.get("/analytics/alerts", async (_req, res): Promise<void> => {
   const alerts: Alert[] = [];
 
   // Build product stats for alerts
-  const statsMap = new Map<string, { name: string; orders: number; returned: number; revenue: number; profit: number; costMissing: boolean }>();
+  const statsMap = new Map<string, { name: string; totalOrders: number; closedOrders: number; returned: number; revenue: number; profit: number; costMissing: boolean }>();
 
   for (const o of allOrders) {
     const key = o.product.trim();
     if (!statsMap.has(key)) {
-      statsMap.set(key, { name: key, orders: 0, returned: 0, revenue: 0, profit: 0, costMissing: false });
+      statsMap.set(key, { name: key, totalOrders: 0, closedOrders: 0, returned: 0, revenue: 0, profit: 0, costMissing: false });
     }
     const s = statsMap.get(key)!;
     const rc = resolveCost(o, variantMap, productMap);
     if (rc === 0) s.costMissing = true;
 
-    s.orders++;
+    s.totalOrders++;
     if (o.status === "returned") {
       s.returned++;
+      s.closedOrders++;
       s.profit -= (o.quantity * rc) + (o.shippingCost ?? 0);
     } else if (o.status === "received" || o.status === "partial_received") {
       const qty = o.status === "partial_received" ? (o.partialQuantity ?? o.quantity) : o.quantity;
       const rev = qty * o.unitPrice;
       const cost = qty * rc;
       const sc = o.shippingCost ?? 0;
+      s.closedOrders++;
       s.revenue += rev;
       s.profit += rev - cost - sc;
     }
+    // pending / in_shipping / delayed لا تُحسب في نسبة الإرجاع
   }
 
   for (const [, s] of statsMap) {
-    const returnRate = s.orders > 0 ? (s.returned / s.orders) * 100 : 0;
+    // نسبة المرتجعات من الطلبات المغلقة فقط (received + partial_received + returned)
+    const returnRate = s.closedOrders > 0 ? (s.returned / s.closedOrders) * 100 : 0;
     const margin = s.revenue > 0 ? (s.profit / s.revenue) * 100 : 0;
 
-    // Alert: high return rate (>= 30%, min 2 orders)
-    if (s.orders >= 2 && returnRate >= 30) {
+    // Alert: high return rate (>= 30%, min 2 closed orders)
+    if (s.closedOrders >= 2 && returnRate >= 30) {
       alerts.push({
         id: `high_return_${s.name}`,
         type: "HIGH_RETURN",
         severity: returnRate >= 50 ? "high" : "medium",
         title: `نسبة إرجاع عالية`,
-        detail: `${s.name} — ${Math.round(returnRate)}% مرتجع (${s.returned} من ${s.orders} طلب)`,
+        detail: `${s.name} — ${Math.round(returnRate)}% مرتجع (${s.returned} من ${s.closedOrders} طلب مغلق)`,
         productName: s.name,
         value: Math.round(returnRate),
       });
     }
 
     // Alert: losing product (negative profit, at least 1 completed order)
-    if (s.profit < 0 && s.orders - s.returned > 0) {
+    if (s.profit < 0 && (s.closedOrders - s.returned) > 0) {
       alerts.push({
         id: `losing_${s.name}`,
         type: "LOSING_PRODUCT",
@@ -607,7 +619,7 @@ router.get("/analytics/alerts", async (_req, res): Promise<void> => {
     }
 
     // Alert: no cost data (orders exist but cost unknown)
-    if (s.costMissing && s.orders > 0) {
+    if (s.costMissing && s.totalOrders > 0) {
       alerts.push({
         id: `no_cost_${s.name}`,
         type: "NO_COST_DATA",
@@ -826,7 +838,10 @@ router.get("/analytics/smart-insights", async (_req, res): Promise<void> => {
       orders: s.orders,
       revenue: Math.round(s.revenue),
       profit: Math.round(s.profit),
-      returnRate: s.orders > 0 ? Math.round((s.returned / s.orders) * 100) : 0,
+      // نسبة المرتجعات من الطلبات المغلقة فقط
+      returnRate: (s.orders - s.returned) + s.returned > 0
+        ? Math.round((s.returned / ((s.orders - s.returned) + s.returned)) * 100)
+        : 0,
       roi: s.cost > 0 ? Math.round(((s.profit) / s.cost) * 100) : 0,
     }))
     .sort((a, b) => b.profit - a.profit);
@@ -836,25 +851,27 @@ router.get("/analytics/smart-insights", async (_req, res): Promise<void> => {
   // ── 2. Stars vs Dead Stock ───────────────────────────────────────────────────
   const productStatsMap: Record<string, {
     name: string; revenue: number; cost: number; profit: number;
-    quantity: number; orderCount: number; returnCount: number;
+    quantity: number; orderCount: number; closedCount: number; returnCount: number;
   }> = {};
 
   for (const o of allOrders) {
     const key = o.product.trim();
     if (!productStatsMap[key]) {
-      productStatsMap[key] = { name: key, revenue: 0, cost: 0, profit: 0, quantity: 0, orderCount: 0, returnCount: 0 };
+      productStatsMap[key] = { name: key, revenue: 0, cost: 0, profit: 0, quantity: 0, orderCount: 0, closedCount: 0, returnCount: 0 };
     }
     const pm = productStatsMap[key];
     const rc = resolveCost(o, variantMap, productMap);
     pm.orderCount++;
     if (o.status === "returned") {
       pm.returnCount++;
+      pm.closedCount++;
       const p = calcOrderProfit(o, rc);
       pm.cost += p.cost;
       pm.profit += p.netProfit;
     } else if (o.status === "received" || o.status === "partial_received") {
       const p = calcOrderProfit(o, rc);
       const qty = o.status === "partial_received" ? (o.partialQuantity ?? o.quantity) : o.quantity;
+      pm.closedCount++;
       pm.revenue += p.revenue;
       pm.cost += p.cost;
       pm.profit += p.netProfit;
@@ -882,7 +899,8 @@ router.get("/analytics/smart-insights", async (_req, res): Promise<void> => {
 
   const productList = Object.values(productStatsMap).map(p => ({
     ...p,
-    returnRate: p.orderCount > 0 ? Math.round((p.returnCount / p.orderCount) * 100) : 0,
+    // نسبة المرتجعات من الطلبات المغلقة فقط (received + partial_received + returned)
+    returnRate: p.closedCount > 0 ? Math.round((p.returnCount / p.closedCount) * 100) : 0,
     margin: p.revenue > 0 ? Math.round((p.profit / p.revenue) * 100) : 0,
     revenue: Math.round(p.revenue),
     cost: Math.round(p.cost),
@@ -940,14 +958,15 @@ router.get("/analytics/smart-insights", async (_req, res): Promise<void> => {
     ...(noReasonCount > 0 ? [{ reason: "__none__", label: "غير محدد", count: noReasonCount, pct: Math.round((noReasonCount / totalReturns) * 100) }] : []),
   ].sort((a, b) => b.count - a.count);
 
-  const totalOrderCount = allOrders.length;
-  const totalReturnRate = totalOrderCount > 0 ? Math.round((totalReturns / totalOrderCount) * 100) : 0;
+  // نسبة المرتجعات من الطلبات المغلقة فقط (received + partial_received + returned)
+  const closedOrdersCount = allOrders.filter(o => ["received", "partial_received", "returned"].includes(o.status)).length;
+  const totalReturnRate = closedOrdersCount > 0 ? Math.round((totalReturns / closedOrdersCount) * 100) : 0;
 
-  // High return products (>= 50%, min 3 orders)
+  // High return products (>= 50%, min 3 closed orders)
   const highReturnProducts = productList
-    .filter(p => p.orderCount >= 3 && p.returnRate >= 50)
+    .filter(p => p.closedCount >= 3 && p.returnRate >= 50)
     .sort((a, b) => b.returnRate - a.returnRate)
-    .map(p => ({ name: p.name, returnRate: p.returnRate, returnCount: p.returnCount, orderCount: p.orderCount }));
+    .map(p => ({ name: p.name, returnRate: p.returnRate, returnCount: p.returnCount, orderCount: p.closedCount }));
 
   // ── 4. Stock Predictor ───────────────────────────────────────────────────────
   const stockPredictor = products
