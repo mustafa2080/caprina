@@ -241,12 +241,14 @@ router.get("/analytics/financial-summary", requireAdmin, async (req, res): Promi
   const period    = req.query.period as string | undefined;
   const now = new Date();
 
-  const [allOrdersRaw, products, variants, allManifests] = await Promise.all([
+  const [allOrdersRaw, products, variants, allManifests, allManifestOrders] = await Promise.all([
     db.select().from(ordersTable).where(isNull(ordersTable.deletedAt)),
     db.select().from(productsTable),
     db.select().from(productVariantsTable),
-    db.select({ manualShippingCost: shippingManifestsTable.manualShippingCost, createdAt: shippingManifestsTable.createdAt })
+    db.select({ id: shippingManifestsTable.id, manualShippingCost: shippingManifestsTable.manualShippingCost, createdAt: shippingManifestsTable.createdAt })
       .from(shippingManifestsTable),
+    db.select({ manifestId: shippingManifestOrdersTable.manifestId, orderId: shippingManifestOrdersTable.orderId })
+      .from(shippingManifestOrdersTable),
   ]);
 
   // فلتر التاريخ
@@ -275,7 +277,22 @@ router.get("/analytics/financial-summary", requireAdmin, async (req, res): Promi
   const variantMap = new Map<number, number | null>(variants.map(v => [v.id, v.costPrice]));
   const productMap = new Map<number, number | null>(products.map(p => [p.id, p.costPrice]));
 
-  // تكلفة الشحن اليدوية من البيانات (مفلترة بنفس الفترة الزمنية)
+  // بناء shippingPerOrder: توزيع manualShippingCost على طلبيات كل بيان
+  const manifestOrderCount = new Map<number, number>();
+  for (const mo of allManifestOrders) {
+    manifestOrderCount.set(mo.manifestId, (manifestOrderCount.get(mo.manifestId) ?? 0) + 1);
+  }
+  const shippingPerOrder = new Map<number, number>();
+  for (const mo of allManifestOrders) {
+    const manifest = allManifests.find(m => m.id === mo.manifestId);
+    const cost = Number(manifest?.manualShippingCost ?? 0);
+    if (cost > 0) {
+      const count = manifestOrderCount.get(mo.manifestId) ?? 1;
+      shippingPerOrder.set(mo.orderId, (shippingPerOrder.get(mo.orderId) ?? 0) + cost / count);
+    }
+  }
+
+  // تكلفة الشحن اليدوية الكلية من البيانات (مفلترة بنفس الفترة)
   let fromDate2: Date | null = null;
   let toDate2: Date | null = null;
   if (period === "today") {
@@ -306,7 +323,7 @@ router.get("/analytics/financial-summary", requireAdmin, async (req, res): Promi
 
   for (const o of allOrders) {
     const rc = resolveCost(o, variantMap, productMap);
-    const sc = o.shippingCost ?? 0;
+    const sc = (o.shippingCost ?? 0) + (shippingPerOrder.get(o.id) ?? 0);
 
     if (o.status === "received") {
       const revenue = o.quantity * o.unitPrice;
@@ -334,7 +351,7 @@ router.get("/analytics/financial-summary", requireAdmin, async (req, res): Promi
     }
   }
 
-  // أضف تكلفة الشحن اليدوية من البيانات (manualShippingCost) للـ shippingSpend
+  // أضف تكلفة الشحن اليدوية غير الموزعة (من البيانات التي طلبياتها خارج نطاق الفلتر)
   shippingSpend += manualShippingTotal;
 
   // صافي الربح = إجمالي المقبوض − تكلفة البضاعة − تكلفة الشحن − خسائر المرتجعات
