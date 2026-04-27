@@ -1908,9 +1908,6 @@ export default function ShippingManifestPage() {
                   <p className={`text-2xl font-black ${isProfit ? "text-emerald-400" : "text-red-400"}`}>
                     {formatCurrency(Math.abs(trueNetProfit))}
                   </p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
-                    {formatCurrency(s.totalRevenue)} − {formatCurrency(s.totalCost)} − {formatCurrency(effectiveShipping)} − {formatCurrency(s.returnLosses)}
-                  </p>
                 </div>
                 {isProfit
                   ? <TrendingUp className="w-10 h-10 text-emerald-400 opacity-30" />
