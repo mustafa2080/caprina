@@ -627,6 +627,72 @@ export default function OrderDetail() {
                         {(order as any).size && <Badge variant="outline" className="text-[9px] border-primary/40 text-primary font-bold">{(order as any).size}</Badge>}
                       </div>
                     )}
+                    {/* Stock badge: show current inventory for this product/variant */}
+                    {(() => {
+                      const orderColor = (order as any).color as string | null;
+                      const orderSize = (order as any).size as string | null;
+                      const orderProductId = (order as any).productId as number | null;
+                      const orderVariantId = (order as any).variantId as number | null;
+
+                      // Match by variantId first
+                      if (orderVariantId && allVariants) {
+                        const v = allVariants.find(v => v.id === orderVariantId);
+                        if (v) {
+                          const avail = v.totalQuantity - v.reservedQuantity - v.soldQuantity;
+                          const isLow = avail <= v.lowStockThreshold;
+                          return (
+                            <div className="mt-1.5">
+                              <Badge variant="outline" className={`text-[9px] font-bold border ${avail === 0 ? "border-red-700 text-red-400" : isLow ? "border-amber-700 text-amber-400" : "border-emerald-700 text-emerald-400"}`}>
+                                <Package className="w-2.5 h-2.5 ml-1" />
+                                المخزون: {avail} وحدة
+                              </Badge>
+                            </div>
+                          );
+                        }
+                      }
+
+                      // Match by productId
+                      if (orderProductId && products) {
+                        const p = products.find(p => p.id === orderProductId);
+                        if (p) {
+                          // If has color/size, try to match variant
+                          if ((orderColor || orderSize) && allVariants) {
+                            const v = allVariants.find(v =>
+                              v.productId === orderProductId &&
+                              (!orderColor || v.color === orderColor) &&
+                              (!orderSize || v.size === orderSize)
+                            );
+                            if (v) {
+                              const avail = v.totalQuantity - v.reservedQuantity - v.soldQuantity;
+                              const isLow = avail <= v.lowStockThreshold;
+                              return (
+                                <div className="mt-1.5">
+                                  <Badge variant="outline" className={`text-[9px] font-bold border ${avail === 0 ? "border-red-700 text-red-400" : isLow ? "border-amber-700 text-amber-400" : "border-emerald-700 text-emerald-400"}`}>
+                                    <Package className="w-2.5 h-2.5 ml-1" />
+                                    المخزون: {avail} وحدة
+                                  </Badge>
+                                </div>
+                              );
+                            }
+                          }
+                          // Product-level stock (no variants)
+                          if (!allVariants?.some(v => v.productId === orderProductId)) {
+                            const avail = p.totalQuantity - p.reservedQuantity - p.soldQuantity;
+                            const isLow = avail <= p.lowStockThreshold;
+                            return (
+                              <div className="mt-1.5">
+                                <Badge variant="outline" className={`text-[9px] font-bold border ${avail === 0 ? "border-red-700 text-red-400" : isLow ? "border-amber-700 text-amber-400" : "border-emerald-700 text-emerald-400"}`}>
+                                  <Package className="w-2.5 h-2.5 ml-1" />
+                                  المخزون: {avail} وحدة
+                                </Badge>
+                              </div>
+                            );
+                          }
+                        }
+                      }
+
+                      return null;
+                    })()}
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">الكمية</p>
