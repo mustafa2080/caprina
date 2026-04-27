@@ -81,25 +81,65 @@ export default function Orders() {
   });
   const inManifestSet = new Set(inManifestData?.ids ?? []);
 
-  const filtered = orders?.filter(o => {
+  const rawFiltered = orders?.filter(o => {
     if (!dateFrom) return true;
     return new Date(o.createdAt) >= new Date(dateFrom);
   }) ?? [];
+
+  // ─── Group orders by invoiceNumber into "invoice groups" ─────────────────
+  // Orders with same invoiceNumber are merged into one displayed row
+  const filtered = (() => {
+    const groups = new Map<string, typeof rawFiltered>();
+    for (const o of rawFiltered) {
+      const key = (o as any).invoiceNumber ?? `solo-${o.id}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(o);
+    }
+    // Return one representative per group (the first order), with aggregated data
+    return Array.from(groups.values()).map(grp => {
+      if (grp.length === 1) return grp[0];
+      const rep = grp[0];
+      const totalPrice = grp.reduce((s, o) => s + o.totalPrice, 0);
+      const totalQty = grp.reduce((s, o) => s + o.quantity, 0);
+      const products = grp.map(o => `${o.product}×${o.quantity}`).join("، ");
+      // Determine group status: if any differs, show mixed
+      const allSameStatus = grp.every(o => o.status === rep.status);
+      return {
+        ...rep,
+        totalPrice,
+        quantity: totalQty,
+        product: products,
+        _isGroup: true,
+        _groupIds: grp.map(o => o.id),
+        _groupCount: grp.length,
+        status: allSameStatus ? rep.status : rep.status,
+      };
+    });
+  })();
 
   const hasActiveFilter = search || status !== "all" || dateFrom;
 
   const clearFilters = () => { setSearch(""); setStatus("all"); setDateFrom(""); };
 
-  const toggleSelect = (id: number) => {
+  const toggleSelect = (order: (typeof filtered)[0]) => {
+    const ids: number[] = (order as any)._isGroup ? (order as any)._groupIds : [order.id];
     setSelectedIds(prev => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      const allSelected = ids.every(id => next.has(id));
+      if (allSelected) ids.forEach(id => next.delete(id));
+      else ids.forEach(id => next.add(id));
       return next;
     });
   };
 
+  const isGroupSelected = (order: (typeof filtered)[0]) => {
+    const ids: number[] = (order as any)._isGroup ? (order as any)._groupIds : [order.id];
+    return ids.every(id => selectedIds.has(id));
+  };
+
   const toggleSelectAll = () => {
-    setSelectedIds(selectedIds.size === filtered.length ? new Set() : new Set(filtered.map(o => o.id)));
+    const allIds = filtered.flatMap(o => (o as any)._isGroup ? (o as any)._groupIds : [o.id]);
+    setSelectedIds(selectedIds.size === rawFiltered.length ? new Set() : new Set(allIds));
   };
 
   const exitBulkMode = () => { setBulkSelectMode(false); setSelectedIds(new Set()); };
@@ -288,15 +328,20 @@ export default function Orders() {
                 const canWhatsApp = !bulkSelectMode && (order.status === "pending" || order.status === "in_shipping" || order.status === "delayed");
                 const retReason = (order as any).returnReason as string | null;
                 const retNote   = (order as any).returnNote   as string | null;
-                const isSelected = selectedIds.has(order.id);
+                const isSelected = isGroupSelected(order);
+                const isGroup = !!(order as any)._isGroup;
+                const groupCount = (order as any)._groupCount as number | undefined;
+                const navTarget = isGroup
+                  ? `/orders?invoiceNumber=${encodeURIComponent((order as any).invoiceNumber ?? "")}`
+                  : `/orders/${order.id}`;
                 return (
                   <div
                     key={order.id}
                     className={`flex items-center gap-3 px-4 py-3 hover:bg-muted/10 active:bg-muted/20 cursor-pointer ${isSelected ? "bg-primary/5" : ""}`}
-                    onClick={() => bulkSelectMode ? toggleSelect(order.id) : (window.location.href = `/orders/${order.id}`)}
+                    onClick={() => bulkSelectMode ? toggleSelect(order) : (window.location.href = `/orders/${order.id}`)}
                   >
                     {bulkSelectMode && (
-                      <Checkbox checked={isSelected} onCheckedChange={() => toggleSelect(order.id)} onClick={e => e.stopPropagation()} className="shrink-0" />
+                      <Checkbox checked={isSelected} onCheckedChange={() => toggleSelect(order)} onClick={e => e.stopPropagation()} className="shrink-0" />
                     )}
                     <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-foreground shrink-0">
                       {order.customerName.charAt(0)}
@@ -308,7 +353,10 @@ export default function Orders() {
                       </div>
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-[10px] text-muted-foreground font-mono">#{order.id.toString().padStart(4,"0")}</span>
-                        <span className="text-[10px] text-muted-foreground truncate">{order.product} ×{order.quantity}</span>
+                        {isGroup && groupCount && (
+                          <span className="text-[9px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">{groupCount} منتجات</span>
+                        )}
+                        <span className="text-[10px] text-muted-foreground truncate">{order.product}</span>
                       </div>
                       <div className="flex items-center gap-2 mt-1">
                         <Badge variant="outline" className={`text-[9px] font-bold border ${statusClasses[order.status] || ""}`}>
@@ -325,7 +373,7 @@ export default function Orders() {
                         <span className="text-[9px] text-muted-foreground mr-auto">{format(new Date(order.createdAt), "MM/dd")}</span>
                       </div>
                     </div>
-                    {canWhatsApp && (
+                    {canWhatsApp && !isGroup && (
                       <button className="shrink-0 w-9 h-9 rounded-full text-green-500 hover:bg-green-500/10 flex items-center justify-center" onClick={(e) => handleWhatsApp(e, order)}>
                         <MessageCircle className="w-4.5 h-4.5" />
                       </button>
@@ -359,30 +407,40 @@ export default function Orders() {
                   {filtered.map((order) => {
                     const retReason  = (order as any).returnReason as string | null;
                     const retNote    = (order as any).returnNote   as string | null;
-                    const canWhatsApp = !bulkSelectMode && (order.status === "pending" || order.status === "in_shipping" || order.status === "delayed");
-                    const isSelected  = selectedIds.has(order.id);
+                    const canWhatsApp = !bulkSelectMode && !((order as any)._isGroup) && (order.status === "pending" || order.status === "in_shipping" || order.status === "delayed");
+                    const isSelected  = isGroupSelected(order);
+                    const isGroup = !!(order as any)._isGroup;
+                    const groupCount = (order as any)._groupCount as number | undefined;
                     return (
                       <TableRow
                         key={order.id}
                         className={`border-border hover:bg-muted/20 cursor-pointer ${isSelected ? "bg-primary/5" : ""}`}
-                        onClick={() => bulkSelectMode ? toggleSelect(order.id) : (window.location.href = `/orders/${order.id}`)}
+                        onClick={() => bulkSelectMode ? toggleSelect(order) : (window.location.href = `/orders/${order.id}`)}
                       >
                         {bulkSelectMode && (
                           <TableCell className="text-center p-2">
-                            <Checkbox checked={isSelected} onCheckedChange={() => toggleSelect(order.id)} onClick={e => e.stopPropagation()} />
+                            <Checkbox checked={isSelected} onCheckedChange={() => toggleSelect(order)} onClick={e => e.stopPropagation()} />
                           </TableCell>
                         )}
-                        <TableCell className="font-mono text-xs text-primary font-bold">#{order.id.toString().padStart(4,"0")}</TableCell>
+                        <TableCell className="font-mono text-xs text-primary font-bold">
+                          #{order.id.toString().padStart(4,"0")}
+                          {isGroup && groupCount && (
+                            <span className="mr-1 text-[9px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">{groupCount} منتجات</span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-xs text-muted-foreground">{format(new Date(order.createdAt), "yyyy/MM/dd")}</TableCell>
                         <TableCell className="text-sm font-semibold">{order.customerName}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">{order.phone || "—"}</TableCell>
-                        <TableCell className="text-xs">{order.product}<span className="text-muted-foreground mr-1">×{order.quantity}</span></TableCell>
+                        <TableCell className="text-xs max-w-[200px]">
+                          <span className="truncate block">{order.product}</span>
+                          {!isGroup && <span className="text-muted-foreground">×{order.quantity}</span>}
+                        </TableCell>
                         <TableCell className="text-xs font-bold text-primary">{formatCurrency(order.totalPrice)}</TableCell>
                         <TableCell className="text-center">
                           <Badge variant="outline" className={`text-[9px] font-bold border ${statusClasses[order.status] || ""}`}>
                             {statusLabels[order.status] || order.status}
                           </Badge>
-                          {order.status === "in_shipping" && !inManifestSet.has(order.id) && (
+                          {order.status === "in_shipping" && !isGroup && !inManifestSet.has(order.id) && (
                             <div className="flex items-center justify-center gap-0.5 mt-1">
                               <Warehouse className="w-2.5 h-2.5 text-orange-500 shrink-0" />
                               <span className="text-[9px] font-bold text-orange-600 dark:text-orange-400 leading-none">ما زال في المخزن</span>

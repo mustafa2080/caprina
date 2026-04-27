@@ -9,7 +9,6 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Printer, FileText, CheckSquare, Square } from "lucide-react";
 import { useBrand } from "@/contexts/BrandContext";
-import { useLocation } from "wouter";
 
 const statusLabels: Record<string, string> = {
   pending: "قيد الانتظار",
@@ -33,7 +32,6 @@ const formatCurrency = (n: number) =>
   new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 2 }).format(n);
 
 export default function Invoices() {
-  const [location] = useLocation();
   const { brand } = useBrand();
   const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
   const preselectedId = params.get("orderId") ? Number(params.get("orderId")) : null;
@@ -48,27 +46,64 @@ export default function Invoices() {
     queryFn: ordersApi.inManifestIds,
   });
 
-  const orders = useMemo(() => {
+  const rawOrders = useMemo(() => {
     if (!allOrders) return [];
     if (!manifestData) return allOrders;
     const manifestSet = new Set(manifestData.ids);
     return allOrders.filter(o => !manifestSet.has(o.id));
   }, [allOrders, manifestData]);
 
-  const toggleSelect = (id: number) => {
+  // ─── Group orders by invoiceNumber ───────────────────────────────────────
+  type InvoiceGroup = {
+    invoiceNumber: string;
+    representativeId: number;
+    orders: typeof rawOrders;
+    customerName: string;
+    totalPrice: number;
+    status: string;
+    createdAt: string;
+    phone: string | null;
+    city: string | null;
+  };
+
+  const invoiceGroups = useMemo<InvoiceGroup[]>(() => {
+    const map = new Map<string, typeof rawOrders>();
+    for (const o of rawOrders) {
+      const key = (o as any).invoiceNumber ?? `solo-${o.id}`;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(o);
+    }
+    return Array.from(map.entries()).map(([invNum, grp]) => ({
+      invoiceNumber: invNum,
+      representativeId: grp[0].id,
+      orders: grp,
+      customerName: grp[0].customerName,
+      totalPrice: grp.reduce((s, o) => s + o.totalPrice, 0),
+      status: grp[0].status,
+      createdAt: grp[0].createdAt,
+      phone: grp[0].phone ?? null,
+      city: (grp[0] as any).city ?? null,
+    }));
+  }, [rawOrders]);
+
+  const toggleSelect = (invoiceNumber: string) => {
     setSelectedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
+      const next = new Set(prev as unknown as Set<string>);
+      if (next.has(invoiceNumber)) next.delete(invoiceNumber);
+      else next.add(invoiceNumber);
+      return next as unknown as Set<number>;
     });
   };
 
-  const selectAll = () => { if (orders) setSelectedIds(new Set(orders.map(o => o.id))); };
+  const isSelected = (invoiceNumber: string) => (selectedIds as unknown as Set<string>).has(invoiceNumber);
+
+  const selectAll = () => { setSelectedIds(new Set(invoiceGroups.map(g => g.invoiceNumber)) as unknown as Set<number>); };
   const clearAll  = () => setSelectedIds(new Set());
 
   const handlePrint = async () => {
-    const selected = orders?.filter(o => selectedIds.has(o.id)) ?? [];
-    if (!selected.length) { alert("اختر طلبات للطباعة أولاً."); return; }
+    const selectedInvNums = selectedIds as unknown as Set<string>;
+    const selected = invoiceGroups.filter(g => selectedInvNums.has(g.invoiceNumber));
+    if (!selected.length) { alert("اختر فواتير للطباعة أولاً."); return; }
 
     let logoB64 = "";
     if (brand.logoUrl) {
@@ -86,8 +121,8 @@ export default function Invoices() {
     const brandName    = brand.name    || "CAPRINA";
     const brandTagline = brand.tagline || "WIN OR DIE";
 
-    const groups: typeof selected[] = [];
-    for (let i = 0; i < selected.length; i += 4) groups.push(selected.slice(i, i + 4));
+    const pageGroups: typeof selected[] = [];
+    for (let i = 0; i < selected.length; i += 4) pageGroups.push(selected.slice(i, i + 4));
 
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
@@ -203,22 +238,38 @@ export default function Invoices() {
       .empty-slot { border: 1px dashed #ddd; border-radius: 2mm; background: #fafafa; }
     `;
 
-    const invoiceHTML = (order: (typeof selected)[0]) => {
-      const company        = shippingCompanies?.find(c => c.id === order.shippingCompanyId);
-      const trackingNumber = (order as any).trackingNumber ?? (order as any).tracking_number ?? "";
-      const color          = (order as any).color          ?? "";
-      const size           = (order as any).size           ?? "";
-      const notes          = (order as any).notes          ?? (order as any).note ?? (order as any).orderNotes ?? "";
-      const shippingCost   = (order as any).shippingCost   ?? (order as any).shipping_cost ?? 0;
-      const partialQty     = (order as any).partialQuantity;
-      const displayQty     = partialQty ? `${partialQty} / ${order.quantity}` : `${order.quantity}`;
-      const dateStr        = format(new Date(order.createdAt), "yyyy/MM/dd");
+    const invoiceHTML = (grp: InvoiceGroup) => {
+      const rep            = grp.orders[0];
+      const company        = shippingCompanies?.find(c => c.id === rep.shippingCompanyId);
+      const trackingNumber = (rep as any).trackingNumber ?? (rep as any).tracking_number ?? "";
+      const notes          = (rep as any).notes ?? (rep as any).note ?? (rep as any).orderNotes ?? "";
+      const shippingCost   = (rep as any).shippingCost ?? (rep as any).shipping_cost ?? 0;
+      const dateStr        = format(new Date(grp.createdAt), "yyyy/MM/dd");
       const logoEl         = logoB64
         ? `<img src="${logoB64}" class="logo-img" alt="${brandName}" />`
         : ``;
-      const address        = order.address ?? "";
-      const orderNum       = String(order.id).padStart(4, "0");
-      const city           = order.city ?? "";
+      const address        = rep.address ?? "";
+      const orderNum       = String(rep.id).padStart(4, "0");
+      const city           = (rep as any).city ?? "";
+
+      // Build product rows for all items in the group
+      const productRows = grp.orders.map(o => {
+        const color = (o as any).color ?? "";
+        const size  = (o as any).size  ?? "";
+        const partialQty = (o as any).partialQuantity;
+        const displayQty = partialQty ? `${partialQty} / ${o.quantity}` : `${o.quantity}`;
+        return `
+          <tr>
+            <td class="name-col">${o.product}</td>
+            <td>${size || "&#8212;"}</td>
+            <td>${color || "&#8212;"}</td>
+            <td style="font-weight:900">${displayQty}</td>
+            <td>${formatCurrency(o.unitPrice)}</td>
+            <td style="font-weight:900">${formatCurrency(o.totalPrice)}</td>
+          </tr>`;
+      }).join("");
+
+      const totalQty = grp.orders.reduce((s, o) => s + o.quantity, 0);
 
       return `
         <div class="inv">
@@ -241,8 +292,8 @@ export default function Invoices() {
 
           <!-- CUSTOMER: تليفون يسار | اسم يمين -->
           <div class="cust-row">
-            <div class="cust-phone">&#128222; ${order.phone ?? "&#8212;"}</div>
-            <div class="cust-name">${order.customerName}</div>
+            <div class="cust-phone">&#128222; ${grp.phone ?? "&#8212;"}</div>
+            <div class="cust-name">${grp.customerName}</div>
           </div>
 
           <!-- BODY -->
@@ -261,22 +312,15 @@ export default function Invoices() {
                 </tr>
               </thead>
               <tbody>
-                <tr>
-                  <td class="name-col">${order.product}</td>
-                  <td>${size || "&#8212;"}</td>
-                  <td>${color || "&#8212;"}</td>
-                  <td style="font-weight:900">${displayQty}</td>
-                  <td>${formatCurrency(order.unitPrice)}</td>
-                  <td style="font-weight:900">${formatCurrency(order.totalPrice)}</td>
-                </tr>
+                ${productRows}
                 ${shippingCost > 0 ? `<tr>
                   <td class="name-col" colspan="4" style="color:#777;font-size:6pt">مصاريف الشحن</td>
                   <td colspan="2" style="font-weight:700">${formatCurrency(shippingCost)}</td>
                 </tr>` : ""}
                 <tr class="total-row">
                   <td class="t-label" colspan="3">&#9679; الإجمالي الكلي</td>
-                  <td style="font-weight:900">${displayQty}</td>
-                  <td colspan="2" style="font-weight:900">${formatCurrency(order.totalPrice + shippingCost)}</td>
+                  <td style="font-weight:900">${totalQty}</td>
+                  <td colspan="2" style="font-weight:900">${formatCurrency(grp.totalPrice + shippingCost)}</td>
                 </tr>
               </tbody>
             </table>
@@ -327,8 +371,8 @@ export default function Invoices() {
       `;
     };
 
-    const pagesHTML = groups.map(group => {
-      const invoices = group.map(o => invoiceHTML(o)).join("");
+    const pagesHTML = pageGroups.map(group => {
+      const invoices = group.map(g => invoiceHTML(g)).join("");
       const empties = group.length < 4
         ? Array(4 - group.length).fill('<div class="empty-slot"></div>').join("")
         : "";
@@ -395,59 +439,74 @@ export default function Invoices() {
         )}
 
         {!isLoading && (
-          <span className="text-xs text-muted-foreground mr-auto">{orders.length} طلب</span>
+          <span className="text-xs text-muted-foreground mr-auto">{invoiceGroups.length} فاتورة</span>
         )}
       </div>
 
       {isLoading ? (
         <div className="p-8 text-center text-muted-foreground text-sm">جاري التحميل...</div>
-      ) : orders?.length ? (
+      ) : invoiceGroups.length ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {orders.map((order) => {
-            const isSelected = selectedIds.has(order.id);
-            const company = shippingCompanies?.find(c => c.id === order.shippingCompanyId);
-            const color = (order as any).color as string | null;
-            const size  = (order as any).size  as string | null;
+          {invoiceGroups.map((grp) => {
+            const sel = isSelected(grp.invoiceNumber);
+            const company = shippingCompanies?.find(c => c.id === grp.orders[0].shippingCompanyId);
+            const isGroup = grp.orders.length > 1;
             return (
               <Card
-                key={order.id}
-                onClick={() => toggleSelect(order.id)}
+                key={grp.invoiceNumber}
+                onClick={() => toggleSelect(grp.invoiceNumber)}
                 className={`border p-4 cursor-pointer transition-all select-none ${
-                  isSelected
+                  sel
                     ? "border-primary bg-primary/5 shadow-sm"
                     : "border-border bg-card hover:border-primary/40 hover:bg-muted/10"
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    {isSelected
+                    {sel
                       ? <CheckSquare className="w-4 h-4 text-primary shrink-0" />
                       : <Square className="w-4 h-4 text-muted-foreground shrink-0" />}
                     <div>
-                      <p className="font-bold text-sm leading-tight">{order.customerName}</p>
-                      <p className="text-[10px] text-muted-foreground font-mono">#{order.id.toString().padStart(4,"0")}</p>
+                      <p className="font-bold text-sm leading-tight">{grp.customerName}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-[10px] text-muted-foreground font-mono">#{grp.representativeId.toString().padStart(4,"0")}</p>
+                        {isGroup && (
+                          <span className="text-[9px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">{grp.orders.length} منتجات</span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <Badge variant="outline" className={`text-[9px] font-bold border shrink-0 ${statusClasses[order.status] || ""}`}>
-                    {statusLabels[order.status]}
+                  <Badge variant="outline" className={`text-[9px] font-bold border shrink-0 ${statusClasses[grp.status] || ""}`}>
+                    {statusLabels[grp.status]}
                   </Badge>
                 </div>
 
                 <div className="mt-3 space-y-1 text-xs text-muted-foreground">
-                  <div className="flex justify-between">
-                    <span className="font-medium text-foreground">{order.product}</span>
-                    <span className="font-bold text-primary">{formatCurrency(order.totalPrice)}</span>
-                  </div>
-                  {(color || size) && (
-                    <p>{[color, size].filter(Boolean).join(" · ")}</p>
+                  {isGroup ? (
+                    <div className="space-y-0.5">
+                      {grp.orders.map(o => (
+                        <div key={o.id} className="flex justify-between">
+                          <span className="font-medium text-foreground truncate">{o.product} ×{o.quantity}</span>
+                          <span className="font-bold text-primary shrink-0 mr-1">{formatCurrency(o.totalPrice)}</span>
+                        </div>
+                      ))}
+                      <div className="flex justify-between border-t border-border pt-1 mt-1">
+                        <span className="font-bold text-foreground">الإجمالي</span>
+                        <span className="font-bold text-primary">{formatCurrency(grp.totalPrice)}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex justify-between">
+                      <span className="font-medium text-foreground">{grp.orders[0].product} ×{grp.orders[0].quantity}</span>
+                      <span className="font-bold text-primary">{formatCurrency(grp.totalPrice)}</span>
+                    </div>
                   )}
                   <div className="flex gap-3">
-                    <span>× {order.quantity} وحدة</span>
                     {company && <span>🚚 {company.name}</span>}
                   </div>
-                  {order.phone && <p className="font-mono text-[11px]">📞 {order.phone}</p>}
-                  {order.city  && <p>📍 {order.city}</p>}
-                  <p className="text-[10px] opacity-60">{format(new Date(order.createdAt), "yyyy/MM/dd")}</p>
+                  {grp.phone && <p className="font-mono text-[11px]">📞 {grp.phone}</p>}
+                  {grp.city  && <p>📍 {grp.city}</p>}
+                  <p className="text-[10px] opacity-60">{format(new Date(grp.createdAt), "yyyy/MM/dd")}</p>
                 </div>
               </Card>
             );
