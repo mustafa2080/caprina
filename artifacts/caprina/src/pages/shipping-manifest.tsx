@@ -1870,70 +1870,61 @@ export default function ShippingManifestPage() {
       </Card>
 
       {/* ─── P&L Summary (financials only — hidden in print) ─── */}
-      {canViewFinancials && <div className="grid grid-cols-2 md:grid-cols-3 gap-3 print:hidden">
-        <Card className="border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground mb-1">إجمالي الإيرادات</p>
-          <p className="text-lg font-black text-emerald-400">
-            {formatCurrency(s.totalRevenue)}
-          </p>
-        </Card>
-        <Card className="border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground mb-1">تكلفة الشحن</p>
-          <p className="text-lg font-black text-amber-400">
-            {formatCurrency(manifest.manualShippingCost ?? s.totalShippingCost)}
-          </p>
-        </Card>
-        <Card className="border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground mb-1">خسائر الإرجاع</p>
-          <p className="text-lg font-black text-red-400">
-            {formatCurrency(s.returnLosses)}
-          </p>
-        </Card>
-        <Card className="border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground mb-1">تكلفة البضاعة</p>
-          <p className="text-lg font-black">{formatCurrency(s.totalCost)}</p>
-        </Card>
-        <Card
-          className={`col-span-2 p-4 border ${
-            s.netProfit >= 0
-              ? "border-emerald-900/50 bg-emerald-900/10"
-              : "border-red-900/50 bg-red-900/10"
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <p
-                className={`text-xs mb-1 font-bold ${
-                  s.netProfit >= 0 ? "text-emerald-400" : "text-red-400"
-                }`}
-              >
-                {s.netProfit >= 0 ? "صافي الربح" : "صافي الخسارة"}
+      {canViewFinancials && (() => {
+        // تكلفة الشحن الفعلية = اليدوية لو موجودة، وإلا من الطلبيات
+        const effectiveShipping = manifest.manualShippingCost ?? s.totalShippingCost;
+        // صافي الربح الصحيح = إيرادات − تكلفة بضاعة − تكلفة شحن فعلية − خسائر مرتجع
+        const trueNetProfit = s.totalRevenue - s.totalCost - effectiveShipping - s.returnLosses;
+        const isProfit = trueNetProfit >= 0;
+        return (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 print:hidden">
+            <Card className="border-border bg-card p-4">
+              <p className="text-xs text-muted-foreground mb-1">إجمالي الإيرادات</p>
+              <p className="text-lg font-black text-emerald-400">{formatCurrency(s.totalRevenue)}</p>
+            </Card>
+            <Card className="border-amber-900/40 bg-amber-900/10 p-4">
+              <p className="text-xs text-amber-400 mb-1">تكلفة الشحن</p>
+              <p className="text-lg font-black text-amber-400">
+                −{formatCurrency(effectiveShipping)}
               </p>
-              <p
-                className={`text-2xl font-black ${
-                  s.netProfit >= 0 ? "text-emerald-400" : "text-red-400"
-                }`}
-              >
-                {formatCurrency(Math.abs(s.netProfit))}
-              </p>
-            </div>
-            {s.netProfit >= 0 ? (
-              <TrendingUp className="w-10 h-10 text-emerald-400 opacity-30" />
-            ) : (
-              <TrendingDown className="w-10 h-10 text-red-400 opacity-30" />
-            )}
+              {manifest.manualShippingCost != null && (
+                <p className="text-[10px] text-amber-600">يدوي ✏️</p>
+              )}
+            </Card>
+            <Card className="border-border bg-card p-4">
+              <p className="text-xs text-muted-foreground mb-1">خسائر الإرجاع</p>
+              <p className="text-lg font-black text-red-400">−{formatCurrency(s.returnLosses)}</p>
+            </Card>
+            <Card className="border-border bg-card p-4">
+              <p className="text-xs text-muted-foreground mb-1">تكلفة البضاعة</p>
+              <p className="text-lg font-black">−{formatCurrency(s.totalCost)}</p>
+            </Card>
+            <Card className={`col-span-2 p-4 border ${isProfit ? "border-emerald-900/50 bg-emerald-900/10" : "border-red-900/50 bg-red-900/10"}`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className={`text-xs mb-1 font-bold ${isProfit ? "text-emerald-400" : "text-red-400"}`}>
+                    {isProfit ? "صافي الربح" : "صافي الخسارة"}
+                  </p>
+                  <p className={`text-2xl font-black ${isProfit ? "text-emerald-400" : "text-red-400"}`}>
+                    {formatCurrency(Math.abs(trueNetProfit))}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {formatCurrency(s.totalRevenue)} − {formatCurrency(s.totalCost)} − {formatCurrency(effectiveShipping)} − {formatCurrency(s.returnLosses)}
+                  </p>
+                </div>
+                {isProfit
+                  ? <TrendingUp className="w-10 h-10 text-emerald-400 opacity-30" />
+                  : <TrendingDown className="w-10 h-10 text-red-400 opacity-30" />}
+              </div>
+              {s.totalRevenue > 0 && (
+                <p className={`text-xs mt-2 font-bold ${isProfit ? "text-emerald-600" : "text-red-600"}`}>
+                  هامش الربح: {Math.round((trueNetProfit / s.totalRevenue) * 100)}%
+                </p>
+              )}
+            </Card>
           </div>
-          {s.totalRevenue > 0 && (
-            <p
-              className={`text-xs mt-2 font-bold ${
-                s.netProfit >= 0 ? "text-emerald-600" : "text-red-600"
-              }`}
-            >
-              هامش الربح: {Math.round((s.netProfit / s.totalRevenue) * 100)}%
-            </p>
-          )}
-        </Card>
-      </div>}
+        );
+      })()}
 
       {/* ─── Close Confirm Dialog ─── */}
       {showCloseDialog && (
