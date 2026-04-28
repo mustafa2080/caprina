@@ -257,23 +257,48 @@ export function CreateManifestDialog({
       toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
 
-  const filtered = useMemo(() => {
+  // ── تجميع الطلبات بنفس invoiceNumber في سطر واحد ─────────────────────────
+  const groupedOrders = useMemo(() => {
     if (!inShippingOrders) return [];
-    if (!search.trim()) return inShippingOrders;
+    const groups = new Map<string, OrderRow>();
+    for (const o of inShippingOrders) {
+      const key = o.invoiceNumber ?? `solo-${o.id}`;
+      if (!groups.has(key)) {
+        groups.set(key, { ...o, _groupIds: [o.id], _groupCount: 1 });
+      } else {
+        const g = groups.get(key)!;
+        g._groupIds = [...(g._groupIds ?? [g.id]), o.id];
+        g._groupCount = (g._groupCount ?? 1) + 1;
+        g.quantity += o.quantity;
+        g.totalPrice += o.totalPrice;
+        if (!g.product.includes(o.product)) {
+          g.product = g.product + " + " + o.product;
+        }
+      }
+    }
+    return Array.from(groups.values());
+  }, [inShippingOrders]);
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return groupedOrders;
     const q = search.toLowerCase();
-    return inShippingOrders.filter(
+    return groupedOrders.filter(
       (o) =>
         o.customerName.toLowerCase().includes(q) ||
         o.product.toLowerCase().includes(q) ||
-        (o.phone && o.phone.includes(q))
+        (o.phone && o.phone.includes(q)) ||
+        (o.invoiceNumber && o.invoiceNumber.toLowerCase().includes(q))
     );
-  }, [inShippingOrders, search]);
+  }, [groupedOrders, search]);
 
   const toggleAll = () => {
-    if (selectedIds.size === filtered.length && filtered.length > 0) {
+    const allSelected = filtered.every(o => (o._groupIds ?? [o.id]).every(id => selectedIds.has(id)));
+    if (allSelected && filtered.length > 0) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(filtered.map((o) => o.id)));
+      const next = new Set(selectedIds);
+      filtered.forEach(o => (o._groupIds ?? [o.id]).forEach(id => next.add(id)));
+      setSelectedIds(next);
     }
   };
 
@@ -304,7 +329,7 @@ export function CreateManifestDialog({
             </div>
             {!isLoading && (
               <span className="text-xs text-muted-foreground whitespace-nowrap">
-                {inShippingOrders?.length ?? 0} طلبية قيد الشحن
+                {groupedOrders.length} فاتورة ({inShippingOrders?.length ?? 0} طلبية)
               </span>
             )}
           </div>
@@ -315,16 +340,16 @@ export function CreateManifestDialog({
               <div className="flex items-center gap-2">
                 <Checkbox
                   checked={
-                    selectedIds.size === filtered.length && filtered.length > 0
+                    filtered.every(o => (o._groupIds ?? [o.id]).every(id => selectedIds.has(id))) && filtered.length > 0
                   }
                   onCheckedChange={toggleAll}
                 />
                 <span className="text-xs text-muted-foreground">
-                  تحديد الكل ({filtered.length})
+                  تحديد الكل ({filtered.length} فاتورة)
                 </span>
               </div>
               <span className="text-xs font-bold text-primary">
-                {selectedIds.size} محدد
+                {selectedIds.size} طلبية ({filtered.filter(o => (o._groupIds ?? [o.id]).every(id => selectedIds.has(id))).length} فاتورة)
               </span>
             </div>
           )}
@@ -381,26 +406,29 @@ export function CreateManifestDialog({
                           {order.customerName}
                         </p>
                         <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                          <span className="font-mono">
-                            #{order.id.toString().padStart(4, "0")}
-                          </span>
+                          {order.invoiceNumber ? (
+                            <span className="font-mono text-primary/70">{order.invoiceNumber}</span>
+                          ) : (
+                            <span className="font-mono">#{order.id.toString().padStart(4, "0")}</span>
+                          )}
+                          {order._groupCount && order._groupCount > 1 && (
+                            <span className="bg-primary/15 text-primary px-1 rounded text-[9px] font-bold">{order._groupCount} منتجات</span>
+                          )}
                           {order.phone && (
-                            <span className="text-muted-foreground/70">
-                              · {order.phone}
-                            </span>
+                            <span className="text-muted-foreground/70">· {order.phone}</span>
                           )}
                         </p>
                       </div>
                       {/* Product */}
                       <div className="min-w-0 pr-2">
                         <p className="text-xs truncate">{order.product}</p>
-                        {(order.color || order.size) && (
+                        {order._groupCount && order._groupCount > 1 ? (
+                          <p className="text-[10px] text-muted-foreground">إجمالي {order.quantity} قطعة</p>
+                        ) : (order.color || order.size) ? (
                           <p className="text-[10px] text-muted-foreground truncate">
-                            {[order.color, order.size]
-                              .filter(Boolean)
-                              .join(" / ")}
+                            {[order.color, order.size].filter(Boolean).join(" / ")}
                           </p>
-                        )}
+                        ) : null}
                       </div>
                       {/* Qty */}
                       <div className="text-center text-xs font-bold">
@@ -452,7 +480,7 @@ export function CreateManifestDialog({
             >
               {createMutation.isPending
                 ? "جاري الإنشاء..."
-                : `إنشاء البيان (${selectedIds.size} طلبية)`}
+                : `إنشاء البيان (${filtered.filter(o => (o._groupIds ?? [o.id]).every(id => selectedIds.has(id))).length} فاتورة — ${selectedIds.size} طلبية)`}
             </Button>
             <Button
               variant="outline"
