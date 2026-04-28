@@ -264,20 +264,42 @@ export default function Invoices() {
       const orderNum       = String(rep.id).padStart(4, "0");
       const city           = (rep as any).city ?? "";
 
-      // Build product rows for all items in the group
-      const productRows = grp.orders.map(o => {
+      // Build product rows — merge identical product+color+size into one row
+      type MergedRow = { product: string; color: string; size: string; quantity: number; partialQuantity: number | null; unitPrice: number; totalPrice: number; };
+      const mergedMap = new Map<string, MergedRow>();
+      for (const o of grp.orders) {
         const color = (o as any).color ?? "";
         const size  = (o as any).size  ?? "";
-        const partialQty = (o as any).partialQuantity;
-        const displayQty = partialQty ? `${partialQty} / ${o.quantity}` : `${o.quantity}`;
+        const key   = `${o.product}|||${color}|||${size}|||${o.unitPrice}`;
+        if (mergedMap.has(key)) {
+          const existing = mergedMap.get(key)!;
+          existing.quantity   += o.quantity;
+          existing.totalPrice += o.totalPrice;
+          if ((o as any).partialQuantity != null) {
+            existing.partialQuantity = (existing.partialQuantity ?? 0) + (o as any).partialQuantity;
+          }
+        } else {
+          mergedMap.set(key, {
+            product: o.product,
+            color,
+            size,
+            quantity: o.quantity,
+            partialQuantity: (o as any).partialQuantity ?? null,
+            unitPrice: o.unitPrice,
+            totalPrice: o.totalPrice,
+          });
+        }
+      }
+      const productRows = Array.from(mergedMap.values()).map(r => {
+        const displayQty = r.partialQuantity != null ? `${r.partialQuantity} / ${r.quantity}` : `${r.quantity}`;
         return `
           <tr>
-            <td class="name-col">${o.product}</td>
-            <td>${size || "&#8212;"}</td>
-            <td>${color || "&#8212;"}</td>
+            <td class="name-col">${r.product}</td>
+            <td>${r.size || "&#8212;"}</td>
+            <td>${r.color || "&#8212;"}</td>
             <td style="font-weight:900">${displayQty}</td>
-            <td>${formatCurrency(o.unitPrice)}</td>
-            <td style="font-weight:900">${formatCurrency(o.totalPrice)}</td>
+            <td>${formatCurrency(r.unitPrice)}</td>
+            <td style="font-weight:900">${formatCurrency(r.totalPrice)}</td>
           </tr>`;
       }).join("");
 
