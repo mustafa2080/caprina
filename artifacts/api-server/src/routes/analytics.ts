@@ -1022,6 +1022,8 @@ router.get("/analytics/charts", async (_req, res): Promise<void> => {
       });
     }
     const grp = invoiceMap.get(key)!;
+    // آخر status يكتب فوق السابق — نفس منطق orders/summary
+    grp.status = o.status;
     if (o.status === "received" || o.status === "partial_received") {
       const qty = o.status === "partial_received" ? (o.partialQuantity ?? o.quantity) : o.quantity;
       grp.revenue += qty * o.unitPrice;
