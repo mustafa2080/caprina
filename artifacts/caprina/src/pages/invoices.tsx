@@ -186,31 +186,18 @@ export default function Invoices() {
     const selected = invoiceGroups.filter(g => invoiceNumbers.has(g.invoiceNumber));
     if (!selected.length) { alert("اختر فواتير للطباعة أولاً."); return; }
 
-    // ── جيب الأوردرات الحقيقية — أولوية:
-    //    1. من الـ cache اللي اتحمل عند فتح الصفحة (byInvoice API)
-    //    2. طلب byInvoice مباشر لو مش في الـ cache
-    //    3. fallback: grp.orders من _invoiceOrders
+    // ── جيب الأوردرات الحقيقية دايماً من السيرفر مباشرة عشان نضمن كل المنتجات
     const realOrdersMap = new Map<string, any[]>();
 
     await Promise.all(
       selected.map(async (grp) => {
-        // لو موجود في الـ cache استخدمه مباشرة (بس لو فيه أكتر من order واحد أو grp.orders نفسها 1)
-        if (realOrdersCache.has(grp.invoiceNumber)) {
-          const cached = realOrdersCache.get(grp.invoiceNumber)!;
-          // لو الـ cache فيه منتجات أكتر من الـ grp.orders يبقى صح
-          if (cached.length >= grp.orders.length) {
-            realOrdersMap.set(grp.invoiceNumber, cached);
-            return;
-          }
-        }
-
         // solo orders — استخدم grp.orders مباشرة
         if (grp.invoiceNumber.startsWith("solo-")) {
           realOrdersMap.set(grp.invoiceNumber, grp.orders);
           return;
         }
 
-        // طلب مباشر من السيرفر دايماً عشان نضمن كل المنتجات
+        // ─── دايماً نطلب من byInvoice API عشان نضمن كل المنتجات (مش الـ merged row)
         try {
           const orders = await ordersApi.byInvoice(grp.invoiceNumber);
           if (orders && orders.length > 0) {
@@ -219,7 +206,16 @@ export default function Invoices() {
           }
         } catch {}
 
-        // fallback نهائي: استخدم directInvoiceOrders لو موجودة ومطابقة
+        // fallback: الـ cache لو الـ API فشل
+        if (realOrdersCache.has(grp.invoiceNumber)) {
+          const cached = realOrdersCache.get(grp.invoiceNumber)!;
+          if (cached.length > 0) {
+            realOrdersMap.set(grp.invoiceNumber, cached);
+            return;
+          }
+        }
+
+        // fallback نهائي: directInvoiceOrders لو مطابقة
         if (directInvoiceOrders && directInvoiceOrders.length > 0 &&
             (directInvoiceOrders[0] as any).invoiceNumber === grp.invoiceNumber) {
           realOrdersMap.set(grp.invoiceNumber, directInvoiceOrders as any[]);

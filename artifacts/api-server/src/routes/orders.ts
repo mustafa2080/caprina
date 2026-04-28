@@ -87,8 +87,48 @@ router.get("/orders", async (req, res): Promise<void> => {
   let query = db.select().from(ordersTable).orderBy(desc(ordersTable.createdAt)).$dynamic();
   const conditions: any[] = [isNull(ordersTable.deletedAt)];
 
-  if (params.data.status) conditions.push(eq(ordersTable.status, params.data.status as any));
+  // ─── Status filter: نطبقه على مستوى الـ invoice مش الـ row ───────────────
+  // نجيب أولاً الـ invoiceNumbers اللي فيها row واحد على الأقل بالـ status المطلوب
+  // ثم نجيب كل rows اللي invoiceNumber مطابق (عشان نحصل على كل منتجات الفاتورة)
+  let statusFilterInvoiceNumbers: string[] | null = null;
+  if (params.data.status) {
+    const statusRows = await db
+      .select({ invoiceNumber: ordersTable.invoiceNumber, id: ordersTable.id })
+      .from(ordersTable)
+      .where(and(
+        isNull(ordersTable.deletedAt),
+        eq(ordersTable.status, params.data.status as any)
+      ));
+    // نجمع الـ invoiceNumbers (والـ solo orders بدون invoiceNumber)
+    const invNums = new Set<string>();
+    const soloIds = new Set<number>();
+    for (const r of statusRows) {
+      if (r.invoiceNumber) invNums.add(r.invoiceNumber);
+      else soloIds.add(r.id);
+    }
+    statusFilterInvoiceNumbers = Array.from(invNums);
+    // نضيف condition: invoiceNumber IN (...) OR (invoiceNumber IS NULL AND id IN (...))
+    if (statusFilterInvoiceNumbers.length > 0 && soloIds.size > 0) {
+      conditions.push(or(
+        inArray(ordersTable.invoiceNumber, statusFilterInvoiceNumbers),
+        and(isNull(ordersTable.invoiceNumber), inArray(ordersTable.id, Array.from(soloIds)))
+      ));
+    } else if (statusFilterInvoiceNumbers.length > 0) {
+      conditions.push(or(
+        inArray(ordersTable.invoiceNumber, statusFilterInvoiceNumbers),
+        and(isNull(ordersTable.invoiceNumber), eq(ordersTable.status, params.data.status as any))
+      ));
+    } else if (soloIds.size > 0) {
+      conditions.push(and(isNull(ordersTable.invoiceNumber), inArray(ordersTable.id, Array.from(soloIds))));
+    } else {
+      // مفيش نتائج بالـ status ده
+      res.json([]);
+      return;
+    }
+  }
 
+  // ─── Manifest filter: نجمع الـ manifest IDs هنا بس نطبقها على مستوى الـ invoice مش الـ row ───
+  let manifestOrderIdsSet = new Set<number>();
   if (params.data.status === "in_shipping" && !(req.query as any).includeInManifest) {
     const openManifests = await db
       .select({ id: shippingManifestsTable.id })
@@ -100,10 +140,7 @@ router.get("/orders", async (req, res): Promise<void> => {
         .select({ orderId: shippingManifestOrdersTable.orderId })
         .from(shippingManifestOrdersTable)
         .where(inArray(shippingManifestOrdersTable.manifestId, openManifestIds));
-      const inManifestIds = inManifest.map(r => r.orderId);
-      if (inManifestIds.length > 0) {
-        conditions.push(notInArray(ordersTable.id, inManifestIds));
-      }
+      manifestOrderIdsSet = new Set(inManifest.map(r => r.orderId));
     }
   }
   if (params.data.search) {
@@ -132,7 +169,16 @@ router.get("/orders", async (req, res): Promise<void> => {
     groupMap.get(key)!.push(o);
   }
 
-  const grouped = Array.from(groupMap.values()).map(grp => {
+  // ─── طبّق الـ manifest filter على مستوى الـ invoice:
+  //     لو أي row من الـ invoice موجود في manifest → اشيل الـ invoice كلها
+  const filteredGroups = Array.from(groupMap.values()).filter(grp => {
+    if (manifestOrderIdsSet.size === 0) return true;
+    // لو كل الـ rows في الـ invoice في manifest → اشيل الـ invoice
+    const allInManifest = grp.every(o => manifestOrderIdsSet.has(o.id));
+    return !allInManifest;
+  });
+
+  const grouped = filteredGroups.map(grp => {
     if (grp.length === 1) {
       const rep = { ...grp[0] } as any;
       rep._invoiceOrders = [grp[0]];
