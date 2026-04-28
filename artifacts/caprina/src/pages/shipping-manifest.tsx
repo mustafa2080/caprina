@@ -389,16 +389,33 @@ function InvoiceGroupDeliveryRow({
           {/* Products */}
           <div className="min-w-0 pr-2">
             {isMulti ? (
-              <button
-                className="text-right w-full"
-                onClick={() => setExpanded(!expanded)}
-              >
-                <p className="text-primary text-[10px] font-bold flex items-center gap-1">
-                  {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                  {group.length} منتجات
-                </p>
-                <p className="text-muted-foreground text-[10px] truncate">{productsText}</p>
-              </button>
+              <div className="space-y-1">
+                <button
+                  type="button"
+                  className="text-right w-full"
+                  onClick={() => setExpanded(!expanded)}
+                >
+                  <p className="text-primary text-[10px] font-bold flex items-center gap-1">
+                    {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                    {group.length} منتجات داخل الطلب
+                  </p>
+                </button>
+                <div className="space-y-1">
+                  {group.map((order) => {
+                    const variant = [order.color, order.size].filter(Boolean).join(" / ");
+                    return (
+                      <div key={order.id} className="rounded-md border border-border/40 bg-muted/10 px-2 py-1">
+                        <p className="text-[11px] font-semibold leading-4">{order.product}</p>
+                        <div className="flex items-center gap-2 flex-wrap text-[10px] text-muted-foreground mt-0.5">
+                          {variant && <span>{variant}</span>}
+                          <span>×{order.quantity}</span>
+                          <span className="font-bold text-primary">{formatCurrency(order.totalPrice)}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             ) : (
               <>
                 <p className="truncate">{rep.product}</p>
