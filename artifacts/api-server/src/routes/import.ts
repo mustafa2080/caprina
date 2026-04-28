@@ -124,6 +124,30 @@ router.post("/orders/import/execute", async (req, res): Promise<void> => {
   const validOrders: any[] = [];
   const errors: string[] = [];
 
+  // ── Helper: generate invoice number (same as orders route) ────────────────
+  function generateInvoiceNumber(): string {
+    const now = new Date();
+    const yy = String(now.getFullYear()).slice(-2);
+    const mm = String(now.getMonth() + 1).padStart(2, "0");
+    const dd = String(now.getDate()).padStart(2, "0");
+    const rand = Math.floor(1000 + Math.random() * 9000);
+    return `INV-${yy}${mm}${dd}-${rand}`;
+  }
+
+  // ── Map: "customerName|phone" → invoiceNumber (group same customer rows) ──
+  // Consecutive rows with the same customer share one invoice.
+  // A new invoice is created when the customer changes.
+  const customerInvoiceMap = new Map<string, string>();
+  let lastCustomerKey = "";
+
+  const AD_SOURCE_MAP: Record<string, string> = {
+    "فيسبوك": "facebook", "facebook": "facebook",
+    "تيكتوك": "tiktok", "tiktok": "tiktok",
+    "انستجرام": "instagram", "instagram": "instagram",
+    "واتساب": "whatsapp", "whatsapp": "whatsapp",
+    "عضوي": "organic", "organic": "organic",
+  };
+
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     const rowNum = i + 2;
@@ -159,17 +183,18 @@ router.post("/orders/import/execute", async (req, res): Promise<void> => {
     const warehouseId = rawWarehouseId ? parseInt(rawWarehouseId) || null : null;
     const assignedUserId = rawAssignedUserId ? parseInt(rawAssignedUserId) || null : null;
 
-    // Normalize adSource to known values
-    const AD_SOURCE_MAP: Record<string, string> = {
-      "فيسبوك": "facebook", "facebook": "facebook",
-      "تيكتوك": "tiktok", "tiktok": "tiktok",
-      "انستجرام": "instagram", "instagram": "instagram",
-      "واتساب": "whatsapp", "whatsapp": "whatsapp",
-      "عضوي": "organic", "organic": "organic",
-    };
     const adSource = adSourceRaw
       ? (AD_SOURCE_MAP[adSourceRaw.toLowerCase()] ?? AD_SOURCE_MAP[adSourceRaw] ?? "other")
       : null;
+
+    // ── Invoice grouping: same customer consecutively → same invoice ──────
+    const customerKey = `${customerName.trim().toLowerCase()}|${(phone ?? "").trim()}`;
+    if (customerKey !== lastCustomerKey || !customerInvoiceMap.has(customerKey)) {
+      // New customer or customer changed — create a new invoice number
+      customerInvoiceMap.set(customerKey, generateInvoiceNumber());
+      lastCustomerKey = customerKey;
+    }
+    const invoiceNumber = customerInvoiceMap.get(customerKey)!;
 
     validOrders.push({
       customerName,
@@ -187,7 +212,10 @@ router.post("/orders/import/execute", async (req, res): Promise<void> => {
       warehouseId,
       assignedUserId,
       shippingCost: shippingCost || 0,
+      invoiceNumber,
       status: "pending" as const,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
   }
 

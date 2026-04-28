@@ -1129,6 +1129,7 @@ function AddOrdersToManifestDialog({
   onAdded: () => void;
 }) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
@@ -1149,6 +1150,7 @@ function AddOrdersToManifestDialog({
   const addMutation = useMutation({
     mutationFn: () => manifestsApi.addOrders(manifestId, Array.from(selectedIds)),
     onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ["orders-in-manifest-ids"] });
       toast({ title: `✅ تمت الإضافة`, description: `تم إضافة ${res.added} طلبية للبيان ${res.manifestNumber}` });
       onAdded();
       onClose();

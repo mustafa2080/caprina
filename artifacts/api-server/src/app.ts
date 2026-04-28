@@ -167,4 +167,28 @@ async function ensureAppSettingsTable() {
 }
 ensureAppSettingsTable();
 
+// ─── Ensure invoice_number column exists in orders (safe migration) ───────────
+async function ensureOrdersInvoiceNumber() {
+  try {
+    // MySQL 8+: ADD COLUMN IF NOT EXISTS
+    await db.execute(sql`
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS invoice_number VARCHAR(50) NULL
+    `);
+    logger.info("orders.invoice_number column ensured");
+  } catch (err: any) {
+    // Older MySQL / already exists — ignore duplicate column errors
+    if (err?.message && !err.message.includes("Duplicate column")) {
+      logger.error({ err }, "Failed to ensure invoice_number column");
+    }
+  }
+  try {
+    await db.execute(sql`
+      ALTER TABLE orders ADD INDEX idx_orders_invoice_number (invoice_number)
+    `);
+  } catch {
+    // Index may already exist — ignore
+  }
+}
+ensureOrdersInvoiceNumber();
+
 export default app;
