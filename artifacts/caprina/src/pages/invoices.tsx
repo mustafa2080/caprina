@@ -1,7 +1,7 @@
 import { useListOrders } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
 import { shippingApi, ordersApi } from "@/lib/api";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { format } from "date-fns";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,17 +31,30 @@ const statusClasses: Record<string, string> = {
 const formatCurrency = (n: number) =>
   new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 2 }).format(n);
 
+type InvoiceListStatus = "all" | "in_shipping" | "received" | "delayed" | "returned" | "partial_received";
+
 export default function Invoices() {
   const { brand } = useBrand();
   const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
-  const preselectedId = params.get("orderId") ? Number(params.get("orderId")) : null;
+  const preselectedInvoiceNumber = params.get("invoiceNumber");
 
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(preselectedId ? new Set([preselectedId]) : new Set());
-  const [statusFilter, setStatusFilter] = useState("in_shipping");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(
+    preselectedInvoiceNumber
+      ? new Set([preselectedInvoiceNumber])
+      : new Set()
+  );
+  const [statusFilter, setStatusFilter] = useState<InvoiceListStatus>(preselectedInvoiceNumber ? "all" : "in_shipping");
   const [perPage, setPerPage] = useState<number>(4);
 
-  const { data: allOrders, isLoading } = useListOrders({ status: statusFilter !== "all" ? statusFilter : undefined });
+  const { data: allOrders, isLoading } = useListOrders({
+    status: statusFilter !== "all" ? statusFilter : undefined,
+  });
   const { data: shippingCompanies } = useQuery({ queryKey: ["shipping"], queryFn: shippingApi.list });
+  const { data: directInvoiceOrders, isLoading: isDirectInvoiceLoading } = useQuery({
+    queryKey: ["invoice-direct-print", preselectedInvoiceNumber],
+    queryFn: () => ordersApi.byInvoice(preselectedInvoiceNumber!),
+    enabled: !!preselectedInvoiceNumber,
+  });
   const { data: manifestData } = useQuery({
     queryKey: ["in-manifest-ids"],
     queryFn: ordersApi.inManifestIds,
@@ -50,7 +63,6 @@ export default function Invoices() {
   const rawOrders = useMemo(() => {
     if (!allOrders) return [];
     if (!manifestData) return allOrders;
-    // استخدم _groupIds لو موجودة، وإلا استخدم id العادي
     const manifestSet = new Set(manifestData.ids);
     return allOrders.filter(o => {
       const ids: number[] = (o as any)._groupIds ?? [o.id];
@@ -72,19 +84,38 @@ export default function Invoices() {
   };
 
   const invoiceGroups = useMemo<InvoiceGroup[]>(() => {
-    // الـ API يرجع record واحد per invoice مع _invoiceOrders فيه كل المنتجات الحقيقية
-    // نستخدم _invoiceOrders لو موجودة عشان نعرض كل المنتجات في الكارد والطباعة
     const map = new Map<string, { rep: (typeof rawOrders)[0]; orders: typeof rawOrders }>();
     for (const o of rawOrders) {
-      const key = o.invoiceNumber ?? `solo-${o.id}`;
+      const key = (o as any).invoiceNumber ?? `solo-${o.id}`;
       if (!map.has(key)) {
+        // ─── نبني orders من _invoiceOrders لو موجودة (كل منتجات الفاتورة)
         const invoiceOrders: any[] | undefined = (o as any)._invoiceOrders;
         const realOrders = (invoiceOrders && invoiceOrders.length > 0)
           ? (invoiceOrders as typeof rawOrders)
           : [o];
         map.set(key, { rep: o, orders: realOrders });
+      } else {
+        // ─── لو الـ key موجود بالفعل، دمج الـ orders بدل ما نتجاهلها
+        // ده بيحصل لو _invoiceOrders مجاش كاملة من الأول
+        const existing = map.get(key)!;
+        const alreadyHasId = existing.orders.some((x: any) => x.id === o.id);
+        if (!alreadyHasId) {
+          existing.orders = [...existing.orders, o];
+        }
       }
     }
+
+    if (
+      preselectedInvoiceNumber &&
+      directInvoiceOrders?.length &&
+      !map.has(preselectedInvoiceNumber)
+    ) {
+      map.set(preselectedInvoiceNumber, {
+        rep: directInvoiceOrders[0] as (typeof rawOrders)[0],
+        orders: directInvoiceOrders as typeof rawOrders,
+      });
+    }
+
     return Array.from(map.entries()).map(([invoiceNumber, { rep, orders }]) => ({
       invoiceNumber,
       representativeId: rep.id,
@@ -96,44 +127,95 @@ export default function Invoices() {
       phone: rep.phone ?? null,
       city: (rep as any).city ?? null,
     }));
-  }, [rawOrders]);
+  }, [rawOrders, directInvoiceOrders, preselectedInvoiceNumber]);
+
+  // ─── Pre-fetch real orders for ALL invoices on load ───────────────────────
+  // هنجيب كل المنتجات الحقيقية لكل فاتورة مرة واحدة عند تحميل الصفحة
+  // ده بيضمن إن كل الفواتير عندها كل منتجاتها حتى لو _invoiceOrders مجتش
+  const [realOrdersCache, setRealOrdersCache] = useState<Map<string, any[]>>(new Map());
+  const fetchedRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!invoiceGroups.length) return;
+
+    const toFetch = invoiceGroups.filter(grp =>
+      grp.invoiceNumber &&
+      !grp.invoiceNumber.startsWith("solo-") &&
+      !fetchedRef.current.has(grp.invoiceNumber)
+    );
+
+    if (!toFetch.length) return;
+
+    toFetch.forEach(grp => fetchedRef.current.add(grp.invoiceNumber));
+
+    Promise.all(
+      toFetch.map(async grp => {
+        try {
+          const orders = await ordersApi.byInvoice(grp.invoiceNumber);
+          if (orders && orders.length > 0) {
+            return { key: grp.invoiceNumber, orders };
+          }
+        } catch {}
+        // fallback: استخدم _invoiceOrders اللي جاتنا من الـ list
+        return { key: grp.invoiceNumber, orders: grp.orders };
+      })
+    ).then(results => {
+      setRealOrdersCache(prev => {
+        const next = new Map(prev);
+        results.forEach(r => next.set(r.key, r.orders));
+        return next;
+      });
+    });
+  }, [invoiceGroups]);
 
   const toggleSelect = (invoiceNumber: string) => {
     setSelectedIds(prev => {
-      const next = new Set(prev as unknown as Set<string>);
+      const next = new Set(prev);
       if (next.has(invoiceNumber)) next.delete(invoiceNumber);
       else next.add(invoiceNumber);
-      return next as unknown as Set<number>;
+      return next;
     });
   };
 
-  const isSelected = (invoiceNumber: string) => (selectedIds as unknown as Set<string>).has(invoiceNumber);
+  const isSelected = (invoiceNumber: string) => selectedIds.has(invoiceNumber);
 
-  const selectAll = () => { setSelectedIds(new Set(invoiceGroups.map(g => g.invoiceNumber)) as unknown as Set<number>); };
+  const selectAll = () => { setSelectedIds(new Set(invoiceGroups.map(g => g.invoiceNumber))); };
   const clearAll  = () => setSelectedIds(new Set());
 
-  const handlePrint = async () => {
-    const selectedInvNums = selectedIds as unknown as Set<string>;
-    const selected = invoiceGroups.filter(g => selectedInvNums.has(g.invoiceNumber));
+  const handlePrint = async (invoiceNumbers = selectedIds) => {
+    const selected = invoiceGroups.filter(g => invoiceNumbers.has(g.invoiceNumber));
     if (!selected.length) { alert("اختر فواتير للطباعة أولاً."); return; }
 
-    // ── جيب الأوردرات الحقيقية لكل فاتورة — من _invoiceOrders اللي بيجي من الـ API
-    //    وكفالة نرجع للـ byInvoice endpoint لو مش موجودة (fallback)
+    // ── جيب الأوردرات الحقيقية — أولوية:
+    //    1. من الـ cache اللي اتحمل عند فتح الصفحة (byInvoice API)
+    //    2. طلب byInvoice مباشر لو مش في الـ cache
+    //    3. fallback: grp.orders من _invoiceOrders
     const realOrdersMap = new Map<string, any[]>();
+
     await Promise.all(
       selected.map(async (grp) => {
-        // دايماً اسأل الـ API مباشرة لو عنده invoiceNumber حقيقي
-        // عشان نضمن إن كل المنتجات بتجي من قاعدة البيانات
-        if (grp.invoiceNumber && !grp.invoiceNumber.startsWith("solo-")) {
-          try {
-            const orders = await ordersApi.byInvoice(grp.invoiceNumber);
-            if (orders && orders.length > 0) {
-              realOrdersMap.set(grp.invoiceNumber, orders);
-              return;
-            }
-          } catch {}
+        // لو موجود في الـ cache استخدمه مباشرة
+        if (realOrdersCache.has(grp.invoiceNumber)) {
+          realOrdersMap.set(grp.invoiceNumber, realOrdersCache.get(grp.invoiceNumber)!);
+          return;
         }
-        // fallback: grp.orders نفسها (متبنية من _invoiceOrders في الـ list)
+
+        // solo orders — استخدم grp.orders مباشرة
+        if (grp.invoiceNumber.startsWith("solo-")) {
+          realOrdersMap.set(grp.invoiceNumber, grp.orders);
+          return;
+        }
+
+        // طلب مباشر من السيرفر
+        try {
+          const orders = await ordersApi.byInvoice(grp.invoiceNumber);
+          if (orders && orders.length > 0) {
+            realOrdersMap.set(grp.invoiceNumber, orders);
+            return;
+          }
+        } catch {}
+
+        // fallback نهائي
         realOrdersMap.set(grp.invoiceNumber, grp.orders);
       })
     );
@@ -186,7 +268,6 @@ export default function Invoices() {
         min-height: 0; min-width: 0;
       }
 
-      /* HEADER: تاريخ | اسم البراند + رقم الأوردر | لوجو */
       .inv-hdr {
         background: #1a1a1a; color: white;
         display: grid; grid-template-columns: auto 1fr auto;
@@ -201,7 +282,6 @@ export default function Invoices() {
       .logo-txt  { font-size: 10pt; font-weight: 900; letter-spacing: 2px; line-height: 1; }
       .logo-sub  { font-size: 4.5pt; opacity: 0.6; letter-spacing: 2px; }
 
-      /* CUSTOMER: تليفون يسار | اسم يمين */
       .cust-row {
         display: flex; align-items: center; justify-content: space-between;
         padding: 1.2mm 3mm; border-bottom: 1px solid #ddd;
@@ -210,10 +290,8 @@ export default function Invoices() {
       .cust-phone { font-size: 9pt; font-weight: 700; direction: ltr; }
       .cust-name  { font-size: 11pt; font-weight: 900; }
 
-      /* BODY */
       .inv-body { padding: 1.5mm 3mm; flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 1mm; justify-content: space-between; overflow: hidden; }
 
-      /* PRODUCT TABLE — header داكن زي الصورة */
       .prod-table { width: 100%; border-collapse: collapse; flex-shrink: 1; }
       .prod-table th {
         background: #1a1a1a; color: white; border: 0.5px solid #333;
@@ -230,7 +308,6 @@ export default function Invoices() {
       }
       .prod-table .total-row td.t-label { text-align: right; }
 
-      /* INFO STRIP: رقم التتبع | شركة الشحن | المحافظة */
       .info-strip {
         display: grid; grid-template-columns: 1fr 1fr 1fr;
         border: 0.5px solid #ddd; border-radius: 1mm;
@@ -241,12 +318,10 @@ export default function Invoices() {
       .info-lbl { font-size: 5.5pt; color: #999; }
       .info-val { font-size: 7pt; font-weight: 700; min-height: 3mm; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-      /* ADDRESS */
       .addr-box { border: 0.5px solid #ddd; border-radius: 1mm; padding: 0.8mm 1.5mm; flex-shrink: 0; }
       .addr-lbl { font-size: 5.5pt; color: #999; }
       .addr-val { font-size: 7.5pt; font-weight: 700; word-break: break-word; line-height: 1.4; }
 
-      /* NOTES */
       .notes-box {
         background: #fff8e1; border: 0.5px solid #ffe082;
         border-right: 3px solid #f59e0b; border-radius: 1mm;
@@ -255,7 +330,6 @@ export default function Invoices() {
       }
       .notes-box b { color: #b45309; white-space: nowrap; font-size: 7pt; }
 
-      /* CONFIRM */
       .confirm-box {
         border: 0.8px solid #bbb; border-radius: 1mm;
         padding: 1.2mm 2mm; font-size: 6pt; color: #333; flex-shrink: 0;
@@ -264,7 +338,6 @@ export default function Invoices() {
       }
       .confirm-box .cb-lbl { font-weight: 900; color: #111; font-size: 6.5pt; white-space: nowrap; }
 
-      /* FOOTER */
       .inv-footer {
         border-top: 1.5px solid #1a1a1a; background: #1a1a1a;
         padding: 1.5mm 3mm; flex-shrink: 0;
@@ -277,7 +350,7 @@ export default function Invoices() {
     `;
 
     const invoiceHTML = (grp: InvoiceGroup) => {
-      // استخدم الأوردرات الحقيقية من الـ API (كل منتج بسعره الصح)
+      // ─── استخدم الأوردرات من realOrdersMap (تم تحميلها مسبقاً أو الآن)
       const realOrders = realOrdersMap.get(grp.invoiceNumber) ?? grp.orders;
       const rep            = realOrders[0];
       const company        = shippingCompanies?.find(c => c.id === rep.shippingCompanyId);
@@ -292,8 +365,7 @@ export default function Invoices() {
       const orderNum       = String(rep.id).padStart(4, "0");
       const city           = (rep as any).city ?? "";
 
-      // ── Build product rows: كل أوردر من DB = صف مستقل بسعره الصح
-      //    بنجمع بس لو نفس المنتج + نفس اللون + نفس المقاس + نفس السعر
+      // ── Build product rows: كل أوردر = صف، نـ merge اللي نفس المنتج+لون+مقاس+سعر
       type FlatRow = { product: string; color: string; size: string; quantity: number; partialQuantity: number | null; unitPrice: number; totalPrice: number; };
 
       const mergedMap = new Map<string, FlatRow>();
@@ -318,11 +390,7 @@ export default function Invoices() {
         }
       }
 
-      // ── ضبط الـ font-size ديناميكياً حسب عدد المنتجات عشان يتسعوا كلهم
       const rowCount = mergedMap.size;
-      // لو 4 فواتير في الصفحة (perPage=4): مساحة ~95mm × ~95mm لكل فاتورة
-      // لو 2: مساحة ~140mm × ~200mm
-      // الجدول: كل صف تقريباً 5.5mm → maxRows بدون scale
       const maxRowsNoScale = perPage === 4 ? 4 : perPage === 2 ? 8 : 15;
       const scaleFactor = rowCount <= maxRowsNoScale
         ? 1
@@ -348,8 +416,6 @@ export default function Invoices() {
 
       return `
         <div class="inv">
-
-          <!-- HEADER: تاريخ | براند + رقم | لوجو -->
           <div class="inv-hdr">
             <div class="hdr-date">${dateStr}</div>
             <div class="hdr-mid">
@@ -365,16 +431,12 @@ export default function Invoices() {
             </div>
           </div>
 
-          <!-- CUSTOMER: تليفون يسار | اسم يمين -->
           <div class="cust-row">
             <div class="cust-phone">&#128222; ${grp.phone ?? "&#8212;"}</div>
             <div class="cust-name">${grp.customerName}</div>
           </div>
 
-          <!-- BODY -->
           <div class="inv-body">
-
-            <!-- جدول المنتجات بهيدر داكن -->
             <table class="prod-table" style="font-size:${tblFontSize}pt">
               <thead>
                 <tr>
@@ -400,7 +462,6 @@ export default function Invoices() {
               </tbody>
             </table>
 
-            <!-- INFO: المحافظة | شركة الشحن | رقم التتبع -->
             <div class="info-strip">
               <div class="info-cell">
                 <span class="info-lbl">المحافظة</span>
@@ -416,32 +477,26 @@ export default function Invoices() {
               </div>
             </div>
 
-            <!-- العنوان -->
             <div class="addr-box">
               <div class="addr-lbl">العنوان بالتفصيل</div>
               <div class="addr-val">${address || "&#8212;"}</div>
             </div>
 
-            <!-- الملاحظات — تظهر دايماً -->
             <div class="notes-box">
               <b>&#128203; ملاحظات:</b>
               <span>${notes || "&#8212;"}</span>
             </div>
 
-            <!-- التاكيد على الشحن -->
             <div class="confirm-box">
               <span class="cb-lbl">&#10003; التاكيد علي الشحن:</span>
               <span>تم التاكيد مع العميل &#8212; في حاله عدم الاستلام بيتم دفع مصاريف الشحن كامله المتفق عليها</span>
             </div>
-
           </div>
 
-          <!-- FOOTER -->
           <div class="inv-footer">
             <div class="policy-txt">الاسترجاع فقط اثناء تواجد المندوب &middot; الاستبدال خلال 7 أيام &middot; ضمان 6 أشهر &middot; احتفظ بالفاتورة</div>
             <div class="footer-brand">${brandName}</div>
           </div>
-
         </div>
       `;
     };
@@ -470,6 +525,18 @@ export default function Invoices() {
     };
   };
 
+  const autoPrintTriggeredRef = useRef(false);
+  useEffect(() => {
+    if (!preselectedInvoiceNumber || autoPrintTriggeredRef.current) return;
+    if (isLoading || isDirectInvoiceLoading || !invoiceGroups.length) return;
+    if (!invoiceGroups.some(g => g.invoiceNumber === preselectedInvoiceNumber)) return;
+
+    const nextSelectedIds = new Set([preselectedInvoiceNumber]);
+    setSelectedIds(nextSelectedIds);
+    autoPrintTriggeredRef.current = true;
+    void handlePrint(nextSelectedIds);
+  }, [preselectedInvoiceNumber, isLoading, isDirectInvoiceLoading, invoiceGroups]);
+
   return (
     <div className="space-y-5 animate-in fade-in duration-500" dir="rtl">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -490,21 +557,22 @@ export default function Invoices() {
             </SelectContent>
           </Select>
         </div>
-        <Button onClick={handlePrint} className="gap-2 font-bold text-sm" disabled={selectedIds.size === 0}>
+        <Button onClick={() => void handlePrint()} className="gap-2 font-bold text-sm" disabled={selectedIds.size === 0}>
           <Printer className="w-4 h-4" />
           طباعة ({selectedIds.size})
         </Button>
       </div>
 
       <div className="flex items-center gap-3 flex-wrap">
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-44 h-9 text-sm bg-card border-border">
-            <SelectValue placeholder="تصفية بالحالة" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="in_shipping">قيد الشحن</SelectItem>
-            <SelectItem value="received">استلم</SelectItem>
-            <SelectItem value="delayed">مؤجل</SelectItem>
+          <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as InvoiceListStatus)}>
+            <SelectTrigger className="w-44 h-9 text-sm bg-card border-border">
+              <SelectValue placeholder="تصفية بالحالة" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">كل الحالات</SelectItem>
+              <SelectItem value="in_shipping">قيد الشحن</SelectItem>
+              <SelectItem value="received">استلم</SelectItem>
+              <SelectItem value="delayed">مؤجل</SelectItem>
             <SelectItem value="returned">مرتجع</SelectItem>
             <SelectItem value="partial_received">استلم جزئي</SelectItem>
           </SelectContent>
@@ -536,7 +604,9 @@ export default function Invoices() {
           {invoiceGroups.map((grp) => {
             const sel = isSelected(grp.invoiceNumber);
             const company = shippingCompanies?.find(c => c.id === grp.orders[0].shippingCompanyId);
-            const isGroup = grp.orders.length > 1;
+            // ─── استخدم الأوردرات من الـ cache لو موجودة، وإلا grp.orders
+            const displayOrders = realOrdersCache.get(grp.invoiceNumber) ?? grp.orders;
+            const isGroup = displayOrders.length > 1;
             return (
               <Card
                 key={grp.invoiceNumber}
@@ -557,7 +627,7 @@ export default function Invoices() {
                       <div className="flex items-center gap-1.5">
                         <p className="text-[10px] text-muted-foreground font-mono">#{grp.representativeId.toString().padStart(4,"0")}</p>
                         {isGroup && (
-                          <span className="text-[9px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">{grp.orders.length} منتجات</span>
+                          <span className="text-[9px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">{displayOrders.length} منتجات</span>
                         )}
                       </div>
                     </div>
@@ -570,7 +640,7 @@ export default function Invoices() {
                 <div className="mt-3 space-y-1 text-xs text-muted-foreground">
                   {isGroup ? (
                     <div className="space-y-0.5">
-                      {grp.orders.map(o => (
+                      {displayOrders.map((o: any) => (
                         <div key={o.id} className="flex justify-between">
                           <span className="font-medium text-foreground truncate">{o.product} ×{o.quantity}</span>
                           <span className="font-bold text-primary shrink-0 mr-1">{formatCurrency(o.totalPrice)}</span>
@@ -578,13 +648,13 @@ export default function Invoices() {
                       ))}
                       <div className="flex justify-between border-t border-border pt-1 mt-1">
                         <span className="font-bold text-foreground">الإجمالي</span>
-                        <span className="font-bold text-primary">{formatCurrency(grp.totalPrice)}</span>
+                        <span className="font-bold text-primary">{formatCurrency(displayOrders.reduce((s: number, o: any) => s + o.totalPrice, 0))}</span>
                       </div>
                     </div>
                   ) : (
                     <div className="flex justify-between">
-                      <span className="font-medium text-foreground">{grp.orders[0].product} ×{grp.orders[0].quantity}</span>
-                      <span className="font-bold text-primary">{formatCurrency(grp.totalPrice)}</span>
+                      <span className="font-medium text-foreground">{displayOrders[0].product} ×{displayOrders[0].quantity}</span>
+                      <span className="font-bold text-primary">{formatCurrency(displayOrders[0].totalPrice)}</span>
                     </div>
                   )}
                   <div className="flex gap-3">
