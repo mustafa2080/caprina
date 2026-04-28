@@ -15,9 +15,11 @@ import {
 } from "@workspace/api-zod";
 import { processDelivery, reverseDelivery, processReturn, processToShipping, reverseShipping } from "../lib/inventory.js";
 import { logAudit, diffObjects } from "../lib/audit.js";
+import { requireAuth } from "../middlewares/requireAuth.js";
 import { isAdmin } from "../middlewares/requireRole.js";
 
-
+const router: IRouter = Router();
+router.use(requireAuth);
 
 const LOCKED_STATUSES = ["received", "partial_received"] as const;
 
