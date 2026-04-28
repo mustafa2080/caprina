@@ -1,55 +1,68 @@
-# See https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
+# ─── Dependencies ─────────────────────────────────────────────────────────────
+node_modules/
+.pnpm-store/
 
-# compiled output
-dist
-tmp
-out-tsc
+# ─── Build outputs (لا ترفع على GitHub — بتتبنى على السيرفر) ─────────────────
+dist/
+build/
+out/
+tmp/
 *.tsbuildinfo
-.expo
-.expo-shared
 
-# dependencies
-node_modules
+# ─── Artifacts dist & node_modules (لكل المشاريع الفرعية) ────────────────────
+artifacts/*/dist/
+artifacts/*/node_modules/
+artifacts/*/.replit-artifact/
 
-# IDEs and editors
-/.idea
-.project
-.classpath
-.c9/
-*.launch
-.settings/
-*.sublime-workspace
+# ─── Lib dist & node_modules ─────────────────────────────────────────────────
+lib/*/dist/
+lib/*/node_modules/
+lib/*.tsbuildinfo
 
-# IDE - VSCode
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
+# ─── Scripts node_modules ────────────────────────────────────────────────────
+scripts/node_modules/
 
-# misc
-/.sass-cache
-/connect.lock
-/coverage
-/libpeerconnection.log
-npm-debug.log
-yarn-error.log
-testem.log
-/typings
+# ─── Mockup sandbox (مش محتاجه على السيرفر) ─────────────────────────────────
+artifacts/mockup-sandbox/
 
-# System Files
-.DS_Store
-Thumbs.db
-
-.cursor/rules/nx-rules.mdc
-.github/instructions/nx.instructions.md
-
-# Replit
-.cache/
-.local/
-.config/
-
-# Environment secrets — never commit
+# ─── Environment secrets (لا ترفع أبداً) ─────────────────────────────────────
 .env
 .env.*
 !.env.example
+
+# ─── Replit / IDE specific ────────────────────────────────────────────────────
+.replit
+.replitignore
+.cache/
+.local/
+.config/
+.agents/
+replit.md
+
+# ─── Temp & debug files ───────────────────────────────────────────────────────
+check.js
+inject_component.js
+excel_component_part1.ts
+fix_css.ps1
+fix_invoice.py
+caprina-project.tar.gz
+
+# ─── OS files ────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ─── IDE ─────────────────────────────────────────────────────────────────────
+.vscode/*
+!.vscode/settings.json
+.idea/
+*.sublime-workspace
+
+# ─── Logs ────────────────────────────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-error.log*
+pino.log*
+
+# ─── Vite cache ──────────────────────────────────────────────────────────────
+artifacts/caprina/node_modules/.vite/
+artifacts/caprina/node_modules/.vite-temp/

@@ -5,7 +5,7 @@
 //   • Navigation (HTML)     → Network First → fallback to cache
 //   • API calls (/api/*)    → Network Only (never cache)
 
-const CACHE_VERSION = "caprina-v6";
+const CACHE_VERSION = "caprina-v7";
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const NAV_CACHE     = `${CACHE_VERSION}-nav`;
 const ALL_CACHES    = [STATIC_CACHE, NAV_CACHE];
