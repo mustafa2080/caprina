@@ -264,43 +264,23 @@ export default function Invoices() {
       const orderNum       = String(rep.id).padStart(4, "0");
       const city           = (rep as any).city ?? "";
 
-      // ── Expand orders: split compound product names (e.g. "A، B×2") into
-      //    individual flat rows, then merge identical product+color+size rows.
+      // ── Build product rows:
+      //    1. Each DB order row = one table row (prices are always correct from DB)
+      //    2. Merge only truly identical rows (same product + color + size + unitPrice)
+      //    3. Never split compound names — they carry one totalPrice from DB
       type FlatRow = { product: string; color: string; size: string; quantity: number; partialQuantity: number | null; unitPrice: number; totalPrice: number; };
 
-      const flatRows: FlatRow[] = [];
-      for (const o of grp.orders) {
-        const color = (o as any).color ?? "";
-        const size  = (o as any).size  ?? "";
-        const partialQuantity = (o as any).partialQuantity ?? null;
+      const flatRows: FlatRow[] = grp.orders.map(o => ({
+        product:          o.product.trim(),
+        color:            (o as any).color ?? "",
+        size:             (o as any).size  ?? "",
+        quantity:         o.quantity,
+        partialQuantity:  (o as any).partialQuantity ?? null,
+        unitPrice:        o.unitPrice,
+        totalPrice:       o.totalPrice,
+      }));
 
-        // Detect compound names like "CORE1×1، حزام مارينز×2"
-        // Split on Arabic comma ، or regular comma followed by space
-        const segments = o.product.split(/،\s*|,\s+/);
-
-        if (segments.length > 1) {
-          // Each segment may carry its own qty: "CORE1×1" or "حزام مارينز×2"
-          let remainingTotal = o.totalPrice;
-          const parsedSegments = segments.map(seg => {
-            // Try to parse quantity suffix like "×2" or "x2" or "*2"
-            const qtyMatch = seg.match(/[×x\*](\d+)\s*$/i);
-            const qty = qtyMatch ? parseInt(qtyMatch[1], 10) : 1;
-            const name = seg.replace(/\s*[×x\*]\d+\s*$/, "").trim();
-            return { name, qty };
-          });
-          const totalSegQty = parsedSegments.reduce((s, sg) => s + sg.qty, 0);
-          parsedSegments.forEach(sg => {
-            const proportion = totalSegQty > 0 ? sg.qty / totalSegQty : 1 / parsedSegments.length;
-            const segTotal = parseFloat((o.totalPrice * proportion).toFixed(2));
-            const segUnit  = sg.qty > 0 ? parseFloat((segTotal / sg.qty).toFixed(2)) : o.unitPrice;
-            flatRows.push({ product: sg.name, color, size, quantity: sg.qty, partialQuantity: null, unitPrice: segUnit, totalPrice: segTotal });
-          });
-        } else {
-          flatRows.push({ product: o.product.trim(), color, size, quantity: o.quantity, partialQuantity, unitPrice: o.unitPrice, totalPrice: o.totalPrice });
-        }
-      }
-
-      // Merge identical product+color+size+unitPrice rows
+      // Merge only identical rows (same product + color + size + unitPrice)
       const mergedMap = new Map<string, FlatRow>();
       for (const r of flatRows) {
         const key = `${r.product}|||${r.color}|||${r.size}|||${r.unitPrice}`;
@@ -316,13 +296,15 @@ export default function Invoices() {
 
       const productRows = Array.from(mergedMap.values()).map(r => {
         const displayQty = r.partialQuantity != null ? `${r.partialQuantity} / ${r.quantity}` : `${r.quantity}`;
+        // For rows where unitPrice doesn't make sense (compound legacy orders), hide unit price
+        const showUnit = r.quantity > 0 && Math.abs(r.unitPrice * r.quantity - r.totalPrice) < 0.1;
         return `
           <tr>
             <td class="name-col">${r.product}</td>
             <td>${r.size || "&#8212;"}</td>
             <td>${r.color || "&#8212;"}</td>
             <td style="font-weight:900">${displayQty}</td>
-            <td>${formatCurrency(r.unitPrice)}</td>
+            <td>${showUnit ? formatCurrency(r.unitPrice) : "&#8212;"}</td>
             <td style="font-weight:900">${formatCurrency(r.totalPrice)}</td>
           </tr>`;
       }).join("");
