@@ -114,21 +114,29 @@ export default function Invoices() {
     const selected = invoiceGroups.filter(g => selectedInvNums.has(g.invoiceNumber));
     if (!selected.length) { alert("اختر فواتير للطباعة أولاً."); return; }
 
-    // ── جيب الأوردرات الحقيقية لكل فاتورة من الـ API عشان الأسعار تكون صح
+    // ── جيب الأوردرات الحقيقية لكل فاتورة — من _invoiceOrders اللي بيجي من الـ API
+    //    وكفالة نرجع للـ byInvoice endpoint لو مش موجودة (fallback)
     const realOrdersMap = new Map<string, any[]>();
     await Promise.all(
       selected.map(async (grp) => {
-        // لو الأوردر solo (مش compound) استخدم البيانات الموجودة مباشرة
-        if (!grp.invoiceNumber.startsWith("solo-") && grp.invoiceNumber) {
+        // أولاً: جرب _invoiceOrders اللي بيبعتها الـ API مع كل record
+        const fromApi: any[] | undefined = (grp.orders[0] as any)._invoiceOrders;
+        if (fromApi && fromApi.length > 0) {
+          realOrdersMap.set(grp.invoiceNumber, fromApi);
+          return;
+        }
+        // ثانياً: لو عنده invoiceNumber حقيقي اسأل الـ API مباشرة
+        if (grp.invoiceNumber && !grp.invoiceNumber.startsWith("solo-")) {
           try {
             const orders = await ordersApi.byInvoice(grp.invoiceNumber);
-            realOrdersMap.set(grp.invoiceNumber, orders);
-          } catch {
-            realOrdersMap.set(grp.invoiceNumber, grp.orders);
-          }
-        } else {
-          realOrdersMap.set(grp.invoiceNumber, grp.orders);
+            if (orders && orders.length > 0) {
+              realOrdersMap.set(grp.invoiceNumber, orders);
+              return;
+            }
+          } catch {}
         }
+        // fallback: استخدم الـ grp.orders زي ما هي
+        realOrdersMap.set(grp.invoiceNumber, grp.orders);
       })
     );
 

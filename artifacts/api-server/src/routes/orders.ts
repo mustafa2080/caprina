@@ -132,7 +132,11 @@ router.get("/orders", async (req, res): Promise<void> => {
   }
 
   const grouped = Array.from(groupMap.values()).map(grp => {
-    if (grp.length === 1) return grp[0];
+    if (grp.length === 1) {
+      // أوردر واحد — ضيف _invoiceOrders عشان الفاتورة تقدر تقرأه بنفس الطريقة
+      (grp[0] as any)._invoiceOrders = [grp[0]];
+      return grp[0];
+    }
     const rep = { ...grp[0] };
     rep.totalPrice = grp.reduce((s, o) => s + o.totalPrice, 0);
     rep.quantity   = grp.reduce((s, o) => s + o.quantity,   0);
@@ -140,6 +144,8 @@ router.get("/orders", async (req, res): Promise<void> => {
     (rep as any)._groupIds      = grp.map(o => o.id);
     (rep as any)._groupCount    = grp.length;
     (rep as any)._groupStatuses = grp.map(o => o.status);
+    // ← الأوردرات الحقيقية بأسعارها الصح — الفاتورة بتستخدم دي مباشرة
+    (rep as any)._invoiceOrders = grp;
     return rep;
   });
 
