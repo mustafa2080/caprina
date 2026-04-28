@@ -1000,19 +1000,47 @@ router.get("/analytics/charts", async (_req, res): Promise<void> => {
     .from(ordersTable)
     .where(isNull(ordersTable.deletedAt));
 
-  // 1. Status breakdown
-  const statusCounts: Record<string, number> = {};
+  // Group by invoiceNumber — multi-product invoices count as ONE order
+  type InvoiceGroup = {
+    invoiceKey: string;
+    status: string;
+    createdAt: Date;
+    adSource: string | null;
+    revenue: number;
+  };
+
+  const invoiceMap = new Map<string, InvoiceGroup>();
   for (const o of allOrders) {
-    statusCounts[o.status] = (statusCounts[o.status] ?? 0) + 1;
+    const key = o.invoiceNumber ?? `solo-${o.id}`;
+    if (!invoiceMap.has(key)) {
+      invoiceMap.set(key, {
+        invoiceKey: key,
+        status: o.status,
+        createdAt: o.createdAt,
+        adSource: o.adSource ?? null,
+        revenue: 0,
+      });
+    }
+    const grp = invoiceMap.get(key)!;
+    if (o.status === "received" || o.status === "partial_received") {
+      const qty = o.status === "partial_received" ? (o.partialQuantity ?? o.quantity) : o.quantity;
+      grp.revenue += qty * o.unitPrice;
+    }
   }
-  const total = allOrders.length;
+
+  const invoices = Array.from(invoiceMap.values());
+  const total = invoices.length;
+
+  const statusCounts: Record<string, number> = {};
+  for (const inv of invoices) {
+    statusCounts[inv.status] = (statusCounts[inv.status] ?? 0) + 1;
+  }
   const statusBreakdown = Object.entries(statusCounts).map(([status, count]) => ({
     status,
     count,
     pct: total > 0 ? Math.round((count / total) * 100) : 0,
   }));
 
-  // 2. Weekly sales — last 7 days (today + 6 previous), counting by createdAt date
   const days: { date: string; label: string; orders: number; revenue: number }[] = [];
   const dayNames = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
   for (let i = 6; i >= 0; i--) {
@@ -1021,23 +1049,18 @@ router.get("/analytics/charts", async (_req, res): Promise<void> => {
     const dateStr = d.toISOString().split("T")[0];
     days.push({ date: dateStr, label: dayNames[d.getDay()], orders: 0, revenue: 0 });
   }
-  for (const o of allOrders) {
-    const dateStr = new Date(o.createdAt).toISOString().split("T")[0];
+  for (const inv of invoices) {
+    const dateStr = new Date(inv.createdAt).toISOString().split("T")[0];
     const day = days.find(d => d.date === dateStr);
     if (day) {
       day.orders += 1;
-      // only count revenue from completed orders
-      if (o.status === "received" || o.status === "partial_received") {
-        const qty = o.status === "partial_received" ? (o.partialQuantity ?? o.quantity) : o.quantity;
-        day.revenue += qty * o.unitPrice;
-      }
+      day.revenue += inv.revenue;
     }
   }
 
-  // 3. Ad source breakdown
   const sourceCounts: Record<string, number> = {};
-  for (const o of allOrders) {
-    const src = o.adSource ?? "other";
+  for (const inv of invoices) {
+    const src = inv.adSource ?? "other";
     sourceCounts[src] = (sourceCounts[src] ?? 0) + 1;
   }
   const adSourceBreakdown = Object.entries(sourceCounts)
@@ -1050,7 +1073,6 @@ router.get("/analytics/charts", async (_req, res): Promise<void> => {
 
   res.json({ statusBreakdown, weeklySales: days, adSourceBreakdown, total });
 });
-
 // ─── GET /api/analytics/shipping-followup ───────────────────────────────────
 // Returns in_shipping orders that have been pending for > 3 days
 router.get("/analytics/shipping-followup", async (_req, res): Promise<void> => {
