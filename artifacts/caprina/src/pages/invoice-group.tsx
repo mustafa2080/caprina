@@ -23,11 +23,13 @@ import { ordersApi, apiFetch } from "@/lib/api";
 import { STATUS_LABELS as statusLabels, STATUS_CLASSES as statusClasses } from "@/lib/order-constants";
 import { type WhatsAppOrderData } from "@/lib/whatsapp";
 import { WhatsAppDialog } from "@/components/whatsapp-dialog";
+import { useBrand } from "@/contexts/BrandContext";
 
 const formatCurrency = (n: number) =>
   new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(n);
 
 export default function InvoiceGroup() {
+  const { brand } = useBrand();
   const params = useParams<{ invoiceNumber: string }>();
   const invoiceNumber = decodeURIComponent(params.invoiceNumber ?? "");
   const [, navigate] = useLocation();
@@ -107,7 +109,107 @@ export default function InvoiceGroup() {
   // ─── Print invoice ────────────────────────────────────────────────────────
   const handlePrint = () => {
     if (!orders?.length) return;
-    window.open(`/invoices?invoiceNumber=${encodeURIComponent(invoiceNumber)}`, "_blank");
+    const rep = orders[0];
+    const totalQty = orders.reduce((sum: number, order: any) => sum + order.quantity, 0);
+    const totalPrice = orders.reduce((sum: number, order: any) => sum + order.totalPrice, 0);
+    const shippingCost = rep.shippingCost ?? 0;
+    const brandName = brand.name || "CAPRINA";
+    const dateLabel = format(new Date(rep.createdAt), "yyyy/MM/dd HH:mm");
+
+    const rowsHtml = orders.map((order: any, index: number) => `
+      <tr>
+        <td>${index + 1}</td>
+        <td class="name">${order.product}</td>
+        <td>${[order.color, order.size].filter(Boolean).join(" / ") || "-"}</td>
+        <td>${order.quantity}</td>
+        <td>${formatCurrency(order.unitPrice)}</td>
+        <td>${formatCurrency(order.totalPrice)}</td>
+      </tr>
+    `).join("");
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    printWindow.document.write(`<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <title>فاتورة ${invoiceNumber}</title>
+  <style>
+    body { font-family: Arial, Tahoma, sans-serif; margin: 0; padding: 24px; color: #111; background: #fff; }
+    .sheet { max-width: 900px; margin: 0 auto; border: 1px solid #ddd; padding: 24px; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 20px; border-bottom: 2px solid #111; padding-bottom: 16px; }
+    .brand { font-size: 28px; font-weight: 800; }
+    .muted { color: #666; font-size: 13px; }
+    .title { font-size: 24px; font-weight: 800; margin: 0 0 8px; }
+    .meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 24px; margin-bottom: 20px; }
+    .meta-item { font-size: 14px; }
+    .meta-item b { display: inline-block; min-width: 88px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
+    th, td { border: 1px solid #ddd; padding: 10px 8px; text-align: center; font-size: 14px; }
+    th { background: #111; color: #fff; }
+    td.name { text-align: right; font-weight: 700; }
+    .totals { width: 320px; margin-right: auto; }
+    .totals-row { display: flex; justify-content: space-between; border-bottom: 1px solid #ddd; padding: 8px 0; font-size: 14px; }
+    .totals-row.total { font-size: 18px; font-weight: 800; border-bottom: 2px solid #111; }
+    @media print {
+      body { padding: 0; }
+      .sheet { border: 0; max-width: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="sheet">
+    <div class="header">
+      <div>
+        <div class="brand">${brandName}</div>
+        <div class="muted">فاتورة رقم: ${invoiceNumber}</div>
+        <div class="muted">${dateLabel}</div>
+      </div>
+      <div>
+        <h1 class="title">فاتورة العميل</h1>
+        <div class="muted">${orders.length} منتجات / ${totalQty} قطعة</div>
+      </div>
+    </div>
+
+    <div class="meta">
+      <div class="meta-item"><b>العميل:</b> ${rep.customerName || "-"}</div>
+      <div class="meta-item"><b>الهاتف:</b> ${rep.phone || "-"}</div>
+      <div class="meta-item"><b>المحافظة:</b> ${rep.city || "-"}</div>
+      <div class="meta-item"><b>العنوان:</b> ${rep.address || "-"}</div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>المنتج</th>
+          <th>اللون / المقاس</th>
+          <th>الكمية</th>
+          <th>سعر الوحدة</th>
+          <th>الإجمالي</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rowsHtml}
+      </tbody>
+    </table>
+
+    <div class="totals">
+      <div class="totals-row"><span>إجمالي المنتجات</span><b>${formatCurrency(totalPrice)}</b></div>
+      <div class="totals-row"><span>الشحن</span><b>${formatCurrency(shippingCost)}</b></div>
+      <div class="totals-row total"><span>الإجمالي الكلي</span><b>${formatCurrency(totalPrice + shippingCost)}</b></div>
+    </div>
+  </div>
+</body>
+</html>`);
+    printWindow.document.close();
+    printWindow.onload = () => {
+      setTimeout(() => {
+        printWindow.focus();
+        printWindow.print();
+      }, 400);
+    };
   };
 
   // ─── WhatsApp ─────────────────────────────────────────────────────────────
