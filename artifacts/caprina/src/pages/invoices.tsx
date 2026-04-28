@@ -114,6 +114,24 @@ export default function Invoices() {
     const selected = invoiceGroups.filter(g => selectedInvNums.has(g.invoiceNumber));
     if (!selected.length) { alert("اختر فواتير للطباعة أولاً."); return; }
 
+    // ── جيب الأوردرات الحقيقية لكل فاتورة من الـ API عشان الأسعار تكون صح
+    const realOrdersMap = new Map<string, any[]>();
+    await Promise.all(
+      selected.map(async (grp) => {
+        // لو الأوردر solo (مش compound) استخدم البيانات الموجودة مباشرة
+        if (!grp.invoiceNumber.startsWith("solo-") && grp.invoiceNumber) {
+          try {
+            const orders = await ordersApi.byInvoice(grp.invoiceNumber);
+            realOrdersMap.set(grp.invoiceNumber, orders);
+          } catch {
+            realOrdersMap.set(grp.invoiceNumber, grp.orders);
+          }
+        } else {
+          realOrdersMap.set(grp.invoiceNumber, grp.orders);
+        }
+      })
+    );
+
     let logoB64 = "";
     if (brand.logoUrl) {
       try {
@@ -251,7 +269,9 @@ export default function Invoices() {
     `;
 
     const invoiceHTML = (grp: InvoiceGroup) => {
-      const rep            = grp.orders[0];
+      // استخدم الأوردرات الحقيقية من الـ API (كل منتج بسعره الصح)
+      const realOrders = realOrdersMap.get(grp.invoiceNumber) ?? grp.orders;
+      const rep            = realOrders[0];
       const company        = shippingCompanies?.find(c => c.id === rep.shippingCompanyId);
       const trackingNumber = (rep as any).trackingNumber ?? (rep as any).tracking_number ?? "";
       const notes          = (rep as any).notes ?? (rep as any).note ?? (rep as any).orderNotes ?? "";
@@ -264,52 +284,47 @@ export default function Invoices() {
       const orderNum       = String(rep.id).padStart(4, "0");
       const city           = (rep as any).city ?? "";
 
-      // ── Build product rows:
-      //    1. Each DB order row = one table row (prices are always correct from DB)
-      //    2. Merge only truly identical rows (same product + color + size + unitPrice)
-      //    3. Never split compound names — they carry one totalPrice from DB
+      // ── Build product rows: كل أوردر من DB = صف مستقل بسعره الصح
+      //    بنجمع بس لو نفس المنتج + نفس اللون + نفس المقاس + نفس السعر
       type FlatRow = { product: string; color: string; size: string; quantity: number; partialQuantity: number | null; unitPrice: number; totalPrice: number; };
 
-      const flatRows: FlatRow[] = grp.orders.map(o => ({
-        product:          o.product.trim(),
-        color:            (o as any).color ?? "",
-        size:             (o as any).size  ?? "",
-        quantity:         o.quantity,
-        partialQuantity:  (o as any).partialQuantity ?? null,
-        unitPrice:        o.unitPrice,
-        totalPrice:       o.totalPrice,
-      }));
-
-      // Merge only identical rows (same product + color + size + unitPrice)
       const mergedMap = new Map<string, FlatRow>();
-      for (const r of flatRows) {
-        const key = `${r.product}|||${r.color}|||${r.size}|||${r.unitPrice}`;
+      for (const o of realOrders) {
+        const color = (o as any).color ?? "";
+        const size  = (o as any).size  ?? "";
+        const key   = `${o.product}|||${color}|||${size}|||${o.unitPrice}`;
         if (mergedMap.has(key)) {
           const ex = mergedMap.get(key)!;
-          ex.quantity   += r.quantity;
-          ex.totalPrice  = parseFloat((ex.totalPrice + r.totalPrice).toFixed(2));
-          if (r.partialQuantity != null) ex.partialQuantity = (ex.partialQuantity ?? 0) + r.partialQuantity;
+          ex.quantity   += o.quantity;
+          ex.totalPrice  = parseFloat((ex.totalPrice + o.totalPrice).toFixed(2));
+          if ((o as any).partialQuantity != null) ex.partialQuantity = (ex.partialQuantity ?? 0) + (o as any).partialQuantity;
         } else {
-          mergedMap.set(key, { ...r });
+          mergedMap.set(key, {
+            product: o.product,
+            color, size,
+            quantity: o.quantity,
+            partialQuantity: (o as any).partialQuantity ?? null,
+            unitPrice: o.unitPrice,
+            totalPrice: o.totalPrice,
+          });
         }
       }
 
       const productRows = Array.from(mergedMap.values()).map(r => {
         const displayQty = r.partialQuantity != null ? `${r.partialQuantity} / ${r.quantity}` : `${r.quantity}`;
-        // For rows where unitPrice doesn't make sense (compound legacy orders), hide unit price
-        const showUnit = r.quantity > 0 && Math.abs(r.unitPrice * r.quantity - r.totalPrice) < 0.1;
         return `
           <tr>
             <td class="name-col">${r.product}</td>
             <td>${r.size || "&#8212;"}</td>
             <td>${r.color || "&#8212;"}</td>
             <td style="font-weight:900">${displayQty}</td>
-            <td>${showUnit ? formatCurrency(r.unitPrice) : "&#8212;"}</td>
+            <td>${formatCurrency(r.unitPrice)}</td>
             <td style="font-weight:900">${formatCurrency(r.totalPrice)}</td>
           </tr>`;
       }).join("");
 
-      const totalQty = grp.orders.reduce((s, o) => s + o.quantity, 0);
+      const totalQty   = realOrders.reduce((s: number, o: any) => s + o.quantity, 0);
+      const totalPrice = realOrders.reduce((s: number, o: any) => s + o.totalPrice, 0);
 
       return `
         <div class="inv">
@@ -360,7 +375,7 @@ export default function Invoices() {
                 <tr class="total-row">
                   <td class="t-label" colspan="3">&#9679; الإجمالي الكلي</td>
                   <td style="font-weight:900">${totalQty}</td>
-                  <td colspan="2" style="font-weight:900">${formatCurrency(grp.totalPrice + shippingCost)}</td>
+                  <td colspan="2" style="font-weight:900">${formatCurrency(totalPrice + shippingCost)}</td>
                 </tr>
               </tbody>
             </table>
