@@ -37,7 +37,7 @@ export default function Invoices() {
   const preselectedId = params.get("orderId") ? Number(params.get("orderId")) : null;
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(preselectedId ? new Set([preselectedId]) : new Set());
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("in_shipping");
   const [perPage, setPerPage] = useState<number>(4);
 
   const { data: allOrders, isLoading } = useListOrders({ status: statusFilter !== "all" ? statusFilter : undefined });
@@ -463,7 +463,7 @@ export default function Invoices() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold">الفواتير</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">اختر الطلبات واطبع فواتير على صفحة A4</p>
+          <p className="text-muted-foreground text-sm mt-0.5">تظهر فقط الطلبات قيد الشحن أو ما بعدها — الطلبات قيد الانتظار لا تظهر هنا</p>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground whitespace-nowrap">فواتير في الصفحة:</span>
@@ -490,8 +490,6 @@ export default function Invoices() {
             <SelectValue placeholder="تصفية بالحالة" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">جميع الطلبات</SelectItem>
-            <SelectItem value="pending">قيد الانتظار</SelectItem>
             <SelectItem value="in_shipping">قيد الشحن</SelectItem>
             <SelectItem value="received">استلم</SelectItem>
             <SelectItem value="delayed">مؤجل</SelectItem>
