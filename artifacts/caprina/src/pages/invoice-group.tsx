@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ordersApi, apiFetch } from "@/lib/api";
 import { STATUS_LABELS as statusLabels, STATUS_CLASSES as statusClasses } from "@/lib/order-constants";
+import { type WhatsAppOrderData } from "@/lib/whatsapp";
+import { WhatsAppDialog } from "@/components/whatsapp-dialog";
 
 const formatCurrency = (n: number) =>
   new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(n);
@@ -38,6 +40,7 @@ export default function InvoiceGroup() {
   const [isBulkDeleting, setIsBulkDeleting]             = useState(false);
   const [pendingStatus, setPendingStatus]               = useState<string | null>(null);
   const [isUpdatingStatus, setIsUpdatingStatus]         = useState(false);
+  const [waOrder, setWaOrder]                           = useState<WhatsAppOrderData | null>(null);
 
   // ─── Fetch all orders in this invoice ─────────────────────────────────────
   const { data: orders, isLoading, error } = useQuery({
@@ -105,6 +108,41 @@ export default function InvoiceGroup() {
   const handlePrint = () => {
     if (!orders?.length) return;
     window.open(`/invoices?invoiceNumber=${encodeURIComponent(invoiceNumber)}`, "_blank");
+  };
+
+  // ─── WhatsApp ─────────────────────────────────────────────────────────────
+  const handleWhatsApp = () => {
+    if (!orders?.length) return;
+    const rep = orders[0];
+    setWaOrder({
+      id: rep.id,
+      customerName: rep.customerName,
+      product: orders.map((o: any) => `${o.product}×${o.quantity}`).join("، "),
+      quantity: orders.reduce((s: number, o: any) => s + o.quantity, 0),
+      totalPrice: orders.reduce((s: number, o: any) => s + o.totalPrice, 0),
+      status: rep.status,
+      phone: rep.phone,
+    });
+  };
+
+  const handleWaSent = async (orderId: number, currentStatus: string) => {
+    if (!orders?.length) return;
+    if (currentStatus === "pending") {
+      for (const order of orders) {
+        if (order.status === "pending") {
+          await new Promise<void>((resolve) => {
+            updateOrder.mutate(
+              { id: order.id, data: { status: "in_shipping" } },
+              { onSuccess: () => resolve(), onError: () => resolve() }
+            );
+          });
+        }
+      }
+      invalidateAll();
+      toast({ title: "تم إرسال واتساب ✅", description: "تم تحويل الطلبات لـ «قيد الشحن»" });
+    } else {
+      toast({ title: "تم فتح واتساب ✅", description: "الرسالة جاهزة للإرسال" });
+    }
   };
 
   // ─── Loading / error states ───────────────────────────────────────────────
@@ -192,6 +230,16 @@ export default function InvoiceGroup() {
           <Button variant="outline" size="sm" onClick={handlePrint} className="h-8 text-xs gap-1 border-border">
             <Printer className="w-3 h-3" />فاتورة
           </Button>
+          {orders.some((o: any) => o.status === "pending" || o.status === "in_shipping" || o.status === "delayed") && (
+            <Button
+              variant="outline" size="sm"
+              onClick={handleWhatsApp}
+              className="h-8 text-xs gap-1 border-green-700 text-green-400 hover:bg-green-500/10 hover:text-green-400"
+              title="إرسال رسالة واتساب للعميل"
+            >
+              <MessageCircle className="w-3 h-3" />واتساب
+            </Button>
+          )}
           <Button
             variant="outline" size="sm"
             onClick={() => !isAnyLocked && setShowBulkDeleteDialog(true)}
@@ -312,6 +360,14 @@ export default function InvoiceGroup() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* WhatsApp dialog */}
+      <WhatsAppDialog
+        open={!!waOrder}
+        onOpenChange={(open) => { if (!open) setWaOrder(null); }}
+        order={waOrder}
+        onSent={() => waOrder && handleWaSent(waOrder.id, waOrder.status)}
+      />
     </div>
   );
 }
