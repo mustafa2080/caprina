@@ -137,8 +137,9 @@ router.get("/orders", async (req, res): Promise<void> => {
     rep.totalPrice = grp.reduce((s, o) => s + o.totalPrice, 0);
     rep.quantity   = grp.reduce((s, o) => s + o.quantity,   0);
     rep.product    = grp.map(o => `${o.product}×${o.quantity}`).join("، ");
-    (rep as any)._groupIds   = grp.map(o => o.id);
-    (rep as any)._groupCount = grp.length;
+    (rep as any)._groupIds      = grp.map(o => o.id);
+    (rep as any)._groupCount    = grp.length;
+    (rep as any)._groupStatuses = grp.map(o => o.status);
     return rep;
   });
 

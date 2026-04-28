@@ -298,11 +298,13 @@ export default function Orders() {
             {/* ── Mobile ── */}
             <div className="sm:hidden divide-y divide-border">
               {filtered.map((order) => {
-                const canWhatsApp = !bulkSelectMode && (order.status === "pending" || order.status === "in_shipping" || order.status === "delayed");
+                const isGroup = !!(order as any)._groupCount && (order as any)._groupCount > 1;
+                const waStatuses = new Set(["pending","in_shipping","delayed"]);
+                const groupStatuses: string[] = (order as any)._groupStatuses ?? [order.status];
+                const canWhatsApp = !bulkSelectMode && groupStatuses.some(s => waStatuses.has(s));
                 const retReason = (order as any).returnReason as string | null;
                 const retNote   = (order as any).returnNote   as string | null;
                 const isSelected = isGroupSelected(order);
-                const isGroup = !!(order as any)._groupCount && (order as any)._groupCount > 1;
                 const groupCount = (order as any)._groupCount as number | undefined;
                 const navTarget = isGroup && order.invoiceNumber
                   ? `/invoices/${encodeURIComponent(order.invoiceNumber)}`
@@ -385,9 +387,11 @@ export default function Orders() {
                   {filtered.map((order) => {
                     const retReason  = (order as any).returnReason as string | null;
                     const retNote    = (order as any).returnNote   as string | null;
-                    const canWhatsApp = !bulkSelectMode && (order.status === "pending" || order.status === "in_shipping" || order.status === "delayed");
-                    const isSelected  = isGroupSelected(order);
                     const isGroup = !!(order as any)._groupCount && (order as any)._groupCount > 1;
+                    const waStatuses = new Set(["pending","in_shipping","delayed"]);
+                    const groupStatuses: string[] = (order as any)._groupStatuses ?? [order.status];
+                    const canWhatsApp = !bulkSelectMode && groupStatuses.some(s => waStatuses.has(s));
+                    const isSelected  = isGroupSelected(order);
                     const groupCount = (order as any)._groupCount as number | undefined;
                     const navTarget = isGroup && order.invoiceNumber
                       ? `/invoices/${encodeURIComponent(order.invoiceNumber)}`
