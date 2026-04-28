@@ -429,11 +429,18 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
     };
 
     if (newStatus === "in_shipping" && (oldStatus === "pending" || oldStatus === "delayed")) {
-      // خصم من المخزون فوراً عند التحويل لقيد الشحن
-      await processToShipping(orderRef, order.quantity, existing.id);
+      // لا خصم من المخزون — الخصم بيحصل بس لما يتضاف للبيان
     } else if (newStatus === "received" && oldStatus === "in_shipping") {
-      await processDelivery(orderRef, order.quantity, "sale", existing.id, true);
-      await reverseShipping(orderRef, order.quantity, existing.id);
+      // لو كان في بيان → الخصم حصل في البيان (skipWarehouseStock=true)
+      // لو مكانش في بيان → خصم مباشر
+      const [manifestLink] = await db.select().from(shippingManifestOrdersTable)
+        .where(eq(shippingManifestOrdersTable.orderId, existing.id)).limit(1);
+      if (manifestLink) {
+        await processDelivery(orderRef, order.quantity, "sale", existing.id, true);
+        await reverseShipping(orderRef, order.quantity, existing.id);
+      } else {
+        await processDelivery(orderRef, order.quantity, "sale", existing.id, false);
+      }
     } else if (newStatus === "received" && (oldStatus === "pending" || oldStatus === "delayed")) {
       await processDelivery(orderRef, order.quantity, "sale", existing.id);
     } else if (newStatus === "received" && oldStatus === "partial_received") {
@@ -442,8 +449,16 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
       if (remainder > 0) await processDelivery(orderRef, remainder, "sale", existing.id, true);
     } else if (newStatus === "partial_received" && oldStatus === "in_shipping") {
       const newPartial = parsed.data.partialQuantity ?? 0;
-      await reverseShipping(orderRef, order.quantity, existing.id);
-      if (newPartial > 0) await processDelivery(orderRef, newPartial, "partial_sale", existing.id);
+      // لو كان في بيان → reverseShipping + processDelivery
+      // لو لأ → processDelivery مباشر بدون skipWarehouseStock
+      const [manifestLink] = await db.select().from(shippingManifestOrdersTable)
+        .where(eq(shippingManifestOrdersTable.orderId, existing.id)).limit(1);
+      if (manifestLink) {
+        await reverseShipping(orderRef, order.quantity, existing.id);
+        if (newPartial > 0) await processDelivery(orderRef, newPartial, "partial_sale", existing.id);
+      } else {
+        if (newPartial > 0) await processDelivery(orderRef, newPartial, "partial_sale", existing.id, false);
+      }
     } else if (newStatus === "partial_received") {
       const newPartial = parsed.data.partialQuantity ?? 0;
       const oldPartial = (oldStatus === "partial_received" ? existing.partialQuantity : 0) ?? 0;
@@ -451,7 +466,12 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
       if (delta > 0) await processDelivery(orderRef, delta, "partial_sale", existing.id);
       else if (delta < 0) await reverseDelivery(orderRef, Math.abs(delta), existing.id);
     } else if (newStatus === "returned" && oldStatus === "in_shipping") {
-      await reverseShipping(orderRef, order.quantity, existing.id);
+      // لو كان في بيان → reverseShipping، لو لأ → مفيش خصم حصل
+      const [manifestLink] = await db.select().from(shippingManifestOrdersTable)
+        .where(eq(shippingManifestOrdersTable.orderId, existing.id)).limit(1);
+      if (manifestLink) {
+        await reverseShipping(orderRef, order.quantity, existing.id);
+      }
     } else if (newStatus === "returned" && (oldStatus === "received" || oldStatus === "partial_received")) {
       const wasPartially = oldStatus === "partial_received";
       const returnQty = wasPartially ? (existing.partialQuantity ?? order.quantity) : order.quantity;
@@ -459,10 +479,12 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
     } else if (newStatus === "returned") {
       await processReturn({ ...orderRef, quantity: order.quantity }, false, isDamaged, existing.id);
     } else if (oldStatus === "in_shipping" && (newStatus === "pending" || newStatus === "delayed")) {
-      const [manifestLink] = await db.select().from(shippingManifestOrdersTable).where(eq(shippingManifestOrdersTable.orderId, existing.id)).limit(1);
+      // لو كان في بيان → reverseShipping واشيله من البيان
+      // لو لأ → مفيش خصم حصل، مفيش حاجة نعملها
+      const [manifestLink] = await db.select().from(shippingManifestOrdersTable)
+        .where(eq(shippingManifestOrdersTable.orderId, existing.id)).limit(1);
       if (manifestLink) {
         await reverseShipping(orderRef, order.quantity, existing.id);
-        // اشيله من البيان
         await db.delete(shippingManifestOrdersTable).where(eq(shippingManifestOrdersTable.id, manifestLink.id));
       }
     } else if (oldStatus === "received") {
