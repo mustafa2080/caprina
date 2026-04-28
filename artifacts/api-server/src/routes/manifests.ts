@@ -27,6 +27,46 @@ const CreateManifestSchema = z.object({
   notes: z.string().nullish(),
 });
 
+async function expandOrderIdsByInvoice(orderIds: number[]) {
+  const seedOrders = await db
+    .select()
+    .from(ordersTable)
+    .where(inArray(ordersTable.id, orderIds));
+
+  if (seedOrders.length === 0) return [];
+
+  const invoiceNumbers = Array.from(
+    new Set(
+      seedOrders
+        .map((order) => order.invoiceNumber?.trim())
+        .filter((invoiceNumber): invoiceNumber is string => Boolean(invoiceNumber))
+    )
+  );
+
+  const soloIds = seedOrders
+    .filter((order) => !order.invoiceNumber?.trim())
+    .map((order) => order.id);
+
+  const expandedOrders = invoiceNumbers.length > 0
+    ? await db
+        .select()
+        .from(ordersTable)
+        .where(
+          and(
+            isNull(ordersTable.deletedAt),
+            inArray(ordersTable.invoiceNumber, invoiceNumbers)
+          )
+        )
+    : [];
+
+  const allIds = new Set<number>([
+    ...soloIds,
+    ...expandedOrders.map((order) => order.id),
+  ]);
+
+  return Array.from(allIds);
+}
+
 async function generateManifestNumber(companyId: number): Promise<string> {
   const [row] = await db
     .select({ cnt: count() })
@@ -159,6 +199,7 @@ router.post("/shipping-manifests", async (req, res): Promise<void> => {
     return;
   }
   const { shippingCompanyId, orderIds, notes } = parsed.data;
+  const normalizedOrderIds = await expandOrderIdsByInvoice(orderIds);
 
   const company = await db
     .select()
@@ -185,7 +226,7 @@ router.post("/shipping-manifests", async (req, res): Promise<void> => {
   const [manifest] = await db.select().from(shippingManifestsTable).where(eq(shippingManifestsTable.id, insertId));
 
   await db.insert(shippingManifestOrdersTable).values(
-    orderIds.map((orderId) => ({
+    normalizedOrderIds.map((orderId) => ({
       manifestId: manifest.id,
       orderId,
       deliveryStatus: "pending",
@@ -197,7 +238,7 @@ router.post("/shipping-manifests", async (req, res): Promise<void> => {
   const ordersToShip = await db
     .select()
     .from(ordersTable)
-    .where(inArray(ordersTable.id, orderIds));
+    .where(inArray(ordersTable.id, normalizedOrderIds));
 
   for (const order of ordersToShip) {
     await processToShipping(
@@ -218,13 +259,13 @@ router.post("/shipping-manifests", async (req, res): Promise<void> => {
   await db
     .update(ordersTable)
     .set({ status: "in_shipping", shippingCompanyId: shippingCompanyId })
-    .where(inArray(ordersTable.id, orderIds));
+    .where(inArray(ordersTable.id, normalizedOrderIds));
 
   res.status(201).json({
     ...manifest,
     invoicePrice: null,
     companyName: company.name,
-    orderCount: orderIds.length,
+    orderCount: normalizedOrderIds.length,
   });
 });
 
@@ -257,18 +298,37 @@ router.get("/shipping-manifests/:id", async (req, res): Promise<void> => {
     .where(eq(shippingManifestOrdersTable.manifestId, id));
 
   const orderIds = links.map((l) => l.orderId);
+  const expandedOrderIds = await expandOrderIdsByInvoice(orderIds);
 
   let orders: OrderWithDelivery[] = [];
-  if (orderIds.length > 0) {
+  if (expandedOrderIds.length > 0) {
     const rawOrders = await db
       .select()
       .from(ordersTable)
-      .where(inArray(ordersTable.id, orderIds))
+      .where(inArray(ordersTable.id, expandedOrderIds))
       .orderBy(desc(ordersTable.createdAt));
+
+    const linkedRawOrders = rawOrders.filter((order) => orderIds.includes(order.id));
+    const invoiceLinkMap = new Map<string, (typeof links)[0]>();
+    linkedRawOrders.forEach((order) => {
+      if (order.invoiceNumber?.trim()) {
+        const link = links.find((item) => item.orderId === order.id);
+        if (link) invoiceLinkMap.set(order.invoiceNumber.trim(), link);
+      }
+    });
 
     const linkMap = new Map(links.map((l) => [l.orderId, l]));
     orders = rawOrders.map((o) => {
-      const link = linkMap.get(o.id)!;
+      const link = linkMap.get(o.id) ?? (o.invoiceNumber?.trim() ? invoiceLinkMap.get(o.invoiceNumber.trim()) : undefined);
+      if (!link) {
+        return {
+          ...o,
+          deliveryStatus: "pending",
+          deliveryNote: null,
+          deliveredAt: null,
+          manifestOrderId: 0,
+        };
+      }
       return {
         ...o,
         deliveryStatus: link.deliveryStatus,
@@ -507,6 +567,7 @@ router.post("/shipping-manifests/:id/orders", requireAdmin, async (req, res): Pr
   if (!parsed.success) { res.status(400).json({ error: "orderIds مطلوب" }); return; }
 
   const { orderIds } = parsed.data;
+  const normalizedOrderIds = await expandOrderIdsByInvoice(orderIds);
 
   // تأكد إن البيان موجود ومفتوح
   const [manifest] = await db.select().from(shippingManifestsTable).where(eq(shippingManifestsTable.id, manifestId));
@@ -514,19 +575,19 @@ router.post("/shipping-manifests/:id/orders", requireAdmin, async (req, res): Pr
   if (manifest.status === "closed") { res.status(400).json({ error: "البيان مغلق لا يمكن الإضافة إليه" }); return; }
 
   // جيب الطلبات اللي حالتها pending أو delayed أو in_shipping (كلهم مؤهلون للشحن)
-  const SHIPPABLE_STATUSES = ["pending", "delayed", "in_shipping"] as const;
-  const orders = await db.select().from(ordersTable).where(
-    and(inArray(ordersTable.id, orderIds), isNull(ordersTable.deletedAt), inArray(ordersTable.status, [...SHIPPABLE_STATUSES]))
+    const SHIPPABLE_STATUSES = ["pending", "delayed", "in_shipping"] as const;
+    const orders = await db.select().from(ordersTable).where(
+    and(inArray(ordersTable.id, normalizedOrderIds), isNull(ordersTable.deletedAt), inArray(ordersTable.status, [...SHIPPABLE_STATUSES]))
   );
   if (orders.length === 0) { res.status(400).json({ error: "لم يتم العثور على طلبيات مؤهلة (يجب أن تكون pending أو delayed أو in_shipping)" }); return; }
 
   // استبعد أي أوردر موجود بالفعل في هذا البيان
   const existing = await db.select({ orderId: shippingManifestOrdersTable.orderId })
     .from(shippingManifestOrdersTable)
-    .where(and(
-      eq(shippingManifestOrdersTable.manifestId, manifestId),
-      inArray(shippingManifestOrdersTable.orderId, orderIds)
-    ));
+      .where(and(
+        eq(shippingManifestOrdersTable.manifestId, manifestId),
+      inArray(shippingManifestOrdersTable.orderId, normalizedOrderIds)
+      ));
   const existingIds = new Set(existing.map(e => e.orderId));
   const toAdd = orders.filter(o => !existingIds.has(o.id));
   if (toAdd.length === 0) { res.status(400).json({ error: "جميع الطلبيات المختارة موجودة بالفعل في البيان" }); return; }
