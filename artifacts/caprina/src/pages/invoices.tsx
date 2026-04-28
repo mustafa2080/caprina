@@ -133,13 +133,7 @@ export default function Invoices() {
             }
           } catch {}
         }
-        // لو _invoiceOrders موجودة استخدمها
-        const fromApi: any[] | undefined = (grp.orders[0] as any)._invoiceOrders;
-        if (fromApi && fromApi.length > 0) {
-          realOrdersMap.set(grp.invoiceNumber, fromApi);
-          return;
-        }
-        // fallback: استخدم الـ grp.orders زي ما هي
+        // fallback: grp.orders نفسها (متبنية من _invoiceOrders في الـ list)
         realOrdersMap.set(grp.invoiceNumber, grp.orders);
       })
     );
@@ -189,6 +183,7 @@ export default function Invoices() {
         border: 1.5px solid #1a1a1a; border-radius: 2mm;
         display: flex; flex-direction: column;
         overflow: hidden; background: white;
+        min-height: 0; min-width: 0;
       }
 
       /* HEADER: تاريخ | اسم البراند + رقم الأوردر | لوجو */
@@ -216,21 +211,22 @@ export default function Invoices() {
       .cust-name  { font-size: 11pt; font-weight: 900; }
 
       /* BODY */
-      .inv-body { padding: 1.5mm 3mm; flex: 1; display: flex; flex-direction: column; gap: 0; justify-content: space-between; }
+      .inv-body { padding: 1.5mm 3mm; flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 1mm; justify-content: space-between; overflow: hidden; }
 
       /* PRODUCT TABLE — header داكن زي الصورة */
-      .prod-table { width: 100%; border-collapse: collapse; font-size: 7pt; flex-shrink: 0; }
+      .prod-table { width: 100%; border-collapse: collapse; flex-shrink: 1; }
       .prod-table th {
         background: #1a1a1a; color: white; border: 0.5px solid #333;
-        padding: 1mm 1.5mm; font-weight: 700; font-size: 7pt; text-align: center;
+        padding: 0.8mm 1mm; font-weight: 700; font-size: 7pt; text-align: center;
       }
       .prod-table td {
-        border: 0.5px solid #ddd; padding: 1mm 1.5mm;
-        text-align: center; font-size: 7.5pt; vertical-align: middle;
+        border: 0.5px solid #ddd; padding: 0.8mm 1mm;
+        text-align: center; font-size: 7pt; vertical-align: middle;
+        line-height: 1.2;
       }
-      .prod-table td.name-col { text-align: right; font-weight: 700; font-size: 8pt; }
+      .prod-table td.name-col { text-align: right; font-weight: 700; }
       .prod-table .total-row td {
-        background: #f0f0f0; font-weight: 900; font-size: 7.5pt; border-color: #bbb; color: #111;
+        background: #f0f0f0; font-weight: 900; font-size: 7pt; border-color: #bbb; color: #111;
       }
       .prod-table .total-row td.t-label { text-align: right; }
 
@@ -322,16 +318,28 @@ export default function Invoices() {
         }
       }
 
+      // ── ضبط الـ font-size ديناميكياً حسب عدد المنتجات عشان يتسعوا كلهم
+      const rowCount = mergedMap.size;
+      // لو 4 فواتير في الصفحة (perPage=4): مساحة ~95mm × ~95mm لكل فاتورة
+      // لو 2: مساحة ~140mm × ~200mm
+      // الجدول: كل صف تقريباً 5.5mm → maxRows بدون scale
+      const maxRowsNoScale = perPage === 4 ? 4 : perPage === 2 ? 8 : 15;
+      const scaleFactor = rowCount <= maxRowsNoScale
+        ? 1
+        : Math.max(0.6, maxRowsNoScale / rowCount);
+      const tblFontSize = (7 * scaleFactor).toFixed(1);
+      const cellPad = scaleFactor < 0.85 ? "0.4mm 0.8mm" : "0.8mm 1mm";
+
       const productRows = Array.from(mergedMap.values()).map(r => {
         const displayQty = r.partialQuantity != null ? `${r.partialQuantity} / ${r.quantity}` : `${r.quantity}`;
         return `
           <tr>
-            <td class="name-col">${r.product}</td>
-            <td>${r.size || "&#8212;"}</td>
-            <td>${r.color || "&#8212;"}</td>
-            <td style="font-weight:900">${displayQty}</td>
-            <td>${formatCurrency(r.unitPrice)}</td>
-            <td style="font-weight:900">${formatCurrency(r.totalPrice)}</td>
+            <td class="name-col" style="padding:${cellPad}">${r.product}</td>
+            <td style="padding:${cellPad}">${r.size || "&#8212;"}</td>
+            <td style="padding:${cellPad}">${r.color || "&#8212;"}</td>
+            <td style="font-weight:900;padding:${cellPad}">${displayQty}</td>
+            <td style="padding:${cellPad}">${formatCurrency(r.unitPrice)}</td>
+            <td style="font-weight:900;padding:${cellPad}">${formatCurrency(r.totalPrice)}</td>
           </tr>`;
       }).join("");
 
@@ -367,27 +375,27 @@ export default function Invoices() {
           <div class="inv-body">
 
             <!-- جدول المنتجات بهيدر داكن -->
-            <table class="prod-table">
+            <table class="prod-table" style="font-size:${tblFontSize}pt">
               <thead>
                 <tr>
-                  <th style="width:30%">الصنف</th>
-                  <th style="width:14%">المقاس</th>
-                  <th style="width:18%">اللون</th>
-                  <th style="width:10%">العدد</th>
-                  <th style="width:14%">السعر</th>
-                  <th style="width:14%">الإجمالي</th>
+                  <th style="width:30%;padding:${cellPad}">الصنف</th>
+                  <th style="width:14%;padding:${cellPad}">المقاس</th>
+                  <th style="width:18%;padding:${cellPad}">اللون</th>
+                  <th style="width:10%;padding:${cellPad}">العدد</th>
+                  <th style="width:14%;padding:${cellPad}">السعر</th>
+                  <th style="width:14%;padding:${cellPad}">الإجمالي</th>
                 </tr>
               </thead>
               <tbody>
                 ${productRows}
                 ${shippingCost > 0 ? `<tr>
-                  <td class="name-col" colspan="4" style="color:#777;font-size:6pt">مصاريف الشحن</td>
-                  <td colspan="2" style="font-weight:700">${formatCurrency(shippingCost)}</td>
+                  <td class="name-col" colspan="4" style="color:#777;font-size:${(parseFloat(tblFontSize)*0.85).toFixed(1)}pt;padding:${cellPad}">مصاريف الشحن</td>
+                  <td colspan="2" style="font-weight:700;padding:${cellPad}">${formatCurrency(shippingCost)}</td>
                 </tr>` : ""}
                 <tr class="total-row">
-                  <td class="t-label" colspan="3">&#9679; الإجمالي الكلي</td>
-                  <td style="font-weight:900">${totalQty}</td>
-                  <td colspan="2" style="font-weight:900">${formatCurrency(totalPrice + shippingCost)}</td>
+                  <td class="t-label" colspan="3" style="padding:${cellPad}">&#9679; الإجمالي الكلي</td>
+                  <td style="font-weight:900;padding:${cellPad}">${totalQty}</td>
+                  <td colspan="2" style="font-weight:900;padding:${cellPad}">${formatCurrency(totalPrice + shippingCost)}</td>
                 </tr>
               </tbody>
             </table>
