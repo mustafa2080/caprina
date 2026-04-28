@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, like, or, gte, and, isNull, isNotNull, inArray, notInArray, count } from "drizzle-orm";
+import { eq, desc, like, or, gte, and, isNull, isNotNull, inArray, notInArray } from "drizzle-orm";
 import { db, ordersTable, productsTable, productVariantsTable, shippingManifestOrdersTable, shippingManifestsTable, shippingCompaniesTable } from "@workspace/db";
 import {
   ListOrdersQueryParams,
@@ -16,65 +16,6 @@ import {
 import { processDelivery, reverseDelivery, processReturn, processToShipping, reverseShipping } from "../lib/inventory.js";
 import { logAudit, diffObjects } from "../lib/audit.js";
 import { isAdmin } from "../middlewares/requireRole.js";
-
-// ─── Helper: add order to open manifest (or create one) ──────────────────────
-async function addOrderToManifest(orderId: number, shippingCompanyId: number): Promise<number | null> {
-  // ابحث عن بيان مفتوح لنفس الشركة
-  const [openManifest] = await db
-    .select()
-    .from(shippingManifestsTable)
-    .where(and(
-      eq(shippingManifestsTable.shippingCompanyId, shippingCompanyId),
-      eq(shippingManifestsTable.status, "open"),
-    ))
-    .orderBy(desc(shippingManifestsTable.createdAt))
-    .limit(1);
-
-  let manifestId: number;
-
-  if (openManifest) {
-    manifestId = openManifest.id;
-  } else {
-    // أنشئ بيان جديد
-    const [countRow] = await db
-      .select({ cnt: count() })
-      .from(shippingManifestsTable)
-      .where(eq(shippingManifestsTable.shippingCompanyId, shippingCompanyId));
-    const seq = ((Number(countRow?.cnt ?? 0)) + 1).toString().padStart(3, "0");
-    const manifestNumber = `MNF-${shippingCompanyId}-${seq}`;
-
-    const insertResult = await db.insert(shippingManifestsTable).values({
-      manifestNumber,
-      shippingCompanyId,
-      notes: null,
-      status: "open",
-      createdAt: new Date(),
-    });
-    const insertId = (insertResult as any)[0]?.insertId ?? (insertResult as any).insertId;
-    manifestId = insertId;
-  }
-
-  // تأكد إن الطلب مش موجود في البيان بالفعل
-  const [existing] = await db
-    .select()
-    .from(shippingManifestOrdersTable)
-    .where(and(
-      eq(shippingManifestOrdersTable.manifestId, manifestId),
-      eq(shippingManifestOrdersTable.orderId, orderId),
-    ))
-    .limit(1);
-
-  if (!existing) {
-    await db.insert(shippingManifestOrdersTable).values({
-      manifestId,
-      orderId,
-      deliveryStatus: "pending",
-      deliveryNote: null,
-      deliveredAt: null,
-    });
-  }
-  return manifestId;
-}
 
 
 
@@ -488,15 +429,6 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
     if (newStatus === "in_shipping" && (oldStatus === "pending" || oldStatus === "delayed")) {
       // خصم من المخزون فوراً عند التحويل لقيد الشحن
       await processToShipping(orderRef, order.quantity, existing.id);
-      // أضف الطلب لبيان شحن مفتوح لنفس الشركة (أو أنشئ بيان جديد) لو فيه شركة شحن
-      const companyId = order.shippingCompanyId ?? existing.shippingCompanyId;
-      if (companyId) {
-        const mId = await addOrderToManifest(existing.id, companyId);
-        if (mId) {
-          // ضيف manifestId في الـ response
-          (req as any).__manifestId = mId;
-        }
-      }
     } else if (newStatus === "received" && oldStatus === "in_shipping") {
       await processDelivery(orderRef, order.quantity, "sale", existing.id, true);
       await reverseShipping(orderRef, order.quantity, existing.id);

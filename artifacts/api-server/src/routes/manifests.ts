@@ -320,15 +320,15 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
 
   const updateData: Record<string, unknown> = {};
   if (parsed.data.status !== undefined) updateData.status = parsed.data.status;
-  if ("notes" in parsed.data) updateData.notes = parsed.data.notes ?? null;
-  if ("invoicePrice" in parsed.data)
+  if (parsed.data.notes !== undefined) updateData.notes = parsed.data.notes ?? null;
+  if (parsed.data.invoicePrice !== undefined)
     updateData.invoicePrice =
       parsed.data.invoicePrice != null
         ? String(parsed.data.invoicePrice)
         : null;
-  if ("invoiceNotes" in parsed.data)
+  if (parsed.data.invoiceNotes !== undefined)
     updateData.invoiceNotes = parsed.data.invoiceNotes ?? null;
-  if ("manualShippingCost" in parsed.data)
+  if (parsed.data.manualShippingCost !== undefined)
     updateData.manualShippingCost =
       parsed.data.manualShippingCost != null
         ? String(parsed.data.manualShippingCost)
