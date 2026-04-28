@@ -84,14 +84,32 @@ type OrderWithDelivery = typeof ordersTable.$inferSelect & {
 };
 
 function computeStats(orders: OrderWithDelivery[]) {
-  const total = orders.length;
+  const groupMap = new Map<string, OrderWithDelivery[]>();
+  for (const order of orders) {
+    const key = order.invoiceNumber?.trim() || `solo-${order.id}`;
+    if (!groupMap.has(key)) groupMap.set(key, []);
+    groupMap.get(key)!.push(order);
+  }
 
-  const delivered = orders.filter(
-    (o) => o.deliveryStatus === "delivered" || o.deliveryStatus === "partial_received"
+  const groupedOrders = Array.from(groupMap.values());
+  const total = groupedOrders.length;
+
+  const delivered = groupedOrders.filter((group) =>
+    group.every((order) =>
+      order.deliveryStatus === "delivered" || order.deliveryStatus === "partial_received"
+    )
   ).length;
-  const returned = orders.filter((o) => o.deliveryStatus === "returned").length;
-  const pending = orders.filter((o) =>
-    ["pending", "postponed"].includes(o.deliveryStatus)
+
+  const returned = groupedOrders.filter((group) =>
+    group.every((order) => order.deliveryStatus === "returned")
+  ).length;
+
+  const pending = groupedOrders.filter((group) =>
+    group.some((order) => ["pending", "postponed"].includes(order.deliveryStatus)) ||
+    (!group.every((order) => order.deliveryStatus === "returned") &&
+      !group.every((order) =>
+        order.deliveryStatus === "delivered" || order.deliveryStatus === "partial_received"
+      ))
   ).length;
 
   const deliveryRate = total > 0 ? Math.round((delivered / total) * 100) : 0;
