@@ -63,6 +63,11 @@ export const ListOrdersResponseItem = zod.object({
   returnNote: zod.string().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
+  // Extra fields injected by the backend grouping logic
+  _invoiceOrders: zod.array(zod.any()).optional(),
+  _groupIds: zod.array(zod.number()).optional(),
+  _groupCount: zod.number().optional(),
+  _groupStatuses: zod.array(zod.string()).optional(),
 });
 export const ListOrdersResponse = zod.array(ListOrdersResponseItem);
 
