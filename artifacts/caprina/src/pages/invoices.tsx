@@ -62,9 +62,10 @@ export default function Invoices() {
 
   const rawOrders = useMemo(() => {
     if (!allOrders) return [];
-    if (!manifestData) return allOrders;
-    const manifestSet = new Set(manifestData.ids);
+    const manifestSet = manifestData ? new Set(manifestData.ids) : new Set<number>();
     return allOrders.filter(o => {
+      // لا تعرض الطلبات قيد الانتظار أبداً في الفواتير
+      if (o.status === "pending") return false;
       const ids: number[] = (o as any)._groupIds ?? [o.id];
       return !ids.every(id => manifestSet.has(id));
     });
