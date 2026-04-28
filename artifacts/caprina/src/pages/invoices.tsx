@@ -72,27 +72,30 @@ export default function Invoices() {
   };
 
   const invoiceGroups = useMemo<InvoiceGroup[]>(() => {
-    // Group orders by invoiceNumber so multi-product invoices show all items
-    const map = new Map<string, typeof rawOrders>();
+    // الـ API يرجع record واحد per invoice مع _invoiceOrders فيه كل المنتجات الحقيقية
+    // نستخدم _invoiceOrders لو موجودة عشان نعرض كل المنتجات في الكارد والطباعة
+    const map = new Map<string, { rep: (typeof rawOrders)[0]; orders: typeof rawOrders }>();
     for (const o of rawOrders) {
       const key = o.invoiceNumber ?? `solo-${o.id}`;
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(o);
+      if (!map.has(key)) {
+        const invoiceOrders: any[] | undefined = (o as any)._invoiceOrders;
+        const realOrders = (invoiceOrders && invoiceOrders.length > 0)
+          ? (invoiceOrders as typeof rawOrders)
+          : [o];
+        map.set(key, { rep: o, orders: realOrders });
+      }
     }
-    return Array.from(map.entries()).map(([invoiceNumber, orders]) => {
-      const rep = orders[0];
-      return {
-        invoiceNumber,
-        representativeId: rep.id,
-        orders,
-        customerName: rep.customerName,
-        totalPrice: orders.reduce((s, o) => s + o.totalPrice, 0),
-        status: rep.status,
-        createdAt: rep.createdAt,
-        phone: rep.phone ?? null,
-        city: (rep as any).city ?? null,
-      };
-    });
+    return Array.from(map.entries()).map(([invoiceNumber, { rep, orders }]) => ({
+      invoiceNumber,
+      representativeId: rep.id,
+      orders,
+      customerName: rep.customerName,
+      totalPrice: orders.reduce((s, o) => s + o.totalPrice, 0),
+      status: rep.status,
+      createdAt: rep.createdAt,
+      phone: rep.phone ?? null,
+      city: (rep as any).city ?? null,
+    }));
   }, [rawOrders]);
 
   const toggleSelect = (invoiceNumber: string) => {

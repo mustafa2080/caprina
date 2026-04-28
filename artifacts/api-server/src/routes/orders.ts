@@ -121,7 +121,8 @@ router.get("/orders", async (req, res): Promise<void> => {
   if (conditions.length === 1) query = query.where(conditions[0]);
   else if (conditions.length > 1) query = query.where(and(...conditions));
 
-  const rows = ListOrdersResponse.parse(await query);
+  // نستخدم البيانات مباشرة بدون Zod parse عشان _invoiceOrders متتشيلش
+  const rows = await query;
 
   // ─── Group rows by invoiceNumber — return one merged row per invoice ──────
   const groupMap = new Map<string, typeof rows>();
