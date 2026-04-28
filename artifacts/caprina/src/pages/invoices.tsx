@@ -119,13 +119,8 @@ export default function Invoices() {
     const realOrdersMap = new Map<string, any[]>();
     await Promise.all(
       selected.map(async (grp) => {
-        // أولاً: جرب _invoiceOrders اللي بيبعتها الـ API مع كل record
-        const fromApi: any[] | undefined = (grp.orders[0] as any)._invoiceOrders;
-        if (fromApi && fromApi.length > 0) {
-          realOrdersMap.set(grp.invoiceNumber, fromApi);
-          return;
-        }
-        // ثانياً: لو عنده invoiceNumber حقيقي اسأل الـ API مباشرة
+        // دايماً اسأل الـ API مباشرة لو عنده invoiceNumber حقيقي
+        // عشان نضمن إن كل المنتجات بتجي من قاعدة البيانات
         if (grp.invoiceNumber && !grp.invoiceNumber.startsWith("solo-")) {
           try {
             const orders = await ordersApi.byInvoice(grp.invoiceNumber);
@@ -134,6 +129,12 @@ export default function Invoices() {
               return;
             }
           } catch {}
+        }
+        // لو _invoiceOrders موجودة استخدمها
+        const fromApi: any[] | undefined = (grp.orders[0] as any)._invoiceOrders;
+        if (fromApi && fromApi.length > 0) {
+          realOrdersMap.set(grp.invoiceNumber, fromApi);
+          return;
         }
         // fallback: استخدم الـ grp.orders زي ما هي
         realOrdersMap.set(grp.invoiceNumber, grp.orders);
