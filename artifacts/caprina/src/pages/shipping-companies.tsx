@@ -242,6 +242,7 @@ export function CreateManifestDialog({
       queryClient.invalidateQueries({ queryKey: ["warehouses"] });
       queryClient.invalidateQueries({ queryKey: ["variants"] });
       queryClient.invalidateQueries({ queryKey: ["variants-all"] });
+      queryClient.invalidateQueries({ queryKey: ["orders-in-manifest-ids"] });
       toast({
         title: "تم إنشاء البيان",
         description: `${manifest.manifestNumber} — ${manifest.orderCount} طلبية`,

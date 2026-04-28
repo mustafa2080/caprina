@@ -1331,6 +1331,7 @@ export default function ShippingManifestPage() {
     queryClient.invalidateQueries({ queryKey: ["warehouses"] });
     queryClient.invalidateQueries({ queryKey: ["variants"] });
     queryClient.invalidateQueries({ queryKey: ["variants-all"] });
+    queryClient.invalidateQueries({ queryKey: ["orders-in-manifest-ids"] });
   }, [queryClient, id]);
 
   const updateMutation = useMutation({

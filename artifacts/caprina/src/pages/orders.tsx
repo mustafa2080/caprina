@@ -77,7 +77,7 @@ export default function Orders() {
   const { data: inManifestData } = useQuery({
     queryKey: ["orders-in-manifest-ids"],
     queryFn: () => ordersApi.inManifestIds(),
-    staleTime: 30_000,
+    staleTime: 0,
   });
   const inManifestSet = new Set(inManifestData?.ids ?? []);
 
