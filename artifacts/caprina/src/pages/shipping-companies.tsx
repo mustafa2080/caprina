@@ -33,6 +33,7 @@ type OrderRow = {
   product: string; color: string | null; size: string | null;
   quantity: number; totalPrice: number; status: string;
   shippingCompanyId: number | null; createdAt: string;
+  invoiceNumber: string | null;
 };
 
 const emptyForm = { name: "", phone: "", website: "", notes: "", isActive: true };
@@ -357,21 +358,29 @@ export function CreateManifestDialog({
                   const assignedCompany = order.shippingCompanyId
                     ? companyMap[order.shippingCompanyId]
                     : null;
+                  // كل orders بنفس الفاتورة
+                  const invoiceGroupIds = order.invoiceNumber
+                    ? (inShippingOrders ?? []).filter(o => o.invoiceNumber === order.invoiceNumber).map(o => o.id)
+                    : [order.id];
+                  const isGroupSelected = invoiceGroupIds.every(id => selectedIds.has(id));
                   return (
                     <div
                       key={order.id}
-                      className={`grid grid-cols-[auto_1fr_1fr_80px_80px_90px] gap-0 items-center px-3 py-2.5 border-b border-border/50 cursor-pointer hover:bg-muted/20 transition-colors ${selected ? "bg-primary/5 hover:bg-primary/8" : ""}`}
+                      className={`grid grid-cols-[auto_1fr_1fr_80px_80px_90px] gap-0 items-center px-3 py-2.5 border-b border-border/50 cursor-pointer hover:bg-muted/20 transition-colors ${isGroupSelected ? "bg-primary/5 hover:bg-primary/8" : ""}`}
                       onClick={() => {
                         const next = new Set(selectedIds);
-                        if (next.has(order.id)) next.delete(order.id);
-                        else next.add(order.id);
+                        if (isGroupSelected) {
+                          invoiceGroupIds.forEach(id => next.delete(id));
+                        } else {
+                          invoiceGroupIds.forEach(id => next.add(id));
+                        }
                         setSelectedIds(next);
                       }}
                     >
                       {/* Checkbox */}
                       <div className="w-5 flex items-center">
                         <Checkbox
-                          checked={selected}
+                          checked={isGroupSelected}
                           onCheckedChange={() => {}}
                         />
                       </div>

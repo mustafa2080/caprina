@@ -1247,20 +1247,23 @@ function AddOrdersToManifestDialog({
                 </div>
                 {/* Rows */}
                 {filtered.map(order => {
-                  const selected = selectedIds.has(order.id);
+                  const invoiceGroupIds = (order as any).invoiceNumber
+                    ? available.filter((o: any) => o.invoiceNumber === (order as any).invoiceNumber).map(o => o.id)
+                    : [order.id];
+                  const isGroupSelected = invoiceGroupIds.every(id => selectedIds.has(id));
                   return (
                     <div
                       key={order.id}
-                      className={`grid grid-cols-[auto_1fr_1fr_70px_80px] gap-0 items-center px-3 py-2.5 border-b border-border/50 cursor-pointer hover:bg-muted/20 transition-colors ${selected ? "bg-primary/5" : ""}`}
+                      className={`grid grid-cols-[auto_1fr_1fr_70px_80px] gap-0 items-center px-3 py-2.5 border-b border-border/50 cursor-pointer hover:bg-muted/20 transition-colors ${isGroupSelected ? "bg-primary/5" : ""}`}
                       onClick={() => {
                         const next = new Set(selectedIds);
-                        if (next.has(order.id)) next.delete(order.id);
-                        else next.add(order.id);
+                        if (isGroupSelected) invoiceGroupIds.forEach(id => next.delete(id));
+                        else invoiceGroupIds.forEach(id => next.add(id));
                         setSelectedIds(next);
                       }}
                     >
                       <div className="w-5 flex items-center">
-                        <Checkbox checked={selected} onCheckedChange={() => {}} />
+                        <Checkbox checked={isGroupSelected} onCheckedChange={() => {}} />
                       </div>
                       <div className="min-w-0 pr-2">
                         <p className="font-semibold text-xs truncate">{order.customerName}</p>
