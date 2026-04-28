@@ -38,6 +38,7 @@ export default function Invoices() {
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(preselectedId ? new Set([preselectedId]) : new Set());
   const [statusFilter, setStatusFilter] = useState("all");
+  const [perPage, setPerPage] = useState<number>(4);
 
   const { data: allOrders, isLoading } = useListOrders({ status: statusFilter !== "all" ? statusFilter : undefined });
   const { data: shippingCompanies } = useQuery({ queryKey: ["shipping"], queryFn: shippingApi.list });
@@ -71,17 +72,27 @@ export default function Invoices() {
   };
 
   const invoiceGroups = useMemo<InvoiceGroup[]>(() => {
-    return rawOrders.map(o => ({
-      invoiceNumber: o.invoiceNumber ?? `solo-${o.id}`,
-      representativeId: o.id,
-      orders: [o],
-      customerName: o.customerName,
-      totalPrice: o.totalPrice,
-      status: o.status,
-      createdAt: o.createdAt,
-      phone: o.phone ?? null,
-      city: o.city ?? null,
-    }));
+    // Group orders by invoiceNumber so multi-product invoices show all items
+    const map = new Map<string, typeof rawOrders>();
+    for (const o of rawOrders) {
+      const key = o.invoiceNumber ?? `solo-${o.id}`;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(o);
+    }
+    return Array.from(map.entries()).map(([invoiceNumber, orders]) => {
+      const rep = orders[0];
+      return {
+        invoiceNumber,
+        representativeId: rep.id,
+        orders,
+        customerName: rep.customerName,
+        totalPrice: orders.reduce((s, o) => s + o.totalPrice, 0),
+        status: rep.status,
+        createdAt: rep.createdAt,
+        phone: rep.phone ?? null,
+        city: (rep as any).city ?? null,
+      };
+    });
   }, [rawOrders]);
 
   const toggleSelect = (invoiceNumber: string) => {
@@ -120,7 +131,7 @@ export default function Invoices() {
     const brandTagline = brand.tagline || "WIN OR DIE";
 
     const pageGroups: typeof selected[] = [];
-    for (let i = 0; i < selected.length; i += 4) pageGroups.push(selected.slice(i, i + 4));
+    for (let i = 0; i < selected.length; i += perPage) pageGroups.push(selected.slice(i, i + perPage));
 
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
@@ -135,7 +146,10 @@ export default function Invoices() {
         -webkit-print-color-adjust: exact; print-color-adjust: exact;
       }
       .page {
-        display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;
+        display: grid;
+        ${perPage === 1 ? "grid-template-columns: 1fr; grid-template-rows: 1fr;" :
+          perPage === 2 ? "grid-template-columns: 1fr 1fr; grid-template-rows: 1fr;" :
+          "grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;"}
         gap: 2mm; width: 297mm; height: 210mm; padding: 3mm;
         page-break-after: always;
       }
@@ -371,8 +385,8 @@ export default function Invoices() {
 
     const pagesHTML = pageGroups.map(group => {
       const invoices = group.map(g => invoiceHTML(g)).join("");
-      const empties = group.length < 4
-        ? Array(4 - group.length).fill('<div class="empty-slot"></div>').join("")
+      const empties = group.length < perPage
+        ? Array(perPage - group.length).fill('<div class="empty-slot"></div>').join("")
         : "";
       return `<div class="page">${invoices}${empties}</div>`;
     }).join("");
@@ -398,7 +412,20 @@ export default function Invoices() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold">الفواتير</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">اختر الطلبات واطبع 4 فواتير في صفحة A4 واحدة</p>
+          <p className="text-muted-foreground text-sm mt-0.5">اختر الطلبات واطبع فواتير على صفحة A4</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground whitespace-nowrap">فواتير في الصفحة:</span>
+          <Select value={String(perPage)} onValueChange={(v) => setPerPage(Number(v))}>
+            <SelectTrigger className="w-24 h-9 text-sm bg-card border-border">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="1">1 فاتورة</SelectItem>
+              <SelectItem value="2">2 فواتير</SelectItem>
+              <SelectItem value="4">4 فواتير</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <Button onClick={handlePrint} className="gap-2 font-bold text-sm" disabled={selectedIds.size === 0}>
           <Printer className="w-4 h-4" />
