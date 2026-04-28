@@ -34,6 +34,8 @@ type OrderRow = {
   quantity: number; totalPrice: number; status: string;
   shippingCompanyId: number | null; createdAt: string;
   invoiceNumber: string | null;
+  _groupIds?: number[];
+  _groupCount?: number;
 };
 
 const emptyForm = { name: "", phone: "", website: "", notes: "", isActive: true };
@@ -354,35 +356,23 @@ export function CreateManifestDialog({
                 </div>
                 {/* Rows */}
                 {filtered.map((order) => {
-                  const selected = selectedIds.has(order.id);
-                  const assignedCompany = order.shippingCompanyId
-                    ? companyMap[order.shippingCompanyId]
-                    : null;
-                  // كل orders بنفس الفاتورة
-                  const invoiceGroupIds = order.invoiceNumber
-                    ? (inShippingOrders ?? []).filter(o => o.invoiceNumber === order.invoiceNumber).map(o => o.id)
-                    : [order.id];
-                  const isGroupSelected = invoiceGroupIds.every(id => selectedIds.has(id));
+                  const assignedCompany = order.shippingCompanyId ? companyMap[order.shippingCompanyId] : null;
+                  // استخدم _groupIds لو موجودة (فاتورة متعددة المنتجات)
+                  const groupIds = order._groupIds ?? [order.id];
+                  const isGroupSelected = groupIds.every(id => selectedIds.has(id));
                   return (
                     <div
                       key={order.id}
                       className={`grid grid-cols-[auto_1fr_1fr_80px_80px_90px] gap-0 items-center px-3 py-2.5 border-b border-border/50 cursor-pointer hover:bg-muted/20 transition-colors ${isGroupSelected ? "bg-primary/5 hover:bg-primary/8" : ""}`}
                       onClick={() => {
                         const next = new Set(selectedIds);
-                        if (isGroupSelected) {
-                          invoiceGroupIds.forEach(id => next.delete(id));
-                        } else {
-                          invoiceGroupIds.forEach(id => next.add(id));
-                        }
+                        if (isGroupSelected) groupIds.forEach(id => next.delete(id));
+                        else groupIds.forEach(id => next.add(id));
                         setSelectedIds(next);
                       }}
                     >
-                      {/* Checkbox */}
                       <div className="w-5 flex items-center">
-                        <Checkbox
-                          checked={isGroupSelected}
-                          onCheckedChange={() => {}}
-                        />
+                        <Checkbox checked={isGroupSelected} onCheckedChange={() => {}} />
                       </div>
                       {/* Customer */}
                       <div className="min-w-0 pr-2">

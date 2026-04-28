@@ -315,11 +315,18 @@ router.get("/orders/archived", async (_req, res): Promise<void> => {
 // ─── Orders that have a shipping manifest ─────────────────────────────────────
 
 router.get("/orders/in-manifest-ids", async (_req, res): Promise<void> => {
+  // بس البيانات المفتوحة — المغلقة مش محتاجين نشيل "ما زال في المخزن" منها
+  const openManifests = await db
+    .select({ id: shippingManifestsTable.id })
+    .from(shippingManifestsTable)
+    .where(eq(shippingManifestsTable.status, "open"));
+  if (openManifests.length === 0) { res.json({ ids: [] }); return; }
+  const openIds = openManifests.map(m => m.id);
   const rows = await db
     .select({ orderId: shippingManifestOrdersTable.orderId })
-    .from(shippingManifestOrdersTable);
-  const ids = rows.map((r) => r.orderId);
-  res.json({ ids });
+    .from(shippingManifestOrdersTable)
+    .where(inArray(shippingManifestOrdersTable.manifestId, openIds));
+  res.json({ ids: rows.map(r => r.orderId) });
 });
 
 // ─── Restore archived order ───────────────────────────────────────────────────
@@ -479,13 +486,22 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
     } else if (newStatus === "returned") {
       await processReturn({ ...orderRef, quantity: order.quantity }, false, isDamaged, existing.id);
     } else if (oldStatus === "in_shipping" && (newStatus === "pending" || newStatus === "delayed")) {
-      // لو كان في بيان → reverseShipping واشيله من البيان
-      // لو لأ → مفيش خصم حصل، مفيش حاجة نعملها
+      // لو كان في بيان → reverseShipping + أقفل البيان + اشيله من البيان
+      // لو لأ → مفيش خصم حصل
       const [manifestLink] = await db.select().from(shippingManifestOrdersTable)
         .where(eq(shippingManifestOrdersTable.orderId, existing.id)).limit(1);
       if (manifestLink) {
         await reverseShipping(orderRef, order.quantity, existing.id);
         await db.delete(shippingManifestOrdersTable).where(eq(shippingManifestOrdersTable.id, manifestLink.id));
+        // أقفل البيان لو مفيش طلبيات تانية فيه
+        const remainingLinks = await db.select({ id: shippingManifestOrdersTable.id })
+          .from(shippingManifestOrdersTable)
+          .where(eq(shippingManifestOrdersTable.manifestId, manifestLink.manifestId));
+        if (remainingLinks.length === 0) {
+          await db.update(shippingManifestsTable)
+            .set({ status: "closed", closedAt: new Date() })
+            .where(eq(shippingManifestsTable.id, manifestLink.manifestId));
+        }
       }
     } else if (oldStatus === "received") {
       await reverseDelivery(orderRef, order.quantity, existing.id);
