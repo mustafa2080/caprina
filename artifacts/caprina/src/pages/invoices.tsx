@@ -264,32 +264,56 @@ export default function Invoices() {
       const orderNum       = String(rep.id).padStart(4, "0");
       const city           = (rep as any).city ?? "";
 
-      // Build product rows — merge identical product+color+size into one row
-      type MergedRow = { product: string; color: string; size: string; quantity: number; partialQuantity: number | null; unitPrice: number; totalPrice: number; };
-      const mergedMap = new Map<string, MergedRow>();
+      // ── Expand orders: split compound product names (e.g. "A، B×2") into
+      //    individual flat rows, then merge identical product+color+size rows.
+      type FlatRow = { product: string; color: string; size: string; quantity: number; partialQuantity: number | null; unitPrice: number; totalPrice: number; };
+
+      const flatRows: FlatRow[] = [];
       for (const o of grp.orders) {
         const color = (o as any).color ?? "";
         const size  = (o as any).size  ?? "";
-        const key   = `${o.product}|||${color}|||${size}|||${o.unitPrice}`;
-        if (mergedMap.has(key)) {
-          const existing = mergedMap.get(key)!;
-          existing.quantity   += o.quantity;
-          existing.totalPrice += o.totalPrice;
-          if ((o as any).partialQuantity != null) {
-            existing.partialQuantity = (existing.partialQuantity ?? 0) + (o as any).partialQuantity;
-          }
-        } else {
-          mergedMap.set(key, {
-            product: o.product,
-            color,
-            size,
-            quantity: o.quantity,
-            partialQuantity: (o as any).partialQuantity ?? null,
-            unitPrice: o.unitPrice,
-            totalPrice: o.totalPrice,
+        const partialQuantity = (o as any).partialQuantity ?? null;
+
+        // Detect compound names like "CORE1×1، حزام مارينز×2"
+        // Split on Arabic comma ، or regular comma followed by space
+        const segments = o.product.split(/،\s*|,\s+/);
+
+        if (segments.length > 1) {
+          // Each segment may carry its own qty: "CORE1×1" or "حزام مارينز×2"
+          let remainingTotal = o.totalPrice;
+          const parsedSegments = segments.map(seg => {
+            // Try to parse quantity suffix like "×2" or "x2" or "*2"
+            const qtyMatch = seg.match(/[×x\*](\d+)\s*$/i);
+            const qty = qtyMatch ? parseInt(qtyMatch[1], 10) : 1;
+            const name = seg.replace(/\s*[×x\*]\d+\s*$/, "").trim();
+            return { name, qty };
           });
+          const totalSegQty = parsedSegments.reduce((s, sg) => s + sg.qty, 0);
+          parsedSegments.forEach(sg => {
+            const proportion = totalSegQty > 0 ? sg.qty / totalSegQty : 1 / parsedSegments.length;
+            const segTotal = parseFloat((o.totalPrice * proportion).toFixed(2));
+            const segUnit  = sg.qty > 0 ? parseFloat((segTotal / sg.qty).toFixed(2)) : o.unitPrice;
+            flatRows.push({ product: sg.name, color, size, quantity: sg.qty, partialQuantity: null, unitPrice: segUnit, totalPrice: segTotal });
+          });
+        } else {
+          flatRows.push({ product: o.product.trim(), color, size, quantity: o.quantity, partialQuantity, unitPrice: o.unitPrice, totalPrice: o.totalPrice });
         }
       }
+
+      // Merge identical product+color+size+unitPrice rows
+      const mergedMap = new Map<string, FlatRow>();
+      for (const r of flatRows) {
+        const key = `${r.product}|||${r.color}|||${r.size}|||${r.unitPrice}`;
+        if (mergedMap.has(key)) {
+          const ex = mergedMap.get(key)!;
+          ex.quantity   += r.quantity;
+          ex.totalPrice  = parseFloat((ex.totalPrice + r.totalPrice).toFixed(2));
+          if (r.partialQuantity != null) ex.partialQuantity = (ex.partialQuantity ?? 0) + r.partialQuantity;
+        } else {
+          mergedMap.set(key, { ...r });
+        }
+      }
+
       const productRows = Array.from(mergedMap.values()).map(r => {
         const displayQty = r.partialQuantity != null ? `${r.partialQuantity} / ${r.quantity}` : `${r.quantity}`;
         return `
