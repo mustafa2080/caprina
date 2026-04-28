@@ -194,10 +194,14 @@ export default function Invoices() {
 
     await Promise.all(
       selected.map(async (grp) => {
-        // لو موجود في الـ cache استخدمه مباشرة
+        // لو موجود في الـ cache استخدمه مباشرة (بس لو فيه أكتر من order واحد أو grp.orders نفسها 1)
         if (realOrdersCache.has(grp.invoiceNumber)) {
-          realOrdersMap.set(grp.invoiceNumber, realOrdersCache.get(grp.invoiceNumber)!);
-          return;
+          const cached = realOrdersCache.get(grp.invoiceNumber)!;
+          // لو الـ cache فيه منتجات أكتر من الـ grp.orders يبقى صح
+          if (cached.length >= grp.orders.length) {
+            realOrdersMap.set(grp.invoiceNumber, cached);
+            return;
+          }
         }
 
         // solo orders — استخدم grp.orders مباشرة
@@ -206,7 +210,7 @@ export default function Invoices() {
           return;
         }
 
-        // طلب مباشر من السيرفر
+        // طلب مباشر من السيرفر دايماً عشان نضمن كل المنتجات
         try {
           const orders = await ordersApi.byInvoice(grp.invoiceNumber);
           if (orders && orders.length > 0) {
@@ -215,7 +219,13 @@ export default function Invoices() {
           }
         } catch {}
 
-        // fallback نهائي
+        // fallback نهائي: استخدم directInvoiceOrders لو موجودة ومطابقة
+        if (directInvoiceOrders && directInvoiceOrders.length > 0 &&
+            (directInvoiceOrders[0] as any).invoiceNumber === grp.invoiceNumber) {
+          realOrdersMap.set(grp.invoiceNumber, directInvoiceOrders as any[]);
+          return;
+        }
+
         realOrdersMap.set(grp.invoiceNumber, grp.orders);
       })
     );
@@ -531,11 +541,18 @@ export default function Invoices() {
     if (isLoading || isDirectInvoiceLoading || !invoiceGroups.length) return;
     if (!invoiceGroups.some(g => g.invoiceNumber === preselectedInvoiceNumber)) return;
 
+    // ─── تأكد إن الـ cache للـ invoice المطلوبة موجود أو إن directInvoiceOrders جاهزة
+    const grp = invoiceGroups.find(g => g.invoiceNumber === preselectedInvoiceNumber);
+    const hasCache = realOrdersCache.has(preselectedInvoiceNumber);
+    const hasDirectOrders = directInvoiceOrders && directInvoiceOrders.length > 0;
+    const ordersReady = hasCache || hasDirectOrders || (grp && grp.orders.length > 1);
+    if (!ordersReady) return;
+
     const nextSelectedIds = new Set([preselectedInvoiceNumber]);
     setSelectedIds(nextSelectedIds);
     autoPrintTriggeredRef.current = true;
     void handlePrint(nextSelectedIds);
-  }, [preselectedInvoiceNumber, isLoading, isDirectInvoiceLoading, invoiceGroups]);
+  }, [preselectedInvoiceNumber, isLoading, isDirectInvoiceLoading, invoiceGroups, realOrdersCache, directInvoiceOrders]);
 
   return (
     <div className="space-y-5 animate-in fade-in duration-500" dir="rtl">
