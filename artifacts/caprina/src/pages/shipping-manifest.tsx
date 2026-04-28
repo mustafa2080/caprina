@@ -308,6 +308,228 @@ function OrderDeliveryRow({
   );
 }
 
+// ─── Invoice Group Row — يعرض مجموعة طلبات بنفس invoiceNumber كصف واحد ─────
+function InvoiceGroupDeliveryRow({
+  group,
+  manifestId,
+  locked,
+  onSaved,
+}: {
+  group: ManifestOrder[];
+  manifestId: number;
+  locked: boolean;
+  onSaved: () => void;
+}) {
+  const { toast } = useToast();
+  const [expanded, setExpanded] = useState(false);
+
+  const rep = group[0];
+  const totalQty = group.reduce((s, o) => s + o.quantity, 0);
+  const totalPrice = group.reduce((s, o) => s + o.totalPrice, 0);
+  const invoiceNum = (rep as any).invoiceNumber?.trim() || null;
+  const isMulti = group.length > 1;
+
+  // حالة المجموعة: لو كل الطلبات بنفس الحالة → اعرضها، وإلا "متعددة"
+  const statuses = [...new Set(group.map(o => o.deliveryStatus))];
+  const groupStatus: DeliveryStatus = statuses.length === 1 ? statuses[0] as DeliveryStatus : "pending";
+  const groupOpt = deliveryOpt(groupStatus);
+  const hasMultipleStatuses = statuses.length > 1;
+
+  // تقفيل جماعي: نفس الحالة لكل طلبات المجموعة
+  const [bulkEditing, setBulkEditing] = useState(false);
+  const [bulkStatus, setBulkStatus] = useState<DeliveryStatus>(groupStatus);
+  const [bulkNote, setBulkNote] = useState("");
+
+  const bulkMutation = useMutation({
+    mutationFn: async () => {
+      for (const order of group) {
+        await manifestsApi.updateOrderDelivery(manifestId, order.id, {
+          deliveryStatus: bulkStatus,
+          deliveryNote: bulkNote.trim() || null,
+          partialQuantity: null,
+        });
+      }
+    },
+    onSuccess: () => {
+      toast({ title: "تم حفظ حالة التسليم للفاتورة كاملها" });
+      setBulkEditing(false);
+      onSaved();
+    },
+    onError: (e: any) =>
+      toast({ title: "خطأ", description: e.message, variant: "destructive" }),
+  });
+
+  const needsBulkNote = bulkStatus === "postponed" || bulkStatus === "returned";
+
+  // products summary
+  const productsText = group.map(o => {
+    const variant = [o.color, o.size].filter(Boolean).join("/");
+    return variant ? `${o.product} (${variant}) ×${o.quantity}` : `${o.product} ×${o.quantity}`;
+  }).join("، ");
+
+  return (
+    <>
+      {/* ── Main group row ── */}
+      <div className={`border-b border-border/50 transition-colors ${bulkEditing ? "bg-primary/5" : "hover:bg-muted/10"}`}>
+        <div className="grid grid-cols-[1fr_1fr_60px_80px_120px_80px] gap-0 items-start px-3 py-2.5 text-xs">
+          {/* Customer */}
+          <div className="min-w-0 pr-1">
+            <p className="font-semibold truncate">{rep.customerName}</p>
+            <div className="flex items-center gap-1 flex-wrap">
+              {invoiceNum && (
+                <span className="text-[9px] bg-primary/10 text-primary px-1 rounded font-mono">
+                  {invoiceNum}
+                </span>
+              )}
+              {rep.phone && (
+                <span className="text-muted-foreground text-[10px]">{rep.phone}</span>
+              )}
+            </div>
+          </div>
+          {/* Products */}
+          <div className="min-w-0 pr-2">
+            {isMulti ? (
+              <button
+                className="text-right w-full"
+                onClick={() => setExpanded(!expanded)}
+              >
+                <p className="text-primary text-[10px] font-bold flex items-center gap-1">
+                  {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                  {group.length} منتجات
+                </p>
+                <p className="text-muted-foreground text-[10px] truncate">{productsText}</p>
+              </button>
+            ) : (
+              <>
+                <p className="truncate">{rep.product}</p>
+                {(rep.color || rep.size) && (
+                  <p className="text-muted-foreground text-[10px]">
+                    {[rep.color, rep.size].filter(Boolean).join(" / ")}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+          {/* Qty */}
+          <div className="text-center font-bold">{totalQty}</div>
+          {/* Price */}
+          <div className="text-left font-bold">{formatCurrency(totalPrice)}</div>
+          {/* Status */}
+          <div>
+            {hasMultipleStatuses ? (
+              <Badge variant="outline" className="text-[9px] font-bold border border-border text-muted-foreground">
+                حالات متعددة
+              </Badge>
+            ) : (
+              <Badge variant="outline" className={`text-[9px] font-bold border ${groupOpt.bg} ${groupOpt.color}`}>
+                {groupOpt.label}
+              </Badge>
+            )}
+          </div>
+          {/* Action */}
+          <div className="flex justify-end">
+            {!locked && (
+              bulkEditing ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-[10px] px-1.5 text-muted-foreground"
+                  onClick={() => setBulkEditing(false)}
+                >
+                  <X className="w-3 h-3" />
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-[10px] px-1.5 text-primary hover:text-primary"
+                  onClick={() => { setBulkEditing(true); setBulkStatus(groupStatus); setBulkNote(""); }}
+                >
+                  <Edit2 className="w-3 h-3 ml-0.5" />تقفيل
+                </Button>
+              )
+            )}
+          </div>
+        </div>
+
+        {/* Bulk editing panel */}
+        {bulkEditing && (
+          <div className="px-4 pb-3 flex flex-col gap-2 bg-primary/5 border-t border-primary/10">
+            {isMulti && (
+              <p className="text-[10px] text-amber-500 mt-1">
+                ⚠ سيتم تطبيق الحالة على جميع منتجات الفاتورة ({group.length} طلبيات)
+              </p>
+            )}
+            <div className="flex flex-wrap gap-2 items-end mt-1">
+              <div>
+                <Label className="text-[10px] mb-1 block text-muted-foreground">حالة التسليم</Label>
+                <Select
+                  value={bulkStatus}
+                  onValueChange={(v) => setBulkStatus(v as DeliveryStatus)}
+                >
+                  <SelectTrigger className="h-8 text-xs w-40 bg-background">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DELIVERY_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value} className="text-xs">
+                        <span className={o.color}>{o.label}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {(needsBulkNote || bulkStatus === "pending") && (
+              <div>
+                <Label className="text-[10px] mb-1 block text-muted-foreground">
+                  {needsBulkNote ? "سبب / ملاحظة (مطلوب)" : "ملاحظة (اختياري)"}
+                </Label>
+                <Input
+                  value={bulkNote}
+                  onChange={(e) => setBulkNote(e.target.value)}
+                  className="h-8 text-xs bg-background"
+                  placeholder={
+                    bulkStatus === "postponed" ? "مثال: العميل طلب التأجيل..."
+                    : bulkStatus === "returned" ? "مثال: العميل رفض الاستلام..."
+                    : "ملاحظة..."
+                  }
+                />
+              </div>
+            )}
+            <div className="flex gap-2 justify-end">
+              <Button
+                size="sm"
+                className="h-7 text-[11px] bg-primary text-primary-foreground hover:bg-primary/90 gap-1"
+                onClick={() => bulkMutation.mutate()}
+                disabled={
+                  bulkMutation.isPending ||
+                  (needsBulkNote && !bulkNote.trim())
+                }
+              >
+                <Save className="w-3 h-3" />
+                {bulkMutation.isPending ? "جاري الحفظ..." : "حفظ"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Expanded: individual order rows */}
+      {expanded && isMulti && group.map((order) => (
+        <div key={order.id} className="border-b border-border/30 bg-muted/5 pr-4">
+          <OrderDeliveryRow
+            order={order}
+            manifestId={manifestId}
+            locked={locked}
+            onSaved={onSaved}
+          />
+        </div>
+      ))}
+    </>
+  );
+}
+
 function InvoicePriceEditor({
   manifestId,
   current,
@@ -674,6 +896,20 @@ const STATUS_LABEL_AR: Record<string, string> = {
   pending:          "قيد الانتظار",
 };
 
+function getManifestGroupKey(order: ManifestOrder) {
+  return (order as any).invoiceNumber?.trim() || `${order.customerName}__${order.phone ?? ""}__${order.address ?? ""}`;
+}
+
+function groupManifestOrders(orders: ManifestOrder[]) {
+  const groupMap = new Map<string, ManifestOrder[]>();
+  orders.forEach((order) => {
+    const key = getManifestGroupKey(order);
+    if (!groupMap.has(key)) groupMap.set(key, []);
+    groupMap.get(key)!.push(order);
+  });
+  return Array.from(groupMap.values());
+}
+
 // ─── Export Dialog (Excel + PDF) ──────────────────────────────────────────────
 function ExportDialog({
   manifest,
@@ -844,26 +1080,54 @@ function ExportDialog({
     // Row 3: spacer
     sheet1Data.push(spacerRow(nCols));
 
-    // Row 4: headers
-    sheet1Data.push(["#","رقم الطلب","اسم العميل","الهاتف","المنتج","اللون / المقاس","الكمية","الإجمالي","حالة التسليم","ملاحظة"]
+    // ── Group orders by invoiceNumber (or customerName+phone as fallback) ──────
+    const groupedOrders = groupManifestOrders(manifest.orders);
+
+    // Row 4: headers  (رقم الفاتورة بدل رقم الطلب)
+    sheet1Data.push(["#","رقم الفاتورة","اسم العميل","الهاتف","المنتجات","الكمية الكلية","الإجمالي","حالة التسليم","ملاحظة", ""]
       .map(h => sc(h, S.header)));
 
-    // Rows: orders
-    manifest.orders.forEach((o, idx) => {
+    // Rows: one row per customer/invoice group
+    groupedOrders.forEach((group, idx) => {
       const base  = idx % 2 === 0 ? S.white   : S.alt;
       const baseN = idx % 2 === 0 ? S.whiteNum : S.altNum;
-      const variant = [o.color, o.size].filter(Boolean).join(" / ") || "—";
+      const rep = group[0];
+      const invoiceNum = (rep as any).invoiceNumber?.trim() || `${rep.customerName}-${idx + 1}`;
+      const totalQty   = group.reduce((s, o) => s + o.quantity, 0);
+      const totalPrice = group.reduce((s, o) => s + o.totalPrice, 0);
+
+      // Build products string: "منتج 1 (لون/مقاس) ×ك\nمنتج 2 ×ك"
+      const productsText = group.map(o => {
+        const variant = [o.color, o.size].filter(Boolean).join("/");
+        return variant ? `${o.product} (${variant}) ×${o.quantity}` : `${o.product} ×${o.quantity}`;
+      }).join("\n");
+
+      // Delivery status: if all same → show it, else "متعددة"
+      const statuses = [...new Set(group.map(o => o.deliveryStatus))];
+      const deliveryStatus = statuses.length === 1 ? statuses[0] : "pending";
+      const deliveryLabel  = statuses.length === 1
+        ? (STATUS_LABEL_AR[statuses[0]] ?? statuses[0])
+        : "حالات متعددة";
+
+      // Notes: collect unique non-empty notes
+      const notes = [...new Set(group.map(o => o.deliveryNote).filter(Boolean))].join(" | ");
+
+      const productsCell: XLSX.CellObject = {
+        v: productsText, t: "s",
+        s: { ...base, alignment: { ...align("right", true) } },
+      } as XLSX.CellObject;
+
       sheet1Data.push([
-        sc(idx + 1,  baseN),
-        sc(o.id,     baseN),
-        sc(o.customerName, base),
-        sc(o.phone ?? "—", base),
-        sc(o.product,      base),
-        sc(variant,        base),
-        sc(o.quantity,     baseN),
-        sc(o.totalPrice,   baseN),
-        sc(STATUS_LABEL_AR[o.deliveryStatus] ?? o.deliveryStatus, statusStyle(o.deliveryStatus)),
-        sc(o.deliveryNote ?? "", base),
+        sc(idx + 1,       baseN),
+        sc(invoiceNum,    base),
+        sc(rep.customerName, base),
+        sc(rep.phone ?? "—", base),
+        productsCell,
+        sc(totalQty,      baseN),
+        sc(totalPrice,    baseN),
+        sc(deliveryLabel, statuses.length === 1 ? statusStyle(deliveryStatus) : S.pending),
+        sc(notes,         base),
+        sc("",            base),
       ]);
     });
 
@@ -871,16 +1135,17 @@ function ExportDialog({
     const grandTotal = manifest.orders.reduce((sum, o) => sum + o.totalPrice, 0);
     sheet1Data.push([
       sc("الإجمالي الكلي", S.totalDark),
-      ...Array(6).fill(sc("", S.totalDark)),
+      ...Array(5).fill(sc("", S.totalDark)),
       sc(grandTotal,  S.netGreen),
       sc(`${s.deliveryRate}% نسبة تسليم`, S.totalDark),
+      sc("", S.totalDark),
       sc("", S.totalDark),
     ]);
 
     const ws1 = makeWS(sheet1Data,
-      [5, 9, 22, 14, 24, 14, 7, 13, 13, 28],
+      [5, 14, 22, 14, 36, 10, 13, 13, 28, 5],
       [merge("A1:J1"), merge("A2:J2"), merge("A3:J3"), merge("A4:J4")],
-      { headerRow: 4, totalRows: manifest.orders.length, name: "OrdersTable" },
+      { headerRow: 4, totalRows: groupedOrders.length, name: "OrdersTable" },
     );
 
     // ══════════════════════════════════════════════════════════════════
@@ -951,24 +1216,48 @@ function ExportDialog({
     statusDefs2.forEach(({ key, label, sty }) => {
       const orders = manifest.orders.filter(o => o.deliveryStatus === key);
       if (orders.length === 0) return;
+
+      // Group by invoice / customer
+        const sGroupMap = new Map<string, ManifestOrder[]>();
+        orders.forEach(o => {
+          const k = getManifestGroupKey(o);
+          if (!sGroupMap.has(k)) sGroupMap.set(k, []);
+          sGroupMap.get(k)!.push(o);
+        });
+      const sGroups = Array.from(sGroupMap.values());
+
       const data: (XLSX.CellObject | null)[][] = [];
       // Title row
-      data.push([sc(`${label} — ${orders.length} طلبية`, sty), ...Array(7).fill(sc("", sty))]);
+      data.push([sc(`${label} — ${sGroups.length} عميل / ${orders.length} طلبية`, sty), ...Array(7).fill(sc("", sty))]);
       // Headers
-      data.push(["#","رقم الطلب","اسم العميل","الهاتف","المنتج","الكمية","الإجمالي","ملاحظة"].map(h => sc(h, S.header)));
-      orders.forEach((o, idx) => {
+      data.push(["#","رقم الفاتورة","اسم العميل","الهاتف","المنتجات","الكمية","الإجمالي","ملاحظة"].map(h => sc(h, S.header)));
+      sGroups.forEach((group, idx) => {
         const base  = idx % 2 === 0 ? S.white   : S.alt;
         const baseN = idx % 2 === 0 ? S.whiteNum : S.altNum;
+        const rep = group[0];
+        const invoiceNum = (rep as any).invoiceNumber?.trim() || `${rep.customerName}-${idx + 1}`;
+        const totalQty   = group.reduce((s, o) => s + o.quantity, 0);
+        const totalPrice = group.reduce((s, o) => s + o.totalPrice, 0);
+        const productsText = group.map(o => {
+          const variant = [o.color, o.size].filter(Boolean).join("/");
+          return variant ? `${o.product} (${variant}) ×${o.quantity}` : `${o.product} ×${o.quantity}`;
+        }).join("\n");
+        const notes = [...new Set(group.map(o => o.deliveryNote).filter(Boolean))].join(" | ");
+        const productsCell: XLSX.CellObject = {
+          v: productsText, t: "s",
+          s: { ...base, alignment: { ...align("right", true) } },
+        } as XLSX.CellObject;
         data.push([
-          sc(idx + 1, baseN), sc(o.id, baseN),
-          sc(o.customerName, base), sc(o.phone ?? "—", base), sc(o.product, base),
-          sc(o.quantity, baseN), sc(o.totalPrice, baseN), sc(o.deliveryNote ?? "", base),
+          sc(idx + 1, baseN), sc(invoiceNum, base),
+          sc(rep.customerName, base), sc(rep.phone ?? "—", base),
+          productsCell,
+          sc(totalQty, baseN), sc(totalPrice, baseN), sc(notes, base),
         ]);
       });
       const sub = orders.reduce((sum, o) => sum + o.totalPrice, 0);
-      data.push([sc(`المجموع (${orders.length})`, sty), ...Array(5).fill(sc("", sty)), sc(fmtMoney(sub), sty), sc("", sty)]);
-      statusSheets2.push({ name: label, ws: makeWS(data, [5,9,22,14,24,7,13,28], [merge("A1:H1")],
-        { headerRow: 1, totalRows: orders.length, name: `Table_${key}` }) });
+      data.push([sc(`المجموع (${sGroups.length} عميل)`, sty), ...Array(5).fill(sc("", sty)), sc(fmtMoney(sub), sty), sc("", sty)]);
+      statusSheets2.push({ name: label, ws: makeWS(data, [5,14,22,14,36,7,13,28], [merge("A1:H1")],
+        { headerRow: 1, totalRows: sGroups.length, name: `Table_${key}` }) });
     });
 
     // ══════════════════════════════════════════════════════════════════
@@ -1390,6 +1679,7 @@ export default function ShippingManifestPage() {
   const pendingOrders = manifest.orders.filter(
     (o) => o.deliveryStatus === "pending"
   ).length;
+  const groupedManifestOrders = groupManifestOrders(manifest.orders);
 
   const statusLabel = (st: DeliveryStatus) => {
     switch (st) {
@@ -1443,7 +1733,7 @@ export default function ShippingManifestPage() {
       <div className="manifest-print-stats">
         <div className="manifest-print-stat">
           <div className="manifest-print-stat-label">إجمالي الطلبيات</div>
-          <div className="manifest-print-stat-value">{s.total}</div>
+          <div className="manifest-print-stat-value">{groupedManifestOrders.length}</div>
         </div>
         <div className="manifest-print-stat">
           <div className="manifest-print-stat-label">مسلَّم</div>
@@ -1486,35 +1776,37 @@ export default function ShippingManifestPage() {
           </tr>
         </thead>
         <tbody>
-          {manifest.orders.map((o, idx) => {
-            const { label, cls } = statusLabel(o.deliveryStatus);
-            const variant = [o.color, o.size].filter(Boolean).join(" / ");
+          {groupedManifestOrders.map((group, idx) => {
+            const rep = group[0];
+            const statuses = [...new Set(group.map((o) => o.deliveryStatus))];
+            const isSingleStatus = statuses.length === 1;
+            const { label, cls } = statusLabel(isSingleStatus ? statuses[0] as DeliveryStatus : "pending");
+            const totalQty = group.reduce((sum, o) => sum + o.quantity, 0);
+            const totalPrice = group.reduce((sum, o) => sum + o.totalPrice, 0);
+            const productsText = group.map((o) => {
+              const variant = [o.color, o.size].filter(Boolean).join(" / ");
+              return variant ? `${o.product} (${variant}) ×${o.quantity}` : `${o.product} ×${o.quantity}`;
+            }).join("، ");
+            const notes = [...new Set(group.map((o) => o.deliveryNote).filter(Boolean))].join(" | ");
             return (
-              <tr key={o.id}>
+              <tr key={group.map((o) => o.id).join("-")}>
                 <td style={{ textAlign: "center", color: "#9ca3af", fontSize: "7pt" }}>{idx + 1}</td>
                 <td style={{ fontWeight: 700 }}>
-                  {o.customerName}
+                  {rep.customerName}
                   <div style={{ fontSize: "6.5pt", color: "#9ca3af", fontWeight: 400 }}>
-                    #{o.id.toString().padStart(4, "0")}
+                    {(rep as any).invoiceNumber?.trim() || `#${rep.id.toString().padStart(4, "0")}`}
                   </div>
                 </td>
-                <td style={{ direction: "ltr", textAlign: "right", fontSize: "7.5pt" }}>{o.phone ?? "—"}</td>
-                <td>
-                  {o.product}
-                  {variant && <span style={{ color: "#6b7280", fontSize: "7.5pt" }}> ({variant})</span>}
-                </td>
+                <td style={{ direction: "ltr", textAlign: "right", fontSize: "7.5pt" }}>{rep.phone ?? "—"}</td>
+                <td>{productsText}</td>
+                <td style={{ textAlign: "center", fontWeight: 700 }}>{totalQty}</td>
                 <td style={{ textAlign: "center", fontWeight: 700 }}>
-                  {o.deliveryStatus === "partial_received" && o.partialQuantity
-                    ? <><span style={{ color: "#0f766e" }}>{o.partialQuantity}</span><span style={{ color: "#9ca3af" }}>/{o.quantity}</span></>
-                    : o.quantity}
-                </td>
-                <td style={{ textAlign: "center", fontWeight: 700 }}>
-                  {o.totalPrice.toLocaleString("ar-EG")} ج
+                  {totalPrice.toLocaleString("ar-EG")} ج
                 </td>
                 <td style={{ textAlign: "center" }}>
-                  <span className={cls}>{label}</span>
+                  <span className={cls}>{isSingleStatus ? label : "حالات متعددة"}</span>
                 </td>
-                <td style={{ fontSize: "7pt", color: "#6b7280" }}>{o.deliveryNote ?? ""}</td>
+                <td style={{ fontSize: "7pt", color: "#6b7280" }}>{notes}</td>
               </tr>
             );
           })}
@@ -1822,11 +2114,11 @@ export default function ShippingManifestPage() {
           onClick={() => setShowOrders(!showOrders)}
         >
           <h2 className="font-bold text-sm flex items-center gap-2">
-            <Package className="w-4 h-4 text-muted-foreground" />
-            الطلبيات في البيان
-            <Badge variant="outline" className="text-[9px]">
-              {manifest.orders.length}
-            </Badge>
+              <Package className="w-4 h-4 text-muted-foreground" />
+              الطلبيات في البيان
+              <Badge variant="outline" className="text-[9px]">
+                {groupedManifestOrders.length}
+              </Badge>
             {!isLocked && pendingOrders > 0 && (
               <Badge
                 variant="outline"
@@ -1846,11 +2138,11 @@ export default function ShippingManifestPage() {
         {showOrders && (
           <>
             {manifest.orders.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground text-sm">
-                لا توجد طلبيات
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
+                <div className="p-8 text-center text-muted-foreground text-sm">
+                  لا توجد طلبيات
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
                 {/* Table header */}
                 <div className="grid grid-cols-[1fr_1fr_60px_80px_120px_80px] gap-0 border-b border-border bg-muted/20 px-3 py-2 text-[10px] font-semibold text-muted-foreground">
                   <div>العميل</div>
@@ -1860,10 +2152,10 @@ export default function ShippingManifestPage() {
                   <div>حالة التسليم</div>
                   <div className="text-left">إجراء</div>
                 </div>
-                {manifest.orders.map((order) => (
-                  <OrderDeliveryRow
-                    key={order.id}
-                    order={order}
+                {groupedManifestOrders.map((group, index) => (
+                  <InvoiceGroupDeliveryRow
+                    key={group.map((order) => order.id).join("-")}
+                    group={group}
                     manifestId={id}
                     locked={isLocked}
                     onSaved={refetch}
