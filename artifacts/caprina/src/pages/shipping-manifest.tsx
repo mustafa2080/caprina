@@ -97,11 +97,13 @@ function OrderDeliveryRow({
   manifestId,
   locked,
   onSaved,
+  hideAction = false,
 }: {
   order: ManifestOrder;
   manifestId: number;
   locked: boolean;
   onSaved: () => void;
+  hideAction?: boolean;
 }) {
   const { toast } = useToast();
   const [editing, setEditing] = useState(false);
@@ -190,7 +192,7 @@ function OrderDeliveryRow({
         </div>
         {/* Action */}
         <div className="flex justify-end">
-          {!locked && (
+          {!locked && !hideAction && (
             editing ? (
               <Button
                 variant="ghost"
@@ -215,7 +217,7 @@ function OrderDeliveryRow({
               </Button>
             )
           )}
-          {locked && (
+          {locked && !hideAction && (
             <Link href={`/orders/${order.id}`}>
               <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2 text-primary hover:text-primary">
                 عرض
@@ -528,6 +530,7 @@ function InvoiceGroupDeliveryRow({
             manifestId={manifestId}
             locked={locked}
             onSaved={onSaved}
+            hideAction={true}
           />
         </div>
       ))}
