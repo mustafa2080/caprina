@@ -351,7 +351,7 @@ export default function Orders() {
                         <span className="text-[9px] text-muted-foreground mr-auto">{format(new Date(order.createdAt), "MM/dd")}</span>
                       </div>
                     </div>
-                    {canWhatsApp && !isGroup && (
+                    {canWhatsApp && (
                       <button className="shrink-0 w-9 h-9 rounded-full text-green-500 hover:bg-green-500/10 flex items-center justify-center" onClick={(e) => handleWhatsApp(e, order)}>
                         <MessageCircle className="w-4.5 h-4.5" />
                       </button>
@@ -385,7 +385,7 @@ export default function Orders() {
                   {filtered.map((order) => {
                     const retReason  = (order as any).returnReason as string | null;
                     const retNote    = (order as any).returnNote   as string | null;
-                    const canWhatsApp = !bulkSelectMode && !(order as any)._groupCount && (order.status === "pending" || order.status === "in_shipping" || order.status === "delayed");
+                    const canWhatsApp = !bulkSelectMode && (order.status === "pending" || order.status === "in_shipping" || order.status === "delayed");
                     const isSelected  = isGroupSelected(order);
                     const isGroup = !!(order as any)._groupCount && (order as any)._groupCount > 1;
                     const groupCount = (order as any)._groupCount as number | undefined;
