@@ -420,24 +420,26 @@ export default function Dashboard() {
 
       {/* === VISUAL CHARTS === */}
       {chartsData ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* توزيع حالات الطلبات — قابل للضغط */}
-          <ChartCard
-            title="توزيع حالات الطلبات"
-            subtitle="اضغط على الحالة لعرض طلباتها"
-            dot="#22c55e"
-            liveTag
-          >
-            <StatusDonutWithOrders
-              data={chartsData.statusBreakdown}
-              total={chartsData.total}
-            />
-          </ChartCard>
+        <div className="space-y-4">
+          {/* Row 1: Donut فقط */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <ChartCard
+              title="توزيع حالات الطلبات"
+              subtitle="اضغط على الحالة لعرض طلباتها"
+              dot="#22c55e"
+              liveTag
+            >
+              <StatusDonutWithOrders
+                data={chartsData.statusBreakdown}
+                total={chartsData.total}
+              />
+            </ChartCard>
+          </div>
 
-          {/* المبيعات الأسبوعية — بانر + شارت */}
+          {/* Row 2: المبيعات الأسبوعية — full width عشان يظهر الأسبوع الحالي والسابق */}
           <ChartCard
             title="المبيعات الأسبوعية"
-            subtitle="Weekly Sales — Last 7 Days"
+            subtitle="الأسبوع الحالي والأسبوع الماضي"
             dot="#f59e0b"
             glassStyle
           >
