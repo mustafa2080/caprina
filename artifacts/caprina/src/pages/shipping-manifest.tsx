@@ -634,54 +634,7 @@ function InvoiceGroupDeliveryRow({
                 })}
               </div>
             )}
-            {/* الاستلام الجزئي: أوردر واحد - إدخال الكمية المستلمة والسعر */}
-            {bulkStatus === "partial_received" && !isMulti && (
-              <div className="flex flex-col gap-1.5 border border-teal-300 dark:border-teal-700 rounded-md p-2.5 bg-teal-50 dark:bg-teal-900/20">
-                <Label className="text-[10px] font-bold text-teal-700 dark:text-teal-400 mb-1">
-                  الكمية المستلمة جزئياً
-                </Label>
-                {group.map((o) => {
-                  const partialVal = partialQtyMap[o.id] ? parseInt(partialQtyMap[o.id]) : 0;
-                  const unitPrice = o.quantity > 0 ? o.totalPrice / o.quantity : 0;
-                  const partialPrice = unitPrice * partialVal;
-                  const remainQty = o.quantity - partialVal;
-                  const remainPrice = o.totalPrice - partialPrice;
-                  const variant = [o.color, o.size].filter(Boolean).join(" / ");
-                  return (
-                    <div key={o.id} className="rounded-md border border-border/40 bg-background p-2 flex flex-col gap-1.5">
-                      <p className="text-xs font-semibold">{o.product}{variant ? ` (${variant})` : ""}</p>
-                      <div className="flex items-center gap-2">
-                        <Label className="text-[10px] text-muted-foreground shrink-0">من {o.quantity} قطعة — المستلم:</Label>
-                        <input
-                          type="number"
-                          min={1}
-                          max={o.quantity}
-                          value={partialQtyMap[o.id] ?? ""}
-                          onChange={(e) => setPartialQtyMap(prev => ({ ...prev, [o.id]: e.target.value }))}
-                          className="h-7 w-20 rounded border border-border bg-background px-2 text-xs text-center"
-                          placeholder="الكمية"
-                        />
-                        <span className="text-[10px] text-muted-foreground">قطعة</span>
-                      </div>
-                      {partialVal > 0 && (
-                        <div className="grid grid-cols-2 gap-2 text-[10px] mt-1">
-                          <div className="rounded bg-teal-100 dark:bg-teal-900/30 px-2 py-1 text-center">
-                            <p className="text-muted-foreground">مستلم</p>
-                            <p className="font-bold text-teal-700 dark:text-teal-300">{partialVal} قطعة</p>
-                            <p className="font-bold text-teal-700 dark:text-teal-300">{partialPrice.toFixed(2)} ج.م</p>
-                          </div>
-                          <div className="rounded bg-orange-100 dark:bg-orange-900/30 px-2 py-1 text-center">
-                            <p className="text-muted-foreground">متبقي</p>
-                            <p className="font-bold text-orange-700 dark:text-orange-300">{remainQty} قطعة</p>
-                            <p className="font-bold text-orange-700 dark:text-orange-300">{remainPrice.toFixed(2)} ج.م</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+
             <div>
               <Label className="text-[10px] mb-1 block text-muted-foreground">
                 {needsBulkNote ? "سبب / ملاحظة (مطلوب)" : "ملاحظة (اختياري)"}
