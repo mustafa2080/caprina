@@ -349,16 +349,30 @@ function GlassXTick({ x, y, payload }: any) {
     "الأربعاء": "أربعاء", "الخميس": "خميس", "الجمعة": "جمعة", "السبت": "سبت",
   };
   const shortLabel = DAY_SHORT[d.label ?? ""] ?? (d.label ?? "");
+  const shortDate = d.date
+    ? new Date(d.date).toLocaleDateString("ar-EG", { day: "numeric", month: "numeric" })
+    : "";
   return (
     <g transform={`translate(${x},${y})`}>
+      {/* اسم اليوم */}
       <text
-        x={0} y={0} dy={14}
+        x={0} y={0} dy={13}
         textAnchor="middle"
-        fill={isToday ? GLASS_BAR_COLOR : "rgba(255,255,255,0.45)"}
+        fill={isToday ? GLASS_BAR_COLOR : "rgba(255,255,255,0.55)"}
         fontSize={isToday ? 10 : 9}
-        fontWeight={isToday ? 900 : 500}
+        fontWeight={isToday ? 900 : 600}
       >
         {shortLabel}
+      </text>
+      {/* التاريخ */}
+      <text
+        x={0} y={0} dy={25}
+        textAnchor="middle"
+        fill={isToday ? "#f59e0b88" : "rgba(255,255,255,0.28)"}
+        fontSize={8}
+        fontWeight={400}
+      >
+        {shortDate}
       </text>
     </g>
   );
@@ -457,7 +471,7 @@ const WeeklyBars = memo(function WeeklyBars({ data }: { data: ChartsData["weekly
         >
           <div style={{ height: 250 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={enriched} margin={{ top: 10, right: 8, left: -22, bottom: 12 }}>
+              <BarChart data={enriched} margin={{ top: 10, right: 8, left: -22, bottom: 20 }}>
                 <defs>
                   <linearGradient id="weeklyBarsGlow" x1="0" x2="0" y1="0" y2="1">
                     <stop offset="0%" stopColor="#FFF59D" />
