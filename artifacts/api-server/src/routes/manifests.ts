@@ -423,10 +423,65 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
     return;
   }
 
+  // ─── عند الإغلاق: ابعت الأوردرات المؤجلة / قيد الانتظار لبيان جديد ─────────
+  let rolledOverManifest: (typeof shippingManifestsTable.$inferSelect & { orderCount: number }) | null = null;
+
+  if (parsed.data.status === "closed") {
+    // اجمع الأوردرات اللي حالتها postponed أو pending في هذا البيان
+    const pendingLinks = await db
+      .select()
+      .from(shippingManifestOrdersTable)
+      .where(
+        and(
+          eq(shippingManifestOrdersTable.manifestId, id),
+          inArray(shippingManifestOrdersTable.deliveryStatus, ["postponed", "pending"])
+        )
+      );
+
+    if (pendingLinks.length > 0) {
+      const rolloverOrderIds = pendingLinks.map((l) => l.orderId);
+
+      // أنشئ بيان جديد بنفس شركة الشحن
+      const newManifestNumber = await generateManifestNumber(updated.shippingCompanyId);
+      const insertResult = await db.insert(shippingManifestsTable).values({
+        manifestNumber: newManifestNumber,
+        shippingCompanyId: updated.shippingCompanyId,
+        notes: `مُرحَّل من البيان ${updated.manifestNumber}`,
+        status: "open",
+        createdAt: new Date(),
+      });
+      const newId = (insertResult as any)[0]?.insertId ?? (insertResult as any).insertId;
+      const [newManifest] = await db
+        .select()
+        .from(shippingManifestsTable)
+        .where(eq(shippingManifestsTable.id, newId));
+
+      // أضف الأوردرات للبيان الجديد بحالة pending
+      await db.insert(shippingManifestOrdersTable).values(
+        rolloverOrderIds.map((orderId) => ({
+          manifestId: newManifest.id,
+          orderId,
+          deliveryStatus: "pending" as const,
+          deliveryNote: null,
+          deliveredAt: null,
+          addedAt: new Date(),
+        }))
+      );
+
+      // حدّث حالة الأوردرات لـ in_shipping (كانوا postponed → delayed أو pending → in_shipping)
+      await db
+        .update(ordersTable)
+        .set({ status: "in_shipping", shippingCompanyId: updated.shippingCompanyId })
+        .where(inArray(ordersTable.id, rolloverOrderIds));
+
+      rolledOverManifest = { ...newManifest, orderCount: rolloverOrderIds.length };
+    }
+  }
+
   res.json({
     ...updated,
     invoicePrice: updated.invoicePrice ? Number(updated.invoicePrice) : null,
-    rolledOverManifest: null,
+    rolledOverManifest,
   });
 });
 

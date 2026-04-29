@@ -1655,10 +1655,18 @@ export default function ShippingManifestPage() {
   const updateMutation = useMutation({
     mutationFn: (data: { status: "open" | "closed" }) =>
       manifestsApi.update(id, data),
-    onSuccess: () => {
+    onSuccess: (result: any) => {
       refetch();
       setShowCloseDialog(false);
-      toast({ title: "✅ تم إغلاق البيان" });
+      if (result?.rolledOverManifest) {
+        const rolled = result.rolledOverManifest;
+        toast({
+          title: "✅ تم إغلاق البيان",
+          description: `تم إنشاء بيان جديد "${rolled.manifestNumber}" يحتوي على ${rolled.orderCount} طلبية مؤجلة/قيد الانتظار`,
+        });
+      } else {
+        toast({ title: "✅ تم إغلاق البيان" });
+      }
     },
   });
 
