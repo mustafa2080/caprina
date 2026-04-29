@@ -597,8 +597,6 @@ const KpiStrip = memo(function KpiStrip({ data, total }: { data: ChartsData["sta
 export function FilteredOrdersList({ status }: { status: string }) {
   const cfg = STATUS_CFG[status] ?? { label: status, color: "#888", bg: "#88881a" };
 
-  // نستخدم useQuery مباشرة عشان نضيف includeInManifest=true
-  // (useListOrders بيشيل الطلبات اللي في بيانات مفتوحة لما status=in_shipping)
   const { data: orders, isLoading } = useQuery<any[]>({
     queryKey: ["orders-by-status-chart", status],
     queryFn: () =>
@@ -733,14 +731,14 @@ export function ChartsSection() {
 
       {/* Charts grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* 1 — Donut */}
+        {/* 1 — Donut with expandable orders */}
         <ChartCard
           title="توزيع حالات الطلبات"
-          subtitle="Order Status Breakdown"
+          subtitle="اضغط على الحالة لعرض طلباتها"
           dot="#22c55e"
           liveTag
         >
-          <StatusDonut data={data.statusBreakdown} total={data.total} />
+          <StatusDonutWithOrders data={data.statusBreakdown} total={data.total} />
         </ChartCard>
 
         {/* 2 — Weekly Bar */}
