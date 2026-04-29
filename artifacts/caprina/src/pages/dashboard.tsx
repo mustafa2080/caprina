@@ -172,10 +172,10 @@ export default function Dashboard() {
   const { isAdmin, canViewFinancials } = useAuth();
   const [period, setPeriod] = useState<Period>("today");
   const { data: summary } = useGetOrdersSummary({
-    query: { staleTime: 30000, refetchOnWindowFocus: true, refetchInterval: 60000 },
+    query: { queryKey: ["orders-summary"], staleTime: 30000, refetchOnWindowFocus: true, refetchInterval: 60000 },
   });
   const { data: recentOrders, isLoading: isRecentLoading } = useGetRecentOrders({
-    query: { staleTime: 30000, refetchOnWindowFocus: true, refetchInterval: 60000 },
+    query: { queryKey: ["recent-orders"], staleTime: 30000, refetchOnWindowFocus: true, refetchInterval: 60000 },
   });
   const { data: products } = useQuery({ queryKey: ["products"], queryFn: productsApi.list, staleTime: 60000 });
   const { data: analytics, isLoading: isAnalyticsLoading } = useQuery({
