@@ -362,7 +362,7 @@ function InvoiceGroupDeliveryRow({
         let finalPartialQty: number | null = null;
 
         if (isPerItemMode) {
-          finalStatus = perOrderStatus[order.id] ?? "pending";
+          finalStatus = perOrderStatus[order.id] ?? bulkStatus;
           if (finalStatus === "partial_received") {
             const val = partialQtyMap[order.id];
             finalPartialQty = val ? parseInt(val) : null;
