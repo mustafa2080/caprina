@@ -624,6 +624,7 @@ const WeeklyBars = memo(function WeeklyBars({ data, weekComparison }: { data: Ch
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 });
