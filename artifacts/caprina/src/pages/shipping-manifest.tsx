@@ -463,9 +463,25 @@ function InvoiceGroupDeliveryRow({
           {/* Status */}
           <div>
             {hasMultipleStatuses ? (
-              <Badge variant="outline" className="text-[9px] font-bold border border-border text-muted-foreground">
-                حالات متعددة
-              </Badge>
+              <div className="flex flex-col gap-0.5">
+                <Badge variant="outline" className="text-[9px] font-bold border border-border text-muted-foreground">
+                  حالات متعددة
+                </Badge>
+                {group.map(o => {
+                  const opt = deliveryOpt(o.deliveryStatus as DeliveryStatus);
+                  const label = o.deliveryStatus === "partial_received" && o.partialQuantity
+                    ? `${o.product} ×${o.partialQuantity}/${o.quantity}`
+                    : `${o.product}`;
+                  return (
+                    <p key={o.id} className={`text-[9px] truncate max-w-[110px] font-medium ${opt.color}`}>
+                      {o.deliveryStatus === "delivered" ? "✓" :
+                       o.deliveryStatus === "returned" ? "✕" :
+                       o.deliveryStatus === "partial_received" ? "◑" :
+                       o.deliveryStatus === "postponed" ? "⏸" : "○"} {label}
+                    </p>
+                  );
+                })}
+              </div>
             ) : groupStatus === "partial_received" ? (
               <div className="flex flex-col gap-0.5">
                 <Badge variant="outline" className={`text-[9px] font-bold border ${groupOpt.bg} ${groupOpt.color}`}>
@@ -473,7 +489,7 @@ function InvoiceGroupDeliveryRow({
                 </Badge>
                 {group.filter(o => o.partialQuantity && o.partialQuantity > 0).map(o => (
                   <p key={o.id} className="text-[9px] text-teal-600 dark:text-teal-400 truncate max-w-[110px]">
-                    ✓ {o.product} ×{o.partialQuantity}
+                    ◑ {o.product} ×{o.partialQuantity}
                   </p>
                 ))}
               </div>
