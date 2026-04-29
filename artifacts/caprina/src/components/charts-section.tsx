@@ -450,6 +450,7 @@ const WeeklyBars = memo(function WeeklyBars({ data, weekComparison }: { data: Ch
   const maxOrders = Math.max(...enriched.map(d => d.orders), 1);
   const prevWeekMaxOrders = Math.max(...prevWeekEnriched.map(d => d.orders), 1);
   const yMax = Math.ceil(maxOrders / 5) * 5 + 4;
+  const prevWeekYMax = Math.ceil(prevWeekMaxOrders / 5) * 5 + 4;
 
   const statCards = [
     {
@@ -596,16 +597,69 @@ const WeeklyBars = memo(function WeeklyBars({ data, weekComparison }: { data: Ch
       {/* ── الأسبوع السابق فقط ── */}
       {weekComparison && (
         <div
-          className="rounded-[20px] px-4 py-3 mt-1"
+          className="rounded-[22px] px-2 py-3 sm:px-3"
           style={{
-            background: "linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.015) 100%)",
-            border: "1px solid rgba(255,255,255,0.07)",
+            background: "linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.015) 100%)",
+            border: "1px solid rgba(255,255,255,0.06)",
           }}
         >
-          <p className="text-[11px] font-bold mb-2.5" style={{ color: "rgba(255,255,255,0.55)" }}>
-            مبيعات الأسبوع الماضي
-          </p>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="mb-3 px-2">
+            <p className="text-[11px] font-bold" style={{ color: "rgba(255,255,255,0.72)" }}>
+              مبيعات الأسبوع الماضي
+            </p>
+            <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.42)" }}>
+              نفس العرض ولكن لبيانات الأسبوع السابق
+            </p>
+          </div>
+
+          <div style={{ height: 270 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={prevWeekEnriched} margin={{ top: 10, right: 8, left: -22, bottom: 48 }}>
+                <defs>
+                  <linearGradient id="weeklyBarsPrevGlow" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stopColor="#FFF59D" />
+                    <stop offset="55%" stopColor={GLASS_BAR_COLOR} />
+                    <stop offset="100%" stopColor="#E0A800" />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid
+                  strokeDasharray="2 5"
+                  stroke="rgba(255,255,255,0.12)"
+                  vertical={false}
+                />
+                <XAxis
+                  dataKey="label"
+                  tick={(props) => <GlassXTick {...props} enriched={prevWeekEnriched} />}
+                  axisLine={false}
+                  tickLine={false}
+                  interval={0}
+                />
+                <YAxis
+                  tick={{ fontSize: 10, fill: "rgba(255,255,255,0.50)" }}
+                  axisLine={false}
+                  tickLine={false}
+                  allowDecimals={false}
+                  domain={[0, prevWeekYMax]}
+                />
+                <Tooltip
+                  content={<GlassBarTip />}
+                  cursor={{ fill: "rgba(255,213,79,0.08)", radius: 10 }}
+                />
+                <Bar dataKey="orders" radius={[10, 10, 3, 3]} maxBarSize={38}>
+                  {prevWeekEnriched.map((d, i) => (
+                    <Cell
+                      key={i}
+                      fill={d.orders > 0 ? "url(#weeklyBarsPrevGlow)" : "rgba(255,255,255,0.08)"}
+                      style={d.orders > 0 ? { filter: `drop-shadow(0 0 10px ${GLASS_BAR_COLOR}99)` } : {}}
+                      opacity={d.orders > 0 ? 1 : 0.32}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="mt-4 grid grid-cols-3 gap-2 px-2">
             {/* الطلبات */}
             <div className="flex flex-col items-center gap-1">
               <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.40)" }}>الطلبات</p>
@@ -625,7 +679,12 @@ const WeeklyBars = memo(function WeeklyBars({ data, weekComparison }: { data: Ch
               <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>متوسط يومي للأسبوع الماضي</p>
             </div>
           </div>
-          <div className="mt-4">
+          <div className="mt-4 rounded-[20px] px-3 py-3"
+            style={{
+              background: "linear-gradient(180deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0.012) 100%)",
+              border: "1px solid rgba(255,255,255,0.05)",
+            }}
+          >
             <p className="mb-2 text-[11px] font-bold" style={{ color: "rgba(255,255,255,0.55)" }}>
               تفاصيل الأسبوع الماضي بالتاريخ
             </p>
