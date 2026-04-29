@@ -525,6 +525,14 @@ const WeeklyBars = memo(function WeeklyBars({ data, weekComparison }: { data: Ch
             border: "1px solid rgba(255,255,255,0.06)",
           }}
         >
+          <div className="mb-3 px-2">
+            <p className="text-[11px] font-bold" style={{ color: "rgba(255,255,255,0.72)" }}>
+              مبيعات الأسبوع الحالي
+            </p>
+            <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.42)" }}>
+              من بداية عرض هذا الأسبوع الحالي حتى اليوم
+            </p>
+          </div>
           <div style={{ height: 270 }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={enriched} margin={{ top: 10, right: 8, left: -22, bottom: 48 }}>
@@ -584,16 +592,6 @@ const WeeklyBars = memo(function WeeklyBars({ data, weekComparison }: { data: Ch
           <p className="text-xs" style={{ color: "rgba(255,255,255,0.40)" }}>لا طلبات في آخر 7 أيام</p>
         </div>
       )}
-
-      <div
-        className="rounded-[20px] px-3 py-3"
-        style={{
-          background: "linear-gradient(180deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0.012) 100%)",
-          border: "1px solid rgba(255,255,255,0.05)",
-        }}
-      >
-        <WeeklyDaysGrid days={enriched} maxOrders={maxOrders} highlightToday />
-      </div>
 
       {/* ── الأسبوع السابق فقط ── */}
       {weekComparison && (
