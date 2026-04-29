@@ -352,8 +352,9 @@ function InvoiceGroupDeliveryRow({
     Object.fromEntries(group.map(o => [o.id, o.partialQuantity?.toString() ?? ""]))
   );
 
-  // وضع التقفيل لكل منتج على حدة: يظهر لما تختار partial_received على فاتورة متعددة
-  const isPerItemMode = isMulti && bulkStatus === "partial_received";
+  // وضع per-item: لما فاتورة متعددة → دايماً كل منتج له حالته المستقلة
+  // لما فاتورة منتج واحد → bulkStatus على الكل
+  const isPerItemMode = isMulti;
 
   const bulkMutation = useMutation({
     mutationFn: async () => {
@@ -362,16 +363,19 @@ function InvoiceGroupDeliveryRow({
         let finalPartialQty: number | null = null;
 
         if (isPerItemMode) {
-          // في وضع per-item كل منتج له حالته المختارة مباشرة من الـ UI
+          // فاتورة متعددة: كل منتج له حالته من الـ perOrderStatus
           finalStatus = perOrderStatus[order.id] ?? bulkStatus;
           if (finalStatus === "partial_received") {
             const val = partialQtyMap[order.id];
             finalPartialQty = val ? parseInt(val) : null;
           }
-        } else if (bulkStatus === "partial_received" && !isMulti) {
-          finalStatus = "partial_received";
-          const val = partialQtyMap[order.id];
-          finalPartialQty = val ? parseInt(val) : null;
+        } else {
+          // فاتورة منتج واحد: طبق bulkStatus مباشرة
+          finalStatus = bulkStatus;
+          if (finalStatus === "partial_received") {
+            const val = partialQtyMap[order.id];
+            finalPartialQty = val ? parseInt(val) : null;
+          }
         }
 
         await manifestsApi.updateOrderDelivery(manifestId, order.id, {
@@ -508,31 +512,28 @@ function InvoiceGroupDeliveryRow({
         {/* Bulk editing panel */}
         {bulkEditing && (
           <div className="px-4 pb-3 flex flex-col gap-2 bg-primary/5 border-t border-primary/10">
-            {isMulti && (
-              <p className="text-[10px] text-amber-500 mt-1">
-                ⚠ سيتم تطبيق الحالة على جميع منتجات الفاتورة ({group.length} طلبيات)
-              </p>
-            )}
-            <div className="flex flex-wrap gap-2 items-end mt-1">
-              <div>
-                <Label className="text-[10px] mb-1 block text-muted-foreground">حالة التسليم</Label>
-                <Select
-                  value={bulkStatus}
-                  onValueChange={(v) => setBulkStatus(v as DeliveryStatus)}
-                >
-                  <SelectTrigger className="h-8 text-xs w-40 bg-background">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {DELIVERY_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={o.value} className="text-xs">
-                        <span className={o.color}>{o.label}</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            {!isMulti && (
+              <div className="flex flex-wrap gap-2 items-end mt-1">
+                <div>
+                  <Label className="text-[10px] mb-1 block text-muted-foreground">حالة التسليم</Label>
+                  <Select
+                    value={bulkStatus}
+                    onValueChange={(v) => setBulkStatus(v as DeliveryStatus)}
+                  >
+                    <SelectTrigger className="h-8 text-xs w-40 bg-background">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DELIVERY_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value} className="text-xs">
+                          <span className={o.color}>{o.label}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-            </div>
+            )}
             {/* الاستلام الجزئي: وضع لكل منتج على حدة — يظهر لفواتير متعددة */}
             {isPerItemMode && (
               <div className="flex flex-col gap-2 border border-teal-300 dark:border-teal-700 rounded-md p-2.5 bg-teal-50 dark:bg-teal-900/20">
