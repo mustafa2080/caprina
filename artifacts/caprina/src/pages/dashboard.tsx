@@ -421,7 +421,7 @@ export default function Dashboard() {
       {/* === VISUAL CHARTS === */}
       {chartsData ? (
         <div className="space-y-4">
-          {/* Row 1: Donut فقط */}
+          {/* Row 1: الدونات + المبيعات الأسبوعية جنب بعض */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <ChartCard
               title="توزيع حالات الطلبات"
@@ -434,17 +434,16 @@ export default function Dashboard() {
                 total={chartsData.total}
               />
             </ChartCard>
-          </div>
 
-          {/* Row 2: المبيعات الأسبوعية — full width عشان يظهر الأسبوع الحالي والسابق */}
-          <ChartCard
-            title="المبيعات الأسبوعية"
-            subtitle="الأسبوع الحالي والأسبوع الماضي"
-            dot="#f59e0b"
-            glassStyle
-          >
-            <WeeklyBars data={chartsData.weeklySales} weekComparison={chartsData.weekComparison} />
-          </ChartCard>
+            <ChartCard
+              title="المبيعات الأسبوعية"
+              subtitle="الأسبوع الحالي والأسبوع الماضي"
+              dot="#f59e0b"
+              glassStyle
+            >
+              <WeeklyBars data={chartsData.weeklySales} weekComparison={chartsData.weekComparison} />
+            </ChartCard>
+          </div>
         </div>
       ) : (
         <ChartsSection />
