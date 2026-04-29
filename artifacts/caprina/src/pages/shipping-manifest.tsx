@@ -1,4 +1,4 @@
-﻿import { useState, useCallback, useMemo } from "react";
+﻿﻿﻿﻿import { useState, useCallback, useMemo } from "react";
 import * as XLSX from "xlsx";
 import { useParams, Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -342,12 +342,29 @@ function InvoiceGroupDeliveryRow({
   const [bulkEditing, setBulkEditing] = useState(false);
   const [bulkStatus, setBulkStatus] = useState<DeliveryStatus>(groupStatus);
   const [bulkNote, setBulkNote] = useState("");
+  // الاستلام الجزئي: تحديد الطلبيات المستلمة
+  const [partialSelectedIds, setPartialSelectedIds] = useState<Set<number>>(
+    new Set(group.filter(o => o.deliveryStatus === "delivered").map(o => o.id))
+  );
+
+  const togglePartialOrder = (id: number) => {
+    setPartialSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const bulkMutation = useMutation({
     mutationFn: async () => {
       for (const order of group) {
+        let finalStatus: DeliveryStatus = bulkStatus;
+        if (bulkStatus === "partial_received" && isMulti) {
+          finalStatus = partialSelectedIds.has(order.id) ? "delivered" : "pending";
+        }
         await manifestsApi.updateOrderDelivery(manifestId, order.id, {
-          deliveryStatus: bulkStatus,
+          deliveryStatus: finalStatus,
           deliveryNote: bulkNote.trim() || null,
           partialQuantity: null,
         });
@@ -451,7 +468,7 @@ function InvoiceGroupDeliveryRow({
                   variant="ghost"
                   size="sm"
                   className="h-6 text-[10px] px-1.5 text-primary hover:text-primary"
-                  onClick={() => { setBulkEditing(true); setBulkStatus(groupStatus); setBulkNote(""); }}
+                  onClick={() => { setBulkEditing(true); setBulkStatus(groupStatus); setBulkNote(""); setPartialSelectedIds(new Set(group.filter(o => o.deliveryStatus === "delivered").map(o => o.id))); }}
                 >
                   <Edit2 className="w-3 h-3 ml-0.5" />تقفيل
                 </Button>
@@ -488,6 +505,37 @@ function InvoiceGroupDeliveryRow({
                 </Select>
               </div>
             </div>
+            {/* الاستلام الجزئي: اختيار الطلبيات المستلمة */}
+            {bulkStatus === "partial_received" && isMulti && (
+              <div className="flex flex-col gap-1.5 border border-teal-300 dark:border-teal-700 rounded-md p-2.5 bg-teal-50 dark:bg-teal-900/20">
+                <Label className="text-[10px] font-bold text-teal-700 dark:text-teal-400 mb-1">
+                  حدد الطلبيات المستلمة ({partialSelectedIds.size}/{group.length})
+                </Label>
+                {group.map((o) => {
+                  const variant = [o.color, o.size].filter(Boolean).join(" / ");
+                  return (
+                    <label
+                      key={o.id}
+                      className={`flex items-center gap-2 rounded-md px-2 py-1.5 cursor-pointer border transition-colors ${
+                        partialSelectedIds.has(o.id)
+                          ? "border-teal-400 bg-teal-100 dark:bg-teal-800/40"
+                          : "border-border/40 bg-background hover:bg-muted/20"
+                      }`}
+                    >
+                      <Checkbox
+                        checked={partialSelectedIds.has(o.id)}
+                        onCheckedChange={() => togglePartialOrder(o.id)}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium truncate">{o.product}</p>
+                        {variant && <p className="text-[10px] text-muted-foreground">{variant}</p>}
+                      </div>
+                      <span className="text-xs font-bold text-muted-foreground shrink-0">{o.quantity}x</span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
             {(needsBulkNote || bulkStatus === "pending") && (
               <div>
                 <Label className="text-[10px] mb-1 block text-muted-foreground">
