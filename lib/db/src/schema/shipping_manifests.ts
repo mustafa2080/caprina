@@ -21,6 +21,7 @@ export const shippingManifestOrdersTable = mysqlTable("shipping_manifest_orders"
   orderId: int("order_id").notNull().references(() => ordersTable.id),
   deliveryStatus: varchar("delivery_status", { length: 50 }).notNull().default("pending"),
   deliveryNote: text("delivery_note"),
+  partialQuantity: int("partial_quantity"),
   deliveredAt: datetime("delivered_at"),
   addedAt: datetime("added_at").notNull(),
 });

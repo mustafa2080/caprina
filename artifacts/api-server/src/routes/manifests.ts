@@ -352,6 +352,8 @@ router.get("/shipping-manifests/:id", async (req, res): Promise<void> => {
         deliveryStatus: link.deliveryStatus,
         deliveryNote: link.deliveryNote,
         deliveredAt: link.deliveredAt,
+        // استخدم الكمية الجزئية من الـ manifest order row إذا كانت موجودة
+        partialQuantity: (link as any).partialQuantity ?? o.partialQuantity,
         manifestOrderId: link.id,
       };
     });
@@ -559,6 +561,7 @@ router.patch(
       .set({
         deliveryStatus,
         deliveryNote: deliveryNote ?? null,
+        partialQuantity: deliveryStatus === "partial_received" && partialQuantity ? partialQuantity : null,
         deliveredAt: isDelivered ? new Date() : null,
       })
       .where(eq(shippingManifestOrdersTable.id, link.id));
