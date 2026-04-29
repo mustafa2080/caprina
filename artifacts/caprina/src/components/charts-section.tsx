@@ -380,10 +380,10 @@ function MonthPickerDropdown({
             top: "calc(100% + 6px)",
             right: 0,
             zIndex: 50,
-            background: "rgba(20,20,20,0.97)",
+            background: "hsl(var(--popover))",
             border: "1px solid rgba(255,183,77,0.3)",
             borderRadius: 16,
-            boxShadow: "0 12px 40px rgba(0,0,0,0.6)",
+            boxShadow: "0 12px 40px rgba(0,0,0,0.3)",
             maxHeight: 280,
             overflowY: "auto",
             minWidth: 180,
@@ -406,7 +406,7 @@ function MonthPickerDropdown({
                   borderRadius: 10,
                   background: isSelected ? "rgba(255,183,77,0.2)" : "transparent",
                   border: "none",
-                  color: isSelected ? "#FFB74D" : "rgba(255,255,255,0.75)",
+                  color: isSelected ? "#FFB74D" : "hsl(var(--foreground))",
                   fontSize: 11,
                   fontWeight: isSelected ? 800 : 500,
                   cursor: "pointer",
@@ -414,7 +414,7 @@ function MonthPickerDropdown({
                   gap: 8,
                 }}
               >
-                <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 9 }}>
+                <span style={{ color: "hsl(var(--muted-foreground))", fontSize: 9 }}>
                   {isCurrent ? "📍" : ""}
                 </span>
                 {opt.label}
@@ -462,11 +462,11 @@ function WeeklyViewTabs({
               gap: 5,
               padding: "5px 12px",
               borderRadius: 20,
-              border: `1.5px solid ${isActive ? tab.color : "rgba(255,255,255,0.12)"}`,
+              border: `1.5px solid ${isActive ? tab.color : "hsl(var(--border))"}`,
               background: isActive
                 ? `linear-gradient(135deg, ${tab.color}28, ${tab.color}14)`
-                : "rgba(255,255,255,0.04)",
-              color: isActive ? tab.color : "rgba(255,255,255,0.52)",
+                : "hsl(var(--muted)/0.5)",
+              color: isActive ? tab.color : "hsl(var(--muted-foreground))",
               fontSize: 10.5,
               fontWeight: isActive ? 800 : 500,
               cursor: "pointer",
@@ -500,21 +500,18 @@ function GlassBarTip({ active, payload }: any) {
   const d = payload[0].payload;
   return (
     <div
+      className="rounded-xl px-3.5 py-2 text-center shadow-xl"
       style={{
-        background: "rgba(20,20,20,0.92)",
+        background: "hsl(var(--card))",
         border: "1px solid rgba(255,213,79,0.4)",
-        borderRadius: 10,
-        padding: "8px 14px",
-        boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
-        textAlign: "center",
         minWidth: 90,
         direction: "rtl",
       }}
     >
       <p style={{ color: "#FFD54F", fontWeight: 900, fontSize: 12, marginBottom: 2 }}>{d.label}</p>
-      <p style={{ color: "#fff", fontWeight: 700, fontSize: 13 }}>{d.orders} طلب</p>
+      <p className="font-bold text-foreground" style={{ fontSize: 13 }}>{d.orders} طلب</p>
       {d.revenue > 0 && (
-        <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 10, marginTop: 2 }}>{fc(d.revenue)}</p>
+        <p className="text-muted-foreground" style={{ fontSize: 10, marginTop: 2 }}>{fc(d.revenue)}</p>
       )}
     </div>
   );
@@ -532,7 +529,7 @@ function GlassXTick({ x, y, payload, enriched }: any) {
       <text
         x={0} y={0} dy={13}
         textAnchor="middle"
-        fill={isToday ? GLASS_BAR_COLOR : "rgba(255,255,255,0.55)"}
+        fill={isToday ? GLASS_BAR_COLOR : "hsl(var(--muted-foreground))"}
         fontSize={isToday ? 10 : 9}
         fontWeight={isToday ? 900 : 600}
       >
@@ -541,7 +538,7 @@ function GlassXTick({ x, y, payload, enriched }: any) {
       <text
         x={0} y={0} dy={26}
         textAnchor="middle"
-        fill={isToday ? "#f59e0b88" : "rgba(255,255,255,0.28)"}
+        fill={isToday ? "#f59e0b88" : "hsl(var(--muted-foreground))"}
         fontSize={8}
         fontWeight={400}
       >
@@ -632,13 +629,11 @@ const WeeklyBars = memo(function WeeklyBars({
 
   return (
     <div
-      className="space-y-5 rounded-[26px] p-4 sm:p-5"
+      className="space-y-5 rounded-[26px] p-4 sm:p-5 bg-card dark:bg-[rgba(30,30,30,0.88)] light:bg-card"
       dir="rtl"
       style={{
-        background: "linear-gradient(180deg, rgba(50,50,50,0.55) 0%, rgba(30,30,30,0.88) 100%)",
-        border: "1px solid rgba(255,255,255,0.08)",
-        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06), 0 24px 50px rgba(0,0,0,0.35)",
-        backdropFilter: "blur(16px)",
+        border: "1px solid hsl(var(--border))",
+        boxShadow: "0 4px 24px rgba(0,0,0,0.10)",
       }}
     >
 
@@ -653,9 +648,9 @@ const WeeklyBars = memo(function WeeklyBars({
               style={{
                 display: "flex", alignItems: "center", gap: 5,
                 padding: "5px 14px", borderRadius: 20,
-                border: `1.5px solid ${isActive ? tab.color : "rgba(255,255,255,0.15)"}`,
-                background: isActive ? `${tab.color}22` : "rgba(255,255,255,0.04)",
-                color: isActive ? tab.color : "rgba(255,255,255,0.50)",
+                border: `1.5px solid ${isActive ? tab.color : "hsl(var(--border))"}`,
+                background: isActive ? `${tab.color}22` : "hsl(var(--muted)/0.5)",
+                color: isActive ? tab.color : "hsl(var(--muted-foreground))",
                 fontSize: 11, fontWeight: isActive ? 800 : 500,
                 cursor: "pointer",
                 boxShadow: isActive ? `0 0 12px ${tab.color}44` : "none",
@@ -685,7 +680,7 @@ const WeeklyBars = memo(function WeeklyBars({
               className="absolute inset-x-6 top-0 h-px opacity-80"
               style={{ background: `linear-gradient(90deg, transparent, ${card.color}, transparent)` }}
             />
-            <p className="text-[11px] font-bold tracking-tight" style={{ color: "rgba(255,255,255,0.72)" }}>{card.label}</p>
+            <p className="text-[11px] font-bold tracking-tight text-foreground/80">{card.label}</p>
             <p
               className="mt-1 truncate text-xl font-black sm:text-2xl"
               style={{ color: card.color, textShadow: `0 0 14px ${card.color}88` }}
@@ -693,7 +688,7 @@ const WeeklyBars = memo(function WeeklyBars({
               {card.value}
             </p>
             {card.subValue && (
-              <p className="mt-0.5 text-[10px] font-semibold" style={{ color: "rgba(255,255,255,0.60)" }}>{card.subValue}</p>
+              <p className="mt-0.5 text-[10px] font-semibold text-foreground/60">{card.subValue}</p>
             )}
           </div>
         ))}
@@ -704,15 +699,15 @@ const WeeklyBars = memo(function WeeklyBars({
         <div
           className="rounded-[22px] px-2 py-3 sm:px-3"
           style={{
-            background: "linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.015) 100%)",
-            border: "1px solid rgba(255,255,255,0.06)",
+            background: "hsl(var(--muted)/0.3)",
+            border: "1px solid hsl(var(--border))",
           }}
         >
           <div className="mb-3 px-2">
-            <p className="text-[11px] font-bold" style={{ color: "rgba(255,255,255,0.72)" }}>
+            <p className="text-[11px] font-bold text-foreground/80">
               {salesView === "current" ? "مبيعات الأسبوع الحالي" : salesView === "prev" ? "مبيعات الأسبوع الماضي" : "مبيعات الشهر الحالي"}
             </p>
-            <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.42)" }}>
+            <p className="text-[10px] text-muted-foreground">
               {salesView === "current" ? "من بداية الأسبوع حتى اليوم" : salesView === "prev" ? "بيانات الأسبوع السابق" : "من أول الشهر حتى اليوم"}
             </p>
           </div>
@@ -726,7 +721,7 @@ const WeeklyBars = memo(function WeeklyBars({
                     <stop offset="100%" stopColor={salesView === "monthly" ? "#0F766E" : salesView === "prev" ? "#4527A0" : "#E0A800"} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="2 5" stroke="rgba(255,255,255,0.12)" vertical={false} />
+                <CartesianGrid strokeDasharray="2 5" stroke="hsl(var(--border))" vertical={false} />
                 <XAxis
                   dataKey="label"
                   tick={(props: any) => <GlassXTick {...props} enriched={activeData} />}
@@ -734,13 +729,13 @@ const WeeklyBars = memo(function WeeklyBars({
                   tickLine={false}
                   interval={salesView === "monthly" ? (monthlyEnriched.length > 24 ? 3 : monthlyEnriched.length > 16 ? 2 : monthlyEnriched.length > 10 ? 1 : 0) : 0}
                 />
-                <YAxis tick={{ fontSize: 10, fill: "rgba(255,255,255,0.50)" }} axisLine={false} tickLine={false} allowDecimals={false} domain={[0, yMax]} />
+                <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} allowDecimals={false} domain={[0, yMax]} />
                 <Tooltip content={<GlassBarTip />} cursor={{ fill: salesView === "monthly" ? "rgba(38,166,154,0.10)" : "rgba(255,213,79,0.08)", radius: 10 }} />
                 <Bar dataKey="orders" radius={[10, 10, 3, 3]} maxBarSize={salesView === "monthly" ? 22 : 38}>
                   {activeData.map((d: any, i: number) => (
                     <Cell
                       key={i}
-                      fill={d.orders > 0 ? "url(#activeBarsGlow)" : "rgba(255,255,255,0.08)"}
+                      fill={d.orders > 0 ? "url(#activeBarsGlow)" : "hsl(var(--border))"}
                       style={d.orders > 0 ? { filter: `drop-shadow(0 0 10px ${salesView === "monthly" ? GLASS_GREEN : salesView === "prev" ? GLASS_PURPLE : GLASS_BAR_COLOR}99)` } : {}}
                       opacity={d.orders > 0 ? 1 : 0.28}
                     />
@@ -754,15 +749,15 @@ const WeeklyBars = memo(function WeeklyBars({
           {salesView === "prev" && weekComparison && (
             <div className="mt-4 grid grid-cols-3 gap-2 px-2">
               <div className="flex flex-col items-center gap-1">
-                <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.40)" }}>الطلبات</p>
+                <p className="text-[10px] text-muted-foreground">الطلبات</p>
                 <p className="text-base font-black" style={{ color: GLASS_ORANGE }}>{weekComparison.prevWeek.orders}</p>
               </div>
               <div className="flex flex-col items-center gap-1">
-                <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.40)" }}>الإيرادات</p>
+                <p className="text-[10px] text-muted-foreground">الإيرادات</p>
                 <p className="text-base font-black" style={{ color: GLASS_PURPLE }}>{fc(weekComparison.prevWeek.revenue)}</p>
               </div>
               <div className="flex flex-col items-center gap-1">
-                <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.40)" }}>متوسط/يوم</p>
+                <p className="text-[10px] text-muted-foreground">متوسط/يوم</p>
                 <p className="text-base font-black" style={{ color: GLASS_BAR_COLOR }}>{(weekComparison.prevWeek.orders / 7).toFixed(1)}</p>
               </div>
             </div>
@@ -770,15 +765,15 @@ const WeeklyBars = memo(function WeeklyBars({
           {salesView === "monthly" && (
             <div className="mt-3 grid grid-cols-3 gap-2 px-2">
               <div className="flex flex-col items-center gap-1 rounded-2xl px-2 py-2" style={{ background: "rgba(255,183,77,0.08)" }}>
-                <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.40)" }}>الطلبات</p>
+                <p className="text-[10px] text-muted-foreground">الطلبات</p>
                 <p className="text-base font-black" style={{ color: GLASS_ORANGE }}>{monthlyTotalOrders}</p>
               </div>
               <div className="flex flex-col items-center gap-1 rounded-2xl px-2 py-2" style={{ background: "rgba(126,87,194,0.08)" }}>
-                <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.40)" }}>الإيرادات</p>
+                <p className="text-[10px] text-muted-foreground">الإيرادات</p>
                 <p className="text-base font-black" style={{ color: GLASS_PURPLE }}>{fc(monthlyRevenue)}</p>
               </div>
               <div className="flex flex-col items-center gap-1 rounded-2xl px-2 py-2" style={{ background: "rgba(38,166,154,0.08)" }}>
-                <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.40)" }}>متوسط/يوم</p>
+                <p className="text-[10px] text-muted-foreground">متوسط/يوم</p>
                 <p className="text-base font-black" style={{ color: GLASS_GREEN }}>{monthlyAverage}</p>
               </div>
             </div>
@@ -786,14 +781,11 @@ const WeeklyBars = memo(function WeeklyBars({
         </div>
       ) : (
         <div
-          className="flex h-56 flex-col items-center justify-center gap-2 rounded-[22px]"
-          style={{
-            background: "linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.015) 100%)",
-            border: "1px solid rgba(255,255,255,0.06)",
-          }}
+          className="flex h-56 flex-col items-center justify-center gap-2 rounded-[22px] border border-border"
+          style={{ background: "hsl(var(--muted)/0.3)" }}
         >
-          <span className="text-4xl" style={{ opacity: 0.2 }}>📊</span>
-          <p className="text-xs" style={{ color: "rgba(255,255,255,0.40)" }}>لا طلبات في هذه الفترة</p>
+          <span className="text-4xl opacity-20">📊</span>
+          <p className="text-xs text-muted-foreground">لا طلبات في هذه الفترة</p>
         </div>
       )}
       </div>
@@ -881,16 +873,13 @@ function ChartCard({
   if (glassStyle) {
     return (
       <div
-        className="rounded-2xl overflow-hidden"
+        className="rounded-2xl overflow-hidden bg-card border border-border"
         style={{
-          background: "linear-gradient(135deg, #1e1e1e 0%, #2a2a2a 100%)",
-          boxShadow: "0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06) inset",
-          border: "1px solid rgba(255,255,255,0.08)",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.15), 0 0 0 1px hsl(var(--border)/0.5) inset",
         }}
       >
         <div
-          className="flex items-start justify-between px-4 pt-4 pb-3"
-          style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
+          className="flex items-start justify-between px-4 pt-4 pb-3 border-b border-border/50"
         >
           <div className="flex items-center gap-2.5">
             <span
@@ -898,13 +887,13 @@ function ChartCard({
               style={{ background: dot, boxShadow: `0 0 8px ${dot}cc, 0 0 20px ${dot}55` }}
             />
             <div>
-              <p className="text-sm font-bold" style={{ color: "#f0f0f0" }}>{title}</p>
-              <p className="text-[10px] mt-0.5" style={{ color: "rgba(255,255,255,0.38)" }}>{subtitle}</p>
+              <p className="text-sm font-bold text-foreground">{title}</p>
+              <p className="text-[10px] mt-0.5 text-muted-foreground">{subtitle}</p>
             </div>
           </div>
           {liveTag && (
-            <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-400 shrink-0 mt-0.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-500 shrink-0 mt-0.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               مباشر
             </span>
           )}
