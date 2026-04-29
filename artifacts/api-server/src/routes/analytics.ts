@@ -1051,6 +1051,7 @@ router.get("/analytics/charts", async (_req, res): Promise<void> => {
 
   const days: { date: string; label: string; orders: number; revenue: number }[] = [];
   const prevDays: { date: string; label: string; orders: number; revenue: number }[] = [];
+  const monthDays: { date: string; label: string; orders: number; revenue: number }[] = [];
   const dayNames = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
 
   // الأسبوع الحالي (آخر 7 أيام)
@@ -1067,6 +1068,16 @@ router.get("/analytics/charts", async (_req, res): Promise<void> => {
     const dateStr = d.toISOString().split("T")[0];
     prevDays.push({ date: dateStr, label: dayNames[d.getDay()], orders: 0, revenue: 0 });
   }
+  // الشهر الحالي (من أول الشهر حتى اليوم)
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+  const today = now.getDate();
+  for (let day = 1; day <= today; day++) {
+    const d = new Date(currentYear, currentMonth, day);
+    const dateStr = d.toISOString().split("T")[0];
+    monthDays.push({ date: dateStr, label: String(day), orders: 0, revenue: 0 });
+  }
 
   for (const inv of invoices) {
     const dateStr = new Date(inv.createdAt).toISOString().split("T")[0];
@@ -1074,6 +1085,8 @@ router.get("/analytics/charts", async (_req, res): Promise<void> => {
     if (day) { day.orders += 1; day.revenue += inv.revenue; }
     const prev = prevDays.find(d => d.date === dateStr);
     if (prev) { prev.orders += 1; prev.revenue += inv.revenue; }
+    const monthDay = monthDays.find(d => d.date === dateStr);
+    if (monthDay) { monthDay.orders += 1; monthDay.revenue += inv.revenue; }
   }
 
   // إحصائيات مقارنة الأسبوعين
@@ -1104,7 +1117,7 @@ router.get("/analytics/charts", async (_req, res): Promise<void> => {
     }))
     .sort((a, b) => b.count - a.count);
 
-  res.json({ statusBreakdown, weeklySales: days, adSourceBreakdown, total, weekComparison });
+  res.json({ statusBreakdown, weeklySales: days, monthlySales: monthDays, adSourceBreakdown, total, weekComparison });
 });
 
 // ─── GET /api/analytics/orders-by-status ─────────────────────────────────────

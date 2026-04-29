@@ -372,11 +372,23 @@ function GlassXTick({ x, y, payload, enriched }: any) {
   );
 }
 
-const WeeklyBars = memo(function WeeklyBars({ data, weekComparison }: { data: ChartsData["weeklySales"]; weekComparison?: ChartsData["weekComparison"] }) {
+const WeeklyBars = memo(function WeeklyBars({
+  data,
+  monthlySales,
+  weekComparison,
+}: {
+  data: ChartsData["weeklySales"];
+  monthlySales?: ChartsData["monthlySales"];
+  weekComparison?: ChartsData["weekComparison"];
+}) {
   const todayStr = new Date().toISOString().split("T")[0];
   const enriched = useMemo(() =>
     data.map(d => ({ ...d, isToday: d.date === todayStr }))
   , [data, todayStr]);
+  const monthlyEnriched = useMemo(
+    () => (monthlySales ?? []).map(d => ({ ...d, isToday: d.date === todayStr })),
+    [monthlySales, todayStr]
+  );
   const prevWeekEnriched = useMemo(
     () => weekComparison?.prevWeekDays?.map(d => ({ ...d, isToday: false })) ?? [],
     [weekComparison]
@@ -390,9 +402,15 @@ const WeeklyBars = memo(function WeeklyBars({ data, weekComparison }: { data: Ch
   }, [enriched]);
 
   const maxOrders = Math.max(...enriched.map(d => d.orders), 1);
+  const monthlyMaxOrders = Math.max(...monthlyEnriched.map(d => d.orders), 1);
   const prevWeekMaxOrders = Math.max(...prevWeekEnriched.map(d => d.orders), 1);
   const yMax = Math.ceil(maxOrders / 5) * 5 + 4;
+  const monthlyYMax = Math.ceil(monthlyMaxOrders / 5) * 5 + 4;
   const prevWeekYMax = Math.ceil(prevWeekMaxOrders / 5) * 5 + 4;
+  const monthlyTotalOrders = monthlyEnriched.reduce((s, d) => s + d.orders, 0);
+  const monthlyRevenue = monthlyEnriched.reduce((s, d) => s + d.revenue, 0);
+  const monthlyAverage = monthlyEnriched.length > 0 ? (monthlyTotalOrders / monthlyEnriched.length).toFixed(1) : "0.0";
+  const monthlyTickInterval = monthlyEnriched.length > 24 ? 3 : monthlyEnriched.length > 16 ? 2 : monthlyEnriched.length > 10 ? 1 : 0;
 
   const statCards = [
     {
@@ -621,6 +639,87 @@ const WeeklyBars = memo(function WeeklyBars({ data, weekComparison }: { data: Ch
               <p className="text-base font-black" style={{ color: GLASS_BAR_COLOR }}>{(weekComparison.prevWeek.orders / 7).toFixed(1)}</p>
               <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>متوسط يومي للأسبوع الماضي</p>
             </div>
+          </div>
+        </div>
+      )}
+
+      {monthlyEnriched.length > 0 && (
+        <div
+          className="rounded-[22px] px-2 py-3 sm:px-3"
+          style={{
+            background: "linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.015) 100%)",
+            border: "1px solid rgba(255,255,255,0.06)",
+          }}
+        >
+          <div className="mb-3 px-2">
+            <p className="text-[11px] font-bold" style={{ color: "rgba(255,255,255,0.72)" }}>
+              مبيعات الشهر الحالي
+            </p>
+            <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.42)" }}>
+              من أول الشهر حتى اليوم بشكل يومي ومنظم
+            </p>
+          </div>
+
+          <div className="mb-4 grid grid-cols-3 gap-2 px-2">
+            <div className="flex flex-col items-center gap-1 rounded-2xl px-2 py-2" style={{ background: "rgba(255,183,77,0.08)" }}>
+              <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.40)" }}>الطلبات</p>
+              <p className="text-base font-black" style={{ color: GLASS_ORANGE }}>{monthlyTotalOrders}</p>
+            </div>
+            <div className="flex flex-col items-center gap-1 rounded-2xl px-2 py-2" style={{ background: "rgba(126,87,194,0.08)" }}>
+              <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.40)" }}>الإيرادات</p>
+              <p className="text-base font-black" style={{ color: GLASS_PURPLE }}>{fc(monthlyRevenue)}</p>
+            </div>
+            <div className="flex flex-col items-center gap-1 rounded-2xl px-2 py-2" style={{ background: "rgba(38,166,154,0.08)" }}>
+              <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.40)" }}>متوسط/يوم</p>
+              <p className="text-base font-black" style={{ color: GLASS_GREEN }}>{monthlyAverage}</p>
+            </div>
+          </div>
+
+          <div style={{ height: 200 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={monthlyEnriched} margin={{ top: 10, right: 8, left: -22, bottom: 36 }}>
+                <defs>
+                  <linearGradient id="monthlyBarsGlow" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stopColor="#FFF59D" />
+                    <stop offset="55%" stopColor={GLASS_GREEN} />
+                    <stop offset="100%" stopColor="#0F766E" />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid
+                  strokeDasharray="2 5"
+                  stroke="rgba(255,255,255,0.12)"
+                  vertical={false}
+                />
+                <XAxis
+                  dataKey="label"
+                  tick={(props) => <GlassXTick {...props} enriched={monthlyEnriched} />}
+                  axisLine={false}
+                  tickLine={false}
+                  interval={monthlyTickInterval}
+                />
+                <YAxis
+                  tick={{ fontSize: 10, fill: "rgba(255,255,255,0.50)" }}
+                  axisLine={false}
+                  tickLine={false}
+                  allowDecimals={false}
+                  domain={[0, monthlyYMax]}
+                />
+                <Tooltip
+                  content={<GlassBarTip />}
+                  cursor={{ fill: "rgba(38,166,154,0.10)", radius: 10 }}
+                />
+                <Bar dataKey="orders" radius={[10, 10, 3, 3]} maxBarSize={22}>
+                  {monthlyEnriched.map((d, i) => (
+                    <Cell
+                      key={i}
+                      fill={d.orders > 0 ? "url(#monthlyBarsGlow)" : "rgba(255,255,255,0.08)"}
+                      style={d.orders > 0 ? { filter: `drop-shadow(0 0 10px ${GLASS_GREEN}99)` } : {}}
+                      opacity={d.orders > 0 ? 1 : 0.28}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
       )}
@@ -988,10 +1087,14 @@ export function ChartsSection() {
         {/* 2 — Weekly Bar */}
         <ChartCard
           title="المبيعات الأسبوعية"
-          subtitle="Weekly Sales — Last 7 Days"
+          subtitle="الأسبوع الحالي والأسبوع الماضي والشهر الحالي"
           dot="#f59e0b"
         >
-          <WeeklyBars data={data.weeklySales} weekComparison={data.weekComparison} />
+          <WeeklyBars
+            data={data.weeklySales}
+            monthlySales={data.monthlySales}
+            weekComparison={data.weekComparison}
+          />
         </ChartCard>
 
         {/* 3 — Ad Sources */}

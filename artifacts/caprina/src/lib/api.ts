@@ -499,6 +499,7 @@ export interface WeekComparison {
 export interface ChartsData {
   statusBreakdown: ChartStatusItem[];
   weeklySales: ChartDayItem[];
+  monthlySales: ChartDayItem[];
   adSourceBreakdown: ChartSourceItem[];
   total: number;
   weekComparison: WeekComparison;
@@ -1038,4 +1039,3 @@ export const appSettingsApi = {
   update: (data: Partial<AppSettings>) =>
     apiFetch<AppSettings>("/settings", { method: "PATCH", body: JSON.stringify(data) }),
 };
-

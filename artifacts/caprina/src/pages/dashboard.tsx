@@ -437,11 +437,15 @@ export default function Dashboard() {
 
             <ChartCard
               title="المبيعات الأسبوعية"
-              subtitle="الأسبوع الحالي والأسبوع الماضي"
+              subtitle="الأسبوع الحالي والأسبوع الماضي والشهر الحالي"
               dot="#f59e0b"
               glassStyle
             >
-              <WeeklyBars data={chartsData.weeklySales} weekComparison={chartsData.weekComparison} />
+              <WeeklyBars
+                data={chartsData.weeklySales}
+                monthlySales={chartsData.monthlySales}
+                weekComparison={chartsData.weekComparison}
+              />
             </ChartCard>
           </div>
         </div>
