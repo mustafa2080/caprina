@@ -44,33 +44,33 @@ function PeriodCard({ label, data, accent }: { label: string; data: PeriodProfit
   const isProfit = data.netProfit >= 0;
   return (
     <Card className="border-border bg-card overflow-hidden">
-      <CardContent className="p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{label}</p>
-          <Badge variant="outline" className={`text-[9px] font-bold border ${
+      <CardContent className="p-3 sm:p-4 space-y-2 sm:space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">{label}</p>
+          <Badge variant="outline" className={`text-[8px] sm:text-[9px] font-bold border shrink-0 ${
             data.returnRate > 20 ? "border-red-400 text-red-600 dark:border-red-800 dark:text-red-400" : "border-border text-muted-foreground"
           }`}>{data.returnRate}% مرتجع</Badge>
         </div>
         <div>
-          <p className={`text-2xl font-black ${isProfit ? accent : "text-red-600 dark:text-red-400"}`}>{fc(data.netProfit)}</p>
-          <p className="text-[10px] text-muted-foreground">صافي الربح</p>
+          <p className={`text-xl sm:text-2xl font-black ${isProfit ? accent : "text-red-600 dark:text-red-400"}`}>{fc(data.netProfit)}</p>
+          <p className="text-[9px] sm:text-[10px] text-muted-foreground">صافي الربح</p>
         </div>
-        <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border">
+        <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 sm:gap-2 pt-1.5 sm:pt-2 border-t border-border">
           <div>
-            <p className="text-[9px] text-muted-foreground">الإيرادات</p>
-            <p className="text-xs font-bold text-primary">{fc(data.revenue)}</p>
+            <p className="text-[8px] sm:text-[9px] text-muted-foreground">الإيرادات</p>
+            <p className="text-[10px] sm:text-xs font-bold text-primary">{fc(data.revenue)}</p>
           </div>
           <div>
-            <p className="text-[9px] text-muted-foreground">التكاليف</p>
-            <p className="text-xs font-bold text-amber-700 dark:text-amber-400">{fc(data.cost + data.shippingCost)}</p>
+            <p className="text-[8px] sm:text-[9px] text-muted-foreground">التكاليف</p>
+            <p className="text-[10px] sm:text-xs font-bold text-amber-700 dark:text-amber-400">{fc(data.cost + data.shippingCost)}</p>
           </div>
           <div>
-            <p className="text-[9px] text-muted-foreground">الطلبات</p>
-            <p className="text-xs font-bold">{fn(data.orders)}</p>
+            <p className="text-[8px] sm:text-[9px] text-muted-foreground">الطلبات</p>
+            <p className="text-[10px] sm:text-xs font-bold">{fn(data.orders)}</p>
           </div>
           <div>
-            <p className="text-[9px] text-muted-foreground">المرتجعات</p>
-            <p className="text-xs font-bold text-red-600 dark:text-red-400">{fn(data.returnCount)}</p>
+            <p className="text-[8px] sm:text-[9px] text-muted-foreground">المرتجعات</p>
+            <p className="text-[10px] sm:text-xs font-bold text-red-600 dark:text-red-400">{fn(data.returnCount)}</p>
           </div>
         </div>
       </CardContent>
@@ -82,19 +82,22 @@ function PeriodCard({ label, data, accent }: { label: string; data: PeriodProfit
 function ProductRow({ product, rank }: { product: ProductProfit; rank: number }) {
   const isPositive = product.profit >= 0;
   return (
-    <div className="flex items-center gap-3 py-2.5 border-b border-border last:border-0">
-      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${
+    <div className="flex items-center gap-2 sm:gap-3 py-2 sm:py-2.5 border-b border-border last:border-0">
+      <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[9px] sm:text-[10px] font-black shrink-0 ${
         rank === 1 ? "bg-amber-500 text-black" : rank === 2 ? "bg-zinc-400 text-black" : rank === 3 ? "bg-amber-700 text-white" : "bg-muted text-muted-foreground"
       }`}>{rank}</div>
       <div className="flex-1 min-w-0">
-        <p className="font-semibold text-xs truncate">{product.name}</p>
-        <p className="text-[9px] text-muted-foreground">{fn(product.quantity)} وحدة • {product.returnRate}% مرتجع</p>
+        <p className="font-semibold text-[11px] sm:text-xs truncate">{product.name}</p>
+        <p className="text-[8px] sm:text-[9px] text-muted-foreground">{fn(product.quantity)} وحدة • {product.returnRate}% مرتجع</p>
       </div>
       <div className="text-left shrink-0">
-        <p className={`text-xs font-bold ${isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>{fc(product.profit)}</p>
-        <p className="text-[9px] text-muted-foreground">{product.margin}% هامش</p>
+        <p className={`text-[10px] sm:text-xs font-bold ${isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>{fc(product.profit)}</p>
+        <p className="text-[8px] sm:text-[9px] text-muted-foreground">{product.margin}% هامش</p>
       </div>
-      {isPositive ? <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" /> : <ArrowDownRight className="w-3.5 h-3.5 text-red-600 dark:text-red-400 shrink-0" />}
+      {isPositive
+        ? <ArrowUpRight className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+        : <ArrowDownRight className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-red-600 dark:text-red-400 shrink-0" />
+      }
     </div>
   );
 }
@@ -102,11 +105,11 @@ function ProductRow({ product, rank }: { product: ProductProfit; rank: number })
 // ─── Financial Row ─────────────────────────────────────────────────────────────
 function FinRow({ label, value, color = "text-foreground", sub }: { label: string; value: string; color?: string; sub?: string }) {
   return (
-    <div className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <div className="text-right">
-        <span className={`text-xs font-bold ${color}`}>{value}</span>
-        {sub && <p className="text-[9px] text-muted-foreground">{sub}</p>}
+    <div className="flex items-center justify-between py-1.5 sm:py-2 border-b border-border/50 last:border-0 gap-2">
+      <span className="text-[10px] sm:text-xs text-muted-foreground shrink-0">{label}</span>
+      <div className="text-right min-w-0">
+        <span className={`text-[10px] sm:text-xs font-bold block ${color}`}>{value}</span>
+        {sub && <p className="text-[8px] sm:text-[9px] text-muted-foreground">{sub}</p>}
       </div>
     </div>
   );
@@ -119,24 +122,26 @@ function PwaInstallBanner() {
   if (!canInstall || isInstalled || isDismissed) return null;
 
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/8 px-4 py-3"
+    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 rounded-xl sm:rounded-2xl border border-amber-500/30 px-3 py-3 sm:px-4 sm:py-3"
          style={{ background: "linear-gradient(135deg, #c9971c0d 0%, #f0b4290a 100%)" }}>
-      <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 border border-amber-500/30">
-        <img src="./logo.jpg" alt="CAPRINA" className="w-full h-full object-cover" />
+      <div className="flex items-center gap-3 w-full sm:w-auto">
+        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl overflow-hidden shrink-0 border border-amber-500/30">
+          <img src="./logo.jpg" alt="CAPRINA" className="w-full h-full object-cover" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs sm:text-sm font-black text-foreground leading-tight">ثبّت التطبيق على جهازك</p>
+          <p className="text-[10px] sm:text-[11px] text-muted-foreground mt-0.5 leading-tight">
+            تجربة أسرع كتطبيق أصلي بدون متصفح
+          </p>
+        </div>
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-black text-foreground leading-tight">ثبّت التطبيق على جهازك</p>
-        <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight">
-          تجربة أسرع كتطبيق أصلي بدون متصفح — يعمل على أي جهاز
-        </p>
-      </div>
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto sm:mr-auto">
         <button type="button" onClick={dismiss}
-          className="text-[10px] text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-muted/20 transition-colors">
+          className="text-[10px] text-muted-foreground hover:text-foreground px-2.5 py-1.5 rounded-md hover:bg-muted/20 transition-colors">
           لاحقاً
         </button>
         <button type="button" onClick={install}
-          className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-black text-xs font-black px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">
+          className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-black text-xs font-black px-4 py-1.5 rounded-lg transition-colors whitespace-nowrap">
           <span>⬇</span>تثبيت
         </button>
       </div>
@@ -157,10 +162,10 @@ function LiveClock() {
   const mm = String(time.getMinutes()).padStart(2, "0");
   const ss = String(time.getSeconds()).padStart(2, "0");
   return (
-    <div className="flex items-center gap-2 select-none">
-      <Clock className="w-5 h-5 shrink-0" style={{ color: "hsl(43 74% 50%)" }} />
-      <span className="font-black text-xl tabular-nums" style={{ color: "hsl(43 74% 50%)" }}>{h12}:{mm}:{ss}</span>
-      <span className="text-sm font-bold" style={{ color: "hsl(43 74% 50%)" }}>{ampm}</span>
+    <div className="flex items-center gap-1.5 sm:gap-2 select-none">
+      <Clock className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" style={{ color: "hsl(43 74% 50%)" }} />
+      <span className="font-black text-lg sm:text-xl tabular-nums" style={{ color: "hsl(43 74% 50%)" }}>{h12}:{mm}:{ss}</span>
+      <span className="text-xs sm:text-sm font-bold" style={{ color: "hsl(43 74% 50%)" }}>{ampm}</span>
     </div>
   );
 }
@@ -228,20 +233,20 @@ export default function Dashboard() {
   const noCostWarning = fin && fin.cashIn > 0 && fin.costOfGoods === 0;
 
   return (
-    <div className="space-y-5 animate-in fade-in duration-500">
+    <div className="space-y-4 sm:space-y-5 animate-in fade-in duration-500">
       {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold">لوحة المالية</h1>
-          <p className="text-muted-foreground text-xs sm:text-sm mt-0.5">CAPRINA — Financial Engine Dashboard</p>
-          <div className="mt-1.5">
+          <h1 className="text-lg sm:text-xl lg:text-2xl font-bold">لوحة المالية</h1>
+          <p className="text-muted-foreground text-[10px] sm:text-xs lg:text-sm mt-0.5">CAPRINA — Financial Engine Dashboard</p>
+          <div className="mt-1 sm:mt-1.5">
             <LiveClock />
           </div>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
           {/* Period Filter */}
           {canViewFinancials && (
-            <div className="flex items-center gap-1 border border-border rounded-md p-0.5 bg-muted/30">
+            <div className="flex items-center gap-0.5 sm:gap-1 border border-border rounded-md p-0.5 bg-muted/30">
               {([
                 { key: "today", label: "اليوم" },
                 { key: "week",  label: "الأسبوع" },
@@ -250,7 +255,7 @@ export default function Dashboard() {
                 <button
                   key={key}
                   onClick={() => setPeriod(key)}
-                  className={`px-3 py-1 rounded text-xs font-bold transition-colors ${
+                  className={`px-2 sm:px-3 py-1 rounded text-[10px] sm:text-xs font-bold transition-colors ${
                     period === key
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:text-foreground"
@@ -262,13 +267,15 @@ export default function Dashboard() {
             </div>
           )}
           <Link href="/smart">
-            <button className="flex items-center gap-1.5 border border-primary/30 text-primary hover:bg-primary/5 px-3 py-2 rounded-md text-xs font-bold transition-colors">
-              <Brain className="w-3.5 h-3.5" />ذكاء
+            <button className="flex items-center gap-1 sm:gap-1.5 border border-primary/30 text-primary hover:bg-primary/5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-md text-[10px] sm:text-xs font-bold transition-colors">
+              <Brain className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+              <span className="hidden xs:inline">ذكاء</span>
             </button>
           </Link>
           <Link href="/orders/new">
-            <button className="flex items-center gap-2 bg-primary text-primary-foreground px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-bold hover:bg-primary/90 transition-colors">
-              <Plus className="w-4 h-4" />طلب جديد
+            <button className="flex items-center gap-1.5 sm:gap-2 bg-primary text-primary-foreground px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-md text-[10px] sm:text-xs sm:text-sm font-bold hover:bg-primary/90 transition-colors">
+              <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span>طلب جديد</span>
             </button>
           </Link>
         </div>
@@ -276,78 +283,78 @@ export default function Dashboard() {
 
       {/* === NO COST DATA WARNING (admin only) === */}
       {canViewFinancials && noCostWarning && (
-        <div className="flex items-start gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 rounded-lg p-3">
-          <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <p className="text-sm font-bold text-amber-700 dark:text-amber-400">تحذير: بيانات التكلفة غير مكتملة</p>
-            <p className="text-xs text-amber-600/70 dark:text-amber-400/70 mt-0.5">
+        <div className="flex items-start gap-2 sm:gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 rounded-lg p-2.5 sm:p-3">
+          <AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] sm:text-sm font-bold text-amber-700 dark:text-amber-400">تحذير: بيانات التكلفة غير مكتملة</p>
+            <p className="text-[9px] sm:text-xs text-amber-600/70 dark:text-amber-400/70 mt-0.5">
               بعض المنتجات ليس لها سعر تكلفة. أضف costPrice للمنتجات لتفعيل الحساب المالي الدقيق.
             </p>
           </div>
-          <Link href="/inventory" className="text-xs text-primary hover:underline shrink-0 self-center">المخزون</Link>
+          <Link href="/inventory" className="text-[10px] sm:text-xs text-primary hover:underline shrink-0 self-center">المخزون</Link>
         </div>
       )}
 
       {/* === FINANCIAL OVERVIEW BANNER (admin only) === */}
       {canViewFinancials && fin && (
         <div className={`rounded-xl border overflow-hidden ${fin.netProfit >= 0 ? "border-emerald-300 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-900/5" : "border-red-300 dark:border-red-800/60 bg-red-50 dark:bg-red-900/5"}`}>
-          <div className="p-4">
-            <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
-              <div>
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">
+          <div className="p-3 sm:p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-3 sm:mb-4">
+              <div className="min-w-0">
+                <p className="text-[8px] sm:text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-0.5 sm:mb-1">
                   صافي الربح الحقيقي — {{ today: "اليوم", week: "هذا الأسبوع", month: "هذا الشهر" }[period]}
                 </p>
-                <div className="flex items-baseline gap-3">
-                  <p className={`text-4xl font-black ${fin.netProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                <div className="flex items-baseline gap-2 sm:gap-3 flex-wrap">
+                  <p className={`text-2xl sm:text-3xl lg:text-4xl font-black ${fin.netProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
                     {fc(fin.netProfit)}
                   </p>
-                  <div className="flex flex-col gap-0.5">
-                    <Badge variant="outline" className={`text-[9px] font-bold border ${
+                  <div className="flex flex-row sm:flex-col gap-1 sm:gap-0.5">
+                    <Badge variant="outline" className={`text-[8px] sm:text-[9px] font-bold border ${
                       fin.netMargin >= 20 ? "border-emerald-500 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400" : fin.netMargin >= 10 ? "border-amber-500 text-amber-700 dark:border-amber-700 dark:text-amber-400" : "border-red-500 text-red-700 dark:border-red-700 dark:text-red-400"
                     }`}>{fin.netMargin}% هامش صافي</Badge>
-                    <Badge variant="outline" className="text-[9px] font-bold border border-border text-muted-foreground">
+                    <Badge variant="outline" className="text-[8px] sm:text-[9px] font-bold border border-border text-muted-foreground">
                       {fin.returnRate}% مرتجع
                     </Badge>
                   </div>
                 </div>
-                <p className="text-[10px] text-muted-foreground mt-1">بعد خصم التكلفة والشحن والمرتجعات</p>
+                <p className="text-[8px] sm:text-[10px] text-muted-foreground mt-0.5 sm:mt-1">بعد خصم التكلفة والشحن والمرتجعات</p>
               </div>
               {fin.pendingRevenue > 0 && (
-                <div className="text-left bg-primary/5 border border-primary/20 rounded-lg px-4 py-3">
-                  <p className="text-[9px] text-muted-foreground">في الطريق (قيد التسليم)</p>
-                  <p className="text-lg font-black text-primary">{fc(fin.pendingRevenue)}</p>
-                  <p className="text-[9px] text-muted-foreground">إيرادات محتملة</p>
+                <div className="text-left bg-primary/5 border border-primary/20 rounded-lg px-3 py-2 sm:px-4 sm:py-3 shrink-0 self-start">
+                  <p className="text-[8px] sm:text-[9px] text-muted-foreground">في الطريق (قيد التسليم)</p>
+                  <p className="text-sm sm:text-lg font-black text-primary">{fc(fin.pendingRevenue)}</p>
+                  <p className="text-[8px] sm:text-[9px] text-muted-foreground">إيرادات محتملة</p>
                 </div>
               )}
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3 bg-background/30 rounded-lg border border-border/40">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 p-2 sm:p-3 bg-background/30 rounded-lg border border-border/40">
               <div className="text-center">
-                <div className="flex items-center justify-center gap-1 mb-1">
-                  <ArrowUpRight className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                  <p className="text-[9px] font-bold text-muted-foreground">إجمالي المقبوض</p>
+                <div className="flex items-center justify-center gap-0.5 sm:gap-1 mb-0.5 sm:mb-1">
+                  <ArrowUpRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-emerald-600 dark:text-emerald-400" />
+                  <p className="text-[7px] sm:text-[9px] font-bold text-muted-foreground">إجمالي المقبوض</p>
                 </div>
-                <p className="font-black text-emerald-600 dark:text-emerald-400 text-sm">{fc(fin.cashIn)}</p>
+                <p className="font-black text-emerald-600 dark:text-emerald-400 text-[11px] sm:text-sm">{fc(fin.cashIn)}</p>
               </div>
               <div className="text-center">
-                <div className="flex items-center justify-center gap-1 mb-1">
-                  <ArrowDownRight className="w-3 h-3 text-amber-700 dark:text-amber-400" />
-                  <p className="text-[9px] font-bold text-muted-foreground">تكلفة البضاعة</p>
+                <div className="flex items-center justify-center gap-0.5 sm:gap-1 mb-0.5 sm:mb-1">
+                  <ArrowDownRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-700 dark:text-amber-400" />
+                  <p className="text-[7px] sm:text-[9px] font-bold text-muted-foreground">تكلفة البضاعة</p>
                 </div>
-                <p className="font-black text-amber-700 dark:text-amber-400 text-sm">{fc(fin.costOfGoods)}</p>
+                <p className="font-black text-amber-700 dark:text-amber-400 text-[11px] sm:text-sm">{fc(fin.costOfGoods)}</p>
               </div>
               <div className="text-center">
-                <div className="flex items-center justify-center gap-1 mb-1">
-                  <ArrowDownRight className="w-3 h-3 text-orange-600 dark:text-orange-400" />
-                  <p className="text-[9px] font-bold text-muted-foreground">تكلفة الشحن</p>
+                <div className="flex items-center justify-center gap-0.5 sm:gap-1 mb-0.5 sm:mb-1">
+                  <ArrowDownRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-orange-600 dark:text-orange-400" />
+                  <p className="text-[7px] sm:text-[9px] font-bold text-muted-foreground">تكلفة الشحن</p>
                 </div>
-                <p className="font-black text-orange-600 dark:text-orange-400 text-sm">{fc(fin.shippingSpend)}</p>
+                <p className="font-black text-orange-600 dark:text-orange-400 text-[11px] sm:text-sm">{fc(fin.shippingSpend)}</p>
               </div>
               <div className="text-center">
-                <div className="flex items-center justify-center gap-1 mb-1">
-                  <ArrowDownRight className="w-3 h-3 text-red-600 dark:text-red-400" />
-                  <p className="text-[9px] font-bold text-muted-foreground">خسائر المرتجعات</p>
+                <div className="flex items-center justify-center gap-0.5 sm:gap-1 mb-0.5 sm:mb-1">
+                  <ArrowDownRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-red-600 dark:text-red-400" />
+                  <p className="text-[7px] sm:text-[9px] font-bold text-muted-foreground">خسائر المرتجعات</p>
                 </div>
-                <p className="font-black text-red-600 dark:text-red-400 text-sm">{fc(fin.returnLoss)}</p>
+                <p className="font-black text-red-600 dark:text-red-400 text-[11px] sm:text-sm">{fc(fin.returnLoss)}</p>
               </div>
             </div>
           </div>
@@ -358,29 +365,29 @@ export default function Dashboard() {
       {allAlerts.length > 0 && (
         <div className="space-y-1.5">
           {highAlerts.map(alert => (
-            <div key={alert.id} className="flex items-center gap-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/40 rounded-lg p-3">
-              <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0" />
+            <div key={alert.id} className="flex items-center gap-2 sm:gap-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/40 rounded-lg p-2.5 sm:p-3">
+              <AlertCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-600 dark:text-red-400 shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold text-red-700 dark:text-red-400">{alert.title}</p>
-                <p className="text-[11px] text-red-600/70 dark:text-red-400/70 truncate">{alert.detail}</p>
+                <p className="text-[10px] sm:text-xs font-bold text-red-700 dark:text-red-400 truncate">{alert.title}</p>
+                <p className="text-[9px] sm:text-[11px] text-red-600/70 dark:text-red-400/70 truncate">{alert.detail}</p>
               </div>
               {alert.type === "LOW_STOCK" && (
-                <Link href="/inventory" className="text-xs text-primary hover:underline shrink-0">إدارة</Link>
+                <Link href="/inventory" className="text-[9px] sm:text-xs text-primary hover:underline shrink-0">إدارة</Link>
               )}
               {(alert.type === "HIGH_RETURN" || alert.type === "LOSING_PRODUCT") && (
-                <Link href="/product-performance" className="text-xs text-primary hover:underline shrink-0">تحليل</Link>
+                <Link href="/product-performance" className="text-[9px] sm:text-xs text-primary hover:underline shrink-0">تحليل</Link>
               )}
             </div>
           ))}
           {alertsData && alertsData.counts.total > highAlerts.length && (
-            <div className="flex items-center gap-3 bg-amber-50 dark:bg-amber-900/15 border border-amber-200 dark:border-amber-800/30 rounded-lg p-2.5">
-              <Bell className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
-              <p className="text-xs text-amber-700/80 dark:text-amber-400/80 flex-1">
+            <div className="flex items-center gap-2 sm:gap-3 bg-amber-50 dark:bg-amber-900/15 border border-amber-200 dark:border-amber-800/30 rounded-lg p-2 sm:p-2.5">
+              <Bell className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+              <p className="text-[9px] sm:text-xs text-amber-700/80 dark:text-amber-400/80 flex-1 min-w-0 truncate">
                 {alertsData.counts.medium > 0 && `${alertsData.counts.medium} تنبيه متوسط`}
                 {alertsData.counts.medium > 0 && alertsData.counts.low > 0 && " • "}
                 {alertsData.counts.low > 0 && `${alertsData.counts.low} تنبيه منخفض`}
               </p>
-              <Link href="/product-performance" className="text-xs text-primary hover:underline shrink-0">عرض الكل ←</Link>
+              <Link href="/product-performance" className="text-[9px] sm:text-xs text-primary hover:underline shrink-0">عرض الكل ←</Link>
             </div>
           )}
         </div>
@@ -388,9 +395,9 @@ export default function Dashboard() {
 
       {/* === PERIOD CARDS (admin only) === */}
       {canViewFinancials && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
           {isAnalyticsLoading ? (
-            [1,2,3].map(i => <Card key={i} className="animate-pulse h-36 border-border" />)
+            [1,2,3].map(i => <Card key={i} className="animate-pulse h-32 sm:h-36 border-border" />)
           ) : analytics ? (
             <>
               {([
@@ -403,7 +410,7 @@ export default function Dashboard() {
                   onClick={() => setPeriod(key)}
                   className={`rounded-xl cursor-pointer transition-all duration-200 ${
                     period === key
-                      ? "ring-2 ring-primary shadow-md scale-[1.02]"
+                      ? "ring-2 ring-primary shadow-md scale-[1.01] sm:scale-[1.02]"
                       : "opacity-70 hover:opacity-90 hover:shadow-sm"
                   }`}
                 >
@@ -420,9 +427,8 @@ export default function Dashboard() {
 
       {/* === VISUAL CHARTS === */}
       {chartsData ? (
-        <div className="space-y-4">
-          {/* Row 1: الدونات + المبيعات الأسبوعية جنب بعض */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-3 sm:space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
             <ChartCard
               title="توزيع حالات الطلبات"
               subtitle="اضغط على الحالة لعرض طلباتها"
@@ -455,17 +461,17 @@ export default function Dashboard() {
 
       {/* === SMART QUICK INSIGHTS === */}
       {smartData && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
           <Link href="/smart">
-            <div className="flex items-center gap-2.5 p-3 rounded-xl border border-border bg-card hover:bg-primary/5 hover:border-primary/30 transition-colors cursor-pointer">
-              <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
-                <Zap className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+            <div className="flex items-center gap-2 sm:gap-2.5 p-2 sm:p-3 rounded-xl border border-border bg-card hover:bg-primary/5 hover:border-primary/30 transition-colors cursor-pointer">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
+                <Zap className="w-3 h-3 sm:w-4 sm:h-4 text-amber-600 dark:text-amber-400" />
               </div>
               <div className="min-w-0">
-                <p className="text-[10px] text-muted-foreground font-bold">أفضل منصة</p>
+                <p className="text-[8px] sm:text-[10px] text-muted-foreground font-bold">أفضل منصة</p>
                 {smartData.adAttribution.bestSource ? (
                   <>
-                    <p className="text-xs font-black truncate">
+                    <p className="text-[10px] sm:text-xs font-black truncate">
                       {smartData.adAttribution.bestSource.source === "facebook" ? "📘 فيسبوك" :
                        smartData.adAttribution.bestSource.source === "tiktok" ? "🎵 تيك توك" :
                        smartData.adAttribution.bestSource.source === "instagram" ? "📷 إنستجرام" :
@@ -473,64 +479,64 @@ export default function Dashboard() {
                        smartData.adAttribution.bestSource.source === "organic" ? "🌱 عضوي" : "📌 أخرى"}
                     </p>
                     {canViewFinancials && (
-                      <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                      <p className="text-[8px] sm:text-[10px] text-emerald-600 dark:text-emerald-400 font-bold truncate">
                         {new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(smartData.adAttribution.bestSource.profit)}
                       </p>
                     )}
                   </>
-                ) : <p className="text-xs text-muted-foreground">لا بيانات</p>}
+                ) : <p className="text-[10px] sm:text-xs text-muted-foreground">لا بيانات</p>}
               </div>
             </div>
           </Link>
 
           <Link href="/smart">
-            <div className="flex items-center gap-2.5 p-3 rounded-xl border border-border bg-card hover:bg-primary/5 hover:border-primary/30 transition-colors cursor-pointer">
-              <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
-                <Star className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+            <div className="flex items-center gap-2 sm:gap-2.5 p-2 sm:p-3 rounded-xl border border-border bg-card hover:bg-primary/5 hover:border-primary/30 transition-colors cursor-pointer">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
+                <Star className="w-3 h-3 sm:w-4 sm:h-4 text-amber-600 dark:text-amber-400" />
               </div>
               <div className="min-w-0">
-                <p className="text-[10px] text-muted-foreground font-bold">نجوم / راكد</p>
-                <p className="text-xs font-black">{smartData.stars.length} نجوم</p>
-                <p className="text-[10px] text-amber-600 dark:text-amber-400">{smartData.deadStock.length} منتج راكد</p>
+                <p className="text-[8px] sm:text-[10px] text-muted-foreground font-bold">نجوم / راكد</p>
+                <p className="text-[10px] sm:text-xs font-black">{smartData.stars.length} نجوم</p>
+                <p className="text-[8px] sm:text-[10px] text-amber-600 dark:text-amber-400 truncate">{smartData.deadStock.length} منتج راكد</p>
               </div>
             </div>
           </Link>
 
           <Link href="/smart">
-            <div className={`flex items-center gap-2.5 p-3 rounded-xl border bg-card hover:bg-primary/5 transition-colors cursor-pointer ${
+            <div className={`flex items-center gap-2 sm:gap-2.5 p-2 sm:p-3 rounded-xl border bg-card hover:bg-primary/5 transition-colors cursor-pointer ${
               smartData.returnInsights.highReturnProducts.length > 0 ? "border-red-300 dark:border-red-800" : "border-border"
             }`}>
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+              <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shrink-0 ${
                 smartData.returnInsights.highReturnProducts.length > 0 ? "bg-red-100 dark:bg-red-900/30" : "bg-muted"
               }`}>
-                <Archive className={`w-4 h-4 ${smartData.returnInsights.highReturnProducts.length > 0 ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}`} />
+                <Archive className={`w-3 h-3 sm:w-4 sm:h-4 ${smartData.returnInsights.highReturnProducts.length > 0 ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}`} />
               </div>
               <div className="min-w-0">
-                <p className="text-[10px] text-muted-foreground font-bold">المرتجعات</p>
-                <p className="text-xs font-black">{smartData.returnInsights.totalReturnRate}% معدل</p>
+                <p className="text-[8px] sm:text-[10px] text-muted-foreground font-bold">المرتجعات</p>
+                <p className="text-[10px] sm:text-xs font-black">{smartData.returnInsights.totalReturnRate}% معدل</p>
                 {smartData.returnInsights.highReturnProducts.length > 0 ? (
-                  <p className="text-[10px] text-red-600 dark:text-red-400 font-bold">⚠️ {smartData.returnInsights.highReturnProducts.length} تجاوز 50%</p>
+                  <p className="text-[8px] sm:text-[10px] text-red-600 dark:text-red-400 font-bold truncate">⚠️ {smartData.returnInsights.highReturnProducts.length} تجاوز 50%</p>
                 ) : (
-                  <p className="text-[10px] text-emerald-600 dark:text-emerald-400">تحت السيطرة</p>
+                  <p className="text-[8px] sm:text-[10px] text-emerald-600 dark:text-emerald-400">تحت السيطرة</p>
                 )}
               </div>
             </div>
           </Link>
 
           <Link href="/smart">
-            <div className={`flex items-center gap-2.5 p-3 rounded-xl border bg-card hover:bg-primary/5 transition-colors cursor-pointer ${
+            <div className={`flex items-center gap-2 sm:gap-2.5 p-2 sm:p-3 rounded-xl border bg-card hover:bg-primary/5 transition-colors cursor-pointer ${
               smartData.stockPredictor.some(i => (i.daysUntilStockout ?? 99) <= 3) ? "border-red-300 dark:border-red-800" : "border-border"
             }`}>
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+              <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shrink-0 ${
                 smartData.stockPredictor.some(i => (i.daysUntilStockout ?? 99) <= 3) ? "bg-red-100 dark:bg-red-900/30" : "bg-sky-100 dark:bg-sky-900/20"
               }`}>
-                <Clock className={`w-4 h-4 ${smartData.stockPredictor.some(i => (i.daysUntilStockout ?? 99) <= 3) ? "text-red-600 dark:text-red-400" : "text-sky-600 dark:text-sky-400"}`} />
+                <Clock className={`w-3 h-3 sm:w-4 sm:h-4 ${smartData.stockPredictor.some(i => (i.daysUntilStockout ?? 99) <= 3) ? "text-red-600 dark:text-red-400" : "text-sky-600 dark:text-sky-400"}`} />
               </div>
               <div className="min-w-0">
-                <p className="text-[10px] text-muted-foreground font-bold">سينفد قريباً</p>
-                <p className="text-xs font-black">{smartData.stockPredictor.length} منتج</p>
+                <p className="text-[8px] sm:text-[10px] text-muted-foreground font-bold">سينفد قريباً</p>
+                <p className="text-[10px] sm:text-xs font-black">{smartData.stockPredictor.length} منتج</p>
                 {smartData.stockPredictor.length > 0 && (
-                  <p className={`text-[10px] font-bold ${smartData.stockPredictor.some(i => (i.daysUntilStockout ?? 99) <= 3) ? "text-red-600 dark:text-red-400" : "text-sky-600 dark:text-sky-400"}`}>
+                  <p className={`text-[8px] sm:text-[10px] font-bold truncate ${smartData.stockPredictor.some(i => (i.daysUntilStockout ?? 99) <= 3) ? "text-red-600 dark:text-red-400" : "text-sky-600 dark:text-sky-400"}`}>
                     🚨 خلال 14 يوم
                   </p>
                 )}
@@ -541,18 +547,18 @@ export default function Dashboard() {
       )}
 
       {/* === MAIN GRID === */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <div className="lg:col-span-2 space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5">
+        <div className="lg:col-span-2 space-y-3 sm:space-y-4">
           {canViewFinancials && (
             <Card className="border-border">
-              <CardHeader className="py-3 px-4 border-b border-border">
-                <CardTitle className="text-sm font-bold flex items-center gap-2">
-                  <TrendingUp className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <CardHeader className="py-2.5 sm:py-3 px-3 sm:px-4 border-b border-border">
+                <CardTitle className="text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2">
+                  <TrendingUp className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-600 dark:text-emerald-400" />
                   أفضل المنتجات ربحاً
-                  <span className="text-[10px] text-muted-foreground font-normal mr-auto">مرتبة بصافي الربح</span>
+                  <span className="text-[9px] sm:text-[10px] text-muted-foreground font-normal mr-auto">مرتبة بصافي الربح</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-3 px-4">
+              <CardContent className="p-2 sm:p-3 px-3 sm:px-4">
                 {isAnalyticsLoading ? (
                   <div className="py-4 text-center text-xs text-muted-foreground">جاري التحميل...</div>
                 ) : analytics?.topProducts?.length ? (
@@ -569,23 +575,23 @@ export default function Dashboard() {
 
           {canViewFinancials && analytics?.losingProducts && analytics.losingProducts.length > 0 && (
             <Card className="border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/5">
-              <CardHeader className="py-3 px-4 border-b border-red-200 dark:border-red-900/30">
-                <CardTitle className="text-sm font-bold flex items-center gap-2">
-                  <TrendingDown className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
+              <CardHeader className="py-2.5 sm:py-3 px-3 sm:px-4 border-b border-red-200 dark:border-red-900/30">
+                <CardTitle className="text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2">
+                  <TrendingDown className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-red-600 dark:text-red-400" />
                   منتجات ذات نسبة إرجاع مرتفعة
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-3 px-4">
+              <CardContent className="p-2 sm:p-3 px-3 sm:px-4">
                 {analytics.losingProducts.map((p) => (
-                  <div key={p.name} className="flex items-center justify-between py-2 border-b border-red-100 dark:border-red-900/20 last:border-0 text-xs">
-                    <div>
-                      <p className="font-semibold">{p.name}</p>
-                      <p className="text-muted-foreground">{p.orderCount} طلب • {p.returnCount} مرتجع</p>
+                  <div key={p.name} className="flex items-center justify-between py-1.5 sm:py-2 border-b border-red-100 dark:border-red-900/20 last:border-0 text-[10px] sm:text-xs gap-2">
+                    <div className="min-w-0">
+                      <p className="font-semibold truncate">{p.name}</p>
+                      <p className="text-muted-foreground text-[9px] sm:text-[11px]">{p.orderCount} طلب • {p.returnCount} مرتجع</p>
                     </div>
-                    <div className="text-right flex items-center gap-2">
+                    <div className="text-right flex items-center gap-1.5 sm:gap-2 shrink-0">
                       <div>
-                        <Badge variant="outline" className="border-red-400 text-red-600 dark:border-red-800 dark:text-red-400 text-[10px] block mb-1">{p.returnRate}% مرتجع</Badge>
-                        <p className="text-red-600 dark:text-red-400 font-bold text-[10px]">{fc(p.profit)}</p>
+                        <Badge variant="outline" className="border-red-400 text-red-600 dark:border-red-800 dark:text-red-400 text-[8px] sm:text-[10px] block mb-0.5 sm:mb-1">{p.returnRate}% مرتجع</Badge>
+                        <p className="text-red-600 dark:text-red-400 font-bold text-[9px] sm:text-[10px]">{fc(p.profit)}</p>
                       </div>
                     </div>
                   </div>
@@ -595,12 +601,12 @@ export default function Dashboard() {
           )}
 
           <Card className="border-border overflow-hidden">
-            <CardHeader className="py-3 px-4 border-b border-border">
+            <CardHeader className="py-2.5 sm:py-3 px-3 sm:px-4 border-b border-border">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-bold flex items-center gap-2">
-                  <Activity className="w-3.5 h-3.5 text-muted-foreground" />آخر الطلبات
+                <CardTitle className="text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2">
+                  <Activity className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-muted-foreground" />آخر الطلبات
                 </CardTitle>
-                <Link href="/orders" className="text-xs text-primary hover:underline">عرض الكل ←</Link>
+                <Link href="/orders" className="text-[10px] sm:text-xs text-primary hover:underline">عرض الكل ←</Link>
               </div>
             </CardHeader>
             {isRecentLoading ? (
@@ -608,19 +614,19 @@ export default function Dashboard() {
             ) : recentOrders?.length ? (
               <div className="divide-y divide-border">
                 {recentOrders.map((order) => (
-                  <Link key={order.id} href={`/orders/${order.id}`} className="flex items-center justify-between p-3 hover:bg-muted/20 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-foreground font-bold text-xs shrink-0">
+                  <Link key={order.id} href={`/orders/${order.id}`} className="flex items-center justify-between p-2.5 sm:p-3 hover:bg-muted/20 transition-colors gap-2">
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                      <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-muted flex items-center justify-center text-foreground font-bold text-[10px] sm:text-xs shrink-0">
                         {order.customerName.charAt(0)}
                       </div>
-                      <div>
-                        <p className="font-semibold text-sm">{order.customerName}</p>
-                        <p className="text-xs text-muted-foreground">#{order.id.toString().padStart(4,"0")} • {order.product}</p>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-[11px] sm:text-sm truncate">{order.customerName}</p>
+                        <p className="text-[9px] sm:text-xs text-muted-foreground truncate">#{order.id.toString().padStart(4,"0")} • {order.product}</p>
                       </div>
                     </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <span className="font-bold text-xs text-primary">{fc(order.totalPrice)}</span>
-                      <Badge variant="outline" className={`text-[9px] font-bold border ${STATUS_CLASSES[order.status] || ""}`}>
+                    <div className="flex flex-col items-end gap-0.5 sm:gap-1 shrink-0">
+                      <span className="font-bold text-[10px] sm:text-xs text-primary">{fc(order.totalPrice)}</span>
+                      <Badge variant="outline" className={`text-[7px] sm:text-[9px] font-bold border whitespace-nowrap ${STATUS_CLASSES[order.status] || ""}`}>
                         {STATUS_LABELS[order.status] || order.status}
                       </Badge>
                     </div>
@@ -628,41 +634,41 @@ export default function Dashboard() {
                 ))}
               </div>
             ) : (
-              <div className="p-8 text-center">
-                <Package className="w-8 h-8 mx-auto mb-2 text-muted-foreground opacity-30" />
-                <p className="text-muted-foreground text-sm">لا توجد طلبات</p>
-                <Link href="/orders/new" className="text-primary text-xs mt-1 inline-block">أنشئ أول طلب</Link>
+              <div className="p-6 sm:p-8 text-center">
+                <Package className="w-7 h-7 sm:w-8 sm:h-8 mx-auto mb-2 text-muted-foreground opacity-30" />
+                <p className="text-muted-foreground text-xs sm:text-sm">لا توجد طلبات</p>
+                <Link href="/orders/new" className="text-primary text-[10px] sm:text-xs mt-1 inline-block">أنشئ أول طلب</Link>
               </div>
             )}
           </Card>
         </div>
 
         {/* RIGHT SIDEBAR */}
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <h2 className="text-sm font-bold">إجراءات سريعة</h2>
-            <Link href="/orders/new" className="w-full flex items-center gap-2 bg-primary text-primary-foreground py-2.5 px-4 rounded-md text-sm font-bold hover:bg-primary/90 transition-colors">
+        <div className="space-y-3 sm:space-y-4">
+          <div className="space-y-1.5 sm:space-y-2">
+            <h2 className="text-xs sm:text-sm font-bold">إجراءات سريعة</h2>
+            <Link href="/orders/new" className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground py-2.5 px-4 rounded-md text-xs sm:text-sm font-bold hover:bg-primary/90 transition-colors min-h-[44px]">
               <Plus className="w-4 h-4" />إضافة طلب
             </Link>
-            <Link href="/inventory" className="w-full flex items-center gap-2 border border-border bg-card text-foreground hover:bg-muted/30 transition-colors py-2.5 px-4 rounded-md text-sm font-semibold">
+            <Link href="/inventory" className="w-full flex items-center justify-center gap-2 border border-border bg-card text-foreground hover:bg-muted/30 transition-colors py-2.5 px-4 rounded-md text-xs sm:text-sm font-semibold min-h-[44px]">
               <Boxes className="w-4 h-4" />إدارة المخزون
             </Link>
-            <Link href="/import" className="w-full flex items-center gap-2 border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors py-2.5 px-4 rounded-md text-sm font-semibold">
+            <Link href="/import" className="w-full flex items-center justify-center gap-2 border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors py-2.5 px-4 rounded-md text-xs sm:text-sm font-semibold min-h-[44px]">
               <TrendingUp className="w-4 h-4" />استيراد Excel
             </Link>
           </div>
 
           {canViewFinancials && fin && (
             <Card className="border-border">
-              <CardContent className="p-4 space-y-1">
-                <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-1.5">
-                  <Boxes className="w-3 h-3" />قيمة المخزون
+              <CardContent className="p-3 sm:p-4 space-y-0.5 sm:space-y-1">
+                <p className="text-[8px] sm:text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-2 sm:mb-3 flex items-center gap-1 sm:gap-1.5">
+                  <Boxes className="w-2.5 h-2.5 sm:w-3 sm:h-3" />قيمة المخزون
                 </p>
                 <FinRow label="بسعر التكلفة" value={fc(fin.inventoryAtCost)} color="text-amber-700 dark:text-amber-400" />
                 <FinRow label="بسعر البيع" value={fc(fin.inventoryAtSell)} color="text-primary" />
-                <div className="mt-1 pt-2 border-t border-border flex justify-between items-center">
-                  <span className="text-[10px] text-muted-foreground">الربح المحتمل</span>
-                  <span className={`text-xs font-black ${fin.potentialInventoryProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                <div className="mt-1 pt-1.5 sm:pt-2 border-t border-border flex justify-between items-center">
+                  <span className="text-[9px] sm:text-[10px] text-muted-foreground">الربح المحتمل</span>
+                  <span className={`text-[10px] sm:text-xs font-black ${fin.potentialInventoryProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
                     {fc(fin.potentialInventoryProfit)}
                   </span>
                 </div>
@@ -672,22 +678,22 @@ export default function Dashboard() {
 
           {canViewFinancials && fin && (
             <Card className="border-border">
-              <CardContent className="p-4">
-                <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-1.5">
-                  <BarChart3 className="w-3 h-3" />التدفق النقدي الكلي
+              <CardContent className="p-3 sm:p-4">
+                <p className="text-[8px] sm:text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-2 sm:mb-3 flex items-center gap-1 sm:gap-1.5">
+                  <BarChart3 className="w-2.5 h-2.5 sm:w-3 sm:h-3" />التدفق النقدي الكلي
                 </p>
                 <FinRow label="إجمالي المقبوض" value={fc(fin.cashIn)} color="text-emerald-600 dark:text-emerald-400" />
                 <FinRow label="تكلفة البضاعة" value={`(${fc(fin.costOfGoods)})`} color="text-amber-700 dark:text-amber-400" />
                 <FinRow label="تكلفة الشحن" value={`(${fc(fin.shippingSpend)})`} color="text-orange-600 dark:text-orange-400" />
                 <FinRow label="خسائر المرتجعات" value={`(${fc(fin.returnLoss)})`} color="text-red-600 dark:text-red-400" sub={`${fin.returnCount} طلب مرتجع`} />
-                <div className={`mt-2 pt-2 border-t-2 flex justify-between items-center ${fin.netProfit >= 0 ? "border-emerald-500 dark:border-emerald-800" : "border-red-500 dark:border-red-800"}`}>
-                  <span className="text-sm font-bold">صافي الربح</span>
-                  <span className={`text-sm font-black ${fin.netProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                <div className={`mt-1.5 sm:mt-2 pt-1.5 sm:pt-2 border-t-2 flex justify-between items-center ${fin.netProfit >= 0 ? "border-emerald-500 dark:border-emerald-800" : "border-red-500 dark:border-red-800"}`}>
+                  <span className="text-[11px] sm:text-sm font-bold">صافي الربح</span>
+                  <span className={`text-[11px] sm:text-sm font-black ${fin.netProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
                     {fc(fin.netProfit)}
                   </span>
                 </div>
                 {fin.grossMargin > 0 && (
-                  <p className="text-[9px] text-muted-foreground text-center mt-2">
+                  <p className="text-[8px] sm:text-[9px] text-muted-foreground text-center mt-1.5 sm:mt-2">
                     هامش إجمالي: {fin.grossMargin}% • هامش صافي: {fin.netMargin}%
                   </p>
                 )}
@@ -697,9 +703,9 @@ export default function Dashboard() {
 
           {summary && (
             <Card className="border-border">
-              <CardContent className="p-4 space-y-1">
-                <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-1.5">
-                  <ShoppingCart className="w-3 h-3" />ملخص الطلبات
+              <CardContent className="p-3 sm:p-4 space-y-0.5 sm:space-y-1">
+                <p className="text-[8px] sm:text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-2 sm:mb-3 flex items-center gap-1 sm:gap-1.5">
+                  <ShoppingCart className="w-2.5 h-2.5 sm:w-3 sm:h-3" />ملخص الطلبات
                 </p>
                 {[
                   { label: "قيد الانتظار", val: summary.pendingOrders, color: "text-amber-700 dark:text-amber-400" },
@@ -709,12 +715,12 @@ export default function Dashboard() {
                   { label: "مرتجع", val: summary.returnedOrders ?? 0, color: "text-red-600 dark:text-red-400" },
                   { label: "استلم جزئي", val: summary.partialOrders ?? 0, color: "text-purple-600 dark:text-purple-400" },
                 ].map(({ label, val, color }) => (
-                  <div key={label} className="flex justify-between text-xs py-1 border-b border-border/30 last:border-0">
+                  <div key={label} className="flex justify-between text-[10px] sm:text-xs py-1 border-b border-border/30 last:border-0">
                     <span className="text-muted-foreground">{label}</span>
                     <span className={`font-bold ${color}`}>{val}</span>
                   </div>
                 ))}
-                <div className="border-t border-border pt-2 flex justify-between text-xs mt-1">
+                <div className="border-t border-border pt-1.5 sm:pt-2 flex justify-between text-[10px] sm:text-xs mt-1">
                   <span className="text-muted-foreground font-bold">الإجمالي</span>
                   <span className="font-bold">{summary.totalOrders}</span>
                 </div>
@@ -724,9 +730,9 @@ export default function Dashboard() {
 
           {canViewFinancials && fin && fin.completedOrders > 0 && (
             <Card className="border-border">
-              <CardContent className="p-4">
-                <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-1.5">
-                  <Activity className="w-3 h-3" />مقاييس الطلبات
+              <CardContent className="p-3 sm:p-4">
+                <p className="text-[8px] sm:text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-2 sm:mb-3 flex items-center gap-1 sm:gap-1.5">
+                  <Activity className="w-2.5 h-2.5 sm:w-3 sm:h-3" />مقاييس الطلبات
                 </p>
                 <FinRow label="متوسط ربح الطلب" value={fc(fin.avgProfitPerOrder)} color={fin.avgProfitPerOrder >= 0 ? "text-primary" : "text-red-600 dark:text-red-400"} />
                 <FinRow label="متوسط قيمة الطلب" value={fc(fin.avgOrderValue)} color="text-foreground" />
@@ -738,29 +744,29 @@ export default function Dashboard() {
 
           {allAlerts.length > 0 && (
             <Card className="border-border">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
-                    <Bell className="w-3 h-3" />التنبيهات الذكية
+              <CardContent className="p-3 sm:p-4">
+                <div className="flex items-center justify-between mb-2 sm:mb-3">
+                  <p className="text-[8px] sm:text-[9px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1 sm:gap-1.5">
+                    <Bell className="w-2.5 h-2.5 sm:w-3 sm:h-3" />التنبيهات الذكية
                   </p>
-                  <Badge variant="outline" className={`text-[9px] ${alertsData?.counts.high ? "border-red-400 text-red-600 dark:border-red-800 dark:text-red-400" : "border-amber-400 text-amber-700 dark:border-amber-800 dark:text-amber-400"}`}>
+                  <Badge variant="outline" className={`text-[8px] sm:text-[9px] ${alertsData?.counts.high ? "border-red-400 text-red-600 dark:border-red-800 dark:text-red-400" : "border-amber-400 text-amber-700 dark:border-amber-800 dark:text-amber-400"}`}>
                     {alertsData?.counts.total}
                   </Badge>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1.5 sm:space-y-2">
                   {allAlerts.slice(0, 5).map(alert => (
-                    <div key={alert.id} className="flex items-start gap-2">
-                      <span className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${
+                    <div key={alert.id} className="flex items-start gap-1.5 sm:gap-2">
+                      <span className={`w-1.5 h-1.5 rounded-full mt-1 sm:mt-1.5 shrink-0 ${
                         alert.severity === "high" ? "bg-red-500" : alert.severity === "medium" ? "bg-amber-500" : "bg-muted-foreground"
                       }`} />
                       <div className="min-w-0">
-                        <p className="text-[10px] font-bold text-foreground truncate">{alert.title}</p>
-                        <p className="text-[9px] text-muted-foreground truncate">{alert.detail}</p>
+                        <p className="text-[9px] sm:text-[10px] font-bold text-foreground truncate">{alert.title}</p>
+                        <p className="text-[8px] sm:text-[9px] text-muted-foreground truncate">{alert.detail}</p>
                       </div>
                     </div>
                   ))}
                   {allAlerts.length > 5 && (
-                    <Link href="/product-performance" className="text-[10px] text-primary hover:underline block text-center mt-1">
+                    <Link href="/product-performance" className="text-[9px] sm:text-[10px] text-primary hover:underline block text-center mt-1">
                       +{allAlerts.length - 5} تنبيه آخر
                     </Link>
                   )}
@@ -771,15 +777,15 @@ export default function Dashboard() {
 
           {canViewFinancials && fin && fin.returnRevLost > 0 && (
             <Card className="border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/5">
-              <CardContent className="p-4">
-                <p className="text-[9px] font-bold uppercase tracking-widest text-red-500/70 dark:text-red-400/60 mb-3 flex items-center gap-1.5">
-                  <RefreshCw className="w-3 h-3" />تأثير المرتجعات
+              <CardContent className="p-3 sm:p-4">
+                <p className="text-[8px] sm:text-[9px] font-bold uppercase tracking-widest text-red-500/70 dark:text-red-400/60 mb-2 sm:mb-3 flex items-center gap-1 sm:gap-1.5">
+                  <RefreshCw className="w-2.5 h-2.5 sm:w-3 sm:h-3" />تأثير المرتجعات
                 </p>
                 <FinRow label="إيرادات فُقدت" value={fc(fin.returnRevLost)} color="text-red-600 dark:text-red-400" sub="بيع كان مخطط" />
                 <FinRow label="تكلفة محملة" value={fc(fin.returnLoss)} color="text-red-600 dark:text-red-400" sub="شحن + بضاعة" />
-                <div className="mt-2 text-center">
-                  <p className="text-xs font-black text-red-600 dark:text-red-400">{fin.returnRate}% نسبة الإرجاع</p>
-                  <p className="text-[9px] text-muted-foreground">{fin.returnCount} من {fin.totalOrders} طلب</p>
+                <div className="mt-1.5 sm:mt-2 text-center">
+                  <p className="text-[10px] sm:text-xs font-black text-red-600 dark:text-red-400">{fin.returnRate}% نسبة الإرجاع</p>
+                  <p className="text-[8px] sm:text-[9px] text-muted-foreground">{fin.returnCount} من {fin.totalOrders} طلب</p>
                 </div>
               </CardContent>
             </Card>
