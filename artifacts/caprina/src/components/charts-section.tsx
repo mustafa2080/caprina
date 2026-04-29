@@ -343,15 +343,10 @@ function GlassBarTip({ active, payload }: any) {
 
 function GlassXTick({ x, y, payload, enriched }: any) {
   const label: string = payload?.value ?? "";
-  const DAY_SHORT: Record<string, string> = {
-    "الأحد": "أحد", "الاثنين": "إثن", "الثلاثاء": "ثلث",
-    "الأربعاء": "أرب", "الخميس": "خمس", "الجمعة": "جمع", "السبت": "سبت",
-  };
-  const shortLabel = DAY_SHORT[label] ?? label;
   const dayData = enriched?.find((d: any) => d.label === label);
   const isToday = dayData?.isToday ?? false;
   const shortDate = dayData?.date
-    ? (() => { const dt = new Date(dayData.date); return `${dt.getDate()}/${dt.getMonth() + 1}`; })()
+    ? new Date(dayData.date).toLocaleDateString("ar-EG", { day: "numeric", month: "numeric" })
     : "";
   return (
     <g transform={`translate(${x},${y})`}>
@@ -362,7 +357,7 @@ function GlassXTick({ x, y, payload, enriched }: any) {
         fontSize={isToday ? 10 : 9}
         fontWeight={isToday ? 900 : 600}
       >
-        {shortLabel}
+        {label}
       </text>
       <text
         x={0} y={0} dy={26}
@@ -392,10 +387,6 @@ const WeeklyBars = memo(function WeeklyBars({ data, weekComparison }: { data: Ch
 
   const maxOrders = Math.max(...enriched.map(d => d.orders), 1);
   const yMax = Math.ceil(maxOrders / 5) * 5 + 4;
-  const DAY_MINI: Record<string, string> = {
-    "الأحد": "أحد", "الاثنين": "إثن", "الثلاثاء": "ثلث",
-    "الأربعاء": "أرب", "الخميس": "خمس", "الجمعة": "جمع", "السبت": "سبت",
-  };
 
   const statCards = [
     {
@@ -471,9 +462,9 @@ const WeeklyBars = memo(function WeeklyBars({ data, weekComparison }: { data: Ch
             border: "1px solid rgba(255,255,255,0.06)",
           }}
         >
-          <div style={{ height: 250 }}>
+          <div style={{ height: 270 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={enriched} margin={{ top: 10, right: 8, left: -22, bottom: 36 }}>
+              <BarChart data={enriched} margin={{ top: 10, right: 8, left: -22, bottom: 48 }}>
                 <defs>
                   <linearGradient id="weeklyBarsGlow" x1="0" x2="0" y1="0" y2="1">
                     <stop offset="0%" stopColor="#FFF59D" />
@@ -538,11 +529,21 @@ const WeeklyBars = memo(function WeeklyBars({ data, weekComparison }: { data: Ch
           border: "1px solid rgba(255,255,255,0.05)",
         }}
       >
-        <div className="flex items-end justify-between gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
           {enriched.map((d, i) => {
             const barH = Math.max(6, Math.round((d.orders / maxOrders) * 34));
+            const formattedDate = d.date
+              ? new Date(d.date).toLocaleDateString("ar-EG", { day: "numeric", month: "short" })
+              : "";
             return (
-              <div key={i} className="flex flex-1 flex-col items-center gap-2">
+              <div
+                key={i}
+                className="flex min-w-0 flex-col items-center gap-2 rounded-2xl px-2 py-2 text-center"
+                style={{
+                  background: d.isToday ? "rgba(255,213,79,0.10)" : "rgba(255,255,255,0.02)",
+                  border: d.isToday ? "1px solid rgba(255,213,79,0.28)" : "1px solid rgba(255,255,255,0.04)",
+                }}
+              >
                 <div className="flex h-11 items-end">
                   <div
                     className="min-w-[22px] rounded-md transition-all duration-300"
@@ -561,8 +562,11 @@ const WeeklyBars = memo(function WeeklyBars({ data, weekComparison }: { data: Ch
                   <p className="text-[10px] font-black" style={{ color: d.orders > 0 ? GLASS_BAR_COLOR : "rgba(255,255,255,0.32)" }}>
                     {d.orders > 0 ? d.orders : "·"}
                   </p>
-                  <p className="mt-0.5 text-[9px] font-semibold" style={{ color: "rgba(255,255,255,0.55)" }}>
-                    {DAY_MINI[d.label] ?? d.label?.slice(0, 3) ?? "—"}
+                  <p className="mt-1 text-[11px] font-bold leading-tight" style={{ color: d.isToday ? "#fff4c2" : "rgba(255,255,255,0.82)" }}>
+                    {d.label}
+                  </p>
+                  <p className="mt-0.5 text-[9px] font-semibold" style={{ color: d.isToday ? "rgba(255,213,79,0.88)" : "rgba(255,255,255,0.52)" }}>
+                    {formattedDate}
                   </p>
                 </div>
               </div>
