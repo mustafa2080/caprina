@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, ordersTable, productsTable, productVariantsTable, shippingCompaniesTable, shippingManifestsTable, shippingManifestOrdersTable } from "@workspace/db";
 import { eq, isNull, and, desc, lte } from "drizzle-orm";
 import { requireAdmin } from "../middlewares/requireRole.js";
+import { requireAuth } from "../middlewares/requireAuth.js";
 
 const router: IRouter = Router();
 
@@ -1084,7 +1085,7 @@ router.get("/analytics/charts", async (_req, res): Promise<void> => {
 // ─── GET /api/analytics/orders-by-status ─────────────────────────────────────
 // يجيب الطلبات الفعلية المرتبطة بالـ statusBreakdown في الداشبورد
 // بيستخدم نفس منطق grouping الـ charts endpoint بدقة
-router.get("/analytics/orders-by-status", async (req, res): Promise<void> => {
+router.get("/analytics/orders-by-status", requireAuth, async (req, res): Promise<void> => {
   const status = req.query.status as string;
   if (!status) { res.status(400).json({ error: "status required" }); return; }
 
