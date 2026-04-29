@@ -172,36 +172,49 @@ type Period = "today" | "week" | "month";
 export default function Dashboard() {
   const { isAdmin, canViewFinancials } = useAuth();
   const [period, setPeriod] = useState<Period>("today");
-  const { data: summary } = useGetOrdersSummary();
-  const { data: recentOrders, isLoading: isRecentLoading } = useGetRecentOrders();
+  const { data: summary } = useGetOrdersSummary({
+    query: { staleTime: 30000, refetchOnWindowFocus: true, refetchInterval: 60000 },
+  });
+  const { data: recentOrders, isLoading: isRecentLoading } = useGetRecentOrders({
+    query: { staleTime: 30000, refetchOnWindowFocus: true, refetchInterval: 60000 },
+  });
   const { data: products } = useQuery({ queryKey: ["products"], queryFn: productsApi.list, staleTime: 60000 });
   const { data: analytics, isLoading: isAnalyticsLoading } = useQuery({
     queryKey: ["analytics-profit", period],
     queryFn: () => analyticsApi.profit({ period }),
     staleTime: 30000,
+    refetchOnWindowFocus: true,
+    refetchInterval: 120000,
     enabled: canViewFinancials,
   });
   const { data: fin, isLoading: isFinLoading } = useQuery({
     queryKey: ["analytics-financial", period],
     queryFn: () => analyticsApi.financialSummary({ period }),
     staleTime: 30000,
+    refetchOnWindowFocus: true,
+    refetchInterval: 120000,
     enabled: canViewFinancials,
   });
   const { data: alertsData } = useQuery({
     queryKey: ["analytics-alerts"],
     queryFn: analyticsApi.alerts,
     staleTime: 30000,
+    refetchOnWindowFocus: true,
+    refetchInterval: 60000,
   });
   const { data: smartData } = useQuery({
     queryKey: ["smart-insights"],
     queryFn: analyticsApi.smartInsights,
     staleTime: 60000,
+    refetchOnWindowFocus: true,
+    refetchInterval: 180000,
   });
 
   const { data: chartsData } = useQuery({
     queryKey: ["analytics-charts"],
     queryFn: analyticsApi.charts,
     staleTime: 30000,
+    refetchOnWindowFocus: true,
     refetchInterval: 60000,
   });
 
