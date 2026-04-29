@@ -1,7 +1,7 @@
 import React, { useState, useMemo, memo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useListOrders } from "@workspace/api-client-react";
-import { analyticsApi, type ChartsData } from "@/lib/api";
+import { analyticsApi, apiFetch, type ChartsData } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
 import { format } from "date-fns";
@@ -599,15 +599,7 @@ export function FilteredOrdersList({ status }: { status: string }) {
 
   const { data: orders, isLoading, error } = useQuery<any[]>({
     queryKey: ["orders-by-status-chart", status],
-    queryFn: async () => {
-      const res = await fetch(`/api/analytics/orders-by-status?status=${status}`, {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      if (!Array.isArray(data)) return [];
-      return data;
-    },
+    queryFn: () => apiFetch<any[]>(`/analytics/orders-by-status?status=${status}`),
     staleTime: 0,
     refetchOnMount: true,
     retry: 1,
