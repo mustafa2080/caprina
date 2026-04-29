@@ -341,20 +341,20 @@ function GlassBarTip({ active, payload }: any) {
   );
 }
 
-function GlassXTick({ x, y, payload }: any) {
-  const d = payload?.value ?? {};
-  const isToday = d.isToday;
+function GlassXTick({ x, y, payload, enriched }: any) {
+  const label: string = payload?.value ?? "";
   const DAY_SHORT: Record<string, string> = {
     "الأحد": "أحد", "الاثنين": "إثن", "الثلاثاء": "ثلث",
     "الأربعاء": "أرب", "الخميس": "خمس", "الجمعة": "جمع", "السبت": "سبت",
   };
-  const shortLabel = DAY_SHORT[d.label ?? ""] ?? (d.label ?? "");
-  const shortDate = d.date
-    ? (() => { const dt = new Date(d.date); return `${dt.getDate()}/${dt.getMonth() + 1}`; })()
+  const shortLabel = DAY_SHORT[label] ?? label;
+  const dayData = enriched?.find((d: any) => d.label === label);
+  const isToday = dayData?.isToday ?? false;
+  const shortDate = dayData?.date
+    ? (() => { const dt = new Date(dayData.date); return `${dt.getDate()}/${dt.getMonth() + 1}`; })()
     : "";
   return (
     <g transform={`translate(${x},${y})`}>
-      {/* اسم اليوم */}
       <text
         x={0} y={0} dy={13}
         textAnchor="middle"
@@ -364,7 +364,6 @@ function GlassXTick({ x, y, payload }: any) {
       >
         {shortLabel}
       </text>
-      {/* التاريخ */}
       <text
         x={0} y={0} dy={26}
         textAnchor="middle"
@@ -488,8 +487,8 @@ const WeeklyBars = memo(function WeeklyBars({ data, weekComparison }: { data: Ch
                   vertical={false}
                 />
                 <XAxis
-                  dataKey={(d) => d}
-                  tick={<GlassXTick />}
+                  dataKey="label"
+                  tick={(props) => <GlassXTick {...props} enriched={enriched} />}
                   axisLine={false}
                   tickLine={false}
                   interval={0}
