@@ -401,11 +401,23 @@ const WeeklyBars = memo(function WeeklyBars({ data }: { data: ChartsData["weekly
           const max = Math.max(...enriched.map(x => x.orders), 1);
           const barH = Math.max(3, Math.round((d.orders / max) * 20));
           const isToday = d.isToday;
+          // نقسم التاريخ مباشرة من الـ string YYYY-MM-DD بدون Date() عشان نتجنب timezone issues
           const shortDate = d.date
-            ? new Date(d.date).toLocaleDateString("ar-EG", { day: "numeric", month: "numeric" })
+            ? (() => {
+                const parts = d.date.split("-");
+                return `${parseInt(parts[2], 10)}/${parseInt(parts[1], 10)}`;
+              })()
             : "";
+          const dayShort = d.label === "الأحد" ? "أحد"
+            : d.label === "الاثنين" ? "اثن"
+            : d.label === "الثلاثاء" ? "ثلا"
+            : d.label === "الأربعاء" ? "أرب"
+            : d.label === "الخميس" ? "خمس"
+            : d.label === "الجمعة" ? "جمع"
+            : d.label === "السبت" ? "سبت"
+            : d.label;
           return (
-            <div key={i} className="flex flex-col items-center gap-1">
+            <div key={i} className="flex flex-col items-center gap-0.5">
               {/* Orders count */}
               <p className={`text-[10px] font-black ${isToday ? "text-blue-500" : d.orders > 0 ? "text-amber-500" : "text-muted-foreground/40"}`}>
                 {d.orders > 0 ? d.orders : "·"}
@@ -420,11 +432,13 @@ const WeeklyBars = memo(function WeeklyBars({ data }: { data: ChartsData["weekly
                 }}
               />
               {/* Day name short */}
-              <p className={`text-[8px] font-bold ${isToday ? "text-blue-500" : "text-muted-foreground"}`}>
-                {d.label.slice(0, 2)}
+              <p className={`text-[9px] font-bold leading-tight ${isToday ? "text-blue-500" : "text-muted-foreground"}`}>
+                {dayShort}
               </p>
-              {/* Date */}
-              <p className="text-[7px] text-muted-foreground/60">{shortDate}</p>
+              {/* Date — واضحة */}
+              <p className={`text-[8px] font-semibold leading-tight ${isToday ? "text-blue-400" : "text-muted-foreground/70"}`}>
+                {shortDate}
+              </p>
             </div>
           );
         })}
