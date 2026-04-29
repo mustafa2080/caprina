@@ -362,10 +362,8 @@ function InvoiceGroupDeliveryRow({
         let finalPartialQty: number | null = null;
 
         if (isPerItemMode) {
-          // لو المستخدم غير حالة منتج معين يدوياً → استخدمها، وإلا طبق bulkStatus
-          const itemStatus = perOrderStatus[order.id];
-          const originalStatus = group.find(o => o.id === order.id)?.deliveryStatus as DeliveryStatus;
-          finalStatus = (itemStatus !== originalStatus) ? itemStatus : bulkStatus;
+          // في وضع per-item كل منتج له حالته المختارة مباشرة من الـ UI
+          finalStatus = perOrderStatus[order.id] ?? bulkStatus;
           if (finalStatus === "partial_received") {
             const val = partialQtyMap[order.id];
             finalPartialQty = val ? parseInt(val) : null;
@@ -465,9 +463,16 @@ function InvoiceGroupDeliveryRow({
                 حالات متعددة
               </Badge>
             ) : groupStatus === "partial_received" ? (
-              <Badge variant="outline" className={`text-[9px] font-bold border ${groupOpt.bg} ${groupOpt.color}`}>
-                {groupOpt.label} ({group.reduce((s, o) => s + (o.partialQuantity ?? 0), 0)}/{totalQty})
-              </Badge>
+              <div className="flex flex-col gap-0.5">
+                <Badge variant="outline" className={`text-[9px] font-bold border ${groupOpt.bg} ${groupOpt.color}`}>
+                  {groupOpt.label} ({group.reduce((s, o) => s + (o.partialQuantity ?? 0), 0)}/{totalQty})
+                </Badge>
+                {group.filter(o => o.partialQuantity && o.partialQuantity > 0).map(o => (
+                  <p key={o.id} className="text-[9px] text-teal-600 dark:text-teal-400 truncate max-w-[110px]">
+                    ✓ {o.product} ×{o.partialQuantity}
+                  </p>
+                ))}
+              </div>
             ) : (
               <Badge variant="outline" className={`text-[9px] font-bold border ${groupOpt.bg} ${groupOpt.color}`}>
                 {groupOpt.label}
@@ -491,7 +496,7 @@ function InvoiceGroupDeliveryRow({
                   variant="ghost"
                   size="sm"
                   className="h-6 text-[10px] px-1.5 text-primary hover:text-primary"
-                  onClick={() => { setBulkEditing(true); setBulkStatus(groupStatus); setBulkNote(""); setPartialQtyMap(Object.fromEntries(group.map(o => [o.id, o.partialQuantity?.toString() ?? ""]))); setPerOrderStatus(Object.fromEntries(group.map(o => [o.id, o.deliveryStatus as DeliveryStatus]))); }}
+                  onClick={() => { setBulkEditing(true); setBulkStatus(groupStatus); setBulkNote(""); setPartialQtyMap(Object.fromEntries(group.map(o => [o.id, o.partialQuantity?.toString() ?? ""]))); setPerOrderStatus(Object.fromEntries(group.map(o => [o.id, groupStatus]))); }}
                 >
                   <Edit2 className="w-3 h-3 ml-0.5" />تقفيل
                 </Button>
