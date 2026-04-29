@@ -448,7 +448,14 @@ function InvoiceGroupDeliveryRow({
             )}
           </div>
           {/* Qty */}
-          <div className="text-center font-bold">{totalQty}</div>
+          <div className="text-center font-bold">
+            {groupStatus === "partial_received" && !hasMultipleStatuses ? (
+              <span>
+                <span className="text-teal-400">{group.reduce((s, o) => s + (o.partialQuantity ?? 0), 0)}</span>
+                <span className="text-muted-foreground">/{totalQty}</span>
+              </span>
+            ) : totalQty}
+          </div>
           {/* Price */}
           <div className="text-left font-bold">{formatCurrency(totalPrice)}</div>
           {/* Status */}
@@ -456,6 +463,10 @@ function InvoiceGroupDeliveryRow({
             {hasMultipleStatuses ? (
               <Badge variant="outline" className="text-[9px] font-bold border border-border text-muted-foreground">
                 حالات متعددة
+              </Badge>
+            ) : groupStatus === "partial_received" ? (
+              <Badge variant="outline" className={`text-[9px] font-bold border ${groupOpt.bg} ${groupOpt.color}`}>
+                {groupOpt.label} ({group.reduce((s, o) => s + (o.partialQuantity ?? 0), 0)}/{totalQty})
               </Badge>
             ) : (
               <Badge variant="outline" className={`text-[9px] font-bold border ${groupOpt.bg} ${groupOpt.color}`}>
