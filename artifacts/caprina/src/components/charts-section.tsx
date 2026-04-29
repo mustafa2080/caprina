@@ -595,7 +595,7 @@ const WeeklyBars = memo(function WeeklyBars({ data, weekComparison }: { data: Ch
         <WeeklyDaysGrid days={enriched} maxOrders={maxOrders} highlightToday />
       </div>
 
-      {/* ── مقارنة الأسبوع السابق ── */}
+      {/* ── الأسبوع السابق فقط ── */}
       {weekComparison && (
         <div
           className="rounded-[20px] px-4 py-3 mt-1"
@@ -605,36 +605,26 @@ const WeeklyBars = memo(function WeeklyBars({ data, weekComparison }: { data: Ch
           }}
         >
           <p className="text-[11px] font-bold mb-2.5" style={{ color: "rgba(255,255,255,0.55)" }}>
-            مقارنة بالأسبوع الماضي
+            مبيعات الأسبوع الماضي
           </p>
           <div className="grid grid-cols-3 gap-2">
             {/* الطلبات */}
             <div className="flex flex-col items-center gap-1">
               <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.40)" }}>الطلبات</p>
-              <p className="text-base font-black" style={{ color: GLASS_ORANGE }}>{weekComparison.thisWeek.orders}</p>
-              <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>vs {weekComparison.prevWeek.orders}</p>
-              {weekComparison.ordersChange !== null && (
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: weekComparison.ordersChange >= 0 ? "rgba(38,166,154,0.18)" : "rgba(239,83,80,0.18)", color: weekComparison.ordersChange >= 0 ? GLASS_GREEN : "#ef5350" }}>
-                  {weekComparison.ordersChange >= 0 ? "▲" : "▼"} {Math.abs(weekComparison.ordersChange)}%
-                </span>
-              )}
+              <p className="text-base font-black" style={{ color: GLASS_ORANGE }}>{weekComparison.prevWeek.orders}</p>
+              <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>إجمالي طلبات الأسبوع الماضي</p>
             </div>
             {/* الإيرادات */}
             <div className="flex flex-col items-center gap-1">
               <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.40)" }}>الإيرادات</p>
-              <p className="text-base font-black" style={{ color: GLASS_PURPLE }}>{fc(weekComparison.thisWeek.revenue)}</p>
-              <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>vs {fc(weekComparison.prevWeek.revenue)}</p>
-              {weekComparison.revenueChange !== null && (
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: weekComparison.revenueChange >= 0 ? "rgba(38,166,154,0.18)" : "rgba(239,83,80,0.18)", color: weekComparison.revenueChange >= 0 ? GLASS_GREEN : "#ef5350" }}>
-                  {weekComparison.revenueChange >= 0 ? "▲" : "▼"} {Math.abs(weekComparison.revenueChange)}%
-                </span>
-              )}
+              <p className="text-base font-black" style={{ color: GLASS_PURPLE }}>{fc(weekComparison.prevWeek.revenue)}</p>
+              <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>إيرادات الأسبوع الماضي</p>
             </div>
             {/* متوسط يومي */}
             <div className="flex flex-col items-center gap-1">
               <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.40)" }}>متوسط/يوم</p>
-              <p className="text-base font-black" style={{ color: GLASS_BAR_COLOR }}>{(weekComparison.thisWeek.orders / 7).toFixed(1)}</p>
-              <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>vs {(weekComparison.prevWeek.orders / 7).toFixed(1)}</p>
+              <p className="text-base font-black" style={{ color: GLASS_BAR_COLOR }}>{(weekComparison.prevWeek.orders / 7).toFixed(1)}</p>
+              <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>متوسط يومي للأسبوع الماضي</p>
             </div>
           </div>
           <div className="mt-4">
