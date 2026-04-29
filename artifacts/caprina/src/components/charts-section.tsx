@@ -316,6 +316,64 @@ const GLASS_PURPLE = "#7E57C2";
 const GLASS_GREEN = "#26A69A";
 const GLASS_ORANGE = "#FFB74D";
 
+function WeeklyDaysGrid({
+  days,
+  maxOrders,
+  highlightToday = false,
+}: {
+  days: Array<{ date: string; label: string; orders: number; revenue: number; isToday?: boolean }>;
+  maxOrders: number;
+  highlightToday?: boolean;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+      {days.map((d, i) => {
+        const barH = Math.max(6, Math.round((d.orders / Math.max(maxOrders, 1)) * 34));
+        const formattedDate = d.date
+          ? new Date(d.date).toLocaleDateString("ar-EG", { day: "numeric", month: "short" })
+          : "";
+        const isToday = highlightToday && d.isToday;
+        return (
+          <div
+            key={`${d.date}-${i}`}
+            className="flex min-w-0 flex-col items-center gap-2 rounded-2xl px-2 py-2 text-center"
+            style={{
+              background: isToday ? "rgba(255,213,79,0.10)" : "rgba(255,255,255,0.02)",
+              border: isToday ? "1px solid rgba(255,213,79,0.28)" : "1px solid rgba(255,255,255,0.04)",
+            }}
+          >
+            <div className="flex h-11 items-end">
+              <div
+                className="min-w-[22px] rounded-md transition-all duration-300"
+                style={{
+                  width: d.orders > 0 ? 28 : 18,
+                  height: d.orders > 0 ? barH : 4,
+                  background: d.orders > 0
+                    ? "linear-gradient(180deg, #FFF3A6 0%, #FFD54F 72%, #E0A800 100%)"
+                    : "rgba(255,255,255,0.10)",
+                  boxShadow: d.orders > 0 ? `0 0 12px ${GLASS_BAR_COLOR}66` : "none",
+                  opacity: d.orders > 0 ? 1 : 0.45,
+                }}
+              />
+            </div>
+            <div className="text-center">
+              <p className="text-[10px] font-black" style={{ color: d.orders > 0 ? GLASS_BAR_COLOR : "rgba(255,255,255,0.32)" }}>
+                {d.orders > 0 ? d.orders : "·"}
+              </p>
+              <p className="mt-1 text-[11px] font-bold leading-tight" style={{ color: isToday ? "#fff4c2" : "rgba(255,255,255,0.82)" }}>
+                {d.label}
+              </p>
+              <p className="mt-0.5 text-[9px] font-semibold" style={{ color: isToday ? "rgba(255,213,79,0.88)" : "rgba(255,255,255,0.52)" }}>
+                {formattedDate}
+              </p>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function GlassBarTip({ active, payload }: any) {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
@@ -377,6 +435,10 @@ const WeeklyBars = memo(function WeeklyBars({ data, weekComparison }: { data: Ch
   const enriched = useMemo(() =>
     data.map(d => ({ ...d, isToday: d.date === todayStr }))
   , [data, todayStr]);
+  const prevWeekEnriched = useMemo(
+    () => weekComparison?.prevWeekDays?.map(d => ({ ...d, isToday: false })) ?? [],
+    [weekComparison]
+  );
 
   const { total, peak, revenue, hasData } = useMemo(() => {
     const total = enriched.reduce((s, d) => s + d.orders, 0);
@@ -386,6 +448,7 @@ const WeeklyBars = memo(function WeeklyBars({ data, weekComparison }: { data: Ch
   }, [enriched]);
 
   const maxOrders = Math.max(...enriched.map(d => d.orders), 1);
+  const prevWeekMaxOrders = Math.max(...prevWeekEnriched.map(d => d.orders), 1);
   const yMax = Math.ceil(maxOrders / 5) * 5 + 4;
 
   const statCards = [
@@ -529,50 +592,7 @@ const WeeklyBars = memo(function WeeklyBars({ data, weekComparison }: { data: Ch
           border: "1px solid rgba(255,255,255,0.05)",
         }}
       >
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
-          {enriched.map((d, i) => {
-            const barH = Math.max(6, Math.round((d.orders / maxOrders) * 34));
-            const formattedDate = d.date
-              ? new Date(d.date).toLocaleDateString("ar-EG", { day: "numeric", month: "short" })
-              : "";
-            return (
-              <div
-                key={i}
-                className="flex min-w-0 flex-col items-center gap-2 rounded-2xl px-2 py-2 text-center"
-                style={{
-                  background: d.isToday ? "rgba(255,213,79,0.10)" : "rgba(255,255,255,0.02)",
-                  border: d.isToday ? "1px solid rgba(255,213,79,0.28)" : "1px solid rgba(255,255,255,0.04)",
-                }}
-              >
-                <div className="flex h-11 items-end">
-                  <div
-                    className="min-w-[22px] rounded-md transition-all duration-300"
-                    style={{
-                      width: d.orders > 0 ? 28 : 18,
-                      height: d.orders > 0 ? barH : 4,
-                      background: d.orders > 0
-                        ? "linear-gradient(180deg, #FFF3A6 0%, #FFD54F 72%, #E0A800 100%)"
-                        : "rgba(255,255,255,0.10)",
-                      boxShadow: d.orders > 0 ? `0 0 12px ${GLASS_BAR_COLOR}66` : "none",
-                      opacity: d.orders > 0 ? 1 : 0.45,
-                    }}
-                  />
-                </div>
-                <div className="text-center">
-                  <p className="text-[10px] font-black" style={{ color: d.orders > 0 ? GLASS_BAR_COLOR : "rgba(255,255,255,0.32)" }}>
-                    {d.orders > 0 ? d.orders : "·"}
-                  </p>
-                  <p className="mt-1 text-[11px] font-bold leading-tight" style={{ color: d.isToday ? "#fff4c2" : "rgba(255,255,255,0.82)" }}>
-                    {d.label}
-                  </p>
-                  <p className="mt-0.5 text-[9px] font-semibold" style={{ color: d.isToday ? "rgba(255,213,79,0.88)" : "rgba(255,255,255,0.52)" }}>
-                    {formattedDate}
-                  </p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <WeeklyDaysGrid days={enriched} maxOrders={maxOrders} highlightToday />
       </div>
 
       {/* ── مقارنة الأسبوع السابق ── */}
@@ -616,6 +636,12 @@ const WeeklyBars = memo(function WeeklyBars({ data, weekComparison }: { data: Ch
               <p className="text-base font-black" style={{ color: GLASS_BAR_COLOR }}>{(weekComparison.thisWeek.orders / 7).toFixed(1)}</p>
               <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>vs {(weekComparison.prevWeek.orders / 7).toFixed(1)}</p>
             </div>
+          </div>
+          <div className="mt-4">
+            <p className="mb-2 text-[11px] font-bold" style={{ color: "rgba(255,255,255,0.55)" }}>
+              تفاصيل الأسبوع الماضي بالتاريخ
+            </p>
+            <WeeklyDaysGrid days={prevWeekEnriched} maxOrders={prevWeekMaxOrders} />
           </div>
         </div>
       )}
