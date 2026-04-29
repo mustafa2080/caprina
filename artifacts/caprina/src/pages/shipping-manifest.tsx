@@ -477,7 +477,7 @@ function InvoiceGroupDeliveryRow({
                   variant="ghost"
                   size="sm"
                   className="h-6 text-[10px] px-1.5 text-primary hover:text-primary"
-                  onClick={() => { setBulkEditing(true); setBulkStatus(groupStatus); setBulkNote(""); setPartialSelectedIds(new Set(group.filter(o => o.deliveryStatus === "delivered").map(o => o.id))); setPartialQtyMap(Object.fromEntries(group.map(o => [o.id, o.partialQuantity?.toString() ?? ""]))); }}
+                  onClick={() => { setBulkEditing(true); setBulkStatus(groupStatus); setBulkNote(""); setPartialQtyMap(Object.fromEntries(group.map(o => [o.id, o.partialQuantity?.toString() ?? ""]))); setPerOrderStatus(Object.fromEntries(group.map(o => [o.id, o.deliveryStatus as DeliveryStatus]))); }}
                 >
                   <Edit2 className="w-3 h-3 ml-0.5" />تقفيل
                 </Button>
@@ -2329,7 +2329,7 @@ export default function ShippingManifestPage() {
                 </div>
                 {groupedManifestOrders.map((group, index) => (
                   <InvoiceGroupDeliveryRow
-                    key={group.map((order) => order.id).join("-")}
+                    key={group.map((order) => `${order.id}-${order.deliveryStatus}-${order.partialQuantity ?? 0}`).join("|")}
                     group={group}
                     manifestId={id}
                     locked={isLocked}
