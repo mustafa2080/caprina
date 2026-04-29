@@ -146,17 +146,18 @@ function OrderDeliveryRow({
     <div className={`border-b border-border/50 transition-colors ${editing ? "bg-primary/5" : "hover:bg-muted/10"}`}>
       {/* Main row */}
       <div className="grid grid-cols-[1fr_1fr_60px_80px_120px_80px] gap-0 items-start px-3 py-2.5 text-xs">
-        {/* Customer */}
-        <div className="min-w-0 pr-1">
-          <p className="font-semibold truncate">{order.customerName}</p>
-          <p className="text-muted-foreground text-[10px] flex gap-1">
-            <span className="font-mono">#{order.id.toString().padStart(4, "0")}</span>
-            {order.phone && <span>· {order.phone}</span>}
-          </p>
+        {/* Order ID only — no customer name (already shown in parent row) */}
+        <div className="min-w-0 pr-1 flex items-center gap-1.5">
+          <span className="font-mono text-[10px] text-muted-foreground bg-muted/40 rounded px-1.5 py-0.5 border border-border/40">
+            #{order.id.toString().padStart(4, "0")}
+          </span>
+          {order.phone && (
+            <span className="text-[10px] text-muted-foreground">{order.phone}</span>
+          )}
         </div>
         {/* Product */}
         <div className="min-w-0 pr-2">
-          <p className="truncate">{order.product}</p>
+          <p className="truncate font-medium">{order.product}</p>
           {(order.color || order.size) && (
             <p className="text-muted-foreground text-[10px]">
               {[order.color, order.size].filter(Boolean).join(" / ")}
