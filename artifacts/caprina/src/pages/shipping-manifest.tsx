@@ -664,23 +664,21 @@ function InvoiceGroupDeliveryRow({
                 })}
               </div>
             )}
-            {(needsBulkNote || bulkStatus === "pending") && (
-              <div>
-                <Label className="text-[10px] mb-1 block text-muted-foreground">
-                  {needsBulkNote ? "سبب / ملاحظة (مطلوب)" : "ملاحظة (اختياري)"}
-                </Label>
-                <Input
-                  value={bulkNote}
-                  onChange={(e) => setBulkNote(e.target.value)}
-                  className="h-8 text-xs bg-background"
-                  placeholder={
-                    bulkStatus === "postponed" ? "مثال: العميل طلب التأجيل..."
-                    : bulkStatus === "returned" ? "مثال: العميل رفض الاستلام..."
-                    : "ملاحظة..."
-                  }
-                />
-              </div>
-            )}
+            <div>
+              <Label className="text-[10px] mb-1 block text-muted-foreground">
+                {needsBulkNote ? "سبب / ملاحظة (مطلوب)" : "ملاحظة (اختياري)"}
+              </Label>
+              <Input
+                value={bulkNote}
+                onChange={(e) => setBulkNote(e.target.value)}
+                className="h-8 text-xs bg-background"
+                placeholder={
+                  bulkStatus === "postponed" ? "مثال: العميل طلب التأجيل..."
+                  : bulkStatus === "returned" ? "مثال: العميل رفض الاستلام..."
+                  : "ملاحظة (اختياري)..."
+                }
+              />
+            </div>
             <div className="flex gap-2 justify-end">
               <Button
                 size="sm"
