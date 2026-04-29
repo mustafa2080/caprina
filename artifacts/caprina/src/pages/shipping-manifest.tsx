@@ -523,18 +523,36 @@ function InvoiceGroupDeliveryRow({
         )}
       </div>
 
-      {/* Expanded: individual order rows */}
-      {expanded && isMulti && group.map((order) => (
-        <div key={order.id} className="border-b border-border/30 bg-muted/5 pr-4">
-          <OrderDeliveryRow
-            order={order}
-            manifestId={manifestId}
-            locked={locked}
-            onSaved={onSaved}
-            hideAction={true}
-          />
+      {/* Expanded: product cards */}
+      {expanded && isMulti && (
+        <div className="px-4 pb-3 pt-1 flex flex-col gap-1.5 bg-muted/5 border-t border-border/20">
+          {group.map((order) => {
+            const variant = [order.color, order.size].filter(Boolean).join(" / ");
+            return (
+              <div
+                key={order.id}
+                className="flex items-center justify-between rounded-md border border-border/40 bg-background/60 px-3 py-1.5"
+              >
+                {/* اسم المنتج + المواصفات */}
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold truncate">{order.product}</p>
+                  {variant && (
+                    <p className="text-[10px] text-muted-foreground">{variant}</p>
+                  )}
+                </div>
+                {/* الكمية */}
+                <div className="text-xs font-bold text-muted-foreground mx-3 shrink-0">
+                  {order.quantity}x
+                </div>
+                {/* السعر */}
+                <div className="text-xs font-bold text-primary shrink-0">
+                  {formatCurrency(order.totalPrice)}
+                </div>
+              </div>
+            );
+          })}
         </div>
-      ))}
+      )}
     </>
   );
 }
