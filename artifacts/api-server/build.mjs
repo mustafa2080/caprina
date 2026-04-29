@@ -79,7 +79,7 @@ async function buildAll() {
       "kerberos",
       "leveldown",
       "miniflare",
-      "mysql2",
+      // "mysql2", // bundled so it works on server without local node_modules
       "newrelic",
       "odbc",
       "piscina",
