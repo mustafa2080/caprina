@@ -395,53 +395,54 @@ const WeeklyBars = memo(function WeeklyBars({ data }: { data: ChartsData["weekly
         </div>
       )}
 
-      {/* Day-by-day detail row */}
-      <div className="grid grid-cols-7 gap-1 pt-2 border-t border-border/40">
-        {enriched.map((d, i) => {
-          const max = Math.max(...enriched.map(x => x.orders), 1);
-          const barH = Math.max(3, Math.round((d.orders / max) * 20));
-          const isToday = d.isToday;
-          // نقسم التاريخ مباشرة من الـ string YYYY-MM-DD بدون Date() عشان نتجنب timezone issues
-          const shortDate = d.date
-            ? (() => {
-                const parts = d.date.split("-");
-                return `${parseInt(parts[2], 10)}/${parseInt(parts[1], 10)}`;
-              })()
-            : "";
-          const dayShort = d.label === "الأحد" ? "أحد"
-            : d.label === "الاثنين" ? "اثن"
-            : d.label === "الثلاثاء" ? "ثلا"
-            : d.label === "الأربعاء" ? "أرب"
-            : d.label === "الخميس" ? "خمس"
-            : d.label === "الجمعة" ? "جمع"
-            : d.label === "السبت" ? "سبت"
-            : d.label;
-          return (
-            <div key={i} className="flex flex-col items-center gap-0.5">
-              {/* Orders count */}
-              <p className={`text-[10px] font-black ${isToday ? "text-blue-500" : d.orders > 0 ? "text-amber-500" : "text-muted-foreground/40"}`}>
-                {d.orders > 0 ? d.orders : "·"}
-              </p>
-              {/* Mini bar */}
+      {/* Day-by-day detail row — scrollable so full day names show */}
+      <div className="overflow-x-auto no-scrollbar pt-2 border-t border-border/40">
+        <div className="flex gap-1" style={{ minWidth: "max-content" }}>
+          {enriched.map((d, i) => {
+            const max = Math.max(...enriched.map(x => x.orders), 1);
+            const barH = Math.max(4, Math.round((d.orders / max) * 24));
+            const isToday = d.isToday;
+            const shortDate = d.date
+              ? (() => {
+                  const parts = d.date.split("-");
+                  return `${parseInt(parts[2], 10)}/${parseInt(parts[1], 10)}`;
+                })()
+              : "";
+            return (
               <div
-                className="w-full rounded-sm"
+                key={i}
+                className="flex flex-col items-center gap-0.5 rounded-lg px-2 py-1.5"
                 style={{
-                  height: barH,
-                  background: isToday ? "#3b82f6" : d.orders > 0 ? BAR_COLOR : "hsl(var(--muted))",
-                  opacity: d.orders > 0 ? 1 : 0.25,
+                  minWidth: 56,
+                  background: isToday ? "#3b82f610" : "transparent",
+                  border: isToday ? "1px solid #3b82f630" : "1px solid transparent",
                 }}
-              />
-              {/* Day name short */}
-              <p className={`text-[9px] font-bold leading-tight ${isToday ? "text-blue-500" : "text-muted-foreground"}`}>
-                {dayShort}
-              </p>
-              {/* Date — واضحة */}
-              <p className={`text-[8px] font-semibold leading-tight ${isToday ? "text-blue-400" : "text-muted-foreground/70"}`}>
-                {shortDate}
-              </p>
-            </div>
-          );
-        })}
+              >
+                {/* Orders count */}
+                <p className={`text-xs font-black ${isToday ? "text-blue-500" : d.orders > 0 ? "text-amber-500" : "text-muted-foreground/40"}`}>
+                  {d.orders > 0 ? d.orders : "·"}
+                </p>
+                {/* Mini bar */}
+                <div
+                  className="w-6 rounded-sm"
+                  style={{
+                    height: barH,
+                    background: isToday ? "#3b82f6" : d.orders > 0 ? BAR_COLOR : "hsl(var(--muted))",
+                    opacity: d.orders > 0 ? 1 : 0.25,
+                  }}
+                />
+                {/* Full day name */}
+                <p className={`text-[10px] font-bold leading-tight text-center whitespace-nowrap ${isToday ? "text-blue-500" : "text-muted-foreground"}`}>
+                  {d.label}
+                </p>
+                {/* Date */}
+                <p className={`text-[9px] font-semibold leading-tight ${isToday ? "text-blue-400" : "text-muted-foreground/60"}`}>
+                  {shortDate}
+                </p>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
