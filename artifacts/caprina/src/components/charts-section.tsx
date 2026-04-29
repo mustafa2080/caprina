@@ -597,14 +597,20 @@ const KpiStrip = memo(function KpiStrip({ data, total }: { data: ChartsData["sta
 export function FilteredOrdersList({ status }: { status: string }) {
   const cfg = STATUS_CFG[status] ?? { label: status, color: "#888", bg: "#88881a" };
 
-  const { data: orders, isLoading } = useQuery<any[]>({
+  const { data: orders, isLoading, error } = useQuery<any[]>({
     queryKey: ["orders-by-status-chart", status],
-    queryFn: () =>
-      fetch(`/api/orders?status=${status}&source=dashboard`, {
+    queryFn: async () => {
+      const res = await fetch(`/api/analytics/orders-by-status?status=${status}`, {
         credentials: "include",
-      }).then(r => r.json()),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (!Array.isArray(data)) return [];
+      return data;
+    },
     staleTime: 0,
     refetchOnMount: true,
+    retry: 1,
   });
   const fc = (n: number) =>
     new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(n);
@@ -630,9 +636,23 @@ export function FilteredOrdersList({ status }: { status: string }) {
 
       {/* Body */}
       {isLoading ? (
-        <div className="p-4 text-center text-xs text-muted-foreground">جاري التحميل...</div>
+        <div className="p-4 text-center text-xs text-muted-foreground animate-pulse">جاري التحميل...</div>
+      ) : error ? (
+        <div className="p-4 text-center text-xs text-red-500">
+          خطأ في تحميل الطلبات — {(error as Error).message}
+          <br />
+          <Link href={`/orders?status=${status}`} className="underline mt-1 inline-block" style={{ color: cfg.color }}>
+            افتح قسم الطلبات مباشرةً ←
+          </Link>
+        </div>
       ) : !orders?.length ? (
-        <div className="p-4 text-center text-xs text-muted-foreground">لا توجد طلبات</div>
+        <div className="p-4 text-center text-xs text-muted-foreground">
+          لا توجد طلبات بحالة &quot;{cfg.label}&quot;
+          <br />
+          <Link href={`/orders?status=${status}`} className="underline mt-1 inline-block" style={{ color: cfg.color }}>
+            تحقق في قسم الطلبات ←
+          </Link>
+        </div>
       ) : (
         <div className="divide-y" style={{ borderColor: cfg.color + "22" }}>
           {orders.slice(0, 8).map(order => (

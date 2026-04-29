@@ -1033,14 +1033,19 @@ router.get("/analytics/charts", async (_req, res): Promise<void> => {
   const invoices = Array.from(invoiceMap.values());
   const total = invoices.length;
 
+  // نجمع الـ invoiceKeys لكل status عشان نقدر نجيب الطلبات بناءً عليها
+  const statusInvoiceKeys: Record<string, string[]> = {};
   const statusCounts: Record<string, number> = {};
   for (const inv of invoices) {
     statusCounts[inv.status] = (statusCounts[inv.status] ?? 0) + 1;
+    if (!statusInvoiceKeys[inv.status]) statusInvoiceKeys[inv.status] = [];
+    statusInvoiceKeys[inv.status].push(inv.invoiceKey);
   }
   const statusBreakdown = Object.entries(statusCounts).map(([status, count]) => ({
     status,
     count,
     pct: total > 0 ? Math.round((count / total) * 100) : 0,
+    invoiceKeys: statusInvoiceKeys[status] ?? [],
   }));
 
   const days: { date: string; label: string; orders: number; revenue: number }[] = [];
@@ -1075,6 +1080,49 @@ router.get("/analytics/charts", async (_req, res): Promise<void> => {
 
   res.json({ statusBreakdown, weeklySales: days, adSourceBreakdown, total });
 });
+
+// ─── GET /api/analytics/orders-by-status ─────────────────────────────────────
+// يجيب الطلبات الفعلية المرتبطة بالـ statusBreakdown في الداشبورد
+// بيستخدم نفس منطق grouping الـ charts endpoint بدقة
+router.get("/analytics/orders-by-status", async (req, res): Promise<void> => {
+  const status = req.query.status as string;
+  if (!status) { res.status(400).json({ error: "status required" }); return; }
+
+  const allOrders = await db
+    .select()
+    .from(ordersTable)
+    .where(isNull(ordersTable.deletedAt))
+    .orderBy(desc(ordersTable.createdAt));
+
+  // نفس منطق charts endpoint بالظبط
+  const invoiceMap = new Map<string, { invoiceKey: string; status: string; rows: typeof allOrders }>();
+  for (const o of allOrders) {
+    const key = o.invoiceNumber ?? `solo-${o.id}`;
+    if (!invoiceMap.has(key)) {
+      invoiceMap.set(key, { invoiceKey: key, status: o.status, rows: [] });
+    }
+    const grp = invoiceMap.get(key)!;
+    grp.status = o.status; // آخر status يكتب فوق السابق
+    grp.rows.push(o);
+  }
+
+  // فلتر بالـ status المطلوب
+  const matchedGroups = Array.from(invoiceMap.values()).filter(g => g.status === status);
+
+  // نبني الـ response: كل invoice = row واحد merged
+  const result = matchedGroups.map(grp => {
+    const rows = grp.rows;
+    if (rows.length === 1) return rows[0];
+    const rep = { ...rows[0] } as any;
+    rep.totalPrice = rows.reduce((s, o) => s + o.totalPrice, 0);
+    rep.quantity   = rows.reduce((s, o) => s + o.quantity, 0);
+    rep.product    = rows.map(o => `${o.product}×${o.quantity}`).join("، ");
+    return rep;
+  });
+
+  res.json(result);
+});
+
 // ─── GET /api/analytics/shipping-followup ───────────────────────────────────
 // Returns in_shipping orders that have been pending for > 3 days
 router.get("/analytics/shipping-followup", async (_req, res): Promise<void> => {
