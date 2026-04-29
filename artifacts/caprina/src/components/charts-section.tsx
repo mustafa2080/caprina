@@ -395,13 +395,13 @@ const WeeklyBars = memo(function WeeklyBars({ data }: { data: ChartsData["weekly
         </div>
       )}
 
-      {/* Day-by-day detail row — scrollable so full day names show */}
-      <div className="overflow-x-auto no-scrollbar pt-2 border-t border-border/40">
-        <div className="flex gap-1" style={{ minWidth: "max-content" }}>
+      {/* Day-by-day detail row */}
+      <div className="border-t border-border/40 pt-3">
+        <div className="grid grid-cols-7 gap-1">
           {enriched.map((d, i) => {
             const max = Math.max(...enriched.map(x => x.orders), 1);
-            const barH = Math.max(4, Math.round((d.orders / max) * 24));
             const isToday = d.isToday;
+            const fillPct = d.orders > 0 ? Math.max(10, Math.round((d.orders / max) * 100)) : 0;
             const shortDate = d.date
               ? (() => {
                   const parts = d.date.split("-");
@@ -411,32 +411,32 @@ const WeeklyBars = memo(function WeeklyBars({ data }: { data: ChartsData["weekly
             return (
               <div
                 key={i}
-                className="flex flex-col items-center gap-0.5 rounded-lg px-2 py-1.5"
+                className="flex flex-col items-center gap-1 rounded-xl px-1 py-2"
                 style={{
-                  minWidth: 56,
-                  background: isToday ? "#3b82f610" : "transparent",
-                  border: isToday ? "1px solid #3b82f630" : "1px solid transparent",
+                  background: isToday ? "#3b82f614" : d.orders > 0 ? BAR_COLOR + "0d" : "transparent",
+                  border: isToday ? "1px solid #3b82f635" : d.orders > 0 ? `1px solid ${BAR_COLOR}30` : "1px solid transparent",
                 }}
               >
                 {/* Orders count */}
-                <p className={`text-xs font-black ${isToday ? "text-blue-500" : d.orders > 0 ? "text-amber-500" : "text-muted-foreground/40"}`}>
+                <p className={`text-sm font-black leading-none ${isToday ? "text-blue-500" : d.orders > 0 ? "text-amber-500" : "text-muted-foreground/30"}`}>
                   {d.orders > 0 ? d.orders : "·"}
                 </p>
-                {/* Mini bar */}
-                <div
-                  className="w-6 rounded-sm"
-                  style={{
-                    height: barH,
-                    background: isToday ? "#3b82f6" : d.orders > 0 ? BAR_COLOR : "hsl(var(--muted))",
-                    opacity: d.orders > 0 ? 1 : 0.25,
-                  }}
-                />
-                {/* Full day name */}
-                <p className={`text-[10px] font-bold leading-tight text-center whitespace-nowrap ${isToday ? "text-blue-500" : "text-muted-foreground"}`}>
+                {/* Mini progress bar */}
+                <div className="w-full rounded-full overflow-hidden" style={{ height: 4, background: "hsl(var(--muted))" }}>
+                  <div
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{
+                      width: `${fillPct}%`,
+                      background: isToday ? "#3b82f6" : BAR_COLOR,
+                    }}
+                  />
+                </div>
+                {/* Day name */}
+                <p className={`text-[10px] font-bold text-center leading-tight ${isToday ? "text-blue-500" : d.orders > 0 ? "text-foreground" : "text-muted-foreground/50"}`}>
                   {d.label}
                 </p>
                 {/* Date */}
-                <p className={`text-[9px] font-semibold leading-tight ${isToday ? "text-blue-400" : "text-muted-foreground/60"}`}>
+                <p className={`text-[9px] leading-tight ${isToday ? "text-blue-400/80" : "text-muted-foreground/50"}`}>
                   {shortDate}
                 </p>
               </div>
