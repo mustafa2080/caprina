@@ -338,27 +338,22 @@ function InvoiceGroupDeliveryRow({
   const groupOpt = deliveryOpt(groupStatus);
   const hasMultipleStatuses = statuses.length > 1;
 
-  // تقفيل جماعي: نفس الحالة لكل طلبات المجموعة
+  // تقفيل جماعي — state
   const [bulkEditing, setBulkEditing] = useState(false);
   const [bulkStatus, setBulkStatus] = useState<DeliveryStatus>(groupStatus);
   const [bulkNote, setBulkNote] = useState("");
-  // الاستلام الجزئي: تحديد الطلبيات المستلمة (multi)
-  const [partialSelectedIds, setPartialSelectedIds] = useState<Set<number>>(
-    new Set(group.filter(o => o.deliveryStatus === "delivered").map(o => o.id))
+
+  // لكل منتج في الفاتورة: حالة مستقلة (تُستخدم في وضع partial_received مع فاتورة متعددة)
+  const [perOrderStatus, setPerOrderStatus] = useState<Record<number, DeliveryStatus>>(
+    Object.fromEntries(group.map(o => [o.id, o.deliveryStatus as DeliveryStatus]))
   );
-  // الاستلام الجزئي: كمية مستلمة لكل أوردر (single order case)
+  // كمية مستلمة لكل أوردر (لحالة partial_received)
   const [partialQtyMap, setPartialQtyMap] = useState<Record<number, string>>(
     Object.fromEntries(group.map(o => [o.id, o.partialQuantity?.toString() ?? ""]))
   );
 
-  const togglePartialOrder = (id: number) => {
-    setPartialSelectedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
+  // وضع التقفيل لكل منتج على حدة: يظهر لما تختار partial_received على فاتورة متعددة
+  const isPerItemMode = isMulti && bulkStatus === "partial_received";
 
   const bulkMutation = useMutation({
     mutationFn: async () => {
@@ -366,16 +361,16 @@ function InvoiceGroupDeliveryRow({
         let finalStatus: DeliveryStatus = bulkStatus;
         let finalPartialQty: number | null = null;
 
-        if (bulkStatus === "partial_received") {
-          if (isMulti) {
-            // فاتورة متعددة: المحددة = delivered، الباقي = pending
-            finalStatus = partialSelectedIds.has(order.id) ? "delivered" : "pending";
-          } else {
-            // أوردر واحد: ابعت partial_received مع الكمية الجزئية
-            const partialQtyVal = partialQtyMap[order.id];
-            finalStatus = "partial_received";
-            finalPartialQty = partialQtyVal ? parseInt(partialQtyVal) : null;
+        if (isPerItemMode) {
+          finalStatus = perOrderStatus[order.id] ?? "pending";
+          if (finalStatus === "partial_received") {
+            const val = partialQtyMap[order.id];
+            finalPartialQty = val ? parseInt(val) : null;
           }
+        } else if (bulkStatus === "partial_received" && !isMulti) {
+          finalStatus = "partial_received";
+          const val = partialQtyMap[order.id];
+          finalPartialQty = val ? parseInt(val) : null;
         }
 
         await manifestsApi.updateOrderDelivery(manifestId, order.id, {
@@ -393,7 +388,6 @@ function InvoiceGroupDeliveryRow({
     onError: (e: any) =>
       toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
-
   const needsBulkNote = bulkStatus === "postponed" || bulkStatus === "returned";
 
   // products summary
@@ -520,33 +514,68 @@ function InvoiceGroupDeliveryRow({
                 </Select>
               </div>
             </div>
-            {/* الاستلام الجزئي: اختيار الطلبيات المستلمة */}
-            {bulkStatus === "partial_received" && isMulti && (
-              <div className="flex flex-col gap-1.5 border border-teal-300 dark:border-teal-700 rounded-md p-2.5 bg-teal-50 dark:bg-teal-900/20">
-                <Label className="text-[10px] font-bold text-teal-700 dark:text-teal-400 mb-1">
-                  حدد الطلبيات المستلمة ({partialSelectedIds.size}/{group.length})
+            {/* الاستلام الجزئي: وضع لكل منتج على حدة — يظهر لفواتير متعددة */}
+            {isPerItemMode && (
+              <div className="flex flex-col gap-2 border border-teal-300 dark:border-teal-700 rounded-md p-2.5 bg-teal-50 dark:bg-teal-900/20">
+                <Label className="text-[10px] font-bold text-teal-700 dark:text-teal-400">
+                  حدد حالة كل منتج على حدة
                 </Label>
                 {group.map((o) => {
                   const variant = [o.color, o.size].filter(Boolean).join(" / ");
+                  const oStatus = perOrderStatus[o.id] ?? "pending";
+                  const unitPrice = o.quantity > 0 ? o.totalPrice / o.quantity : 0;
+                  const partialVal = partialQtyMap[o.id] ? parseInt(partialQtyMap[o.id]) : 0;
                   return (
-                    <label
-                      key={o.id}
-                      className={`flex items-center gap-2 rounded-md px-2 py-1.5 cursor-pointer border transition-colors ${
-                        partialSelectedIds.has(o.id)
-                          ? "border-teal-400 bg-teal-100 dark:bg-teal-800/40"
-                          : "border-border/40 bg-background hover:bg-muted/20"
-                      }`}
-                    >
-                      <Checkbox
-                        checked={partialSelectedIds.has(o.id)}
-                        onCheckedChange={() => togglePartialOrder(o.id)}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium truncate">{o.product}</p>
-                        {variant && <p className="text-[10px] text-muted-foreground">{variant}</p>}
+                    <div key={o.id} className="rounded-md border border-border/40 bg-background p-2 flex flex-col gap-1.5">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-semibold">{o.product}</p>
+                          {variant && <p className="text-[10px] text-muted-foreground">{variant}</p>}
+                        </div>
+                        <span className="text-xs font-bold text-muted-foreground">{o.quantity}x</span>
                       </div>
-                      <span className="text-xs font-bold text-muted-foreground shrink-0">{o.quantity}x</span>
-                    </label>
+                      <div className="flex gap-1 flex-wrap">
+                        {([
+                          { v: "delivered",        label: "مسلَّم ✓",   cls: "border-emerald-400 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400" },
+                          { v: "partial_received", label: "جزئي",         cls: "border-teal-400 bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-400" },
+                          { v: "returned",         label: "مرتجع",       cls: "border-red-400 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400" },
+                          { v: "pending",          label: "انتظار",      cls: "border-border bg-muted/30 text-muted-foreground" },
+                        ] as { v: DeliveryStatus; label: string; cls: string }[]).map(btn => (
+                          <button
+                            key={btn.v}
+                            type="button"
+                            onClick={() => setPerOrderStatus(prev => ({ ...prev, [o.id]: btn.v }))}
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded border transition-all ${
+                              oStatus === btn.v
+                                ? btn.cls + " ring-1 ring-offset-1 ring-current"
+                                : "border-border/40 text-muted-foreground hover:bg-muted/20"
+                            }`}
+                          >
+                            {btn.label}
+                          </button>
+                        ))}
+                      </div>
+                      {oStatus === "partial_received" && (
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <Label className="text-[10px] text-muted-foreground shrink-0">المستلم من {o.quantity}:</Label>
+                          <input
+                            type="number"
+                            min={1}
+                            max={o.quantity}
+                            value={partialQtyMap[o.id] ?? ""}
+                            onChange={e => setPartialQtyMap(prev => ({ ...prev, [o.id]: e.target.value }))}
+                            className="h-7 w-20 rounded border border-teal-400 bg-background px-2 text-xs text-center"
+                            placeholder="الكمية"
+                          />
+                          <span className="text-[10px] text-muted-foreground">قطعة</span>
+                          {partialVal > 0 && (
+                            <span className="text-[10px] text-teal-600 dark:text-teal-400 font-bold">
+                              = {(unitPrice * partialVal).toFixed(0)} ج.م
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
               </div>
