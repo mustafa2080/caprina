@@ -441,7 +441,7 @@ export default function Dashboard() {
             dot="#f59e0b"
             glassStyle
           >
-            <WeeklyBars data={chartsData.weeklySales} />
+            <WeeklyBars data={chartsData.weeklySales} weekComparison={chartsData.weekComparison} />
           </ChartCard>
         </div>
       ) : (
