@@ -551,6 +551,16 @@ function GlassXTick({ x, y, payload, enriched }: any) {
   );
 }
 
+
+// â”€â”€â”€ Sales View Filter Tabs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+type SalesView = "current" | "prev" | "monthly";
+
+const SALES_VIEW_TABS: { id: SalesView; label: string; emoji: string; color: string }[] = [
+  { id: "current", label: "\u0627\u0644\u0623\u0633\u0628\u0648\u0639 \u0627\u0644\u062d\u0627\u0644\u064a", emoji: "\ud83d\udcc5", color: "#FFD54F" },
+  { id: "prev",    label: "\u0627\u0644\u0623\u0633\u0628\u0648\u0639 \u0627\u0644\u0645\u0627\u0636\u064a", emoji: "\u23ea",         color: "#7E57C2" },
+  { id: "monthly", label: "\u0627\u0644\u0634\u0647\u0631 \u0627\u0644\u062d\u0627\u0644\u064a",   emoji: "\ud83d\udcc6",         color: "#26A69A" },
+];
+
 const WeeklyBars = memo(function WeeklyBars({
   data,
   monthlySales,
@@ -560,6 +570,7 @@ const WeeklyBars = memo(function WeeklyBars({
   monthlySales?: ChartsData["monthlySales"];
   weekComparison?: ChartsData["weekComparison"];
 }) {
+  const [salesView, setSalesView] = React.useState<SalesView>("current");
   const todayStr = new Date().toISOString().split("T")[0];
   const enriched = useMemo(() =>
     data.map(d => ({ ...d, isToday: d.date === todayStr }))
@@ -573,14 +584,17 @@ const WeeklyBars = memo(function WeeklyBars({
     [weekComparison]
   );
 
-  const { total, peak, revenue, hasData } = useMemo(() => {
-    const total = enriched.reduce((s, d) => s + d.orders, 0);
-    const peak = enriched.reduce((a, b) => b.orders > a.orders ? b : a, enriched[0] ?? { label: "—", orders: 0, revenue: 0, date: "", isToday: false });
-    const revenue = enriched.reduce((s, d) => s + d.revenue, 0);
-    return { total, peak, revenue, hasData: total > 0 };
-  }, [enriched]);
+  // Active dataset based on selected filter
+  const activeData = salesView === "current" ? enriched : salesView === "prev" ? prevWeekEnriched : monthlyEnriched;
 
-  const maxOrders = Math.max(...enriched.map(d => d.orders), 1);
+  const { total, peak, revenue, hasData } = useMemo(() => {
+    const total = activeData.reduce((s, d) => s + d.orders, 0);
+    const peak = activeData.reduce((a, b) => b.orders > a.orders ? b : a, activeData[0] ?? { label: "—", orders: 0, revenue: 0, date: "", isToday: false });
+    const revenue = activeData.reduce((s, d) => s + d.revenue, 0);
+    return { total, peak, revenue, hasData: total > 0 };
+  }, [activeData, salesView]);
+
+  const maxOrders = Math.max(...activeData.map(d => d.orders), 1);
   const monthlyMaxOrders = Math.max(...monthlyEnriched.map(d => d.orders), 1);
   const prevWeekMaxOrders = Math.max(...prevWeekEnriched.map(d => d.orders), 1);
   const yMax = Math.ceil(maxOrders / 5) * 5 + 4;
@@ -608,7 +622,7 @@ const WeeklyBars = memo(function WeeklyBars({
       background: "linear-gradient(135deg, rgba(38,166,154,0.44) 0%, rgba(38,166,154,0.18) 52%, rgba(255,255,255,0.08) 100%)",
     },
     {
-      label: "طلبات الأسبوع",
+      label: salesView === "monthly" ? "طلبات الشهر" : salesView === "prev" ? "طلبات الأسبوع الماضي" : "طلبات الأسبوع",
       value: String(total),
       color: GLASS_ORANGE,
       glow: "rgba(255,183,77,0.28)",
@@ -627,6 +641,34 @@ const WeeklyBars = memo(function WeeklyBars({
         backdropFilter: "blur(16px)",
       }}
     >
+
+      {/* â”€â”€â”€ Filter Tabs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", direction: "rtl" }}>
+        {SALES_VIEW_TABS.map(tab => {
+          const isActive = salesView === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setSalesView(tab.id)}
+              style={{
+                display: "flex", alignItems: "center", gap: 5,
+                padding: "5px 14px", borderRadius: 20,
+                border: `1.5px solid ${isActive ? tab.color : "rgba(255,255,255,0.15)"}`,
+                background: isActive ? `${tab.color}22` : "rgba(255,255,255,0.04)",
+                color: isActive ? tab.color : "rgba(255,255,255,0.50)",
+                fontSize: 11, fontWeight: isActive ? 800 : 500,
+                cursor: "pointer",
+                boxShadow: isActive ? `0 0 12px ${tab.color}44` : "none",
+                transition: "all 0.2s ease", whiteSpace: "nowrap",
+              }}
+            >
+              <span style={{ fontSize: 12 }}>{tab.emoji}</span>
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {statCards.map((card) => (
           <div
@@ -668,58 +710,79 @@ const WeeklyBars = memo(function WeeklyBars({
         >
           <div className="mb-3 px-2">
             <p className="text-[11px] font-bold" style={{ color: "rgba(255,255,255,0.72)" }}>
-              مبيعات الأسبوع الحالي
+              {salesView === "current" ? "مبيعات الأسبوع الحالي" : salesView === "prev" ? "مبيعات الأسبوع الماضي" : "مبيعات الشهر الحالي"}
             </p>
             <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.42)" }}>
-              من بداية عرض هذا الأسبوع الحالي حتى اليوم
+              {salesView === "current" ? "من بداية الأسبوع حتى اليوم" : salesView === "prev" ? "بيانات الأسبوع السابق" : "من أول الشهر حتى اليوم"}
             </p>
           </div>
-          <div style={{ height: 220 }}>
+          <div style={{ height: salesView === "monthly" ? 200 : 220 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={enriched} margin={{ top: 10, right: 8, left: -22, bottom: 48 }}>
+              <BarChart data={activeData} margin={{ top: 10, right: 8, left: -22, bottom: salesView === "monthly" ? 36 : 48 }}>
                 <defs>
-                  <linearGradient id="weeklyBarsGlow" x1="0" x2="0" y1="0" y2="1">
+                  <linearGradient id="activeBarsGlow" x1="0" x2="0" y1="0" y2="1">
                     <stop offset="0%" stopColor="#FFF59D" />
-                    <stop offset="55%" stopColor={GLASS_BAR_COLOR} />
-                    <stop offset="100%" stopColor="#E0A800" />
+                    <stop offset="55%" stopColor={salesView === "monthly" ? GLASS_GREEN : salesView === "prev" ? GLASS_PURPLE : GLASS_BAR_COLOR} />
+                    <stop offset="100%" stopColor={salesView === "monthly" ? "#0F766E" : salesView === "prev" ? "#4527A0" : "#E0A800"} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid
-                  strokeDasharray="2 5"
-                  stroke="rgba(255,255,255,0.12)"
-                  vertical={false}
-                />
+                <CartesianGrid strokeDasharray="2 5" stroke="rgba(255,255,255,0.12)" vertical={false} />
                 <XAxis
                   dataKey="label"
-                  tick={(props) => <GlassXTick {...props} enriched={enriched} />}
+                  tick={(props: any) => <GlassXTick {...props} enriched={activeData} />}
                   axisLine={false}
                   tickLine={false}
-                  interval={0}
+                  interval={salesView === "monthly" ? (monthlyEnriched.length > 24 ? 3 : monthlyEnriched.length > 16 ? 2 : monthlyEnriched.length > 10 ? 1 : 0) : 0}
                 />
-                <YAxis
-                  tick={{ fontSize: 10, fill: "rgba(255,255,255,0.50)" }}
-                  axisLine={false}
-                  tickLine={false}
-                  allowDecimals={false}
-                  domain={[0, yMax]}
-                />
-                <Tooltip
-                  content={<GlassBarTip />}
-                  cursor={{ fill: "rgba(255,213,79,0.08)", radius: 10 }}
-                />
-                <Bar dataKey="orders" radius={[10, 10, 3, 3]} maxBarSize={38}>
-                  {enriched.map((d, i) => (
+                <YAxis tick={{ fontSize: 10, fill: "rgba(255,255,255,0.50)" }} axisLine={false} tickLine={false} allowDecimals={false} domain={[0, yMax]} />
+                <Tooltip content={<GlassBarTip />} cursor={{ fill: salesView === "monthly" ? "rgba(38,166,154,0.10)" : "rgba(255,213,79,0.08)", radius: 10 }} />
+                <Bar dataKey="orders" radius={[10, 10, 3, 3]} maxBarSize={salesView === "monthly" ? 22 : 38}>
+                  {activeData.map((d: any, i: number) => (
                     <Cell
                       key={i}
-                      fill={d.orders > 0 ? "url(#weeklyBarsGlow)" : "rgba(255,255,255,0.08)"}
-                      style={d.orders > 0 ? { filter: `drop-shadow(0 0 10px ${GLASS_BAR_COLOR}99)` } : {}}
-                      opacity={d.orders > 0 ? 1 : 0.32}
+                      fill={d.orders > 0 ? "url(#activeBarsGlow)" : "rgba(255,255,255,0.08)"}
+                      style={d.orders > 0 ? { filter: `drop-shadow(0 0 10px ${salesView === "monthly" ? GLASS_GREEN : salesView === "prev" ? GLASS_PURPLE : GLASS_BAR_COLOR}99)` } : {}}
+                      opacity={d.orders > 0 ? 1 : 0.28}
                     />
                   ))}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
+
+          {/* Stats row for prev/monthly */}
+          {salesView === "prev" && weekComparison && (
+            <div className="mt-4 grid grid-cols-3 gap-2 px-2">
+              <div className="flex flex-col items-center gap-1">
+                <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.40)" }}>الطلبات</p>
+                <p className="text-base font-black" style={{ color: GLASS_ORANGE }}>{weekComparison.prevWeek.orders}</p>
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.40)" }}>الإيرادات</p>
+                <p className="text-base font-black" style={{ color: GLASS_PURPLE }}>{fc(weekComparison.prevWeek.revenue)}</p>
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.40)" }}>متوسط/يوم</p>
+                <p className="text-base font-black" style={{ color: GLASS_BAR_COLOR }}>{(weekComparison.prevWeek.orders / 7).toFixed(1)}</p>
+              </div>
+            </div>
+          )}
+          {salesView === "monthly" && (
+            <div className="mt-3 grid grid-cols-3 gap-2 px-2">
+              <div className="flex flex-col items-center gap-1 rounded-2xl px-2 py-2" style={{ background: "rgba(255,183,77,0.08)" }}>
+                <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.40)" }}>الطلبات</p>
+                <p className="text-base font-black" style={{ color: GLASS_ORANGE }}>{monthlyTotalOrders}</p>
+              </div>
+              <div className="flex flex-col items-center gap-1 rounded-2xl px-2 py-2" style={{ background: "rgba(126,87,194,0.08)" }}>
+                <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.40)" }}>الإيرادات</p>
+                <p className="text-base font-black" style={{ color: GLASS_PURPLE }}>{fc(monthlyRevenue)}</p>
+              </div>
+              <div className="flex flex-col items-center gap-1 rounded-2xl px-2 py-2" style={{ background: "rgba(38,166,154,0.08)" }}>
+                <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.40)" }}>متوسط/يوم</p>
+                <p className="text-base font-black" style={{ color: GLASS_GREEN }}>{monthlyAverage}</p>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <div
@@ -729,179 +792,11 @@ const WeeklyBars = memo(function WeeklyBars({
             border: "1px solid rgba(255,255,255,0.06)",
           }}
         >
-          <span className="text-4xl" style={{ opacity: 0.2 }}>📊</span>
-          <p className="text-xs" style={{ color: "rgba(255,255,255,0.40)" }}>لا طلبات في آخر 7 أيام</p>
+          <span className="text-4xl" style={{ opacity: 0.2 }}>������</span>
+          <p className="text-xs" style={{ color: "rgba(255,255,255,0.40)" }}>لا طلبات في هذه الفترة</p>
         </div>
       )}
-
-      {/* ── الأسبوع السابق فقط ── */}
-      {weekComparison && (
-        <div
-          className="rounded-[22px] px-2 py-3 sm:px-3"
-          style={{
-            background: "linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.015) 100%)",
-            border: "1px solid rgba(255,255,255,0.06)",
-          }}
-        >
-          <div className="mb-3 px-2">
-            <p className="text-[11px] font-bold" style={{ color: "rgba(255,255,255,0.72)" }}>
-              مبيعات الأسبوع الماضي
-            </p>
-            <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.42)" }}>
-              نفس العرض ولكن لبيانات الأسبوع السابق
-            </p>
-          </div>
-
-          <div style={{ height: 220 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={prevWeekEnriched} margin={{ top: 10, right: 8, left: -22, bottom: 48 }}>
-                <defs>
-                  <linearGradient id="weeklyBarsPrevGlow" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0%" stopColor="#FFF59D" />
-                    <stop offset="55%" stopColor={GLASS_BAR_COLOR} />
-                    <stop offset="100%" stopColor="#E0A800" />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid
-                  strokeDasharray="2 5"
-                  stroke="rgba(255,255,255,0.12)"
-                  vertical={false}
-                />
-                <XAxis
-                  dataKey="label"
-                  tick={(props) => <GlassXTick {...props} enriched={prevWeekEnriched} />}
-                  axisLine={false}
-                  tickLine={false}
-                  interval={0}
-                />
-                <YAxis
-                  tick={{ fontSize: 10, fill: "rgba(255,255,255,0.50)" }}
-                  axisLine={false}
-                  tickLine={false}
-                  allowDecimals={false}
-                  domain={[0, prevWeekYMax]}
-                />
-                <Tooltip
-                  content={<GlassBarTip />}
-                  cursor={{ fill: "rgba(255,213,79,0.08)", radius: 10 }}
-                />
-                <Bar dataKey="orders" radius={[10, 10, 3, 3]} maxBarSize={38}>
-                  {prevWeekEnriched.map((d, i) => (
-                    <Cell
-                      key={i}
-                      fill={d.orders > 0 ? "url(#weeklyBarsPrevGlow)" : "rgba(255,255,255,0.08)"}
-                      style={d.orders > 0 ? { filter: `drop-shadow(0 0 10px ${GLASS_BAR_COLOR}99)` } : {}}
-                      opacity={d.orders > 0 ? 1 : 0.32}
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="mt-4 grid grid-cols-3 gap-2 px-2">
-            {/* الطلبات */}
-            <div className="flex flex-col items-center gap-1">
-              <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.40)" }}>الطلبات</p>
-              <p className="text-base font-black" style={{ color: GLASS_ORANGE }}>{weekComparison.prevWeek.orders}</p>
-              <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>إجمالي طلبات الأسبوع الماضي</p>
-            </div>
-            {/* الإيرادات */}
-            <div className="flex flex-col items-center gap-1">
-              <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.40)" }}>الإيرادات</p>
-              <p className="text-base font-black" style={{ color: GLASS_PURPLE }}>{fc(weekComparison.prevWeek.revenue)}</p>
-              <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>إيرادات الأسبوع الماضي</p>
-            </div>
-            {/* متوسط يومي */}
-            <div className="flex flex-col items-center gap-1">
-              <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.40)" }}>متوسط/يوم</p>
-              <p className="text-base font-black" style={{ color: GLASS_BAR_COLOR }}>{(weekComparison.prevWeek.orders / 7).toFixed(1)}</p>
-              <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>متوسط يومي للأسبوع الماضي</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {monthlyEnriched.length > 0 && (
-        <div
-          className="rounded-[22px] px-2 py-3 sm:px-3"
-          style={{
-            background: "linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.015) 100%)",
-            border: "1px solid rgba(255,255,255,0.06)",
-          }}
-        >
-          <div className="mb-3 px-2">
-            <p className="text-[11px] font-bold" style={{ color: "rgba(255,255,255,0.72)" }}>
-              مبيعات الشهر الحالي
-            </p>
-            <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.42)" }}>
-              من أول الشهر حتى اليوم بشكل يومي ومنظم
-            </p>
-          </div>
-
-          <div className="mb-4 grid grid-cols-3 gap-2 px-2">
-            <div className="flex flex-col items-center gap-1 rounded-2xl px-2 py-2" style={{ background: "rgba(255,183,77,0.08)" }}>
-              <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.40)" }}>الطلبات</p>
-              <p className="text-base font-black" style={{ color: GLASS_ORANGE }}>{monthlyTotalOrders}</p>
-            </div>
-            <div className="flex flex-col items-center gap-1 rounded-2xl px-2 py-2" style={{ background: "rgba(126,87,194,0.08)" }}>
-              <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.40)" }}>الإيرادات</p>
-              <p className="text-base font-black" style={{ color: GLASS_PURPLE }}>{fc(monthlyRevenue)}</p>
-            </div>
-            <div className="flex flex-col items-center gap-1 rounded-2xl px-2 py-2" style={{ background: "rgba(38,166,154,0.08)" }}>
-              <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.40)" }}>متوسط/يوم</p>
-              <p className="text-base font-black" style={{ color: GLASS_GREEN }}>{monthlyAverage}</p>
-            </div>
-          </div>
-
-          <div style={{ height: 200 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={monthlyEnriched} margin={{ top: 10, right: 8, left: -22, bottom: 36 }}>
-                <defs>
-                  <linearGradient id="monthlyBarsGlow" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0%" stopColor="#FFF59D" />
-                    <stop offset="55%" stopColor={GLASS_GREEN} />
-                    <stop offset="100%" stopColor="#0F766E" />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid
-                  strokeDasharray="2 5"
-                  stroke="rgba(255,255,255,0.12)"
-                  vertical={false}
-                />
-                <XAxis
-                  dataKey="label"
-                  tick={(props) => <GlassXTick {...props} enriched={monthlyEnriched} />}
-                  axisLine={false}
-                  tickLine={false}
-                  interval={monthlyTickInterval}
-                />
-                <YAxis
-                  tick={{ fontSize: 10, fill: "rgba(255,255,255,0.50)" }}
-                  axisLine={false}
-                  tickLine={false}
-                  allowDecimals={false}
-                  domain={[0, monthlyYMax]}
-                />
-                <Tooltip
-                  content={<GlassBarTip />}
-                  cursor={{ fill: "rgba(38,166,154,0.10)", radius: 10 }}
-                />
-                <Bar dataKey="orders" radius={[10, 10, 3, 3]} maxBarSize={22}>
-                  {monthlyEnriched.map((d, i) => (
-                    <Cell
-                      key={i}
-                      fill={d.orders > 0 ? "url(#monthlyBarsGlow)" : "rgba(255,255,255,0.08)"}
-                      style={d.orders > 0 ? { filter: `drop-shadow(0 0 10px ${GLASS_GREEN}99)` } : {}}
-                      opacity={d.orders > 0 ? 1 : 0.28}
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      )}
+      </div>
       </div>
     </div>
   );
