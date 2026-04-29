@@ -316,64 +316,6 @@ const GLASS_PURPLE = "#7E57C2";
 const GLASS_GREEN = "#26A69A";
 const GLASS_ORANGE = "#FFB74D";
 
-function WeeklyDaysGrid({
-  days,
-  maxOrders,
-  highlightToday = false,
-}: {
-  days: Array<{ date: string; label: string; orders: number; revenue: number; isToday?: boolean }>;
-  maxOrders: number;
-  highlightToday?: boolean;
-}) {
-  return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
-      {days.map((d, i) => {
-        const barH = Math.max(6, Math.round((d.orders / Math.max(maxOrders, 1)) * 34));
-        const formattedDate = d.date
-          ? new Date(d.date).toLocaleDateString("ar-EG", { day: "numeric", month: "short" })
-          : "";
-        const isToday = highlightToday && d.isToday;
-        return (
-          <div
-            key={`${d.date}-${i}`}
-            className="flex min-w-0 flex-col items-center gap-2 rounded-2xl px-2 py-2 text-center"
-            style={{
-              background: isToday ? "rgba(255,213,79,0.10)" : "rgba(255,255,255,0.02)",
-              border: isToday ? "1px solid rgba(255,213,79,0.28)" : "1px solid rgba(255,255,255,0.04)",
-            }}
-          >
-            <div className="flex h-11 items-end">
-              <div
-                className="min-w-[22px] rounded-md transition-all duration-300"
-                style={{
-                  width: d.orders > 0 ? 28 : 18,
-                  height: d.orders > 0 ? barH : 4,
-                  background: d.orders > 0
-                    ? "linear-gradient(180deg, #FFF3A6 0%, #FFD54F 72%, #E0A800 100%)"
-                    : "rgba(255,255,255,0.10)",
-                  boxShadow: d.orders > 0 ? `0 0 12px ${GLASS_BAR_COLOR}66` : "none",
-                  opacity: d.orders > 0 ? 1 : 0.45,
-                }}
-              />
-            </div>
-            <div className="text-center">
-              <p className="text-[10px] font-black" style={{ color: d.orders > 0 ? GLASS_BAR_COLOR : "rgba(255,255,255,0.32)" }}>
-                {d.orders > 0 ? d.orders : "·"}
-              </p>
-              <p className="mt-1 text-[11px] font-bold leading-tight" style={{ color: isToday ? "#fff4c2" : "rgba(255,255,255,0.82)" }}>
-                {d.label}
-              </p>
-              <p className="mt-0.5 text-[9px] font-semibold" style={{ color: isToday ? "rgba(255,213,79,0.88)" : "rgba(255,255,255,0.52)" }}>
-                {formattedDate}
-              </p>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 function GlassBarTip({ active, payload }: any) {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
@@ -518,6 +460,7 @@ const WeeklyBars = memo(function WeeklyBars({ data, weekComparison }: { data: Ch
         ))}
       </div>
 
+      <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
       {hasData ? (
         <div
           className="rounded-[22px] px-2 py-3 sm:px-3"
@@ -534,7 +477,7 @@ const WeeklyBars = memo(function WeeklyBars({ data, weekComparison }: { data: Ch
               من بداية عرض هذا الأسبوع الحالي حتى اليوم
             </p>
           </div>
-          <div style={{ height: 270 }}>
+          <div style={{ height: 220 }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={enriched} margin={{ top: 10, right: 8, left: -22, bottom: 48 }}>
                 <defs>
@@ -612,7 +555,7 @@ const WeeklyBars = memo(function WeeklyBars({ data, weekComparison }: { data: Ch
             </p>
           </div>
 
-          <div style={{ height: 270 }}>
+          <div style={{ height: 220 }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={prevWeekEnriched} margin={{ top: 10, right: 8, left: -22, bottom: 48 }}>
                 <defs>
@@ -678,17 +621,6 @@ const WeeklyBars = memo(function WeeklyBars({ data, weekComparison }: { data: Ch
               <p className="text-base font-black" style={{ color: GLASS_BAR_COLOR }}>{(weekComparison.prevWeek.orders / 7).toFixed(1)}</p>
               <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>متوسط يومي للأسبوع الماضي</p>
             </div>
-          </div>
-          <div className="mt-4 rounded-[20px] px-3 py-3"
-            style={{
-              background: "linear-gradient(180deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0.012) 100%)",
-              border: "1px solid rgba(255,255,255,0.05)",
-            }}
-          >
-            <p className="mb-2 text-[11px] font-bold" style={{ color: "rgba(255,255,255,0.55)" }}>
-              تفاصيل الأسبوع الماضي بالتاريخ
-            </p>
-            <WeeklyDaysGrid days={prevWeekEnriched} maxOrders={prevWeekMaxOrders} />
           </div>
         </div>
       )}
