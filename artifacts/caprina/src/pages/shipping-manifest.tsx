@@ -362,7 +362,10 @@ function InvoiceGroupDeliveryRow({
         let finalPartialQty: number | null = null;
 
         if (isPerItemMode) {
-          finalStatus = perOrderStatus[order.id] ?? bulkStatus;
+          // لو المستخدم غير حالة منتج معين يدوياً → استخدمها، وإلا طبق bulkStatus
+          const itemStatus = perOrderStatus[order.id];
+          const originalStatus = group.find(o => o.id === order.id)?.deliveryStatus as DeliveryStatus;
+          finalStatus = (itemStatus !== originalStatus) ? itemStatus : bulkStatus;
           if (finalStatus === "partial_received") {
             const val = partialQtyMap[order.id];
             finalPartialQty = val ? parseInt(val) : null;
