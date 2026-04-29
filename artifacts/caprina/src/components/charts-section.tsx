@@ -797,7 +797,6 @@ const WeeklyBars = memo(function WeeklyBars({
         </div>
       )}
       </div>
-      </div>
     </div>
   );
 });
