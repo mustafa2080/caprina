@@ -1050,21 +1050,46 @@ router.get("/analytics/charts", async (_req, res): Promise<void> => {
   }));
 
   const days: { date: string; label: string; orders: number; revenue: number }[] = [];
+  const prevDays: { date: string; label: string; orders: number; revenue: number }[] = [];
   const dayNames = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+
+  // الأسبوع الحالي (آخر 7 أيام)
   for (let i = 6; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
     const dateStr = d.toISOString().split("T")[0];
     days.push({ date: dateStr, label: dayNames[d.getDay()], orders: 0, revenue: 0 });
   }
+  // الأسبوع السابق (الـ 7 أيام قبلها)
+  for (let i = 13; i >= 7; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().split("T")[0];
+    prevDays.push({ date: dateStr, label: dayNames[d.getDay()], orders: 0, revenue: 0 });
+  }
+
   for (const inv of invoices) {
     const dateStr = new Date(inv.createdAt).toISOString().split("T")[0];
     const day = days.find(d => d.date === dateStr);
-    if (day) {
-      day.orders += 1;
-      day.revenue += inv.revenue;
-    }
+    if (day) { day.orders += 1; day.revenue += inv.revenue; }
+    const prev = prevDays.find(d => d.date === dateStr);
+    if (prev) { prev.orders += 1; prev.revenue += inv.revenue; }
   }
+
+  // إحصائيات مقارنة الأسبوعين
+  const thisWeekTotal  = days.reduce((s, d) => s + d.orders, 0);
+  const prevWeekTotal  = prevDays.reduce((s, d) => s + d.orders, 0);
+  const thisWeekRev    = days.reduce((s, d) => s + d.revenue, 0);
+  const prevWeekRev    = prevDays.reduce((s, d) => s + d.revenue, 0);
+  const ordersChange   = prevWeekTotal > 0 ? Math.round(((thisWeekTotal - prevWeekTotal) / prevWeekTotal) * 100) : null;
+  const revenueChange  = prevWeekRev   > 0 ? Math.round(((thisWeekRev   - prevWeekRev)   / prevWeekRev)   * 100) : null;
+  const weekComparison = {
+    thisWeek:     { orders: thisWeekTotal, revenue: Math.round(thisWeekRev) },
+    prevWeek:     { orders: prevWeekTotal, revenue: Math.round(prevWeekRev) },
+    ordersChange,
+    revenueChange,
+    prevWeekDays: prevDays,
+  };
 
   const sourceCounts: Record<string, number> = {};
   for (const inv of invoices) {
@@ -1079,7 +1104,7 @@ router.get("/analytics/charts", async (_req, res): Promise<void> => {
     }))
     .sort((a, b) => b.count - a.count);
 
-  res.json({ statusBreakdown, weeklySales: days, adSourceBreakdown, total });
+  res.json({ statusBreakdown, weeklySales: days, adSourceBreakdown, total, weekComparison });
 });
 
 // ─── GET /api/analytics/orders-by-status ─────────────────────────────────────

@@ -489,11 +489,19 @@ export interface SmartInsights {
 export interface ChartStatusItem { status: string; count: number; pct: number; }
 export interface ChartDayItem { date: string; label: string; orders: number; revenue: number; }
 export interface ChartSourceItem { source: string; count: number; pct: number; }
+export interface WeekComparison {
+  thisWeek: { orders: number; revenue: number };
+  prevWeek: { orders: number; revenue: number };
+  ordersChange: number | null;
+  revenueChange: number | null;
+  prevWeekDays: ChartDayItem[];
+}
 export interface ChartsData {
   statusBreakdown: ChartStatusItem[];
   weeklySales: ChartDayItem[];
   adSourceBreakdown: ChartSourceItem[];
   total: number;
+  weekComparison: WeekComparison;
 }
 
 export const analyticsApi = {
