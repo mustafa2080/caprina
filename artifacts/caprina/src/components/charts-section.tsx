@@ -460,7 +460,7 @@ const WeeklyBars = memo(function WeeklyBars({ data, weekComparison }: { data: Ch
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3">
       {hasData ? (
         <div
           className="rounded-[22px] px-2 py-3 sm:px-3"
