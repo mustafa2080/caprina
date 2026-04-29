@@ -396,47 +396,54 @@ const WeeklyBars = memo(function WeeklyBars({ data }: { data: ChartsData["weekly
       )}
 
       {/* Day-by-day detail row */}
-      <div className="border-t border-border/40 pt-3">
-        <div className="grid grid-cols-7 gap-1">
+      <div className="border-t border-border/40 pt-2">
+        <div className="flex gap-1.5 justify-between">
           {enriched.map((d, i) => {
             const max = Math.max(...enriched.map(x => x.orders), 1);
+            const barH = Math.max(6, Math.round((d.orders / max) * 28));
             const isToday = d.isToday;
-            const fillPct = d.orders > 0 ? Math.max(10, Math.round((d.orders / max) * 100)) : 0;
             const shortDate = d.date
               ? (() => {
                   const parts = d.date.split("-");
                   return `${parseInt(parts[2], 10)}/${parseInt(parts[1], 10)}`;
                 })()
               : "";
+            // اختصار اسم اليوم
+            const DAY_SHORT: Record<string, string> = {
+              "الأحد": "أحد", "الاثنين": "اثنين", "الثلاثاء": "ثلاثاء",
+              "الأربعاء": "أربعاء", "الخميس": "خميس", "الجمعة": "جمعة", "السبت": "سبت",
+            };
+            const shortLabel = DAY_SHORT[d.label] ?? d.label;
             return (
               <div
                 key={i}
-                className="flex flex-col items-center gap-1 rounded-xl px-1 py-2"
+                className="flex flex-col items-center gap-0.5 rounded-lg py-1.5 flex-1"
                 style={{
-                  background: isToday ? "#3b82f614" : d.orders > 0 ? BAR_COLOR + "0d" : "transparent",
-                  border: isToday ? "1px solid #3b82f635" : d.orders > 0 ? `1px solid ${BAR_COLOR}30` : "1px solid transparent",
+                  background: isToday ? "#3b82f612" : "transparent",
+                  border: isToday ? "1px solid #3b82f630" : "1px solid transparent",
                 }}
               >
                 {/* Orders count */}
-                <p className={`text-sm font-black leading-none ${isToday ? "text-blue-500" : d.orders > 0 ? "text-amber-500" : "text-muted-foreground/30"}`}>
+                <p className={`text-[11px] font-black leading-none ${isToday ? "text-blue-500" : d.orders > 0 ? "text-amber-500" : "text-muted-foreground/30"}`}>
                   {d.orders > 0 ? d.orders : "·"}
                 </p>
-                {/* Mini progress bar */}
-                <div className="w-full rounded-full overflow-hidden" style={{ height: 4, background: "hsl(var(--muted))" }}>
+                {/* Mini bar */}
+                <div className="flex items-end" style={{ height: 30 }}>
                   <div
-                    className="h-full rounded-full transition-all duration-500"
+                    className="w-5 rounded-sm transition-all duration-500"
                     style={{
-                      width: `${fillPct}%`,
-                      background: isToday ? "#3b82f6" : BAR_COLOR,
+                      height: d.orders > 0 ? barH : 4,
+                      background: isToday ? "#3b82f6" : d.orders > 0 ? BAR_COLOR : "hsl(var(--muted))",
+                      opacity: d.orders > 0 ? 1 : 0.25,
                     }}
                   />
                 </div>
-                {/* Day name */}
-                <p className={`text-[10px] font-bold text-center leading-tight ${isToday ? "text-blue-500" : d.orders > 0 ? "text-foreground" : "text-muted-foreground/50"}`}>
-                  {d.label}
+                {/* Day name — أول حرفين */}
+                <p className={`text-[10px] font-bold leading-tight text-center ${isToday ? "text-blue-500" : d.orders > 0 ? "text-foreground/80" : "text-muted-foreground/40"}`}>
+                  {shortLabel}
                 </p>
                 {/* Date */}
-                <p className={`text-[9px] leading-tight ${isToday ? "text-blue-400/80" : "text-muted-foreground/50"}`}>
+                <p className={`text-[9px] leading-tight text-center ${isToday ? "text-blue-400/70" : "text-muted-foreground/40"}`}>
                   {shortDate}
                 </p>
               </div>
