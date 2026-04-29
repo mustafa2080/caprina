@@ -345,12 +345,12 @@ function GlassXTick({ x, y, payload }: any) {
   const d = payload?.value ?? {};
   const isToday = d.isToday;
   const DAY_SHORT: Record<string, string> = {
-    "الأحد": "أحد", "الاثنين": "اثنين", "الثلاثاء": "ثلاثاء",
-    "الأربعاء": "أربعاء", "الخميس": "خميس", "الجمعة": "جمعة", "السبت": "سبت",
+    "الأحد": "أحد", "الاثنين": "إثن", "الثلاثاء": "ثلث",
+    "الأربعاء": "أرب", "الخميس": "خمس", "الجمعة": "جمع", "السبت": "سبت",
   };
   const shortLabel = DAY_SHORT[d.label ?? ""] ?? (d.label ?? "");
   const shortDate = d.date
-    ? new Date(d.date).toLocaleDateString("ar-EG", { day: "numeric", month: "numeric" })
+    ? (() => { const dt = new Date(d.date); return `${dt.getDate()}/${dt.getMonth() + 1}`; })()
     : "";
   return (
     <g transform={`translate(${x},${y})`}>
@@ -366,7 +366,7 @@ function GlassXTick({ x, y, payload }: any) {
       </text>
       {/* التاريخ */}
       <text
-        x={0} y={0} dy={25}
+        x={0} y={0} dy={26}
         textAnchor="middle"
         fill={isToday ? "#f59e0b88" : "rgba(255,255,255,0.28)"}
         fontSize={8}
@@ -474,7 +474,7 @@ const WeeklyBars = memo(function WeeklyBars({ data, weekComparison }: { data: Ch
         >
           <div style={{ height: 250 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={enriched} margin={{ top: 10, right: 8, left: -22, bottom: 20 }}>
+              <BarChart data={enriched} margin={{ top: 10, right: 8, left: -22, bottom: 36 }}>
                 <defs>
                   <linearGradient id="weeklyBarsGlow" x1="0" x2="0" y1="0" y2="1">
                     <stop offset="0%" stopColor="#FFF59D" />
