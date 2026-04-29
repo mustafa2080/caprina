@@ -310,142 +310,245 @@ function CustomXTick({ x, y, payload }: any) {
   );
 }
 
-// ─── Weekly Sales Card ────────────────────────────────────────────────────────
+// ─── Weekly Sales Card (Glass Dark Redesign) ─────────────────────────────────
+const GLASS_BAR_COLOR = "#FFD54F";
+const GLASS_PURPLE = "#7E57C2";
+const GLASS_GREEN = "#26A69A";
+const GLASS_ORANGE = "#FFB74D";
+
+function GlassBarTip({ active, payload }: any) {
+  if (!active || !payload?.length) return null;
+  const d = payload[0].payload;
+  return (
+    <div
+      style={{
+        background: "rgba(20,20,20,0.92)",
+        border: "1px solid rgba(255,213,79,0.4)",
+        borderRadius: 10,
+        padding: "8px 14px",
+        boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
+        textAlign: "center",
+        minWidth: 90,
+        direction: "rtl",
+      }}
+    >
+      <p style={{ color: "#FFD54F", fontWeight: 900, fontSize: 12, marginBottom: 2 }}>{d.label}</p>
+      <p style={{ color: "#fff", fontWeight: 700, fontSize: 13 }}>{d.orders} طلب</p>
+      {d.revenue > 0 && (
+        <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 10, marginTop: 2 }}>{fc(d.revenue)}</p>
+      )}
+    </div>
+  );
+}
+
+function GlassXTick({ x, y, payload }: any) {
+  const d = payload?.value ?? {};
+  const isToday = d.isToday;
+  const DAY_SHORT: Record<string, string> = {
+    "الأحد": "أحد", "الاثنين": "اثنين", "الثلاثاء": "ثلاثاء",
+    "الأربعاء": "أربعاء", "الخميس": "خميس", "الجمعة": "جمعة", "السبت": "سبت",
+  };
+  const shortLabel = DAY_SHORT[d.label ?? ""] ?? (d.label ?? "");
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text
+        x={0} y={0} dy={14}
+        textAnchor="middle"
+        fill={isToday ? GLASS_BAR_COLOR : "rgba(255,255,255,0.45)"}
+        fontSize={isToday ? 10 : 9}
+        fontWeight={isToday ? 900 : 500}
+      >
+        {shortLabel}
+      </text>
+    </g>
+  );
+}
+
 const WeeklyBars = memo(function WeeklyBars({ data }: { data: ChartsData["weeklySales"] }) {
-  // Mark today and enrich data
   const todayStr = new Date().toISOString().split("T")[0];
   const enriched = useMemo(() =>
     data.map(d => ({ ...d, isToday: d.date === todayStr }))
   , [data, todayStr]);
 
-  const { total, peak, revenue, hasData, todayOrders } = useMemo(() => {
+  const { total, peak, revenue, hasData } = useMemo(() => {
     const total = enriched.reduce((s, d) => s + d.orders, 0);
     const peak = enriched.reduce((a, b) => b.orders > a.orders ? b : a, enriched[0] ?? { label: "—", orders: 0, revenue: 0, date: "", isToday: false });
     const revenue = enriched.reduce((s, d) => s + d.revenue, 0);
-    const todayOrders = enriched.find(d => d.isToday)?.orders ?? 0;
-    return { total, peak, revenue, hasData: total > 0, todayOrders };
+    return { total, peak, revenue, hasData: total > 0 };
   }, [enriched]);
 
-  // avg per day (excluding zero days)
-  const activeDays = enriched.filter(d => d.orders > 0).length;
-  const avgPerDay = activeDays > 0 ? Math.round(total / activeDays) : 0;
+  const maxOrders = Math.max(...enriched.map(d => d.orders), 1);
+  const yMax = Math.ceil(maxOrders / 5) * 5 + 4;
+  const miniDays = ["سن", "ج", "خ", "ر", "ث", "ن", "ح"];
+
+  const statCards = [
+    {
+      label: "الإيرادات",
+      value: revenue > 0 ? fc(revenue) : "0 ج.م",
+      color: GLASS_PURPLE,
+      glow: "rgba(126,87,194,0.32)",
+      background: "linear-gradient(135deg, rgba(126,87,194,0.42) 0%, rgba(126,87,194,0.16) 52%, rgba(255,255,255,0.08) 100%)",
+    },
+    {
+      label: "الأكثر بيعًا",
+      value: peak.orders > 0 ? peak.label : "لا يوجد",
+      subValue: peak.orders > 0 ? `${peak.orders} طلب` : undefined,
+      color: GLASS_GREEN,
+      glow: "rgba(38,166,154,0.28)",
+      background: "linear-gradient(135deg, rgba(38,166,154,0.44) 0%, rgba(38,166,154,0.18) 52%, rgba(255,255,255,0.08) 100%)",
+    },
+    {
+      label: "طلبات الأسبوع",
+      value: String(total),
+      color: GLASS_ORANGE,
+      glow: "rgba(255,183,77,0.28)",
+      background: "linear-gradient(135deg, rgba(255,183,77,0.40) 0%, rgba(255,183,77,0.16) 52%, rgba(255,255,255,0.08) 100%)",
+    },
+  ];
 
   return (
-    <div className="space-y-4">
-      {/* KPI row */}
-      <div className="grid grid-cols-4 gap-1.5">
-        {[
-          { label: "طلبات الأسبوع", value: String(total), color: "#f59e0b" },
-          { label: "اليوم", value: String(todayOrders), color: "#3b82f6" },
-          { label: "أعلى يوم", value: `${peak.label} (${peak.orders})`, color: "#22c55e", small: true },
-          { label: "متوسط يومي", value: String(avgPerDay), color: "#8b5cf6" },
-        ].map(s => (
+    <div
+      className="space-y-5 rounded-[26px] p-4 sm:p-5"
+      dir="rtl"
+      style={{
+        background: "linear-gradient(180deg, rgba(50,50,50,0.55) 0%, rgba(30,30,30,0.88) 100%)",
+        border: "1px solid rgba(255,255,255,0.08)",
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06), 0 24px 50px rgba(0,0,0,0.35)",
+        backdropFilter: "blur(16px)",
+      }}
+    >
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {statCards.map((card) => (
           <div
-            key={s.label}
-            className="rounded-xl px-1.5 py-2 text-center"
-            style={{ background: s.color + "14", border: `1px solid ${s.color}30` }}
+            key={card.label}
+            className="group relative overflow-hidden rounded-[18px] px-4 py-3.5 text-center transition-transform duration-300 hover:-translate-y-0.5"
+            style={{
+              background: card.background,
+              border: `1px solid ${card.glow}`,
+              boxShadow: `inset 0 1px 0 rgba(255,255,255,0.18), 0 10px 24px ${card.glow}`,
+              backdropFilter: "blur(12px)",
+            }}
           >
+            <div
+              className="absolute inset-x-6 top-0 h-px opacity-80"
+              style={{ background: `linear-gradient(90deg, transparent, ${card.color}, transparent)` }}
+            />
+            <p className="text-[11px] font-bold tracking-tight" style={{ color: "rgba(255,255,255,0.72)" }}>{card.label}</p>
             <p
-              className={`font-black leading-none ${s.small ? "text-[9px]" : "text-sm"}`}
-              style={{ color: s.color }}
+              className="mt-1 truncate text-xl font-black sm:text-2xl"
+              style={{ color: card.color, textShadow: `0 0 14px ${card.color}88` }}
             >
-              {s.value}
+              {card.value}
             </p>
-            <p className="text-[8px] text-muted-foreground mt-1">{s.label}</p>
+            {card.subValue && (
+              <p className="mt-0.5 text-[10px] font-semibold" style={{ color: "rgba(255,255,255,0.60)" }}>{card.subValue}</p>
+            )}
           </div>
         ))}
       </div>
 
-      {/* Bar chart */}
       {hasData ? (
-        <div style={{ height: 190 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={enriched} margin={{ top: 10, right: 4, left: -26, bottom: 20 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-              <XAxis
-                dataKey={(d) => d}
-                tick={<CustomXTick />}
-                axisLine={false}
-                tickLine={false}
-                interval={0}
-              />
-              <YAxis
-                tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }}
-                axisLine={false}
-                tickLine={false}
-                allowDecimals={false}
-              />
-              <Tooltip content={<BarTip />} cursor={{ fill: "hsl(var(--muted))", opacity: 0.3, radius: 4 }} />
-              <Bar dataKey="orders" radius={[6, 6, 0, 0]} maxBarSize={36}>
-                {enriched.map((d, i) => (
-                  <Cell
-                    key={i}
-                    fill={d.isToday ? "#3b82f6" : d.orders > 0 ? BAR_COLOR : "hsl(var(--muted))"}
-                    opacity={d.orders > 0 ? 1 : 0.3}
-                  />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+        <div
+          className="rounded-[22px] px-2 py-3 sm:px-3"
+          style={{
+            background: "linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.015) 100%)",
+            border: "1px solid rgba(255,255,255,0.06)",
+          }}
+        >
+          <div style={{ height: 250 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={enriched} margin={{ top: 10, right: 8, left: -22, bottom: 12 }}>
+                <defs>
+                  <linearGradient id="weeklyBarsGlow" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stopColor="#FFF59D" />
+                    <stop offset="55%" stopColor={GLASS_BAR_COLOR} />
+                    <stop offset="100%" stopColor="#E0A800" />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid
+                  strokeDasharray="2 5"
+                  stroke="rgba(255,255,255,0.12)"
+                  vertical={false}
+                />
+                <XAxis
+                  dataKey={(d) => d}
+                  tick={<GlassXTick />}
+                  axisLine={false}
+                  tickLine={false}
+                  interval={0}
+                />
+                <YAxis
+                  tick={{ fontSize: 10, fill: "rgba(255,255,255,0.50)" }}
+                  axisLine={false}
+                  tickLine={false}
+                  allowDecimals={false}
+                  domain={[0, yMax]}
+                />
+                <Tooltip
+                  content={<GlassBarTip />}
+                  cursor={{ fill: "rgba(255,213,79,0.08)", radius: 10 }}
+                />
+                <Bar dataKey="orders" radius={[10, 10, 3, 3]} maxBarSize={38}>
+                  {enriched.map((d, i) => (
+                    <Cell
+                      key={i}
+                      fill={d.orders > 0 ? "url(#weeklyBarsGlow)" : "rgba(255,255,255,0.08)"}
+                      style={d.orders > 0 ? { filter: `drop-shadow(0 0 10px ${GLASS_BAR_COLOR}99)` } : {}}
+                      opacity={d.orders > 0 ? 1 : 0.32}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center h-44 gap-2">
-          <span className="text-4xl opacity-20">📊</span>
-          <p className="text-xs text-muted-foreground">لا طلبات في آخر 7 أيام</p>
+        <div
+          className="flex h-56 flex-col items-center justify-center gap-2 rounded-[22px]"
+          style={{
+            background: "linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.015) 100%)",
+            border: "1px solid rgba(255,255,255,0.06)",
+          }}
+        >
+          <span className="text-4xl" style={{ opacity: 0.2 }}>📊</span>
+          <p className="text-xs" style={{ color: "rgba(255,255,255,0.40)" }}>لا طلبات في آخر 7 أيام</p>
         </div>
       )}
 
-      {/* Day-by-day detail row */}
-      <div className="border-t border-border/40 pt-2">
-        <div className="flex gap-1.5 justify-between">
+      <div
+        className="rounded-[20px] px-3 py-3"
+        style={{
+          background: "linear-gradient(180deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0.012) 100%)",
+          border: "1px solid rgba(255,255,255,0.05)",
+        }}
+      >
+        <div className="flex items-end justify-between gap-2">
           {enriched.map((d, i) => {
-            const max = Math.max(...enriched.map(x => x.orders), 1);
-            const barH = Math.max(6, Math.round((d.orders / max) * 28));
-            const isToday = d.isToday;
-            const shortDate = d.date
-              ? (() => {
-                  const parts = d.date.split("-");
-                  return `${parseInt(parts[2], 10)}/${parseInt(parts[1], 10)}`;
-                })()
-              : "";
-            // اختصار اسم اليوم
-            const DAY_SHORT: Record<string, string> = {
-              "الأحد": "أحد", "الاثنين": "اثنين", "الثلاثاء": "ثلاثاء",
-              "الأربعاء": "أربعاء", "الخميس": "خميس", "الجمعة": "جمعة", "السبت": "سبت",
-            };
-            const shortLabel = DAY_SHORT[d.label] ?? d.label;
+            const barH = Math.max(6, Math.round((d.orders / maxOrders) * 34));
             return (
-              <div
-                key={i}
-                className="flex flex-col items-center gap-0.5 rounded-lg py-1.5 flex-1"
-                style={{
-                  background: isToday ? "#3b82f612" : "transparent",
-                  border: isToday ? "1px solid #3b82f630" : "1px solid transparent",
-                }}
-              >
-                {/* Orders count */}
-                <p className={`text-[11px] font-black leading-none ${isToday ? "text-blue-500" : d.orders > 0 ? "text-amber-500" : "text-muted-foreground/30"}`}>
-                  {d.orders > 0 ? d.orders : "·"}
-                </p>
-                {/* Mini bar */}
-                <div className="flex items-end" style={{ height: 30 }}>
+              <div key={i} className="flex flex-1 flex-col items-center gap-2">
+                <div className="flex h-11 items-end">
                   <div
-                    className="w-5 rounded-sm transition-all duration-500"
+                    className="min-w-[22px] rounded-md transition-all duration-300"
                     style={{
+                      width: d.orders > 0 ? 28 : 18,
                       height: d.orders > 0 ? barH : 4,
-                      background: isToday ? "#3b82f6" : d.orders > 0 ? BAR_COLOR : "hsl(var(--muted))",
-                      opacity: d.orders > 0 ? 1 : 0.25,
+                      background: d.orders > 0
+                        ? "linear-gradient(180deg, #FFF3A6 0%, #FFD54F 72%, #E0A800 100%)"
+                        : "rgba(255,255,255,0.10)",
+                      boxShadow: d.orders > 0 ? `0 0 12px ${GLASS_BAR_COLOR}66` : "none",
+                      opacity: d.orders > 0 ? 1 : 0.45,
                     }}
                   />
                 </div>
-                {/* Day name — أول حرفين */}
-                <p className={`text-[10px] font-bold leading-tight text-center ${isToday ? "text-blue-500" : d.orders > 0 ? "text-foreground/80" : "text-muted-foreground/40"}`}>
-                  {shortLabel}
-                </p>
-                {/* Date */}
-                <p className={`text-[9px] leading-tight text-center ${isToday ? "text-blue-400/70" : "text-muted-foreground/40"}`}>
-                  {shortDate}
-                </p>
+                <div className="text-center">
+                  <p className="text-[10px] font-black" style={{ color: d.orders > 0 ? GLASS_BAR_COLOR : "rgba(255,255,255,0.32)" }}>
+                    {d.orders > 0 ? d.orders : "·"}
+                  </p>
+                  <p className="mt-0.5 text-[9px] font-semibold" style={{ color: "rgba(255,255,255,0.55)" }}>
+                    {miniDays[i] ?? "—"}
+                  </p>
+                </div>
               </div>
             );
           })}
@@ -523,13 +626,51 @@ function ChartCard({
   dot,
   children,
   liveTag,
+  glassStyle,
 }: {
   title: string;
   subtitle: string;
   dot: string;
   children: React.ReactNode;
   liveTag?: boolean;
+  glassStyle?: boolean;
 }) {
+  if (glassStyle) {
+    return (
+      <div
+        className="rounded-2xl overflow-hidden"
+        style={{
+          background: "linear-gradient(135deg, #1e1e1e 0%, #2a2a2a 100%)",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06) inset",
+          border: "1px solid rgba(255,255,255,0.08)",
+        }}
+      >
+        <div
+          className="flex items-start justify-between px-4 pt-4 pb-3"
+          style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
+        >
+          <div className="flex items-center gap-2.5">
+            <span
+              className="w-2.5 h-2.5 rounded-full mt-0.5 shrink-0"
+              style={{ background: dot, boxShadow: `0 0 8px ${dot}cc, 0 0 20px ${dot}55` }}
+            />
+            <div>
+              <p className="text-sm font-bold" style={{ color: "#f0f0f0" }}>{title}</p>
+              <p className="text-[10px] mt-0.5" style={{ color: "rgba(255,255,255,0.38)" }}>{subtitle}</p>
+            </div>
+          </div>
+          {liveTag && (
+            <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-400 shrink-0 mt-0.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              مباشر
+            </span>
+          )}
+        </div>
+        <div className="p-4">{children}</div>
+      </div>
+    );
+  }
+
   return (
     <div
       className="rounded-2xl border border-border/50 overflow-hidden"
@@ -539,7 +680,6 @@ function ChartCard({
           "0 1px 3px rgba(0,0,0,0.07), 0 4px 16px rgba(0,0,0,0.06), 0 0 0 1px rgba(255,255,255,0.04) inset",
       }}
     >
-      {/* Header */}
       <div className="flex items-start justify-between px-4 pt-4 pb-3 border-b border-border/40">
         <div className="flex items-center gap-2.5">
           <span
@@ -558,7 +698,6 @@ function ChartCard({
           </span>
         )}
       </div>
-      {/* Body */}
       <div className="p-4">{children}</div>
     </div>
   );
