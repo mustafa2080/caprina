@@ -596,7 +596,10 @@ const KpiStrip = memo(function KpiStrip({ data, total }: { data: ChartsData["sta
 // ─── Filtered Orders List ─────────────────────────────────────────────────────
 export function FilteredOrdersList({ status }: { status: string }) {
   const cfg = STATUS_CFG[status] ?? { label: status, color: "#888", bg: "#88881a" };
-  const { data: orders, isLoading } = useListOrders({ status });
+  const { data: orders, isLoading } = useListOrders(
+    { status },
+    { query: { staleTime: 0, refetchOnMount: true } }
+  );
   const fc = (n: number) =>
     new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(n);
 
