@@ -528,6 +528,10 @@ export const analyticsApi = {
   smartInsights: () => apiFetch<SmartInsights>("/analytics/smart-insights"),
   shippingFollowup: () => apiFetch<any[]>("/analytics/shipping-followup"),
   charts: () => apiFetch<ChartsData>("/analytics/charts"),
+  monthlySales: (month?: string) =>
+    apiFetch<{ month: string; days: ChartDayItem[]; totalOrders: number; totalRevenue: number; daysCount: number; avgPerDay: string }>(
+      `/analytics/monthly-sales${month ? `?month=${month}` : ""}`
+    ),
 };
 
 export interface BatchCreateOrderBody {

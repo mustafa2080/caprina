@@ -1,7 +1,7 @@
-import React, { useState, useMemo, memo } from "react";
+import React, { useState, useMemo, memo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useListOrders } from "@workspace/api-client-react";
-import { analyticsApi, apiFetch, type ChartsData } from "@/lib/api";
+import { analyticsApi, apiFetch, type ChartsData, type ChartDayItem } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
 import { format } from "date-fns";
@@ -9,6 +9,26 @@ import {
   PieChart, Pie, Cell, Sector, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
 } from "recharts";
+
+// ─── Month Picker Helper ────────────────────────────────────────────────────
+function buildMonthOptions() {
+  const opts: { value: string; label: string }[] = [];
+  const now = new Date();
+  // 12 شهر ماضي + 6 شهر قادمة
+  for (let i = -12; i <= 6; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const label = d.toLocaleDateString("ar-EG", { month: "long", year: "numeric" });
+    opts.push({ value, label });
+  }
+  return opts;
+}
+
+const MONTH_OPTIONS = buildMonthOptions();
+const CURRENT_MONTH = (() => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+})();
 
 // ─── Color palette — modern flat ───────────────────────────────────────────
 const STATUS_CFG: Record<string, { label: string; color: string; bg: string }> = {
@@ -307,6 +327,165 @@ function CustomXTick({ x, y, payload }: any) {
         {shortDate}
       </text>
     </g>
+  );
+}
+
+// ─── Month Picker Component ──────────────────────────────────────────────────
+type WeeklyView = "current" | "prev" | "monthly" | "custom";
+
+const VIEW_TABS: { id: WeeklyView; label: string; emoji: string; color: string }[] = [
+  { id: "current",  label: "الأسبوع الحالي",  emoji: "📅", color: "#FFD54F" },
+  { id: "prev",     label: "الأسبوع الماضي",  emoji: "⏪", color: "#7E57C2" },
+  { id: "monthly",  label: "الشهر الحالي",    emoji: "📆", color: "#26A69A" },
+  { id: "custom",   label: "شهر مخصص",        emoji: "🗓️", color: "#FFB74D" },
+];
+
+function MonthPickerDropdown({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = MONTH_OPTIONS.find(o => o.value === value);
+
+  return (
+    <div className="relative" dir="rtl">
+      <button
+        onClick={() => setOpen(p => !p)}
+        style={{
+          background: "rgba(255,183,77,0.15)",
+          border: "1px solid rgba(255,183,77,0.45)",
+          borderRadius: 14,
+          padding: "6px 14px",
+          color: "#FFB74D",
+          fontSize: 11,
+          fontWeight: 700,
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          whiteSpace: "nowrap",
+        }}
+      >
+        🗓️ {selected?.label ?? "اختر شهر"}
+        <span style={{ fontSize: 9, opacity: 0.7 }}>{open ? "▲" : "▼"}</span>
+      </button>
+
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(100% + 6px)",
+            right: 0,
+            zIndex: 50,
+            background: "rgba(20,20,20,0.97)",
+            border: "1px solid rgba(255,183,77,0.3)",
+            borderRadius: 16,
+            boxShadow: "0 12px 40px rgba(0,0,0,0.6)",
+            maxHeight: 280,
+            overflowY: "auto",
+            minWidth: 180,
+            padding: "6px 4px",
+          }}
+        >
+          {MONTH_OPTIONS.map(opt => {
+            const isSelected = opt.value === value;
+            const isCurrent = opt.value === CURRENT_MONTH;
+            return (
+              <button
+                key={opt.value}
+                onClick={() => { onChange(opt.value); setOpen(false); }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  width: "100%",
+                  padding: "7px 12px",
+                  borderRadius: 10,
+                  background: isSelected ? "rgba(255,183,77,0.2)" : "transparent",
+                  border: "none",
+                  color: isSelected ? "#FFB74D" : "rgba(255,255,255,0.75)",
+                  fontSize: 11,
+                  fontWeight: isSelected ? 800 : 500,
+                  cursor: "pointer",
+                  textAlign: "right",
+                  gap: 8,
+                }}
+              >
+                <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 9 }}>
+                  {isCurrent ? "📍" : ""}
+                </span>
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Weekly Bars View Tabs ───────────────────────────────────────────────────
+function WeeklyViewTabs({
+  active,
+  onChange,
+  customMonth,
+  onCustomMonthChange,
+}: {
+  active: WeeklyView;
+  onChange: (v: WeeklyView) => void;
+  customMonth: string;
+  onCustomMonthChange: (m: string) => void;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        flexWrap: "wrap",
+        padding: "0 2px 10px 2px",
+        direction: "rtl",
+      }}
+    >
+      {VIEW_TABS.map(tab => {
+        const isActive = active === tab.id;
+        return (
+          <button
+            key={tab.id}
+            onClick={() => onChange(tab.id)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+              padding: "5px 12px",
+              borderRadius: 20,
+              border: `1.5px solid ${isActive ? tab.color : "rgba(255,255,255,0.12)"}`,
+              background: isActive
+                ? `linear-gradient(135deg, ${tab.color}28, ${tab.color}14)`
+                : "rgba(255,255,255,0.04)",
+              color: isActive ? tab.color : "rgba(255,255,255,0.52)",
+              fontSize: 10.5,
+              fontWeight: isActive ? 800 : 500,
+              cursor: "pointer",
+              boxShadow: isActive ? `0 0 12px ${tab.color}44` : "none",
+              transition: "all 0.2s ease",
+              whiteSpace: "nowrap",
+            }}
+          >
+            <span style={{ fontSize: 11 }}>{tab.emoji}</span>
+            {tab.label}
+          </button>
+        );
+      })}
+
+      {/* Month dropdown يظهر لما تختار custom */}
+      {active === "custom" && (
+        <MonthPickerDropdown value={customMonth} onChange={onCustomMonthChange} />
+      )}
+    </div>
   );
 }
 

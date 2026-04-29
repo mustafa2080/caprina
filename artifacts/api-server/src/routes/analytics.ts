@@ -1120,6 +1120,72 @@ router.get("/analytics/charts", async (_req, res): Promise<void> => {
   res.json({ statusBreakdown, weeklySales: days, monthlySales: monthDays, adSourceBreakdown, total, weekComparison });
 });
 
+// ─── GET /api/analytics/monthly-sales ─────────────────────────────────────────
+// يجيب مبيعات شهر معين: ?month=YYYY-MM (default = الشهر الحالي)
+router.get("/analytics/monthly-sales", requireAuth, async (req, res): Promise<void> => {
+  const monthParam = req.query.month as string | undefined;
+  const dayNames = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+
+  let year: number, month: number;
+  if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
+    [year, month] = monthParam.split("-").map(Number);
+    month -= 1; // 0-indexed
+  } else {
+    const now = new Date();
+    year = now.getFullYear();
+    month = now.getMonth();
+  }
+
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const today = new Date();
+  const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
+  const lastDay = isCurrentMonth ? today.getDate() : daysInMonth;
+
+  const monthDays: { date: string; label: string; orders: number; revenue: number }[] = [];
+  for (let day = 1; day <= lastDay; day++) {
+    const d = new Date(year, month, day);
+    const dateStr = d.toISOString().split("T")[0];
+    monthDays.push({ date: dateStr, label: String(day), orders: 0, revenue: 0 });
+  }
+
+  const startDate = new Date(year, month, 1);
+  const endDate = new Date(year, month + 1, 0, 23, 59, 59);
+
+  const allOrders = await db.select().from(ordersTable).where(isNull(ordersTable.deletedAt));
+
+  // group by invoice
+  const invoiceMap = new Map<string, { status: string; createdAt: Date; revenue: number }>();
+  for (const o of allOrders) {
+    const created = new Date(o.createdAt);
+    if (created < startDate || created > endDate) continue;
+    const key = o.invoiceNumber ?? `solo-${o.id}`;
+    if (!invoiceMap.has(key)) {
+      invoiceMap.set(key, { status: o.status, createdAt: created, revenue: 0 });
+    }
+    const grp = invoiceMap.get(key)!;
+    grp.status = o.status;
+    grp.revenue += o.totalPrice;
+  }
+
+  for (const inv of invoiceMap.values()) {
+    const dateStr = inv.createdAt.toISOString().split("T")[0];
+    const dayEntry = monthDays.find(d => d.date === dateStr);
+    if (dayEntry) { dayEntry.orders += 1; dayEntry.revenue += inv.revenue; }
+  }
+
+  const totalOrders = monthDays.reduce((s, d) => s + d.orders, 0);
+  const totalRevenue = monthDays.reduce((s, d) => s + d.revenue, 0);
+
+  res.json({
+    month: `${year}-${String(month + 1).padStart(2, "0")}`,
+    days: monthDays,
+    totalOrders,
+    totalRevenue: Math.round(totalRevenue),
+    daysCount: lastDay,
+    avgPerDay: lastDay > 0 ? (totalOrders / lastDay).toFixed(1) : "0.0",
+  });
+});
+
 // ─── GET /api/analytics/orders-by-status ─────────────────────────────────────
 // يجيب الطلبات الفعلية المرتبطة بالـ statusBreakdown في الداشبورد
 // بيستخدم نفس منطق grouping الـ charts endpoint بدقة
