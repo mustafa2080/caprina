@@ -792,7 +792,7 @@ const WeeklyBars = memo(function WeeklyBars({
             border: "1px solid rgba(255,255,255,0.06)",
           }}
         >
-          <span className="text-4xl" style={{ opacity: 0.2 }}>������</span>
+          <span className="text-4xl" style={{ opacity: 0.2 }}>ًں“ٹًں“ٹًں“ٹ</span>
           <p className="text-xs" style={{ color: "rgba(255,255,255,0.40)" }}>لا طلبات في هذه الفترة</p>
         </div>
       )}
