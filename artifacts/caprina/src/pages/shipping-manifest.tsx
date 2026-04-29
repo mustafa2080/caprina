@@ -528,8 +528,9 @@ function InvoiceGroupDeliveryRow({
         {/* Bulk editing panel */}
         {bulkEditing && (
           <div className="px-4 pb-3 flex flex-col gap-2 bg-primary/5 border-t border-primary/10">
+            {/* ── فاتورة منتج واحد: UI بسيطة زي OrderDeliveryRow القديم ── */}
             {!isMulti && (
-              <div className="flex flex-wrap gap-2 items-end mt-1">
+              <div className="flex flex-wrap gap-2 items-end mt-2">
                 <div>
                   <Label className="text-[10px] mb-1 block text-muted-foreground">حالة التسليم</Label>
                   <Select
@@ -548,6 +549,23 @@ function InvoiceGroupDeliveryRow({
                     </SelectContent>
                   </Select>
                 </div>
+                {/* خانة الكمية تظهر في نفس الصف لما partial */}
+                {bulkStatus === "partial_received" && group[0] && (
+                  <div>
+                    <Label className="text-[10px] mb-1 block text-muted-foreground">
+                      الكمية المستلمة (من {group[0].quantity})
+                    </Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={group[0].quantity}
+                      value={partialQtyMap[group[0].id] ?? ""}
+                      onChange={(e) => setPartialQtyMap(prev => ({ ...prev, [group[0].id]: e.target.value }))}
+                      className="h-8 text-xs w-28 bg-background"
+                      placeholder="الكمية"
+                    />
+                  </div>
+                )}
               </div>
             )}
             {/* الاستلام الجزئي: وضع لكل منتج على حدة — يظهر لفواتير متعددة */}
