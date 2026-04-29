@@ -602,7 +602,7 @@ export function FilteredOrdersList({ status }: { status: string }) {
   const { data: orders, isLoading } = useQuery<any[]>({
     queryKey: ["orders-by-status-chart", status],
     queryFn: () =>
-      fetch(`/api/orders?status=${status}&includeInManifest=true`, {
+      fetch(`/api/orders?status=${status}&source=dashboard`, {
         credentials: "include",
       }).then(r => r.json()),
     staleTime: 0,

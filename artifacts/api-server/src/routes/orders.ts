@@ -129,7 +129,8 @@ router.get("/orders", async (req, res): Promise<void> => {
 
   // ─── Manifest filter: نجمع الـ manifest IDs هنا بس نطبقها على مستوى الـ invoice مش الـ row ───
   let manifestOrderIdsSet = new Set<number>();
-  if (params.data.status === "in_shipping" && !(req.query as any).includeInManifest) {
+  const skipManifestFilter = (req.query as any).includeInManifest === "true" || (req.query as any).source === "dashboard";
+  if (params.data.status === "in_shipping" && !skipManifestFilter) {
     const openManifests = await db
       .select({ id: shippingManifestsTable.id })
       .from(shippingManifestsTable)
