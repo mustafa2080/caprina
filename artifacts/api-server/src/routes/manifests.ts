@@ -638,6 +638,7 @@ router.patch(
 router.delete(
   "/shipping-manifests/:id/orders/:orderId",
   async (req, res): Promise<void> => {
+    try {
     const manifestId = parseInt(req.params.id);
     const orderId = parseInt(req.params.orderId);
     if (isNaN(manifestId) || isNaN(orderId)) {
@@ -717,6 +718,10 @@ router.delete(
     });
 
     res.json({ success: true, orderId, message: "تم إلغاء الطلبية من البيان وإرجاعها للانتظار" });
+    } catch (err: any) {
+      console.error("[cancelOrder] Error:", err);
+      res.status(500).json({ error: err?.message ?? "خطأ داخلي", stack: err?.stack });
+    }
   }
 );
 
