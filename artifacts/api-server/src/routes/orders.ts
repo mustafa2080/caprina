@@ -165,6 +165,26 @@ router.get("/orders", async (req, res): Promise<void> => {
   // نستخدم البيانات مباشرة بدون Zod parse عشان _invoiceOrders متتشيلش
   const rows = await query;
 
+  // ─── Fallback: جيب returnReceived من shipping_manifest_orders للطلبات returned
+  //     اللي ordersTable.returnReceived = null (قبل الـ migration أو قبل الـ column)
+  const returnedNullIds = rows.filter(o => o.status === "returned" && (o as any).returnReceived == null).map(o => o.id);
+  const manifestReturnMap = new Map<number, number | null>();
+  if (returnedNullIds.length > 0) {
+    try {
+      const manifestLinks = await db
+        .select({ orderId: shippingManifestOrdersTable.orderId, returnReceived: shippingManifestOrdersTable.returnReceived })
+        .from(shippingManifestOrdersTable)
+        .where(inArray(shippingManifestOrdersTable.orderId, returnedNullIds));
+      for (const link of manifestLinks) {
+        const existing = manifestReturnMap.get(link.orderId);
+        if (existing === undefined || (link.returnReceived !== null && existing === null)) {
+          manifestReturnMap.set(link.orderId, link.returnReceived ?? null);
+        }
+      }
+    } catch (_) { /* column قد لا يكون موجوداً — تجاهل */ }
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
   // ─── Group rows by invoiceNumber — return one merged row per invoice ──────
   const groupMap = new Map<string, typeof rows>();
   for (const o of rows) {
@@ -180,11 +200,18 @@ router.get("/orders", async (req, res): Promise<void> => {
     return !allInManifest;
   });
 
+  // helper: جيب returnReceived لطلبية — من ordersTable أولاً، ثم manifest كـ fallback
+  const getReturnReceived = (o: (typeof rows)[0]): number | null => {
+    const fromOrder = (o as any).returnReceived;
+    if (fromOrder !== null && fromOrder !== undefined) return fromOrder;
+    return manifestReturnMap.get(o.id) ?? null;
+  };
+
   const grouped = filteredGroups.map(grp => {
     if (grp.length === 1) {
       const rep = { ...grp[0] } as any;
       rep._invoiceOrders = [grp[0]];
-      // returnReceived موجود مباشرة في ordersTable
+      if (rep.status === "returned") rep.returnReceived = getReturnReceived(grp[0]);
       return rep;
     }
     const rep = { ...grp[0] } as any;
@@ -195,10 +222,14 @@ router.get("/orders", async (req, res): Promise<void> => {
     rep._groupCount    = grp.length;
     rep._groupStatuses = grp.map(o => o.status);
     rep._invoiceOrders = grp;
-    // للمجموعة: جيب returnReceived من أي طلبية فيها قيمة (فضّل != null)
     const allReturned = grp.every(o => o.status === "returned");
     if (allReturned) {
-      const rr = grp.find(o => o.returnReceived !== null)?.returnReceived ?? null;
+      // جيب أول قيمة غير null من المجموعة (من order أو manifest)
+      let rr: number | null = null;
+      for (const o of grp) {
+        const val = getReturnReceived(o);
+        if (val !== null) { rr = val; break; }
+      }
       rep.returnReceived = rr;
     }
     return rep;
