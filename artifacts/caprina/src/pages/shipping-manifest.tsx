@@ -182,22 +182,7 @@ function OrderDeliveryRow({
           {editing ? (
             <Select
               value={status}
-              onValueChange={(v) => {
-                const newSt = v as DeliveryStatus;
-                setStatus(newSt);
-                const needExtra = newSt === "postponed" || newSt === "returned" || newSt === "partial_received";
-                if (!needExtra) {
-                  manifestsApi.updateOrderDelivery(manifestId, order.id, {
-                    deliveryStatus: newSt,
-                    deliveryNote: null,
-                    partialQuantity: null,
-                  }).then(() => {
-                    toast({ title: "تم حفظ حالة التسليم" });
-                    setEditing(false);
-                    onSaved();
-                  }).catch((e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }));
-                }
-              }}
+              onValueChange={(v) => setStatus(v as DeliveryStatus)}
             >
               <SelectTrigger className="h-7 text-[10px] w-full bg-background border-primary/40">
                 <SelectValue />
@@ -264,7 +249,7 @@ function OrderDeliveryRow({
       </div>
 
       {/* Extra input panel -- only for statuses needing note or qty */}
-      {editing && (needsNote || needsPartial) && (
+      {editing && (
         <div className="px-4 pb-3 flex flex-col gap-2 bg-primary/5 border-t border-primary/10">
           {needsPartial && (
             <div className="mt-2">
@@ -313,7 +298,7 @@ function OrderDeliveryRow({
               }
             >
               <Save className="w-3 h-3" />
-              {mutation.isPending ? "ط¬ط§ط±ظٹ ط§ظ„ط­ظپط¸..." : "ط­ظپط¸"}
+              {mutation.isPending ? "جاري الحفظ..." : "حفظ"}
             </Button>
           </div>
         </div>
