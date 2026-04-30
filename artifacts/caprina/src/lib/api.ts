@@ -681,6 +681,11 @@ export const manifestsApi = {
       `/shipping-manifests/${manifestId}/orders/${orderId}`,
       { method: "PATCH", body: JSON.stringify(data) }
     ),
+  cancelOrder: (manifestId: number, orderId: number) =>
+    apiFetch<{ success: boolean; orderId: number; message: string }>(
+      `/shipping-manifests/${manifestId}/orders/${orderId}`,
+      { method: "DELETE" }
+    ),
   delete: (id: number) =>
     apiFetch<void>(`/shipping-manifests/${id}`, { method: "DELETE" }),
   addOrders: (manifestId: number, orderIds: number[]) =>

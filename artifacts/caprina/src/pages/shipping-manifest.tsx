@@ -115,6 +115,18 @@ function OrderDeliveryRow({
   const [partialProduct, setPartialProduct] = useState(
     order.deliveryNote?.startsWith("منتج:") ? order.deliveryNote.split("|")[0].replace("منتج:", "").trim() : ""
   );
+  const [confirmCancel, setConfirmCancel] = useState(false);
+
+  const cancelMutation = useMutation({
+    mutationFn: () => manifestsApi.cancelOrder(manifestId, order.id),
+    onSuccess: () => {
+      toast({ title: "تم إلغاء الطلبية من البيان وإرجاعها للانتظار" });
+      setEditing(false);
+      onSaved();
+    },
+    onError: (e: any) =>
+      toast({ title: "خطأ", description: e.message, variant: "destructive" }),
+  });
 
   const mutation = useMutation({
     mutationFn: () => {
@@ -309,7 +321,17 @@ function OrderDeliveryRow({
             />
           </div>
           )}
-          <div className="flex gap-2 justify-end">
+          <div className="flex gap-2 justify-between items-center">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-[11px] text-destructive hover:text-destructive hover:bg-destructive/10 gap-1"
+              onClick={() => setConfirmCancel(true)}
+              disabled={cancelMutation.isPending}
+            >
+              <Trash2 className="w-3 h-3" />
+              إلغاء من البيان
+            </Button>
             <Button
               size="sm"
               className="h-7 text-[11px] bg-primary text-primary-foreground hover:bg-primary/90 gap-1"
@@ -325,6 +347,26 @@ function OrderDeliveryRow({
               {mutation.isPending ? "جاري الحفظ..." : "حفظ"}
             </Button>
           </div>
+          <AlertDialog open={confirmCancel} onOpenChange={setConfirmCancel}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>إلغاء الطلبية من البيان</AlertDialogTitle>
+                <AlertDialogDescription>
+                  هل أنت متأكد من إلغاء طلبية <strong>{order.customerName}</strong> ({order.product}) من البيان؟
+                  <br />سيتم إرجاعها لحالة &quot;انتظار&quot; وإلغاء تأثيرها على المخزون.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>لا، تراجع</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  onClick={() => { setConfirmCancel(false); cancelMutation.mutate(); }}
+                >
+                  نعم، إلغاء الطلبية
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       )}
     </div>
@@ -362,6 +404,22 @@ function InvoiceGroupDeliveryRow({
   const [bulkEditing, setBulkEditing] = useState(false);
   const [bulkStatus, setBulkStatus] = useState<DeliveryStatus>(groupStatus);
   const [bulkNote, setBulkNote] = useState("");
+  const [confirmCancel, setConfirmCancel] = useState(false);
+
+  const cancelGroupMutation = useMutation({
+    mutationFn: async () => {
+      for (const order of group) {
+        await manifestsApi.cancelOrder(manifestId, order.id);
+      }
+    },
+    onSuccess: () => {
+      toast({ title: "تم إلغاء الفاتورة كاملها من البيان وإرجاعها للانتظار" });
+      setBulkEditing(false);
+      onSaved();
+    },
+    onError: (e: any) =>
+      toast({ title: "خطأ", description: e.message, variant: "destructive" }),
+  });
 
   // لكل منتج في الفاتورة: حالة مستقلة (تُستخدم في وضع partial_received مع فاتورة متعددة)
   const [perOrderStatus, setPerOrderStatus] = useState<Record<number, DeliveryStatus>>(
@@ -670,7 +728,17 @@ function InvoiceGroupDeliveryRow({
                 }
               />
             </div>
-            <div className="flex gap-2 justify-end">
+            <div className="flex gap-2 justify-between items-center">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-[11px] text-destructive hover:text-destructive hover:bg-destructive/10 gap-1"
+                onClick={() => setConfirmCancel(true)}
+                disabled={cancelGroupMutation.isPending}
+              >
+                <Trash2 className="w-3 h-3" />
+                إلغاء من البيان
+              </Button>
               <Button
                 size="sm"
                 className="h-7 text-[11px] bg-primary text-primary-foreground hover:bg-primary/90 gap-1"
@@ -684,6 +752,26 @@ function InvoiceGroupDeliveryRow({
                 {bulkMutation.isPending ? "جاري الحفظ..." : "حفظ"}
               </Button>
             </div>
+            <AlertDialog open={confirmCancel} onOpenChange={setConfirmCancel}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>إلغاء الفاتورة من البيان</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    هل أنت متأكد من إلغاء فاتورة <strong>{rep.customerName}</strong> ({group.length > 1 ? `${group.length} منتجات` : rep.product}) من البيان؟
+                    <br />سيتم إرجاع جميع طلبياتها لحالة &quot;انتظار&quot; وإلغاء تأثيرها على المخزون.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>لا، تراجع</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    onClick={() => { setConfirmCancel(false); cancelGroupMutation.mutate(); }}
+                  >
+                    نعم، إلغاء الفاتورة
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         )}
       </div>

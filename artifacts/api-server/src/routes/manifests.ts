@@ -634,6 +634,92 @@ router.patch(
   }
 );
 
+// ─── DELETE /shipping-manifests/:id/orders/:orderId — إلغاء طلبية من البيان ─
+router.delete(
+  "/shipping-manifests/:id/orders/:orderId",
+  async (req, res): Promise<void> => {
+    const manifestId = parseInt(req.params.id);
+    const orderId = parseInt(req.params.orderId);
+    if (isNaN(manifestId) || isNaN(orderId)) {
+      res.status(400).json({ error: "Invalid ID" });
+      return;
+    }
+
+    // تأكد إن البيان موجود ومفتوح
+    const [manifest] = await db.select().from(shippingManifestsTable).where(eq(shippingManifestsTable.id, manifestId));
+    if (!manifest) { res.status(404).json({ error: "البيان غير موجود" }); return; }
+    if (manifest.status === "closed") { res.status(400).json({ error: "البيان مغلق لا يمكن التعديل عليه" }); return; }
+
+    // جيب الـ link بين الأوردر والبيان
+    const [link] = await db
+      .select()
+      .from(shippingManifestOrdersTable)
+      .where(
+        and(
+          eq(shippingManifestOrdersTable.manifestId, manifestId),
+          eq(shippingManifestOrdersTable.orderId, orderId)
+        )
+      );
+    if (!link) { res.status(404).json({ error: "الطلبية غير موجودة في هذا البيان" }); return; }
+
+    // جيب الأوردر
+    const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, orderId));
+    if (!order) { res.status(404).json({ error: "الطلبية غير موجودة" }); return; }
+
+    const orderRef = {
+      variantId: order.variantId,
+      productId: order.productId,
+      product: order.product,
+      color: order.color,
+      size: order.size,
+      warehouseId: order.warehouseId,
+    };
+
+    const deliveryStatus = link.deliveryStatus;
+
+    // عكس تأثير الشحن/التسليم على المخزون حسب الحالة
+    if (deliveryStatus === "pending" || deliveryStatus === "postponed") {
+      await reverseShipping(orderRef, order.quantity, order.id);
+    } else if (deliveryStatus === "delivered") {
+      await reverseShipping(orderRef, order.quantity, order.id);
+      await reverseDelivery(orderRef, order.quantity, order.id);
+    } else if (deliveryStatus === "partial_received") {
+      const deliveredQty = order.partialQuantity ?? 0;
+      const remainingQty = order.quantity - deliveredQty;
+      if (deliveredQty > 0) await reverseDelivery(orderRef, deliveredQty, order.id);
+      if (remainingQty > 0) await reverseShipping(orderRef, remainingQty, order.id);
+    } else if (deliveryStatus === "returned") {
+      await reverseShipping(orderRef, order.quantity, order.id);
+    }
+
+    // احذف الـ link من البيان
+    await db.delete(shippingManifestOrdersTable).where(eq(shippingManifestOrdersTable.id, link.id));
+
+    // ارجع الأوردر لحالة pending
+    await db.update(ordersTable)
+      .set({
+        status: "pending",
+        partialQuantity: null,
+        deliveryNote: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(ordersTable.id, orderId));
+
+    await logAudit({
+      action: "status_change",
+      entityType: "order",
+      entityId: orderId,
+      entityName: `${order.customerName} — ${order.product}`,
+      before: { status: order.status, deliveryStatus },
+      after: { status: "pending", note: "تم إلغاء الطلبية من البيان وإرجاعها للانتظار" },
+      userId: req.user?.id,
+      userName: req.user?.displayName,
+    });
+
+    res.json({ success: true, orderId, message: "تم إلغاء الطلبية من البيان وإرجاعها للانتظار" });
+  }
+);
+
 // ─── POST /shipping-manifests/:id/orders — إضافة أوردرات لبيان مفتوح ──────
 router.post("/shipping-manifests/:id/orders", requireAdmin, async (req, res): Promise<void> => {
   const manifestId = parseInt(req.params.id);
