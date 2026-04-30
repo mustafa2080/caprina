@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+﻿import { useState, useCallback, useMemo } from "react";
 import * as XLSX from "xlsx";
 import { useParams, Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -131,6 +131,15 @@ function OrderDeliveryRow({
 
   const mutation = useMutation({
     mutationFn: () => {
+      if (status === "partial_received") {
+        const qty = parseInt(partialQty);
+        if (!partialQty || isNaN(qty) || qty < 1) {
+          throw new Error("يجب إدخال الكمية المستلمة أولاً");
+        }
+        if (qty > order.quantity) {
+          throw new Error("الكمية لا يمكن أن تتجاوز " + order.quantity);
+        }
+      }
       let finalNote = note.trim() || null;
       if (status === "partial_received" && partialProduct.trim()) {
         finalNote = partialProduct.trim() + (note.trim() ? " | " + note.trim() : "");
@@ -276,7 +285,7 @@ function OrderDeliveryRow({
               <>
                 <div>
                   <Label className="text-[10px] mb-1 block text-muted-foreground">
-                    الكمية المستلمة (من {order.quantity})
+                    الكمية المستلمة (من {order.quantity}) <span className="text-destructive font-bold">*</span>
                   </Label>
                   <Input
                     type="number"
@@ -284,9 +293,13 @@ function OrderDeliveryRow({
                     max={order.quantity}
                     value={partialQty}
                     onChange={(e) => setPartialQty(e.target.value)}
-                    className="h-8 text-xs w-28 bg-background"
-                    placeholder="الكمية"
+                    className={`h-8 text-xs w-28 bg-background ${!partialQty || parseInt(partialQty) < 1 ? "border-destructive" : ""}`}
+                    placeholder="مطلوب"
+                    autoFocus
                   />
+                  {(!partialQty || parseInt(partialQty) < 1) && (
+                    <p className="text-[10px] text-destructive mt-0.5">⚠ أدخل الكمية المستلمة</p>
+                  )}
                 </div>
                 <div>
                   <Label className="text-[10px] mb-1 block text-muted-foreground">
@@ -633,7 +646,7 @@ function InvoiceGroupDeliveryRow({
                 {bulkStatus === "partial_received" && group[0] && (
                   <div>
                     <Label className="text-[10px] mb-1 block text-muted-foreground">
-                      الكمية المستلمة (من {group[0].quantity})
+                      الكمية المستلمة (من {group[0].quantity}) <span className="text-destructive font-bold">*</span>
                     </Label>
                     <Input
                       type="number"
@@ -641,9 +654,13 @@ function InvoiceGroupDeliveryRow({
                       max={group[0].quantity}
                       value={partialQtyMap[group[0].id] ?? ""}
                       onChange={(e) => setPartialQtyMap(prev => ({ ...prev, [group[0].id]: e.target.value }))}
-                      className="h-8 text-xs w-28 bg-background"
-                      placeholder="الكمية"
+                      className={`h-8 text-xs w-28 bg-background ${!(partialQtyMap[group[0].id]) || parseInt(partialQtyMap[group[0].id]) < 1 ? "border-destructive" : ""}`}
+                      placeholder="مطلوب"
+                      autoFocus
                     />
+                    {(!(partialQtyMap[group[0].id]) || parseInt(partialQtyMap[group[0].id]) < 1) && (
+                      <p className="text-[10px] text-destructive mt-0.5">⚠ أدخل الكمية المستلمة</p>
+                    )}
                   </div>
                 )}
               </div>
@@ -698,8 +715,8 @@ function InvoiceGroupDeliveryRow({
                             max={o.quantity}
                             value={partialQtyMap[o.id] ?? ""}
                             onChange={e => setPartialQtyMap(prev => ({ ...prev, [o.id]: e.target.value }))}
-                            className="h-7 w-20 rounded border border-teal-400 bg-background px-2 text-xs text-center"
-                            placeholder="الكمية"
+                            className={`h-7 w-20 rounded border bg-background px-2 text-xs text-center ${!partialQtyMap[o.id] || parseInt(partialQtyMap[o.id]) < 1 ? "border-destructive" : "border-teal-400"}`}
+                            placeholder="مطلوب"
                           />
                           <span className="text-[10px] text-muted-foreground">قطعة</span>
                           {partialVal > 0 && (
@@ -747,7 +764,14 @@ function InvoiceGroupDeliveryRow({
                 onClick={() => bulkMutation.mutate()}
                 disabled={
                   bulkMutation.isPending ||
-                  (needsBulkNote && !bulkNote.trim())
+                  (needsBulkNote && !bulkNote.trim()) ||
+                  (!isPerItemMode && bulkStatus === "partial_received" && group[0] && (
+                    !partialQtyMap[group[0].id] || parseInt(partialQtyMap[group[0].id]) < 1
+                  )) ||
+                  (isPerItemMode && group.some(o =>
+                    perOrderStatus[o.id] === "partial_received" &&
+                    (!partialQtyMap[o.id] || parseInt(partialQtyMap[o.id]) < 1)
+                  ))
                 }
               >
                 <Save className="w-3 h-3" />
