@@ -635,10 +635,8 @@ function InvoiceGroupDeliveryRow({
                   value={bulkStatus}
                   onValueChange={(v) => {
                     setBulkStatus(v as DeliveryStatus);
-                    // لو اختار partial_received في الفاتورة المتعددة → اضبط كل منتج على partial_received
-                    if (v === "partial_received" && isMulti) {
-                      setPerOrderStatus(Object.fromEntries(group.map(o => [o.id, "partial_received" as DeliveryStatus])));
-                    }
+                    // sync perOrderStatus مع الاختيار الجديد دايماً
+                    setPerOrderStatus(Object.fromEntries(group.map(o => [o.id, v as DeliveryStatus])));
                   }}
                 >
                   <SelectTrigger className="h-8 text-xs w-40 bg-background">
