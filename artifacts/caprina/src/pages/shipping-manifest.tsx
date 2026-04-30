@@ -177,38 +177,18 @@ function OrderDeliveryRow({
         </div>
         {/* Price */}
         <div className="text-left font-bold">{formatCurrency(order.totalPrice)}</div>
-        {/* Delivery Status -- inline Select when editing */}
+        {/* Delivery Status Badge -- always visible */}
         <div>
-          {editing ? (
-            <Select
-              value={status}
-              onValueChange={(v) => setStatus(v as DeliveryStatus)}
-            >
-              <SelectTrigger className="h-7 text-[10px] w-full bg-background border-primary/40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {DELIVERY_OPTIONS.map((o) => (
-                  <SelectItem key={o.value} value={o.value} className="text-xs">
-                    <span className={o.color}>{o.label}</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : (
-            <>
-              <Badge
-                variant="outline"
-                className={`text-[9px] font-bold border ${opt.bg} ${opt.color}`}
-              >
-                {opt.label}
-              </Badge>
-              {order.deliveryNote && (
-                <p className="text-[10px] text-muted-foreground mt-0.5 truncate max-w-[110px]">
-                  {order.deliveryNote}
-                </p>
-              )}
-            </>
+          <Badge
+            variant="outline"
+            className={`text-[9px] font-bold border ${opt.bg} ${opt.color}`}
+          >
+            {opt.label}
+          </Badge>
+          {order.deliveryNote && !editing && (
+            <p className="text-[10px] text-muted-foreground mt-0.5 truncate max-w-[110px]">
+              {order.deliveryNote}
+            </p>
           )}
         </div>
         {/* Action */}
@@ -248,26 +228,46 @@ function OrderDeliveryRow({
         </div>
       </div>
 
-      {/* Extra input panel -- only for statuses needing note or qty */}
+      {/* Editing panel -- Select + qty + note + save */}
       {editing && (
         <div className="px-4 pb-3 flex flex-col gap-2 bg-primary/5 border-t border-primary/10">
-          {needsPartial && (
-            <div className="mt-2">
-              <Label className="text-[10px] mb-1 block text-muted-foreground">
-                الكمية المستلمة (من {order.quantity})
-              </Label>
-              <Input
-                type="number"
-                min={1}
-                max={order.quantity}
-                value={partialQty}
-                onChange={(e) => setPartialQty(e.target.value)}
-                className="h-8 text-xs w-28 bg-background"
-                placeholder="الكمية"
-                autoFocus
-              />
+          <div className="flex flex-wrap gap-2 items-end mt-2">
+            <div>
+              <Label className="text-[10px] mb-1 block text-muted-foreground">حالة التسليم</Label>
+              <Select
+                value={status}
+                onValueChange={(v) => setStatus(v as DeliveryStatus)}
+              >
+                <SelectTrigger className="h-8 text-xs w-40 bg-background">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DELIVERY_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value} className="text-xs">
+                      <span className={o.color}>{o.label}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          )}
+            {needsPartial && (
+              <div>
+                <Label className="text-[10px] mb-1 block text-muted-foreground">
+                  الكمية المستلمة (من {order.quantity})
+                </Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={order.quantity}
+                  value={partialQty}
+                  onChange={(e) => setPartialQty(e.target.value)}
+                  className="h-8 text-xs w-28 bg-background"
+                  placeholder="الكمية"
+                />
+              </div>
+            )}
+          </div>
+          {(needsNote || needsPartial || status === "pending") && (
           <div>
             <Label className="text-[10px] mb-1 block text-muted-foreground">
               {needsNote ? "سبب / ملاحظة (مطلوب)" : "ملاحظة (اختياري)"}
@@ -286,6 +286,7 @@ function OrderDeliveryRow({
               autoFocus={!needsPartial}
             />
           </div>
+          )}
           <div className="flex gap-2 justify-end">
             <Button
               size="sm"
@@ -293,6 +294,7 @@ function OrderDeliveryRow({
               onClick={() => mutation.mutate()}
               disabled={
                 mutation.isPending ||
+                !hasChanges ||
                 (needsNote && !note.trim()) ||
                 (needsPartial && (!partialQty || parseInt(partialQty) < 1))
               }
