@@ -705,17 +705,6 @@ router.delete(
       })
       .where(eq(ordersTable.id, orderId));
 
-    await logAudit({
-      action: "status_change",
-      entityType: "order",
-      entityId: orderId,
-      entityName: `${order.customerName} — ${order.product}`,
-      before: { status: order.status, deliveryStatus },
-      after: { status: "pending", note: "تم إلغاء الطلبية من البيان وإرجاعها للانتظار" },
-      userId: req.user?.id,
-      userName: req.user?.displayName,
-    });
-
     res.json({ success: true, orderId, message: "تم إلغاء الطلبية من البيان وإرجاعها للانتظار" });
     } catch (err: any) {
       console.error("[cancelOrder] Error:", err);
