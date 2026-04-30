@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+﻿import { Router, type IRouter } from "express";
 import { eq, desc, and, inArray, sql, count, isNull } from "drizzle-orm";
 import {
   db,
@@ -436,7 +436,7 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
       .where(
         and(
           eq(shippingManifestOrdersTable.manifestId, id),
-          inArray(shippingManifestOrdersTable.deliveryStatus, ["postponed", "pending"])
+          inArray(shippingManifestOrdersTable.deliveryStatus, ["postponed", "pending", "in_shipping"])
         )
       );
 
@@ -935,3 +935,4 @@ router.get(
 );
 
 export default router;
+
