@@ -112,17 +112,25 @@ function OrderDeliveryRow({
   const [partialQty, setPartialQty] = useState(
     order.partialQuantity?.toString() ?? ""
   );
+  const [partialProduct, setPartialProduct] = useState(
+    order.deliveryNote?.startsWith("منتج:") ? order.deliveryNote.split("|")[0].replace("منتج:", "").trim() : ""
+  );
 
   const mutation = useMutation({
-    mutationFn: () =>
-      manifestsApi.updateOrderDelivery(manifestId, order.id, {
+    mutationFn: () => {
+      let finalNote = note.trim() || null;
+      if (status === "partial_received" && partialProduct.trim()) {
+        finalNote = partialProduct.trim() + (note.trim() ? " | " + note.trim() : "");
+      }
+      return manifestsApi.updateOrderDelivery(manifestId, order.id, {
         deliveryStatus: status,
-        deliveryNote: note.trim() || null,
+        deliveryNote: finalNote,
         partialQuantity:
           status === "partial_received" && partialQty
             ? parseInt(partialQty)
             : null,
-      }),
+      });
+    },
     onSuccess: () => {
       toast({ title: "تم حفظ حالة التسليم" });
       setEditing(false);
@@ -203,6 +211,7 @@ function OrderDeliveryRow({
                   setEditing(false);
                   setStatus(order.deliveryStatus);
                   setNote(order.deliveryNote ?? "");
+                  setPartialProduct("");
                 }}
               >
                 <X className="w-3 h-3" />
@@ -251,20 +260,33 @@ function OrderDeliveryRow({
               </Select>
             </div>
             {needsPartial && (
-              <div>
-                <Label className="text-[10px] mb-1 block text-muted-foreground">
-                  الكمية المستلمة (من {order.quantity})
-                </Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={order.quantity}
-                  value={partialQty}
-                  onChange={(e) => setPartialQty(e.target.value)}
-                  className="h-8 text-xs w-28 bg-background"
-                  placeholder="الكمية"
-                />
-              </div>
+              <>
+                <div>
+                  <Label className="text-[10px] mb-1 block text-muted-foreground">
+                    الكمية المستلمة (من {order.quantity})
+                  </Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={order.quantity}
+                    value={partialQty}
+                    onChange={(e) => setPartialQty(e.target.value)}
+                    className="h-8 text-xs w-28 bg-background"
+                    placeholder="الكمية"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px] mb-1 block text-muted-foreground">
+                    المنتج المستلم
+                  </Label>
+                  <Input
+                    value={partialProduct}
+                    onChange={(e) => setPartialProduct(e.target.value)}
+                    className="h-8 text-xs w-44 bg-background"
+                    placeholder={order.product}
+                  />
+                </div>
+              </>
             )}
           </div>
           {(needsNote || needsPartial || status === "pending") && (
