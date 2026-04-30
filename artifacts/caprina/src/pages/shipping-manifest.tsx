@@ -469,6 +469,10 @@ function InvoiceGroupDeliveryRow({
   const [bulkStatus, setBulkStatus] = useState<DeliveryStatus>(groupStatus);
   const [bulkNote, setBulkNote] = useState("");
   const [confirmCancel, setConfirmCancel] = useState(false);
+  // حالة استلام المرتجع للفاتورة الجماعية
+  const [bulkReturnReceived, setBulkReturnReceived] = useState<boolean | null>(
+    (rep as any).returnReceived === 1 ? true : (rep as any).returnReceived === 0 ? false : null
+  );
 
   const cancelGroupMutation = useMutation({
     mutationFn: async () => {
@@ -530,6 +534,7 @@ function InvoiceGroupDeliveryRow({
           deliveryStatus: finalStatus,
           deliveryNote: bulkNote.trim() || null,
           partialQuantity: finalPartialQty,
+          ...(finalStatus === 'returned' ? { returnReceived: bulkReturnReceived } : {}),
         });
       }
     },
@@ -642,9 +647,18 @@ function InvoiceGroupDeliveryRow({
                 ))}
               </div>
             ) : (
-              <Badge variant="outline" className={`text-[9px] font-bold border ${groupOpt.bg} ${groupOpt.color}`}>
-                {groupOpt.label}
-              </Badge>
+              <div className="flex flex-col gap-0.5">
+                <Badge variant="outline" className={`text-[9px] font-bold border ${groupOpt.bg} ${groupOpt.color}`}>
+                  {groupOpt.label}
+                </Badge>
+                {/* sub-status للمرتجع في الـ group row */}
+                {groupStatus === "returned" && (rep as any).returnReceived === 1 && (
+                  <p className="text-[10px] text-emerald-600 mt-0.5 font-semibold">↩ تم الاستلام</p>
+                )}
+                {groupStatus === "returned" && (rep as any).returnReceived === 0 && (
+                  <p className="text-[10px] text-orange-500 mt-0.5 font-semibold">⏳ عند شركة الشحن</p>
+                )}
+              </div>
             )}
           </div>
           {/* Action */}
@@ -829,6 +843,45 @@ function InvoiceGroupDeliveryRow({
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {/* حالة استلام المرتجع — تظهر فقط لما المستخدم يختار "مرتجع" */}
+            {bulkStatus === "returned" && (
+              <div>
+                <Label className="text-[10px] mb-1.5 block text-muted-foreground font-semibold">
+                  هل تم استلام المرتجع؟
+                </Label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setBulkReturnReceived(true)}
+                    className={`flex-1 rounded-md border px-3 py-2 text-xs font-bold transition-colors ${
+                      bulkReturnReceived === true
+                        ? "bg-emerald-600 text-white border-emerald-600"
+                        : "border-emerald-400 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                    }`}
+                  >
+                    ✓ تم استلام المرتجع
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBulkReturnReceived(false)}
+                    className={`flex-1 rounded-md border px-3 py-2 text-xs font-bold transition-colors ${
+                      bulkReturnReceived === false
+                        ? "bg-orange-600 text-white border-orange-600"
+                        : "border-orange-400 text-orange-700 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20"
+                    }`}
+                  >
+                    ✗ مازال في شركة الشحن
+                  </button>
+                </div>
+                {bulkReturnReceived === true && (
+                  <p className="text-[10px] text-emerald-600 mt-1">✓ سيتم إرجاع البضاعة للمخزن تلقائياً</p>
+                )}
+                {bulkReturnReceived === false && (
+                  <p className="text-[10px] text-orange-500 mt-1">⏳ مرتجع مازال في شركة الشحن — لن يؤثر على المخزن</p>
+                )}
               </div>
             )}
 
