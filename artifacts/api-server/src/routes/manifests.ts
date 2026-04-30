@@ -701,7 +701,6 @@ router.delete(
       .set({
         status: "pending",
         partialQuantity: null,
-        deliveryNote: null,
         updatedAt: new Date(),
       })
       .where(eq(ordersTable.id, orderId));

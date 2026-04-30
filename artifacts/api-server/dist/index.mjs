@@ -148493,7 +148493,6 @@ router12.delete(
       await db.update(ordersTable).set({
         status: "pending",
         partialQuantity: null,
-        deliveryNote: null,
         updatedAt: /* @__PURE__ */ new Date()
       }).where(eq(ordersTable.id, orderId));
       await logAudit({
