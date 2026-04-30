@@ -724,8 +724,8 @@ function InvoiceGroupDeliveryRow({
               </div>
             )}
 
-            {/* ── فاتورة متعددة + حالة أخرى (مش partial): per-item buttons ── */}
-            {isMulti && bulkStatus !== "partial_received" && (
+            {/* ── فاتورة متعددة + حالة أخرى (مش partial): لا تظهر تفاصيل — الحالة بتتطبق على الكل تلقائياً ── */}
+            {isMulti && bulkStatus !== "partial_received" && false && (
               <div className="flex flex-col gap-2 border border-border/40 rounded-md p-2.5 bg-muted/10">
                 <Label className="text-[10px] font-bold text-muted-foreground">
                   تفاصيل المنتجات — يمكن تعديل حالة كل منتج على حدة
