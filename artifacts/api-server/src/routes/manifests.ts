@@ -661,6 +661,57 @@ router.patch(
       }
     }
 
+    // ─── Sync invoice siblings: لو الفاتورة فيها طلبيات أخرى في نفس البيان،
+    //     حدّث حالتها في shipping_manifest_orders و orders كمان ──────────────
+    if (existingOrder.invoiceNumber?.trim()) {
+      const invoiceNum = existingOrder.invoiceNumber.trim();
+      // جيب كل الطلبيات في نفس الفاتورة في نفس البيان (ما عدا الطلبية الحالية)
+      const siblings = await db
+        .select({ mo: shippingManifestOrdersTable, o: ordersTable })
+        .from(shippingManifestOrdersTable)
+        .innerJoin(ordersTable, eq(shippingManifestOrdersTable.orderId, ordersTable.id))
+        .where(
+          and(
+            eq(shippingManifestOrdersTable.manifestId, manifestId),
+            eq(ordersTable.invoiceNumber, invoiceNum),
+          )
+        );
+      for (const sib of siblings) {
+        if (sib.mo.orderId === orderId) continue; // تجاهل الطلبية الحالية
+        // حدّث manifest order row
+        const sibUpdateData: Record<string, unknown> = {
+          deliveryStatus,
+          deliveryNote: deliveryNote ?? null,
+        };
+        if (isDelivered) sibUpdateData.deliveredAt = new Date();
+        else sibUpdateData.deliveredAt = null;
+        if (deliveryStatus === "partial_received" && partialQuantity) {
+          // للـ siblings لا نضع نفس الكمية الجزئية — نتركها كما هي أو null
+          sibUpdateData.partialQuantity = null;
+        }
+        if (deliveryStatus === "returned" && returnReceived !== undefined && returnReceived !== null) {
+          sibUpdateData.returnReceived = returnReceived ? 1 : 0;
+        } else if (deliveryStatus !== "returned") {
+          sibUpdateData.returnReceived = null;
+        }
+        await db
+          .update(shippingManifestOrdersTable)
+          .set(sibUpdateData)
+          .where(eq(shippingManifestOrdersTable.id, sib.mo.id));
+        // حدّث orders.status
+        const sibNewOrderStatus = STATUS_MAP[deliveryStatus] ?? "in_shipping";
+        const sibOrderUpdate: Record<string, unknown> = { status: sibNewOrderStatus };
+        if (deliveryStatus === "partial_received" && partialQuantity) {
+          sibOrderUpdate.partialQuantity = null; // الكمية الجزئية للـ siblings لا تُطبق
+        }
+        await db
+          .update(ordersTable)
+          .set(sibOrderUpdate)
+          .where(eq(ordersTable.id, sib.mo.orderId));
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     res.json({ success: true, deliveryStatus, deliveryNote: deliveryNote ?? null, returnReceived: returnReceived ?? null });
   }
 );

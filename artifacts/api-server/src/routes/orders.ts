@@ -566,6 +566,38 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
       const deducted = existing.partialQuantity ?? 0;
       if (deducted > 0) await reverseDelivery(orderRef, deducted, existing.id);
     }
+
+    // ─── Sync manifest deliveryStatus مع الـ orders.status الجديد ────────────
+    // الـ STATUS_MAP العكسي: orders.status → manifest deliveryStatus
+    const ORDER_STATUS_TO_DELIVERY: Record<string, string> = {
+      received: "delivered",
+      returned: "returned",
+      delayed: "postponed",
+      partial_received: "partial_received",
+      in_shipping: "pending",
+      pending: "pending",
+    };
+    const newDeliveryStatus = ORDER_STATUS_TO_DELIVERY[newStatus];
+    if (newDeliveryStatus) {
+      // جيب آخر بيان للطلب ده (المفتوح أولاً، وإلا أحدث واحد)
+      const manifestLinks = await db
+        .select()
+        .from(shippingManifestOrdersTable)
+        .where(eq(shippingManifestOrdersTable.orderId, existing.id));
+      for (const mLink of manifestLinks) {
+        const updateData: Record<string, unknown> = { deliveryStatus: newDeliveryStatus };
+        if (newDeliveryStatus === "delivered") updateData.deliveredAt = new Date();
+        if (newDeliveryStatus !== "delivered") updateData.deliveredAt = null;
+        if (newDeliveryStatus === "partial_received" && parsed.data.partialQuantity) {
+          updateData.partialQuantity = parsed.data.partialQuantity;
+        }
+        await db
+          .update(shippingManifestOrdersTable)
+          .set(updateData)
+          .where(eq(shippingManifestOrdersTable.id, mLink.id));
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
   }
 
   const diff = diffObjects(
