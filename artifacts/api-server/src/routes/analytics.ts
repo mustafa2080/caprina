@@ -84,10 +84,9 @@ function periodStats(
   for (const o of returned) {
     const rc = resolveCost(o, variantMap, productMap);
     const sc = (o.shippingCost ?? 0) + (shippingPerOrder.get(o.id) ?? 0);
-    // المرتجع: خسارة التكلفة + الشحن فقط (مش بنضيف cost لـ costOfGoods)
-    const lossCost = o.quantity * rc;
+    // المرتجع: البضاعة رجعت للمخزن → خسارة الشحن فقط
     shipping += sc;
-    netProfit -= (lossCost + sc);
+    netProfit -= sc;
   }
 
   const returnRate = closedOrders > 0 ? Math.round((returned.length / closedOrders) * 100) : 0;
@@ -346,10 +345,10 @@ router.get("/analytics/financial-summary", requireAdmin, async (req, res): Promi
       shippingSpend += sc;
       completedOrders.push({ profit: revenue - cost - sc, value: revenue, cost: cost + sc });
     } else if (o.status === "returned") {
-      const cost = o.quantity * rc;
-      // returnLoss = تكلفة البضاعة + تكلفة الشحن فقط (مش بنضيفها لـ costOfGoods عشان ما اتباعتش)
+      // المرتجع: البضاعة رجعت للمخزن → مفيش خسارة في تكلفة البضاعة
+      // الخسارة الوحيدة هي تكلفة الشحن فقط
       shippingSpend += sc;
-      returnLoss += cost + sc;
+      returnLoss += sc;
       returnRevLost += o.quantity * o.unitPrice;
     } else if (o.status === "pending" || o.status === "in_shipping" || o.status === "delayed") {
       pendingRevenue += o.quantity * o.unitPrice;

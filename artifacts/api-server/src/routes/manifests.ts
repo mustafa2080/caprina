@@ -138,7 +138,8 @@ function computeStats(orders: OrderWithDelivery[]) {
       totalShippingCost += shipping;
       deliveredGross += revenue;
     } else if (o.deliveryStatus === "returned") {
-      returnLosses += cost + shipping;
+      // المرتجع: البضاعة رجعت للمخزن → خسارة الشحن فقط
+      returnLosses += shipping;
       totalShippingCost += shipping;
     } else {
       totalShippingCost += shipping;
