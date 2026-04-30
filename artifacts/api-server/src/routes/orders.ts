@@ -591,6 +591,15 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
         if (newDeliveryStatus === "partial_received" && parsed.data.partialQuantity) {
           updateData.partialQuantity = parsed.data.partialQuantity;
         }
+        // لو returned: حافظ على returnReceived الموجودة — لا تمسحها
+        // لو تغير لحالة تانية: امسح returnReceived
+        if (newDeliveryStatus !== "returned") {
+          updateData.returnReceived = null;
+        }
+        // لو في الـ body returnReceived صريح (بييجي من صفحة الطلبات)، نحدثه
+        if (newDeliveryStatus === "returned" && (req.body.returnReceived === true || req.body.returnReceived === false)) {
+          updateData.returnReceived = req.body.returnReceived ? 1 : 0;
+        }
         await db
           .update(shippingManifestOrdersTable)
           .set(updateData)

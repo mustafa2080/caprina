@@ -1016,5 +1016,39 @@ router.get(
   }
 );
 
+// ─── GET /orders/:orderId/manifest-status — بيانات البيان للطلب ──────────────
+// يُستخدم في صفحة الطلب لعرض حالة التسليم الحقيقية (returnReceived وغيره)
+router.get("/orders/:orderId/manifest-status", async (req, res): Promise<void> => {
+  const orderId = parseInt(req.params.orderId);
+  if (isNaN(orderId)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+  // جيب آخر بيان للطلب (المفتوح أولاً، وإلا الأحدث)
+  const links = await db
+    .select({
+      mo: shippingManifestOrdersTable,
+      manifest: shippingManifestsTable,
+    })
+    .from(shippingManifestOrdersTable)
+    .innerJoin(shippingManifestsTable, eq(shippingManifestOrdersTable.manifestId, shippingManifestsTable.id))
+    .where(eq(shippingManifestOrdersTable.orderId, orderId))
+    .orderBy(desc(shippingManifestsTable.createdAt));
+
+  if (links.length === 0) { res.json(null); return; }
+
+  // فضّل البيان المفتوح لو موجود
+  const activeLink = links.find(l => l.manifest.status === "open") ?? links[0];
+
+  res.json({
+    manifestId: activeLink.manifest.id,
+    manifestNumber: activeLink.manifest.manifestNumber,
+    manifestStatus: activeLink.manifest.status,
+    deliveryStatus: activeLink.mo.deliveryStatus,
+    deliveryNote: activeLink.mo.deliveryNote,
+    partialQuantity: activeLink.mo.partialQuantity,
+    deliveredAt: activeLink.mo.deliveredAt,
+    returnReceived: activeLink.mo.returnReceived, // 1 = تم، 0 = عند الشركة، null = لم يُحدد
+  });
+});
+
 export default router;
 

@@ -695,6 +695,17 @@ export const manifestsApi = {
     }),
   companyStats: (companyId: number) =>
     apiFetch<ManifestCompanyStats>(`/shipping-companies/${companyId}/stats`),
+  getOrderManifestStatus: (orderId: number) =>
+    apiFetch<{
+      manifestId: number;
+      manifestNumber: string;
+      manifestStatus: "open" | "closed";
+      deliveryStatus: DeliveryStatus;
+      deliveryNote: string | null;
+      partialQuantity: number | null;
+      deliveredAt: string | null;
+      returnReceived: 0 | 1 | null;
+    } | null>(`/orders/${orderId}/manifest-status`),
 };
 
 // ─── Warehouses API ─────────────────────────────────────────────────────────

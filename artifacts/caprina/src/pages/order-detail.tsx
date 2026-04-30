@@ -1,6 +1,6 @@
 import { useParams, Link, useLocation } from "wouter";
 import { format } from "date-fns";
-import { ArrowRight, AlertCircle, Pencil, Save, X, Printer, Phone, MapPin, Trash2, RotateCcw, TrendingUp, TrendingDown, AlertTriangle, Lock, MessageCircle, Package } from "lucide-react";
+import { ArrowRight, AlertCircle, Pencil, Save, X, Printer, Phone, MapPin, Trash2, RotateCcw, TrendingUp, TrendingDown, AlertTriangle, Lock, MessageCircle, Package, Truck, CheckCircle2, Clock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState, useRef, useEffect } from "react";
 import { useForm } from "react-hook-form";
@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { ToastAction } from "@/components/ui/toast";
-import { shippingApi, ordersApi, productsApi, variantsApi } from "@/lib/api";
+import { shippingApi, ordersApi, productsApi, variantsApi, manifestsApi } from "@/lib/api";
 import { type WhatsAppOrderData } from "@/lib/whatsapp";
 import { WhatsAppDialog } from "@/components/whatsapp-dialog";
 import { RETURN_REASONS, returnReasonLabel, STATUS_LABELS as statusLabels, STATUS_CLASSES as statusClasses } from "@/lib/order-constants";
@@ -77,6 +77,11 @@ export default function OrderDetail() {
   const { data: shippingCompanies } = useQuery({ queryKey: ["shipping"], queryFn: shippingApi.list });
   const { data: products } = useQuery({ queryKey: ["products"], queryFn: productsApi.list });
   const { data: allVariants } = useQuery({ queryKey: ["variants"], queryFn: variantsApi.listAll });
+  const { data: manifestStatus } = useQuery({
+    queryKey: ["order-manifest-status", id],
+    queryFn: () => manifestsApi.getOrderManifestStatus(id),
+    enabled: !!id,
+  });
   const updateOrder = useUpdateOrder();
 
   // Track selected product for stock display in edit mode
@@ -432,6 +437,70 @@ export default function OrderDetail() {
               </Button>
               <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setShowReturnInput(false); setReturnReason(""); setReturnNote(""); setReturnIsDamaged(false); }}>إلغاء</Button>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── بيانات البيان (لو الطلب في بيان شحن) ──────────────────────────── */}
+      {manifestStatus && (
+        <Card className={`border ${
+          manifestStatus.deliveryStatus === "returned"
+            ? "border-red-800 bg-red-900/10"
+            : manifestStatus.deliveryStatus === "delivered"
+            ? "border-emerald-800 bg-emerald-900/10"
+            : manifestStatus.deliveryStatus === "partial_received"
+            ? "border-teal-800 bg-teal-900/10"
+            : manifestStatus.deliveryStatus === "postponed"
+            ? "border-orange-800 bg-orange-900/10"
+            : "border-border bg-muted/5"
+        }`}>
+          <CardContent className="p-3 flex flex-col gap-1.5">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <Truck className="w-4 h-4 text-muted-foreground" />
+                <span className="text-xs font-bold text-muted-foreground">بيان الشحن</span>
+                <Link href={`/shipping/manifests/${manifestStatus.manifestId}`}>
+                  <span className="text-xs font-mono text-primary hover:underline cursor-pointer">{manifestStatus.manifestNumber}</span>
+                </Link>
+                <Badge variant="outline" className={`text-[9px] font-bold ${manifestStatus.manifestStatus === "open" ? "border-green-600 text-green-500" : "border-border text-muted-foreground"}`}>
+                  {manifestStatus.manifestStatus === "open" ? "مفتوح" : "مغلق"}
+                </Badge>
+              </div>
+              <Badge variant="outline" className={`text-[10px] font-bold border ${
+                manifestStatus.deliveryStatus === "delivered" ? "border-emerald-600 text-emerald-400" :
+                manifestStatus.deliveryStatus === "returned" ? "border-red-600 text-red-400" :
+                manifestStatus.deliveryStatus === "postponed" ? "border-orange-600 text-orange-400" :
+                manifestStatus.deliveryStatus === "partial_received" ? "border-teal-600 text-teal-400" :
+                "border-border text-muted-foreground"
+              }`}>
+                {{
+                  delivered: "مسلَّم ✓",
+                  returned: "مرتجع",
+                  postponed: "مؤجل",
+                  partial_received: `استلم جزئي${manifestStatus.partialQuantity ? ` (${manifestStatus.partialQuantity})` : ""}`,
+                  pending: "قيد الانتظار",
+                }[manifestStatus.deliveryStatus] ?? manifestStatus.deliveryStatus}
+              </Badge>
+            </div>
+
+            {/* حالة المرتجع */}
+            {manifestStatus.deliveryStatus === "returned" && (
+              <div className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-bold ${
+                manifestStatus.returnReceived === 1
+                  ? "bg-emerald-900/20 text-emerald-400 border border-emerald-700"
+                  : manifestStatus.returnReceived === 0
+                  ? "bg-orange-900/20 text-orange-400 border border-orange-700"
+                  : "bg-muted/20 text-muted-foreground border border-border"
+              }`}>
+                {manifestStatus.returnReceived === 1 && <><CheckCircle2 className="w-3.5 h-3.5" /> تم استلام المرتجع — البضاعة رجعت للمخزن</>}
+                {manifestStatus.returnReceived === 0 && <><Clock className="w-3.5 h-3.5" /> المرتجع مازال عند شركة الشحن — لم يُستلم بعد</>}
+                {manifestStatus.returnReceived === null && <><AlertCircle className="w-3.5 h-3.5" /> حالة استلام المرتجع لم تُحدد بعد</>}
+              </div>
+            )}
+
+            {manifestStatus.deliveryNote && (
+              <p className="text-xs text-muted-foreground">ملاحظة: {manifestStatus.deliveryNote}</p>
+            )}
           </CardContent>
         </Card>
       )}
