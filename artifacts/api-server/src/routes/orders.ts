@@ -165,27 +165,6 @@ router.get("/orders", async (req, res): Promise<void> => {
   // نستخدم البيانات مباشرة بدون Zod parse عشان _invoiceOrders متتشيلش
   const rows = await query;
 
-  // ─── جيب returnReceived للطلبيات اللي status=returned من shipping_manifest_orders ─
-  const returnedIds = rows.filter(o => o.status === "returned").map(o => o.id);
-  const returnReceivedMap = new Map<number, number | null>();
-  if (returnedIds.length > 0) {
-    const manifestLinks = await db
-      .select({
-        orderId: shippingManifestOrdersTable.orderId,
-        returnReceived: shippingManifestOrdersTable.returnReceived,
-      })
-      .from(shippingManifestOrdersTable)
-      .where(inArray(shippingManifestOrdersTable.orderId, returnedIds));
-    // لو في أكتر من بيان للطلب، خد الأحدث (اللي returnReceived != null لو موجود)
-    for (const link of manifestLinks) {
-      const existing = returnReceivedMap.get(link.orderId);
-      if (existing === undefined || (link.returnReceived !== null && existing === null)) {
-        returnReceivedMap.set(link.orderId, link.returnReceived ?? null);
-      }
-    }
-  }
-  // ─────────────────────────────────────────────────────────────────────────
-
   // ─── Group rows by invoiceNumber — return one merged row per invoice ──────
   const groupMap = new Map<string, typeof rows>();
   for (const o of rows) {
@@ -195,10 +174,8 @@ router.get("/orders", async (req, res): Promise<void> => {
   }
 
   // ─── طبّق الـ manifest filter على مستوى الـ invoice:
-  //     لو أي row من الـ invoice موجود في manifest → اشيل الـ invoice كلها
   const filteredGroups = Array.from(groupMap.values()).filter(grp => {
     if (manifestOrderIdsSet.size === 0) return true;
-    // لو كل الـ rows في الـ invoice في manifest → اشيل الـ invoice
     const allInManifest = grp.every(o => manifestOrderIdsSet.has(o.id));
     return !allInManifest;
   });
@@ -207,7 +184,7 @@ router.get("/orders", async (req, res): Promise<void> => {
     if (grp.length === 1) {
       const rep = { ...grp[0] } as any;
       rep._invoiceOrders = [grp[0]];
-      if (rep.status === "returned") rep.returnReceived = returnReceivedMap.get(rep.id) ?? null;
+      // returnReceived موجود مباشرة في ordersTable
       return rep;
     }
     const rep = { ...grp[0] } as any;
@@ -218,7 +195,12 @@ router.get("/orders", async (req, res): Promise<void> => {
     rep._groupCount    = grp.length;
     rep._groupStatuses = grp.map(o => o.status);
     rep._invoiceOrders = grp;
-    if (rep.status === "returned") rep.returnReceived = returnReceivedMap.get(rep.id) ?? null;
+    // للمجموعة: جيب returnReceived من أي طلبية فيها قيمة (فضّل != null)
+    const allReturned = grp.every(o => o.status === "returned");
+    if (allReturned) {
+      const rr = grp.find(o => o.returnReceived !== null)?.returnReceived ?? null;
+      rep.returnReceived = rr;
+    }
     return rep;
   });
 
@@ -498,7 +480,21 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
   const unitPrice = parsed.data.unitPrice ?? existing.unitPrice;
   const totalPrice = quantity * unitPrice;
 
-  await db.update(ordersTable).set({ ...parsed.data, totalPrice, updatedAt: new Date() }).where(eq(ordersTable.id, params.data.id));
+  // احتساب returnReceived الجديدة
+  const newStatusFromBody = parsed.data.status;
+  let returnReceivedUpdate: number | null | undefined = undefined; // undefined = ما نعملش update
+  if (newStatusFromBody === "returned") {
+    if (req.body.returnReceived === true || req.body.returnReceived === 1) returnReceivedUpdate = 1;
+    else if (req.body.returnReceived === false || req.body.returnReceived === 0) returnReceivedUpdate = 0;
+    else returnReceivedUpdate = undefined; // مش بعتنا قيمة = خلّيها زي ما هي
+  } else if (newStatusFromBody && newStatusFromBody !== "returned") {
+    returnReceivedUpdate = null; // غيّر الحالة لغير مرتجع → امسح returnReceived
+  }
+
+  const updatePayload: Record<string, any> = { ...parsed.data, totalPrice, updatedAt: new Date() };
+  if (returnReceivedUpdate !== undefined) updatePayload.returnReceived = returnReceivedUpdate;
+
+  await db.update(ordersTable).set(updatePayload).where(eq(ordersTable.id, params.data.id));
   const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, params.data.id));
   if (!order) { res.status(404).json({ error: "Order not found" }); return; }
 

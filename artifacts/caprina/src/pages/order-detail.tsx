@@ -70,6 +70,7 @@ export default function OrderDetail() {
   const [returnReason, setReturnReason] = useState("");
   const [returnNote, setReturnNote] = useState("");
   const [returnIsDamaged, setReturnIsDamaged] = useState(false);
+  const [returnReceived, setReturnReceived] = useState<boolean | null>(null); // null = لم يُحدد
 
   const initializedRef = useRef(false);
 
@@ -152,6 +153,7 @@ export default function OrderDetail() {
   const handleReturnConfirm = () => {
     if (!returnReason) { toast({ title: "خطأ", description: "اختر سبب الإرجاع.", variant: "destructive" }); return; }
     if (returnReason === "other" && !returnNote.trim()) { toast({ title: "خطأ", description: "اكتب سبب الإرجاع.", variant: "destructive" }); return; }
+    if (returnReceived === null) { toast({ title: "خطأ", description: "حدد هل تم استلام المرتجع أم لا.", variant: "destructive" }); return; }
 
     updateOrder.mutate({
       id,
@@ -160,6 +162,7 @@ export default function OrderDetail() {
         returnReason,
         returnNote: returnReason === "other" ? returnNote.trim() : null,
         isDamaged: returnIsDamaged,
+        returnReceived,
       } as any,
     }, {
       onSuccess: (updated) => {
@@ -169,7 +172,11 @@ export default function OrderDetail() {
         setReturnReason("");
         setReturnNote("");
         setReturnIsDamaged(false);
-        toast({ title: "تم التسجيل", description: returnIsDamaged ? "تم تسجيل المرتجع التالف — لم يُضاف للمخزون." : "تم تسجيل المرتجع وأُضيف للمخزون." });
+        setReturnReceived(null);
+        const msg = returnReceived
+          ? (returnIsDamaged ? "تم تسجيل المرتجع التالف — لم يُضاف للمخزون." : "تم استلام المرتجع وأُضيف للمخزون.")
+          : "تم تسجيل المرتجع — مازال عند شركة الشحن.";
+        toast({ title: "تم التسجيل", description: msg });
       },
       onError: () => toast({ title: "خطأ", description: "فشل تحديث الحالة.", variant: "destructive" }),
     });
@@ -413,6 +420,29 @@ export default function OrderDetail() {
                 />
               </div>
             )}
+            {/* هل تم استلام المرتجع؟ */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground font-semibold">هل تم استلام المرتجع؟ *</Label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setReturnReceived(true)}
+                  className={`flex-1 rounded-md border px-3 py-2 text-xs font-bold transition-colors ${returnReceived === true ? "bg-emerald-600 text-white border-emerald-600" : "border-emerald-600 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"}`}
+                >
+                  ✓ تم الاستلام
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setReturnReceived(false)}
+                  className={`flex-1 rounded-md border px-3 py-2 text-xs font-bold transition-colors ${returnReceived === false ? "bg-orange-600 text-white border-orange-600" : "border-orange-500 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20"}`}
+                >
+                  ✗ مازال عند شركة الشحن
+                </button>
+              </div>
+              {returnReceived === null && <p className="text-[10px] text-destructive">⚠ مطلوب — حدد حالة الاستلام</p>}
+              {returnReceived === true && <p className="text-[10px] text-emerald-600">✓ سيتم إرجاع البضاعة للمخزن</p>}
+              {returnReceived === false && <p className="text-[10px] text-orange-500">⏳ المرتجع مازال عند شركة الشحن</p>}
+            </div>
             {/* Damaged checkbox */}
             <div
               className={`flex items-center gap-3 p-2.5 rounded border cursor-pointer transition-colors ${returnIsDamaged ? "border-amber-700 bg-amber-900/20" : "border-border bg-card/50"}`}
@@ -432,10 +462,10 @@ export default function OrderDetail() {
               </div>
             </div>
             <div className="flex items-center gap-2 pt-1">
-              <Button size="sm" className="h-8 text-xs bg-red-700 hover:bg-red-600 text-white gap-1" onClick={handleReturnConfirm} disabled={updateOrder.isPending}>
+              <Button size="sm" className="h-8 text-xs bg-red-700 hover:bg-red-600 text-white gap-1" onClick={handleReturnConfirm} disabled={updateOrder.isPending || returnReceived === null}>
                 <RotateCcw className="w-3 h-3" />{updateOrder.isPending ? "جاري..." : "تأكيد الإرجاع"}
               </Button>
-              <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setShowReturnInput(false); setReturnReason(""); setReturnNote(""); setReturnIsDamaged(false); }}>إلغاء</Button>
+              <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setShowReturnInput(false); setReturnReason(""); setReturnNote(""); setReturnIsDamaged(false); setReturnReceived(null); }}>إلغاء</Button>
             </div>
           </CardContent>
         </Card>

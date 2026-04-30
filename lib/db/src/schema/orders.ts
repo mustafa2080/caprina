@@ -34,6 +34,7 @@ export const ordersTable = mysqlTable("orders", {
   notes: text("notes"),
   returnReason: text("return_reason"),
   returnNote: text("return_note"),
+  returnReceived: int("return_received"), // null = لم يُحدد، 0 = عند شركة الشحن، 1 = تم الاستلام
   trackingNumber: varchar("tracking_number", { length: 255 }),
   invoiceNumber: varchar("invoice_number", { length: 50 }),
   deletedAt: datetime("deleted_at"),

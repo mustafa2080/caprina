@@ -581,6 +581,12 @@ router.patch(
     if (deliveryStatus === "partial_received" && partialQuantity) {
       orderUpdate.partialQuantity = partialQuantity;
     }
+    // حفظ returnReceived في ordersTable نفسها (مصدر الحقيقة الوحيد)
+    if (deliveryStatus === "returned" && returnReceived !== undefined && returnReceived !== null) {
+      orderUpdate.returnReceived = returnReceived ? 1 : 0;
+    } else if (deliveryStatus !== "returned") {
+      orderUpdate.returnReceived = null;
+    }
     await db
       .update(ordersTable)
       .set(orderUpdate)
@@ -702,7 +708,13 @@ router.patch(
         const sibNewOrderStatus = STATUS_MAP[deliveryStatus] ?? "in_shipping";
         const sibOrderUpdate: Record<string, unknown> = { status: sibNewOrderStatus };
         if (deliveryStatus === "partial_received" && partialQuantity) {
-          sibOrderUpdate.partialQuantity = null; // الكمية الجزئية للـ siblings لا تُطبق
+          sibOrderUpdate.partialQuantity = null;
+        }
+        // حفظ returnReceived في ordersTable للـ siblings كمان
+        if (deliveryStatus === "returned" && returnReceived !== undefined && returnReceived !== null) {
+          sibOrderUpdate.returnReceived = returnReceived ? 1 : 0;
+        } else if (deliveryStatus !== "returned") {
+          sibOrderUpdate.returnReceived = null;
         }
         await db
           .update(ordersTable)
