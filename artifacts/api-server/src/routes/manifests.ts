@@ -356,6 +356,7 @@ router.get("/shipping-manifests/:id", async (req, res): Promise<void> => {
         // استخدم الكمية الجزئية من الـ manifest order row إذا كانت موجودة
         partialQuantity: (link as any).partialQuantity ?? o.partialQuantity,
         manifestOrderId: link.id,
+        returnReceived: link.returnReceived ?? null,
       };
     });
   }
@@ -498,6 +499,8 @@ const DeliveryStatusSchema = z.object({
   ]),
   deliveryNote: z.string().nullish(),
   partialQuantity: z.number().int().positive().nullish(),
+  // حالة استلام المرتجع: true = تم الاستلام (يرجع للمخزن)، false = لم يُستلم بعد (مازال في شركة الشحن)
+  returnReceived: z.boolean().nullish(),
 });
 
 const STATUS_MAP: Record<string, string> = {
@@ -524,7 +527,7 @@ router.patch(
       return;
     }
 
-    const { deliveryStatus, deliveryNote, partialQuantity } = parsed.data;
+    const { deliveryStatus, deliveryNote, partialQuantity, returnReceived } = parsed.data;
 
     // Fetch manifest order link
     const [link] = await db
@@ -564,6 +567,12 @@ router.patch(
         deliveryNote: deliveryNote ?? null,
         partialQuantity: deliveryStatus === "partial_received" && partialQuantity ? partialQuantity : null,
         deliveredAt: isDelivered ? new Date() : null,
+        // returnReceived: null = لم يُحدَّد، 1 = تم الاستلام، 0 = لم يُستلم بعد
+        ...(deliveryStatus === "returned" && returnReceived !== undefined && returnReceived !== null
+          ? { returnReceived: returnReceived ? 1 : 0 }
+          : deliveryStatus !== "returned"
+          ? { returnReceived: null }
+          : {}),
       })
       .where(eq(shippingManifestOrdersTable.id, link.id));
 
@@ -607,18 +616,39 @@ router.patch(
         else if (delta < 0)
           await reverseDelivery(orderRef, Math.abs(delta), orderId);
       } else if (deliveryStatus === "returned") {
-        // Return: restore stock only if the order was previously delivered
-        const wasFullyDelivered = oldStatus === "received";
-        const wasPartiallyDelivered = oldStatus === "partial_received";
-        const returnQty = wasPartiallyDelivered
-          ? (existingOrder.partialQuantity ?? existingOrder.quantity)
-          : existingOrder.quantity;
-        await processReturn(
-          { ...orderRef, quantity: returnQty },
-          wasFullyDelivered || wasPartiallyDelivered,
-          false, // not damaged — return to stock
-          orderId
-        );
+        // المرتجع:
+        // - لو returnReceived = true → تم استلام البضاعة فعلاً → ترجع للمخزن
+        // - لو returnReceived = false أو null → البضاعة لسه عند شركة الشحن → ما بنرجعهاش للمخزن دلوقتي
+        if (returnReceived === true) {
+          // تم استلام المرتجع → رجّع للمخزن
+          const wasFullyDelivered = oldStatus === "received";
+          const wasPartiallyDelivered = oldStatus === "partial_received";
+          const returnQty = wasPartiallyDelivered
+            ? (existingOrder.partialQuantity ?? existingOrder.quantity)
+            : existingOrder.quantity;
+          await processReturn(
+            { ...orderRef, quantity: returnQty },
+            wasFullyDelivered || wasPartiallyDelivered,
+            false, // not damaged — return to stock
+            orderId
+          );
+        } else if (returnReceived === false) {
+          // لم يُستلم بعد (مازال في شركة الشحن) → لا نعمل أي inventory transition
+          // الأوردر يفضل حالته "returned" في DB بدون تأثير على المخزن
+        } else {
+          // returnReceived = null = لم يُحدَّد بعد → نفس السلوك القديم (رجّع للمخزن تلقائياً)
+          const wasFullyDelivered = oldStatus === "received";
+          const wasPartiallyDelivered = oldStatus === "partial_received";
+          const returnQty = wasPartiallyDelivered
+            ? (existingOrder.partialQuantity ?? existingOrder.quantity)
+            : existingOrder.quantity;
+          await processReturn(
+            { ...orderRef, quantity: returnQty },
+            wasFullyDelivered || wasPartiallyDelivered,
+            false,
+            orderId
+          );
+        }
       } else {
         // postponed / pending — reverse any previous delivery
         if (oldStatus === "received") {
@@ -631,7 +661,7 @@ router.patch(
       }
     }
 
-    res.json({ success: true, deliveryStatus, deliveryNote: deliveryNote ?? null });
+    res.json({ success: true, deliveryStatus, deliveryNote: deliveryNote ?? null, returnReceived: returnReceived ?? null });
   }
 );
 

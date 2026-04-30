@@ -116,6 +116,10 @@ function OrderDeliveryRow({
     order.deliveryNote?.startsWith("منتج:") ? order.deliveryNote.split("|")[0].replace("منتج:", "").trim() : ""
   );
   const [confirmCancel, setConfirmCancel] = useState(false);
+  // حالة استلام المرتجع: null = لم يُحدَّد، true = تم الاستلام، false = لم يُستلم بعد
+  const [returnReceived, setReturnReceived] = useState<boolean | null>(
+    (order as any).returnReceived === 1 ? true : (order as any).returnReceived === 0 ? false : null
+  );
 
   const cancelMutation = useMutation({
     mutationFn: () => manifestsApi.cancelOrder(manifestId, order.id),
@@ -151,6 +155,7 @@ function OrderDeliveryRow({
           status === "partial_received" && partialQty
             ? parseInt(partialQty)
             : null,
+        ...(status === "returned" ? { returnReceived } : {}),
       });
     },
     onSuccess: () => {
@@ -215,6 +220,13 @@ function OrderDeliveryRow({
           >
             {opt.label}
           </Badge>
+          {/* sub-status للمرتجع */}
+          {order.deliveryStatus === "returned" && (order as any).returnReceived === 1 && (
+            <p className="text-[10px] text-emerald-600 mt-0.5 font-semibold">↩ تم الاستلام</p>
+          )}
+          {order.deliveryStatus === "returned" && (order as any).returnReceived === 0 && (
+            <p className="text-[10px] text-orange-500 mt-0.5 font-semibold">⏳ عند شركة الشحن</p>
+          )}
           {order.deliveryNote && !editing && (
             <p className="text-[10px] text-muted-foreground mt-0.5 truncate max-w-[110px]">
               {order.deliveryNote}
@@ -315,6 +327,44 @@ function OrderDeliveryRow({
               </>
             )}
           </div>
+          {/* حالة استلام المرتجع — تظهر فقط لما المستخدم يختار "مرتجع" */}
+          {status === "returned" && (
+            <div>
+              <Label className="text-[10px] mb-1.5 block text-muted-foreground font-semibold">
+                هل تم استلام المرتجع؟
+              </Label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setReturnReceived(true)}
+                  className={`flex-1 rounded-md border px-3 py-2 text-xs font-bold transition-colors ${
+                    returnReceived === true
+                      ? "bg-emerald-600 text-white border-emerald-600"
+                      : "border-emerald-400 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                  }`}
+                >
+                  ✓ تم استلام المرتجع
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setReturnReceived(false)}
+                  className={`flex-1 rounded-md border px-3 py-2 text-xs font-bold transition-colors ${
+                    returnReceived === false
+                      ? "bg-orange-600 text-white border-orange-600"
+                      : "border-orange-400 text-orange-700 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20"
+                  }`}
+                >
+                  ✗ مازال في شركة الشحن
+                </button>
+              </div>
+              {returnReceived === true && (
+                <p className="text-[10px] text-emerald-600 mt-1">✓ سيتم إرجاع البضاعة للمخزن تلقائياً</p>
+              )}
+              {returnReceived === false && (
+                <p className="text-[10px] text-orange-500 mt-1">⏳ مرتجع مازال في شركة الشحن — لن يؤثر على المخزن</p>
+              )}
+            </div>
+          )}
           {(needsNote || needsPartial || status === "pending") && (
           <div>
             <Label className="text-[10px] mb-1 block text-muted-foreground">

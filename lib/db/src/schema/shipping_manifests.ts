@@ -24,6 +24,8 @@ export const shippingManifestOrdersTable = mysqlTable("shipping_manifest_orders"
   partialQuantity: int("partial_quantity"),
   deliveredAt: datetime("delivered_at"),
   addedAt: datetime("added_at").notNull(),
+  // حالة استلام المرتجع: null = لم يُحدَّد بعد، true = تم استلامه، false = لم يُستلم بعد (مازال في شركة الشحن)
+  returnReceived: int("return_received"), // 1 = تم الاستلام، 0 = لم يُستلم (null = مرتجع جديد لم يُحدد)
 });
 
 export type ShippingManifest = typeof shippingManifestsTable.$inferSelect;

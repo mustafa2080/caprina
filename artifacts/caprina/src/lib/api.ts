@@ -650,6 +650,7 @@ export interface ManifestOrder extends Order {
   deliveryNote: string | null;
   deliveredAt: string | null;
   manifestOrderId: number;
+  returnReceived: 0 | 1 | null;
 }
 
 export interface ShippingManifestDetail extends ShippingManifestListItem {
@@ -675,7 +676,7 @@ export const manifestsApi = {
   updateOrderDelivery: (
     manifestId: number,
     orderId: number,
-    data: { deliveryStatus: DeliveryStatus; deliveryNote?: string | null; partialQuantity?: number | null }
+    data: { deliveryStatus: DeliveryStatus; deliveryNote?: string | null; partialQuantity?: number | null; returnReceived?: boolean | null }
   ) =>
     apiFetch<{ success: boolean; deliveryStatus: DeliveryStatus; deliveryNote: string | null }>(
       `/shipping-manifests/${manifestId}/orders/${orderId}`,
