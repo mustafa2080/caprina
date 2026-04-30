@@ -357,6 +357,9 @@ function OrderDeliveryRow({
                   ✗ مازال في شركة الشحن
                 </button>
               </div>
+              {returnReceived === null && (
+                <p className="text-[10px] text-destructive mt-1 font-semibold">⚠ يجب اختيار حالة استلام المرتجع قبل الحفظ</p>
+              )}
               {returnReceived === true && (
                 <p className="text-[10px] text-emerald-600 mt-1">✓ سيتم إرجاع البضاعة للمخزن تلقائياً</p>
               )}
@@ -404,7 +407,8 @@ function OrderDeliveryRow({
                 mutation.isPending ||
                 !hasChanges ||
                 (needsNote && !note.trim()) ||
-                (needsPartial && (!partialQty || parseInt(partialQty) < 1))
+                (needsPartial && (!partialQty || parseInt(partialQty) < 1)) ||
+                (status === "returned" && returnReceived === null)
               }
             >
               <Save className="w-3 h-3" />
@@ -876,6 +880,9 @@ function InvoiceGroupDeliveryRow({
                     ✗ مازال في شركة الشحن
                   </button>
                 </div>
+                {bulkReturnReceived === null && (
+                  <p className="text-[10px] text-destructive mt-1 font-semibold">⚠ يجب اختيار حالة استلام المرتجع قبل الحفظ</p>
+                )}
                 {bulkReturnReceived === true && (
                   <p className="text-[10px] text-emerald-600 mt-1">✓ سيتم إرجاع البضاعة للمخزن تلقائياً</p>
                 )}
@@ -918,6 +925,7 @@ function InvoiceGroupDeliveryRow({
                 disabled={
                   bulkMutation.isPending ||
                   (needsBulkNote && !bulkNote.trim()) ||
+                  (bulkStatus === "returned" && bulkReturnReceived === null) ||
                   (!isPerItemMode && bulkStatus === "partial_received" && group[0] && (
                     !partialQtyMap[group[0].id] || parseInt(partialQtyMap[group[0].id]) < 1
                   )) ||
@@ -2095,7 +2103,14 @@ export default function ShippingManifestPage() {
         toast({
           title: "✅ تم إغلاق البيان",
           description: `تم إنشاء بيان جديد "${rolled.manifestNumber}" يحتوي على ${rolled.orderCount} طلبية مؤجلة/قيد الانتظار`,
+          duration: 10000,
         });
+        // Navigate to the new manifest after a short delay
+        setTimeout(() => {
+          if (confirm(`تم إنشاء بيان جديد "${rolled.manifestNumber}" للطلبيات المؤجلة.\nهل تريد الانتقال إليه الآن؟`)) {
+            window.location.href = `/shipping/manifests/${rolled.id}`;
+          }
+        }, 500);
       } else {
         toast({ title: "✅ تم إغلاق البيان" });
       }
