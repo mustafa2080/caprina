@@ -165,6 +165,27 @@ router.get("/orders", async (req, res): Promise<void> => {
   // نستخدم البيانات مباشرة بدون Zod parse عشان _invoiceOrders متتشيلش
   const rows = await query;
 
+  // ─── جيب returnReceived للطلبيات اللي status=returned من shipping_manifest_orders ─
+  const returnedIds = rows.filter(o => o.status === "returned").map(o => o.id);
+  const returnReceivedMap = new Map<number, number | null>();
+  if (returnedIds.length > 0) {
+    const manifestLinks = await db
+      .select({
+        orderId: shippingManifestOrdersTable.orderId,
+        returnReceived: shippingManifestOrdersTable.returnReceived,
+      })
+      .from(shippingManifestOrdersTable)
+      .where(inArray(shippingManifestOrdersTable.orderId, returnedIds));
+    // لو في أكتر من بيان للطلب، خد الأحدث (اللي returnReceived != null لو موجود)
+    for (const link of manifestLinks) {
+      const existing = returnReceivedMap.get(link.orderId);
+      if (existing === undefined || (link.returnReceived !== null && existing === null)) {
+        returnReceivedMap.set(link.orderId, link.returnReceived ?? null);
+      }
+    }
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
   // ─── Group rows by invoiceNumber — return one merged row per invoice ──────
   const groupMap = new Map<string, typeof rows>();
   for (const o of rows) {
@@ -186,6 +207,7 @@ router.get("/orders", async (req, res): Promise<void> => {
     if (grp.length === 1) {
       const rep = { ...grp[0] } as any;
       rep._invoiceOrders = [grp[0]];
+      if (rep.status === "returned") rep.returnReceived = returnReceivedMap.get(rep.id) ?? null;
       return rep;
     }
     const rep = { ...grp[0] } as any;
@@ -196,6 +218,7 @@ router.get("/orders", async (req, res): Promise<void> => {
     rep._groupCount    = grp.length;
     rep._groupStatuses = grp.map(o => o.status);
     rep._invoiceOrders = grp;
+    if (rep.status === "returned") rep.returnReceived = returnReceivedMap.get(rep.id) ?? null;
     return rep;
   });
 

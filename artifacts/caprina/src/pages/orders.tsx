@@ -347,6 +347,12 @@ export default function Orders() {
                               </span>
                             );
                           })()}
+                        {order.status === "returned" && (() => {
+                          const rr = (order as any).returnReceived as 0 | 1 | null | undefined;
+                          if (rr === 1) return <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-600 dark:text-emerald-400">↩ تم الاستلام</span>;
+                          if (rr === 0) return <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-orange-500 dark:text-orange-400">⏳ عند شركة الشحن</span>;
+                          return null;
+                        })()}
                         {order.status === "returned" && retReason && (
                           <span className="text-[9px] text-red-600 dark:text-red-400">{retReason === "other" && retNote ? retNote : returnReasonLabel(retReason)}</span>
                         )}
@@ -435,6 +441,12 @@ export default function Orders() {
                                 <span className="text-[9px] font-bold text-orange-600 dark:text-orange-400 leading-none">ما زال في المخزن</span>
                               </div>
                             );
+                          })()}
+                          {order.status === "returned" && (() => {
+                            const rr = (order as any).returnReceived as 0 | 1 | null | undefined;
+                            if (rr === 1) return <div className="flex items-center justify-center gap-0.5 mt-1"><span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 leading-none">↩ تم الاستلام</span></div>;
+                            if (rr === 0) return <div className="flex items-center justify-center gap-0.5 mt-1"><span className="text-[9px] font-bold text-orange-500 dark:text-orange-400 leading-none">⏳ عند شركة الشحن</span></div>;
+                            return null;
                           })()}
                           {order.status === "returned" && retReason && (
                             <div className="flex items-center justify-center gap-0.5 mt-1">
