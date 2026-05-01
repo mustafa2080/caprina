@@ -1,5 +1,5 @@
 ﻿import { Router, type IRouter } from "express";
-import { eq, desc, and, inArray, sql, count, isNull } from "drizzle-orm";
+import { eq, desc, and, inArray, or, sql, count, isNull } from "drizzle-orm";
 import {
   db,
   shippingManifestsTable,
@@ -431,14 +431,22 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
   let rolledOverManifest: (typeof shippingManifestsTable.$inferSelect & { orderCount: number }) | null = null;
 
   if (parsed.data.status === "closed") {
-    // اجمع الأوردرات اللي حالتها postponed أو pending في هذا البيان
+    // اجمع الأوردرات اللي:
+    // 1) حالتها postponed أو pending أو in_shipping
+    // 2) أو حالتها returned لكن returnReceived = 0 (مازالت في شركة الشحن لم تُستلم بعد)
     const pendingLinks = await db
       .select()
       .from(shippingManifestOrdersTable)
       .where(
         and(
           eq(shippingManifestOrdersTable.manifestId, id),
-          inArray(shippingManifestOrdersTable.deliveryStatus, ["postponed", "pending", "in_shipping"])
+          or(
+            inArray(shippingManifestOrdersTable.deliveryStatus, ["postponed", "pending", "in_shipping"]),
+            and(
+              eq(shippingManifestOrdersTable.deliveryStatus, "returned"),
+              eq(shippingManifestOrdersTable.returnReceived, 0)
+            )
+          )
         )
       );
 
@@ -472,10 +480,12 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
         }))
       );
 
-      // حدّث حالة الأوردرات لـ in_shipping (كانوا postponed → delayed أو pending → in_shipping)
+      // حدّث حالة الأوردرات لـ in_shipping
+      // الطلبيات المرتجعة اللي كانت "مازالت في شركة الشحن" (returnReceived=0) → حالتها بتتغير لـ in_shipping
+      // ونمسح returnReceived عشانها تتعامل كطلبية عادية في البيان الجديد
       await db
         .update(ordersTable)
-        .set({ status: "in_shipping", shippingCompanyId: updated.shippingCompanyId })
+        .set({ status: "in_shipping", shippingCompanyId: updated.shippingCompanyId, returnReceived: null })
         .where(inArray(ordersTable.id, rolloverOrderIds));
 
       rolledOverManifest = { ...newManifest, orderCount: rolloverOrderIds.length };
