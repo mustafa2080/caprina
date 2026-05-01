@@ -421,27 +421,66 @@ export default function OrderDetail() {
               </div>
             )}
             {/* هل تم استلام المرتجع؟ */}
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground font-semibold">هل تم استلام المرتجع؟ *</Label>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setReturnReceived(true)}
-                  className={`flex-1 rounded-md border px-3 py-2 text-xs font-bold transition-colors ${returnReceived === true ? "bg-emerald-600 text-white border-emerald-600" : "border-emerald-600 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"}`}
-                >
-                  ✓ تم الاستلام
+            <div className="space-y-2">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">هل تم استلام المرتجع؟ *</p>
+              <div className="flex gap-2.5">
+                {/* تم الاستلام */}
+                <button type="button" onClick={() => setReturnReceived(true)}
+                  className="flex-1 relative outline-none cursor-pointer p-0 border-0 bg-transparent"
+                  style={{ borderRadius: 14 }}>
+                  <div className="absolute inset-0 top-1 rounded-[14px] transition-colors" style={{
+                    background: returnReceived === true ? "#085041" : "var(--color-background-secondary)",
+                    border: returnReceived === true ? "none" : "1.5px solid #9FE1CB",
+                  }} />
+                  <div className={`relative z-10 flex flex-col items-center gap-1.5 px-3 pt-3 pb-4 rounded-[14px] transition-all ${returnReceived === true ? "mb-1" : "mb-0"}`} style={{
+                    background: returnReceived === true ? "#0F6E56" : "var(--color-background-primary)",
+                    border: returnReceived === true ? "none" : "1.5px solid #9FE1CB",
+                    boxShadow: returnReceived === true ? "inset 0 0 0 2px rgba(159,225,203,0.4)" : "none",
+                    transform: returnReceived === true ? "translateY(2px)" : "none",
+                  }}>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+                      stroke={returnReceived === true ? "#E1F5EE" : "#1D9E75"}
+                      strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20 7L9 18l-5-5"/>
+                    </svg>
+                    <span className="text-[11px] font-semibold leading-tight" style={{ color: returnReceived === true ? "#E1F5EE" : "#0F6E56" }}>تم الاستلام</span>
+                    <span className="text-[9px] leading-tight" style={{ color: returnReceived === true ? "rgba(225,245,238,0.7)" : "#5F5E5A" }}>يُعاد للمخزن</span>
+                  </div>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setReturnReceived(false)}
-                  className={`flex-1 rounded-md border px-3 py-2 text-xs font-bold transition-colors ${returnReceived === false ? "bg-orange-600 text-white border-orange-600" : "border-orange-500 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20"}`}
-                >
-                  ✗ مازال عند شركة الشحن
+                {/* مازال في الشحن */}
+                <button type="button" onClick={() => setReturnReceived(false)}
+                  className="flex-1 relative outline-none cursor-pointer p-0 border-0 bg-transparent"
+                  style={{ borderRadius: 14 }}>
+                  <div className="absolute inset-0 top-1 rounded-[14px] transition-colors" style={{
+                    background: returnReceived === false ? "#412402" : "var(--color-background-secondary)",
+                    border: returnReceived === false ? "none" : "1.5px solid #FAC775",
+                  }} />
+                  <div className={`relative z-10 flex flex-col items-center gap-1.5 px-3 pt-3 pb-4 rounded-[14px] transition-all ${returnReceived === false ? "mb-1" : "mb-0"}`} style={{
+                    background: returnReceived === false ? "#854F0B" : "var(--color-background-primary)",
+                    border: returnReceived === false ? "none" : "1.5px solid #FAC775",
+                    boxShadow: returnReceived === false ? "inset 0 0 0 2px rgba(250,199,117,0.4)" : "none",
+                    transform: returnReceived === false ? "translateY(2px)" : "none",
+                  }}>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+                      stroke={returnReceived === false ? "#FAEEDA" : "#BA7517"}
+                      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="1" y="3" width="15" height="13" rx="2"/>
+                      <path d="M16 8h4l3 5v3h-7V8z"/>
+                      <circle cx="5.5" cy="18.5" r="2.5"/>
+                      <circle cx="18.5" cy="18.5" r="2.5"/>
+                    </svg>
+                    <span className="text-[11px] font-semibold leading-tight" style={{ color: returnReceived === false ? "#FAEEDA" : "#854F0B" }}>مازال في الشحن</span>
+                    <span className="text-[9px] leading-tight" style={{ color: returnReceived === false ? "rgba(250,238,218,0.7)" : "#5F5E5A" }}>لا يؤثر على المخزن</span>
+                  </div>
                 </button>
               </div>
-              {returnReceived === null && <p className="text-[10px] text-destructive">⚠ مطلوب — حدد حالة الاستلام</p>}
-              {returnReceived === true && <p className="text-[10px] text-emerald-600">✓ سيتم إرجاع البضاعة للمخزن</p>}
-              {returnReceived === false && <p className="text-[10px] text-orange-500">⏳ المرتجع مازال عند شركة الشحن</p>}
+              <p className="text-[10px] text-center font-medium" style={{
+                color: returnReceived === true ? "#0F6E56" : returnReceived === false ? "#854F0B" : "var(--color-text-secondary)",
+              }}>
+                {returnReceived === true && "✓ سيتم إرجاع البضاعة للمخزن تلقائياً"}
+                {returnReceived === false && "⏳ مرتجع مازال في شركة الشحن — لن يؤثر على المخزن"}
+                {returnReceived === null && "⚠ مطلوب — حدد حالة الاستلام"}
+              </p>
             </div>
             {/* Damaged checkbox */}
             <div
