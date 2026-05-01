@@ -2116,6 +2116,7 @@ export default function ShippingManifestPage() {
   const [showAddOrdersDialog, setShowAddOrdersDialog] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showOrders, setShowOrders] = useState(true);
+  const [showRolloverDialog, setShowRolloverDialog] = useState<null | { id: number; manifestNumber: string; orderCount: number; breakdown: string }>(null);
 
   const { data: manifest, isLoading, error } = useQuery({
     queryKey: ["shipping-manifest", id],
