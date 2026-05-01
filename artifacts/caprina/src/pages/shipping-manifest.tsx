@@ -491,7 +491,7 @@ function InvoiceGroupDeliveryRow({
   // تقفيل جماعي — state
   const [bulkEditing, setBulkEditing] = useState(false);
   const [bulkStatus, setBulkStatus] = useState<DeliveryStatus>(groupStatus);
-  const [bulkNote, setBulkNote] = useState("");
+  const [bulkNote, setBulkNote] = useState(rep.deliveryNote ?? "");
   const [confirmCancel, setConfirmCancel] = useState(false);
   // حالة استلام المرتجع للفاتورة الجماعية
   const [bulkReturnReceived, setBulkReturnReceived] = useState<boolean | null>(
