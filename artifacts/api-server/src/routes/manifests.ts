@@ -311,3 +311,5 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
   }
   res.json({ success: true, deliveryStatus, deliveryNote: deliveryNote ?? null, returnReceived: returnReceived ?? null });
 });
+
+export default router;
