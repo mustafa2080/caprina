@@ -2140,19 +2140,19 @@ export default function ShippingManifestPage() {
       setShowCloseDialog(false);
       if (result?.rolledOverManifest) {
         const rolled = result.rolledOverManifest;
+        const parts: string[] = [];
+        if (rolled.postponedCount > 0) parts.push(`${rolled.postponedCount} مؤجل`);
+        if (rolled.pendingCount > 0) parts.push(`${rolled.pendingCount} قيد الانتظار`);
+        if (rolled.returnedInShippingCount > 0) parts.push(`${rolled.returnedInShippingCount} مرتجع في الشحن`);
+        const breakdown = parts.length > 0 ? ` (${parts.join(" · ")})` : "";
         toast({
-          title: "✅ تم إغلاق البيان",
-          description: `تم إنشاء بيان جديد "${rolled.manifestNumber}" يحتوي على ${rolled.orderCount} طلبية مؤجلة/قيد الانتظار`,
-          duration: 10000,
+          title: "🔒 تم إغلاق البيان بنجاح",
+          description: `📦 تم إنشاء بيان جديد "${rolled.manifestNumber}" — ${rolled.orderCount} طلبية${breakdown}`,
+          duration: 15000,
         });
-        // Navigate to the new manifest after a short delay
-        setTimeout(() => {
-          if (confirm(`تم إنشاء بيان جديد "${rolled.manifestNumber}" للطلبيات المؤجلة.\nهل تريد الانتقال إليه الآن؟`)) {
-            window.location.href = `/shipping/manifests/${rolled.id}`;
-          }
-        }, 500);
+        setShowRolloverDialog({ id: rolled.id, manifestNumber: rolled.manifestNumber, orderCount: rolled.orderCount, breakdown });
       } else {
-        toast({ title: "✅ تم إغلاق البيان" });
+        toast({ title: "🔒 تم إغلاق البيان بنجاح" });
       }
     },
   });
@@ -2751,6 +2751,41 @@ export default function ShippingManifestPage() {
           onConfirm={() => updateMutation.mutate({ status: "closed" })}
           loading={updateMutation.isPending}
         />
+      )}
+
+      {/* ─── Rollover Dialog — بيان جديد اتنشأ ─── */}
+      {showRolloverDialog && (
+        <AlertDialog open onOpenChange={() => setShowRolloverDialog(null)}>
+          <AlertDialogContent dir="rtl">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2 text-emerald-500">
+                <CheckCircle2 className="w-5 h-5" />
+                تم إغلاق البيان وإنشاء بيان جديد
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-right space-y-3">
+                <span className="block text-foreground font-medium text-sm">
+                  تم إنشاء البيان <strong className="text-emerald-400">{showRolloverDialog.manifestNumber}</strong> تلقائياً
+                </span>
+                <span className="block text-muted-foreground text-xs">
+                  يحتوي على <strong>{showRolloverDialog.orderCount}</strong> طلبية مرحَّلة{showRolloverDialog.breakdown && <span className="text-amber-400"> {showRolloverDialog.breakdown}</span>}
+                </span>
+                <span className="block text-xs text-muted-foreground">
+                  هل تريد الانتقال للبيان الجديد الآن؟
+                </span>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setShowRolloverDialog(null)}>لاحقاً</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-emerald-700 hover:bg-emerald-600 text-white gap-1"
+                onClick={() => { window.location.href = `/shipping/manifests/${showRolloverDialog.id}`; }}
+              >
+                <ArrowRight className="w-3.5 h-3.5" />
+                انتقل للبيان الجديد
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
 
       {/* ─── Reopen Confirm Dialog — أدمن فقط ─── */}
