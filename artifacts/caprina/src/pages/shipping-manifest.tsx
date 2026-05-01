@@ -121,17 +121,6 @@ function OrderDeliveryRow({
     (order as any).returnReceived === 1 ? true : (order as any).returnReceived === 0 ? false : null
   );
 
-  // sync state لما البيانات تتحدث من الـ refetch
-  useEffect(() => {
-    if (!editing) {
-      setStatus(order.deliveryStatus);
-      setNote(order.deliveryNote ?? "");
-      setPartialQty(order.partialQuantity?.toString() ?? "");
-      const rr = (order as any).returnReceived;
-      setReturnReceived(rr === 1 ? true : rr === 0 ? false : null);
-    }
-  }, [order.deliveryStatus, order.deliveryNote, order.partialQuantity, (order as any).returnReceived, editing]);
-
   const cancelMutation = useMutation({
     mutationFn: () => manifestsApi.cancelOrder(manifestId, order.id),
     onSuccess: () => {
@@ -2686,7 +2675,7 @@ export default function ShippingManifestPage() {
                 </div>
                 {groupedManifestOrders.map((group, index) => (
                   <InvoiceGroupDeliveryRow
-                    key={group.map((order) => `${order.id}-${order.deliveryStatus}-${order.partialQuantity ?? 0}`).join("|")}
+                    key={group.map((order) => `${order.id}-${order.deliveryStatus}-${order.partialQuantity ?? 0}-${order.deliveryNote ?? ""}`).join("|")}
                     group={group}
                     manifestId={id}
                     locked={isLocked}
