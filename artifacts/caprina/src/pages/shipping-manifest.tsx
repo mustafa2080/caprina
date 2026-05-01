@@ -389,7 +389,6 @@ function OrderDeliveryRow({
               </p>
             </div>
           )}
-          {(needsNote || needsPartial || status === "pending") && (
           <div>
             <Label className="text-[10px] mb-1 block text-muted-foreground">
               {needsNote ? "سبب / ملاحظة (مطلوب)" : "ملاحظة (اختياري)"}
@@ -403,12 +402,11 @@ function OrderDeliveryRow({
                   ? "مثال: العميل طلب التأجيل أسبوعاً..."
                   : status === "returned"
                   ? "مثال: العميل رفض الاستلام..."
-                  : "ملاحظة..."
+                  : "ملاحظة (اختياري)..."
               }
               autoFocus={!needsPartial}
             />
           </div>
-          )}
           <div className="flex gap-2 justify-between items-center">
             <Button
               size="sm"
