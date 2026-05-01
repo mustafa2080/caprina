@@ -1,4 +1,4 @@
-﻿import { Router, type IRouter } from "express";
+import { Router, type IRouter } from "express";
 import { eq, desc, and, inArray, or, sql, count, isNull } from "drizzle-orm";
 import {
   db,
@@ -138,7 +138,6 @@ function computeStats(orders: OrderWithDelivery[]) {
       totalShippingCost += shipping;
       deliveredGross += revenue;
     } else if (o.deliveryStatus === "returned") {
-      // المرتجع: البضاعة رجعت للمخزن → خسارة الشحن فقط
       returnLosses += shipping;
       totalShippingCost += shipping;
     } else {
@@ -149,47 +148,23 @@ function computeStats(orders: OrderWithDelivery[]) {
   const netProfit = totalRevenue - totalCost - totalShippingCost - returnLosses;
 
   return {
-    total,
-    delivered,
-    returned,
-    pending,
-    deliveryRate,
-    totalRevenue,
-    totalCost,
-    totalShippingCost,
-    returnLosses,
-    netProfit,
-    deliveredGross,
+    total, delivered, returned, pending, deliveryRate,
+    totalRevenue, totalCost, totalShippingCost, returnLosses, netProfit, deliveredGross,
   };
 }
 
 router.get("/shipping-manifests", async (req, res): Promise<void> => {
-  const companyId = req.query.companyId
-    ? parseInt(req.query.companyId as string)
-    : undefined;
+  const companyId = req.query.companyId ? parseInt(req.query.companyId as string) : undefined;
 
   const manifests = await db
-    .select({
-      manifest: shippingManifestsTable,
-      company: shippingCompaniesTable,
-    })
+    .select({ manifest: shippingManifestsTable, company: shippingCompaniesTable })
     .from(shippingManifestsTable)
-    .leftJoin(
-      shippingCompaniesTable,
-      eq(shippingManifestsTable.shippingCompanyId, shippingCompaniesTable.id)
-    )
-    .where(
-      companyId
-        ? eq(shippingManifestsTable.shippingCompanyId, companyId)
-        : undefined
-    )
+    .leftJoin(shippingCompaniesTable, eq(shippingManifestsTable.shippingCompanyId, shippingCompaniesTable.id))
+    .where(companyId ? eq(shippingManifestsTable.shippingCompanyId, companyId) : undefined)
     .orderBy(desc(shippingManifestsTable.createdAt));
 
   const manifestIds = manifests.map((m) => m.manifest.id);
-  if (manifestIds.length === 0) {
-    res.json([]);
-    return;
-  }
+  if (manifestIds.length === 0) { res.json([]); return; }
 
   const allLinks = await db
     .select({ manifestId: shippingManifestOrdersTable.manifestId })
@@ -213,107 +188,57 @@ router.get("/shipping-manifests", async (req, res): Promise<void> => {
 
 router.post("/shipping-manifests", async (req, res): Promise<void> => {
   const parsed = CreateManifestSchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   const { shippingCompanyId, orderIds, notes } = parsed.data;
   const normalizedOrderIds = await expandOrderIdsByInvoice(orderIds);
 
-  const company = await db
-    .select()
-    .from(shippingCompaniesTable)
-    .where(eq(shippingCompaniesTable.id, shippingCompanyId))
-    .then((r) => r[0]);
-  if (!company) {
-    res.status(404).json({ error: "شركة الشحن غير موجودة" });
-    return;
-  }
+  const company = await db.select().from(shippingCompaniesTable)
+    .where(eq(shippingCompaniesTable.id, shippingCompanyId)).then((r) => r[0]);
+  if (!company) { res.status(404).json({ error: "شركة الشحن غير موجودة" }); return; }
 
   const manifestNumber = await generateManifestNumber(shippingCompanyId);
-
-  const insertResult = await db
-    .insert(shippingManifestsTable)
-    .values({
-      manifestNumber,
-      shippingCompanyId,
-      notes: notes ?? null,
-      status: "open",
-      createdAt: new Date(),
-    });
+  const insertResult = await db.insert(shippingManifestsTable).values({
+    manifestNumber, shippingCompanyId, notes: notes ?? null, status: "open", createdAt: new Date(),
+  });
   const insertId = (insertResult as any)[0]?.insertId ?? (insertResult as any).insertId;
   const [manifest] = await db.select().from(shippingManifestsTable).where(eq(shippingManifestsTable.id, insertId));
 
   await db.insert(shippingManifestOrdersTable).values(
     normalizedOrderIds.map((orderId) => ({
-      manifestId: manifest.id,
-      orderId,
-      deliveryStatus: "pending",
-      addedAt: new Date(),
+      manifestId: manifest.id, orderId, deliveryStatus: "pending", addedAt: new Date(),
     }))
   );
 
-  // خصم من المخزون لكل الطلبات عند إنشاء البيان
-  const ordersToShip = await db
-    .select()
-    .from(ordersTable)
-    .where(inArray(ordersTable.id, normalizedOrderIds));
-
+  const ordersToShip = await db.select().from(ordersTable).where(inArray(ordersTable.id, normalizedOrderIds));
   for (const order of ordersToShip) {
     await processToShipping(
-      {
-        variantId: order.variantId,
-        productId: order.productId,
-        product: order.product,
-        color: order.color,
-        size: order.size,
-        warehouseId: order.warehouseId,
-      },
-      order.quantity,
-      order.id,
+      { variantId: order.variantId, productId: order.productId, product: order.product,
+        color: order.color, size: order.size, warehouseId: order.warehouseId },
+      order.quantity, order.id,
     );
   }
 
-  // حوّل كل الطلبات لـ in_shipping (بما فيهم اللي كانوا in_shipping بالفعل)
-  await db
-    .update(ordersTable)
-    .set({ status: "in_shipping", shippingCompanyId: shippingCompanyId })
+  await db.update(ordersTable)
+    .set({ status: "in_shipping", shippingCompanyId })
     .where(inArray(ordersTable.id, normalizedOrderIds));
 
   res.status(201).json({
-    ...manifest,
-    invoicePrice: null,
-    companyName: company.name,
-    orderCount: normalizedOrderIds.length,
+    ...manifest, invoicePrice: null, companyName: company.name, orderCount: normalizedOrderIds.length,
   });
 });
 
 router.get("/shipping-manifests/:id", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
-  if (isNaN(id)) {
-    res.status(400).json({ error: "Invalid ID" });
-    return;
-  }
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
   const [row] = await db
-    .select({
-      manifest: shippingManifestsTable,
-      company: shippingCompaniesTable,
-    })
+    .select({ manifest: shippingManifestsTable, company: shippingCompaniesTable })
     .from(shippingManifestsTable)
-    .leftJoin(
-      shippingCompaniesTable,
-      eq(shippingManifestsTable.shippingCompanyId, shippingCompaniesTable.id)
-    )
+    .leftJoin(shippingCompaniesTable, eq(shippingManifestsTable.shippingCompanyId, shippingCompaniesTable.id))
     .where(eq(shippingManifestsTable.id, id));
-  if (!row) {
-    res.status(404).json({ error: "البيان غير موجود" });
-    return;
-  }
+  if (!row) { res.status(404).json({ error: "البيان غير موجود" }); return; }
 
-  const links = await db
-    .select()
-    .from(shippingManifestOrdersTable)
+  const links = await db.select().from(shippingManifestOrdersTable)
     .where(eq(shippingManifestOrdersTable.manifestId, id));
 
   const orderIds = links.map((l) => l.orderId);
@@ -321,9 +246,7 @@ router.get("/shipping-manifests/:id", async (req, res): Promise<void> => {
 
   let orders: OrderWithDelivery[] = [];
   if (expandedOrderIds.length > 0) {
-    const rawOrders = await db
-      .select()
-      .from(ordersTable)
+    const rawOrders = await db.select().from(ordersTable)
       .where(inArray(ordersTable.id, expandedOrderIds))
       .orderBy(desc(ordersTable.createdAt));
 
@@ -340,20 +263,13 @@ router.get("/shipping-manifests/:id", async (req, res): Promise<void> => {
     orders = rawOrders.map((o) => {
       const link = linkMap.get(o.id) ?? (o.invoiceNumber?.trim() ? invoiceLinkMap.get(o.invoiceNumber.trim()) : undefined);
       if (!link) {
-        return {
-          ...o,
-          deliveryStatus: "pending",
-          deliveryNote: null,
-          deliveredAt: null,
-          manifestOrderId: 0,
-        };
+        return { ...o, deliveryStatus: "pending", deliveryNote: null, deliveredAt: null, manifestOrderId: 0 };
       }
       return {
         ...o,
         deliveryStatus: link.deliveryStatus,
         deliveryNote: link.deliveryNote,
         deliveredAt: link.deliveredAt,
-        // استخدم الكمية الجزئية من الـ manifest order row إذا كانت موجودة
         partialQuantity: (link as any).partialQuantity ?? o.partialQuantity,
         manifestOrderId: link.id,
         returnReceived: link.returnReceived ?? null,
@@ -362,24 +278,19 @@ router.get("/shipping-manifests/:id", async (req, res): Promise<void> => {
   }
 
   const stats = computeStats(orders);
-
   res.json({
     ...row.manifest,
     invoicePrice: row.manifest.invoicePrice ? Number(row.manifest.invoicePrice) : null,
     manualShippingCost: row.manifest.manualShippingCost ? Number(row.manifest.manualShippingCost) : null,
     companyName: row.company?.name ?? "غير محدد",
     companyPhone: row.company?.phone ?? null,
-    orders,
-    stats,
+    orders, stats,
   });
 });
 
 router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
-  if (isNaN(id)) {
-    res.status(400).json({ error: "Invalid ID" });
-    return;
-  }
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
   const Schema = z.object({
     status: z.enum(["open", "closed"]).optional(),
@@ -389,51 +300,32 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
     manualShippingCost: z.number().nonnegative().nullish(),
   });
   const parsed = Schema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
   const updateData: Record<string, unknown> = {};
   if (parsed.data.status !== undefined) updateData.status = parsed.data.status;
   if (parsed.data.notes !== undefined) updateData.notes = parsed.data.notes ?? null;
   if (parsed.data.invoicePrice !== undefined)
-    updateData.invoicePrice =
-      parsed.data.invoicePrice != null
-        ? String(parsed.data.invoicePrice)
-        : null;
+    updateData.invoicePrice = parsed.data.invoicePrice != null ? String(parsed.data.invoicePrice) : null;
   if (parsed.data.invoiceNotes !== undefined)
     updateData.invoiceNotes = parsed.data.invoiceNotes ?? null;
   if (parsed.data.manualShippingCost !== undefined)
-    updateData.manualShippingCost =
-      parsed.data.manualShippingCost != null
-        ? String(parsed.data.manualShippingCost)
-        : null;
+    updateData.manualShippingCost = parsed.data.manualShippingCost != null ? String(parsed.data.manualShippingCost) : null;
   if (parsed.data.status === "closed") updateData.closedAt = new Date();
   if (parsed.data.status === "open") updateData.closedAt = null;
 
-  if (Object.keys(updateData).length === 0) {
-    res.status(400).json({ error: "لا توجد بيانات للتحديث" });
-    return;
-  }
+  if (Object.keys(updateData).length === 0) { res.status(400).json({ error: "لا توجد بيانات للتحديث" }); return; }
 
-  await db
-    .update(shippingManifestsTable)
-    .set(updateData)
-    .where(eq(shippingManifestsTable.id, id));
+  await db.update(shippingManifestsTable).set(updateData).where(eq(shippingManifestsTable.id, id));
   const [updated] = await db.select().from(shippingManifestsTable).where(eq(shippingManifestsTable.id, id));
-  if (!updated) {
-    res.status(404).json({ error: "البيان غير موجود" });
-    return;
-  }
+  if (!updated) { res.status(404).json({ error: "البيان غير موجود" }); return; }
 
-  // ─── عند الإغلاق: ابعت الأوردرات المؤجلة / قيد الانتظار لبيان جديد ─────────
   let rolledOverManifest: (typeof shippingManifestsTable.$inferSelect & { orderCount: number }) | null = null;
 
   if (parsed.data.status === "closed") {
-    // اجمع الأوردرات اللي:
-    // 1) حالتها postponed أو pending أو in_shipping
-    // 2) أو حالتها returned لكن returnReceived = 0 (مازالت في شركة الشحن لم تُستلم بعد)
+    // اجمع الأوردرات:
+    // 1) postponed أو pending أو in_shipping
+    // 2) أو returned مع returnReceived = 0 (مازال في شركة الشحن)
     const pendingLinks = await db
       .select()
       .from(shippingManifestOrdersTable)
@@ -444,7 +336,7 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
             inArray(shippingManifestOrdersTable.deliveryStatus, ["postponed", "pending", "in_shipping"]),
             and(
               eq(shippingManifestOrdersTable.deliveryStatus, "returned"),
-              eq(shippingManifestOrdersTable.returnReceived, 0)
+              sql`${shippingManifestOrdersTable.returnReceived} = 0`
             )
           )
         )
@@ -453,7 +345,6 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
     if (pendingLinks.length > 0) {
       const rolloverOrderIds = pendingLinks.map((l) => l.orderId);
 
-      // أنشئ بيان جديد بنفس شركة الشحن
       const newManifestNumber = await generateManifestNumber(updated.shippingCompanyId);
       const insertResult = await db.insert(shippingManifestsTable).values({
         manifestNumber: newManifestNumber,
@@ -463,12 +354,9 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
         createdAt: new Date(),
       });
       const newId = (insertResult as any)[0]?.insertId ?? (insertResult as any).insertId;
-      const [newManifest] = await db
-        .select()
-        .from(shippingManifestsTable)
+      const [newManifest] = await db.select().from(shippingManifestsTable)
         .where(eq(shippingManifestsTable.id, newId));
 
-      // أضف الأوردرات للبيان الجديد بحالة pending
       await db.insert(shippingManifestOrdersTable).values(
         rolloverOrderIds.map((orderId) => ({
           manifestId: newManifest.id,
@@ -480,11 +368,8 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
         }))
       );
 
-      // حدّث حالة الأوردرات لـ in_shipping
-      // الطلبيات المرتجعة اللي كانت "مازالت في شركة الشحن" (returnReceived=0) → حالتها بتتغير لـ in_shipping
-      // ونمسح returnReceived عشانها تتعامل كطلبية عادية في البيان الجديد
-      await db
-        .update(ordersTable)
+      // المرتجعات اللي كانت عند الشركة → in_shipping في البيان الجديد ونمسح returnReceived
+      await db.update(ordersTable)
         .set({ status: "in_shipping", shippingCompanyId: updated.shippingCompanyId, returnReceived: null })
         .where(inArray(ordersTable.id, rolloverOrderIds));
 
@@ -500,16 +385,9 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
 });
 
 const DeliveryStatusSchema = z.object({
-  deliveryStatus: z.enum([
-    "pending",
-    "delivered",
-    "postponed",
-    "partial_received",
-    "returned",
-  ]),
+  deliveryStatus: z.enum(["pending", "delivered", "postponed", "partial_received", "returned"]),
   deliveryNote: z.string().nullish(),
   partialQuantity: z.number().int().positive().nullish(),
-  // حالة استلام المرتجع: true = تم الاستلام (يرجع للمخزن)، false = لم يُستلم بعد (مازال في شركة الشحن)
   returnReceived: z.boolean().nullish(),
 });
 
@@ -521,303 +399,175 @@ const STATUS_MAP: Record<string, string> = {
   pending: "in_shipping",
 };
 
-router.patch(
-  "/shipping-manifests/:id/orders/:orderId",
-  async (req, res): Promise<void> => {
-    const manifestId = parseInt(req.params.id);
-    const orderId = parseInt(req.params.orderId);
-    if (isNaN(manifestId) || isNaN(orderId)) {
-      res.status(400).json({ error: "Invalid ID" });
-      return;
-    }
+router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promise<void> => {
+  const manifestId = parseInt(req.params.id);
+  const orderId = parseInt(req.params.orderId);
+  if (isNaN(manifestId) || isNaN(orderId)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
-    const parsed = DeliveryStatusSchema.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.message });
-      return;
-    }
+  const parsed = DeliveryStatusSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
-    const { deliveryStatus, deliveryNote, partialQuantity, returnReceived } = parsed.data;
+  const { deliveryStatus, deliveryNote, partialQuantity, returnReceived } = parsed.data;
 
-    // Fetch manifest order link
-    const [link] = await db
-      .select()
-      .from(shippingManifestOrdersTable)
-      .where(
-        and(
-          eq(shippingManifestOrdersTable.manifestId, manifestId),
-          eq(shippingManifestOrdersTable.orderId, orderId)
-        )
-      );
-    if (!link) {
-      res.status(404).json({ error: "الطلب غير موجود في هذا البيان" });
-      return;
-    }
+  const [link] = await db.select().from(shippingManifestOrdersTable).where(
+    and(eq(shippingManifestOrdersTable.manifestId, manifestId), eq(shippingManifestOrdersTable.orderId, orderId))
+  );
+  if (!link) { res.status(404).json({ error: "الطلب غير موجود في هذا البيان" }); return; }
 
-    // Fetch current order (needed for inventory transitions)
-    const [existingOrder] = await db
-      .select()
-      .from(ordersTable)
-      .where(eq(ordersTable.id, orderId));
-    if (!existingOrder) {
-      res.status(404).json({ error: "الطلب غير موجود" });
-      return;
-    }
+  const [existingOrder] = await db.select().from(ordersTable).where(eq(ordersTable.id, orderId));
+  if (!existingOrder) { res.status(404).json({ error: "الطلب غير موجود" }); return; }
 
-    const oldStatus = existingOrder.status;
-    const newStatus = STATUS_MAP[deliveryStatus] ?? "in_shipping";
-    const isDelivered =
-      deliveryStatus === "delivered" || deliveryStatus === "partial_received";
+  const oldStatus = existingOrder.status;
+  const newStatus = STATUS_MAP[deliveryStatus] ?? "in_shipping";
+  const isDelivered = deliveryStatus === "delivered" || deliveryStatus === "partial_received";
 
-    // 1. Update manifest order row
-    await db
-      .update(shippingManifestOrdersTable)
-      .set({
-        deliveryStatus,
-        deliveryNote: deliveryNote ?? null,
-        partialQuantity: deliveryStatus === "partial_received" && partialQuantity ? partialQuantity : null,
-        deliveredAt: isDelivered ? new Date() : null,
-        // returnReceived: null = لم يُحدَّد، 1 = تم الاستلام، 0 = لم يُستلم بعد
-        ...(deliveryStatus === "returned" && returnReceived !== undefined && returnReceived !== null
-          ? { returnReceived: returnReceived ? 1 : 0 }
-          : deliveryStatus !== "returned"
-          ? { returnReceived: null }
-          : {}),
-      })
-      .where(eq(shippingManifestOrdersTable.id, link.id));
+  // 1. Update manifest order row
+  await db.update(shippingManifestOrdersTable).set({
+    deliveryStatus,
+    deliveryNote: deliveryNote ?? null,
+    partialQuantity: deliveryStatus === "partial_received" && partialQuantity ? partialQuantity : null,
+    deliveredAt: isDelivered ? new Date() : null,
+    ...(deliveryStatus === "returned" && returnReceived !== undefined && returnReceived !== null
+      ? { returnReceived: returnReceived ? 1 : 0 }
+      : deliveryStatus !== "returned"
+      ? { returnReceived: null }
+      : {}),
+  }).where(eq(shippingManifestOrdersTable.id, link.id));
 
-    // 2. Update order status in orders table
-    const orderUpdate: Record<string, unknown> = { status: newStatus };
-    if (deliveryStatus === "partial_received" && partialQuantity) {
-      orderUpdate.partialQuantity = partialQuantity;
-    }
-    // حفظ returnReceived في ordersTable نفسها (مصدر الحقيقة الوحيد)
-    if (deliveryStatus === "returned" && returnReceived !== undefined && returnReceived !== null) {
-      orderUpdate.returnReceived = returnReceived ? 1 : 0;
-    } else if (deliveryStatus !== "returned") {
-      orderUpdate.returnReceived = null;
-    }
-    await db
-      .update(ordersTable)
-      .set(orderUpdate)
-      .where(eq(ordersTable.id, orderId));
-
-    // 3. Apply inventory transitions (mirrors orders.ts logic)
-    if (newStatus !== oldStatus) {
-      const orderRef = {
-        variantId: existingOrder.variantId,
-        productId: existingOrder.productId,
-        product: existingOrder.product,
-        color: existingOrder.color,
-        size: existingOrder.size,
-        warehouseId: existingOrder.warehouseId,
-      };
-
-      if (deliveryStatus === "delivered") {
-        // البضاعة كانت اتخصمت من المخزن بـ processToShipping — skipWarehouseStock = true
-        if (oldStatus === "partial_received") {
-          const alreadyDeducted = existingOrder.partialQuantity ?? 0;
-          const remainder = existingOrder.quantity - alreadyDeducted;
-          if (remainder > 0)
-            await processDelivery(orderRef, remainder, "sale", orderId, true);
-        } else if (oldStatus !== "received") {
-          await processDelivery(orderRef, existingOrder.quantity, "sale", orderId, true);
-        }
-      } else if (deliveryStatus === "partial_received") {
-        const newPartial = partialQuantity ?? 0;
-        const oldPartial = (oldStatus === "partial_received" ? existingOrder.partialQuantity : 0) ?? 0;
-        const delta = newPartial - oldPartial;
-        if (delta > 0)
-          await processDelivery(orderRef, delta, "partial_sale", orderId, true);
-        else if (delta < 0)
-          await reverseDelivery(orderRef, Math.abs(delta), orderId);
-      } else if (deliveryStatus === "returned") {
-        // المرتجع:
-        // - لو returnReceived = true → تم استلام البضاعة فعلاً → ترجع للمخزن
-        // - لو returnReceived = false أو null → البضاعة لسه عند شركة الشحن → ما بنرجعهاش للمخزن دلوقتي
-        if (returnReceived === true) {
-          // تم استلام المرتجع → رجّع للمخزن
-          const wasFullyDelivered = oldStatus === "received";
-          const wasPartiallyDelivered = oldStatus === "partial_received";
-          const returnQty = wasPartiallyDelivered
-            ? (existingOrder.partialQuantity ?? existingOrder.quantity)
-            : existingOrder.quantity;
-          await processReturn(
-            { ...orderRef, quantity: returnQty },
-            wasFullyDelivered || wasPartiallyDelivered,
-            false, // not damaged — return to stock
-            orderId
-          );
-        } else if (returnReceived === false) {
-          // لم يُستلم بعد (مازال في شركة الشحن) → لا نعمل أي inventory transition
-          // الأوردر يفضل حالته "returned" في DB بدون تأثير على المخزن
-        } else {
-          // returnReceived = null = لم يُحدَّد بعد → نفس السلوك القديم (رجّع للمخزن تلقائياً)
-          const wasFullyDelivered = oldStatus === "received";
-          const wasPartiallyDelivered = oldStatus === "partial_received";
-          const returnQty = wasPartiallyDelivered
-            ? (existingOrder.partialQuantity ?? existingOrder.quantity)
-            : existingOrder.quantity;
-          await processReturn(
-            { ...orderRef, quantity: returnQty },
-            wasFullyDelivered || wasPartiallyDelivered,
-            false,
-            orderId
-          );
-        }
-      } else {
-        // postponed / pending — reverse any previous delivery
-        if (oldStatus === "received") {
-          await reverseDelivery(orderRef, existingOrder.quantity, orderId);
-        } else if (oldStatus === "partial_received") {
-          const deducted = existingOrder.partialQuantity ?? 0;
-          if (deducted > 0)
-            await reverseDelivery(orderRef, deducted, orderId);
-        }
-      }
-    }
-
-    // ─── Sync invoice siblings: لو الفاتورة فيها طلبيات أخرى في نفس البيان،
-    //     حدّث حالتها في shipping_manifest_orders و orders كمان ──────────────
-    if (existingOrder.invoiceNumber?.trim()) {
-      const invoiceNum = existingOrder.invoiceNumber.trim();
-      // جيب كل الطلبيات في نفس الفاتورة في نفس البيان (ما عدا الطلبية الحالية)
-      const siblings = await db
-        .select({ mo: shippingManifestOrdersTable, o: ordersTable })
-        .from(shippingManifestOrdersTable)
-        .innerJoin(ordersTable, eq(shippingManifestOrdersTable.orderId, ordersTable.id))
-        .where(
-          and(
-            eq(shippingManifestOrdersTable.manifestId, manifestId),
-            eq(ordersTable.invoiceNumber, invoiceNum),
-          )
-        );
-      for (const sib of siblings) {
-        if (sib.mo.orderId === orderId) continue; // تجاهل الطلبية الحالية
-        // حدّث manifest order row
-        const sibUpdateData: Record<string, unknown> = {
-          deliveryStatus,
-          deliveryNote: deliveryNote ?? null,
-        };
-        if (isDelivered) sibUpdateData.deliveredAt = new Date();
-        else sibUpdateData.deliveredAt = null;
-        if (deliveryStatus === "partial_received" && partialQuantity) {
-          // للـ siblings لا نضع نفس الكمية الجزئية — نتركها كما هي أو null
-          sibUpdateData.partialQuantity = null;
-        }
-        if (deliveryStatus === "returned" && returnReceived !== undefined && returnReceived !== null) {
-          sibUpdateData.returnReceived = returnReceived ? 1 : 0;
-        } else if (deliveryStatus !== "returned") {
-          sibUpdateData.returnReceived = null;
-        }
-        await db
-          .update(shippingManifestOrdersTable)
-          .set(sibUpdateData)
-          .where(eq(shippingManifestOrdersTable.id, sib.mo.id));
-        // حدّث orders.status
-        const sibNewOrderStatus = STATUS_MAP[deliveryStatus] ?? "in_shipping";
-        const sibOrderUpdate: Record<string, unknown> = { status: sibNewOrderStatus };
-        if (deliveryStatus === "partial_received" && partialQuantity) {
-          sibOrderUpdate.partialQuantity = null;
-        }
-        // حفظ returnReceived في ordersTable للـ siblings كمان
-        if (deliveryStatus === "returned" && returnReceived !== undefined && returnReceived !== null) {
-          sibOrderUpdate.returnReceived = returnReceived ? 1 : 0;
-        } else if (deliveryStatus !== "returned") {
-          sibOrderUpdate.returnReceived = null;
-        }
-        await db
-          .update(ordersTable)
-          .set(sibOrderUpdate)
-          .where(eq(ordersTable.id, sib.mo.orderId));
-      }
-    }
-    // ─────────────────────────────────────────────────────────────────────────
-
-    res.json({ success: true, deliveryStatus, deliveryNote: deliveryNote ?? null, returnReceived: returnReceived ?? null });
+  // 2. Update order status
+  const orderUpdate: Record<string, unknown> = { status: newStatus };
+  if (deliveryStatus === "partial_received" && partialQuantity) orderUpdate.partialQuantity = partialQuantity;
+  if (deliveryStatus === "returned" && returnReceived !== undefined && returnReceived !== null) {
+    orderUpdate.returnReceived = returnReceived ? 1 : 0;
+  } else if (deliveryStatus !== "returned") {
+    orderUpdate.returnReceived = null;
   }
-);
+  await db.update(ordersTable).set(orderUpdate).where(eq(ordersTable.id, orderId));
 
-// ─── DELETE /shipping-manifests/:id/orders/:orderId — إلغاء طلبية من البيان ─
-router.delete(
-  "/shipping-manifests/:id/orders/:orderId",
-  async (req, res): Promise<void> => {
-    try {
+  // 3. Inventory transitions
+  if (newStatus !== oldStatus) {
+    const orderRef = {
+      variantId: existingOrder.variantId, productId: existingOrder.productId,
+      product: existingOrder.product, color: existingOrder.color,
+      size: existingOrder.size, warehouseId: existingOrder.warehouseId,
+    };
+
+    if (deliveryStatus === "delivered") {
+      if (oldStatus === "partial_received") {
+        const remainder = existingOrder.quantity - (existingOrder.partialQuantity ?? 0);
+        if (remainder > 0) await processDelivery(orderRef, remainder, "sale", orderId, true);
+      } else if (oldStatus !== "received") {
+        await processDelivery(orderRef, existingOrder.quantity, "sale", orderId, true);
+      }
+    } else if (deliveryStatus === "partial_received") {
+      const newPartial = partialQuantity ?? 0;
+      const oldPartial = (oldStatus === "partial_received" ? existingOrder.partialQuantity : 0) ?? 0;
+      const delta = newPartial - oldPartial;
+      if (delta > 0) await processDelivery(orderRef, delta, "partial_sale", orderId, true);
+      else if (delta < 0) await reverseDelivery(orderRef, Math.abs(delta), orderId);
+    } else if (deliveryStatus === "returned") {
+      if (returnReceived === true) {
+        const wasPartial = oldStatus === "partial_received";
+        const returnQty = wasPartial ? (existingOrder.partialQuantity ?? existingOrder.quantity) : existingOrder.quantity;
+        await processReturn({ ...orderRef, quantity: returnQty }, oldStatus === "received" || wasPartial, false, orderId);
+      } else if (returnReceived === false) {
+        // مازال في شركة الشحن — لا تأثير على المخزن
+      } else {
+        const wasPartial = oldStatus === "partial_received";
+        const returnQty = wasPartial ? (existingOrder.partialQuantity ?? existingOrder.quantity) : existingOrder.quantity;
+        await processReturn({ ...orderRef, quantity: returnQty }, oldStatus === "received" || wasPartial, false, orderId);
+      }
+    } else {
+      if (oldStatus === "received") await reverseDelivery(orderRef, existingOrder.quantity, orderId);
+      else if (oldStatus === "partial_received") {
+        const deducted = existingOrder.partialQuantity ?? 0;
+        if (deducted > 0) await reverseDelivery(orderRef, deducted, orderId);
+      }
+    }
+  }
+
+  // 4. Sync invoice siblings
+  if (existingOrder.invoiceNumber?.trim()) {
+    const siblings = await db
+      .select({ mo: shippingManifestOrdersTable, o: ordersTable })
+      .from(shippingManifestOrdersTable)
+      .innerJoin(ordersTable, eq(shippingManifestOrdersTable.orderId, ordersTable.id))
+      .where(and(
+        eq(shippingManifestOrdersTable.manifestId, manifestId),
+        eq(ordersTable.invoiceNumber, existingOrder.invoiceNumber.trim()),
+      ));
+    for (const sib of siblings) {
+      if (sib.mo.orderId === orderId) continue;
+      const sibUpdate: Record<string, unknown> = { deliveryStatus, deliveryNote: deliveryNote ?? null };
+      if (isDelivered) sibUpdate.deliveredAt = new Date(); else sibUpdate.deliveredAt = null;
+      if (deliveryStatus === "partial_received" && partialQuantity) sibUpdate.partialQuantity = null;
+      if (deliveryStatus === "returned" && returnReceived !== undefined && returnReceived !== null)
+        sibUpdate.returnReceived = returnReceived ? 1 : 0;
+      else if (deliveryStatus !== "returned") sibUpdate.returnReceived = null;
+      await db.update(shippingManifestOrdersTable).set(sibUpdate).where(eq(shippingManifestOrdersTable.id, sib.mo.id));
+
+      const sibOrderUpdate: Record<string, unknown> = { status: STATUS_MAP[deliveryStatus] ?? "in_shipping" };
+      if (deliveryStatus === "partial_received" && partialQuantity) sibOrderUpdate.partialQuantity = null;
+      if (deliveryStatus === "returned" && returnReceived !== undefined && returnReceived !== null)
+        sibOrderUpdate.returnReceived = returnReceived ? 1 : 0;
+      else if (deliveryStatus !== "returned") sibOrderUpdate.returnReceived = null;
+      await db.update(ordersTable).set(sibOrderUpdate).where(eq(ordersTable.id, sib.mo.orderId));
+    }
+  }
+
+  res.json({ success: true, deliveryStatus, deliveryNote: deliveryNote ?? null, returnReceived: returnReceived ?? null });
+});
+
+// ─── DELETE /shipping-manifests/:id/orders/:orderId ─────────────────────────
+router.delete("/shipping-manifests/:id/orders/:orderId", async (req, res): Promise<void> => {
+  try {
     const manifestId = parseInt(req.params.id);
     const orderId = parseInt(req.params.orderId);
-    if (isNaN(manifestId) || isNaN(orderId)) {
-      res.status(400).json({ error: "Invalid ID" });
-      return;
-    }
+    if (isNaN(manifestId) || isNaN(orderId)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
-    // تأكد إن البيان موجود ومفتوح
     const [manifest] = await db.select().from(shippingManifestsTable).where(eq(shippingManifestsTable.id, manifestId));
     if (!manifest) { res.status(404).json({ error: "البيان غير موجود" }); return; }
     if (manifest.status === "closed") { res.status(400).json({ error: "البيان مغلق لا يمكن التعديل عليه" }); return; }
 
-    // جيب الـ link بين الأوردر والبيان
-    const [link] = await db
-      .select()
-      .from(shippingManifestOrdersTable)
-      .where(
-        and(
-          eq(shippingManifestOrdersTable.manifestId, manifestId),
-          eq(shippingManifestOrdersTable.orderId, orderId)
-        )
-      );
+    const [link] = await db.select().from(shippingManifestOrdersTable).where(
+      and(eq(shippingManifestOrdersTable.manifestId, manifestId), eq(shippingManifestOrdersTable.orderId, orderId))
+    );
     if (!link) { res.status(404).json({ error: "الطلبية غير موجودة في هذا البيان" }); return; }
 
-    // جيب الأوردر
     const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, orderId));
     if (!order) { res.status(404).json({ error: "الطلبية غير موجودة" }); return; }
 
     const orderRef = {
-      variantId: order.variantId,
-      productId: order.productId,
-      product: order.product,
-      color: order.color,
-      size: order.size,
-      warehouseId: order.warehouseId,
+      variantId: order.variantId, productId: order.productId, product: order.product,
+      color: order.color, size: order.size, warehouseId: order.warehouseId,
     };
-
-    const deliveryStatus = link.deliveryStatus;
-
-    // عكس تأثير الشحن/التسليم على المخزون حسب الحالة
-    if (deliveryStatus === "pending" || deliveryStatus === "postponed") {
+    const ds = link.deliveryStatus;
+    if (ds === "pending" || ds === "postponed") {
       await reverseShipping(orderRef, order.quantity, order.id);
-    } else if (deliveryStatus === "delivered") {
+    } else if (ds === "delivered") {
       await reverseShipping(orderRef, order.quantity, order.id);
       await reverseDelivery(orderRef, order.quantity, order.id);
-    } else if (deliveryStatus === "partial_received") {
-      const deliveredQty = order.partialQuantity ?? 0;
-      const remainingQty = order.quantity - deliveredQty;
-      if (deliveredQty > 0) await reverseDelivery(orderRef, deliveredQty, order.id);
-      if (remainingQty > 0) await reverseShipping(orderRef, remainingQty, order.id);
-    } else if (deliveryStatus === "returned") {
+    } else if (ds === "partial_received") {
+      const dQty = order.partialQuantity ?? 0;
+      const rQty = order.quantity - dQty;
+      if (dQty > 0) await reverseDelivery(orderRef, dQty, order.id);
+      if (rQty > 0) await reverseShipping(orderRef, rQty, order.id);
+    } else if (ds === "returned") {
       await reverseShipping(orderRef, order.quantity, order.id);
     }
 
-    // احذف الـ link من البيان
     await db.delete(shippingManifestOrdersTable).where(eq(shippingManifestOrdersTable.id, link.id));
-
-    // ارجع الأوردر لحالة pending
-    await db.update(ordersTable)
-      .set({
-        status: "pending",
-        partialQuantity: null,
-        updatedAt: new Date(),
-      })
+    await db.update(ordersTable).set({ status: "pending", partialQuantity: null, updatedAt: new Date() })
       .where(eq(ordersTable.id, orderId));
 
     res.json({ success: true, orderId, message: "تم إلغاء الطلبية من البيان وإرجاعها للانتظار" });
-    } catch (err: any) {
-      console.error("[cancelOrder] Error:", err);
-      res.status(500).json({ error: err?.message ?? "خطأ داخلي", stack: err?.stack });
-    }
+  } catch (err: any) {
+    console.error("[cancelOrder] Error:", err);
+    res.status(500).json({ error: err?.message ?? "خطأ داخلي", stack: err?.stack });
   }
-);
+});
 
-// ─── POST /shipping-manifests/:id/orders — إضافة أوردرات لبيان مفتوح ──────
+// ─── POST /shipping-manifests/:id/orders ────────────────────────────────────
 router.post("/shipping-manifests/:id/orders", requireAdmin, async (req, res): Promise<void> => {
   const manifestId = parseInt(req.params.id);
   if (isNaN(manifestId)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -825,80 +575,51 @@ router.post("/shipping-manifests/:id/orders", requireAdmin, async (req, res): Pr
   const parsed = z.object({ orderIds: z.array(z.number().int().positive()).min(1) }).safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "orderIds مطلوب" }); return; }
 
-  const { orderIds } = parsed.data;
-  const normalizedOrderIds = await expandOrderIdsByInvoice(orderIds);
+  const normalizedOrderIds = await expandOrderIdsByInvoice(parsed.data.orderIds);
 
-  // تأكد إن البيان موجود ومفتوح
   const [manifest] = await db.select().from(shippingManifestsTable).where(eq(shippingManifestsTable.id, manifestId));
   if (!manifest) { res.status(404).json({ error: "البيان غير موجود" }); return; }
   if (manifest.status === "closed") { res.status(400).json({ error: "البيان مغلق لا يمكن الإضافة إليه" }); return; }
 
-  // جيب الطلبات اللي حالتها pending أو delayed أو in_shipping (كلهم مؤهلون للشحن)
-    const SHIPPABLE_STATUSES = ["pending", "delayed", "in_shipping"] as const;
-    const orders = await db.select().from(ordersTable).where(
-    and(inArray(ordersTable.id, normalizedOrderIds), isNull(ordersTable.deletedAt), inArray(ordersTable.status, [...SHIPPABLE_STATUSES]))
+  const SHIPPABLE = ["pending", "delayed", "in_shipping"] as const;
+  const orders = await db.select().from(ordersTable).where(
+    and(inArray(ordersTable.id, normalizedOrderIds), isNull(ordersTable.deletedAt), inArray(ordersTable.status, [...SHIPPABLE]))
   );
-  if (orders.length === 0) { res.status(400).json({ error: "لم يتم العثور على طلبيات مؤهلة (يجب أن تكون pending أو delayed أو in_shipping)" }); return; }
+  if (orders.length === 0) { res.status(400).json({ error: "لم يتم العثور على طلبيات مؤهلة" }); return; }
 
-  // استبعد أي أوردر موجود بالفعل في هذا البيان
   const existing = await db.select({ orderId: shippingManifestOrdersTable.orderId })
     .from(shippingManifestOrdersTable)
-      .where(and(
-        eq(shippingManifestOrdersTable.manifestId, manifestId),
-      inArray(shippingManifestOrdersTable.orderId, normalizedOrderIds)
-      ));
+    .where(and(eq(shippingManifestOrdersTable.manifestId, manifestId), inArray(shippingManifestOrdersTable.orderId, normalizedOrderIds)));
   const existingIds = new Set(existing.map(e => e.orderId));
   const toAdd = orders.filter(o => !existingIds.has(o.id));
   if (toAdd.length === 0) { res.status(400).json({ error: "جميع الطلبيات المختارة موجودة بالفعل في البيان" }); return; }
 
-  // أضف الأوردرات للبيان
   await db.insert(shippingManifestOrdersTable).values(
-    toAdd.map(o => ({
-      manifestId,
-      orderId: o.id,
-      deliveryStatus: "pending" as const,
-      deliveryNote: null,
-      deliveredAt: null,
-    }))
+    toAdd.map(o => ({ manifestId, orderId: o.id, deliveryStatus: "pending" as const, deliveryNote: null, deliveredAt: null }))
   );
 
-  // لكل طلب لسه مش in_shipping → حوله لـ in_shipping + اخصم من المخزن
   const needsShipping = toAdd.filter(o => o.status !== "in_shipping");
   if (needsShipping.length > 0) {
-    await db
-      .update(ordersTable)
-      .set({ status: "in_shipping", shippingCompanyId: manifest.shippingCompanyId })
+    await db.update(ordersTable).set({ status: "in_shipping", shippingCompanyId: manifest.shippingCompanyId })
       .where(inArray(ordersTable.id, needsShipping.map(o => o.id)));
-
     for (const order of needsShipping) {
       await processToShipping(
-        {
-          variantId: order.variantId,
-          productId: order.productId,
-          product: order.product,
-          color: order.color,
-          size: order.size,
-          warehouseId: order.warehouseId,
-        },
-        order.quantity,
-        order.id,
+        { variantId: order.variantId, productId: order.productId, product: order.product,
+          color: order.color, size: order.size, warehouseId: order.warehouseId },
+        order.quantity, order.id,
       );
     }
   }
 
-  // الطلبات اللي كانت in_shipping بالفعل — اخصم + حدّث shippingCompanyId
   const alreadyShipping = toAdd.filter(o => o.status === "in_shipping");
   if (alreadyShipping.length > 0) {
-    await db
-      .update(ordersTable)
-      .set({ shippingCompanyId: manifest.shippingCompanyId })
+    await db.update(ordersTable).set({ shippingCompanyId: manifest.shippingCompanyId })
       .where(inArray(ordersTable.id, alreadyShipping.map(o => o.id)));
-
     for (const order of alreadyShipping) {
       await processToShipping(
-        { variantId: order.variantId, productId: order.productId, product: order.product, color: order.color, size: order.size, warehouseId: order.warehouseId },
-        order.quantity,
-        order.id,
+        { variantId: order.variantId, productId: order.productId, product: order.product,
+          color: order.color, size: order.size, warehouseId: order.warehouseId },
+        order.quantity, order.id,
       );
     }
   }
@@ -908,74 +629,36 @@ router.post("/shipping-manifests/:id/orders", requireAdmin, async (req, res): Pr
 
 router.delete("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
-  if (isNaN(id)) {
-    res.status(400).json({ error: "Invalid ID" });
-    return;
-  }
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
   const [toDelete] = await db.select().from(shippingManifestsTable).where(eq(shippingManifestsTable.id, id));
-  if (!toDelete) {
-    res.status(404).json({ error: "البيان غير موجود" });
-    return;
-  }
+  if (!toDelete) { res.status(404).json({ error: "البيان غير موجود" }); return; }
 
-  // جيب كل الطلبات في البيان مع حالتها
-  const allLinks = await db
-    .select()
-    .from(shippingManifestOrdersTable)
-    .where(eq(shippingManifestOrdersTable.manifestId, id));
-
+  const allLinks = await db.select().from(shippingManifestOrdersTable).where(eq(shippingManifestOrdersTable.manifestId, id));
   if (allLinks.length > 0) {
     const allOrderIds = allLinks.map((l) => l.orderId);
-    const allOrders = await db
-      .select()
-      .from(ordersTable)
-      .where(inArray(ordersTable.id, allOrderIds));
-
+    const allOrders = await db.select().from(ordersTable).where(inArray(ordersTable.id, allOrderIds));
     const linkMap = new Map(allLinks.map((l) => [l.orderId, l]));
 
     for (const order of allOrders) {
       const link = linkMap.get(order.id);
       if (!link) continue;
-
       const orderRef = {
-        variantId: order.variantId,
-        productId: order.productId,
-        product: order.product,
-        color: order.color,
-        size: order.size,
-        warehouseId: order.warehouseId,
+        variantId: order.variantId, productId: order.productId, product: order.product,
+        color: order.color, size: order.size, warehouseId: order.warehouseId,
       };
-
-      const deliveryStatus = link.deliveryStatus;
-
-      if (deliveryStatus === "pending" || deliveryStatus === "postponed") {
-        // لسه في الشحن → ارجع الكمية للمخزن
+      const ds = link.deliveryStatus;
+      if (ds === "pending" || ds === "postponed") {
         await reverseShipping(orderRef, order.quantity, order.id);
-
-      } else if (deliveryStatus === "delivered") {
-        // اتسلم كامل → الخصم حصل مرتين (to_shipping + sale) → ارجع مرتين
+      } else if (ds === "delivered") {
         await reverseShipping(orderRef, order.quantity, order.id);
         await reverseDelivery(orderRef, order.quantity, order.id);
-
-      } else if (deliveryStatus === "partial_received") {
-        // اتسلم جزئي
-        const deliveredQty = order.partialQuantity ?? 0;
-        const remainingQty = order.quantity - deliveredQty;
-
-        // الجزء اللي اتسلم → عكس sale + عكس to_shipping
-        if (deliveredQty > 0) {
-          await reverseDelivery(orderRef, deliveredQty, order.id);
-          await reverseShipping(orderRef, deliveredQty, order.id);
-        }
-        // الجزء اللي لسه في الشحن → عكس to_shipping بس
-        if (remainingQty > 0) {
-          await reverseShipping(orderRef, remainingQty, order.id);
-        }
-
-      } else if (deliveryStatus === "returned") {
-        // مرتجع → processReturn رجّع للمخزون العام
-        // reverseShipping يرجع للـ warehouseStock اللي ما اتأثرش بـ processReturn
+      } else if (ds === "partial_received") {
+        const dQty = order.partialQuantity ?? 0;
+        const rQty = order.quantity - dQty;
+        if (dQty > 0) { await reverseDelivery(orderRef, dQty, order.id); await reverseShipping(orderRef, dQty, order.id); }
+        if (rQty > 0) await reverseShipping(orderRef, rQty, order.id);
+      } else if (ds === "returned") {
         await reverseShipping(orderRef, order.quantity, order.id);
       }
     }
@@ -985,71 +668,47 @@ router.delete("/shipping-manifests/:id", requireAdmin, async (req, res): Promise
   res.status(204).send();
 });
 
-router.get(
-  "/shipping-companies/:id/stats",
-  async (req, res): Promise<void> => {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
-      res.status(400).json({ error: "Invalid ID" });
-      return;
-    }
+router.get("/shipping-companies/:id/stats", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
-    // Get all manifests for this company
-    const companyManifests = await db
-      .select({ id: shippingManifestsTable.id })
-      .from(shippingManifestsTable)
-      .where(eq(shippingManifestsTable.shippingCompanyId, id));
+  const companyManifests = await db.select({ id: shippingManifestsTable.id })
+    .from(shippingManifestsTable)
+    .where(eq(shippingManifestsTable.shippingCompanyId, id));
 
-    const manifestCount = companyManifests.length;
-
-    if (manifestCount === 0) {
-      res.json({
-        total: 0, delivered: 0, returned: 0, pending: 0,
-        deliveryRate: 0, totalRevenue: 0, totalCost: 0,
-        totalShippingCost: 0, returnLosses: 0, netProfit: 0,
-        deliveredGross: 0, manifestCount: 0,
-      });
-      return;
-    }
-
-    const mIds = companyManifests.map((m) => m.id);
-
-    // Aggregate from manifest_orders (accurate delivery status per order)
-    const manifestOrderRows = await db
-      .select({
-        mo: shippingManifestOrdersTable,
-        o: ordersTable,
-      })
-      .from(shippingManifestOrdersTable)
-      .innerJoin(ordersTable, eq(shippingManifestOrdersTable.orderId, ordersTable.id))
-      .where(inArray(shippingManifestOrdersTable.manifestId, mIds));
-
-    const ordersWithDelivery: OrderWithDelivery[] = manifestOrderRows.map(({ mo, o }) => ({
-      ...o,
-      deliveryStatus: mo.deliveryStatus,
-      deliveryNote: mo.deliveryNote,
-      deliveredAt: mo.deliveredAt,
-      manifestOrderId: mo.id,
-    }));
-
-    const stats = computeStats(ordersWithDelivery);
-
-    res.json({ ...stats, manifestCount });
+  const manifestCount = companyManifests.length;
+  if (manifestCount === 0) {
+    res.json({ total: 0, delivered: 0, returned: 0, pending: 0, deliveryRate: 0,
+      totalRevenue: 0, totalCost: 0, totalShippingCost: 0, returnLosses: 0, netProfit: 0,
+      deliveredGross: 0, manifestCount: 0 });
+    return;
   }
-);
 
-// ─── GET /orders/:orderId/manifest-status — بيانات البيان للطلب ──────────────
-// يُستخدم في صفحة الطلب لعرض حالة التسليم الحقيقية (returnReceived وغيره)
+  const mIds = companyManifests.map((m) => m.id);
+  const manifestOrderRows = await db
+    .select({ mo: shippingManifestOrdersTable, o: ordersTable })
+    .from(shippingManifestOrdersTable)
+    .innerJoin(ordersTable, eq(shippingManifestOrdersTable.orderId, ordersTable.id))
+    .where(inArray(shippingManifestOrdersTable.manifestId, mIds));
+
+  const ordersWithDelivery: OrderWithDelivery[] = manifestOrderRows.map(({ mo, o }) => ({
+    ...o,
+    deliveryStatus: mo.deliveryStatus,
+    deliveryNote: mo.deliveryNote,
+    deliveredAt: mo.deliveredAt,
+    manifestOrderId: mo.id,
+  }));
+
+  const stats = computeStats(ordersWithDelivery);
+  res.json({ ...stats, manifestCount });
+});
+
 router.get("/orders/:orderId/manifest-status", async (req, res): Promise<void> => {
   const orderId = parseInt(req.params.orderId);
   if (isNaN(orderId)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
-  // جيب آخر بيان للطلب (المفتوح أولاً، وإلا الأحدث)
   const links = await db
-    .select({
-      mo: shippingManifestOrdersTable,
-      manifest: shippingManifestsTable,
-    })
+    .select({ mo: shippingManifestOrdersTable, manifest: shippingManifestsTable })
     .from(shippingManifestOrdersTable)
     .innerJoin(shippingManifestsTable, eq(shippingManifestOrdersTable.manifestId, shippingManifestsTable.id))
     .where(eq(shippingManifestOrdersTable.orderId, orderId))
@@ -1057,9 +716,7 @@ router.get("/orders/:orderId/manifest-status", async (req, res): Promise<void> =
 
   if (links.length === 0) { res.json(null); return; }
 
-  // فضّل البيان المفتوح لو موجود
   const activeLink = links.find(l => l.manifest.status === "open") ?? links[0];
-
   res.json({
     manifestId: activeLink.manifest.id,
     manifestNumber: activeLink.manifest.manifestNumber,
@@ -1068,9 +725,8 @@ router.get("/orders/:orderId/manifest-status", async (req, res): Promise<void> =
     deliveryNote: activeLink.mo.deliveryNote,
     partialQuantity: activeLink.mo.partialQuantity,
     deliveredAt: activeLink.mo.deliveredAt,
-    returnReceived: activeLink.mo.returnReceived, // 1 = تم، 0 = عند الشركة، null = لم يُحدد
+    returnReceived: activeLink.mo.returnReceived,
   });
 });
 
 export default router;
-
