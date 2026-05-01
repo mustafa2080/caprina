@@ -175,7 +175,9 @@ function OrderDeliveryRow({
     status !== order.deliveryStatus ||
     note !== (order.deliveryNote ?? "") ||
     (status === "partial_received" &&
-      partialQty !== (order.partialQuantity?.toString() ?? ""));
+      partialQty !== (order.partialQuantity?.toString() ?? "")) ||
+    (status === "returned" &&
+      returnReceived !== ((order as any).returnReceived === 1 ? true : (order as any).returnReceived === 0 ? false : null));
 
   return (
     <div className={`border-b border-border/50 transition-colors ${editing ? "bg-primary/5" : "hover:bg-muted/10"}`}>
@@ -424,7 +426,6 @@ function OrderDeliveryRow({
               onClick={() => mutation.mutate()}
               disabled={
                 mutation.isPending ||
-                !hasChanges ||
                 (needsNote && !note.trim()) ||
                 (needsPartial && (!partialQty || parseInt(partialQty) < 1)) ||
                 (status === "returned" && returnReceived === null)
