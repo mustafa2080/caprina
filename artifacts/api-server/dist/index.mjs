@@ -29079,10 +29079,10 @@ var init_subquery = __esm({
     init_entity();
     Subquery = class {
       static [entityKind] = "Subquery";
-      constructor(sql3, fields, alias, isWith = false, usedTables = []) {
+      constructor(sql2, fields, alias, isWith = false, usedTables = []) {
         this._ = {
           brand: "Subquery",
-          sql: sql3,
+          sql: sql2,
           selectedFields: fields,
           alias,
           isWith,
@@ -29549,19 +29549,19 @@ var init_sql = __esm({
         return new SQL([this]);
       }
     };
-    ((sql22) => {
+    ((sql2) => {
       function empty() {
         return new SQL([]);
       }
-      sql22.empty = empty;
+      sql2.empty = empty;
       function fromList(list) {
         return new SQL(list);
       }
-      sql22.fromList = fromList;
+      sql2.fromList = fromList;
       function raw(str) {
         return new SQL([new StringChunk(str)]);
       }
-      sql22.raw = raw;
+      sql2.raw = raw;
       function join(chunks, separator) {
         const result = [];
         for (const [i, chunk] of chunks.entries()) {
@@ -29572,24 +29572,24 @@ var init_sql = __esm({
         }
         return new SQL(result);
       }
-      sql22.join = join;
+      sql2.join = join;
       function identifier(value) {
         return new Name(value);
       }
-      sql22.identifier = identifier;
+      sql2.identifier = identifier;
       function placeholder2(name2) {
         return new Placeholder(name2);
       }
-      sql22.placeholder = placeholder2;
+      sql2.placeholder = placeholder2;
       function param2(value, encoder) {
         return new Param(value, encoder);
       }
-      sql22.param = param2;
+      sql2.param = param2;
     })(sql || (sql = {}));
     ((SQL2) => {
       class Aliased {
-        constructor(sql22, fieldAlias) {
-          this.sql = sql22;
+        constructor(sql2, fieldAlias) {
+          this.sql = sql2;
           this.fieldAlias = fieldAlias;
         }
         static [entityKind] = "SQL.Aliased";
@@ -30827,41 +30827,41 @@ var require_lib4 = __commonJS({
     var isRecord = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
     var isWordChar = (code) => code >= 65 && code <= 90 || code >= 97 && code <= 122 || code >= 48 && code <= 57 || code === 95;
     var isWhitespace = (code) => code === charCode.space || code === charCode.tab || code === charCode.newline || code === charCode.carriageReturn;
-    var hasOnlyWhitespaceBetween = (sql3, start, end) => {
+    var hasOnlyWhitespaceBetween = (sql2, start, end) => {
       if (start >= end)
         return true;
       for (let i = start; i < end; i++) {
-        const code = sql3.charCodeAt(i);
+        const code = sql2.charCodeAt(i);
         if (code !== charCode.space && code !== charCode.tab && code !== charCode.newline && code !== charCode.carriageReturn)
           return false;
       }
       return true;
     };
     var toLower = (code) => code | 32;
-    var matchesWord = (sql3, position, word, length) => {
+    var matchesWord = (sql2, position, word, length) => {
       for (let offset = 0; offset < word.length; offset++)
-        if (toLower(sql3.charCodeAt(position + offset)) !== word.charCodeAt(offset))
+        if (toLower(sql2.charCodeAt(position + offset)) !== word.charCodeAt(offset))
           return false;
-      return (position === 0 || !isWordChar(sql3.charCodeAt(position - 1))) && (position + word.length >= length || !isWordChar(sql3.charCodeAt(position + word.length)));
+      return (position === 0 || !isWordChar(sql2.charCodeAt(position - 1))) && (position + word.length >= length || !isWordChar(sql2.charCodeAt(position + word.length)));
     };
-    var skipSqlContext = (sql3, position) => {
-      const currentChar = sql3.charCodeAt(position);
-      const nextChar = sql3.charCodeAt(position + 1);
+    var skipSqlContext = (sql2, position) => {
+      const currentChar = sql2.charCodeAt(position);
+      const nextChar = sql2.charCodeAt(position + 1);
       if (currentChar === charCode.singleQuote) {
-        for (let cursor = position + 1; cursor < sql3.length; cursor++) {
-          if (sql3.charCodeAt(cursor) === charCode.backslash)
+        for (let cursor = position + 1; cursor < sql2.length; cursor++) {
+          if (sql2.charCodeAt(cursor) === charCode.backslash)
             cursor++;
-          else if (sql3.charCodeAt(cursor) === charCode.singleQuote)
+          else if (sql2.charCodeAt(cursor) === charCode.singleQuote)
             return cursor + 1;
         }
-        return sql3.length;
+        return sql2.length;
       }
       if (currentChar === charCode.backtick) {
-        const length = sql3.length;
+        const length = sql2.length;
         for (let cursor = position + 1; cursor < length; cursor++) {
-          if (sql3.charCodeAt(cursor) !== charCode.backtick)
+          if (sql2.charCodeAt(cursor) !== charCode.backtick)
             continue;
-          if (sql3.charCodeAt(cursor + 1) === charCode.backtick) {
+          if (sql2.charCodeAt(cursor + 1) === charCode.backtick) {
             cursor++;
             continue;
           }
@@ -30870,48 +30870,48 @@ var require_lib4 = __commonJS({
         return length;
       }
       if (currentChar === charCode.dash && nextChar === charCode.dash) {
-        const lineBreak = sql3.indexOf("\n", position + 2);
-        return lineBreak === -1 ? sql3.length : lineBreak + 1;
+        const lineBreak = sql2.indexOf("\n", position + 2);
+        return lineBreak === -1 ? sql2.length : lineBreak + 1;
       }
       if (currentChar === charCode.slash && nextChar === charCode.asterisk) {
-        const commentEnd = sql3.indexOf("*/", position + 2);
-        return commentEnd === -1 ? sql3.length : commentEnd + 2;
+        const commentEnd = sql2.indexOf("*/", position + 2);
+        return commentEnd === -1 ? sql2.length : commentEnd + 2;
       }
       return -1;
     };
-    var findNextPlaceholder = (sql3, start) => {
-      const sqlLength = sql3.length;
+    var findNextPlaceholder = (sql2, start) => {
+      const sqlLength = sql2.length;
       for (let position = start; position < sqlLength; position++) {
-        const code = sql3.charCodeAt(position);
+        const code = sql2.charCodeAt(position);
         if (code === charCode.questionMark)
           return position;
         if (code === charCode.singleQuote || code === charCode.backtick || code === charCode.dash || code === charCode.slash) {
-          const contextEnd = skipSqlContext(sql3, position);
+          const contextEnd = skipSqlContext(sql2, position);
           if (contextEnd !== -1)
             position = contextEnd - 1;
         }
       }
       return -1;
     };
-    var findSetKeyword = (sql3, startFrom = 0) => {
-      const length = sql3.length;
+    var findSetKeyword = (sql2, startFrom = 0) => {
+      const length = sql2.length;
       for (let position = startFrom; position < length; position++) {
-        const code = sql3.charCodeAt(position);
+        const code = sql2.charCodeAt(position);
         const lower = code | 32;
         if (code === charCode.singleQuote || code === charCode.backtick || code === charCode.dash || code === charCode.slash) {
-          const contextEnd = skipSqlContext(sql3, position);
+          const contextEnd = skipSqlContext(sql2, position);
           if (contextEnd !== -1) {
             position = contextEnd - 1;
             continue;
           }
         }
-        if (lower === 115 && matchesWord(sql3, position, "set", length))
+        if (lower === 115 && matchesWord(sql2, position, "set", length))
           return position + 3;
-        if (lower === 107 && matchesWord(sql3, position, "key", length)) {
+        if (lower === 107 && matchesWord(sql2, position, "key", length)) {
           let cursor = position + 3;
-          while (cursor < length && isWhitespace(sql3.charCodeAt(cursor)))
+          while (cursor < length && isWhitespace(sql2.charCodeAt(cursor)))
             cursor++;
-          if (matchesWord(sql3, cursor, "update", length))
+          if (matchesWord(sql2, cursor, "update", length))
             return cursor + 6;
         }
       }
@@ -31006,19 +31006,19 @@ var require_lib4 = __commonJS({
       const keysLength = keys.length;
       if (keysLength === 0)
         return "";
-      let sql3 = "";
+      let sql2 = "";
       for (let i = 0; i < keysLength; i++) {
         const key = keys[i];
         const value = object2[key];
         if (typeof value === "function")
           continue;
-        if (sql3.length > 0)
-          sql3 += ", ";
-        sql3 += (0, exports2.escapeId)(key);
-        sql3 += " = ";
-        sql3 += (0, exports2.escape)(value, true, timezone);
+        if (sql2.length > 0)
+          sql2 += ", ";
+        sql2 += (0, exports2.escapeId)(key);
+        sql2 += " = ";
+        sql2 += (0, exports2.escape)(value, true, timezone);
       }
-      return sql3;
+      return sql2;
     };
     exports2.objectToValues = objectToValues;
     var bufferToString = (buffer) => `X${escapeString(buffer.toString("hex"))}`;
@@ -31069,25 +31069,25 @@ var require_lib4 = __commonJS({
       }
     };
     exports2.escape = escape2;
-    var format = (sql3, values, stringifyObjects, timezone) => {
+    var format = (sql2, values, stringifyObjects, timezone) => {
       if (values === void 0 || values === null)
-        return sql3;
+        return sql2;
       const valuesArray = Array.isArray(values) ? values : [values];
       const length = valuesArray.length;
       let setIndex = -2;
       let result = "";
       let chunkIndex = 0;
       let valuesIndex = 0;
-      let placeholderPosition = findNextPlaceholder(sql3, 0);
+      let placeholderPosition = findNextPlaceholder(sql2, 0);
       while (valuesIndex < length && placeholderPosition !== -1) {
         let placeholderEnd = placeholderPosition + 1;
         let escapedValue;
-        while (sql3.charCodeAt(placeholderEnd) === 63)
+        while (sql2.charCodeAt(placeholderEnd) === 63)
           placeholderEnd++;
         const placeholderLength = placeholderEnd - placeholderPosition;
         const currentValue = valuesArray[valuesIndex];
         if (placeholderLength > 2) {
-          placeholderPosition = findNextPlaceholder(sql3, placeholderEnd);
+          placeholderPosition = findNextPlaceholder(sql2, placeholderEnd);
           continue;
         }
         if (placeholderLength === 2)
@@ -31096,32 +31096,32 @@ var require_lib4 = __commonJS({
           escapedValue = `${currentValue}`;
         else if (typeof currentValue === "object" && currentValue !== null && !stringifyObjects) {
           if (setIndex === -2)
-            setIndex = findSetKeyword(sql3);
-          if (setIndex !== -1 && setIndex <= placeholderPosition && hasOnlyWhitespaceBetween(sql3, setIndex, placeholderPosition) && !hasSqlString(currentValue) && !Array.isArray(currentValue) && !node_buffer_1.Buffer.isBuffer(currentValue) && !(currentValue instanceof Uint8Array) && !isDate(currentValue) && isRecord(currentValue)) {
+            setIndex = findSetKeyword(sql2);
+          if (setIndex !== -1 && setIndex <= placeholderPosition && hasOnlyWhitespaceBetween(sql2, setIndex, placeholderPosition) && !hasSqlString(currentValue) && !Array.isArray(currentValue) && !node_buffer_1.Buffer.isBuffer(currentValue) && !(currentValue instanceof Uint8Array) && !isDate(currentValue) && isRecord(currentValue)) {
             escapedValue = (0, exports2.objectToValues)(currentValue, timezone);
-            setIndex = findSetKeyword(sql3, placeholderEnd);
+            setIndex = findSetKeyword(sql2, placeholderEnd);
           } else
             escapedValue = (0, exports2.escape)(currentValue, true, timezone);
         } else
           escapedValue = (0, exports2.escape)(currentValue, stringifyObjects, timezone);
-        result += sql3.slice(chunkIndex, placeholderPosition);
+        result += sql2.slice(chunkIndex, placeholderPosition);
         result += escapedValue;
         chunkIndex = placeholderEnd;
         valuesIndex++;
-        placeholderPosition = findNextPlaceholder(sql3, placeholderEnd);
+        placeholderPosition = findNextPlaceholder(sql2, placeholderEnd);
       }
       if (chunkIndex === 0)
-        return sql3;
-      if (chunkIndex < sql3.length)
-        return result + sql3.slice(chunkIndex);
+        return sql2;
+      if (chunkIndex < sql2.length)
+        return result + sql2.slice(chunkIndex);
       return result;
     };
     exports2.format = format;
-    var raw = (sql3) => {
-      if (typeof sql3 !== "string")
+    var raw = (sql2) => {
+      if (typeof sql2 !== "string")
         throw new TypeError("argument sql must be a string");
       return {
-        toSqlString: () => sql3
+        toSqlString: () => sql2
       };
     };
     exports2.raw = raw;
@@ -40225,8 +40225,8 @@ var require_prepare_statement = __commonJS({
     var StringParser = require_string();
     var CharsetToEncoding = require_charset_encodings();
     var PrepareStatement = class {
-      constructor(sql3, charsetNumber) {
-        this.query = sql3;
+      constructor(sql2, charsetNumber) {
+        this.query = sql2;
         this.charsetNumber = charsetNumber;
         this.encoding = CharsetToEncoding[charsetNumber];
       }
@@ -40275,8 +40275,8 @@ var require_query = __commonJS({
     var Types = require_types();
     var { toParameter } = require_encode_parameter();
     var Query = class {
-      constructor(sql3, charsetNumber, attributes, clientFlags) {
-        this.query = sql3;
+      constructor(sql2, charsetNumber, attributes, clientFlags) {
+        this.query = sql2;
         this.charsetNumber = charsetNumber;
         this.encoding = CharsetToEncoding[charsetNumber];
         this.attributes = attributes;
@@ -44326,17 +44326,17 @@ var require_connection = __commonJS({
         }
         return cmd;
       }
-      format(sql3, values) {
+      format(sql2, values) {
         if (typeof this.config.queryFormat === "function") {
           return this.config.queryFormat.call(
             this,
-            sql3,
+            sql2,
             values,
             this.config.timezone
           );
         }
         const opts = {
-          sql: sql3,
+          sql: sql2,
           values
         };
         this._resolveNamedPlaceholders(opts);
@@ -44353,8 +44353,8 @@ var require_connection = __commonJS({
       escapeId(value) {
         return SqlString.escapeId(value, false);
       }
-      raw(sql3) {
-        return SqlString.raw(sql3);
+      raw(sql2) {
+        return SqlString.raw(sql2);
       }
       _resolveNamedPlaceholders(options) {
         let unnamed;
@@ -44370,12 +44370,12 @@ var require_connection = __commonJS({
           options.values = unnamed[1];
         }
       }
-      query(sql3, values, cb) {
+      query(sql2, values, cb) {
         let cmdQuery;
-        if (sql3.constructor === Commands.Query) {
-          cmdQuery = sql3;
+        if (sql2.constructor === Commands.Query) {
+          cmdQuery = sql2;
         } else {
-          cmdQuery = _BaseConnection.createQuery(sql3, values, cb, this.config);
+          cmdQuery = _BaseConnection.createQuery(sql2, values, cb, this.config);
         }
         this._resolveNamedPlaceholders(cmdQuery);
         const rawSql = this.format(
@@ -44451,12 +44451,12 @@ var require_connection = __commonJS({
         }
         return this.addCommand(new Commands.Prepare(options, cb));
       }
-      unprepare(sql3) {
+      unprepare(sql2) {
         let options = {};
-        if (typeof sql3 === "object") {
-          options = sql3;
+        if (typeof sql2 === "object") {
+          options = sql2;
         } else {
-          options.sql = sql3;
+          options.sql = sql2;
         }
         const key = _BaseConnection.statementKey(options);
         const stmt = this._statements.get(key);
@@ -44466,16 +44466,16 @@ var require_connection = __commonJS({
         }
         return stmt;
       }
-      execute(sql3, values, cb) {
+      execute(sql2, values, cb) {
         let options = {
           infileStreamFactory: this.config.infileStreamFactory
         };
-        if (typeof sql3 === "object") {
+        if (typeof sql2 === "object") {
           options = {
             ...options,
-            ...sql3,
-            sql: sql3.sql,
-            values: sql3.values
+            ...sql2,
+            sql: sql2.sql,
+            values: sql2.values
           };
           if (typeof values === "function") {
             cb = values;
@@ -44484,10 +44484,10 @@ var require_connection = __commonJS({
           }
         } else if (typeof values === "function") {
           cb = values;
-          options.sql = sql3;
+          options.sql = sql2;
           options.values = void 0;
         } else {
-          options.sql = sql3;
+          options.sql = sql2;
           options.values = values;
         }
         this._resolveNamedPlaceholders(options);
@@ -44768,17 +44768,17 @@ var require_connection = __commonJS({
         this.addCommand = this._addCommandClosedState;
         return quitCmd;
       }
-      static createQuery(sql3, values, cb, config2) {
+      static createQuery(sql2, values, cb, config2) {
         let options = {
           rowsAsArray: config2.rowsAsArray,
           infileStreamFactory: config2.infileStreamFactory
         };
-        if (typeof sql3 === "object") {
+        if (typeof sql2 === "object") {
           options = {
             ...options,
-            ...sql3,
-            sql: sql3.sql,
-            values: sql3.values
+            ...sql2,
+            sql: sql2.sql,
+            values: sql2.values
           };
           if (typeof values === "function") {
             cb = values;
@@ -44787,10 +44787,10 @@ var require_connection = __commonJS({
           }
         } else if (typeof values === "function") {
           cb = values;
-          options.sql = sql3;
+          options.sql = sql2;
           options.values = void 0;
         } else {
-          options.sql = sql3;
+          options.sql = sql2;
           options.values = values;
         }
         return new Commands.Query(options, cb);
@@ -45412,9 +45412,9 @@ var require_pool = __commonJS({
           connection._realEnd(endCB);
         }
       }
-      query(sql3, values, cb) {
+      query(sql2, values, cb) {
         const cmdQuery = BaseConnection.createQuery(
-          sql3,
+          sql2,
           values,
           cb,
           this.config.connectionConfig
@@ -45458,7 +45458,7 @@ var require_pool = __commonJS({
         });
         return cmdQuery;
       }
-      execute(sql3, values, cb) {
+      execute(sql2, values, cb) {
         if (typeof values === "function") {
           cb = values;
           values = [];
@@ -45468,7 +45468,7 @@ var require_pool = __commonJS({
             return cb(err);
           }
           try {
-            conn.execute(sql3, values, (err2, rows, fields) => {
+            conn.execute(sql2, values, (err2, rows, fields) => {
               if (isReadOnlyError(err2)) {
                 conn.destroy();
               }
@@ -45505,9 +45505,9 @@ var require_pool = __commonJS({
           }
         }, 1e3);
       }
-      format(sql3, values) {
+      format(sql2, values) {
         return SqlString.format(
-          sql3,
+          sql2,
           values,
           this.config.connectionConfig.stringifyObjects,
           this.config.connectionConfig.timezone
@@ -45559,7 +45559,7 @@ var require_pool2 = __commonJS({
       releaseConnection(connection) {
         if (connection instanceof PromisePoolConnection) connection.release();
       }
-      query(sql3, args) {
+      query(sql2, args) {
         const corePool = this.pool;
         const localErr = new Error();
         if (typeof args === "function") {
@@ -45570,13 +45570,13 @@ var require_pool2 = __commonJS({
         return new this.Promise((resolve, reject) => {
           const done = makeDoneCb(resolve, reject, localErr);
           if (args !== void 0) {
-            corePool.query(sql3, args, done);
+            corePool.query(sql2, args, done);
           } else {
-            corePool.query(sql3, done);
+            corePool.query(sql2, done);
           }
         });
       }
-      execute(sql3, args) {
+      execute(sql2, args) {
         const corePool = this.pool;
         const localErr = new Error();
         if (typeof args === "function") {
@@ -45587,9 +45587,9 @@ var require_pool2 = __commonJS({
         return new this.Promise((resolve, reject) => {
           const done = makeDoneCb(resolve, reject, localErr);
           if (args) {
-            corePool.execute(sql3, args, done);
+            corePool.execute(sql2, args, done);
           } else {
-            corePool.execute(sql3, done);
+            corePool.execute(sql2, done);
           }
         });
       }
@@ -45749,8 +45749,8 @@ var require_pool_cluster = __commonJS({
        * @param {*} cb
        * @returns query
        */
-      query(sql3, values, cb) {
-        const query = Connection.createQuery(sql3, values, cb, {});
+      query(sql2, values, cb) {
+        const query = Connection.createQuery(sql2, values, cb, {});
         this.getConnection((err, conn) => {
           if (err) {
             if (typeof query.onResult === "function") {
@@ -45777,7 +45777,7 @@ var require_pool_cluster = __commonJS({
        * @param {*} values
        * @param {*} cb
        */
-      execute(sql3, values, cb) {
+      execute(sql2, values, cb) {
         if (typeof values === "function") {
           cb = values;
           values = [];
@@ -45787,7 +45787,7 @@ var require_pool_cluster = __commonJS({
             return cb(err);
           }
           try {
-            conn.execute(sql3, values, cb).once("end", () => {
+            conn.execute(sql2, values, cb).once("end", () => {
               conn.release();
             });
           } catch (e) {
@@ -46082,7 +46082,7 @@ var require_pool_cluster2 = __commonJS({
           });
         });
       }
-      query(sql3, values) {
+      query(sql2, values) {
         const corePoolNamespace = this.poolNamespace;
         const localErr = new Error();
         if (typeof values === "function") {
@@ -46092,10 +46092,10 @@ var require_pool_cluster2 = __commonJS({
         }
         return new this.Promise((resolve, reject) => {
           const done = makeDoneCb(resolve, reject, localErr);
-          corePoolNamespace.query(sql3, values, done);
+          corePoolNamespace.query(sql2, values, done);
         });
       }
-      execute(sql3, values) {
+      execute(sql2, values) {
         const corePoolNamespace = this.poolNamespace;
         const localErr = new Error();
         if (typeof values === "function") {
@@ -46105,7 +46105,7 @@ var require_pool_cluster2 = __commonJS({
         }
         return new this.Promise((resolve, reject) => {
           const done = makeDoneCb(resolve, reject, localErr);
-          corePoolNamespace.execute(sql3, values, done);
+          corePoolNamespace.execute(sql2, values, done);
         });
       }
     };
@@ -46185,7 +46185,7 @@ var require_promise = __commonJS({
           );
         });
       }
-      query(sql3, args) {
+      query(sql2, args) {
         const corePoolCluster = this.poolCluster;
         const localErr = new Error();
         if (typeof args === "function") {
@@ -46195,10 +46195,10 @@ var require_promise = __commonJS({
         }
         return new this.Promise((resolve, reject) => {
           const done = makeDoneCb(resolve, reject, localErr);
-          corePoolCluster.query(sql3, args, done);
+          corePoolCluster.query(sql2, args, done);
         });
       }
-      execute(sql3, args) {
+      execute(sql2, args) {
         const corePoolCluster = this.poolCluster;
         const localErr = new Error();
         if (typeof args === "function") {
@@ -46208,7 +46208,7 @@ var require_promise = __commonJS({
         }
         return new this.Promise((resolve, reject) => {
           const done = makeDoneCb(resolve, reject, localErr);
-          corePoolCluster.execute(sql3, args, done);
+          corePoolCluster.execute(sql2, args, done);
         });
       }
       of(pattern, selector) {
@@ -128856,8 +128856,8 @@ var MySqlDialect = class {
       generatedIds: generatedIdsResponse
     };
   }
-  sqlToQuery(sql22, invokeSource) {
-    return sql22.toQuery({
+  sqlToQuery(sql2, invokeSource) {
+    return sql2.toQuery({
       casing: this.casing,
       escapeName: this.escapeName,
       escapeParam: this.escapeParam,
@@ -130338,9 +130338,9 @@ var MySqlInsertBase = class extends QueryPromise {
     return rest;
   }
   prepare() {
-    const { sql: sql22, generatedIds } = this.dialect.buildInsertQuery(this.config);
+    const { sql: sql2, generatedIds } = this.dialect.buildInsertQuery(this.config);
     return this.session.prepareQuery(
-      this.dialect.sqlToQuery(sql22),
+      this.dialect.sqlToQuery(sql2),
       void 0,
       void 0,
       generatedIds,
@@ -130847,8 +130847,8 @@ var NoopCache = class extends Cache {
   async onMutate(_params) {
   }
 };
-async function hashQuery(sql3, params) {
-  const dataToHash = `${sql3}-${JSON.stringify(params)}`;
+async function hashQuery(sql2, params) {
+  const dataToHash = `${sql2}-${JSON.stringify(params)}`;
   const encoder = new TextEncoder();
   const data = encoder.encode(dataToHash);
   const hashBuffer = await crypto.subtle.digest("SHA-256", data);
@@ -130959,8 +130959,8 @@ var MySqlSession = class {
       void 0
     ).execute();
   }
-  async count(sql22) {
-    const res = await this.execute(sql22);
+  async count(sql2) {
+    const res = await this.execute(sql2);
     return Number(
       res[0][0]["count"]
     );
@@ -142772,6 +142772,8 @@ var ordersTable = mysqlTable(
     notes: text("notes"),
     returnReason: text("return_reason"),
     returnNote: text("return_note"),
+    returnReceived: int("return_received"),
+    // null = لم يُحدد، 0 = عند شركة الشحن، 1 = تم الاستلام
     trackingNumber: varchar("tracking_number", { length: 255 }),
     invoiceNumber: varchar("invoice_number", { length: 50 }),
     deletedAt: datetime("deleted_at"),
@@ -142856,7 +142858,10 @@ var shippingManifestOrdersTable = mysqlTable("shipping_manifest_orders", {
   deliveryNote: text("delivery_note"),
   partialQuantity: int("partial_quantity"),
   deliveredAt: datetime("delivered_at"),
-  addedAt: datetime("added_at").notNull()
+  addedAt: datetime("added_at").notNull(),
+  // حالة استلام المرتجع: null = لم يُحدَّد بعد، true = تم استلامه، false = لم يُستلم بعد (مازال في شركة الشحن)
+  returnReceived: int("return_received")
+  // 1 = تم الاستلام، 0 = لم يُستلم (null = مرتجع جديد لم يُحدد)
 });
 
 // ../../lib/db/src/schema/movements.ts
@@ -143281,7 +143286,7 @@ async function reverseShipping(order, qty, orderId) {
 }
 
 // src/lib/audit.ts
-async function logAudit2(opts) {
+async function logAudit(opts) {
   try {
     await db.insert(auditLogsTable).values({
       action: opts.action,
@@ -145221,6 +145226,20 @@ router2.get("/orders", async (req, res) => {
   if (conditions.length === 1) query = query.where(conditions[0]);
   else if (conditions.length > 1) query = query.where(and(...conditions));
   const rows = await query;
+  const returnedNullIds = rows.filter((o) => o.status === "returned" && o.returnReceived == null).map((o) => o.id);
+  const manifestReturnMap = /* @__PURE__ */ new Map();
+  if (returnedNullIds.length > 0) {
+    try {
+      const manifestLinks = await db.select({ orderId: shippingManifestOrdersTable.orderId, returnReceived: shippingManifestOrdersTable.returnReceived }).from(shippingManifestOrdersTable).where(inArray(shippingManifestOrdersTable.orderId, returnedNullIds));
+      for (const link of manifestLinks) {
+        const existing = manifestReturnMap.get(link.orderId);
+        if (existing === void 0 || link.returnReceived !== null && existing === null) {
+          manifestReturnMap.set(link.orderId, link.returnReceived ?? null);
+        }
+      }
+    } catch (_2) {
+    }
+  }
   const groupMap = /* @__PURE__ */ new Map();
   for (const o of rows) {
     const key = o.invoiceNumber ?? `solo-${o.id}`;
@@ -145232,10 +145251,16 @@ router2.get("/orders", async (req, res) => {
     const allInManifest = grp.every((o) => manifestOrderIdsSet.has(o.id));
     return !allInManifest;
   });
+  const getReturnReceived = (o) => {
+    const fromOrder = o.returnReceived;
+    if (fromOrder !== null && fromOrder !== void 0) return fromOrder;
+    return manifestReturnMap.get(o.id) ?? null;
+  };
   const grouped = filteredGroups.map((grp) => {
     if (grp.length === 1) {
       const rep2 = { ...grp[0] };
       rep2._invoiceOrders = [grp[0]];
+      if (rep2.status === "returned") rep2.returnReceived = getReturnReceived(grp[0]);
       return rep2;
     }
     const rep = { ...grp[0] };
@@ -145246,6 +145271,18 @@ router2.get("/orders", async (req, res) => {
     rep._groupCount = grp.length;
     rep._groupStatuses = grp.map((o) => o.status);
     rep._invoiceOrders = grp;
+    const allReturned = grp.every((o) => o.status === "returned");
+    if (allReturned) {
+      let rr = null;
+      for (const o of grp) {
+        const val = getReturnReceived(o);
+        if (val !== null) {
+          rr = val;
+          break;
+        }
+      }
+      rep.returnReceived = rr;
+    }
     return rep;
   });
   res.json(grouped);
@@ -145270,7 +145307,7 @@ router2.post("/orders", async (req, res) => {
   const result = await db.insert(ordersTable).values({ ...parsed.data, totalPrice, status: "pending", costPrice, invoiceNumber, createdAt: /* @__PURE__ */ new Date(), updatedAt: /* @__PURE__ */ new Date() });
   const insertId = result[0]?.insertId ?? result.insertId;
   const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, insertId));
-  await logAudit2({
+  await logAudit({
     action: "create",
     entityType: "order",
     entityId: order.id,
@@ -145329,7 +145366,7 @@ router2.post("/orders/batch", async (req, res) => {
     const insertId = result[0]?.insertId ?? result.insertId;
     const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, insertId));
     createdOrders.push(order);
-    await logAudit2({
+    await logAudit({
       action: "create",
       entityType: "order",
       entityId: order.id,
@@ -145410,7 +145447,7 @@ router2.post("/orders/:id/restore", async (req, res) => {
   }
   await db.update(ordersTable).set({ deletedAt: null }).where(eq(ordersTable.id, id));
   const [restored] = await db.select().from(ordersTable).where(eq(ordersTable.id, id));
-  await logAudit2({
+  await logAudit({
     action: "restore",
     entityType: "order",
     entityId: id,
@@ -145479,7 +145516,18 @@ router2.patch("/orders/:id", async (req, res) => {
   const quantity = parsed.data.quantity ?? existing.quantity;
   const unitPrice = parsed.data.unitPrice ?? existing.unitPrice;
   const totalPrice = quantity * unitPrice;
-  await db.update(ordersTable).set({ ...parsed.data, totalPrice, updatedAt: /* @__PURE__ */ new Date() }).where(eq(ordersTable.id, params.data.id));
+  const newStatusFromBody = parsed.data.status;
+  let returnReceivedUpdate = void 0;
+  if (newStatusFromBody === "returned") {
+    if (req.body.returnReceived === true || req.body.returnReceived === 1) returnReceivedUpdate = 1;
+    else if (req.body.returnReceived === false || req.body.returnReceived === 0) returnReceivedUpdate = 0;
+    else returnReceivedUpdate = void 0;
+  } else if (newStatusFromBody && newStatusFromBody !== "returned") {
+    returnReceivedUpdate = null;
+  }
+  const updatePayload = { ...parsed.data, totalPrice, updatedAt: /* @__PURE__ */ new Date() };
+  if (returnReceivedUpdate !== void 0) updatePayload.returnReceived = returnReceivedUpdate;
+  await db.update(ordersTable).set(updatePayload).where(eq(ordersTable.id, params.data.id));
   const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, params.data.id));
   if (!order) {
     res.status(404).json({ error: "Order not found" });
@@ -145553,13 +145601,40 @@ router2.patch("/orders/:id", async (req, res) => {
       const deducted = existing.partialQuantity ?? 0;
       if (deducted > 0) await reverseDelivery(orderRef, deducted, existing.id);
     }
+    const ORDER_STATUS_TO_DELIVERY = {
+      received: "delivered",
+      returned: "returned",
+      delayed: "postponed",
+      partial_received: "partial_received",
+      in_shipping: "pending",
+      pending: "pending"
+    };
+    const newDeliveryStatus = ORDER_STATUS_TO_DELIVERY[newStatus];
+    if (newDeliveryStatus) {
+      const manifestLinks = await db.select().from(shippingManifestOrdersTable).where(eq(shippingManifestOrdersTable.orderId, existing.id));
+      for (const mLink of manifestLinks) {
+        const updateData = { deliveryStatus: newDeliveryStatus };
+        if (newDeliveryStatus === "delivered") updateData.deliveredAt = /* @__PURE__ */ new Date();
+        if (newDeliveryStatus !== "delivered") updateData.deliveredAt = null;
+        if (newDeliveryStatus === "partial_received" && parsed.data.partialQuantity) {
+          updateData.partialQuantity = parsed.data.partialQuantity;
+        }
+        if (newDeliveryStatus !== "returned") {
+          updateData.returnReceived = null;
+        }
+        if (newDeliveryStatus === "returned" && (req.body.returnReceived === true || req.body.returnReceived === false)) {
+          updateData.returnReceived = req.body.returnReceived ? 1 : 0;
+        }
+        await db.update(shippingManifestOrdersTable).set(updateData).where(eq(shippingManifestOrdersTable.id, mLink.id));
+      }
+    }
   }
   const diff = diffObjects(
     { status: existing.status, unitPrice: existing.unitPrice, quantity: existing.quantity, partialQuantity: existing.partialQuantity, notes: existing.notes, returnReason: existing.returnReason },
     { status: order.status, unitPrice: order.unitPrice, quantity: order.quantity, partialQuantity: order.partialQuantity, notes: order.notes, returnReason: order.returnReason }
   );
   const auditAction = newStatus && newStatus !== oldStatus ? "status_change" : "update";
-  await logAudit2({
+  await logAudit({
     action: auditAction,
     entityType: "order",
     entityId: order.id,
@@ -145601,7 +145676,7 @@ router2.delete("/orders/bulk", async (req, res) => {
         existing.id
       );
     }
-    await logAudit2({
+    await logAudit({
       action: "delete",
       entityType: "order",
       entityId: existing.id,
@@ -145646,7 +145721,7 @@ router2.delete("/orders/:id", async (req, res) => {
       existing.id
     );
   }
-  await logAudit2({
+  await logAudit({
     action: "delete",
     entityType: "order",
     entityId: id,
@@ -145696,7 +145771,7 @@ router3.post("/products", requireRole("admin", "warehouse"), async (req, res) =>
   const insertResult = await db.insert(productsTable).values(parsed.data);
   const insertId = insertResult[0]?.insertId ?? insertResult.insertId;
   const [product] = await db.select().from(productsTable).where(eq(productsTable.id, insertId));
-  await logAudit2({ action: "create", entityType: "product", entityId: product.id, entityName: product.name, after: { name: product.name, unitPrice: product.unitPrice, totalQuantity: product.totalQuantity }, userId: req.user?.id, userName: req.user?.displayName });
+  await logAudit({ action: "create", entityType: "product", entityId: product.id, entityName: product.name, after: { name: product.name, unitPrice: product.unitPrice, totalQuantity: product.totalQuantity }, userId: req.user?.id, userName: req.user?.displayName });
   res.status(201).json(product);
 });
 router3.get("/products/:id", async (req, res) => {
@@ -145734,7 +145809,7 @@ router3.patch("/products/:id", requireRole("admin", "warehouse"), async (req, re
     res.status(404).json({ error: "Product not found" });
     return;
   }
-  if (before) await logAudit2({ action: "update", entityType: "product", entityId: id, entityName: product.name, before: { name: before.name, unitPrice: before.unitPrice, lowStockThreshold: before.lowStockThreshold }, after: { name: product.name, unitPrice: product.unitPrice, lowStockThreshold: product.lowStockThreshold }, userId: req.user?.id, userName: req.user?.displayName });
+  if (before) await logAudit({ action: "update", entityType: "product", entityId: id, entityName: product.name, before: { name: before.name, unitPrice: before.unitPrice, lowStockThreshold: before.lowStockThreshold }, after: { name: product.name, unitPrice: product.unitPrice, lowStockThreshold: product.lowStockThreshold }, userId: req.user?.id, userName: req.user?.displayName });
   res.json(product);
 });
 router3.delete("/products/:id", requireRole("admin"), async (req, res) => {
@@ -145749,7 +145824,7 @@ router3.delete("/products/:id", requireRole("admin"), async (req, res) => {
     return;
   }
   await db.delete(productsTable).where(eq(productsTable.id, id));
-  await logAudit2({ action: "delete", entityType: "product", entityId: id, entityName: existing.name, before: { name: existing.name }, userId: req.user?.id, userName: req.user?.displayName });
+  await logAudit({ action: "delete", entityType: "product", entityId: id, entityName: existing.name, before: { name: existing.name }, userId: req.user?.id, userName: req.user?.displayName });
   res.status(204).send();
 });
 router3.post("/products/:id/add-stock", requireRole("admin", "warehouse"), async (req, res) => {
@@ -145790,7 +145865,7 @@ router3.post("/products/:id/add-stock", requireRole("admin", "warehouse"), async
       });
     }
   }
-  await logAudit2({ action: "add_stock", entityType: "product", entityId: id, entityName: product.name, before: { totalQuantity: product.totalQuantity }, after: { totalQuantity: product.totalQuantity + parsed.data.quantity, added: parsed.data.quantity, notes: parsed.data.notes }, userId: req.user?.id, userName: req.user?.displayName });
+  await logAudit({ action: "add_stock", entityType: "product", entityId: id, entityName: product.name, before: { totalQuantity: product.totalQuantity }, after: { totalQuantity: product.totalQuantity + parsed.data.quantity, added: parsed.data.quantity, notes: parsed.data.notes }, userId: req.user?.id, userName: req.user?.displayName });
   const [updated] = await db.select().from(productsTable).where(eq(productsTable.id, id));
   res.json(updated);
 });
@@ -145875,7 +145950,7 @@ router4.post("/products/:productId/variants", requireRole("admin", "warehouse"),
   });
   const insertId = insertResult[0]?.insertId ?? insertResult.insertId;
   const [variant] = await db.select().from(productVariantsTable).where(eq(productVariantsTable.id, insertId));
-  await logAudit2({ action: "create", entityType: "variant", entityId: variant.id, entityName: `${product.name} \u2014 ${variant.color} ${variant.size}`, after: { color: variant.color, size: variant.size, totalQuantity: variant.totalQuantity }, userId: req.user?.id, userName: req.user?.displayName });
+  await logAudit({ action: "create", entityType: "variant", entityId: variant.id, entityName: `${product.name} \u2014 ${variant.color} ${variant.size}`, after: { color: variant.color, size: variant.size, totalQuantity: variant.totalQuantity }, userId: req.user?.id, userName: req.user?.displayName });
   res.status(201).json(variant);
 });
 router4.patch("/products/:productId/variants/:variantId", requireRole("admin", "warehouse"), async (req, res) => {
@@ -145896,7 +145971,7 @@ router4.patch("/products/:productId/variants/:variantId", requireRole("admin", "
     res.status(404).json({ error: "Variant not found" });
     return;
   }
-  if (before) await logAudit2({ action: "update", entityType: "variant", entityId: variantId, entityName: `${variant.color} ${variant.size}`, before: { unitPrice: before.unitPrice, lowStockThreshold: before.lowStockThreshold }, after: { unitPrice: variant.unitPrice, lowStockThreshold: variant.lowStockThreshold }, userId: req.user?.id, userName: req.user?.displayName });
+  if (before) await logAudit({ action: "update", entityType: "variant", entityId: variantId, entityName: `${variant.color} ${variant.size}`, before: { unitPrice: before.unitPrice, lowStockThreshold: before.lowStockThreshold }, after: { unitPrice: variant.unitPrice, lowStockThreshold: variant.lowStockThreshold }, userId: req.user?.id, userName: req.user?.displayName });
   res.json(variant);
 });
 router4.delete("/products/:productId/variants/:variantId", requireRole("admin"), async (req, res) => {
@@ -145911,7 +145986,7 @@ router4.delete("/products/:productId/variants/:variantId", requireRole("admin"),
     return;
   }
   await db.delete(productVariantsTable).where(and(eq(productVariantsTable.id, variantId), eq(productVariantsTable.productId, parseInt(req.params.productId))));
-  await logAudit2({ action: "delete", entityType: "variant", entityId: variantId, entityName: `${toDelete.color} ${toDelete.size}`, userId: req.user?.id, userName: req.user?.displayName });
+  await logAudit({ action: "delete", entityType: "variant", entityId: variantId, entityName: `${toDelete.color} ${toDelete.size}`, userId: req.user?.id, userName: req.user?.displayName });
   res.status(204).send();
 });
 router4.post("/products/:productId/variants/:variantId/add-stock", async (req, res) => {
@@ -146770,9 +146845,8 @@ function periodStats(orders, variantMap, productMap, shippingPerOrder) {
   for (const o of returned) {
     const rc = resolveCost(o, variantMap, productMap);
     const sc = (o.shippingCost ?? 0) + (shippingPerOrder.get(o.id) ?? 0);
-    const lossCost = o.quantity * rc;
     shipping += sc;
-    netProfit -= lossCost + sc;
+    netProfit -= sc;
   }
   const returnRate = closedOrders > 0 ? Math.round(returned.length / closedOrders * 100) : 0;
   return { orders: orders.length, revenue, cost, shippingCost: shipping, netProfit, returnRate, returnCount: returned.length };
@@ -146981,9 +147055,8 @@ router8.get("/analytics/financial-summary", requireAdmin, async (req, res) => {
       shippingSpend += sc;
       completedOrders.push({ profit: revenue - cost - sc, value: revenue, cost: cost + sc });
     } else if (o.status === "returned") {
-      const cost = o.quantity * rc;
       shippingSpend += sc;
-      returnLoss += cost + sc;
+      returnLoss += sc;
       returnRevLost += o.quantity * o.unitPrice;
     } else if (o.status === "pending" || o.status === "in_shipping" || o.status === "delayed") {
       pendingRevenue += o.quantity * o.unitPrice;
@@ -147735,7 +147808,7 @@ router9.post("/login", loginLimiter, async (req, res) => {
     return;
   }
   const token = signToken(user);
-  await logAudit2({
+  await logAudit({
     action: "login",
     entityType: "user",
     entityId: user.id,
@@ -147864,7 +147937,7 @@ router10.post("/", async (req, res) => {
     createdAt: usersTable.createdAt,
     updatedAt: usersTable.updatedAt
   }).from(usersTable).where(eq(usersTable.id, insertId));
-  await logAudit2({
+  await logAudit({
     action: "create",
     entityType: "user",
     entityId: newUser.id,
@@ -147917,7 +147990,7 @@ router10.patch("/:id", async (req, res) => {
     createdAt: usersTable.createdAt,
     updatedAt: usersTable.updatedAt
   }).from(usersTable).where(eq(usersTable.id, id));
-  await logAudit2({
+  await logAudit({
     action: "update",
     entityType: "user",
     entityId: id,
@@ -147941,7 +148014,7 @@ router10.delete("/:id", async (req, res) => {
     return;
   }
   await db.delete(usersTable).where(eq(usersTable.id, id));
-  await logAudit2({
+  await logAudit({
     action: "delete",
     entityType: "user",
     entityId: id,
@@ -148072,7 +148145,7 @@ function computeStats(orders) {
       totalShippingCost += shipping;
       deliveredGross += revenue;
     } else if (o.deliveryStatus === "returned") {
-      returnLosses += cost + shipping;
+      returnLosses += shipping;
       totalShippingCost += shipping;
     } else {
       totalShippingCost += shipping;
@@ -148095,15 +148168,7 @@ function computeStats(orders) {
 }
 router12.get("/shipping-manifests", async (req, res) => {
   const companyId = req.query.companyId ? parseInt(req.query.companyId) : void 0;
-  const manifests = await db.select({
-    manifest: shippingManifestsTable,
-    company: shippingCompaniesTable
-  }).from(shippingManifestsTable).leftJoin(
-    shippingCompaniesTable,
-    eq(shippingManifestsTable.shippingCompanyId, shippingCompaniesTable.id)
-  ).where(
-    companyId ? eq(shippingManifestsTable.shippingCompanyId, companyId) : void 0
-  ).orderBy(desc(shippingManifestsTable.createdAt));
+  const manifests = await db.select({ manifest: shippingManifestsTable, company: shippingCompaniesTable }).from(shippingManifestsTable).leftJoin(shippingCompaniesTable, eq(shippingManifestsTable.shippingCompanyId, shippingCompaniesTable.id)).where(companyId ? eq(shippingManifestsTable.shippingCompanyId, companyId) : void 0).orderBy(desc(shippingManifestsTable.createdAt));
   const manifestIds = manifests.map((m) => m.manifest.id);
   if (manifestIds.length === 0) {
     res.json([]);
@@ -148183,13 +148248,7 @@ router12.get("/shipping-manifests/:id", async (req, res) => {
     res.status(400).json({ error: "Invalid ID" });
     return;
   }
-  const [row] = await db.select({
-    manifest: shippingManifestsTable,
-    company: shippingCompaniesTable
-  }).from(shippingManifestsTable).leftJoin(
-    shippingCompaniesTable,
-    eq(shippingManifestsTable.shippingCompanyId, shippingCompaniesTable.id)
-  ).where(eq(shippingManifestsTable.id, id));
+  const [row] = await db.select({ manifest: shippingManifestsTable, company: shippingCompaniesTable }).from(shippingManifestsTable).leftJoin(shippingCompaniesTable, eq(shippingManifestsTable.shippingCompanyId, shippingCompaniesTable.id)).where(eq(shippingManifestsTable.id, id));
   if (!row) {
     res.status(404).json({ error: "\u0627\u0644\u0628\u064A\u0627\u0646 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
     return;
@@ -148212,22 +148271,16 @@ router12.get("/shipping-manifests/:id", async (req, res) => {
     orders = rawOrders.map((o) => {
       const link = linkMap.get(o.id) ?? (o.invoiceNumber?.trim() ? invoiceLinkMap.get(o.invoiceNumber.trim()) : void 0);
       if (!link) {
-        return {
-          ...o,
-          deliveryStatus: "pending",
-          deliveryNote: null,
-          deliveredAt: null,
-          manifestOrderId: 0
-        };
+        return { ...o, deliveryStatus: "pending", deliveryNote: null, deliveredAt: null, manifestOrderId: 0 };
       }
       return {
         ...o,
         deliveryStatus: link.deliveryStatus,
         deliveryNote: link.deliveryNote,
         deliveredAt: link.deliveredAt,
-        // استخدم الكمية الجزئية من الـ manifest order row إذا كانت موجودة
         partialQuantity: link.partialQuantity ?? o.partialQuantity,
-        manifestOrderId: link.id
+        manifestOrderId: link.id,
+        returnReceived: link.returnReceived ?? null
       };
     });
   }
@@ -148286,7 +148339,13 @@ router12.patch("/shipping-manifests/:id", requireAdmin, async (req, res) => {
     const pendingLinks = await db.select().from(shippingManifestOrdersTable).where(
       and(
         eq(shippingManifestOrdersTable.manifestId, id),
-        inArray(shippingManifestOrdersTable.deliveryStatus, ["postponed", "pending"])
+        or(
+          inArray(shippingManifestOrdersTable.deliveryStatus, ["postponed", "pending", "in_shipping"]),
+          and(
+            eq(shippingManifestOrdersTable.deliveryStatus, "returned"),
+            sql`${shippingManifestOrdersTable.returnReceived} = 0`
+          )
+        )
       )
     );
     if (pendingLinks.length > 0) {
@@ -148311,7 +148370,7 @@ router12.patch("/shipping-manifests/:id", requireAdmin, async (req, res) => {
           addedAt: /* @__PURE__ */ new Date()
         }))
       );
-      await db.update(ordersTable).set({ status: "in_shipping", shippingCompanyId: updated.shippingCompanyId }).where(inArray(ordersTable.id, rolloverOrderIds));
+      await db.update(ordersTable).set({ status: "in_shipping", shippingCompanyId: updated.shippingCompanyId, returnReceived: null }).where(inArray(ordersTable.id, rolloverOrderIds));
       rolledOverManifest = { ...newManifest, orderCount: rolloverOrderIds.length };
     }
   }
@@ -148322,15 +148381,10 @@ router12.patch("/shipping-manifests/:id", requireAdmin, async (req, res) => {
   });
 });
 var DeliveryStatusSchema = external_exports.object({
-  deliveryStatus: external_exports.enum([
-    "pending",
-    "delivered",
-    "postponed",
-    "partial_received",
-    "returned"
-  ]),
+  deliveryStatus: external_exports.enum(["pending", "delivered", "postponed", "partial_received", "returned"]),
   deliveryNote: external_exports.string().nullish(),
-  partialQuantity: external_exports.number().int().positive().nullish()
+  partialQuantity: external_exports.number().int().positive().nullish(),
+  returnReceived: external_exports.boolean().nullish()
 });
 var STATUS_MAP = {
   delivered: "received",
@@ -148339,179 +148393,174 @@ var STATUS_MAP = {
   returned: "returned",
   pending: "in_shipping"
 };
-router12.patch(
-  "/shipping-manifests/:id/orders/:orderId",
-  async (req, res) => {
+router12.patch("/shipping-manifests/:id/orders/:orderId", async (req, res) => {
+  const manifestId = parseInt(req.params.id);
+  const orderId = parseInt(req.params.orderId);
+  if (isNaN(manifestId) || isNaN(orderId)) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+  const parsed = DeliveryStatusSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const { deliveryStatus, deliveryNote, partialQuantity, returnReceived } = parsed.data;
+  const [link] = await db.select().from(shippingManifestOrdersTable).where(
+    and(eq(shippingManifestOrdersTable.manifestId, manifestId), eq(shippingManifestOrdersTable.orderId, orderId))
+  );
+  if (!link) {
+    res.status(404).json({ error: "\u0627\u0644\u0637\u0644\u0628 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F \u0641\u064A \u0647\u0630\u0627 \u0627\u0644\u0628\u064A\u0627\u0646" });
+    return;
+  }
+  const [existingOrder] = await db.select().from(ordersTable).where(eq(ordersTable.id, orderId));
+  if (!existingOrder) {
+    res.status(404).json({ error: "\u0627\u0644\u0637\u0644\u0628 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
+    return;
+  }
+  const oldStatus = existingOrder.status;
+  const newStatus = STATUS_MAP[deliveryStatus] ?? "in_shipping";
+  const isDelivered = deliveryStatus === "delivered" || deliveryStatus === "partial_received";
+  await db.update(shippingManifestOrdersTable).set({
+    deliveryStatus,
+    deliveryNote: deliveryNote ?? null,
+    partialQuantity: deliveryStatus === "partial_received" && partialQuantity ? partialQuantity : null,
+    deliveredAt: isDelivered ? /* @__PURE__ */ new Date() : null,
+    ...deliveryStatus === "returned" && returnReceived !== void 0 && returnReceived !== null ? { returnReceived: returnReceived ? 1 : 0 } : deliveryStatus !== "returned" ? { returnReceived: null } : {}
+  }).where(eq(shippingManifestOrdersTable.id, link.id));
+  const orderUpdate = { status: newStatus };
+  if (deliveryStatus === "partial_received" && partialQuantity) orderUpdate.partialQuantity = partialQuantity;
+  if (deliveryStatus === "returned" && returnReceived !== void 0 && returnReceived !== null) {
+    orderUpdate.returnReceived = returnReceived ? 1 : 0;
+  } else if (deliveryStatus !== "returned") {
+    orderUpdate.returnReceived = null;
+  }
+  await db.update(ordersTable).set(orderUpdate).where(eq(ordersTable.id, orderId));
+  if (newStatus !== oldStatus) {
+    const orderRef = {
+      variantId: existingOrder.variantId,
+      productId: existingOrder.productId,
+      product: existingOrder.product,
+      color: existingOrder.color,
+      size: existingOrder.size,
+      warehouseId: existingOrder.warehouseId
+    };
+    if (deliveryStatus === "delivered") {
+      if (oldStatus === "partial_received") {
+        const remainder = existingOrder.quantity - (existingOrder.partialQuantity ?? 0);
+        if (remainder > 0) await processDelivery(orderRef, remainder, "sale", orderId, true);
+      } else if (oldStatus !== "received") {
+        await processDelivery(orderRef, existingOrder.quantity, "sale", orderId, true);
+      }
+    } else if (deliveryStatus === "partial_received") {
+      const newPartial = partialQuantity ?? 0;
+      const oldPartial = (oldStatus === "partial_received" ? existingOrder.partialQuantity : 0) ?? 0;
+      const delta = newPartial - oldPartial;
+      if (delta > 0) await processDelivery(orderRef, delta, "partial_sale", orderId, true);
+      else if (delta < 0) await reverseDelivery(orderRef, Math.abs(delta), orderId);
+    } else if (deliveryStatus === "returned") {
+      if (returnReceived === true) {
+        const wasPartial = oldStatus === "partial_received";
+        const returnQty = wasPartial ? existingOrder.partialQuantity ?? existingOrder.quantity : existingOrder.quantity;
+        await processReturn({ ...orderRef, quantity: returnQty }, oldStatus === "received" || wasPartial, false, orderId);
+      } else if (returnReceived === false) {
+      } else {
+        const wasPartial = oldStatus === "partial_received";
+        const returnQty = wasPartial ? existingOrder.partialQuantity ?? existingOrder.quantity : existingOrder.quantity;
+        await processReturn({ ...orderRef, quantity: returnQty }, oldStatus === "received" || wasPartial, false, orderId);
+      }
+    } else {
+      if (oldStatus === "received") await reverseDelivery(orderRef, existingOrder.quantity, orderId);
+      else if (oldStatus === "partial_received") {
+        const deducted = existingOrder.partialQuantity ?? 0;
+        if (deducted > 0) await reverseDelivery(orderRef, deducted, orderId);
+      }
+    }
+  }
+  if (existingOrder.invoiceNumber?.trim()) {
+    const siblings = await db.select({ mo: shippingManifestOrdersTable, o: ordersTable }).from(shippingManifestOrdersTable).innerJoin(ordersTable, eq(shippingManifestOrdersTable.orderId, ordersTable.id)).where(and(
+      eq(shippingManifestOrdersTable.manifestId, manifestId),
+      eq(ordersTable.invoiceNumber, existingOrder.invoiceNumber.trim())
+    ));
+    for (const sib of siblings) {
+      if (sib.mo.orderId === orderId) continue;
+      const sibUpdate = { deliveryStatus, deliveryNote: deliveryNote ?? null };
+      if (isDelivered) sibUpdate.deliveredAt = /* @__PURE__ */ new Date();
+      else sibUpdate.deliveredAt = null;
+      if (deliveryStatus === "partial_received" && partialQuantity) sibUpdate.partialQuantity = null;
+      if (deliveryStatus === "returned" && returnReceived !== void 0 && returnReceived !== null)
+        sibUpdate.returnReceived = returnReceived ? 1 : 0;
+      else if (deliveryStatus !== "returned") sibUpdate.returnReceived = null;
+      await db.update(shippingManifestOrdersTable).set(sibUpdate).where(eq(shippingManifestOrdersTable.id, sib.mo.id));
+      const sibOrderUpdate = { status: STATUS_MAP[deliveryStatus] ?? "in_shipping" };
+      if (deliveryStatus === "partial_received" && partialQuantity) sibOrderUpdate.partialQuantity = null;
+      if (deliveryStatus === "returned" && returnReceived !== void 0 && returnReceived !== null)
+        sibOrderUpdate.returnReceived = returnReceived ? 1 : 0;
+      else if (deliveryStatus !== "returned") sibOrderUpdate.returnReceived = null;
+      await db.update(ordersTable).set(sibOrderUpdate).where(eq(ordersTable.id, sib.mo.orderId));
+    }
+  }
+  res.json({ success: true, deliveryStatus, deliveryNote: deliveryNote ?? null, returnReceived: returnReceived ?? null });
+});
+router12.delete("/shipping-manifests/:id/orders/:orderId", async (req, res) => {
+  try {
     const manifestId = parseInt(req.params.id);
     const orderId = parseInt(req.params.orderId);
     if (isNaN(manifestId) || isNaN(orderId)) {
       res.status(400).json({ error: "Invalid ID" });
       return;
     }
-    const parsed = DeliveryStatusSchema.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.message });
+    const [manifest] = await db.select().from(shippingManifestsTable).where(eq(shippingManifestsTable.id, manifestId));
+    if (!manifest) {
+      res.status(404).json({ error: "\u0627\u0644\u0628\u064A\u0627\u0646 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
       return;
     }
-    const { deliveryStatus, deliveryNote, partialQuantity } = parsed.data;
+    if (manifest.status === "closed") {
+      res.status(400).json({ error: "\u0627\u0644\u0628\u064A\u0627\u0646 \u0645\u063A\u0644\u0642 \u0644\u0627 \u064A\u0645\u0643\u0646 \u0627\u0644\u062A\u0639\u062F\u064A\u0644 \u0639\u0644\u064A\u0647" });
+      return;
+    }
     const [link] = await db.select().from(shippingManifestOrdersTable).where(
-      and(
-        eq(shippingManifestOrdersTable.manifestId, manifestId),
-        eq(shippingManifestOrdersTable.orderId, orderId)
-      )
+      and(eq(shippingManifestOrdersTable.manifestId, manifestId), eq(shippingManifestOrdersTable.orderId, orderId))
     );
     if (!link) {
-      res.status(404).json({ error: "\u0627\u0644\u0637\u0644\u0628 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F \u0641\u064A \u0647\u0630\u0627 \u0627\u0644\u0628\u064A\u0627\u0646" });
+      res.status(404).json({ error: "\u0627\u0644\u0637\u0644\u0628\u064A\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629 \u0641\u064A \u0647\u0630\u0627 \u0627\u0644\u0628\u064A\u0627\u0646" });
       return;
     }
-    const [existingOrder] = await db.select().from(ordersTable).where(eq(ordersTable.id, orderId));
-    if (!existingOrder) {
-      res.status(404).json({ error: "\u0627\u0644\u0637\u0644\u0628 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
+    const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, orderId));
+    if (!order) {
+      res.status(404).json({ error: "\u0627\u0644\u0637\u0644\u0628\u064A\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629" });
       return;
     }
-    const oldStatus = existingOrder.status;
-    const newStatus = STATUS_MAP[deliveryStatus] ?? "in_shipping";
-    const isDelivered = deliveryStatus === "delivered" || deliveryStatus === "partial_received";
-    await db.update(shippingManifestOrdersTable).set({
-      deliveryStatus,
-      deliveryNote: deliveryNote ?? null,
-      partialQuantity: deliveryStatus === "partial_received" && partialQuantity ? partialQuantity : null,
-      deliveredAt: isDelivered ? /* @__PURE__ */ new Date() : null
-    }).where(eq(shippingManifestOrdersTable.id, link.id));
-    const orderUpdate = { status: newStatus };
-    if (deliveryStatus === "partial_received" && partialQuantity) {
-      orderUpdate.partialQuantity = partialQuantity;
+    const orderRef = {
+      variantId: order.variantId,
+      productId: order.productId,
+      product: order.product,
+      color: order.color,
+      size: order.size,
+      warehouseId: order.warehouseId
+    };
+    const ds = link.deliveryStatus;
+    if (ds === "pending" || ds === "postponed") {
+      await reverseShipping(orderRef, order.quantity, order.id);
+    } else if (ds === "delivered") {
+      await reverseShipping(orderRef, order.quantity, order.id);
+      await reverseDelivery(orderRef, order.quantity, order.id);
+    } else if (ds === "partial_received") {
+      const dQty = order.partialQuantity ?? 0;
+      const rQty = order.quantity - dQty;
+      if (dQty > 0) await reverseDelivery(orderRef, dQty, order.id);
+      if (rQty > 0) await reverseShipping(orderRef, rQty, order.id);
+    } else if (ds === "returned") {
+      await reverseShipping(orderRef, order.quantity, order.id);
     }
-    await db.update(ordersTable).set(orderUpdate).where(eq(ordersTable.id, orderId));
-    if (newStatus !== oldStatus) {
-      const orderRef = {
-        variantId: existingOrder.variantId,
-        productId: existingOrder.productId,
-        product: existingOrder.product,
-        color: existingOrder.color,
-        size: existingOrder.size,
-        warehouseId: existingOrder.warehouseId
-      };
-      if (deliveryStatus === "delivered") {
-        if (oldStatus === "partial_received") {
-          const alreadyDeducted = existingOrder.partialQuantity ?? 0;
-          const remainder = existingOrder.quantity - alreadyDeducted;
-          if (remainder > 0)
-            await processDelivery(orderRef, remainder, "sale", orderId, true);
-        } else if (oldStatus !== "received") {
-          await processDelivery(orderRef, existingOrder.quantity, "sale", orderId, true);
-        }
-      } else if (deliveryStatus === "partial_received") {
-        const newPartial = partialQuantity ?? 0;
-        const oldPartial = (oldStatus === "partial_received" ? existingOrder.partialQuantity : 0) ?? 0;
-        const delta = newPartial - oldPartial;
-        if (delta > 0)
-          await processDelivery(orderRef, delta, "partial_sale", orderId, true);
-        else if (delta < 0)
-          await reverseDelivery(orderRef, Math.abs(delta), orderId);
-      } else if (deliveryStatus === "returned") {
-        const wasFullyDelivered = oldStatus === "received";
-        const wasPartiallyDelivered = oldStatus === "partial_received";
-        const returnQty = wasPartiallyDelivered ? existingOrder.partialQuantity ?? existingOrder.quantity : existingOrder.quantity;
-        await processReturn(
-          { ...orderRef, quantity: returnQty },
-          wasFullyDelivered || wasPartiallyDelivered,
-          false,
-          // not damaged — return to stock
-          orderId
-        );
-      } else {
-        if (oldStatus === "received") {
-          await reverseDelivery(orderRef, existingOrder.quantity, orderId);
-        } else if (oldStatus === "partial_received") {
-          const deducted = existingOrder.partialQuantity ?? 0;
-          if (deducted > 0)
-            await reverseDelivery(orderRef, deducted, orderId);
-        }
-      }
-    }
-    res.json({ success: true, deliveryStatus, deliveryNote: deliveryNote ?? null });
+    await db.delete(shippingManifestOrdersTable).where(eq(shippingManifestOrdersTable.id, link.id));
+    await db.update(ordersTable).set({ status: "pending", partialQuantity: null, updatedAt: /* @__PURE__ */ new Date() }).where(eq(ordersTable.id, orderId));
+    res.json({ success: true, orderId, message: "\u062A\u0645 \u0625\u0644\u063A\u0627\u0621 \u0627\u0644\u0637\u0644\u0628\u064A\u0629 \u0645\u0646 \u0627\u0644\u0628\u064A\u0627\u0646 \u0648\u0625\u0631\u062C\u0627\u0639\u0647\u0627 \u0644\u0644\u0627\u0646\u062A\u0638\u0627\u0631" });
+  } catch (err) {
+    console.error("[cancelOrder] Error:", err);
+    res.status(500).json({ error: err?.message ?? "\u062E\u0637\u0623 \u062F\u0627\u062E\u0644\u064A", stack: err?.stack });
   }
-);
-router12.delete(
-  "/shipping-manifests/:id/orders/:orderId",
-  async (req, res) => {
-    try {
-      const manifestId = parseInt(req.params.id);
-      const orderId = parseInt(req.params.orderId);
-      if (isNaN(manifestId) || isNaN(orderId)) {
-        res.status(400).json({ error: "Invalid ID" });
-        return;
-      }
-      const [manifest] = await db.select().from(shippingManifestsTable).where(eq(shippingManifestsTable.id, manifestId));
-      if (!manifest) {
-        res.status(404).json({ error: "\u0627\u0644\u0628\u064A\u0627\u0646 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
-        return;
-      }
-      if (manifest.status === "closed") {
-        res.status(400).json({ error: "\u0627\u0644\u0628\u064A\u0627\u0646 \u0645\u063A\u0644\u0642 \u0644\u0627 \u064A\u0645\u0643\u0646 \u0627\u0644\u062A\u0639\u062F\u064A\u0644 \u0639\u0644\u064A\u0647" });
-        return;
-      }
-      const [link] = await db.select().from(shippingManifestOrdersTable).where(
-        and(
-          eq(shippingManifestOrdersTable.manifestId, manifestId),
-          eq(shippingManifestOrdersTable.orderId, orderId)
-        )
-      );
-      if (!link) {
-        res.status(404).json({ error: "\u0627\u0644\u0637\u0644\u0628\u064A\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629 \u0641\u064A \u0647\u0630\u0627 \u0627\u0644\u0628\u064A\u0627\u0646" });
-        return;
-      }
-      const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, orderId));
-      if (!order) {
-        res.status(404).json({ error: "\u0627\u0644\u0637\u0644\u0628\u064A\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629" });
-        return;
-      }
-      const orderRef = {
-        variantId: order.variantId,
-        productId: order.productId,
-        product: order.product,
-        color: order.color,
-        size: order.size,
-        warehouseId: order.warehouseId
-      };
-      const deliveryStatus = link.deliveryStatus;
-      if (deliveryStatus === "pending" || deliveryStatus === "postponed") {
-        await reverseShipping(orderRef, order.quantity, order.id);
-      } else if (deliveryStatus === "delivered") {
-        await reverseShipping(orderRef, order.quantity, order.id);
-        await reverseDelivery(orderRef, order.quantity, order.id);
-      } else if (deliveryStatus === "partial_received") {
-        const deliveredQty = order.partialQuantity ?? 0;
-        const remainingQty = order.quantity - deliveredQty;
-        if (deliveredQty > 0) await reverseDelivery(orderRef, deliveredQty, order.id);
-        if (remainingQty > 0) await reverseShipping(orderRef, remainingQty, order.id);
-      } else if (deliveryStatus === "returned") {
-        await reverseShipping(orderRef, order.quantity, order.id);
-      }
-      await db.delete(shippingManifestOrdersTable).where(eq(shippingManifestOrdersTable.id, link.id));
-      await db.update(ordersTable).set({
-        status: "pending",
-        partialQuantity: null,
-        updatedAt: /* @__PURE__ */ new Date()
-      }).where(eq(ordersTable.id, orderId));
-      await logAudit({
-        action: "status_change",
-        entityType: "order",
-        entityId: orderId,
-        entityName: `${order.customerName} \u2014 ${order.product}`,
-        before: { status: order.status, deliveryStatus },
-        after: { status: "pending", note: "\u062A\u0645 \u0625\u0644\u063A\u0627\u0621 \u0627\u0644\u0637\u0644\u0628\u064A\u0629 \u0645\u0646 \u0627\u0644\u0628\u064A\u0627\u0646 \u0648\u0625\u0631\u062C\u0627\u0639\u0647\u0627 \u0644\u0644\u0627\u0646\u062A\u0638\u0627\u0631" },
-        userId: req.user?.id,
-        userName: req.user?.displayName
-      });
-      res.json({ success: true, orderId, message: "\u062A\u0645 \u0625\u0644\u063A\u0627\u0621 \u0627\u0644\u0637\u0644\u0628\u064A\u0629 \u0645\u0646 \u0627\u0644\u0628\u064A\u0627\u0646 \u0648\u0625\u0631\u062C\u0627\u0639\u0647\u0627 \u0644\u0644\u0627\u0646\u062A\u0638\u0627\u0631" });
-    } catch (err) {
-      console.error("[cancelOrder] Error:", err);
-      res.status(500).json({ error: err?.message ?? "\u062E\u0637\u0623 \u062F\u0627\u062E\u0644\u064A", stack: err?.stack });
-    }
-  }
-);
+});
 router12.post("/shipping-manifests/:id/orders", requireAdmin, async (req, res) => {
   const manifestId = parseInt(req.params.id);
   if (isNaN(manifestId)) {
@@ -148523,8 +148572,7 @@ router12.post("/shipping-manifests/:id/orders", requireAdmin, async (req, res) =
     res.status(400).json({ error: "orderIds \u0645\u0637\u0644\u0648\u0628" });
     return;
   }
-  const { orderIds } = parsed.data;
-  const normalizedOrderIds = await expandOrderIdsByInvoice(orderIds);
+  const normalizedOrderIds = await expandOrderIdsByInvoice(parsed.data.orderIds);
   const [manifest] = await db.select().from(shippingManifestsTable).where(eq(shippingManifestsTable.id, manifestId));
   if (!manifest) {
     res.status(404).json({ error: "\u0627\u0644\u0628\u064A\u0627\u0646 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
@@ -148534,18 +148582,15 @@ router12.post("/shipping-manifests/:id/orders", requireAdmin, async (req, res) =
     res.status(400).json({ error: "\u0627\u0644\u0628\u064A\u0627\u0646 \u0645\u063A\u0644\u0642 \u0644\u0627 \u064A\u0645\u0643\u0646 \u0627\u0644\u0625\u0636\u0627\u0641\u0629 \u0625\u0644\u064A\u0647" });
     return;
   }
-  const SHIPPABLE_STATUSES = ["pending", "delayed", "in_shipping"];
+  const SHIPPABLE = ["pending", "delayed", "in_shipping"];
   const orders = await db.select().from(ordersTable).where(
-    and(inArray(ordersTable.id, normalizedOrderIds), isNull(ordersTable.deletedAt), inArray(ordersTable.status, [...SHIPPABLE_STATUSES]))
+    and(inArray(ordersTable.id, normalizedOrderIds), isNull(ordersTable.deletedAt), inArray(ordersTable.status, [...SHIPPABLE]))
   );
   if (orders.length === 0) {
-    res.status(400).json({ error: "\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0637\u0644\u0628\u064A\u0627\u062A \u0645\u0624\u0647\u0644\u0629 (\u064A\u062C\u0628 \u0623\u0646 \u062A\u0643\u0648\u0646 pending \u0623\u0648 delayed \u0623\u0648 in_shipping)" });
+    res.status(400).json({ error: "\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0637\u0644\u0628\u064A\u0627\u062A \u0645\u0624\u0647\u0644\u0629" });
     return;
   }
-  const existing = await db.select({ orderId: shippingManifestOrdersTable.orderId }).from(shippingManifestOrdersTable).where(and(
-    eq(shippingManifestOrdersTable.manifestId, manifestId),
-    inArray(shippingManifestOrdersTable.orderId, normalizedOrderIds)
-  ));
+  const existing = await db.select({ orderId: shippingManifestOrdersTable.orderId }).from(shippingManifestOrdersTable).where(and(eq(shippingManifestOrdersTable.manifestId, manifestId), inArray(shippingManifestOrdersTable.orderId, normalizedOrderIds)));
   const existingIds = new Set(existing.map((e) => e.orderId));
   const toAdd = orders.filter((o) => !existingIds.has(o.id));
   if (toAdd.length === 0) {
@@ -148553,13 +148598,7 @@ router12.post("/shipping-manifests/:id/orders", requireAdmin, async (req, res) =
     return;
   }
   await db.insert(shippingManifestOrdersTable).values(
-    toAdd.map((o) => ({
-      manifestId,
-      orderId: o.id,
-      deliveryStatus: "pending",
-      deliveryNote: null,
-      deliveredAt: null
-    }))
+    toAdd.map((o) => ({ manifestId, orderId: o.id, deliveryStatus: "pending", deliveryNote: null, deliveredAt: null }))
   );
   const needsShipping = toAdd.filter((o) => o.status !== "in_shipping");
   if (needsShipping.length > 0) {
@@ -148584,7 +148623,14 @@ router12.post("/shipping-manifests/:id/orders", requireAdmin, async (req, res) =
     await db.update(ordersTable).set({ shippingCompanyId: manifest.shippingCompanyId }).where(inArray(ordersTable.id, alreadyShipping.map((o) => o.id)));
     for (const order of alreadyShipping) {
       await processToShipping(
-        { variantId: order.variantId, productId: order.productId, product: order.product, color: order.color, size: order.size, warehouseId: order.warehouseId },
+        {
+          variantId: order.variantId,
+          productId: order.productId,
+          product: order.product,
+          color: order.color,
+          size: order.size,
+          warehouseId: order.warehouseId
+        },
         order.quantity,
         order.id
       );
@@ -148619,23 +148665,21 @@ router12.delete("/shipping-manifests/:id", requireAdmin, async (req, res) => {
         size: order.size,
         warehouseId: order.warehouseId
       };
-      const deliveryStatus = link.deliveryStatus;
-      if (deliveryStatus === "pending" || deliveryStatus === "postponed") {
+      const ds = link.deliveryStatus;
+      if (ds === "pending" || ds === "postponed") {
         await reverseShipping(orderRef, order.quantity, order.id);
-      } else if (deliveryStatus === "delivered") {
+      } else if (ds === "delivered") {
         await reverseShipping(orderRef, order.quantity, order.id);
         await reverseDelivery(orderRef, order.quantity, order.id);
-      } else if (deliveryStatus === "partial_received") {
-        const deliveredQty = order.partialQuantity ?? 0;
-        const remainingQty = order.quantity - deliveredQty;
-        if (deliveredQty > 0) {
-          await reverseDelivery(orderRef, deliveredQty, order.id);
-          await reverseShipping(orderRef, deliveredQty, order.id);
+      } else if (ds === "partial_received") {
+        const dQty = order.partialQuantity ?? 0;
+        const rQty = order.quantity - dQty;
+        if (dQty > 0) {
+          await reverseDelivery(orderRef, dQty, order.id);
+          await reverseShipping(orderRef, dQty, order.id);
         }
-        if (remainingQty > 0) {
-          await reverseShipping(orderRef, remainingQty, order.id);
-        }
-      } else if (deliveryStatus === "returned") {
+        if (rQty > 0) await reverseShipping(orderRef, rQty, order.id);
+      } else if (ds === "returned") {
         await reverseShipping(orderRef, order.quantity, order.id);
       }
     }
@@ -148643,49 +148687,66 @@ router12.delete("/shipping-manifests/:id", requireAdmin, async (req, res) => {
   await db.delete(shippingManifestsTable).where(eq(shippingManifestsTable.id, id));
   res.status(204).send();
 });
-router12.get(
-  "/shipping-companies/:id/stats",
-  async (req, res) => {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
-      res.status(400).json({ error: "Invalid ID" });
-      return;
-    }
-    const companyManifests = await db.select({ id: shippingManifestsTable.id }).from(shippingManifestsTable).where(eq(shippingManifestsTable.shippingCompanyId, id));
-    const manifestCount = companyManifests.length;
-    if (manifestCount === 0) {
-      res.json({
-        total: 0,
-        delivered: 0,
-        returned: 0,
-        pending: 0,
-        deliveryRate: 0,
-        totalRevenue: 0,
-        totalCost: 0,
-        totalShippingCost: 0,
-        returnLosses: 0,
-        netProfit: 0,
-        deliveredGross: 0,
-        manifestCount: 0
-      });
-      return;
-    }
-    const mIds = companyManifests.map((m) => m.id);
-    const manifestOrderRows = await db.select({
-      mo: shippingManifestOrdersTable,
-      o: ordersTable
-    }).from(shippingManifestOrdersTable).innerJoin(ordersTable, eq(shippingManifestOrdersTable.orderId, ordersTable.id)).where(inArray(shippingManifestOrdersTable.manifestId, mIds));
-    const ordersWithDelivery = manifestOrderRows.map(({ mo, o }) => ({
-      ...o,
-      deliveryStatus: mo.deliveryStatus,
-      deliveryNote: mo.deliveryNote,
-      deliveredAt: mo.deliveredAt,
-      manifestOrderId: mo.id
-    }));
-    const stats = computeStats(ordersWithDelivery);
-    res.json({ ...stats, manifestCount });
+router12.get("/shipping-companies/:id/stats", async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
   }
-);
+  const companyManifests = await db.select({ id: shippingManifestsTable.id }).from(shippingManifestsTable).where(eq(shippingManifestsTable.shippingCompanyId, id));
+  const manifestCount = companyManifests.length;
+  if (manifestCount === 0) {
+    res.json({
+      total: 0,
+      delivered: 0,
+      returned: 0,
+      pending: 0,
+      deliveryRate: 0,
+      totalRevenue: 0,
+      totalCost: 0,
+      totalShippingCost: 0,
+      returnLosses: 0,
+      netProfit: 0,
+      deliveredGross: 0,
+      manifestCount: 0
+    });
+    return;
+  }
+  const mIds = companyManifests.map((m) => m.id);
+  const manifestOrderRows = await db.select({ mo: shippingManifestOrdersTable, o: ordersTable }).from(shippingManifestOrdersTable).innerJoin(ordersTable, eq(shippingManifestOrdersTable.orderId, ordersTable.id)).where(inArray(shippingManifestOrdersTable.manifestId, mIds));
+  const ordersWithDelivery = manifestOrderRows.map(({ mo, o }) => ({
+    ...o,
+    deliveryStatus: mo.deliveryStatus,
+    deliveryNote: mo.deliveryNote,
+    deliveredAt: mo.deliveredAt,
+    manifestOrderId: mo.id
+  }));
+  const stats = computeStats(ordersWithDelivery);
+  res.json({ ...stats, manifestCount });
+});
+router12.get("/orders/:orderId/manifest-status", async (req, res) => {
+  const orderId = parseInt(req.params.orderId);
+  if (isNaN(orderId)) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+  const links = await db.select({ mo: shippingManifestOrdersTable, manifest: shippingManifestsTable }).from(shippingManifestOrdersTable).innerJoin(shippingManifestsTable, eq(shippingManifestOrdersTable.manifestId, shippingManifestsTable.id)).where(eq(shippingManifestOrdersTable.orderId, orderId)).orderBy(desc(shippingManifestsTable.createdAt));
+  if (links.length === 0) {
+    res.json(null);
+    return;
+  }
+  const activeLink = links.find((l2) => l2.manifest.status === "open") ?? links[0];
+  res.json({
+    manifestId: activeLink.manifest.id,
+    manifestNumber: activeLink.manifest.manifestNumber,
+    manifestStatus: activeLink.manifest.status,
+    deliveryStatus: activeLink.mo.deliveryStatus,
+    deliveryNote: activeLink.mo.deliveryNote,
+    partialQuantity: activeLink.mo.partialQuantity,
+    deliveredAt: activeLink.mo.deliveredAt,
+    returnReceived: activeLink.mo.returnReceived
+  });
+});
 var manifests_default = router12;
 
 // src/routes/warehouses.ts
