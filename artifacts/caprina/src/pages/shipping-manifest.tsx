@@ -1,4 +1,4 @@
-﻿import { useState, useCallback, useMemo } from "react";
+﻿import { useState, useCallback, useMemo, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { useParams, Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -120,6 +120,17 @@ function OrderDeliveryRow({
   const [returnReceived, setReturnReceived] = useState<boolean | null>(
     (order as any).returnReceived === 1 ? true : (order as any).returnReceived === 0 ? false : null
   );
+
+  // sync state لما البيانات تتحدث من الـ refetch
+  useEffect(() => {
+    if (!editing) {
+      setStatus(order.deliveryStatus);
+      setNote(order.deliveryNote ?? "");
+      setPartialQty(order.partialQuantity?.toString() ?? "");
+      const rr = (order as any).returnReceived;
+      setReturnReceived(rr === 1 ? true : rr === 0 ? false : null);
+    }
+  }, [order.deliveryStatus, order.deliveryNote, order.partialQuantity, (order as any).returnReceived, editing]);
 
   const cancelMutation = useMutation({
     mutationFn: () => manifestsApi.cancelOrder(manifestId, order.id),
