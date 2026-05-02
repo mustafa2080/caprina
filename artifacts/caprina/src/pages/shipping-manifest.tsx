@@ -772,8 +772,8 @@ function InvoiceGroupDeliveryRow({
                   const variant = [o.color, o.size].filter(Boolean).join(" / ");
                   const unitPrice = o.quantity > 0 ? o.totalPrice / o.quantity : 0;
                   const rawVal = partialQtyMap[o.id];
-                  const partialVal = (rawVal !== "" && rawVal !== undefined && rawVal !== null) ? parseInt(rawVal) : 0;
                   const hasQty = rawVal !== "" && rawVal !== undefined && rawVal !== null;
+                  const partialVal = hasQty ? parseInt(rawVal) : 0;
                   return (
                     <div key={o.id} className="rounded-md border border-teal-200 dark:border-teal-800 bg-background p-2 flex flex-col gap-1.5">
                       <div className="flex items-center justify-between">
@@ -786,17 +786,17 @@ function InvoiceGroupDeliveryRow({
                       <div className="flex items-center gap-2">
                         <Label className="text-[10px] text-muted-foreground shrink-0">المستلم:</Label>
                         <input
-                          type="text"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
+                          type="number"
+                          min={0}
+                          max={o.quantity}
                           value={partialQtyMap[o.id] ?? ""}
                           onChange={e => {
-                            const raw = e.target.value.replace(/[^0-9]/g, "");
+                            const raw = e.target.value;
                             if (raw === "") {
                               setPartialQtyMap(prev => ({ ...prev, [o.id]: "" }));
                             } else {
                               const n = parseInt(raw);
-                              if (!isNaN(n) && n <= o.quantity) {
+                              if (!isNaN(n) && n >= 0 && n <= o.quantity) {
                                 setPartialQtyMap(prev => ({ ...prev, [o.id]: String(n) }));
                               }
                             }
