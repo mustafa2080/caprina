@@ -324,7 +324,11 @@ export default function Orders() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
                         <p className="font-bold text-sm truncate">{order.customerName}</p>
-                        <span className="font-bold text-xs text-primary shrink-0">{formatCurrency(order.totalPrice)}</span>
+                        <span className="font-bold text-xs text-primary shrink-0">
+                          {order.status === "partial_received" && (order as any)._receivedPrice != null
+                            ? <>{formatCurrency((order as any)._receivedPrice)}<span className="line-through text-muted-foreground font-normal mr-1 text-[9px]">{formatCurrency(order.totalPrice)}</span></>
+                            : formatCurrency(order.totalPrice)}
+                        </span>
                       </div>
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-[10px] text-muted-foreground font-mono">#{order.id.toString().padStart(4,"0")}</span>
@@ -438,7 +442,11 @@ export default function Orders() {
                           <span className="truncate block">{order.product}</span>
                           {!isGroup && <span className="text-muted-foreground">×{order.quantity}</span>}
                         </TableCell>
-                        <TableCell className="text-xs font-bold text-primary">{formatCurrency(order.totalPrice)}</TableCell>
+                        <TableCell className="text-xs font-bold text-primary">
+                          {order.status === "partial_received" && (order as any)._receivedPrice != null
+                            ? <div><span>{formatCurrency((order as any)._receivedPrice)}</span><div className="line-through text-muted-foreground font-normal text-[9px]">{formatCurrency(order.totalPrice)}</div></div>
+                            : formatCurrency(order.totalPrice)}
+                        </TableCell>
                         <TableCell className="text-center">
                           <Badge variant="outline" className={`text-[9px] font-bold border ${statusClasses[order.status] || ""}`}>
                             {statusLabels[order.status] || order.status}

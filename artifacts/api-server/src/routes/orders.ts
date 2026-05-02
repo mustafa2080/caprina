@@ -218,12 +218,25 @@ router.get("/orders", async (req, res): Promise<void> => {
     return o.partialQuantity ?? null;
   };
 
+  // حساب السعر المستلم فعلاً لطلب partial_received
+  const calcReceivedPrice = (o: (typeof rows)[0], pq: number | null): number => {
+    if (o.status === "partial_received" && pq != null && o.quantity > 0) {
+      return Math.round((pq / o.quantity) * o.totalPrice);
+    }
+    return o.totalPrice;
+  };
+
   const grouped = filteredGroups.map(grp => {
     if (grp.length === 1) {
       const rep = { ...grp[0] } as any;
       rep._invoiceOrders = [grp[0]];
       if (rep.status === "returned") rep.returnReceived = getReturnReceived(grp[0]);
-      if (rep.status === "partial_received") rep.partialQuantity = getPartialQuantity(grp[0]);
+      if (rep.status === "partial_received") {
+        const pq = getPartialQuantity(grp[0]);
+        rep.partialQuantity = pq;
+        rep._receivedPrice = calcReceivedPrice(grp[0], pq);
+        rep._fullPrice = grp[0].totalPrice;
+      }
       return rep;
     }
     const rep = { ...grp[0] } as any;
