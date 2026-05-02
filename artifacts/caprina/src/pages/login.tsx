@@ -50,7 +50,7 @@ export default function Login() {
       </video>
 
       {/* Dark overlay */}
-      <div className="absolute inset-0 bg-black/60 z-10" />
+      <div className="absolute inset-0 bg-black/30 z-10" />
 
       {/* Content */}
       <div className="w-full max-w-sm relative z-20">
