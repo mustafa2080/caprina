@@ -738,6 +738,12 @@ function InvoiceGroupDeliveryRow({
                     ◑ {o.product} ×{o.partialQuantity}
                   </p>
                 ))}
+                {(rep as any).returnReceived === 0 && (
+                  <p className="text-[9px] text-orange-500 font-semibold">🚚 الباقي عند الشحن</p>
+                )}
+                {(rep as any).returnReceived === 1 && (
+                  <p className="text-[9px] text-emerald-500 font-semibold">↩ الباقي في المخزن</p>
+                )}
               </div>
             ) : (
               <div className="flex flex-col gap-0.5">
