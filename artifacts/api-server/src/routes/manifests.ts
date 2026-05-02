@@ -298,12 +298,12 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
     for (const sib of siblings) {
       if (sib.mo.orderId === orderId) continue;
       const su: Record<string, unknown> = { deliveryStatus, deliveryNote: deliveryNote ?? null, deliveredAt: isDelivered ? new Date() : null };
-      if (deliveryStatus === "partial_received" && partialQuantity != null) su.partialQuantity = null;
+      // لا نمس partialQuantity للـ siblings — كل order بيتبعت بكميته الخاصة من الـ frontend
       if (deliveryStatus === "returned" && returnReceived != null) su.returnReceived = returnReceived ? 1 : 0;
       else if (deliveryStatus !== "returned") su.returnReceived = null;
       await db.update(shippingManifestOrdersTable).set(su).where(eq(shippingManifestOrdersTable.id, sib.mo.id));
       const sou: Record<string, unknown> = { status: STATUS_MAP[deliveryStatus] ?? "in_shipping" };
-      if (deliveryStatus === "partial_received" && partialQuantity != null) sou.partialQuantity = null;
+      // لا نمس partialQuantity للـ siblings
       if (deliveryStatus === "returned" && returnReceived != null) sou.returnReceived = returnReceived ? 1 : 0;
       else if (deliveryStatus !== "returned") sou.returnReceived = null;
       await db.update(ordersTable).set(sou).where(eq(ordersTable.id, sib.mo.orderId));
