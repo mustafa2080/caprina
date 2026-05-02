@@ -262,6 +262,9 @@ function OrderDeliveryRow({
                   setStatus(order.deliveryStatus);
                   setNote(order.deliveryNote ?? "");
                   setPartialProduct("");
+                  setPartialQty(order.partialQuantity?.toString() ?? "");
+                  setReturnReceived((order as any).returnReceived === 1 ? true : (order as any).returnReceived === 0 ? false : null);
+                  setPartialReturnReceived(order.deliveryStatus === "partial_received" ? ((order as any).returnReceived === 1 ? true : (order as any).returnReceived === 0 ? false : null) : null);
                 }}
               >
                 <X className="w-3 h-3" />
@@ -271,7 +274,14 @@ function OrderDeliveryRow({
                 variant="ghost"
                 size="sm"
                 className="h-6 text-[10px] px-1.5 text-primary hover:text-primary"
-                onClick={() => setEditing(true)}
+                onClick={() => {
+                  setStatus(order.deliveryStatus);
+                  setNote(order.deliveryNote ?? "");
+                  setPartialQty(order.partialQuantity?.toString() ?? "");
+                  setReturnReceived((order as any).returnReceived === 1 ? true : (order as any).returnReceived === 0 ? false : null);
+                  setPartialReturnReceived(order.deliveryStatus === "partial_received" ? ((order as any).returnReceived === 1 ? true : (order as any).returnReceived === 0 ? false : null) : null);
+                  setEditing(true);
+                }}
               >
                 <Edit2 className="w-3 h-3 ml-0.5" />تقفيل
               </Button>
@@ -482,7 +492,7 @@ function OrderDeliveryRow({
                 (needsNote && !note.trim()) ||
                 (needsPartial && (partialQty === "")) ||
                 (status === "returned" && returnReceived === null) ||
-                (status === "partial_received" && partialReturnReceived === null)
+                (status === "partial_received" && partialReturnReceived === null && (order.deliveryStatus !== "partial_received" || (order as any).returnReceived == null))
               }
             >
               <Save className="w-3 h-3" />
@@ -1079,7 +1089,7 @@ function InvoiceGroupDeliveryRow({
                   bulkMutation.isPending ||
                   (needsBulkNote && !bulkNote.trim()) ||
                   (bulkStatus === "returned" && bulkReturnReceived === null) ||
-                  (bulkStatus === "partial_received" && partialReturnReceived === null) ||
+                  (bulkStatus === "partial_received" && partialReturnReceived === null && (groupStatus !== "partial_received" || (rep as any).returnReceived == null)) ||
                   (!isPerItemMode && bulkStatus === "partial_received" && group[0] && (
                     partialQtyMap[group[0].id] === "" || partialQtyMap[group[0].id] === undefined
                   )) ||
@@ -1477,6 +1487,32 @@ function CloseConfirmDialog({
             <div className="p-2 rounded-md bg-red-900/10 border border-red-700">
               <p className="text-red-400">مرتجع</p>
               <p className="font-bold text-base text-red-400">{s.returned}</p>
+              {(() => {
+                const atShipping = manifest.orders.filter(o => o.deliveryStatus === "returned" && (o as any).returnReceived === 0).length;
+                const atWarehouse = manifest.orders.filter(o => o.deliveryStatus === "returned" && (o as any).returnReceived === 1).length;
+                return (
+                  <>
+                    {atShipping > 0 && <p className="text-[9px] text-orange-400">🚚 عند الشحن: {atShipping}</p>}
+                    {atWarehouse > 0 && <p className="text-[9px] text-emerald-400">↩ في المخزن: {atWarehouse}</p>}
+                  </>
+                );
+              })()}
+            </div>
+            <div className="p-2 rounded-md bg-teal-900/10 border border-teal-700">
+              <p className="text-teal-400">استلم جزئي</p>
+              <p className="font-bold text-base text-teal-400">
+                {manifest.orders.filter((o) => o.deliveryStatus === "partial_received").length}
+              </p>
+              {(() => {
+                const atShipping = manifest.orders.filter(o => o.deliveryStatus === "partial_received" && (o as any).returnReceived === 0).length;
+                const atWarehouse = manifest.orders.filter(o => o.deliveryStatus === "partial_received" && (o as any).returnReceived === 1).length;
+                return (
+                  <>
+                    {atShipping > 0 && <p className="text-[9px] text-orange-400">🚚 باقي عند الشحن: {atShipping}</p>}
+                    {atWarehouse > 0 && <p className="text-[9px] text-emerald-400">↩ باقي في المخزن: {atWarehouse}</p>}
+                  </>
+                );
+              })()}
             </div>
           </div>
 
