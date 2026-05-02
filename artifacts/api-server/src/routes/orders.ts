@@ -57,8 +57,7 @@ router.get("/orders/stats", async (req, res): Promise<void> => {
   };
 
   const allGroups = groupByInvoice(all);
-  const filterGroups = (from: Date) =>
-    allGroups.filter(g => new Date(g.createdAt) >= from);
+  const filterGroups = (from: Date) => allGroups.filter(g => new Date(g.createdAt) >= from);
   const revenue = (groups: ReturnType<typeof groupByInvoice>) =>
     groups.filter(g => g.status === "received" || g.status === "partial_received")
       .reduce((s, g) => s + g.totalPrice, 0);
@@ -83,7 +82,6 @@ router.get("/orders", async (req, res): Promise<void> => {
 
   let query = db.select().from(ordersTable).orderBy(desc(ordersTable.createdAt)).$dynamic();
   const conditions: any[] = [isNull(ordersTable.deletedAt)];
-
   const isDashboard = (req.query as any).source === "dashboard";
 
   if (params.data.status) {
@@ -136,6 +134,7 @@ router.get("/orders", async (req, res): Promise<void> => {
       manifestOrderIdsSet = new Set(inManifest.map(r => r.orderId));
     }
   }
+
   if (params.data.search) {
     const s = `%${params.data.search}%`;
     conditions.push(or(like(ordersTable.customerName, s), like(ordersTable.product, s), like(ordersTable.phone, s)));
@@ -153,7 +152,6 @@ router.get("/orders", async (req, res): Promise<void> => {
 
   const rows = await query;
 
-  // ─── Fallback: جيب returnReceived من shippingManifestOrders للطلبات returned
   const returnedNullIds = rows.filter(o => o.status === "returned" && (o as any).returnReceived == null).map(o => o.id);
   const manifestReturnMap = new Map<number, number | null>();
   if (returnedNullIds.length > 0) {
@@ -171,8 +169,6 @@ router.get("/orders", async (req, res): Promise<void> => {
     } catch (_) { /* تجاهل */ }
   }
 
-  // ─── Fallback: جيب partialQuantity من shippingManifestOrders للطلبات partial_received
-  //     عشان orders.partialQuantity ممكن يكون قديم أو غلط من بيان سابق
   const partialIds = rows.filter(o => o.status === "partial_received").map(o => o.id);
   const manifestPartialMap = new Map<number, number | null>();
   if (partialIds.length > 0) {
@@ -183,14 +179,12 @@ router.get("/orders", async (req, res): Promise<void> => {
         .where(inArray(shippingManifestOrdersTable.orderId, partialIds))
         .orderBy(desc(shippingManifestOrdersTable.id));
       for (const link of manifestLinks) {
-        // خذ آخر بيان (الأحدث) — orderBy desc وأول match يكسب
         if (!manifestPartialMap.has(link.orderId) && link.partialQuantity != null) {
           manifestPartialMap.set(link.orderId, link.partialQuantity);
         }
       }
     } catch (_) { /* تجاهل */ }
   }
-  // ─────────────────────────────────────────────────────────────────────────
 
   const groupMap = new Map<string, typeof rows>();
   for (const o of rows) {
@@ -211,15 +205,12 @@ router.get("/orders", async (req, res): Promise<void> => {
     return manifestReturnMap.get(o.id) ?? null;
   };
 
-  // جيب partialQuantity الصح: من البيان أولاً (الأحدث)، ثم من الطلب كـ fallback
   const getPartialQuantity = (o: (typeof rows)[0]): number | null => {
     const fromManifest = manifestPartialMap.get(o.id);
     if (fromManifest != null) return fromManifest;
     return o.partialQuantity ?? null;
   };
 
-  // حساب السعر المستلم فعلاً لطلب partial_received
-  // نستخدم unitPrice × partialQuantity زي البيان بالظبط
   const calcReceivedPrice = (o: (typeof rows)[0], pq: number | null): number => {
     if (o.status === "partial_received" && pq != null) {
       const unit = (o as any).unitPrice ?? (o.quantity > 0 ? Math.round(o.totalPrice / o.quantity) : o.totalPrice);
@@ -252,13 +243,9 @@ router.get("/orders", async (req, res): Promise<void> => {
     const allReturned = grp.every(o => o.status === "returned");
     if (allReturned) {
       let rr: number | null = null;
-      for (const o of grp) {
-        const val = getReturnReceived(o);
-        if (val !== null) { rr = val; break; }
-      }
+      for (const o of grp) { const val = getReturnReceived(o); if (val !== null) { rr = val; break; } }
       rep.returnReceived = rr;
     }
-    // للمجموعات partial_received: نجمع partialQuantity وأحسب _receivedPrice زي البيان
     const allPartial = grp.every(o => o.status === "partial_received");
     if (allPartial) {
       rep.partialQuantity = grp.reduce((s, o) => s + (getPartialQuantity(o) ?? 0), 0);
@@ -271,7 +258,6 @@ router.get("/orders", async (req, res): Promise<void> => {
   res.json(grouped);
 });
 
-
 // ─── Create order (single) ────────────────────────────────────────────────────
 
 router.post("/orders", async (req, res): Promise<void> => {
@@ -279,7 +265,6 @@ router.post("/orders", async (req, res): Promise<void> => {
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
   const totalPrice = parsed.data.quantity * parsed.data.unitPrice;
-
   let costPrice = (parsed.data as any).costPrice ?? null;
   if (!costPrice && (parsed.data as any).variantId) {
     const [variant] = await db.select().from(productVariantsTable).where(eq(productVariantsTable.id, (parsed.data as any).variantId));
@@ -296,13 +281,10 @@ router.post("/orders", async (req, res): Promise<void> => {
   const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, insertId));
 
   await logAudit({
-    action: "create",
-    entityType: "order",
-    entityId: order.id,
+    action: "create", entityType: "order", entityId: order.id,
     entityName: `${order.customerName} — ${order.product}`,
     after: { customerName: order.customerName, product: order.product, quantity: order.quantity, unitPrice: order.unitPrice, status: order.status },
-    userId: req.user?.id,
-    userName: req.user?.displayName,
+    userId: req.user?.id, userName: req.user?.displayName,
   });
 
   res.status(201).json(GetOrderResponse.parse(order));
@@ -386,7 +368,7 @@ router.get("/orders/archived", async (_req, res): Promise<void> => {
   res.json(orders);
 });
 
-// ─── Orders that have a shipping manifest ─────────────────────────────────────
+// ─── Orders in manifest ───────────────────────────────────────────────────────
 
 router.get("/orders/in-manifest-ids", async (_req, res): Promise<void> => {
   const openManifests = await db.select({ id: shippingManifestsTable.id }).from(shippingManifestsTable).where(eq(shippingManifestsTable.status, "open"));
@@ -394,6 +376,37 @@ router.get("/orders/in-manifest-ids", async (_req, res): Promise<void> => {
   const openIds = openManifests.map(m => m.id);
   const rows = await db.select({ orderId: shippingManifestOrdersTable.orderId }).from(shippingManifestOrdersTable).where(inArray(shippingManifestOrdersTable.manifestId, openIds));
   res.json({ ids: rows.map(r => r.orderId) });
+});
+
+// ─── Bulk delete orders (must be BEFORE /:id routes) ─────────────────────────
+
+router.delete("/orders/bulk", async (req, res): Promise<void> => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids) || ids.length === 0) {
+    res.status(400).json({ error: "يجب إرسال قائمة IDs" });
+    return;
+  }
+  const userRole = (req as any).user?.role;
+  const numericIds = ids.map(Number).filter(n => !isNaN(n));
+  const orders = await db.select().from(ordersTable)
+    .where(and(inArray(ordersTable.id, numericIds), isNull(ordersTable.deletedAt)));
+  let deleted = 0;
+  let skipped = 0;
+  for (const order of orders) {
+    if (LOCKED_STATUSES.includes(order.status as any) && userRole !== "admin") {
+      skipped++;
+      continue;
+    }
+    await db.update(ordersTable).set({ deletedAt: new Date() }).where(eq(ordersTable.id, order.id));
+    await logAudit({
+      action: "delete", entityType: "order", entityId: order.id,
+      entityName: `${order.customerName} — ${order.product}`,
+      before: { customerName: order.customerName, product: order.product, status: order.status },
+      userId: (req as any).user?.id, userName: (req as any).user?.displayName,
+    });
+    deleted++;
+  }
+  res.json({ deleted, skipped });
 });
 
 // ─── Restore archived order ───────────────────────────────────────────────────
@@ -410,7 +423,7 @@ router.post("/orders/:id/restore", async (req, res): Promise<void> => {
   res.json(restored);
 });
 
-// ─── Get manifest status for all orders in an invoice ─────────────────────────
+// ─── Invoice manifest status ──────────────────────────────────────────────────
 
 router.get("/orders/invoice-manifest-status/:invoiceNumber", async (req, res): Promise<void> => {
   const { invoiceNumber } = req.params;
@@ -423,7 +436,6 @@ router.get("/orders/invoice-manifest-status/:invoiceNumber", async (req, res): P
   if (invoiceOrders.length === 0) { res.json([]); return; }
 
   const orderIds = invoiceOrders.map(o => o.id);
-
   const links = await db.select({ mo: shippingManifestOrdersTable, m: shippingManifestsTable })
     .from(shippingManifestOrdersTable)
     .innerJoin(shippingManifestsTable, eq(shippingManifestOrdersTable.manifestId, shippingManifestsTable.id))
@@ -439,25 +451,18 @@ router.get("/orders/invoice-manifest-status/:invoiceNumber", async (req, res): P
     const link = latestByOrder.get(order.id);
     const rr = link?.mo.returnReceived;
     return {
-      orderId: order.id,
-      product: order.product,
-      quantity: order.quantity,
-      status: order.status,
-      manifestId: link?.m.id ?? null,
-      manifestNumber: link?.m.manifestNumber ?? null,
-      manifestStatus: link?.m.status ?? null,
-      deliveryStatus: link?.mo.deliveryStatus ?? null,
-      deliveryNote: link?.mo.deliveryNote ?? null,
-      manifestPartialQuantity: link?.mo.partialQuantity ?? null,
-      deliveredAt: link?.mo.deliveredAt ?? null,
-      returnReceived: rr == null ? null : Number(rr),
+      orderId: order.id, product: order.product, quantity: order.quantity, status: order.status,
+      manifestId: link?.m.id ?? null, manifestNumber: link?.m.manifestNumber ?? null,
+      manifestStatus: link?.m.status ?? null, deliveryStatus: link?.mo.deliveryStatus ?? null,
+      deliveryNote: link?.mo.deliveryNote ?? null, manifestPartialQuantity: link?.mo.partialQuantity ?? null,
+      deliveredAt: link?.mo.deliveredAt ?? null, returnReceived: rr == null ? null : Number(rr),
     };
   });
 
   res.json(result);
 });
 
-// ─── Get orders by invoiceNumber ──────────────────────────────────────────────
+// ─── Orders by invoice ────────────────────────────────────────────────────────
 
 router.get("/orders/by-invoice/:invoiceNumber", async (req, res): Promise<void> => {
   const { invoiceNumber } = req.params;
@@ -466,7 +471,7 @@ router.get("/orders/by-invoice/:invoiceNumber", async (req, res): Promise<void> 
   res.json(orders);
 });
 
-// ─── Get single order ─────────────────────────────────────────────────────────
+// ─── Get order manifest status ────────────────────────────────────────────────
 
 router.get("/orders/:id/manifest-status", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
@@ -480,16 +485,14 @@ router.get("/orders/:id/manifest-status", async (req, res): Promise<void> => {
   const link = links[0];
   const rr = link.mo.returnReceived;
   res.json({
-    manifestId: link.m.id,
-    manifestNumber: link.m.manifestNumber,
-    manifestStatus: link.m.status,
-    deliveryStatus: link.mo.deliveryStatus,
-    deliveryNote: link.mo.deliveryNote,
-    partialQuantity: link.mo.partialQuantity ?? null,
-    deliveredAt: link.mo.deliveredAt,
+    manifestId: link.m.id, manifestNumber: link.m.manifestNumber, manifestStatus: link.m.status,
+    deliveryStatus: link.mo.deliveryStatus, deliveryNote: link.mo.deliveryNote,
+    partialQuantity: link.mo.partialQuantity ?? null, deliveredAt: link.mo.deliveredAt,
     returnReceived: rr == null ? null : Number(rr),
   });
 });
+
+// ─── Get single order ─────────────────────────────────────────────────────────
 
 router.get("/orders/:id", async (req, res): Promise<void> => {
   const params = GetOrderParams.safeParse(req.params);
@@ -499,8 +502,8 @@ router.get("/orders/:id", async (req, res): Promise<void> => {
   res.json(GetOrderResponse.parse(order));
 });
 
-
 // ─── Update order (PATCH) ─────────────────────────────────────────────────────
+
 router.patch("/orders/:id", async (req, res): Promise<void> => {
   const params = UpdateOrderParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
@@ -518,18 +521,18 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
   const data = parsed.data as Record<string, any>;
-  const newQty        = data.quantity   ?? existing.quantity;
-  const newUnitPrice  = data.unitPrice  ?? existing.unitPrice;
+  const newQty        = data.quantity  ?? existing.quantity;
+  const newUnitPrice  = data.unitPrice ?? existing.unitPrice;
   const newTotalPrice = newQty * newUnitPrice;
 
   const oldStatus = existing.status;
   const newStatus = data.status ?? oldStatus;
   if (newStatus !== oldStatus) {
-    if (newStatus === "in_shipping")                                   await processToShipping(existing.id, existing).catch(() => {});
-    if (newStatus === "received")                                      await processDelivery(existing.id, existing).catch(() => {});
-    if (newStatus === "returned")                                      await processReturn(existing.id, existing).catch(() => {});
-    if (oldStatus === "in_shipping" && newStatus !== "in_shipping")   await reverseShipping(existing.id, existing).catch(() => {});
-    if (oldStatus === "received"   && newStatus !== "received")       await reverseDelivery(existing.id, existing).catch(() => {});
+    if (newStatus === "in_shipping")                                 await processToShipping(existing.id, existing).catch(() => {});
+    if (newStatus === "received")                                    await processDelivery(existing.id, existing).catch(() => {});
+    if (newStatus === "returned")                                    await processReturn(existing.id, existing).catch(() => {});
+    if (oldStatus === "in_shipping" && newStatus !== "in_shipping") await reverseShipping(existing.id, existing).catch(() => {});
+    if (oldStatus === "received"   && newStatus !== "received")     await reverseDelivery(existing.id, existing).catch(() => {});
   }
 
   const before = { customerName: existing.customerName, product: existing.product, status: existing.status, quantity: existing.quantity, unitPrice: existing.unitPrice };
@@ -545,6 +548,33 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
   await logAudit({ action: "update", entityType: "order", entityId: updated.id, entityName: `${updated.customerName} — ${updated.product}`, before, after: diffObjects(before, after), userId: (req as any).user?.id, userName: (req as any).user?.displayName });
 
   res.json(UpdateOrderResponse.parse(updated));
+});
+
+// ─── Delete single order (soft delete) ───────────────────────────────────────
+
+router.delete("/orders/:id", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const [existing] = await db.select().from(ordersTable).where(and(eq(ordersTable.id, id), isNull(ordersTable.deletedAt)));
+  if (!existing) { res.status(404).json({ error: "Order not found" }); return; }
+
+  const userRole = (req as any).user?.role;
+  if (LOCKED_STATUSES.includes(existing.status as any) && userRole !== "admin") {
+    res.status(403).json({ error: "هذا الطلب مقفل ولا يمكن حذفه" });
+    return;
+  }
+
+  await db.update(ordersTable).set({ deletedAt: new Date() }).where(eq(ordersTable.id, id));
+
+  await logAudit({
+    action: "delete", entityType: "order", entityId: id,
+    entityName: `${existing.customerName} — ${existing.product}`,
+    before: { customerName: existing.customerName, product: existing.product, status: existing.status },
+    userId: (req as any).user?.id, userName: (req as any).user?.displayName,
+  });
+
+  res.status(204).send();
 });
 
 export default router;
