@@ -237,7 +237,7 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
 const DeliveryStatusSchema = z.object({
   deliveryStatus: z.enum(["pending", "delivered", "postponed", "partial_received", "returned"]),
   deliveryNote: z.string().nullish(),
-  partialQuantity: z.number().int().positive().nullish(),
+  partialQuantity: z.number().int().min(0).nullish(),
   returnReceived: z.boolean().nullish(),
 });
 const STATUS_MAP: Record<string, string> = { delivered: "received", postponed: "delayed", partial_received: "partial_received", returned: "returned", pending: "in_shipping" };
@@ -257,12 +257,12 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
   const isDelivered = deliveryStatus === "delivered" || deliveryStatus === "partial_received";
   await db.update(shippingManifestOrdersTable).set({
     deliveryStatus, deliveryNote: deliveryNote ?? null,
-    partialQuantity: deliveryStatus === "partial_received" && partialQuantity ? partialQuantity : null,
+    partialQuantity: deliveryStatus === "partial_received" && partialQuantity != null ? partialQuantity : null,
     deliveredAt: isDelivered ? new Date() : null,
     ...(deliveryStatus === "returned" && returnReceived != null ? { returnReceived: returnReceived ? 1 : 0 } : deliveryStatus !== "returned" ? { returnReceived: null } : {}),
   }).where(eq(shippingManifestOrdersTable.id, link.id));
   const orderUpdate: Record<string, unknown> = { status: newStatus };
-  if (deliveryStatus === "partial_received" && partialQuantity) orderUpdate.partialQuantity = partialQuantity;
+  if (deliveryStatus === "partial_received" && partialQuantity != null) orderUpdate.partialQuantity = partialQuantity;
   if (deliveryStatus === "returned" && returnReceived != null) orderUpdate.returnReceived = returnReceived ? 1 : 0;
   else if (deliveryStatus !== "returned") orderUpdate.returnReceived = null;
   await db.update(ordersTable).set(orderUpdate).where(eq(ordersTable.id, orderId));
