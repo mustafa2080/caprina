@@ -747,15 +747,15 @@ function InvoiceGroupDeliveryRow({
                   </Label>
                   <Input
                     type="number"
-                    min={1}
+                    min={0}
                     max={group[0].quantity}
                     value={partialQtyMap[group[0].id] ?? ""}
                     onChange={(e) => setPartialQtyMap(prev => ({ ...prev, [group[0].id]: e.target.value }))}
-                    className={`h-8 text-xs w-28 bg-background ${!(partialQtyMap[group[0].id]) || parseInt(partialQtyMap[group[0].id]) < 1 ? "border-destructive" : ""}`}
+                    className={`h-8 text-xs w-28 bg-background ${!(partialQtyMap[group[0].id] !== "") ? "border-destructive" : ""}`}
                     placeholder="مطلوب"
                     autoFocus
                   />
-                  {(!(partialQtyMap[group[0].id]) || parseInt(partialQtyMap[group[0].id]) < 1) && (
+                  {(partialQtyMap[group[0].id] === "" || partialQtyMap[group[0].id] === undefined) && (
                     <p className="text-[10px] text-destructive mt-0.5">⚠ أدخل الكمية المستلمة</p>
                   )}
                 </div>
@@ -772,7 +772,7 @@ function InvoiceGroupDeliveryRow({
                   const variant = [o.color, o.size].filter(Boolean).join(" / ");
                   const unitPrice = o.quantity > 0 ? o.totalPrice / o.quantity : 0;
                   const partialVal = partialQtyMap[o.id] ? parseInt(partialQtyMap[o.id]) : 0;
-                  const hasQty = partialQtyMap[o.id] && parseInt(partialQtyMap[o.id]) >= 1;
+                  const hasQty = partialQtyMap[o.id] !== "" && partialQtyMap[o.id] !== undefined;
                   return (
                     <div key={o.id} className="rounded-md border border-teal-200 dark:border-teal-800 bg-background p-2 flex flex-col gap-1.5">
                       <div className="flex items-center justify-between">
@@ -786,7 +786,7 @@ function InvoiceGroupDeliveryRow({
                         <Label className="text-[10px] text-muted-foreground shrink-0">المستلم:</Label>
                         <input
                           type="number"
-                          min={1}
+                          min={0}
                           max={o.quantity}
                           value={partialQtyMap[o.id] ?? ""}
                           onChange={e => setPartialQtyMap(prev => ({ ...prev, [o.id]: e.target.value }))}
@@ -858,7 +858,7 @@ function InvoiceGroupDeliveryRow({
                             max={o.quantity}
                             value={partialQtyMap[o.id] ?? ""}
                             onChange={e => setPartialQtyMap(prev => ({ ...prev, [o.id]: e.target.value }))}
-                            className={`h-7 w-20 rounded border bg-background px-2 text-xs text-center ${!partialQtyMap[o.id] || parseInt(partialQtyMap[o.id]) < 1 ? "border-destructive" : "border-teal-400"}`}
+                            className={`h-7 w-20 rounded border bg-background px-2 text-xs text-center ${partialQtyMap[o.id] === "" || partialQtyMap[o.id] === undefined ? "border-destructive" : "border-teal-400"}`}
                             placeholder="مطلوب"
                           />
                           <span className="text-[10px] text-muted-foreground">قطعة</span>
@@ -966,11 +966,11 @@ function InvoiceGroupDeliveryRow({
                   (needsBulkNote && !bulkNote.trim()) ||
                   (bulkStatus === "returned" && bulkReturnReceived === null) ||
                   (!isPerItemMode && bulkStatus === "partial_received" && group[0] && (
-                    !partialQtyMap[group[0].id] || parseInt(partialQtyMap[group[0].id]) < 1
+                    partialQtyMap[group[0].id] === "" || partialQtyMap[group[0].id] === undefined
                   )) ||
                   (isPerItemMode && group.some(o =>
                     perOrderStatus[o.id] === "partial_received" &&
-                    (!partialQtyMap[o.id] || parseInt(partialQtyMap[o.id]) < 1)
+                    (partialQtyMap[o.id] === "" || partialQtyMap[o.id] === undefined)
                   ))
                 }
               >
