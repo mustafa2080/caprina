@@ -45,6 +45,36 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
   </head>
   <body>
+    <!-- Video Background — shown only on login page, hidden after login via JS -->
+    <video
+      id="login-bg-video"
+      autoplay
+      loop
+      muted
+      playsinline
+      style="position:fixed;top:0;left:0;width:100vw;height:100vh;object-fit:cover;z-index:0;display:none;"
+    >
+      <source src="/video/background.mp4" type="video/mp4" />
+    </video>
+    <script>
+      // أظهر الفيديو بس لما نكون على صفحة اللوجين
+      (function(){
+        function checkRoute(){
+          var v = document.getElementById('login-bg-video');
+          if(!v) return;
+          var isLogin = window.location.pathname === '/login' || window.location.pathname === '/';
+          v.style.display = isLogin ? 'block' : 'none';
+        }
+        checkRoute();
+        // راقب تغيير الـ route
+        var _pushState = history.pushState;
+        history.pushState = function(){
+          _pushState.apply(history, arguments);
+          checkRoute();
+        };
+        window.addEventListener('popstate', checkRoute);
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
