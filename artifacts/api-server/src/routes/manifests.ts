@@ -148,9 +148,12 @@ router.get("/shipping-manifests/:id", async (req, res): Promise<void> => {
     });
     const linkMap = new Map(links.map((l) => [l.orderId, l]));
     orders = rawOrders.map((o) => {
-      const link = linkMap.get(o.id) ?? (o.invoiceNumber?.trim() ? invoiceLinkMap.get(o.invoiceNumber.trim()) : undefined);
+      const directLink = linkMap.get(o.id);
+      const invoiceLink = o.invoiceNumber?.trim() ? invoiceLinkMap.get(o.invoiceNumber.trim()) : undefined;
+      const link = directLink ?? invoiceLink;
       if (!link) return { ...o, deliveryStatus: "pending", deliveryNote: null, deliveredAt: null, manifestOrderId: 0 };
-      const _rr = link.returnReceived; const _rrNum = _rr == null ? null : Number(_rr);
+      const _rr = (directLink ?? invoiceLink)?.returnReceived;
+      const _rrNum = _rr == null ? null : Number(_rr);
       return { ...o, deliveryStatus: link.deliveryStatus, deliveryNote: link.deliveryNote, deliveredAt: link.deliveredAt, partialQuantity: (link as any).partialQuantity ?? o.partialQuantity, manifestOrderId: link.id, returnReceived: _rrNum };
     });
   }

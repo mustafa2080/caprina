@@ -148255,9 +148255,11 @@ router12.get("/shipping-manifests/:id", async (req, res) => {
     });
     const linkMap = new Map(links.map((l2) => [l2.orderId, l2]));
     orders = rawOrders.map((o) => {
-      const link = linkMap.get(o.id) ?? (o.invoiceNumber?.trim() ? invoiceLinkMap.get(o.invoiceNumber.trim()) : void 0);
+      const directLink = linkMap.get(o.id);
+      const invoiceLink = o.invoiceNumber?.trim() ? invoiceLinkMap.get(o.invoiceNumber.trim()) : void 0;
+      const link = directLink ?? invoiceLink;
       if (!link) return { ...o, deliveryStatus: "pending", deliveryNote: null, deliveredAt: null, manifestOrderId: 0 };
-      const _rr = link.returnReceived;
+      const _rr = (directLink ?? invoiceLink)?.returnReceived;
       const _rrNum = _rr == null ? null : Number(_rr);
       return { ...o, deliveryStatus: link.deliveryStatus, deliveryNote: link.deliveryNote, deliveredAt: link.deliveredAt, partialQuantity: link.partialQuantity ?? o.partialQuantity, manifestOrderId: link.id, returnReceived: _rrNum };
     });
