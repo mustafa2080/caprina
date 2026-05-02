@@ -152,7 +152,7 @@ function OrderDeliveryRow({
         deliveryStatus: status,
         deliveryNote: finalNote,
         partialQuantity:
-          status === "partial_received" && partialQty
+          status === "partial_received" && partialQty !== "" && partialQty !== null && partialQty !== undefined
             ? parseInt(partialQty)
             : null,
         ...(status === "returned" ? { returnReceived } : {}),
