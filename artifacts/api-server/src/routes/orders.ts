@@ -499,5 +499,52 @@ router.get("/orders/:id", async (req, res): Promise<void> => {
   res.json(GetOrderResponse.parse(order));
 });
 
-export default router;
 
+// ─── Update order (PATCH) ─────────────────────────────────────────────────────
+router.patch("/orders/:id", async (req, res): Promise<void> => {
+  const params = UpdateOrderParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+
+  const [existing] = await db.select().from(ordersTable).where(and(eq(ordersTable.id, params.data.id), isNull(ordersTable.deletedAt)));
+  if (!existing) { res.status(404).json({ error: "Order not found" }); return; }
+
+  const userRole = (req as any).user?.role;
+  if (LOCKED_STATUSES.includes(existing.status as any) && userRole !== "admin") {
+    res.status(403).json({ error: "هذا الطلب مقفل ولا يمكن تعديله" });
+    return;
+  }
+
+  const parsed = UpdateOrderBody.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+
+  const data = parsed.data as Record<string, any>;
+  const newQty        = data.quantity   ?? existing.quantity;
+  const newUnitPrice  = data.unitPrice  ?? existing.unitPrice;
+  const newTotalPrice = newQty * newUnitPrice;
+
+  const oldStatus = existing.status;
+  const newStatus = data.status ?? oldStatus;
+  if (newStatus !== oldStatus) {
+    if (newStatus === "in_shipping")                                   await processToShipping(existing.id, existing).catch(() => {});
+    if (newStatus === "received")                                      await processDelivery(existing.id, existing).catch(() => {});
+    if (newStatus === "returned")                                      await processReturn(existing.id, existing).catch(() => {});
+    if (oldStatus === "in_shipping" && newStatus !== "in_shipping")   await reverseShipping(existing.id, existing).catch(() => {});
+    if (oldStatus === "received"   && newStatus !== "received")       await reverseDelivery(existing.id, existing).catch(() => {});
+  }
+
+  const before = { customerName: existing.customerName, product: existing.product, status: existing.status, quantity: existing.quantity, unitPrice: existing.unitPrice };
+
+  await db.update(ordersTable)
+    .set({ ...data, totalPrice: newTotalPrice, updatedAt: new Date() })
+    .where(eq(ordersTable.id, params.data.id));
+
+  const [updated] = await db.select().from(ordersTable).where(eq(ordersTable.id, params.data.id));
+  if (!updated) { res.status(500).json({ error: "Update failed" }); return; }
+
+  const after = { customerName: updated.customerName, product: updated.product, status: updated.status, quantity: updated.quantity, unitPrice: updated.unitPrice };
+  await logAudit({ action: "update", entityType: "order", entityId: updated.id, entityName: `${updated.customerName} — ${updated.product}`, before, after: diffObjects(before, after), userId: (req as any).user?.id, userName: (req as any).user?.displayName });
+
+  res.json(UpdateOrderResponse.parse(updated));
+});
+
+export default router;
