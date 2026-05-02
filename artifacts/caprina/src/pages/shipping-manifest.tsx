@@ -786,11 +786,21 @@ function InvoiceGroupDeliveryRow({
                       <div className="flex items-center gap-2">
                         <Label className="text-[10px] text-muted-foreground shrink-0">المستلم:</Label>
                         <input
-                          type="number"
-                          min={0}
-                          max={o.quantity}
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
                           value={partialQtyMap[o.id] ?? ""}
-                          onChange={e => setPartialQtyMap(prev => ({ ...prev, [o.id]: e.target.value }))}
+                          onChange={e => {
+                            const raw = e.target.value.replace(/[^0-9]/g, "");
+                            if (raw === "") {
+                              setPartialQtyMap(prev => ({ ...prev, [o.id]: "" }));
+                            } else {
+                              const n = parseInt(raw);
+                              if (!isNaN(n) && n <= o.quantity) {
+                                setPartialQtyMap(prev => ({ ...prev, [o.id]: String(n) }));
+                              }
+                            }
+                          }}
                           className={`h-7 w-20 rounded border bg-background px-2 text-xs text-center ${!hasQty ? "border-destructive" : "border-teal-400"}`}
                           placeholder="مطلوب"
                           autoFocus={o.id === group[0].id}
