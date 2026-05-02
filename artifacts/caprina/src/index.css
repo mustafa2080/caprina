@@ -229,6 +229,9 @@ html.light { color-scheme: light; }
     @apply font-sans antialiased bg-background text-foreground;
     direction: rtl;
   }
+  body.login-page {
+    background: transparent !important;
+  }
 }
 
 @layer utilities {
