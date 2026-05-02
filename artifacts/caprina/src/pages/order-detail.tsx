@@ -835,6 +835,61 @@ export default function OrderDetail() {
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">الكمية</p>
                     <p className="font-semibold">{order.quantity} وحدة</p>
+                    {/* حالة المنتج في البيان */}
+                    {manifestStatus && (() => {
+                      const ds = manifestStatus.deliveryStatus;
+                      const pQty = manifestStatus.partialQuantity;
+                      const rRec = manifestStatus.returnReceived;
+                      if (ds === "delivered") return (
+                        <div className="mt-1.5 flex flex-col gap-1">
+                          <Badge variant="outline" className="text-[9px] font-bold border-emerald-600 text-emerald-400 w-fit">
+                            <CheckCircle2 className="w-2.5 h-2.5 ml-1" />تم التسليم ✓
+                          </Badge>
+                        </div>
+                      );
+                      if (ds === "partial_received") return (
+                        <div className="mt-1.5 flex flex-col gap-1">
+                          <Badge variant="outline" className="text-[9px] font-bold border-teal-600 text-teal-400 w-fit">
+                            ◑ استُلم جزئياً — {pQty ?? "؟"} من {order.quantity}
+                          </Badge>
+                          <Badge variant="outline" className="text-[9px] font-bold border-amber-600 text-amber-400 w-fit">
+                            🚚 الباقي ({(pQty != null ? order.quantity - pQty : "؟")}) مازال عند الشحن
+                          </Badge>
+                        </div>
+                      );
+                      if (ds === "returned") return (
+                        <div className="mt-1.5 flex flex-col gap-1">
+                          <Badge variant="outline" className="text-[9px] font-bold border-red-600 text-red-400 w-fit">
+                            ↩ مرتجع
+                          </Badge>
+                          {rRec === 1 && (
+                            <Badge variant="outline" className="text-[9px] font-bold border-emerald-700 text-emerald-400 w-fit">
+                              <CheckCircle2 className="w-2.5 h-2.5 ml-1" />تم الاستلام — رجع للمخزن
+                            </Badge>
+                          )}
+                          {rRec === 0 && (
+                            <Badge variant="outline" className="text-[9px] font-bold border-orange-600 text-orange-400 w-fit">
+                              <Clock className="w-2.5 h-2.5 ml-1" />مازال عند شركة الشحن
+                            </Badge>
+                          )}
+                        </div>
+                      );
+                      if (ds === "postponed") return (
+                        <div className="mt-1.5">
+                          <Badge variant="outline" className="text-[9px] font-bold border-orange-600 text-orange-400 w-fit">
+                            ⏳ مؤجل
+                          </Badge>
+                        </div>
+                      );
+                      if (ds === "pending") return (
+                        <div className="mt-1.5">
+                          <Badge variant="outline" className="text-[9px] font-bold border-blue-600 text-blue-400 w-fit">
+                            🚚 قيد الشحن
+                          </Badge>
+                        </div>
+                      );
+                      return null;
+                    })()}
                   </div>
                   {order.partialQuantity && (
                     <div>
