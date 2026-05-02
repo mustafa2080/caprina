@@ -36,32 +36,48 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4" dir="rtl">
-      <div className="w-full max-w-sm">
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden" dir="rtl">
+
+      {/* Video Background */}
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="absolute inset-0 w-full h-full object-cover z-0"
+      >
+        <source src="/video/background.mp4" type="video/mp4" />
+      </video>
+
+      {/* Dark overlay */}
+      <div className="absolute inset-0 bg-black/60 z-10" />
+
+      {/* Content */}
+      <div className="w-full max-w-sm relative z-20">
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
             <BrandLogoMark size="lg" />
           </div>
-          <h1 className="text-2xl font-black tracking-tight text-foreground">{brand.name}</h1>
+          <h1 className="text-2xl font-black tracking-tight text-white">{brand.name}</h1>
           {brand.tagline && (
-            <p className="text-xs text-muted-foreground mt-1 uppercase tracking-widest">{brand.tagline}</p>
+            <p className="text-xs text-white/70 mt-1 uppercase tracking-widest">{brand.tagline}</p>
           )}
         </div>
 
         {/* Form */}
-        <div className="bg-card border border-border rounded-xl p-6 shadow-lg">
-          <h2 className="text-lg font-bold mb-5">تسجيل الدخول</h2>
+        <div className="bg-black/40 backdrop-blur-md border border-white/10 rounded-xl p-6 shadow-2xl">
+          <h2 className="text-lg font-bold mb-5 text-white">تسجيل الدخول</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <Label className="text-xs mb-1.5 block">اسم المستخدم</Label>
+              <Label className="text-xs mb-1.5 block text-white/80">اسم المستخدم</Label>
               <div className="relative">
-                <User className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <User className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50" />
                 <Input
                   value={username}
                   onChange={e => setUsername(e.target.value)}
                   placeholder="admin"
-                  className="pr-9 h-10 text-sm bg-background"
+                  className="pr-9 h-10 text-sm bg-white/10 border-white/20 text-white placeholder:text-white/30 focus:border-white/40"
                   autoComplete="username"
                   autoFocus
                 />
@@ -69,21 +85,21 @@ export default function Login() {
             </div>
 
             <div>
-              <Label className="text-xs mb-1.5 block">كلمة المرور</Label>
+              <Label className="text-xs mb-1.5 block text-white/80">كلمة المرور</Label>
               <div className="relative">
-                <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50" />
                 <Input
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="pr-9 pl-9 h-10 text-sm bg-background"
+                  className="pr-9 pl-9 h-10 text-sm bg-white/10 border-white/20 text-white placeholder:text-white/30 focus:border-white/40"
                   autoComplete="current-password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(v => !v)}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -98,8 +114,6 @@ export default function Login() {
               {loading ? "جاري تسجيل الدخول..." : "دخول"}
             </Button>
           </form>
-
-
         </div>
       </div>
     </div>
