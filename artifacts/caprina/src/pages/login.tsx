@@ -32,6 +32,8 @@ export default function Login() {
     const video = videoRef.current;
     if (!video) return;
     video.muted = true;
+    video.loop = true;
+    video.playsInline = true;
     video.play().catch(() => {});
   }, []);
 
@@ -56,10 +58,6 @@ export default function Login() {
       {/* Video Background */}
       <video
         ref={videoRef}
-        autoPlay
-        loop
-        muted
-        playsInline
         style={{
           position: "fixed",
           top: 0,
@@ -74,7 +72,7 @@ export default function Login() {
       </video>
 
       {/* Dark overlay */}
-      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.25)", zIndex: 1 }} />
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 1 }} />
 
       {/* Content */}
       <div className="w-full max-w-sm relative z-20">
