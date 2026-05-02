@@ -560,7 +560,7 @@ function InvoiceGroupDeliveryRow({
           deliveryNote: bulkNote.trim() || null,
           partialQuantity: finalPartialQty,
           ...(finalStatus === 'returned' ? { returnReceived: bulkReturnReceived } : {}),
-        });
+        }).then(r => console.log("[DEBUG-API-OK]", order.id, r)).catch(e => console.error("[DEBUG-API-ERR]", order.id, e));
       }
     },
     onSuccess: () => {
