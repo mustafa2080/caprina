@@ -222,6 +222,9 @@
 /* ─── Flash prevention: apply theme class before first paint ─────────────────── */
 html { color-scheme: dark; }
 html.light { color-scheme: light; }
+html:has(body.login-page) {
+  background: transparent !important;
+}
 
 @layer base {
   * { @apply border-border; }
@@ -230,6 +233,9 @@ html.light { color-scheme: light; }
     direction: rtl;
   }
   body.login-page {
+    background: transparent !important;
+  }
+  body.login-page #root {
     background: transparent !important;
   }
 }
