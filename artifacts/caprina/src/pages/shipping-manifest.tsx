@@ -537,20 +537,20 @@ function InvoiceGroupDeliveryRow({
           // فاتورة متعددة + partial: كل منتج بنفس الحالة والكمية من partialQtyMap
           finalStatus = "partial_received";
           const val = partialQtyMap[order.id];
-          finalPartialQty = val ? parseInt(val) : null;
+          finalPartialQty = (val !== "" && val !== undefined) ? parseInt(val) : null;
         } else if (isPerItemMode) {
           // فاتورة متعددة + حالة أخرى: كل منتج له حالته المستقلة من perOrderStatus
           finalStatus = perOrderStatus[order.id] ?? bulkStatus;
           if (finalStatus === "partial_received") {
             const val = partialQtyMap[order.id];
-            finalPartialQty = val ? parseInt(val) : null;
+            finalPartialQty = (val !== "" && val !== undefined) ? parseInt(val) : null;
           }
         } else {
           // فاتورة منتج واحد
           finalStatus = bulkStatus;
           if (finalStatus === "partial_received") {
             const val = partialQtyMap[order.id];
-            finalPartialQty = val ? parseInt(val) : null;
+            finalPartialQty = (val !== "" && val !== undefined) ? parseInt(val) : null;
           }
         }
 
