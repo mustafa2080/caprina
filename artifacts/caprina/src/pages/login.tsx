@@ -36,7 +36,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden" dir="rtl">
+    <div className="fixed inset-0 flex items-center justify-center p-4" dir="rtl">
 
       {/* Video Background */}
       <video
@@ -44,13 +44,21 @@ export default function Login() {
         loop
         muted
         playsInline
-        className="absolute inset-0 w-full h-full object-cover z-0"
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          width: "100vw",
+          height: "100vh",
+          objectFit: "cover",
+          zIndex: 0,
+        }}
       >
         <source src="/video/background.mp4" type="video/mp4" />
       </video>
 
       {/* Dark overlay */}
-      <div className="absolute inset-0 bg-black/30 z-10" />
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.25)", zIndex: 1 }} />
 
       {/* Content */}
       <div className="w-full max-w-sm relative z-20">
