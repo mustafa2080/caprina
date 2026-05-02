@@ -771,8 +771,9 @@ function InvoiceGroupDeliveryRow({
                 {group.map((o) => {
                   const variant = [o.color, o.size].filter(Boolean).join(" / ");
                   const unitPrice = o.quantity > 0 ? o.totalPrice / o.quantity : 0;
-                  const partialVal = partialQtyMap[o.id] ? parseInt(partialQtyMap[o.id]) : 0;
-                  const hasQty = partialQtyMap[o.id] !== "" && partialQtyMap[o.id] !== undefined;
+                  const rawVal = partialQtyMap[o.id];
+                  const partialVal = (rawVal !== "" && rawVal !== undefined && rawVal !== null) ? parseInt(rawVal) : 0;
+                  const hasQty = rawVal !== "" && rawVal !== undefined && rawVal !== null;
                   return (
                     <div key={o.id} className="rounded-md border border-teal-200 dark:border-teal-800 bg-background p-2 flex flex-col gap-1.5">
                       <div className="flex items-center justify-between">
