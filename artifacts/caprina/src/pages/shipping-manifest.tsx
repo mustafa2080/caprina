@@ -854,7 +854,7 @@ function InvoiceGroupDeliveryRow({
                           <Label className="text-[10px] text-muted-foreground shrink-0">المستلم من {o.quantity}:</Label>
                           <input
                             type="number"
-                            min={1}
+                            min={0}
                             max={o.quantity}
                             value={partialQtyMap[o.id] ?? ""}
                             onChange={e => setPartialQtyMap(prev => ({ ...prev, [o.id]: e.target.value }))}
