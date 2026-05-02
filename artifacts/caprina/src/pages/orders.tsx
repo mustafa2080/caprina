@@ -353,6 +353,18 @@ export default function Orders() {
                           if (rr === 0) return <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-orange-500 dark:text-orange-400">⏳ عند شركة الشحن</span>;
                           return null;
                         })()}
+                        {order.status === "partial_received" && (() => {
+                          const rr = (order as any).returnReceived as 0 | 1 | null | undefined;
+                          const pq = (order as any).partialQuantity as number | null | undefined;
+                          const qty = (order as any).quantity as number | undefined;
+                          return (
+                            <span className="inline-flex flex-col gap-0 text-[9px] font-bold leading-tight">
+                              {pq != null && qty != null && <span className="text-teal-600 dark:text-teal-400">✓ استُلم {pq} من {qty}</span>}
+                              {rr === 0 && <span className="text-orange-500 dark:text-orange-400">🚚 الباقي عند الشحن</span>}
+                              {rr === 1 && <span className="text-emerald-600 dark:text-emerald-400">↩ الباقي في المخزن</span>}
+                            </span>
+                          );
+                        })()}
                         {order.status === "returned" && retReason && (
                           <span className="text-[9px] text-red-600 dark:text-red-400">{retReason === "other" && retNote ? retNote : returnReasonLabel(retReason)}</span>
                         )}
@@ -447,6 +459,18 @@ export default function Orders() {
                             if (rr === 1) return <div className="flex items-center justify-center gap-0.5 mt-1"><span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 leading-none">↩ تم الاستلام</span></div>;
                             if (rr === 0) return <div className="flex items-center justify-center gap-0.5 mt-1"><span className="text-[9px] font-bold text-orange-500 dark:text-orange-400 leading-none">⏳ عند شركة الشحن</span></div>;
                             return null;
+                          })()}
+                          {order.status === "partial_received" && (() => {
+                            const rr = (order as any).returnReceived as 0 | 1 | null | undefined;
+                            const pq = (order as any).partialQuantity as number | null | undefined;
+                            const qty = (order as any).quantity as number | undefined;
+                            return (
+                              <div className="flex flex-col items-center gap-0 mt-1 text-[9px] font-bold leading-tight">
+                                {pq != null && qty != null && <span className="text-teal-600 dark:text-teal-400">✓ استُلم {pq} من {qty}</span>}
+                                {rr === 0 && <span className="text-orange-500 dark:text-orange-400">🚚 الباقي عند الشحن</span>}
+                                {rr === 1 && <span className="text-emerald-600 dark:text-emerald-400">↩ الباقي في المخزن</span>}
+                              </div>
+                            );
                           })()}
                           {order.status === "returned" && retReason && (
                             <div className="flex items-center justify-center gap-0.5 mt-1">
