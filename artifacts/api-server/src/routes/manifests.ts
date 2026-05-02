@@ -248,6 +248,7 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
   const parsed = DeliveryStatusSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   const { deliveryStatus, deliveryNote, partialQuantity, returnReceived } = parsed.data;
+  console.log("[DEBUG] PATCH order delivery:", { manifestId, orderId, deliveryStatus, partialQuantity, rawBody: req.body });
   const [link] = await db.select().from(shippingManifestOrdersTable).where(and(eq(shippingManifestOrdersTable.manifestId, manifestId), eq(shippingManifestOrdersTable.orderId, orderId)));
   if (!link) { res.status(404).json({ error: "الطلب غير موجود في هذا البيان" }); return; }
   const [existingOrder] = await db.select().from(ordersTable).where(eq(ordersTable.id, orderId));
