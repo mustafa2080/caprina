@@ -532,6 +532,7 @@ function InvoiceGroupDeliveryRow({
       for (const order of group) {
         let finalStatus: DeliveryStatus = bulkStatus;
         let finalPartialQty: number | null = null;
+        console.log("[DEBUG-BULK] order", order.id, "partialQtyMap:", partialQtyMap[order.id], "bulkStatus:", bulkStatus);
 
         if (isMulti && bulkStatus === "partial_received") {
           // فاتورة متعددة + partial: كل منتج بنفس الحالة والكمية من partialQtyMap
