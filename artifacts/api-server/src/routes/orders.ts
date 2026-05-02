@@ -219,9 +219,11 @@ router.get("/orders", async (req, res): Promise<void> => {
   };
 
   // حساب السعر المستلم فعلاً لطلب partial_received
+  // نستخدم unitPrice × partialQuantity زي البيان بالظبط
   const calcReceivedPrice = (o: (typeof rows)[0], pq: number | null): number => {
-    if (o.status === "partial_received" && pq != null && o.quantity > 0) {
-      return Math.round((pq / o.quantity) * o.totalPrice);
+    if (o.status === "partial_received" && pq != null) {
+      const unit = (o as any).unitPrice ?? (o.quantity > 0 ? Math.round(o.totalPrice / o.quantity) : o.totalPrice);
+      return Math.round(unit * pq);
     }
     return o.totalPrice;
   };
@@ -256,10 +258,12 @@ router.get("/orders", async (req, res): Promise<void> => {
       }
       rep.returnReceived = rr;
     }
-    // للمجموعات partial_received: نجمع partialQuantity الصح من البيان
+    // للمجموعات partial_received: نجمع partialQuantity وأحسب _receivedPrice زي البيان
     const allPartial = grp.every(o => o.status === "partial_received");
     if (allPartial) {
       rep.partialQuantity = grp.reduce((s, o) => s + (getPartialQuantity(o) ?? 0), 0);
+      rep._receivedPrice  = grp.reduce((s, o) => s + calcReceivedPrice(o, getPartialQuantity(o)), 0);
+      rep._fullPrice      = rep.totalPrice;
     }
     return rep;
   });
