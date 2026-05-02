@@ -1,4 +1,4 @@
-﻿import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { useParams, Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -1522,15 +1522,30 @@ function CloseConfirmDialog({
             </div>
           </div>
 
-          <div className="p-3 rounded-md bg-primary/10 border border-primary/30 text-xs">
-            <p className="text-muted-foreground mb-1">صافي المستحق من الشركة</p>
-            <p className="font-black text-lg text-primary">
-              {formatCurrency(s.deliveredGross - s.totalShippingCost)}
-            </p>
-            {manifest.invoicePrice != null && (
-              <p className="text-muted-foreground mt-1">
-                سعر الفاتورة المتفق: {formatCurrency(manifest.invoicePrice)}
+          {/* ─── صافي المستحق من الشركة ─── */}
+          <div className="space-y-2">
+            <div className="p-3 rounded-md bg-primary/10 border border-primary/30 text-xs">
+              <p className="text-muted-foreground mb-1">صافي المستحق من الشركة</p>
+              <p className="font-black text-lg text-primary">
+                {formatCurrency((s as any).dueFromCompany ?? (s.deliveredGross - s.totalShippingCost))}
               </p>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                إيرادات مستلمة ({formatCurrency(s.deliveredGross)}) − تكلفة شحن ({formatCurrency((s as any).actuallyDeliveredShipping ?? s.totalShippingCost)})
+              </p>
+              {manifest.invoicePrice != null && (
+                <p className="text-muted-foreground mt-1">
+                  سعر الفاتورة المتفق: {formatCurrency(manifest.invoicePrice)}
+                </p>
+              )}
+            </div>
+            {(s as any).stillAtShippingCount > 0 && (
+              <div className="p-2 rounded-md bg-orange-900/10 border border-orange-700 text-xs flex items-start gap-2">
+                <span className="text-base">🚚</span>
+                <div>
+                  <p className="text-orange-400 font-bold">لسه عند الشحن: {(s as any).stillAtShippingCount} طلبية</p>
+                  <p className="text-orange-300 text-[10px]">مبلغ متوقع: {formatCurrency((s as any).stillAtShippingAmount ?? 0)}</p>
+                </div>
+              </div>
             )}
           </div>
         </div>

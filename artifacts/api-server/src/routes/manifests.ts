@@ -72,20 +72,37 @@ function computeStats(orders: OrderWithDelivery[]) {
   ).length;
   const deliveryRate = total > 0 ? Math.round((delivered / total) * 100) : 0;
   let totalRevenue = 0, totalCost = 0, totalShippingCost = 0, returnLosses = 0, deliveredGross = 0;
+  let stillAtShippingCount = 0, stillAtShippingAmount = 0;
   for (const o of orders) {
     const isPartial = o.deliveryStatus === "partial_received";
     const partialQty = isPartial && o.partialQuantity != null ? o.partialQuantity : null;
     const qty = partialQty !== null ? partialQty : o.quantity;
     const cost = (o.costPrice ?? 0) * qty;
     const shipping = o.shippingCost ?? 0;
+    const rv = (o as any).returnReceived;
     if (o.deliveryStatus === "delivered" || isPartial) {
       const revenue = partialQty !== null ? o.unitPrice * partialQty : o.totalPrice;
       totalRevenue += revenue; totalCost += cost; totalShippingCost += shipping; deliveredGross += revenue;
+      if (isPartial && rv !== 1) {
+        stillAtShippingCount++;
+        const remainQty = o.quantity - (partialQty ?? 0);
+        stillAtShippingAmount += o.unitPrice * remainQty;
+      }
     } else if (o.deliveryStatus === "returned") {
       returnLosses += shipping; totalShippingCost += shipping;
+      if (rv !== 1) { stillAtShippingCount++; stillAtShippingAmount += o.totalPrice; }
     } else { totalShippingCost += shipping; }
   }
-  return { total, delivered, returned, pending, deliveryRate, totalRevenue, totalCost, totalShippingCost, returnLosses, netProfit: totalRevenue - totalCost - totalShippingCost - returnLosses, deliveredGross };
+  const actuallyDeliveredShipping = orders
+    .filter(o => o.deliveryStatus === "delivered" || o.deliveryStatus === "partial_received")
+    .reduce((sum, o) => sum + (o.shippingCost ?? 0), 0);
+  const dueFromCompany = deliveredGross - actuallyDeliveredShipping;
+  return {
+    total, delivered, returned, pending, deliveryRate,
+    totalRevenue, totalCost, totalShippingCost, returnLosses,
+    netProfit: totalRevenue - totalCost - totalShippingCost - returnLosses,
+    deliveredGross, dueFromCompany, stillAtShippingCount, stillAtShippingAmount, actuallyDeliveredShipping,
+  };
 }
 
 router.get("/shipping-manifests", async (req, res): Promise<void> => {
