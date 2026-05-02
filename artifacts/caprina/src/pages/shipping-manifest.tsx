@@ -537,8 +537,8 @@ function InvoiceGroupDeliveryRow({
           // فاتورة متعددة + partial: كل منتج بنفس الحالة والكمية من partialQtyMap
           finalStatus = "partial_received";
           const val = partialQtyMap[order.id];
-          finalPartialQty = (val !== "" && val !== undefined) ? parseInt(val) : null;
-        } else if (isPerItemMode) {
+          finalPartialQty = (val !== "" && val !== undefined && val !== null) ? parseInt(val) : null;
+        } else if (isPerItemMode && bulkStatus !== "partial_received") {
           // فاتورة متعددة + حالة أخرى: كل منتج له حالته المستقلة من perOrderStatus
           finalStatus = perOrderStatus[order.id] ?? bulkStatus;
           if (finalStatus === "partial_received") {
@@ -969,7 +969,10 @@ function InvoiceGroupDeliveryRow({
                   (!isPerItemMode && bulkStatus === "partial_received" && group[0] && (
                     partialQtyMap[group[0].id] === "" || partialQtyMap[group[0].id] === undefined
                   )) ||
-                  (isPerItemMode && group.some(o =>
+                  (isMulti && bulkStatus === "partial_received" && group.some(o =>
+                    partialQtyMap[o.id] === "" || partialQtyMap[o.id] === undefined || partialQtyMap[o.id] === null
+                  )) ||
+                  (isPerItemMode && bulkStatus !== "partial_received" && group.some(o =>
                     perOrderStatus[o.id] === "partial_received" &&
                     (partialQtyMap[o.id] === "" || partialQtyMap[o.id] === undefined)
                   ))
