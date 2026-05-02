@@ -21,10 +21,25 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // إزالة background الـ body عشان الفيديو يظهر
+  // إزالة background من html/body/root عشان الفيديو يظهر
   useEffect(() => {
-    document.body.classList.add("login-page");
-    return () => document.body.classList.remove("login-page");
+    const html = document.documentElement;
+    const body = document.body;
+    const root = document.getElementById("root");
+
+    const prevHtmlBg = html.style.background;
+    const prevBodyBg = body.style.background;
+    const prevRootBg = root?.style.background ?? "";
+
+    html.style.setProperty("background", "transparent", "important");
+    body.style.setProperty("background", "transparent", "important");
+    if (root) root.style.setProperty("background", "transparent", "important");
+
+    return () => {
+      html.style.background = prevHtmlBg;
+      body.style.background = prevBodyBg;
+      if (root) root.style.background = prevRootBg;
+    };
   }, []);
 
   // تشغيل الفيديو يدوياً عشان نتغلب على autoplay restrictions
