@@ -542,7 +542,15 @@ function InvoiceGroupDeliveryRow({
 
   const rep = group[0];
   const totalQty = group.reduce((s, o) => s + o.quantity, 0);
-  const totalPrice = group.reduce((s, o) => s + o.totalPrice, 0);
+  // السعر الفعلي: لو partial_received احسب الجزء المستلم فقط
+  const totalPrice = group.reduce((s, o) => {
+    if (o.deliveryStatus === "partial_received" && o.partialQuantity != null) {
+      return s + o.unitPrice * o.partialQuantity;
+    }
+    return s + o.totalPrice;
+  }, 0);
+  // السعر الكامل للفاتورة (للعرض والمرجع)
+  const totalFullPrice = group.reduce((s, o) => s + o.totalPrice, 0);
   const invoiceNum = (rep as any).invoiceNumber?.trim() || null;
   const isMulti = group.length > 1;
 
@@ -705,8 +713,12 @@ function InvoiceGroupDeliveryRow({
             ) : totalQty}
           </div>
           {/* Price */}
-          <div className="text-left font-bold">{formatCurrency(totalPrice)}</div>
-          {/* Status */}
+          <div className="text-left font-bold">
+            {formatCurrency(totalPrice)}
+            {totalPrice !== totalFullPrice && (
+              <p className="text-[9px] text-muted-foreground font-normal line-through">{formatCurrency(totalFullPrice)}</p>
+            )}
+          </div>
           <div>
             {hasMultipleStatuses ? (
               <div className="flex flex-col gap-0.5">
