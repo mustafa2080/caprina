@@ -271,9 +271,19 @@ export default function InvoiceGroup() {
   );
 
   const rep = orders[0];
-  const totalPrice   = orders.reduce((s: number, o: any) => s + o.totalPrice, 0);
-  const totalQty     = orders.reduce((s: number, o: any) => s + o.quantity, 0);
-  const shippingCost = rep.shippingCost ?? 0;
+  // السعر المستلم فعلاً لكل طلب: partial_received → unitPrice × partialQuantity، غير كده totalPrice
+  const getReceivedPrice = (o: any): number => {
+    if (o.status === "partial_received" && o.partialQuantity != null && o.unitPrice != null) {
+      return Math.round(o.unitPrice * o.partialQuantity);
+    }
+    return o.totalPrice;
+  };
+  const totalPrice     = orders.reduce((s: number, o: any) => s + getReceivedPrice(o), 0);
+  const totalFullPrice = orders.reduce((s: number, o: any) => s + o.totalPrice, 0);
+  const totalQty       = orders.reduce((s: number, o: any) => s + o.quantity, 0);
+  const totalReceivedQty = orders.reduce((s: number, o: any) => s + (o.status === "partial_received" && o.partialQuantity != null ? o.partialQuantity : o.quantity), 0);
+  const hasPartial     = orders.some((o: any) => o.status === "partial_received");
+  const shippingCost   = rep.shippingCost ?? 0;
   const allSameStatus = orders.every((o: any) => o.status === rep.status);
   const dominantStatus = rep.status;
   const isAnyLocked = orders.some((o: any) => (o.status === "received" || o.status === "partial_received")) && !isAdmin;
@@ -405,7 +415,14 @@ export default function InvoiceGroup() {
                 </div>
               </div>
               <div className="text-left">
-                <p className="text-sm font-bold text-primary">{new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(order.totalPrice)}</p>
+                <p className="text-sm font-bold text-primary">
+                  {new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(getReceivedPrice(order))}
+                </p>
+                {order.status === "partial_received" && getReceivedPrice(order) !== order.totalPrice && (
+                  <p className="text-[9px] text-muted-foreground line-through">
+                    {new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(order.totalPrice)}
+                  </p>
+                )}
                 <Badge variant="outline" className={`text-[8px] font-bold border mt-0.5 ${statusClasses[order.status] || ""}`}>
                   {statusLabels[order.status] || order.status}
                 </Badge>
@@ -416,8 +433,13 @@ export default function InvoiceGroup() {
           <Separator className="my-2" />
 
           <div className="flex items-center justify-between text-sm font-bold">
-            <span>الإجمالي ({totalQty} قطعة)</span>
-            <span className="text-primary text-base">{new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(totalPrice)}</span>
+            <span>الإجمالي ({hasPartial ? `${totalReceivedQty} من ${totalQty}` : `${totalQty}`} قطعة)</span>
+            <div className="text-left">
+              <span className="text-primary text-base">{new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(totalPrice)}</span>
+              {hasPartial && totalPrice !== totalFullPrice && (
+                <p className="text-[10px] text-muted-foreground line-through font-normal">{new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(totalFullPrice)}</p>
+              )}
+            </div>
           </div>
           {shippingCost > 0 && (
             <div className="flex items-center justify-between text-xs text-muted-foreground">
