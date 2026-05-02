@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { authApi } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "wouter";
@@ -19,11 +19,20 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   // إزالة background الـ body عشان الفيديو يظهر
   useEffect(() => {
     document.body.classList.add("login-page");
     return () => document.body.classList.remove("login-page");
+  }, []);
+
+  // تشغيل الفيديو يدوياً عشان نتغلب على autoplay restrictions
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.muted = true;
+    video.play().catch(() => {});
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -46,6 +55,7 @@ export default function Login() {
 
       {/* Video Background */}
       <video
+        ref={videoRef}
         autoPlay
         loop
         muted
