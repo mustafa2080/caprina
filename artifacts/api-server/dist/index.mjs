@@ -37376,7 +37376,7 @@ var require_umd = __commonJS({
           return this.low ? ctz32(this.low) : ctz32(this.high) + 32;
         };
         LongPrototype.ctz = LongPrototype.countTrailingZeros;
-        LongPrototype.and = function and2(other) {
+        LongPrototype.and = function and3(other) {
           if (!isLong(other)) other = fromValue(other);
           return fromBits(
             this.low & other.low,
@@ -146070,6 +146070,58 @@ router5.post("/shipping-companies", async (req, res) => {
   const [company] = await db.select().from(shippingCompaniesTable).where(eq(shippingCompaniesTable.id, insertId));
   res.status(201).json(company);
 });
+router5.get("/shipping-companies/:id/stats", async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+  const manifests = await db.select().from(shippingManifestsTable).where(eq(shippingManifestsTable.shippingCompanyId, id));
+  const manifestCount = manifests.length;
+  if (manifestCount === 0) {
+    res.json({ delivered: 0, returned: 0, pending: 0, deliveryRate: 0, netProfit: 0, manifestCount: 0 });
+    return;
+  }
+  const manifestIds = manifests.map((m) => m.id);
+  const links = await db.select({
+    deliveryStatus: shippingManifestOrdersTable.deliveryStatus,
+    partialQuantity: shippingManifestOrdersTable.partialQuantity,
+    orderId: shippingManifestOrdersTable.orderId
+  }).from(shippingManifestOrdersTable).where(inArray(shippingManifestOrdersTable.manifestId, manifestIds));
+  if (links.length === 0) {
+    res.json({ delivered: 0, returned: 0, pending: 0, deliveryRate: 0, netProfit: 0, manifestCount });
+    return;
+  }
+  const orderIds = links.map((l2) => l2.orderId);
+  const orders = await db.select().from(ordersTable).where(inArray(ordersTable.id, orderIds));
+  const orderMap = new Map(orders.map((o) => [o.id, o]));
+  let delivered = 0, returned = 0, pending = 0;
+  let totalRevenue = 0, totalCost = 0, totalShipping = 0, returnLosses = 0;
+  for (const link of links) {
+    const order = orderMap.get(link.orderId);
+    if (!order) continue;
+    const status = link.deliveryStatus;
+    const qty = status === "partial_received" && link.partialQuantity != null ? link.partialQuantity : order.quantity;
+    if (status === "delivered" || status === "partial_received") {
+      delivered++;
+      const revenue = status === "partial_received" && link.partialQuantity != null ? order.unitPrice * link.partialQuantity : order.totalPrice;
+      totalRevenue += revenue;
+      totalCost += (order.costPrice ?? 0) * qty;
+      totalShipping += order.shippingCost ?? 0;
+    } else if (status === "returned") {
+      returned++;
+      returnLosses += order.shippingCost ?? 0;
+      totalShipping += order.shippingCost ?? 0;
+    } else {
+      pending++;
+      totalShipping += order.shippingCost ?? 0;
+    }
+  }
+  const total = delivered + returned + pending;
+  const deliveryRate = total > 0 ? Math.round(delivered / total * 100) : 0;
+  const netProfit = totalRevenue - totalCost - totalShipping - returnLosses;
+  res.json({ delivered, returned, pending, deliveryRate, netProfit, manifestCount });
+});
 router5.patch("/shipping-companies/:id", async (req, res) => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) {
@@ -148083,22 +148135,12 @@ var CreateManifestSchema = external_exports.object({
 async function expandOrderIdsByInvoice(orderIds) {
   const seedOrders = await db.select().from(ordersTable).where(inArray(ordersTable.id, orderIds));
   if (seedOrders.length === 0) return [];
-  const invoiceNumbers = Array.from(
-    new Set(
-      seedOrders.map((order) => order.invoiceNumber?.trim()).filter((invoiceNumber) => Boolean(invoiceNumber))
-    )
-  );
-  const soloIds = seedOrders.filter((order) => !order.invoiceNumber?.trim()).map((order) => order.id);
-  const expandedOrders = invoiceNumbers.length > 0 ? await db.select().from(ordersTable).where(
-    and(
-      isNull(ordersTable.deletedAt),
-      inArray(ordersTable.invoiceNumber, invoiceNumbers)
-    )
-  ) : [];
-  const allIds = /* @__PURE__ */ new Set([
-    ...soloIds,
-    ...expandedOrders.map((order) => order.id)
-  ]);
+  const invoiceNumbers = Array.from(new Set(
+    seedOrders.map((o) => o.invoiceNumber?.trim()).filter((n) => Boolean(n))
+  ));
+  const soloIds = seedOrders.filter((o) => !o.invoiceNumber?.trim()).map((o) => o.id);
+  const expandedOrders = invoiceNumbers.length > 0 ? await db.select().from(ordersTable).where(and(isNull(ordersTable.deletedAt), inArray(ordersTable.invoiceNumber, invoiceNumbers))) : [];
+  const allIds = /* @__PURE__ */ new Set([...soloIds, ...expandedOrders.map((o) => o.id)]);
   return Array.from(allIds);
 }
 async function generateManifestNumber(companyId) {
@@ -148115,31 +148157,21 @@ function computeStats(orders) {
   }
   const groupedOrders = Array.from(groupMap.values());
   const total = groupedOrders.length;
-  const delivered = groupedOrders.filter(
-    (group) => group.every(
-      (order) => order.deliveryStatus === "delivered" || order.deliveryStatus === "partial_received"
-    )
-  ).length;
-  const returned = groupedOrders.filter(
-    (group) => group.every((order) => order.deliveryStatus === "returned")
-  ).length;
+  const delivered = groupedOrders.filter((g) => g.every((o) => o.deliveryStatus === "delivered" || o.deliveryStatus === "partial_received")).length;
+  const returned = groupedOrders.filter((g) => g.every((o) => o.deliveryStatus === "returned")).length;
   const pending = groupedOrders.filter(
-    (group) => group.some((order) => ["pending", "postponed"].includes(order.deliveryStatus)) || !group.every((order) => order.deliveryStatus === "returned") && !group.every(
-      (order) => order.deliveryStatus === "delivered" || order.deliveryStatus === "partial_received"
-    )
+    (g) => g.some((o) => ["pending", "postponed"].includes(o.deliveryStatus)) || !g.every((o) => o.deliveryStatus === "returned") && !g.every((o) => o.deliveryStatus === "delivered" || o.deliveryStatus === "partial_received")
   ).length;
   const deliveryRate = total > 0 ? Math.round(delivered / total * 100) : 0;
-  let totalRevenue = 0;
-  let totalCost = 0;
-  let totalShippingCost = 0;
-  let returnLosses = 0;
-  let deliveredGross = 0;
+  let totalRevenue = 0, totalCost = 0, totalShippingCost = 0, returnLosses = 0, deliveredGross = 0;
   for (const o of orders) {
-    const qty = o.deliveryStatus === "partial_received" && o.partialQuantity ? o.partialQuantity : o.quantity;
+    const isPartial = o.deliveryStatus === "partial_received";
+    const partialQty = isPartial && o.partialQuantity != null ? o.partialQuantity : null;
+    const qty = partialQty !== null ? partialQty : o.quantity;
     const cost = (o.costPrice ?? 0) * qty;
     const shipping = o.shippingCost ?? 0;
-    if (o.deliveryStatus === "delivered" || o.deliveryStatus === "partial_received") {
-      const revenue = o.deliveryStatus === "partial_received" && o.partialQuantity ? o.unitPrice * o.partialQuantity : o.totalPrice;
+    if (o.deliveryStatus === "delivered" || isPartial) {
+      const revenue = partialQty !== null ? o.unitPrice * partialQty : o.totalPrice;
       totalRevenue += revenue;
       totalCost += cost;
       totalShippingCost += shipping;
@@ -148151,20 +148183,7 @@ function computeStats(orders) {
       totalShippingCost += shipping;
     }
   }
-  const netProfit = totalRevenue - totalCost - totalShippingCost - returnLosses;
-  return {
-    total,
-    delivered,
-    returned,
-    pending,
-    deliveryRate,
-    totalRevenue,
-    totalCost,
-    totalShippingCost,
-    returnLosses,
-    netProfit,
-    deliveredGross
-  };
+  return { total, delivered, returned, pending, deliveryRate, totalRevenue, totalCost, totalShippingCost, returnLosses, netProfit: totalRevenue - totalCost - totalShippingCost - returnLosses, deliveredGross };
 }
 router12.get("/shipping-manifests", async (req, res) => {
   const companyId = req.query.companyId ? parseInt(req.query.companyId) : void 0;
@@ -148176,17 +148195,13 @@ router12.get("/shipping-manifests", async (req, res) => {
   }
   const allLinks = await db.select({ manifestId: shippingManifestOrdersTable.manifestId }).from(shippingManifestOrdersTable).where(inArray(shippingManifestOrdersTable.manifestId, manifestIds));
   const countMap = {};
-  for (const link of allLinks) {
-    countMap[link.manifestId] = (countMap[link.manifestId] ?? 0) + 1;
-  }
-  res.json(
-    manifests.map((m) => ({
-      ...m.manifest,
-      invoicePrice: m.manifest.invoicePrice ? Number(m.manifest.invoicePrice) : null,
-      companyName: m.company?.name ?? "\u063A\u064A\u0631 \u0645\u062D\u062F\u062F",
-      orderCount: countMap[m.manifest.id] ?? 0
-    }))
-  );
+  for (const link of allLinks) countMap[link.manifestId] = (countMap[link.manifestId] ?? 0) + 1;
+  res.json(manifests.map((m) => ({
+    ...m.manifest,
+    invoicePrice: m.manifest.invoicePrice ? Number(m.manifest.invoicePrice) : null,
+    companyName: m.company?.name ?? "\u063A\u064A\u0631 \u0645\u062D\u062F\u062F",
+    orderCount: countMap[m.manifest.id] ?? 0
+  })));
 });
 router12.post("/shipping-manifests", async (req, res) => {
   const parsed = CreateManifestSchema.safeParse(req.body);
@@ -148202,45 +148217,16 @@ router12.post("/shipping-manifests", async (req, res) => {
     return;
   }
   const manifestNumber = await generateManifestNumber(shippingCompanyId);
-  const insertResult = await db.insert(shippingManifestsTable).values({
-    manifestNumber,
-    shippingCompanyId,
-    notes: notes ?? null,
-    status: "open",
-    createdAt: /* @__PURE__ */ new Date()
-  });
+  const insertResult = await db.insert(shippingManifestsTable).values({ manifestNumber, shippingCompanyId, notes: notes ?? null, status: "open", createdAt: /* @__PURE__ */ new Date() });
   const insertId = insertResult[0]?.insertId ?? insertResult.insertId;
   const [manifest] = await db.select().from(shippingManifestsTable).where(eq(shippingManifestsTable.id, insertId));
-  await db.insert(shippingManifestOrdersTable).values(
-    normalizedOrderIds.map((orderId) => ({
-      manifestId: manifest.id,
-      orderId,
-      deliveryStatus: "pending",
-      addedAt: /* @__PURE__ */ new Date()
-    }))
-  );
+  await db.insert(shippingManifestOrdersTable).values(normalizedOrderIds.map((orderId) => ({ manifestId: manifest.id, orderId, deliveryStatus: "pending", addedAt: /* @__PURE__ */ new Date() })));
   const ordersToShip = await db.select().from(ordersTable).where(inArray(ordersTable.id, normalizedOrderIds));
   for (const order of ordersToShip) {
-    await processToShipping(
-      {
-        variantId: order.variantId,
-        productId: order.productId,
-        product: order.product,
-        color: order.color,
-        size: order.size,
-        warehouseId: order.warehouseId
-      },
-      order.quantity,
-      order.id
-    );
+    await processToShipping({ variantId: order.variantId, productId: order.productId, product: order.product, color: order.color, size: order.size, warehouseId: order.warehouseId }, order.quantity, order.id);
   }
   await db.update(ordersTable).set({ status: "in_shipping", shippingCompanyId }).where(inArray(ordersTable.id, normalizedOrderIds));
-  res.status(201).json({
-    ...manifest,
-    invoicePrice: null,
-    companyName: company.name,
-    orderCount: normalizedOrderIds.length
-  });
+  res.status(201).json({ ...manifest, invoicePrice: null, companyName: company.name, orderCount: normalizedOrderIds.length });
 });
 router12.get("/shipping-manifests/:id", async (req, res) => {
   const id = parseInt(req.params.id);
@@ -148259,41 +148245,24 @@ router12.get("/shipping-manifests/:id", async (req, res) => {
   let orders = [];
   if (expandedOrderIds.length > 0) {
     const rawOrders = await db.select().from(ordersTable).where(inArray(ordersTable.id, expandedOrderIds)).orderBy(desc(ordersTable.createdAt));
-    const linkedRawOrders = rawOrders.filter((order) => orderIds.includes(order.id));
+    const linkedRawOrders = rawOrders.filter((o) => orderIds.includes(o.id));
     const invoiceLinkMap = /* @__PURE__ */ new Map();
-    linkedRawOrders.forEach((order) => {
-      if (order.invoiceNumber?.trim()) {
-        const link = links.find((item) => item.orderId === order.id);
-        if (link) invoiceLinkMap.set(order.invoiceNumber.trim(), link);
+    linkedRawOrders.forEach((o) => {
+      if (o.invoiceNumber?.trim()) {
+        const link = links.find((l2) => l2.orderId === o.id);
+        if (link) invoiceLinkMap.set(o.invoiceNumber.trim(), link);
       }
     });
     const linkMap = new Map(links.map((l2) => [l2.orderId, l2]));
     orders = rawOrders.map((o) => {
       const link = linkMap.get(o.id) ?? (o.invoiceNumber?.trim() ? invoiceLinkMap.get(o.invoiceNumber.trim()) : void 0);
-      if (!link) {
-        return { ...o, deliveryStatus: "pending", deliveryNote: null, deliveredAt: null, manifestOrderId: 0 };
-      }
-      return {
-        ...o,
-        deliveryStatus: link.deliveryStatus,
-        deliveryNote: link.deliveryNote,
-        deliveredAt: link.deliveredAt,
-        partialQuantity: link.partialQuantity ?? o.partialQuantity,
-        manifestOrderId: link.id,
-        returnReceived: link.returnReceived ?? null
-      };
+      if (!link) return { ...o, deliveryStatus: "pending", deliveryNote: null, deliveredAt: null, manifestOrderId: 0 };
+      const _rr = link.returnReceived;
+      const _rrNum = _rr == null ? null : Number(_rr);
+      return { ...o, deliveryStatus: link.deliveryStatus, deliveryNote: link.deliveryNote, deliveredAt: link.deliveredAt, partialQuantity: link.partialQuantity ?? o.partialQuantity, manifestOrderId: link.id, returnReceived: _rrNum };
     });
   }
-  const stats = computeStats(orders);
-  res.json({
-    ...row.manifest,
-    invoicePrice: row.manifest.invoicePrice ? Number(row.manifest.invoicePrice) : null,
-    manualShippingCost: row.manifest.manualShippingCost ? Number(row.manifest.manualShippingCost) : null,
-    companyName: row.company?.name ?? "\u063A\u064A\u0631 \u0645\u062D\u062F\u062F",
-    companyPhone: row.company?.phone ?? null,
-    orders,
-    stats
-  });
+  res.json({ ...row.manifest, invoicePrice: row.manifest.invoicePrice ? Number(row.manifest.invoicePrice) : null, manualShippingCost: row.manifest.manualShippingCost ? Number(row.manifest.manualShippingCost) : null, companyName: row.company?.name ?? "\u063A\u064A\u0631 \u0645\u062D\u062F\u062F", companyPhone: row.company?.phone ?? null, orders, stats: computeStats(orders) });
 });
 router12.patch("/shipping-manifests/:id", requireAdmin, async (req, res) => {
   const id = parseInt(req.params.id);
@@ -148301,13 +148270,7 @@ router12.patch("/shipping-manifests/:id", requireAdmin, async (req, res) => {
     res.status(400).json({ error: "Invalid ID" });
     return;
   }
-  const Schema2 = external_exports.object({
-    status: external_exports.enum(["open", "closed"]).optional(),
-    notes: external_exports.string().nullish(),
-    invoicePrice: external_exports.number().nonnegative().nullish(),
-    invoiceNotes: external_exports.string().nullish(),
-    manualShippingCost: external_exports.number().nonnegative().nullish()
-  });
+  const Schema2 = external_exports.object({ status: external_exports.enum(["open", "closed"]).optional(), notes: external_exports.string().nullish(), invoicePrice: external_exports.number().nonnegative().nullish(), invoiceNotes: external_exports.string().nullish(), manualShippingCost: external_exports.number().nonnegative().nullish() });
   const parsed = Schema2.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -148316,12 +148279,9 @@ router12.patch("/shipping-manifests/:id", requireAdmin, async (req, res) => {
   const updateData = {};
   if (parsed.data.status !== void 0) updateData.status = parsed.data.status;
   if (parsed.data.notes !== void 0) updateData.notes = parsed.data.notes ?? null;
-  if (parsed.data.invoicePrice !== void 0)
-    updateData.invoicePrice = parsed.data.invoicePrice != null ? String(parsed.data.invoicePrice) : null;
-  if (parsed.data.invoiceNotes !== void 0)
-    updateData.invoiceNotes = parsed.data.invoiceNotes ?? null;
-  if (parsed.data.manualShippingCost !== void 0)
-    updateData.manualShippingCost = parsed.data.manualShippingCost != null ? String(parsed.data.manualShippingCost) : null;
+  if (parsed.data.invoicePrice !== void 0) updateData.invoicePrice = parsed.data.invoicePrice != null ? String(parsed.data.invoicePrice) : null;
+  if (parsed.data.invoiceNotes !== void 0) updateData.invoiceNotes = parsed.data.invoiceNotes ?? null;
+  if (parsed.data.manualShippingCost !== void 0) updateData.manualShippingCost = parsed.data.manualShippingCost != null ? String(parsed.data.manualShippingCost) : null;
   if (parsed.data.status === "closed") updateData.closedAt = /* @__PURE__ */ new Date();
   if (parsed.data.status === "open") updateData.closedAt = null;
   if (Object.keys(updateData).length === 0) {
@@ -148341,15 +148301,12 @@ router12.patch("/shipping-manifests/:id", requireAdmin, async (req, res) => {
         eq(shippingManifestOrdersTable.manifestId, id),
         or(
           inArray(shippingManifestOrdersTable.deliveryStatus, ["postponed", "pending", "in_shipping"]),
-          and(
-            eq(shippingManifestOrdersTable.deliveryStatus, "returned"),
-            sql`${shippingManifestOrdersTable.returnReceived} = 0`
-          )
+          and(eq(shippingManifestOrdersTable.deliveryStatus, "returned"), sql`${shippingManifestOrdersTable.returnReceived} = 0`),
+          and(eq(shippingManifestOrdersTable.deliveryStatus, "partial_received"), sql`${shippingManifestOrdersTable.returnReceived} = 0`)
         )
       )
     );
     if (pendingLinks.length > 0) {
-      const rolloverOrderIds = pendingLinks.map((l2) => l2.orderId);
       const newManifestNumber = await generateManifestNumber(updated.shippingCompanyId);
       const insertResult = await db.insert(shippingManifestsTable).values({
         manifestNumber: newManifestNumber,
@@ -148361,41 +148318,41 @@ router12.patch("/shipping-manifests/:id", requireAdmin, async (req, res) => {
       const newId = insertResult[0]?.insertId ?? insertResult.insertId;
       const [newManifest] = await db.select().from(shippingManifestsTable).where(eq(shippingManifestsTable.id, newId));
       await db.insert(shippingManifestOrdersTable).values(
-        rolloverOrderIds.map((orderId) => ({
+        pendingLinks.map((link) => ({
           manifestId: newManifest.id,
-          orderId,
-          deliveryStatus: "pending",
-          deliveryNote: null,
+          orderId: link.orderId,
+          deliveryStatus: link.deliveryStatus,
+          deliveryNote: link.deliveryNote ?? null,
           deliveredAt: null,
+          partialQuantity: link.deliveryStatus === "partial_received" ? link.partialQuantity : null,
+          returnReceived: link.deliveryStatus === "returned" || link.deliveryStatus === "partial_received" ? link.returnReceived == null ? null : Number(link.returnReceived) : null,
           addedAt: /* @__PURE__ */ new Date()
         }))
       );
-      await db.update(ordersTable).set({ status: "in_shipping", shippingCompanyId: updated.shippingCompanyId, returnReceived: null }).where(inArray(ordersTable.id, rolloverOrderIds));
-      rolledOverManifest = { ...newManifest, orderCount: rolloverOrderIds.length };
+      const returnedIds = pendingLinks.filter((l2) => l2.deliveryStatus === "returned").map((l2) => l2.orderId);
+      const partialIds = pendingLinks.filter((l2) => l2.deliveryStatus === "partial_received").map((l2) => l2.orderId);
+      const nonReturnedIds = pendingLinks.filter((l2) => l2.deliveryStatus !== "returned" && l2.deliveryStatus !== "partial_received").map((l2) => l2.orderId);
+      if (nonReturnedIds.length > 0) {
+        await db.update(ordersTable).set({ status: "in_shipping", shippingCompanyId: updated.shippingCompanyId }).where(inArray(ordersTable.id, nonReturnedIds));
+      }
+      const postponedCount = pendingLinks.filter((l2) => l2.deliveryStatus === "postponed").length;
+      const pendingCount = pendingLinks.filter((l2) => l2.deliveryStatus === "pending" || l2.deliveryStatus === "in_shipping").length;
+      const returnedInShippingCount = returnedIds.length;
+      rolledOverManifest = { ...newManifest, orderCount: pendingLinks.length, postponedCount, pendingCount, returnedInShippingCount };
     }
   }
-  res.json({
-    ...updated,
-    invoicePrice: updated.invoicePrice ? Number(updated.invoicePrice) : null,
-    rolledOverManifest
-  });
+  res.json({ ...updated, invoicePrice: updated.invoicePrice ? Number(updated.invoicePrice) : null, rolledOverManifest });
 });
 var DeliveryStatusSchema = external_exports.object({
   deliveryStatus: external_exports.enum(["pending", "delivered", "postponed", "partial_received", "returned"]),
   deliveryNote: external_exports.string().nullish(),
-  partialQuantity: external_exports.number().int().positive().nullish(),
+  partialQuantity: external_exports.number().int().min(0).nullish(),
+  partialReturnReceived: external_exports.boolean().nullish(),
   returnReceived: external_exports.boolean().nullish()
 });
-var STATUS_MAP = {
-  delivered: "received",
-  postponed: "delayed",
-  partial_received: "partial_received",
-  returned: "returned",
-  pending: "in_shipping"
-};
+var STATUS_MAP = { delivered: "received", postponed: "delayed", partial_received: "partial_received", returned: "returned", pending: "in_shipping" };
 router12.patch("/shipping-manifests/:id/orders/:orderId", async (req, res) => {
-  const manifestId = parseInt(req.params.id);
-  const orderId = parseInt(req.params.orderId);
+  const manifestId = parseInt(req.params.id), orderId = parseInt(req.params.orderId);
   if (isNaN(manifestId) || isNaN(orderId)) {
     res.status(400).json({ error: "Invalid ID" });
     return;
@@ -148405,10 +148362,8 @@ router12.patch("/shipping-manifests/:id/orders/:orderId", async (req, res) => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const { deliveryStatus, deliveryNote, partialQuantity, returnReceived } = parsed.data;
-  const [link] = await db.select().from(shippingManifestOrdersTable).where(
-    and(eq(shippingManifestOrdersTable.manifestId, manifestId), eq(shippingManifestOrdersTable.orderId, orderId))
-  );
+  const { deliveryStatus, deliveryNote, partialQuantity, returnReceived, partialReturnReceived } = parsed.data;
+  const [link] = await db.select().from(shippingManifestOrdersTable).where(and(eq(shippingManifestOrdersTable.manifestId, manifestId), eq(shippingManifestOrdersTable.orderId, orderId)));
   if (!link) {
     res.status(404).json({ error: "\u0627\u0644\u0637\u0644\u0628 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F \u0641\u064A \u0647\u0630\u0627 \u0627\u0644\u0628\u064A\u0627\u0646" });
     return;
@@ -148424,328 +148379,64 @@ router12.patch("/shipping-manifests/:id/orders/:orderId", async (req, res) => {
   await db.update(shippingManifestOrdersTable).set({
     deliveryStatus,
     deliveryNote: deliveryNote ?? null,
-    partialQuantity: deliveryStatus === "partial_received" && partialQuantity ? partialQuantity : null,
+    partialQuantity: deliveryStatus === "partial_received" && partialQuantity != null ? partialQuantity : null,
     deliveredAt: isDelivered ? /* @__PURE__ */ new Date() : null,
-    ...deliveryStatus === "returned" && returnReceived !== void 0 && returnReceived !== null ? { returnReceived: returnReceived ? 1 : 0 } : deliveryStatus !== "returned" ? { returnReceived: null } : {}
+    ...deliveryStatus === "partial_received" && partialReturnReceived != null ? { returnReceived: partialReturnReceived ? 1 : 0 } : {},
+    ...deliveryStatus === "returned" && returnReceived != null ? { returnReceived: returnReceived ? 1 : 0 } : deliveryStatus !== "returned" && deliveryStatus !== "partial_received" ? { returnReceived: null } : {}
   }).where(eq(shippingManifestOrdersTable.id, link.id));
   const orderUpdate = { status: newStatus };
-  if (deliveryStatus === "partial_received" && partialQuantity) orderUpdate.partialQuantity = partialQuantity;
-  if (deliveryStatus === "returned" && returnReceived !== void 0 && returnReceived !== null) {
-    orderUpdate.returnReceived = returnReceived ? 1 : 0;
-  } else if (deliveryStatus !== "returned") {
-    orderUpdate.returnReceived = null;
-  }
+  if (deliveryStatus === "partial_received" && partialQuantity != null) orderUpdate.partialQuantity = partialQuantity;
+  if (deliveryStatus === "partial_received" && partialReturnReceived != null) orderUpdate.returnReceived = partialReturnReceived ? 1 : 0;
+  if (deliveryStatus === "returned" && returnReceived != null) orderUpdate.returnReceived = returnReceived ? 1 : 0;
+  else if (deliveryStatus !== "returned" && deliveryStatus !== "partial_received") orderUpdate.returnReceived = null;
   await db.update(ordersTable).set(orderUpdate).where(eq(ordersTable.id, orderId));
   if (newStatus !== oldStatus) {
-    const orderRef = {
-      variantId: existingOrder.variantId,
-      productId: existingOrder.productId,
-      product: existingOrder.product,
-      color: existingOrder.color,
-      size: existingOrder.size,
-      warehouseId: existingOrder.warehouseId
-    };
+    const orderRef = { variantId: existingOrder.variantId, productId: existingOrder.productId, product: existingOrder.product, color: existingOrder.color, size: existingOrder.size, warehouseId: existingOrder.warehouseId };
     if (deliveryStatus === "delivered") {
       if (oldStatus === "partial_received") {
-        const remainder = existingOrder.quantity - (existingOrder.partialQuantity ?? 0);
-        if (remainder > 0) await processDelivery(orderRef, remainder, "sale", orderId, true);
-      } else if (oldStatus !== "received") {
-        await processDelivery(orderRef, existingOrder.quantity, "sale", orderId, true);
-      }
+        const r = existingOrder.quantity - (existingOrder.partialQuantity ?? 0);
+        if (r > 0) await processDelivery(orderRef, r, "sale", orderId, true);
+      } else if (oldStatus !== "received") await processDelivery(orderRef, existingOrder.quantity, "sale", orderId, true);
     } else if (deliveryStatus === "partial_received") {
-      const newPartial = partialQuantity ?? 0;
-      const oldPartial = (oldStatus === "partial_received" ? existingOrder.partialQuantity : 0) ?? 0;
-      const delta = newPartial - oldPartial;
+      const delta = (partialQuantity ?? 0) - ((oldStatus === "partial_received" ? existingOrder.partialQuantity : 0) ?? 0);
       if (delta > 0) await processDelivery(orderRef, delta, "partial_sale", orderId, true);
       else if (delta < 0) await reverseDelivery(orderRef, Math.abs(delta), orderId);
     } else if (deliveryStatus === "returned") {
       if (returnReceived === true) {
         const wasPartial = oldStatus === "partial_received";
-        const returnQty = wasPartial ? existingOrder.partialQuantity ?? existingOrder.quantity : existingOrder.quantity;
-        await processReturn({ ...orderRef, quantity: returnQty }, oldStatus === "received" || wasPartial, false, orderId);
+        const qty = wasPartial ? existingOrder.partialQuantity ?? existingOrder.quantity : existingOrder.quantity;
+        await processReturn({ ...orderRef, quantity: qty }, oldStatus === "received" || wasPartial, false, orderId);
       } else if (returnReceived === false) {
       } else {
         const wasPartial = oldStatus === "partial_received";
-        const returnQty = wasPartial ? existingOrder.partialQuantity ?? existingOrder.quantity : existingOrder.quantity;
-        await processReturn({ ...orderRef, quantity: returnQty }, oldStatus === "received" || wasPartial, false, orderId);
+        const qty = wasPartial ? existingOrder.partialQuantity ?? existingOrder.quantity : existingOrder.quantity;
+        await processReturn({ ...orderRef, quantity: qty }, oldStatus === "received" || wasPartial, false, orderId);
       }
     } else {
       if (oldStatus === "received") await reverseDelivery(orderRef, existingOrder.quantity, orderId);
       else if (oldStatus === "partial_received") {
-        const deducted = existingOrder.partialQuantity ?? 0;
-        if (deducted > 0) await reverseDelivery(orderRef, deducted, orderId);
+        const d = existingOrder.partialQuantity ?? 0;
+        if (d > 0) await reverseDelivery(orderRef, d, orderId);
       }
     }
   }
   if (existingOrder.invoiceNumber?.trim()) {
-    const siblings = await db.select({ mo: shippingManifestOrdersTable, o: ordersTable }).from(shippingManifestOrdersTable).innerJoin(ordersTable, eq(shippingManifestOrdersTable.orderId, ordersTable.id)).where(and(
-      eq(shippingManifestOrdersTable.manifestId, manifestId),
-      eq(ordersTable.invoiceNumber, existingOrder.invoiceNumber.trim())
-    ));
+    const siblings = await db.select({ mo: shippingManifestOrdersTable, o: ordersTable }).from(shippingManifestOrdersTable).innerJoin(ordersTable, eq(shippingManifestOrdersTable.orderId, ordersTable.id)).where(and(eq(shippingManifestOrdersTable.manifestId, manifestId), eq(ordersTable.invoiceNumber, existingOrder.invoiceNumber.trim())));
     for (const sib of siblings) {
       if (sib.mo.orderId === orderId) continue;
-      const sibUpdate = { deliveryStatus, deliveryNote: deliveryNote ?? null };
-      if (isDelivered) sibUpdate.deliveredAt = /* @__PURE__ */ new Date();
-      else sibUpdate.deliveredAt = null;
-      if (deliveryStatus === "partial_received" && partialQuantity) sibUpdate.partialQuantity = null;
-      if (deliveryStatus === "returned" && returnReceived !== void 0 && returnReceived !== null)
-        sibUpdate.returnReceived = returnReceived ? 1 : 0;
-      else if (deliveryStatus !== "returned") sibUpdate.returnReceived = null;
-      await db.update(shippingManifestOrdersTable).set(sibUpdate).where(eq(shippingManifestOrdersTable.id, sib.mo.id));
-      const sibOrderUpdate = { status: STATUS_MAP[deliveryStatus] ?? "in_shipping" };
-      if (deliveryStatus === "partial_received" && partialQuantity) sibOrderUpdate.partialQuantity = null;
-      if (deliveryStatus === "returned" && returnReceived !== void 0 && returnReceived !== null)
-        sibOrderUpdate.returnReceived = returnReceived ? 1 : 0;
-      else if (deliveryStatus !== "returned") sibOrderUpdate.returnReceived = null;
-      await db.update(ordersTable).set(sibOrderUpdate).where(eq(ordersTable.id, sib.mo.orderId));
+      const su = { deliveryStatus, deliveryNote: deliveryNote ?? null, deliveredAt: isDelivered ? /* @__PURE__ */ new Date() : null };
+      if (deliveryStatus === "returned" && returnReceived != null) su.returnReceived = returnReceived ? 1 : 0;
+      else if (deliveryStatus === "partial_received" && partialReturnReceived != null) su.returnReceived = partialReturnReceived ? 1 : 0;
+      else if (deliveryStatus !== "returned" && deliveryStatus !== "partial_received") su.returnReceived = null;
+      await db.update(shippingManifestOrdersTable).set(su).where(eq(shippingManifestOrdersTable.id, sib.mo.id));
+      const sou = { status: STATUS_MAP[deliveryStatus] ?? "in_shipping" };
+      if (deliveryStatus === "returned" && returnReceived != null) sou.returnReceived = returnReceived ? 1 : 0;
+      else if (deliveryStatus === "partial_received" && partialReturnReceived != null) sou.returnReceived = partialReturnReceived ? 1 : 0;
+      else if (deliveryStatus !== "returned" && deliveryStatus !== "partial_received") sou.returnReceived = null;
+      await db.update(ordersTable).set(sou).where(eq(ordersTable.id, sib.mo.orderId));
     }
   }
   res.json({ success: true, deliveryStatus, deliveryNote: deliveryNote ?? null, returnReceived: returnReceived ?? null });
-});
-router12.delete("/shipping-manifests/:id/orders/:orderId", async (req, res) => {
-  try {
-    const manifestId = parseInt(req.params.id);
-    const orderId = parseInt(req.params.orderId);
-    if (isNaN(manifestId) || isNaN(orderId)) {
-      res.status(400).json({ error: "Invalid ID" });
-      return;
-    }
-    const [manifest] = await db.select().from(shippingManifestsTable).where(eq(shippingManifestsTable.id, manifestId));
-    if (!manifest) {
-      res.status(404).json({ error: "\u0627\u0644\u0628\u064A\u0627\u0646 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
-      return;
-    }
-    if (manifest.status === "closed") {
-      res.status(400).json({ error: "\u0627\u0644\u0628\u064A\u0627\u0646 \u0645\u063A\u0644\u0642 \u0644\u0627 \u064A\u0645\u0643\u0646 \u0627\u0644\u062A\u0639\u062F\u064A\u0644 \u0639\u0644\u064A\u0647" });
-      return;
-    }
-    const [link] = await db.select().from(shippingManifestOrdersTable).where(
-      and(eq(shippingManifestOrdersTable.manifestId, manifestId), eq(shippingManifestOrdersTable.orderId, orderId))
-    );
-    if (!link) {
-      res.status(404).json({ error: "\u0627\u0644\u0637\u0644\u0628\u064A\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629 \u0641\u064A \u0647\u0630\u0627 \u0627\u0644\u0628\u064A\u0627\u0646" });
-      return;
-    }
-    const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, orderId));
-    if (!order) {
-      res.status(404).json({ error: "\u0627\u0644\u0637\u0644\u0628\u064A\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629" });
-      return;
-    }
-    const orderRef = {
-      variantId: order.variantId,
-      productId: order.productId,
-      product: order.product,
-      color: order.color,
-      size: order.size,
-      warehouseId: order.warehouseId
-    };
-    const ds = link.deliveryStatus;
-    if (ds === "pending" || ds === "postponed") {
-      await reverseShipping(orderRef, order.quantity, order.id);
-    } else if (ds === "delivered") {
-      await reverseShipping(orderRef, order.quantity, order.id);
-      await reverseDelivery(orderRef, order.quantity, order.id);
-    } else if (ds === "partial_received") {
-      const dQty = order.partialQuantity ?? 0;
-      const rQty = order.quantity - dQty;
-      if (dQty > 0) await reverseDelivery(orderRef, dQty, order.id);
-      if (rQty > 0) await reverseShipping(orderRef, rQty, order.id);
-    } else if (ds === "returned") {
-      await reverseShipping(orderRef, order.quantity, order.id);
-    }
-    await db.delete(shippingManifestOrdersTable).where(eq(shippingManifestOrdersTable.id, link.id));
-    await db.update(ordersTable).set({ status: "pending", partialQuantity: null, updatedAt: /* @__PURE__ */ new Date() }).where(eq(ordersTable.id, orderId));
-    res.json({ success: true, orderId, message: "\u062A\u0645 \u0625\u0644\u063A\u0627\u0621 \u0627\u0644\u0637\u0644\u0628\u064A\u0629 \u0645\u0646 \u0627\u0644\u0628\u064A\u0627\u0646 \u0648\u0625\u0631\u062C\u0627\u0639\u0647\u0627 \u0644\u0644\u0627\u0646\u062A\u0638\u0627\u0631" });
-  } catch (err) {
-    console.error("[cancelOrder] Error:", err);
-    res.status(500).json({ error: err?.message ?? "\u062E\u0637\u0623 \u062F\u0627\u062E\u0644\u064A", stack: err?.stack });
-  }
-});
-router12.post("/shipping-manifests/:id/orders", requireAdmin, async (req, res) => {
-  const manifestId = parseInt(req.params.id);
-  if (isNaN(manifestId)) {
-    res.status(400).json({ error: "Invalid ID" });
-    return;
-  }
-  const parsed = external_exports.object({ orderIds: external_exports.array(external_exports.number().int().positive()).min(1) }).safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: "orderIds \u0645\u0637\u0644\u0648\u0628" });
-    return;
-  }
-  const normalizedOrderIds = await expandOrderIdsByInvoice(parsed.data.orderIds);
-  const [manifest] = await db.select().from(shippingManifestsTable).where(eq(shippingManifestsTable.id, manifestId));
-  if (!manifest) {
-    res.status(404).json({ error: "\u0627\u0644\u0628\u064A\u0627\u0646 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
-    return;
-  }
-  if (manifest.status === "closed") {
-    res.status(400).json({ error: "\u0627\u0644\u0628\u064A\u0627\u0646 \u0645\u063A\u0644\u0642 \u0644\u0627 \u064A\u0645\u0643\u0646 \u0627\u0644\u0625\u0636\u0627\u0641\u0629 \u0625\u0644\u064A\u0647" });
-    return;
-  }
-  const SHIPPABLE = ["pending", "delayed", "in_shipping"];
-  const orders = await db.select().from(ordersTable).where(
-    and(inArray(ordersTable.id, normalizedOrderIds), isNull(ordersTable.deletedAt), inArray(ordersTable.status, [...SHIPPABLE]))
-  );
-  if (orders.length === 0) {
-    res.status(400).json({ error: "\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0637\u0644\u0628\u064A\u0627\u062A \u0645\u0624\u0647\u0644\u0629" });
-    return;
-  }
-  const existing = await db.select({ orderId: shippingManifestOrdersTable.orderId }).from(shippingManifestOrdersTable).where(and(eq(shippingManifestOrdersTable.manifestId, manifestId), inArray(shippingManifestOrdersTable.orderId, normalizedOrderIds)));
-  const existingIds = new Set(existing.map((e) => e.orderId));
-  const toAdd = orders.filter((o) => !existingIds.has(o.id));
-  if (toAdd.length === 0) {
-    res.status(400).json({ error: "\u062C\u0645\u064A\u0639 \u0627\u0644\u0637\u0644\u0628\u064A\u0627\u062A \u0627\u0644\u0645\u062E\u062A\u0627\u0631\u0629 \u0645\u0648\u062C\u0648\u062F\u0629 \u0628\u0627\u0644\u0641\u0639\u0644 \u0641\u064A \u0627\u0644\u0628\u064A\u0627\u0646" });
-    return;
-  }
-  await db.insert(shippingManifestOrdersTable).values(
-    toAdd.map((o) => ({ manifestId, orderId: o.id, deliveryStatus: "pending", deliveryNote: null, deliveredAt: null }))
-  );
-  const needsShipping = toAdd.filter((o) => o.status !== "in_shipping");
-  if (needsShipping.length > 0) {
-    await db.update(ordersTable).set({ status: "in_shipping", shippingCompanyId: manifest.shippingCompanyId }).where(inArray(ordersTable.id, needsShipping.map((o) => o.id)));
-    for (const order of needsShipping) {
-      await processToShipping(
-        {
-          variantId: order.variantId,
-          productId: order.productId,
-          product: order.product,
-          color: order.color,
-          size: order.size,
-          warehouseId: order.warehouseId
-        },
-        order.quantity,
-        order.id
-      );
-    }
-  }
-  const alreadyShipping = toAdd.filter((o) => o.status === "in_shipping");
-  if (alreadyShipping.length > 0) {
-    await db.update(ordersTable).set({ shippingCompanyId: manifest.shippingCompanyId }).where(inArray(ordersTable.id, alreadyShipping.map((o) => o.id)));
-    for (const order of alreadyShipping) {
-      await processToShipping(
-        {
-          variantId: order.variantId,
-          productId: order.productId,
-          product: order.product,
-          color: order.color,
-          size: order.size,
-          warehouseId: order.warehouseId
-        },
-        order.quantity,
-        order.id
-      );
-    }
-  }
-  res.json({ added: toAdd.length, manifestNumber: manifest.manifestNumber });
-});
-router12.delete("/shipping-manifests/:id", requireAdmin, async (req, res) => {
-  const id = parseInt(req.params.id);
-  if (isNaN(id)) {
-    res.status(400).json({ error: "Invalid ID" });
-    return;
-  }
-  const [toDelete] = await db.select().from(shippingManifestsTable).where(eq(shippingManifestsTable.id, id));
-  if (!toDelete) {
-    res.status(404).json({ error: "\u0627\u0644\u0628\u064A\u0627\u0646 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
-    return;
-  }
-  const allLinks = await db.select().from(shippingManifestOrdersTable).where(eq(shippingManifestOrdersTable.manifestId, id));
-  if (allLinks.length > 0) {
-    const allOrderIds = allLinks.map((l2) => l2.orderId);
-    const allOrders = await db.select().from(ordersTable).where(inArray(ordersTable.id, allOrderIds));
-    const linkMap = new Map(allLinks.map((l2) => [l2.orderId, l2]));
-    for (const order of allOrders) {
-      const link = linkMap.get(order.id);
-      if (!link) continue;
-      const orderRef = {
-        variantId: order.variantId,
-        productId: order.productId,
-        product: order.product,
-        color: order.color,
-        size: order.size,
-        warehouseId: order.warehouseId
-      };
-      const ds = link.deliveryStatus;
-      if (ds === "pending" || ds === "postponed") {
-        await reverseShipping(orderRef, order.quantity, order.id);
-      } else if (ds === "delivered") {
-        await reverseShipping(orderRef, order.quantity, order.id);
-        await reverseDelivery(orderRef, order.quantity, order.id);
-      } else if (ds === "partial_received") {
-        const dQty = order.partialQuantity ?? 0;
-        const rQty = order.quantity - dQty;
-        if (dQty > 0) {
-          await reverseDelivery(orderRef, dQty, order.id);
-          await reverseShipping(orderRef, dQty, order.id);
-        }
-        if (rQty > 0) await reverseShipping(orderRef, rQty, order.id);
-      } else if (ds === "returned") {
-        await reverseShipping(orderRef, order.quantity, order.id);
-      }
-    }
-  }
-  await db.delete(shippingManifestsTable).where(eq(shippingManifestsTable.id, id));
-  res.status(204).send();
-});
-router12.get("/shipping-companies/:id/stats", async (req, res) => {
-  const id = parseInt(req.params.id);
-  if (isNaN(id)) {
-    res.status(400).json({ error: "Invalid ID" });
-    return;
-  }
-  const companyManifests = await db.select({ id: shippingManifestsTable.id }).from(shippingManifestsTable).where(eq(shippingManifestsTable.shippingCompanyId, id));
-  const manifestCount = companyManifests.length;
-  if (manifestCount === 0) {
-    res.json({
-      total: 0,
-      delivered: 0,
-      returned: 0,
-      pending: 0,
-      deliveryRate: 0,
-      totalRevenue: 0,
-      totalCost: 0,
-      totalShippingCost: 0,
-      returnLosses: 0,
-      netProfit: 0,
-      deliveredGross: 0,
-      manifestCount: 0
-    });
-    return;
-  }
-  const mIds = companyManifests.map((m) => m.id);
-  const manifestOrderRows = await db.select({ mo: shippingManifestOrdersTable, o: ordersTable }).from(shippingManifestOrdersTable).innerJoin(ordersTable, eq(shippingManifestOrdersTable.orderId, ordersTable.id)).where(inArray(shippingManifestOrdersTable.manifestId, mIds));
-  const ordersWithDelivery = manifestOrderRows.map(({ mo, o }) => ({
-    ...o,
-    deliveryStatus: mo.deliveryStatus,
-    deliveryNote: mo.deliveryNote,
-    deliveredAt: mo.deliveredAt,
-    manifestOrderId: mo.id
-  }));
-  const stats = computeStats(ordersWithDelivery);
-  res.json({ ...stats, manifestCount });
-});
-router12.get("/orders/:orderId/manifest-status", async (req, res) => {
-  const orderId = parseInt(req.params.orderId);
-  if (isNaN(orderId)) {
-    res.status(400).json({ error: "Invalid ID" });
-    return;
-  }
-  const links = await db.select({ mo: shippingManifestOrdersTable, manifest: shippingManifestsTable }).from(shippingManifestOrdersTable).innerJoin(shippingManifestsTable, eq(shippingManifestOrdersTable.manifestId, shippingManifestsTable.id)).where(eq(shippingManifestOrdersTable.orderId, orderId)).orderBy(desc(shippingManifestsTable.createdAt));
-  if (links.length === 0) {
-    res.json(null);
-    return;
-  }
-  const activeLink = links.find((l2) => l2.manifest.status === "open") ?? links[0];
-  res.json({
-    manifestId: activeLink.manifest.id,
-    manifestNumber: activeLink.manifest.manifestNumber,
-    manifestStatus: activeLink.manifest.status,
-    deliveryStatus: activeLink.mo.deliveryStatus,
-    deliveryNote: activeLink.mo.deliveryNote,
-    partialQuantity: activeLink.mo.partialQuantity,
-    deliveredAt: activeLink.mo.deliveredAt,
-    returnReceived: activeLink.mo.returnReceived
-  });
 });
 var manifests_default = router12;
 
