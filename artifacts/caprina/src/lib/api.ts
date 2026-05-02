@@ -706,6 +706,21 @@ export const manifestsApi = {
       deliveredAt: string | null;
       returnReceived: 0 | 1 | null;
     } | null>(`/orders/${orderId}/manifest-status`),
+  getInvoiceManifestStatus: (invoiceNumber: string) =>
+    apiFetch<Array<{
+      orderId: number;
+      product: string;
+      quantity: number;
+      status: string;
+      manifestId: number | null;
+      manifestNumber: string | null;
+      manifestStatus: "open" | "closed" | null;
+      deliveryStatus: DeliveryStatus | null;
+      deliveryNote: string | null;
+      manifestPartialQuantity: number | null;
+      deliveredAt: string | null;
+      returnReceived: 0 | 1 | null;
+    }>>(`/orders/invoice-manifest-status/${encodeURIComponent(invoiceNumber)}`),
 };
 
 // ─── Warehouses API ─────────────────────────────────────────────────────────

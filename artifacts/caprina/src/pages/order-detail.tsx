@@ -83,6 +83,11 @@ export default function OrderDetail() {
     queryFn: () => manifestsApi.getOrderManifestStatus(id),
     enabled: !!id,
   });
+  const { data: invoiceManifestStatus } = useQuery({
+    queryKey: ["invoice-manifest-status", order?.invoiceNumber],
+    queryFn: () => manifestsApi.getInvoiceManifestStatus(order!.invoiceNumber!),
+    enabled: !!(order?.invoiceNumber),
+  });
   const updateOrder = useUpdateOrder();
 
   // Track selected product for stock display in edit mode
@@ -570,6 +575,69 @@ export default function OrderDetail() {
             {manifestStatus.deliveryNote && (
               <p className="text-xs text-muted-foreground">ملاحظة: {manifestStatus.deliveryNote}</p>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── حالة كل منتج في الفاتورة المتعددة ───────────────────────────────── */}
+      {invoiceManifestStatus && invoiceManifestStatus.length > 1 && (
+        <Card className="border-border bg-muted/5">
+          <CardContent className="p-3 flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <Package className="w-4 h-4 text-muted-foreground" />
+              <span className="text-xs font-bold text-muted-foreground">حالة منتجات الفاتورة في البيان</span>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              {invoiceManifestStatus.map(item => {
+                const isThis = item.orderId === id;
+                const ds = item.deliveryStatus;
+                const dsColor =
+                  ds === "delivered" ? "border-emerald-600 text-emerald-400 bg-emerald-900/10" :
+                  ds === "returned" ? "border-red-600 text-red-400 bg-red-900/10" :
+                  ds === "partial_received" ? "border-teal-600 text-teal-400 bg-teal-900/10" :
+                  ds === "postponed" ? "border-orange-600 text-orange-400 bg-orange-900/10" :
+                  "border-border text-muted-foreground bg-muted/10";
+                const dsLabel: Record<string, string> = {
+                  delivered: "✓ مسلَّم",
+                  returned: "↩ مرتجع",
+                  partial_received: `◑ استلم جزئي${item.manifestPartialQuantity != null ? ` (${item.manifestPartialQuantity}/${item.quantity})` : ""}`,
+                  postponed: "⏸ مؤجل",
+                  pending: "⏳ قيد الانتظار",
+                };
+                const subStatus = (() => {
+                  if (ds === "returned") {
+                    if (item.returnReceived === 1) return <span className="text-[9px] text-emerald-400">✓ المرتجع في المخزن</span>;
+                    if (item.returnReceived === 0) return <span className="text-[9px] text-orange-400">🚚 المرتجع عند الشحن</span>;
+                  }
+                  if (ds === "partial_received") {
+                    if (item.returnReceived === 0) return <span className="text-[9px] text-orange-400">🚚 الباقي عند الشحن</span>;
+                    if (item.returnReceived === 1) return <span className="text-[9px] text-emerald-400">✓ الباقي في المخزن</span>;
+                  }
+                  return null;
+                })();
+                return (
+                  <div key={item.orderId} className={`flex items-center justify-between rounded-md px-2.5 py-1.5 border ${isThis ? "border-primary/40 bg-primary/5" : "border-border bg-transparent"}`}>
+                    <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                      <span className={`text-xs font-semibold truncate ${isThis ? "text-primary" : "text-foreground"}`}>
+                        {isThis && <span className="text-[9px] text-primary font-bold ml-1">← هذا الطلب</span>}
+                        {item.product}
+                      </span>
+                      <span className="text-[9px] text-muted-foreground">كمية: {item.quantity}</span>
+                    </div>
+                    <div className="flex flex-col items-end gap-0.5">
+                      {ds ? (
+                        <span className={`inline-flex items-center rounded px-2 py-0.5 text-[9px] font-bold border ${dsColor}`}>
+                          {dsLabel[ds] ?? ds}
+                        </span>
+                      ) : (
+                        <span className="text-[9px] text-muted-foreground">لا يوجد بيان</span>
+                      )}
+                      {subStatus}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </CardContent>
         </Card>
       )}
