@@ -137,7 +137,7 @@ function OrderDeliveryRow({
     mutationFn: () => {
       if (status === "partial_received") {
         const qty = parseInt(partialQty);
-        if (!partialQty || isNaN(qty) || qty < 1) {
+        if (partialQty === "" || partialQty === null || partialQty === undefined || isNaN(qty) || qty < 0) {
           throw new Error("يجب إدخال الكمية المستلمة أولاً");
         }
         if (qty > order.quantity) {
@@ -303,15 +303,15 @@ function OrderDeliveryRow({
                   </Label>
                   <Input
                     type="number"
-                    min={1}
+                    min={0}
                     max={order.quantity}
                     value={partialQty}
                     onChange={(e) => setPartialQty(e.target.value)}
-                    className={`h-8 text-xs w-28 bg-background ${!partialQty || parseInt(partialQty) < 1 ? "border-destructive" : ""}`}
+                    className={`h-8 text-xs w-28 bg-background ${partialQty === "" ? "border-destructive" : ""}`}
                     placeholder="مطلوب"
                     autoFocus
                   />
-                  {(!partialQty || parseInt(partialQty) < 1) && (
+                  {(partialQty === "") && (
                     <p className="text-[10px] text-destructive mt-0.5">⚠ أدخل الكمية المستلمة</p>
                   )}
                 </div>
