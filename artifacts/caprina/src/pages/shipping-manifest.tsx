@@ -532,7 +532,6 @@ function InvoiceGroupDeliveryRow({
       for (const order of group) {
         let finalStatus: DeliveryStatus = bulkStatus;
         let finalPartialQty: number | null = null;
-        console.log("[DEBUG-BULK] order", order.id, "partialQtyMap:", partialQtyMap[order.id], "bulkStatus:", bulkStatus);
 
         if (isMulti && bulkStatus === "partial_received") {
           // فاتورة متعددة + partial: كل منتج بنفس الحالة والكمية من partialQtyMap
@@ -560,7 +559,7 @@ function InvoiceGroupDeliveryRow({
           deliveryNote: bulkNote.trim() || null,
           partialQuantity: finalPartialQty,
           ...(finalStatus === 'returned' ? { returnReceived: bulkReturnReceived } : {}),
-        }).then(r => console.log("[DEBUG-API-OK]", order.id, r)).catch(e => console.error("[DEBUG-API-ERR]", order.id, e));
+        });
       }
     },
     onSuccess: () => {
