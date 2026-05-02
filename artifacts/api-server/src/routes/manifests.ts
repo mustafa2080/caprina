@@ -73,11 +73,13 @@ function computeStats(orders: OrderWithDelivery[]) {
   const deliveryRate = total > 0 ? Math.round((delivered / total) * 100) : 0;
   let totalRevenue = 0, totalCost = 0, totalShippingCost = 0, returnLosses = 0, deliveredGross = 0;
   for (const o of orders) {
-    const qty = o.deliveryStatus === "partial_received" && o.partialQuantity ? o.partialQuantity : o.quantity;
+    const isPartial = o.deliveryStatus === "partial_received";
+    const partialQty = isPartial && o.partialQuantity != null ? o.partialQuantity : null;
+    const qty = partialQty !== null ? partialQty : o.quantity;
     const cost = (o.costPrice ?? 0) * qty;
     const shipping = o.shippingCost ?? 0;
-    if (o.deliveryStatus === "delivered" || o.deliveryStatus === "partial_received") {
-      const revenue = o.deliveryStatus === "partial_received" && o.partialQuantity ? o.unitPrice * o.partialQuantity : o.totalPrice;
+    if (o.deliveryStatus === "delivered" || isPartial) {
+      const revenue = partialQty !== null ? o.unitPrice * partialQty : o.totalPrice;
       totalRevenue += revenue; totalCost += cost; totalShippingCost += shipping; deliveredGross += revenue;
     } else if (o.deliveryStatus === "returned") {
       returnLosses += shipping; totalShippingCost += shipping;
