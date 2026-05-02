@@ -61,9 +61,15 @@
       (function(){
         function checkRoute(){
           var v = document.getElementById('login-bg-video');
+          var html = document.documentElement;
           if(!v) return;
           var isLogin = window.location.pathname === '/login' || window.location.pathname === '/';
           v.style.display = isLogin ? 'block' : 'none';
+          if(isLogin){
+            html.classList.add('login-active');
+          } else {
+            html.classList.remove('login-active');
+          }
         }
         checkRoute();
         // راقب تغيير الـ route

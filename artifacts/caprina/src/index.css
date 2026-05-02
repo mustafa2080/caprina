@@ -222,8 +222,13 @@
 /* ─── Flash prevention: apply theme class before first paint ─────────────────── */
 html { color-scheme: dark; }
 html.light { color-scheme: light; }
-html:has(body.login-page) {
+
+/* ─── Login page: make everything transparent so video shows ─────────────────── */
+html.login-active,
+html.login-active body,
+html.login-active #root {
   background: transparent !important;
+  background-color: transparent !important;
 }
 
 @layer base {
