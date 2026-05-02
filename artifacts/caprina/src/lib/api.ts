@@ -676,7 +676,7 @@ export const manifestsApi = {
   updateOrderDelivery: (
     manifestId: number,
     orderId: number,
-    data: { deliveryStatus: DeliveryStatus; deliveryNote?: string | null; partialQuantity?: number | null; returnReceived?: boolean | null }
+    data: { deliveryStatus: DeliveryStatus; deliveryNote?: string | null; partialQuantity?: number | null; returnReceived?: boolean | null; partialReturnReceived?: boolean | null }
   ) =>
     apiFetch<{ success: boolean; deliveryStatus: DeliveryStatus; deliveryNote: string | null }>(
       `/shipping-manifests/${manifestId}/orders/${orderId}`,
