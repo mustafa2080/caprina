@@ -1,7 +1,7 @@
-{
+﻿{
   "name": "CAPRINA OS",
   "short_name": "CAPRINA",
-  "description": "نظام إدارة الطلبات والمبيعات - CAPRINA Order Management System",
+  "description": "نظام إدارة الطلبات - CAPRINA Order Management System",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -36,7 +36,7 @@
     {
       "name": "الطلبات",
       "short_name": "طلبات",
-      "description": "قائمة الطلبات",
+      "description": "عرض الطلبات",
       "url": "./orders",
       "icons": [{ "src": "./logo.jpg", "sizes": "192x192" }]
     },
