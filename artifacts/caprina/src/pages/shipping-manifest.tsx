@@ -427,7 +427,7 @@ function OrderDeliveryRow({
               disabled={
                 mutation.isPending ||
                 (needsNote && !note.trim()) ||
-                (needsPartial && (!partialQty || parseInt(partialQty) < 1)) ||
+                (needsPartial && (partialQty === "")) ||
                 (status === "returned" && returnReceived === null)
               }
             >
