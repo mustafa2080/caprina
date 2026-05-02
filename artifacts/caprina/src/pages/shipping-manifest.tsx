@@ -492,7 +492,7 @@ function OrderDeliveryRow({
                 (needsNote && !note.trim()) ||
                 (needsPartial && (partialQty === "")) ||
                 (status === "returned" && returnReceived === null) ||
-                (status === "partial_received" && partialReturnReceived === null && (order.deliveryStatus !== "partial_received" || (order as any).returnReceived == null))
+                (status === "partial_received" && partialReturnReceived === null)
               }
             >
               <Save className="w-3 h-3" />
@@ -1089,7 +1089,7 @@ function InvoiceGroupDeliveryRow({
                   bulkMutation.isPending ||
                   (needsBulkNote && !bulkNote.trim()) ||
                   (bulkStatus === "returned" && bulkReturnReceived === null) ||
-                  (bulkStatus === "partial_received" && partialReturnReceived === null && (groupStatus !== "partial_received" || (rep as any).returnReceived == null)) ||
+                  (bulkStatus === "partial_received" && partialReturnReceived === null) ||
                   (!isPerItemMode && bulkStatus === "partial_received" && group[0] && (
                     partialQtyMap[group[0].id] === "" || partialQtyMap[group[0].id] === undefined
                   )) ||
@@ -2833,7 +2833,7 @@ export default function ShippingManifestPage() {
                     key={group.map((order) => `${order.id}-${order.deliveryStatus}-${order.partialQuantity ?? 0}-${order.deliveryNote ?? ""}`).join("|")}
                     group={group}
                     manifestId={id}
-                    locked={isLocked}
+                    locked={isLocked && !isAdmin}
                     onSaved={refetch}
                   />
                 ))}
