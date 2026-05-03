@@ -10,7 +10,10 @@ tmp/
 *.tsbuildinfo
 
 # ─── Artifacts dist & node_modules (لكل المشاريع الفرعية) ────────────────────
+# caprina frontend dist مرفوع على GitHub عشان السيرفر يجيبه بـ git pull
 artifacts/*/dist/
+!artifacts/caprina/dist/
+artifacts/caprina/dist/public/assets/*.map
 artifacts/*/node_modules/
 artifacts/*/.replit-artifact/
 
