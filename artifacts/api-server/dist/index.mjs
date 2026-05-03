@@ -143185,6 +143185,7 @@ async function reverseDelivery(order, deliveredQty, orderId) {
   if (!variantId && !productId) return;
   await adjustQty(variantId, productId, deliveredQty, -deliveredQty);
   await adjustWarehouseStock(order.warehouseId, variantId, productId, deliveredQty);
+  await syncProductQuantityFromWarehouses(variantId, productId);
   if (order.product) {
     await recordMovement({
       product: order.product,
@@ -143259,8 +143260,8 @@ async function processToShipping(order, qty, orderId) {
   if (qty <= 0) return;
   const { variantId, productId } = await resolveInventoryTarget(order);
   if (!variantId && !productId) return;
-  await adjustQty(variantId, productId, -qty, 0);
   await adjustWarehouseStock(order.warehouseId, variantId, productId, -qty);
+  await syncProductQuantityFromWarehouses(variantId, productId);
   if (order.product) {
     await recordMovement({
       product: order.product,
@@ -143280,8 +143281,8 @@ async function reverseShipping(order, qty, orderId) {
   if (qty <= 0) return;
   const { variantId, productId } = await resolveInventoryTarget(order);
   if (!variantId && !productId) return;
-  await adjustQty(variantId, productId, qty, 0);
   await adjustWarehouseStock(order.warehouseId, variantId, productId, qty);
+  await syncProductQuantityFromWarehouses(variantId, productId);
   if (order.product) {
     await recordMovement({
       product: order.product,
@@ -145580,15 +145581,16 @@ router2.patch("/orders/:id", async (req, res) => {
   const oldStatus = existing.status;
   const newStatus = data.status ?? oldStatus;
   if (newStatus !== oldStatus) {
-    if (newStatus === "in_shipping") await processToShipping(existing.id, existing).catch(() => {
+    const orderRef = { variantId: existing.variantId, productId: existing.productId, product: existing.product, color: existing.color, size: existing.size, warehouseId: existing.warehouseId };
+    if (newStatus === "in_shipping") await processToShipping(orderRef, existing.quantity, existing.id).catch(() => {
     });
-    if (newStatus === "received") await processDelivery(existing.id, existing).catch(() => {
+    if (newStatus === "received") await processDelivery(orderRef, existing.quantity, "sale", existing.id).catch(() => {
     });
-    if (newStatus === "returned") await processReturn(existing.id, existing).catch(() => {
+    if (newStatus === "returned") await processReturn({ ...orderRef, quantity: existing.quantity }, true, false, existing.id).catch(() => {
     });
-    if (oldStatus === "in_shipping" && newStatus !== "in_shipping") await reverseShipping(existing.id, existing).catch(() => {
+    if (oldStatus === "in_shipping" && newStatus !== "in_shipping") await reverseShipping(orderRef, existing.quantity, existing.id).catch(() => {
     });
-    if (oldStatus === "received" && newStatus !== "received") await reverseDelivery(existing.id, existing).catch(() => {
+    if (oldStatus === "received" && newStatus !== "received") await reverseDelivery(orderRef, existing.quantity, existing.id).catch(() => {
     });
   }
   const before = { customerName: existing.customerName, product: existing.product, status: existing.status, quantity: existing.quantity, unitPrice: existing.unitPrice };
@@ -146695,6 +146697,27 @@ router7.post("/inventory/movements", async (req, res) => {
     notes: notes ?? null,
     orderId: null
   });
+  if (reason !== "transfer" && (pid || vid) && whId) {
+    const delta = type === "IN" ? qty : -qty;
+    const condition = and(
+      eq(warehouseStockTable.warehouseId, whId),
+      vid ? eq(warehouseStockTable.variantId, vid) : eq(warehouseStockTable.productId, pid)
+    );
+    const [stockRow] = await db.select().from(warehouseStockTable).where(condition);
+    if (stockRow) {
+      const newQty = Math.max(0, stockRow.quantity + delta);
+      await db.update(warehouseStockTable).set({ quantity: newQty, updatedAt: /* @__PURE__ */ new Date() }).where(eq(warehouseStockTable.id, stockRow.id));
+    } else if (delta > 0) {
+      await db.insert(warehouseStockTable).values({
+        warehouseId: whId,
+        variantId: vid ?? null,
+        productId: pid ?? null,
+        quantity: delta,
+        updatedAt: /* @__PURE__ */ new Date()
+      });
+    }
+    await syncProductQuantityFromWarehouses(vid, pid);
+  }
   if (reason === "transfer" && fromLocation && toLocation) {
     const extractWarehouseName = (loc) => {
       const m = loc.match(/^مخزن:\s*(.+)$/);
@@ -148333,6 +148356,22 @@ router12.patch("/shipping-manifests/:id", requireAdmin, async (req, res) => {
       )
     );
     if (pendingLinks.length > 0) {
+      const stillAtShippingLinks = pendingLinks.filter(
+        (l2) => l2.deliveryStatus === "pending" || l2.deliveryStatus === "postponed" || l2.deliveryStatus === "in_shipping"
+      );
+      for (const link of stillAtShippingLinks) {
+        const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, link.orderId));
+        if (!order) continue;
+        const oRef = {
+          variantId: order.variantId,
+          productId: order.productId,
+          product: order.product,
+          color: order.color,
+          size: order.size,
+          warehouseId: order.warehouseId
+        };
+        await reverseShipping(oRef, order.quantity, order.id);
+      }
       const newManifestNumber = await generateManifestNumber(updated.shippingCompanyId);
       const insertResult = await db.insert(shippingManifestsTable).values({
         manifestNumber: newManifestNumber,
@@ -148355,7 +148394,11 @@ router12.patch("/shipping-manifests/:id", requireAdmin, async (req, res) => {
           addedAt: /* @__PURE__ */ new Date()
         }))
       );
-      const nonReturnedIds = pendingLinks.filter((l2) => l2.deliveryStatus !== "returned" && l2.deliveryStatus !== "partial_received").map((l2) => l2.orderId);
+      if (stillAtShippingLinks.length > 0) {
+        const stillIds = stillAtShippingLinks.map((l2) => l2.orderId);
+        await db.update(ordersTable).set({ status: "pending", shippingCompanyId: null }).where(inArray(ordersTable.id, stillIds));
+      }
+      const nonReturnedIds = pendingLinks.filter((l2) => l2.deliveryStatus !== "returned" && l2.deliveryStatus !== "partial_received" && l2.deliveryStatus !== "pending" && l2.deliveryStatus !== "postponed" && l2.deliveryStatus !== "in_shipping").map((l2) => l2.orderId);
       if (nonReturnedIds.length > 0) {
         await db.update(ordersTable).set({ status: "in_shipping", shippingCompanyId: updated.shippingCompanyId }).where(inArray(ordersTable.id, nonReturnedIds));
       }
@@ -148502,7 +148545,7 @@ router12.patch("/shipping-manifests/:id/orders/:orderId", async (req, res) => {
   if (deliveryStatus === "delivered") {
     if (oldDeliveryStatus === "partial_received") {
       const remaining = totalQty - oldPartial;
-      if (remaining > 0) await processDelivery(orderRef, remaining, "sale", orderId, true);
+      if (remaining > 0) await processDelivery(orderRef, remaining, "sale", orderId, false);
     } else if (oldDeliveryStatus !== "delivered") {
       await processDelivery(orderRef, totalQty, "sale", orderId, true);
     }
