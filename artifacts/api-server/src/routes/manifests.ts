@@ -203,6 +203,7 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
   let rolledOverManifest: any = null;
 
   if (parsed.data.status === "closed") {
+    // الطلبات اللي "مازال في شركة الشحن" = pending/postponed/in_shipping + returned/partial بدون returnReceived
     const pendingLinks = await db.select().from(shippingManifestOrdersTable).where(
       and(
         eq(shippingManifestOrdersTable.manifestId, id),
@@ -215,6 +216,23 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
     );
 
     if (pendingLinks.length > 0) {
+      // ── أرجع المخزون للطلبات اللي لسه عند شركة الشحن (pending/postponed) ──────
+      const stillAtShippingLinks = pendingLinks.filter(
+        (l) => l.deliveryStatus === "pending" || l.deliveryStatus === "postponed" || l.deliveryStatus === "in_shipping"
+      );
+      for (const link of stillAtShippingLinks) {
+        const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, link.orderId));
+        if (!order) continue;
+        const oRef = {
+          variantId: order.variantId, productId: order.productId,
+          product: order.product, color: order.color, size: order.size,
+          warehouseId: order.warehouseId,
+        };
+        // الكمية كانت خرجت بـ to_shipping → نرجعها للمخزن بـ from_shipping
+        await reverseShipping(oRef, order.quantity, order.id);
+      }
+
+      // ── رحّل كل الطلبات لبيان جديد ───────────────────────────────────────────
       const newManifestNumber = await generateManifestNumber(updated.shippingCompanyId);
       const insertResult = await db.insert(shippingManifestsTable).values({
         manifestNumber: newManifestNumber, shippingCompanyId: updated.shippingCompanyId,
@@ -233,11 +251,29 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
           addedAt: new Date(),
         }))
       );
-      const nonReturnedIds = pendingLinks.filter((l) => l.deliveryStatus !== "returned" && l.deliveryStatus !== "partial_received").map((l) => l.orderId);
-      if (nonReturnedIds.length > 0) {
-        await db.update(ordersTable).set({ status: "in_shipping", shippingCompanyId: updated.shippingCompanyId }).where(inArray(ordersTable.id, nonReturnedIds));
+
+      // ── أرجع الطلبات اللي كانت pending/postponed لـ pending (خرجت من الشحن) ─
+      if (stillAtShippingLinks.length > 0) {
+        const stillIds = stillAtShippingLinks.map((l) => l.orderId);
+        await db.update(ordersTable)
+          .set({ status: "pending", shippingCompanyId: null })
+          .where(inArray(ordersTable.id, stillIds));
       }
-      rolledOverManifest = { ...newManifest, orderCount: pendingLinks.length,
+
+      // ── الطلبات المرتجعة/الجزئية تفضل in_shipping في البيان الجديد ───────────
+      const nonReturnedIds = pendingLinks
+        .filter((l) => l.deliveryStatus !== "returned" && l.deliveryStatus !== "partial_received"
+                    && l.deliveryStatus !== "pending" && l.deliveryStatus !== "postponed"
+                    && l.deliveryStatus !== "in_shipping")
+        .map((l) => l.orderId);
+      if (nonReturnedIds.length > 0) {
+        await db.update(ordersTable)
+          .set({ status: "in_shipping", shippingCompanyId: updated.shippingCompanyId })
+          .where(inArray(ordersTable.id, nonReturnedIds));
+      }
+
+      rolledOverManifest = {
+        ...newManifest, orderCount: pendingLinks.length,
         postponedCount: pendingLinks.filter((l) => l.deliveryStatus === "postponed").length,
         pendingCount: pendingLinks.filter((l) => l.deliveryStatus === "pending" || l.deliveryStatus === "in_shipping").length,
         returnedInShippingCount: pendingLinks.filter((l) => l.deliveryStatus === "returned").length,
@@ -408,11 +444,13 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
   // ── CASE 1: تم الاستلام الكامل ─────────────────────────────────────────────
   if (deliveryStatus === "delivered") {
     if (oldDeliveryStatus === "partial_received") {
-      // الجزء المتبقي كان عند شركة الشحن → سجل بيع للجزء الباقي فقط
+      // الجزء المتبقي كان عند شركة الشحن → سجل بيع للجزء الباقي
+      // skipWarehouseStock=false لأن الكمية لسه عند شركة الشحن (خرجت من المخزن بـ to_shipping)
       const remaining = totalQty - oldPartial;
-      if (remaining > 0) await processDelivery(orderRef, remaining, "sale", orderId, true);
+      if (remaining > 0) await processDelivery(orderRef, remaining, "sale", orderId, false);
     } else if (oldDeliveryStatus !== "delivered") {
       // كان عند شركة الشحن → سجل بيع للكمية كلها
+      // الكمية خرجت من المخزن بـ to_shipping → مش محتاجين نخصم تاني (skipWarehouseStock=true)
       await processDelivery(orderRef, totalQty, "sale", orderId, true);
     }
 
@@ -420,6 +458,7 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
   } else if (deliveryStatus === "partial_received") {
     const prevPartial = oldDeliveryStatus === "partial_received" ? oldPartial : 0;
     const delta = (partialQuantity ?? 0) - prevPartial;
+    // skipWarehouseStock=true لأن الكمية الكلية خرجت مسبقاً بـ to_shipping
     if (delta > 0) await processDelivery(orderRef, delta, "partial_sale", orderId, true);
     else if (delta < 0) await reverseDelivery(orderRef, Math.abs(delta), orderId);
 
