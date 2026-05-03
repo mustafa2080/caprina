@@ -299,7 +299,7 @@ export default function OrderDetail() {
         </div>
 
         <div className="flex items-center gap-2">
-          {!isEditing && (
+          {!isEditing && isAdmin && (
             <>
               <div className="w-44">
                 <Select value={order.status} onValueChange={handleStatusChange} disabled={updateOrder.isPending}>
@@ -328,11 +328,9 @@ export default function OrderDetail() {
               </Button>
               {(order.status === "pending" || order.status === "in_shipping" || order.status === "delayed") && (
                 <Button
-                  variant="outline"
-                  size="sm"
+                  variant="outline" size="sm"
                   onClick={handleWhatsApp}
                   className="h-8 text-xs gap-1 border-green-700 text-green-400 hover:bg-green-500/10 hover:text-green-400"
-                  title="إرسال رسالة واتساب للعميل"
                 >
                   <MessageCircle className="w-3 h-3" />واتساب
                 </Button>
@@ -347,6 +345,11 @@ export default function OrderDetail() {
                 <Trash2 className="w-3 h-3" />حذف
               </Button>
             </>
+          )}
+          {!isEditing && !isAdmin && (
+            <Button variant="outline" size="sm" onClick={handlePrint} className="h-8 text-xs gap-1 border-border">
+              <Printer className="w-3 h-3" />فاتورة
+            </Button>
           )}
         </div>
       </div>
