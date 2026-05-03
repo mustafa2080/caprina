@@ -129,9 +129,18 @@ export default function Movements() {
 
   const createMutation = useMutation({
     mutationFn: movementsApi.create,
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["movements"] });
       queryClient.invalidateQueries({ queryKey: ["movements-totals"] });
+      // لو تحويل بين مواقع — حدّث المخزون والكروت فوراً
+      if ((variables as any).reason === "transfer") {
+        queryClient.invalidateQueries({ queryKey: ["variants"] });
+        queryClient.invalidateQueries({ queryKey: ["warehouses"] });
+        queryClient.invalidateQueries({ queryKey: ["products"] });
+        queryClient.invalidateQueries({ queryKey: ["stock-intelligence"] });
+        // invalidate كل variant-wh-stock
+        queryClient.invalidateQueries({ queryKey: ["variant-wh-stock"] });
+      }
       setShowDialog(false);
       resetForm();
       toast({ title: "تم التسجيل", description: "تم تسجيل الحركة بنجاح." });
