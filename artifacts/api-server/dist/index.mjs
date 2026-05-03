@@ -143057,14 +143057,14 @@ async function resolveInventoryTarget(order) {
   if (order.productId) return { variantId: null, productId: order.productId };
   if (order.product && order.color && order.size) {
     const variants = await db.select({ id: productVariantsTable.id }).from(productVariantsTable).innerJoin(productsTable, eq(productVariantsTable.productId, productsTable.id)).where(and(
-      like(productsTable.name, order.product),
-      like(productVariantsTable.color, order.color),
-      like(productVariantsTable.size, order.size)
+      like(productsTable.name, `%${order.product}%`),
+      like(productVariantsTable.color, `%${order.color}%`),
+      like(productVariantsTable.size, `%${order.size}%`)
     ));
     if (variants.length > 0) return { variantId: variants[0].id, productId: null };
   }
   if (order.product) {
-    const products = await db.select({ id: productsTable.id }).from(productsTable).where(like(productsTable.name, order.product));
+    const products = await db.select({ id: productsTable.id }).from(productsTable).where(like(productsTable.name, `%${order.product}%`));
     if (products.length > 0) return { variantId: null, productId: products[0].id };
   }
   return { variantId: null, productId: null };
@@ -146783,9 +146783,11 @@ router7.post("/inventory/movements", async (req, res) => {
     return;
   }
   const delta = type === "IN" ? qty : -qty;
-  if (resolvedVid || resolvedPid) {
-    usedWhId = await adjustWarehouseStock(whId, resolvedVid, resolvedPid, delta) ?? whId;
-    await syncProductQuantityFromWarehouses(resolvedVid, resolvedPid);
+  const effectiveVid = resolvedVid ?? vid;
+  const effectivePid = resolvedVid ? null : resolvedPid ?? pid;
+  if (effectiveVid || effectivePid) {
+    usedWhId = await adjustWarehouseStock(whId, effectiveVid, effectivePid, delta) ?? whId;
+    await syncProductQuantityFromWarehouses(effectiveVid, effectivePid);
   }
   await recordMovement({
     product,
@@ -146794,8 +146796,8 @@ router7.post("/inventory/movements", async (req, res) => {
     quantity: qty,
     type,
     reason,
-    productId: resolvedPid,
-    variantId: resolvedVid,
+    productId: effectivePid,
+    variantId: effectiveVid,
     warehouseId: usedWhId,
     fromLocation: fromLocation ?? null,
     toLocation: toLocation ?? null,

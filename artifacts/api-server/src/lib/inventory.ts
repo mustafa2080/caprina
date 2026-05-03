@@ -88,9 +88,9 @@ export async function resolveInventoryTarget(order: {
       .from(productVariantsTable)
       .innerJoin(productsTable, eq(productVariantsTable.productId, productsTable.id))
       .where(and(
-        like(productsTable.name, order.product),
-        like(productVariantsTable.color, order.color),
-        like(productVariantsTable.size, order.size),
+        like(productsTable.name, `%${order.product}%`),
+        like(productVariantsTable.color, `%${order.color}%`),
+        like(productVariantsTable.size, `%${order.size}%`),
       ));
     if (variants.length > 0) return { variantId: variants[0].id, productId: null };
   }
@@ -99,7 +99,7 @@ export async function resolveInventoryTarget(order: {
     const products = await db
       .select({ id: productsTable.id })
       .from(productsTable)
-      .where(like(productsTable.name, order.product));
+      .where(like(productsTable.name, `%${order.product}%`));
     if (products.length > 0) return { variantId: null, productId: products[0].id };
   }
 
