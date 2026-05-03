@@ -184,10 +184,10 @@ export default function Inventory() {
   const [expandedProductId, setExpandedProductId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
 
-  // Filter & Sort
+  // Filter & Sort — فلتر الموديل بدل الحالة
+  const [filterModel, setFilterModel] = useState<string>("all");
   const [filterColor, setFilterColor] = useState<string>("all");
   const [filterSize, setFilterSize] = useState<string>("all");
-  const [filterStatus, setFilterStatus] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("name");
   const [showFilters, setShowFilters] = useState(false);
 
@@ -271,7 +271,6 @@ export default function Inventory() {
     setEditingVariant(null);
     const p = products?.find(p => p.id === productId);
     setVariantForm({ ...emptyVariantForm, unitPrice: p?.unitPrice ?? 0, costPrice: p?.costPrice ?? null });
-    // auto-init with all warehouses if available
     if (warehouses && warehouses.length > 0) {
       setUseWarehouseDist(true);
       setWarehouseDist(warehouses.map(w => ({ warehouseId: w.id, quantity: 0 })));
@@ -285,7 +284,6 @@ export default function Inventory() {
     setActiveProductId(v.productId);
     setEditingVariant(v);
     setVariantForm({ color: v.color, size: v.size, sku: v.sku ?? "", totalQuantity: 0, lowStockThreshold: v.lowStockThreshold, unitPrice: v.unitPrice, costPrice: v.costPrice });
-    // جيب كميات المخازن الحالية
     try {
       const whStock = await warehousesApi.stockByVariant(v.id);
       const dist: WarehouseDistEntry[] = (warehouses ?? []).map(wh => {
@@ -321,19 +319,16 @@ export default function Inventory() {
     }
     if (!activeProductId) return;
 
-    // تعديل SKU موجود
     if (editingVariant) {
       const { totalQuantity: _qty, ...editData } = variantForm;
       setIsVariantSubmitting(true);
       try {
-        // حفظ بيانات الـ SKU
         await new Promise<void>((resolve, reject) => {
           updateVariantMutation.mutate(
             { productId: activeProductId, id: editingVariant.id, data: editData },
             { onSuccess: () => resolve(), onError: (e) => reject(e) }
           );
         });
-        // حفظ كميات المخازن
         const activeEditEntries = editWarehouseDist.filter(d => d.quantity >= 0);
         if (activeEditEntries.length > 0) {
           await Promise.all(
@@ -362,13 +357,11 @@ export default function Inventory() {
       return;
     }
 
-    // إضافة SKU جديد
     const activeEntries = warehouseDist.filter(d => d.quantity > 0);
     const distTotal = activeEntries.reduce((s, d) => s + d.quantity, 0);
 
     setIsVariantSubmitting(true);
     try {
-      // إنشاء الـ variant بكمية = مجموع توزيع المخازن
       const newVariant = await variantsApi.create(activeProductId, {
         ...variantForm,
         totalQuantity: distTotal,
@@ -376,7 +369,6 @@ export default function Inventory() {
 
       if (distTotal > 0) {
         if (activeEntries.length > 0) {
-          // توزيع على المخازن المحددة
           await Promise.all(
             activeEntries.map(d =>
               warehousesApi.addStock(d.warehouseId, {
@@ -387,7 +379,6 @@ export default function Inventory() {
             )
           );
         } else {
-          // لو مفيش مخازن — يحط في المخزن الافتراضي
           await variantsApi.addStock(activeProductId, newVariant.id, distTotal, "مخزون افتتاحي");
           const defaultWh = warehouses?.find(w => w.isDefault);
           if (defaultWh) {
@@ -433,20 +424,29 @@ export default function Inventory() {
 
   const allColors = [...new Set(allVariants?.map(v => v.color) ?? [])].sort();
   const allSizes = [...new Set(allVariants?.map(v => v.size) ?? [])].sort();
-  const activeFiltersCount = [filterColor !== "all", filterSize !== "all", filterStatus !== "all", sortBy !== "name"].filter(Boolean).length;
+  // قائمة الموديلات (أسماء المنتجات) للفلتر
+  const allModels = [...new Set(products?.map(p => p.name) ?? [])].sort((a, b) => a.localeCompare(b, "ar"));
 
+  const activeFiltersCount = [filterModel !== "all", filterColor !== "all", filterSize !== "all", sortBy !== "name"].filter(Boolean).length;
+
+  // ─── فلترة المنتجات بشكل صحيح ───
   const filteredProducts = (products?.filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) || (p.sku ?? "").toLowerCase().includes(search.toLowerCase());
+    // فلتر الموديل (اسم المنتج)
+    if (filterModel !== "all" && p.name !== filterModel) return false;
+
+    // فلتر البحث
+    const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
+      (p.sku ?? "").toLowerCase().includes(search.toLowerCase());
     if (!matchesSearch) return false;
+
     const variants = getProductVariants(p.id);
+
+    // فلتر اللون — لازم يكون في على الأقل variant بهذا اللون
     if (filterColor !== "all" && !variants.some(v => v.color === filterColor)) return false;
+
+    // فلتر المقاس — لازم يكون في على الأقل variant بهذا المقاس
     if (filterSize !== "all" && !variants.some(v => v.size === filterSize)) return false;
-    if (filterStatus !== "all") {
-      const rel = variants.filter(v => (filterColor === "all" || v.color === filterColor) && (filterSize === "all" || v.size === filterSize));
-      if (filterStatus === "out" && !rel.some(v => v.totalQuantity === 0)) return false;
-      if (filterStatus === "low" && !rel.some(v => v.totalQuantity > 0 && v.totalQuantity <= v.lowStockThreshold)) return false;
-      if (filterStatus === "good" && !rel.some(v => v.totalQuantity > v.lowStockThreshold)) return false;
-    }
+
     return true;
   }) ?? []).sort((a, b) => {
     const sA = getProductVariants(a.id).reduce((s, v) => s + v.totalQuantity, 0);
@@ -458,45 +458,69 @@ export default function Inventory() {
     return a.name.localeCompare(b.name, "ar");
   });
 
+  // ─── فلترة الـ variants داخل كل منتج بشكل صحيح ───
+  const getFilteredVariants = (productId: number) => {
+    const variants = getProductVariants(productId);
+    return variants.filter(v => {
+      if (filterColor !== "all" && v.color !== filterColor) return false;
+      if (filterSize !== "all" && v.size !== filterSize) return false;
+      return true;
+    });
+  };
+
   const isPending = createProductMutation.isPending || updateProductMutation.isPending;
   const isVariantPending = updateVariantMutation.isPending;
 
   return (
-    <div className="space-y-5 animate-in fade-in duration-500">
+    <div className="space-y-4 animate-in fade-in duration-500 px-2 sm:px-0">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-bold">المخزون</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">إدارة المنتجات • الألوان • المقاسات • التكاليف</p>
+          <h1 className="text-xl sm:text-2xl font-bold">المخزون</h1>
+          <p className="text-muted-foreground text-xs sm:text-sm mt-0.5">إدارة المنتجات • الألوان • المقاسات • التكاليف</p>
         </div>
         {canEdit && (
-          <Button onClick={openAddProduct} className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-sm">
-            <Plus className="w-4 h-4" />منتج جديد
+          <Button onClick={openAddProduct} className="gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-xs sm:text-sm h-8 sm:h-9 px-3">
+            <Plus className="w-3.5 h-3.5" />
+            <span className="hidden xs:inline">منتج جديد</span>
+            <span className="xs:hidden">جديد</span>
           </Button>
         )}
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Card className="border-border bg-card p-4">
-          <div className="flex items-center gap-2 mb-2"><Package className="w-4 h-4 text-muted-foreground" /><p className="text-xs text-muted-foreground">إجمالي المنتجات</p></div>
-          <p className="text-2xl font-black">{products?.length ?? 0}</p>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+        <Card className="border-border bg-card p-3 sm:p-4">
+          <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
+            <Package className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground" />
+            <p className="text-[10px] sm:text-xs text-muted-foreground">إجمالي المنتجات</p>
+          </div>
+          <p className="text-xl sm:text-2xl font-black">{products?.length ?? 0}</p>
           <p className="text-[10px] text-muted-foreground mt-1">{totalVariants} SKU إجمالي</p>
         </Card>
-        <Card className="border-emerald-200 dark:border-emerald-900/40 bg-emerald-50 dark:bg-emerald-900/5 p-4">
-          <div className="flex items-center gap-2 mb-2"><Boxes className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /><p className="text-xs text-muted-foreground">متاح للبيع</p></div>
-          <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{totalAvailable}</p>
+        <Card className="border-emerald-200 dark:border-emerald-900/40 bg-emerald-50 dark:bg-emerald-900/5 p-3 sm:p-4">
+          <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
+            <Boxes className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 dark:text-emerald-400" />
+            <p className="text-[10px] sm:text-xs text-muted-foreground">متاح للبيع</p>
+          </div>
+          <p className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400">{totalAvailable}</p>
           <p className="text-[10px] text-muted-foreground mt-1">وحدة متاحة</p>
         </Card>
-        <Card className={`border p-4 ${lowStockVariants > 0 ? "border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/5" : "border-border bg-card"}`}>
-          <div className="flex items-center gap-2 mb-2"><AlertTriangle className={`w-4 h-4 ${lowStockVariants > 0 ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}`} /><p className="text-xs text-muted-foreground">مخزون منخفض</p></div>
-          <p className={`text-2xl font-black ${lowStockVariants > 0 ? "text-red-600 dark:text-red-400" : ""}`}>{lowStockVariants}</p>
+        <Card className={`border p-3 sm:p-4 ${lowStockVariants > 0 ? "border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/5" : "border-border bg-card"}`}>
+          <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
+            <AlertTriangle className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${lowStockVariants > 0 ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}`} />
+            <p className="text-[10px] sm:text-xs text-muted-foreground">مخزون منخفض</p>
+          </div>
+          <p className={`text-xl sm:text-2xl font-black ${lowStockVariants > 0 ? "text-red-600 dark:text-red-400" : ""}`}>{lowStockVariants}</p>
           <p className="text-[10px] text-muted-foreground mt-1">SKU يحتاج تجديد</p>
         </Card>
         {canViewFinancials && (
-          <Card className="border-primary/30 bg-primary/5 p-4">
-            <div className="flex items-center gap-2 mb-2"><DollarSign className="w-4 h-4 text-primary" /><p className="text-xs text-muted-foreground">قيمة المخزون</p></div>
-            <p className="text-xl font-black text-primary">{fc(inventoryValue)}</p>
+          <Card className="border-primary/30 bg-primary/5 p-3 sm:p-4">
+            <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
+              <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
+              <p className="text-[10px] sm:text-xs text-muted-foreground">قيمة المخزون</p>
+            </div>
+            <p className="text-base sm:text-xl font-black text-primary">{fc(inventoryValue)}</p>
             <p className="text-[10px] text-muted-foreground mt-1">بسعر التكلفة</p>
           </Card>
         )}
@@ -504,7 +528,7 @@ export default function Inventory() {
 
       {/* Stock Intelligence */}
       {stockIntel && canViewFinancials && (stockIntel.summary.fastMovers > 0 || stockIntel.summary.slowMovers > 0 || stockIntel.summary.totalFrozenCapital > 0) && (
-        <div className="flex items-center gap-4 rounded-lg border border-border bg-card/50 px-4 py-2.5 text-xs flex-wrap">
+        <div className="flex items-center gap-3 rounded-lg border border-border bg-card/50 px-3 sm:px-4 py-2.5 text-xs flex-wrap">
           <span className="text-muted-foreground font-semibold">ذكاء المخزون:</span>
           {stockIntel.summary.fastMovers > 0 && <span className="flex items-center gap-1 text-red-600 dark:text-red-400 font-bold"><span className="w-1.5 h-1.5 rounded-full bg-red-500" />{stockIntel.summary.fastMovers} سريع النفاد</span>}
           {stockIntel.summary.slowMovers > 0 && <span className="flex items-center gap-1 text-muted-foreground"><span className="w-1.5 h-1.5 rounded-full bg-muted-foreground" />{stockIntel.summary.slowMovers} بطيء الحركة</span>}
@@ -515,30 +539,55 @@ export default function Inventory() {
 
       {/* Search + Filter */}
       <div className="flex gap-2">
-        <div className="relative flex-1">
+        <div className="relative flex-1 min-w-0">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-          <Input placeholder="بحث باسم المنتج أو SKU..." className="pr-9 h-9 text-sm bg-card border-border" value={search} onChange={e => setSearch(e.target.value)} />
+          <Input placeholder="بحث باسم المنتج أو SKU..." className="pr-9 h-9 text-sm bg-card border-border w-full" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <Button variant={showFilters ? "default" : "outline"} size="sm" className="h-9 gap-1.5 text-xs font-bold shrink-0" onClick={() => setShowFilters(v => !v)}>
-          <Filter className="w-3.5 h-3.5" />فلتر
+        <Button variant={showFilters ? "default" : "outline"} size="sm" className="h-9 gap-1.5 text-xs font-bold shrink-0 px-3" onClick={() => setShowFilters(v => !v)}>
+          <Filter className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">فلتر</span>
           {activeFiltersCount > 0 && <span className="bg-primary-foreground text-primary rounded-full w-4 h-4 text-[9px] font-black flex items-center justify-center">{activeFiltersCount}</span>}
         </Button>
       </div>
 
-      {/* Filter Panel */}
+      {/* Filter Panel — فلتر الموديل بدل الحالة */}
       {showFilters && (
         <div className="rounded-lg border border-border bg-card p-3 space-y-3">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+            {/* فلتر الموديل */}
+            <div>
+              <p className="text-[10px] text-muted-foreground mb-1 font-semibold">الموديل</p>
+              <Select value={filterModel} onValueChange={setFilterModel}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="كل الموديلات" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">كل الموديلات</SelectItem>
+                  {allModels.map(m => (
+                    <SelectItem key={m} value={m}>
+                      <span className="truncate max-w-[150px] block">{m}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {/* فلتر اللون */}
             <div>
               <p className="text-[10px] text-muted-foreground mb-1 font-semibold">اللون</p>
               <Select value={filterColor} onValueChange={setFilterColor}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="كل الألوان" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">كل الألوان</SelectItem>
-                  {allColors.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  {allColors.map(c => (
+                    <SelectItem key={c} value={c}>
+                      <div className="flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full border border-border/50 shrink-0" style={{ background: getColorHex(c) }} />
+                        {c}
+                      </div>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
+            {/* فلتر المقاس */}
             <div>
               <p className="text-[10px] text-muted-foreground mb-1 font-semibold">المقاس</p>
               <Select value={filterSize} onValueChange={setFilterSize}>
@@ -549,18 +598,7 @@ export default function Inventory() {
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <p className="text-[10px] text-muted-foreground mb-1 font-semibold">الحالة</p>
-              <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">كل الحالات</SelectItem>
-                  <SelectItem value="good">متاح</SelectItem>
-                  <SelectItem value="low">منخفض</SelectItem>
-                  <SelectItem value="out">نفد</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {/* ترتيب */}
             <div>
               <p className="text-[10px] text-muted-foreground mb-1 font-semibold">ترتيب</p>
               <Select value={sortBy} onValueChange={setSortBy}>
@@ -576,8 +614,8 @@ export default function Inventory() {
             </div>
           </div>
           {activeFiltersCount > 0 && (
-            <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => { setFilterColor("all"); setFilterSize("all"); setFilterStatus("all"); setSortBy("name"); }}>
-              <X className="w-3 h-3" />مسح الفلاتر
+            <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => { setFilterModel("all"); setFilterColor("all"); setFilterSize("all"); setSortBy("name"); }}>
+              <X className="w-3 h-3" />مسح الفلاتر ({activeFiltersCount})
             </Button>
           )}
         </div>
@@ -587,11 +625,14 @@ export default function Inventory() {
       {isLoading ? (
         <div className="text-center py-12 text-muted-foreground text-sm">جاري التحميل...</div>
       ) : filteredProducts.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground text-sm">لا توجد منتجات</div>
+        <div className="text-center py-12 text-muted-foreground text-sm">
+          {activeFiltersCount > 0 || search ? "لا توجد نتائج مطابقة للفلتر" : "لا توجد منتجات"}
+        </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2 sm:space-y-3">
           {filteredProducts.map(product => {
             const variants = getProductVariants(product.id);
+            const filteredVariants = getFilteredVariants(product.id);
             const isExpanded = expandedProductId === product.id;
             const totalStock = variants.reduce((s, v) => s + v.totalQuantity, 0);
             const hasLow = variants.some(v => v.totalQuantity > 0 && v.totalQuantity <= v.lowStockThreshold);
@@ -603,27 +644,27 @@ export default function Inventory() {
               <Card key={product.id} className="border-border bg-card overflow-hidden">
                 {/* Product Row */}
                 <div
-                  className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors"
+                  className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors"
                   onClick={() => setExpandedProductId(isExpanded ? null : product.id)}
                 >
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="font-bold text-sm">{product.name}</span>
                       {product.sku && <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded font-mono">{product.sku}</span>}
                       {hasOut && <Badge variant="destructive" className="text-[9px] px-1.5 py-0 h-4">نفد</Badge>}
                       {hasLow && !hasOut && <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-amber-400 text-amber-700">منخفض</Badge>}
-                      {intel?.badge === "fast" && <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-red-400 text-red-600">سريع النفاد</Badge>}
-                      {intel?.badge === "slow" && <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-muted-foreground text-muted-foreground">بطيء</Badge>}
+                      {intel?.badge === "fast" && <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-red-400 text-red-600 hidden sm:flex">سريع النفاد</Badge>}
+                      {intel?.badge === "slow" && <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-muted-foreground text-muted-foreground hidden sm:flex">بطيء</Badge>}
                     </div>
-                    <div className="flex items-center gap-3 mt-0.5 text-[11px] text-muted-foreground flex-wrap">
+                    <div className="flex items-center gap-2 sm:gap-3 mt-0.5 text-[11px] text-muted-foreground flex-wrap">
                       <span>{variants.length} SKU</span>
                       <span className="font-semibold text-foreground">{totalStock} وحدة</span>
-                      {canViewFinancials && <span>{fc(product.unitPrice)}</span>}
-                      {canViewFinancials && <MarginBadge margin={margin} />}
+                      {canViewFinancials && <span className="hidden sm:inline">{fc(product.unitPrice)}</span>}
+                      {canViewFinancials && <span className="hidden sm:inline"><MarginBadge margin={margin} /></span>}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-primary" title="طباعة الجرد" onClick={e => { e.stopPropagation(); printProductInventory(product, variants, warehouses, canViewFinancials); }}>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-primary hidden sm:flex" title="طباعة الجرد" onClick={e => { e.stopPropagation(); printProductInventory(product, variants, warehouses, canViewFinancials); }}>
                       <Printer className="w-3.5 h-3.5" />
                     </Button>
                     {canEdit && (
@@ -631,7 +672,7 @@ export default function Inventory() {
                         <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={e => { e.stopPropagation(); openEditProduct(product); }}>
                           <Edit2 className="w-3.5 h-3.5" />
                         </Button>
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={e => { e.stopPropagation(); if (confirm("أرشفة هذا المنتج؟")) deleteProductMutation.mutate(product.id); }}>
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive hidden sm:flex" onClick={e => { e.stopPropagation(); if (confirm("أرشفة هذا المنتج؟")) deleteProductMutation.mutate(product.id); }}>
                           <Archive className="w-3.5 h-3.5" />
                         </Button>
                       </>
@@ -643,58 +684,87 @@ export default function Inventory() {
                 {/* Variants */}
                 {isExpanded && (
                   <div className="border-t border-border">
-                    {/* Variants Table Header */}
-                    <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 px-4 py-1.5 bg-muted/20 text-[10px] text-muted-foreground font-semibold">
+                    {/* Variants Table Header — responsive */}
+                    <div className="hidden sm:grid sm:grid-cols-[1fr_auto_auto_auto_auto] gap-2 px-4 py-1.5 bg-muted/20 text-[10px] text-muted-foreground font-semibold">
                       <span>اللون / المقاس</span>
                       <span className="text-center w-16">المخزون</span>
                       {canViewFinancials && <span className="text-center w-20">السعر</span>}
                       {canViewFinancials && <span className="text-center w-12">هامش</span>}
                       {canEdit && <span className="w-20" />}
                     </div>
-                    {variants.length === 0 ? (
-                      <div className="px-4 py-3 text-xs text-muted-foreground">لا يوجد SKU بعد</div>
+                    {filteredVariants.length === 0 ? (
+                      <div className="px-4 py-3 text-xs text-muted-foreground">
+                        {variants.length > 0 ? "لا يوجد SKU مطابق للفلتر" : "لا يوجد SKU بعد"}
+                      </div>
                     ) : (
-                      variants.map(v => {
+                      filteredVariants.map(v => {
                         const vMargin = calcMargin(v.unitPrice, v.costPrice);
                         const isLow = v.totalQuantity > 0 && v.totalQuantity <= v.lowStockThreshold;
                         const isOut = v.totalQuantity === 0;
                         return (
-                          <div key={v.id} className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 px-4 py-2.5 border-t border-border/50 items-start hover:bg-muted/10">
-                            <div className="flex flex-col gap-0.5 min-w-0">
-                              <div className="flex items-center gap-2 min-w-0">
-                                <span className="w-3 h-3 rounded-full shrink-0 border border-border/50" style={{ background: getColorHex(v.color) }} />
-                                <span className="text-xs font-medium truncate">{v.color} / {v.size}</span>
-                                {v.sku && <span className="text-[9px] text-muted-foreground bg-muted px-1 rounded font-mono hidden sm:block">{v.sku}</span>}
+                          <div key={v.id} className="border-t border-border/50">
+                            {/* Desktop row */}
+                            <div className="hidden sm:grid sm:grid-cols-[1fr_auto_auto_auto_auto] gap-2 px-4 py-2.5 items-start hover:bg-muted/10">
+                              <div className="flex flex-col gap-0.5 min-w-0">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="w-3 h-3 rounded-full shrink-0 border border-border/50" style={{ background: getColorHex(v.color) }} />
+                                  <span className="text-xs font-medium truncate">{v.color} / {v.size}</span>
+                                  {v.sku && <span className="text-[9px] text-muted-foreground bg-muted px-1 rounded font-mono">{v.sku}</span>}
+                                </div>
+                                <VariantWarehouseBreakdown variantId={v.id} />
                               </div>
-                              <VariantWarehouseBreakdown variantId={v.id} />
-                            </div>
-                            <div className={`text-center w-16 text-xs font-bold ${isOut ? "text-red-600 dark:text-red-400" : isLow ? "text-amber-600" : "text-emerald-600 dark:text-emerald-400"}`}>
-                              {v.totalQuantity}
-                            </div>
-                            {canViewFinancials && <div className="text-center w-20 text-xs text-muted-foreground">{fc(v.unitPrice)}</div>}
-                            {canViewFinancials && <div className="text-center w-12"><MarginBadge margin={vMargin} /></div>}
-                            {canEdit && (
-                              <div className="flex items-center gap-1 w-20 justify-end">
-                                <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50" title="إضافة مخزون" onClick={() => openAddVariantStock(v)}>
-                                  <PackagePlus className="w-3.5 h-3.5" />
-                                </Button>
-                                <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => openEditVariant(v)}>
-                                  <Edit2 className="w-3 h-3" />
-                                </Button>
-                                <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive hover:text-destructive" onClick={() => { if (confirm("حذف هذا SKU؟")) deleteVariantMutation.mutate({ productId: v.productId, id: v.id }); }}>
-                                  <Trash2 className="w-3 h-3" />
-                                </Button>
+                              <div className={`text-center w-16 text-xs font-bold ${isOut ? "text-red-600 dark:text-red-400" : isLow ? "text-amber-600" : "text-emerald-600 dark:text-emerald-400"}`}>
+                                {v.totalQuantity}
                               </div>
-                            )}
+                              {canViewFinancials && <div className="text-center w-20 text-xs text-muted-foreground">{fc(v.unitPrice)}</div>}
+                              {canViewFinancials && <div className="text-center w-12"><MarginBadge margin={vMargin} /></div>}
+                              {canEdit && (
+                                <div className="flex items-center gap-1 w-20 justify-end">
+                                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50" title="إضافة مخزون" onClick={() => openAddVariantStock(v)}>
+                                    <PackagePlus className="w-3.5 h-3.5" />
+                                  </Button>
+                                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => openEditVariant(v)}>
+                                    <Edit2 className="w-3 h-3" />
+                                  </Button>
+                                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive hover:text-destructive" onClick={() => { if (confirm("حذف هذا SKU؟")) deleteVariantMutation.mutate({ productId: v.productId, id: v.id }); }}>
+                                    <Trash2 className="w-3 h-3" />
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                            {/* Mobile row */}
+                            <div className="sm:hidden flex items-start gap-2.5 px-3 py-2.5 hover:bg-muted/10">
+                              <span className="w-3.5 h-3.5 rounded-full shrink-0 border border-border/50 mt-0.5" style={{ background: getColorHex(v.color) }} />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-1">
+                                  <span className="text-xs font-semibold">{v.color} / {v.size}</span>
+                                  <span className={`text-xs font-bold ${isOut ? "text-red-600" : isLow ? "text-amber-600" : "text-emerald-600"}`}>
+                                    {v.totalQuantity} وحدة
+                                  </span>
+                                </div>
+                                {v.sku && <span className="text-[9px] text-muted-foreground font-mono">{v.sku}</span>}
+                                <VariantWarehouseBreakdown variantId={v.id} />
+                              </div>
+                              {canEdit && (
+                                <div className="flex items-center gap-0.5 shrink-0">
+                                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-emerald-600" onClick={() => openAddVariantStock(v)}>
+                                    <PackagePlus className="w-3.5 h-3.5" />
+                                  </Button>
+                                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => openEditVariant(v)}>
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         );
                       })
                     )}
                     {/* Add SKU Button */}
                     {canEdit && (
-                      <div className="px-4 py-2 border-t border-border/50">
+                      <div className="px-3 sm:px-4 py-2 border-t border-border/50">
                         <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5 text-primary hover:text-primary hover:bg-primary/5" onClick={() => openAddVariant(product.id)}>
-                          <Plus className="w-3.5 h-3.5" />إضافة أول SKU
+                          <Plus className="w-3.5 h-3.5" />إضافة SKU جديد
                         </Button>
                       </div>
                     )}
@@ -708,7 +778,7 @@ export default function Inventory() {
 
       {/* ─── Product Dialog ─── */}
       <Dialog open={productDialogOpen} onOpenChange={setProductDialogOpen}>
-        <DialogContent className="max-w-md" dir="rtl">
+        <DialogContent className="max-w-md w-[calc(100vw-2rem)] sm:w-full" dir="rtl">
           <DialogHeader>
             <DialogTitle>{editingProduct ? "تعديل المنتج" : "منتج جديد"}</DialogTitle>
           </DialogHeader>
@@ -747,7 +817,7 @@ export default function Inventory() {
 
       {/* ─── Variant Dialog ─── */}
       <Dialog open={variantDialogOpen} onOpenChange={setVariantDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" dir="rtl">
+        <DialogContent className="max-w-lg w-[calc(100vw-1rem)] sm:w-full max-h-[90vh] overflow-y-auto" dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base">
               {editingVariant ? <><Edit2 className="w-4 h-4" />تعديل SKU</> : <><Plus className="w-4 h-4" />إضافة SKU جديد</>}
@@ -755,7 +825,6 @@ export default function Inventory() {
           </DialogHeader>
 
           <div className="space-y-4 pt-1">
-            {/* ── اللون ── */}
             <div>
               <Label className="text-[11px] font-bold mb-2 block text-muted-foreground">اللون *</Label>
               <div className="flex flex-wrap gap-1.5 mb-2">
@@ -769,7 +838,6 @@ export default function Inventory() {
               <Input value={variantForm.color} onChange={e => setVariantForm(f => ({ ...f, color: e.target.value }))} placeholder="أو اكتب لوناً آخر..." className="h-8 text-sm" />
             </div>
 
-            {/* ── المقاس ── */}
             <div>
               <Label className="text-[11px] font-bold mb-2 block text-muted-foreground">المقاس *</Label>
               <div className="flex flex-wrap gap-1.5 mb-2">
@@ -783,7 +851,6 @@ export default function Inventory() {
               <Input value={variantForm.size} onChange={e => setVariantForm(f => ({ ...f, size: e.target.value }))} placeholder="أو اكتب مقاساً آخر..." className="h-8 text-sm" />
             </div>
 
-            {/* ── SKU + Prices ── */}
             <div className="grid grid-cols-3 gap-2">
               <div>
                 <Label className="text-[11px] font-bold mb-1.5 block text-muted-foreground">كود SKU</Label>
@@ -799,7 +866,6 @@ export default function Inventory() {
               </div>
             </div>
 
-            {/* ── توزيع الكميات على المخازن ── */}
             <>
               <Separator />
               <div>
@@ -822,12 +888,10 @@ export default function Inventory() {
                   </div>
                 ) : (
                   <div className="rounded-xl border border-border overflow-hidden">
-                    {/* Header */}
                     <div className="grid grid-cols-[1fr_100px] gap-3 px-4 py-2 bg-muted/50 text-[10px] font-bold text-muted-foreground border-b border-border">
                       <span>المخزن</span>
                       <span className="text-center">الكمية</span>
                     </div>
-                    {/* Warehouse Rows */}
                     {warehouses.map((wh, idx) => {
                       const distList = editingVariant ? editWarehouseDist : warehouseDist;
                       const entry = distList.find(d => d.warehouseId === wh.id);
@@ -846,9 +910,6 @@ export default function Inventory() {
                               <span className="text-[9px] text-amber-600 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded-full font-bold shrink-0">
                                 افتراضي
                               </span>
-                            )}
-                            {wh.address && (
-                              <span className="text-[10px] text-muted-foreground truncate hidden sm:block">{wh.address}</span>
                             )}
                           </div>
                           <Input
@@ -872,7 +933,6 @@ export default function Inventory() {
                         </div>
                       );
                     })}
-                    {/* Total Footer */}
                     {(() => {
                       const distList = editingVariant ? editWarehouseDist : warehouseDist;
                       const distTotal = distList.reduce((s, d) => s + (d.quantity || 0), 0);
@@ -891,7 +951,6 @@ export default function Inventory() {
               </div>
             </>
 
-            {/* ── حد التنبيه ── */}
             <div>
               <Label className="text-[11px] font-bold mb-1.5 block text-muted-foreground">حد التنبيه (مخزون منخفض)</Label>
               <Input type="number" value={variantForm.lowStockThreshold} onChange={e => setVariantForm(f => ({ ...f, lowStockThreshold: parseInt(e.target.value) || 5 }))} className="h-8 text-sm" />
@@ -909,7 +968,7 @@ export default function Inventory() {
 
       {/* ─── Add Stock Dialog ─── */}
       <Dialog open={addStockOpen} onOpenChange={setAddStockOpen}>
-        <DialogContent className="max-w-sm" dir="rtl">
+        <DialogContent className="max-w-sm w-[calc(100vw-2rem)] sm:w-full" dir="rtl">
           <DialogHeader>
             <DialogTitle>إضافة مخزون</DialogTitle>
           </DialogHeader>
