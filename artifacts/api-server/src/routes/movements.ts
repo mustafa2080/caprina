@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, and, gte, lte, or, like } from "drizzle-orm";
-import { db, inventoryMovementsTable, productsTable, warehousesTable } from "@workspace/db";
+import { db, inventoryMovementsTable, productsTable, warehousesTable, warehouseStockTable } from "@workspace/db";
+import { syncProductQuantityFromWarehouses } from "../lib/inventory.js";
 
 const router: IRouter = Router();
 
@@ -112,21 +113,77 @@ router.post("/inventory/movements", async (req, res): Promise<void> => {
     return;
   }
 
+  const qty = parseInt(quantity);
+  const pid    = productId  ? parseInt(productId)  : null;
+  const vid    = variantId  ? parseInt(variantId)  : null;
+  const whId   = warehouseId ? parseInt(warehouseId) : null;
+
   const insertResult = await db.insert(inventoryMovementsTable).values({
     product,
     color:        color ?? null,
     size:         size ?? null,
-    quantity:     parseInt(quantity),
+    quantity:     qty,
     type,
     reason,
-    productId:    productId    ? parseInt(productId)    : null,
-    variantId:    variantId    ? parseInt(variantId)    : null,
-    warehouseId:  warehouseId  ? parseInt(warehouseId)  : null,
+    productId:    pid,
+    variantId:    vid,
+    warehouseId:  whId,
     fromLocation: fromLocation ?? null,
     toLocation:   toLocation   ?? null,
     notes:        notes ?? null,
     orderId:      null,
   });
+
+  // ── تحويل بين مواقع: حدّث أرصدة المخازن ──────────────────────────────────
+  if (reason === "transfer" && fromLocation && toLocation && (pid || vid)) {
+    // استخرج اسم المخزن من الـ location string (مثال: "مخزن: القاهرة")
+    const extractWarehouseName = (loc: string) => {
+      const m = loc.match(/^مخزن:\s*(.+)$/);
+      return m ? m[1].trim() : null;
+    };
+    const fromName = extractWarehouseName(fromLocation);
+    const toName   = extractWarehouseName(toLocation);
+
+    // جيب المخازن من الـ DB
+    const allWarehouses = await db.select().from(warehousesTable);
+    const fromWh = fromName ? allWarehouses.find(w => w.name === fromName) : null;
+    const toWh   = toName   ? allWarehouses.find(w => w.name === toName)   : null;
+
+    // دالة مساعدة لتحديث أو إنشاء stock row
+    const upsertStock = async (whId: number, delta: number) => {
+      const condition = and(
+        eq(warehouseStockTable.warehouseId, whId),
+        vid ? eq(warehouseStockTable.variantId, vid)
+            : eq(warehouseStockTable.productId, pid!),
+      );
+      const [row] = await db.select().from(warehouseStockTable).where(condition);
+      if (row) {
+        const newQty = Math.max(0, row.quantity + delta);
+        await db.update(warehouseStockTable)
+          .set({ quantity: newQty, updatedAt: new Date() })
+          .where(eq(warehouseStockTable.id, row.id));
+      } else if (delta > 0) {
+        await db.insert(warehouseStockTable).values({
+          warehouseId: whId,
+          variantId: vid ?? null,
+          productId: pid ?? null,
+          quantity: delta,
+          updatedAt: new Date(),
+        });
+      }
+    };
+
+    // خصم من المخزن المصدر
+    if (fromWh) {
+      await upsertStock(fromWh.id, -qty);
+      await syncProductQuantityFromWarehouses(vid, pid);
+    }
+    // إضافة للمخزن الوجهة
+    if (toWh) {
+      await upsertStock(toWh.id, qty);
+      await syncProductQuantityFromWarehouses(vid, pid);
+    }
+  }
 
   const insertId = (insertResult as any)[0]?.insertId ?? (insertResult as any).insertId;
 
