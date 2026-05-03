@@ -148483,15 +148483,27 @@ router12.patch("/shipping-manifests/:id/orders/:orderId", async (req, res) => {
       if (oldStatus === "partial_received") {
         const r = existingOrder.quantity - (existingOrder.partialQuantity ?? 0);
         if (r > 0) await processDelivery(orderRef, r, "sale", orderId, true);
-      } else if (oldStatus !== "received") await processDelivery(orderRef, existingOrder.quantity, "sale", orderId, true);
+      } else if (oldStatus !== "received") {
+        await processDelivery(orderRef, existingOrder.quantity, "sale", orderId, true);
+      }
     } else if (deliveryStatus === "partial_received") {
-      const delta = (partialQuantity ?? 0) - ((oldStatus === "partial_received" ? existingOrder.partialQuantity : 0) ?? 0);
+      const prevPartial = oldStatus === "partial_received" ? existingOrder.partialQuantity ?? 0 : 0;
+      const delta = (partialQuantity ?? 0) - prevPartial;
       if (delta > 0) await processDelivery(orderRef, delta, "partial_sale", orderId, true);
       else if (delta < 0) await reverseDelivery(orderRef, Math.abs(delta), orderId);
     } else if (deliveryStatus === "returned") {
       const wasPartial = oldStatus === "partial_received";
-      const qty = wasPartial ? existingOrder.partialQuantity ?? existingOrder.quantity : existingOrder.quantity;
-      await processReturn({ ...orderRef, quantity: qty }, oldStatus === "received" || wasPartial, false, orderId);
+      const wasReceived = oldStatus === "received" || wasPartial;
+      if (wasReceived) {
+        const qty = wasPartial ? existingOrder.partialQuantity ?? existingOrder.quantity : existingOrder.quantity;
+        await processReturn({ ...orderRef, quantity: qty }, true, false, orderId);
+        if (wasPartial) {
+          const remaining = existingOrder.quantity - (existingOrder.partialQuantity ?? 0);
+          if (remaining > 0) await reverseShipping(orderRef, remaining, orderId);
+        }
+      } else {
+        await reverseShipping(orderRef, existingOrder.quantity, orderId);
+      }
     } else {
       if (oldStatus === "received") await reverseDelivery(orderRef, existingOrder.quantity, orderId);
       else if (oldStatus === "partial_received") {
