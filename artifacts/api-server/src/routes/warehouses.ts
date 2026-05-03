@@ -140,6 +140,20 @@ router.post("/warehouses", async (req, res): Promise<void> => {
     });
   const insertId = (insertResult as any)[0]?.insertId ?? (insertResult as any).insertId;
   const [w] = await db.select().from(warehousesTable).where(eq(warehousesTable.id, insertId));
+
+  // ── تلقائياً: أضف صف بكمية 0 لكل المنتجات والـ variants الموجودة ──────────
+  try {
+    const allProducts = await db.select({ id: productsTable.id }).from(productsTable);
+    const allVariants = await db.select({ id: productVariantsTable.id }).from(productVariantsTable);
+    const now = new Date();
+    for (const p of allProducts) {
+      await db.insert(warehouseStockTable).values({ warehouseId: w.id, productId: p.id, variantId: null, quantity: 0, updatedAt: now }).catch(() => {});
+    }
+    for (const v of allVariants) {
+      await db.insert(warehouseStockTable).values({ warehouseId: w.id, productId: null, variantId: v.id, quantity: 0, updatedAt: now }).catch(() => {});
+    }
+  } catch (_) {}
+
   res.status(201).json(w);
 });
 
@@ -310,6 +324,29 @@ router.post("/warehouses/:id/stock", async (req, res): Promise<void> => {
 
     res.status(201).json(created);
   }
+});
+
+// ─── Sync: تزامن كل المنتجات في كل المخازن (صف بكمية 0 للمفقود) ─────────────
+router.post("/warehouses/sync-stock-matrix", async (req, res): Promise<void> => {
+  const allWarehouses = await db.select({ id: warehousesTable.id, name: warehousesTable.name }).from(warehousesTable);
+  const allProducts   = await db.select({ id: productsTable.id }).from(productsTable);
+  const allVariants   = await db.select({ id: productVariantsTable.id }).from(productVariantsTable);
+
+  let inserted = 0;
+  const now = new Date();
+
+  for (const wh of allWarehouses) {
+    for (const p of allProducts) {
+      const result = await db.insert(warehouseStockTable).values({ warehouseId: wh.id, productId: p.id, variantId: null, quantity: 0, updatedAt: now }).catch(() => null);
+      if (result) inserted++;
+    }
+    for (const v of allVariants) {
+      const result = await db.insert(warehouseStockTable).values({ warehouseId: wh.id, productId: null, variantId: v.id, quantity: 0, updatedAt: now }).catch(() => null);
+      if (result) inserted++;
+    }
+  }
+
+  res.json({ success: true, message: `تمت المزامنة: ${inserted} صف جديد أُضيف`, warehouses: allWarehouses.length, products: allProducts.length, variants: allVariants.length });
 });
 
 export default router;

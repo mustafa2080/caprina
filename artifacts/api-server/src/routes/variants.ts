@@ -92,6 +92,15 @@ router.post("/products/:productId/variants", requireRole("admin", "warehouse"), 
 
   await logAudit({ action: "create", entityType: "variant", entityId: variant.id, entityName: `${product.name} — ${variant.color} ${variant.size}`, after: { color: variant.color, size: variant.size, totalQuantity: variant.totalQuantity }, userId: req.user?.id, userName: req.user?.displayName });
 
+  // ── تلقائياً: أضف صف بكمية 0 في كل المخازن الموجودة ──────────────────────
+  try {
+    const allWarehouses = await db.select({ id: warehousesTable.id }).from(warehousesTable);
+    const now = new Date();
+    for (const wh of allWarehouses) {
+      await db.insert(warehouseStockTable).values({ warehouseId: wh.id, productId: null, variantId: variant.id, quantity: 0, updatedAt: now }).catch(() => {});
+    }
+  } catch (_) {}
+
   res.status(201).json(variant);
 });
 

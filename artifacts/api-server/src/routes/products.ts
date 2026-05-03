@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, desc } from "drizzle-orm";
-import { db, productsTable } from "@workspace/db";
+import { db, productsTable, warehousesTable, warehouseStockTable } from "@workspace/db";
 import { z } from "zod";
 import { addStock } from "../lib/inventory.js";
 import { logAudit } from "../lib/audit.js";
@@ -46,6 +46,15 @@ router.post("/products", requireRole("admin", "warehouse"), async (req, res): Pr
   const [product] = await db.select().from(productsTable).where(eq(productsTable.id, insertId));
 
   await logAudit({ action: "create", entityType: "product", entityId: product.id, entityName: product.name, after: { name: product.name, unitPrice: product.unitPrice, totalQuantity: product.totalQuantity }, userId: req.user?.id, userName: req.user?.displayName });
+
+  // ── تلقائياً: أضف صف بكمية 0 في كل المخازن الموجودة ──────────────────────
+  try {
+    const allWarehouses = await db.select({ id: warehousesTable.id }).from(warehousesTable);
+    const now = new Date();
+    for (const wh of allWarehouses) {
+      await db.insert(warehouseStockTable).values({ warehouseId: wh.id, productId: product.id, variantId: null, quantity: 0, updatedAt: now }).catch(() => {});
+    }
+  } catch (_) {}
 
   res.status(201).json(product);
 });
