@@ -1,14 +1,9 @@
 #!/bin/bash
 # ─── Caprina Fix Transfer Columns + Rebuild API ──────────────────────────────
-# الاستخدام من أي مكان: bash /root/caprina/scripts/fix-transfer.sh
+# الاستخدام: bash /root/caprina/scripts/fix-transfer.sh
 # ─────────────────────────────────────────────────────────────────────────────
 
 ROOT="/root/caprina"
-DB_HOST="lavender-armadillo-743548.hostingersite.com"
-DB_PORT="3306"
-DB_USER="u144001284_caprina"
-DB_PASS="Capitan@123456"
-DB_NAME="u144001284_caprina"
 
 echo "================================================================"
 echo "  Caprina — Fix Transfer (from_location / to_location)"
@@ -21,35 +16,61 @@ cd "$ROOT"
 git pull
 echo ""
 
-# ── Step 2: Migration ─────────────────────────────────────────────
+# ── Step 2: Migration via Node.js ─────────────────────────────────
 echo "🗄️  [2/4] DB Migration — إضافة الأعمدة..."
 
-HAS_FROM=$(mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" "-p${DB_PASS}" "$DB_NAME" -sN -e \
-  "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='inventory_movements' AND COLUMN_NAME='from_location' AND TABLE_SCHEMA='${DB_NAME}';" 2>/dev/null)
+node --input-type=module << 'NODESCRIPT'
+import { createConnection } from 'mysql2/promise';
 
-HAS_TO=$(mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" "-p${DB_PASS}" "$DB_NAME" -sN -e \
-  "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='inventory_movements' AND COLUMN_NAME='to_location' AND TABLE_SCHEMA='${DB_NAME}';" 2>/dev/null)
+const url = process.env.DATABASE_URL;
+// parse: mysql://user:pass@host:port/db
+const match = url.match(/mysql:\/\/([^:]+):(.+)@([^:]+):(\d+)\/(.+)/);
+if (!match) { console.error('❌ DATABASE_URL parse failed:', url); process.exit(1); }
+const [, user, password, host, port, database] = match;
 
-if [ "$HAS_FROM" = "1" ] && [ "$HAS_TO" = "1" ]; then
-  echo "  ✅ الأعمدة موجودة بالفعل — مفيش حاجة يتعمل."
-else
-  echo "  ➕ إضافة الأعمدة الناقصة..."
-  [ "$HAS_FROM" != "1" ] && \
-    mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" "-p${DB_PASS}" "$DB_NAME" \
-      -e "ALTER TABLE inventory_movements ADD COLUMN from_location VARCHAR(255) NULL;" 2>&1 && \
-    echo "  ✅ from_location اتضاف"
+const conn = await createConnection({ host, port: parseInt(port), user, password, database, connectTimeout: 30000 });
 
-  [ "$HAS_TO" != "1" ] && \
-    mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" "-p${DB_PASS}" "$DB_NAME" \
-      -e "ALTER TABLE inventory_movements ADD COLUMN to_location VARCHAR(255) NULL;" 2>&1 && \
-    echo "  ✅ to_location اتضاف"
+// check from_location
+const [[{cnt1}]] = await conn.query(
+  `SELECT COUNT(*) as cnt1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='inventory_movements' AND COLUMN_NAME='from_location' AND TABLE_SCHEMA=?`,
+  [database]
+);
+// check to_location
+const [[{cnt2}]] = await conn.query(
+  `SELECT COUNT(*) as cnt2 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='inventory_movements' AND COLUMN_NAME='to_location' AND TABLE_SCHEMA=?`,
+  [database]
+);
+
+if (cnt1 > 0 && cnt2 > 0) {
+  console.log('  ✅ الأعمدة موجودة بالفعل — مفيش حاجة يتعمل.');
+} else {
+  if (cnt1 === 0) {
+    await conn.query(`ALTER TABLE inventory_movements ADD COLUMN from_location VARCHAR(255) NULL`);
+    console.log('  ✅ from_location اتضاف');
+  }
+  if (cnt2 === 0) {
+    await conn.query(`ALTER TABLE inventory_movements ADD COLUMN to_location VARCHAR(255) NULL`);
+    console.log('  ✅ to_location اتضاف');
+  }
+}
+
+const [cols] = await conn.query(
+  `SELECT COLUMN_NAME, COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='inventory_movements' AND TABLE_SCHEMA=? ORDER BY ORDINAL_POSITION`,
+  [database]
+);
+console.log('\n  📋 أعمدة inventory_movements:');
+cols.forEach(c => console.log(`    ${c.COLUMN_NAME} — ${c.COLUMN_TYPE}`));
+
+await conn.end();
+NODESCRIPT
+
+MIGRATION_STATUS=$?
+echo ""
+
+if [ $MIGRATION_STATUS -ne 0 ]; then
+  echo "❌ Migration فشل — شوف الـ error فوق"
+  exit 1
 fi
-
-echo ""
-echo "  📋 هيكل الجدول الحالي:"
-mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" "-p${DB_PASS}" "$DB_NAME" \
-  -e "SELECT COLUMN_NAME, COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='inventory_movements' AND TABLE_SCHEMA='${DB_NAME}' ORDER BY ORDINAL_POSITION;" 2>/dev/null
-echo ""
 
 # ── Step 3: Build API Server ──────────────────────────────────────
 echo "🔧 [3/4] Build API Server..."
