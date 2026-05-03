@@ -353,65 +353,105 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
   const parsed = DeliveryStatusSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   const { deliveryStatus, deliveryNote, partialQuantity, returnReceived, partialReturnReceived } = parsed.data;
+
   const [link] = await db.select().from(shippingManifestOrdersTable)
     .where(and(eq(shippingManifestOrdersTable.manifestId, manifestId), eq(shippingManifestOrdersTable.orderId, orderId)));
   if (!link) { res.status(404).json({ error: "الطلب غير موجود في هذا البيان" }); return; }
+
   const [existingOrder] = await db.select().from(ordersTable).where(eq(ordersTable.id, orderId));
   if (!existingOrder) { res.status(404).json({ error: "الطلب غير موجود" }); return; }
-  const oldStatus = existingOrder.status;
-  const newStatus = STATUS_MAP[deliveryStatus] ?? "in_shipping";
+
+  // ─── الحالات القديمة ───────────────────────────────────────────────────────
+  const oldDeliveryStatus = link.deliveryStatus; // الحالة القديمة في البيان
+  const oldOrderStatus    = existingOrder.status; // الحالة القديمة في الطلب
+  const oldReturnReceived = link.returnReceived;  // هل تم استلام المرتجع قبل كده؟
+
+  const newStatus  = STATUS_MAP[deliveryStatus] ?? "in_shipping";
   const isDelivered = deliveryStatus === "delivered" || deliveryStatus === "partial_received";
+
+  // ─── تحديث جدول البيان ────────────────────────────────────────────────────
   await db.update(shippingManifestOrdersTable).set({
-    deliveryStatus, deliveryNote: deliveryNote ?? null,
+    deliveryStatus,
+    deliveryNote: deliveryNote ?? null,
     partialQuantity: deliveryStatus === "partial_received" && partialQuantity != null ? partialQuantity : null,
     deliveredAt: isDelivered ? new Date() : null,
     ...(deliveryStatus === "partial_received" && partialReturnReceived != null ? { returnReceived: partialReturnReceived ? 1 : 0 } : {}),
-    ...(deliveryStatus === "returned" && returnReceived != null ? { returnReceived: returnReceived ? 1 : 0 } : deliveryStatus !== "returned" && deliveryStatus !== "partial_received" ? { returnReceived: null } : {}),
+    ...(deliveryStatus === "returned" && returnReceived != null
+      ? { returnReceived: returnReceived ? 1 : 0 }
+      : deliveryStatus !== "returned" && deliveryStatus !== "partial_received"
+        ? { returnReceived: null }
+        : {}),
   }).where(eq(shippingManifestOrdersTable.id, link.id));
+
+  // ─── تحديث جدول الطلبات ───────────────────────────────────────────────────
   const orderUpdate: Record<string, unknown> = { status: newStatus };
   if (deliveryStatus === "partial_received" && partialQuantity != null) orderUpdate.partialQuantity = partialQuantity;
   if (deliveryStatus === "partial_received" && partialReturnReceived != null) orderUpdate.returnReceived = partialReturnReceived ? 1 : 0;
   if (deliveryStatus === "returned" && returnReceived != null) orderUpdate.returnReceived = returnReceived ? 1 : 0;
   else if (deliveryStatus !== "returned" && deliveryStatus !== "partial_received") orderUpdate.returnReceived = null;
   await db.update(ordersTable).set(orderUpdate).where(eq(ordersTable.id, orderId));
-  if (newStatus !== oldStatus) {
-    const orderRef = { variantId: existingOrder.variantId, productId: existingOrder.productId, product: existingOrder.product, color: existingOrder.color, size: existingOrder.size, warehouseId: existingOrder.warehouseId };
-    if (deliveryStatus === "delivered") {
-      if (oldStatus === "partial_received") {
-        // الجزء المتبقي عند شركة الشحن → نسجله كبيع بس (الكمية الكلية اتخصمت مسبقاً بـ processToShipping)
-        const r = existingOrder.quantity - (existingOrder.partialQuantity ?? 0);
-        if (r > 0) await processDelivery(orderRef, r, "sale", orderId, true); // skipWarehouseStock=true لأن الكمية اتخصمت مسبقاً
-      } else if (oldStatus !== "received") {
-        // طلب جديد كان in_shipping → سجل البيع بدون خصم مخزون (اتخصم بـ processToShipping)
-        await processDelivery(orderRef, existingOrder.quantity, "sale", orderId, true);
-      }
-    } else if (deliveryStatus === "partial_received") {
-      const prevPartial = oldStatus === "partial_received" ? (existingOrder.partialQuantity ?? 0) : 0;
-      const delta = (partialQuantity ?? 0) - prevPartial;
-      // delta > 0: استلم كمية إضافية → سجل بيع جزئي (الكمية اتخصمت مسبقاً بـ processToShipping)
-      if (delta > 0) await processDelivery(orderRef, delta, "partial_sale", orderId, true);
-      // delta < 0: تراجع عن استلام كمية → أرجعها للمخزون
-      else if (delta < 0) await reverseDelivery(orderRef, Math.abs(delta), orderId);
-    } else if (deliveryStatus === "returned") {
-      const wasPartial = oldStatus === "partial_received";
-      const wasReceived = oldStatus === "received" || wasPartial;
-      if (wasReceived) {
-        // كان استلم جزء → أرجع الجزء ده للمخزون
-        const qty = wasPartial ? (existingOrder.partialQuantity ?? existingOrder.quantity) : existingOrder.quantity;
-        await processReturn({ ...orderRef, quantity: qty }, true, false, orderId);
-        // الجزء المتبقي عند شركة الشحن (لو partial) → أرجعه كمان للمخزون
-        if (wasPartial) {
-          const remaining = existingOrder.quantity - (existingOrder.partialQuantity ?? 0);
+
+  // ─── منطق المخزون ─────────────────────────────────────────────────────────
+  // نشتغل على الحالة القديمة في البيان (oldDeliveryStatus) مش على status الطلب
+  // لأن status الطلب ممكن يكون نفسه لو الحالة اتغيرت جزئياً
+  const orderRef = {
+    variantId:   existingOrder.variantId,
+    productId:   existingOrder.productId,
+    product:     existingOrder.product,
+    color:       existingOrder.color,
+    size:        existingOrder.size,
+    warehouseId: existingOrder.warehouseId,
+  };
+  const totalQty   = existingOrder.quantity;
+  const oldPartial = existingOrder.partialQuantity ?? 0;
+
+  // ── CASE 1: تم الاستلام الكامل ─────────────────────────────────────────────
+  if (deliveryStatus === "delivered") {
+    if (oldDeliveryStatus === "partial_received") {
+      // الجزء المتبقي كان عند شركة الشحن → سجل بيع للجزء الباقي فقط
+      const remaining = totalQty - oldPartial;
+      if (remaining > 0) await processDelivery(orderRef, remaining, "sale", orderId, true);
+    } else if (oldDeliveryStatus !== "delivered") {
+      // كان عند شركة الشحن → سجل بيع للكمية كلها
+      await processDelivery(orderRef, totalQty, "sale", orderId, true);
+    }
+
+  // ── CASE 2: استلام جزئي ────────────────────────────────────────────────────
+  } else if (deliveryStatus === "partial_received") {
+    const prevPartial = oldDeliveryStatus === "partial_received" ? oldPartial : 0;
+    const delta = (partialQuantity ?? 0) - prevPartial;
+    if (delta > 0) await processDelivery(orderRef, delta, "partial_sale", orderId, true);
+    else if (delta < 0) await reverseDelivery(orderRef, Math.abs(delta), orderId);
+
+  // ── CASE 3: مرتجع ─────────────────────────────────────────────────────────
+  } else if (deliveryStatus === "returned") {
+    const alreadyReturnedToStock = Number(oldReturnReceived) === 1;
+    if (!alreadyReturnedToStock) {
+      // لو returnReceived = true → المستخدم بيقول "المرتجع وصل المخزن" → ارجع الكمية
+      if (returnReceived === true) {
+        if (oldDeliveryStatus === "partial_received") {
+          // أرجع الجزء اللي استُلم للمخزون
+          if (oldPartial > 0) await processReturn({ ...orderRef, quantity: oldPartial }, true, false, orderId);
+          // أرجع الجزء اللي كان عند شركة الشحن للمخزون
+          const remaining = totalQty - oldPartial;
           if (remaining > 0) await reverseShipping(orderRef, remaining, orderId);
+        } else if (oldDeliveryStatus === "delivered" || oldDeliveryStatus === "returned") {
+          // كان استلمه وبيرجعه → أرجع للمخزون
+          await processReturn({ ...orderRef, quantity: totalQty }, true, false, orderId);
+        } else {
+          // كان عند شركة الشحن ولسه ما استُلمش → أرجع الكمية كلها للمخزون من الشحن
+          await reverseShipping(orderRef, totalQty, orderId);
         }
-      } else {
-        // لم يُسلَّم أصلاً، كان عند شركة الشحن → أرجع الكمية كلها للمخزون
-        await reverseShipping(orderRef, existingOrder.quantity, orderId);
       }
-    } else {
-      // تغيير لحالة أخرى (pending/postponed)
-      if (oldStatus === "received") await reverseDelivery(orderRef, existingOrder.quantity, orderId);
-      else if (oldStatus === "partial_received") { const d = existingOrder.partialQuantity ?? 0; if (d > 0) await reverseDelivery(orderRef, d, orderId); }
+      // لو returnReceived = false أو null → المرتجع لسه عند شركة الشحن → لا تغيير في المخزون
+    }
+
+  // ── CASE 4: تغيير لحالة أخرى (pending/postponed) ─────────────────────────
+  } else {
+    if (oldDeliveryStatus === "delivered") {
+      await reverseDelivery(orderRef, totalQty, orderId);
+    } else if (oldDeliveryStatus === "partial_received") {
+      if (oldPartial > 0) await reverseDelivery(orderRef, oldPartial, orderId);
     }
   }
   if (existingOrder.invoiceNumber?.trim()) {

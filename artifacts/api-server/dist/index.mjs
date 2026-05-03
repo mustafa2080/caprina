@@ -148473,7 +148473,9 @@ router12.patch("/shipping-manifests/:id/orders/:orderId", async (req, res) => {
     res.status(404).json({ error: "\u0627\u0644\u0637\u0644\u0628 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
     return;
   }
-  const oldStatus = existingOrder.status;
+  const oldDeliveryStatus = link.deliveryStatus;
+  const oldOrderStatus = existingOrder.status;
+  const oldReturnReceived = link.returnReceived;
   const newStatus = STATUS_MAP[deliveryStatus] ?? "in_shipping";
   const isDelivered = deliveryStatus === "delivered" || deliveryStatus === "partial_received";
   await db.update(shippingManifestOrdersTable).set({
@@ -148490,39 +148492,48 @@ router12.patch("/shipping-manifests/:id/orders/:orderId", async (req, res) => {
   if (deliveryStatus === "returned" && returnReceived != null) orderUpdate.returnReceived = returnReceived ? 1 : 0;
   else if (deliveryStatus !== "returned" && deliveryStatus !== "partial_received") orderUpdate.returnReceived = null;
   await db.update(ordersTable).set(orderUpdate).where(eq(ordersTable.id, orderId));
-  if (newStatus !== oldStatus) {
-    const orderRef = { variantId: existingOrder.variantId, productId: existingOrder.productId, product: existingOrder.product, color: existingOrder.color, size: existingOrder.size, warehouseId: existingOrder.warehouseId };
-    if (deliveryStatus === "delivered") {
-      if (oldStatus === "partial_received") {
-        const r = existingOrder.quantity - (existingOrder.partialQuantity ?? 0);
-        if (r > 0) await processDelivery(orderRef, r, "sale", orderId, true);
-      } else if (oldStatus !== "received") {
-        await processDelivery(orderRef, existingOrder.quantity, "sale", orderId, true);
-      }
-    } else if (deliveryStatus === "partial_received") {
-      const prevPartial = oldStatus === "partial_received" ? existingOrder.partialQuantity ?? 0 : 0;
-      const delta = (partialQuantity ?? 0) - prevPartial;
-      if (delta > 0) await processDelivery(orderRef, delta, "partial_sale", orderId, true);
-      else if (delta < 0) await reverseDelivery(orderRef, Math.abs(delta), orderId);
-    } else if (deliveryStatus === "returned") {
-      const wasPartial = oldStatus === "partial_received";
-      const wasReceived = oldStatus === "received" || wasPartial;
-      if (wasReceived) {
-        const qty = wasPartial ? existingOrder.partialQuantity ?? existingOrder.quantity : existingOrder.quantity;
-        await processReturn({ ...orderRef, quantity: qty }, true, false, orderId);
-        if (wasPartial) {
-          const remaining = existingOrder.quantity - (existingOrder.partialQuantity ?? 0);
+  const orderRef = {
+    variantId: existingOrder.variantId,
+    productId: existingOrder.productId,
+    product: existingOrder.product,
+    color: existingOrder.color,
+    size: existingOrder.size,
+    warehouseId: existingOrder.warehouseId
+  };
+  const totalQty = existingOrder.quantity;
+  const oldPartial = existingOrder.partialQuantity ?? 0;
+  if (deliveryStatus === "delivered") {
+    if (oldDeliveryStatus === "partial_received") {
+      const remaining = totalQty - oldPartial;
+      if (remaining > 0) await processDelivery(orderRef, remaining, "sale", orderId, true);
+    } else if (oldDeliveryStatus !== "delivered") {
+      await processDelivery(orderRef, totalQty, "sale", orderId, true);
+    }
+  } else if (deliveryStatus === "partial_received") {
+    const prevPartial = oldDeliveryStatus === "partial_received" ? oldPartial : 0;
+    const delta = (partialQuantity ?? 0) - prevPartial;
+    if (delta > 0) await processDelivery(orderRef, delta, "partial_sale", orderId, true);
+    else if (delta < 0) await reverseDelivery(orderRef, Math.abs(delta), orderId);
+  } else if (deliveryStatus === "returned") {
+    const alreadyReturnedToStock = Number(oldReturnReceived) === 1;
+    if (!alreadyReturnedToStock) {
+      if (returnReceived === true) {
+        if (oldDeliveryStatus === "partial_received") {
+          if (oldPartial > 0) await processReturn({ ...orderRef, quantity: oldPartial }, true, false, orderId);
+          const remaining = totalQty - oldPartial;
           if (remaining > 0) await reverseShipping(orderRef, remaining, orderId);
+        } else if (oldDeliveryStatus === "delivered" || oldDeliveryStatus === "returned") {
+          await processReturn({ ...orderRef, quantity: totalQty }, true, false, orderId);
+        } else {
+          await reverseShipping(orderRef, totalQty, orderId);
         }
-      } else {
-        await reverseShipping(orderRef, existingOrder.quantity, orderId);
       }
-    } else {
-      if (oldStatus === "received") await reverseDelivery(orderRef, existingOrder.quantity, orderId);
-      else if (oldStatus === "partial_received") {
-        const d = existingOrder.partialQuantity ?? 0;
-        if (d > 0) await reverseDelivery(orderRef, d, orderId);
-      }
+    }
+  } else {
+    if (oldDeliveryStatus === "delivered") {
+      await reverseDelivery(orderRef, totalQty, orderId);
+    } else if (oldDeliveryStatus === "partial_received") {
+      if (oldPartial > 0) await reverseDelivery(orderRef, oldPartial, orderId);
     }
   }
   if (existingOrder.invoiceNumber?.trim()) {
