@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, and, gte, lte, or, like } from "drizzle-orm";
+import { eq, desc, and, gte, lte, or, like, sum } from "drizzle-orm";
 import {
   db,
   inventoryMovementsTable,
@@ -108,7 +108,56 @@ router.get("/inventory/movements/totals", async (req, res): Promise<void> => {
   const totalIn  = rows.filter(r => r.type === "IN").reduce((s, r) => s + r.quantity, 0);
   const totalOut = rows.filter(r => r.type === "OUT").reduce((s, r) => s + r.quantity, 0);
 
-  res.json({ totalIn, totalOut, balance: totalIn - totalOut });
+  // ── الرصيد الحقيقي من المخزون (إذا تم الفلتر على منتج معين) ──────────────
+  // الرصيد = الكمية الفعلية في المخازن (مش مجموع الحركات)
+  const { productId: pidStr, variantId: vidStr } = req.query as Record<string, string>;
+  let currentStock = 0;
+
+  if (vidStr) {
+    const vid = parseInt(vidStr);
+    if (!isNaN(vid)) {
+      const [row] = await db
+        .select({ total: sum(warehouseStockTable.quantity) })
+        .from(warehouseStockTable)
+        .where(eq(warehouseStockTable.variantId, vid));
+      currentStock = Number(row?.total ?? 0);
+    }
+  } else if (pidStr) {
+    const pid = parseInt(pidStr);
+    if (!isNaN(pid)) {
+      // جيب الـ variants الخاصة بالمنتج واجمع مخزونها
+      const variants = await db
+        .select({ id: productVariantsTable.id })
+        .from(productVariantsTable)
+        .where(eq(productVariantsTable.productId, pid));
+
+      if (variants.length > 0) {
+        // مخزون الـ variants
+        for (const v of variants) {
+          const [row] = await db
+            .select({ total: sum(warehouseStockTable.quantity) })
+            .from(warehouseStockTable)
+            .where(eq(warehouseStockTable.variantId, v.id));
+          currentStock += Number(row?.total ?? 0);
+        }
+      } else {
+        // مخزون المنتج مباشرة (بدون variants)
+        const [row] = await db
+          .select({ total: sum(warehouseStockTable.quantity) })
+          .from(warehouseStockTable)
+          .where(eq(warehouseStockTable.productId, pid));
+        currentStock = Number(row?.total ?? 0);
+      }
+    }
+  }
+
+  res.json({
+    totalIn,
+    totalOut,
+    balance: totalIn - totalOut,
+    // الرصيد الحقيقي من المخزون — يظهر في المربع "الرصيد" لما يكون في فلتر على منتج
+    currentStock: (pidStr || vidStr) ? currentStock : null,
+  });
 });
 
 // ─── Create manual movement ────────────────────────────────────────────────────

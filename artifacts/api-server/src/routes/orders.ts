@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, like, or, gte, and, isNull, isNotNull, inArray, notInArray } from "drizzle-orm";
-import { db, ordersTable, productsTable, productVariantsTable, shippingManifestOrdersTable, shippingManifestsTable, shippingCompaniesTable } from "@workspace/db";
+import { db, ordersTable, productsTable, productVariantsTable, shippingManifestOrdersTable, shippingManifestsTable, shippingCompaniesTable, inventoryMovementsTable } from "@workspace/db";
 import {
   ListOrdersQueryParams,
   ListOrdersResponse,
@@ -529,11 +529,48 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
   const newStatus = data.status ?? oldStatus;
   if (newStatus !== oldStatus) {
     const orderRef = { variantId: existing.variantId, productId: existing.productId, product: existing.product, color: existing.color, size: existing.size, warehouseId: existing.warehouseId };
-    if (newStatus === "in_shipping")                                 await processToShipping(orderRef, existing.quantity, existing.id).catch(() => {});
-    if (newStatus === "received")                                    await processDelivery(orderRef, existing.quantity, "sale", existing.id).catch(() => {});
-    if (newStatus === "returned")                                    await processReturn({ ...orderRef, quantity: existing.quantity }, true, false, existing.id).catch(() => {});
-    if (oldStatus === "in_shipping" && newStatus !== "in_shipping") await reverseShipping(orderRef, existing.quantity, existing.id).catch(() => {});
-    if (oldStatus === "received"   && newStatus !== "received")     await reverseDelivery(orderRef, existing.quantity, existing.id).catch(() => {});
+
+    // ── منطق حركات المخزون ──────────────────────────────────────────────────
+    // القاعدة: الخصم الحقيقي من المخزون يحدث مرة واحدة فقط عند الإرسال للشحن.
+    // لما الأوردر يتسلم (received) نغير سبب الحركة الموجودة لـ "sale" بدل إنشاء حركة جديدة.
+
+    if (newStatus === "in_shipping" && oldStatus !== "in_shipping") {
+      // إرسال للشحن لأول مرة → اخصم من المخزون وسجّل "to_shipping"
+      await processToShipping(orderRef, existing.quantity, existing.id).catch(() => {});
+    }
+
+    if (newStatus === "received" && oldStatus === "in_shipping") {
+      // كان في الشحن وتسلّم → غيّر سبب الحركة الموجودة من to_shipping لـ sale (لا خصم جديد)
+      await db.update(inventoryMovementsTable)
+        .set({ reason: "sale" })
+        .where(and(eq(inventoryMovementsTable.orderId, existing.id), eq(inventoryMovementsTable.reason, "to_shipping" as any)))
+        .catch(() => {});
+    } else if (newStatus === "received" && oldStatus !== "in_shipping") {
+      // لم يمر بالشحن → اخصم من المخزون مباشرة كبيع
+      await processDelivery(orderRef, existing.quantity, "sale", existing.id).catch(() => {});
+    }
+
+    if (newStatus === "partial_received" && oldStatus === "in_shipping") {
+      // استلام جزئي من الشحن → غيّر السبب لـ partial_sale
+      await db.update(inventoryMovementsTable)
+        .set({ reason: "partial_sale" })
+        .where(and(eq(inventoryMovementsTable.orderId, existing.id), eq(inventoryMovementsTable.reason, "to_shipping" as any)))
+        .catch(() => {});
+    }
+
+    if (newStatus === "returned") {
+      // مرتجع — لو كان received أو partial_received → أرجع للمخزون
+      const wasReceived = oldStatus === "received" || oldStatus === "partial_received";
+      await processReturn({ ...orderRef, quantity: existing.quantity }, wasReceived, false, existing.id).catch(() => {});
+    }
+
+    if (oldStatus === "in_shipping" && newStatus !== "in_shipping" && newStatus !== "received" && newStatus !== "partial_received" && newStatus !== "returned") {
+      // إلغاء الشحن (رجع لـ pending مثلاً) → أرجع المخزون
+      await reverseShipping(orderRef, existing.quantity, existing.id).catch(() => {});
+    }
+    if (oldStatus === "received" && newStatus !== "received") {
+      await reverseDelivery(orderRef, existing.quantity, existing.id).catch(() => {});
+    }
   }
 
   const before = { customerName: existing.customerName, product: existing.product, status: existing.status, quantity: existing.quantity, unitPrice: existing.unitPrice };
