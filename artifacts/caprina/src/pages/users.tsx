@@ -37,6 +37,7 @@ const ALL_PERMISSIONS = [
   { key: "whatsapp", label: "إعدادات واتساب" },
 ];
 
+const ORDERS_WRITE_PERMISSION = { key: "orders_write", label: "تعديل الطلبات", desc: "يقدر يضيف ويعدل ويحذف الطلبات ويشوف أيقونة واتساب — بدون هذه الصلاحية يكون الوصول للطلبات للعرض فقط" };
 const FINANCIAL_PERMISSION = { key: "view_financials", label: "عرض الأرباح والتكاليف", desc: "يرى الأرباح والخسائر والتكاليف في كل التقارير" };
 const EDIT_INVENTORY_PERMISSION = { key: "edit_inventory", label: "تعديل المخزون", desc: "يقدر يضيف ويعدل ويحذف المنتجات والمقاسات" };
 const EDIT_DELETE_INVENTORY_PERMISSION = { key: "edit_delete_inventory", label: "إظهار أزرار التعديل والحذف في المخزون", desc: "يظهر أزرار تعديل وحذف المنتجات والـ SKU في صفحة المخزون" };
@@ -79,6 +80,7 @@ const DEFAULT_PERMISSIONS: Record<string, () => string[]> = {
   admin: () => [
     ...ALL_PERMISSIONS.map(p => p.key),
     FINANCIAL_PERMISSION.key,
+    ORDERS_WRITE_PERMISSION.key,
     EDIT_INVENTORY_PERMISSION.key,
     EDIT_DELETE_INVENTORY_PERMISSION.key,
     VIEW_PRODUCT_PERF_PERMISSION.key,
@@ -377,6 +379,7 @@ export default function UsersPage() {
               </div>
               <div className="space-y-2">
                 {[
+                  { perm: ORDERS_WRITE_PERMISSION,          color: "indigo",  icon: <Package     className="w-3.5 h-3.5 text-indigo-400" />,  badge: null    },
                   { perm: FINANCIAL_PERMISSION,              color: "amber",   icon: <TrendingUp  className="w-3.5 h-3.5 text-amber-500" />,   badge: "حساسة" },
                   { perm: EDIT_INVENTORY_PERMISSION,         color: "emerald", icon: <Package     className="w-3.5 h-3.5 text-emerald-500" />, badge: null    },
                   { perm: EDIT_DELETE_INVENTORY_PERMISSION,  color: "rose",    icon: <ToggleLeft  className="w-3.5 h-3.5 text-rose-500" />,    badge: null    },
@@ -393,10 +396,11 @@ export default function UsersPage() {
                         : color === "rose"    ? "border-rose-500/50 bg-rose-500/5"
                         : color === "violet"  ? "border-violet-500/50 bg-violet-500/5"
                         : color === "orange"  ? "border-orange-500/50 bg-orange-500/5"
+                        : color === "indigo"  ? "border-indigo-500/50 bg-indigo-500/5"
                                              : "border-blue-500/50 bg-blue-500/5"
                         : "border-border bg-muted/10 hover:border-muted-foreground/40"}`}>
                       <input type="checkbox" checked={active} onChange={() => togglePermission(perm.key)}
-                        className={`w-4 h-4 rounded shrink-0 ${color === "amber" ? "accent-amber-500" : color === "emerald" ? "accent-emerald-500" : color === "rose" ? "accent-rose-500" : color === "violet" ? "accent-violet-500" : color === "orange" ? "accent-orange-500" : "accent-blue-500"}`} />
+                        className={`w-4 h-4 rounded shrink-0 ${color === "amber" ? "accent-amber-500" : color === "emerald" ? "accent-emerald-500" : color === "rose" ? "accent-rose-500" : color === "violet" ? "accent-violet-500" : color === "orange" ? "accent-orange-500" : color === "indigo" ? "accent-indigo-500" : "accent-blue-500"}`} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           {icon}

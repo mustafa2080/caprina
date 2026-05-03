@@ -57,7 +57,8 @@ export default function OrderDetail() {
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { isAdmin, canViewFinancials } = useAuth();
+  const { isAdmin, canViewFinancials, user } = useAuth();
+  const canWriteOrders = isAdmin || (user?.permissions?.includes("orders_write") ?? false);
   const [isEditing, setIsEditing] = useState(false);
   const [showPartialInput, setShowPartialInput] = useState(false);
   const [partialQty, setPartialQty] = useState("");

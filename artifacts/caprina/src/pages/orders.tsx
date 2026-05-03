@@ -59,6 +59,8 @@ export default function Orders() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { user, isAdmin } = useAuth();
+  // canWriteOrders: أدمن أو عنده صلاحية orders_write
+  const canWriteOrders = isAdmin || (user?.permissions?.includes("orders_write") ?? false);
   const updateOrder = useUpdateOrder();
   const [waOrder, setWaOrder] = useState<WhatsAppOrderData | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -86,8 +88,6 @@ export default function Orders() {
     return new Date(o.createdAt) >= new Date(dateFrom);
   }) ?? [];
 
-  // ─── Orders already grouped by invoiceNumber from the backend ───────────
-  // Backend returns one merged row per invoice, with _groupIds & _groupCount
   const filtered = rawFiltered;
 
   const hasActiveFilter = search || status !== "all" || dateFrom;
@@ -192,7 +192,7 @@ export default function Orders() {
           <p className="text-muted-foreground text-sm mt-0.5">إدارة وتتبع جميع الطلبات</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap justify-end">
-          {isAdmin && (bulkSelectMode ? (
+          {canWriteOrders && (bulkSelectMode ? (
             <>
               <Button variant="outline" size="sm" className="gap-1 text-xs h-9" onClick={exitBulkMode}>
                 <X className="w-3.5 h-3.5" />إلغاء
@@ -283,7 +283,7 @@ export default function Orders() {
                 <X className="w-3 h-3" />مسح الفلاتر
               </Button>
             )}
-            {bulkSelectMode && filtered.length > 0 && isAdmin && (
+            {bulkSelectMode && filtered.length > 0 && canWriteOrders && (
               <Button variant="ghost" size="sm" className="h-8 text-xs gap-1 mr-auto" onClick={toggleSelectAll}>
                 {selectedIds.size === filtered.length ? "إلغاء تحديد الكل" : `تحديد الكل (${filtered.length})`}
               </Button>
@@ -301,7 +301,7 @@ export default function Orders() {
                 const isGroup = !!(order as any)._groupCount && (order as any)._groupCount > 1;
                 const waStatuses = new Set(["pending","in_shipping","delayed"]);
                 const groupStatuses: string[] = (order as any)._groupStatuses ?? [order.status];
-                const canWhatsApp = isAdmin && !bulkSelectMode && groupStatuses.some(s => waStatuses.has(s));
+                const canWhatsApp = canWriteOrders && !bulkSelectMode && groupStatuses.some(s => waStatuses.has(s));
                 const retReason = (order as any).returnReason as string | null;
                 const retNote   = (order as any).returnNote   as string | null;
                 const isSelected = isGroupSelected(order);
@@ -313,9 +313,9 @@ export default function Orders() {
                   <div
                     key={order.id}
                     className={`flex items-center gap-3 px-4 py-3 hover:bg-muted/10 active:bg-muted/20 cursor-pointer ${isSelected ? "bg-primary/5" : ""}`}
-                    onClick={() => isAdmin && bulkSelectMode ? toggleSelect(order) : (window.location.href = navTarget)}
+                    onClick={() => canWriteOrders && bulkSelectMode ? toggleSelect(order) : (window.location.href = navTarget)}
                   >
-                    {isAdmin && bulkSelectMode && (
+                    {canWriteOrders && bulkSelectMode && (
                       <Checkbox checked={isSelected} onCheckedChange={() => toggleSelect(order)} onClick={e => e.stopPropagation()} className="shrink-0" />
                     )}
                     <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-foreground shrink-0">
@@ -390,7 +390,7 @@ export default function Orders() {
               <Table>
                 <TableHeader>
                   <TableRow className="border-border hover:bg-transparent">
-                    {isAdmin && bulkSelectMode && (
+                    {canWriteOrders && bulkSelectMode && (
                       <TableHead className="w-10 text-center">
                         <Checkbox checked={selectedIds.size === filtered.length && filtered.length > 0} onCheckedChange={toggleSelectAll} />
                       </TableHead>
@@ -412,7 +412,7 @@ export default function Orders() {
                     const isGroup = !!(order as any)._groupCount && (order as any)._groupCount > 1;
                     const waStatuses = new Set(["pending","in_shipping","delayed"]);
                     const groupStatuses: string[] = (order as any)._groupStatuses ?? [order.status];
-                    const canWhatsApp = isAdmin && !bulkSelectMode && groupStatuses.some(s => waStatuses.has(s));
+                    const canWhatsApp = canWriteOrders && !bulkSelectMode && groupStatuses.some(s => waStatuses.has(s));
                     const isSelected  = isGroupSelected(order);
                     const groupCount = (order as any)._groupCount as number | undefined;
                     const navTarget = isGroup && order.invoiceNumber
@@ -422,9 +422,9 @@ export default function Orders() {
                       <TableRow
                         key={order.id}
                         className={`border-border hover:bg-muted/20 cursor-pointer ${isSelected ? "bg-primary/5" : ""}`}
-                        onClick={() => isAdmin && bulkSelectMode ? toggleSelect(order) : (window.location.href = navTarget)}
+                        onClick={() => canWriteOrders && bulkSelectMode ? toggleSelect(order) : (window.location.href = navTarget)}
                       >
-                        {isAdmin && bulkSelectMode && (
+                        {canWriteOrders && bulkSelectMode && (
                           <TableCell className="text-center p-2">
                             <Checkbox checked={isSelected} onCheckedChange={() => toggleSelect(order)} onClick={e => e.stopPropagation()} />
                           </TableCell>
