@@ -564,5 +564,41 @@ export async function reverseShipping(
   }
 }
 
+/**
+ * تغيير reason الحركة الموجودة (بدون خصم مخزون جديد).
+ * يُستخدم لما الأوردر يتحول من to_shipping → sale/partial_sale
+ * بدل ما تتعمل حركة جديدة.
+ */
+export async function updateMovementReason(
+  orderId: number,
+  oldReason: MovementReason,
+  newReason: MovementReason,
+  notes?: string | null,
+): Promise<boolean> {
+  const [movement] = await db
+    .select({ id: inventoryMovementsTable.id })
+    .from(inventoryMovementsTable)
+    .where(
+      and(
+        eq(inventoryMovementsTable.orderId, orderId),
+        eq(inventoryMovementsTable.reason, oldReason),
+      )
+    )
+    .orderBy(inventoryMovementsTable.id)
+    .limit(1);
+
+  if (!movement) return false;
+
+  await db
+    .update(inventoryMovementsTable)
+    .set({
+      reason: newReason,
+      ...(notes !== undefined ? { notes } : {}),
+    })
+    .where(eq(inventoryMovementsTable.id, movement.id));
+
+  return true;
+}
+
 // Legacy exports
 export const RESERVED_STATUSES: string[] = [];

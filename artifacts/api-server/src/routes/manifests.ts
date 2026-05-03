@@ -16,6 +16,7 @@ import {
   processReturn,
   processToShipping,
   reverseShipping,
+  updateMovementReason,
 } from "../lib/inventory";
 
 const router: IRouter = Router();
@@ -278,15 +279,31 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
         }))
       );
 
-      // ── جيب الطلبات لإعادة إضافتها للشحن في البيان الجديد ─────────────────
+      // ── جيب الطلبات وأضفها للبيان الجديد بدون خصم مخزون إضافي ─────────────
+      // المخزون اتخصم بالفعل لما الطلبات دخلت البيان الأول
+      // نعمل to_shipping جديدة في السجل بس (بدون تعديل المخزون = skipWarehouseStock=true)
       const allPendingIds = pendingLinks.map((l) => l.orderId);
       const pendingOrders = await db.select().from(ordersTable).where(inArray(ordersTable.id, allPendingIds));
 
-      // ── أرجع حالة الطلبات لـ pending وابعتها للشحن تاني ──────────────────
+      // ── سجّل حركة to_shipping للتوثيق فقط (بدون خصم من المخزون) ──────────
+      const { recordMovement, resolveInventoryTarget } = await import("../lib/inventory.js");
       for (const order of pendingOrders) {
-        // بعت للشحن تاني (خصم من المخزن + حركة to_shipping)
-        await processToShipping(buildOrderRef(order), order.quantity, order.id);
+        const { variantId, productId } = await resolveInventoryTarget(buildOrderRef(order));
+        await recordMovement({
+          product: order.product,
+          color: order.color,
+          size: order.size,
+          quantity: order.quantity,
+          type: "OUT",
+          reason: "to_shipping",
+          productId: productId ?? order.productId,
+          variantId: variantId ?? order.variantId,
+          warehouseId: order.warehouseId,
+          orderId: order.id,
+          notes: `تحويل للبيان الجديد ${newManifestNumber} (مُرحَّل)`,
+        });
       }
+
       await db.update(ordersTable)
         .set({ status: "in_shipping", shippingCompanyId: updated.shippingCompanyId })
         .where(inArray(ordersTable.id, allPendingIds));
@@ -509,15 +526,24 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
     // بس حدّث جدول البيان والطلب بدون منطق مخزون
   } else if (deliveryStatus === "delivered") {
     if (oldDeliveryStatus === "partial_received") {
-      // الجزء المتبقي (كان عند شركة الشحن) → الآن استُلم → بيع الباقي
+      // الجزء المتبقي (كان عند شركة الشحن) → الآن استُلم
+      // غيّر reason الجزء الأول من partial_sale → sale
+      await updateMovementReason(orderId, "partial_sale", "sale", "تم الاستلام الكامل");
+      // الجزء الباقي لم يخرج من المخزن بحركة منفصلة → سجّل بيع للباقي فقط
       const remaining = totalQty - oldPartialQty;
       if (remaining > 0) {
-        // skip=false لأن الجزء ده لم يخرج من المخزن مسبقاً (لسه في الشحن)
         await processDelivery(ref, remaining, "sale", orderId, false);
       }
     } else if (oldDeliveryStatus !== "delivered") {
-      // كان في الشحن → استُلم كله → بيع (skip=true: خرج بالفعل بـ to_shipping)
-      await processDelivery(ref, totalQty, "sale", orderId, true);
+      // كان في الشحن (to_shipping) → استُلم كله → غيّر reason من to_shipping لـ sale
+      const updated = await updateMovementReason(orderId, "to_shipping", "sale", "تم الاستلام — بيع");
+      if (!updated) {
+        // fallback: لو ما لقاش الحركة، سجّل بيع عادي (skip=true لأنها خرجت بالفعل)
+        await processDelivery(ref, totalQty, "sale", orderId, true);
+      } else {
+        // حدّث soldQuantity بس (المخزون خرج بالفعل)
+        // لا نعمل حركة جديدة — الحركة الموجودة اتغيرت reason بتاعتها
+      }
     }
 
   } else if (deliveryStatus === "partial_received") {
@@ -610,10 +636,12 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
 
       if (deliveryStatus === "delivered") {
         if (sibOldDeliveryStatus === "partial_received") {
+          await updateMovementReason(sib.o.id, "partial_sale", "sale", "تم الاستلام الكامل");
           const remaining = sibTotalQty - sibOldPartialQty;
           if (remaining > 0) await processDelivery(sibRef, remaining, "sale", sib.o.id, false);
         } else if (sibOldDeliveryStatus !== "delivered") {
-          await processDelivery(sibRef, sibTotalQty, "sale", sib.o.id, true);
+          const updated = await updateMovementReason(sib.o.id, "to_shipping", "sale", "تم الاستلام — بيع");
+          if (!updated) await processDelivery(sibRef, sibTotalQty, "sale", sib.o.id, true);
         }
       } else if (deliveryStatus === "partial_received") {
         const newPQ = partialQuantity ?? 0;
