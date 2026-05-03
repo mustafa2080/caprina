@@ -142875,7 +142875,8 @@ var MOVEMENT_REASONS = [
   "manual_out",
   "adjustment",
   "to_shipping",
-  "from_shipping"
+  "from_shipping",
+  "transfer"
 ];
 var inventoryMovementsTable = mysqlTable("inventory_movements", {
   id: int("id").primaryKey().autoincrement(),
@@ -142889,6 +142890,8 @@ var inventoryMovementsTable = mysqlTable("inventory_movements", {
   type: varchar("type", { length: 10 }).notNull(),
   reason: varchar("reason", { length: 50 }).notNull(),
   orderId: int("order_id"),
+  fromLocation: varchar("from_location", { length: 255 }),
+  toLocation: varchar("to_location", { length: 255 }),
   notes: text("notes"),
   createdAt: datetime("created_at").notNull().default(/* @__PURE__ */ new Date())
 });
@@ -145086,33 +145089,6 @@ function requireAuth(req, res, next) {
   next();
 }
 
-// src/middlewares/requireRole.ts
-function requireRole(...roles) {
-  return (req, res, next) => {
-    const user = req.user;
-    if (!user) {
-      res.status(401).json({ error: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D" });
-      return;
-    }
-    if (!roles.includes(user.role)) {
-      res.status(403).json({ error: "\u0644\u064A\u0633 \u0644\u062F\u064A\u0643 \u0635\u0644\u0627\u062D\u064A\u0629 \u0644\u0647\u0630\u0647 \u0627\u0644\u0639\u0645\u0644\u064A\u0629" });
-      return;
-    }
-    next();
-  };
-}
-function requireAdmin(req, res, next) {
-  const user = req.user;
-  if (!user || user.role !== "admin") {
-    res.status(403).json({ error: "\u0647\u0630\u0647 \u0627\u0644\u0639\u0645\u0644\u064A\u0629 \u062A\u062A\u0637\u0644\u0628 \u0635\u0644\u0627\u062D\u064A\u0629 \u0627\u0644\u0645\u062F\u064A\u0631" });
-    return;
-  }
-  next();
-}
-function isAdmin(req) {
-  return req.user?.role === "admin";
-}
-
 // src/routes/orders.ts
 var router2 = (0, import_express2.Router)();
 router2.use(requireAuth);
@@ -145133,8 +145109,6 @@ router2.get("/orders/stats", async (req, res) => {
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const all = await db.select().from(ordersTable).where(isNull(ordersTable.deletedAt));
   const groupByInvoice = (records) => {
-    const seen = /* @__PURE__ */ new Set();
-    const grouped = [];
     const aggregated = /* @__PURE__ */ new Map();
     for (const o of records) {
       const key = o.invoiceNumber ?? `solo-${o.id}`;
@@ -145173,10 +145147,7 @@ router2.get("/orders", async (req, res) => {
     if (isDashboard) {
       conditions.push(eq(ordersTable.status, params.data.status));
     } else {
-      const statusRows = await db.select({ invoiceNumber: ordersTable.invoiceNumber, id: ordersTable.id }).from(ordersTable).where(and(
-        isNull(ordersTable.deletedAt),
-        eq(ordersTable.status, params.data.status)
-      ));
+      const statusRows = await db.select({ invoiceNumber: ordersTable.invoiceNumber, id: ordersTable.id }).from(ordersTable).where(and(isNull(ordersTable.deletedAt), eq(ordersTable.status, params.data.status)));
       const invNums = /* @__PURE__ */ new Set();
       const soloIds = /* @__PURE__ */ new Set();
       for (const r of statusRows) {
@@ -145240,6 +145211,19 @@ router2.get("/orders", async (req, res) => {
     } catch (_2) {
     }
   }
+  const partialIds = rows.filter((o) => o.status === "partial_received").map((o) => o.id);
+  const manifestPartialMap = /* @__PURE__ */ new Map();
+  if (partialIds.length > 0) {
+    try {
+      const manifestLinks = await db.select({ orderId: shippingManifestOrdersTable.orderId, partialQuantity: shippingManifestOrdersTable.partialQuantity }).from(shippingManifestOrdersTable).where(inArray(shippingManifestOrdersTable.orderId, partialIds)).orderBy(desc(shippingManifestOrdersTable.id));
+      for (const link of manifestLinks) {
+        if (!manifestPartialMap.has(link.orderId) && link.partialQuantity != null) {
+          manifestPartialMap.set(link.orderId, link.partialQuantity);
+        }
+      }
+    } catch (_2) {
+    }
+  }
   const groupMap = /* @__PURE__ */ new Map();
   for (const o of rows) {
     const key = o.invoiceNumber ?? `solo-${o.id}`;
@@ -145256,11 +145240,29 @@ router2.get("/orders", async (req, res) => {
     if (fromOrder !== null && fromOrder !== void 0) return fromOrder;
     return manifestReturnMap.get(o.id) ?? null;
   };
+  const getPartialQuantity = (o) => {
+    const fromManifest = manifestPartialMap.get(o.id);
+    if (fromManifest != null) return fromManifest;
+    return o.partialQuantity ?? null;
+  };
+  const calcReceivedPrice = (o, pq) => {
+    if (o.status === "partial_received" && pq != null) {
+      const unit = o.unitPrice ?? (o.quantity > 0 ? Math.round(o.totalPrice / o.quantity) : o.totalPrice);
+      return Math.round(unit * pq);
+    }
+    return o.totalPrice;
+  };
   const grouped = filteredGroups.map((grp) => {
     if (grp.length === 1) {
       const rep2 = { ...grp[0] };
       rep2._invoiceOrders = [grp[0]];
       if (rep2.status === "returned") rep2.returnReceived = getReturnReceived(grp[0]);
+      if (rep2.status === "partial_received") {
+        const pq = getPartialQuantity(grp[0]);
+        rep2.partialQuantity = pq;
+        rep2._receivedPrice = calcReceivedPrice(grp[0], pq);
+        rep2._fullPrice = grp[0].totalPrice;
+      }
       return rep2;
     }
     const rep = { ...grp[0] };
@@ -145282,6 +145284,12 @@ router2.get("/orders", async (req, res) => {
         }
       }
       rep.returnReceived = rr;
+    }
+    const allPartial = grp.every((o) => o.status === "partial_received");
+    if (allPartial) {
+      rep.partialQuantity = grp.reduce((s, o) => s + (getPartialQuantity(o) ?? 0), 0);
+      rep._receivedPrice = grp.reduce((s, o) => s + calcReceivedPrice(o, getPartialQuantity(o)), 0);
+      rep._fullPrice = rep.totalPrice;
     }
     return rep;
   });
@@ -145328,18 +145336,7 @@ router2.post("/orders/batch", async (req, res) => {
   const shippingPerItem = sharedFields.shippingCost ? Number(sharedFields.shippingCost) / items.length : 0;
   const createdOrders = [];
   for (const item of items) {
-    const parsed = CreateOrderBody.safeParse({
-      ...sharedFields,
-      product: item.product,
-      color: item.color ?? null,
-      size: item.size ?? null,
-      quantity: item.quantity,
-      unitPrice: item.unitPrice,
-      costPrice: item.costPrice ?? null,
-      shippingCost: shippingPerItem,
-      productId: item.productId ?? null,
-      variantId: item.variantId ?? null
-    });
+    const parsed = CreateOrderBody.safeParse({ ...sharedFields, product: item.product, color: item.color ?? null, size: item.size ?? null, quantity: item.quantity, unitPrice: item.unitPrice, costPrice: item.costPrice ?? null, shippingCost: shippingPerItem, productId: item.productId ?? null, variantId: item.variantId ?? null });
     if (!parsed.success) {
       res.status(400).json({ error: `\u0645\u0646\u062A\u062C \u063A\u064A\u0631 \u0635\u0627\u0644\u062D: ${parsed.error.message}` });
       return;
@@ -145354,27 +145351,11 @@ router2.post("/orders/batch", async (req, res) => {
       const [product] = await db.select().from(productsTable).where(eq(productsTable.id, parsed.data.productId));
       if (product?.costPrice) costPrice = product.costPrice;
     }
-    const result = await db.insert(ordersTable).values({
-      ...parsed.data,
-      totalPrice,
-      status: "pending",
-      costPrice,
-      invoiceNumber,
-      createdAt: /* @__PURE__ */ new Date(),
-      updatedAt: /* @__PURE__ */ new Date()
-    });
+    const result = await db.insert(ordersTable).values({ ...parsed.data, totalPrice, status: "pending", costPrice, invoiceNumber, createdAt: /* @__PURE__ */ new Date(), updatedAt: /* @__PURE__ */ new Date() });
     const insertId = result[0]?.insertId ?? result.insertId;
     const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, insertId));
     createdOrders.push(order);
-    await logAudit({
-      action: "create",
-      entityType: "order",
-      entityId: order.id,
-      entityName: `${order.customerName} \u2014 ${order.product} [${invoiceNumber}]`,
-      after: { customerName: order.customerName, product: order.product, quantity: order.quantity, unitPrice: order.unitPrice, status: order.status, invoiceNumber },
-      userId: req.user?.id,
-      userName: req.user?.displayName
-    });
+    await logAudit({ action: "create", entityType: "order", entityId: order.id, entityName: `${order.customerName} \u2014 ${order.product} [${invoiceNumber}]`, after: { customerName: order.customerName, product: order.product, quantity: order.quantity, unitPrice: order.unitPrice, status: order.status, invoiceNumber }, userId: req.user?.id, userName: req.user?.displayName });
   }
   res.status(201).json({ invoiceNumber, orders: createdOrders });
 });
@@ -145383,9 +145364,7 @@ router2.get("/orders/summary", async (_req, res) => {
   const invoiceMap = /* @__PURE__ */ new Map();
   for (const o of rows) {
     const key = o.invoiceNumber ?? `solo-${o.id}`;
-    if (!invoiceMap.has(key)) {
-      invoiceMap.set(key, { status: o.status, totalPrice: 0 });
-    }
+    if (!invoiceMap.has(key)) invoiceMap.set(key, { status: o.status, totalPrice: 0 });
     invoiceMap.get(key).totalPrice += o.totalPrice;
     invoiceMap.get(key).status = o.status;
   }
@@ -145430,6 +145409,36 @@ router2.get("/orders/in-manifest-ids", async (_req, res) => {
   const rows = await db.select({ orderId: shippingManifestOrdersTable.orderId }).from(shippingManifestOrdersTable).where(inArray(shippingManifestOrdersTable.manifestId, openIds));
   res.json({ ids: rows.map((r) => r.orderId) });
 });
+router2.delete("/orders/bulk", async (req, res) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids) || ids.length === 0) {
+    res.status(400).json({ error: "\u064A\u062C\u0628 \u0625\u0631\u0633\u0627\u0644 \u0642\u0627\u0626\u0645\u0629 IDs" });
+    return;
+  }
+  const userRole = req.user?.role;
+  const numericIds = ids.map(Number).filter((n) => !isNaN(n));
+  const orders = await db.select().from(ordersTable).where(and(inArray(ordersTable.id, numericIds), isNull(ordersTable.deletedAt)));
+  let deleted = 0;
+  let skipped = 0;
+  for (const order of orders) {
+    if (LOCKED_STATUSES.includes(order.status) && userRole !== "admin") {
+      skipped++;
+      continue;
+    }
+    await db.update(ordersTable).set({ deletedAt: /* @__PURE__ */ new Date() }).where(eq(ordersTable.id, order.id));
+    await logAudit({
+      action: "delete",
+      entityType: "order",
+      entityId: order.id,
+      entityName: `${order.customerName} \u2014 ${order.product}`,
+      before: { customerName: order.customerName, product: order.product, status: order.status },
+      userId: req.user?.id,
+      userName: req.user?.displayName
+    });
+    deleted++;
+  }
+  res.json({ deleted, skipped });
+});
 router2.post("/orders/:id/restore", async (req, res) => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) {
@@ -145447,16 +145456,45 @@ router2.post("/orders/:id/restore", async (req, res) => {
   }
   await db.update(ordersTable).set({ deletedAt: null }).where(eq(ordersTable.id, id));
   const [restored] = await db.select().from(ordersTable).where(eq(ordersTable.id, id));
-  await logAudit({
-    action: "restore",
-    entityType: "order",
-    entityId: id,
-    entityName: `${existing.customerName} \u2014 ${existing.product}`,
-    after: { status: existing.status, restoredAt: (/* @__PURE__ */ new Date()).toISOString() },
-    userId: req.user?.id,
-    userName: req.user?.displayName
-  });
+  await logAudit({ action: "restore", entityType: "order", entityId: id, entityName: `${existing.customerName} \u2014 ${existing.product}`, after: { status: existing.status, restoredAt: (/* @__PURE__ */ new Date()).toISOString() }, userId: req.user?.id, userName: req.user?.displayName });
   res.json(restored);
+});
+router2.get("/orders/invoice-manifest-status/:invoiceNumber", async (req, res) => {
+  const { invoiceNumber } = req.params;
+  if (!invoiceNumber) {
+    res.status(400).json({ error: "invoiceNumber \u0645\u0637\u0644\u0648\u0628" });
+    return;
+  }
+  const invoiceOrders = await db.select().from(ordersTable).where(and(eq(ordersTable.invoiceNumber, invoiceNumber), isNull(ordersTable.deletedAt))).orderBy(ordersTable.id);
+  if (invoiceOrders.length === 0) {
+    res.json([]);
+    return;
+  }
+  const orderIds = invoiceOrders.map((o) => o.id);
+  const links = await db.select({ mo: shippingManifestOrdersTable, m: shippingManifestsTable }).from(shippingManifestOrdersTable).innerJoin(shippingManifestsTable, eq(shippingManifestOrdersTable.manifestId, shippingManifestsTable.id)).where(inArray(shippingManifestOrdersTable.orderId, orderIds)).orderBy(desc(shippingManifestOrdersTable.id));
+  const latestByOrder = /* @__PURE__ */ new Map();
+  for (const link of links) {
+    if (!latestByOrder.has(link.mo.orderId)) latestByOrder.set(link.mo.orderId, link);
+  }
+  const result = invoiceOrders.map((order) => {
+    const link = latestByOrder.get(order.id);
+    const rr = link?.mo.returnReceived;
+    return {
+      orderId: order.id,
+      product: order.product,
+      quantity: order.quantity,
+      status: order.status,
+      manifestId: link?.m.id ?? null,
+      manifestNumber: link?.m.manifestNumber ?? null,
+      manifestStatus: link?.m.status ?? null,
+      deliveryStatus: link?.mo.deliveryStatus ?? null,
+      deliveryNote: link?.mo.deliveryNote ?? null,
+      manifestPartialQuantity: link?.mo.partialQuantity ?? null,
+      deliveredAt: link?.mo.deliveredAt ?? null,
+      returnReceived: rr == null ? null : Number(rr)
+    };
+  });
+  res.json(result);
 });
 router2.get("/orders/by-invoice/:invoiceNumber", async (req, res) => {
   const { invoiceNumber } = req.params;
@@ -145466,6 +145504,30 @@ router2.get("/orders/by-invoice/:invoiceNumber", async (req, res) => {
   }
   const orders = await db.select().from(ordersTable).where(and(eq(ordersTable.invoiceNumber, invoiceNumber), isNull(ordersTable.deletedAt))).orderBy(ordersTable.id);
   res.json(orders);
+});
+router2.get("/orders/:id/manifest-status", async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+  const links = await db.select({ mo: shippingManifestOrdersTable, m: shippingManifestsTable }).from(shippingManifestOrdersTable).innerJoin(shippingManifestsTable, eq(shippingManifestOrdersTable.manifestId, shippingManifestsTable.id)).where(eq(shippingManifestOrdersTable.orderId, id)).orderBy(desc(shippingManifestOrdersTable.id));
+  if (links.length === 0) {
+    res.json(null);
+    return;
+  }
+  const link = links[0];
+  const rr = link.mo.returnReceived;
+  res.json({
+    manifestId: link.m.id,
+    manifestNumber: link.m.manifestNumber,
+    manifestStatus: link.m.status,
+    deliveryStatus: link.mo.deliveryStatus,
+    deliveryNote: link.mo.deliveryNote,
+    partialQuantity: link.mo.partialQuantity ?? null,
+    deliveredAt: link.mo.deliveredAt,
+    returnReceived: rr == null ? null : Number(rr)
+  });
 });
 router2.get("/orders/:id", async (req, res) => {
   const params = GetOrderParams.safeParse(req.params);
@@ -145486,211 +145548,49 @@ router2.patch("/orders/:id", async (req, res) => {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const isDamaged = req.body.isDamaged === true || req.body.isDamaged === "true";
+  const [existing] = await db.select().from(ordersTable).where(and(eq(ordersTable.id, params.data.id), isNull(ordersTable.deletedAt)));
+  if (!existing) {
+    res.status(404).json({ error: "Order not found" });
+    return;
+  }
+  const userRole = req.user?.role;
+  if (LOCKED_STATUSES.includes(existing.status) && userRole !== "admin") {
+    res.status(403).json({ error: "\u0647\u0630\u0627 \u0627\u0644\u0637\u0644\u0628 \u0645\u0642\u0641\u0644 \u0648\u0644\u0627 \u064A\u0645\u0643\u0646 \u062A\u0639\u062F\u064A\u0644\u0647" });
+    return;
+  }
   const parsed = UpdateOrderBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const [existing] = await db.select().from(ordersTable).where(eq(ordersTable.id, params.data.id));
-  if (!existing) {
-    res.status(404).json({ error: "Order not found" });
-    return;
-  }
-  const isLockedStatus = LOCKED_STATUSES.includes(existing.status);
-  if (isLockedStatus && !isAdmin(req)) {
-    const onlyChangingStatus = Object.keys(parsed.data).every((k) => ["status", "partialQuantity", "returnReason", "returnNote"].includes(k));
-    if (!onlyChangingStatus) {
-      res.status(403).json({ error: "\u0647\u0630\u0627 \u0627\u0644\u0637\u0644\u0628 \u0645\u064F\u0633\u0644\u064E\u0651\u0645 \u0648\u0645\u0642\u0641\u0644 \u2014 \u0641\u0642\u0637 \u0627\u0644\u0645\u062F\u064A\u0631 \u064A\u0645\u0643\u0646\u0647 \u062A\u0639\u062F\u064A\u0644 \u0628\u064A\u0627\u0646\u0627\u062A\u0647", locked: true });
-      return;
-    }
-  }
-  if (!isAdmin(req) && (parsed.data.unitPrice !== void 0 || parsed.data.quantity !== void 0)) {
-    const priceChanging = parsed.data.unitPrice !== void 0 && parsed.data.unitPrice !== existing.unitPrice;
-    const qtyChanging = parsed.data.quantity !== void 0 && parsed.data.quantity !== existing.quantity;
-    if (priceChanging || qtyChanging) {
-      res.status(403).json({ error: "\u062A\u0639\u062F\u064A\u0644 \u0627\u0644\u0633\u0639\u0631 \u0623\u0648 \u0627\u0644\u0643\u0645\u064A\u0629 \u064A\u062A\u0637\u0644\u0628 \u0635\u0644\u0627\u062D\u064A\u0629 \u0627\u0644\u0645\u062F\u064A\u0631" });
-      return;
-    }
-  }
-  const quantity = parsed.data.quantity ?? existing.quantity;
-  const unitPrice = parsed.data.unitPrice ?? existing.unitPrice;
-  const totalPrice = quantity * unitPrice;
-  const newStatusFromBody = parsed.data.status;
-  let returnReceivedUpdate = void 0;
-  if (newStatusFromBody === "returned") {
-    if (req.body.returnReceived === true || req.body.returnReceived === 1) returnReceivedUpdate = 1;
-    else if (req.body.returnReceived === false || req.body.returnReceived === 0) returnReceivedUpdate = 0;
-    else returnReceivedUpdate = void 0;
-  } else if (newStatusFromBody && newStatusFromBody !== "returned") {
-    returnReceivedUpdate = null;
-  }
-  const updatePayload = { ...parsed.data, totalPrice, updatedAt: /* @__PURE__ */ new Date() };
-  if (returnReceivedUpdate !== void 0) updatePayload.returnReceived = returnReceivedUpdate;
-  await db.update(ordersTable).set(updatePayload).where(eq(ordersTable.id, params.data.id));
-  const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, params.data.id));
-  if (!order) {
-    res.status(404).json({ error: "Order not found" });
-    return;
-  }
+  const data = parsed.data;
+  const newQty = data.quantity ?? existing.quantity;
+  const newUnitPrice = data.unitPrice ?? existing.unitPrice;
+  const newTotalPrice = newQty * newUnitPrice;
   const oldStatus = existing.status;
-  const newStatus = parsed.data.status;
-  if (newStatus && newStatus !== oldStatus) {
-    const orderRef = {
-      variantId: order.variantId ?? existing.variantId,
-      productId: order.productId ?? existing.productId,
-      product: order.product ?? existing.product,
-      color: order.color ?? existing.color,
-      size: order.size ?? existing.size,
-      warehouseId: existing.warehouseId ?? null
-    };
-    if (newStatus === "in_shipping" && (oldStatus === "pending" || oldStatus === "delayed")) {
-    } else if (newStatus === "received" && oldStatus === "in_shipping") {
-      const [manifestLink] = await db.select().from(shippingManifestOrdersTable).where(eq(shippingManifestOrdersTable.orderId, existing.id)).limit(1);
-      if (manifestLink) {
-        await processDelivery(orderRef, order.quantity, "sale", existing.id, true);
-        await reverseShipping(orderRef, order.quantity, existing.id);
-      } else {
-        await processDelivery(orderRef, order.quantity, "sale", existing.id, false);
-      }
-    } else if (newStatus === "received" && (oldStatus === "pending" || oldStatus === "delayed")) {
-      await processDelivery(orderRef, order.quantity, "sale", existing.id);
-    } else if (newStatus === "received" && oldStatus === "partial_received") {
-      const alreadyDeducted = existing.partialQuantity ?? 0;
-      const remainder = order.quantity - alreadyDeducted;
-      if (remainder > 0) await processDelivery(orderRef, remainder, "sale", existing.id, true);
-    } else if (newStatus === "partial_received" && oldStatus === "in_shipping") {
-      const newPartial = parsed.data.partialQuantity ?? 0;
-      const [manifestLink] = await db.select().from(shippingManifestOrdersTable).where(eq(shippingManifestOrdersTable.orderId, existing.id)).limit(1);
-      if (manifestLink) {
-        await reverseShipping(orderRef, order.quantity, existing.id);
-        if (newPartial > 0) await processDelivery(orderRef, newPartial, "partial_sale", existing.id);
-      } else {
-        if (newPartial > 0) await processDelivery(orderRef, newPartial, "partial_sale", existing.id, false);
-      }
-    } else if (newStatus === "partial_received") {
-      const newPartial = parsed.data.partialQuantity ?? 0;
-      const oldPartial = (oldStatus === "partial_received" ? existing.partialQuantity : 0) ?? 0;
-      const delta = newPartial - oldPartial;
-      if (delta > 0) await processDelivery(orderRef, delta, "partial_sale", existing.id);
-      else if (delta < 0) await reverseDelivery(orderRef, Math.abs(delta), existing.id);
-    } else if (newStatus === "returned" && oldStatus === "in_shipping") {
-      const [manifestLink] = await db.select().from(shippingManifestOrdersTable).where(eq(shippingManifestOrdersTable.orderId, existing.id)).limit(1);
-      if (manifestLink) {
-        await reverseShipping(orderRef, order.quantity, existing.id);
-      }
-    } else if (newStatus === "returned" && (oldStatus === "received" || oldStatus === "partial_received")) {
-      const wasPartially = oldStatus === "partial_received";
-      const returnQty = wasPartially ? existing.partialQuantity ?? order.quantity : order.quantity;
-      await processReturn({ ...orderRef, quantity: returnQty }, true, isDamaged, existing.id);
-    } else if (newStatus === "returned") {
-      await processReturn({ ...orderRef, quantity: order.quantity }, false, isDamaged, existing.id);
-    } else if (oldStatus === "in_shipping" && (newStatus === "pending" || newStatus === "delayed")) {
-      const [manifestLink] = await db.select().from(shippingManifestOrdersTable).where(eq(shippingManifestOrdersTable.orderId, existing.id)).limit(1);
-      if (manifestLink) {
-        await reverseShipping(orderRef, order.quantity, existing.id);
-        await db.delete(shippingManifestOrdersTable).where(eq(shippingManifestOrdersTable.id, manifestLink.id));
-        const remainingLinks = await db.select({ id: shippingManifestOrdersTable.id }).from(shippingManifestOrdersTable).where(eq(shippingManifestOrdersTable.manifestId, manifestLink.manifestId));
-        if (remainingLinks.length === 0) {
-          await db.update(shippingManifestsTable).set({ status: "closed", closedAt: /* @__PURE__ */ new Date() }).where(eq(shippingManifestsTable.id, manifestLink.manifestId));
-        }
-      }
-    } else if (oldStatus === "received") {
-      await reverseDelivery(orderRef, order.quantity, existing.id);
-    } else if (oldStatus === "partial_received") {
-      const deducted = existing.partialQuantity ?? 0;
-      if (deducted > 0) await reverseDelivery(orderRef, deducted, existing.id);
-    }
-    const ORDER_STATUS_TO_DELIVERY = {
-      received: "delivered",
-      returned: "returned",
-      delayed: "postponed",
-      partial_received: "partial_received",
-      in_shipping: "pending",
-      pending: "pending"
-    };
-    const newDeliveryStatus = ORDER_STATUS_TO_DELIVERY[newStatus];
-    if (newDeliveryStatus) {
-      const manifestLinks = await db.select().from(shippingManifestOrdersTable).where(eq(shippingManifestOrdersTable.orderId, existing.id));
-      for (const mLink of manifestLinks) {
-        const updateData = { deliveryStatus: newDeliveryStatus };
-        if (newDeliveryStatus === "delivered") updateData.deliveredAt = /* @__PURE__ */ new Date();
-        if (newDeliveryStatus !== "delivered") updateData.deliveredAt = null;
-        if (newDeliveryStatus === "partial_received" && parsed.data.partialQuantity) {
-          updateData.partialQuantity = parsed.data.partialQuantity;
-        }
-        if (newDeliveryStatus !== "returned") {
-          updateData.returnReceived = null;
-        }
-        if (newDeliveryStatus === "returned" && (req.body.returnReceived === true || req.body.returnReceived === false)) {
-          updateData.returnReceived = req.body.returnReceived ? 1 : 0;
-        }
-        await db.update(shippingManifestOrdersTable).set(updateData).where(eq(shippingManifestOrdersTable.id, mLink.id));
-      }
-    }
+  const newStatus = data.status ?? oldStatus;
+  if (newStatus !== oldStatus) {
+    if (newStatus === "in_shipping") await processToShipping(existing.id, existing).catch(() => {
+    });
+    if (newStatus === "received") await processDelivery(existing.id, existing).catch(() => {
+    });
+    if (newStatus === "returned") await processReturn(existing.id, existing).catch(() => {
+    });
+    if (oldStatus === "in_shipping" && newStatus !== "in_shipping") await reverseShipping(existing.id, existing).catch(() => {
+    });
+    if (oldStatus === "received" && newStatus !== "received") await reverseDelivery(existing.id, existing).catch(() => {
+    });
   }
-  const diff = diffObjects(
-    { status: existing.status, unitPrice: existing.unitPrice, quantity: existing.quantity, partialQuantity: existing.partialQuantity, notes: existing.notes, returnReason: existing.returnReason },
-    { status: order.status, unitPrice: order.unitPrice, quantity: order.quantity, partialQuantity: order.partialQuantity, notes: order.notes, returnReason: order.returnReason }
-  );
-  const auditAction = newStatus && newStatus !== oldStatus ? "status_change" : "update";
-  await logAudit({
-    action: auditAction,
-    entityType: "order",
-    entityId: order.id,
-    entityName: `${order.customerName} \u2014 ${order.product}`,
-    before: diff.before,
-    after: diff.after,
-    userId: req.user?.id,
-    userName: req.user?.displayName
-  });
-  const responseData = { ...UpdateOrderResponse.parse(order) };
-  if (req.__manifestId) responseData.manifestId = req.__manifestId;
-  res.json(responseData);
-});
-router2.delete("/orders/bulk", async (req, res) => {
-  const ids = req.body?.ids;
-  if (!Array.isArray(ids) || ids.length === 0) {
-    res.status(400).json({ error: "\u064A\u062C\u0628 \u0625\u0631\u0633\u0627\u0644 \u0642\u0627\u0626\u0645\u0629 ids" });
+  const before = { customerName: existing.customerName, product: existing.product, status: existing.status, quantity: existing.quantity, unitPrice: existing.unitPrice };
+  await db.update(ordersTable).set({ ...data, totalPrice: newTotalPrice, updatedAt: /* @__PURE__ */ new Date() }).where(eq(ordersTable.id, params.data.id));
+  const [updated] = await db.select().from(ordersTable).where(eq(ordersTable.id, params.data.id));
+  if (!updated) {
+    res.status(500).json({ error: "Update failed" });
     return;
   }
-  const orders = await db.select().from(ordersTable).where(inArray(ordersTable.id, ids));
-  const deleted = [];
-  const skipped = [];
-  for (const existing of orders) {
-    if (LOCKED_STATUSES.includes(existing.status) && !isAdmin(req)) {
-      skipped.push(existing.id);
-      continue;
-    }
-    if (existing.status === "received") {
-      await reverseDelivery(
-        { variantId: existing.variantId, productId: existing.productId, product: existing.product, color: existing.color, size: existing.size },
-        existing.quantity,
-        existing.id
-      );
-    } else if (existing.status === "partial_received") {
-      const deducted = existing.partialQuantity ?? 0;
-      if (deducted > 0) await reverseDelivery(
-        { variantId: existing.variantId, productId: existing.productId, product: existing.product, color: existing.color, size: existing.size },
-        deducted,
-        existing.id
-      );
-    }
-    await logAudit({
-      action: "delete",
-      entityType: "order",
-      entityId: existing.id,
-      entityName: `${existing.customerName} \u2014 ${existing.product}`,
-      before: { status: existing.status, totalPrice: existing.totalPrice, quantity: existing.quantity },
-      userId: req.user?.id,
-      userName: req.user?.displayName
-    });
-    deleted.push(existing.id);
-  }
-  if (deleted.length > 0) {
-    await db.update(ordersTable).set({ deletedAt: /* @__PURE__ */ new Date() }).where(inArray(ordersTable.id, deleted));
-  }
-  res.json({ deleted: deleted.length, skipped: skipped.length, skippedIds: skipped });
+  const after = { customerName: updated.customerName, product: updated.product, status: updated.status, quantity: updated.quantity, unitPrice: updated.unitPrice };
+  await logAudit({ action: "update", entityType: "order", entityId: updated.id, entityName: `${updated.customerName} \u2014 ${updated.product}`, before, after: diffObjects(before, after), userId: req.user?.id, userName: req.user?.displayName });
+  res.json(UpdateOrderResponse.parse(updated));
 });
 router2.delete("/orders/:id", async (req, res) => {
   const id = parseInt(req.params.id);
@@ -145698,46 +145598,59 @@ router2.delete("/orders/:id", async (req, res) => {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
-  const [existing] = await db.select().from(ordersTable).where(eq(ordersTable.id, id));
+  const [existing] = await db.select().from(ordersTable).where(and(eq(ordersTable.id, id), isNull(ordersTable.deletedAt)));
   if (!existing) {
     res.status(404).json({ error: "Order not found" });
     return;
   }
-  if (LOCKED_STATUSES.includes(existing.status) && !isAdmin(req)) {
-    res.status(403).json({ error: "\u0647\u0630\u0627 \u0627\u0644\u0637\u0644\u0628 \u0645\u064F\u0633\u0644\u064E\u0651\u0645 \u0648\u0645\u0642\u0641\u0644 \u2014 \u0641\u0642\u0637 \u0627\u0644\u0645\u062F\u064A\u0631 \u064A\u0645\u0643\u0646\u0647 \u062D\u0630\u0641\u0647", locked: true });
+  const userRole = req.user?.role;
+  if (LOCKED_STATUSES.includes(existing.status) && userRole !== "admin") {
+    res.status(403).json({ error: "\u0647\u0630\u0627 \u0627\u0644\u0637\u0644\u0628 \u0645\u0642\u0641\u0644 \u0648\u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641\u0647" });
     return;
   }
-  if (existing.status === "received") {
-    await reverseDelivery(
-      { variantId: existing.variantId, productId: existing.productId, product: existing.product, color: existing.color, size: existing.size },
-      existing.quantity,
-      existing.id
-    );
-  } else if (existing.status === "partial_received") {
-    const deducted = existing.partialQuantity ?? 0;
-    if (deducted > 0) await reverseDelivery(
-      { variantId: existing.variantId, productId: existing.productId, product: existing.product, color: existing.color, size: existing.size },
-      deducted,
-      existing.id
-    );
-  }
+  await db.update(ordersTable).set({ deletedAt: /* @__PURE__ */ new Date() }).where(eq(ordersTable.id, id));
   await logAudit({
     action: "delete",
     entityType: "order",
     entityId: id,
     entityName: `${existing.customerName} \u2014 ${existing.product}`,
-    before: { status: existing.status, totalPrice: existing.totalPrice, quantity: existing.quantity },
+    before: { customerName: existing.customerName, product: existing.product, status: existing.status },
     userId: req.user?.id,
     userName: req.user?.displayName
   });
-  await db.update(ordersTable).set({ deletedAt: /* @__PURE__ */ new Date() }).where(eq(ordersTable.id, id));
-  res.status(204).end();
+  res.status(204).send();
 });
 var orders_default = router2;
 
 // src/routes/products.ts
 var import_express3 = __toESM(require_express2(), 1);
 init_drizzle_orm();
+
+// src/middlewares/requireRole.ts
+function requireRole(...roles) {
+  return (req, res, next) => {
+    const user = req.user;
+    if (!user) {
+      res.status(401).json({ error: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D" });
+      return;
+    }
+    if (!roles.includes(user.role)) {
+      res.status(403).json({ error: "\u0644\u064A\u0633 \u0644\u062F\u064A\u0643 \u0635\u0644\u0627\u062D\u064A\u0629 \u0644\u0647\u0630\u0647 \u0627\u0644\u0639\u0645\u0644\u064A\u0629" });
+      return;
+    }
+    next();
+  };
+}
+function requireAdmin(req, res, next) {
+  const user = req.user;
+  if (!user || user.role !== "admin") {
+    res.status(403).json({ error: "\u0647\u0630\u0647 \u0627\u0644\u0639\u0645\u0644\u064A\u0629 \u062A\u062A\u0637\u0644\u0628 \u0635\u0644\u0627\u062D\u064A\u0629 \u0627\u0644\u0645\u062F\u064A\u0631" });
+    return;
+  }
+  next();
+}
+
+// src/routes/products.ts
 var router3 = (0, import_express3.Router)();
 var CreateProductSchema = external_exports.object({
   name: external_exports.string().min(1),
@@ -146724,6 +146637,8 @@ router7.get("/inventory/movements", async (req, res) => {
     type: inventoryMovementsTable.type,
     reason: inventoryMovementsTable.reason,
     orderId: inventoryMovementsTable.orderId,
+    fromLocation: inventoryMovementsTable.fromLocation,
+    toLocation: inventoryMovementsTable.toLocation,
     notes: inventoryMovementsTable.notes,
     createdAt: inventoryMovementsTable.createdAt
   }).from(inventoryMovementsTable).leftJoin(warehousesTable, eq(inventoryMovementsTable.warehouseId, warehousesTable.id)).orderBy(desc(inventoryMovementsTable.createdAt)).$dynamic();
@@ -146742,7 +146657,7 @@ router7.get("/inventory/movements/totals", async (req, res) => {
   res.json({ totalIn, totalOut, balance: totalIn - totalOut });
 });
 router7.post("/inventory/movements", async (req, res) => {
-  const { product, color, size, quantity, type, reason, productId, variantId, warehouseId, notes } = req.body;
+  const { product, color, size, quantity, type, reason, productId, variantId, warehouseId, notes, fromLocation, toLocation } = req.body;
   if (!product || !quantity || !type || !reason) {
     res.status(400).json({ error: "product, quantity, type, reason \u0645\u0637\u0644\u0648\u0628\u0629" });
     return;
@@ -146761,6 +146676,8 @@ router7.post("/inventory/movements", async (req, res) => {
     productId: productId ? parseInt(productId) : null,
     variantId: variantId ? parseInt(variantId) : null,
     warehouseId: warehouseId ? parseInt(warehouseId) : null,
+    fromLocation: fromLocation ?? null,
+    toLocation: toLocation ?? null,
     notes: notes ?? null,
     orderId: null
   });
@@ -146778,6 +146695,8 @@ router7.post("/inventory/movements", async (req, res) => {
     type: inventoryMovementsTable.type,
     reason: inventoryMovementsTable.reason,
     orderId: inventoryMovementsTable.orderId,
+    fromLocation: inventoryMovementsTable.fromLocation,
+    toLocation: inventoryMovementsTable.toLocation,
     notes: inventoryMovementsTable.notes,
     createdAt: inventoryMovementsTable.createdAt
   }).from(inventoryMovementsTable).leftJoin(warehousesTable, eq(inventoryMovementsTable.warehouseId, warehousesTable.id)).where(eq(inventoryMovementsTable.id, insertId));
@@ -146789,7 +146708,7 @@ router7.put("/inventory/movements/:id", async (req, res) => {
     res.status(400).json({ error: "id \u063A\u064A\u0631 \u0635\u062D\u064A\u062D" });
     return;
   }
-  const { product, color, size, quantity, type, reason, warehouseId, notes } = req.body;
+  const { product, color, size, quantity, type, reason, warehouseId, notes, fromLocation, toLocation } = req.body;
   if (!product || !quantity || !type || !reason) {
     res.status(400).json({ error: "product, quantity, type, reason \u0645\u0637\u0644\u0648\u0628\u0629" });
     return;
@@ -146806,6 +146725,8 @@ router7.put("/inventory/movements/:id", async (req, res) => {
     type,
     reason,
     warehouseId: warehouseId ? parseInt(warehouseId) : null,
+    fromLocation: fromLocation ?? null,
+    toLocation: toLocation ?? null,
     notes: notes ?? null
   }).where(eq(inventoryMovementsTable.id, id));
   const [movement] = await db.select({
@@ -146821,6 +146742,8 @@ router7.put("/inventory/movements/:id", async (req, res) => {
     type: inventoryMovementsTable.type,
     reason: inventoryMovementsTable.reason,
     orderId: inventoryMovementsTable.orderId,
+    fromLocation: inventoryMovementsTable.fromLocation,
+    toLocation: inventoryMovementsTable.toLocation,
     notes: inventoryMovementsTable.notes,
     createdAt: inventoryMovementsTable.createdAt
   }).from(inventoryMovementsTable).leftJoin(warehousesTable, eq(inventoryMovementsTable.warehouseId, warehousesTable.id)).where(eq(inventoryMovementsTable.id, id));
@@ -148164,26 +148087,55 @@ function computeStats(orders) {
   ).length;
   const deliveryRate = total > 0 ? Math.round(delivered / total * 100) : 0;
   let totalRevenue = 0, totalCost = 0, totalShippingCost = 0, returnLosses = 0, deliveredGross = 0;
+  let stillAtShippingCount = 0, stillAtShippingAmount = 0;
   for (const o of orders) {
     const isPartial = o.deliveryStatus === "partial_received";
     const partialQty = isPartial && o.partialQuantity != null ? o.partialQuantity : null;
     const qty = partialQty !== null ? partialQty : o.quantity;
     const cost = (o.costPrice ?? 0) * qty;
     const shipping = o.shippingCost ?? 0;
+    const rv = o.returnReceived;
     if (o.deliveryStatus === "delivered" || isPartial) {
       const revenue = partialQty !== null ? o.unitPrice * partialQty : o.totalPrice;
       totalRevenue += revenue;
       totalCost += cost;
       totalShippingCost += shipping;
       deliveredGross += revenue;
+      if (isPartial && rv !== 1) {
+        stillAtShippingCount++;
+        const remainQty = o.quantity - (partialQty ?? 0);
+        stillAtShippingAmount += o.unitPrice * remainQty;
+      }
     } else if (o.deliveryStatus === "returned") {
       returnLosses += shipping;
       totalShippingCost += shipping;
+      if (rv !== 1) {
+        stillAtShippingCount++;
+        stillAtShippingAmount += o.totalPrice;
+      }
     } else {
       totalShippingCost += shipping;
     }
   }
-  return { total, delivered, returned, pending, deliveryRate, totalRevenue, totalCost, totalShippingCost, returnLosses, netProfit: totalRevenue - totalCost - totalShippingCost - returnLosses, deliveredGross };
+  const actuallyDeliveredShipping = orders.filter((o) => o.deliveryStatus === "delivered" || o.deliveryStatus === "partial_received").reduce((sum2, o) => sum2 + (o.shippingCost ?? 0), 0);
+  const dueFromCompany = deliveredGross - actuallyDeliveredShipping;
+  return {
+    total,
+    delivered,
+    returned,
+    pending,
+    deliveryRate,
+    totalRevenue,
+    totalCost,
+    totalShippingCost,
+    returnLosses,
+    netProfit: totalRevenue - totalCost - totalShippingCost - returnLosses,
+    deliveredGross,
+    dueFromCompany,
+    stillAtShippingCount,
+    stillAtShippingAmount,
+    actuallyDeliveredShipping
+  };
 }
 router12.get("/shipping-manifests", async (req, res) => {
   const companyId = req.query.companyId ? parseInt(req.query.companyId) : void 0;
@@ -148331,19 +148283,84 @@ router12.patch("/shipping-manifests/:id", requireAdmin, async (req, res) => {
           addedAt: /* @__PURE__ */ new Date()
         }))
       );
-      const returnedIds = pendingLinks.filter((l2) => l2.deliveryStatus === "returned").map((l2) => l2.orderId);
-      const partialIds = pendingLinks.filter((l2) => l2.deliveryStatus === "partial_received").map((l2) => l2.orderId);
       const nonReturnedIds = pendingLinks.filter((l2) => l2.deliveryStatus !== "returned" && l2.deliveryStatus !== "partial_received").map((l2) => l2.orderId);
       if (nonReturnedIds.length > 0) {
         await db.update(ordersTable).set({ status: "in_shipping", shippingCompanyId: updated.shippingCompanyId }).where(inArray(ordersTable.id, nonReturnedIds));
       }
-      const postponedCount = pendingLinks.filter((l2) => l2.deliveryStatus === "postponed").length;
-      const pendingCount = pendingLinks.filter((l2) => l2.deliveryStatus === "pending" || l2.deliveryStatus === "in_shipping").length;
-      const returnedInShippingCount = returnedIds.length;
-      rolledOverManifest = { ...newManifest, orderCount: pendingLinks.length, postponedCount, pendingCount, returnedInShippingCount };
+      rolledOverManifest = {
+        ...newManifest,
+        orderCount: pendingLinks.length,
+        postponedCount: pendingLinks.filter((l2) => l2.deliveryStatus === "postponed").length,
+        pendingCount: pendingLinks.filter((l2) => l2.deliveryStatus === "pending" || l2.deliveryStatus === "in_shipping").length,
+        returnedInShippingCount: pendingLinks.filter((l2) => l2.deliveryStatus === "returned").length
+      };
     }
   }
   res.json({ ...updated, invoicePrice: updated.invoicePrice ? Number(updated.invoicePrice) : null, rolledOverManifest });
+});
+router12.delete("/shipping-manifests/:id", requireAdmin, async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+  const [manifest] = await db.select().from(shippingManifestsTable).where(eq(shippingManifestsTable.id, id));
+  if (!manifest) {
+    res.status(404).json({ error: "\u0627\u0644\u0628\u064A\u0627\u0646 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
+    return;
+  }
+  const links = await db.select().from(shippingManifestOrdersTable).where(eq(shippingManifestOrdersTable.manifestId, id));
+  if (links.length > 0) {
+    const orderIds = links.map((l2) => l2.orderId);
+    await db.update(ordersTable).set({ status: "pending", shippingCompanyId: null }).where(inArray(ordersTable.id, orderIds));
+  }
+  await db.delete(shippingManifestOrdersTable).where(eq(shippingManifestOrdersTable.manifestId, id));
+  await db.delete(shippingManifestsTable).where(eq(shippingManifestsTable.id, id));
+  res.status(204).send();
+});
+router12.delete("/shipping-manifests/:id/orders/:orderId", async (req, res) => {
+  const manifestId = parseInt(req.params.id);
+  const orderId = parseInt(req.params.orderId);
+  if (isNaN(manifestId) || isNaN(orderId)) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+  const [link] = await db.select().from(shippingManifestOrdersTable).where(and(eq(shippingManifestOrdersTable.manifestId, manifestId), eq(shippingManifestOrdersTable.orderId, orderId)));
+  if (!link) {
+    res.status(404).json({ error: "\u0627\u0644\u0637\u0644\u0628 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F \u0641\u064A \u0647\u0630\u0627 \u0627\u0644\u0628\u064A\u0627\u0646" });
+    return;
+  }
+  await db.delete(shippingManifestOrdersTable).where(and(eq(shippingManifestOrdersTable.manifestId, manifestId), eq(shippingManifestOrdersTable.orderId, orderId)));
+  await db.update(ordersTable).set({ status: "pending", shippingCompanyId: null }).where(eq(ordersTable.id, orderId));
+  res.json({ success: true, orderId, message: "\u062A\u0645 \u0625\u0632\u0627\u0644\u0629 \u0627\u0644\u0637\u0644\u0628 \u0645\u0646 \u0627\u0644\u0628\u064A\u0627\u0646" });
+});
+router12.post("/shipping-manifests/:id/orders", async (req, res) => {
+  const manifestId = parseInt(req.params.id);
+  if (isNaN(manifestId)) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+  const [manifest] = await db.select().from(shippingManifestsTable).where(eq(shippingManifestsTable.id, manifestId));
+  if (!manifest) {
+    res.status(404).json({ error: "\u0627\u0644\u0628\u064A\u0627\u0646 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
+    return;
+  }
+  const { orderIds } = req.body;
+  if (!Array.isArray(orderIds) || orderIds.length === 0) {
+    res.status(400).json({ error: "\u064A\u062C\u0628 \u0625\u0631\u0633\u0627\u0644 \u0642\u0627\u0626\u0645\u0629 orderIds" });
+    return;
+  }
+  const normalizedOrderIds = await expandOrderIdsByInvoice(orderIds);
+  const existing = await db.select({ orderId: shippingManifestOrdersTable.orderId }).from(shippingManifestOrdersTable).where(eq(shippingManifestOrdersTable.manifestId, manifestId));
+  const existingIds = new Set(existing.map((e) => e.orderId));
+  const newIds = normalizedOrderIds.filter((id) => !existingIds.has(id));
+  if (newIds.length > 0) {
+    await db.insert(shippingManifestOrdersTable).values(
+      newIds.map((orderId) => ({ manifestId, orderId, deliveryStatus: "pending", addedAt: /* @__PURE__ */ new Date() }))
+    );
+    await db.update(ordersTable).set({ status: "in_shipping", shippingCompanyId: manifest.shippingCompanyId }).where(inArray(ordersTable.id, newIds));
+  }
+  res.json({ added: newIds.length, manifestNumber: manifest.manifestNumber });
 });
 var DeliveryStatusSchema = external_exports.object({
   deliveryStatus: external_exports.enum(["pending", "delivered", "postponed", "partial_received", "returned"]),
@@ -148352,7 +148369,13 @@ var DeliveryStatusSchema = external_exports.object({
   partialReturnReceived: external_exports.boolean().nullish(),
   returnReceived: external_exports.boolean().nullish()
 });
-var STATUS_MAP = { delivered: "received", postponed: "delayed", partial_received: "partial_received", returned: "returned", pending: "in_shipping" };
+var STATUS_MAP = {
+  delivered: "received",
+  postponed: "delayed",
+  partial_received: "partial_received",
+  returned: "returned",
+  pending: "in_shipping"
+};
 router12.patch("/shipping-manifests/:id/orders/:orderId", async (req, res) => {
   const manifestId = parseInt(req.params.id), orderId = parseInt(req.params.orderId);
   if (isNaN(manifestId) || isNaN(orderId)) {
@@ -148404,16 +148427,9 @@ router12.patch("/shipping-manifests/:id/orders/:orderId", async (req, res) => {
       if (delta > 0) await processDelivery(orderRef, delta, "partial_sale", orderId, true);
       else if (delta < 0) await reverseDelivery(orderRef, Math.abs(delta), orderId);
     } else if (deliveryStatus === "returned") {
-      if (returnReceived === true) {
-        const wasPartial = oldStatus === "partial_received";
-        const qty = wasPartial ? existingOrder.partialQuantity ?? existingOrder.quantity : existingOrder.quantity;
-        await processReturn({ ...orderRef, quantity: qty }, oldStatus === "received" || wasPartial, false, orderId);
-      } else if (returnReceived === false) {
-      } else {
-        const wasPartial = oldStatus === "partial_received";
-        const qty = wasPartial ? existingOrder.partialQuantity ?? existingOrder.quantity : existingOrder.quantity;
-        await processReturn({ ...orderRef, quantity: qty }, oldStatus === "received" || wasPartial, false, orderId);
-      }
+      const wasPartial = oldStatus === "partial_received";
+      const qty = wasPartial ? existingOrder.partialQuantity ?? existingOrder.quantity : existingOrder.quantity;
+      await processReturn({ ...orderRef, quantity: qty }, oldStatus === "received" || wasPartial, false, orderId);
     } else {
       if (oldStatus === "received") await reverseDelivery(orderRef, existingOrder.quantity, orderId);
       else if (oldStatus === "partial_received") {
