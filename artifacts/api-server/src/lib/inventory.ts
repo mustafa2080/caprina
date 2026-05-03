@@ -270,29 +270,28 @@ export async function processDelivery(
   deliveredQty: number,
   reason: "sale" | "partial_sale",
   orderId?: number | null,
-  skipWarehouseStock = false, // true لما البضاعة كانت اتخصمت من المخزن مسبقاً (بـ processToShipping)
+  skipWarehouseStock = false,
 ): Promise<void> {
   if (deliveredQty <= 0) return;
   const { variantId, productId } = await resolveInventoryTarget(order);
   if (!variantId && !productId) return;
 
-  await adjustQty(variantId, productId, -deliveredQty, deliveredQty);
   if (!skipWarehouseStock) {
     await adjustWarehouseStock(order.warehouseId, variantId, productId, -deliveredQty);
   }
+  // soldQuantity فقط بيتحدث يدوياً (مش جزء من warehouse_stock)
+  if (variantId) {
+    const [v] = await db.select().from(productVariantsTable).where(eq(productVariantsTable.id, variantId));
+    if (v) await db.update(productVariantsTable).set({ soldQuantity: Math.max(0, v.soldQuantity + deliveredQty), updatedAt: new Date() }).where(eq(productVariantsTable.id, variantId));
+  } else if (productId) {
+    const [p] = await db.select().from(productsTable).where(eq(productsTable.id, productId));
+    if (p) await db.update(productsTable).set({ soldQuantity: Math.max(0, p.soldQuantity + deliveredQty), updatedAt: new Date() }).where(eq(productsTable.id, productId));
+  }
+  // مزامنة totalQuantity من مجموع المخازن
+  await syncProductQuantityFromWarehouses(variantId, productId);
 
   if (order.product) {
-    await recordMovement({
-      product: order.product,
-      color: order.color,
-      size: order.size,
-      quantity: deliveredQty,
-      type: "OUT",
-      reason,
-      productId,
-      variantId,
-      orderId,
-    });
+    await recordMovement({ product: order.product, color: order.color, size: order.size, quantity: deliveredQty, type: "OUT", reason, productId, variantId, orderId });
   }
 }
 

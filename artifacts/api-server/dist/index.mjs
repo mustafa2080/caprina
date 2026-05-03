@@ -143164,22 +143164,19 @@ async function processDelivery(order, deliveredQty, reason, orderId, skipWarehou
   if (deliveredQty <= 0) return;
   const { variantId, productId } = await resolveInventoryTarget(order);
   if (!variantId && !productId) return;
-  await adjustQty(variantId, productId, -deliveredQty, deliveredQty);
   if (!skipWarehouseStock) {
     await adjustWarehouseStock(order.warehouseId, variantId, productId, -deliveredQty);
   }
+  if (variantId) {
+    const [v] = await db.select().from(productVariantsTable).where(eq(productVariantsTable.id, variantId));
+    if (v) await db.update(productVariantsTable).set({ soldQuantity: Math.max(0, v.soldQuantity + deliveredQty), updatedAt: /* @__PURE__ */ new Date() }).where(eq(productVariantsTable.id, variantId));
+  } else if (productId) {
+    const [p] = await db.select().from(productsTable).where(eq(productsTable.id, productId));
+    if (p) await db.update(productsTable).set({ soldQuantity: Math.max(0, p.soldQuantity + deliveredQty), updatedAt: /* @__PURE__ */ new Date() }).where(eq(productsTable.id, productId));
+  }
+  await syncProductQuantityFromWarehouses(variantId, productId);
   if (order.product) {
-    await recordMovement({
-      product: order.product,
-      color: order.color,
-      size: order.size,
-      quantity: deliveredQty,
-      type: "OUT",
-      reason,
-      productId,
-      variantId,
-      orderId
-    });
+    await recordMovement({ product: order.product, color: order.color, size: order.size, quantity: deliveredQty, type: "OUT", reason, productId, variantId, orderId });
   }
 }
 async function reverseDelivery(order, deliveredQty, orderId) {
