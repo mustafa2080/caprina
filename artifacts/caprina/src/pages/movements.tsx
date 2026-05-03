@@ -7,7 +7,7 @@ import {
   ArrowRightLeft, Trash2,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { movementsApi, productsApi, warehousesApi, shippingApi, type MovementType, type MovementReason, type InventoryMovement } from "@/lib/api";
+import { movementsApi, productsApi, warehousesApi, shippingApi, variantsApi, type MovementType, type MovementReason, type InventoryMovement } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -120,6 +120,11 @@ export default function Movements() {
   const { data: shippingCompanies = [] } = useQuery({
     queryKey: ["shipping-companies"],
     queryFn: shippingApi.list,
+  });
+
+  const { data: allVariants } = useQuery({
+    queryKey: ["variants"],
+    queryFn: variantsApi.listAll,
   });
 
   // Build location options: warehouses + shipping companies
