@@ -1,5 +1,5 @@
 import { eq, like, and, sum } from "drizzle-orm";
-import { db, productsTable, productVariantsTable, inventoryMovementsTable, warehouseStockTable } from "@workspace/db";
+import { db, productsTable, productVariantsTable, inventoryMovementsTable, warehouseStockTable, warehousesTable } from "@workspace/db";
 import type { MovementReason } from "@workspace/db";
 
 /**
@@ -160,8 +160,22 @@ async function adjustWarehouseStock(
           : eq(warehouseStockTable.productId, productId!),
       );
 
-    if (delta > 0 && rows.length === 0) return; // مفيش مخزن أصلاً، مش هينفع نرجع
-    if (rows.length === 0) return;
+    if (rows.length === 0) {
+      if (delta > 0) {
+        // مفيش صف في warehouse_stock → ابحث عن أي مخزن في الـ DB وافتح صف جديد
+        const [anyWarehouse] = await db.select().from(warehousesTable).limit(1);
+        if (anyWarehouse) {
+          await db.insert(warehouseStockTable).values({
+            warehouseId: anyWarehouse.id,
+            variantId: variantId ?? null,
+            productId: productId ?? null,
+            quantity: delta,
+            updatedAt: new Date(),
+          });
+        }
+      }
+      return;
+    }
 
     if (delta > 0) {
       // إرجاع → ضيف للمخزن الأول

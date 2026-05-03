@@ -143097,8 +143097,21 @@ async function adjustWarehouseStock(warehouseId, variantId, productId, delta) {
     const rows = await db.select().from(warehouseStockTable).where(
       variantId ? eq(warehouseStockTable.variantId, variantId) : eq(warehouseStockTable.productId, productId)
     );
-    if (delta > 0 && rows.length === 0) return;
-    if (rows.length === 0) return;
+    if (rows.length === 0) {
+      if (delta > 0) {
+        const [anyWarehouse] = await db.select().from(warehousesTable).limit(1);
+        if (anyWarehouse) {
+          await db.insert(warehouseStockTable).values({
+            warehouseId: anyWarehouse.id,
+            variantId: variantId ?? null,
+            productId: productId ?? null,
+            quantity: delta,
+            updatedAt: /* @__PURE__ */ new Date()
+          });
+        }
+      }
+      return;
+    }
     if (delta > 0) {
       const first = rows[0];
       await db.update(warehouseStockTable).set({ quantity: first.quantity + delta, updatedAt: /* @__PURE__ */ new Date() }).where(eq(warehouseStockTable.id, first.id));
