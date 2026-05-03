@@ -317,6 +317,7 @@ export async function reverseDelivery(
 
   await adjustQty(variantId, productId, deliveredQty, -deliveredQty);
   await adjustWarehouseStock(order.warehouseId, variantId, productId, deliveredQty);
+  await syncProductQuantityFromWarehouses(variantId, productId);
 
   if (order.product) {
     await recordMovement({
@@ -479,11 +480,11 @@ export async function processToShipping(
   const { variantId, productId } = await resolveInventoryTarget(order);
   if (!variantId && !productId) return;
 
-  // خصم من totalQuantity الكلي
-  await adjustQty(variantId, productId, -qty, 0);
-
   // خصم من المخزن — لو محدد من المخزن ده، لو لأ من المخازن بالترتيب
   await adjustWarehouseStock(order.warehouseId, variantId, productId, -qty);
+
+  // مزامنة totalQuantity من مجموع المخازن (يحل محل adjustQty لمنع الخصم المزدوج)
+  await syncProductQuantityFromWarehouses(variantId, productId);
 
   if (order.product) {
     await recordMovement({
@@ -521,11 +522,11 @@ export async function reverseShipping(
   const { variantId, productId } = await resolveInventoryTarget(order);
   if (!variantId && !productId) return;
 
-  // إرجاع للـ totalQuantity الكلي
-  await adjustQty(variantId, productId, qty, 0);
-
   // إرجاع للمخزن — لو محدد للمخزن ده، لو لأ للمخزن الأول
   await adjustWarehouseStock(order.warehouseId, variantId, productId, qty);
+
+  // مزامنة totalQuantity من مجموع المخازن (يحل محل adjustQty لمنع التكرار)
+  await syncProductQuantityFromWarehouses(variantId, productId);
 
   if (order.product) {
     await recordMovement({

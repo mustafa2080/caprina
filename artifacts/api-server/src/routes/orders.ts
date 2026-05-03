@@ -528,11 +528,12 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
   const oldStatus = existing.status;
   const newStatus = data.status ?? oldStatus;
   if (newStatus !== oldStatus) {
-    if (newStatus === "in_shipping")                                 await processToShipping(existing.id, existing).catch(() => {});
-    if (newStatus === "received")                                    await processDelivery(existing.id, existing).catch(() => {});
-    if (newStatus === "returned")                                    await processReturn(existing.id, existing).catch(() => {});
-    if (oldStatus === "in_shipping" && newStatus !== "in_shipping") await reverseShipping(existing.id, existing).catch(() => {});
-    if (oldStatus === "received"   && newStatus !== "received")     await reverseDelivery(existing.id, existing).catch(() => {});
+    const orderRef = { variantId: existing.variantId, productId: existing.productId, product: existing.product, color: existing.color, size: existing.size, warehouseId: existing.warehouseId };
+    if (newStatus === "in_shipping")                                 await processToShipping(orderRef, existing.quantity, existing.id).catch(() => {});
+    if (newStatus === "received")                                    await processDelivery(orderRef, existing.quantity, "sale", existing.id).catch(() => {});
+    if (newStatus === "returned")                                    await processReturn({ ...orderRef, quantity: existing.quantity }, true, false, existing.id).catch(() => {});
+    if (oldStatus === "in_shipping" && newStatus !== "in_shipping") await reverseShipping(orderRef, existing.quantity, existing.id).catch(() => {});
+    if (oldStatus === "received"   && newStatus !== "received")     await reverseDelivery(orderRef, existing.quantity, existing.id).catch(() => {});
   }
 
   const before = { customerName: existing.customerName, product: existing.product, status: existing.status, quantity: existing.quantity, unitPrice: existing.unitPrice };
