@@ -4,7 +4,7 @@ import { z } from "zod";
 import { useLocation, Link } from "wouter";
 import {
   ArrowRight, Save, Phone, MapPin, Layers, DollarSign, Megaphone,
-  Warehouse, UserCheck, Plus, Trash2, Package, ChevronDown, ChevronUp,
+  Warehouse, UserCheck, Plus, Trash2, Package, ChevronDown, ChevronUp, Search, X,
 } from "lucide-react";
 import { getListOrdersQueryKey, getGetOrdersSummaryQueryKey, getGetRecentOrdersQueryKey } from "@workspace/api-client-react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { productsApi, variantsApi, shippingApi, warehousesApi, usersApi, ordersApi } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
-import { useState } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 
 const AD_SOURCES = [
   { value: "facebook",  label: "📘 فيسبوك" },
@@ -29,7 +29,7 @@ const AD_SOURCES = [
   { value: "other",    label: "📌 أخرى" },
 ];
 
-// ── Item schema (single product line) ────────────────────────────────────────
+// ── Schemas ───────────────────────────────────────────────────────────────────
 const itemSchema = z.object({
   product:     z.string().min(1, "اسم المنتج مطلوب."),
   color:       z.string().optional().nullable(),
@@ -67,34 +67,140 @@ const emptyItem = (): ItemValues => ({
   unitPrice: 0, costPrice: null, productId: null, variantId: null,
 });
 
+// ── Product Search Combobox (stock-only) ──────────────────────────────────────
+function ProductSearchCombobox({ products, allVariants, onSelect }: {
+  products: any[];
+  allVariants: any[];
+  onSelect: (product: any) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // فلتر المنتجات اللي عندها رصيد > 0
+  const inStockProducts = useMemo(() => {
+    return products.filter(p => {
+      const hasDirectStock = (p.totalQuantity ?? 0) > 0;
+      const variants = allVariants.filter(v => v.productId === p.id);
+      const hasVariantStock = variants.some(v => (v.totalQuantity ?? 0) > 0);
+      return hasDirectStock || hasVariantStock || variants.length === 0 ? hasDirectStock : hasVariantStock;
+    });
+  }, [products, allVariants]);
+
+  const filtered = useMemo(() => {
+    if (!query.trim()) return inStockProducts.slice(0, 20);
+    const q = query.toLowerCase().trim();
+    return inStockProducts.filter(p => p.name?.toLowerCase().includes(q)).slice(0, 20);
+  }, [query, inStockProducts]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const getStock = (p: any) => {
+    const variants = allVariants.filter(v => v.productId === p.id);
+    if (variants.length > 0) return variants.reduce((s: number, v: any) => s + (v.totalQuantity ?? 0), 0);
+    return p.totalQuantity ?? 0;
+  };
+
+  return (
+    <div ref={ref} className="relative">
+      <div className="relative">
+        <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+        <Input
+          className="h-9 text-sm pr-8 bg-card"
+          placeholder="ابحث عن منتج من المخزون..."
+          value={query}
+          onChange={e => { setQuery(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+        />
+        {query && (
+          <button type="button" onClick={() => setQuery("")}
+            className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+      {open && (
+        <div className="absolute z-50 mt-1 w-full bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
+          {filtered.length === 0 ? (
+            <div className="px-3 py-4 text-center text-sm text-muted-foreground">
+              {query ? "لا يوجد منتج بهذا الاسم في المخزون" : "لا توجد منتجات متاحة في المخزون"}
+            </div>
+          ) : (
+            filtered.map(p => {
+              const stock = getStock(p);
+              return (
+                <button key={p.id} type="button"
+                  className="w-full text-right flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-muted/50 transition-colors text-sm border-b border-border/30 last:border-0"
+                  onClick={() => { onSelect(p); setQuery(""); setOpen(false); }}>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Package className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    <span className="font-medium truncate">{p.name}</span>
+                  </div>
+                  <Badge variant="outline" className={`text-[9px] font-bold shrink-0 ${stock > 0 ? "border-emerald-400 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400" : "border-red-400 text-red-600"}`}>
+                    {stock > 0 ? `${stock} متاح` : "نفد"}
+                  </Badge>
+                </button>
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Single product item row ───────────────────────────────────────────────────
 function ProductItem({
   index, control, watch, setValue, remove, products, allVariants, canViewFinancials, isOnly,
 }: {
   index: number; control: any; watch: any; setValue: any;
-  remove: () => void; products: any[] | undefined; allVariants: any[] | undefined;
+  remove: () => void; products: any[]; allVariants: any[];
   canViewFinancials: boolean; isOnly: boolean;
 }) {
   const [collapsed, setCollapsed] = useState(false);
-  const productId  = watch(`items.${index}.productId`);
-  const color      = watch(`items.${index}.color`);
-  const variantId  = watch(`items.${index}.variantId`);
-  const qty        = watch(`items.${index}.quantity`) || 0;
-  const price      = watch(`items.${index}.unitPrice`) || 0;
-  const cost       = watch(`items.${index}.costPrice`) || 0;
+  const productId   = watch(`items.${index}.productId`);
+  const color       = watch(`items.${index}.color`);
+  const variantId   = watch(`items.${index}.variantId`);
+  const qty         = watch(`items.${index}.quantity`) || 0;
+  const price       = watch(`items.${index}.unitPrice`) || 0;
+  const cost        = watch(`items.${index}.costPrice`) || 0;
   const productName = watch(`items.${index}.product`) || `منتج ${index + 1}`;
 
-  const productVariants = allVariants?.filter(v => v.productId === Number(productId)) ?? [];
-  const availableColors = [...new Set(productVariants.map(v => v.color))];
-  const availableSizes  = productVariants.filter(v => v.color === color).map(v => v.size);
-  const selectedVariant = allVariants?.find(v => v.id === Number(variantId));
-  const availableQty    = selectedVariant
-    ? selectedVariant.totalQuantity - selectedVariant.reservedQuantity - selectedVariant.soldQuantity
-    : null;
+  const productVariants  = allVariants.filter(v => v.productId === Number(productId));
+  const availableColors  = [...new Set(productVariants.map(v => v.color))];
+  const availableSizes   = productVariants.filter(v => v.color === color).map(v => v.size);
+  const selectedVariant  = allVariants.find(v => v.id === Number(variantId));
+  const availableQty     = selectedVariant ? selectedVariant.totalQuantity : null;
 
   const revenue   = qty * price;
   const costTotal = qty * cost;
   const profit    = revenue - costTotal;
+
+  const selectedProduct = products.find(p => p.id === Number(productId));
+
+  const handleSelectProduct = (p: any) => {
+    setValue(`items.${index}.productId`, p.id);
+    setValue(`items.${index}.product`, p.name);
+    if (p.costPrice) setValue(`items.${index}.costPrice`, p.costPrice);
+    setValue(`items.${index}.variantId`, null);
+    setValue(`items.${index}.color`, "");
+    setValue(`items.${index}.size`, "");
+  };
+
+  const handleClearProduct = () => {
+    setValue(`items.${index}.productId`, null);
+    setValue(`items.${index}.product`, "");
+    setValue(`items.${index}.variantId`, null);
+    setValue(`items.${index}.color`, "");
+    setValue(`items.${index}.size`, "");
+    setValue(`items.${index}.unitPrice`, 0);
+  };
 
   return (
     <Card className="border-border bg-card overflow-hidden">
@@ -123,35 +229,40 @@ function ProductItem({
 
       {!collapsed && (
         <CardContent className="px-4 pb-4 pt-3 space-y-3">
-          <FormField control={control} name={`items.${index}.productId`} render={({ field }) => (
-            <FormItem>
-              <FormLabel className="text-xs flex items-center gap-1"><Layers className="w-3 h-3" />اختر من المخزون (اختياري)</FormLabel>
-              <Select value={field.value?.toString() || "none"} onValueChange={v => {
-                if (v && v !== "none") {
-                  const pid = Number(v); field.onChange(pid);
-                  const p = products?.find(p => p.id === pid);
-                  if (p) { setValue(`items.${index}.product`, p.name); if (p.costPrice) setValue(`items.${index}.costPrice`, p.costPrice); }
-                  setValue(`items.${index}.variantId`, null); setValue(`items.${index}.color`, ""); setValue(`items.${index}.size`, "");
-                } else {
-                  field.onChange(null); setValue(`items.${index}.variantId`, null); setValue(`items.${index}.color`, ""); setValue(`items.${index}.size`, "");
-                }
-              }}>
-                <SelectTrigger className="h-9 text-sm bg-card"><SelectValue placeholder="اختر منتج من المخزون..." /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">— إدخال يدوي —</SelectItem>
-                  {products?.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </FormItem>
-          )} />
 
+          {/* ── Product selector from stock ── */}
+          <div>
+            <FormLabel className="text-xs flex items-center gap-1 mb-1.5"><Layers className="w-3 h-3" />اختر من المخزون *</FormLabel>
+            {productId && selectedProduct ? (
+              <div className="flex items-center justify-between gap-2 px-3 py-2 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800 rounded-md">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Package className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span className="text-sm font-bold truncate">{selectedProduct.name}</span>
+                </div>
+                <button type="button" onClick={handleClearProduct}
+                  className="shrink-0 text-muted-foreground hover:text-red-500 transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <ProductSearchCombobox
+                products={products}
+                allVariants={allVariants}
+                onSelect={handleSelectProduct}
+              />
+            )}
+          </div>
+
+          {/* ── Color & Size selection (variants) ── */}
           {productId && productVariants.length > 0 && (
             <div className="grid grid-cols-2 gap-3 p-3 bg-muted/10 rounded-md border border-border/40">
               <FormField control={control} name={`items.${index}.color`} render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-xs">اللون</FormLabel>
                   <Select value={field.value || "none"} onValueChange={v => {
-                    field.onChange(v === "none" ? "" : v); setValue(`items.${index}.size`, ""); setValue(`items.${index}.variantId`, null);
+                    field.onChange(v === "none" ? "" : v);
+                    setValue(`items.${index}.size`, "");
+                    setValue(`items.${index}.variantId`, null);
                   }}>
                     <SelectTrigger className="h-9 text-sm bg-card"><SelectValue placeholder="اختر لون" /></SelectTrigger>
                     <SelectContent>
@@ -167,14 +278,18 @@ function ProductItem({
                   <Select value={field.value || "none"} disabled={!color} onValueChange={v => {
                     field.onChange(v === "none" ? "" : v);
                     const variant = productVariants.find(pv => pv.color === color && pv.size === v);
-                    if (variant) { setValue(`items.${index}.variantId`, variant.id); setValue(`items.${index}.unitPrice`, variant.unitPrice); if ((variant as any).costPrice) setValue(`items.${index}.costPrice`, (variant as any).costPrice); }
+                    if (variant) {
+                      setValue(`items.${index}.variantId`, variant.id);
+                      setValue(`items.${index}.unitPrice`, variant.unitPrice);
+                      if ((variant as any).costPrice) setValue(`items.${index}.costPrice`, (variant as any).costPrice);
+                    }
                   }}>
                     <SelectTrigger className="h-9 text-sm bg-card"><SelectValue placeholder={color ? "اختر مقاس" : "اختر لون أولاً"} /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">اختر مقاس...</SelectItem>
                       {availableSizes.map(s => {
                         const variant = productVariants.find(pv => pv.color === color && pv.size === s);
-                        const avail = variant ? variant.totalQuantity - variant.reservedQuantity - variant.soldQuantity : 0;
+                        const avail = variant ? (variant.totalQuantity ?? 0) : 0;
                         return <SelectItem key={s} value={s} disabled={avail === 0}>{s} {avail === 0 ? "(نفد)" : `(${avail} متاح)`}</SelectItem>;
                       })}
                     </SelectContent>
@@ -184,7 +299,7 @@ function ProductItem({
               {selectedVariant && (
                 <div className="col-span-2">
                   <Badge variant="outline" className={`text-[9px] font-bold border ${
-                    availableQty !== null && availableQty <= selectedVariant.lowStockThreshold
+                    availableQty !== null && availableQty <= (selectedVariant.lowStockThreshold ?? 5)
                       ? "border-red-400 text-red-700 dark:border-red-800 dark:text-red-400"
                       : "border-emerald-400 text-emerald-700 dark:border-emerald-800 dark:text-emerald-400"
                   }`}>متاح: {availableQty ?? 0}</Badge>
@@ -193,31 +308,7 @@ function ProductItem({
             </div>
           )}
 
-          <FormField control={control} name={`items.${index}.product`} render={({ field }) => (
-            <FormItem>
-              <FormLabel className="text-xs">اسم المنتج *</FormLabel>
-              <FormControl><Input placeholder="اسم المنتج" className="h-9 text-sm" {...field} /></FormControl>
-              <FormMessage className="text-xs" />
-            </FormItem>
-          )} />
-
-          {!productId && (
-            <div className="grid grid-cols-2 gap-3">
-              <FormField control={control} name={`items.${index}.color`} render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-xs">اللون</FormLabel>
-                  <FormControl><Input placeholder="أسود، بيج..." className="h-9 text-sm" {...field} value={field.value ?? ""} /></FormControl>
-                </FormItem>
-              )} />
-              <FormField control={control} name={`items.${index}.size`} render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-xs">المقاس</FormLabel>
-                  <FormControl><Input placeholder="M, L, XL..." className="h-9 text-sm" {...field} value={field.value ?? ""} /></FormControl>
-                </FormItem>
-              )} />
-            </div>
-          )}
-
+          {/* ── Qty & Price ── */}
           <div className="grid grid-cols-2 gap-3">
             <FormField control={control} name={`items.${index}.quantity`} render={({ field }) => (
               <FormItem>
@@ -267,11 +358,11 @@ export default function OrderForm() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: products }          = useQuery({ queryKey: ["products"],   queryFn: productsApi.list });
-  const { data: allVariants }       = useQuery({ queryKey: ["variants"],   queryFn: variantsApi.listAll });
-  const { data: shippingCompanies } = useQuery({ queryKey: ["shipping"],   queryFn: shippingApi.list });
-  const { data: warehouses }        = useQuery({ queryKey: ["warehouses"], queryFn: warehousesApi.list });
-  const { data: users }             = useQuery({ queryKey: ["users"],      queryFn: usersApi.list });
+  const { data: products = [] }       = useQuery({ queryKey: ["products"],   queryFn: productsApi.list });
+  const { data: allVariants = [] }    = useQuery({ queryKey: ["variants"],   queryFn: variantsApi.listAll });
+  const { data: shippingCompanies }   = useQuery({ queryKey: ["shipping"],   queryFn: shippingApi.list });
+  const { data: warehouses }          = useQuery({ queryKey: ["warehouses"], queryFn: warehousesApi.list });
+  const { data: users }               = useQuery({ queryKey: ["users"],      queryFn: usersApi.list });
   const { canViewFinancials } = useAuth();
 
   const form = useForm<FormValues>({
@@ -295,7 +386,6 @@ export default function OrderForm() {
   const totalQty     = items.reduce((s, it) => s + (it.quantity || 0), 0);
   const [submitting, setSubmitting] = useState(false);
 
-  // ── Submit: single API call with all items (one invoice) ─────────────────
   const onSubmit = async (values: FormValues) => {
     setSubmitting(true);
     try {
@@ -363,7 +453,7 @@ export default function OrderForm() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="md:col-span-2 space-y-4">
 
-              {/* ── Customer ──────────────────────────────────────────── */}
+              {/* Customer */}
               <Card className="border-border bg-card">
                 <CardHeader className="pb-3 pt-4 px-4"><CardTitle className="text-sm font-bold">بيانات العميل</CardTitle></CardHeader>
                 <CardContent className="px-4 pb-4 space-y-3">
@@ -413,7 +503,7 @@ export default function OrderForm() {
                 </CardContent>
               </Card>
 
-              {/* ── Products list ──────────────────────────────────────── */}
+              {/* Products list */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h2 className="text-sm font-bold flex items-center gap-2">
@@ -444,7 +534,7 @@ export default function OrderForm() {
                 )}
               </div>
 
-              {/* ── Shipping cost ──────────────────────────────────────── */}
+              {/* Shipping cost */}
               {canViewFinancials && (
                 <Card className="border-emerald-200 dark:border-emerald-900/40 bg-emerald-50 dark:bg-emerald-900/5">
                   <CardHeader className="pb-2 pt-4 px-4 border-b border-border">
@@ -467,7 +557,7 @@ export default function OrderForm() {
                 </Card>
               )}
 
-              {/* ── Tracking ───────────────────────────────────────────── */}
+              {/* Tracking */}
               <Card className="border-purple-900/40 bg-purple-900/5">
                 <CardHeader className="pb-2 pt-4 px-4 border-b border-border">
                   <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -532,7 +622,7 @@ export default function OrderForm() {
               )} />
             </div>
 
-            {/* ── Summary sidebar ──────────────────────────────────────── */}
+            {/* Summary sidebar */}
             <div>
               <Card className="border-primary/30 bg-card sticky top-4">
                 <CardHeader className="pb-3 pt-4 px-4">
