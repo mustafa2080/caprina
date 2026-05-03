@@ -134,6 +134,33 @@ router.post("/inventory/movements", async (req, res): Promise<void> => {
     orderId:      null,
   });
 
+  // ── حركة يدوية عادية (مش transfer): حدّث المخزن الفعلي ──────────────────
+  if (reason !== "transfer" && (pid || vid) && whId) {
+    const delta = type === "IN" ? qty : -qty;
+    const condition = and(
+      eq(warehouseStockTable.warehouseId, whId),
+      vid
+        ? eq(warehouseStockTable.variantId, vid)
+        : eq(warehouseStockTable.productId, pid!),
+    );
+    const [stockRow] = await db.select().from(warehouseStockTable).where(condition);
+    if (stockRow) {
+      const newQty = Math.max(0, stockRow.quantity + delta);
+      await db.update(warehouseStockTable)
+        .set({ quantity: newQty, updatedAt: new Date() })
+        .where(eq(warehouseStockTable.id, stockRow.id));
+    } else if (delta > 0) {
+      await db.insert(warehouseStockTable).values({
+        warehouseId: whId,
+        variantId:   vid  ?? null,
+        productId:   pid  ?? null,
+        quantity:    delta,
+        updatedAt:   new Date(),
+      });
+    }
+    await syncProductQuantityFromWarehouses(vid, pid);
+  }
+
   // ── تحويل بين مواقع: حدّث أرصدة المخازن ──────────────────────────────────
   if (reason === "transfer" && fromLocation && toLocation) {
     // استخرج اسم المخزن من الـ location string (مثال: "مخزن: القاهرة")
