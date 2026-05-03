@@ -146666,21 +146666,83 @@ router7.post("/inventory/movements", async (req, res) => {
     res.status(400).json({ error: "type \u064A\u062C\u0628 \u0623\u0646 \u064A\u0643\u0648\u0646 IN \u0623\u0648 OUT" });
     return;
   }
+  const qty = parseInt(quantity);
+  const pid = productId ? parseInt(productId) : null;
+  const vid = variantId ? parseInt(variantId) : null;
+  const whId = warehouseId ? parseInt(warehouseId) : null;
   const insertResult = await db.insert(inventoryMovementsTable).values({
     product,
     color: color ?? null,
     size: size ?? null,
-    quantity: parseInt(quantity),
+    quantity: qty,
     type,
     reason,
-    productId: productId ? parseInt(productId) : null,
-    variantId: variantId ? parseInt(variantId) : null,
-    warehouseId: warehouseId ? parseInt(warehouseId) : null,
+    productId: pid,
+    variantId: vid,
+    warehouseId: whId,
     fromLocation: fromLocation ?? null,
     toLocation: toLocation ?? null,
     notes: notes ?? null,
     orderId: null
   });
+  if (reason === "transfer" && fromLocation && toLocation) {
+    const extractWarehouseName = (loc) => {
+      const m = loc.match(/^مخزن:\s*(.+)$/);
+      return m ? m[1].trim() : null;
+    };
+    const fromName = extractWarehouseName(fromLocation);
+    const toName = extractWarehouseName(toLocation);
+    const allWarehouses = await db.select().from(warehousesTable);
+    const fromWh = fromName ? allWarehouses.find((w) => w.name === fromName) : null;
+    const toWh = toName ? allWarehouses.find((w) => w.name === toName) : null;
+    let resolvedVid = vid;
+    let resolvedPid = pid;
+    if (!resolvedVid && !resolvedPid && product) {
+      if (color && size) {
+        const [foundVariant] = await db.select({ id: productVariantsTable.id, productId: productVariantsTable.productId }).from(productVariantsTable).innerJoin(productsTable, eq(productVariantsTable.productId, productsTable.id)).where(and(
+          like(productsTable.name, `%${product}%`),
+          like(productVariantsTable.color, `%${color}%`),
+          like(productVariantsTable.size, `%${size}%`)
+        )).limit(1);
+        if (foundVariant) {
+          resolvedVid = foundVariant.id;
+        }
+      }
+      if (!resolvedVid) {
+        const [foundProduct] = await db.select({ id: productsTable.id }).from(productsTable).where(like(productsTable.name, `%${product}%`)).limit(1);
+        if (foundProduct) resolvedPid = foundProduct.id;
+      }
+    }
+    const upsertStock = async (warehouseId2, delta) => {
+      const condition = and(
+        eq(warehouseStockTable.warehouseId, warehouseId2),
+        resolvedVid ? eq(warehouseStockTable.variantId, resolvedVid) : eq(warehouseStockTable.productId, resolvedPid)
+      );
+      const [row] = await db.select().from(warehouseStockTable).where(condition);
+      if (row) {
+        const newQty = Math.max(0, row.quantity + delta);
+        await db.update(warehouseStockTable).set({ quantity: newQty, updatedAt: /* @__PURE__ */ new Date() }).where(eq(warehouseStockTable.id, row.id));
+      } else if (delta > 0) {
+        await db.insert(warehouseStockTable).values({
+          warehouseId: warehouseId2,
+          variantId: resolvedVid ?? null,
+          productId: resolvedPid ?? null,
+          quantity: delta,
+          updatedAt: /* @__PURE__ */ new Date()
+        });
+      }
+    };
+    if (resolvedVid || resolvedPid) {
+      if (fromWh) {
+        await upsertStock(fromWh.id, -qty);
+        await syncProductQuantityFromWarehouses(resolvedVid, resolvedPid);
+      }
+      if (toWh) {
+        await upsertStock(toWh.id, qty);
+        await syncProductQuantityFromWarehouses(resolvedVid, resolvedPid);
+      }
+    }
+  }
   const insertId = insertResult[0]?.insertId ?? insertResult.insertId;
   const [movement] = await db.select({
     id: inventoryMovementsTable.id,

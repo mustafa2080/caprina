@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, and, gte, lte, or, like } from "drizzle-orm";
-import { db, inventoryMovementsTable, productsTable, warehousesTable, warehouseStockTable } from "@workspace/db";
+import { db, inventoryMovementsTable, productsTable, productVariantsTable, warehousesTable, warehouseStockTable } from "@workspace/db";
 import { syncProductQuantityFromWarehouses } from "../lib/inventory.js";
 
 const router: IRouter = Router();
@@ -135,7 +135,7 @@ router.post("/inventory/movements", async (req, res): Promise<void> => {
   });
 
   // ── تحويل بين مواقع: حدّث أرصدة المخازن ──────────────────────────────────
-  if (reason === "transfer" && fromLocation && toLocation && (pid || vid)) {
+  if (reason === "transfer" && fromLocation && toLocation) {
     // استخرج اسم المخزن من الـ location string (مثال: "مخزن: القاهرة")
     const extractWarehouseName = (loc: string) => {
       const m = loc.match(/^مخزن:\s*(.+)$/);
@@ -149,12 +149,45 @@ router.post("/inventory/movements", async (req, res): Promise<void> => {
     const fromWh = fromName ? allWarehouses.find(w => w.name === fromName) : null;
     const toWh   = toName   ? allWarehouses.find(w => w.name === toName)   : null;
 
+    // حدد vid/pid — لو مش موجود ابحث بالاسم
+    let resolvedVid = vid;
+    let resolvedPid = pid;
+
+    if (!resolvedVid && !resolvedPid && product) {
+      // دور على variant بالاسم واللون والمقاس
+      if (color && size) {
+        const [foundVariant] = await db
+          .select({ id: productVariantsTable.id, productId: productVariantsTable.productId })
+          .from(productVariantsTable)
+          .innerJoin(productsTable, eq(productVariantsTable.productId, productsTable.id))
+          .where(and(
+            like(productsTable.name, `%${product}%`),
+            like(productVariantsTable.color, `%${color}%`),
+            like(productVariantsTable.size, `%${size}%`),
+          ))
+          .limit(1);
+        if (foundVariant) {
+          resolvedVid = foundVariant.id;
+        }
+      }
+      // لو مش لاقي variant دور على product بالاسم
+      if (!resolvedVid) {
+        const [foundProduct] = await db
+          .select({ id: productsTable.id })
+          .from(productsTable)
+          .where(like(productsTable.name, `%${product}%`))
+          .limit(1);
+        if (foundProduct) resolvedPid = foundProduct.id;
+      }
+    }
+
     // دالة مساعدة لتحديث أو إنشاء stock row
-    const upsertStock = async (whId: number, delta: number) => {
+    const upsertStock = async (warehouseId: number, delta: number) => {
       const condition = and(
-        eq(warehouseStockTable.warehouseId, whId),
-        vid ? eq(warehouseStockTable.variantId, vid)
-            : eq(warehouseStockTable.productId, pid!),
+        eq(warehouseStockTable.warehouseId, warehouseId),
+        resolvedVid
+          ? eq(warehouseStockTable.variantId, resolvedVid)
+          : eq(warehouseStockTable.productId, resolvedPid!),
       );
       const [row] = await db.select().from(warehouseStockTable).where(condition);
       if (row) {
@@ -164,24 +197,26 @@ router.post("/inventory/movements", async (req, res): Promise<void> => {
           .where(eq(warehouseStockTable.id, row.id));
       } else if (delta > 0) {
         await db.insert(warehouseStockTable).values({
-          warehouseId: whId,
-          variantId: vid ?? null,
-          productId: pid ?? null,
+          warehouseId,
+          variantId: resolvedVid ?? null,
+          productId: resolvedPid ?? null,
           quantity: delta,
           updatedAt: new Date(),
         });
       }
     };
 
-    // خصم من المخزن المصدر
-    if (fromWh) {
-      await upsertStock(fromWh.id, -qty);
-      await syncProductQuantityFromWarehouses(vid, pid);
-    }
-    // إضافة للمخزن الوجهة
-    if (toWh) {
-      await upsertStock(toWh.id, qty);
-      await syncProductQuantityFromWarehouses(vid, pid);
+    if (resolvedVid || resolvedPid) {
+      // خصم من المخزن المصدر
+      if (fromWh) {
+        await upsertStock(fromWh.id, -qty);
+        await syncProductQuantityFromWarehouses(resolvedVid, resolvedPid);
+      }
+      // إضافة للمخزن الوجهة
+      if (toWh) {
+        await upsertStock(toWh.id, qty);
+        await syncProductQuantityFromWarehouses(resolvedVid, resolvedPid);
+      }
     }
   }
 
