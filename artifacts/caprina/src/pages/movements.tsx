@@ -4,7 +4,7 @@ import { arEG } from "date-fns/locale";
 import {
   ArrowDownCircle, ArrowUpCircle, BarChart3, CalendarDays,
   Filter, Package, Plus, X, TrendingDown, TrendingUp, Activity, Printer, Pencil,
-  ArrowRightLeft,
+  ArrowRightLeft, Trash2,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { movementsApi, productsApi, warehousesApi, shippingApi, type MovementType, type MovementReason, type InventoryMovement } from "@/lib/api";
@@ -18,6 +18,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 // ─── Label helpers ────────────────────────────────────────────────────────────
 
@@ -58,6 +59,7 @@ const formatNum = (n: number) =>
 export default function Movements() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { isAdmin } = useAuth();
 
   // Dialog mode: "manual" | "transfer"
   const [dialogMode, setDialogMode] = useState<"manual" | "transfer">("manual");
@@ -159,6 +161,21 @@ export default function Movements() {
     },
     onError: () => toast({ title: "خطأ", description: "فشل تعديل الحركة.", variant: "destructive" }),
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => movementsApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["movements"] });
+      queryClient.invalidateQueries({ queryKey: ["movements-totals"] });
+      toast({ title: "تم الحذف", description: "تم حذف الحركة بنجاح." });
+    },
+    onError: () => toast({ title: "خطأ", description: "فشل حذف الحركة.", variant: "destructive" }),
+  });
+
+  const handleDelete = (id: number) => {
+    if (!window.confirm("هل أنت متأكد من حذف هذه الحركة؟")) return;
+    deleteMutation.mutate(id);
+  };
 
   const resetForm = () => setForm({
     product: "", color: "", size: "", quantity: "1",
@@ -461,6 +478,7 @@ ${filtersRow}
                   <TableHead className="text-right text-xs">الموقع</TableHead>
                   <TableHead className="text-right text-xs">ملاحظات</TableHead>
                   <TableHead className="text-center text-xs w-14">تعديل</TableHead>
+                  {isAdmin && <TableHead className="text-center text-xs w-14">حذف</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -530,6 +548,13 @@ ${filtersRow}
                         <Pencil className="w-3 h-3" />
                       </Button>
                     </TableCell>
+                    {isAdmin && (
+                      <TableCell className="text-center">
+                        <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10" title="حذف" onClick={() => handleDelete(m.id)} disabled={deleteMutation.isPending}>
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </TableCell>
+                    )}
                   </TableRow>
                   );
                 })}
