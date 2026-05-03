@@ -29,7 +29,6 @@ const AD_SOURCES = [
   { value: "other",    label: "📌 أخرى" },
 ];
 
-// ── Schemas ───────────────────────────────────────────────────────────────────
 const itemSchema = z.object({
   product:     z.string().min(1, "اسم المنتج مطلوب."),
   color:       z.string().optional().nullable(),
@@ -67,60 +66,46 @@ const emptyItem = (): ItemValues => ({
   unitPrice: 0, costPrice: null, productId: null, variantId: null,
 });
 
-// ── Product Search Combobox (stock-only) ──────────────────────────────────────
+// ── Product Search Combobox ───────────────────────────────────────────────────
 function ProductSearchCombobox({ products, allVariants, onSelect }: {
-  products: any[];
-  allVariants: any[];
-  onSelect: (product: any) => void;
+  products: any[]; allVariants: any[]; onSelect: (p: any) => void;
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  // فلتر المنتجات اللي عندها رصيد > 0
-  const inStockProducts = useMemo(() => {
-    return products.filter(p => {
-      const hasDirectStock = (p.totalQuantity ?? 0) > 0;
-      const variants = allVariants.filter(v => v.productId === p.id);
-      const hasVariantStock = variants.some(v => (v.totalQuantity ?? 0) > 0);
-      return hasDirectStock || hasVariantStock || variants.length === 0 ? hasDirectStock : hasVariantStock;
-    });
-  }, [products, allVariants]);
+  const inStockProducts = useMemo(() => products.filter(p => {
+    const variants = allVariants.filter(v => v.productId === p.id);
+    if (variants.length > 0) return variants.some(v => (v.totalQuantity ?? 0) > 0);
+    return (p.totalQuantity ?? 0) > 0;
+  }), [products, allVariants]);
 
   const filtered = useMemo(() => {
-    if (!query.trim()) return inStockProducts.slice(0, 20);
     const q = query.toLowerCase().trim();
-    return inStockProducts.filter(p => p.name?.toLowerCase().includes(q)).slice(0, 20);
+    return (q ? inStockProducts.filter(p => p.name?.toLowerCase().includes(q)) : inStockProducts).slice(0, 20);
   }, [query, inStockProducts]);
 
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    const fn = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", fn);
+    return () => document.removeEventListener("mousedown", fn);
   }, []);
 
   const getStock = (p: any) => {
     const variants = allVariants.filter(v => v.productId === p.id);
-    if (variants.length > 0) return variants.reduce((s: number, v: any) => s + (v.totalQuantity ?? 0), 0);
-    return p.totalQuantity ?? 0;
+    return variants.length > 0
+      ? variants.reduce((s: number, v: any) => s + (v.totalQuantity ?? 0), 0)
+      : (p.totalQuantity ?? 0);
   };
 
   return (
     <div ref={ref} className="relative">
       <div className="relative">
         <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-        <Input
-          className="h-9 text-sm pr-8 bg-card"
-          placeholder="ابحث عن منتج من المخزون..."
-          value={query}
-          onChange={e => { setQuery(e.target.value); setOpen(true); }}
-          onFocus={() => setOpen(true)}
-        />
+        <Input className="h-9 text-sm pr-8 bg-card" placeholder="ابحث عن منتج من المخزون..."
+          value={query} onChange={e => { setQuery(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)} />
         {query && (
-          <button type="button" onClick={() => setQuery("")}
-            className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+          <button type="button" onClick={() => setQuery("")} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
             <X className="w-3.5 h-3.5" />
           </button>
         )}
@@ -131,24 +116,22 @@ function ProductSearchCombobox({ products, allVariants, onSelect }: {
             <div className="px-3 py-4 text-center text-sm text-muted-foreground">
               {query ? "لا يوجد منتج بهذا الاسم في المخزون" : "لا توجد منتجات متاحة في المخزون"}
             </div>
-          ) : (
-            filtered.map(p => {
-              const stock = getStock(p);
-              return (
-                <button key={p.id} type="button"
-                  className="w-full text-right flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-muted/50 transition-colors text-sm border-b border-border/30 last:border-0"
-                  onClick={() => { onSelect(p); setQuery(""); setOpen(false); }}>
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Package className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                    <span className="font-medium truncate">{p.name}</span>
-                  </div>
-                  <Badge variant="outline" className={`text-[9px] font-bold shrink-0 ${stock > 0 ? "border-emerald-400 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400" : "border-red-400 text-red-600"}`}>
-                    {stock > 0 ? `${stock} متاح` : "نفد"}
-                  </Badge>
-                </button>
-              );
-            })
-          )}
+          ) : filtered.map(p => {
+            const stock = getStock(p);
+            return (
+              <button key={p.id} type="button"
+                className="w-full text-right flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-muted/50 transition-colors text-sm border-b border-border/30 last:border-0"
+                onClick={() => { onSelect(p); setQuery(""); setOpen(false); }}>
+                <div className="flex items-center gap-2 min-w-0">
+                  <Package className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                  <span className="font-medium truncate">{p.name}</span>
+                </div>
+                <Badge variant="outline" className={`text-[9px] font-bold shrink-0 ${stock > 0 ? "border-emerald-400 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400" : "border-red-400 text-red-600"}`}>
+                  {stock > 0 ? `${stock} متاح` : "نفد"}
+                </Badge>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
@@ -172,17 +155,16 @@ function ProductItem({
   const cost        = watch(`items.${index}.costPrice`) || 0;
   const productName = watch(`items.${index}.product`) || `منتج ${index + 1}`;
 
-  const productVariants  = allVariants.filter(v => v.productId === Number(productId));
-  const availableColors  = [...new Set(productVariants.map(v => v.color))];
-  const availableSizes   = productVariants.filter(v => v.color === color).map(v => v.size);
-  const selectedVariant  = allVariants.find(v => v.id === Number(variantId));
-  const availableQty     = selectedVariant ? selectedVariant.totalQuantity : null;
+  const productVariants = allVariants.filter((v: any) => v.productId === Number(productId));
+  const availableColors = [...new Set(productVariants.map((v: any) => v.color))];
+  const availableSizes  = productVariants.filter((v: any) => v.color === color).map((v: any) => v.size);
+  const selectedVariant = allVariants.find((v: any) => v.id === Number(variantId));
+  const availableQty    = selectedVariant ? selectedVariant.totalQuantity : null;
+  const selectedProduct = products.find((p: any) => p.id === Number(productId));
 
   const revenue   = qty * price;
   const costTotal = qty * cost;
   const profit    = revenue - costTotal;
-
-  const selectedProduct = products.find(p => p.id === Number(productId));
 
   const handleSelectProduct = (p: any) => {
     setValue(`items.${index}.productId`, p.id);
@@ -204,6 +186,7 @@ function ProductItem({
 
   return (
     <Card className="border-border bg-card overflow-hidden">
+      {/* Header */}
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-border cursor-pointer select-none bg-muted/20 hover:bg-muted/30 transition-colors"
         onClick={() => setCollapsed(c => !c)}>
         <div className="flex items-center gap-2">
@@ -230,9 +213,11 @@ function ProductItem({
       {!collapsed && (
         <CardContent className="px-4 pb-4 pt-3 space-y-3">
 
-          {/* ── Product selector from stock ── */}
+          {/* Product selector — stock only, no manual entry */}
           <div>
-            <FormLabel className="text-xs flex items-center gap-1 mb-1.5"><Layers className="w-3 h-3" />اختر من المخزون *</FormLabel>
+            <label className="text-xs font-medium flex items-center gap-1 mb-1.5 text-foreground">
+              <Layers className="w-3 h-3" />اختر من المخزون *
+            </label>
             {productId && selectedProduct ? (
               <div className="flex items-center justify-between gap-2 px-3 py-2 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800 rounded-md">
                 <div className="flex items-center gap-2 min-w-0">
@@ -240,20 +225,16 @@ function ProductItem({
                   <span className="text-sm font-bold truncate">{selectedProduct.name}</span>
                 </div>
                 <button type="button" onClick={handleClearProduct}
-                  className="shrink-0 text-muted-foreground hover:text-red-500 transition-colors">
+                  className="shrink-0 text-muted-foreground hover:text-red-500 transition-colors" title="تغيير المنتج">
                   <X className="w-4 h-4" />
                 </button>
               </div>
             ) : (
-              <ProductSearchCombobox
-                products={products}
-                allVariants={allVariants}
-                onSelect={handleSelectProduct}
-              />
+              <ProductSearchCombobox products={products} allVariants={allVariants} onSelect={handleSelectProduct} />
             )}
           </div>
 
-          {/* ── Color & Size selection (variants) ── */}
+          {/* Color & Size (variants) */}
           {productId && productVariants.length > 0 && (
             <div className="grid grid-cols-2 gap-3 p-3 bg-muted/10 rounded-md border border-border/40">
               <FormField control={control} name={`items.${index}.color`} render={({ field }) => (
@@ -267,7 +248,7 @@ function ProductItem({
                     <SelectTrigger className="h-9 text-sm bg-card"><SelectValue placeholder="اختر لون" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">اختر لون...</SelectItem>
-                      {availableColors.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                      {availableColors.map((c: any) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </FormItem>
@@ -277,7 +258,7 @@ function ProductItem({
                   <FormLabel className="text-xs">المقاس</FormLabel>
                   <Select value={field.value || "none"} disabled={!color} onValueChange={v => {
                     field.onChange(v === "none" ? "" : v);
-                    const variant = productVariants.find(pv => pv.color === color && pv.size === v);
+                    const variant = productVariants.find((pv: any) => pv.color === color && pv.size === v);
                     if (variant) {
                       setValue(`items.${index}.variantId`, variant.id);
                       setValue(`items.${index}.unitPrice`, variant.unitPrice);
@@ -287,8 +268,8 @@ function ProductItem({
                     <SelectTrigger className="h-9 text-sm bg-card"><SelectValue placeholder={color ? "اختر مقاس" : "اختر لون أولاً"} /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">اختر مقاس...</SelectItem>
-                      {availableSizes.map(s => {
-                        const variant = productVariants.find(pv => pv.color === color && pv.size === s);
+                      {availableSizes.map((s: any) => {
+                        const variant = productVariants.find((pv: any) => pv.color === color && pv.size === s);
                         const avail = variant ? (variant.totalQuantity ?? 0) : 0;
                         return <SelectItem key={s} value={s} disabled={avail === 0}>{s} {avail === 0 ? "(نفد)" : `(${avail} متاح)`}</SelectItem>;
                       })}
@@ -308,7 +289,7 @@ function ProductItem({
             </div>
           )}
 
-          {/* ── Qty & Price ── */}
+          {/* Qty & Price */}
           <div className="grid grid-cols-2 gap-3">
             <FormField control={control} name={`items.${index}.quantity`} render={({ field }) => (
               <FormItem>
@@ -326,11 +307,14 @@ function ProductItem({
             )} />
           </div>
 
+          {/* Cost & profit (admin only) */}
           {canViewFinancials && (
             <div className="space-y-2">
               <FormField control={control} name={`items.${index}.costPrice`} render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-xs flex items-center gap-1"><DollarSign className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />تكلفة الوحدة (ج.م)</FormLabel>
+                  <FormLabel className="text-xs flex items-center gap-1">
+                    <DollarSign className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />تكلفة الوحدة (ج.م)
+                  </FormLabel>
                   <FormControl>
                     <Input type="number" min="0" step="0.01" placeholder="0" className="h-9 text-sm"
                       {...field} value={field.value ?? ""} onChange={e => field.onChange(e.target.value ? Number(e.target.value) : null)} />
@@ -358,11 +342,11 @@ export default function OrderForm() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: products = [] }       = useQuery({ queryKey: ["products"],   queryFn: productsApi.list });
-  const { data: allVariants = [] }    = useQuery({ queryKey: ["variants"],   queryFn: variantsApi.listAll });
-  const { data: shippingCompanies }   = useQuery({ queryKey: ["shipping"],   queryFn: shippingApi.list });
-  const { data: warehouses }          = useQuery({ queryKey: ["warehouses"], queryFn: warehousesApi.list });
-  const { data: users }               = useQuery({ queryKey: ["users"],      queryFn: usersApi.list });
+  const { data: products = [] }     = useQuery({ queryKey: ["products"],   queryFn: productsApi.list });
+  const { data: allVariants = [] }  = useQuery({ queryKey: ["variants"],   queryFn: variantsApi.listAll });
+  const { data: shippingCompanies } = useQuery({ queryKey: ["shipping"],   queryFn: shippingApi.list });
+  const { data: warehouses }        = useQuery({ queryKey: ["warehouses"], queryFn: warehousesApi.list });
+  const { data: users }             = useQuery({ queryKey: ["users"],      queryFn: usersApi.list });
   const { canViewFinancials } = useAuth();
 
   const form = useForm<FormValues>({
@@ -371,8 +355,7 @@ export default function OrderForm() {
       customerName: "", phone: "", city: "", address: "",
       shippingCost: 0, notes: "",
       warehouseId: null, assignedUserId: null, adSource: null, adCampaign: null,
-      shippingCompanyId: null,
-      items: [emptyItem()],
+      shippingCompanyId: null, items: [emptyItem()],
     },
   });
 
@@ -390,42 +373,32 @@ export default function OrderForm() {
     setSubmitting(true);
     try {
       const result = await ordersApi.batchCreate({
-        customerName:      values.customerName,
-        phone:             values.phone || null,
-        city:              values.city || null,
-        address:           values.address || null,
-        shippingCost:      values.shippingCost || null,
+        customerName: values.customerName, phone: values.phone || null,
+        city: values.city || null, address: values.address || null,
+        shippingCost: values.shippingCost || null,
         shippingCompanyId: values.shippingCompanyId || null,
-        warehouseId:       values.warehouseId || null,
-        assignedUserId:    values.assignedUserId || null,
-        adSource:          values.adSource || null,
-        adCampaign:        values.adCampaign || null,
-        notes:             values.notes || null,
+        warehouseId: values.warehouseId || null,
+        assignedUserId: values.assignedUserId || null,
+        adSource: values.adSource || null, adCampaign: values.adCampaign || null,
+        notes: values.notes || null,
         items: values.items.map(item => ({
-          product:   item.product,
-          color:     item.color || null,
-          size:      item.size || null,
-          quantity:  item.quantity,
-          unitPrice: item.unitPrice,
+          product: item.product, color: item.color || null, size: item.size || null,
+          quantity: item.quantity, unitPrice: item.unitPrice,
           costPrice: item.costPrice ?? null,
-          productId: item.productId || null,
-          variantId: item.variantId || null,
+          productId: item.productId || null, variantId: item.variantId || null,
         })),
       });
-
       queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
       queryClient.invalidateQueries({ queryKey: getGetOrdersSummaryQueryKey() });
       queryClient.invalidateQueries({ queryKey: getGetRecentOrdersQueryKey() });
       queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["analytics-profit"] });
-
       toast({
         title: `تم إنشاء الطلب — فاتورة ${result.invoiceNumber}`,
         description: result.orders.length > 1
           ? `${result.orders.length} منتجات في فاتورة واحدة للعميل ${values.customerName}`
           : `الطلب #${result.orders[0]?.id} تم إنشاؤه بنجاح للعميل ${values.customerName}`,
       });
-
       setLocation(`/invoices/${encodeURIComponent(result.invoiceNumber)}`);
     } catch (e: any) {
       toast({ title: "خطأ", description: e?.message || "فشل إنشاء الطلب.", variant: "destructive" });
@@ -478,7 +451,7 @@ export default function OrderForm() {
                           <SelectTrigger className="h-9 text-sm bg-card"><SelectValue placeholder="اختر شركة" /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="none">بدون</SelectItem>
-                            {shippingCompanies?.filter(c => c.isActive).map(c => (
+                            {shippingCompanies?.filter((c: any) => c.isActive).map((c: any) => (
                               <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
                             ))}
                           </SelectContent>
@@ -503,12 +476,11 @@ export default function OrderForm() {
                 </CardContent>
               </Card>
 
-              {/* Products list */}
+              {/* Products */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h2 className="text-sm font-bold flex items-center gap-2">
-                    <Package className="w-4 h-4 text-primary" />
-                    المنتجات
+                    <Package className="w-4 h-4 text-primary" />المنتجات
                     <Badge variant="outline" className="text-[10px] font-bold border-primary/30 text-primary">
                       {fields.length} {fields.length === 1 ? "منتج" : "منتجات"}
                     </Badge>
@@ -518,14 +490,12 @@ export default function OrderForm() {
                     <Plus className="w-3.5 h-3.5" />أضف منتجاً
                   </button>
                 </div>
-
                 {fields.map((field, index) => (
                   <ProductItem key={field.id} index={index}
                     control={form.control} watch={form.watch} setValue={form.setValue}
                     remove={() => remove(index)} products={products} allVariants={allVariants}
                     canViewFinancials={canViewFinancials} isOnly={fields.length === 1} />
                 ))}
-
                 {fields.length >= 2 && (
                   <button type="button" onClick={() => append(emptyItem())}
                     className="w-full flex items-center justify-center gap-2 text-xs font-bold text-muted-foreground border border-dashed border-border hover:border-primary/50 hover:text-primary py-3 rounded-lg transition-colors">
@@ -593,7 +563,7 @@ export default function OrderForm() {
                           <SelectTrigger className="h-9 text-sm bg-card"><SelectValue placeholder="اختر مخزن" /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="none">— غير محدد —</SelectItem>
-                            {warehouses?.map(w => <SelectItem key={w.id} value={String(w.id)}>{w.name}{w.isDefault ? " ★" : ""}</SelectItem>)}
+                            {warehouses?.map((w: any) => <SelectItem key={w.id} value={String(w.id)}>{w.name}{w.isDefault ? " ★" : ""}</SelectItem>)}
                           </SelectContent>
                         </Select>
                       </FormItem>
@@ -605,7 +575,7 @@ export default function OrderForm() {
                           <SelectTrigger className="h-9 text-sm bg-card"><SelectValue placeholder="اختر موظف" /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="none">— غير محدد —</SelectItem>
-                            {users?.filter(u => u.isActive).map(u => <SelectItem key={u.id} value={String(u.id)}>{u.displayName}</SelectItem>)}
+                            {users?.filter((u: any) => u.isActive).map((u: any) => <SelectItem key={u.id} value={String(u.id)}>{u.displayName}</SelectItem>)}
                           </SelectContent>
                         </Select>
                       </FormItem>
