@@ -148590,7 +148590,9 @@ router12.patch("/shipping-manifests/:id/orders/:orderId", async (req, res) => {
   const ref = buildOrderRef(existingOrder);
   const totalQty = existingOrder.quantity;
   const oldPartialQty = link.partialQuantity ?? existingOrder.partialQuantity ?? 0;
-  if (deliveryStatus === "delivered") {
+  const noChange = deliveryStatus === oldDeliveryStatus && (deliveryStatus !== "returned" || returnReceived === null || Number(oldReturnReceived) === 1 === returnReceived);
+  if (noChange) {
+  } else if (deliveryStatus === "delivered") {
     if (oldDeliveryStatus === "partial_received") {
       const remaining = totalQty - oldPartialQty;
       if (remaining > 0) {
