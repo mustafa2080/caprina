@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, desc } from "drizzle-orm";
-import { db, productsTable, warehousesTable, warehouseStockTable } from "@workspace/db";
+import { db, productsTable } from "@workspace/db";
 import { z } from "zod";
 import { addStock } from "../lib/inventory.js";
 import { logAudit } from "../lib/audit.js";
@@ -28,6 +28,7 @@ const UpdateProductSchema = z.object({
 
 const AddStockSchema = z.object({
   quantity: z.number().int().min(1),
+  warehouseId: z.number().int().positive().nullish(),
   notes: z.string().nullish(),
 });
 
@@ -101,44 +102,12 @@ router.post("/products/:id/add-stock", requireRole("admin", "warehouse"), async 
   const [product] = await db.select().from(productsTable).where(eq(productsTable.id, id));
   if (!product) { res.status(404).json({ error: "Product not found" }); return; }
 
+  // addStock تعدّل warehouse_stock تلقائياً وتزامن totalQuantity
   await addStock(
-    { productId: id, product: product.name },
+    { productId: id, product: product.name, warehouseId: parsed.data.warehouseId ?? null },
     parsed.data.quantity,
     parsed.data.notes ?? null,
   );
-
-  // ── مزامنة تلقائية: وزّع الكمية على المخزن الافتراضي ──────────────────────
-  // لو فيه مخزن افتراضي → upsert الكمية فيه بما يطابق products.totalQuantity
-  const [defaultWarehouse] = await db
-    .select()
-    .from(warehousesTable)
-    .where(eq(warehousesTable.isDefault, true));
-  if (defaultWarehouse) {
-    const [existing] = await db
-      .select()
-      .from(warehouseStockTable)
-      .where(
-        eq(warehouseStockTable.warehouseId, defaultWarehouse.id),
-      ).then(rows => rows.filter(r => r.productId === id && r.variantId === null));
-
-    if (existing) {
-      await db
-        .update(warehouseStockTable)
-        .set({ quantity: existing.quantity + parsed.data.quantity, updatedAt: new Date() })
-        .where(eq(warehouseStockTable.id, existing.id));
-    } else {
-      await db
-        .insert(warehouseStockTable)
-        .values({
-          warehouseId: defaultWarehouse.id,
-          productId: id,
-          variantId: null,
-          quantity: parsed.data.quantity,
-          updatedAt: new Date(),
-        });
-    }
-  }
-  // ──────────────────────────────────────────────────────────────────────────
 
   await logAudit({ action: "add_stock", entityType: "product", entityId: id, entityName: product.name, before: { totalQuantity: product.totalQuantity }, after: { totalQuantity: product.totalQuantity + parsed.data.quantity, added: parsed.data.quantity, notes: parsed.data.notes }, userId: req.user?.id, userName: req.user?.displayName });
 

@@ -143040,9 +143040,7 @@ async function syncProductQuantityFromWarehouses(variantId, productId) {
     const total = Number(row?.total ?? 0);
     await db.update(productVariantsTable).set({ totalQuantity: total, updatedAt: /* @__PURE__ */ new Date() }).where(eq(productVariantsTable.id, variantId));
     const [variant] = await db.select({ productId: productVariantsTable.productId }).from(productVariantsTable).where(eq(productVariantsTable.id, variantId));
-    if (variant) {
-      await syncParentProductFromVariants(variant.productId);
-    }
+    if (variant) await syncParentProductFromVariants(variant.productId);
   } else if (productId) {
     const [row] = await db.select({ total: sum(warehouseStockTable.quantity) }).from(warehouseStockTable).where(eq(warehouseStockTable.productId, productId));
     const total = Number(row?.total ?? 0);
@@ -143072,78 +143070,79 @@ async function resolveInventoryTarget(order) {
   return { variantId: null, productId: null };
 }
 async function adjustWarehouseStock(warehouseId, variantId, productId, delta) {
-  if (!variantId && !productId) return;
+  if (!variantId && !productId) return null;
+  const stockCondition = (whId) => and(
+    eq(warehouseStockTable.warehouseId, whId),
+    variantId ? eq(warehouseStockTable.variantId, variantId) : eq(warehouseStockTable.productId, productId)
+  );
   if (warehouseId) {
-    const condition = and(
-      eq(warehouseStockTable.warehouseId, warehouseId),
-      variantId ? eq(warehouseStockTable.variantId, variantId) : eq(warehouseStockTable.productId, productId)
-    );
-    const [row] = await db.select().from(warehouseStockTable).where(condition);
-    if (!row) {
-      if (delta > 0) {
-        await db.insert(warehouseStockTable).values({
-          warehouseId,
-          variantId: variantId ?? null,
-          productId: productId ?? null,
-          quantity: delta,
-          updatedAt: /* @__PURE__ */ new Date()
-        });
-      }
-      return;
+    const [row] = await db.select().from(warehouseStockTable).where(stockCondition(warehouseId));
+    if (row) {
+      const newQty = Math.max(0, row.quantity + delta);
+      await db.update(warehouseStockTable).set({ quantity: newQty, updatedAt: /* @__PURE__ */ new Date() }).where(eq(warehouseStockTable.id, row.id));
+    } else if (delta > 0) {
+      await db.insert(warehouseStockTable).values({
+        warehouseId,
+        variantId: variantId ?? null,
+        productId: productId ?? null,
+        quantity: delta,
+        updatedAt: /* @__PURE__ */ new Date()
+      });
     }
-    const newQty = Math.max(0, row.quantity + delta);
-    await db.update(warehouseStockTable).set({ quantity: newQty, updatedAt: /* @__PURE__ */ new Date() }).where(condition);
-  } else {
-    const rows = await db.select().from(warehouseStockTable).where(
-      variantId ? eq(warehouseStockTable.variantId, variantId) : eq(warehouseStockTable.productId, productId)
-    );
-    if (rows.length === 0) {
-      if (delta > 0) {
-        const [anyWarehouse] = await db.select().from(warehousesTable).limit(1);
-        if (anyWarehouse) {
+    return warehouseId;
+  }
+  const rows = await db.select().from(warehouseStockTable).where(
+    variantId ? eq(warehouseStockTable.variantId, variantId) : eq(warehouseStockTable.productId, productId)
+  );
+  if (delta > 0) {
+    let targetWhId = null;
+    if (rows.length > 0) {
+      const defaultRow = rows.find((r) => r.warehouseId);
+      const allWh = await db.select().from(warehousesTable).orderBy(warehousesTable.isDefault);
+      const defaultWh = allWh.find((w) => w.isDefault) ?? allWh[0];
+      if (defaultWh) {
+        targetWhId = defaultWh.id;
+        const existing = rows.find((r) => r.warehouseId === targetWhId);
+        if (existing) {
+          await db.update(warehouseStockTable).set({ quantity: existing.quantity + delta, updatedAt: /* @__PURE__ */ new Date() }).where(eq(warehouseStockTable.id, existing.id));
+        } else {
           await db.insert(warehouseStockTable).values({
-            warehouseId: anyWarehouse.id,
+            warehouseId: targetWhId,
             variantId: variantId ?? null,
             productId: productId ?? null,
             quantity: delta,
             updatedAt: /* @__PURE__ */ new Date()
           });
         }
+      } else if (defaultRow) {
+        await db.update(warehouseStockTable).set({ quantity: defaultRow.quantity + delta, updatedAt: /* @__PURE__ */ new Date() }).where(eq(warehouseStockTable.id, defaultRow.id));
+        targetWhId = defaultRow.warehouseId;
       }
-      return;
-    }
-    if (delta > 0) {
-      const first = rows[0];
-      await db.update(warehouseStockTable).set({ quantity: first.quantity + delta, updatedAt: /* @__PURE__ */ new Date() }).where(eq(warehouseStockTable.id, first.id));
     } else {
-      let remaining = Math.abs(delta);
-      const sorted = rows.filter((r) => r.quantity > 0).sort((a, b) => b.quantity - a.quantity);
-      for (const row of sorted) {
-        if (remaining <= 0) break;
-        const deduct = Math.min(row.quantity, remaining);
-        await db.update(warehouseStockTable).set({ quantity: row.quantity - deduct, updatedAt: /* @__PURE__ */ new Date() }).where(eq(warehouseStockTable.id, row.id));
-        remaining -= deduct;
+      const [anyWh] = await db.select().from(warehousesTable).orderBy(warehousesTable.isDefault).limit(1);
+      if (anyWh) {
+        await db.insert(warehouseStockTable).values({
+          warehouseId: anyWh.id,
+          variantId: variantId ?? null,
+          productId: productId ?? null,
+          quantity: delta,
+          updatedAt: /* @__PURE__ */ new Date()
+        });
+        targetWhId = anyWh.id;
       }
     }
-  }
-}
-async function adjustQty(variantId, productId, totalDelta, soldDelta = 0) {
-  if (variantId) {
-    const [v] = await db.select().from(productVariantsTable).where(eq(productVariantsTable.id, variantId));
-    if (!v) return;
-    await db.update(productVariantsTable).set({
-      totalQuantity: Math.max(0, v.totalQuantity + totalDelta),
-      soldQuantity: Math.max(0, v.soldQuantity + soldDelta),
-      updatedAt: /* @__PURE__ */ new Date()
-    }).where(eq(productVariantsTable.id, variantId));
-  } else if (productId) {
-    const [p] = await db.select().from(productsTable).where(eq(productsTable.id, productId));
-    if (!p) return;
-    await db.update(productsTable).set({
-      totalQuantity: Math.max(0, p.totalQuantity + totalDelta),
-      soldQuantity: Math.max(0, p.soldQuantity + soldDelta),
-      updatedAt: /* @__PURE__ */ new Date()
-    }).where(eq(productsTable.id, productId));
+    return targetWhId;
+  } else {
+    let remaining = Math.abs(delta);
+    const sorted = rows.filter((r) => r.quantity > 0).sort((a, b) => b.quantity - a.quantity);
+    let firstWhId = sorted[0]?.warehouseId ?? null;
+    for (const row of sorted) {
+      if (remaining <= 0) break;
+      const deduct = Math.min(row.quantity, remaining);
+      await db.update(warehouseStockTable).set({ quantity: row.quantity - deduct, updatedAt: /* @__PURE__ */ new Date() }).where(eq(warehouseStockTable.id, row.id));
+      remaining -= deduct;
+    }
+    return firstWhId;
   }
 }
 async function recordMovement(data) {
@@ -143156,36 +143155,76 @@ async function recordMovement(data) {
     reason: data.reason,
     productId: data.productId ?? null,
     variantId: data.variantId ?? null,
+    warehouseId: data.warehouseId ?? null,
     orderId: data.orderId ?? null,
+    fromLocation: data.fromLocation ?? null,
+    toLocation: data.toLocation ?? null,
     notes: data.notes ?? null
   });
+}
+async function updateSoldQuantity(variantId, productId, soldDelta) {
+  if (soldDelta === 0) return;
+  if (variantId) {
+    const [v] = await db.select({ soldQuantity: productVariantsTable.soldQuantity }).from(productVariantsTable).where(eq(productVariantsTable.id, variantId));
+    if (v) await db.update(productVariantsTable).set({ soldQuantity: Math.max(0, (v.soldQuantity ?? 0) + soldDelta), updatedAt: /* @__PURE__ */ new Date() }).where(eq(productVariantsTable.id, variantId));
+  } else if (productId) {
+    const [p] = await db.select({ soldQuantity: productsTable.soldQuantity }).from(productsTable).where(eq(productsTable.id, productId));
+    if (p) await db.update(productsTable).set({ soldQuantity: Math.max(0, (p.soldQuantity ?? 0) + soldDelta), updatedAt: /* @__PURE__ */ new Date() }).where(eq(productsTable.id, productId));
+  }
+}
+async function addStock(target, quantity, notes) {
+  if (quantity <= 0) return;
+  const { variantId, productId } = await resolveInventoryTarget(target);
+  if (!variantId && !productId) return;
+  const usedWhId = await adjustWarehouseStock(target.warehouseId, variantId, productId, quantity);
+  await syncProductQuantityFromWarehouses(variantId, productId);
+  if (target.product) {
+    await recordMovement({
+      product: target.product,
+      color: target.color ?? null,
+      size: target.size ?? null,
+      quantity,
+      type: "IN",
+      reason: "manual_in",
+      productId: productId ?? null,
+      variantId: variantId ?? null,
+      warehouseId: usedWhId,
+      notes: notes ?? null
+    });
+  }
 }
 async function processDelivery(order, deliveredQty, reason, orderId, skipWarehouseStock = false) {
   if (deliveredQty <= 0) return;
   const { variantId, productId } = await resolveInventoryTarget(order);
   if (!variantId && !productId) return;
+  let usedWhId = order.warehouseId ?? null;
   if (!skipWarehouseStock) {
-    await adjustWarehouseStock(order.warehouseId, variantId, productId, -deliveredQty);
+    usedWhId = await adjustWarehouseStock(order.warehouseId, variantId, productId, -deliveredQty);
+    await syncProductQuantityFromWarehouses(variantId, productId);
   }
-  if (variantId) {
-    const [v] = await db.select().from(productVariantsTable).where(eq(productVariantsTable.id, variantId));
-    if (v) await db.update(productVariantsTable).set({ soldQuantity: Math.max(0, v.soldQuantity + deliveredQty), updatedAt: /* @__PURE__ */ new Date() }).where(eq(productVariantsTable.id, variantId));
-  } else if (productId) {
-    const [p] = await db.select().from(productsTable).where(eq(productsTable.id, productId));
-    if (p) await db.update(productsTable).set({ soldQuantity: Math.max(0, p.soldQuantity + deliveredQty), updatedAt: /* @__PURE__ */ new Date() }).where(eq(productsTable.id, productId));
-  }
-  await syncProductQuantityFromWarehouses(variantId, productId);
+  await updateSoldQuantity(variantId, productId, deliveredQty);
   if (order.product) {
-    await recordMovement({ product: order.product, color: order.color, size: order.size, quantity: deliveredQty, type: "OUT", reason, productId, variantId, orderId });
+    await recordMovement({
+      product: order.product,
+      color: order.color,
+      size: order.size,
+      quantity: deliveredQty,
+      type: "OUT",
+      reason,
+      productId,
+      variantId,
+      warehouseId: usedWhId,
+      orderId
+    });
   }
 }
 async function reverseDelivery(order, deliveredQty, orderId) {
   if (deliveredQty <= 0) return;
   const { variantId, productId } = await resolveInventoryTarget(order);
   if (!variantId && !productId) return;
-  await adjustQty(variantId, productId, deliveredQty, -deliveredQty);
-  await adjustWarehouseStock(order.warehouseId, variantId, productId, deliveredQty);
+  const usedWhId = await adjustWarehouseStock(order.warehouseId, variantId, productId, deliveredQty);
   await syncProductQuantityFromWarehouses(variantId, productId);
+  await updateSoldQuantity(variantId, productId, -deliveredQty);
   if (order.product) {
     await recordMovement({
       product: order.product,
@@ -143196,6 +143235,7 @@ async function reverseDelivery(order, deliveredQty, orderId) {
       reason: "adjustment",
       productId,
       variantId,
+      warehouseId: usedWhId,
       orderId,
       notes: "\u0625\u0644\u063A\u0627\u0621 \u062A\u0633\u0644\u064A\u0645"
     });
@@ -143205,9 +143245,11 @@ async function processReturn(order, wasReceived, isDamaged, orderId) {
   if (!wasReceived) return;
   const { variantId, productId } = await resolveInventoryTarget(order);
   if (!variantId && !productId) return;
+  let usedWhId = order.warehouseId ?? null;
   if (!isDamaged) {
-    await adjustQty(variantId, productId, order.quantity, -order.quantity);
-    await adjustWarehouseStock(order.warehouseId, variantId, productId, order.quantity);
+    usedWhId = await adjustWarehouseStock(order.warehouseId, variantId, productId, order.quantity);
+    await syncProductQuantityFromWarehouses(variantId, productId);
+    await updateSoldQuantity(variantId, productId, -order.quantity);
   }
   if (order.product) {
     await recordMovement({
@@ -143219,40 +143261,9 @@ async function processReturn(order, wasReceived, isDamaged, orderId) {
       reason: isDamaged ? "damaged" : "return",
       productId,
       variantId,
+      warehouseId: usedWhId,
       orderId,
       notes: isDamaged ? "\u0645\u0631\u062A\u062C\u0639 \u062A\u0627\u0644\u0641 \u2014 \u0644\u0627 \u064A\u064F\u0636\u0627\u0641 \u0644\u0644\u0645\u062E\u0632\u0648\u0646" : null
-    });
-  }
-}
-async function addStock(target, quantity, notes) {
-  if (quantity <= 0) return;
-  const { variantId, productId } = await resolveInventoryTarget(target);
-  if (variantId) {
-    const [v] = await db.select().from(productVariantsTable).where(eq(productVariantsTable.id, variantId));
-    if (!v) return;
-    await db.update(productVariantsTable).set({
-      totalQuantity: v.totalQuantity + quantity,
-      updatedAt: /* @__PURE__ */ new Date()
-    }).where(eq(productVariantsTable.id, variantId));
-  } else if (productId) {
-    const [p] = await db.select().from(productsTable).where(eq(productsTable.id, productId));
-    if (!p) return;
-    await db.update(productsTable).set({
-      totalQuantity: p.totalQuantity + quantity,
-      updatedAt: /* @__PURE__ */ new Date()
-    }).where(eq(productsTable.id, productId));
-  }
-  if (target.product) {
-    await recordMovement({
-      product: target.product,
-      color: target.color ?? null,
-      size: target.size ?? null,
-      quantity,
-      type: "IN",
-      reason: "manual_in",
-      productId: productId ?? null,
-      variantId: variantId ?? null,
-      notes: notes ?? null
     });
   }
 }
@@ -143260,7 +143271,7 @@ async function processToShipping(order, qty, orderId) {
   if (qty <= 0) return;
   const { variantId, productId } = await resolveInventoryTarget(order);
   if (!variantId && !productId) return;
-  await adjustWarehouseStock(order.warehouseId, variantId, productId, -qty);
+  const usedWhId = await adjustWarehouseStock(order.warehouseId, variantId, productId, -qty);
   await syncProductQuantityFromWarehouses(variantId, productId);
   if (order.product) {
     await recordMovement({
@@ -143272,6 +143283,7 @@ async function processToShipping(order, qty, orderId) {
       reason: "to_shipping",
       productId,
       variantId,
+      warehouseId: usedWhId,
       orderId,
       notes: "\u062A\u062D\u0648\u064A\u0644 \u0644\u0634\u0631\u0643\u0629 \u0627\u0644\u0634\u062D\u0646"
     });
@@ -143281,7 +143293,7 @@ async function reverseShipping(order, qty, orderId) {
   if (qty <= 0) return;
   const { variantId, productId } = await resolveInventoryTarget(order);
   if (!variantId && !productId) return;
-  await adjustWarehouseStock(order.warehouseId, variantId, productId, qty);
+  const usedWhId = await adjustWarehouseStock(order.warehouseId, variantId, productId, qty);
   await syncProductQuantityFromWarehouses(variantId, productId);
   if (order.product) {
     await recordMovement({
@@ -143293,6 +143305,7 @@ async function reverseShipping(order, qty, orderId) {
       reason: "from_shipping",
       productId,
       variantId,
+      warehouseId: usedWhId,
       orderId,
       notes: "\u0625\u0631\u062C\u0627\u0639 \u0645\u0646 \u0634\u0631\u0643\u0629 \u0627\u0644\u0634\u062D\u0646 \u0644\u0644\u0645\u062E\u0632\u0646"
     });
@@ -145681,6 +145694,7 @@ var UpdateProductSchema = external_exports.object({
 });
 var AddStockSchema = external_exports.object({
   quantity: external_exports.number().int().min(1),
+  warehouseId: external_exports.number().int().positive().nullish(),
   notes: external_exports.string().nullish()
 });
 router3.get("/products", async (_req, res) => {
@@ -145769,27 +145783,10 @@ router3.post("/products/:id/add-stock", requireRole("admin", "warehouse"), async
     return;
   }
   await addStock(
-    { productId: id, product: product.name },
+    { productId: id, product: product.name, warehouseId: parsed.data.warehouseId ?? null },
     parsed.data.quantity,
     parsed.data.notes ?? null
   );
-  const [defaultWarehouse] = await db.select().from(warehousesTable).where(eq(warehousesTable.isDefault, true));
-  if (defaultWarehouse) {
-    const [existing] = await db.select().from(warehouseStockTable).where(
-      eq(warehouseStockTable.warehouseId, defaultWarehouse.id)
-    ).then((rows) => rows.filter((r) => r.productId === id && r.variantId === null));
-    if (existing) {
-      await db.update(warehouseStockTable).set({ quantity: existing.quantity + parsed.data.quantity, updatedAt: /* @__PURE__ */ new Date() }).where(eq(warehouseStockTable.id, existing.id));
-    } else {
-      await db.insert(warehouseStockTable).values({
-        warehouseId: defaultWarehouse.id,
-        productId: id,
-        variantId: null,
-        quantity: parsed.data.quantity,
-        updatedAt: /* @__PURE__ */ new Date()
-      });
-    }
-  }
   await logAudit({ action: "add_stock", entityType: "product", entityId: id, entityName: product.name, before: { totalQuantity: product.totalQuantity }, after: { totalQuantity: product.totalQuantity + parsed.data.quantity, added: parsed.data.quantity, notes: parsed.data.notes }, userId: req.user?.id, userName: req.user?.displayName });
   const [updated] = await db.select().from(productsTable).where(eq(productsTable.id, id));
   res.json(updated);
@@ -146669,7 +146666,20 @@ router7.get("/inventory/movements/totals", async (req, res) => {
   res.json({ totalIn, totalOut, balance: totalIn - totalOut });
 });
 router7.post("/inventory/movements", async (req, res) => {
-  const { product, color, size, quantity, type, reason, productId, variantId, warehouseId, notes, fromLocation, toLocation } = req.body;
+  const {
+    product,
+    color,
+    size,
+    quantity,
+    type,
+    reason,
+    productId,
+    variantId,
+    warehouseId,
+    fromLocation,
+    toLocation,
+    notes
+  } = req.body;
   if (!product || !quantity || !type || !reason) {
     res.status(400).json({ error: "product, quantity, type, reason \u0645\u0637\u0644\u0648\u0628\u0629" });
     return;
@@ -146682,101 +146692,97 @@ router7.post("/inventory/movements", async (req, res) => {
   const pid = productId ? parseInt(productId) : null;
   const vid = variantId ? parseInt(variantId) : null;
   const whId = warehouseId ? parseInt(warehouseId) : null;
-  const insertResult = await db.insert(inventoryMovementsTable).values({
-    product,
-    color: color ?? null,
-    size: size ?? null,
-    quantity: qty,
-    type,
-    reason,
-    productId: pid,
+  const { variantId: resolvedVid, productId: resolvedPid } = await resolveInventoryTarget({
     variantId: vid,
-    warehouseId: whId,
-    fromLocation: fromLocation ?? null,
-    toLocation: toLocation ?? null,
-    notes: notes ?? null,
-    orderId: null
+    productId: pid,
+    product,
+    color,
+    size
   });
-  if (reason !== "transfer" && (pid || vid) && whId) {
-    const delta = type === "IN" ? qty : -qty;
-    const condition = and(
-      eq(warehouseStockTable.warehouseId, whId),
-      vid ? eq(warehouseStockTable.variantId, vid) : eq(warehouseStockTable.productId, pid)
-    );
-    const [stockRow] = await db.select().from(warehouseStockTable).where(condition);
-    if (stockRow) {
-      const newQty = Math.max(0, stockRow.quantity + delta);
-      await db.update(warehouseStockTable).set({ quantity: newQty, updatedAt: /* @__PURE__ */ new Date() }).where(eq(warehouseStockTable.id, stockRow.id));
-    } else if (delta > 0) {
-      await db.insert(warehouseStockTable).values({
-        warehouseId: whId,
-        variantId: vid ?? null,
-        productId: pid ?? null,
-        quantity: delta,
-        updatedAt: /* @__PURE__ */ new Date()
-      });
-    }
-    await syncProductQuantityFromWarehouses(vid, pid);
-  }
+  let usedWhId = whId;
   if (reason === "transfer" && fromLocation && toLocation) {
-    const extractWarehouseName = (loc) => {
+    const extractName = (loc) => {
       const m = loc.match(/^مخزن:\s*(.+)$/);
       return m ? m[1].trim() : null;
     };
-    const fromName = extractWarehouseName(fromLocation);
-    const toName = extractWarehouseName(toLocation);
-    const allWarehouses = await db.select().from(warehousesTable);
-    const fromWh = fromName ? allWarehouses.find((w) => w.name === fromName) : null;
-    const toWh = toName ? allWarehouses.find((w) => w.name === toName) : null;
-    let resolvedVid = vid;
-    let resolvedPid = pid;
-    if (!resolvedVid && !resolvedPid && product) {
-      if (color && size) {
-        const [foundVariant] = await db.select({ id: productVariantsTable.id, productId: productVariantsTable.productId }).from(productVariantsTable).innerJoin(productsTable, eq(productVariantsTable.productId, productsTable.id)).where(and(
-          like(productsTable.name, `%${product}%`),
-          like(productVariantsTable.color, `%${color}%`),
-          like(productVariantsTable.size, `%${size}%`)
-        )).limit(1);
-        if (foundVariant) {
-          resolvedVid = foundVariant.id;
-        }
-      }
-      if (!resolvedVid) {
-        const [foundProduct] = await db.select({ id: productsTable.id }).from(productsTable).where(like(productsTable.name, `%${product}%`)).limit(1);
-        if (foundProduct) resolvedPid = foundProduct.id;
-      }
+    const fromName = extractName(fromLocation);
+    const toName = extractName(toLocation);
+    const allWh = await db.select().from(warehousesTable);
+    const fromWh = fromName ? allWh.find((w) => w.name === fromName) : null;
+    const toWh = toName ? allWh.find((w) => w.name === toName) : null;
+    if ((resolvedVid || resolvedPid) && fromWh && toWh) {
+      await adjustWarehouseStock(fromWh.id, resolvedVid, resolvedPid, -qty);
+      await adjustWarehouseStock(toWh.id, resolvedVid, resolvedPid, qty);
+      await syncProductQuantityFromWarehouses(resolvedVid, resolvedPid);
     }
-    const upsertStock = async (warehouseId2, delta) => {
-      const condition = and(
-        eq(warehouseStockTable.warehouseId, warehouseId2),
-        resolvedVid ? eq(warehouseStockTable.variantId, resolvedVid) : eq(warehouseStockTable.productId, resolvedPid)
-      );
-      const [row] = await db.select().from(warehouseStockTable).where(condition);
-      if (row) {
-        const newQty = Math.max(0, row.quantity + delta);
-        await db.update(warehouseStockTable).set({ quantity: newQty, updatedAt: /* @__PURE__ */ new Date() }).where(eq(warehouseStockTable.id, row.id));
-      } else if (delta > 0) {
-        await db.insert(warehouseStockTable).values({
-          warehouseId: warehouseId2,
-          variantId: resolvedVid ?? null,
-          productId: resolvedPid ?? null,
-          quantity: delta,
-          updatedAt: /* @__PURE__ */ new Date()
-        });
-      }
-    };
-    if (resolvedVid || resolvedPid) {
-      if (fromWh) {
-        await upsertStock(fromWh.id, -qty);
-        await syncProductQuantityFromWarehouses(resolvedVid, resolvedPid);
-      }
-      if (toWh) {
-        await upsertStock(toWh.id, qty);
-        await syncProductQuantityFromWarehouses(resolvedVid, resolvedPid);
-      }
-    }
+    await recordMovement({
+      product,
+      color,
+      size,
+      quantity: qty,
+      type: "OUT",
+      reason: "transfer",
+      productId: resolvedPid,
+      variantId: resolvedVid,
+      warehouseId: fromWh?.id ?? null,
+      fromLocation,
+      toLocation,
+      notes: notes ?? null
+    });
+    await recordMovement({
+      product,
+      color,
+      size,
+      quantity: qty,
+      type: "IN",
+      reason: "transfer",
+      productId: resolvedPid,
+      variantId: resolvedVid,
+      warehouseId: toWh?.id ?? null,
+      fromLocation,
+      toLocation,
+      notes: notes ?? null
+    });
+    const movements = await db.select({
+      id: inventoryMovementsTable.id,
+      productId: inventoryMovementsTable.productId,
+      variantId: inventoryMovementsTable.variantId,
+      warehouseId: inventoryMovementsTable.warehouseId,
+      warehouseName: warehousesTable.name,
+      product: inventoryMovementsTable.product,
+      color: inventoryMovementsTable.color,
+      size: inventoryMovementsTable.size,
+      quantity: inventoryMovementsTable.quantity,
+      type: inventoryMovementsTable.type,
+      reason: inventoryMovementsTable.reason,
+      orderId: inventoryMovementsTable.orderId,
+      fromLocation: inventoryMovementsTable.fromLocation,
+      toLocation: inventoryMovementsTable.toLocation,
+      notes: inventoryMovementsTable.notes,
+      createdAt: inventoryMovementsTable.createdAt
+    }).from(inventoryMovementsTable).leftJoin(warehousesTable, eq(inventoryMovementsTable.warehouseId, warehousesTable.id)).orderBy(desc(inventoryMovementsTable.createdAt)).limit(2);
+    res.status(201).json(movements[0] ?? { success: true });
+    return;
   }
-  const insertId = insertResult[0]?.insertId ?? insertResult.insertId;
+  const delta = type === "IN" ? qty : -qty;
+  if (resolvedVid || resolvedPid) {
+    usedWhId = await adjustWarehouseStock(whId, resolvedVid, resolvedPid, delta) ?? whId;
+    await syncProductQuantityFromWarehouses(resolvedVid, resolvedPid);
+  }
+  await recordMovement({
+    product,
+    color,
+    size,
+    quantity: qty,
+    type,
+    reason,
+    productId: resolvedPid,
+    variantId: resolvedVid,
+    warehouseId: usedWhId,
+    fromLocation: fromLocation ?? null,
+    toLocation: toLocation ?? null,
+    notes: notes ?? null
+  });
   const [movement] = await db.select({
     id: inventoryMovementsTable.id,
     productId: inventoryMovementsTable.productId,
@@ -146794,7 +146800,7 @@ router7.post("/inventory/movements", async (req, res) => {
     toLocation: inventoryMovementsTable.toLocation,
     notes: inventoryMovementsTable.notes,
     createdAt: inventoryMovementsTable.createdAt
-  }).from(inventoryMovementsTable).leftJoin(warehousesTable, eq(inventoryMovementsTable.warehouseId, warehousesTable.id)).where(eq(inventoryMovementsTable.id, insertId));
+  }).from(inventoryMovementsTable).leftJoin(warehousesTable, eq(inventoryMovementsTable.warehouseId, warehousesTable.id)).orderBy(desc(inventoryMovementsTable.createdAt)).limit(1);
   res.status(201).json(movement);
 });
 router7.put("/inventory/movements/:id", async (req, res) => {
@@ -146806,10 +146812,6 @@ router7.put("/inventory/movements/:id", async (req, res) => {
   const { product, color, size, quantity, type, reason, warehouseId, notes, fromLocation, toLocation } = req.body;
   if (!product || !quantity || !type || !reason) {
     res.status(400).json({ error: "product, quantity, type, reason \u0645\u0637\u0644\u0648\u0628\u0629" });
-    return;
-  }
-  if (type !== "IN" && type !== "OUT") {
-    res.status(400).json({ error: "type \u064A\u062C\u0628 \u0623\u0646 \u064A\u0643\u0648\u0646 IN \u0623\u0648 OUT" });
     return;
   }
   await db.update(inventoryMovementsTable).set({

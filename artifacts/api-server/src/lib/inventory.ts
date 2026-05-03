@@ -3,30 +3,32 @@ import { db, productsTable, productVariantsTable, inventoryMovementsTable, wareh
 import type { MovementReason } from "@workspace/db";
 
 /**
- * Movement-based inventory model:
+ * ══════════════════════════════════════════════════════════════════════════════
+ *  فلسفة المخزون — الحقيقة الوحيدة:
  *
- *  availableQty = totalQuantity  (direct running balance — no reservation concept)
+ *  warehouse_stock   = الكمية الفعلية في كل مخزن  ← المصدر الوحيد للحقيقة
+ *  totalQuantity     = sum(warehouse_stock)         ← يُحسب تلقائياً دائماً
+ *  inventory_movements = سجل تاريخي لكل عملية      ← للعرض والتقارير فقط
  *
- *  Add Stock          → totalQuantity += qty   (IN / manual_in)
- *  Order received     → totalQuantity -= qty   (OUT / sale)
- *  Order returned OK  → totalQuantity += qty   (IN / return)
- *  Order returned DMG → NO stock change         (IN / damaged — audit trail only)
- *  Delivery reversed  → totalQuantity += qty   (IN / adjustment)
- *  soldQuantity updated on delivery/reversal for analytics only.
+ *  القاعدة الذهبية:
+ *    كل عملية تغيّر المخزون → تمر عبر adjustWarehouseStock أولاً
+ *    ثم syncProductQuantityFromWarehouses تزامن totalQuantity تلقائياً
+ *    ثم recordMovement تسجّل الحركة للتاريخ
+ *
+ *  لا أحد يكتب في totalQuantity مباشرة — ممنوع تماماً
+ * ══════════════════════════════════════════════════════════════════════════════
  */
 
-// ─── Sync: مزامنة totalQuantity من مجموع المخازن ──────────────────────────────
+// ─── SYNC: مزامنة totalQuantity من مجموع المخازن ─────────────────────────────
 /**
- * تحسب مجموع كميات المنتج/variant في كل المخازن،
- * وتكتبها في products.totalQuantity أو product_variants.totalQuantity.
- * تُستدعى تلقائياً بعد أي تعديل على warehouse_stock.
+ * الدالة الوحيدة المسموح لها بكتابة totalQuantity.
+ * تُستدعى تلقائياً بعد كل تعديل على warehouse_stock.
  */
 export async function syncProductQuantityFromWarehouses(
   variantId: number | null,
   productId: number | null,
 ): Promise<void> {
   if (variantId) {
-    // مجموع كل المخازن للـ variant ده
     const [row] = await db
       .select({ total: sum(warehouseStockTable.quantity) })
       .from(warehouseStockTable)
@@ -37,16 +39,14 @@ export async function syncProductQuantityFromWarehouses(
       .set({ totalQuantity: total, updatedAt: new Date() })
       .where(eq(productVariantsTable.id, variantId));
 
-    // بعدين حدّث المنتج الأب = مجموع كل variants بتاعته
+    // حدّث المنتج الأب = مجموع variants
     const [variant] = await db
       .select({ productId: productVariantsTable.productId })
       .from(productVariantsTable)
       .where(eq(productVariantsTable.id, variantId));
-    if (variant) {
-      await syncParentProductFromVariants(variant.productId);
-    }
+    if (variant) await syncParentProductFromVariants(variant.productId);
+
   } else if (productId) {
-    // منتج بدون variants — مجموع المخازن بتاعته
     const [row] = await db
       .select({ total: sum(warehouseStockTable.quantity) })
       .from(warehouseStockTable)
@@ -59,10 +59,6 @@ export async function syncProductQuantityFromWarehouses(
   }
 }
 
-/**
- * يحدّث totalQuantity للمنتج الأب
- * = مجموع totalQuantity لكل variants بتاعته.
- */
 async function syncParentProductFromVariants(productId: number): Promise<void> {
   const variants = await db
     .select({ qty: productVariantsTable.totalQuantity })
@@ -75,8 +71,7 @@ async function syncParentProductFromVariants(productId: number): Promise<void> {
     .where(eq(productsTable.id, productId));
 }
 
-// ─── Resolve inventory target ─────────────────────────────────────────────────
-
+// ─── RESOLVE: تحديد المنتج / الـ variant من الطلب ────────────────────────────
 export async function resolveInventoryTarget(order: {
   variantId?: number | null;
   productId?: number | null;
@@ -111,122 +106,129 @@ export async function resolveInventoryTarget(order: {
   return { variantId: null, productId: null };
 }
 
-// ─── Warehouse stock helper ───────────────────────────────────────────────────
-
+// ─── WAREHOUSE STOCK: التعديل الفعلي على المخزن ──────────────────────────────
 /**
- * لو warehouseId محدد → خصم/إرجاع من المخزن ده بالظبط
- * لو مفيش warehouseId → خصم من المخازن اللي فيها رصيد بالترتيب (الأكبر أولاً)
+ * الدالة المركزية لتعديل warehouse_stock.
+ *
+ * warehouseId محدد → تعديل في المخزن ده بالظبط
+ * warehouseId غير محدد + delta سالب → خصم تدريجي من المخازن (الأكبر رصيداً أولاً)
+ * warehouseId غير محدد + delta موجب → إضافة للمخزن الافتراضي أو الأول
+ *
+ * ترجع: الـ warehouseId اللي اتعدل فعلاً (للاستخدام في تسجيل الحركة)
  */
-async function adjustWarehouseStock(
+export async function adjustWarehouseStock(
   warehouseId: number | null | undefined,
   variantId: number | null,
   productId: number | null,
-  delta: number, // سالب = خصم، موجب = إرجاع
-): Promise<void> {
-  if (!variantId && !productId) return;
+  delta: number,
+): Promise<number | null> {
+  if (!variantId && !productId) return null;
+
+  const stockCondition = (whId: number) => and(
+    eq(warehouseStockTable.warehouseId, whId),
+    variantId
+      ? eq(warehouseStockTable.variantId, variantId)
+      : eq(warehouseStockTable.productId, productId!),
+  );
 
   if (warehouseId) {
-    // مخزن محدد
-    const condition = and(
-      eq(warehouseStockTable.warehouseId, warehouseId),
+    // ── مخزن محدد ──────────────────────────────────────────────────────────
+    const [row] = await db.select().from(warehouseStockTable).where(stockCondition(warehouseId));
+    if (row) {
+      const newQty = Math.max(0, row.quantity + delta);
+      await db.update(warehouseStockTable)
+        .set({ quantity: newQty, updatedAt: new Date() })
+        .where(eq(warehouseStockTable.id, row.id));
+    } else if (delta > 0) {
+      // صف جديد — فقط للإضافة
+      await db.insert(warehouseStockTable).values({
+        warehouseId,
+        variantId: variantId ?? null,
+        productId: productId ?? null,
+        quantity: delta,
+        updatedAt: new Date(),
+      });
+    }
+    return warehouseId;
+  }
+
+  // ── بدون مخزن محدد ──────────────────────────────────────────────────────
+  const rows = await db
+    .select()
+    .from(warehouseStockTable)
+    .where(
       variantId
         ? eq(warehouseStockTable.variantId, variantId)
         : eq(warehouseStockTable.productId, productId!),
     );
-    const [row] = await db.select().from(warehouseStockTable).where(condition);
-    if (!row) {
-      // لو مفيش row وده إرجاع (delta > 0) → insert جديد
-      if (delta > 0) {
-        await db.insert(warehouseStockTable).values({
-          warehouseId,
-          variantId: variantId ?? null,
-          productId: productId ?? null,
-          quantity: delta,
-          updatedAt: new Date(),
-        });
-      }
-      return;
-    }
-    const newQty = Math.max(0, row.quantity + delta);
-    await db.update(warehouseStockTable).set({ quantity: newQty, updatedAt: new Date() }).where(condition);
-  } else {
-    // بدون مخزن محدد — وزّع الخصم على المخازن اللي فيها رصيد
-    const rows = await db
-      .select()
-      .from(warehouseStockTable)
-      .where(
-        variantId
-          ? eq(warehouseStockTable.variantId, variantId)
-          : eq(warehouseStockTable.productId, productId!),
-      );
 
-    if (rows.length === 0) {
-      if (delta > 0) {
-        // مفيش صف في warehouse_stock → ابحث عن أي مخزن في الـ DB وافتح صف جديد
-        const [anyWarehouse] = await db.select().from(warehousesTable).limit(1);
-        if (anyWarehouse) {
+  if (delta > 0) {
+    // إضافة → للمخزن الافتراضي أو الأول
+    let targetWhId: number | null = null;
+
+    if (rows.length > 0) {
+      // ابحث عن المخزن الافتراضي أولاً
+      const defaultRow = rows.find(r => r.warehouseId);
+      const allWh = await db.select().from(warehousesTable).orderBy(warehousesTable.isDefault);
+      const defaultWh = allWh.find(w => w.isDefault) ?? allWh[0];
+      if (defaultWh) {
+        targetWhId = defaultWh.id;
+        const existing = rows.find(r => r.warehouseId === targetWhId);
+        if (existing) {
+          await db.update(warehouseStockTable)
+            .set({ quantity: existing.quantity + delta, updatedAt: new Date() })
+            .where(eq(warehouseStockTable.id, existing.id));
+        } else {
           await db.insert(warehouseStockTable).values({
-            warehouseId: anyWarehouse.id,
+            warehouseId: targetWhId,
             variantId: variantId ?? null,
             productId: productId ?? null,
             quantity: delta,
             updatedAt: new Date(),
           });
         }
-      }
-      return;
-    }
-
-    if (delta > 0) {
-      // إرجاع → ضيف للمخزن الأول
-      const first = rows[0];
-      await db.update(warehouseStockTable)
-        .set({ quantity: first.quantity + delta, updatedAt: new Date() })
-        .where(eq(warehouseStockTable.id, first.id));
-    } else {
-      // خصم → خصم من المخازن اللي فيها رصيد بالترتيب
-      let remaining = Math.abs(delta);
-      const sorted = rows.filter(r => r.quantity > 0).sort((a, b) => b.quantity - a.quantity);
-      for (const row of sorted) {
-        if (remaining <= 0) break;
-        const deduct = Math.min(row.quantity, remaining);
+      } else if (defaultRow) {
         await db.update(warehouseStockTable)
-          .set({ quantity: row.quantity - deduct, updatedAt: new Date() })
-          .where(eq(warehouseStockTable.id, row.id));
-        remaining -= deduct;
+          .set({ quantity: defaultRow.quantity + delta, updatedAt: new Date() })
+          .where(eq(warehouseStockTable.id, defaultRow.id));
+        targetWhId = defaultRow.warehouseId;
+      }
+    } else {
+      // مفيش صف بالمرة → ابحث عن مخزن وأنشئ صف
+      const [anyWh] = await db.select().from(warehousesTable).orderBy(warehousesTable.isDefault).limit(1);
+      if (anyWh) {
+        await db.insert(warehouseStockTable).values({
+          warehouseId: anyWh.id,
+          variantId: variantId ?? null,
+          productId: productId ?? null,
+          quantity: delta,
+          updatedAt: new Date(),
+        });
+        targetWhId = anyWh.id;
       }
     }
+    return targetWhId;
+
+  } else {
+    // خصم → من المخازن اللي فيها رصيد (الأكبر أولاً)
+    let remaining = Math.abs(delta);
+    const sorted = rows.filter(r => r.quantity > 0).sort((a, b) => b.quantity - a.quantity);
+    let firstWhId: number | null = sorted[0]?.warehouseId ?? null;
+
+    for (const row of sorted) {
+      if (remaining <= 0) break;
+      const deduct = Math.min(row.quantity, remaining);
+      await db.update(warehouseStockTable)
+        .set({ quantity: row.quantity - deduct, updatedAt: new Date() })
+        .where(eq(warehouseStockTable.id, row.id));
+      remaining -= deduct;
+    }
+    return firstWhId;
   }
 }
 
-// ─── Internal helpers ─────────────────────────────────────────────────────────
-
-async function adjustQty(
-  variantId: number | null,
-  productId: number | null,
-  totalDelta: number,
-  soldDelta: number = 0,
-): Promise<void> {
-  if (variantId) {
-    const [v] = await db.select().from(productVariantsTable).where(eq(productVariantsTable.id, variantId));
-    if (!v) return;
-    await db.update(productVariantsTable).set({
-      totalQuantity: Math.max(0, v.totalQuantity + totalDelta),
-      soldQuantity: Math.max(0, v.soldQuantity + soldDelta),
-      updatedAt: new Date(),
-    }).where(eq(productVariantsTable.id, variantId));
-  } else if (productId) {
-    const [p] = await db.select().from(productsTable).where(eq(productsTable.id, productId));
-    if (!p) return;
-    await db.update(productsTable).set({
-      totalQuantity: Math.max(0, p.totalQuantity + totalDelta),
-      soldQuantity: Math.max(0, p.soldQuantity + soldDelta),
-      updatedAt: new Date(),
-    }).where(eq(productsTable.id, productId));
-  }
-}
-
-async function recordMovement(data: {
+// ─── RECORD MOVEMENT: تسجيل الحركة في السجل التاريخي ────────────────────────
+export async function recordMovement(data: {
   product: string;
   color?: string | null;
   size?: string | null;
@@ -235,7 +237,10 @@ async function recordMovement(data: {
   reason: MovementReason;
   productId?: number | null;
   variantId?: number | null;
+  warehouseId?: number | null;
   orderId?: number | null;
+  fromLocation?: string | null;
+  toLocation?: string | null;
   notes?: string | null;
 }): Promise<void> {
   await db.insert(inventoryMovementsTable).values({
@@ -247,16 +252,86 @@ async function recordMovement(data: {
     reason: data.reason,
     productId: data.productId ?? null,
     variantId: data.variantId ?? null,
+    warehouseId: data.warehouseId ?? null,
     orderId: data.orderId ?? null,
+    fromLocation: data.fromLocation ?? null,
+    toLocation: data.toLocation ?? null,
     notes: data.notes ?? null,
   });
 }
 
-// ─── Public API ───────────────────────────────────────────────────────────────
+// ─── SOLD QUANTITY: تحديث soldQuantity فقط (للتقارير) ───────────────────────
+async function updateSoldQuantity(
+  variantId: number | null,
+  productId: number | null,
+  soldDelta: number,
+): Promise<void> {
+  if (soldDelta === 0) return;
+  if (variantId) {
+    const [v] = await db.select({ soldQuantity: productVariantsTable.soldQuantity })
+      .from(productVariantsTable).where(eq(productVariantsTable.id, variantId));
+    if (v) await db.update(productVariantsTable)
+      .set({ soldQuantity: Math.max(0, (v.soldQuantity ?? 0) + soldDelta), updatedAt: new Date() })
+      .where(eq(productVariantsTable.id, variantId));
+  } else if (productId) {
+    const [p] = await db.select({ soldQuantity: productsTable.soldQuantity })
+      .from(productsTable).where(eq(productsTable.id, productId));
+    if (p) await db.update(productsTable)
+      .set({ soldQuantity: Math.max(0, (p.soldQuantity ?? 0) + soldDelta), updatedAt: new Date() })
+      .where(eq(productsTable.id, productId));
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  PUBLIC API — كل عملية تمر عبر: adjustWarehouseStock → sync → recordMovement
+// ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * Process delivery: deduct qty from totalQuantity, record OUT movement.
- * Called when order status → "received" or "partial_received".
+ * إضافة مخزون (تموين / إدخال أولي).
+ * warehouseId مطلوب — إذا مفيش، يختار الافتراضي تلقائياً.
+ */
+export async function addStock(
+  target: {
+    variantId?: number | null;
+    productId?: number | null;
+    product?: string | null;
+    color?: string | null;
+    size?: string | null;
+    warehouseId?: number | null;
+  },
+  quantity: number,
+  notes?: string | null,
+): Promise<void> {
+  if (quantity <= 0) return;
+  const { variantId, productId } = await resolveInventoryTarget(target);
+  if (!variantId && !productId) return;
+
+  // 1. عدّل warehouse_stock
+  const usedWhId = await adjustWarehouseStock(target.warehouseId, variantId, productId, quantity);
+
+  // 2. زامن totalQuantity
+  await syncProductQuantityFromWarehouses(variantId, productId);
+
+  // 3. سجّل الحركة
+  if (target.product) {
+    await recordMovement({
+      product: target.product,
+      color: target.color ?? null,
+      size: target.size ?? null,
+      quantity,
+      type: "IN",
+      reason: "manual_in",
+      productId: productId ?? null,
+      variantId: variantId ?? null,
+      warehouseId: usedWhId,
+      notes: notes ?? null,
+    });
+  }
+}
+
+/**
+ * تسليم طلب → خصم من المخزن.
+ * يُستدعى لما الطلب يبقى "received" أو "partial_received".
  */
 export async function processDelivery(
   order: {
@@ -276,28 +351,37 @@ export async function processDelivery(
   const { variantId, productId } = await resolveInventoryTarget(order);
   if (!variantId && !productId) return;
 
-  if (!skipWarehouseStock) {
-    await adjustWarehouseStock(order.warehouseId, variantId, productId, -deliveredQty);
-  }
-  // soldQuantity فقط بيتحدث يدوياً (مش جزء من warehouse_stock)
-  if (variantId) {
-    const [v] = await db.select().from(productVariantsTable).where(eq(productVariantsTable.id, variantId));
-    if (v) await db.update(productVariantsTable).set({ soldQuantity: Math.max(0, v.soldQuantity + deliveredQty), updatedAt: new Date() }).where(eq(productVariantsTable.id, variantId));
-  } else if (productId) {
-    const [p] = await db.select().from(productsTable).where(eq(productsTable.id, productId));
-    if (p) await db.update(productsTable).set({ soldQuantity: Math.max(0, p.soldQuantity + deliveredQty), updatedAt: new Date() }).where(eq(productsTable.id, productId));
-  }
-  // مزامنة totalQuantity من مجموع المخازن
-  await syncProductQuantityFromWarehouses(variantId, productId);
+  let usedWhId: number | null = order.warehouseId ?? null;
 
+  if (!skipWarehouseStock) {
+    // 1. عدّل warehouse_stock
+    usedWhId = await adjustWarehouseStock(order.warehouseId, variantId, productId, -deliveredQty);
+    // 2. زامن totalQuantity
+    await syncProductQuantityFromWarehouses(variantId, productId);
+  }
+
+  // 3. حدّث soldQuantity (للتقارير فقط)
+  await updateSoldQuantity(variantId, productId, deliveredQty);
+
+  // 4. سجّل الحركة
   if (order.product) {
-    await recordMovement({ product: order.product, color: order.color, size: order.size, quantity: deliveredQty, type: "OUT", reason, productId, variantId, orderId });
+    await recordMovement({
+      product: order.product,
+      color: order.color,
+      size: order.size,
+      quantity: deliveredQty,
+      type: "OUT",
+      reason,
+      productId,
+      variantId,
+      warehouseId: usedWhId,
+      orderId,
+    });
   }
 }
 
 /**
- * Reverse a delivery: add qty back, record IN/adjustment.
- * Called on status corrections or order deletion.
+ * إلغاء تسليم → إرجاع الكمية للمخزن.
  */
 export async function reverseDelivery(
   order: {
@@ -315,10 +399,16 @@ export async function reverseDelivery(
   const { variantId, productId } = await resolveInventoryTarget(order);
   if (!variantId && !productId) return;
 
-  await adjustQty(variantId, productId, deliveredQty, -deliveredQty);
-  await adjustWarehouseStock(order.warehouseId, variantId, productId, deliveredQty);
+  // 1. أرجع لـ warehouse_stock
+  const usedWhId = await adjustWarehouseStock(order.warehouseId, variantId, productId, deliveredQty);
+
+  // 2. زامن totalQuantity
   await syncProductQuantityFromWarehouses(variantId, productId);
 
+  // 3. عكس soldQuantity
+  await updateSoldQuantity(variantId, productId, -deliveredQty);
+
+  // 4. سجّل الحركة
   if (order.product) {
     await recordMovement({
       product: order.product,
@@ -329,6 +419,7 @@ export async function reverseDelivery(
       reason: "adjustment",
       productId,
       variantId,
+      warehouseId: usedWhId,
       orderId,
       notes: "إلغاء تسليم",
     });
@@ -336,10 +427,9 @@ export async function reverseDelivery(
 }
 
 /**
- * Process return.
- * isDamaged = false → add qty back (IN / return).
- * isDamaged = true  → audit record only, NO stock increment (IN / damaged).
- * Only acts when wasReceived = true.
+ * مرتجع طلب.
+ * isDamaged=false → أرجع للمخزن
+ * isDamaged=true  → سجّل فقط كـ audit (لا يضاف للمخزون)
  */
 export async function processReturn(
   order: {
@@ -359,12 +449,18 @@ export async function processReturn(
   const { variantId, productId } = await resolveInventoryTarget(order);
   if (!variantId && !productId) return;
 
+  let usedWhId: number | null = order.warehouseId ?? null;
+
   if (!isDamaged) {
-    await adjustQty(variantId, productId, order.quantity, -order.quantity);
-    // رجّع للـ warehouseStock كمان
-    await adjustWarehouseStock(order.warehouseId, variantId, productId, order.quantity);
+    // 1. أرجع لـ warehouse_stock
+    usedWhId = await adjustWarehouseStock(order.warehouseId, variantId, productId, order.quantity);
+    // 2. زامن totalQuantity
+    await syncProductQuantityFromWarehouses(variantId, productId);
+    // 3. عكس soldQuantity
+    await updateSoldQuantity(variantId, productId, -order.quantity);
   }
 
+  // 4. سجّل الحركة
   if (order.product) {
     await recordMovement({
       product: order.product,
@@ -375,6 +471,7 @@ export async function processReturn(
       reason: isDamaged ? ("damaged" as MovementReason) : "return",
       productId,
       variantId,
+      warehouseId: usedWhId,
       orderId,
       notes: isDamaged ? "مرتجع تالف — لا يُضاف للمخزون" : null,
     });
@@ -382,87 +479,7 @@ export async function processReturn(
 }
 
 /**
- * Add stock (manual restock / initial stock entry).
- * Increments totalQuantity and records IN / manual_in.
- */
-export async function addStock(
-  target: {
-    variantId?: number | null;
-    productId?: number | null;
-    product?: string | null;
-    color?: string | null;
-    size?: string | null;
-  },
-  quantity: number,
-  notes?: string | null,
-): Promise<void> {
-  if (quantity <= 0) return;
-  const { variantId, productId } = await resolveInventoryTarget(target);
-
-  if (variantId) {
-    const [v] = await db.select().from(productVariantsTable).where(eq(productVariantsTable.id, variantId));
-    if (!v) return;
-    await db.update(productVariantsTable).set({
-      totalQuantity: v.totalQuantity + quantity,
-      updatedAt: new Date(),
-    }).where(eq(productVariantsTable.id, variantId));
-  } else if (productId) {
-    const [p] = await db.select().from(productsTable).where(eq(productsTable.id, productId));
-    if (!p) return;
-    await db.update(productsTable).set({
-      totalQuantity: p.totalQuantity + quantity,
-      updatedAt: new Date(),
-    }).where(eq(productsTable.id, productId));
-  }
-
-  if (target.product) {
-    await recordMovement({
-      product: target.product,
-      color: target.color ?? null,
-      size: target.size ?? null,
-      quantity,
-      type: "IN",
-      reason: "manual_in",
-      productId: productId ?? null,
-      variantId: variantId ?? null,
-      notes: notes ?? null,
-    });
-  }
-}
-
-/**
- * Create a manual movement record (movements management page).
- * Does NOT automatically adjust totalQuantity.
- */
-export async function createManualMovement(data: {
-  product: string;
-  color?: string | null;
-  size?: string | null;
-  quantity: number;
-  type: "IN" | "OUT";
-  reason: MovementReason;
-  productId?: number | null;
-  variantId?: number | null;
-  notes?: string | null;
-}): Promise<void> {
-  await db.insert(inventoryMovementsTable).values({
-    product: data.product,
-    color: data.color ?? null,
-    size: data.size ?? null,
-    quantity: data.quantity,
-    type: data.type,
-    reason: data.reason,
-    productId: data.productId ?? null,
-    variantId: data.variantId ?? null,
-    orderId: null,
-    notes: data.notes ?? null,
-  });
-}
-
-/**
- * Transfer stock to shipping company:
- * Deducts qty from warehouse (OUT / to_shipping).
- * Called when order is added to a shipping manifest.
+ * تحويل للشحن → خصم من المخزن لما يتضاف للبيان.
  */
 export async function processToShipping(
   order: {
@@ -480,12 +497,13 @@ export async function processToShipping(
   const { variantId, productId } = await resolveInventoryTarget(order);
   if (!variantId && !productId) return;
 
-  // خصم من المخزن — لو محدد من المخزن ده، لو لأ من المخازن بالترتيب
-  await adjustWarehouseStock(order.warehouseId, variantId, productId, -qty);
+  // 1. خصم من warehouse_stock
+  const usedWhId = await adjustWarehouseStock(order.warehouseId, variantId, productId, -qty);
 
-  // مزامنة totalQuantity من مجموع المخازن (يحل محل adjustQty لمنع الخصم المزدوج)
+  // 2. زامن totalQuantity
   await syncProductQuantityFromWarehouses(variantId, productId);
 
+  // 3. سجّل الحركة
   if (order.product) {
     await recordMovement({
       product: order.product,
@@ -496,6 +514,7 @@ export async function processToShipping(
       reason: "to_shipping",
       productId,
       variantId,
+      warehouseId: usedWhId,
       orderId,
       notes: "تحويل لشركة الشحن",
     });
@@ -503,8 +522,7 @@ export async function processToShipping(
 }
 
 /**
- * Reverse shipping transfer (order removed from manifest or manifest deleted):
- * Add qty back to warehouse (IN / from_shipping).
+ * إرجاع من الشحن للمخزن.
  */
 export async function reverseShipping(
   order: {
@@ -522,12 +540,13 @@ export async function reverseShipping(
   const { variantId, productId } = await resolveInventoryTarget(order);
   if (!variantId && !productId) return;
 
-  // إرجاع للمخزن — لو محدد للمخزن ده، لو لأ للمخزن الأول
-  await adjustWarehouseStock(order.warehouseId, variantId, productId, qty);
+  // 1. أرجع لـ warehouse_stock
+  const usedWhId = await adjustWarehouseStock(order.warehouseId, variantId, productId, qty);
 
-  // مزامنة totalQuantity من مجموع المخازن (يحل محل adjustQty لمنع التكرار)
+  // 2. زامن totalQuantity
   await syncProductQuantityFromWarehouses(variantId, productId);
 
+  // 3. سجّل الحركة
   if (order.product) {
     await recordMovement({
       product: order.product,
@@ -538,11 +557,12 @@ export async function reverseShipping(
       reason: "from_shipping",
       productId,
       variantId,
+      warehouseId: usedWhId,
       orderId,
       notes: "إرجاع من شركة الشحن للمخزن",
     });
   }
 }
 
-// Legacy
+// Legacy exports
 export const RESERVED_STATUSES: string[] = [];

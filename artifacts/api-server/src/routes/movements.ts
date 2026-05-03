@@ -1,7 +1,19 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, and, gte, lte, or, like } from "drizzle-orm";
-import { db, inventoryMovementsTable, productsTable, productVariantsTable, warehousesTable, warehouseStockTable } from "@workspace/db";
-import { syncProductQuantityFromWarehouses } from "../lib/inventory.js";
+import {
+  db,
+  inventoryMovementsTable,
+  productsTable,
+  productVariantsTable,
+  warehousesTable,
+  warehouseStockTable,
+} from "@workspace/db";
+import {
+  adjustWarehouseStock,
+  syncProductQuantityFromWarehouses,
+  resolveInventoryTarget,
+  recordMovement,
+} from "../lib/inventory.js";
 
 const router: IRouter = Router();
 
@@ -26,7 +38,6 @@ async function buildConditions(query: Record<string, string>) {
       .from(productsTable)
       .where(eq(productsTable.id, pid))
       .limit(1);
-
     if (product?.name) {
       conditions.push(
         or(
@@ -51,28 +62,28 @@ async function buildConditions(query: Record<string, string>) {
   return conditions;
 }
 
-// ─── List movements (with warehouse name) ────────────────────────────────────
+// ─── List movements ────────────────────────────────────────────────────────────
 router.get("/inventory/movements", async (req, res): Promise<void> => {
   const conditions = await buildConditions(req.query as Record<string, string>);
 
   let query = db
     .select({
-      id:          inventoryMovementsTable.id,
-      productId:   inventoryMovementsTable.productId,
-      variantId:   inventoryMovementsTable.variantId,
-      warehouseId: inventoryMovementsTable.warehouseId,
+      id:           inventoryMovementsTable.id,
+      productId:    inventoryMovementsTable.productId,
+      variantId:    inventoryMovementsTable.variantId,
+      warehouseId:  inventoryMovementsTable.warehouseId,
       warehouseName: warehousesTable.name,
-      product:     inventoryMovementsTable.product,
-      color:       inventoryMovementsTable.color,
-      size:        inventoryMovementsTable.size,
-      quantity:    inventoryMovementsTable.quantity,
-      type:        inventoryMovementsTable.type,
-      reason:      inventoryMovementsTable.reason,
-      orderId:     inventoryMovementsTable.orderId,
+      product:      inventoryMovementsTable.product,
+      color:        inventoryMovementsTable.color,
+      size:         inventoryMovementsTable.size,
+      quantity:     inventoryMovementsTable.quantity,
+      type:         inventoryMovementsTable.type,
+      reason:       inventoryMovementsTable.reason,
+      orderId:      inventoryMovementsTable.orderId,
       fromLocation: inventoryMovementsTable.fromLocation,
       toLocation:   inventoryMovementsTable.toLocation,
-      notes:       inventoryMovementsTable.notes,
-      createdAt:   inventoryMovementsTable.createdAt,
+      notes:        inventoryMovementsTable.notes,
+      createdAt:    inventoryMovementsTable.createdAt,
     })
     .from(inventoryMovementsTable)
     .leftJoin(warehousesTable, eq(inventoryMovementsTable.warehouseId, warehousesTable.id))
@@ -85,7 +96,7 @@ router.get("/inventory/movements", async (req, res): Promise<void> => {
   res.json(await query);
 });
 
-// ─── Totals ───────────────────────────────────────────────────────────────────
+// ─── Totals ────────────────────────────────────────────────────────────────────
 router.get("/inventory/movements/totals", async (req, res): Promise<void> => {
   const conditions = await buildConditions(req.query as Record<string, string>);
 
@@ -100,9 +111,21 @@ router.get("/inventory/movements/totals", async (req, res): Promise<void> => {
   res.json({ totalIn, totalOut, balance: totalIn - totalOut });
 });
 
-// ─── Create manual movement ───────────────────────────────────────────────────
+// ─── Create manual movement ────────────────────────────────────────────────────
+/**
+ * كل حركة يدوية تمر عبر المنطق المركزي في inventory.ts:
+ *   1. adjustWarehouseStock  → يعدّل warehouse_stock
+ *   2. syncProductQuantity   → يزامن totalQuantity
+ *   3. recordMovement        → يسجّل في inventory_movements
+ *
+ * استثناء: transfer → يعالج المصدر والوجهة منفصلَين
+ */
 router.post("/inventory/movements", async (req, res): Promise<void> => {
-  const { product, color, size, quantity, type, reason, productId, variantId, warehouseId, notes, fromLocation, toLocation } = req.body;
+  const {
+    product, color, size, quantity, type, reason,
+    productId, variantId, warehouseId,
+    fromLocation, toLocation, notes,
+  } = req.body;
 
   if (!product || !quantity || !type || !reason) {
     res.status(400).json({ error: "product, quantity, type, reason مطلوبة" });
@@ -113,191 +136,146 @@ router.post("/inventory/movements", async (req, res): Promise<void> => {
     return;
   }
 
-  const qty = parseInt(quantity);
-  const pid    = productId  ? parseInt(productId)  : null;
-  const vid    = variantId  ? parseInt(variantId)  : null;
-  const whId   = warehouseId ? parseInt(warehouseId) : null;
+  const qty  = parseInt(quantity);
+  const pid  = productId  ? parseInt(productId)  : null;
+  const vid  = variantId  ? parseInt(variantId)  : null;
+  const whId = warehouseId ? parseInt(warehouseId) : null;
 
-  const insertResult = await db.insert(inventoryMovementsTable).values({
-    product,
-    color:        color ?? null,
-    size:         size ?? null,
-    quantity:     qty,
-    type,
-    reason,
-    productId:    pid,
-    variantId:    vid,
-    warehouseId:  whId,
-    fromLocation: fromLocation ?? null,
-    toLocation:   toLocation   ?? null,
-    notes:        notes ?? null,
-    orderId:      null,
+  // جيب variantId / productId المحلولَين
+  const { variantId: resolvedVid, productId: resolvedPid } = await resolveInventoryTarget({
+    variantId: vid, productId: pid, product, color, size,
   });
 
-  // ── حركة يدوية عادية (مش transfer): حدّث المخزن الفعلي ──────────────────
-  if (reason !== "transfer" && (pid || vid) && whId) {
-    const delta = type === "IN" ? qty : -qty;
-    const condition = and(
-      eq(warehouseStockTable.warehouseId, whId),
-      vid
-        ? eq(warehouseStockTable.variantId, vid)
-        : eq(warehouseStockTable.productId, pid!),
-    );
-    const [stockRow] = await db.select().from(warehouseStockTable).where(condition);
-    if (stockRow) {
-      const newQty = Math.max(0, stockRow.quantity + delta);
-      await db.update(warehouseStockTable)
-        .set({ quantity: newQty, updatedAt: new Date() })
-        .where(eq(warehouseStockTable.id, stockRow.id));
-    } else if (delta > 0) {
-      await db.insert(warehouseStockTable).values({
-        warehouseId: whId,
-        variantId:   vid  ?? null,
-        productId:   pid  ?? null,
-        quantity:    delta,
-        updatedAt:   new Date(),
-      });
-    }
-    await syncProductQuantityFromWarehouses(vid, pid);
-  }
+  let usedWhId: number | null = whId;
 
-  // ── تحويل بين مواقع: حدّث أرصدة المخازن ──────────────────────────────────
   if (reason === "transfer" && fromLocation && toLocation) {
-    // استخرج اسم المخزن من الـ location string (مثال: "مخزن: القاهرة")
-    const extractWarehouseName = (loc: string) => {
+    // ── تحويل بين مخزنَين ──────────────────────────────────────────────────
+    const extractName = (loc: string) => {
       const m = loc.match(/^مخزن:\s*(.+)$/);
       return m ? m[1].trim() : null;
     };
-    const fromName = extractWarehouseName(fromLocation);
-    const toName   = extractWarehouseName(toLocation);
+    const fromName = extractName(fromLocation);
+    const toName   = extractName(toLocation);
 
-    // جيب المخازن من الـ DB
-    const allWarehouses = await db.select().from(warehousesTable);
-    const fromWh = fromName ? allWarehouses.find(w => w.name === fromName) : null;
-    const toWh   = toName   ? allWarehouses.find(w => w.name === toName)   : null;
+    const allWh = await db.select().from(warehousesTable);
+    const fromWh = fromName ? allWh.find(w => w.name === fromName) : null;
+    const toWh   = toName   ? allWh.find(w => w.name === toName)   : null;
 
-    // حدد vid/pid — لو مش موجود ابحث بالاسم
-    let resolvedVid = vid;
-    let resolvedPid = pid;
-
-    if (!resolvedVid && !resolvedPid && product) {
-      // دور على variant بالاسم واللون والمقاس
-      if (color && size) {
-        const [foundVariant] = await db
-          .select({ id: productVariantsTable.id, productId: productVariantsTable.productId })
-          .from(productVariantsTable)
-          .innerJoin(productsTable, eq(productVariantsTable.productId, productsTable.id))
-          .where(and(
-            like(productsTable.name, `%${product}%`),
-            like(productVariantsTable.color, `%${color}%`),
-            like(productVariantsTable.size, `%${size}%`),
-          ))
-          .limit(1);
-        if (foundVariant) {
-          resolvedVid = foundVariant.id;
-        }
-      }
-      // لو مش لاقي variant دور على product بالاسم
-      if (!resolvedVid) {
-        const [foundProduct] = await db
-          .select({ id: productsTable.id })
-          .from(productsTable)
-          .where(like(productsTable.name, `%${product}%`))
-          .limit(1);
-        if (foundProduct) resolvedPid = foundProduct.id;
-      }
+    if ((resolvedVid || resolvedPid) && fromWh && toWh) {
+      // خصم من المصدر
+      await adjustWarehouseStock(fromWh.id, resolvedVid, resolvedPid, -qty);
+      // إضافة للوجهة
+      await adjustWarehouseStock(toWh.id,   resolvedVid, resolvedPid, qty);
+      // مزامنة مرة واحدة بعد العمليتين
+      await syncProductQuantityFromWarehouses(resolvedVid, resolvedPid);
     }
 
-    // دالة مساعدة لتحديث أو إنشاء stock row
-    const upsertStock = async (warehouseId: number, delta: number) => {
-      const condition = and(
-        eq(warehouseStockTable.warehouseId, warehouseId),
-        resolvedVid
-          ? eq(warehouseStockTable.variantId, resolvedVid)
-          : eq(warehouseStockTable.productId, resolvedPid!),
-      );
-      const [row] = await db.select().from(warehouseStockTable).where(condition);
-      if (row) {
-        const newQty = Math.max(0, row.quantity + delta);
-        await db.update(warehouseStockTable)
-          .set({ quantity: newQty, updatedAt: new Date() })
-          .where(eq(warehouseStockTable.id, row.id));
-      } else if (delta > 0) {
-        await db.insert(warehouseStockTable).values({
-          warehouseId,
-          variantId: resolvedVid ?? null,
-          productId: resolvedPid ?? null,
-          quantity: delta,
-          updatedAt: new Date(),
-        });
-      }
-    };
+    // سجّل حركتَين (OUT من المصدر / IN للوجهة)
+    await recordMovement({
+      product, color, size, quantity: qty, type: "OUT", reason: "transfer",
+      productId: resolvedPid, variantId: resolvedVid,
+      warehouseId: fromWh?.id ?? null,
+      fromLocation, toLocation, notes: notes ?? null,
+    });
+    await recordMovement({
+      product, color, size, quantity: qty, type: "IN", reason: "transfer",
+      productId: resolvedPid, variantId: resolvedVid,
+      warehouseId: toWh?.id ?? null,
+      fromLocation, toLocation, notes: notes ?? null,
+    });
 
-    if (resolvedVid || resolvedPid) {
-      // خصم من المخزن المصدر
-      if (fromWh) {
-        await upsertStock(fromWh.id, -qty);
-        await syncProductQuantityFromWarehouses(resolvedVid, resolvedPid);
-      }
-      // إضافة للمخزن الوجهة
-      if (toWh) {
-        await upsertStock(toWh.id, qty);
-        await syncProductQuantityFromWarehouses(resolvedVid, resolvedPid);
-      }
-    }
+    // أرجع الحركتين
+    const movements = await db
+      .select({
+        id: inventoryMovementsTable.id,
+        productId: inventoryMovementsTable.productId,
+        variantId: inventoryMovementsTable.variantId,
+        warehouseId: inventoryMovementsTable.warehouseId,
+        warehouseName: warehousesTable.name,
+        product: inventoryMovementsTable.product,
+        color: inventoryMovementsTable.color,
+        size: inventoryMovementsTable.size,
+        quantity: inventoryMovementsTable.quantity,
+        type: inventoryMovementsTable.type,
+        reason: inventoryMovementsTable.reason,
+        orderId: inventoryMovementsTable.orderId,
+        fromLocation: inventoryMovementsTable.fromLocation,
+        toLocation: inventoryMovementsTable.toLocation,
+        notes: inventoryMovementsTable.notes,
+        createdAt: inventoryMovementsTable.createdAt,
+      })
+      .from(inventoryMovementsTable)
+      .leftJoin(warehousesTable, eq(inventoryMovementsTable.warehouseId, warehousesTable.id))
+      .orderBy(desc(inventoryMovementsTable.createdAt))
+      .limit(2);
+
+    res.status(201).json(movements[0] ?? { success: true });
+    return;
   }
 
-  const insertId = (insertResult as any)[0]?.insertId ?? (insertResult as any).insertId;
+  // ── حركة عادية (غير transfer) ────────────────────────────────────────────
+  const delta = type === "IN" ? qty : -qty;
 
-  // جيب الحركة مع اسم المخزن
+  if (resolvedVid || resolvedPid) {
+    // 1. عدّل warehouse_stock
+    usedWhId = await adjustWarehouseStock(whId, resolvedVid, resolvedPid, delta) ?? whId;
+    // 2. زامن totalQuantity
+    await syncProductQuantityFromWarehouses(resolvedVid, resolvedPid);
+  }
+
+  // 3. سجّل الحركة
+  await recordMovement({
+    product, color, size, quantity: qty, type,
+    reason: reason as any,
+    productId: resolvedPid, variantId: resolvedVid,
+    warehouseId: usedWhId,
+    fromLocation: fromLocation ?? null,
+    toLocation:   toLocation   ?? null,
+    notes:        notes ?? null,
+  });
+
+  // جيب الحركة المسجّلة مع اسم المخزن
   const [movement] = await db
     .select({
-      id:            inventoryMovementsTable.id,
-      productId:     inventoryMovementsTable.productId,
-      variantId:     inventoryMovementsTable.variantId,
-      warehouseId:   inventoryMovementsTable.warehouseId,
+      id:           inventoryMovementsTable.id,
+      productId:    inventoryMovementsTable.productId,
+      variantId:    inventoryMovementsTable.variantId,
+      warehouseId:  inventoryMovementsTable.warehouseId,
       warehouseName: warehousesTable.name,
-      product:       inventoryMovementsTable.product,
-      color:         inventoryMovementsTable.color,
-      size:          inventoryMovementsTable.size,
-      quantity:      inventoryMovementsTable.quantity,
-      type:          inventoryMovementsTable.type,
-      reason:        inventoryMovementsTable.reason,
-      orderId:       inventoryMovementsTable.orderId,
-      fromLocation:  inventoryMovementsTable.fromLocation,
-      toLocation:    inventoryMovementsTable.toLocation,
-      notes:         inventoryMovementsTable.notes,
-      createdAt:     inventoryMovementsTable.createdAt,
+      product:      inventoryMovementsTable.product,
+      color:        inventoryMovementsTable.color,
+      size:         inventoryMovementsTable.size,
+      quantity:     inventoryMovementsTable.quantity,
+      type:         inventoryMovementsTable.type,
+      reason:       inventoryMovementsTable.reason,
+      orderId:      inventoryMovementsTable.orderId,
+      fromLocation: inventoryMovementsTable.fromLocation,
+      toLocation:   inventoryMovementsTable.toLocation,
+      notes:        inventoryMovementsTable.notes,
+      createdAt:    inventoryMovementsTable.createdAt,
     })
     .from(inventoryMovementsTable)
     .leftJoin(warehousesTable, eq(inventoryMovementsTable.warehouseId, warehousesTable.id))
-    .where(eq(inventoryMovementsTable.id, insertId));
+    .orderBy(desc(inventoryMovementsTable.createdAt))
+    .limit(1);
 
   res.status(201).json(movement);
 });
 
-// ─── Update movement ─────────────────────────────────────────────────────────
+// ─── Update movement (metadata فقط — لا يعيد حساب المخزون) ──────────────────
 router.put("/inventory/movements/:id", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "id غير صحيح" }); return; }
 
   const { product, color, size, quantity, type, reason, warehouseId, notes, fromLocation, toLocation } = req.body;
-
   if (!product || !quantity || !type || !reason) {
     res.status(400).json({ error: "product, quantity, type, reason مطلوبة" }); return;
-  }
-  if (type !== "IN" && type !== "OUT") {
-    res.status(400).json({ error: "type يجب أن يكون IN أو OUT" }); return;
   }
 
   await db.update(inventoryMovementsTable)
     .set({
-      product,
-      color:        color ?? null,
-      size:         size ?? null,
-      quantity:     parseInt(quantity),
-      type,
-      reason,
+      product, color: color ?? null, size: size ?? null,
+      quantity: parseInt(quantity), type, reason,
       warehouseId:  warehouseId  ? parseInt(warehouseId)  : null,
       fromLocation: fromLocation ?? null,
       toLocation:   toLocation   ?? null,
@@ -307,22 +285,22 @@ router.put("/inventory/movements/:id", async (req, res): Promise<void> => {
 
   const [movement] = await db
     .select({
-      id:            inventoryMovementsTable.id,
-      productId:     inventoryMovementsTable.productId,
-      variantId:     inventoryMovementsTable.variantId,
-      warehouseId:   inventoryMovementsTable.warehouseId,
+      id:           inventoryMovementsTable.id,
+      productId:    inventoryMovementsTable.productId,
+      variantId:    inventoryMovementsTable.variantId,
+      warehouseId:  inventoryMovementsTable.warehouseId,
       warehouseName: warehousesTable.name,
-      product:       inventoryMovementsTable.product,
-      color:         inventoryMovementsTable.color,
-      size:          inventoryMovementsTable.size,
-      quantity:      inventoryMovementsTable.quantity,
-      type:          inventoryMovementsTable.type,
-      reason:        inventoryMovementsTable.reason,
-      orderId:       inventoryMovementsTable.orderId,
-      fromLocation:  inventoryMovementsTable.fromLocation,
-      toLocation:    inventoryMovementsTable.toLocation,
-      notes:         inventoryMovementsTable.notes,
-      createdAt:     inventoryMovementsTable.createdAt,
+      product:      inventoryMovementsTable.product,
+      color:        inventoryMovementsTable.color,
+      size:         inventoryMovementsTable.size,
+      quantity:     inventoryMovementsTable.quantity,
+      type:         inventoryMovementsTable.type,
+      reason:       inventoryMovementsTable.reason,
+      orderId:      inventoryMovementsTable.orderId,
+      fromLocation: inventoryMovementsTable.fromLocation,
+      toLocation:   inventoryMovementsTable.toLocation,
+      notes:        inventoryMovementsTable.notes,
+      createdAt:    inventoryMovementsTable.createdAt,
     })
     .from(inventoryMovementsTable)
     .leftJoin(warehousesTable, eq(inventoryMovementsTable.warehouseId, warehousesTable.id))
@@ -332,11 +310,10 @@ router.put("/inventory/movements/:id", async (req, res): Promise<void> => {
   res.json(movement);
 });
 
-// ─── Delete movement ──────────────────────────────────────────────────────────
+// ─── Delete movement ───────────────────────────────────────────────────────────
 router.delete("/inventory/movements/:id", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "id غير صحيح" }); return; }
-
   await db.delete(inventoryMovementsTable).where(eq(inventoryMovementsTable.id, id));
   res.json({ success: true });
 });
