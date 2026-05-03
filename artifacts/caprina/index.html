@@ -52,33 +52,53 @@
       loop
       muted
       playsinline
+      webkit-playsinline
       style="position:fixed;top:0;left:0;width:100vw;height:100vh;object-fit:cover;z-index:0;display:none;"
     >
-      <source src="/video/background.mp4" type="video/mp4" />
+      <source src="./video/background.mp4" type="video/mp4" />
     </video>
     <script>
       // أظهر الفيديو بس لما نكون على صفحة اللوجين
       (function(){
+        function isLoginPath(){
+          var p = window.location.pathname;
+          // يطابق /login أو / أو أي base path ينتهي بـ /login أو /
+          return p === '/login' || p === '/' || p.endsWith('/login');
+        }
         function checkRoute(){
           var v = document.getElementById('login-bg-video');
           var html = document.documentElement;
           if(!v) return;
-          var isLogin = window.location.pathname === '/login' || window.location.pathname === '/';
-          v.style.display = isLogin ? 'block' : 'none';
-          if(isLogin){
+          var show = isLoginPath();
+          if(show){
+            v.style.display = 'block';
             html.classList.add('login-active');
+            // تأكد إن الفيديو شغال
+            if(v.paused){
+              v.play().catch(function(){});
+            }
           } else {
+            v.style.display = 'none';
             html.classList.remove('login-active');
+            v.pause();
           }
         }
+        // شغل فوراً
         checkRoute();
         // راقب تغيير الـ route
         var _pushState = history.pushState;
         history.pushState = function(){
           _pushState.apply(history, arguments);
-          checkRoute();
+          setTimeout(checkRoute, 50);
+        };
+        var _replaceState = history.replaceState;
+        history.replaceState = function(){
+          _replaceState.apply(history, arguments);
+          setTimeout(checkRoute, 50);
         };
         window.addEventListener('popstate', checkRoute);
+        // fallback: اتأكد كمان بعد ما React يشتغل
+        window.addEventListener('load', function(){ setTimeout(checkRoute, 200); });
       })();
     </script>
     <div id="root"></div>

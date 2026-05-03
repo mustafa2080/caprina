@@ -152,6 +152,27 @@ function ProtectedRoute({ permission, component: Comp }: { permission: string; c
   return <Comp />;
 }
 
+// ─── Video background sync with React router ─────────────────────────────────
+function VideoBackgroundSync() {
+  const [location] = useLocation();
+  useEffect(() => {
+    const isLogin = location === "/login" || location === "/";
+    const video = document.getElementById("login-bg-video") as HTMLVideoElement | null;
+    const html = document.documentElement;
+    if (!video) return;
+    if (isLogin) {
+      video.style.display = "block";
+      html.classList.add("login-active");
+      if (video.paused) video.play().catch(() => {});
+    } else {
+      video.style.display = "none";
+      html.classList.remove("login-active");
+      video.pause();
+    }
+  }, [location]);
+  return null;
+}
+
 // ─── Router ───────────────────────────────────────────────────────────────────
 function Router() {
   const { user } = useAuth();
@@ -159,18 +180,23 @@ function Router() {
 
   if (location === "/login") {
     return (
-      <Suspense fallback={<PageLoader />}>
-        <Switch>
-          <Route path="/login" component={Login} />
-        </Switch>
-      </Suspense>
+      <>
+        <VideoBackgroundSync />
+        <Suspense fallback={<PageLoader />}>
+          <Switch>
+            <Route path="/login" component={Login} />
+          </Switch>
+        </Suspense>
+      </>
     );
   }
 
   if (!user) return <Redirect to="/login" />;
 
   return (
-    <Layout>
+    <>
+      <VideoBackgroundSync />
+      <Layout>
       <Suspense fallback={<PageLoader />}>
         <Switch>
           <Route path="/"                         component={() => <ProtectedRoute permission="dashboard" component={Dashboard} />} />
@@ -202,6 +228,7 @@ function Router() {
         </Switch>
       </Suspense>
     </Layout>
+    </>
   );
 }
 
