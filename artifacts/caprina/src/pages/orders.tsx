@@ -401,6 +401,7 @@ export default function Orders() {
                     <TableHead className="text-right text-xs">الهاتف</TableHead>
                     <TableHead className="text-right text-xs">المنتج</TableHead>
                     <TableHead className="text-right text-xs">الإجمالي</TableHead>
+                    <TableHead className="text-right text-xs">المنشئ</TableHead>
                     <TableHead className="text-center text-xs w-36">الحالة</TableHead>
                     <TableHead className="text-center text-xs w-10"></TableHead>
                   </TableRow>
@@ -446,6 +447,11 @@ export default function Orders() {
                           {order.status === "partial_received" && (order as any)._receivedPrice != null
                             ? <div><span>{formatCurrency((order as any)._receivedPrice)}</span><div className="line-through text-muted-foreground font-normal text-[9px]">{formatCurrency(order.totalPrice)}</div></div>
                             : formatCurrency(order.totalPrice)}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {(order as any).createdByName
+                            ? <span className="inline-flex items-center gap-1 bg-muted px-1.5 py-0.5 rounded-full text-[10px] font-medium"><span>👤</span>{(order as any).createdByName}</span>
+                            : <span className="text-muted-foreground/50">—</span>}
                         </TableCell>
                         <TableCell className="text-center">
                           <Badge variant="outline" className={`text-[9px] font-bold border ${statusClasses[order.status] || ""}`}>

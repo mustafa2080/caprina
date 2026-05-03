@@ -142765,6 +142765,8 @@ var ordersTable = mysqlTable(
     variantId: int("variant_id"),
     warehouseId: int("warehouse_id"),
     assignedUserId: int("assigned_user_id"),
+    createdByUserId: int("created_by_user_id"),
+    createdByName: varchar("created_by_name", { length: 255 }),
     adSource: varchar("ad_source", { length: 100 }),
     adCampaign: varchar("ad_campaign", { length: 255 }),
     costPrice: real("cost_price"),
@@ -145336,7 +145338,7 @@ router2.post("/orders", async (req, res) => {
     if (product?.costPrice) costPrice = product.costPrice;
   }
   const invoiceNumber = parsed.data.invoiceNumber || generateInvoiceNumber();
-  const result = await db.insert(ordersTable).values({ ...parsed.data, totalPrice, status: "pending", costPrice, invoiceNumber, createdAt: /* @__PURE__ */ new Date(), updatedAt: /* @__PURE__ */ new Date() });
+  const result = await db.insert(ordersTable).values({ ...parsed.data, totalPrice, status: "pending", costPrice, invoiceNumber, createdByUserId: req.user?.id ?? null, createdByName: req.user?.displayName ?? null, createdAt: /* @__PURE__ */ new Date(), updatedAt: /* @__PURE__ */ new Date() });
   const insertId = result[0]?.insertId ?? result.insertId;
   const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, insertId));
   await logAudit({
@@ -145375,7 +145377,7 @@ router2.post("/orders/batch", async (req, res) => {
       const [product] = await db.select().from(productsTable).where(eq(productsTable.id, parsed.data.productId));
       if (product?.costPrice) costPrice = product.costPrice;
     }
-    const result = await db.insert(ordersTable).values({ ...parsed.data, totalPrice, status: "pending", costPrice, invoiceNumber, createdAt: /* @__PURE__ */ new Date(), updatedAt: /* @__PURE__ */ new Date() });
+    const result = await db.insert(ordersTable).values({ ...parsed.data, totalPrice, status: "pending", costPrice, invoiceNumber, createdByUserId: req.user?.id ?? null, createdByName: req.user?.displayName ?? null, createdAt: /* @__PURE__ */ new Date(), updatedAt: /* @__PURE__ */ new Date() });
     const insertId = result[0]?.insertId ?? result.insertId;
     const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, insertId));
     createdOrders.push(order);

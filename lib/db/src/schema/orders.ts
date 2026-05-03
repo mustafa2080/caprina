@@ -27,6 +27,8 @@ export const ordersTable = mysqlTable("orders", {
   variantId: int("variant_id"),
   warehouseId: int("warehouse_id"),
   assignedUserId: int("assigned_user_id"),
+  createdByUserId: int("created_by_user_id"),
+  createdByName: varchar("created_by_name", { length: 255 }),
   adSource: varchar("ad_source", { length: 100 }),
   adCampaign: varchar("ad_campaign", { length: 255 }),
   costPrice: real("cost_price"),

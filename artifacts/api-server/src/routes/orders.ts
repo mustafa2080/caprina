@@ -276,7 +276,7 @@ router.post("/orders", async (req, res): Promise<void> => {
   }
 
   const invoiceNumber = (parsed.data as any).invoiceNumber || generateInvoiceNumber();
-  const result = await db.insert(ordersTable).values({ ...parsed.data, totalPrice, status: "pending", costPrice, invoiceNumber, createdAt: new Date(), updatedAt: new Date() });
+  const result = await db.insert(ordersTable).values({ ...parsed.data, totalPrice, status: "pending", costPrice, invoiceNumber, createdByUserId: req.user?.id ?? null, createdByName: req.user?.displayName ?? null, createdAt: new Date(), updatedAt: new Date() });
   const insertId = (result as any)[0]?.insertId ?? (result as any).insertId;
   const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, insertId));
 
@@ -313,7 +313,7 @@ router.post("/orders/batch", async (req, res): Promise<void> => {
       const [product] = await db.select().from(productsTable).where(eq(productsTable.id, (parsed.data as any).productId));
       if (product?.costPrice) costPrice = product.costPrice;
     }
-    const result = await db.insert(ordersTable).values({ ...parsed.data, totalPrice, status: "pending", costPrice, invoiceNumber, createdAt: new Date(), updatedAt: new Date() });
+    const result = await db.insert(ordersTable).values({ ...parsed.data, totalPrice, status: "pending", costPrice, invoiceNumber, createdByUserId: req.user?.id ?? null, createdByName: req.user?.displayName ?? null, createdAt: new Date(), updatedAt: new Date() });
     const insertId = (result as any)[0]?.insertId ?? (result as any).insertId;
     const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, insertId));
     createdOrders.push(order);
