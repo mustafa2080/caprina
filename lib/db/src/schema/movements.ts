@@ -13,6 +13,7 @@ export const MOVEMENT_REASONS = [
   "adjustment",
   "to_shipping",
   "from_shipping",
+  "transfer",
 ] as const;
 export type MovementReason = (typeof MOVEMENT_REASONS)[number];
 
@@ -28,6 +29,8 @@ export const inventoryMovementsTable = mysqlTable("inventory_movements", {
   type: varchar("type", { length: 10 }).notNull(),
   reason: varchar("reason", { length: 50 }).notNull(),
   orderId: int("order_id"),
+  fromLocation: varchar("from_location", { length: 255 }),
+  toLocation: varchar("to_location", { length: 255 }),
   notes: text("notes"),
   createdAt: datetime("created_at").notNull().default(new Date()),
 });

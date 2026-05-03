@@ -4,9 +4,10 @@ import { arEG } from "date-fns/locale";
 import {
   ArrowDownCircle, ArrowUpCircle, BarChart3, CalendarDays,
   Filter, Package, Plus, X, TrendingDown, TrendingUp, Activity, Printer, Pencil,
+  ArrowRightLeft,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { movementsApi, productsApi, warehousesApi, type MovementType, type MovementReason, type InventoryMovement } from "@/lib/api";
+import { movementsApi, productsApi, warehousesApi, shippingApi, type MovementType, type MovementReason, type InventoryMovement } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,6 +31,7 @@ const REASON_LABELS: Record<MovementReason, string> = {
   to_shipping:  "تحويل لشركة الشحن",
   from_shipping:"إرجاع من شركة الشحن",
   damaged:      "تالف",
+  transfer:     "تحويل بين مواقع",
 };
 
 const REASON_COLORS: Record<MovementReason, string> = {
@@ -42,6 +44,7 @@ const REASON_COLORS: Record<MovementReason, string> = {
   to_shipping:  "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800",
   from_shipping:"bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-900/30 dark:text-teal-400 dark:border-teal-800",
   damaged:      "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800",
+  transfer:     "bg-violet-100 text-violet-700 border-violet-300 dark:bg-violet-900/30 dark:text-violet-400 dark:border-violet-800",
 };
 
 const formatQty = (type: MovementType, qty: number) =>
@@ -55,6 +58,9 @@ const formatNum = (n: number) =>
 export default function Movements() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Dialog mode: "manual" | "transfer"
+  const [dialogMode, setDialogMode] = useState<"manual" | "transfer">("manual");
 
   // Filters
   const [filterType, setFilterType] = useState<string>("all");
@@ -77,6 +83,8 @@ export default function Movements() {
     productId: "",
     variantId: "",
     warehouseId: "",
+    fromLocation: "",
+    toLocation: "",
   });
 
   const filters = useMemo(() => ({
@@ -107,6 +115,18 @@ export default function Movements() {
     queryFn: warehousesApi.list,
   });
 
+  const { data: shippingCompanies = [] } = useQuery({
+    queryKey: ["shipping-companies"],
+    queryFn: shippingApi.list,
+  });
+
+  // Build location options: warehouses + shipping companies
+  const locationOptions = useMemo(() => {
+    const wh = (warehouses as any[]).map((w: any) => ({ value: `مخزن: ${w.name}`, label: `🏭 مخزن: ${w.name}` }));
+    const sc = (shippingCompanies as any[]).map((c: any) => ({ value: `شركة شحن: ${c.name}`, label: `🚚 شركة شحن: ${c.name}` }));
+    return [...wh, ...sc];
+  }, [warehouses, shippingCompanies]);
+
   const createMutation = useMutation({
     mutationFn: movementsApi.create,
     onSuccess: () => {
@@ -135,6 +155,7 @@ export default function Movements() {
     product: "", color: "", size: "", quantity: "1",
     type: "IN", reason: "manual_in", notes: "",
     productId: "", variantId: "", warehouseId: "",
+    fromLocation: "", toLocation: "",
   });
 
   const hasFilter = filterType !== "all" || filterReason !== "all" || filterProduct !== "all" || dateFrom || dateTo;
@@ -145,6 +166,29 @@ export default function Movements() {
   };
 
   const handleCreate = () => {
+    if (dialogMode === "transfer") {
+      if (!form.product.trim()) { toast({ title: "خطأ", description: "أدخل اسم المنتج.", variant: "destructive" }); return; }
+      if (!form.fromLocation) { toast({ title: "خطأ", description: "اختر الموقع المصدر.", variant: "destructive" }); return; }
+      if (!form.toLocation) { toast({ title: "خطأ", description: "اختر الموقع الوجهة.", variant: "destructive" }); return; }
+      if (form.fromLocation === form.toLocation) { toast({ title: "خطأ", description: "الموقع المصدر والوجهة لا يمكن أن يكونا نفس الموقع.", variant: "destructive" }); return; }
+      const qty = parseInt(form.quantity);
+      if (!qty || qty < 1) { toast({ title: "خطأ", description: "أدخل كمية صحيحة.", variant: "destructive" }); return; }
+      createMutation.mutate({
+        product: form.product.trim(),
+        color: form.color.trim() || null,
+        size: form.size.trim() || null,
+        quantity: qty,
+        type: "OUT",
+        reason: "transfer",
+        fromLocation: form.fromLocation,
+        toLocation: form.toLocation,
+        notes: form.notes.trim() || null,
+        productId: form.productId ? parseInt(form.productId) : null,
+        variantId: form.variantId ? parseInt(form.variantId) : null,
+        warehouseId: form.warehouseId ? parseInt(form.warehouseId) : null,
+      });
+      return;
+    }
     if (!form.product.trim()) { toast({ title: "خطأ", description: "أدخل اسم المنتج.", variant: "destructive" }); return; }
     const qty = parseInt(form.quantity);
     if (!qty || qty < 1) { toast({ title: "خطأ", description: "أدخل كمية صحيحة.", variant: "destructive" }); return; }
@@ -168,6 +212,7 @@ export default function Movements() {
 
   const openEdit = (m: InventoryMovement) => {
     setEditingMovement(m);
+    setDialogMode(m.reason === "transfer" ? "transfer" : "manual");
     setForm({
       product: m.product, color: m.color ?? "", size: m.size ?? "",
       quantity: String(m.quantity), type: m.type, reason: m.reason,
@@ -175,6 +220,8 @@ export default function Movements() {
       productId: m.productId ? String(m.productId) : "",
       variantId: m.variantId ? String(m.variantId) : "",
       warehouseId: m.warehouseId ? String(m.warehouseId) : "",
+      fromLocation: m.fromLocation ?? "",
+      toLocation: m.toLocation ?? "",
     });
   };
 
@@ -182,12 +229,19 @@ export default function Movements() {
     if (!form.product.trim()) { toast({ title: "خطأ", description: "أدخل اسم المنتج.", variant: "destructive" }); return; }
     const qty = parseInt(form.quantity);
     if (!qty || qty < 1) { toast({ title: "خطأ", description: "أدخل كمية صحيحة.", variant: "destructive" }); return; }
+    if (dialogMode === "transfer") {
+      if (!form.fromLocation) { toast({ title: "خطأ", description: "اختر الموقع المصدر.", variant: "destructive" }); return; }
+      if (!form.toLocation) { toast({ title: "خطأ", description: "اختر الموقع الوجهة.", variant: "destructive" }); return; }
+    }
     const payload = {
       product: form.product.trim(), color: form.color.trim() || null,
       size: form.size.trim() || null, quantity: qty,
-      type: form.type, reason: form.reason,
+      type: dialogMode === "transfer" ? "OUT" as MovementType : form.type,
+      reason: dialogMode === "transfer" ? "transfer" as MovementReason : form.reason,
       notes: form.notes.trim() || null,
       warehouseId: form.warehouseId ? parseInt(form.warehouseId) : null,
+      fromLocation: form.fromLocation || null,
+      toLocation: form.toLocation || null,
     };
     if (editingMovement) {
       updateMutation.mutate({ id: editingMovement.id, data: payload });
@@ -212,16 +266,20 @@ export default function Movements() {
       : `<div class="filters">عرض: كل الحركات</div>`;
     const rows = movements.map(m => {
       const isIn = m.type === "IN";
+      const isTransfer = m.reason === "transfer";
       const dateStr = format(new Date(m.createdAt), "yyyy/MM/dd HH:mm", { locale: arEG });
+      const locationInfo = isTransfer && m.fromLocation && m.toLocation
+        ? `${m.fromLocation} ← ${m.toLocation}`
+        : (m as any).warehouseName ?? "—";
       return `<tr>
         <td>${dateStr}</td>
-        <td style="text-align:center;font-weight:bold;color:${isIn ? "#16a34a" : "#dc2626"}">${isIn ? "⬆ دخول" : "⬇ خروج"}</td>
+        <td style="text-align:center;font-weight:bold;color:${isTransfer ? "#7c3aed" : isIn ? "#16a34a" : "#dc2626"}">${isTransfer ? "⇄ تحويل" : isIn ? "⬆ دخول" : "⬇ خروج"}</td>
         <td style="font-weight:600">${m.product}</td>
         <td style="text-align:center">${[m.color, m.size].filter(Boolean).join(" / ") || "—"}</td>
-        <td style="text-align:center;font-weight:bold;color:${isIn ? "#16a34a" : "#dc2626"}">${isIn ? "+" : "-"}${m.quantity}</td>
+        <td style="text-align:center;font-weight:bold;color:${isTransfer ? "#7c3aed" : isIn ? "#16a34a" : "#dc2626"}">${isTransfer ? m.quantity : isIn ? "+" : "-"}${isTransfer ? "" : m.quantity}</td>
         <td style="text-align:center">${REASON_LABELS[m.reason] ?? m.reason}</td>
         <td style="text-align:center">${m.orderId ? `#${String(m.orderId).padStart(4, "0")}` : "—"}</td>
-        <td style="text-align:center">${(m as any).warehouseName ?? "—"}</td>
+        <td style="text-align:center">${locationInfo}</td>
         <td style="color:#6b7280">${m.notes ?? "—"}</td>
       </tr>`;
     }).join("");
@@ -250,7 +308,7 @@ ${filtersRow}
 <div class="kpi out"><div class="val" style="color:#dc2626">-${formatNum(totals?.totalOut ?? 0)}</div><div class="lbl">إجمالي الخارج</div></div>
 <div class="kpi bal"><div class="val" style="color:${(totals?.balance ?? 0) >= 0 ? "#2563eb" : "#ea580c"}">${formatNum(totals?.balance ?? 0)}</div><div class="lbl">الرصيد الصافي</div></div>
 </div>
-<table><thead><tr><th>التاريخ والوقت</th><th style="text-align:center">النوع</th><th>المنتج</th><th style="text-align:center">اللون/المقاس</th><th style="text-align:center">الكمية</th><th style="text-align:center">السبب</th><th style="text-align:center">رقم الطلب</th><th style="text-align:center">المخزن</th><th>ملاحظات</th></tr></thead>
+<table><thead><tr><th>التاريخ والوقت</th><th style="text-align:center">النوع</th><th>المنتج</th><th style="text-align:center">اللون/المقاس</th><th style="text-align:center">الكمية</th><th style="text-align:center">السبب</th><th style="text-align:center">رقم الطلب</th><th style="text-align:center">الموقع</th><th>ملاحظات</th></tr></thead>
 <tbody>${rows}</tbody></table>
 <div class="footer">كابرينا — تقرير حركات المخزون | ${printDate}</div>
 <script>window.onload=()=>{window.print()}</script></body></html>`);
@@ -262,14 +320,19 @@ ${filtersRow}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2"><Activity className="w-6 h-6 text-primary" />حركات المخزون</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">سجل كامل لكل دخول وخروج في المخزن</p>
+          <p className="text-muted-foreground text-sm mt-0.5">سجل كامل لكل دخول وخروج وتحويل في المخزن</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" className="gap-2 text-sm font-bold h-9" onClick={handlePrint} disabled={movements.length === 0}>
             <Printer className="w-4 h-4" /><span className="hidden sm:inline">طباعة</span>
             {hasFilter && <span className="text-[9px] bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 font-bold">مفلترة</span>}
           </Button>
-          <Button className="gap-2 bg-primary text-primary-foreground font-bold text-sm" onClick={() => setShowDialog(true)}>
+          <Button variant="outline" className="gap-2 bg-violet-50 text-violet-700 border-violet-300 hover:bg-violet-100 dark:bg-violet-900/20 dark:text-violet-400 dark:border-violet-800 font-bold text-sm h-9"
+            onClick={() => { setDialogMode("transfer"); setForm(f => ({ ...f, reason: "transfer", type: "OUT" })); setShowDialog(true); }}>
+            <ArrowRightLeft className="w-4 h-4" />تحويل بين مواقع
+          </Button>
+          <Button className="gap-2 bg-primary text-primary-foreground font-bold text-sm"
+            onClick={() => { setDialogMode("manual"); setForm(f => ({ ...f, reason: "manual_in", type: "IN" })); setShowDialog(true); }}>
             <Plus className="w-4 h-4" />حركة يدوية
           </Button>
         </div>
@@ -327,6 +390,7 @@ ${filtersRow}
                 <SelectItem value="adjustment">تسوية</SelectItem>
                 <SelectItem value="to_shipping">تحويل لشركة الشحن</SelectItem>
                 <SelectItem value="from_shipping">إرجاع من شركة الشحن</SelectItem>
+                <SelectItem value="transfer">تحويل بين مواقع</SelectItem>
               </SelectContent>
             </Select>
             <Select value={filterProduct} onValueChange={setFilterProduct}>
@@ -385,19 +449,26 @@ ${filtersRow}
                   <TableHead className="text-center text-xs">الكمية</TableHead>
                   <TableHead className="text-center text-xs">السبب</TableHead>
                   <TableHead className="text-center text-xs">طلب</TableHead>
-                  <TableHead className="text-center text-xs">المخزن</TableHead>
+                  <TableHead className="text-right text-xs">الموقع</TableHead>
                   <TableHead className="text-right text-xs">ملاحظات</TableHead>
                   <TableHead className="text-center text-xs w-14">تعديل</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {movements.map((m: InventoryMovement) => (
+                {movements.map((m: InventoryMovement) => {
+                  const isTransfer = m.reason === "transfer";
+                  return (
                   <TableRow key={m.id} className="border-border hover:bg-muted/20">
                     <TableCell className="text-xs text-muted-foreground">
                       {format(new Date(m.createdAt), "yyyy/MM/dd HH:mm", { locale: arEG })}
                     </TableCell>
                     <TableCell className="text-center">
-                      {m.type === "IN" ? (
+                      {isTransfer ? (
+                        <div className="flex items-center justify-center gap-1">
+                          <ArrowRightLeft className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
+                          <span className="text-[10px] font-bold text-violet-600 dark:text-violet-400">تحويل</span>
+                        </div>
+                      ) : m.type === "IN" ? (
                         <div className="flex items-center justify-center gap-1">
                           <TrendingDown className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                           <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">دخول</span>
@@ -419,8 +490,8 @@ ${filtersRow}
                       ) : "—"}
                     </TableCell>
                     <TableCell className="text-center">
-                      <span className={`font-bold text-sm ${m.type === "IN" ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
-                        {formatQty(m.type, m.quantity)}
+                      <span className={`font-bold text-sm ${isTransfer ? "text-violet-600 dark:text-violet-400" : m.type === "IN" ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                        {isTransfer ? m.quantity : formatQty(m.type, m.quantity)}
                       </span>
                     </TableCell>
                     <TableCell className="text-center">
@@ -435,76 +506,147 @@ ${filtersRow}
                         </a>
                       ) : "—"}
                     </TableCell>
-                    <TableCell className="text-center text-xs text-muted-foreground">{(m as any).warehouseName ?? "—"}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground max-w-[140px] truncate">{m.notes || "—"}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {isTransfer && m.fromLocation && m.toLocation ? (
+                        <div className="flex items-center gap-1 text-violet-700 dark:text-violet-300 font-medium">
+                          <span className="text-[10px]">{m.fromLocation}</span>
+                          <ArrowRightLeft className="w-3 h-3 shrink-0" />
+                          <span className="text-[10px]">{m.toLocation}</span>
+                        </div>
+                      ) : (m as any).warehouseName ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground max-w-[120px] truncate">{m.notes || "—"}</TableCell>
                     <TableCell className="text-center">
                       <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-primary hover:bg-primary/10" title="تعديل" onClick={() => openEdit(m)}>
                         <Pencil className="w-3 h-3" />
                       </Button>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
         )}
       </Card>
 
-      {/* Create Dialog */}
+      {/* Create/Transfer Dialog */}
       <Dialog open={showDialog} onOpenChange={v => { setShowDialog(v); if (!v) resetForm(); }}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle className="flex items-center gap-2"><Plus className="w-4 h-4 text-primary" />تسجيل حركة يدوية</DialogTitle></DialogHeader>
-          <div className="space-y-3 py-1">
-            <div className="grid grid-cols-2 gap-3">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {dialogMode === "transfer"
+                ? <><ArrowRightLeft className="w-4 h-4 text-violet-600" />تسجيل تحويل بين مواقع</>
+                : <><Plus className="w-4 h-4 text-primary" />تسجيل حركة يدوية</>
+              }
+            </DialogTitle>
+          </DialogHeader>
+
+          {dialogMode === "transfer" ? (
+            <div className="space-y-3 py-1">
+              {/* Transfer form */}
               <div>
-                <Label className="text-xs mb-1.5 block">النوع *</Label>
-                <Select value={form.type} onValueChange={v => handleTypeChange(v as MovementType)}>
-                  <SelectTrigger className="h-9 text-sm bg-background"><SelectValue /></SelectTrigger>
-                  <SelectContent><SelectItem value="IN">دخول (IN)</SelectItem><SelectItem value="OUT">خروج (OUT)</SelectItem></SelectContent>
+                <Label className="text-xs mb-1.5 block">المنتج *</Label>
+                <Select value={form.productId || "manual"} onValueChange={v => {
+                  if (v === "manual") { setForm(f => ({ ...f, productId: "", product: "" })); }
+                  else { const p = products.find(p => String(p.id) === v); setForm(f => ({ ...f, productId: v, product: p?.name ?? "" })); }
+                }}>
+                  <SelectTrigger className="h-9 text-sm bg-background"><SelectValue placeholder="اختر أو اكتب..." /></SelectTrigger>
+                  <SelectContent><SelectItem value="manual">كتابة يدوية</SelectItem>{products.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}</SelectContent>
                 </Select>
+                {(!form.productId || form.productId === "manual") && (
+                  <Input className="h-9 text-sm mt-1.5 bg-background" placeholder="اسم المنتج..." value={form.product} onChange={e => setForm(f => ({ ...f, product: e.target.value }))} />
+                )}
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div><Label className="text-xs mb-1.5 block">اللون</Label><Input className="h-9 text-sm bg-background" placeholder="أسود..." value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))} /></div>
+                <div><Label className="text-xs mb-1.5 block">المقاس</Label><Input className="h-9 text-sm bg-background" placeholder="M, L..." value={form.size} onChange={e => setForm(f => ({ ...f, size: e.target.value }))} /></div>
+                <div><Label className="text-xs mb-1.5 block">الكمية *</Label><Input type="number" min="1" className="h-9 text-sm bg-background" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} /></div>
+              </div>
+              {/* From → To */}
+              <div className="rounded-lg border border-violet-200 dark:border-violet-800 bg-violet-50 dark:bg-violet-900/10 p-3 space-y-2.5">
+                <p className="text-xs font-bold text-violet-700 dark:text-violet-400 flex items-center gap-1.5"><ArrowRightLeft className="w-3.5 h-3.5" />مسار التحويل</p>
+                <div>
+                  <Label className="text-xs mb-1.5 block text-muted-foreground">من (المصدر) *</Label>
+                  <Select value={form.fromLocation || "none"} onValueChange={v => setForm(f => ({ ...f, fromLocation: v === "none" ? "" : v }))}>
+                    <SelectTrigger className="h-9 text-sm bg-background"><SelectValue placeholder="اختر الموقع المصدر..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">اختر الموقع...</SelectItem>
+                      {locationOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center justify-center"><ArrowRightLeft className="w-4 h-4 text-violet-400" /></div>
+                <div>
+                  <Label className="text-xs mb-1.5 block text-muted-foreground">إلى (الوجهة) *</Label>
+                  <Select value={form.toLocation || "none"} onValueChange={v => setForm(f => ({ ...f, toLocation: v === "none" ? "" : v }))}>
+                    <SelectTrigger className="h-9 text-sm bg-background"><SelectValue placeholder="اختر الموقع الوجهة..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">اختر الموقع...</SelectItem>
+                      {locationOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div><Label className="text-xs mb-1.5 block">ملاحظات</Label><Textarea className="min-h-[60px] text-sm resize-none bg-background" placeholder="سبب التحويل..." value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} /></div>
+            </div>
+          ) : (
+            <div className="space-y-3 py-1">
+              {/* Manual movement form */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs mb-1.5 block">النوع *</Label>
+                  <Select value={form.type} onValueChange={v => handleTypeChange(v as MovementType)}>
+                    <SelectTrigger className="h-9 text-sm bg-background"><SelectValue /></SelectTrigger>
+                    <SelectContent><SelectItem value="IN">دخول (IN)</SelectItem><SelectItem value="OUT">خروج (OUT)</SelectItem></SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs mb-1.5 block">السبب *</Label>
+                  <Select value={form.reason} onValueChange={v => setForm(f => ({ ...f, reason: v as MovementReason }))}>
+                    <SelectTrigger className="h-9 text-sm bg-background"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {form.type === "IN" ? (<><SelectItem value="manual_in">إضافة يدوية</SelectItem><SelectItem value="return">مرتجع</SelectItem><SelectItem value="adjustment">تسوية</SelectItem></>)
+                      : (<><SelectItem value="manual_out">خصم يدوي</SelectItem><SelectItem value="sale">بيع</SelectItem><SelectItem value="adjustment">تسوية</SelectItem></>)}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div>
-                <Label className="text-xs mb-1.5 block">السبب *</Label>
-                <Select value={form.reason} onValueChange={v => setForm(f => ({ ...f, reason: v as MovementReason }))}>
-                  <SelectTrigger className="h-9 text-sm bg-background"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {form.type === "IN" ? (<><SelectItem value="manual_in">إضافة يدوية</SelectItem><SelectItem value="return">مرتجع</SelectItem><SelectItem value="adjustment">تسوية</SelectItem></>)
-                    : (<><SelectItem value="manual_out">خصم يدوي</SelectItem><SelectItem value="sale">بيع</SelectItem><SelectItem value="adjustment">تسوية</SelectItem></>)}
-                  </SelectContent>
+                <Label className="text-xs mb-1.5 block">المنتج *</Label>
+                <Select value={form.productId || "manual"} onValueChange={v => {
+                  if (v === "manual") { setForm(f => ({ ...f, productId: "", product: "" })); }
+                  else { const p = products.find(p => String(p.id) === v); setForm(f => ({ ...f, productId: v, product: p?.name ?? "" })); }
+                }}>
+                  <SelectTrigger className="h-9 text-sm bg-background"><SelectValue placeholder="اختر أو اكتب..." /></SelectTrigger>
+                  <SelectContent><SelectItem value="manual">كتابة يدوية</SelectItem>{products.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}</SelectContent>
+                </Select>
+                {(!form.productId || form.productId === "manual") && (
+                  <Input className="h-9 text-sm mt-1.5 bg-background" placeholder="اسم المنتج..." value={form.product} onChange={e => setForm(f => ({ ...f, product: e.target.value }))} />
+                )}
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div><Label className="text-xs mb-1.5 block">اللون</Label><Input className="h-9 text-sm bg-background" placeholder="أسود..." value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))} /></div>
+                <div><Label className="text-xs mb-1.5 block">المقاس</Label><Input className="h-9 text-sm bg-background" placeholder="M, L..." value={form.size} onChange={e => setForm(f => ({ ...f, size: e.target.value }))} /></div>
+                <div><Label className="text-xs mb-1.5 block">الكمية *</Label><Input type="number" min="1" className="h-9 text-sm bg-background" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} /></div>
+              </div>
+              <div>
+                <Label className="text-xs mb-1.5 block">المخزن</Label>
+                <Select value={form.warehouseId || "none"} onValueChange={v => setForm(f => ({ ...f, warehouseId: v === "none" ? "" : v }))}>
+                  <SelectTrigger className="h-9 text-sm bg-background"><SelectValue placeholder="اختر مخزناً..." /></SelectTrigger>
+                  <SelectContent><SelectItem value="none">بدون مخزن</SelectItem>{warehouses.map((w: any) => <SelectItem key={w.id} value={String(w.id)}>{w.name}{w.isDefault ? " ★" : ""}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
+              <div><Label className="text-xs mb-1.5 block">ملاحظات</Label><Textarea className="min-h-[60px] text-sm resize-none bg-background" placeholder="سبب إضافي..." value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} /></div>
             </div>
-            <div>
-              <Label className="text-xs mb-1.5 block">المنتج *</Label>
-              <Select value={form.productId || "manual"} onValueChange={v => {
-                if (v === "manual") { setForm(f => ({ ...f, productId: "", product: "" })); }
-                else { const p = products.find(p => String(p.id) === v); setForm(f => ({ ...f, productId: v, product: p?.name ?? "" })); }
-              }}>
-                <SelectTrigger className="h-9 text-sm bg-background"><SelectValue placeholder="اختر أو اكتب..." /></SelectTrigger>
-                <SelectContent><SelectItem value="manual">كتابة يدوية</SelectItem>{products.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}</SelectContent>
-              </Select>
-              {(!form.productId || form.productId === "manual") && (
-                <Input className="h-9 text-sm mt-1.5 bg-background" placeholder="اسم المنتج..." value={form.product} onChange={e => setForm(f => ({ ...f, product: e.target.value }))} />
-              )}
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              <div><Label className="text-xs mb-1.5 block">اللون</Label><Input className="h-9 text-sm bg-background" placeholder="أسود..." value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))} /></div>
-              <div><Label className="text-xs mb-1.5 block">المقاس</Label><Input className="h-9 text-sm bg-background" placeholder="M, L..." value={form.size} onChange={e => setForm(f => ({ ...f, size: e.target.value }))} /></div>
-              <div><Label className="text-xs mb-1.5 block">الكمية *</Label><Input type="number" min="1" className="h-9 text-sm bg-background" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} /></div>
-            </div>
-            <div>
-              <Label className="text-xs mb-1.5 block">المخزن</Label>
-              <Select value={form.warehouseId || "none"} onValueChange={v => setForm(f => ({ ...f, warehouseId: v === "none" ? "" : v }))}>
-                <SelectTrigger className="h-9 text-sm bg-background"><SelectValue placeholder="اختر مخزناً..." /></SelectTrigger>
-                <SelectContent><SelectItem value="none">بدون مخزن</SelectItem>{warehouses.map((w: any) => <SelectItem key={w.id} value={String(w.id)}>{w.name}{w.isDefault ? " ★" : ""}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div><Label className="text-xs mb-1.5 block">ملاحظات</Label><Textarea className="min-h-[60px] text-sm resize-none bg-background" placeholder="سبب إضافي..." value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} /></div>
-          </div>
+          )}
+
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => { setShowDialog(false); resetForm(); }}>إلغاء</Button>
-            <Button size="sm" onClick={handleCreate} disabled={createMutation.isPending} className="gap-1">
-              <Plus className="w-3.5 h-3.5" />{createMutation.isPending ? "جاري..." : "تسجيل"}
+            <Button size="sm" onClick={handleCreate} disabled={createMutation.isPending}
+              className={`gap-1 ${dialogMode === "transfer" ? "bg-violet-600 hover:bg-violet-700 text-white" : ""}`}>
+              {dialogMode === "transfer" ? <ArrowRightLeft className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+              {createMutation.isPending ? "جاري..." : dialogMode === "transfer" ? "تسجيل التحويل" : "تسجيل"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -513,46 +655,93 @@ ${filtersRow}
       {/* Edit Dialog */}
       <Dialog open={!!editingMovement} onOpenChange={v => { if (!v) { setEditingMovement(null); resetForm(); } }}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle className="flex items-center gap-2"><Pencil className="w-4 h-4 text-primary" />تعديل الحركة</DialogTitle></DialogHeader>
-          <div className="space-y-3 py-1">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs mb-1.5 block">النوع *</Label>
-                <Select value={form.type} onValueChange={v => handleTypeChange(v as MovementType)}>
-                  <SelectTrigger className="h-9 text-sm bg-background"><SelectValue /></SelectTrigger>
-                  <SelectContent><SelectItem value="IN">دخول (IN)</SelectItem><SelectItem value="OUT">خروج (OUT)</SelectItem></SelectContent>
-                </Select>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {dialogMode === "transfer"
+                ? <><ArrowRightLeft className="w-4 h-4 text-violet-600" />تعديل التحويل</>
+                : <><Pencil className="w-4 h-4 text-primary" />تعديل الحركة</>
+              }
+            </DialogTitle>
+          </DialogHeader>
+
+          {dialogMode === "transfer" ? (
+            <div className="space-y-3 py-1">
+              <div><Label className="text-xs mb-1.5 block">المنتج *</Label><Input className="h-9 text-sm bg-background" value={form.product} onChange={e => setForm(f => ({ ...f, product: e.target.value }))} /></div>
+              <div className="grid grid-cols-3 gap-2">
+                <div><Label className="text-xs mb-1.5 block">اللون</Label><Input className="h-9 text-sm bg-background" value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))} /></div>
+                <div><Label className="text-xs mb-1.5 block">المقاس</Label><Input className="h-9 text-sm bg-background" value={form.size} onChange={e => setForm(f => ({ ...f, size: e.target.value }))} /></div>
+                <div><Label className="text-xs mb-1.5 block">الكمية *</Label><Input type="number" min="1" className="h-9 text-sm bg-background" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} /></div>
+              </div>
+              <div className="rounded-lg border border-violet-200 dark:border-violet-800 bg-violet-50 dark:bg-violet-900/10 p-3 space-y-2.5">
+                <p className="text-xs font-bold text-violet-700 dark:text-violet-400 flex items-center gap-1.5"><ArrowRightLeft className="w-3.5 h-3.5" />مسار التحويل</p>
+                <div>
+                  <Label className="text-xs mb-1.5 block text-muted-foreground">من (المصدر) *</Label>
+                  <Select value={form.fromLocation || "none"} onValueChange={v => setForm(f => ({ ...f, fromLocation: v === "none" ? "" : v }))}>
+                    <SelectTrigger className="h-9 text-sm bg-background"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">اختر الموقع...</SelectItem>
+                      {locationOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center justify-center"><ArrowRightLeft className="w-4 h-4 text-violet-400" /></div>
+                <div>
+                  <Label className="text-xs mb-1.5 block text-muted-foreground">إلى (الوجهة) *</Label>
+                  <Select value={form.toLocation || "none"} onValueChange={v => setForm(f => ({ ...f, toLocation: v === "none" ? "" : v }))}>
+                    <SelectTrigger className="h-9 text-sm bg-background"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">اختر الموقع...</SelectItem>
+                      {locationOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div><Label className="text-xs mb-1.5 block">ملاحظات</Label><Textarea className="min-h-[60px] text-sm resize-none bg-background" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} /></div>
+            </div>
+          ) : (
+            <div className="space-y-3 py-1">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs mb-1.5 block">النوع *</Label>
+                  <Select value={form.type} onValueChange={v => handleTypeChange(v as MovementType)}>
+                    <SelectTrigger className="h-9 text-sm bg-background"><SelectValue /></SelectTrigger>
+                    <SelectContent><SelectItem value="IN">دخول (IN)</SelectItem><SelectItem value="OUT">خروج (OUT)</SelectItem></SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs mb-1.5 block">السبب *</Label>
+                  <Select value={form.reason} onValueChange={v => setForm(f => ({ ...f, reason: v as MovementReason }))}>
+                    <SelectTrigger className="h-9 text-sm bg-background"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {form.type === "IN" ? (<><SelectItem value="manual_in">إضافة يدوية</SelectItem><SelectItem value="return">مرتجع</SelectItem><SelectItem value="adjustment">تسوية</SelectItem></>)
+                      : (<><SelectItem value="manual_out">خصم يدوي</SelectItem><SelectItem value="sale">بيع</SelectItem><SelectItem value="adjustment">تسوية</SelectItem></>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div><Label className="text-xs mb-1.5 block">المنتج *</Label><Input className="h-9 text-sm bg-background" value={form.product} onChange={e => setForm(f => ({ ...f, product: e.target.value }))} /></div>
+              <div className="grid grid-cols-3 gap-2">
+                <div><Label className="text-xs mb-1.5 block">اللون</Label><Input className="h-9 text-sm bg-background" value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))} /></div>
+                <div><Label className="text-xs mb-1.5 block">المقاس</Label><Input className="h-9 text-sm bg-background" value={form.size} onChange={e => setForm(f => ({ ...f, size: e.target.value }))} /></div>
+                <div><Label className="text-xs mb-1.5 block">الكمية *</Label><Input type="number" min="1" className="h-9 text-sm bg-background" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} /></div>
               </div>
               <div>
-                <Label className="text-xs mb-1.5 block">السبب *</Label>
-                <Select value={form.reason} onValueChange={v => setForm(f => ({ ...f, reason: v as MovementReason }))}>
-                  <SelectTrigger className="h-9 text-sm bg-background"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {form.type === "IN" ? (<><SelectItem value="manual_in">إضافة يدوية</SelectItem><SelectItem value="return">مرتجع</SelectItem><SelectItem value="adjustment">تسوية</SelectItem></>)
-                    : (<><SelectItem value="manual_out">خصم يدوي</SelectItem><SelectItem value="sale">بيع</SelectItem><SelectItem value="adjustment">تسوية</SelectItem></>)}
-                  </SelectContent>
+                <Label className="text-xs mb-1.5 block">المخزن</Label>
+                <Select value={form.warehouseId || "none"} onValueChange={v => setForm(f => ({ ...f, warehouseId: v === "none" ? "" : v }))}>
+                  <SelectTrigger className="h-9 text-sm bg-background"><SelectValue placeholder="اختر مخزناً..." /></SelectTrigger>
+                  <SelectContent><SelectItem value="none">بدون مخزن</SelectItem>{warehouses.map((w: any) => <SelectItem key={w.id} value={String(w.id)}>{w.name}{w.isDefault ? " ★" : ""}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
+              <div><Label className="text-xs mb-1.5 block">ملاحظات</Label><Textarea className="min-h-[60px] text-sm resize-none bg-background" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} /></div>
             </div>
-            <div><Label className="text-xs mb-1.5 block">المنتج *</Label><Input className="h-9 text-sm bg-background" value={form.product} onChange={e => setForm(f => ({ ...f, product: e.target.value }))} /></div>
-            <div className="grid grid-cols-3 gap-2">
-              <div><Label className="text-xs mb-1.5 block">اللون</Label><Input className="h-9 text-sm bg-background" value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))} /></div>
-              <div><Label className="text-xs mb-1.5 block">المقاس</Label><Input className="h-9 text-sm bg-background" value={form.size} onChange={e => setForm(f => ({ ...f, size: e.target.value }))} /></div>
-              <div><Label className="text-xs mb-1.5 block">الكمية *</Label><Input type="number" min="1" className="h-9 text-sm bg-background" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} /></div>
-            </div>
-            <div>
-              <Label className="text-xs mb-1.5 block">المخزن</Label>
-              <Select value={form.warehouseId || "none"} onValueChange={v => setForm(f => ({ ...f, warehouseId: v === "none" ? "" : v }))}>
-                <SelectTrigger className="h-9 text-sm bg-background"><SelectValue placeholder="اختر مخزناً..." /></SelectTrigger>
-                <SelectContent><SelectItem value="none">بدون مخزن</SelectItem>{warehouses.map((w: any) => <SelectItem key={w.id} value={String(w.id)}>{w.name}{w.isDefault ? " ★" : ""}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div><Label className="text-xs mb-1.5 block">ملاحظات</Label><Textarea className="min-h-[60px] text-sm resize-none bg-background" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} /></div>
-          </div>
+          )}
+
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => { setEditingMovement(null); resetForm(); }}>إلغاء</Button>
-            <Button size="sm" onClick={handleSave} disabled={updateMutation.isPending} className="gap-1">
-              <Pencil className="w-3.5 h-3.5" />{updateMutation.isPending ? "جاري..." : "حفظ التعديلات"}
+            <Button size="sm" onClick={handleSave} disabled={updateMutation.isPending}
+              className={`gap-1 ${dialogMode === "transfer" ? "bg-violet-600 hover:bg-violet-700 text-white" : ""}`}>
+              <Pencil className="w-3.5 h-3.5" />
+              {updateMutation.isPending ? "جاري..." : "حفظ التعديلات"}
             </Button>
           </DialogFooter>
         </DialogContent>

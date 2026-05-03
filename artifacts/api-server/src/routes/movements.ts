@@ -68,6 +68,8 @@ router.get("/inventory/movements", async (req, res): Promise<void> => {
       type:        inventoryMovementsTable.type,
       reason:      inventoryMovementsTable.reason,
       orderId:     inventoryMovementsTable.orderId,
+      fromLocation: inventoryMovementsTable.fromLocation,
+      toLocation:   inventoryMovementsTable.toLocation,
       notes:       inventoryMovementsTable.notes,
       createdAt:   inventoryMovementsTable.createdAt,
     })
@@ -99,7 +101,7 @@ router.get("/inventory/movements/totals", async (req, res): Promise<void> => {
 
 // ─── Create manual movement ───────────────────────────────────────────────────
 router.post("/inventory/movements", async (req, res): Promise<void> => {
-  const { product, color, size, quantity, type, reason, productId, variantId, warehouseId, notes } = req.body;
+  const { product, color, size, quantity, type, reason, productId, variantId, warehouseId, notes, fromLocation, toLocation } = req.body;
 
   if (!product || !quantity || !type || !reason) {
     res.status(400).json({ error: "product, quantity, type, reason مطلوبة" });
@@ -112,16 +114,18 @@ router.post("/inventory/movements", async (req, res): Promise<void> => {
 
   const insertResult = await db.insert(inventoryMovementsTable).values({
     product,
-    color:       color ?? null,
-    size:        size ?? null,
-    quantity:    parseInt(quantity),
+    color:        color ?? null,
+    size:         size ?? null,
+    quantity:     parseInt(quantity),
     type,
     reason,
-    productId:   productId   ? parseInt(productId)   : null,
-    variantId:   variantId   ? parseInt(variantId)   : null,
-    warehouseId: warehouseId ? parseInt(warehouseId) : null,
-    notes:       notes ?? null,
-    orderId:     null,
+    productId:    productId    ? parseInt(productId)    : null,
+    variantId:    variantId    ? parseInt(variantId)    : null,
+    warehouseId:  warehouseId  ? parseInt(warehouseId)  : null,
+    fromLocation: fromLocation ?? null,
+    toLocation:   toLocation   ?? null,
+    notes:        notes ?? null,
+    orderId:      null,
   });
 
   const insertId = (insertResult as any)[0]?.insertId ?? (insertResult as any).insertId;
@@ -141,6 +145,8 @@ router.post("/inventory/movements", async (req, res): Promise<void> => {
       type:          inventoryMovementsTable.type,
       reason:        inventoryMovementsTable.reason,
       orderId:       inventoryMovementsTable.orderId,
+      fromLocation:  inventoryMovementsTable.fromLocation,
+      toLocation:    inventoryMovementsTable.toLocation,
       notes:         inventoryMovementsTable.notes,
       createdAt:     inventoryMovementsTable.createdAt,
     })
@@ -156,7 +162,7 @@ router.put("/inventory/movements/:id", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "id غير صحيح" }); return; }
 
-  const { product, color, size, quantity, type, reason, warehouseId, notes } = req.body;
+  const { product, color, size, quantity, type, reason, warehouseId, notes, fromLocation, toLocation } = req.body;
 
   if (!product || !quantity || !type || !reason) {
     res.status(400).json({ error: "product, quantity, type, reason مطلوبة" }); return;
@@ -168,13 +174,15 @@ router.put("/inventory/movements/:id", async (req, res): Promise<void> => {
   await db.update(inventoryMovementsTable)
     .set({
       product,
-      color:       color ?? null,
-      size:        size ?? null,
-      quantity:    parseInt(quantity),
+      color:        color ?? null,
+      size:         size ?? null,
+      quantity:     parseInt(quantity),
       type,
       reason,
-      warehouseId: warehouseId ? parseInt(warehouseId) : null,
-      notes:       notes ?? null,
+      warehouseId:  warehouseId  ? parseInt(warehouseId)  : null,
+      fromLocation: fromLocation ?? null,
+      toLocation:   toLocation   ?? null,
+      notes:        notes ?? null,
     })
     .where(eq(inventoryMovementsTable.id, id));
 
@@ -192,6 +200,8 @@ router.put("/inventory/movements/:id", async (req, res): Promise<void> => {
       type:          inventoryMovementsTable.type,
       reason:        inventoryMovementsTable.reason,
       orderId:       inventoryMovementsTable.orderId,
+      fromLocation:  inventoryMovementsTable.fromLocation,
+      toLocation:    inventoryMovementsTable.toLocation,
       notes:         inventoryMovementsTable.notes,
       createdAt:     inventoryMovementsTable.createdAt,
     })

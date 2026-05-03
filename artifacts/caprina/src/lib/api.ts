@@ -576,7 +576,7 @@ export const ordersApi = {
 };
 
 export type MovementType = "IN" | "OUT";
-export type MovementReason = "sale" | "partial_sale" | "return" | "damaged" | "manual_in" | "manual_out" | "adjustment";
+export type MovementReason = "sale" | "partial_sale" | "return" | "damaged" | "manual_in" | "manual_out" | "adjustment" | "to_shipping" | "from_shipping" | "transfer";
 
 export interface InventoryMovement {
   id: number;
@@ -591,6 +591,8 @@ export interface InventoryMovement {
   type: MovementType;
   reason: MovementReason;
   orderId: number | null;
+  fromLocation: string | null;
+  toLocation: string | null;
   notes: string | null;
   createdAt: string;
 }
@@ -1044,6 +1046,8 @@ export const movementsApi = {
     productId?: number | null;
     variantId?: number | null;
     warehouseId?: number | null;
+    fromLocation?: string | null;
+    toLocation?: string | null;
     notes?: string | null;
   }) => apiFetch<InventoryMovement>("/inventory/movements", { method: "POST", body: JSON.stringify(data) }),
   update: (id: number, data: {
@@ -1054,6 +1058,8 @@ export const movementsApi = {
     type: MovementType;
     reason: MovementReason;
     warehouseId?: number | null;
+    fromLocation?: string | null;
+    toLocation?: string | null;
     notes?: string | null;
   }) => apiFetch<InventoryMovement>(`/inventory/movements/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   delete: (id: number) => apiFetch<{ success: boolean }>(`/inventory/movements/${id}`, { method: "DELETE" }),
