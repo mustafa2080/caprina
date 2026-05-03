@@ -166,6 +166,8 @@ router.get("/warehouses/:id", async (req, res): Promise<void> => {
   if (!warehouse) { res.status(404).json({ error: "المخزن غير موجود" }); return; }
 
   // Stock items with product/variant details
+  // نجيب فقط صفوف الـ variants (variantId IS NOT NULL) — هي المصدر الصح للكميات
+  // الصفوف اللي productId فقط (بدون variant) نتجاهلها لأن كل المنتجات عندها variants
   const stockRows = await db
     .select({
       stock: warehouseStockTable,
@@ -173,9 +175,13 @@ router.get("/warehouses/:id", async (req, res): Promise<void> => {
       variant: productVariantsTable,
     })
     .from(warehouseStockTable)
-    .leftJoin(productsTable, eq(warehouseStockTable.productId, productsTable.id))
     .leftJoin(productVariantsTable, eq(warehouseStockTable.variantId, productVariantsTable.id))
-    .where(eq(warehouseStockTable.warehouseId, id))
+    .leftJoin(productsTable, eq(productVariantsTable.productId, productsTable.id))
+    .where(and(
+      eq(warehouseStockTable.warehouseId, id),
+      // فقط صفوف الـ variants
+      eq(warehouseStockTable.variantId, productVariantsTable.id),
+    ))
     .orderBy(productsTable.name);
 
   const stock = stockRows.map((r) => ({
