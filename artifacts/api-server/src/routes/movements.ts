@@ -216,18 +216,22 @@ router.post("/inventory/movements", async (req, res): Promise<void> => {
   // ── حركة عادية (غير transfer) ────────────────────────────────────────────
   const delta = type === "IN" ? qty : -qty;
 
-  if (resolvedVid || resolvedPid) {
+  // استخدم الـ IDs المحلولة أو الـ IDs الأصلية المرسلة مباشرة
+  const effectiveVid = resolvedVid ?? vid;
+  const effectivePid = resolvedVid ? null : (resolvedPid ?? pid);
+
+  if (effectiveVid || effectivePid) {
     // 1. عدّل warehouse_stock
-    usedWhId = await adjustWarehouseStock(whId, resolvedVid, resolvedPid, delta) ?? whId;
+    usedWhId = await adjustWarehouseStock(whId, effectiveVid, effectivePid, delta) ?? whId;
     // 2. زامن totalQuantity
-    await syncProductQuantityFromWarehouses(resolvedVid, resolvedPid);
+    await syncProductQuantityFromWarehouses(effectiveVid, effectivePid);
   }
 
   // 3. سجّل الحركة
   await recordMovement({
     product, color, size, quantity: qty, type,
     reason: reason as any,
-    productId: resolvedPid, variantId: resolvedVid,
+    productId: effectivePid, variantId: effectiveVid,
     warehouseId: usedWhId,
     fromLocation: fromLocation ?? null,
     toLocation:   toLocation   ?? null,
