@@ -6,11 +6,55 @@ import {
   warehouseStockTable,
   productsTable,
   productVariantsTable,
+  inventoryMovementsTable,
   ordersTable,
 } from "@workspace/db";
 import { z } from "zod";
 import { requireAuth } from "../middlewares/requireAuth";
 import { syncProductQuantityFromWarehouses } from "../lib/inventory.js";
+
+// ─── Helper: سجّل حركة تسوية في inventory_movements ─────────────────────────
+async function recordAdjustmentMovement(
+  variantId: number | null,
+  productId: number | null,
+  oldQty: number,
+  newQty: number,
+  warehouseId: number,
+): Promise<void> {
+  const delta = newQty - oldQty;
+  if (delta === 0) return;
+
+  // جيب اسم المنتج/variant
+  let productName = "منتج غير محدد";
+  let color: string | null = null;
+  let size:  string | null = null;
+
+  if (variantId) {
+    const [v] = await db
+      .select({ color: productVariantsTable.color, size: productVariantsTable.size, name: productsTable.name })
+      .from(productVariantsTable)
+      .innerJoin(productsTable, eq(productVariantsTable.productId, productsTable.id))
+      .where(eq(productVariantsTable.id, variantId));
+    if (v) { productName = v.name; color = v.color; size = v.size; }
+  } else if (productId) {
+    const [p] = await db.select({ name: productsTable.name }).from(productsTable).where(eq(productsTable.id, productId));
+    if (p) productName = p.name;
+  }
+
+  await db.insert(inventoryMovementsTable).values({
+    product:     productName,
+    color:       color ?? null,
+    size:        size  ?? null,
+    quantity:    Math.abs(delta),
+    type:        delta > 0 ? "IN" : "OUT",
+    reason:      "adjustment",
+    productId:   productId  ?? null,
+    variantId:   variantId  ?? null,
+    warehouseId: warehouseId,
+    orderId:     null,
+    notes:       `تسوية مخزون: ${oldQty} ← ${newQty}`,
+  });
+}
 
 const router: IRouter = Router();
 router.use(requireAuth);
@@ -172,7 +216,7 @@ router.delete("/warehouses/:id", async (req, res): Promise<void> => {
   res.status(204).send();
 });
 
-// ─── Update stock item ─────────────────────────────────────────────────────────
+// ─── Update stock item (تسوية) ────────────────────────────────────────────────
 router.patch("/warehouses/:id/stock/:stockId", async (req, res): Promise<void> => {
   const warehouseId = parseInt(req.params.id);
   const stockId = parseInt(req.params.stockId);
@@ -182,18 +226,29 @@ router.patch("/warehouses/:id/stock/:stockId", async (req, res): Promise<void> =
   const parsed = Schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
+  // جيب الكمية القديمة قبل التحديث
+  const [before] = await db.select().from(warehouseStockTable).where(eq(warehouseStockTable.id, stockId));
+  if (!before) { res.status(404).json({ error: "عنصر المخزون غير موجود" }); return; }
+
+  const oldQty = before.quantity;
+  const newQty = parsed.data.quantity;
+
   await db
-      .update(warehouseStockTable)
-      .set({ quantity: parsed.data.quantity })
-      .where(and(
-        eq(warehouseStockTable.id, stockId),
-        eq(warehouseStockTable.warehouseId, warehouseId)
-      ));
+    .update(warehouseStockTable)
+    .set({ quantity: newQty, updatedAt: new Date() })
+    .where(and(
+      eq(warehouseStockTable.id, stockId),
+      eq(warehouseStockTable.warehouseId, warehouseId)
+    ));
+
   const [updated] = await db.select().from(warehouseStockTable).where(eq(warehouseStockTable.id, stockId));
   if (!updated) { res.status(404).json({ error: "عنصر المخزون غير موجود" }); return; }
 
-  // ── مزامنة تلقائية: حدّث totalQuantity للمنتج/variant من مجموع المخازن ──
+  // ── مزامنة totalQuantity في المنتج/variant ──
   await syncProductQuantityFromWarehouses(updated.variantId ?? null, updated.productId ?? null);
+
+  // ── تسجيل حركة التسوية في inventory_movements ──
+  await recordAdjustmentMovement(updated.variantId ?? null, updated.productId ?? null, oldQty, newQty, warehouseId);
 
   res.json(updated);
 });
@@ -225,17 +280,16 @@ router.post("/warehouses/:id/stock", async (req, res): Promise<void> => {
     );
 
   if (existing) {
+    const oldQty = existing.quantity;
+    const newQty = parsed.data.quantity;
     await db
       .update(warehouseStockTable)
-      .set({ quantity: parsed.data.quantity })
+      .set({ quantity: newQty, updatedAt: new Date() })
       .where(eq(warehouseStockTable.id, existing.id));
     const [updated] = await db.select().from(warehouseStockTable).where(eq(warehouseStockTable.id, existing.id));
 
-    // ── مزامنة تلقائية ──
-    await syncProductQuantityFromWarehouses(
-      parsed.data.variantId ?? null,
-      parsed.data.productId ?? null,
-    );
+    await syncProductQuantityFromWarehouses(parsed.data.variantId ?? null, parsed.data.productId ?? null);
+    await recordAdjustmentMovement(parsed.data.variantId ?? null, parsed.data.productId ?? null, oldQty, newQty, warehouseId);
 
     res.json(updated);
   } else {
@@ -250,11 +304,9 @@ router.post("/warehouses/:id/stock", async (req, res): Promise<void> => {
     const insertId = (insertResult as any)[0]?.insertId ?? (insertResult as any).insertId;
     const [created] = await db.select().from(warehouseStockTable).where(eq(warehouseStockTable.id, insertId));
 
-    // ── مزامنة تلقائية ──
-    await syncProductQuantityFromWarehouses(
-      parsed.data.variantId ?? null,
-      parsed.data.productId ?? null,
-    );
+    await syncProductQuantityFromWarehouses(parsed.data.variantId ?? null, parsed.data.productId ?? null);
+    // إضافة stock جديد من صفر → سجّل حركة إضافة
+    await recordAdjustmentMovement(parsed.data.variantId ?? null, parsed.data.productId ?? null, 0, parsed.data.quantity, warehouseId);
 
     res.status(201).json(created);
   }
