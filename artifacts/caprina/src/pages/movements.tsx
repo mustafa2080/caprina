@@ -649,8 +649,8 @@ ${filtersRow}
               <div>
                 <Label className="text-xs mb-1.5 block">المنتج *</Label>
                 <Select value={form.productId || "manual"} onValueChange={v => {
-                  if (v === "manual") { setForm(f => ({ ...f, productId: "", product: "" })); }
-                  else { const p = products.find(p => String(p.id) === v); setForm(f => ({ ...f, productId: v, product: p?.name ?? "" })); }
+                  if (v === "manual") { setForm(f => ({ ...f, productId: "", product: "", variantId: "", color: "", size: "" })); }
+                  else { const p = products.find(p => String(p.id) === v); setForm(f => ({ ...f, productId: v, product: p?.name ?? "", variantId: "", color: "", size: "" })); }
                 }}>
                   <SelectTrigger className="h-9 text-sm bg-background"><SelectValue placeholder="اختر أو اكتب..." /></SelectTrigger>
                   <SelectContent><SelectItem value="manual">كتابة يدوية</SelectItem>{products.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}</SelectContent>
@@ -659,6 +659,31 @@ ${filtersRow}
                   <Input className="h-9 text-sm mt-1.5 bg-background" placeholder="اسم المنتج..." value={form.product} onChange={e => setForm(f => ({ ...f, product: e.target.value }))} />
                 )}
               </div>
+              {/* Variant selector — يظهر لما يتاختار منتج */}
+              {form.productId && form.productId !== "manual" && (() => {
+                const pvs = allVariants?.filter((v: any) => String(v.productId) === form.productId) ?? [];
+                if (pvs.length === 0) return null;
+                return (
+                  <div>
+                    <Label className="text-xs mb-1.5 block">النوع / المقاس *</Label>
+                    <Select value={form.variantId || "none"} onValueChange={v => {
+                      if (v === "none") { setForm(f => ({ ...f, variantId: "", color: "", size: "" })); return; }
+                      const pv = pvs.find((x: any) => String(x.id) === v);
+                      setForm(f => ({ ...f, variantId: v, color: pv?.color ?? "", size: pv?.size ?? "" }));
+                    }}>
+                      <SelectTrigger className="h-9 text-sm bg-background"><SelectValue placeholder="اختر النوع..." /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">اختر النوع...</SelectItem>
+                        {pvs.map((pv: any) => (
+                          <SelectItem key={pv.id} value={String(pv.id)}>
+                            {pv.color} / {pv.size} — (مخزون: {pv.totalQuantity ?? 0})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                );
+              })()}
               <div className="grid grid-cols-3 gap-2">
                 <div><Label className="text-xs mb-1.5 block">اللون</Label><Input className="h-9 text-sm bg-background" placeholder="أسود..." value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))} /></div>
                 <div><Label className="text-xs mb-1.5 block">المقاس</Label><Input className="h-9 text-sm bg-background" placeholder="M, L..." value={form.size} onChange={e => setForm(f => ({ ...f, size: e.target.value }))} /></div>
