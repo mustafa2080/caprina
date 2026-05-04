@@ -64,19 +64,12 @@ export default function Invoices() {
 
   const rawOrders = useMemo(() => {
     if (!allOrders) return [];
-    const manifestSet = manifestData ? new Set(manifestData.ids) : new Set<number>();
     return allOrders.filter(o => {
-      // لا تعرض الطلبات قيد الانتظار أبداً في الفواتير
+      // الفواتير تظهر لكل الطلبات ما عدا pending
       if (o.status === "pending") return false;
-      // الفواتير تظهر فقط للطلبات قيد الشحن في المخزن (warehouse_ready)
-      // أي طلب in_shipping دخل البيان ومش مفروض يظهر هنا
-      if (o.status === "in_shipping") return false;
-      // الطلبات warehouse_ready لازم يكون عندها رقم فاتورة
-      if (o.status === "warehouse_ready" && !(o as any).invoiceNumber?.trim()) return false;
-      const ids: number[] = (o as any)._groupIds ?? [o.id];
-      return !ids.every(id => manifestSet.has(id));
+      return true;
     });
-  }, [allOrders, manifestData]);
+  }, [allOrders]);
 
   // ─── Group orders by invoiceNumber ───────────────────────────────────────
   type InvoiceGroup = {
@@ -563,7 +556,7 @@ export default function Invoices() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold">الفواتير</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">تظهر فقط الطلبات قيد الشحن أو ما بعدها — الطلبات قيد الانتظار لا تظهر هنا</p>
+          <p className="text-muted-foreground text-sm mt-0.5">تظهر الطلبات من مرحلة قيد الشحن في المخزن وما بعدها — الطلبات قيد الانتظار لا تظهر هنا</p>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground whitespace-nowrap">فواتير في الصفحة:</span>
