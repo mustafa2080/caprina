@@ -87,7 +87,7 @@ function computeStats(orders: OrderWithDelivery[]) {
       totalRevenue += revenue; totalCost += cost; totalShippingCost += shipping; deliveredGross += revenue;
       if (isPartial && rv !== 1) { stillAtShippingCount++; const remainQty = o.quantity - (partialQty ?? 0); stillAtShippingAmount += o.unitPrice * remainQty; }
     } else if (o.deliveryStatus === "returned") {
-      returnLosses += shipping; totalShippingCost += shipping;
+      // المرتجع: مش بنحسب عليه خسارة — الـ returnLosses بتفضل صفر
       if (rv !== 1) { stillAtShippingCount++; stillAtShippingAmount += o.totalPrice; }
     } else { totalShippingCost += shipping; }
   }
@@ -98,7 +98,7 @@ function computeStats(orders: OrderWithDelivery[]) {
   return {
     total, delivered, returned, pending, deliveryRate,
     totalRevenue, totalCost, totalShippingCost, returnLosses,
-    netProfit: totalRevenue - totalCost - totalShippingCost - returnLosses,
+    netProfit: totalRevenue - totalCost - totalShippingCost,
     deliveredGross, dueFromCompany, stillAtShippingCount, stillAtShippingAmount, actuallyDeliveredShipping,
   };
 }
