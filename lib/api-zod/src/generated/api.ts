@@ -189,6 +189,7 @@ export const GetOrderResponse = zod.object({
   notes: zod.string().nullable(),
   returnReason: zod.string().nullable(),
   returnNote: zod.string().nullable(),
+  returnReceived: zod.number().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -261,6 +262,7 @@ export const UpdateOrderResponse = zod.object({
   notes: zod.string().nullable(),
   returnReason: zod.string().nullable(),
   returnNote: zod.string().nullable(),
+  returnReceived: zod.number().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
