@@ -13,7 +13,7 @@ import {
   GetOrdersSummaryResponse,
   GetRecentOrdersResponse,
 } from "@workspace/api-zod";
-import { processDelivery, reverseDelivery, processReturn, processToShipping, reverseShipping } from "../lib/inventory.js";
+import { processDelivery, reverseDelivery, processReturn, processToShipping, reverseShipping, updateMovementReason, resolveInventoryTarget, adjustWarehouseStock, syncProductQuantityFromWarehouses } from "../lib/inventory.js";
 import { logAudit, diffObjects } from "../lib/audit.js";
 import { requireAuth } from "../middlewares/requireAuth.js";
 import { isAdmin } from "../middlewares/requireRole.js";
@@ -531,53 +531,89 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
     const orderRef = { variantId: existing.variantId, productId: existing.productId, product: existing.product, color: existing.color, size: existing.size, warehouseId: existing.warehouseId };
 
     // ── منطق حركات المخزون ──────────────────────────────────────────────────
-    // القاعدة: الخصم الحقيقي من المخزون يحدث مرة واحدة فقط عند الإرسال للشحن.
-    // لما الأوردر يتسلم (received) نغير سبب الحركة الموجودة لـ "sale" بدل إنشاء حركة جديدة.
+    // القاعدة الجديدة:
+    //   1. لو في حركة موجودة للأوردر ده → عدّل عليها فقط (غيّر reason/notes)، لا تعمل جديدة
+    //   2. لو مفيش حركة → عمل حركة جديدة حسب الحالة
+
+    // هل في حركة موجودة للأوردر ده في جدول المخزون؟
+    const [existingMovement] = await db
+      .select({ id: inventoryMovementsTable.id, reason: inventoryMovementsTable.reason })
+      .from(inventoryMovementsTable)
+      .where(eq(inventoryMovementsTable.orderId, existing.id))
+      .orderBy(desc(inventoryMovementsTable.id))
+      .limit(1)
+      .catch(() => []);
 
     if (newStatus === "in_shipping" && oldStatus !== "in_shipping") {
-      // إرسال للشحن لأول مرة → اخصم من المخزون وسجّل "to_shipping"
-      await processToShipping(orderRef, existing.quantity, existing.id).catch(() => {});
+      if (existingMovement) {
+        // في حركة موجودة → عدّل reason فقط
+        await updateMovementReason(existing.id, existingMovement.reason as any, "to_shipping" as any, "تحويل لشركة الشحن").catch(() => {});
+      } else {
+        // مفيش حركة → اخصم من المخزون وسجّل to_shipping
+        await processToShipping(orderRef, existing.quantity, existing.id).catch(() => {});
+      }
     }
 
-    if (newStatus === "received" && oldStatus === "in_shipping") {
-      // كان في الشحن وتسلّم → غيّر reason الحركة الموجودة من to_shipping لـ sale (لا خصم جديد)
-      await db.update(inventoryMovementsTable)
-        .set({ reason: "sale", notes: "تم الاستلام — بيع" })
-        .where(and(
-          eq(inventoryMovementsTable.orderId, existing.id),
-          eq(inventoryMovementsTable.reason, "to_shipping" as any)
-        ))
-        .catch(() => {});
-    } else if (newStatus === "received" && oldStatus !== "in_shipping") {
-      // لم يمر بالشحن → اخصم من المخزون مباشرة كبيع
-      await processDelivery(orderRef, existing.quantity, "sale", existing.id).catch(() => {});
+    if (newStatus === "received") {
+      if (existingMovement) {
+        // في حركة موجودة → غيّر reason لـ sale فقط (لا خصم جديد)
+        await updateMovementReason(existing.id, existingMovement.reason as any, "sale", "تم الاستلام — بيع").catch(() => {});
+      } else {
+        // مفيش حركة → اخصم كبيع مباشرة
+        await processDelivery(orderRef, existing.quantity, "sale", existing.id).catch(() => {});
+      }
     }
 
-    if (newStatus === "partial_received" && oldStatus === "in_shipping") {
-      // استلام جزئي من الشحن → غيّر السبب لـ partial_sale (لا خصم جديد)
-      await db.update(inventoryMovementsTable)
-        .set({ reason: "partial_sale", notes: "استلام جزئي" })
-        .where(and(
-          eq(inventoryMovementsTable.orderId, existing.id),
-          eq(inventoryMovementsTable.reason, "to_shipping" as any)
-        ))
-        .catch(() => {});
-    } else if (newStatus === "partial_received" && oldStatus !== "in_shipping") {
-      await processDelivery(orderRef, existing.quantity, "partial_sale", existing.id).catch(() => {});
+    if (newStatus === "partial_received") {
+      if (existingMovement) {
+        // في حركة موجودة → غيّر reason لـ partial_sale فقط (لا خصم جديد)
+        await updateMovementReason(existing.id, existingMovement.reason as any, "partial_sale", "استلام جزئي").catch(() => {});
+      } else {
+        // مفيش حركة → اخصم كبيع جزئي
+        await processDelivery(orderRef, existing.quantity, "partial_sale", existing.id).catch(() => {});
+      }
     }
 
     if (newStatus === "returned") {
-      // مرتجع — لو كان received أو partial_received → أرجع للمخزون
-      const wasReceived = oldStatus === "received" || oldStatus === "partial_received";
-      await processReturn({ ...orderRef, quantity: existing.quantity }, wasReceived, false, existing.id).catch(() => {});
+      if (existingMovement) {
+        // في حركة موجودة → غيّر reason لـ return فقط، وأرجع المخزون لو كان مباع
+        const wasDeducted = ["sale", "partial_sale", "to_shipping"].includes(existingMovement.reason ?? "");
+        if (wasDeducted) {
+          // أرجع الكمية للمخزون
+          const { variantId, productId } = await resolveInventoryTarget(orderRef);
+          await adjustWarehouseStock(existing.warehouseId, variantId, productId, existing.quantity).catch(() => {});
+          await syncProductQuantityFromWarehouses(variantId, productId).catch(() => {});
+        }
+        await updateMovementReason(existing.id, existingMovement.reason as any, "return", "مرتجع").catch(() => {});
+      } else {
+        // مفيش حركة → عمل حركة مرتجع فقط لو كان received/partial_received
+        const wasReceived = oldStatus === "received" || oldStatus === "partial_received";
+        await processReturn({ ...orderRef, quantity: existing.quantity }, wasReceived, false, existing.id).catch(() => {});
+      }
     }
 
     if (oldStatus === "in_shipping" && newStatus !== "in_shipping" && newStatus !== "received" && newStatus !== "partial_received" && newStatus !== "returned") {
-      // إلغاء الشحن (رجع لـ pending مثلاً) → أرجع المخزون
-      await reverseShipping(orderRef, existing.quantity, existing.id).catch(() => {});
+      // إلغاء الشحن (رجع لـ pending مثلاً) → أرجع المخزون وعدّل الحركة
+      if (existingMovement) {
+        const { variantId, productId } = await resolveInventoryTarget(orderRef);
+        await adjustWarehouseStock(existing.warehouseId, variantId, productId, existing.quantity).catch(() => {});
+        await syncProductQuantityFromWarehouses(variantId, productId).catch(() => {});
+        await updateMovementReason(existing.id, existingMovement.reason as any, "adjustment" as any, "إلغاء شحن — إرجاع للمخزون").catch(() => {});
+      } else {
+        await reverseShipping(orderRef, existing.quantity, existing.id).catch(() => {});
+      }
     }
+
     if (oldStatus === "received" && newStatus !== "received") {
-      await reverseDelivery(orderRef, existing.quantity, existing.id).catch(() => {});
+      if (existingMovement) {
+        // في حركة موجودة → أرجع المخزون وعدّل reason
+        const { variantId, productId } = await resolveInventoryTarget(orderRef);
+        await adjustWarehouseStock(existing.warehouseId, variantId, productId, existing.quantity).catch(() => {});
+        await syncProductQuantityFromWarehouses(variantId, productId).catch(() => {});
+        await updateMovementReason(existing.id, existingMovement.reason as any, "adjustment" as any, "إلغاء استلام").catch(() => {});
+      } else {
+        await reverseDelivery(orderRef, existing.quantity, existing.id).catch(() => {});
+      }
     }
   }
 
