@@ -15,6 +15,9 @@ import {
   processToShipping,
   reverseShipping,
   reverseDelivery,
+  resolveInventoryTarget,
+  recordMovement,
+  resolveProductIdFromVariant,
 } from "../lib/inventory";
 
 const router: IRouter = Router();
@@ -150,9 +153,34 @@ router.post("/shipping-manifests", async (req, res): Promise<void> => {
   await db.insert(shippingManifestOrdersTable).values(normalizedOrderIds.map((orderId) => ({ manifestId: manifest.id, orderId, deliveryStatus: "pending", addedAt: new Date() })));
 
   // خصم من المخزن لكل طلب + حركة to_shipping
+  // الطلبات pending    → processToShipping عادي (خصم مخزون + حركة)
+  // الطلبات in_shipping → سجّل حركة to_shipping فقط بدون خصم (الكمية خرجت قبل كده)
   const ordersToShip = await db.select().from(ordersTable).where(inArray(ordersTable.id, normalizedOrderIds));
   for (const order of ordersToShip) {
-    await processToShipping(buildOrderRef(order), order.quantity, order.id);
+    if (order.status === "in_shipping") {
+      // الطلب كان في شحن سابق → سجّل حركة to_shipping بدون خصم من المخزون
+      const ref = buildOrderRef(order);
+      const { variantId, productId } = await resolveInventoryTarget(ref);
+      if (variantId || productId) {
+        const resolved = await resolveProductIdFromVariant(variantId, productId);
+        await recordMovement({
+          product: order.product ?? "منتج",
+          color: order.color,
+          size: order.size,
+          quantity: order.quantity,
+          type: "OUT",
+          reason: "to_shipping",
+          productId: resolved.productId,
+          variantId: resolved.variantId,
+          warehouseId: order.warehouseId,
+          orderId: order.id,
+          notes: "تحويل لشركة الشحن (نُقل من بيان سابق)",
+        });
+      }
+    } else {
+      // الطلب pending → processToShipping عادي (خصم من المخزن + حركة)
+      await processToShipping(buildOrderRef(order), order.quantity, order.id);
+    }
   }
   await db.update(ordersTable).set({ status: "in_shipping", shippingCompanyId }).where(inArray(ordersTable.id, normalizedOrderIds));
   res.status(201).json({ ...manifest, invoicePrice: null, companyName: company.name, orderCount: normalizedOrderIds.length });

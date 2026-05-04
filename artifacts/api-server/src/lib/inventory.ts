@@ -284,7 +284,7 @@ export async function adjustWarehouseStock(
 }
 
 // ─── RESOLVE PRODUCT ID FROM VARIANT: جيب productId من variantId ─────────────
-async function resolveProductIdFromVariant(variantId: number | null, productId: number | null): Promise<{ variantId: number | null; productId: number | null }> {
+export async function resolveProductIdFromVariant(variantId: number | null, productId: number | null): Promise<{ variantId: number | null; productId: number | null }> {
   // لو عندنا variantId بس بدون productId → جيب productId من DB
   if (variantId && !productId) {
     const [variant] = await db
