@@ -1,6 +1,4 @@
 import { useState, useMemo } from "react";
-import { format } from "date-fns";
-import { arEG } from "date-fns/locale";
 import {
   ArrowDownCircle, ArrowUpCircle, BarChart3, CalendarDays,
   Filter, Package, Plus, X, TrendingDown, TrendingUp, Activity, Printer, Pencil,
@@ -53,6 +51,34 @@ const formatQty = (type: MovementType, qty: number) =>
 
 const formatNum = (n: number) =>
   new Intl.NumberFormat("ar-EG").format(n);
+
+/**
+ * يحوّل التاريخ القادم من الـ API بشكل صحيح.
+ * MariaDB datetime لا يحتوي على timezone — القيمة مخزونة بتوقيت السيرفر (UTC أو EET).
+ * لو الـ string مش فيه 'Z' ولا offset → نضيف 'Z' عشان JS يعاملها كـ UTC.
+ */
+function parseMovementDate(raw: string | Date): Date {
+  if (raw instanceof Date) return raw;
+  // لو مفيش timezone indicator → افترض UTC
+  if (typeof raw === "string" && !raw.endsWith("Z") && !/[+-]\d{2}:\d{2}$/.test(raw)) {
+    return new Date(raw + "Z");
+  }
+  return new Date(raw);
+}
+
+/** عرض التاريخ بالتوقيت المصري EET = UTC+2 (أو EEST = UTC+3 في الصيف) */
+function formatMovementDate(raw: string | Date): string {
+  const date = parseMovementDate(raw);
+  return date.toLocaleString("ar-EG", {
+    timeZone: "Africa/Cairo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -299,7 +325,7 @@ export default function Movements() {
     const rows = movements.map(m => {
       const isIn = m.type === "IN";
       const isTransfer = m.reason === "transfer";
-      const dateStr = format(new Date(m.createdAt), "yyyy/MM/dd HH:mm", { locale: arEG });
+      const dateStr = formatMovementDate(m.createdAt);
       const locationInfo = isTransfer && m.fromLocation && m.toLocation
         ? `${m.fromLocation} ← ${m.toLocation}`
         : (m as any).warehouseName ?? "—";
@@ -509,7 +535,7 @@ ${filtersRow}
                   return (
                   <TableRow key={m.id} className="border-border hover:bg-muted/20">
                     <TableCell className="text-xs text-muted-foreground">
-                      {format(new Date(m.createdAt), "yyyy/MM/dd HH:mm", { locale: arEG })}
+                      {formatMovementDate(m.createdAt)}
                     </TableCell>
                     <TableCell className="text-center">
                       {isTransfer ? (
