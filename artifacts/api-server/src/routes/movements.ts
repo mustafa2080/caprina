@@ -151,12 +151,19 @@ router.get("/inventory/movements/totals", async (req, res): Promise<void> => {
     }
   }
 
+  // لو مفيش فلتر منتج → جيب إجمالي كل المخزون
+  if (!pidStr && !vidStr) {
+    const [row] = await db
+      .select({ total: sum(warehouseStockTable.quantity) })
+      .from(warehouseStockTable);
+    currentStock = Number(row?.total ?? 0);
+  }
+
   res.json({
     totalIn,
     totalOut,
     balance: totalIn - totalOut,
-    // الرصيد الحقيقي من المخزون — يظهر في المربع "الرصيد" لما يكون في فلتر على منتج
-    currentStock: (pidStr || vidStr) ? currentStock : null,
+    currentStock, // دايماً رصيد حقيقي من المخزن
   });
 });
 
