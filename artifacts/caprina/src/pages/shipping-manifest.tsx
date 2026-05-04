@@ -2120,20 +2120,22 @@ function AddOrdersToManifestDialog({
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
-  // جيب warehouse_ready (قيد الشحن في المخزن) — هم اللي يتضافوا لمانيفست
+  // جيب كل الطلبات القابلة للإضافة: warehouse_ready + pending + delayed
+  // in_shipping مش هنا — اللي في بيانات مفتوحة تانية هيتشالوا بالـ inManifestIds
   const { data: allAvailableOrders, isLoading } = useQuery({
     queryKey: ["orders-available-for-manifest"],
     queryFn: async () => {
-      const [warehouseReady, delayed] = await Promise.all([
+      const [warehouseReady, pending, delayed] = await Promise.all([
         apiFetch<OrderRow[]>(`/orders?status=warehouse_ready`),
+        apiFetch<OrderRow[]>(`/orders?status=pending`),
         apiFetch<OrderRow[]>(`/orders?status=delayed`),
       ]);
-      return [...warehouseReady, ...delayed];
+      return [...warehouseReady, ...pending, ...delayed];
     },
     staleTime: 10000,
   });
 
-  // جيب الطلبات اللي في بيانات مفتوحة عشان نستبعدها (in_shipping في بيان تاني)
+  // جيب الطلبات اللي في بيانات مفتوحة تانية عشان نمنعها من الإضافة مرة تانية
   const { data: inManifestData } = useQuery({
     queryKey: ["in-manifest-ids"],
     queryFn: () => apiFetch<{ ids: number[] }>("/orders/in-manifest-ids"),
@@ -2152,24 +2154,29 @@ function AddOrdersToManifestDialog({
       toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
 
-  // استبعد: 1) الموجودين بالفعل في البيان الحالي، 2) الـ in_shipping اللي في بيانات مفتوحة تانية
+  // IDs الطلبات اللي في بيانات مفتوحة تانية (غير بياننا الحالي)
   const inOtherManifestIds = useMemo(() => {
-    const manifestSet = inManifestData ? new Set(inManifestData.ids) : new Set<number>();
-    // استبعد من البيان الحالي (existingOrderIds) — هم مش في "other"
-    // الـ in_shipping اللي في existingOrderIds هم في بياننا الحالي → مسموح نشوفهم (بس هم مستبعدين فوق)
+    if (!inManifestData) return new Set<number>();
+    const manifestSet = new Set(inManifestData.ids);
+    // الموجودين في البيان الحالي مش "تاني" — شيلهم من الـ set
+    existingOrderIds.forEach(id => manifestSet.delete(id));
     return manifestSet;
-  }, [inManifestData]);
+  }, [inManifestData, existingOrderIds]);
 
   const available = useMemo(() => {
     if (!allAvailableOrders) return [];
+    // نزيل التكرار بالـ id (ممكن يجي نفس الأوردر من أكتر من status query)
+    const seen = new Set<number>();
     return allAvailableOrders.filter(o => {
+      if (seen.has(o.id)) return false;
+      seen.add(o.id);
       // استبعد الموجودين في البيان الحالي
       if (existingOrderIds.has(o.id)) return false;
-      // warehouse_ready لازم يكون عنده invoiceNumber
-      if (o.status === "warehouse_ready" && !(o as any).invoiceNumber?.trim()) return false;
+      // استبعد اللي في بيانات مفتوحة تانية (in_shipping في بيان تاني)
+      if (inOtherManifestIds.has(o.id)) return false;
       return true;
     });
-  }, [allAvailableOrders, existingOrderIds]);
+  }, [allAvailableOrders, existingOrderIds, inOtherManifestIds]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return available;

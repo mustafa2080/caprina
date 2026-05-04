@@ -223,9 +223,19 @@ export function CreateManifestDialog({
     return m;
   }, [allCompanies]);
 
-  const { data: inShippingOrders, isLoading: isLoadingShipping } = useQuery({
-    queryKey: ["orders-in-shipping-all"],
-    queryFn: () => apiFetch<OrderRow[]>(`/orders?status=in_shipping`),
+  const { data: warehouseReadyOrders, isLoading: isLoadingWR } = useQuery({
+    queryKey: ["orders-warehouse-ready-all"],
+    queryFn: () => apiFetch<OrderRow[]>(`/orders?status=warehouse_ready`),
+  });
+
+  const { data: pendingOrders, isLoading: isLoadingPending } = useQuery({
+    queryKey: ["orders-pending-all"],
+    queryFn: () => apiFetch<OrderRow[]>(`/orders?status=pending`),
+  });
+
+  const { data: delayedOrders, isLoading: isLoadingDelayed } = useQuery({
+    queryKey: ["orders-delayed-all"],
+    queryFn: () => apiFetch<OrderRow[]>(`/orders?status=delayed`),
   });
 
   // جيب الطلبات اللي في بيانات مفتوحة عشان نستبعدها
@@ -235,18 +245,26 @@ export function CreateManifestDialog({
     staleTime: 10000,
   });
 
-  const isLoading = isLoadingShipping;
+  const isLoading = isLoadingWR || isLoadingPending || isLoadingDelayed;
 
-  // الطلبات المتاحة للبيان: in_shipping فقط (قيد الشحن في المخزن)
-  // شرط: عندها فاتورة (invoiceNumber) ومش في بيان مفتوح
+  // الطلبات المتاحة: warehouse_ready + pending + delayed — مع استبعاد اللي في بيانات مفتوحة
   const allAvailableOrders = useMemo(() => {
-    const inShipping = inShippingOrders ?? [];
+    const all = [
+      ...(warehouseReadyOrders ?? []),
+      ...(pendingOrders ?? []),
+      ...(delayedOrders ?? []),
+    ];
     const inManifestIds = inManifestData ? new Set(inManifestData.ids) : new Set<number>();
-    return inShipping.filter(o =>
-      !inManifestIds.has(o.id) &&
-      o.invoiceNumber?.trim()
-    );
-  }, [inShippingOrders, inManifestData]);
+    // إزالة التكرار
+    const seen = new Set<number>();
+    return all.filter(o => {
+      if (seen.has(o.id)) return false;
+      seen.add(o.id);
+      // استبعد اللي في بيانات شحن مفتوحة
+      if (inManifestIds.has(o.id)) return false;
+      return true;
+    });
+  }, [warehouseReadyOrders, pendingOrders, delayedOrders, inManifestData]);
 
   const createMutation = useMutation({
     mutationFn: () =>
@@ -280,7 +298,7 @@ export function CreateManifestDialog({
 
   // ── تجميع الطلبات بنفس invoiceNumber في سطر واحد ─────────────────────────
   const groupedOrders = useMemo(() => {
-    if (!inShippingOrders) return [];
+    if (!allAvailableOrders.length) return [];
     const groups = new Map<string, OrderRow>();
     for (const o of allAvailableOrders) {
       const key = o.invoiceNumber ?? `solo-${o.id}`;
@@ -386,7 +404,7 @@ export function CreateManifestDialog({
                 <Truck className="w-8 h-8 mx-auto mb-2 text-muted-foreground opacity-20" />
                 <p className="text-sm text-muted-foreground">
                   {allAvailableOrders.length === 0
-                    ? "لا توجد طلبيات متاحة حالياً (pending أو in_shipping)"
+                    ? "لا توجد طلبيات متاحة حالياً (قيد الانتظار أو جاهزة للشحن)"
                     : "لا توجد نتائج تطابق البحث"}
                 </p>
               </div>
