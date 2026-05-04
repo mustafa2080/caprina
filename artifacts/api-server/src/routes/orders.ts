@@ -553,8 +553,9 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
           await updateMovementReason(existing.id, existingMovement.reason as any, "adjustment" as any, "إلغاء مرتجع — رجوع لقيد الانتظار").catch(() => {});
         }
           // باقي الحالات (in_shipping→pending, إلخ) بيتعملوا في الـ blocks التانية
-      } else {
+      } else if (oldStatus !== "returned") {
         // مفيش حركة موجودة → سجّل حركة موجبة (المنتج في المخزون)
+        // (لو كان returned بدون حركة → مفيش حاجة نضيفها للمخزون)
         const { variantId, productId } = await resolveInventoryTarget(orderRef);
         if (variantId || productId) {
           await adjustWarehouseStock(existing.warehouseId, variantId, productId, existing.quantity).catch(() => {});
