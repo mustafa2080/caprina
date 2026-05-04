@@ -1,4 +1,4 @@
-import { mysqlTable, text, int, datetime, varchar } from "drizzle-orm/mysql-core";
+import { mysqlTable, text, int, datetime, varchar, timestamp } from "drizzle-orm/mysql-core";
 
 export const MOVEMENT_TYPES = ["IN", "OUT"] as const;
 export type MovementType = (typeof MOVEMENT_TYPES)[number];
@@ -32,7 +32,7 @@ export const inventoryMovementsTable = mysqlTable("inventory_movements", {
   fromLocation: varchar("from_location", { length: 255 }),
   toLocation: varchar("to_location", { length: 255 }),
   notes: text("notes"),
-  createdAt: datetime("created_at").notNull().default(new Date()),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
 export type InventoryMovement = typeof inventoryMovementsTable.$inferSelect;
