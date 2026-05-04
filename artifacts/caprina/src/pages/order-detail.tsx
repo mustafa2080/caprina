@@ -115,6 +115,14 @@ export default function OrderDetail() {
 
   const handleStatusChange = (newStatus: string) => {
     if (!order || order.status === newStatus) return;
+    // إخفاء أي فورم مفتوح قبل أي تغيير
+    setShowReturnInput(false);
+    setShowPartialInput(false);
+    setReturnReason("");
+    setReturnNote("");
+    setReturnIsDamaged(false);
+    setReturnReceived(null);
+    setPartialQty("");
     if (newStatus === "partial_received") { setShowPartialInput(true); return; }
     if (newStatus === "returned") { setShowReturnInput(true); return; }
 
