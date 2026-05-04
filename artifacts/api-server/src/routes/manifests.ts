@@ -567,15 +567,11 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
         await adjustWarehouseStock(ref.warehouseId, vid, pid, +totalQty);
         await syncProductQuantityFromWarehouses(vid, pid);
       }
-      // 2. غيّر حركة to_shipping الخاصة بالطلب ده (OUT→IN, from_shipping)
-      //    بنستهدف الحركة بـ reason=to_shipping عشان ما نلمسش أي حركة تانية
+      // 2. غيّر الحركة الموجودة للطلب ده → OUT→IN, from_shipping
       const [toShipMov] = await db
         .select({ id: inventoryMovementsTable.id })
         .from(inventoryMovementsTable)
-        .where(and(
-          eq(inventoryMovementsTable.orderId, orderId),
-          eq(inventoryMovementsTable.reason, "to_shipping" as any),
-        ))
+        .where(eq(inventoryMovementsTable.orderId, orderId))
         .orderBy(desc(inventoryMovementsTable.id))
         .limit(1);
       if (toShipMov) {
