@@ -163,28 +163,45 @@ router.post("/shipping-manifests", async (req, res): Promise<void> => {
 
   // خصم من المخزن لكل طلب + حركة to_shipping
   // الطلبات pending    → processToShipping عادي (خصم مخزون + حركة)
-  // الطلبات in_shipping → سجّل حركة to_shipping فقط بدون خصم (الكمية خرجت قبل كده)
+  // الطلبات in_shipping → تأكد إن في حركة واحدة فقط بـ to_shipping
+  // الطلبات pending     → processToShipping عادي (خصم مخزون + حركة)
   const ordersToShip = await db.select().from(ordersTable).where(inArray(ordersTable.id, normalizedOrderIds));
   for (const order of ordersToShip) {
     if (order.status === "in_shipping") {
-      // الطلب كان في شحن سابق → سجّل حركة to_shipping بدون خصم من المخزون
-      const ref = buildOrderRef(order);
-      const { variantId, productId } = await resolveInventoryTarget(ref);
-      if (variantId || productId) {
-        const resolved = await resolveProductIdFromVariant(variantId, productId);
-        await recordMovement({
-          product: order.product ?? "منتج",
-          color: order.color,
-          size: order.size,
-          quantity: order.quantity,
-          type: "OUT",
-          reason: "to_shipping",
-          productId: resolved.productId,
-          variantId: resolved.variantId,
-          warehouseId: order.warehouseId,
-          orderId: order.id,
-          notes: "تحويل لشركة الشحن (نُقل من بيان سابق)",
-        });
+      // الطلب كان في شحن سابق — تحقق إذا عنده حركة موجودة
+      const [existingMov] = await db
+        .select({ id: inventoryMovementsTable.id })
+        .from(inventoryMovementsTable)
+        .where(eq(inventoryMovementsTable.orderId, order.id))
+        .orderBy(desc(inventoryMovementsTable.id))
+        .limit(1)
+        .catch(() => []);
+      if (existingMov) {
+        // في حركة موجودة → عدّل عليها بدل ما تعمل جديدة
+        await db.update(inventoryMovementsTable)
+          .set({ reason: "to_shipping" as any, notes: "تحويل لشركة الشحن (نُقل من بيان سابق)" })
+          .where(eq(inventoryMovementsTable.id, existingMov.id))
+          .catch(() => {});
+      } else {
+        // مفيش حركة → عمل جديدة بدون خصم (الكمية خرجت قبل كده من orders route)
+        const ref = buildOrderRef(order);
+        const { variantId, productId } = await resolveInventoryTarget(ref);
+        if (variantId || productId) {
+          const resolved = await resolveProductIdFromVariant(variantId, productId);
+          await recordMovement({
+            product: order.product ?? "منتج",
+            color: order.color,
+            size: order.size,
+            quantity: order.quantity,
+            type: "OUT",
+            reason: "to_shipping",
+            productId: resolved.productId,
+            variantId: resolved.variantId,
+            warehouseId: order.warehouseId,
+            orderId: order.id,
+            notes: "تحويل لشركة الشحن (نُقل من بيان سابق)",
+          });
+        }
       }
     } else {
       // الطلب pending → processToShipping عادي (خصم من المخزن + حركة)
