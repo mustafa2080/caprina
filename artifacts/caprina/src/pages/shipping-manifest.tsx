@@ -311,7 +311,7 @@ function OrderDeliveryRow({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {DELIVERY_OPTIONS.map((o) => (
+                  {DELIVERY_OPTIONS.filter((o) => o.value !== "partial_received" || order.quantity > 1).map((o) => (
                     <SelectItem key={o.value} value={o.value} className="text-xs">
                       <span className={o.color}>{o.label}</span>
                     </SelectItem>
@@ -824,7 +824,12 @@ function InvoiceGroupDeliveryRow({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {DELIVERY_OPTIONS.map((o) => (
+                    {DELIVERY_OPTIONS.filter((o) => {
+                      if (o.value !== "partial_received") return true;
+                      // أظهر "استلام جزئي" فقط لو الكمية الكلية للمجموعة أكتر من 1
+                      const totalQty = group.reduce((s, o) => s + (o.quantity ?? 1), 0);
+                      return totalQty > 1;
+                    }).map((o) => (
                       <SelectItem key={o.value} value={o.value} className="text-xs">
                         <span className={o.color}>{o.label}</span>
                       </SelectItem>
