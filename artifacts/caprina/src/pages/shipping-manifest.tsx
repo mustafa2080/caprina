@@ -2917,8 +2917,8 @@ export default function ShippingManifestPage() {
       {canViewFinancials && (() => {
         // تكلفة الشحن الفعلية = اليدوية لو موجودة، وإلا من الطلبيات
         const effectiveShipping = manifest.manualShippingCost ?? s.totalShippingCost;
-        // صافي الربح الصحيح = إيرادات − تكلفة بضاعة − تكلفة شحن فعلية − خسائر مرتجع
-        const trueNetProfit = s.totalRevenue - s.totalCost - effectiveShipping - s.returnLosses;
+        // صافي الربح = إيرادات − تكلفة بضاعة − تكلفة شحن فعلية
+        const trueNetProfit = s.totalRevenue - s.totalCost - effectiveShipping;
         const isProfit = trueNetProfit >= 0;
         return (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 print:hidden">
@@ -2935,12 +2935,6 @@ export default function ShippingManifestPage() {
                 <p className="text-[10px] text-amber-600">يدوي ✏️</p>
               )}
             </Card>
-            {s.returnLosses > 0 && (
-            <Card className="border-border bg-card p-4">
-              <p className="text-xs text-muted-foreground mb-1">خسائر الإرجاع</p>
-              <p className="text-lg font-black text-red-400">−{formatCurrency(s.returnLosses)}</p>
-            </Card>
-            )}
             <Card className="border-border bg-card p-4">
               <p className="text-xs text-muted-foreground mb-1">تكلفة البضاعة</p>
               <p className="text-lg font-black">−{formatCurrency(s.totalCost)}</p>
