@@ -937,11 +937,34 @@ export default function OrderDetail() {
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">الكمية</p>
                     <p className="font-semibold">{order.quantity} وحدة</p>
-                    {/* حالة المنتج في البيان */}
-                    {manifestStatus && (() => {
+                    {/* حالة المنتج — المرتجع يعتمد على order مباشرة (بغض النظر عن وجود بيان شحن) */}
+                    {(() => {
+                      // لو الطلب مرتجع: اعتمد على order.returnReceived دائماً
+                      if (order.status === "returned") {
+                        const returnRec = (order as any).returnReceived;
+                        return (
+                          <div className="mt-1.5 flex flex-col gap-1">
+                            {(returnRec === 1 || returnRec === true) ? (
+                              <Badge variant="outline" className="text-[9px] font-bold border-emerald-700 text-emerald-400 w-fit">
+                                <CheckCircle2 className="w-2.5 h-2.5 ml-1" />تم الاستلام — رجع للمخزن
+                              </Badge>
+                            ) : (
+                              <>
+                                <Badge variant="outline" className="text-[9px] font-bold border-red-600 text-red-400 w-fit">
+                                  ↩ مرتجع
+                                </Badge>
+                                <Badge variant="outline" className="text-[9px] font-bold border-orange-600 text-orange-400 w-fit">
+                                  <Clock className="w-2.5 h-2.5 ml-1" />مازال عند شركة الشحن
+                                </Badge>
+                              </>
+                            )}
+                          </div>
+                        );
+                      }
+                      // باقي الحالات تعتمد على بيان الشحن
+                      if (!manifestStatus) return null;
                       const ds = manifestStatus.deliveryStatus;
                       const pQty = manifestStatus.partialQuantity;
-                      const rRec = manifestStatus.returnReceived;
                       if (ds === "delivered") return (
                         <div className="mt-1.5 flex flex-col gap-1">
                           <Badge variant="outline" className="text-[9px] font-bold border-emerald-600 text-emerald-400 w-fit">
@@ -959,29 +982,6 @@ export default function OrderDetail() {
                           </Badge>
                         </div>
                       );
-                      if (ds === "returned" && order.status === "returned") {
-                        // اعتمد على order.returnReceived مباشرة (أدق من manifestStatus)
-                        const returnRec = (order as any).returnReceived;
-                        return (
-                          <div className="mt-1.5 flex flex-col gap-1">
-                            {(returnRec === 1 || returnRec === true) && (
-                              <Badge variant="outline" className="text-[9px] font-bold border-emerald-700 text-emerald-400 w-fit">
-                                <CheckCircle2 className="w-2.5 h-2.5 ml-1" />تم الاستلام — رجع للمخزن
-                              </Badge>
-                            )}
-                            {(returnRec === 0 || returnRec === false) && (
-                              <>
-                                <Badge variant="outline" className="text-[9px] font-bold border-red-600 text-red-400 w-fit">
-                                  ↩ مرتجع
-                                </Badge>
-                                <Badge variant="outline" className="text-[9px] font-bold border-orange-600 text-orange-400 w-fit">
-                                  <Clock className="w-2.5 h-2.5 ml-1" />مازال عند شركة الشحن
-                                </Badge>
-                              </>
-                            )}
-                          </div>
-                        );
-                      }
                       if (ds === "postponed") return (
                         <div className="mt-1.5">
                           <Badge variant="outline" className="text-[9px] font-bold border-orange-600 text-orange-400 w-fit">
