@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { format } from "date-fns";
-import { Search, Filter, Plus, Package, CalendarDays, X, RotateCcw, MessageCircle, Trash2, CheckSquare, RefreshCw, Warehouse } from "lucide-react";
+import { Search, Filter, Plus, Package, CalendarDays, X, RotateCcw, MessageCircle, Trash2, CheckSquare, RefreshCw } from "lucide-react";
 import { useListOrders, useUpdateOrder, getListOrdersQueryKey } from "@workspace/api-client-react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useDebounce } from "@/hooks/use-debounce";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -341,19 +341,8 @@ export default function Orders() {
                         <Badge variant="outline" className={`text-[9px] font-bold border ${statusClasses[order.status] || ""}`}>
                           {statusLabels[order.status] || order.status}
                         </Badge>
-                        {order.status === "in_shipping" && (() => {
-                            const groupIds: number[] = (order as any)._groupIds ?? [order.id];
-                            const anyInManifest = groupIds.some(id => inManifestSet.has(id));
-                            if (anyInManifest) return null;
-                            return (
-                              <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-orange-600 dark:text-orange-400">
-                                <Warehouse className="w-2.5 h-2.5" />ما زال في المخزن
-                              </span>
-                            );
-                          })()}
                         {order.status === "returned" && (() => {
                           const rr = (order as any).returnReceived as 0 | 1 | null | undefined;
-                          if (rr === 1) return <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-600 dark:text-emerald-400">↩ تم الاستلام</span>;
                           if (rr === 0) return <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-orange-500 dark:text-orange-400">⏳ عند شركة الشحن</span>;
                           return null;
                         })()}
@@ -457,20 +446,8 @@ export default function Orders() {
                           <Badge variant="outline" className={`text-[9px] font-bold border ${statusClasses[order.status] || ""}`}>
                             {statusLabels[order.status] || order.status}
                           </Badge>
-                          {order.status === "in_shipping" && (() => {
-                            const groupIds: number[] = (order as any)._groupIds ?? [order.id];
-                            const anyInManifest = groupIds.some(id => inManifestSet.has(id));
-                            if (anyInManifest) return null;
-                            return (
-                              <div className="flex items-center justify-center gap-0.5 mt-1">
-                                <Warehouse className="w-2.5 h-2.5 text-orange-500 shrink-0" />
-                                <span className="text-[9px] font-bold text-orange-600 dark:text-orange-400 leading-none">ما زال في المخزن</span>
-                              </div>
-                            );
-                          })()}
                           {order.status === "returned" && (() => {
                             const rr = (order as any).returnReceived as 0 | 1 | null | undefined;
-                            if (rr === 1) return <div className="flex items-center justify-center gap-0.5 mt-1"><span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 leading-none">↩ تم الاستلام</span></div>;
                             if (rr === 0) return <div className="flex items-center justify-center gap-0.5 mt-1"><span className="text-[9px] font-bold text-orange-500 dark:text-orange-400 leading-none">⏳ عند شركة الشحن</span></div>;
                             return null;
                           })()}
