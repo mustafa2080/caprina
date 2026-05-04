@@ -135,9 +135,11 @@ export default function OrderDetail() {
       return;
     }
 
+    setSelectDisplayStatus(newStatus);
     updateOrder.mutate({ id, data: { status: newStatus as any } }, {
       onSuccess: (updated: any) => {
         queryClient.setQueryData(getGetOrderQueryKey(id), updated);
+        setSelectDisplayStatus(null);
         invalidateAll();
         if (newStatus === "in_shipping" && updated.manifestId) {
           toast({
@@ -153,7 +155,7 @@ export default function OrderDetail() {
           toast({ title: "تم تحديث الحالة", description: `الطلب أصبح: ${statusLabels[newStatus]}` });
         }
       },
-      onError: () => toast({ title: "خطأ", description: "فشل تحديث الحالة.", variant: "destructive" }),
+      onError: () => { setSelectDisplayStatus(null); toast({ title: "خطأ", description: "فشل تحديث الحالة.", variant: "destructive" }); },
     });
   };
 
