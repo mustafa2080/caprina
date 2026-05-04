@@ -583,20 +583,45 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
     }
 
     if (newStatus === "returned") {
+      const returnReceived = data.returnReceived === true || data.returnReceived === 1;
+      const { variantId, productId } = await resolveInventoryTarget(orderRef);
+
       if (existingMovement) {
-        // في حركة موجودة → غيّر reason لـ return فقط، وأرجع المخزون لو كان مباع
         const wasDeducted = ["sale", "partial_sale", "to_shipping"].includes(existingMovement.reason ?? "");
-        if (wasDeducted) {
-          // أرجع الكمية للمخزون
-          const { variantId, productId } = await resolveInventoryTarget(orderRef);
-          await adjustWarehouseStock(existing.warehouseId, variantId, productId, existing.quantity).catch(() => {});
-          await syncProductQuantityFromWarehouses(variantId, productId).catch(() => {});
+        if (returnReceived) {
+          // تم الاستلام → أرجع المخزون بالموجب (IN) لو كانت متخصومة
+          if (wasDeducted) {
+            await adjustWarehouseStock(existing.warehouseId, variantId, productId, existing.quantity).catch(() => {});
+            await syncProductQuantityFromWarehouses(variantId, productId).catch(() => {});
+          }
+          await updateMovementReason(existing.id, existingMovement.reason as any, "return", "مرتجع — تم الاستلام ودخل المخزن").catch(() => {});
+        } else {
+          // مازال عند الشحن → لا ترجع المخزون، سجل OUT
+          await updateMovementReason(existing.id, existingMovement.reason as any, "return", "مرتجع — مازال عند شركة الشحن").catch(() => {});
         }
-        await updateMovementReason(existing.id, existingMovement.reason as any, "return", "مرتجع").catch(() => {});
       } else {
-        // مفيش حركة → عمل حركة مرتجع فقط لو كان received/partial_received
         const wasReceived = oldStatus === "received" || oldStatus === "partial_received";
-        await processReturn({ ...orderRef, quantity: existing.quantity }, wasReceived, false, existing.id).catch(() => {});
+        if (returnReceived) {
+          // تم الاستلام → IN موجب
+          await processReturn({ ...orderRef, quantity: existing.quantity }, wasReceived, false, existing.id).catch(() => {});
+        } else {
+          // مازال عند الشحن → OUT سالب (لا يدخل المخزن)
+          if (variantId || productId) {
+            await recordMovement({
+              product: existing.product ?? "منتج",
+              color: existing.color,
+              size: existing.size,
+              quantity: existing.quantity,
+              type: "OUT",
+              reason: "return" as any,
+              productId: productId ?? null,
+              variantId: variantId ?? null,
+              warehouseId: existing.warehouseId ?? null,
+              orderId: existing.id,
+              notes: "مرتجع — مازال عند شركة الشحن",
+            }).catch(() => {});
+          }
+        }
       }
     }
 
