@@ -2931,10 +2931,12 @@ export default function ShippingManifestPage() {
                 <p className="text-[10px] text-amber-600">يدوي ✏️</p>
               )}
             </Card>
+            {s.returnLosses > 0 && (
             <Card className="border-border bg-card p-4">
               <p className="text-xs text-muted-foreground mb-1">خسائر الإرجاع</p>
               <p className="text-lg font-black text-red-400">−{formatCurrency(s.returnLosses)}</p>
             </Card>
+            )}
             <Card className="border-border bg-card p-4">
               <p className="text-xs text-muted-foreground mb-1">تكلفة البضاعة</p>
               <p className="text-lg font-black">−{formatCurrency(s.totalCost)}</p>
