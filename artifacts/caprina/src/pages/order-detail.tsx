@@ -72,6 +72,7 @@ export default function OrderDetail() {
   const [returnNote, setReturnNote] = useState("");
   const [returnIsDamaged, setReturnIsDamaged] = useState(false);
   const [returnReceived, setReturnReceived] = useState<boolean | null>(null); // null = لم يُحدد
+  const [selectDisplayStatus, setSelectDisplayStatus] = useState<string | null>(null); // قيمة مؤقتة للـ Select
 
   const initializedRef = useRef(false);
 
@@ -123,8 +124,16 @@ export default function OrderDetail() {
     setReturnIsDamaged(false);
     setReturnReceived(null);
     setPartialQty("");
-    if (newStatus === "partial_received") { setShowPartialInput(true); return; }
-    if (newStatus === "returned") { setShowReturnInput(true); return; }
+    if (newStatus === "partial_received") {
+      setSelectDisplayStatus("partial_received");
+      setShowPartialInput(true);
+      return;
+    }
+    if (newStatus === "returned") {
+      setSelectDisplayStatus("returned");
+      setShowReturnInput(true);
+      return;
+    }
 
     updateOrder.mutate({ id, data: { status: newStatus as any } }, {
       onSuccess: (updated: any) => {
@@ -158,9 +167,13 @@ export default function OrderDetail() {
         invalidateAll();
         setShowPartialInput(false);
         setPartialQty("");
+        setSelectDisplayStatus(null);
         toast({ title: "تم التحديث", description: `تم استلام ${pQty} وحدة جزئياً.` });
       },
-      onError: () => toast({ title: "خطأ", description: "فشل التحديث.", variant: "destructive" }),
+      onError: () => {
+        setSelectDisplayStatus(null);
+        toast({ title: "خطأ", description: "فشل التحديث.", variant: "destructive" });
+      },
     });
   };
 
@@ -187,12 +200,16 @@ export default function OrderDetail() {
         setReturnNote("");
         setReturnIsDamaged(false);
         setReturnReceived(null);
+        setSelectDisplayStatus(null);
         const msg = returnReceived
           ? (returnIsDamaged ? "تم تسجيل المرتجع التالف — لم يُضاف للمخزون." : "تم استلام المرتجع وأُضيف للمخزون.")
           : "تم تسجيل المرتجع — مازال عند شركة الشحن.";
         toast({ title: "تم التسجيل", description: msg });
       },
-      onError: () => toast({ title: "خطأ", description: "فشل تحديث الحالة.", variant: "destructive" }),
+      onError: () => {
+        setSelectDisplayStatus(null);
+        toast({ title: "خطأ", description: "فشل تحديث الحالة.", variant: "destructive" });
+      },
     });
   };
 
@@ -311,7 +328,7 @@ export default function OrderDetail() {
           {!isEditing && isAdmin && (
             <>
               <div className="w-44">
-                <Select value={order.status} onValueChange={handleStatusChange} disabled={updateOrder.isPending}>
+                <Select value={selectDisplayStatus ?? order.status} onValueChange={handleStatusChange} disabled={updateOrder.isPending}>
                   <SelectTrigger className="h-8 text-xs bg-card border-border"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="pending">قيد الانتظار</SelectItem>
@@ -399,7 +416,7 @@ export default function OrderDetail() {
             <div className="flex items-center gap-3">
               <Input type="number" min="1" max={order.quantity} placeholder={`الحد الأقصى: ${order.quantity}`} value={partialQty} onChange={e => setPartialQty(e.target.value)} className="h-8 text-sm w-40 bg-card" />
               <Button size="sm" className="h-8 text-xs bg-purple-600 hover:bg-purple-700 text-white" onClick={handlePartialReceived} disabled={updateOrder.isPending}>تأكيد</Button>
-              <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setShowPartialInput(false); setPartialQty(""); }}>إلغاء</Button>
+              <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setShowPartialInput(false); setPartialQty(""); setSelectDisplayStatus(null); }}>إلغاء</Button>
             </div>
           </CardContent>
         </Card>
@@ -521,7 +538,7 @@ export default function OrderDetail() {
               <Button size="sm" className="h-8 text-xs bg-red-700 hover:bg-red-600 text-white gap-1" onClick={handleReturnConfirm} disabled={updateOrder.isPending || returnReceived === null}>
                 <RotateCcw className="w-3 h-3" />{updateOrder.isPending ? "جاري..." : "تأكيد الإرجاع"}
               </Button>
-              <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setShowReturnInput(false); setReturnReason(""); setReturnNote(""); setReturnIsDamaged(false); setReturnReceived(null); }}>إلغاء</Button>
+              <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setShowReturnInput(false); setReturnReason(""); setReturnNote(""); setReturnIsDamaged(false); setReturnReceived(null); setSelectDisplayStatus(null); }}>إلغاء</Button>
             </div>
           </CardContent>
         </Card>
