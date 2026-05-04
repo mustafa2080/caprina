@@ -504,43 +504,63 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
     (deliveryStatus !== "returned" || returnReceived === null || (Number(oldReturnReceived) === 1) === returnReceived);
 
   if (!noChange) {
-    // حدد الـ reason والـ notes اللي هيتحطوا على الحركة الموجودة
-    let newReason: string;
-    let movementNotes: string;
-
-    if (deliveryStatus === "delivered") {
-      newReason     = "sale";
-      movementNotes = "تم الاستلام — بيع";
-    } else if (deliveryStatus === "partial_received") {
-      newReason     = "partial_sale";
-      movementNotes = partialQuantity != null ? `استلام جزئي — ${partialQuantity} قطعة` : "استلام جزئي";
-    } else if (deliveryStatus === "returned") {
-      if (returnReceived === true) {
-        newReason     = "from_shipping";
-        movementNotes = "مرتجع — وصل المخزن";
-      } else {
-        newReason     = "to_shipping";
-        movementNotes = "مرتجع — لسه عند شركة الشحن";
+    if (deliveryStatus === "returned" && returnReceived === true && Number(oldReturnReceived) !== 1) {
+      // ── المرتجع وصل المخزن ────────────────────────────────────────────────
+      // الحركة الأصلية (OUT - to_shipping) تبقى كما هي — البضاعة فعلاً خرجت
+      // نضيف حركة جديدة (IN - from_shipping) — البضاعة رجعت للمخزن
+      const { processReturn } = await import("../lib/inventory.js");
+      await processReturn(
+        { ...ref, quantity: totalQty },
+        true,   // wasReceived=true حتى تشتغل الـ function وترجع للمخزن
+        false,
+        orderId,
+      );
+      // غيّر reason الحركة الجديدة من "return" لـ "from_shipping" للتوضيح
+      const [newMov] = await db
+        .select({ id: inventoryMovementsTable.id })
+        .from(inventoryMovementsTable)
+        .where(and(eq(inventoryMovementsTable.orderId, orderId), eq(inventoryMovementsTable.type, "IN")))
+        .orderBy(desc(inventoryMovementsTable.id))
+        .limit(1);
+      if (newMov) {
+        await db.update(inventoryMovementsTable)
+          .set({ reason: "from_shipping" as any, notes: "مرتجع — وصل المخزن من شركة الشحن" })
+          .where(eq(inventoryMovementsTable.id, newMov.id));
       }
     } else {
-      // pending / postponed
-      newReason     = "to_shipping";
-      movementNotes = deliveryStatus === "postponed" ? "مؤجل — عند شركة الشحن" : "قيد الانتظار — عند شركة الشحن";
-    }
+      // باقي الحالات: غيّر reason نفس الحركة الموجودة (بدون خصم أو إضافة)
+      let newReason: string;
+      let movementNotes: string;
 
-    // غيّر آخر حركة مخزون لهذا الطلب (بدون خصم أو إضافة جديدة)
-    const [lastMov] = await db
-      .select({ id: inventoryMovementsTable.id })
-      .from(inventoryMovementsTable)
-      .where(eq(inventoryMovementsTable.orderId, orderId))
-      .orderBy(desc(inventoryMovementsTable.id))
-      .limit(1);
+      if (deliveryStatus === "delivered") {
+        newReason     = "sale";
+        movementNotes = "تم الاستلام — بيع";
+      } else if (deliveryStatus === "partial_received") {
+        newReason     = "partial_sale";
+        movementNotes = partialQuantity != null ? `استلام جزئي — ${partialQuantity} قطعة` : "استلام جزئي";
+      } else if (deliveryStatus === "returned") {
+        // returnReceived=false → لسه عند شركة الشحن
+        newReason     = "to_shipping";
+        movementNotes = "مرتجع — لسه عند شركة الشحن";
+      } else {
+        // pending / postponed
+        newReason     = "to_shipping";
+        movementNotes = deliveryStatus === "postponed" ? "مؤجل — عند شركة الشحن" : "قيد الانتظار — عند شركة الشحن";
+      }
 
-    if (lastMov) {
-      await db
-        .update(inventoryMovementsTable)
-        .set({ reason: newReason as any, notes: movementNotes })
-        .where(eq(inventoryMovementsTable.id, lastMov.id));
+      const [lastMov] = await db
+        .select({ id: inventoryMovementsTable.id })
+        .from(inventoryMovementsTable)
+        .where(eq(inventoryMovementsTable.orderId, orderId))
+        .orderBy(desc(inventoryMovementsTable.id))
+        .limit(1);
+
+      if (lastMov) {
+        await db
+          .update(inventoryMovementsTable)
+          .set({ reason: newReason as any, notes: movementNotes })
+          .where(eq(inventoryMovementsTable.id, lastMov.id));
+      }
     }
   } // end if (!noChange)
 
@@ -581,34 +601,54 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
 
       // غيّر reason آخر حركة مخزون للـ sibling (نفس منطق الطلب الرئيسي)
       if (!noChange) {
-        let sibReason: string;
-        let sibNotes: string;
+        const sibRef = buildOrderRef(sib.o);
 
-        if (deliveryStatus === "delivered") {
-          sibReason = "sale"; sibNotes = "تم الاستلام — بيع";
-        } else if (deliveryStatus === "partial_received") {
-          sibReason = "partial_sale";
-          sibNotes = partialQuantity != null ? `استلام جزئي — ${partialQuantity} قطعة` : "استلام جزئي";
-        } else if (deliveryStatus === "returned") {
-          sibReason = returnReceived === true ? "from_shipping" : "to_shipping";
-          sibNotes = returnReceived === true ? "مرتجع — وصل المخزن" : "مرتجع — لسه عند شركة الشحن";
+        if (deliveryStatus === "returned" && returnReceived === true && Number(sib.mo.returnReceived) !== 1) {
+          // مرتجع وصل المخزن → حركة IN جديدة
+          const { processReturn } = await import("../lib/inventory.js");
+          await processReturn({ ...sibRef, quantity: sib.o.quantity }, true, false, sib.mo.orderId);
+          // غيّر reason الحركة الجديدة من "return" لـ "from_shipping"
+          const [sibNewMov] = await db
+            .select({ id: inventoryMovementsTable.id })
+            .from(inventoryMovementsTable)
+            .where(and(eq(inventoryMovementsTable.orderId, sib.mo.orderId), eq(inventoryMovementsTable.type, "IN")))
+            .orderBy(desc(inventoryMovementsTable.id))
+            .limit(1);
+          if (sibNewMov) {
+            await db.update(inventoryMovementsTable)
+              .set({ reason: "from_shipping" as any, notes: "مرتجع — وصل المخزن من شركة الشحن" })
+              .where(eq(inventoryMovementsTable.id, sibNewMov.id));
+          }
         } else {
-          sibReason = "to_shipping";
-          sibNotes = deliveryStatus === "postponed" ? "مؤجل — عند شركة الشحن" : "قيد الانتظار — عند شركة الشحن";
-        }
+          let sibReason: string;
+          let sibNotes: string;
 
-        const [sibLastMov] = await db
-          .select({ id: inventoryMovementsTable.id })
-          .from(inventoryMovementsTable)
-          .where(eq(inventoryMovementsTable.orderId, sib.mo.orderId))
-          .orderBy(desc(inventoryMovementsTable.id))
-          .limit(1);
+          if (deliveryStatus === "delivered") {
+            sibReason = "sale"; sibNotes = "تم الاستلام — بيع";
+          } else if (deliveryStatus === "partial_received") {
+            sibReason = "partial_sale";
+            sibNotes = partialQuantity != null ? `استلام جزئي — ${partialQuantity} قطعة` : "استلام جزئي";
+          } else if (deliveryStatus === "returned") {
+            sibReason = "to_shipping";
+            sibNotes = "مرتجع — لسه عند شركة الشحن";
+          } else {
+            sibReason = "to_shipping";
+            sibNotes = deliveryStatus === "postponed" ? "مؤجل — عند شركة الشحن" : "قيد الانتظار — عند شركة الشحن";
+          }
 
-        if (sibLastMov) {
-          await db
-            .update(inventoryMovementsTable)
-            .set({ reason: sibReason as any, notes: sibNotes })
-            .where(eq(inventoryMovementsTable.id, sibLastMov.id));
+          const [sibLastMov] = await db
+            .select({ id: inventoryMovementsTable.id })
+            .from(inventoryMovementsTable)
+            .where(eq(inventoryMovementsTable.orderId, sib.mo.orderId))
+            .orderBy(desc(inventoryMovementsTable.id))
+            .limit(1);
+
+          if (sibLastMov) {
+            await db
+              .update(inventoryMovementsTable)
+              .set({ reason: sibReason as any, notes: sibNotes })
+              .where(eq(inventoryMovementsTable.id, sibLastMov.id));
+          }
         }
       }
 
