@@ -39,8 +39,11 @@ const TOKEN_KEY = "caprina_token";
 const USER_KEY = "caprina_user";
 const EDIT_BRAND_KEY = "edit_brand";
 
-// polling كل 3 ثوان عشان تغييرات الصلاحيات تنعكس بسرعة
-const POLL_INTERVAL_MS = 3_000;
+// polling كل 30 ثانية — تغييرات الصلاحيات تنعكس بسرعة كافية
+const POLL_INTERVAL_MS = 30_000;
+
+// عدد المرات المتتالية اللي ممكن يفشل فيها الـ polling قبل الـ logout
+const MAX_POLL_FAILURES = 3;
 
 // الصلاحيات الافتراضية لكل دور — تُستخدم فقط لو permissions فاضية تماماً
 // (للمستخدمين القدامى اللي اتعملوا قبل نظام الصلاحيات)
@@ -167,11 +170,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [fetchMe]);
 
+  const pollFailuresRef = useRef(0);
+
   const startPolling = useCallback((tkn: string) => {
     if (pollRef.current) clearInterval(pollRef.current);
+    pollFailuresRef.current = 0;
     pollRef.current = setInterval(async () => {
       const updated = await fetchMe(tkn);
       if (updated) {
+        pollFailuresRef.current = 0; // reset عند النجاح
         setUser((prev) => {
           if (!prev) return normalizeUser(updated);
           const roleChanged = prev.role !== updated.role;
@@ -183,7 +190,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return { ...fresh };
         });
       } else {
-        logoutRef.current();
+        // نزيد عداد الفشل — نعمل logout بس لو فشل MAX_POLL_FAILURES مرات متتالية
+        pollFailuresRef.current += 1;
+        if (pollFailuresRef.current >= MAX_POLL_FAILURES) {
+          logoutRef.current();
+        }
       }
     }, POLL_INTERVAL_MS);
   }, [fetchMe]);
