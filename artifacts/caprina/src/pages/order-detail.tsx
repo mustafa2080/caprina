@@ -561,8 +561,8 @@ export default function OrderDetail() {
               </Badge>
             </div>
 
-            {/* حالة المرتجع */}
-            {manifestStatus.deliveryStatus === "returned" && (
+            {/* حالة المرتجع — تظهر فقط لو حالة الطلب الفعلية = returned */}
+            {manifestStatus.deliveryStatus === "returned" && order.status === "returned" && (
               <div className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-bold ${
                 manifestStatus.returnReceived === 1
                   ? "bg-emerald-900/20 text-emerald-400 border border-emerald-700"
@@ -572,7 +572,6 @@ export default function OrderDetail() {
               }`}>
                 {manifestStatus.returnReceived === 1 && <><CheckCircle2 className="w-3.5 h-3.5" /> تم استلام المرتجع — البضاعة رجعت للمخزن</>}
                 {manifestStatus.returnReceived === 0 && <><Clock className="w-3.5 h-3.5" /> المرتجع مازال عند شركة الشحن — لم يُستلم بعد</>}
-                {manifestStatus.returnReceived === null && <><AlertCircle className="w-3.5 h-3.5" /> حالة استلام المرتجع لم تُحدد بعد</>}
               </div>
             )}
 
