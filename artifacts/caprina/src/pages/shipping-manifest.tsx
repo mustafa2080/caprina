@@ -2134,6 +2134,13 @@ function AddOrdersToManifestDialog({
     staleTime: 10000,
   });
 
+  // جيب الطلبات اللي في بيانات مفتوحة عشان نستبعدها (in_shipping في بيان تاني)
+  const { data: inManifestData } = useQuery({
+    queryKey: ["in-manifest-ids"],
+    queryFn: () => apiFetch<{ ids: number[] }>("/orders/in-manifest-ids"),
+    staleTime: 10000,
+  });
+
   const addMutation = useMutation({
     mutationFn: () => manifestsApi.addOrders(manifestId, Array.from(selectedIds)),
     onSuccess: (res) => {
@@ -2146,11 +2153,26 @@ function AddOrdersToManifestDialog({
       toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
 
-  // استبعد الأوردرات الموجودة بالفعل في البيان
+  // استبعد: 1) الموجودين بالفعل في البيان الحالي، 2) الـ in_shipping اللي في بيانات مفتوحة تانية
+  const inOtherManifestIds = useMemo(() => {
+    const manifestSet = inManifestData ? new Set(inManifestData.ids) : new Set<number>();
+    // استبعد من البيان الحالي (existingOrderIds) — هم مش في "other"
+    // الـ in_shipping اللي في existingOrderIds هم في بياننا الحالي → مسموح نشوفهم (بس هم مستبعدين فوق)
+    return manifestSet;
+  }, [inManifestData]);
+
   const available = useMemo(() => {
     if (!allAvailableOrders) return [];
-    return allAvailableOrders.filter(o => !existingOrderIds.has(o.id));
-  }, [allAvailableOrders, existingOrderIds]);
+    return allAvailableOrders.filter(o => {
+      // استبعد الموجودين في البيان الحالي
+      if (existingOrderIds.has(o.id)) return false;
+      // استبعد الـ in_shipping اللي في بيانات مفتوحة تانية
+      if (o.status === "in_shipping" && inOtherManifestIds.has(o.id)) return false;
+      // الـ in_shipping لازم يكون عنده invoiceNumber (قيد الشحن في المخزن)
+      if (o.status === "in_shipping" && !(o as any).invoiceNumber?.trim()) return false;
+      return true;
+    });
+  }, [allAvailableOrders, existingOrderIds, inOtherManifestIds]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return available;

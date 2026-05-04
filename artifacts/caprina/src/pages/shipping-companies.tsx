@@ -233,17 +233,32 @@ export function CreateManifestDialog({
     queryFn: () => apiFetch<OrderRow[]>(`/orders?status=in_shipping`),
   });
 
+  // جيب الطلبات اللي في بيانات مفتوحة عشان نستبعدها
+  const { data: inManifestData } = useQuery({
+    queryKey: ["orders-in-manifest-ids"],
+    queryFn: () => apiFetch<{ ids: number[] }>("/orders/in-manifest-ids"),
+    staleTime: 10000,
+  });
+
   const isLoading = isLoadingPending || isLoadingShipping;
 
   // دمج الطلبات المعلقة والطلبات في الشحن (اللي مش في بيان مفتوح)
   const allAvailableOrders = useMemo(() => {
     const pending = pendingOrders ?? [];
     const inShipping = inShippingOrders ?? [];
+    const inManifestIds = inManifestData ? new Set(inManifestData.ids) : new Set<number>();
     const ids = new Set(pending.map(o => o.id));
-    // اضف الـ in_shipping اللي مش موجودة في pending (مش مكررة)
-    const extra = inShipping.filter(o => !ids.has(o.id));
+    // اضف الـ in_shipping اللي:
+    // 1) مش موجودة في pending (مش مكررة)
+    // 2) مش في بيان مفتوح تاني
+    // 3) عندها invoiceNumber (قيد الشحن في المخزن فقط)
+    const extra = inShipping.filter(o =>
+      !ids.has(o.id) &&
+      !inManifestIds.has(o.id) &&
+      o.invoiceNumber?.trim()
+    );
     return [...pending, ...extra];
-  }, [pendingOrders, inShippingOrders]);
+  }, [pendingOrders, inShippingOrders, inManifestData]);
 
   const createMutation = useMutation({
     mutationFn: () =>
