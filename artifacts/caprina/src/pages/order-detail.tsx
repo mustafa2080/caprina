@@ -310,8 +310,8 @@ export default function OrderDetail() {
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-bold">طلب #{order.id.toString().padStart(4,"0")}</h1>
               {!isEditing && (
-                <Badge variant="outline" className={`font-bold border text-[10px] ${statusClasses[order.status] || ""}`}>
-                  {statusLabels[order.status] || order.status}
+                <Badge variant="outline" className={`font-bold border text-[10px] ${statusClasses[selectDisplayStatus ?? order.status] || ""}`}>
+                  {statusLabels[selectDisplayStatus ?? order.status] || order.status}
                 </Badge>
               )}
               {isOrderLocked && (
