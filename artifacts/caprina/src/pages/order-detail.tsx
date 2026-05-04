@@ -1075,24 +1075,34 @@ export default function OrderDetail() {
             if (!costPrice) return null;
             const qty = order.status === "partial_received" && order.partialQuantity ? order.partialQuantity : order.quantity;
             const isReturned = order.status === "returned";
+            const returnRec = (order as any).returnReceived;
+            const isReturnedToStock = isReturned && (returnRec === 1 || returnRec === true);
+            const isReturnedLost = isReturned && !isReturnedToStock;
+            // لو رجع المخزن: لا خسارة في البضاعة (الكمية اترجعت) — بس في خسارة شحن فقط
+            // لو مازال عند الشحن: خسارة كاملة
             const revenue = isReturned ? 0 : qty * order.unitPrice;
-            const cost = qty * costPrice;
+            const cost = isReturnedToStock ? 0 : qty * costPrice; // رجع المخزن = مفيش خسارة بضاعة
             const shipping = shippingCost ?? 0;
             const netProfit = revenue - cost - shipping;
             const margin = revenue > 0 ? Math.round((netProfit / revenue) * 100) : 0;
             const isPositive = netProfit >= 0;
             return (
-              <Card className={`border ${isReturned ? "border-red-900/50 bg-red-900/5" : isPositive ? "border-emerald-900/50 bg-emerald-900/5" : "border-red-900/50 bg-red-900/5"}`}>
+              <Card className={`border ${isReturnedLost ? "border-red-900/50 bg-red-900/5" : isReturnedToStock ? "border-amber-900/50 bg-amber-900/5" : isPositive ? "border-emerald-900/50 bg-emerald-900/5" : "border-red-900/50 bg-red-900/5"}`}>
                 <CardHeader className="pb-2 pt-4 px-4 border-b border-border">
                   <CardTitle className="text-sm font-bold flex items-center gap-2">
-                    {isPositive && !isReturned ? <TrendingUp className="w-3.5 h-3.5 text-emerald-400" /> : <TrendingDown className="w-3.5 h-3.5 text-red-400" />}
+                    {isReturnedToStock ? <TrendingUp className="w-3.5 h-3.5 text-amber-400" /> : isPositive && !isReturned ? <TrendingUp className="w-3.5 h-3.5 text-emerald-400" /> : <TrendingDown className="w-3.5 h-3.5 text-red-400" />}
                     تحليل الربحية
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="px-4 pb-4 pt-3 space-y-2 text-xs">
-                  {isReturned && (
+                  {isReturnedLost && (
                     <div className="p-2 bg-red-900/20 rounded text-red-400 text-[10px] font-semibold border border-red-900/30">
                       مرتجع — خسارة كاملة
+                    </div>
+                  )}
+                  {isReturnedToStock && (
+                    <div className="p-2 bg-amber-900/20 rounded text-amber-400 text-[10px] font-semibold border border-amber-900/30">
+                      ↩ رجع للمخزن — خسارة الشحن فقط
                     </div>
                   )}
                   <div className="flex justify-between"><span className="text-muted-foreground">الإيرادات</span><span className="text-primary font-semibold">{formatCurrency(revenue)}</span></div>
