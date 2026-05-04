@@ -223,11 +223,6 @@ export function CreateManifestDialog({
     return m;
   }, [allCompanies]);
 
-  const { data: pendingOrders, isLoading: isLoadingPending } = useQuery({
-    queryKey: ["orders-pending-all"],
-    queryFn: () => apiFetch<OrderRow[]>(`/orders?status=pending`),
-  });
-
   const { data: inShippingOrders, isLoading: isLoadingShipping } = useQuery({
     queryKey: ["orders-in-shipping-all"],
     queryFn: () => apiFetch<OrderRow[]>(`/orders?status=in_shipping`),
@@ -240,25 +235,18 @@ export function CreateManifestDialog({
     staleTime: 10000,
   });
 
-  const isLoading = isLoadingPending || isLoadingShipping;
+  const isLoading = isLoadingShipping;
 
-  // دمج الطلبات المعلقة والطلبات في الشحن (اللي مش في بيان مفتوح)
+  // الطلبات المتاحة للبيان: in_shipping فقط (قيد الشحن في المخزن)
+  // شرط: عندها فاتورة (invoiceNumber) ومش في بيان مفتوح
   const allAvailableOrders = useMemo(() => {
-    const pending = pendingOrders ?? [];
     const inShipping = inShippingOrders ?? [];
     const inManifestIds = inManifestData ? new Set(inManifestData.ids) : new Set<number>();
-    const ids = new Set(pending.map(o => o.id));
-    // اضف الـ in_shipping اللي:
-    // 1) مش موجودة في pending (مش مكررة)
-    // 2) مش في بيان مفتوح تاني
-    // 3) عندها invoiceNumber (قيد الشحن في المخزن فقط)
-    const extra = inShipping.filter(o =>
-      !ids.has(o.id) &&
+    return inShipping.filter(o =>
       !inManifestIds.has(o.id) &&
       o.invoiceNumber?.trim()
     );
-    return [...pending, ...extra];
-  }, [pendingOrders, inShippingOrders, inManifestData]);
+  }, [inShippingOrders, inManifestData]);
 
   const createMutation = useMutation({
     mutationFn: () =>
@@ -292,7 +280,7 @@ export function CreateManifestDialog({
 
   // ── تجميع الطلبات بنفس invoiceNumber في سطر واحد ─────────────────────────
   const groupedOrders = useMemo(() => {
-    if (!pendingOrders && !inShippingOrders) return [];
+    if (!inShippingOrders) return [];
     const groups = new Map<string, OrderRow>();
     for (const o of allAvailableOrders) {
       const key = o.invoiceNumber ?? `solo-${o.id}`;
