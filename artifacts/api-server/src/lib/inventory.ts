@@ -283,6 +283,22 @@ export async function adjustWarehouseStock(
   }
 }
 
+// ─── RESOLVE PRODUCT ID FROM VARIANT: جيب productId من variantId ─────────────
+async function resolveProductIdFromVariant(variantId: number | null, productId: number | null): Promise<{ variantId: number | null; productId: number | null }> {
+  // لو عندنا variantId بس بدون productId → جيب productId من DB
+  if (variantId && !productId) {
+    const [variant] = await db
+      .select({ productId: productVariantsTable.productId })
+      .from(productVariantsTable)
+      .where(eq(productVariantsTable.id, variantId))
+      .limit(1);
+    if (variant?.productId) {
+      return { variantId, productId: variant.productId };
+    }
+  }
+  return { variantId, productId };
+}
+
 // ─── RECORD MOVEMENT: تسجيل الحركة في السجل التاريخي ────────────────────────
 export async function recordMovement(data: {
   product: string;
@@ -370,6 +386,8 @@ export async function addStock(
 
   // 3. سجّل الحركة
   if (target.product) {
+    // تأكد إن productId موجود دايماً (لو variantId بدون productId → جيبه)
+    const resolved = await resolveProductIdFromVariant(variantId, productId);
     await recordMovement({
       product: target.product,
       color: target.color ?? null,
@@ -377,8 +395,8 @@ export async function addStock(
       quantity,
       type: "IN",
       reason: "manual_in",
-      productId: productId ?? null,
-      variantId: variantId ?? null,
+      productId: resolved.productId ?? null,
+      variantId: resolved.variantId ?? null,
       warehouseId: usedWhId,
       notes: notes ?? null,
     });
@@ -434,6 +452,7 @@ export async function processDelivery(
   await updateSoldQuantity(variantId, productId, deliveredQty);
 
   // 4. سجّل الحركة دايماً
+  const resolvedDelivery = await resolveProductIdFromVariant(variantId, productId);
   await recordMovement({
     product: productName ?? "منتج",
     color: order.color,
@@ -441,8 +460,8 @@ export async function processDelivery(
     quantity: deliveredQty,
     type: "OUT",
     reason,
-    productId,
-    variantId,
+    productId: resolvedDelivery.productId,
+    variantId: resolvedDelivery.variantId,
     warehouseId: usedWhId,
     orderId,
   });
@@ -491,6 +510,7 @@ export async function reverseDelivery(
   await updateSoldQuantity(variantId, productId, -deliveredQty);
 
   // 4. سجّل الحركة دايماً
+  const resolvedReverse = await resolveProductIdFromVariant(variantId, productId);
   await recordMovement({
     product: productName ?? "منتج",
     color: order.color,
@@ -498,8 +518,8 @@ export async function reverseDelivery(
     quantity: deliveredQty,
     type: "IN",
     reason: "adjustment",
-    productId,
-    variantId,
+    productId: resolvedReverse.productId,
+    variantId: resolvedReverse.variantId,
     warehouseId: usedWhId,
     orderId,
     notes: "إلغاء تسليم",
@@ -542,6 +562,7 @@ export async function processReturn(
 
   // 4. سجّل الحركة
   if (order.product) {
+    const resolvedReturn = await resolveProductIdFromVariant(variantId, productId);
     await recordMovement({
       product: order.product,
       color: order.color,
@@ -549,8 +570,8 @@ export async function processReturn(
       quantity: order.quantity,
       type: "IN",
       reason: isDamaged ? ("damaged" as MovementReason) : "return",
-      productId,
-      variantId,
+      productId: resolvedReturn.productId,
+      variantId: resolvedReturn.variantId,
       warehouseId: usedWhId,
       orderId,
       notes: isDamaged ? "مرتجع تالف — لا يُضاف للمخزون" : null,
@@ -598,7 +619,8 @@ export async function processToShipping(
   // 2. زامن totalQuantity
   await syncProductQuantityFromWarehouses(variantId, productId);
 
-  // 3. سجّل الحركة دايماً
+  // 3. سجّل الحركة دايماً — مع ضمان productId موجود
+  const resolvedShipping = await resolveProductIdFromVariant(variantId, productId);
   await recordMovement({
     product: productName ?? "منتج",
     color: order.color,
@@ -606,8 +628,8 @@ export async function processToShipping(
     quantity: qty,
     type: "OUT",
     reason: "to_shipping",
-    productId,
-    variantId,
+    productId: resolvedShipping.productId,
+    variantId: resolvedShipping.variantId,
     warehouseId: usedWhId,
     orderId,
     notes: "تحويل لشركة الشحن",
@@ -654,6 +676,7 @@ export async function reverseShipping(
   await syncProductQuantityFromWarehouses(variantId, productId);
 
   // 3. سجّل الحركة دايماً
+  const resolvedRevShip = await resolveProductIdFromVariant(variantId, productId);
   await recordMovement({
     product: productName ?? "منتج",
     color: order.color,
@@ -661,8 +684,8 @@ export async function reverseShipping(
     quantity: qty,
     type: "IN",
     reason: "from_shipping",
-    productId,
-    variantId,
+    productId: resolvedRevShip.productId,
+    variantId: resolvedRevShip.variantId,
     warehouseId: usedWhId,
     orderId,
     notes: "إرجاع من شركة الشحن للمخزن",
