@@ -30,6 +30,7 @@ const UpdateVariantSchema = z.object({
 
 const AddStockSchema = z.object({
   quantity: z.number().int().min(1),
+  warehouseId: z.number().int().positive().nullish(),
   notes: z.string().nullish(),
 });
 
@@ -156,6 +157,15 @@ router.post("/products/:productId/variants/:variantId/add-stock", async (req, re
   const [variantRow] = await db.select().from(productVariantsTable).where(eq(productVariantsTable.id, variantId));
   if (!variantRow) { res.status(404).json({ error: "Variant not found" }); return; }
 
+  // لو مفيش warehouseId في الطلب، استخدم الافتراضي أو الأول
+  let targetWarehouseId: number | null = parsed.data.warehouseId ?? null;
+  if (!targetWarehouseId) {
+    const [defaultWh] = await db.select().from(warehousesTable).where(eq(warehousesTable.isDefault, true));
+    const [anyWh] = defaultWh ? [defaultWh] : await db.select().from(warehousesTable).limit(1);
+    targetWarehouseId = anyWh?.id ?? null;
+  }
+
+  // addStock تتولى كل حاجة: تعدّل warehouse_stock + تزامن totalQuantity + تسجّل حركة IN
   await addStock(
     {
       variantId,
@@ -163,41 +173,11 @@ router.post("/products/:productId/variants/:variantId/add-stock", async (req, re
       product: product.name,
       color: variantRow.color,
       size: variantRow.size,
+      warehouseId: targetWarehouseId,
     },
     parsed.data.quantity,
     parsed.data.notes ?? null,
   );
-
-  // ── مزامنة تلقائية: وزّع الكمية على المخزن الافتراضي ──────────────────────
-  const [defaultWarehouse] = await db
-    .select()
-    .from(warehousesTable)
-    .where(eq(warehousesTable.isDefault, true));
-  if (defaultWarehouse) {
-    const allStock = await db
-      .select()
-      .from(warehouseStockTable)
-      .where(eq(warehouseStockTable.warehouseId, defaultWarehouse.id));
-    const existing = allStock.find(r => r.variantId === variantId);
-
-    if (existing) {
-      await db
-        .update(warehouseStockTable)
-        .set({ quantity: existing.quantity + parsed.data.quantity, updatedAt: new Date() })
-        .where(eq(warehouseStockTable.id, existing.id));
-    } else {
-      await db
-        .insert(warehouseStockTable)
-        .values({
-          warehouseId: defaultWarehouse.id,
-          productId,
-          variantId,
-          quantity: parsed.data.quantity,
-          updatedAt: new Date(),
-        });
-    }
-  }
-  // ──────────────────────────────────────────────────────────────────────────
 
   const [updated] = await db.select().from(productVariantsTable).where(eq(productVariantsTable.id, variantId));
   res.json(updated);
