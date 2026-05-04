@@ -2936,6 +2936,10 @@ export default function ShippingManifestPage() {
               )}
             </Card>
             <Card className="border-border bg-card p-4">
+              <p className="text-xs text-muted-foreground mb-1">خسائر الإرجاع</p>
+              <p className="text-lg font-black text-red-400">−{formatCurrency(s.returnLosses)}</p>
+            </Card>
+            <Card className="border-border bg-card p-4">
               <p className="text-xs text-muted-foreground mb-1">تكلفة البضاعة</p>
               <p className="text-lg font-black">−{formatCurrency(s.totalCost)}</p>
             </Card>
