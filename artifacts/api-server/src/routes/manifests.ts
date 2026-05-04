@@ -550,17 +550,28 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
         movementNotes = deliveryStatus === "postponed" ? "مؤجل — عند شركة الشحن" : "قيد الانتظار — عند شركة الشحن";
       }
 
+      // جيب الحركة الحالية عشان نشوف الـ type بتاعها
       const [lastMov] = await db
-        .select({ id: inventoryMovementsTable.id })
+        .select({ id: inventoryMovementsTable.id, type: inventoryMovementsTable.type })
         .from(inventoryMovementsTable)
         .where(eq(inventoryMovementsTable.orderId, orderId))
         .orderBy(desc(inventoryMovementsTable.id))
         .limit(1);
 
+      // لو الحركة كانت IN (يعني المرتجع كان وصل المخزن) وبنرجعها OUT → نخصم من المخزن تاني
+      if (lastMov?.type === "IN") {
+        const { resolveInventoryTarget, adjustWarehouseStock, syncProductQuantityFromWarehouses } = await import("../lib/inventory.js");
+        const { variantId: vid, productId: pid } = await resolveInventoryTarget(ref);
+        if (vid || pid) {
+          await adjustWarehouseStock(ref.warehouseId, vid, pid, -totalQty);
+          await syncProductQuantityFromWarehouses(vid, pid);
+        }
+      }
+
       if (lastMov) {
         await db
           .update(inventoryMovementsTable)
-          .set({ reason: newReason as any, notes: movementNotes })
+          .set({ type: "OUT", reason: newReason as any, notes: movementNotes })
           .where(eq(inventoryMovementsTable.id, lastMov.id));
       }
     }
@@ -644,16 +655,26 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
           }
 
           const [sibLastMov] = await db
-            .select({ id: inventoryMovementsTable.id })
+            .select({ id: inventoryMovementsTable.id, type: inventoryMovementsTable.type })
             .from(inventoryMovementsTable)
             .where(eq(inventoryMovementsTable.orderId, sib.mo.orderId))
             .orderBy(desc(inventoryMovementsTable.id))
             .limit(1);
 
+          // لو الحركة كانت IN وبنرجعها OUT → نخصم من المخزن تاني
+          if (sibLastMov?.type === "IN") {
+            const { resolveInventoryTarget, adjustWarehouseStock, syncProductQuantityFromWarehouses } = await import("../lib/inventory.js");
+            const { variantId: sv2, productId: sp2 } = await resolveInventoryTarget(sibRef);
+            if (sv2 || sp2) {
+              await adjustWarehouseStock(sibRef.warehouseId, sv2, sp2, -sib.o.quantity);
+              await syncProductQuantityFromWarehouses(sv2, sp2);
+            }
+          }
+
           if (sibLastMov) {
             await db
               .update(inventoryMovementsTable)
-              .set({ reason: sibReason as any, notes: sibNotes })
+              .set({ type: "OUT", reason: sibReason as any, notes: sibNotes })
               .where(eq(inventoryMovementsTable.id, sibLastMov.id));
           }
         }
