@@ -21,6 +21,7 @@ export const ListOrdersQueryParams = zod.object({
   status: zod
     .enum([
       "pending",
+      "warehouse_ready",
       "in_shipping",
       "received",
       "delayed",
@@ -47,6 +48,7 @@ export const ListOrdersResponseItem = zod.object({
   shippingCost: zod.number().nullable(),
   status: zod.enum([
     "pending",
+    "warehouse_ready",
     "in_shipping",
     "received",
     "delayed",
@@ -106,6 +108,7 @@ export const CreateOrderBody = zod.object({
 export const GetOrdersSummaryResponse = zod.object({
   totalOrders: zod.number(),
   pendingOrders: zod.number(),
+  warehouseReadyOrders: zod.number().optional(),
   shippingOrders: zod.number(),
   receivedOrders: zod.number(),
   delayedOrders: zod.number(),
@@ -133,6 +136,7 @@ export const GetRecentOrdersResponseItem = zod.object({
   shippingCost: zod.number().nullable(),
   status: zod.enum([
     "pending",
+    "warehouse_ready",
     "in_shipping",
     "received",
     "delayed",
@@ -175,6 +179,7 @@ export const GetOrderResponse = zod.object({
   shippingCost: zod.number().nullable(),
   status: zod.enum([
     "pending",
+    "warehouse_ready",
     "in_shipping",
     "received",
     "delayed",
@@ -216,6 +221,7 @@ export const UpdateOrderBody = zod.object({
   status: zod
     .enum([
       "pending",
+      "warehouse_ready",
       "in_shipping",
       "received",
       "delayed",
@@ -249,6 +255,7 @@ export const UpdateOrderResponse = zod.object({
   shippingCost: zod.number().nullable(),
   status: zod.enum([
     "pending",
+    "warehouse_ready",
     "in_shipping",
     "received",
     "delayed",
