@@ -2317,6 +2317,12 @@ export default function ShippingManifestPage() {
     queryClient.invalidateQueries({ queryKey: ["variants"] });
     queryClient.invalidateQueries({ queryKey: ["variants-all"] });
     queryClient.invalidateQueries({ queryKey: ["orders-in-manifest-ids"] });
+    // تحديث حركات المخزون والمنتجات تلقائياً بعد كل تغيير حالة
+    queryClient.invalidateQueries({ queryKey: ["movements"] });
+    queryClient.invalidateQueries({ queryKey: ["movements-totals"] });
+    queryClient.invalidateQueries({ queryKey: ["products"] });
+    queryClient.invalidateQueries({ queryKey: ["stock-intelligence"] });
+    queryClient.invalidateQueries({ queryKey: ["variant-wh-stock"] });
   }, [queryClient, id]);
 
   const updateMutation = useMutation({
