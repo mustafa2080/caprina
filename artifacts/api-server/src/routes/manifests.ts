@@ -506,26 +506,30 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
   if (!noChange) {
     if (deliveryStatus === "returned" && returnReceived === true && Number(oldReturnReceived) !== 1) {
       // ── المرتجع وصل المخزن ────────────────────────────────────────────────
-      // الحركة الأصلية (OUT - to_shipping) تبقى كما هي — البضاعة فعلاً خرجت
-      // نضيف حركة جديدة (IN - from_shipping) — البضاعة رجعت للمخزن
-      const { processReturn } = await import("../lib/inventory.js");
-      await processReturn(
-        { ...ref, quantity: totalQty },
-        true,   // wasReceived=true حتى تشتغل الـ function وترجع للمخزن
-        false,
-        orderId,
-      );
-      // غيّر reason الحركة الجديدة من "return" لـ "from_shipping" للتوضيح
-      const [newMov] = await db
+      // غيّر نفس الحركة الموجودة:
+      //   type:   OUT → IN    (الكمية ترجع موجبة للمخزن)
+      //   reason: to_shipping → from_shipping
+      // وأضف الكمية للمخزن فعلياً
+
+      // 1. أضف الكمية للمخزن
+      const { resolveInventoryTarget, adjustWarehouseStock, syncProductQuantityFromWarehouses } = await import("../lib/inventory.js");
+      const { variantId: vid, productId: pid } = await resolveInventoryTarget(ref);
+      if (vid || pid) {
+        await adjustWarehouseStock(ref.warehouseId, vid, pid, +totalQty);
+        await syncProductQuantityFromWarehouses(vid, pid);
+      }
+
+      // 2. غيّر نفس الحركة الأخيرة للطلب ده
+      const [lastMov] = await db
         .select({ id: inventoryMovementsTable.id })
         .from(inventoryMovementsTable)
-        .where(and(eq(inventoryMovementsTable.orderId, orderId), eq(inventoryMovementsTable.type, "IN")))
+        .where(eq(inventoryMovementsTable.orderId, orderId))
         .orderBy(desc(inventoryMovementsTable.id))
         .limit(1);
-      if (newMov) {
+      if (lastMov) {
         await db.update(inventoryMovementsTable)
-          .set({ reason: "from_shipping" as any, notes: "مرتجع — وصل المخزن من شركة الشحن" })
-          .where(eq(inventoryMovementsTable.id, newMov.id));
+          .set({ type: "IN", reason: "from_shipping" as any, notes: "مرتجع — وصل المخزن من شركة الشحن" })
+          .where(eq(inventoryMovementsTable.id, lastMov.id));
       }
     } else {
       // باقي الحالات: غيّر reason نفس الحركة الموجودة (بدون خصم أو إضافة)
@@ -604,20 +608,23 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
         const sibRef = buildOrderRef(sib.o);
 
         if (deliveryStatus === "returned" && returnReceived === true && Number(sib.mo.returnReceived) !== 1) {
-          // مرتجع وصل المخزن → حركة IN جديدة
-          const { processReturn } = await import("../lib/inventory.js");
-          await processReturn({ ...sibRef, quantity: sib.o.quantity }, true, false, sib.mo.orderId);
-          // غيّر reason الحركة الجديدة من "return" لـ "from_shipping"
-          const [sibNewMov] = await db
+          // مرتجع وصل المخزن → غيّر نفس الحركة OUT → IN + أضف للمخزن
+          const { resolveInventoryTarget, adjustWarehouseStock, syncProductQuantityFromWarehouses } = await import("../lib/inventory.js");
+          const { variantId: sv, productId: sp } = await resolveInventoryTarget(sibRef);
+          if (sv || sp) {
+            await adjustWarehouseStock(sibRef.warehouseId, sv, sp, +sib.o.quantity);
+            await syncProductQuantityFromWarehouses(sv, sp);
+          }
+          const [sibLastMov] = await db
             .select({ id: inventoryMovementsTable.id })
             .from(inventoryMovementsTable)
-            .where(and(eq(inventoryMovementsTable.orderId, sib.mo.orderId), eq(inventoryMovementsTable.type, "IN")))
+            .where(eq(inventoryMovementsTable.orderId, sib.mo.orderId))
             .orderBy(desc(inventoryMovementsTable.id))
             .limit(1);
-          if (sibNewMov) {
+          if (sibLastMov) {
             await db.update(inventoryMovementsTable)
-              .set({ reason: "from_shipping" as any, notes: "مرتجع — وصل المخزن من شركة الشحن" })
-              .where(eq(inventoryMovementsTable.id, sibNewMov.id));
+              .set({ type: "IN", reason: "from_shipping" as any, notes: "مرتجع — وصل المخزن من شركة الشحن" })
+              .where(eq(inventoryMovementsTable.id, sibLastMov.id));
           }
         } else {
           let sibReason: string;
