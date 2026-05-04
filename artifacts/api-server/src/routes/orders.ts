@@ -544,38 +544,8 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
       .limit(1)
       .catch(() => []);
 
-    // ── pending: المنتج موجود في المخزون → حركة IN ──────────────────────────
-    if (newStatus === "pending" && oldStatus !== "pending") {
-      if (existingMovement) {
-        if (oldStatus === "returned") {
-          // من returned → pending: المخزون رجع قبل كده عند التحويل لـ returned
-          // نعدل السبب فقط بدون لمس المخزون (تجنب خصم إضافي)
-          await updateMovementReason(existing.id, existingMovement.reason as any, "adjustment" as any, "إلغاء مرتجع — رجوع لقيد الانتظار").catch(() => {});
-        }
-          // باقي الحالات (in_shipping→pending, إلخ) بيتعملوا في الـ blocks التانية
-      } else if (oldStatus !== "returned") {
-        // مفيش حركة موجودة → سجّل حركة موجبة (المنتج في المخزون)
-        // (لو كان returned بدون حركة → مفيش حاجة نضيفها للمخزون)
-        const { variantId, productId } = await resolveInventoryTarget(orderRef);
-        if (variantId || productId) {
-          await adjustWarehouseStock(existing.warehouseId, variantId, productId, existing.quantity).catch(() => {});
-          await syncProductQuantityFromWarehouses(variantId, productId).catch(() => {});
-          await recordMovement({
-            product: existing.product ?? "منتج",
-            color: existing.color,
-            size: existing.size,
-            quantity: existing.quantity,
-            type: "IN",
-            reason: "adjustment" as any,
-            productId,
-            variantId,
-            warehouseId: existing.warehouseId,
-            orderId: existing.id,
-            notes: "قيد الانتظار — المنتج في المخزون",
-          }).catch(() => {});
-        }
-      }
-    }
+    // ── pending: لا يحدث أي تغيير في المخزون ──────────────────────────────
+    // قيد الانتظار = الطلب مسجل فقط، البضاعة لم تُشحن بعد → لا حركة مخزون
 
     if (newStatus === "in_shipping" && oldStatus !== "in_shipping") {
       if (existingMovement) {
