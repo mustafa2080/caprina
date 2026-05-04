@@ -196,6 +196,9 @@ export default function OrderDetail() {
     }, {
       onSuccess: (updated) => {
         queryClient.setQueryData(getGetOrderQueryKey(id), updated);
+        // invalidate manifest-status عشان يتحدث بعد تغيير returnReceived
+        queryClient.invalidateQueries({ queryKey: ["order-manifest-status", id] });
+        queryClient.invalidateQueries({ queryKey: ["invoice-manifest-status"] });
         invalidateAll();
         setShowReturnInput(false);
         setReturnReason("");
