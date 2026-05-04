@@ -558,7 +558,7 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
         .orderBy(desc(inventoryMovementsTable.id))
         .limit(1);
 
-      // لو الحركة كانت IN (يعني المرتجع كان وصل المخزن) وبنرجعها OUT → نخصم من المخزن تاني
+      // لو الحركة الحالية IN (يعني المرتجع كان وصل المخزن) وبنرجعها OUT → نخصم من المخازن والمخزون
       if (lastMov?.type === "IN") {
         const { resolveInventoryTarget, adjustWarehouseStock, syncProductQuantityFromWarehouses } = await import("../lib/inventory.js");
         const { variantId: vid, productId: pid } = await resolveInventoryTarget(ref);
@@ -573,6 +573,27 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
           .update(inventoryMovementsTable)
           .set({ type: "OUT", reason: newReason as any, notes: movementNotes })
           .where(eq(inventoryMovementsTable.id, lastMov.id));
+      } else {
+        // مفيش حركة موجودة → سجّل حركة جديدة وخصم من المخازن (حالة استثنائية)
+        const { resolveInventoryTarget, adjustWarehouseStock, syncProductQuantityFromWarehouses, recordMovement } = await import("../lib/inventory.js");
+        const { variantId: vid, productId: pid } = await resolveInventoryTarget(ref);
+        if (vid || pid) {
+          await adjustWarehouseStock(ref.warehouseId, vid, pid, -totalQty);
+          await syncProductQuantityFromWarehouses(vid, pid);
+          await recordMovement({
+            type: "OUT",
+            reason: newReason as any,
+            quantity: totalQty,
+            warehouseId: ref.warehouseId,
+            variantId: vid,
+            productId: pid,
+            product: ref.product,
+            color: ref.color,
+            size: ref.size,
+            orderId,
+            notes: movementNotes,
+          });
+        }
       }
     }
   } // end if (!noChange)
@@ -661,7 +682,7 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
             .orderBy(desc(inventoryMovementsTable.id))
             .limit(1);
 
-          // لو الحركة كانت IN وبنرجعها OUT → نخصم من المخزن تاني
+          // لو الحركة الحالية IN وبنرجعها OUT → نخصم من المخازن والمخزون
           if (sibLastMov?.type === "IN") {
             const { resolveInventoryTarget, adjustWarehouseStock, syncProductQuantityFromWarehouses } = await import("../lib/inventory.js");
             const { variantId: sv2, productId: sp2 } = await resolveInventoryTarget(sibRef);
@@ -676,6 +697,27 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
               .update(inventoryMovementsTable)
               .set({ type: "OUT", reason: sibReason as any, notes: sibNotes })
               .where(eq(inventoryMovementsTable.id, sibLastMov.id));
+          } else {
+            // مفيش حركة → سجّل جديدة وخصم من المخازن (حالة استثنائية)
+            const { resolveInventoryTarget, adjustWarehouseStock, syncProductQuantityFromWarehouses, recordMovement } = await import("../lib/inventory.js");
+            const { variantId: sv2, productId: sp2 } = await resolveInventoryTarget(sibRef);
+            if (sv2 || sp2) {
+              await adjustWarehouseStock(sibRef.warehouseId, sv2, sp2, -sib.o.quantity);
+              await syncProductQuantityFromWarehouses(sv2, sp2);
+              await recordMovement({
+                type: "OUT",
+                reason: sibReason as any,
+                quantity: sib.o.quantity,
+                warehouseId: sibRef.warehouseId,
+                variantId: sv2,
+                productId: sp2,
+                product: sibRef.product,
+                color: sibRef.color,
+                size: sibRef.size,
+                orderId: sib.mo.orderId,
+                notes: sibNotes,
+              });
+            }
           }
         }
       }
