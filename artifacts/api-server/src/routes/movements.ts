@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, and, gte, lte, or, like, sum } from "drizzle-orm";
+import { eq, desc, and, gte, lte, or, like, sum, isNull, ne } from "drizzle-orm";
 import {
   db,
   inventoryMovementsTable,
@@ -7,6 +7,7 @@ import {
   productVariantsTable,
   warehousesTable,
   warehouseStockTable,
+  ordersTable,
 } from "@workspace/db";
 import {
   adjustWarehouseStock,
@@ -87,11 +88,19 @@ router.get("/inventory/movements", async (req, res): Promise<void> => {
     })
     .from(inventoryMovementsTable)
     .leftJoin(warehousesTable, eq(inventoryMovementsTable.warehouseId, warehousesTable.id))
+    .leftJoin(ordersTable, eq(inventoryMovementsTable.orderId, ordersTable.id))
     .orderBy(desc(inventoryMovementsTable.createdAt))
     .$dynamic();
 
-  if (conditions.length === 1) query = query.where(conditions[0]);
-  else if (conditions.length > 1) query = query.where(and(...conditions));
+  // استثني أي حركة مرتبطة بطلب حالته pending
+  const pendingFilter = or(
+    isNull(inventoryMovementsTable.orderId),
+    ne(ordersTable.status, "pending")
+  );
+  const allConditions = conditions.length > 0
+    ? and(pendingFilter, ...conditions)
+    : pendingFilter;
+  query = query.where(allConditions);
 
   res.json(await query);
 });
@@ -100,13 +109,24 @@ router.get("/inventory/movements", async (req, res): Promise<void> => {
 router.get("/inventory/movements/totals", async (req, res): Promise<void> => {
   const conditions = await buildConditions(req.query as Record<string, string>);
 
-  let query = db.select().from(inventoryMovementsTable).$dynamic();
-  if (conditions.length === 1) query = query.where(conditions[0]);
-  else if (conditions.length > 1) query = query.where(and(...conditions));
+  let query = db
+    .select()
+    .from(inventoryMovementsTable)
+    .leftJoin(ordersTable, eq(inventoryMovementsTable.orderId, ordersTable.id))
+    .$dynamic();
+
+  const pendingFilter = or(
+    isNull(inventoryMovementsTable.orderId),
+    ne(ordersTable.status, "pending")
+  );
+  const allConditions = conditions.length > 0
+    ? and(pendingFilter, ...conditions)
+    : pendingFilter;
+  query = query.where(allConditions);
 
   const rows = await query;
-  const totalIn  = rows.filter(r => r.type === "IN").reduce((s, r) => s + r.quantity, 0);
-  const totalOut = rows.filter(r => r.type === "OUT").reduce((s, r) => s + r.quantity, 0);
+  const totalIn  = rows.filter(r => r.inventory_movements.type === "IN").reduce((s, r) => s + r.inventory_movements.quantity, 0);
+  const totalOut = rows.filter(r => r.inventory_movements.type === "OUT").reduce((s, r) => s + r.inventory_movements.quantity, 0);
 
   // ── الرصيد الحقيقي من المخزون (إذا تم الفلتر على منتج معين) ──────────────
   // الرصيد = الكمية الفعلية في المخازن (مش مجموع الحركات)
