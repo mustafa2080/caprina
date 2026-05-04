@@ -506,30 +506,28 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
   if (!noChange) {
     if (deliveryStatus === "returned" && returnReceived === true && Number(oldReturnReceived) !== 1) {
       // ── المرتجع وصل المخزن ────────────────────────────────────────────────
-      // غيّر نفس الحركة الموجودة:
-      //   type:   OUT → IN    (الكمية ترجع موجبة للمخزن)
-      //   reason: to_shipping → from_shipping
-      // وأضف الكمية للمخزن فعلياً
-
-      // 1. أضف الكمية للمخزن
+      // 1. أضف الكمية للمخزن فعلياً
       const { resolveInventoryTarget, adjustWarehouseStock, syncProductQuantityFromWarehouses } = await import("../lib/inventory.js");
       const { variantId: vid, productId: pid } = await resolveInventoryTarget(ref);
       if (vid || pid) {
         await adjustWarehouseStock(ref.warehouseId, vid, pid, +totalQty);
         await syncProductQuantityFromWarehouses(vid, pid);
       }
-
-      // 2. غيّر نفس الحركة الأخيرة للطلب ده
-      const [lastMov] = await db
+      // 2. غيّر حركة to_shipping الخاصة بالطلب ده (OUT→IN, from_shipping)
+      //    بنستهدف الحركة بـ reason=to_shipping عشان ما نلمسش أي حركة تانية
+      const [toShipMov] = await db
         .select({ id: inventoryMovementsTable.id })
         .from(inventoryMovementsTable)
-        .where(eq(inventoryMovementsTable.orderId, orderId))
+        .where(and(
+          eq(inventoryMovementsTable.orderId, orderId),
+          eq(inventoryMovementsTable.reason, "to_shipping" as any),
+        ))
         .orderBy(desc(inventoryMovementsTable.id))
         .limit(1);
-      if (lastMov) {
+      if (toShipMov) {
         await db.update(inventoryMovementsTable)
           .set({ type: "IN", reason: "from_shipping" as any, notes: "مرتجع — وصل المخزن من شركة الشحن" })
-          .where(eq(inventoryMovementsTable.id, lastMov.id));
+          .where(eq(inventoryMovementsTable.id, toShipMov.id));
       }
     } else {
       // باقي الحالات: غيّر reason نفس الحركة الموجودة (بدون خصم أو إضافة)
@@ -608,23 +606,25 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
         const sibRef = buildOrderRef(sib.o);
 
         if (deliveryStatus === "returned" && returnReceived === true && Number(sib.mo.returnReceived) !== 1) {
-          // مرتجع وصل المخزن → غيّر نفس الحركة OUT → IN + أضف للمخزن
           const { resolveInventoryTarget, adjustWarehouseStock, syncProductQuantityFromWarehouses } = await import("../lib/inventory.js");
           const { variantId: sv, productId: sp } = await resolveInventoryTarget(sibRef);
           if (sv || sp) {
             await adjustWarehouseStock(sibRef.warehouseId, sv, sp, +sib.o.quantity);
             await syncProductQuantityFromWarehouses(sv, sp);
           }
-          const [sibLastMov] = await db
+          const [sibToShipMov] = await db
             .select({ id: inventoryMovementsTable.id })
             .from(inventoryMovementsTable)
-            .where(eq(inventoryMovementsTable.orderId, sib.mo.orderId))
+            .where(and(
+              eq(inventoryMovementsTable.orderId, sib.mo.orderId),
+              eq(inventoryMovementsTable.reason, "to_shipping" as any),
+            ))
             .orderBy(desc(inventoryMovementsTable.id))
             .limit(1);
-          if (sibLastMov) {
+          if (sibToShipMov) {
             await db.update(inventoryMovementsTable)
               .set({ type: "IN", reason: "from_shipping" as any, notes: "مرتجع — وصل المخزن من شركة الشحن" })
-              .where(eq(inventoryMovementsTable.id, sibLastMov.id));
+              .where(eq(inventoryMovementsTable.id, sibToShipMov.id));
           }
         } else {
           let sibReason: string;
