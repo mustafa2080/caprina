@@ -519,8 +519,8 @@ export default function OrderDetail() {
         </Card>
       )}
 
-      {/* ── بيانات البيان (لو الطلب في بيان شحن) ──────────────────────────── */}
-      {manifestStatus && (
+      {/* ── بيانات البيان (لو الطلب في بيان شحن ومش في قيد الانتظار) ──────────────────────────── */}
+      {manifestStatus && order.status !== "pending" && (
         <Card className={`border ${
           manifestStatus.deliveryStatus === "returned"
             ? "border-red-800 bg-red-900/10"

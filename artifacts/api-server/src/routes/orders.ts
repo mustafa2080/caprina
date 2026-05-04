@@ -546,11 +546,14 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
 
     // ── pending: المنتج موجود في المخزون → حركة IN ──────────────────────────
     if (newStatus === "pending" && oldStatus !== "pending") {
-      // الطلب رجع لقيد الانتظار → المنتج رجع للمخزون
-      // (يتعامل مع حالات: in_shipping→pending, delayed→pending, إلخ)
-      // reverseShipping/reverseDelivery بيتعملوا في الـ blocks التانية
-      // هنا نضمن بس إن لو مفيش حركة موجودة، نسجّل حركة adjustment إيجابية
-      if (!existingMovement) {
+      if (existingMovement) {
+        if (oldStatus === "returned") {
+          // من returned → pending: المخزون رجع قبل كده عند التحويل لـ returned
+          // نعدل السبب فقط بدون لمس المخزون (تجنب خصم إضافي)
+          await updateMovementReason(existing.id, existingMovement.reason as any, "adjustment" as any, "إلغاء مرتجع — رجوع لقيد الانتظار").catch(() => {});
+        }
+          // باقي الحالات (in_shipping→pending, إلخ) بيتعملوا في الـ blocks التانية
+      } else {
         // مفيش حركة موجودة → سجّل حركة موجبة (المنتج في المخزون)
         const { variantId, productId } = await resolveInventoryTarget(orderRef);
         if (variantId || productId) {
@@ -571,7 +574,6 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
           }).catch(() => {});
         }
       }
-      // لو في حركة موجودة → الـ blocks التانية (reverse shipping/delivery) بتتكلف بالموضوع
     }
 
     if (newStatus === "in_shipping" && oldStatus !== "in_shipping") {
