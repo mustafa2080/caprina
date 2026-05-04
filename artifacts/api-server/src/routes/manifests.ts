@@ -87,8 +87,17 @@ function computeStats(orders: OrderWithDelivery[]) {
       totalRevenue += revenue; totalCost += cost; totalShippingCost += shipping; deliveredGross += revenue;
       if (isPartial && rv !== 1) { stillAtShippingCount++; const remainQty = o.quantity - (partialQty ?? 0); stillAtShippingAmount += o.unitPrice * remainQty; }
     } else if (o.deliveryStatus === "returned") {
-      // المرتجع: مش بنحسب عليه خسارة — الـ returnLosses بتفضل صفر
-      if (rv !== 1) { stillAtShippingCount++; stillAtShippingAmount += o.totalPrice; }
+      if (rv === 1) {
+        // رجع للمخزن — خسارة الشحن فقط
+        totalShippingCost += shipping;
+      } else {
+        // مازال عند شركة الشحن — خسارة كاملة (تكلفة البضاعة + الشحن)
+        returnLosses += cost + shipping;
+        totalCost += cost;
+        totalShippingCost += shipping;
+        stillAtShippingCount++;
+        stillAtShippingAmount += o.totalPrice;
+      }
     } else { totalShippingCost += shipping; }
   }
   const actuallyDeliveredShipping = orders
