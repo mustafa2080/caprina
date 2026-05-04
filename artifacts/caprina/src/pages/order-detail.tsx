@@ -589,18 +589,22 @@ export default function OrderDetail() {
             </div>
 
             {/* حالة المرتجع — تظهر فقط لو حالة الطلب الفعلية = returned */}
-            {manifestStatus.deliveryStatus === "returned" && order.status === "returned" && (
-              <div className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-bold ${
-                manifestStatus.returnReceived === 1
-                  ? "bg-emerald-900/20 text-emerald-400 border border-emerald-700"
-                  : manifestStatus.returnReceived === 0
-                  ? "bg-orange-900/20 text-orange-400 border border-orange-700"
-                  : "bg-muted/20 text-muted-foreground border border-border"
-              }`}>
-                {manifestStatus.returnReceived === 1 && <><CheckCircle2 className="w-3.5 h-3.5" /> تم استلام المرتجع — البضاعة رجعت للمخزن</>}
-                {manifestStatus.returnReceived === 0 && <><Clock className="w-3.5 h-3.5" /> المرتجع مازال عند شركة الشحن — لم يُستلم بعد</>}
-              </div>
-            )}
+            {manifestStatus.deliveryStatus === "returned" && order.status === "returned" && (() => {
+              // اعتمد على order.returnReceived كمصدر رئيسي
+              const rr = (order as any).returnReceived ?? manifestStatus.returnReceived;
+              return (
+                <div className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-bold ${
+                  rr === 1 || rr === true
+                    ? "bg-emerald-900/20 text-emerald-400 border border-emerald-700"
+                    : rr === 0 || rr === false
+                    ? "bg-orange-900/20 text-orange-400 border border-orange-700"
+                    : "bg-muted/20 text-muted-foreground border border-border"
+                }`}>
+                  {(rr === 1 || rr === true) && <><CheckCircle2 className="w-3.5 h-3.5" /> تم استلام المرتجع — البضاعة رجعت للمخزن</>}
+                  {(rr === 0 || rr === false) && <><Clock className="w-3.5 h-3.5" /> المرتجع مازال عند شركة الشحن — لم يُستلم بعد</>}
+                </div>
+              );
+            })()}
 
             {manifestStatus.deliveryNote && (
               <p className="text-xs text-muted-foreground">ملاحظة: {manifestStatus.deliveryNote}</p>
@@ -955,25 +959,29 @@ export default function OrderDetail() {
                           </Badge>
                         </div>
                       );
-                      if (ds === "returned" && order.status === "returned") return (
-                        <div className="mt-1.5 flex flex-col gap-1">
-                          {rRec === 1 && (
-                            <Badge variant="outline" className="text-[9px] font-bold border-emerald-700 text-emerald-400 w-fit">
-                              <CheckCircle2 className="w-2.5 h-2.5 ml-1" />تم الاستلام — رجع للمخزن
-                            </Badge>
-                          )}
-                          {rRec === 0 && (
-                            <>
-                              <Badge variant="outline" className="text-[9px] font-bold border-red-600 text-red-400 w-fit">
-                                ↩ مرتجع
+                      if (ds === "returned" && order.status === "returned") {
+                        // اعتمد على order.returnReceived مباشرة (أدق من manifestStatus)
+                        const returnRec = (order as any).returnReceived;
+                        return (
+                          <div className="mt-1.5 flex flex-col gap-1">
+                            {(returnRec === 1 || returnRec === true) && (
+                              <Badge variant="outline" className="text-[9px] font-bold border-emerald-700 text-emerald-400 w-fit">
+                                <CheckCircle2 className="w-2.5 h-2.5 ml-1" />تم الاستلام — رجع للمخزن
                               </Badge>
-                              <Badge variant="outline" className="text-[9px] font-bold border-orange-600 text-orange-400 w-fit">
-                                <Clock className="w-2.5 h-2.5 ml-1" />مازال عند شركة الشحن
-                              </Badge>
-                            </>
-                          )}
-                        </div>
-                      );
+                            )}
+                            {(returnRec === 0 || returnRec === false) && (
+                              <>
+                                <Badge variant="outline" className="text-[9px] font-bold border-red-600 text-red-400 w-fit">
+                                  ↩ مرتجع
+                                </Badge>
+                                <Badge variant="outline" className="text-[9px] font-bold border-orange-600 text-orange-400 w-fit">
+                                  <Clock className="w-2.5 h-2.5 ml-1" />مازال عند شركة الشحن
+                                </Badge>
+                              </>
+                            )}
+                          </div>
+                        );
+                      }
                       if (ds === "postponed") return (
                         <div className="mt-1.5">
                           <Badge variant="outline" className="text-[9px] font-bold border-orange-600 text-orange-400 w-fit">
