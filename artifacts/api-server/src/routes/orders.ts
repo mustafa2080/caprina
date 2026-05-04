@@ -576,7 +576,12 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
 
     if (newStatus === "in_shipping" && oldStatus !== "in_shipping") {
       if (existingMovement) {
-        // في حركة موجودة → عدّل reason فقط
+        // لو الحركة الموجودة adjustment (المنتج كان في المخزون) → لازم نخصم المخزون دلوقتي
+        if (existingMovement.reason === "adjustment") {
+          const { variantId, productId } = await resolveInventoryTarget(orderRef);
+          await adjustWarehouseStock(existing.warehouseId, variantId, productId, -existing.quantity).catch(() => {});
+          await syncProductQuantityFromWarehouses(variantId, productId).catch(() => {});
+        }
         await updateMovementReason(existing.id, existingMovement.reason as any, "to_shipping" as any, "تحويل لشركة الشحن").catch(() => {});
       } else {
         // مفيش حركة → اخصم من المخزون وسجّل to_shipping
