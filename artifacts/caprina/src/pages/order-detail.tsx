@@ -141,19 +141,7 @@ export default function OrderDetail() {
         queryClient.setQueryData(getGetOrderQueryKey(id), updated);
         setSelectDisplayStatus(null);
         invalidateAll();
-        if (newStatus === "in_shipping" && updated.manifestId) {
-          toast({
-            title: "✅ تم التحويل لقيد الشحن",
-            description: "تم خصم المخزون وإضافة الطلب لبيان الشحن",
-            action: (
-              <ToastAction altText="عرض البيان" onClick={() => navigate(`/shipping/manifests/${updated.manifestId}`)}>
-                عرض البيان ←
-              </ToastAction>
-            ),
-          });
-        } else {
-          toast({ title: "تم تحديث الحالة", description: `الطلب أصبح: ${statusLabels[newStatus]}` });
-        }
+        toast({ title: "تم تحديث الحالة", description: `الطلب أصبح: ${statusLabels[newStatus]}` });
       },
       onError: () => { setSelectDisplayStatus(null); toast({ title: "خطأ", description: "فشل تحديث الحالة.", variant: "destructive" }); },
     });
@@ -264,24 +252,12 @@ export default function OrderDetail() {
     if (!order) return;
     if (order.status === "pending") {
       updateOrder.mutate(
-        { id, data: { status: "in_shipping" } },
+        { id, data: { status: "warehouse_ready" as any } },
         {
           onSuccess: (updated: any) => {
             queryClient.setQueryData(getGetOrderQueryKey(id), updated);
             invalidateAll();
-            if (updated.manifestId) {
-              toast({
-                title: "تم إرسال واتساب ✅",
-                description: "تم تحويل الطلب لـ «قيد الشحن» وإضافته للبيان",
-                action: (
-                  <ToastAction altText="عرض البيان" onClick={() => navigate(`/shipping/manifests/${updated.manifestId}`)}>
-                    عرض البيان ←
-                  </ToastAction>
-                ),
-              });
-            } else {
-              toast({ title: "تم إرسال واتساب ✅", description: "تم تحويل الطلب لـ «قيد الشحن» تلقائياً" });
-            }
+            toast({ title: "تم إرسال واتساب ✅", description: "تم تحويل الطلب لـ «قيد الشحن في المخزن» — جاهز للبيان" });
           },
         }
       );
@@ -337,6 +313,7 @@ export default function OrderDetail() {
                   <SelectTrigger className="h-8 text-xs bg-card border-border"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="pending">قيد الانتظار</SelectItem>
+                    <SelectItem value="warehouse_ready">قيد الشحن في المخزن</SelectItem>
                     <SelectItem value="in_shipping">قيد الشحن</SelectItem>
                     <SelectItem value="received">استلم ✓</SelectItem>
                     <SelectItem value="delayed">مؤجل</SelectItem>

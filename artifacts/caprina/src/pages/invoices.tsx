@@ -66,8 +66,11 @@ export default function Invoices() {
     return allOrders.filter(o => {
       // لا تعرض الطلبات قيد الانتظار أبداً في الفواتير
       if (o.status === "pending") return false;
-      // الطلبات قيد الشحن لازم يكون عندها رقم فاتورة
-      if (o.status === "in_shipping" && !(o as any).invoiceNumber?.trim()) return false;
+      // الفواتير تظهر فقط للطلبات قيد الشحن في المخزن (warehouse_ready)
+      // أي طلب in_shipping دخل البيان ومش مفروض يظهر هنا
+      if (o.status === "in_shipping") return false;
+      // الطلبات warehouse_ready لازم يكون عندها رقم فاتورة
+      if (o.status === "warehouse_ready" && !(o as any).invoiceNumber?.trim()) return false;
       const ids: number[] = (o as any)._groupIds ?? [o.id];
       return !ids.every(id => manifestSet.has(id));
     });

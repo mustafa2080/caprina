@@ -338,6 +338,7 @@ router.get("/orders/summary", async (_req, res): Promise<void> => {
   const summary = {
     totalOrders: invoices.length,
     pendingOrders: invoices.filter(o => o.status === "pending").length,
+    warehouseReadyOrders: invoices.filter(o => o.status === "warehouse_ready").length,
     shippingOrders: invoices.filter(o => o.status === "in_shipping").length,
     receivedOrders: invoices.filter(o => o.status === "received").length,
     delayedOrders: invoices.filter(o => o.status === "delayed").length,
@@ -544,8 +545,11 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
 
     // ── منطق حركات المخزون ──────────────────────────────────────────────────
     // القاعدة الجديدة:
-    //   1. لو في حركة موجودة للأوردر ده → عدّل عليها فقط (غيّر reason/notes)، لا تعمل جديدة
-    //   2. لو مفيش حركة → عمل حركة جديدة حسب الحالة
+    //   warehouse_ready = الطلب جاهز في المخزن، لكن لم يخصم بعد (يُخصم عند إضافته لبيان)
+    //   in_shipping = الطلب في شركة الشحن (خُصم من المخزن عند إنشاء البيان)
+
+    // ── لو الحالة الجديدة warehouse_ready: لا يحدث خصم في المخزون ──────────
+    // نتجاهل أي تغيير مخزون هنا — الخصم يحدث لما يتضاف للبيان
 
     // هل في حركة موجودة للأوردر ده في جدول المخزون؟
     const [existingMovement] = await db
@@ -556,8 +560,10 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
       .limit(1)
       .catch(() => []);
 
-    // ── pending: لا يحدث أي تغيير في المخزون ──────────────────────────────
-    // قيد الانتظار = الطلب مسجل فقط، البضاعة لم تُشحن بعد → لا حركة مخزون
+    // ── warehouse_ready → لا حركة مخزون ──────────────────────────────────
+    if (newStatus === "warehouse_ready") {
+      // لا يوجد خصم من المخزون هنا — الخصم يحدث لما يدخل البيان
+    }
 
     if (newStatus === "in_shipping" && oldStatus !== "in_shipping") {
       if (existingMovement) {

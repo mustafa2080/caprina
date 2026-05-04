@@ -177,13 +177,11 @@ router.post("/shipping-manifests", async (req, res): Promise<void> => {
         .limit(1)
         .catch(() => []);
       if (existingMov) {
-        // في حركة موجودة → عدّل عليها بدل ما تعمل جديدة
         await db.update(inventoryMovementsTable)
           .set({ reason: "to_shipping" as any, notes: "تحويل لشركة الشحن (نُقل من بيان سابق)" })
           .where(eq(inventoryMovementsTable.id, existingMov.id))
           .catch(() => {});
       } else {
-        // مفيش حركة → عمل جديدة بدون خصم (الكمية خرجت قبل كده من orders route)
         const ref = buildOrderRef(order);
         const { variantId, productId } = await resolveInventoryTarget(ref);
         if (variantId || productId) {
@@ -203,8 +201,11 @@ router.post("/shipping-manifests", async (req, res): Promise<void> => {
           });
         }
       }
+    } else if (order.status === "warehouse_ready") {
+      // الطلب كان جاهز في المخزن (warehouse_ready) → processToShipping عادي (خصم من المخزن + حركة)
+      await processToShipping(buildOrderRef(order), order.quantity, order.id);
     } else {
-      // الطلب pending → processToShipping عادي (خصم من المخزن + حركة)
+      // الطلب pending أو delayed → processToShipping
       await processToShipping(buildOrderRef(order), order.quantity, order.id);
     }
   }

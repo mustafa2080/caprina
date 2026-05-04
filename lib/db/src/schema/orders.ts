@@ -2,7 +2,7 @@ import { mysqlTable, text, int, real, datetime, index, varchar } from "drizzle-o
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
-export const ORDER_STATUSES = ["pending", "in_shipping", "received", "delayed", "returned", "partial_received"] as const;
+export const ORDER_STATUSES = ["pending", "warehouse_ready", "in_shipping", "received", "delayed", "returned", "partial_received"] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 export const AD_SOURCES = ["facebook", "tiktok", "instagram", "organic", "whatsapp", "other"] as const;

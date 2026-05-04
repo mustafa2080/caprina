@@ -2120,16 +2120,15 @@ function AddOrdersToManifestDialog({
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
-  // جيب pending + delayed + in_shipping (كلهم ممكن يتضافوا لمانيفست)
+  // جيب warehouse_ready (قيد الشحن في المخزن) — هم اللي يتضافوا لمانيفست
   const { data: allAvailableOrders, isLoading } = useQuery({
     queryKey: ["orders-available-for-manifest"],
     queryFn: async () => {
-      const [pending, delayed, inShipping] = await Promise.all([
-        apiFetch<OrderRow[]>(`/orders?status=pending`),
+      const [warehouseReady, delayed] = await Promise.all([
+        apiFetch<OrderRow[]>(`/orders?status=warehouse_ready`),
         apiFetch<OrderRow[]>(`/orders?status=delayed`),
-        apiFetch<OrderRow[]>(`/orders?status=in_shipping`),
       ]);
-      return [...pending, ...delayed, ...inShipping];
+      return [...warehouseReady, ...delayed];
     },
     staleTime: 10000,
   });
@@ -2166,13 +2165,11 @@ function AddOrdersToManifestDialog({
     return allAvailableOrders.filter(o => {
       // استبعد الموجودين في البيان الحالي
       if (existingOrderIds.has(o.id)) return false;
-      // استبعد الـ in_shipping اللي في بيانات مفتوحة تانية
-      if (o.status === "in_shipping" && inOtherManifestIds.has(o.id)) return false;
-      // الـ in_shipping لازم يكون عنده invoiceNumber (قيد الشحن في المخزن)
-      if (o.status === "in_shipping" && !(o as any).invoiceNumber?.trim()) return false;
+      // warehouse_ready لازم يكون عنده invoiceNumber
+      if (o.status === "warehouse_ready" && !(o as any).invoiceNumber?.trim()) return false;
       return true;
     });
-  }, [allAvailableOrders, existingOrderIds, inOtherManifestIds]);
+  }, [allAvailableOrders, existingOrderIds]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return available;
