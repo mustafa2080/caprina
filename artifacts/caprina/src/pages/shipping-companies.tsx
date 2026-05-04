@@ -223,10 +223,27 @@ export function CreateManifestDialog({
     return m;
   }, [allCompanies]);
 
-  const { data: inShippingOrders, isLoading } = useQuery({
+  const { data: pendingOrders, isLoading: isLoadingPending } = useQuery({
+    queryKey: ["orders-pending-all"],
+    queryFn: () => apiFetch<OrderRow[]>(`/orders?status=pending`),
+  });
+
+  const { data: inShippingOrders, isLoading: isLoadingShipping } = useQuery({
     queryKey: ["orders-in-shipping-all"],
     queryFn: () => apiFetch<OrderRow[]>(`/orders?status=in_shipping`),
   });
+
+  const isLoading = isLoadingPending || isLoadingShipping;
+
+  // دمج الطلبات المعلقة والطلبات في الشحن (اللي مش في بيان مفتوح)
+  const allAvailableOrders = useMemo(() => {
+    const pending = pendingOrders ?? [];
+    const inShipping = inShippingOrders ?? [];
+    const ids = new Set(pending.map(o => o.id));
+    // اضف الـ in_shipping اللي مش موجودة في pending (مش مكررة)
+    const extra = inShipping.filter(o => !ids.has(o.id));
+    return [...pending, ...extra];
+  }, [pendingOrders, inShippingOrders]);
 
   const createMutation = useMutation({
     mutationFn: () =>
@@ -239,6 +256,7 @@ export function CreateManifestDialog({
       queryClient.invalidateQueries({ queryKey: ["shipping-manifests", company.id] });
       queryClient.invalidateQueries({ queryKey: ["company-stats", company.id] });
       queryClient.invalidateQueries({ queryKey: ["orders-in-shipping-all"] });
+      queryClient.invalidateQueries({ queryKey: ["orders-pending-all"] });
       queryClient.invalidateQueries({ queryKey: ["warehouses"] });
       queryClient.invalidateQueries({ queryKey: ["variants"] });
       queryClient.invalidateQueries({ queryKey: ["variants-all"] });
@@ -259,9 +277,9 @@ export function CreateManifestDialog({
 
   // ── تجميع الطلبات بنفس invoiceNumber في سطر واحد ─────────────────────────
   const groupedOrders = useMemo(() => {
-    if (!inShippingOrders) return [];
+    if (!pendingOrders && !inShippingOrders) return [];
     const groups = new Map<string, OrderRow>();
-    for (const o of inShippingOrders) {
+    for (const o of allAvailableOrders) {
       const key = o.invoiceNumber ?? `solo-${o.id}`;
       if (!groups.has(key)) {
         groups.set(key, { ...o, _groupIds: [o.id], _groupCount: 1 });
@@ -277,7 +295,7 @@ export function CreateManifestDialog({
       }
     }
     return Array.from(groups.values());
-  }, [inShippingOrders]);
+  }, [allAvailableOrders]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return groupedOrders;
@@ -329,7 +347,7 @@ export function CreateManifestDialog({
             </div>
             {!isLoading && (
               <span className="text-xs text-muted-foreground whitespace-nowrap">
-                {groupedOrders.length} فاتورة ({inShippingOrders?.length ?? 0} طلبية)
+                {groupedOrders.length} فاتورة ({allAvailableOrders.length} طلبية)
               </span>
             )}
           </div>
@@ -364,8 +382,8 @@ export function CreateManifestDialog({
               <div className="p-10 text-center">
                 <Truck className="w-8 h-8 mx-auto mb-2 text-muted-foreground opacity-20" />
                 <p className="text-sm text-muted-foreground">
-                  {inShippingOrders?.length === 0
-                    ? "لا توجد طلبيات قيد الشحن حالياً"
+                  {allAvailableOrders.length === 0
+                    ? "لا توجد طلبيات متاحة حالياً (pending أو in_shipping)"
                     : "لا توجد نتائج تطابق البحث"}
                 </p>
               </div>
@@ -411,6 +429,9 @@ export function CreateManifestDialog({
                           ) : (
                             <span className="font-mono">#{order.id.toString().padStart(4, "0")}</span>
                           )}
+                          <span className={`px-1 rounded text-[9px] font-bold ${order.status === "pending" ? "bg-amber-500/15 text-amber-400" : "bg-blue-500/15 text-blue-400"}`}>
+                            {order.status === "pending" ? "معلق" : "في الشحن"}
+                          </span>
                           {order._groupCount && order._groupCount > 1 && (
                             <span className="bg-primary/15 text-primary px-1 rounded text-[9px] font-bold">{order._groupCount} منتجات</span>
                           )}
