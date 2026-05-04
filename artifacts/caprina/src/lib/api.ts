@@ -610,6 +610,7 @@ export interface MovementTotals {
   totalIn: number;
   totalOut: number;
   balance: number;
+  currentStock: number | null; // الرصيد الفعلي من المخزون — بيظهر لما يكون في فلتر على منتج
 }
 
 // ─── Shipping Manifests API ─────────────────────────────────────────────────
@@ -1029,8 +1030,8 @@ export const movementsApi = {
     const params = new URLSearchParams();
     if (filters?.type)        params.set("type",        filters.type);
     if (filters?.reason)      params.set("reason",      filters.reason);
-    if (filters?.productId)   params.set("productId",   String(filters.productId));
-    if (filters?.warehouseId) params.set("warehouseId", String(filters.warehouseId));
+    if (filters?.productId != null)   params.set("productId",   String(filters.productId));
+    if (filters?.warehouseId != null) params.set("warehouseId", String(filters.warehouseId));
     if (filters?.dateFrom)    params.set("dateFrom",    filters.dateFrom);
     if (filters?.dateTo)      params.set("dateTo",      filters.dateTo);
     const qs = params.toString();

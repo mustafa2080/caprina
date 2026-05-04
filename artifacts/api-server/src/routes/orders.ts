@@ -540,10 +540,13 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
     }
 
     if (newStatus === "received" && oldStatus === "in_shipping") {
-      // كان في الشحن وتسلّم → غيّر سبب الحركة الموجودة من to_shipping لـ sale (لا خصم جديد)
+      // كان في الشحن وتسلّم → غيّر reason الحركة الموجودة من to_shipping لـ sale (لا خصم جديد)
       await db.update(inventoryMovementsTable)
-        .set({ reason: "sale" })
-        .where(and(eq(inventoryMovementsTable.orderId, existing.id), eq(inventoryMovementsTable.reason, "to_shipping" as any)))
+        .set({ reason: "sale", notes: "تم الاستلام — بيع" })
+        .where(and(
+          eq(inventoryMovementsTable.orderId, existing.id),
+          eq(inventoryMovementsTable.reason, "to_shipping" as any)
+        ))
         .catch(() => {});
     } else if (newStatus === "received" && oldStatus !== "in_shipping") {
       // لم يمر بالشحن → اخصم من المخزون مباشرة كبيع
@@ -551,11 +554,16 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
     }
 
     if (newStatus === "partial_received" && oldStatus === "in_shipping") {
-      // استلام جزئي من الشحن → غيّر السبب لـ partial_sale
+      // استلام جزئي من الشحن → غيّر السبب لـ partial_sale (لا خصم جديد)
       await db.update(inventoryMovementsTable)
-        .set({ reason: "partial_sale" })
-        .where(and(eq(inventoryMovementsTable.orderId, existing.id), eq(inventoryMovementsTable.reason, "to_shipping" as any)))
+        .set({ reason: "partial_sale", notes: "استلام جزئي" })
+        .where(and(
+          eq(inventoryMovementsTable.orderId, existing.id),
+          eq(inventoryMovementsTable.reason, "to_shipping" as any)
+        ))
         .catch(() => {});
+    } else if (newStatus === "partial_received" && oldStatus !== "in_shipping") {
+      await processDelivery(orderRef, existing.quantity, "partial_sale", existing.id).catch(() => {});
     }
 
     if (newStatus === "returned") {

@@ -386,9 +386,25 @@ ${filtersRow}
         <Card className={(totals?.balance ?? 0) >= 0 ? "border-sky-200 dark:border-sky-900 bg-sky-50 dark:bg-sky-900/10" : "border-orange-200 dark:border-orange-900 bg-orange-50 dark:bg-orange-900/10"}>
           <CardContent className="p-4 flex items-center gap-3">
             <BarChart3 className={`w-8 h-8 ${(totals?.balance ?? 0) >= 0 ? "text-sky-500" : "text-orange-500"} shrink-0`} />
-            <div><p className={`text-[10px] ${(totals?.balance ?? 0) >= 0 ? "text-sky-700 dark:text-sky-400" : "text-orange-700 dark:text-orange-400"} uppercase tracking-widest font-bold`}>الرصيد</p>
-            <p className={`text-2xl font-bold ${(totals?.balance ?? 0) >= 0 ? "text-sky-700 dark:text-sky-300" : "text-orange-700 dark:text-orange-300"}`}>{formatNum(totals?.balance ?? 0)}</p>
-            <p className="text-[10px] text-muted-foreground">وحدة</p></div>
+            <div>
+              <p className={`text-[10px] ${(totals?.balance ?? 0) >= 0 ? "text-sky-700 dark:text-sky-400" : "text-orange-700 dark:text-orange-400"} uppercase tracking-widest font-bold`}>الرصيد</p>
+              {/* لما يكون في فلتر على منتج → اعرض الرصيد الحقيقي من المخزون */}
+              {totals?.currentStock != null ? (
+                <>
+                  <p className={`text-2xl font-bold ${totals.currentStock >= 0 ? "text-sky-700 dark:text-sky-300" : "text-orange-700 dark:text-orange-300"}`}>
+                    {formatNum(totals.currentStock)}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">رصيد فعلي في المخزون</p>
+                </>
+              ) : (
+                <>
+                  <p className={`text-2xl font-bold ${(totals?.balance ?? 0) >= 0 ? "text-sky-700 dark:text-sky-300" : "text-orange-700 dark:text-orange-300"}`}>
+                    {formatNum(totals?.balance ?? 0)}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">وحدة</p>
+                </>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
