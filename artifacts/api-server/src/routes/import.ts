@@ -27,7 +27,7 @@ async function parseFileToRaw(buffer: Buffer, originalname: string): Promise<{ h
   let columnCount = 0;
   const rows: any[][] = [];
 
-  worksheet.eachRow((row, rowNum) => {
+  worksheet.eachRow({ includeEmpty: false }, (row, rowNum) => {
     const values = (row.values as any[]).slice(1).map(v => {
       if (v === null || v === undefined) return "";
       if (typeof v === "object" && "result" in v) return v.result ?? "";
@@ -47,7 +47,12 @@ async function parseFileToRaw(buffer: Buffer, originalname: string): Promise<{ h
       }
       columnCount = headers.length;
     } else {
-      rows.push(values.slice(0, columnCount));
+      // تجاهل الصفوف الفاضية تماماً (كل خلاياها فاضية)
+      const trimmed = values.slice(0, columnCount);
+      const isEmpty = trimmed.every(v => v === "" || v === null || v === undefined);
+      if (!isEmpty) {
+        rows.push(trimmed);
+      }
     }
   });
 
