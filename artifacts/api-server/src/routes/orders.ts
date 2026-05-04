@@ -483,12 +483,14 @@ router.get("/orders/:id/manifest-status", async (req, res): Promise<void> => {
     .orderBy(desc(shippingManifestOrdersTable.id));
   if (links.length === 0) { res.json(null); return; }
   const link = links[0];
-  const rr = link.mo.returnReceived;
+  // اقرأ returnReceived من جدول orders مباشرة (مصدر الحقيقة)
+  const [orderRow] = await db.select({ returnReceived: ordersTable.returnReceived }).from(ordersTable).where(eq(ordersTable.id, id));
+  const rr = (orderRow?.returnReceived != null) ? Number(orderRow.returnReceived) : (link.mo.returnReceived == null ? null : Number(link.mo.returnReceived));
   res.json({
     manifestId: link.m.id, manifestNumber: link.m.manifestNumber, manifestStatus: link.m.status,
     deliveryStatus: link.mo.deliveryStatus, deliveryNote: link.mo.deliveryNote,
     partialQuantity: link.mo.partialQuantity ?? null, deliveredAt: link.mo.deliveredAt,
-    returnReceived: rr == null ? null : Number(rr),
+    returnReceived: rr,
   });
 });
 
