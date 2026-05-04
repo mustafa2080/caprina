@@ -35,12 +35,10 @@ async function parseFileToRaw(buffer: Buffer, originalname: string): Promise<{ h
     });
 
     if (rowNum === 1) {
-      // Generate fallback names for empty headers
       headers = values.map((v, i) => {
         const s = String(v ?? "").trim();
         return s || `عمود_${i + 1}`;
       });
-      // Remove trailing empty columns
       while (headers.length > 0 && headers[headers.length - 1].startsWith("عمود_")) {
         const idx = headers.length - 1;
         const orig = values[idx];
@@ -49,7 +47,6 @@ async function parseFileToRaw(buffer: Buffer, originalname: string): Promise<{ h
       }
       columnCount = headers.length;
     } else {
-      // Trim row to column count
       rows.push(values.slice(0, columnCount));
     }
   });
@@ -108,7 +105,6 @@ router.post("/orders/import/execute", async (req, res): Promise<void> => {
     return;
   }
 
-  // Build header → index map
   const headerIdx: Record<string, number> = {};
   headers.forEach((h, i) => { headerIdx[h] = i; });
 
@@ -124,7 +120,6 @@ router.post("/orders/import/execute", async (req, res): Promise<void> => {
   const validOrders: any[] = [];
   const errors: string[] = [];
 
-  // ── Helper: generate invoice number (same as orders route) ────────────────
   function generateInvoiceNumber(): string {
     const now = new Date();
     const yy = String(now.getFullYear()).slice(-2);
@@ -134,9 +129,6 @@ router.post("/orders/import/execute", async (req, res): Promise<void> => {
     return `INV-${yy}${mm}${dd}-${rand}`;
   }
 
-  // ── Map: "customerName|phone" → invoiceNumber (group same customer rows) ──
-  // Consecutive rows with the same customer share one invoice.
-  // A new invoice is created when the customer changes.
   const customerInvoiceMap = new Map<string, string>();
   let lastCustomerKey = "";
 
@@ -167,7 +159,6 @@ router.post("/orders/import/execute", async (req, res): Promise<void> => {
     const rawAssignedUserId = getCell(row, mapping.assignedUserId);
     const rawShippingCost = getCell(row, mapping.shippingCost).replace(/,/g, "");
 
-    // Skip completely empty rows
     if (!customerName && !product && !rawQty) continue;
 
     if (!customerName) { errors.push(`الصف ${rowNum}: اسم العميل مطلوب`); continue; }
@@ -187,10 +178,8 @@ router.post("/orders/import/execute", async (req, res): Promise<void> => {
       ? (AD_SOURCE_MAP[adSourceRaw.toLowerCase()] ?? AD_SOURCE_MAP[adSourceRaw] ?? "other")
       : null;
 
-    // ── Invoice grouping: same customer consecutively → same invoice ──────
     const customerKey = `${customerName.trim().toLowerCase()}|${(phone ?? "").trim()}`;
     if (customerKey !== lastCustomerKey || !customerInvoiceMap.has(customerKey)) {
-      // New customer or customer changed — create a new invoice number
       customerInvoiceMap.set(customerKey, generateInvoiceNumber());
       lastCustomerKey = customerKey;
     }
@@ -219,28 +208,32 @@ router.post("/orders/import/execute", async (req, res): Promise<void> => {
     });
   }
 
-  let inserted: any[] = [];
+  // ── Insert in batches of 100 to avoid huge payloads ─────────────────────
+  const BATCH_SIZE = 100;
+  let insertedCount = 0;
+
   if (validOrders.length > 0) {
-    const result = await db.insert(ordersTable).values(validOrders);
-    const insertId = (result as any)[0]?.insertId;
-    if (insertId) {
-      const { gte } = await import("drizzle-orm");
-      inserted = await db.select().from(ordersTable)
-        .where(gte(ordersTable.id, insertId))
-        .limit(validOrders.length);
+    try {
+      for (let i = 0; i < validOrders.length; i += BATCH_SIZE) {
+        const batch = validOrders.slice(i, i + BATCH_SIZE);
+        await db.insert(ordersTable).values(batch);
+        insertedCount += batch.length;
+      }
+    } catch (insertErr: any) {
+      res.status(500).json({ error: `فشل إدخال البيانات: ${insertErr.message}` });
+      return;
     }
   }
 
   res.json({
-    imported: inserted.length || validOrders.length,
+    imported: insertedCount,
     failed: errors.length,
     errors: errors.slice(0, 30),
-    orders: inserted,
+    orders: [],
   });
 });
 
 // ─── Products Import: Parse ─────────────────────────────────────────────────────
-// Reuses the same parse endpoint since parsing is format-agnostic
 router.post("/products/import/parse", upload.single("file"), async (req, res): Promise<void> => {
   if (!req.file) { res.status(400).json({ error: "لم يتم رفع ملف" }); return; }
   try {
@@ -313,7 +306,6 @@ router.post("/products/import/execute", async (req, res): Promise<void> => {
     const color = getCell(row, mapping.color) || null;
     const size = getCell(row, mapping.size) || null;
 
-    // Find or create product by name (case-insensitive)
     let [product] = await db.select().from(productsTable).where(ilike(productsTable.name, name)).limit(1);
     if (!product) {
       const [created] = await db.insert(productsTable).values({
@@ -327,14 +319,12 @@ router.post("/products/import/execute", async (req, res): Promise<void> => {
       product = created;
       importedProducts++;
     } else {
-      // Update pricing if provided
       const updates: any = {};
       if (unitPrice) updates.unitPrice = unitPrice;
       if (costPrice !== null) updates.costPrice = costPrice;
       await db.update(productsTable).set({ ...updates, updatedAt: new Date() }).where(eq(productsTable.id, product.id));
     }
 
-    // Create variant if color/size provided
     if (color && size) {
       const [existingVariant] = await db.select().from(productVariantsTable)
         .where(and(
@@ -451,7 +441,6 @@ router.post("/returns/import/execute", async (req, res): Promise<void> => {
     }
 
     if (order.status === "returned") {
-      // Already returned, skip silently
       importedReturns++;
       continue;
     }
@@ -466,7 +455,7 @@ router.post("/returns/import/execute", async (req, res): Promise<void> => {
   res.json({ imported: importedReturns, failed: errors.length, errors: errors.slice(0, 30) });
 });
 
-// ─── Legacy endpoint (kept for backward compat) ────────────────────────────────
+// ─── Legacy endpoint ────────────────────────────────────────────────────────────
 router.post("/orders/import", upload.single("file"), async (req, res): Promise<void> => {
   if (!req.file) { res.status(400).json({ error: "No file uploaded" }); return; }
 
@@ -519,26 +508,23 @@ router.post("/orders/import", upload.single("file"), async (req, res): Promise<v
       });
     }
 
-    let inserted: any[] = [];
+    const BATCH_SIZE = 100;
+    let insertedCount = 0;
     if (validOrders.length > 0) {
-      const result = await db.insert(ordersTable).values(validOrders);
-      const insertId = (result as any)[0]?.insertId;
-      if (insertId) {
-        const { gte } = await import("drizzle-orm");
-        inserted = await db.select().from(ordersTable)
-          .where(gte(ordersTable.id, insertId))
-          .limit(validOrders.length);
+      for (let i = 0; i < validOrders.length; i += BATCH_SIZE) {
+        const batch = validOrders.slice(i, i + BATCH_SIZE);
+        await db.insert(ordersTable).values(batch);
+        insertedCount += batch.length;
       }
     }
 
-    res.json({ imported: inserted.length || validOrders.length, failed: errors.length, errors: errors.slice(0, 20), orders: inserted });
+    res.json({ imported: insertedCount, failed: errors.length, errors: errors.slice(0, 20), orders: [] });
   } catch (err: any) {
     res.status(500).json({ error: `فشل قراءة الملف: ${err.message}` });
   }
 });
 
 // ─── POST /api/import/inventory ─────────────────────────────────────────────
-// Bulk inventory update via Excel/CSV: columns SKU, الكمية المضافة, سعر التكلفة (optional)
 router.post("/import/inventory", upload.single("file"), async (req, res): Promise<void> => {
   if (!req.file) { res.status(400).json({ error: "لم يتم رفع ملف" }); return; }
 
