@@ -928,20 +928,22 @@ export default function OrderDetail() {
                           </Badge>
                         </div>
                       );
-                      if (ds === "returned") return (
+                      if (ds === "returned" && order.status === "returned") return (
                         <div className="mt-1.5 flex flex-col gap-1">
-                          <Badge variant="outline" className="text-[9px] font-bold border-red-600 text-red-400 w-fit">
-                            ↩ مرتجع
-                          </Badge>
                           {rRec === 1 && (
                             <Badge variant="outline" className="text-[9px] font-bold border-emerald-700 text-emerald-400 w-fit">
                               <CheckCircle2 className="w-2.5 h-2.5 ml-1" />تم الاستلام — رجع للمخزن
                             </Badge>
                           )}
                           {rRec === 0 && (
-                            <Badge variant="outline" className="text-[9px] font-bold border-orange-600 text-orange-400 w-fit">
-                              <Clock className="w-2.5 h-2.5 ml-1" />مازال عند شركة الشحن
-                            </Badge>
+                            <>
+                              <Badge variant="outline" className="text-[9px] font-bold border-red-600 text-red-400 w-fit">
+                                ↩ مرتجع
+                              </Badge>
+                              <Badge variant="outline" className="text-[9px] font-bold border-orange-600 text-orange-400 w-fit">
+                                <Clock className="w-2.5 h-2.5 ml-1" />مازال عند شركة الشحن
+                              </Badge>
+                            </>
                           )}
                         </div>
                       );
