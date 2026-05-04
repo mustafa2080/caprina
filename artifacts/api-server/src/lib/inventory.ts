@@ -79,9 +79,64 @@ export async function resolveInventoryTarget(order: {
   color?: string | null;
   size?: string | null;
 }): Promise<{ variantId: number | null; productId: number | null }> {
-  if (order.variantId) return { variantId: order.variantId, productId: null };
-  if (order.productId) return { variantId: null, productId: order.productId };
+  // ─── 1. variantId مباشر ────────────────────────────────────────────────────
+  if (order.variantId) {
+    // تحقق إن الـ variant موجود فعلاً في warehouse_stock
+    const [stockRow] = await db
+      .select({ id: warehouseStockTable.id })
+      .from(warehouseStockTable)
+      .where(eq(warehouseStockTable.variantId, order.variantId))
+      .limit(1);
 
+    if (stockRow) {
+      // الـ variant موجود في المخزن → استخدمه مباشرة
+      return { variantId: order.variantId, productId: null };
+    }
+
+    // الـ variant مش في warehouse_stock → جرب بالـ productId بتاعه
+    const [variant] = await db
+      .select({ productId: productVariantsTable.productId })
+      .from(productVariantsTable)
+      .where(eq(productVariantsTable.id, order.variantId))
+      .limit(1);
+
+    if (variant?.productId) {
+      // شوف لو المنتج الأب عنده stock
+      const [prodStock] = await db
+        .select({ id: warehouseStockTable.id })
+        .from(warehouseStockTable)
+        .where(eq(warehouseStockTable.productId, variant.productId))
+        .limit(1);
+      if (prodStock) {
+        return { variantId: null, productId: variant.productId };
+      }
+      // حتى لو مش موجود في warehouse_stock، ارجع الـ variantId الأصلي
+      // عشان الـ adjustWarehouseStock يقدر ينشئ سجل جديد لو delta > 0
+    }
+    return { variantId: order.variantId, productId: null };
+  }
+
+  // ─── 2. productId مباشر ────────────────────────────────────────────────────
+  if (order.productId) {
+    // شوف لو في variant واحد بس للمنتج ده → استخدم variantId
+    const variants = await db
+      .select({ id: productVariantsTable.id })
+      .from(productVariantsTable)
+      .where(eq(productVariantsTable.productId, order.productId));
+
+    if (variants.length === 1) {
+      // منتج بـ variant واحد → استخدم variantId عشان الـ stock أدق
+      const [vStock] = await db
+        .select({ id: warehouseStockTable.id })
+        .from(warehouseStockTable)
+        .where(eq(warehouseStockTable.variantId, variants[0].id))
+        .limit(1);
+      if (vStock) return { variantId: variants[0].id, productId: null };
+    }
+    return { variantId: null, productId: order.productId };
+  }
+
+  // ─── 3. بحث بالاسم + اللون + المقاس ──────────────────────────────────────
   if (order.product && order.color && order.size) {
     const variants = await db
       .select({ id: productVariantsTable.id })
@@ -95,6 +150,7 @@ export async function resolveInventoryTarget(order: {
     if (variants.length > 0) return { variantId: variants[0].id, productId: null };
   }
 
+  // ─── 4. بحث بالاسم فقط ───────────────────────────────────────────────────
   if (order.product) {
     const products = await db
       .select({ id: productsTable.id })
@@ -351,6 +407,20 @@ export async function processDelivery(
   const { variantId, productId } = await resolveInventoryTarget(order);
   if (!variantId && !productId) return;
 
+  let productName = order.product ?? null;
+  if (!productName) {
+    if (variantId) {
+      const [v] = await db.select({ name: productsTable.name }).from(productVariantsTable)
+        .innerJoin(productsTable, eq(productVariantsTable.productId, productsTable.id))
+        .where(eq(productVariantsTable.id, variantId)).limit(1);
+      productName = v?.name ?? "منتج";
+    } else if (productId) {
+      const [p] = await db.select({ name: productsTable.name }).from(productsTable)
+        .where(eq(productsTable.id, productId)).limit(1);
+      productName = p?.name ?? "منتج";
+    }
+  }
+
   let usedWhId: number | null = order.warehouseId ?? null;
 
   if (!skipWarehouseStock) {
@@ -363,21 +433,19 @@ export async function processDelivery(
   // 3. حدّث soldQuantity (للتقارير فقط)
   await updateSoldQuantity(variantId, productId, deliveredQty);
 
-  // 4. سجّل الحركة
-  if (order.product) {
-    await recordMovement({
-      product: order.product,
-      color: order.color,
-      size: order.size,
-      quantity: deliveredQty,
-      type: "OUT",
-      reason,
-      productId,
-      variantId,
-      warehouseId: usedWhId,
-      orderId,
-    });
-  }
+  // 4. سجّل الحركة دايماً
+  await recordMovement({
+    product: productName ?? "منتج",
+    color: order.color,
+    size: order.size,
+    quantity: deliveredQty,
+    type: "OUT",
+    reason,
+    productId,
+    variantId,
+    warehouseId: usedWhId,
+    orderId,
+  });
 }
 
 /**
@@ -399,6 +467,20 @@ export async function reverseDelivery(
   const { variantId, productId } = await resolveInventoryTarget(order);
   if (!variantId && !productId) return;
 
+  let productName = order.product ?? null;
+  if (!productName) {
+    if (variantId) {
+      const [v] = await db.select({ name: productsTable.name }).from(productVariantsTable)
+        .innerJoin(productsTable, eq(productVariantsTable.productId, productsTable.id))
+        .where(eq(productVariantsTable.id, variantId)).limit(1);
+      productName = v?.name ?? "منتج";
+    } else if (productId) {
+      const [p] = await db.select({ name: productsTable.name }).from(productsTable)
+        .where(eq(productsTable.id, productId)).limit(1);
+      productName = p?.name ?? "منتج";
+    }
+  }
+
   // 1. أرجع لـ warehouse_stock
   const usedWhId = await adjustWarehouseStock(order.warehouseId, variantId, productId, deliveredQty);
 
@@ -408,22 +490,20 @@ export async function reverseDelivery(
   // 3. عكس soldQuantity
   await updateSoldQuantity(variantId, productId, -deliveredQty);
 
-  // 4. سجّل الحركة
-  if (order.product) {
-    await recordMovement({
-      product: order.product,
-      color: order.color,
-      size: order.size,
-      quantity: deliveredQty,
-      type: "IN",
-      reason: "adjustment",
-      productId,
-      variantId,
-      warehouseId: usedWhId,
-      orderId,
-      notes: "إلغاء تسليم",
-    });
-  }
+  // 4. سجّل الحركة دايماً
+  await recordMovement({
+    product: productName ?? "منتج",
+    color: order.color,
+    size: order.size,
+    quantity: deliveredQty,
+    type: "IN",
+    reason: "adjustment",
+    productId,
+    variantId,
+    warehouseId: usedWhId,
+    orderId,
+    notes: "إلغاء تسليم",
+  });
 }
 
 /**
@@ -497,28 +577,41 @@ export async function processToShipping(
   const { variantId, productId } = await resolveInventoryTarget(order);
   if (!variantId && !productId) return;
 
+  // جيب اسم المنتج من DB لو مش موجود في الطلب
+  let productName = order.product ?? null;
+  if (!productName) {
+    if (variantId) {
+      const [v] = await db.select({ name: productsTable.name }).from(productVariantsTable)
+        .innerJoin(productsTable, eq(productVariantsTable.productId, productsTable.id))
+        .where(eq(productVariantsTable.id, variantId)).limit(1);
+      productName = v?.name ?? "منتج";
+    } else if (productId) {
+      const [p] = await db.select({ name: productsTable.name }).from(productsTable)
+        .where(eq(productsTable.id, productId)).limit(1);
+      productName = p?.name ?? "منتج";
+    }
+  }
+
   // 1. خصم من warehouse_stock
   const usedWhId = await adjustWarehouseStock(order.warehouseId, variantId, productId, -qty);
 
   // 2. زامن totalQuantity
   await syncProductQuantityFromWarehouses(variantId, productId);
 
-  // 3. سجّل الحركة
-  if (order.product) {
-    await recordMovement({
-      product: order.product,
-      color: order.color,
-      size: order.size,
-      quantity: qty,
-      type: "OUT",
-      reason: "to_shipping",
-      productId,
-      variantId,
-      warehouseId: usedWhId,
-      orderId,
-      notes: "تحويل لشركة الشحن",
-    });
-  }
+  // 3. سجّل الحركة دايماً
+  await recordMovement({
+    product: productName ?? "منتج",
+    color: order.color,
+    size: order.size,
+    quantity: qty,
+    type: "OUT",
+    reason: "to_shipping",
+    productId,
+    variantId,
+    warehouseId: usedWhId,
+    orderId,
+    notes: "تحويل لشركة الشحن",
+  });
 }
 
 /**
@@ -540,28 +633,40 @@ export async function reverseShipping(
   const { variantId, productId } = await resolveInventoryTarget(order);
   if (!variantId && !productId) return;
 
+  let productName = order.product ?? null;
+  if (!productName) {
+    if (variantId) {
+      const [v] = await db.select({ name: productsTable.name }).from(productVariantsTable)
+        .innerJoin(productsTable, eq(productVariantsTable.productId, productsTable.id))
+        .where(eq(productVariantsTable.id, variantId)).limit(1);
+      productName = v?.name ?? "منتج";
+    } else if (productId) {
+      const [p] = await db.select({ name: productsTable.name }).from(productsTable)
+        .where(eq(productsTable.id, productId)).limit(1);
+      productName = p?.name ?? "منتج";
+    }
+  }
+
   // 1. أرجع لـ warehouse_stock
   const usedWhId = await adjustWarehouseStock(order.warehouseId, variantId, productId, qty);
 
   // 2. زامن totalQuantity
   await syncProductQuantityFromWarehouses(variantId, productId);
 
-  // 3. سجّل الحركة
-  if (order.product) {
-    await recordMovement({
-      product: order.product,
-      color: order.color,
-      size: order.size,
-      quantity: qty,
-      type: "IN",
-      reason: "from_shipping",
-      productId,
-      variantId,
-      warehouseId: usedWhId,
-      orderId,
-      notes: "إرجاع من شركة الشحن للمخزن",
-    });
-  }
+  // 3. سجّل الحركة دايماً
+  await recordMovement({
+    product: productName ?? "منتج",
+    color: order.color,
+    size: order.size,
+    quantity: qty,
+    type: "IN",
+    reason: "from_shipping",
+    productId,
+    variantId,
+    warehouseId: usedWhId,
+    orderId,
+    notes: "إرجاع من شركة الشحن للمخزن",
+  });
 }
 
 /**
