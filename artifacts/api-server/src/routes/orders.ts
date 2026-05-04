@@ -529,7 +529,17 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
 
   const oldStatus = existing.status;
   const newStatus = data.status ?? oldStatus;
-  if (newStatus !== oldStatus) {
+
+  // لو الطلب في بيان شحن → حركات المخزون مسؤولية البيان فقط، لا نعملها هنا
+  const [manifestLink] = await db
+    .select({ id: shippingManifestOrdersTable.id })
+    .from(shippingManifestOrdersTable)
+    .where(eq(shippingManifestOrdersTable.orderId, existing.id))
+    .limit(1)
+    .catch(() => []);
+  const isInManifest = !!manifestLink;
+
+  if (newStatus !== oldStatus && !isInManifest) {
     const orderRef = { variantId: existing.variantId, productId: existing.productId, product: existing.product, color: existing.color, size: existing.size, warehouseId: existing.warehouseId };
 
     // ── منطق حركات المخزون ──────────────────────────────────────────────────
