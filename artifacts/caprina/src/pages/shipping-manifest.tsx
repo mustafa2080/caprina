@@ -607,10 +607,11 @@ function InvoiceGroupDeliveryRow({
     partialQtyMap: Record<number, string>;
     perOrderStatus: Record<number, DeliveryStatus>;
     bulkStatus: DeliveryStatus;
+    partialReturnReceived: boolean | null;
   } | null>(null);
 
-  // key مستقر للـ group — بيتغير بس لما الـ partialQuantity تتغير فعلاً
-  const groupPartialKey = group.map(o => `${o.id}:${o.partialQuantity ?? ""}`).join(",");
+  // key مستقر للـ group — بيتغير لما partialQuantity أو returnReceived يتغيروا
+  const groupPartialKey = group.map(o => `${o.id}:${o.partialQuantity ?? ""}:${(o as any).returnReceived ?? ""}`).join(",");
 
   // الكميات المعروضة: لو في وضع التعديل أو بعد حفظ فوري → من state، وإلا من server
   const displayPartialQtyMap: Record<number, number> = Object.fromEntries(
@@ -677,6 +678,7 @@ function InvoiceGroupDeliveryRow({
         partialQtyMap: { ...partialQtyMap },
         perOrderStatus: { ...perOrderStatus },
         bulkStatus,
+        partialReturnReceived,
       };
       for (const order of group) {
         let finalStatus: DeliveryStatus = bulkStatus;
@@ -725,10 +727,11 @@ function InvoiceGroupDeliveryRow({
       toast({ title: "تم حفظ حالة التسليم للفاتورة كاملها" });
       // نطبق القيم المُرسَلة في الـ state فوراً
       if (pendingSaveRef.current) {
-        const { partialQtyMap: savedQty, perOrderStatus: savedStatus, bulkStatus: savedBulk } = pendingSaveRef.current;
+        const { partialQtyMap: savedQty, perOrderStatus: savedStatus, bulkStatus: savedBulk, partialReturnReceived: savedPartialReturn } = pendingSaveRef.current;
         setPartialQtyMap(savedQty);
         setPerOrderStatus(savedStatus);
         setBulkStatus(savedBulk);
+        setPartialReturnReceived(savedPartialReturn);
         // لا نمسح pendingSaveRef هنا — يحمي useEffect من override بالقيم القديمة
         // سيُمسح في useEffect لما groupPartialKey يتغير (= server data وصلت فعلاً)
       }
