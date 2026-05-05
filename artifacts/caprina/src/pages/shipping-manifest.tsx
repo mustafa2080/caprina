@@ -610,10 +610,18 @@ function InvoiceGroupDeliveryRow({
         let finalPartialQty: number | null = null;
 
         if (isMulti && bulkStatus === "partial_received") {
-          // فاتورة متعددة + partial: كل منتج بنفس الحالة والكمية من partialQtyMap
-          finalStatus = "partial_received";
+          // فاتورة متعددة + partial: كل منتج له كميته المستقلة من partialQtyMap
           const val = partialQtyMap[order.id];
-          finalPartialQty = (val !== "" && val !== undefined && val !== null) ? parseInt(val) : null;
+          const parsed = (val !== "" && val !== undefined && val !== null) ? parseInt(val) : null;
+          if (parsed !== null && parsed > 0) {
+            // استلم جزئياً → partial_received بالكمية المحددة
+            finalStatus = "partial_received";
+            finalPartialQty = parsed;
+          } else {
+            // لم يستلم أي شيء → يبقى pending (عند شركة الشحن)
+            finalStatus = "pending";
+            finalPartialQty = null;
+          }
         } else if (isPerItemMode && bulkStatus !== "partial_received") {
           // فاتورة متعددة + حالة أخرى: كل منتج له حالته المستقلة من perOrderStatus
           finalStatus = perOrderStatus[order.id] ?? bulkStatus;

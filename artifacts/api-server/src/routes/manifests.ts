@@ -658,7 +658,8 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
         movementNotes = "تم الاستلام — بيع";
       } else if (deliveryStatus === "partial_received") {
         newReason     = "partial_sale";
-        movementNotes = partialQuantity != null ? `استلام جزئي — ${partialQuantity} قطعة` : "استلام جزئي";
+        const safeQty = (partialQuantity != null && partialQuantity > 0) ? partialQuantity : null;
+        movementNotes = safeQty != null ? `استلام جزئي — ${safeQty} قطعة` : "استلام جزئي";
 
         // ── لو الباقي رجع المخزن (partialReturnReceived = true) ──────────────
         const oldPartialReturnReceived = (link as any).returnReceived;
@@ -807,7 +808,8 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
             sibReason = "sale"; sibNotes = "تم الاستلام — بيع";
           } else if (deliveryStatus === "partial_received") {
             sibReason = "partial_sale";
-            sibNotes = partialQuantity != null ? `استلام جزئي — ${partialQuantity} قطعة` : "استلام جزئي";
+            const sibSafeQty = (sib.mo.partialQuantity != null && sib.mo.partialQuantity > 0) ? sib.mo.partialQuantity : (partialQuantity != null && partialQuantity > 0 ? partialQuantity : null);
+            sibNotes = sibSafeQty != null ? `استلام جزئي — ${sibSafeQty} قطعة` : "استلام جزئي";
           } else if (deliveryStatus === "returned") {
             sibReason = "to_shipping";
             sibNotes = "مرتجع — لسه عند شركة الشحن";
