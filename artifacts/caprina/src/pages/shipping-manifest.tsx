@@ -612,6 +612,17 @@ function InvoiceGroupDeliveryRow({
   // key مستقر للـ group — بيتغير بس لما الـ partialQuantity تتغير فعلاً
   const groupPartialKey = group.map(o => `${o.id}:${o.partialQuantity ?? ""}`).join(",");
 
+  // الكميات المعروضة: لو في وضع التعديل أو بعد حفظ فوري → من state، وإلا من server
+  const displayPartialQtyMap: Record<number, number> = Object.fromEntries(
+    group.map(o => {
+      const stateVal = partialQtyMap[o.id];
+      const parsed = stateVal !== "" && stateVal !== undefined ? parseInt(stateVal) : NaN;
+      const useState = bulkEditing || pendingSaveRef.current !== null;
+      return [o.id, useState && !isNaN(parsed) ? parsed : (o.partialQuantity ?? 0)];
+    })
+  );
+  const displayTotalPartialQty = Object.values(displayPartialQtyMap).reduce((s, v) => s + v, 0);
+
   // مزامنة الـ state مع الـ prop بعد كل refetch أو لما نخرج من وضع التعديل
   useEffect(() => {
     if (!bulkEditing) {
@@ -779,7 +790,7 @@ function InvoiceGroupDeliveryRow({
           <div className="text-center font-bold">
             {groupStatus === "partial_received" ? (
               <span>
-                <span className="text-teal-400">{group.reduce((s, o) => s + (o.partialQuantity ?? 0), 0)}</span>
+                <span className="text-teal-400">{displayTotalPartialQty}</span>
                 <span className="text-muted-foreground">/{totalQty}</span>
               </span>
             ) : totalQty}
@@ -815,11 +826,11 @@ function InvoiceGroupDeliveryRow({
             ) : groupStatus === "partial_received" ? (
               <div className="flex flex-col gap-0.5">
                 <Badge variant="outline" className={`text-[9px] font-bold border ${groupOpt.bg} ${groupOpt.color}`}>
-                  {groupOpt.label} ({group.reduce((s, o) => s + (o.partialQuantity ?? 0), 0)}/{totalQty})
+                  {groupOpt.label} ({displayTotalPartialQty}/{totalQty})
                 </Badge>
-                {group.filter(o => o.partialQuantity && o.partialQuantity > 0).map(o => (
+                {group.filter(o => (displayPartialQtyMap[o.id] ?? 0) > 0).map(o => (
                   <p key={o.id} className="text-[9px] text-teal-600 dark:text-teal-400 truncate max-w-[110px]">
-                    ◑ {o.product} ×{o.partialQuantity}
+                    ◑ {o.product} ×{displayPartialQtyMap[o.id]}
                   </p>
                 ))}
                 {(rep as any).returnReceived === 0 && (
