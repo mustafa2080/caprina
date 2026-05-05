@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import * as XLSX from "xlsx";
 import { useParams, Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -602,10 +602,34 @@ function InvoiceGroupDeliveryRow({
   const [partialReturnReceived, setPartialReturnReceived] = useState<boolean | null>(
     group[0]?.returnReceived === 1 ? true : group[0]?.returnReceived === 0 ? false : null
   );
+  // نحفظ القيم المُرسَلة للـ API هنا عشان نستخدمها في onSuccess
+  const pendingSaveRef = useRef<{
+    partialQtyMap: Record<number, string>;
+    perOrderStatus: Record<number, DeliveryStatus>;
+    bulkStatus: DeliveryStatus;
+  } | null>(null);
+
+  // key مستقر للـ group — بيتغير بس لما الـ partialQuantity تتغير فعلاً
+  const groupPartialKey = group.map(o => `${o.id}:${o.partialQuantity ?? ""}`).join(",");
 
   // مزامنة الـ state مع الـ prop بعد كل refetch
   useEffect(() => {
     if (!bulkEditing) {
+      // لو في pending save (refetch لسه ما خلصش) → متعملش override للـ qty map
+      // لكن لما الـ group يتحدث (groupPartialKey اتغير) → امسح الـ pending وخلي الـ server يحكم
+      if (pendingSaveRef.current) {
+        pendingSaveRef.current = null;
+        // الـ partialQtyMap وperOrderStatus تم ضبطهم في onSuccess — مش محتاجين override
+        setBulkStatus(groupStatus);
+        setBulkNote(rep.deliveryNote ?? "");
+        setBulkReturnReceived(
+          (rep as any).returnReceived === 1 ? true : (rep as any).returnReceived === 0 ? false : null
+        );
+        setPartialReturnReceived(
+          group[0]?.returnReceived === 1 ? true : group[0]?.returnReceived === 0 ? false : null
+        );
+        return;
+      }
       setBulkStatus(groupStatus);
       setBulkNote(rep.deliveryNote ?? "");
       setBulkReturnReceived(
@@ -617,7 +641,8 @@ function InvoiceGroupDeliveryRow({
         group[0]?.returnReceived === 1 ? true : group[0]?.returnReceived === 0 ? false : null
       );
     }
-  }, [groupStatus, rep.deliveryNote, (rep as any).returnReceived, bulkEditing, group.map(o => `${o.id}:${o.partialQuantity}`).join(",")]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupStatus, rep.deliveryNote, (rep as any).returnReceived, bulkEditing, groupPartialKey]);
 
   const cancelGroupMutation = useMutation({
     mutationFn: async () => {
@@ -641,6 +666,12 @@ function InvoiceGroupDeliveryRow({
 
   const bulkMutation = useMutation({
     mutationFn: async () => {
+      // نحفظ snapshot من القيم الحالية قبل الـ API calls
+      pendingSaveRef.current = {
+        partialQtyMap: { ...partialQtyMap },
+        perOrderStatus: { ...perOrderStatus },
+        bulkStatus,
+      };
       for (const order of group) {
         let finalStatus: DeliveryStatus = bulkStatus;
         let finalPartialQty: number | null = null;
@@ -686,6 +717,15 @@ function InvoiceGroupDeliveryRow({
     },
     onSuccess: () => {
       toast({ title: "تم حفظ حالة التسليم للفاتورة كاملها" });
+      // نطبق القيم المُرسَلة مباشرة في الـ state عشان تظهر فوراً
+      // قبل ما الـ useEffect يعمل override بالقيم القديمة من الـ group prop
+      if (pendingSaveRef.current) {
+        const { partialQtyMap: savedQty, perOrderStatus: savedStatus, bulkStatus: savedBulk } = pendingSaveRef.current;
+        setPartialQtyMap(savedQty);
+        setPerOrderStatus(savedStatus);
+        setBulkStatus(savedBulk);
+        // لا نعمل null هنا — الـ useEffect هيشوفه ويتجنب الـ override
+      }
       setBulkEditing(false);
       onSaved();
     },
