@@ -668,17 +668,45 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
         const remainingQty    = totalQty - (partialQuantity ?? 0);
 
         if (remainingQty > 0) {
-          const { resolveInventoryTarget, adjustWarehouseStock, syncProductQuantityFromWarehouses } = await import("../lib/inventory.js");
+          const { resolveInventoryTarget, adjustWarehouseStock, syncProductQuantityFromWarehouses, recordMovement: recMov, resolveProductIdFromVariant } = await import("../lib/inventory.js");
           const { variantId: vid, productId: pid } = await resolveInventoryTarget(ref);
           if (vid || pid) {
             if (isNewlyReturned) {
-              // الباقي وصل المخزن → أضفه للمخزون
-              await adjustWarehouseStock(ref.warehouseId, vid, pid, +remainingQty);
+              // الباقي وصل المخزن → أضفه للمخزون + سجّل حركة IN موجبة
+              const usedWhId = await adjustWarehouseStock(ref.warehouseId, vid, pid, +remainingQty);
               await syncProductQuantityFromWarehouses(vid, pid);
+              const resolved = await resolveProductIdFromVariant(vid, pid);
+              await recMov({
+                type: "IN",
+                reason: "from_shipping",
+                quantity: remainingQty,
+                warehouseId: usedWhId,
+                variantId: resolved.variantId,
+                productId: resolved.productId,
+                product: ref.product ?? "منتج",
+                color: ref.color,
+                size: ref.size,
+                orderId,
+                notes: `استلام جزئي — الباقي (${remainingQty} قطعة) رجع المخزن`,
+              });
             } else if (isUnReturned) {
-              // تراجع عن "وصل المخزن" → اخصم الباقي
-              await adjustWarehouseStock(ref.warehouseId, vid, pid, -remainingQty);
+              // تراجع عن "وصل المخزن" → اخصم الباقي + سجّل حركة OUT
+              const usedWhId = await adjustWarehouseStock(ref.warehouseId, vid, pid, -remainingQty);
               await syncProductQuantityFromWarehouses(vid, pid);
+              const resolved = await resolveProductIdFromVariant(vid, pid);
+              await recMov({
+                type: "OUT",
+                reason: "to_shipping",
+                quantity: remainingQty,
+                warehouseId: usedWhId,
+                variantId: resolved.variantId,
+                productId: resolved.productId,
+                product: ref.product ?? "منتج",
+                color: ref.color,
+                size: ref.size,
+                orderId,
+                notes: `تراجع عن استلام الباقي — (${remainingQty} قطعة) عند شركة الشحن`,
+              });
             }
           }
         }
