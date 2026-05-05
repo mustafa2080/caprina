@@ -1011,10 +1011,22 @@ function InvoiceGroupDeliveryRow({
                             max={o.quantity}
                             value={partialQtyMap[o.id] ?? ""}
                             onChange={e => setPartialQtyMap(prev => ({ ...prev, [o.id]: e.target.value }))}
-                            className={`h-7 w-20 rounded border bg-background px-2 text-xs text-center ${partialQtyMap[o.id] === "" || partialQtyMap[o.id] === undefined ? "border-destructive" : "border-teal-400"}`}
-                            placeholder="مطلوب"
+                            className={`h-7 w-20 rounded border bg-background px-2 text-xs text-center ${
+                              partialQtyMap[o.id] === "" || partialQtyMap[o.id] === undefined
+                                ? "border-border text-muted-foreground"
+                                : parseInt(partialQtyMap[o.id]) > 0
+                                  ? "border-teal-400 text-teal-600"
+                                  : "border-amber-400 text-amber-600"
+                            }`}
+                            placeholder="0"
                           />
-                          <span className="text-[10px] text-muted-foreground">قطعة</span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {partialQtyMap[o.id] === "" || partialQtyMap[o.id] === undefined
+                              ? "اتركها 0 إذا لم يُستلم"
+                              : parseInt(partialQtyMap[o.id]) > 0
+                                ? "✓ سيُسجَّل كاستلام جزئي"
+                                : "لم يُستلم — سيبقى عند الشحن"}
+                          </span>
                         </div>
                       )}
                     </div>
