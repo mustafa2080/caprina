@@ -625,12 +625,22 @@ function InvoiceGroupDeliveryRow({
   const displayTotalPartialQty = Object.values(displayPartialQtyMap).reduce((s, v) => s + v, 0);
 
   // مزامنة الـ state مع الـ prop بعد كل refetch أو لما نخرج من وضع التعديل
+  // تتبع آخر groupPartialKey شفناه — عشان نعرف لو الـ server data فعلاً اتغيرت
+  const prevGroupPartialKeyRef = useRef(groupPartialKey);
+
   useEffect(() => {
     if (!bulkEditing) {
+      const keyChanged = prevGroupPartialKeyRef.current !== groupPartialKey;
+      prevGroupPartialKeyRef.current = groupPartialKey;
+
       if (pendingSaveRef.current) {
-        // refetch لسه ما خلصش — مش نعمل sync دلوقتي عشان متوورش الـ optimistic state
-        // الـ useEffect هيشتغل تاني لما groupPartialKey يتغير (= server data وصلت)
-        return;
+        if (keyChanged) {
+          // server data وصلت فعلاً وفيها التغيير → امسح الـ ref واعمل sync
+          pendingSaveRef.current = null;
+        } else {
+          // refetch لسه ما خلصش أو مفيش تغيير في الـ key → مش نعمل sync دلوقتي
+          return;
+        }
       }
       setBulkStatus(groupStatus);
       setBulkNote(rep.deliveryNote ?? "");
@@ -642,14 +652,6 @@ function InvoiceGroupDeliveryRow({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupStatus, rep.deliveryNote, (rep as any).returnReceived, bulkEditing, groupPartialKey]);
-
-  // لما groupPartialKey يتغير (server data جديدة وصلت بعد حفظ) → امسح الحماية
-  useEffect(() => {
-    if (pendingSaveRef.current) {
-      pendingSaveRef.current = null;
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groupPartialKey]);
 
   const cancelGroupMutation = useMutation({
     mutationFn: async () => {
