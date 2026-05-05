@@ -887,8 +887,12 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
 
       const su: Record<string, unknown> = { deliveryStatus, deliveryNote: deliveryNote ?? null, deliveredAt: isDelivered ? new Date() : null };
       // لا نحدث partialQuantity للـ siblings — كل طلب بيتبعت بكميته الخاصة في call منفصل
+      // لما partial_received: لا نحدث الـ sibling بنفس الحالة — كل أوردر له call مستقل من الـ frontend
+      if (deliveryStatus === "partial_received") {
+        // skip — الـ frontend بيعمل PATCH منفصل لكل أوردر في الفاتورة المتعددة
+        continue;
+      }
       if (deliveryStatus === "returned" && returnReceived != null) su.returnReceived = returnReceived ? 1 : 0;
-      else if (deliveryStatus === "partial_received" && partialReturnReceived != null) su.returnReceived = partialReturnReceived ? 1 : 0;
       else if (deliveryStatus !== "returned" && deliveryStatus !== "partial_received") su.returnReceived = null;
       await db.update(shippingManifestOrdersTable).set(su).where(eq(shippingManifestOrdersTable.id, sib.mo.id));
 
