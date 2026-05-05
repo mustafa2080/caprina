@@ -3,6 +3,7 @@ import { Link } from "wouter";
 import { format } from "date-fns";
 import { Search, Filter, Plus, Package, CalendarDays, X, RotateCcw, MessageCircle, Trash2, CheckSquare, RefreshCw } from "lucide-react";
 import { useListOrders, useUpdateOrder, getListOrdersQueryKey } from "@workspace/api-client-react";
+import { type ListOrdersStatus, type UpdateOrderBodyStatus } from "@workspace/api-zod";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useDebounce } from "@/hooks/use-debounce";
 import { Input } from "@/components/ui/input";
@@ -74,7 +75,7 @@ export default function Orders() {
   const [pendingBulkStatus, setPendingBulkStatus] = useState<string | null>(null);
 
   const { data: orders, isLoading } = useListOrders(
-    { search: debouncedSearch || undefined, status: status !== "all" ? status : undefined },
+    { search: debouncedSearch || undefined, status: status !== "all" ? (status as ListOrdersStatus) : undefined },
     { query: { staleTime: 15_000, gcTime: 60_000 } }
   );
 
@@ -179,7 +180,7 @@ export default function Orders() {
   const handleWaSent = (orderId: number, currentStatus: string) => {
     if (currentStatus === "pending") {
       updateOrder.mutate(
-        { id: orderId, data: { status: "warehouse_ready" } },
+        { id: orderId, data: { status: "warehouse_ready" as UpdateOrderBodyStatus } },
         { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() }); toast({ title: "تم إرسال واتساب ✅", description: `تم تحويل الطلب #${orderId.toString().padStart(4,"0")} لـ «قيد الشحن في المخزن»` }); } }
       );
     } else {
@@ -214,7 +215,7 @@ export default function Orders() {
                     تغيير الحالة {selectedIds.size > 0 ? `(${selectedIds.size})` : ""}
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-44" dir="rtl">
+                <DropdownMenuContent align="end" className="w-44" style={{ direction: "rtl" }}>
                   {STATUS_OPTIONS.map(opt => (
                     <DropdownMenuItem
                       key={opt.value}
