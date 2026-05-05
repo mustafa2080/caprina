@@ -766,7 +766,7 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
     deliveryNote: deliveryNote ?? null,
     partialQuantity: deliveryStatus === "partial_received" && partialQuantity != null ? partialQuantity : null,
     deliveredAt: isDelivered ? new Date() : null,
-    ...(deliveryStatus === "partial_received" && partialReturnReceived != null ? { returnReceived: partialReturnReceived ? 1 : 0 } : {}),
+    ...(deliveryStatus === "partial_received" ? { returnReceived: (partialReturnReceived ?? false) ? 1 : 0 } : {}),
     ...(deliveryStatus === "returned" && returnReceived != null
       ? { returnReceived: returnReceived ? 1 : 0 }
       : deliveryStatus !== "returned" && deliveryStatus !== "partial_received"
@@ -777,7 +777,7 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
   // ─── تحديث جدول الطلبات ───────────────────────────────────────────────────
   const orderUpdate: Record<string, unknown> = { status: STATUS_MAP[deliveryStatus] ?? "in_shipping" };
   if (deliveryStatus === "partial_received" && partialQuantity != null) orderUpdate.partialQuantity = partialQuantity;
-  if (deliveryStatus === "partial_received" && partialReturnReceived != null) orderUpdate.returnReceived = partialReturnReceived ? 1 : 0;
+  if (deliveryStatus === "partial_received") orderUpdate.returnReceived = (partialReturnReceived ?? false) ? 1 : 0;
   if (deliveryStatus === "returned" && returnReceived != null) orderUpdate.returnReceived = returnReceived ? 1 : 0;
   else if (deliveryStatus !== "returned" && deliveryStatus !== "partial_received") orderUpdate.returnReceived = null;
   await db.update(ordersTable).set(orderUpdate).where(eq(ordersTable.id, orderId));
