@@ -632,12 +632,6 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
     // partial_received: returnReceived لم يتغير (null→false يُعتبر تغيير!)
     (deliveryStatus !== "partial_received" || partialReturnReceived === oldPartialReturnReceivedBool);
 
-  console.log("[PATCH delivery]", {
-    orderId, deliveryStatus, parsedPartialQty, partialReturnReceived,
-    oldDeliveryStatus, oldPartialQtyNum, oldPartialReturnReceivedBool,
-    noChange,
-  });
-
   if (!noChange) {
     const { resolveInventoryTarget, adjustWarehouseStock, syncProductQuantityFromWarehouses, recordMovement } = await import("../lib/inventory.js");
     const { variantId: vid, productId: pid } = await resolveInventoryTarget(ref);
