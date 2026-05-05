@@ -625,13 +625,19 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
   // حساب القيمة القديمة لـ partialReturnReceived بشكل صريح
   const oldPartialReturnReceivedBool = link.returnReceived == null ? null : Number(link.returnReceived) === 1 ? true : false;
 
-  const noChange = deliveryStatus === oldDeliveryStatus &&
+  // لو partial_received بكمية 0 وباقي عند الشحن → نعامله كـ pending (مش partial فعلاً)
+  // ده بيحصل للأوردرات الـ siblings في الفاتورة المتعددة
+  const effectiveDeliveryStatus = (deliveryStatus === "partial_received" && parsedPartialQty === 0 && partialReturnReceived === false)
+    ? "pending"
+    : deliveryStatus;
+
+  const noChange = effectiveDeliveryStatus === oldDeliveryStatus &&
     // returned: لو returnReceived لم يتغير
-    (deliveryStatus !== "returned" || returnReceived === null || (Number(oldReturnReceived) === 1) === returnReceived) &&
+    (effectiveDeliveryStatus !== "returned" || returnReceived === null || (Number(oldReturnReceived) === 1) === returnReceived) &&
     // partial_received: الكمية لم تتغير
-    (deliveryStatus !== "partial_received" || parsedPartialQty === oldPartialQtyNum) &&
-    // partial_received: returnReceived لم يتغير (null→false يُعتبر تغيير!)
-    (deliveryStatus !== "partial_received" || partialReturnReceived === oldPartialReturnReceivedBool);
+    (effectiveDeliveryStatus !== "partial_received" || parsedPartialQty === oldPartialQtyNum) &&
+    // partial_received: returnReceived لم يتغير
+    (effectiveDeliveryStatus !== "partial_received" || partialReturnReceived === oldPartialReturnReceivedBool);
 
   console.log(`[PATCH order ${orderId}] parsedPartialQty=${parsedPartialQty} oldPartialQtyNum=${oldPartialQtyNum} noChange=${noChange}`);
 
