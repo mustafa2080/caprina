@@ -782,8 +782,10 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
   else if (deliveryStatus !== "returned" && deliveryStatus !== "partial_received") orderUpdate.returnReceived = null;
   await db.update(ordersTable).set(orderUpdate).where(eq(ordersTable.id, orderId));
 
-  // ─── فواتير متعددة (siblings): نفس المنطق — غيّر reason الحركة الموجودة ──
-  if (existingOrder.invoiceNumber?.trim()) {
+  // ─── فواتير متعددة (siblings): لا نحدث الـ siblings خالص ──
+  // الـ frontend بيعمل PATCH منفصل لكل أوردر في الفاتورة المتعددة
+  // تحديث الـ siblings كان بيسبب override غلط على الحالات المختلفة
+  if (false && existingOrder.invoiceNumber?.trim()) {
     const siblings = await db.select({ mo: shippingManifestOrdersTable, o: ordersTable })
       .from(shippingManifestOrdersTable)
       .innerJoin(ordersTable, eq(shippingManifestOrdersTable.orderId, ordersTable.id))
