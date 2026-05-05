@@ -1062,6 +1062,44 @@ function InvoiceGroupDeliveryRow({
               </div>
             )}
 
+            {/* حالة الباقي من الاستلام الجزئي — تظهر فقط لما يختار "استلام جزئي" */}
+            {bulkStatus === "partial_received" && (
+              <div className="space-y-1.5">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">الباقي عند شركة الشحن؟ <span className="text-destructive">*</span></p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPartialReturnReceived(false)}
+                    className={`flex-1 flex flex-col items-center gap-1 px-3 py-2.5 rounded-lg border text-xs font-bold transition-all ${
+                      partialReturnReceived === false
+                        ? "border-amber-500 bg-amber-900/30 text-amber-300"
+                        : "border-border text-muted-foreground hover:bg-muted/20"
+                    }`}
+                  >
+                    <span className="text-base">🚚</span>
+                    <span>مازال عند الشحن</span>
+                    <span className="text-[9px] font-normal opacity-70">سيُرحَّل للبيان الجديد</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPartialReturnReceived(true)}
+                    className={`flex-1 flex flex-col items-center gap-1 px-3 py-2.5 rounded-lg border text-xs font-bold transition-all ${
+                      partialReturnReceived === true
+                        ? "border-emerald-500 bg-emerald-900/30 text-emerald-300"
+                        : "border-border text-muted-foreground hover:bg-muted/20"
+                    }`}
+                  >
+                    <span className="text-base">✅</span>
+                    <span>تم استلامه في المخزن</span>
+                    <span className="text-[9px] font-normal opacity-70">يُعاد للمخزن تلقائياً</span>
+                  </button>
+                </div>
+                {partialReturnReceived === null && (
+                  <p className="text-[10px] text-destructive font-medium">⚠ يجب اختيار حالة الباقي قبل الحفظ</p>
+                )}
+              </div>
+            )}
+
             {/* حالة استلام المرتجع — تظهر فقط لما المستخدم يختار "مرتجع" */}
             {bulkStatus === "returned" && (
               <div className="space-y-2">
