@@ -654,8 +654,8 @@ function InvoiceGroupDeliveryRow({
             finalStatus = "partial_received";
             finalPartialQty = parsed;
           } else {
-            // لم يستلم أي شيء من هذا المنتج → postponed (مؤجل، عند شركة الشحن)
-            finalStatus = "postponed";
+            // لم يستلم أي شيء من هذا المنتج → pending (عند شركة الشحن، سيُرحَّل)
+            finalStatus = "pending";
             finalPartialQty = null;
           }
         } else if (isPerItemMode && bulkStatus !== "partial_received") {
