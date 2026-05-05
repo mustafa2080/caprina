@@ -107,10 +107,8 @@ export function WhatsAppDialog({ open, onOpenChange, order, onSent }: Props) {
           <div className="flex items-center gap-2 p-2.5 rounded-lg bg-sky-500/10 border border-sky-500/30 text-xs text-sky-400">
             <ArrowRight className="w-3.5 h-3.5 shrink-0" />
             <span>
-              بعد الإرسال ستتغير الحالة تلقائياً من
-              <span className="font-bold mx-1">«{STATUS_LABELS[order.status]}»</span>
-              إلى
-              <span className="font-bold mx-1 text-sky-300">«قيد الشحن»</span>
+              بعد الإرسال ستتغير الحالة تلقائياً إلى
+              <span className="font-bold mx-1 text-sky-300">«قيد الشحن في المخزن»</span>
             </span>
           </div>
         )}
