@@ -571,10 +571,10 @@ function InvoiceGroupDeliveryRow({
   const isMulti = group.length > 1;
 
   // حالة المجموعة: لو كل الطلبات بنفس الحالة → اعرضها
-  // لو مختلطة بين partial_received و pending → partial_received (بعض المنتجات استُلمت وبعضها لا)
+  // لو مختلطة بين partial_received و pending/postponed → partial_received (بعض المنتجات استُلمت وبعضها لا)
   // وإلا → "pending"
   const statuses = [...new Set(group.map(o => o.deliveryStatus))];
-  const hasMixedPartial = statuses.includes("partial_received") && statuses.every(s => s === "partial_received" || s === "pending");
+  const hasMixedPartial = statuses.includes("partial_received") && statuses.every(s => s === "partial_received" || s === "pending" || s === "postponed");
   const groupStatus: DeliveryStatus = statuses.length === 1
     ? statuses[0] as DeliveryStatus
     : hasMixedPartial
@@ -654,8 +654,8 @@ function InvoiceGroupDeliveryRow({
             finalStatus = "partial_received";
             finalPartialQty = parsed;
           } else {
-            // لم يستلم أي شيء → يبقى pending (عند شركة الشحن)
-            finalStatus = "pending";
+            // لم يستلم أي شيء من هذا المنتج → postponed (مؤجل، عند شركة الشحن)
+            finalStatus = "postponed";
             finalPartialQty = null;
           }
         } else if (isPerItemMode && bulkStatus !== "partial_received") {
