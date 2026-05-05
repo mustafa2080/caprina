@@ -1161,9 +1161,10 @@ function InvoiceGroupDeliveryRow({
                   (!isPerItemMode && bulkStatus === "partial_received" && group[0] && (
                     partialQtyMap[group[0].id] === "" || partialQtyMap[group[0].id] === undefined
                   )) ||
-                  (isMulti && bulkStatus === "partial_received" && group.some(o =>
-                    partialQtyMap[o.id] === "" || partialQtyMap[o.id] === undefined || partialQtyMap[o.id] === null
-                  )) ||
+                  (isMulti && bulkStatus === "partial_received" && !group.some(o => {
+                    const val = partialQtyMap[o.id];
+                    return val !== "" && val !== undefined && val !== null && parseInt(val) > 0;
+                  })) ||
                   (isPerItemMode && bulkStatus !== "partial_received" && group.some(o =>
                     perOrderStatus[o.id] === "partial_received" &&
                     (partialQtyMap[o.id] === "" || partialQtyMap[o.id] === undefined)
