@@ -116,16 +116,31 @@ function OrderDeliveryRow({
     order.deliveryNote?.startsWith("منتج:") ? order.deliveryNote.split("|")[0].replace("منتج:", "").trim() : ""
   );
   const [confirmCancel, setConfirmCancel] = useState(false);
-  // حالة استلام المرتجع: null = لم يُحدَّد، true = تم الاستلام، false = لم يُستلم بعد
   const [returnReceived, setReturnReceived] = useState<boolean | null>(
     (order as any).returnReceived === 1 ? true : (order as any).returnReceived === 0 ? false : null
   );
-  // حالة الباقي من الاستلام الجزئي: false = مازال عند الشحن، true = تم استلامه في المخزن
   const [partialReturnReceived, setPartialReturnReceived] = useState<boolean | null>(
     order.deliveryStatus === "partial_received"
       ? ((order as any).returnReceived === 1 ? true : (order as any).returnReceived === 0 ? false : null)
       : null
   );
+
+  // مزامنة الـ state مع الـ prop بعد كل refetch
+  useEffect(() => {
+    if (!editing) {
+      setStatus(order.deliveryStatus);
+      setNote(order.deliveryNote ?? "");
+      setPartialQty(order.partialQuantity?.toString() ?? "");
+      setReturnReceived(
+        (order as any).returnReceived === 1 ? true : (order as any).returnReceived === 0 ? false : null
+      );
+      setPartialReturnReceived(
+        order.deliveryStatus === "partial_received"
+          ? ((order as any).returnReceived === 1 ? true : (order as any).returnReceived === 0 ? false : null)
+          : null
+      );
+    }
+  }, [order.deliveryStatus, order.deliveryNote, order.partialQuantity, (order as any).returnReceived, editing]);
 
   const cancelMutation = useMutation({
     mutationFn: () => manifestsApi.cancelOrder(manifestId, order.id),
@@ -183,6 +198,8 @@ function OrderDeliveryRow({
     note !== (order.deliveryNote ?? "") ||
     (status === "partial_received" &&
       partialQty !== (order.partialQuantity?.toString() ?? "")) ||
+    (status === "partial_received" &&
+      partialReturnReceived !== ((order as any).returnReceived === 1 ? true : (order as any).returnReceived === 0 ? false : null)) ||
     (status === "returned" &&
       returnReceived !== ((order as any).returnReceived === 1 ? true : (order as any).returnReceived === 0 ? false : null));
 
