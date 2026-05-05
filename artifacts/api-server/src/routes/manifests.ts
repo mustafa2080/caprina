@@ -770,14 +770,14 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
       }
 
       const su: Record<string, unknown> = { deliveryStatus, deliveryNote: deliveryNote ?? null, deliveredAt: isDelivered ? new Date() : null };
-      if (deliveryStatus === "partial_received" && partialQuantity != null) su.partialQuantity = partialQuantity;
+      // لا نحدث partialQuantity للـ siblings — كل طلب بيتبعت بكميته الخاصة في call منفصل
       if (deliveryStatus === "returned" && returnReceived != null) su.returnReceived = returnReceived ? 1 : 0;
       else if (deliveryStatus === "partial_received" && partialReturnReceived != null) su.returnReceived = partialReturnReceived ? 1 : 0;
       else if (deliveryStatus !== "returned" && deliveryStatus !== "partial_received") su.returnReceived = null;
       await db.update(shippingManifestOrdersTable).set(su).where(eq(shippingManifestOrdersTable.id, sib.mo.id));
 
       const sou: Record<string, unknown> = { status: STATUS_MAP[deliveryStatus] ?? "in_shipping" };
-      if (deliveryStatus === "partial_received" && partialQuantity != null) sou.partialQuantity = partialQuantity;
+      // لا نحدث partialQuantity للـ siblings — كل طلب بيتبعت بكميته الخاصة في call منفصل
       if (deliveryStatus === "returned" && returnReceived != null) sou.returnReceived = returnReceived ? 1 : 0;
       else if (deliveryStatus === "partial_received" && partialReturnReceived != null) sou.returnReceived = partialReturnReceived ? 1 : 0;
       else if (deliveryStatus !== "returned" && deliveryStatus !== "partial_received") sou.returnReceived = null;
