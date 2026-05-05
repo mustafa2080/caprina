@@ -3,7 +3,6 @@ import { Link } from "wouter";
 import { format } from "date-fns";
 import { Search, Filter, Plus, Package, CalendarDays, X, RotateCcw, MessageCircle, Trash2, CheckSquare, RefreshCw } from "lucide-react";
 import { useListOrders, useUpdateOrder, getListOrdersQueryKey } from "@workspace/api-client-react";
-import { type ListOrdersStatus, type UpdateOrderBodyStatus } from "@workspace/api-zod";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useDebounce } from "@/hooks/use-debounce";
 import { Input } from "@/components/ui/input";
@@ -21,6 +20,9 @@ import { WhatsAppDialog } from "@/components/whatsapp-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { ordersApi } from "@/lib/api";
+
+// Local type alias – includes warehouse_ready which older generated types may omit
+type OrderStatusValue = "pending" | "warehouse_ready" | "in_shipping" | "received" | "delayed" | "returned" | "partial_received";
 
 const statusLabels: Record<string, string> = {
   pending:          "قيد الانتظار",
