@@ -551,7 +551,8 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
    */
 
   const noChange = deliveryStatus === oldDeliveryStatus &&
-    (deliveryStatus !== "returned" || returnReceived === null || (Number(oldReturnReceived) === 1) === returnReceived);
+    (deliveryStatus !== "returned" || returnReceived === null || (Number(oldReturnReceived) === 1) === returnReceived) &&
+    (deliveryStatus !== "partial_received" || partialQuantity === (link.partialQuantity ?? null));
 
   if (!noChange) {
     if (deliveryStatus === "returned" && returnReceived === true && Number(oldReturnReceived) !== 1) {
