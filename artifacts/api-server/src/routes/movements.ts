@@ -93,13 +93,15 @@ router.get("/inventory/movements", async (req, res): Promise<void> => {
     .$dynamic();
 
   // استثني أي حركة مرتبطة بطلب حالته pending
+  // استثني الحركات المرجعية (كمية 0) — دي بتتسجل للأوردرات المجمّعة في فاتورة واحدة
   const pendingFilter = or(
     isNull(inventoryMovementsTable.orderId),
     ne(ordersTable.status, "pending")
   );
+  const zeroQtyFilter = ne(inventoryMovementsTable.quantity, 0);
   const allConditions = conditions.length > 0
-    ? and(pendingFilter, ...conditions)
-    : pendingFilter;
+    ? and(pendingFilter, zeroQtyFilter, ...conditions)
+    : and(pendingFilter, zeroQtyFilter);
   query = query.where(allConditions);
 
   res.json(await query);
@@ -119,9 +121,10 @@ router.get("/inventory/movements/totals", async (req, res): Promise<void> => {
     isNull(inventoryMovementsTable.orderId),
     ne(ordersTable.status, "pending")
   );
+  const zeroQtyFilterT = ne(inventoryMovementsTable.quantity, 0);
   const allConditions = conditions.length > 0
-    ? and(pendingFilter, ...conditions)
-    : pendingFilter;
+    ? and(pendingFilter, zeroQtyFilterT, ...conditions)
+    : and(pendingFilter, zeroQtyFilterT);
   query = query.where(allConditions);
 
   const rows = await query;
