@@ -587,6 +587,28 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
       } else if (deliveryStatus === "partial_received") {
         newReason     = "partial_sale";
         movementNotes = partialQuantity != null ? `استلام جزئي — ${partialQuantity} قطعة` : "استلام جزئي";
+
+        // ── لو الباقي رجع المخزن (partialReturnReceived = true) ──────────────
+        const oldPartialReturnReceived = (link as any).returnReceived;
+        const isNewlyReturned = partialReturnReceived === true && Number(oldPartialReturnReceived) !== 1;
+        const isUnReturned    = partialReturnReceived === false && Number(oldPartialReturnReceived) === 1;
+        const remainingQty    = totalQty - (partialQuantity ?? 0);
+
+        if (remainingQty > 0) {
+          const { resolveInventoryTarget, adjustWarehouseStock, syncProductQuantityFromWarehouses } = await import("../lib/inventory.js");
+          const { variantId: vid, productId: pid } = await resolveInventoryTarget(ref);
+          if (vid || pid) {
+            if (isNewlyReturned) {
+              // الباقي وصل المخزن → أضفه للمخزون
+              await adjustWarehouseStock(ref.warehouseId, vid, pid, +remainingQty);
+              await syncProductQuantityFromWarehouses(vid, pid);
+            } else if (isUnReturned) {
+              // تراجع عن "وصل المخزن" → اخصم الباقي
+              await adjustWarehouseStock(ref.warehouseId, vid, pid, -remainingQty);
+              await syncProductQuantityFromWarehouses(vid, pid);
+            }
+          }
+        }
       } else if (deliveryStatus === "returned") {
         // returnReceived=false → لسه عند شركة الشحن
         newReason     = "to_shipping";
