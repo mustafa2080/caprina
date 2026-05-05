@@ -633,9 +633,9 @@ function InvoiceGroupDeliveryRow({
       );
       setPerOrderStatus(Object.fromEntries(group.map(o => [o.id, o.deliveryStatus as DeliveryStatus])));
       setPartialQtyMap(Object.fromEntries(group.map(o => [o.id, o.partialQuantity?.toString() ?? ""])));
-      setPartialReturnReceived(
-        group[0]?.returnReceived === 1 ? true : group[0]?.returnReceived === 0 ? false : null
-      );
+      // لو partial_received وreturnReceived غير محدد → default false
+      const serverPartialReturn = group[0]?.returnReceived === 1 ? true : group[0]?.returnReceived === 0 ? false : null;
+      setPartialReturnReceived(groupStatus === "partial_received" && serverPartialReturn === null ? false : serverPartialReturn);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupStatus, rep.deliveryNote, (rep as any).returnReceived, bulkEditing, groupPartialKey]);
@@ -878,7 +878,17 @@ function InvoiceGroupDeliveryRow({
                   variant="ghost"
                   size="sm"
                   className="h-6 text-[10px] px-1.5 text-primary hover:text-primary"
-                  onClick={() => { setBulkEditing(true); setBulkStatus(groupStatus); setBulkNote(rep.deliveryNote ?? ""); setPartialQtyMap(Object.fromEntries(group.map(o => [o.id, o.partialQuantity?.toString() ?? ""]))); setPerOrderStatus(Object.fromEntries(group.map(o => [o.id, o.deliveryStatus as DeliveryStatus]))); setBulkReturnReceived((rep as any).returnReceived === 1 ? true : (rep as any).returnReceived === 0 ? false : null); setPartialReturnReceived((rep as any).returnReceived === 1 ? true : (rep as any).returnReceived === 0 ? false : null); }}
+                  onClick={() => { 
+                    setBulkEditing(true); 
+                    setBulkStatus(groupStatus); 
+                    setBulkNote(rep.deliveryNote ?? ""); 
+                    setPartialQtyMap(Object.fromEntries(group.map(o => [o.id, o.partialQuantity?.toString() ?? ""]))); 
+                    setPerOrderStatus(Object.fromEntries(group.map(o => [o.id, o.deliveryStatus as DeliveryStatus]))); 
+                    setBulkReturnReceived((rep as any).returnReceived === 1 ? true : (rep as any).returnReceived === 0 ? false : null); 
+                    // لو partial_received وreturnReceived غير محدد → default false (مازال عند الشحن)
+                    const existingPartialReturn = (rep as any).returnReceived === 1 ? true : (rep as any).returnReceived === 0 ? false : null;
+                    setPartialReturnReceived(groupStatus === "partial_received" && existingPartialReturn === null ? false : existingPartialReturn); 
+                  }}
                 >
                   <Edit2 className="w-3 h-3 ml-0.5" />تقفيل
                 </Button>
@@ -1208,6 +1218,7 @@ function InvoiceGroupDeliveryRow({
                   bulkMutation.isPending ||
                   (needsBulkNote && !bulkNote.trim()) ||
                   (bulkStatus === "returned" && bulkReturnReceived === null) ||
+                  (bulkStatus === "partial_received" && partialReturnReceived === null) ||
                   (!isPerItemMode && bulkStatus === "partial_received" && group[0] && (
                     partialQtyMap[group[0].id] === "" || partialQtyMap[group[0].id] === undefined
                   )) ||
