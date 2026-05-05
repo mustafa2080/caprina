@@ -626,19 +626,29 @@ function InvoiceGroupDeliveryRow({
   // مزامنة الـ state مع الـ prop بعد كل refetch أو لما نخرج من وضع التعديل
   useEffect(() => {
     if (!bulkEditing) {
+      if (pendingSaveRef.current) {
+        // refetch لسه ما خلصش — مش نعمل sync دلوقتي عشان متوورش الـ optimistic state
+        // الـ useEffect هيشتغل تاني لما groupPartialKey يتغير (= server data وصلت)
+        return;
+      }
       setBulkStatus(groupStatus);
       setBulkNote(rep.deliveryNote ?? "");
-      setBulkReturnReceived(
-        (rep as any).returnReceived === 1 ? true : (rep as any).returnReceived === 0 ? false : null
-      );
+      setBulkReturnReceived((rep as any).returnReceived === 1 ? true : (rep as any).returnReceived === 0 ? false : null);
       setPerOrderStatus(Object.fromEntries(group.map(o => [o.id, o.deliveryStatus as DeliveryStatus])));
       setPartialQtyMap(Object.fromEntries(group.map(o => [o.id, o.partialQuantity?.toString() ?? ""])));
-      // لو partial_received وreturnReceived غير محدد → default false
       const serverPartialReturn = group[0]?.returnReceived === 1 ? true : group[0]?.returnReceived === 0 ? false : null;
       setPartialReturnReceived(groupStatus === "partial_received" && serverPartialReturn === null ? false : serverPartialReturn);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupStatus, rep.deliveryNote, (rep as any).returnReceived, bulkEditing, groupPartialKey]);
+
+  // لما groupPartialKey يتغير (server data جديدة وصلت بعد حفظ) → امسح الحماية
+  useEffect(() => {
+    if (pendingSaveRef.current) {
+      pendingSaveRef.current = null;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupPartialKey]);
 
   const cancelGroupMutation = useMutation({
     mutationFn: async () => {
@@ -713,16 +723,14 @@ function InvoiceGroupDeliveryRow({
     },
     onSuccess: () => {
       toast({ title: "تم حفظ حالة التسليم للفاتورة كاملها" });
-      // نطبق القيم المُرسَلة مباشرة في الـ state عشان تظهر فوراً
-      // قبل ما الـ useEffect يعمل override بالقيم القديمة من الـ group prop
+      // نطبق القيم المُرسَلة في الـ state فوراً
       if (pendingSaveRef.current) {
         const { partialQtyMap: savedQty, perOrderStatus: savedStatus, bulkStatus: savedBulk } = pendingSaveRef.current;
         setPartialQtyMap(savedQty);
         setPerOrderStatus(savedStatus);
         setBulkStatus(savedBulk);
-        // نمسح الـ ref هنا — لما الـ component يعمل remount (بسبب key) هيأخد القيم من الـ prop الجديدة
-        // ولما مفيش remount، الـ state بقت محدثة من السطور فوق
-        pendingSaveRef.current = null;
+        // لا نمسح pendingSaveRef هنا — يحمي useEffect من override بالقيم القديمة
+        // سيُمسح في useEffect لما groupPartialKey يتغير (= server data وصلت فعلاً)
       }
       setBulkEditing(false);
       onSaved();
