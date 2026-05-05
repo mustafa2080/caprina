@@ -639,113 +639,89 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
     const { resolveInventoryTarget, adjustWarehouseStock, syncProductQuantityFromWarehouses, recordMovement } = await import("../lib/inventory.js");
     const { variantId: vid, productId: pid } = await resolveInventoryTarget(ref);
 
-    // ── تأكد من وجود حركة واحدة فقط per order: احذف أي حركات زيادة ──────────
-    // القاعدة: كل أوردر له حركة واحدة فقط — الأقدم تُحتفظ بها والباقي يُحذف
-    const allMovements = await db
-      .select({ id: inventoryMovementsTable.id })
-      .from(inventoryMovementsTable)
-      .where(eq(inventoryMovementsTable.orderId, orderId))
-      .orderBy(inventoryMovementsTable.id); // الأقدم أولاً
-    if (allMovements.length > 1) {
-      const idsToDelete = allMovements.slice(1).map(m => m.id); // احذف كل شيء بعد الأول
-      await db.delete(inventoryMovementsTable)
-        .where(inArray(inventoryMovementsTable.id, idsToDelete));
-    }
+    // ── احذف كل الحركات القديمة للأوردر ده — سنسجل حركة واحدة جديدة صح ──────
+    await db.delete(inventoryMovementsTable)
+      .where(eq(inventoryMovementsTable.orderId, orderId));
 
     if (deliveryStatus === "returned" && returnReceived === true && Number(oldReturnReceived) !== 1) {
-      // ── مرتجع وصل المخزن ──────────────────────────────────────────────────
-      // لو الأوردر كان partial_received قبل كده → الجزء المُستلم كان بيع (خرج المخزن ومش هيرجع)
-      // الجزء الباقي (لم يُستلم) هو اللي كان عند الشحن وبيرجع المخزن دلوقتي
-      // لو الأوردر كان حالة تانية (to_shipping) → الكمية كلها بترجع
+      // ── مرتجع وصل المخزن ── IN / from_shipping ────────────────────────────
       const wasPartial = oldDeliveryStatus === "partial_received";
       const prevPartialQtyNum = link.partialQuantity != null ? Number(link.partialQuantity) : 0;
-      // الكمية اللي ترجع للمخزن = totalQty - اللي اتباع فعلاً (لو كان partial)
       const qtyToReturn = wasPartial ? (totalQty - prevPartialQtyNum) : totalQty;
-
-      // لو الحالة القديمة كانت partial_received وreturnBool=true →
-      // الجزء الباقي كان بالفعل في المخزن (أضيف قبل كده) → مش نضيفه تاني
-      const oldReturnBoolForPartial = oldPartialReturnReceivedBool;
-      const remainingAlreadyInStock = wasPartial && oldReturnBoolForPartial === true;
+      const remainingAlreadyInStock = wasPartial && oldPartialReturnReceivedBool === true;
 
       if ((vid || pid) && qtyToReturn > 0 && !remainingAlreadyInStock) {
         await adjustWarehouseStock(ref.warehouseId, vid, pid, +qtyToReturn);
         await syncProductQuantityFromWarehouses(vid, pid);
       }
-
-      const [lastMov] = await db.select({ id: inventoryMovementsTable.id })
-        .from(inventoryMovementsTable).where(eq(inventoryMovementsTable.orderId, orderId))
-        .orderBy(desc(inventoryMovementsTable.id)).limit(1);
-      if (lastMov) {
-        await db.update(inventoryMovementsTable)
-          .set({ type: "IN", reason: "from_shipping" as any, quantity: qtyToReturn, notes: "مرتجع — وصل المخزن من شركة الشحن" })
-          .where(eq(inventoryMovementsTable.id, lastMov.id));
+      if ((vid || pid) && qtyToReturn > 0) {
+        const resolved = await resolveProductIdFromVariant(vid, pid);
+        await recordMovement({ type: "IN", reason: "from_shipping" as any, quantity: qtyToReturn,
+          warehouseId: ref.warehouseId, variantId: resolved.variantId, productId: resolved.productId,
+          product: ref.product, color: ref.color, size: ref.size, orderId,
+          notes: "مرتجع — وصل المخزن من شركة الشحن" });
       }
 
     } else if (deliveryStatus === "partial_received") {
       // ── استلام جزئي ───────────────────────────────────────────────────────
-      // الحالة السابقة في DB قبل هذا الـ request
-      const prevStatus        = oldDeliveryStatus;
-      const prevPartialQty    = oldPartialQtyNum ?? 0;
-      const prevReturnBool    = oldPartialReturnReceivedBool; // null | false | true
-      const newPartialQty     = parsedPartialQty!;
-      const newReturnBool     = partialReturnReceived ?? false;
-      const remainingQty      = totalQty - newPartialQty;
+      const prevStatus     = oldDeliveryStatus;
+      const prevPartialQty = oldPartialQtyNum ?? 0;
+      const prevReturnBool = oldPartialReturnReceivedBool;
+      const newPartialQty  = parsedPartialQty!;
+      const newReturnBool  = partialReturnReceived ?? false;
+      const remainingQty   = totalQty - newPartialQty;
 
-      // حساب الكمية الحالية في المخزن بناءً على الحالة السابقة:
-      // - لو prevStatus != partial_received: الكمية كلها عند الشحن (مش في المخزن)
-      // - لو prevStatus == partial_received && prevReturn == true: prevPartialQty خرج فقط (الباقي رجع المخزن)
-      // - لو prevStatus == partial_received && prevReturn != true: كل الكمية خرجت من المخزن
+      // حساب تعديل المخزون
       let stockAdjust = 0;
-
       if (prevStatus !== "partial_received") {
-        // أول مرة partial_received: الـ totalQty كلها خرجت، محتاج نرجع الباقي لو returnBool=true
-        if (newReturnBool === true && remainingQty > 0) {
-          stockAdjust = +remainingQty; // رجّع الباقي للمخزن
-        }
-        // لو newReturnBool=false: الكمية كلها خرجت، مش نضيف ولا نخصم (المخزون اتخصم قبل كده عند الإضافة للبيان)
+        if (newReturnBool === true && remainingQty > 0) stockAdjust = +remainingQty;
       } else {
-        // كانت partial_received قبل كده — نحسب الفرق
-        // المخزون الحالي يعكس:
-        //   prevReturn=true  → totalQty - prevPartialQty في المخزن (الباقي كان رجع)
-        //   prevReturn=false → 0 في المخزن (كل الكمية كانت عند الشحن أو بيعت)
         const prevInStock = prevReturnBool === true ? (totalQty - prevPartialQty) : 0;
         const newInStock  = newReturnBool  === true ? remainingQty : 0;
-        stockAdjust = newInStock - prevInStock; // موجب = نضيف، سالب = نخصم
+        stockAdjust = newInStock - prevInStock;
       }
-
       if ((vid || pid) && stockAdjust !== 0) {
         await adjustWarehouseStock(ref.warehouseId, vid, pid, stockAdjust);
         await syncProductQuantityFromWarehouses(vid, pid);
       }
 
-      // حدّث الحركة الموجودة (الـ reason والكمية)
-      // السيناريو 1: الباقي عند الشحن → الحركة تفضل OUT/to_shipping بالكمية الكاملة (الكل خرج من المخزن)
-      // السيناريو 2: الباقي رجع المخزن → الحركة OUT/partial_sale بكمية المستلم فقط
-      const movReason   = newReturnBool ? "partial_sale" : "to_shipping";
+      // سجّل الحركة الجديدة الواحدة
+      // الباقي عند الشحن → OUT/to_shipping بالكمية الكاملة
+      // الباقي رجع المخزن → OUT/partial_sale بكمية المستلم فقط
+      const movReason     = newReturnBool ? "partial_sale" : "to_shipping";
       const movQtyPartial = newReturnBool ? newPartialQty : totalQty;
-      const notes = newReturnBool
+      const movNotes      = newReturnBool
         ? `استلام جزئي — ${newPartialQty} قطعة (الباقي رجع المخزن)`
         : `استلام جزئي — ${newPartialQty} قطعة من ${totalQty} (الباقي عند الشحن)`;
-
-      const [lastMov] = await db.select({ id: inventoryMovementsTable.id, type: inventoryMovementsTable.type })
-        .from(inventoryMovementsTable).where(eq(inventoryMovementsTable.orderId, orderId))
-        .orderBy(desc(inventoryMovementsTable.id)).limit(1);
-      if (lastMov) {
-        await db.update(inventoryMovementsTable)
-          .set({ type: "OUT", reason: movReason as any, quantity: movQtyPartial, notes })
-          .where(eq(inventoryMovementsTable.id, lastMov.id));
-      } else if (vid || pid) {
+      if (vid || pid) {
+        const resolved = await resolveProductIdFromVariant(vid, pid);
         await recordMovement({ type: "OUT", reason: movReason as any, quantity: movQtyPartial,
-          warehouseId: ref.warehouseId, variantId: vid, productId: pid,
-          product: ref.product, color: ref.color, size: ref.size, orderId, notes });
+          warehouseId: ref.warehouseId, variantId: resolved.variantId, productId: resolved.productId,
+          product: ref.product, color: ref.color, size: ref.size, orderId, notes: movNotes });
       }
 
     } else {
       // ── delivered / returned(عند الشحن) / pending / postponed ─────────────
+      // الكمية كلها خرجت المخزن عند إنشاء البيان → سجّل الحالة الجديدة فقط
+
+      // لو كنا في partial_received وreturnBool=true → الباقي كان في المخزن، نخصمه
+      if (oldDeliveryStatus === "partial_received" && oldPartialReturnReceivedBool === true && (vid || pid)) {
+        const oldRemaining = totalQty - (oldPartialQtyNum ?? 0);
+        if (oldRemaining > 0) {
+          await adjustWarehouseStock(ref.warehouseId, vid, pid, -oldRemaining);
+          await syncProductQuantityFromWarehouses(vid, pid);
+        }
+      }
+
+      // لو كنا في returned+returnReceived=true (IN) وبنغيره → نخصم ما أضفناه
+      if (oldDeliveryStatus === "returned" && Number(oldReturnReceived) === 1 && (vid || pid)) {
+        const wasPartialOld = false; // returned مش partial هنا
+        await adjustWarehouseStock(ref.warehouseId, vid, pid, -totalQty);
+        await syncProductQuantityFromWarehouses(vid, pid);
+      }
+
       let newReason: string;
       let movementNotes: string;
-      let movQty = totalQty;
-
       if (deliveryStatus === "delivered") {
         newReason = "sale"; movementNotes = "تم الاستلام — بيع";
       } else if (deliveryStatus === "returned") {
@@ -755,36 +731,10 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
         movementNotes = deliveryStatus === "postponed" ? "مؤجل — عند شركة الشحن" : "قيد الانتظار — عند شركة الشحن";
       }
 
-      // لو كنا في partial_received وعندنا returnBool=true → كمية الباقي كانت في المخزن، لازم نخصمها
-      if (oldDeliveryStatus === "partial_received" && oldPartialReturnReceivedBool === true && (vid || pid)) {
-        const oldRemaining = totalQty - (oldPartialQtyNum ?? 0);
-        if (oldRemaining > 0) {
-          await adjustWarehouseStock(ref.warehouseId, vid, pid, -oldRemaining);
-          await syncProductQuantityFromWarehouses(vid, pid);
-        }
-      }
-
-      // لو الحركة كانت IN (returned وصل المخزن) وبنغيرها لحاجة تانية → نخصم الكمية اللي أضافها فعلاً
-      const [lastMov] = await db.select({ id: inventoryMovementsTable.id, type: inventoryMovementsTable.type, quantity: inventoryMovementsTable.quantity })
-        .from(inventoryMovementsTable).where(eq(inventoryMovementsTable.orderId, orderId))
-        .orderBy(desc(inventoryMovementsTable.id)).limit(1);
-
-      if (lastMov?.type === "IN" && (vid || pid)) {
-        // نخصم الكمية اللي أضافها الـ IN movement فعلاً (مش totalQty دايماً)
-        const qtyToDeduct = lastMov.quantity ?? totalQty;
-        await adjustWarehouseStock(ref.warehouseId, vid, pid, -qtyToDeduct);
-        await syncProductQuantityFromWarehouses(vid, pid);
-      }
-
-      if (lastMov) {
-        await db.update(inventoryMovementsTable)
-          .set({ type: "OUT", reason: newReason as any, quantity: movQty, notes: movementNotes })
-          .where(eq(inventoryMovementsTable.id, lastMov.id));
-      } else if (vid || pid) {
-        await adjustWarehouseStock(ref.warehouseId, vid, pid, -movQty);
-        await syncProductQuantityFromWarehouses(vid, pid);
-        await recordMovement({ type: "OUT", reason: newReason as any, quantity: movQty,
-          warehouseId: ref.warehouseId, variantId: vid, productId: pid,
+      if (vid || pid) {
+        const resolved = await resolveProductIdFromVariant(vid, pid);
+        await recordMovement({ type: "OUT", reason: newReason as any, quantity: totalQty,
+          warehouseId: ref.warehouseId, variantId: resolved.variantId, productId: resolved.productId,
           product: ref.product, color: ref.color, size: ref.size, orderId, notes: movementNotes });
       }
     }
