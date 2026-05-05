@@ -592,12 +592,12 @@ function InvoiceGroupDeliveryRow({
     (rep as any).returnReceived === 1 ? true : (rep as any).returnReceived === 0 ? false : null
   );
 
-  // لكل منتج في الفاتورة: حالة مستقلة
+  // لكل منتج في الفاتورة: حالة مستقلة — نستخدم manifestOrderId كـ key عشان يكون unique دايماً
   const [perOrderStatus, setPerOrderStatus] = useState<Record<number, DeliveryStatus>>(
-    Object.fromEntries(group.map(o => [o.id, o.deliveryStatus as DeliveryStatus]))
+    Object.fromEntries(group.map(o => [o.manifestOrderId ?? o.id, o.deliveryStatus as DeliveryStatus]))
   );
   const [partialQtyMap, setPartialQtyMap] = useState<Record<number, string>>(
-    Object.fromEntries(group.map(o => [o.id, o.partialQuantity?.toString() ?? ""]))
+    Object.fromEntries(group.map(o => [o.manifestOrderId ?? o.id, o.partialQuantity?.toString() ?? ""]))
   );
   const [partialReturnReceived, setPartialReturnReceived] = useState<boolean | null>(
     group[0]?.returnReceived === 1 ? true : group[0]?.returnReceived === 0 ? false : null
@@ -611,8 +611,8 @@ function InvoiceGroupDeliveryRow({
       setBulkReturnReceived(
         (rep as any).returnReceived === 1 ? true : (rep as any).returnReceived === 0 ? false : null
       );
-      setPerOrderStatus(Object.fromEntries(group.map(o => [o.id, o.deliveryStatus as DeliveryStatus])));
-      setPartialQtyMap(Object.fromEntries(group.map(o => [o.id, o.partialQuantity?.toString() ?? ""])));
+      setPerOrderStatus(Object.fromEntries(group.map(o => [o.manifestOrderId ?? o.id, o.deliveryStatus as DeliveryStatus])));
+      setPartialQtyMap(Object.fromEntries(group.map(o => [o.manifestOrderId ?? o.id, o.partialQuantity?.toString() ?? ""])));
       setPartialReturnReceived(
         group[0]?.returnReceived === 1 ? true : group[0]?.returnReceived === 0 ? false : null
       );
@@ -647,29 +647,30 @@ function InvoiceGroupDeliveryRow({
 
         if (isMulti && bulkStatus === "partial_received") {
           // فاتورة متعددة + partial: كل منتج له كميته المستقلة من partialQtyMap
-          const val = partialQtyMap[order.id];
+          const key = order.manifestOrderId ?? order.id;
+          const val = partialQtyMap[key];
           const parsed = (val !== "" && val !== undefined && val !== null) ? parseInt(val) : null;
           if (parsed !== null && parsed > 0) {
-            // استلم جزئياً → partial_received بالكمية المحددة
             finalStatus = "partial_received";
             finalPartialQty = parsed;
           } else {
-            // لم يستلم أي شيء من هذا المنتج → pending (عند شركة الشحن، سيُرحَّل)
             finalStatus = "pending";
             finalPartialQty = null;
           }
         } else if (isPerItemMode && bulkStatus !== "partial_received") {
           // فاتورة متعددة + حالة أخرى: كل منتج له حالته المستقلة من perOrderStatus
-          finalStatus = perOrderStatus[order.id] ?? bulkStatus;
+          const key = order.manifestOrderId ?? order.id;
+          finalStatus = perOrderStatus[key] ?? bulkStatus;
           if (finalStatus === "partial_received") {
-            const val = partialQtyMap[order.id];
+            const val = partialQtyMap[key];
             finalPartialQty = (val !== "" && val !== undefined) ? parseInt(val) : null;
           }
         } else {
           // فاتورة منتج واحد
           finalStatus = bulkStatus;
           if (finalStatus === "partial_received") {
-            const val = partialQtyMap[order.id];
+            const key = order.manifestOrderId ?? order.id;
+            const val = partialQtyMap[key];
             finalPartialQty = (val !== "" && val !== undefined) ? parseInt(val) : null;
           }
         }
@@ -913,11 +914,12 @@ function InvoiceGroupDeliveryRow({
                 {group.map((o) => {
                   const variant = [o.color, o.size].filter(Boolean).join(" / ");
                   const unitPrice = o.quantity > 0 ? o.totalPrice / o.quantity : 0;
-                  const rawVal = partialQtyMap[o.id];
+                  const mKey = o.manifestOrderId ?? o.id;
+                  const rawVal = partialQtyMap[mKey];
                   const hasQty = rawVal !== "" && rawVal !== undefined && rawVal !== null;
                   const partialVal = hasQty ? parseInt(rawVal) : 0;
                   return (
-                    <div key={o.id} className="rounded-md border border-teal-200 dark:border-teal-800 bg-background p-2 flex flex-col gap-1.5">
+                    <div key={mKey} className="rounded-md border border-teal-200 dark:border-teal-800 bg-background p-2 flex flex-col gap-1.5">
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-xs font-semibold">{o.product}</p>
@@ -931,15 +933,15 @@ function InvoiceGroupDeliveryRow({
                           type="number"
                           min={0}
                           max={o.quantity}
-                          value={partialQtyMap[o.id] ?? ""}
+                          value={partialQtyMap[mKey] ?? ""}
                           onChange={e => {
                             const raw = e.target.value;
                             if (raw === "") {
-                              setPartialQtyMap(prev => ({ ...prev, [o.id]: "" }));
+                              setPartialQtyMap(prev => ({ ...prev, [mKey]: "" }));
                             } else {
                               const n = parseInt(raw);
                               if (!isNaN(n) && n >= 0 && n <= o.quantity) {
-                                setPartialQtyMap(prev => ({ ...prev, [o.id]: String(n) }));
+                                setPartialQtyMap(prev => ({ ...prev, [mKey]: String(n) }));
                               }
                             }
                           }}
@@ -1169,10 +1171,10 @@ function InvoiceGroupDeliveryRow({
                   (needsBulkNote && !bulkNote.trim()) ||
                   (bulkStatus === "returned" && bulkReturnReceived === null) ||
                   (!isPerItemMode && bulkStatus === "partial_received" && group[0] && (
-                    partialQtyMap[group[0].id] === "" || partialQtyMap[group[0].id] === undefined
+                    partialQtyMap[group[0].manifestOrderId ?? group[0].id] === "" || partialQtyMap[group[0].manifestOrderId ?? group[0].id] === undefined
                   )) ||
                   (isMulti && bulkStatus === "partial_received" && !group.some(o => {
-                    const val = partialQtyMap[o.id];
+                    const val = partialQtyMap[o.manifestOrderId ?? o.id];
                     return val !== "" && val !== undefined && val !== null && parseInt(val) > 0;
                   })) ||
                   (isPerItemMode && bulkStatus !== "partial_received" && group.some(o =>
