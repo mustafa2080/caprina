@@ -258,7 +258,7 @@ export function CreateManifestDialog({
       if (inManifestIds.has(o.id)) return false;
       return true;
     });
-  }, [warehouseReadyOrders, pendingOrders, delayedOrders, inManifestData]);
+  }, [warehouseReadyOrders, delayedOrders, inManifestData]);
 
   const createMutation = useMutation({
     mutationFn: () =>
