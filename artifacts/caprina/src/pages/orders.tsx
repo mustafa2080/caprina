@@ -344,7 +344,7 @@ export default function Orders() {
                         <Badge variant="outline" className={`text-[9px] font-bold border ${statusClasses[order.status] || ""}`}>
                           {statusLabels[order.status] || order.status}
                         </Badge>
-                        {order.status === "in_shipping" && inManifestSet.has(order.id) && (
+                        {order.status === "warehouse_ready" && (
                           <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-500 dark:text-amber-400">🏠 ما زال في المخزن</span>
                         )}
                         {order.status === "returned" && (() => {
@@ -452,7 +452,7 @@ export default function Orders() {
                           <Badge variant="outline" className={`text-[9px] font-bold border ${statusClasses[order.status] || ""}`}>
                             {statusLabels[order.status] || order.status}
                           </Badge>
-                          {order.status === "in_shipping" && inManifestSet.has(order.id) && (
+                          {order.status === "warehouse_ready" && (
                             <div className="flex items-center justify-center gap-0.5 mt-1">
                               <span className="text-[9px] font-bold text-amber-500 dark:text-amber-400 leading-none">🏠 ما زال في المخزن</span>
                             </div>
