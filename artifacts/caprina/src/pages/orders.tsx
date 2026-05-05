@@ -76,10 +76,10 @@ export default function Orders() {
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [pendingBulkStatus, setPendingBulkStatus] = useState<string | null>(null);
 
-  // FIX: Use 'any' as a temporary workaround for missing warehouse_ready in generated types
-const { data: orders, isLoading } = useListOrders(
-  { search: debouncedSearch || undefined, status: status !== "all" ? (status as any) : undefined }
-);
+  const { data: orders, isLoading } = useListOrders(
+    { search: debouncedSearch || undefined, status: status !== "all" ? (status as ListOrdersStatus) : undefined },
+    { query: { staleTime: 15_000, gcTime: 60_000 } }
+  );
 
   // IDs of orders already in a shipping manifest (to detect "still in warehouse")
   const { data: inManifestData } = useQuery({
@@ -182,7 +182,7 @@ const { data: orders, isLoading } = useListOrders(
   const handleWaSent = (orderId: number, currentStatus: string) => {
     if (currentStatus === "pending") {
       updateOrder.mutate(
-        { id: orderId, data: { status: "warehouse_ready" as any } },
+        { id: orderId, data: { status: "warehouse_ready" as UpdateOrderBodyStatus } },
         { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() }); toast({ title: "تم إرسال واتساب ✅", description: `تم تحويل الطلب #${orderId.toString().padStart(4,"0")} لـ «قيد الشحن في المخزن»` }); } }
       );
     } else {
@@ -347,7 +347,7 @@ const { data: orders, isLoading } = useListOrders(
                         <Badge variant="outline" className={`text-[9px] font-bold border ${statusClasses[order.status] || ""}`}>
                           {statusLabels[order.status] || order.status}
                         </Badge>
-                        {order.status === ("warehouse_ready" as any) && (
+                        {order.status === "warehouse_ready" && (
                           <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-500 dark:text-amber-400">🏠 ما زال في المخزن</span>
                         )}
                         {order.status === "returned" && (() => {
@@ -455,7 +455,7 @@ const { data: orders, isLoading } = useListOrders(
                           <Badge variant="outline" className={`text-[9px] font-bold border ${statusClasses[order.status] || ""}`}>
                             {statusLabels[order.status] || order.status}
                           </Badge>
-                          {order.status === ("warehouse_ready" as any) && (
+                          {order.status === "warehouse_ready" && (
                             <div className="flex items-center justify-center gap-0.5 mt-1">
                               <span className="text-[9px] font-bold text-amber-500 dark:text-amber-400 leading-none">🏠 ما زال في المخزن</span>
                             </div>
