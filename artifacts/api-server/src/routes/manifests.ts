@@ -706,16 +706,23 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
       }
 
       // حدّث الحركة الموجودة (الـ reason والكمية)
-      const notes = `استلام جزئي — ${newPartialQty} قطعة` + (newReturnBool ? " (الباقي رجع المخزن)" : " (الباقي عند الشحن)");
+      // السيناريو 1: الباقي عند الشحن → الحركة تفضل OUT/to_shipping بالكمية الكاملة (الكل خرج من المخزن)
+      // السيناريو 2: الباقي رجع المخزن → الحركة OUT/partial_sale بكمية المستلم فقط
+      const movReason   = newReturnBool ? "partial_sale" : "to_shipping";
+      const movQtyPartial = newReturnBool ? newPartialQty : totalQty;
+      const notes = newReturnBool
+        ? `استلام جزئي — ${newPartialQty} قطعة (الباقي رجع المخزن)`
+        : `استلام جزئي — ${newPartialQty} قطعة من ${totalQty} (الباقي عند الشحن)`;
+
       const [lastMov] = await db.select({ id: inventoryMovementsTable.id, type: inventoryMovementsTable.type })
         .from(inventoryMovementsTable).where(eq(inventoryMovementsTable.orderId, orderId))
         .orderBy(desc(inventoryMovementsTable.id)).limit(1);
       if (lastMov) {
         await db.update(inventoryMovementsTable)
-          .set({ type: "OUT", reason: "partial_sale" as any, quantity: newPartialQty, notes })
+          .set({ type: "OUT", reason: movReason as any, quantity: movQtyPartial, notes })
           .where(eq(inventoryMovementsTable.id, lastMov.id));
       } else if (vid || pid) {
-        await recordMovement({ type: "OUT", reason: "partial_sale" as any, quantity: newPartialQty,
+        await recordMovement({ type: "OUT", reason: movReason as any, quantity: movQtyPartial,
           warehouseId: ref.warehouseId, variantId: vid, productId: pid,
           product: ref.product, color: ref.color, size: ref.size, orderId, notes });
       }
