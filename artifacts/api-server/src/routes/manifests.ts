@@ -621,10 +621,16 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
   }
   const oldPartialQtyNum = link.partialQuantity != null ? Number(link.partialQuantity) : null;
 
+  // حساب القيمة القديمة لـ partialReturnReceived بشكل صريح
+  const oldPartialReturnReceivedBool = link.returnReceived == null ? null : Number(link.returnReceived) === 1 ? true : false;
+
   const noChange = deliveryStatus === oldDeliveryStatus &&
+    // returned: لو returnReceived لم يتغير
     (deliveryStatus !== "returned" || returnReceived === null || (Number(oldReturnReceived) === 1) === returnReceived) &&
+    // partial_received: الكمية لم تتغير
     (deliveryStatus !== "partial_received" || parsedPartialQty === oldPartialQtyNum) &&
-    (deliveryStatus !== "partial_received" || partialReturnReceived === null || (Number(oldReturnReceived) === 1) === (partialReturnReceived === true));
+    // partial_received: returnReceived لم يتغير (null→false يُعتبر تغيير!)
+    (deliveryStatus !== "partial_received" || partialReturnReceived === oldPartialReturnReceivedBool);
 
   if (!noChange) {
     if (deliveryStatus === "returned" && returnReceived === true && Number(oldReturnReceived) !== 1) {
@@ -662,16 +668,14 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
         movementNotes = safeQty != null ? `استلام جزئي — ${safeQty} قطعة` : "استلام جزئي";
 
         // ── منطق حركة واحدة للاستلام الجزئي ──────────────────────────────────
-        // الحركة الأساسية (OUT) دايماً بكمية partialQty (المباعة فعلاً)
-        // "مازال عند الشحن" → نفس الحركة بكمية partialQty بالسالب فقط
-        // "تم استلامه في المخزن" → نفس الحركة بكمية partialQty بالسالب + يعمل UPDATE للحركة بكمية الباقي للمخزون
-        const oldPartialReturnReceived = (link as any).returnReceived;
-        const isNewlyReturned = partialReturnReceived === true && Number(oldPartialReturnReceived) !== 1;
-        const isUnReturned    = partialReturnReceived === false && Number(oldPartialReturnReceived) === 1;
+        // oldPartialReturnReceivedBool: null=لم يُحدد، false=عند الشحن، true=وصل المخزن
+        const isNewlyReturned = partialReturnReceived === true  && oldPartialReturnReceivedBool !== true;
+        const isUnReturned    = partialReturnReceived === false && oldPartialReturnReceivedBool === true;
         const remainingQty    = totalQty - (partialQuantity ?? 0);
-        const prevPartialQty  = oldPartialQty as number;
+        const prevPartialQty  = oldPartialQtyNum ?? 0;
 
-        if (remainingQty > 0 || prevPartialQty !== (partialQuantity ?? 0)) {
+        // دايماً ندخل الـ inventory block عند partial_received (الـ noChange بيحميه من التكرار)
+        if (true) {
           const { resolveInventoryTarget, adjustWarehouseStock, syncProductQuantityFromWarehouses, resolveProductIdFromVariant } = await import("../lib/inventory.js");
           const { variantId: vid, productId: pid } = await resolveInventoryTarget(ref);
           if (vid || pid) {
@@ -685,11 +689,9 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
               await syncProductQuantityFromWarehouses(vid, pid);
             } else {
               // تغيير الكمية الجزئية فقط (بدون تغيير returnReceived)
-              // عدّل الفرق في المخزون: الكمية القديمة - الكمية الجديدة
               const qtyDiff = (partialQuantity ?? 0) - prevPartialQty;
-              // لو الكمية المباعة زادت → نخصم الزيادة من المخزون (الكمية الموجودة عند الشحن تقلّت)
-              // لو الكمية المباعة قلّت → نرجع الفرق للمخزون (لو returnReceived=false لسه عند الشحن)
-              if (qtyDiff !== 0 && Number(oldPartialReturnReceived) !== 1) {
+              // لو الكمية المباعة زادت → نخصم الزيادة / لو قلّت → نرجع الفرق للمخزون
+              if (qtyDiff !== 0 && oldPartialReturnReceivedBool !== true) {
                 await adjustWarehouseStock(ref.warehouseId, vid, pid, -qtyDiff);
                 await syncProductQuantityFromWarehouses(vid, pid);
               }
