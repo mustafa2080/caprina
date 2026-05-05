@@ -179,8 +179,8 @@ export default function Orders() {
   const handleWaSent = (orderId: number, currentStatus: string) => {
     if (currentStatus === "pending") {
       updateOrder.mutate(
-        { id: orderId, data: { status: "in_shipping" } },
-        { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() }); toast({ title: "تم إرسال واتساب ✅", description: `تم تحويل الطلب #${orderId.toString().padStart(4,"0")} لـ «قيد الشحن»` }); } }
+        { id: orderId, data: { status: "warehouse_ready" } },
+        { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() }); toast({ title: "تم إرسال واتساب ✅", description: `تم تحويل الطلب #${orderId.toString().padStart(4,"0")} لـ «قيد الشحن في المخزن»` }); } }
       );
     } else {
       toast({ title: "تم فتح واتساب ✅", description: "الرسالة جاهزة للإرسال" });
