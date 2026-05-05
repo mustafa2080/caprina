@@ -571,9 +571,16 @@ function InvoiceGroupDeliveryRow({
   const invoiceNum = (rep as any).invoiceNumber?.trim() || null;
   const isMulti = group.length > 1;
 
-  // حالة المجموعة: لو كل الطلبات بنفس الحالة → اعرضها، وإلا "متعددة"
+  // حالة المجموعة: لو كل الطلبات بنفس الحالة → اعرضها
+  // لو مختلطة بين partial_received و pending → partial_received (بعض المنتجات استُلمت وبعضها لا)
+  // وإلا → "pending"
   const statuses = [...new Set(group.map(o => o.deliveryStatus))];
-  const groupStatus: DeliveryStatus = statuses.length === 1 ? statuses[0] as DeliveryStatus : "pending";
+  const hasMixedPartial = statuses.includes("partial_received") && statuses.every(s => s === "partial_received" || s === "pending");
+  const groupStatus: DeliveryStatus = statuses.length === 1
+    ? statuses[0] as DeliveryStatus
+    : hasMixedPartial
+      ? "partial_received"
+      : "pending";
   const groupOpt = deliveryOpt(groupStatus);
   const hasMultipleStatuses = statuses.length > 1;
 
