@@ -583,6 +583,9 @@ function InvoiceGroupDeliveryRow({
   const groupOpt = deliveryOpt(groupStatus);
   const hasMultipleStatuses = statuses.length > 1;
 
+  // الحالة المعروضة: لو في وضع تعديل أو بعد حفظ (قبل refetch) → نعرض bulkStatus، غير كده نعرض groupStatus
+  // هيتحدث بعد ما groupPartialKey يتغير (refetch رجع) لأن pendingSaveRef.current سيُمسح
+
   // تقفيل جماعي — state
   const [bulkEditing, setBulkEditing] = useState(false);
   const [bulkStatus, setBulkStatus] = useState<DeliveryStatus>(groupStatus);
@@ -614,6 +617,10 @@ function InvoiceGroupDeliveryRow({
   const groupPartialKey = group.map(o => `${o.id}:${o.partialQuantity ?? ""}:${(o as any).returnReceived ?? ""}`).join(",");
 
   // الكميات المعروضة: لو في وضع التعديل أو بعد حفظ فوري → من state، وإلا من server
+  // الحالة المعروضة في الـ UI (خارج وضع التعديل): لما pendingSaveRef موجود نعرض bulkStatus (الحالة المحفوظة) لحد ما يجي الـ refetch
+  const displayStatus: DeliveryStatus = (bulkEditing || pendingSaveRef.current !== null) ? bulkStatus : groupStatus;
+  const displayOpt = deliveryOpt(displayStatus);
+
   const displayPartialQtyMap: Record<number, number> = Object.fromEntries(
     group.map(o => {
       const stateVal = partialQtyMap[o.id];
@@ -806,7 +813,7 @@ function InvoiceGroupDeliveryRow({
           </div>
           {/* Qty */}
           <div className="text-center font-bold">
-            {groupStatus === "partial_received" ? (
+            {displayStatus === "partial_received" ? (
               <span>
                 <span className="text-teal-400">{displayTotalPartialQty}</span>
                 <span className="text-muted-foreground">/{totalQty}</span>
@@ -841,10 +848,10 @@ function InvoiceGroupDeliveryRow({
                   );
                 })}
               </div>
-            ) : groupStatus === "partial_received" ? (
+            ) : displayStatus === "partial_received" ? (
               <div className="flex flex-col gap-0.5">
-                <Badge variant="outline" className={`text-[9px] font-bold border ${groupOpt.bg} ${groupOpt.color}`}>
-                  {groupOpt.label} ({displayTotalPartialQty}/{totalQty})
+                <Badge variant="outline" className={`text-[9px] font-bold border ${displayOpt.bg} ${displayOpt.color}`}>
+                  {displayOpt.label} ({displayTotalPartialQty}/{totalQty})
                 </Badge>
                 {group.filter(o => (displayPartialQtyMap[o.id] ?? 0) > 0).map(o => (
                   <p key={o.id} className="text-[9px] text-teal-600 dark:text-teal-400 truncate max-w-[110px]">
@@ -860,20 +867,20 @@ function InvoiceGroupDeliveryRow({
               </div>
             ) : (
               <div className="flex flex-col gap-0.5">
-                <Badge variant="outline" className={`text-[9px] font-bold border ${groupOpt.bg} ${groupOpt.color}`}>
-                  {groupOpt.label}
+                <Badge variant="outline" className={`text-[9px] font-bold border ${displayOpt.bg} ${displayOpt.color}`}>
+                  {displayOpt.label}
                 </Badge>
                 {/* sub-status للمرتجع في الـ group row */}
-                {groupStatus === "returned" && (rep as any).returnReceived === 1 && (
+                {displayStatus === "returned" && (rep as any).returnReceived === 1 && (
                   <p className="text-[10px] text-emerald-600 mt-0.5 font-semibold">↩ تم الاستلام</p>
                 )}
-                {groupStatus === "returned" && (rep as any).returnReceived === 0 && (
+                {displayStatus === "returned" && (rep as any).returnReceived === 0 && (
                   <p className="text-[10px] text-orange-500 mt-0.5 font-semibold">⏳ عند شركة الشحن</p>
                 )}
-                {groupStatus === "partial_received" && (rep as any).returnReceived === 1 && (
+                {displayStatus === "partial_received" && (rep as any).returnReceived === 1 && (
                   <p className="text-[10px] text-emerald-600 mt-0.5 font-semibold">↩ الباقي في المخزن</p>
                 )}
-                {groupStatus === "partial_received" && (rep as any).returnReceived === 0 && (
+                {displayStatus === "partial_received" && (rep as any).returnReceived === 0 && (
                   <p className="text-[10px] text-orange-500 mt-0.5 font-semibold">🚚 الباقي عند الشحن</p>
                 )}
               </div>

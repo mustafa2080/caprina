@@ -300,7 +300,7 @@ router.get("/shipping-manifests/:id", async (req, res): Promise<void> => {
       const link = linkMap.get(o.id);
       if (!link) return { ...o, deliveryStatus: "pending", deliveryNote: null, deliveredAt: null, manifestOrderId: 0 };
       const _rrNum = link.returnReceived == null ? null : Number(link.returnReceived);
-      return { ...o, deliveryStatus: link.deliveryStatus, deliveryNote: link.deliveryNote, deliveredAt: link.deliveredAt, partialQuantity: (link as any).partialQuantity ?? o.partialQuantity, manifestOrderId: link.id, returnReceived: _rrNum };
+      return { ...o, deliveryStatus: link.deliveryStatus, deliveryNote: link.deliveryNote, deliveredAt: link.deliveredAt, partialQuantity: (link as any).partialQuantity != null ? Number((link as any).partialQuantity) : (o.partialQuantity != null ? Number(o.partialQuantity) : null), manifestOrderId: link.id, returnReceived: _rrNum };
     });
   }
   res.json({ ...row.manifest, invoicePrice: row.manifest.invoicePrice ? Number(row.manifest.invoicePrice) : null, manualShippingCost: row.manifest.manualShippingCost ? Number(row.manifest.manualShippingCost) : null, companyName: row.company?.name ?? "غير محدد", companyPhone: row.company?.phone ?? null, orders, stats: computeStats(orders) });
