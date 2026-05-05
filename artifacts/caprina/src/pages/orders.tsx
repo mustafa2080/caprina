@@ -344,6 +344,9 @@ export default function Orders() {
                         <Badge variant="outline" className={`text-[9px] font-bold border ${statusClasses[order.status] || ""}`}>
                           {statusLabels[order.status] || order.status}
                         </Badge>
+                        {order.status === "in_shipping" && inManifestSet.has(order.id) && (
+                          <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-500 dark:text-amber-400">🏠 ما زال في المخزن</span>
+                        )}
                         {order.status === "returned" && (() => {
                           const rr = (order as any).returnReceived as 0 | 1 | null | undefined;
                           if (rr === 0) return <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-orange-500 dark:text-orange-400">⏳ عند شركة الشحن</span>;
@@ -449,6 +452,11 @@ export default function Orders() {
                           <Badge variant="outline" className={`text-[9px] font-bold border ${statusClasses[order.status] || ""}`}>
                             {statusLabels[order.status] || order.status}
                           </Badge>
+                          {order.status === "in_shipping" && inManifestSet.has(order.id) && (
+                            <div className="flex items-center justify-center gap-0.5 mt-1">
+                              <span className="text-[9px] font-bold text-amber-500 dark:text-amber-400 leading-none">🏠 ما زال في المخزن</span>
+                            </div>
+                          )}
                           {order.status === "returned" && (() => {
                             const rr = (order as any).returnReceived as 0 | 1 | null | undefined;
                             if (rr === 0) return <div className="flex items-center justify-center gap-0.5 mt-1"><span className="text-[9px] font-bold text-orange-500 dark:text-orange-400 leading-none">⏳ عند شركة الشحن</span></div>;
