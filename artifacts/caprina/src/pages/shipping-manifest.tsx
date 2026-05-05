@@ -582,10 +582,36 @@ function InvoiceGroupDeliveryRow({
   const [bulkStatus, setBulkStatus] = useState<DeliveryStatus>(groupStatus);
   const [bulkNote, setBulkNote] = useState(rep.deliveryNote ?? "");
   const [confirmCancel, setConfirmCancel] = useState(false);
-  // حالة استلام المرتجع للفاتورة الجماعية
   const [bulkReturnReceived, setBulkReturnReceived] = useState<boolean | null>(
     (rep as any).returnReceived === 1 ? true : (rep as any).returnReceived === 0 ? false : null
   );
+
+  // لكل منتج في الفاتورة: حالة مستقلة
+  const [perOrderStatus, setPerOrderStatus] = useState<Record<number, DeliveryStatus>>(
+    Object.fromEntries(group.map(o => [o.id, o.deliveryStatus as DeliveryStatus]))
+  );
+  const [partialQtyMap, setPartialQtyMap] = useState<Record<number, string>>(
+    Object.fromEntries(group.map(o => [o.id, o.partialQuantity?.toString() ?? ""]))
+  );
+  const [partialReturnReceived, setPartialReturnReceived] = useState<boolean | null>(
+    group[0]?.returnReceived === 1 ? true : group[0]?.returnReceived === 0 ? false : null
+  );
+
+  // مزامنة الـ state مع الـ prop بعد كل refetch
+  useEffect(() => {
+    if (!bulkEditing) {
+      setBulkStatus(groupStatus);
+      setBulkNote(rep.deliveryNote ?? "");
+      setBulkReturnReceived(
+        (rep as any).returnReceived === 1 ? true : (rep as any).returnReceived === 0 ? false : null
+      );
+      setPerOrderStatus(Object.fromEntries(group.map(o => [o.id, o.deliveryStatus as DeliveryStatus])));
+      setPartialQtyMap(Object.fromEntries(group.map(o => [o.id, o.partialQuantity?.toString() ?? ""])));
+      setPartialReturnReceived(
+        group[0]?.returnReceived === 1 ? true : group[0]?.returnReceived === 0 ? false : null
+      );
+    }
+  }, [groupStatus, rep.deliveryNote, (rep as any).returnReceived, bulkEditing]);
 
   const cancelGroupMutation = useMutation({
     mutationFn: async () => {
@@ -602,19 +628,6 @@ function InvoiceGroupDeliveryRow({
     onError: (e: any) =>
       toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
-
-  // لكل منتج في الفاتورة: حالة مستقلة (تُستخدم في وضع partial_received مع فاتورة متعددة)
-  const [perOrderStatus, setPerOrderStatus] = useState<Record<number, DeliveryStatus>>(
-    Object.fromEntries(group.map(o => [o.id, o.deliveryStatus as DeliveryStatus]))
-  );
-  // كمية مستلمة لكل أوردر (لحالة partial_received)
-  const [partialQtyMap, setPartialQtyMap] = useState<Record<number, string>>(
-    Object.fromEntries(group.map(o => [o.id, o.partialQuantity?.toString() ?? ""]))
-  );
-  // هل الباقي من الاستلام الجزئي عند شركة الشحن أم استُلم؟ (null = لم يُحدد)
-  const [partialReturnReceived, setPartialReturnReceived] = useState<boolean | null>(
-    group[0]?.returnReceived === 1 ? true : group[0]?.returnReceived === 0 ? false : null
-  );
 
   // وضع per-item: لما فاتورة متعددة → دايماً كل منتج له حالته المستقلة
   // لما فاتورة منتج واحد → bulkStatus على الكل
