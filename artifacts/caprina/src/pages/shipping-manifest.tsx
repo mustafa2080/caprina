@@ -508,8 +508,7 @@ function OrderDeliveryRow({
                 mutation.isPending ||
                 (needsNote && !note.trim()) ||
                 (needsPartial && (partialQty === "")) ||
-                (status === "returned" && returnReceived === null) ||
-                (status === "partial_received" && partialReturnReceived === null)
+                (status === "returned" && returnReceived === null)
               }
             >
               <Save className="w-3 h-3" />
@@ -679,7 +678,7 @@ function InvoiceGroupDeliveryRow({
           deliveryStatus: finalStatus,
           deliveryNote: bulkNote.trim() || null,
           partialQuantity: finalPartialQty,
-          ...(finalStatus === 'partial_received' ? { partialReturnReceived } : {}),
+          ...(finalStatus === 'partial_received' ? { partialReturnReceived: partialReturnReceived ?? false } : {}),
           ...(finalStatus === 'returned' ? { returnReceived: bulkReturnReceived } : {}),
         });
       }
@@ -964,44 +963,6 @@ function InvoiceGroupDeliveryRow({
               </div>
             )}
 
-            {/* ── سؤال "الباقي عند الشحن؟" لما الحالة partial_received ── */}
-            {bulkStatus === "partial_received" && (
-              <div className="space-y-2">
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">هل الباقي عند شركة الشحن؟ *</p>
-                <div className="flex gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => setPartialReturnReceived(false)}
-                    className={`flex-1 flex flex-col items-center gap-1 px-3 py-2.5 rounded-lg border text-xs font-bold transition-all ${
-                      partialReturnReceived === false
-                        ? "border-amber-500 bg-amber-900/30 text-amber-300"
-                        : "border-border text-muted-foreground hover:bg-muted/20"
-                    }`}
-                  >
-                    <span className="text-base">🚚</span>
-                    <span>مازال عند الشحن</span>
-                    <span className="text-[9px] font-normal opacity-70">سيُرحَّل للبيان الجديد</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPartialReturnReceived(true)}
-                    className={`flex-1 flex flex-col items-center gap-1 px-3 py-2.5 rounded-lg border text-xs font-bold transition-all ${
-                      partialReturnReceived === true
-                        ? "border-emerald-500 bg-emerald-900/30 text-emerald-300"
-                        : "border-border text-muted-foreground hover:bg-muted/20"
-                    }`}
-                  >
-                    <span className="text-base">↩</span>
-                    <span>تم استلام الباقي</span>
-                    <span className="text-[9px] font-normal opacity-70">يُضاف للمخزن</span>
-                  </button>
-                </div>
-                {partialReturnReceived === null && (
-                  <p className="text-[10px] text-destructive">⚠ مطلوب — حدد حالة الجزء المتبقي</p>
-                )}
-              </div>
-            )}
-
             {/* ── فاتورة متعددة + حالة أخرى (مش partial): لا تظهر تفاصيل — الحالة بتتطبق على الكل تلقائياً ── */}
             {isMulti && bulkStatus !== "partial_received" && false && (
               <div className="flex flex-col gap-2 border border-border/40 rounded-md p-2.5 bg-muted/10">
@@ -1195,7 +1156,6 @@ function InvoiceGroupDeliveryRow({
                   bulkMutation.isPending ||
                   (needsBulkNote && !bulkNote.trim()) ||
                   (bulkStatus === "returned" && bulkReturnReceived === null) ||
-                  (bulkStatus === "partial_received" && partialReturnReceived === null) ||
                   (!isPerItemMode && bulkStatus === "partial_received" && group[0] && (
                     partialQtyMap[group[0].id] === "" || partialQtyMap[group[0].id] === undefined
                   )) ||
