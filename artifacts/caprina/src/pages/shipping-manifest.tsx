@@ -617,7 +617,7 @@ function InvoiceGroupDeliveryRow({
         group[0]?.returnReceived === 1 ? true : group[0]?.returnReceived === 0 ? false : null
       );
     }
-  }, [groupStatus, rep.deliveryNote, (rep as any).returnReceived, bulkEditing]);
+  }, [groupStatus, rep.deliveryNote, (rep as any).returnReceived, bulkEditing, group.map(o => `${o.id}:${o.partialQuantity}`).join(",")]);
 
   const cancelGroupMutation = useMutation({
     mutationFn: async () => {
