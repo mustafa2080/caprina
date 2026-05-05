@@ -291,23 +291,15 @@ router.get("/shipping-manifests/:id", async (req, res): Promise<void> => {
   if (!row) { res.status(404).json({ error: "البيان غير موجود" }); return; }
   const links = await db.select().from(shippingManifestOrdersTable).where(eq(shippingManifestOrdersTable.manifestId, id));
   const orderIds = links.map((l) => l.orderId);
-  const expandedOrderIds = await expandOrderIdsByInvoice(orderIds);
   let orders: OrderWithDelivery[] = [];
-  if (expandedOrderIds.length > 0) {
-    const rawOrders = await db.select().from(ordersTable).where(inArray(ordersTable.id, expandedOrderIds)).orderBy(desc(ordersTable.createdAt));
-    const linkedRawOrders = rawOrders.filter((o) => orderIds.includes(o.id));
-    const invoiceLinkMap = new Map<string, (typeof links)[0]>();
-    linkedRawOrders.forEach((o) => {
-      if (o.invoiceNumber?.trim()) { const link = links.find((l) => l.orderId === o.id); if (link) invoiceLinkMap.set(o.invoiceNumber.trim(), link); }
-    });
+  if (orderIds.length > 0) {
+    // جيب الأوردرات المضافة في البيان فقط — بدون expand عشان ما يجيبش أوردرات بـ pending مش في البيان
+    const rawOrders = await db.select().from(ordersTable).where(inArray(ordersTable.id, orderIds)).orderBy(desc(ordersTable.createdAt));
     const linkMap = new Map(links.map((l) => [l.orderId, l]));
     orders = rawOrders.map((o) => {
-      const directLink = linkMap.get(o.id);
-      const invoiceLink = o.invoiceNumber?.trim() ? invoiceLinkMap.get(o.invoiceNumber.trim()) : undefined;
-      const link = directLink ?? invoiceLink;
+      const link = linkMap.get(o.id);
       if (!link) return { ...o, deliveryStatus: "pending", deliveryNote: null, deliveredAt: null, manifestOrderId: 0 };
-      const _rr = (directLink ?? invoiceLink)?.returnReceived;
-      const _rrNum = _rr == null ? null : Number(_rr);
+      const _rrNum = link.returnReceived == null ? null : Number(link.returnReceived);
       return { ...o, deliveryStatus: link.deliveryStatus, deliveryNote: link.deliveryNote, deliveredAt: link.deliveredAt, partialQuantity: (link as any).partialQuantity ?? o.partialQuantity, manifestOrderId: link.id, returnReceived: _rrNum };
     });
   }
