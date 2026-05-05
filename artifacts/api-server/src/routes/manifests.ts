@@ -639,6 +639,19 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
     const { resolveInventoryTarget, adjustWarehouseStock, syncProductQuantityFromWarehouses, recordMovement } = await import("../lib/inventory.js");
     const { variantId: vid, productId: pid } = await resolveInventoryTarget(ref);
 
+    // ── تأكد من وجود حركة واحدة فقط per order: احذف أي حركات زيادة ──────────
+    // القاعدة: كل أوردر له حركة واحدة فقط — الأقدم تُحتفظ بها والباقي يُحذف
+    const allMovements = await db
+      .select({ id: inventoryMovementsTable.id })
+      .from(inventoryMovementsTable)
+      .where(eq(inventoryMovementsTable.orderId, orderId))
+      .orderBy(inventoryMovementsTable.id); // الأقدم أولاً
+    if (allMovements.length > 1) {
+      const idsToDelete = allMovements.slice(1).map(m => m.id); // احذف كل شيء بعد الأول
+      await db.delete(inventoryMovementsTable)
+        .where(inArray(inventoryMovementsTable.id, idsToDelete));
+    }
+
     if (deliveryStatus === "returned" && returnReceived === true && Number(oldReturnReceived) !== 1) {
       // ── مرتجع وصل المخزن ──────────────────────────────────────────────────
       // لو الأوردر كان partial_received قبل كده → الجزء المُستلم كان بيع (خرج المخزن ومش هيرجع)
