@@ -228,11 +228,6 @@ export function CreateManifestDialog({
     queryFn: () => apiFetch<OrderRow[]>(`/orders?status=warehouse_ready`),
   });
 
-  const { data: pendingOrders, isLoading: isLoadingPending } = useQuery({
-    queryKey: ["orders-pending-all"],
-    queryFn: () => apiFetch<OrderRow[]>(`/orders?status=pending`),
-  });
-
   const { data: delayedOrders, isLoading: isLoadingDelayed } = useQuery({
     queryKey: ["orders-delayed-all"],
     queryFn: () => apiFetch<OrderRow[]>(`/orders?status=delayed`),
@@ -245,13 +240,12 @@ export function CreateManifestDialog({
     staleTime: 10000,
   });
 
-  const isLoading = isLoadingWR || isLoadingPending || isLoadingDelayed;
+  const isLoading = isLoadingWR || isLoadingDelayed;
 
-  // الطلبات المتاحة: warehouse_ready + pending + delayed — مع استبعاد اللي في بيانات مفتوحة
+  // الطلبات المتاحة: warehouse_ready + delayed فقط — مع استبعاد اللي في بيانات مفتوحة
   const allAvailableOrders = useMemo(() => {
     const all = [
       ...(warehouseReadyOrders ?? []),
-      ...(pendingOrders ?? []),
       ...(delayedOrders ?? []),
     ];
     const inManifestIds = inManifestData ? new Set(inManifestData.ids) : new Set<number>();
@@ -450,8 +444,18 @@ export function CreateManifestDialog({
                           ) : (
                             <span className="font-mono">#{order.id.toString().padStart(4, "0")}</span>
                           )}
-                          <span className={`px-1 rounded text-[9px] font-bold ${order.status === "pending" ? "bg-amber-500/15 text-amber-400" : "bg-blue-500/15 text-blue-400"}`}>
-                            {order.status === "pending" ? "معلق" : "في الشحن"}
+                          <span className={`px-1 rounded text-[9px] font-bold ${
+                            order.status === "warehouse_ready"
+                              ? "bg-teal-500/15 text-teal-400"
+                              : order.status === "delayed"
+                              ? "bg-blue-500/15 text-blue-400"
+                              : "bg-amber-500/15 text-amber-400"
+                          }`}>
+                            {order.status === "warehouse_ready"
+                              ? "🏠 ما زال في المخزن"
+                              : order.status === "delayed"
+                              ? "مؤجل"
+                              : "معلق"}
                           </span>
                           {order._groupCount && order._groupCount > 1 && (
                             <span className="bg-primary/15 text-primary px-1 rounded text-[9px] font-bold">{order._groupCount} منتجات</span>
