@@ -698,7 +698,7 @@ function InvoiceGroupDeliveryRow({
           const key = order.id;
           const val = partialQtyMap[key];
           const parsed = (val !== "" && val !== undefined && val !== null) ? parseInt(val) : null;
-          if (parsed !== null && !isNaN(parsed) && parsed > 0) {
+          if (parsed !== null && !isNaN(parsed) && parsed >= 0) {
             finalStatus = "partial_received";
             finalPartialQty = parsed;
           } else if (order.partialQuantity && order.partialQuantity > 0) {

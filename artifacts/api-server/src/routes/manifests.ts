@@ -301,7 +301,6 @@ router.get("/shipping-manifests/:id", async (req, res): Promise<void> => {
       if (!link) return { ...o, deliveryStatus: "pending", deliveryNote: null, deliveredAt: null, manifestOrderId: 0 };
       const _rrNum = link.returnReceived == null ? null : Number(link.returnReceived);
       const _pq = (link as any).partialQuantity != null ? Number((link as any).partialQuantity) : (o.partialQuantity != null ? Number(o.partialQuantity) : null);
-      console.log(`[GET manifest order ${o.id}] link.partialQuantity=${(link as any).partialQuantity} o.partialQuantity=${o.partialQuantity} → final=${_pq}`);
       return { ...o, deliveryStatus: link.deliveryStatus, deliveryNote: link.deliveryNote, deliveredAt: link.deliveredAt, partialQuantity: _pq, manifestOrderId: link.id, returnReceived: _rrNum };
     });
   }
@@ -634,7 +633,7 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
     // partial_received: returnReceived لم يتغير (null→false يُعتبر تغيير!)
     (deliveryStatus !== "partial_received" || partialReturnReceived === oldPartialReturnReceivedBool);
 
-  console.log(`[PATCH order ${orderId}] body=`, req.body, `| parsedPartialQty=${parsedPartialQty} oldPartialQtyNum=${oldPartialQtyNum} partialReturnReceived=${partialReturnReceived} oldPartialReturnReceivedBool=${oldPartialReturnReceivedBool} noChange=${noChange}`);
+  console.log(`[PATCH order ${orderId}] parsedPartialQty=${parsedPartialQty} oldPartialQtyNum=${oldPartialQtyNum} noChange=${noChange}`);
 
   if (!noChange) {
     const { resolveInventoryTarget, adjustWarehouseStock, syncProductQuantityFromWarehouses, recordMovement } = await import("../lib/inventory.js");
