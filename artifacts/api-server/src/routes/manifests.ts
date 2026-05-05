@@ -156,52 +156,123 @@ router.post("/shipping-manifests", async (req, res): Promise<void> => {
   const [manifest] = await db.select().from(shippingManifestsTable).where(eq(shippingManifestsTable.id, insertId));
   await db.insert(shippingManifestOrdersTable).values(normalizedOrderIds.map((orderId) => ({ manifestId: manifest.id, orderId, deliveryStatus: "pending", addedAt: new Date() })));
 
-  // خصم من المخزن لكل طلب + حركة to_shipping
-  // الطلبات pending    → processToShipping عادي (خصم مخزون + حركة)
-  // الطلبات in_shipping → تأكد إن في حركة واحدة فقط بـ to_shipping
-  // الطلبات pending     → processToShipping عادي (خصم مخزون + حركة)
+  // خصم من المخزن + حركة to_shipping
+  // القاعدة: أوردرات من نفس الفاتورة بنفس المنتج (variantId/productId) → حركة واحدة مجمّعة
   const ordersToShip = await db.select().from(ordersTable).where(inArray(ordersTable.id, normalizedOrderIds));
-  for (const order of ordersToShip) {
-    if (order.status === "in_shipping") {
-      // الطلب كان في شحن سابق — تحقق إذا عنده حركة موجودة
-      const [existingMov] = await db
-        .select({ id: inventoryMovementsTable.id })
-        .from(inventoryMovementsTable)
-        .where(eq(inventoryMovementsTable.orderId, order.id))
-        .orderBy(desc(inventoryMovementsTable.id))
-        .limit(1)
-        .catch(() => []);
-      if (existingMov) {
-        await db.update(inventoryMovementsTable)
-          .set({ reason: "to_shipping" as any, notes: "تحويل لشركة الشحن (نُقل من بيان سابق)" })
-          .where(eq(inventoryMovementsTable.id, existingMov.id))
-          .catch(() => {});
-      } else {
-        const ref = buildOrderRef(order);
-        const { variantId, productId } = await resolveInventoryTarget(ref);
-        if (variantId || productId) {
-          const resolved = await resolveProductIdFromVariant(variantId, productId);
-          await recordMovement({
-            product: order.product ?? "منتج",
-            color: order.color,
-            size: order.size,
-            quantity: order.quantity,
-            type: "OUT",
-            reason: "to_shipping",
-            productId: resolved.productId,
-            variantId: resolved.variantId,
-            warehouseId: order.warehouseId,
-            orderId: order.id,
-            notes: "تحويل لشركة الشحن (نُقل من بيان سابق)",
-          });
-        }
-      }
-    } else if (order.status === "warehouse_ready") {
-      // الطلب كان جاهز في المخزن (warehouse_ready) → processToShipping عادي (خصم من المخزن + حركة)
-      await processToShipping(buildOrderRef(order), order.quantity, order.id);
+
+  // ── Step 1: جمّع الأوردرات in_shipping (نقل من بيان سابق) ──────────────
+  for (const order of ordersToShip.filter(o => o.status === "in_shipping")) {
+    const [existingMov] = await db
+      .select({ id: inventoryMovementsTable.id })
+      .from(inventoryMovementsTable)
+      .where(eq(inventoryMovementsTable.orderId, order.id))
+      .orderBy(desc(inventoryMovementsTable.id))
+      .limit(1)
+      .catch(() => []);
+    if (existingMov) {
+      await db.update(inventoryMovementsTable)
+        .set({ reason: "to_shipping" as any, notes: "تحويل لشركة الشحن (نُقل من بيان سابق)" })
+        .where(eq(inventoryMovementsTable.id, existingMov.id))
+        .catch(() => {});
     } else {
-      // الطلب pending أو delayed → processToShipping
-      await processToShipping(buildOrderRef(order), order.quantity, order.id);
+      const ref = buildOrderRef(order);
+      const { variantId, productId } = await resolveInventoryTarget(ref);
+      if (variantId || productId) {
+        const resolved = await resolveProductIdFromVariant(variantId, productId);
+        await recordMovement({
+          product: order.product ?? "منتج",
+          color: order.color,
+          size: order.size,
+          quantity: order.quantity,
+          type: "OUT",
+          reason: "to_shipping",
+          productId: resolved.productId,
+          variantId: resolved.variantId,
+          warehouseId: order.warehouseId,
+          orderId: order.id,
+          notes: "تحويل لشركة الشحن (نُقل من بيان سابق)",
+        });
+      }
+    }
+  }
+
+  // ── Step 2: warehouse_ready و pending → اجمع الكميات لنفس المنتج في حركة واحدة ──
+  const newOrders = ordersToShip.filter(o => o.status !== "in_shipping");
+
+  // اجمع الأوردرات by (variantId أو productId) + warehouseId
+  type GroupKey = string;
+  const groupMap = new Map<GroupKey, { orders: typeof newOrders; variantId: number | null; productId: number | null; warehouseId: number | null; product: string; color: string | null; size: string | null }>();
+
+  for (const order of newOrders) {
+    const ref = buildOrderRef(order);
+    const { variantId, productId } = await resolveInventoryTarget(ref);
+    const key: GroupKey = `${variantId ?? "p" + productId}_${order.warehouseId ?? 0}`;
+    if (!groupMap.has(key)) {
+      groupMap.set(key, { orders: [], variantId, productId, warehouseId: order.warehouseId ?? null, product: order.product ?? "منتج", color: order.color ?? null, size: order.size ?? null });
+    }
+    groupMap.get(key)!.orders.push(order);
+  }
+
+  for (const group of groupMap.values()) {
+    const totalQtyGroup = group.orders.reduce((s, o) => s + o.quantity, 0);
+    if (totalQtyGroup <= 0) continue;
+
+    // خصم المخزون مرة واحدة بالكمية المجمّعة (يمنع الخصم المكرر)
+    const usedWhId = await adjustWarehouseStock(group.warehouseId, group.variantId, group.productId, -totalQtyGroup);
+    await syncProductQuantityFromWarehouses(group.variantId, group.productId);
+
+    const resolved = await resolveProductIdFromVariant(group.variantId, group.productId);
+
+    if (group.orders.length === 1) {
+      // أوردر واحد → حركة واحدة عادية
+      await recordMovement({
+        product: group.product,
+        color: group.color,
+        size: group.size,
+        quantity: totalQtyGroup,
+        type: "OUT",
+        reason: "to_shipping",
+        productId: resolved.productId,
+        variantId: resolved.variantId,
+        warehouseId: usedWhId,
+        orderId: group.orders[0].id,
+        notes: "تحويل لشركة الشحن",
+      });
+    } else {
+      // أوردرات متعددة من نفس المنتج → حركة واحدة في صفحة حركات المخزون
+      // لكن نسجل orderId لكل أوردر عشان يقدر كل أوردر يلاقي حركته عند تحديث التوصيل
+      // الحل: نسجل حركة بكمية 0 لكل أوردر بعد الأول (للربط) + حركة واحدة بالكمية الكلية للأول
+      const groupNote = `تحويل لشركة الشحن — مجموعة ${group.orders.length} طلبات (${group.orders.map(o => "#" + o.id).join(", ")})`;
+      // حركة رئيسية بالكمية الكاملة — مرتبطة بأول أوردر
+      await recordMovement({
+        product: group.product,
+        color: group.color,
+        size: group.size,
+        quantity: totalQtyGroup,
+        type: "OUT",
+        reason: "to_shipping",
+        productId: resolved.productId,
+        variantId: resolved.variantId,
+        warehouseId: usedWhId,
+        orderId: group.orders[0].id,
+        notes: groupNote,
+      });
+      // حركات مرجعية بكمية 0 لكل أوردر تاني — عشان لما نحدث حالة التوصيل نلاقي الحركة
+      for (let i = 1; i < group.orders.length; i++) {
+        await recordMovement({
+          product: group.product,
+          color: group.color,
+          size: group.size,
+          quantity: 0,
+          type: "OUT",
+          reason: "to_shipping",
+          productId: resolved.productId,
+          variantId: resolved.variantId,
+          warehouseId: usedWhId,
+          orderId: group.orders[i].id,
+          notes: `مرجع — مجمّع مع طلب #${group.orders[0].id}`,
+        });
+      }
     }
   }
   await db.update(ordersTable).set({ status: "in_shipping", shippingCompanyId }).where(inArray(ordersTable.id, normalizedOrderIds));
@@ -552,7 +623,8 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
 
   const noChange = deliveryStatus === oldDeliveryStatus &&
     (deliveryStatus !== "returned" || returnReceived === null || (Number(oldReturnReceived) === 1) === returnReceived) &&
-    (deliveryStatus !== "partial_received" || partialQuantity === (link.partialQuantity ?? null));
+    (deliveryStatus !== "partial_received" || partialQuantity === (link.partialQuantity ?? null)) &&
+    (deliveryStatus !== "partial_received" || partialReturnReceived === null || (Number(oldReturnReceived) === 1) === (partialReturnReceived === true));
 
   if (!noChange) {
     if (deliveryStatus === "returned" && returnReceived === true && Number(oldReturnReceived) !== 1) {
