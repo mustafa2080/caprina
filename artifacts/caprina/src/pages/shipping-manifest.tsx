@@ -612,24 +612,9 @@ function InvoiceGroupDeliveryRow({
   // key مستقر للـ group — بيتغير بس لما الـ partialQuantity تتغير فعلاً
   const groupPartialKey = group.map(o => `${o.id}:${o.partialQuantity ?? ""}`).join(",");
 
-  // مزامنة الـ state مع الـ prop بعد كل refetch
+  // مزامنة الـ state مع الـ prop بعد كل refetch أو لما نخرج من وضع التعديل
   useEffect(() => {
     if (!bulkEditing) {
-      // لو في pending save (refetch لسه ما خلصش) → متعملش override للـ qty map
-      // لكن لما الـ group يتحدث (groupPartialKey اتغير) → امسح الـ pending وخلي الـ server يحكم
-      if (pendingSaveRef.current) {
-        pendingSaveRef.current = null;
-        // الـ partialQtyMap وperOrderStatus تم ضبطهم في onSuccess — مش محتاجين override
-        setBulkStatus(groupStatus);
-        setBulkNote(rep.deliveryNote ?? "");
-        setBulkReturnReceived(
-          (rep as any).returnReceived === 1 ? true : (rep as any).returnReceived === 0 ? false : null
-        );
-        setPartialReturnReceived(
-          group[0]?.returnReceived === 1 ? true : group[0]?.returnReceived === 0 ? false : null
-        );
-        return;
-      }
       setBulkStatus(groupStatus);
       setBulkNote(rep.deliveryNote ?? "");
       setBulkReturnReceived(
@@ -724,7 +709,9 @@ function InvoiceGroupDeliveryRow({
         setPartialQtyMap(savedQty);
         setPerOrderStatus(savedStatus);
         setBulkStatus(savedBulk);
-        // لا نعمل null هنا — الـ useEffect هيشوفه ويتجنب الـ override
+        // نمسح الـ ref هنا — لما الـ component يعمل remount (بسبب key) هيأخد القيم من الـ prop الجديدة
+        // ولما مفيش remount، الـ state بقت محدثة من السطور فوق
+        pendingSaveRef.current = null;
       }
       setBulkEditing(false);
       onSaved();

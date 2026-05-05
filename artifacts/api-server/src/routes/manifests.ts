@@ -566,7 +566,7 @@ router.post("/shipping-manifests/:id/orders", async (req, res): Promise<void> =>
 const DeliveryStatusSchema = z.object({
   deliveryStatus: z.enum(["pending", "delivered", "postponed", "partial_received", "returned"]),
   deliveryNote: z.string().nullish(),
-  partialQuantity: z.number().int().min(0).nullish(),
+  partialQuantity: z.union([z.number().int().min(0), z.string().transform(v => { const n = parseInt(v); return isNaN(n) ? null : n; })]).nullish(),
   partialReturnReceived: z.boolean().nullish(),
   returnReceived: z.boolean().nullish(),
 });
@@ -613,9 +613,17 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
    *                          أو to_shipping (مرتجع لسه في الشحن)
    */
 
+  const parsedPartialQty = (partialQuantity != null && partialQuantity !== undefined && !isNaN(Number(partialQuantity))) ? Number(partialQuantity) : null;
+
+  // لو partial_received وبدون كمية → خطأ صريح
+  if (deliveryStatus === "partial_received" && parsedPartialQty === null) {
+    res.status(400).json({ error: "يجب إدخال الكمية المستلمة للتسليم الجزئي" }); return;
+  }
+  const oldPartialQtyNum = link.partialQuantity != null ? Number(link.partialQuantity) : null;
+
   const noChange = deliveryStatus === oldDeliveryStatus &&
     (deliveryStatus !== "returned" || returnReceived === null || (Number(oldReturnReceived) === 1) === returnReceived) &&
-    (deliveryStatus !== "partial_received" || partialQuantity === (link.partialQuantity ?? null)) &&
+    (deliveryStatus !== "partial_received" || parsedPartialQty === oldPartialQtyNum) &&
     (deliveryStatus !== "partial_received" || partialReturnReceived === null || (Number(oldReturnReceived) === 1) === (partialReturnReceived === true));
 
   if (!noChange) {
@@ -764,7 +772,7 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
   await db.update(shippingManifestOrdersTable).set({
     deliveryStatus,
     deliveryNote: deliveryNote ?? null,
-    partialQuantity: deliveryStatus === "partial_received" && partialQuantity != null ? partialQuantity : null,
+    partialQuantity: deliveryStatus === "partial_received" && parsedPartialQty != null ? parsedPartialQty : null,
     deliveredAt: isDelivered ? new Date() : null,
     ...(deliveryStatus === "partial_received" ? { returnReceived: (partialReturnReceived ?? false) ? 1 : 0 } : {}),
     ...(deliveryStatus === "returned" && returnReceived != null
@@ -776,7 +784,7 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
 
   // ─── تحديث جدول الطلبات ───────────────────────────────────────────────────
   const orderUpdate: Record<string, unknown> = { status: STATUS_MAP[deliveryStatus] ?? "in_shipping" };
-  if (deliveryStatus === "partial_received" && partialQuantity != null) orderUpdate.partialQuantity = partialQuantity;
+  if (deliveryStatus === "partial_received" && parsedPartialQty != null) orderUpdate.partialQuantity = parsedPartialQty;
   if (deliveryStatus === "partial_received") orderUpdate.returnReceived = (partialReturnReceived ?? false) ? 1 : 0;
   if (deliveryStatus === "returned" && returnReceived != null) orderUpdate.returnReceived = returnReceived ? 1 : 0;
   else if (deliveryStatus !== "returned" && deliveryStatus !== "partial_received") orderUpdate.returnReceived = null;
