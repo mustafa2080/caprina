@@ -649,68 +649,92 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
     await db.delete(inventoryMovementsTable)
       .where(eq(inventoryMovementsTable.orderId, orderId));
 
-    if (deliveryStatus === "returned" && returnReceived === true && Number(oldReturnReceived) !== 1) {
-      // ── مرتجع وصل المخزن ── IN / from_shipping ────────────────────────────
-      const wasPartial = oldDeliveryStatus === "partial_received";
-      const prevPartialQtyNum = link.partialQuantity != null ? Number(link.partialQuantity) : 0;
-      const qtyToReturn = wasPartial ? (totalQty - prevPartialQtyNum) : totalQty;
-      const remainingAlreadyInStock = wasPartial && oldPartialReturnReceivedBool === true;
+    // ── تحديد نوع وكمية الحركة الجديدة بناءً على الحالة ─────────────────────
+    // المنطق الأساسي: حركة واحدة فقط لكل أوردر تعبّر عن وضعه الحالي
+    //
+    // pending / postponed / returned(في الشحن) → OUT/to_shipping   (-totalQty)  [الكمية عند شركة الشحن]
+    // delivered                                 → OUT/sale          (-totalQty)  [تم البيع]
+    // partial_received + الباقي في الشحن        → OUT/to_shipping   (-totalQty)  [الكل عند الشحن، جزء استُلم فقط للتسجيل]
+    // partial_received + الباقي رجع المخزن      → IN/from_shipping  (+remaining) [الجزء الراجع دخل المخزن]
+    // returned + وصل المخزن                     → IN/from_shipping  (+totalQty)  [كل الكمية رجعت]
 
-      if ((vid || pid) && qtyToReturn > 0 && !remainingAlreadyInStock) {
-        await adjustWarehouseStock(ref.warehouseId, vid, pid, +qtyToReturn);
-        await syncProductQuantityFromWarehouses(vid, pid);
-      }
-      if ((vid || pid) && qtyToReturn > 0) {
-        const resolved = await resolveProductIdFromVariant(vid, pid);
-        await recordMovement({ type: "IN", reason: "from_shipping" as any, quantity: qtyToReturn,
-          warehouseId: ref.warehouseId, variantId: resolved.variantId, productId: resolved.productId,
-          product: ref.product, color: ref.color, size: ref.size, orderId,
-          notes: "مرتجع — وصل المخزن من شركة الشحن" });
+    let movType: "IN" | "OUT";
+    let movReason: string;
+    let movQty: number;
+    let movNotes: string;
+
+    if (deliveryStatus === "partial_received") {
+      const newPartialQty = parsedPartialQty!;
+      const newReturnBool = partialReturnReceived ?? false;
+      const remainingQty  = totalQty - newPartialQty;
+
+      if (newReturnBool && remainingQty > 0) {
+        // الجزء الراجع دخل المخزن → IN
+        movType   = "IN";
+        movReason = "from_shipping";
+        movQty    = remainingQty;
+        movNotes  = `استلام جزئي — ${newPartialQty} قطعة مُسلَّمة، ${remainingQty} قطعة رجعت المخزن`;
+      } else if (newReturnBool && remainingQty === 0) {
+        // كل الكمية اتستلمت، مفيش باقي → بيع كامل
+        movType   = "OUT";
+        movReason = "sale";
+        movQty    = totalQty;
+        movNotes  = `استلام كامل — ${totalQty} قطعة مُسلَّمة`;
+      } else {
+        // الباقي لسه في الشحن → OUT/to_shipping بالكمية الكاملة
+        movType   = "OUT";
+        movReason = "to_shipping";
+        movQty    = totalQty;
+        movNotes  = `استلام جزئي — ${newPartialQty} من ${totalQty} (الباقي عند الشحن)`;
       }
 
-    } else if (deliveryStatus === "partial_received") {
-      // ── استلام جزئي ───────────────────────────────────────────────────────
+      // تعديل المخزون:
       const prevStatus     = oldDeliveryStatus;
       const prevPartialQty = oldPartialQtyNum ?? 0;
       const prevReturnBool = oldPartialReturnReceivedBool;
-      const newPartialQty  = parsedPartialQty!;
-      const newReturnBool  = partialReturnReceived ?? false;
-      const remainingQty   = totalQty - newPartialQty;
-
-      // حساب تعديل المخزون
-      let stockAdjust = 0;
-      if (prevStatus !== "partial_received") {
-        if (newReturnBool === true && remainingQty > 0) stockAdjust = +remainingQty;
-      } else {
-        const prevInStock = prevReturnBool === true ? (totalQty - prevPartialQty) : 0;
-        const newInStock  = newReturnBool  === true ? remainingQty : 0;
-        stockAdjust = newInStock - prevInStock;
-      }
+      const prevInStock    = prevStatus === "partial_received" && prevReturnBool === true
+        ? (totalQty - prevPartialQty) : 0;
+      const newInStock     = (newReturnBool && remainingQty > 0) ? remainingQty : 0;
+      const stockAdjust    = newInStock - prevInStock;
       if ((vid || pid) && stockAdjust !== 0) {
         await adjustWarehouseStock(ref.warehouseId, vid, pid, stockAdjust);
         await syncProductQuantityFromWarehouses(vid, pid);
       }
 
-      // سجّل الحركة الجديدة الواحدة
-      // الباقي عند الشحن → OUT/to_shipping بالكمية الكاملة
-      // الباقي رجع المخزن → OUT/partial_sale بكمية المستلم فقط
-      const movReason     = newReturnBool ? "partial_sale" : "to_shipping";
-      const movQtyPartial = newReturnBool ? newPartialQty : totalQty;
-      const movNotes      = newReturnBool
-        ? `استلام جزئي — ${newPartialQty} قطعة (الباقي رجع المخزن)`
-        : `استلام جزئي — ${newPartialQty} قطعة من ${totalQty} (الباقي عند الشحن)`;
-      if (vid || pid) {
-        const resolved = await resolveProductIdFromVariant(vid, pid);
-        await recordMovement({ type: "OUT", reason: movReason as any, quantity: movQtyPartial,
-          warehouseId: ref.warehouseId, variantId: resolved.variantId, productId: resolved.productId,
-          product: ref.product, color: ref.color, size: ref.size, orderId, notes: movNotes });
+    } else if (deliveryStatus === "returned" && returnReceived === true) {
+      // مرتجع وصل المخزن → IN
+      const wasPartial     = oldDeliveryStatus === "partial_received";
+      const prevPartialQty = link.partialQuantity != null ? Number(link.partialQuantity) : 0;
+      const qtyToReturn    = wasPartial ? (totalQty - prevPartialQty) : totalQty;
+      const alreadyInStock = wasPartial && oldPartialReturnReceivedBool === true;
+
+      movType   = "IN";
+      movReason = "from_shipping";
+      movQty    = qtyToReturn > 0 ? qtyToReturn : totalQty;
+      movNotes  = "مرتجع — وصل المخزن من شركة الشحن";
+
+      if ((vid || pid) && qtyToReturn > 0 && !alreadyInStock) {
+        await adjustWarehouseStock(ref.warehouseId, vid, pid, +qtyToReturn);
+        await syncProductQuantityFromWarehouses(vid, pid);
       }
 
     } else {
-      // ── delivered / returned(عند الشحن) / pending / postponed ─────────────
-      // الكمية كلها خرجت المخزن عند إنشاء البيان → سجّل الحالة الجديدة فقط
+      // pending / postponed / returned(في الشحن) / delivered
+      movType   = "OUT";
+      movQty    = totalQty;
 
-      // لو كنا في partial_received وreturnBool=true → الباقي كان في المخزن، نخصمه
+      if (deliveryStatus === "delivered") {
+        movReason = "sale";
+        movNotes  = "تم الاستلام — بيع";
+      } else if (deliveryStatus === "returned") {
+        movReason = "to_shipping";
+        movNotes  = "مرتجع — لسه عند شركة الشحن";
+      } else {
+        movReason = "to_shipping";
+        movNotes  = deliveryStatus === "postponed" ? "مؤجل — عند شركة الشحن" : "قيد الانتظار — عند شركة الشحن";
+      }
+
+      // لو كنا في partial+returnTrue → الباقي كان في المخزن، نخصمه
       if (oldDeliveryStatus === "partial_received" && oldPartialReturnReceivedBool === true && (vid || pid)) {
         const oldRemaining = totalQty - (oldPartialQtyNum ?? 0);
         if (oldRemaining > 0) {
@@ -718,31 +742,21 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
           await syncProductQuantityFromWarehouses(vid, pid);
         }
       }
-
-      // لو كنا في returned+returnReceived=true (IN) وبنغيره → نخصم ما أضفناه
+      // لو كنا في returned+وصل المخزن → نخصم ما أضفناه
       if (oldDeliveryStatus === "returned" && Number(oldReturnReceived) === 1 && (vid || pid)) {
-        const wasPartialOld = false; // returned مش partial هنا
         await adjustWarehouseStock(ref.warehouseId, vid, pid, -totalQty);
         await syncProductQuantityFromWarehouses(vid, pid);
       }
+    }
 
-      let newReason: string;
-      let movementNotes: string;
-      if (deliveryStatus === "delivered") {
-        newReason = "sale"; movementNotes = "تم الاستلام — بيع";
-      } else if (deliveryStatus === "returned") {
-        newReason = "to_shipping"; movementNotes = "مرتجع — لسه عند شركة الشحن";
-      } else {
-        newReason = "to_shipping";
-        movementNotes = deliveryStatus === "postponed" ? "مؤجل — عند شركة الشحن" : "قيد الانتظار — عند شركة الشحن";
-      }
-
-      if (vid || pid) {
-        const resolved = await resolveProductIdFromVariant(vid, pid);
-        await recordMovement({ type: "OUT", reason: newReason as any, quantity: totalQty,
-          warehouseId: ref.warehouseId, variantId: resolved.variantId, productId: resolved.productId,
-          product: ref.product, color: ref.color, size: ref.size, orderId, notes: movementNotes });
-      }
+    // سجّل الحركة الواحدة
+    if ((vid || pid) && movQty > 0) {
+      const resolved = await resolveProductIdFromVariant(vid, pid);
+      await recordMovement({
+        type: movType, reason: movReason as any, quantity: movQty,
+        warehouseId: ref.warehouseId, variantId: resolved.variantId, productId: resolved.productId,
+        product: ref.product, color: ref.color, size: ref.size, orderId, notes: movNotes,
+      });
     }
   } // end if (!noChange)
 
