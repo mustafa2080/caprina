@@ -749,7 +749,7 @@ function InvoiceGroupDeliveryRow({
           </div>
           {/* Qty */}
           <div className="text-center font-bold">
-            {groupStatus === "partial_received" && !hasMultipleStatuses ? (
+            {groupStatus === "partial_received" ? (
               <span>
                 <span className="text-teal-400">{group.reduce((s, o) => s + (o.partialQuantity ?? 0), 0)}</span>
                 <span className="text-muted-foreground">/{totalQty}</span>
@@ -764,7 +764,7 @@ function InvoiceGroupDeliveryRow({
             )}
           </div>
           <div>
-            {hasMultipleStatuses ? (
+            {hasMultipleStatuses && !hasMixedPartial ? (
               <div className="flex flex-col gap-0.5">
                 <Badge variant="outline" className="text-[9px] font-bold border border-border text-muted-foreground">
                   حالات متعددة
