@@ -273,7 +273,7 @@ export default function Orders() {
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     حذف {selectedIds.size > 0 ? `(${selectedIds.size})` : ""}
-                    {lockedCount > 0 && <span className="text-[9px] bg-white/20 rounded px-1">⛔ {lockedCount} محظور</span>}
+                    {lockedCount > 0 && <span className="text-[9px] bg-white/20 rounded px-1">⛔ {lockedCount} مرتبط ببيان شحن</span>}
                   </Button>
                 );
               })()}
