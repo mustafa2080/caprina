@@ -181,22 +181,26 @@ export default function Login() {
           align-items: center;
           gap: 0.5rem;
           padding: 0.78rem 1.5rem;
-          background: rgba(245,158,11,0.15);
+          background: linear-gradient(135deg, rgba(245,158,11,0.25) 0%, rgba(217,119,6,0.2) 100%);
           color: #fcd34d;
-          font-size: 0.85rem;
-          font-weight: 700;
+          font-size: 0.92rem;
+          font-weight: 800;
           border-radius: 0.65rem;
-          border: 1px solid rgba(245,158,11,0.55);
+          border: 1.5px solid rgba(245,158,11,0.75);
           cursor: pointer;
           transition: all 0.22s ease;
           backdrop-filter: blur(8px);
           text-decoration: none;
+          letter-spacing: 0.02em;
+          text-shadow: 0 1px 6px rgba(0,0,0,0.6);
+          box-shadow: 0 0 14px rgba(245,158,11,0.2), inset 0 1px 0 rgba(255,255,255,0.08);
         }
         .btn-site:hover {
-          background: rgba(245,158,11,0.28);
-          border-color: rgba(245,158,11,0.8);
+          background: linear-gradient(135deg, rgba(245,158,11,0.4) 0%, rgba(217,119,6,0.35) 100%);
+          border-color: #f59e0b;
           color: #fff;
           transform: translateY(-2px);
+          box-shadow: 0 0 22px rgba(245,158,11,0.4), inset 0 1px 0 rgba(255,255,255,0.1);
         }
 
         /* ── Copyright ── */
