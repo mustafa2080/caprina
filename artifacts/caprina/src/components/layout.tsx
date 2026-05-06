@@ -22,31 +22,31 @@ interface LayoutProps {
 // section   = صلاحية ظهور القسم في الـ sidebar (per-user toggle)
 const ALL_NAV = [
   // ── الأساسيات اليومية ──────────────────────────────────────────────────
-  { href: "/",                  label: "لوحة التحكم",        icon: LayoutDashboard, exact: true, permission: "dashboard",              section: "section_dashboard"         },
-  { href: "/orders",            label: "الطلبات",             icon: Package,                     permission: "orders",                  section: "section_orders"            },
-  { href: "/orders/new",        label: "طلب جديد",            icon: Plus,                        permission: "orders",                  section: "section_new_order"         },
-  { href: "/invoices",          label: "الفواتير",             icon: FileText,                    permission: "invoices",                section: "section_invoices"          },
-  { href: "/shipping-followup", label: "متابعة الشحن ⏱️",    icon: Clock,                       permission: "orders",                  section: "section_shipping_followup" },
-  { href: "/shipping",          label: "شركات الشحن",         icon: Truck,                       permission: "shipping",                section: "section_shipping"          },
+  { href: "/",                  label: "لوحة التحكم",        icon: LayoutDashboard, exact: true, permission: "dashboard",              section: "section_dashboard",         iconColor: "text-blue-400"       },
+  { href: "/orders",            label: "الطلبات",             icon: Package,                     permission: "orders",                  section: "section_orders",            iconColor: "text-orange-400"     },
+  { href: "/orders/new",        label: "طلب جديد",            icon: Plus,                        permission: "orders",                  section: "section_new_order",         iconColor: "text-emerald-400"    },
+  { href: "/invoices",          label: "الفواتير",             icon: FileText,                    permission: "invoices",                section: "section_invoices",          iconColor: "text-yellow-400"     },
+  { href: "/shipping-followup", label: "متابعة الشحن ⏱️",    icon: Clock,                       permission: "orders",                  section: "section_shipping_followup", iconColor: "text-cyan-400"       },
+  { href: "/shipping",          label: "شركات الشحن",         icon: Truck,                       permission: "shipping",                section: "section_shipping",          iconColor: "text-sky-400"        },
   // ── المخزون ────────────────────────────────────────────────────────────
-  { href: "/inventory",         label: "المخزون",             icon: Boxes,                       permission: "inventory",               section: "section_inventory"         },
-  { href: "/movements",         label: "حركات المخزون",       icon: Activity,                    permission: "movements",               section: "section_movements"         },
-  { href: "/warehouses",        label: "المخازن",             icon: Warehouse,                   permission: "inventory",               section: "section_warehouses"        },
+  { href: "/inventory",         label: "المخزون",             icon: Boxes,                       permission: "inventory",               section: "section_inventory",         iconColor: "text-violet-400"     },
+  { href: "/movements",         label: "حركات المخزون",       icon: Activity,                    permission: "movements",               section: "section_movements",         iconColor: "text-purple-400"     },
+  { href: "/warehouses",        label: "المخازن",             icon: Warehouse,                   permission: "inventory",               section: "section_warehouses",        iconColor: "text-indigo-400"     },
   // ── التحليلات والتقارير ─────────────────────────────────────────────────
-  { href: "/product-performance",label: "أداء المنتجات",     icon: BarChart3,                   permission: "view_product_performance",section: "section_product_performance"},
-  { href: "/smart",             label: "التحليل الذكي 🧠",   icon: Brain,                       permission: "analytics",               section: "section_smart_analytics"   },
-  { href: "/ads-analytics",     label: "تحليل الإعلانات",    icon: Megaphone,                   permission: "analytics",               section: "section_ads_analytics"     },
-  { href: "/team-performance",  label: "أداء الفريق",        icon: UserCheck,                   permission: "analytics",               section: "section_team_performance"  },
+  { href: "/product-performance",label: "أداء المنتجات",     icon: BarChart3,                   permission: "view_product_performance",section: "section_product_performance",iconColor: "text-pink-400"      },
+  { href: "/smart",             label: "التحليل الذكي 🧠",   icon: Brain,                       permission: "analytics",               section: "section_smart_analytics",   iconColor: "text-fuchsia-400"    },
+  { href: "/ads-analytics",     label: "تحليل الإعلانات",    icon: Megaphone,                   permission: "analytics",               section: "section_ads_analytics",     iconColor: "text-rose-400"       },
+  { href: "/team-performance",  label: "أداء الفريق",        icon: UserCheck,                   permission: "analytics",               section: "section_team_performance",  iconColor: "text-teal-400"       },
   // ── الإدارة ─────────────────────────────────────────────────────────────
-  { href: "/team",              label: "إدارة الفريق",       icon: UserCog,                     permission: "analytics",               section: "section_team_management"   },
-  { href: "/users",             label: "إدارة المستخدمين",   icon: Users,                       permission: "users",                   section: "section_users"             },
-  { href: "/archive",           label: "الأرشيف 🗂️",         icon: Archive,                     permission: "orders",                  section: "section_archive"           },
+  { href: "/team",              label: "إدارة الفريق",       icon: UserCog,                     permission: "analytics",               section: "section_team_management",   iconColor: "text-lime-400"       },
+  { href: "/users",             label: "إدارة المستخدمين",   icon: Users,                       permission: "users",                   section: "section_users",             iconColor: "text-green-400"      },
+  { href: "/archive",           label: "الأرشيف 🗂️",         icon: Archive,                     permission: "orders",                  section: "section_archive",           iconColor: "text-stone-400"      },
   // ── الأدوات والإعدادات ──────────────────────────────────────────────────
-  { href: "/import",            label: "استيراد Excel",       icon: Upload,                      permission: "import",                  section: "section_import"            },
-  { href: "/export",            label: "تصدير البيانات",      icon: Download,                    permission: "import",                  section: "section_export_data"       },
-  { href: "/whatsapp",          label: "إعدادات واتساب",     icon: MessageCircle,               permission: "whatsapp",                section: "section_whatsapp"          },
-  { href: "/sessions-report",   label: "تقرير الجلسات",       icon: Clock,                       permission: "users",                   section: "section_sessions_report"   },
-  { href: "/audit-logs",        label: "سجل التعديلات",       icon: Shield,                      permission: "audit",                   section: "section_audit"             },
+  { href: "/import",            label: "استيراد Excel",       icon: Upload,                      permission: "import",                  section: "section_import",            iconColor: "text-amber-400"      },
+  { href: "/export",            label: "تصدير البيانات",      icon: Download,                    permission: "import",                  section: "section_export_data",       iconColor: "text-orange-300"     },
+  { href: "/whatsapp",          label: "إعدادات واتساب",     icon: MessageCircle,               permission: "whatsapp",                section: "section_whatsapp",          iconColor: "text-emerald-500"    },
+  { href: "/sessions-report",   label: "تقرير الجلسات",       icon: Clock,                       permission: "users",                   section: "section_sessions_report",   iconColor: "text-slate-400"      },
+  { href: "/audit-logs",        label: "سجل التعديلات",       icon: Shield,                      permission: "audit",                   section: "section_audit",             iconColor: "text-red-400"        },
 ];
 
 const ROLE_LABELS: Record<string, string> = {
@@ -126,7 +126,7 @@ export default function Layout({ children }: LayoutProps) {
                     : "text-sidebar-foreground/55 hover:text-sidebar-foreground hover:bg-foreground/5"
                 )}
               >
-                <Icon className="w-3.5 h-3.5 shrink-0" />
+                <Icon className={cn("w-3.5 h-3.5 shrink-0", isActive ? "text-primary-foreground" : item.iconColor)} />
                 {item.label}
               </Link>
             );
@@ -286,7 +286,7 @@ export default function Layout({ children }: LayoutProps) {
                           : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-foreground/5"
                       )}
                     >
-                      <Icon className="w-4 h-4 shrink-0" />
+                      <Icon className={cn("w-4 h-4 shrink-0", isActive ? "text-primary-foreground" : item.iconColor)} />
                       {item.label}
                     </Link>
                   );
