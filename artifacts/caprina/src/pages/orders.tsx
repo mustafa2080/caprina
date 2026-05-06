@@ -150,6 +150,18 @@ export default function Orders() {
 
   const handleBulkStatusChange = async (newStatus: string) => {
     if (selectedIds.size === 0) return;
+
+    // ── تحقق من وجود طلبات في بيان مفتوح ─────────────────────────────────
+    const lockedIds = Array.from(selectedIds).filter(id => inManifestSet.has(id));
+    if (lockedIds.length > 0) {
+      toast({
+        title: "⛔ لا يمكن تعديل حالة بعض الطلبات",
+        description: `${lockedIds.length} طلب مرتبط ببيان شحن مفتوح — يجب تعديل حالته من داخل البيان في قسم شركات الشحن فقط.`,
+        variant: "destructive",
+      });
+      setPendingBulkStatus(null);
+      return;
+    }
     setIsBulkUpdating(true);
     let done = 0;
     let failed = 0;
