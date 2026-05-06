@@ -122,10 +122,11 @@ export default function Login() {
         .hero-desc {
           font-size: 1.15rem;
           font-weight: 600;
-          color: rgba(253,230,138,0.8);
+          color: #fef3c7;
           line-height: 1.75;
           margin-bottom: 0.65rem;
           max-width: 420px;
+          text-shadow: 0 1px 8px rgba(0,0,0,0.5);
         }
 
         /* ── Tagline ── */
@@ -135,9 +136,9 @@ export default function Login() {
           font-weight: 900;
           letter-spacing: 0.32em;
           text-transform: uppercase;
-          color: rgba(245,158,11,0.85);
+          color: #f59e0b;
           margin-bottom: 2.4rem;
-          text-shadow: 0 0 18px rgba(245,158,11,0.4);
+          text-shadow: 0 0 18px rgba(245,158,11,0.6), 0 1px 4px rgba(0,0,0,0.5);
         }
 
         /* ── Action row ── */
@@ -180,21 +181,21 @@ export default function Login() {
           align-items: center;
           gap: 0.5rem;
           padding: 0.78rem 1.5rem;
-          background: rgba(255,255,255,0.05);
-          color: rgba(253,230,138,0.7);
+          background: rgba(245,158,11,0.15);
+          color: #fcd34d;
           font-size: 0.85rem;
-          font-weight: 600;
+          font-weight: 700;
           border-radius: 0.65rem;
-          border: 1px solid rgba(245,158,11,0.22);
+          border: 1px solid rgba(245,158,11,0.55);
           cursor: pointer;
           transition: all 0.22s ease;
           backdrop-filter: blur(8px);
           text-decoration: none;
         }
         .btn-site:hover {
-          background: rgba(245,158,11,0.1);
-          border-color: rgba(245,158,11,0.4);
-          color: #fef9ee;
+          background: rgba(245,158,11,0.28);
+          border-color: rgba(245,158,11,0.8);
+          color: #fff;
           transform: translateY(-2px);
         }
 
@@ -366,14 +367,6 @@ export default function Login() {
       {/* ══ HERO — على اليمين ══ */}
       <div className="login-page">
         <div className="hero-content">
-
-          {/* Badge */}
-          <div className="fade-up-1">
-            <span className="os-badge">
-              <span className="os-badge-dot" />
-              النظام اللوجستي الموحد
-            </span>
-          </div>
 
           {/* Heading */}
           <div className="fade-up-2">
