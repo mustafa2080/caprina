@@ -127,6 +127,19 @@ export default function Orders() {
 
   const handleBulkDelete = async () => {
     if (selectedIds.size === 0) return;
+
+    // ── تحقق من وجود طلبات في بيان مفتوح ─────────────────────────────────
+    const lockedIds = Array.from(selectedIds).filter(id => inManifestSet.has(id));
+    if (lockedIds.length > 0) {
+      toast({
+        title: "⛔ لا يمكن حذف بعض الطلبات",
+        description: `${lockedIds.length} طلب مرتبط ببيان شحن مفتوح — لا يمكن حذفه إلا بعد إغلاق البيان من قسم شركات الشحن.`,
+        variant: "destructive",
+      });
+      setShowBulkDeleteConfirm(false);
+      return;
+    }
+
     setIsBulkDeleting(true);
     try {
       const token = localStorage.getItem("caprina_token");
@@ -248,15 +261,22 @@ export default function Orders() {
               </DropdownMenu>
 
               {/* حذف بالجملة */}
-              <Button
-                size="sm"
-                className="gap-1 text-xs h-9 bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                disabled={selectedIds.size === 0}
-                onClick={() => setShowBulkDeleteConfirm(true)}
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                حذف {selectedIds.size > 0 ? `(${selectedIds.size})` : ""}
-              </Button>
+              {(() => {
+                const lockedCount = Array.from(selectedIds).filter(id => inManifestSet.has(id)).length;
+                return (
+                  <Button
+                    size="sm"
+                    className="gap-1 text-xs h-9 bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
+                    disabled={selectedIds.size === 0 || lockedCount > 0}
+                    title={lockedCount > 0 ? `${lockedCount} طلب مرتبط ببيان مفتوح — أغلق البيان أولاً` : undefined}
+                    onClick={() => setShowBulkDeleteConfirm(true)}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    حذف {selectedIds.size > 0 ? `(${selectedIds.size})` : ""}
+                    {lockedCount > 0 && <span className="text-[9px] bg-white/20 rounded px-1">⛔ {lockedCount} محظور</span>}
+                  </Button>
+                );
+              })()}
             </>
           ) : (
             <>
