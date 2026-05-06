@@ -3,6 +3,7 @@ import { Link } from "wouter";
 import { format } from "date-fns";
 import { Search, Filter, Plus, Package, CalendarDays, X, RotateCcw, MessageCircle, Trash2, CheckSquare, RefreshCw } from "lucide-react";
 import { useListOrders, useUpdateOrder, getListOrdersQueryKey } from "@workspace/api-client-react";
+import type { ListOrdersStatus, UpdateOrderBodyStatus } from "@workspace/api-zod";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useDebounce } from "@/hooks/use-debounce";
 import { Input } from "@/components/ui/input";
