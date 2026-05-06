@@ -369,6 +369,21 @@ router.get("/orders/archived", async (_req, res): Promise<void> => {
   res.json(orders);
 });
 
+// ─── Purge archived orders permanently (admin only) ──────────────────────────
+router.delete("/orders/archived/purge", async (req, res): Promise<void> => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids) || ids.length === 0) {
+    res.status(400).json({ error: "ids مطلوبة" });
+    return;
+  }
+  const numericIds = ids.map(Number).filter(n => !isNaN(n));
+  // حذف نهائي — بس للطلبات المؤرشفة (deletedAt IS NOT NULL)
+  await db.delete(ordersTable).where(
+    and(inArray(ordersTable.id, numericIds), isNotNull(ordersTable.deletedAt))
+  );
+  res.json({ success: true, deleted: numericIds.length });
+});
+
 // ─── Orders in manifest ───────────────────────────────────────────────────────
 
 router.get("/orders/in-manifest-ids", async (_req, res): Promise<void> => {

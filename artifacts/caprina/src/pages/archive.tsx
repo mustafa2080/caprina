@@ -97,7 +97,6 @@ export default function ArchivePage() {
       await apiFetch("/orders/archived/purge", {
         method: "DELETE",
         body: JSON.stringify({ ids }),
-        headers: { "Content-Type": "application/json" },
       });
       await refetch();
       setSelectedIds(new Set());
