@@ -299,6 +299,7 @@ export default function OrderDetail() {
   const orderReturnReason = (order as any).returnReason as string | null;
   const orderReturnNote = (order as any).returnNote as string | null;
   const isOrderLocked = (order.status === "received" || order.status === "partial_received") && !isAdmin;
+  const isManifestLocked = !!invoiceManifestStatus; // بيان مفتوح → ممنوع الحذف
 
   return (
     <div className="max-w-4xl mx-auto space-y-5 animate-in fade-in duration-500">
@@ -365,9 +366,25 @@ export default function OrderDetail() {
               )}
               <Button
                 variant="outline" size="sm"
-                onClick={() => !isOrderLocked && setShowDeleteDialog(true)}
+                onClick={() => {
+                  if (isManifestLocked) {
+                    toast({
+                      title: "⛔ ممنوع حذف الطلب",
+                      description: `هذا الطلب مرتبط ببيان شحن مفتوح (${invoiceManifestStatus?.manifestNumber}) — لا يمكن حذفه طالما البيان مفتوح. أغلق البيان أولاً ثم احذف الطلب.`,
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  if (!isOrderLocked) setShowDeleteDialog(true);
+                }}
                 disabled={isOrderLocked}
-                title={isOrderLocked ? "الطلب مقفل — فقط المدير يمكنه الحذف" : undefined}
+                title={
+                  isManifestLocked
+                    ? `ممنوع الحذف — الطلب في بيان مفتوح (${invoiceManifestStatus?.manifestNumber})`
+                    : isOrderLocked
+                    ? "الطلب مقفل — فقط المدير يمكنه الحذف"
+                    : undefined
+                }
                 className="h-8 text-xs gap-1 border-red-800 text-red-400 hover:bg-red-900/20 hover:text-red-400 disabled:opacity-40"
               >
                 <Trash2 className="w-3 h-3" />حذف
