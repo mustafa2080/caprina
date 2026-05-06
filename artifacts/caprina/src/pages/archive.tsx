@@ -1,13 +1,15 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Archive, RotateCcw, AlertTriangle, Package, Search } from "lucide-react";
-import { ordersApi } from "@/lib/api";
+import { Archive, RotateCcw, AlertTriangle, Package, Search, Trash2 } from "lucide-react";
+import { ordersApi, apiFetch } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   pending:          { label: "معلق",        color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200" },
@@ -27,8 +29,11 @@ const formatCurrency = (n: number) =>
 export default function ArchivePage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { isAdmin } = useAuth();
   const [search, setSearch] = useState("");
   const [restoring, setRestoring] = useState<number | null>(null);
+  const [showPurgeDialog, setShowPurgeDialog] = useState(false);
+  const [purging, setPurging] = useState(false);
 
   const { data: orders = [], isLoading, refetch } = useQuery({
     queryKey: ["archived-orders"],
@@ -57,6 +62,21 @@ export default function ArchivePage() {
     }
   };
 
+  const handlePurgeAll = async () => {
+    setPurging(true);
+    try {
+      await apiFetch("/orders/archived/purge-all", { method: "DELETE" });
+      await refetch();
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      toast({ title: "✅ تم حذف الأرشيف بالكامل", description: "تم مسح جميع الطلبات المؤرشفة نهائياً." });
+    } catch (e: any) {
+      toast({ title: "خطأ", description: e.message, variant: "destructive" });
+    } finally {
+      setPurging(false);
+      setShowPurgeDialog(false);
+    }
+  };
+
   return (
     <div className="space-y-5 animate-in fade-in duration-500" dir="rtl">
       <div className="flex items-center gap-3">
@@ -70,6 +90,17 @@ export default function ArchivePage() {
         <Badge variant="outline" className="mr-auto">
           {orders.length} طلب
         </Badge>
+        {isAdmin && orders.length > 0 && (
+          <Button
+            variant="destructive"
+            size="sm"
+            className="h-8 text-xs gap-1.5"
+            onClick={() => setShowPurgeDialog(true)}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            حذف الأرشيف بالكامل
+          </Button>
+        )}
       </div>
 
       <Card>
@@ -160,6 +191,29 @@ export default function ArchivePage() {
           <p>الطلبات في الأرشيف مخفية من جميع التقارير والإحصائيات. يمكن استرجاعها في أي وقت.</p>
         </div>
       )}
+
+      {/* Dialog تأكيد حذف الأرشيف بالكامل */}
+      <AlertDialog open={showPurgeDialog} onOpenChange={setShowPurgeDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>⛔ حذف الأرشيف بالكامل</AlertDialogTitle>
+            <AlertDialogDescription>
+              سيتم حذف <strong>{orders.length} طلب</strong> نهائياً بشكل لا يمكن التراجع عنه.
+              هذه العملية غير قابلة للاسترجاع. هل أنت متأكد؟
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={purging}>إلغاء</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handlePurgeAll}
+              disabled={purging}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {purging ? "جاري الحذف..." : "نعم، احذف الكل"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
