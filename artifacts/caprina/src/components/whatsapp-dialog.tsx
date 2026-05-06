@@ -69,8 +69,8 @@ export function WhatsAppDialog({ open, onOpenChange, order, onSent }: Props) {
     if (!order?.phone || !editingBody) return;
     const link = buildWhatsAppLink(order.phone, editingBody);
     window.open(link, "_blank", "noopener,noreferrer");
-    onOpenChange(false);
     onSent?.();
+    onOpenChange(false);
   };
 
   if (!order) return null;
