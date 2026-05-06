@@ -85,11 +85,13 @@ export default function OrderDetail() {
     queryFn: () => manifestsApi.getOrderManifestStatus(id),
     enabled: !!id,
   });
-  const { data: invoiceManifestStatus } = useQuery({
+  const { data: invoiceManifestData } = useQuery({
     queryKey: ["invoice-manifest-status", order?.invoiceNumber],
     queryFn: () => manifestsApi.getInvoiceManifestStatus(order!.invoiceNumber!),
     enabled: !!(order?.invoiceNumber),
   });
+  // أي طلب في الفاتورة عنده بيان مفتوح؟
+  const invoiceManifestStatus = invoiceManifestData?.find((e: any) => e.manifestStatus === "open") ?? null;
   const updateOrder = useUpdateOrder();
 
   // Track selected product for stock display in edit mode
