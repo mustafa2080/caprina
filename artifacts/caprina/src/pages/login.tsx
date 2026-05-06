@@ -116,6 +116,14 @@ export default function Login() {
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           background-clip: text;
+          animation: flamePulse 2.8s ease-in-out infinite;
+          display: inline-block;
+          filter: drop-shadow(0 0 18px rgba(245,158,11,0.9));
+        }
+        @keyframes flamePulse {
+          0%   { filter: drop-shadow(0 0 4px rgba(245,158,11,0.2)) brightness(0.7); }
+          50%  { filter: drop-shadow(0 0 28px rgba(245,158,11,1))   brightness(1.3); }
+          100% { filter: drop-shadow(0 0 4px rgba(245,158,11,0.2)) brightness(0.7); }
         }
 
         /* ── Sub text ── */
