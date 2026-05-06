@@ -64,7 +64,7 @@ export default function Login() {
           z-index: 10;
           display: flex;
           align-items: center;
-          justify-content: flex-end;   /* اليمين الفعلي */
+          justify-content: flex-start;   /* اليمين الفعلي في RTL */
           padding: 4rem 6vw;
           direction: rtl;
         }
@@ -120,22 +120,24 @@ export default function Login() {
 
         /* ── Sub text ── */
         .hero-desc {
-          font-size: 0.93rem;
-          color: rgba(253,230,138,0.5);
+          font-size: 1.15rem;
+          font-weight: 600;
+          color: rgba(253,230,138,0.8);
           line-height: 1.75;
           margin-bottom: 0.65rem;
-          max-width: 390px;
+          max-width: 420px;
         }
 
         /* ── Tagline ── */
         .win-die {
           display: inline-block;
-          font-size: 0.75rem;
+          font-size: 1.1rem;
           font-weight: 900;
           letter-spacing: 0.32em;
           text-transform: uppercase;
-          color: rgba(245,158,11,0.35);
+          color: rgba(245,158,11,0.85);
           margin-bottom: 2.4rem;
+          text-shadow: 0 0 18px rgba(245,158,11,0.4);
         }
 
         /* ── Action row ── */
