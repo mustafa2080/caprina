@@ -116,6 +116,24 @@ export default function OrderDetail() {
 
   const handleStatusChange = (newStatus: string) => {
     if (!order || order.status === newStatus) return;
+
+    // ── تحقق من وجود بيان شحن مفتوح ──────────────────────────────────────
+    const activeManifest = manifestStatus?.manifestStatus === "open"
+      ? manifestStatus
+      : invoiceManifestStatus?.manifestStatus === "open"
+      ? invoiceManifestStatus
+      : null;
+
+    if (activeManifest) {
+      toast({
+        title: "⛔ لا يمكن تعديل حالة الطلب",
+        description: `هذا الطلب مرتبط ببيان شحن مفتوح (${activeManifest.manifestNumber}). يجب تعديل حالته من داخل البيان في قسم شركات الشحن فقط.`,
+        variant: "destructive",
+      });
+      setSelectDisplayStatus(null);
+      return;
+    }
+
     // إخفاء أي فورم مفتوح قبل أي تغيير
     setShowReturnInput(false);
     setShowPartialInput(false);
