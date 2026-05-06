@@ -18,6 +18,8 @@ import {
   resolveInventoryTarget,
   recordMovement,
   resolveProductIdFromVariant,
+  adjustWarehouseStock,
+  syncProductQuantityFromWarehouses,
 } from "../lib/inventory";
 
 const router: IRouter = Router();
