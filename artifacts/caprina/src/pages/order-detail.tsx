@@ -352,7 +352,7 @@ export default function OrderDetail() {
               <Button variant="outline" size="sm" onClick={handlePrint} className="h-8 text-xs gap-1 border-border">
                 <Printer className="w-3 h-3" />فاتورة
               </Button>
-              {(order.status === "pending" || order.status === "warehouse_ready" || order.status === "in_shipping" || order.status === "delayed") && (
+              {order.status === "pending" && (
                 <Button
                   variant="outline" size="sm"
                   onClick={handleWhatsApp}

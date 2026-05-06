@@ -275,6 +275,7 @@ export default function Orders() {
               <SelectContent>
                 <SelectItem value="all">جميع الطلبات</SelectItem>
                 <SelectItem value="pending">قيد الانتظار</SelectItem>
+                <SelectItem value="warehouse_ready">قيد الشحن في المخزن</SelectItem>
                 <SelectItem value="in_shipping">قيد الشحن</SelectItem>
                 <SelectItem value="received">استلم</SelectItem>
                 <SelectItem value="delayed">مؤجل</SelectItem>
