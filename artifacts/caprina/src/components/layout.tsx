@@ -21,25 +21,30 @@ interface LayoutProps {
 // permission = صلاحية الوصول للصفحة (هل الرول عنده حق يدخلها)
 // section   = صلاحية ظهور القسم في الـ sidebar (per-user toggle)
 const ALL_NAV = [
+  // ── الأساسيات اليومية ──────────────────────────────────────────────────
   { href: "/",                  label: "لوحة التحكم",        icon: LayoutDashboard, exact: true, permission: "dashboard",              section: "section_dashboard"         },
-  { href: "/product-performance",label: "أداء المنتجات",     icon: BarChart3,                   permission: "view_product_performance",section: "section_product_performance"},
-  { href: "/team-performance",  label: "أداء الفريق",        icon: UserCheck,                   permission: "analytics",               section: "section_team_performance"  },
-  { href: "/team",              label: "إدارة الفريق",       icon: UserCog,                     permission: "analytics",               section: "section_team_management"   },
-  { href: "/smart",             label: "التحليل الذكي 🧠",   icon: Brain,                       permission: "analytics",               section: "section_smart_analytics"   },
-  { href: "/ads-analytics",     label: "تحليل الإعلانات",    icon: Megaphone,                   permission: "analytics",               section: "section_ads_analytics"     },
   { href: "/orders",            label: "الطلبات",             icon: Package,                     permission: "orders",                  section: "section_orders"            },
   { href: "/orders/new",        label: "طلب جديد",            icon: Plus,                        permission: "orders",                  section: "section_new_order"         },
-  { href: "/archive",           label: "الأرشيف 🗂️",         icon: Archive,                     permission: "orders",                  section: "section_archive"           },
-  { href: "/shipping-followup", label: "متابعة الشحن ⏱️",    icon: Clock,                       permission: "orders",                  section: "section_shipping_followup" },
-  { href: "/whatsapp",          label: "إعدادات واتساب",     icon: MessageCircle,               permission: "whatsapp",                section: "section_whatsapp"          },
-  { href: "/inventory",         label: "المخزون",             icon: Boxes,                       permission: "inventory",               section: "section_inventory"         },
-  { href: "/warehouses",        label: "المخازن",             icon: Warehouse,                   permission: "inventory",               section: "section_warehouses"        },
-  { href: "/movements",         label: "حركات المخزون",       icon: Activity,                    permission: "movements",               section: "section_movements"         },
-  { href: "/shipping",          label: "شركات الشحن",         icon: Truck,                       permission: "shipping",                section: "section_shipping"          },
   { href: "/invoices",          label: "الفواتير",             icon: FileText,                    permission: "invoices",                section: "section_invoices"          },
+  { href: "/shipping-followup", label: "متابعة الشحن ⏱️",    icon: Clock,                       permission: "orders",                  section: "section_shipping_followup" },
+  { href: "/shipping",          label: "شركات الشحن",         icon: Truck,                       permission: "shipping",                section: "section_shipping"          },
+  // ── المخزون ────────────────────────────────────────────────────────────
+  { href: "/inventory",         label: "المخزون",             icon: Boxes,                       permission: "inventory",               section: "section_inventory"         },
+  { href: "/movements",         label: "حركات المخزون",       icon: Activity,                    permission: "movements",               section: "section_movements"         },
+  { href: "/warehouses",        label: "المخازن",             icon: Warehouse,                   permission: "inventory",               section: "section_warehouses"        },
+  // ── التحليلات والتقارير ─────────────────────────────────────────────────
+  { href: "/product-performance",label: "أداء المنتجات",     icon: BarChart3,                   permission: "view_product_performance",section: "section_product_performance"},
+  { href: "/smart",             label: "التحليل الذكي 🧠",   icon: Brain,                       permission: "analytics",               section: "section_smart_analytics"   },
+  { href: "/ads-analytics",     label: "تحليل الإعلانات",    icon: Megaphone,                   permission: "analytics",               section: "section_ads_analytics"     },
+  { href: "/team-performance",  label: "أداء الفريق",        icon: UserCheck,                   permission: "analytics",               section: "section_team_performance"  },
+  // ── الإدارة ─────────────────────────────────────────────────────────────
+  { href: "/team",              label: "إدارة الفريق",       icon: UserCog,                     permission: "analytics",               section: "section_team_management"   },
+  { href: "/users",             label: "إدارة المستخدمين",   icon: Users,                       permission: "users",                   section: "section_users"             },
+  { href: "/archive",           label: "الأرشيف 🗂️",         icon: Archive,                     permission: "orders",                  section: "section_archive"           },
+  // ── الأدوات والإعدادات ──────────────────────────────────────────────────
   { href: "/import",            label: "استيراد Excel",       icon: Upload,                      permission: "import",                  section: "section_import"            },
   { href: "/export",            label: "تصدير البيانات",      icon: Download,                    permission: "import",                  section: "section_export_data"       },
-  { href: "/users",             label: "إدارة المستخدمين",   icon: Users,                       permission: "users",                   section: "section_users"             },
+  { href: "/whatsapp",          label: "إعدادات واتساب",     icon: MessageCircle,               permission: "whatsapp",                section: "section_whatsapp"          },
   { href: "/sessions-report",   label: "تقرير الجلسات",       icon: Clock,                       permission: "users",                   section: "section_sessions_report"   },
   { href: "/audit-logs",        label: "سجل التعديلات",       icon: Shield,                      permission: "audit",                   section: "section_audit"             },
 ];
