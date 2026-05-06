@@ -108,6 +108,18 @@ export default function InvoiceGroup() {
   // ─── Bulk delete all orders in group ─────────────────────────────────────
   const handleBulkDelete = async () => {
     if (!orders?.length) return;
+
+    // ── تحقق من وجود بيان شحن مفتوح قبل الحذف ────────────────────────────
+    if (hasOpenManifest) {
+      toast({
+        title: "⛔ لا يمكن حذف الطلبات",
+        description: `هذه الفاتورة مرتبطة ببيان شحن مفتوح (${openManifestEntry?.manifestNumber}). لا يمكن حذف الطلبات إلا بعد إغلاق البيان من قسم شركات الشحن.`,
+        variant: "destructive",
+      });
+      setShowBulkDeleteDialog(false);
+      return;
+    }
+
     setIsBulkDeleting(true);
     try {
       const token = localStorage.getItem("caprina_token");
@@ -381,8 +393,9 @@ export default function InvoiceGroup() {
           )}
           <Button
             variant="outline" size="sm"
-            onClick={() => !isAnyLocked && setShowBulkDeleteDialog(true)}
-            disabled={isAnyLocked}
+            onClick={() => !isAnyLocked && !hasOpenManifest && setShowBulkDeleteDialog(true)}
+            disabled={isAnyLocked || hasOpenManifest}
+            title={hasOpenManifest ? `لا يمكن الحذف — الفاتورة مرتبطة ببيان مفتوح (${openManifestEntry?.manifestNumber})` : undefined}
             className="h-8 text-xs gap-1 border-red-800 text-red-400 hover:bg-red-900/20 hover:text-red-400 disabled:opacity-40"
           >
             <Trash2 className="w-3 h-3" />حذف الكل
