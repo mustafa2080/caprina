@@ -310,7 +310,7 @@ export default function Orders() {
             <div className="sm:hidden divide-y divide-border">
               {filtered.map((order) => {
                 const isGroup = !!(order as any)._groupCount && (order as any)._groupCount > 1;
-                const waStatuses = new Set(["pending","in_shipping","delayed"]);
+                const waStatuses = new Set(["pending","warehouse_ready","in_shipping","delayed"]);
                 const groupStatuses: string[] = (order as any)._groupStatuses ?? [order.status];
                 const canWhatsApp = canWriteOrders && !bulkSelectMode && groupStatuses.some(s => waStatuses.has(s));
                 const retReason = (order as any).returnReason as string | null;
@@ -414,7 +414,7 @@ export default function Orders() {
                     const retReason  = (order as any).returnReason as string | null;
                     const retNote    = (order as any).returnNote   as string | null;
                     const isGroup = !!(order as any)._groupCount && (order as any)._groupCount > 1;
-                    const waStatuses = new Set(["pending","in_shipping","delayed"]);
+                    const waStatuses = new Set(["pending","warehouse_ready","in_shipping","delayed"]);
                     const groupStatuses: string[] = (order as any)._groupStatuses ?? [order.status];
                     const canWhatsApp = canWriteOrders && !bulkSelectMode && groupStatuses.some(s => waStatuses.has(s));
                     const isSelected  = isGroupSelected(order);

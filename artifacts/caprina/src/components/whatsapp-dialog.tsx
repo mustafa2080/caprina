@@ -20,6 +20,7 @@ interface Props {
 
 const STATUS_LABELS: Record<string, string> = {
   pending:          "قيد الانتظار",
+  warehouse_ready:  "قيد الشحن في المخزن",
   in_shipping:      "قيد الشحن",
   received:         "مستلم",
   delayed:          "متأخر",
@@ -77,6 +78,7 @@ export function WhatsAppDialog({ open, onOpenChange, order, onSent }: Props) {
 
   const formattedPhone = order.phone ? formatEgyptianPhone(order.phone) : null;
   const willChangeStatus = order.status === "pending";
+  const alreadyWarehouseReady = order.status === "warehouse_ready";
   const isReminder = order.status === "in_shipping" || order.status === "delayed";
 
   return (
@@ -102,13 +104,25 @@ export function WhatsAppDialog({ open, onOpenChange, order, onSent }: Props) {
           )}
         </div>
 
-        {/* Auto status-change banner */}
+        {/* Auto status-change banner — pending → warehouse_ready */}
         {willChangeStatus && (
           <div className="flex items-center gap-2 p-2.5 rounded-lg bg-sky-500/10 border border-sky-500/30 text-xs text-sky-400">
             <ArrowRight className="w-3.5 h-3.5 shrink-0" />
             <span>
               بعد الإرسال ستتغير الحالة تلقائياً إلى
               <span className="font-bold mx-1 text-sky-300">«قيد الشحن في المخزن»</span>
+            </span>
+          </div>
+        )}
+
+        {/* Already warehouse_ready banner */}
+        {alreadyWarehouseReady && (
+          <div className="flex items-center gap-2 p-2.5 rounded-lg bg-teal-500/10 border border-teal-500/30 text-xs text-teal-400">
+            <ArrowRight className="w-3.5 h-3.5 shrink-0" />
+            <span>
+              الطلب بالفعل في حالة
+              <span className="font-bold mx-1 text-teal-300">«قيد الشحن في المخزن»</span>
+              — سيُرسل الواتساب بدون تغيير الحالة
             </span>
           </div>
         )}
