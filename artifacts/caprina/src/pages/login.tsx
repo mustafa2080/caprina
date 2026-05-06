@@ -247,11 +247,14 @@ export default function Login() {
         .form-card-title {
           font-size: 1.15rem;
           font-weight: 800;
-          color: #fef9ee;
+          background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 45%, #ef4444 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
         }
         .form-card-subtitle {
           font-size: 0.72rem;
-          color: rgba(253,230,138,0.4);
+          color: rgba(253,230,138,0.7);
           margin-top: 0.22rem;
         }
         .btn-close {
@@ -277,8 +280,8 @@ export default function Login() {
         /* Inputs */
         .form-label {
           font-size: 0.77rem;
-          font-weight: 600;
-          color: rgba(253,230,138,0.6);
+          font-weight: 700;
+          color: #fbbf24;
           display: block;
           margin-bottom: 0.45rem;
         }
