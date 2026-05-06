@@ -354,7 +354,11 @@ export default function Login() {
         }
         .btn-submit:disabled { opacity: 0.4; cursor: not-allowed; }
 
-        /* ── Mobile ── */
+        /* ── Responsive ── */
+        @media (max-width: 1024px) {
+          .hero-heading { font-size: 2.6rem; }
+          .login-page { padding: 3rem 4vw; }
+        }
         @media (max-width: 768px) {
           .login-page {
             justify-content: center;
@@ -362,8 +366,31 @@ export default function Login() {
             padding: 2rem 1.5rem 3.5rem;
           }
           .hero-content { max-width: 100%; }
-          .hero-heading { font-size: 2.1rem; }
-          .action-row { justify-content: flex-start; }
+          .hero-heading { font-size: 2rem; }
+          .hero-desc { font-size: 1rem; }
+          .win-die { font-size: 0.95rem; }
+          .action-row {
+            flex-wrap: wrap;
+            justify-content: flex-start;
+            gap: 0.75rem;
+          }
+          .btn-login, .btn-site {
+            font-size: 0.85rem;
+            padding: 0.7rem 1.3rem;
+          }
+        }
+        @media (max-width: 480px) {
+          .hero-heading { font-size: 1.65rem; }
+          .hero-desc { font-size: 0.92rem; }
+          .win-die { font-size: 0.82rem; letter-spacing: 0.22em; }
+          .action-row { flex-direction: column; align-items: flex-start; gap: 0.6rem; }
+          .btn-login, .btn-site { width: 100%; justify-content: center; font-size: 0.82rem; padding: 0.72rem 1rem; }
+          .login-page { padding: 1.5rem 1rem 3rem; }
+        }
+        @media (max-width: 360px) {
+          .hero-heading { font-size: 1.4rem; }
+          .hero-desc { font-size: 0.82rem; }
+          .btn-login, .btn-site { font-size: 0.75rem; padding: 0.65rem 0.85rem; }
         }
       `}</style>
 
@@ -394,7 +421,7 @@ export default function Login() {
           {/* Buttons */}
           <div className="fade-up-5 action-row">
             <button className="btn-login" onClick={() => setShowForm(true)}>
-              <LogIn size={16} />
+              <LogIn size={22} />
               تسجيل الدخول للمتابعة
             </button>
             <a
@@ -403,7 +430,7 @@ export default function Login() {
               rel="noopener noreferrer"
               className="btn-site"
             >
-              <ExternalLink size={15} />
+              <ExternalLink size={22} />
               الانتقال إلى الموقع الرئيسي
             </a>
           </div>
