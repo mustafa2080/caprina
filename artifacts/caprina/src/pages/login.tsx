@@ -144,9 +144,10 @@ export default function Login() {
         /* ── Action row ── */
         .action-row {
           display: flex;
-          gap: 0.8rem;
+          flex-direction: row;
+          gap: 1rem;
           align-items: center;
-          flex-wrap: wrap;
+          flex-wrap: nowrap;
           justify-content: flex-start;
           direction: rtl;
         }
@@ -182,15 +183,15 @@ export default function Login() {
           gap: 0.6rem;
           padding: 0.78rem 1.8rem;
           background: transparent;
-          color: #fbbf24;
+          color: #fff;
           font-size: 0.9rem;
-          font-weight: 700;
+          font-weight: 800;
           border-radius: 0.65rem;
           border: 2px solid #f59e0b;
           cursor: pointer;
           transition: all 0.22s ease;
           text-decoration: none;
-          letter-spacing: 0.02em;
+          letter-spacing: 0.03em;
           box-shadow: 0 0 18px rgba(245,158,11,0.35), inset 0 0 18px rgba(245,158,11,0.08);
         }
         .btn-site:hover {
