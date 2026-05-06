@@ -55,12 +55,16 @@ export default function InvoiceGroup() {
   });
 
   // ─── Fetch manifest status for this invoice ────────────────────────────────
-  const { data: invoiceManifestStatus } = useQuery({
+  const { data: invoiceManifestData } = useQuery({
     queryKey: ["invoice-manifest-status", invoiceNumber],
     queryFn: () => manifestsApi.getInvoiceManifestStatus(invoiceNumber),
     enabled: !!invoiceNumber,
     staleTime: 0,
   });
+
+  // أي طلب في الفاتورة عنده بيان مفتوح؟
+  const openManifestEntry = invoiceManifestData?.find((e: any) => e.manifestStatus === "open");
+  const hasOpenManifest = !!openManifestEntry;
 
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
@@ -73,10 +77,10 @@ export default function InvoiceGroup() {
     if (!orders?.length) return;
 
     // ── تحقق من وجود بيان شحن مفتوح ──────────────────────────────────────
-    if (invoiceManifestStatus?.manifestStatus === "open") {
+    if (hasOpenManifest) {
       toast({
         title: "⛔ لا يمكن تعديل حالة الطلب",
-        description: `هذه الفاتورة مرتبطة ببيان شحن مفتوح (${invoiceManifestStatus.manifestNumber}). يجب تعديل حالة الطلبات من داخل البيان في قسم شركات الشحن فقط.`,
+        description: `هذه الفاتورة مرتبطة ببيان شحن مفتوح (${openManifestEntry?.manifestNumber}). يجب تعديل حالة الطلبات من داخل البيان في قسم شركات الشحن فقط.`,
         variant: "destructive",
       });
       setPendingStatus(null);
@@ -342,11 +346,11 @@ export default function InvoiceGroup() {
           <Select
             value=""
             onValueChange={(v) => { if (v) setPendingStatus(v); }}
-            disabled={isUpdatingStatus || isAnyLocked || invoiceManifestStatus?.manifestStatus === "open"}
+            disabled={isUpdatingStatus || isAnyLocked || hasOpenManifest}
           >
             <SelectTrigger
               className="h-8 text-xs bg-card border-border w-44"
-              title={invoiceManifestStatus?.manifestStatus === "open" ? `مرتبط ببيان مفتوح (${invoiceManifestStatus.manifestNumber})` : undefined}
+              title={hasOpenManifest ? `مرتبط ببيان مفتوح (${openManifestEntry?.manifestNumber})` : undefined}
             >
               <div className="flex items-center gap-1">
                 <RefreshCw className={`w-3 h-3 ${isUpdatingStatus ? "animate-spin" : ""}`} />
@@ -387,12 +391,12 @@ export default function InvoiceGroup() {
       </div>
 
       {/* ── بيان مفتوح — تحذير ── */}
-      {invoiceManifestStatus?.manifestStatus === "open" && (
+      {hasOpenManifest && (
         <div className="flex items-center gap-2 p-3 rounded-lg bg-orange-500/10 border border-orange-500/40 text-xs text-orange-400">
           <span className="text-base shrink-0">⛔</span>
           <span>
             هذه الفاتورة مرتبطة ببيان شحن مفتوح
-            <span className="font-bold mx-1 text-orange-300">({invoiceManifestStatus.manifestNumber})</span>
+            <span className="font-bold mx-1 text-orange-300">({openManifestEntry?.manifestNumber})</span>
             — لا يمكن تعديل حالة الطلبات إلا من داخل البيان في قسم شركات الشحن. يمكن التعديل فقط بعد إغلاق البيان.
           </span>
         </div>
