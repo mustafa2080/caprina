@@ -229,19 +229,20 @@ export default function InvoiceGroup() {
 
   const handleWaSent = async (orderId: number, currentStatus: string) => {
     if (!orders?.length) return;
-    if (currentStatus === "pending") {
+    const hasPending = orders.some((o: any) => o.status === "pending");
+    if (hasPending) {
       for (const order of orders) {
         if (order.status === "pending") {
           await new Promise<void>((resolve) => {
             updateOrder.mutate(
-              { id: order.id, data: { status: "in_shipping" } },
+              { id: order.id, data: { status: "warehouse_ready" } },
               { onSuccess: () => resolve(), onError: () => resolve() }
             );
           });
         }
       }
       invalidateAll();
-      toast({ title: "تم إرسال واتساب ✅", description: "تم تحويل الطلبات لـ «قيد الشحن»" });
+      toast({ title: "تم إرسال واتساب ✅", description: "تم تحويل الطلبات لـ «قيد الشحن في المخزن»" });
     } else {
       toast({ title: "تم فتح واتساب ✅", description: "الرسالة جاهزة للإرسال" });
     }
@@ -342,7 +343,7 @@ export default function InvoiceGroup() {
           <Button variant="outline" size="sm" onClick={handlePrint} className="h-8 text-xs gap-1 border-border">
             <Printer className="w-3 h-3" />فاتورة
           </Button>
-          {orders.some((o: any) => o.status === "pending" || o.status === "in_shipping" || o.status === "delayed") && (
+          {orders.some((o: any) => o.status === "pending" || o.status === "warehouse_ready" || o.status === "in_shipping" || o.status === "delayed") && (
             <Button
               variant="outline" size="sm"
               onClick={handleWhatsApp}
