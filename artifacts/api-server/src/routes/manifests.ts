@@ -704,19 +704,37 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
       }
 
     } else if (deliveryStatus === "returned" && returnReceived === true) {
-      // مرتجع وصل المخزن → IN
-      const wasPartial     = oldDeliveryStatus === "partial_received";
-      const prevPartialQty = link.partialQuantity != null ? Number(link.partialQuantity) : 0;
-      const qtyToReturn    = wasPartial ? (totalQty - prevPartialQty) : totalQty;
-      const alreadyInStock = wasPartial && oldPartialReturnReceivedBool === true;
+      // مرتجع وصل المخزن → IN بالكمية الكاملة دايماً
+      const wasPartial        = oldDeliveryStatus === "partial_received";
+      const prevPartialQty    = link.partialQuantity != null ? Number(link.partialQuantity) : 0;
+      const prevReturnBool    = oldPartialReturnReceivedBool; // هل الباقي كان في المخزن؟
+
+      // الكمية اللي لازم ترجع المخزن دلوقتي:
+      // - لو partial + الباقي في المخزن: الجزء المستلم فقط (الباقي أصلاً في المخزن)
+      // - لو partial + الباقي في الشحن: الكمية الكاملة
+      // - لو مش partial: الكمية الكاملة
+      let qtyToAddNow: number;
+      if (wasPartial && prevReturnBool === true) {
+        // الباقي (totalQty - prevPartialQty) أصلاً في المخزن
+        // اللي لازم نضيفه = الجزء المستلم (prevPartialQty) فقط
+        qtyToAddNow = prevPartialQty;
+      } else if (wasPartial && prevReturnBool === false) {
+        // الباقي كان في الشحن → كل الكمية ترجع
+        qtyToAddNow = totalQty;
+      } else {
+        // مش partial → كل الكمية ترجع
+        qtyToAddNow = totalQty;
+      }
 
       movType   = "IN";
       movReason = "from_shipping";
-      movQty    = qtyToReturn > 0 ? qtyToReturn : totalQty;
-      movNotes  = "مرتجع — وصل المخزن من شركة الشحن";
+      movQty    = totalQty; // الحركة تسجل الكمية الكاملة للوضوح
+      movNotes  = wasPartial
+        ? `مرتجع كامل — ${prevPartialQty} قطعة كانت مستلمة + ${totalQty - prevPartialQty} قطعة رجعت للمخزن`
+        : "مرتجع — وصل المخزن من شركة الشحن";
 
-      if ((vid || pid) && qtyToReturn > 0 && !alreadyInStock) {
-        await adjustWarehouseStock(ref.warehouseId, vid, pid, +qtyToReturn);
+      if ((vid || pid) && qtyToAddNow > 0) {
+        await adjustWarehouseStock(ref.warehouseId, vid, pid, +qtyToAddNow);
         await syncProductQuantityFromWarehouses(vid, pid);
       }
 
