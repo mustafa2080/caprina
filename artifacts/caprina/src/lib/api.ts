@@ -1064,6 +1064,7 @@ export const movementsApi = {
     notes?: string | null;
   }) => apiFetch<InventoryMovement>(`/inventory/movements/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   delete: (id: number) => apiFetch<{ success: boolean }>(`/inventory/movements/${id}`, { method: "DELETE" }),
+  deleteBulk: (ids: number[]) => apiFetch<{ success: boolean; deleted: number }>("/inventory/movements", { method: "DELETE", body: JSON.stringify({ ids }) }),
 };
 
 // ─── App Settings API ─────────────────────────────────────────────────────

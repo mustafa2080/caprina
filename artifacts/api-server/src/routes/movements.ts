@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, and, gte, lte, or, like, sum, isNull, ne } from "drizzle-orm";
+import { eq, desc, and, gte, lte, or, like, sum, isNull, ne, inArray } from "drizzle-orm";
 import {
   db,
   inventoryMovementsTable,
@@ -391,6 +391,22 @@ router.put("/inventory/movements/:id", async (req, res): Promise<void> => {
 
   if (!movement) { res.status(404).json({ error: "الحركة غير موجودة" }); return; }
   res.json(movement);
+});
+
+// ─── Bulk Delete movements (admin only) ───────────────────────────────────────
+router.delete("/inventory/movements", async (req, res): Promise<void> => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids) || ids.length === 0) {
+    res.status(400).json({ error: "ids مطلوبة وتكون array" });
+    return;
+  }
+  const numericIds = ids.map(Number).filter(n => !isNaN(n));
+  if (numericIds.length === 0) {
+    res.status(400).json({ error: "ids غير صحيحة" });
+    return;
+  }
+  await db.delete(inventoryMovementsTable).where(inArray(inventoryMovementsTable.id, numericIds));
+  res.json({ success: true, deleted: numericIds.length });
 });
 
 // ─── Delete movement ───────────────────────────────────────────────────────────

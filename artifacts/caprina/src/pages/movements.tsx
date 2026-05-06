@@ -2,8 +2,9 @@ import { useState, useMemo } from "react";
 import {
   ArrowDownCircle, ArrowUpCircle, BarChart3, CalendarDays,
   Filter, Package, Plus, X, TrendingDown, TrendingUp, Activity, Printer, Pencil,
-  ArrowRightLeft, Trash2,
+  ArrowRightLeft, Trash2, CheckSquare,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { movementsApi, productsApi, warehousesApi, shippingApi, variantsApi, type MovementType, type MovementReason, type InventoryMovement } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
@@ -86,6 +87,25 @@ export default function Movements() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { isAdmin } = useAuth();
+
+  // ─── Bulk selection state ─────────────────────────────────────────────────
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === movements.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(movements.map((m: InventoryMovement) => m.id)));
+    }
+  };
 
   // Dialog mode: "manual" | "transfer"
   const [dialogMode, setDialogMode] = useState<"manual" | "transfer">("manual");
@@ -204,9 +224,26 @@ export default function Movements() {
     onError: () => toast({ title: "خطأ", description: "فشل حذف الحركة.", variant: "destructive" }),
   });
 
+  const bulkDeleteMutation = useMutation({
+    mutationFn: (ids: number[]) => movementsApi.deleteBulk(ids),
+    onSuccess: (_, ids) => {
+      queryClient.invalidateQueries({ queryKey: ["movements"] });
+      queryClient.invalidateQueries({ queryKey: ["movements-totals"] });
+      setSelectedIds(new Set());
+      toast({ title: "تم الحذف", description: `تم حذف ${ids.length} حركة بنجاح.` });
+    },
+    onError: () => toast({ title: "خطأ", description: "فشل حذف الحركات المحددة.", variant: "destructive" }),
+  });
+
   const handleDelete = (id: number) => {
     if (!window.confirm("هل أنت متأكد من حذف هذه الحركة؟")) return;
     deleteMutation.mutate(id);
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedIds.size === 0) return;
+    if (!window.confirm(`هل أنت متأكد من حذف ${selectedIds.size} حركة؟ لا يمكن التراجع عن هذا الإجراء.`)) return;
+    bulkDeleteMutation.mutate(Array.from(selectedIds));
   };
 
   const resetForm = () => setForm({
@@ -385,6 +422,17 @@ ${filtersRow}
             <Printer className="w-4 h-4" /><span className="hidden sm:inline">طباعة</span>
             {hasFilter && <span className="text-[9px] bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 font-bold">مفلترة</span>}
           </Button>
+          {isAdmin && selectedIds.size > 0 && (
+            <Button
+              variant="destructive"
+              className="gap-2 font-bold text-sm h-9"
+              onClick={handleBulkDelete}
+              disabled={bulkDeleteMutation.isPending}
+            >
+              <Trash2 className="w-4 h-4" />
+              حذف المحدد ({selectedIds.size})
+            </Button>
+          )}
           <Button variant="outline" className="gap-2 bg-violet-50 text-violet-700 border-violet-300 hover:bg-violet-100 dark:bg-violet-900/20 dark:text-violet-400 dark:border-violet-800 font-bold text-sm h-9"
             onClick={() => { setDialogMode("transfer"); setForm(f => ({ ...f, reason: "transfer", type: "OUT" })); setShowDialog(true); }}>
             <ArrowRightLeft className="w-4 h-4" />تحويل بين مواقع
@@ -516,6 +564,15 @@ ${filtersRow}
             <Table>
               <TableHeader>
                 <TableRow className="border-border hover:bg-transparent">
+                  {isAdmin && (
+                    <TableHead className="w-10 text-center">
+                      <Checkbox
+                        checked={movements.length > 0 && selectedIds.size === movements.length}
+                        onCheckedChange={toggleSelectAll}
+                        aria-label="تحديد الكل"
+                      />
+                    </TableHead>
+                  )}
                   <TableHead className="text-right text-xs w-40">التاريخ</TableHead>
                   <TableHead className="text-center text-xs w-20">النوع</TableHead>
                   <TableHead className="text-right text-xs">المنتج</TableHead>
@@ -533,7 +590,16 @@ ${filtersRow}
                 {movements.map((m: InventoryMovement) => {
                   const isTransfer = m.reason === "transfer";
                   return (
-                  <TableRow key={m.id} className="border-border hover:bg-muted/20">
+                  <TableRow key={m.id} className={`border-border hover:bg-muted/20 ${selectedIds.has(m.id) ? "bg-destructive/5" : ""}`}>
+                    {isAdmin && (
+                      <TableCell className="text-center">
+                        <Checkbox
+                          checked={selectedIds.has(m.id)}
+                          onCheckedChange={() => toggleSelect(m.id)}
+                          aria-label="تحديد الصف"
+                        />
+                      </TableCell>
+                    )}
                     <TableCell className="text-xs text-muted-foreground">
                       {formatMovementDate(m.createdAt)}
                     </TableCell>
