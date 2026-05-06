@@ -223,7 +223,7 @@ export default function Login() {
         }
 
         .form-card {
-          background: rgba(18,12,38,0.97);
+          background: linear-gradient(145deg, rgba(40,22,8,0.98) 0%, rgba(28,14,4,0.99) 100%);
           backdrop-filter: blur(28px);
           border: 1px solid rgba(245,158,11,0.25);
           border-radius: 1.3rem;
