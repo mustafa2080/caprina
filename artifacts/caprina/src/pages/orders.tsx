@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { useState, useRef } from "react";
 import { format } from "date-fns";
 import { Search, Filter, Plus, Package, CalendarDays, X, RotateCcw, MessageCircle, Trash2, CheckSquare, RefreshCw } from "lucide-react";
 import { useListOrders, useUpdateOrder, getListOrdersQueryKey } from "@workspace/api-client-react";
@@ -69,6 +69,7 @@ export default function Orders() {
   const canWriteOrders = isAdmin || (user?.permissions?.includes("orders_write") ?? false);
   const updateOrder = useUpdateOrder();
   const [waOrder, setWaOrder] = useState<WhatsAppOrderData | null>(null);
+  const waOrderRef = useRef<WhatsAppOrderData | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkSelectMode, setBulkSelectMode] = useState(false);
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
@@ -176,7 +177,9 @@ export default function Orders() {
 
   const handleWhatsApp = (e: React.MouseEvent, order: NonNullable<typeof orders>[0]) => {
     e.stopPropagation();
-    setWaOrder({ id: order.id, customerName: order.customerName, product: order.product, quantity: order.quantity, totalPrice: order.totalPrice, status: order.status, phone: order.phone });
+    const wa: WhatsAppOrderData = { id: order.id, customerName: order.customerName, product: order.product, quantity: order.quantity, totalPrice: order.totalPrice, status: order.status, phone: order.phone };
+    waOrderRef.current = wa;
+    setWaOrder(wa);
   };
 
   const handleWaSent = (orderId: number, currentStatus: string) => {
@@ -517,7 +520,15 @@ export default function Orders() {
         </p>
       )}
 
-      <WhatsAppDialog open={!!waOrder} onOpenChange={open => { if (!open) setWaOrder(null); }} order={waOrder} onSent={() => waOrder && handleWaSent(waOrder.id, waOrder.status)} />
+      <WhatsAppDialog
+        open={!!waOrder}
+        onOpenChange={open => { if (!open) setWaOrder(null); }}
+        order={waOrder}
+        onSent={() => {
+          const snap = waOrderRef.current;
+          if (snap) handleWaSent(snap.id, snap.status);
+        }}
+      />
 
       {/* تأكيد الحذف بالجملة */}
       <AlertDialog open={showBulkDeleteConfirm} onOpenChange={setShowBulkDeleteConfirm}>
