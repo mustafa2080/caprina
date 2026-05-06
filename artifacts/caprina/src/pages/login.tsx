@@ -356,41 +356,73 @@ export default function Login() {
 
         /* ── Responsive ── */
         @media (max-width: 1024px) {
-          .hero-heading { font-size: 2.6rem; }
+          .hero-heading { font-size: 2.8rem; }
           .login-page { padding: 3rem 4vw; }
         }
         @media (max-width: 768px) {
           .login-page {
             justify-content: center;
-            align-items: flex-end;
-            padding: 2rem 1.5rem 3.5rem;
+            align-items: center;
+            padding: 2.5rem 2rem;
           }
-          .hero-content { max-width: 100%; }
-          .hero-heading { font-size: 2rem; }
-          .hero-desc { font-size: 1rem; }
-          .win-die { font-size: 0.95rem; }
+          .hero-content {
+            max-width: 100%;
+            text-align: right;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+          }
+          .hero-heading {
+            font-size: 2.4rem;
+            line-height: 1.18;
+            text-shadow: 0 2px 32px rgba(0,0,0,0.8);
+          }
+          .hero-desc {
+            font-size: 1.08rem;
+            font-weight: 700;
+            max-width: 100%;
+          }
+          .win-die {
+            font-size: 1rem;
+            letter-spacing: 0.28em;
+          }
           .action-row {
             flex-wrap: wrap;
-            justify-content: flex-start;
+            justify-content: flex-end;
             gap: 0.75rem;
+            width: 100%;
           }
           .btn-login, .btn-site {
-            font-size: 0.85rem;
-            padding: 0.7rem 1.3rem;
+            font-size: 0.92rem;
+            padding: 0.8rem 1.4rem;
           }
         }
         @media (max-width: 480px) {
-          .hero-heading { font-size: 1.65rem; }
-          .hero-desc { font-size: 0.92rem; }
-          .win-die { font-size: 0.82rem; letter-spacing: 0.22em; }
-          .action-row { flex-direction: column; align-items: flex-start; gap: 0.6rem; }
-          .btn-login, .btn-site { width: 100%; justify-content: center; font-size: 0.82rem; padding: 0.72rem 1rem; }
-          .login-page { padding: 1.5rem 1rem 3rem; }
+          .login-page { padding: 2rem 1.25rem; }
+          .hero-heading {
+            font-size: 2rem;
+            line-height: 1.22;
+          }
+          .hero-desc {
+            font-size: 1rem;
+            font-weight: 700;
+            max-width: 100%;
+          }
+          .win-die { font-size: 0.9rem; letter-spacing: 0.24em; margin-bottom: 1.8rem; }
+          .action-row { flex-direction: column; align-items: stretch; gap: 0.65rem; }
+          .btn-login, .btn-site {
+            width: 100%;
+            justify-content: center;
+            font-size: 0.95rem;
+            padding: 0.85rem 1rem;
+          }
         }
         @media (max-width: 360px) {
-          .hero-heading { font-size: 1.4rem; }
-          .hero-desc { font-size: 0.82rem; }
-          .btn-login, .btn-site { font-size: 0.75rem; padding: 0.65rem 0.85rem; }
+          .hero-heading { font-size: 1.7rem; }
+          .hero-desc { font-size: 0.9rem; }
+          .win-die { font-size: 0.8rem; letter-spacing: 0.2em; }
+          .btn-login, .btn-site { font-size: 0.85rem; padding: 0.75rem 0.9rem; }
+          .login-page { padding: 1.5rem 1rem; }
         }
       `}</style>
 
