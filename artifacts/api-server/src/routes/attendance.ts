@@ -107,6 +107,65 @@ router.delete("/attendance/:id", requireAdmin, async (req, res): Promise<void> =
   res.status(204).send();
 });
 
+// ─── GET salary report (attendance + adjustments summary) ────────────────────
+// GET /attendance/:profileId/salary-report?month=YYYY-MM
+router.get("/attendance/:profileId/salary-report", async (req, res): Promise<void> => {
+  const profileId = parseInt(req.params.profileId);
+  if (isNaN(profileId)) { res.status(400).json({ error: "Invalid profileId" }); return; }
+
+  const month = (req.query.month as string) || new Date().toISOString().slice(0, 7);
+  const [year, mon] = month.split("-").map(Number);
+  const prefix = `${year}-${String(mon).padStart(2, "0")}`;
+  const daysInMonth = new Date(year, mon, 0).getDate();
+
+  const [profile] = await db
+    .select()
+    .from(employeeProfilesTable)
+    .where(eq(employeeProfilesTable.id, profileId));
+
+  if (!profile) { res.status(404).json({ error: "Profile not found" }); return; }
+
+  const allRecords = await db.select().from(attendanceTable).where(eq(attendanceTable.profileId, profileId));
+  const records = allRecords.filter((r) => r.date.startsWith(prefix));
+
+  const adjustments = await db
+    .select()
+    .from(payrollAdjustmentsTable)
+    .where(and(eq(payrollAdjustmentsTable.profileId, profileId), eq(payrollAdjustmentsTable.month, month)));
+
+  let workedDays = 0, absentDays = 0, lateDays = 0, halfDays = 0, totalDeduction = 0;
+  for (const r of records) {
+    if (r.status === "present") workedDays++;
+    else if (r.status === "late") { workedDays++; lateDays++; }
+    else if (r.status === "absent") absentDays++;
+    else if (r.status === "half_day") halfDays++;
+    totalDeduction += Number(r.deduction) || 0;
+  }
+
+  const bonuses = adjustments.filter(a => a.type === "bonus").reduce((s, a) => s + Number(a.amount), 0);
+  const extraDeductions = adjustments.filter(a => a.type === "deduction").reduce((s, a) => s + Number(a.amount), 0);
+  const baseSalary = Number(profile.monthlySalary) || 0;
+  const netSalary = baseSalary - totalDeduction + bonuses - extraDeductions;
+
+  res.json({
+    profileId,
+    displayName: profile.displayName,
+    month,
+    baseSalary,
+    workedDays,
+    absentDays,
+    lateDays,
+    halfDays,
+    totalWorkingDays: daysInMonth,
+    attendanceDeduction: totalDeduction,
+    bonuses,
+    extraDeductions,
+    netSalary,
+    attendance: records,
+    adjustments,
+  });
+});
+
 // ─── GET payroll adjustments for a profile in a month ────────────────────────
 // GET /attendance/adjustments/:profileId?month=YYYY-MM
 router.get("/attendance/adjustments/:profileId", async (req, res): Promise<void> => {
