@@ -65,8 +65,8 @@ export default function Invoices() {
   const rawOrders = useMemo(() => {
     if (!allOrders) return [];
     return allOrders.filter(o => {
-      // الفواتير تظهر فقط لـ in_shipping وما بعدها — ليس pending وليس warehouse_ready
-      if (o.status === "pending" || o.status === "warehouse_ready") return false;
+      // الفواتير تظهر فقط لـ warehouse_ready وما بعدها — ليس pending فقط
+      if (o.status === "pending") return false;
       return true;
     });
   }, [allOrders]);
@@ -556,7 +556,7 @@ export default function Invoices() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold">الفواتير</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">تظهر الطلبات من مرحلة «قيد الشحن» فقط وما بعدها — الطلبات قيد الانتظار وقيد الشحن في المخزن لا تظهر هنا</p>
+          <p className="text-muted-foreground text-sm mt-0.5">تظهر الطلبات من مرحلة «قيد الشحن في المخزن» فما بعد — الطلبات قيد الانتظار لا تظهر هنا</p>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground whitespace-nowrap">فواتير في الصفحة:</span>
@@ -584,6 +584,7 @@ export default function Invoices() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">كل الحالات</SelectItem>
+              <SelectItem value="warehouse_ready">قيد الشحن في المخزن</SelectItem>
               <SelectItem value="in_shipping">قيد الشحن</SelectItem>
               <SelectItem value="received">استلم</SelectItem>
               <SelectItem value="delayed">مؤجل</SelectItem>

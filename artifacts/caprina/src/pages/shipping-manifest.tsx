@@ -2252,17 +2252,13 @@ function AddOrdersToManifestDialog({
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
-  // جيب كل الطلبات القابلة للإضافة: warehouse_ready + pending + delayed
-  // in_shipping مش هنا — اللي في بيانات مفتوحة تانية هيتشالوا بالـ inManifestIds
+  // جيب فقط الطلبات القابلة للإضافة: warehouse_ready فقط (قيد الشحن في المخزن)
+  // pending و delayed لا يظهران هنا — الطلب لازم يكون في المخزن أولاً قبل إضافته لبيان
   const { data: allAvailableOrders, isLoading } = useQuery({
     queryKey: ["orders-available-for-manifest"],
     queryFn: async () => {
-      const [warehouseReady, pending, delayed] = await Promise.all([
-        apiFetch<OrderRow[]>(`/orders?status=warehouse_ready`),
-        apiFetch<OrderRow[]>(`/orders?status=pending`),
-        apiFetch<OrderRow[]>(`/orders?status=delayed`),
-      ]);
-      return [...warehouseReady, ...pending, ...delayed];
+      const warehouseReady = await apiFetch<OrderRow[]>(`/orders?status=warehouse_ready`);
+      return warehouseReady;
     },
     staleTime: 10000,
   });
