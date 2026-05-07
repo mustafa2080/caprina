@@ -2466,8 +2466,28 @@ export default function ShippingManifestPage() {
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showOrders, setShowOrders] = useState(true);
   const [showRolloverDialog, setShowRolloverDialog] = useState<null | { id: number; manifestNumber: string; orderCount: number; breakdown: string }>(null);
+  const [showCustomerSearch, setShowCustomerSearch] = useState(false);
+  const [showProductSearch, setShowProductSearch] = useState(false);
   const [customerSearch, setCustomerSearch] = useState("");
   const [productSearch, setProductSearch] = useState("");
+  const customerSearchRef = useRef<HTMLDivElement>(null);
+  const productSearchRef = useRef<HTMLDivElement>(null);
+  const customerInputRef = useRef<HTMLInputElement>(null);
+  const productInputRef = useRef<HTMLInputElement>(null);
+
+  // ─── Close search popover on outside click ──────────────────────────────────
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (customerSearchRef.current && !customerSearchRef.current.contains(e.target as Node)) {
+        setShowCustomerSearch(false);
+      }
+      if (productSearchRef.current && !productSearchRef.current.contains(e.target as Node)) {
+        setShowProductSearch(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   const { data: manifest, isLoading, error } = useQuery({
     queryKey: ["shipping-manifest", id],
@@ -2487,7 +2507,9 @@ export default function ShippingManifestPage() {
       const matchesCustomer = !cq || (
         rep.customerName.toLowerCase().includes(cq) ||
         ((rep as any).invoiceNumber ?? "").toLowerCase().includes(cq) ||
-        rep.id.toString().includes(cq)
+        rep.id.toString().includes(cq) ||
+        (rep.phone ?? "").replace(/\D/g, "").includes(cq.replace(/\D/g, "")) ||
+        (rep.phone ?? "").includes(cq)
       );
       const matchesProduct = !pq || group.some((o) =>
         o.product.toLowerCase().includes(pq)
@@ -3044,52 +3066,94 @@ export default function ShippingManifestPage() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                {/* Search Bar */}
-                <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-muted/10">
-                  <div className="relative flex-1">
-                    <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-                    <Input
-                      value={customerSearch}
-                      onChange={(e) => setCustomerSearch(e.target.value)}
-                      placeholder="بحث عن عميل أو رقم فاتورة..."
-                      className="h-8 text-xs pr-8 bg-background"
-                    />
-                    {customerSearch && (
-                      <button
-                        onClick={() => setCustomerSearch("")}
-                        className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                  <div className="relative flex-1">
-                    <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-                    <Input
-                      value={productSearch}
-                      onChange={(e) => setProductSearch(e.target.value)}
-                      placeholder="بحث باسم المنتج..."
-                      className="h-8 text-xs pr-8 bg-background"
-                    />
-                    {productSearch && (
-                      <button
-                        onClick={() => setProductSearch("")}
-                        className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                  {(customerSearch || productSearch) && (
-                    <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                      {filteredManifestOrders.length} نتيجة
-                    </span>
-                  )}
-                </div>
-                {/* Table header */}
+                {/* Table header with inline search popovers */}
                 <div className="grid grid-cols-[1fr_1fr_60px_80px_120px_80px] gap-0 border-b border-border bg-muted/20 px-3 py-2 text-[10px] font-semibold text-muted-foreground">
-                  <div className="flex items-center gap-1 cursor-pointer select-none" onClick={() => setCustomerSearch("")}>العميل</div>
-                  <div className="flex items-center gap-1 cursor-pointer select-none" onClick={() => setProductSearch("")}>المنتج</div>
+                  {/* Customer header with search popover */}
+                  <div className="relative" ref={customerSearchRef}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCustomerSearch(v => !v);
+                        setShowProductSearch(false);
+                        setTimeout(() => customerInputRef.current?.focus(), 50);
+                      }}
+                      className={`flex items-center gap-1 rounded px-1 py-0.5 transition-colors hover:bg-primary/10 hover:text-primary ${customerSearch ? "text-primary font-bold" : ""}`}
+                    >
+                      <Search className="w-3 h-3" />
+                      العميل
+                      {customerSearch && <span className="text-[9px] bg-primary/20 text-primary rounded px-1">•</span>}
+                    </button>
+                    {showCustomerSearch && (
+                      <div className="absolute top-full right-0 z-50 mt-1 w-64 rounded-lg border border-border bg-card shadow-xl p-2 flex flex-col gap-1.5">
+                        <p className="text-[10px] text-muted-foreground font-normal px-0.5">بحث بالاسم / رقم الفاتورة / رقم الهاتف</p>
+                        <div className="relative">
+                          <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                          <input
+                            ref={customerInputRef}
+                            value={customerSearch}
+                            onChange={e => setCustomerSearch(e.target.value)}
+                            placeholder="ابحث هنا..."
+                            className="w-full h-8 text-xs pr-8 pl-7 rounded-md border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                          />
+                          {customerSearch && (
+                            <button
+                              type="button"
+                              onClick={() => setCustomerSearch("")}
+                              className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                        {customerSearch && (
+                          <p className="text-[10px] text-primary px-0.5">{filteredManifestOrders.length} نتيجة</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {/* Product header with search popover */}
+                  <div className="relative" ref={productSearchRef}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowProductSearch(v => !v);
+                        setShowCustomerSearch(false);
+                        setTimeout(() => productInputRef.current?.focus(), 50);
+                      }}
+                      className={`flex items-center gap-1 rounded px-1 py-0.5 transition-colors hover:bg-primary/10 hover:text-primary ${productSearch ? "text-primary font-bold" : ""}`}
+                    >
+                      <Search className="w-3 h-3" />
+                      المنتج
+                      {productSearch && <span className="text-[9px] bg-primary/20 text-primary rounded px-1">•</span>}
+                    </button>
+                    {showProductSearch && (
+                      <div className="absolute top-full right-0 z-50 mt-1 w-56 rounded-lg border border-border bg-card shadow-xl p-2 flex flex-col gap-1.5">
+                        <p className="text-[10px] text-muted-foreground font-normal px-0.5">بحث باسم المنتج</p>
+                        <div className="relative">
+                          <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                          <input
+                            ref={productInputRef}
+                            value={productSearch}
+                            onChange={e => setProductSearch(e.target.value)}
+                            placeholder="اسم المنتج..."
+                            className="w-full h-8 text-xs pr-8 pl-7 rounded-md border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                          />
+                          {productSearch && (
+                            <button
+                              type="button"
+                              onClick={() => setProductSearch("")}
+                              className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                        {productSearch && (
+                          <p className="text-[10px] text-primary px-0.5">{filteredManifestOrders.length} نتيجة</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   <div className="text-center">الكمية</div>
                   <div className="text-left">الإجمالي</div>
                   <div>حالة التسليم</div>
