@@ -306,16 +306,24 @@ export default function Login() {
           background: linear-gradient(270deg, rgba(245,158,11,0.4), transparent);
         }
         .copyright-text {
-          font-size: 0.78rem;
-          font-weight: 700;
-          letter-spacing: 0.12em;
-          background: linear-gradient(90deg, #d97706 0%, #fbbf24 50%, #d97706 100%);
-          background-size: 200% auto;
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-          animation: shimmer 4s linear infinite, copyrightGlow 3s ease-in-out infinite;
+          font-size: 0.82rem;
+          font-weight: 800;
+          letter-spacing: 0.18em;
+          color: #0a0500;
+          text-shadow:
+            0 0 8px rgba(245,158,11,0.9),
+            0 0 20px rgba(245,158,11,0.6),
+            0 0 40px rgba(217,119,6,0.4),
+            0 1px 0 rgba(255,220,100,0.3);
           white-space: nowrap;
+          padding: 0.3rem 0.8rem;
+          background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 40%, #d97706 100%);
+          border-radius: 4px;
+          box-shadow:
+            0 0 12px rgba(245,158,11,0.5),
+            0 0 30px rgba(217,119,6,0.3),
+            inset 0 1px 0 rgba(255,240,180,0.4);
+          animation: copyrightGlow 3s ease-in-out infinite;
         }
 
         /* ══════════════════════════════════════
@@ -522,10 +530,22 @@ export default function Login() {
       <div className="login-page">
         <div className="hero-content">
 
-          {/* 3D Floating Orb Logo */}
+          {/* Logo */}
           <div className="fade-up-1">
             <div className="logo-orb">
-              <span className="logo-orb-letter">C</span>
+              <img
+                src="/logo.jpg"
+                alt="Caprina Logo"
+                style={{
+                  width: "70px",
+                  height: "70px",
+                  borderRadius: "50%",
+                  objectFit: "cover",
+                  filter: "drop-shadow(0 0 10px rgba(245,158,11,0.7))",
+                  zIndex: 1,
+                  position: "relative",
+                }}
+              />
             </div>
           </div>
 
