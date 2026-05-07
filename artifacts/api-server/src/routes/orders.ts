@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, like, or, gte, and, isNull, isNotNull, inArray, notInArray } from "drizzle-orm";
+import { eq, desc, like, or, gte, lte, and, isNull, isNotNull, inArray, notInArray } from "drizzle-orm";
 import { db, ordersTable, productsTable, productVariantsTable, shippingManifestOrdersTable, shippingManifestsTable, shippingCompaniesTable, inventoryMovementsTable } from "@workspace/db";
 import {
   ListOrdersQueryParams,
@@ -141,6 +141,11 @@ router.get("/orders", async (req, res): Promise<void> => {
   }
   if ((req.query as any).dateFrom) {
     conditions.push(gte(ordersTable.createdAt, new Date((req.query as any).dateFrom as string)));
+  }
+  if ((req.query as any).dateTo) {
+    const dateTo = new Date((req.query as any).dateTo as string);
+    dateTo.setHours(23, 59, 59, 999);
+    conditions.push(lte(ordersTable.createdAt, dateTo));
   }
   if ((req.query as any).shippingCompanyId) {
     const cid = parseInt((req.query as any).shippingCompanyId as string);

@@ -2,8 +2,8 @@ import { useState, useRef } from "react";
 import { Link } from "wouter";
 import { format } from "date-fns";
 import { Search, Filter, Plus, Package, CalendarDays, X, RotateCcw, MessageCircle, Trash2, CheckSquare, RefreshCw } from "lucide-react";
-import { useListOrders, useUpdateOrder, getListOrdersQueryKey } from "@workspace/api-client-react";
-import type { ListOrdersStatus, UpdateOrderBodyStatus } from "@workspace/api-zod";
+import { useUpdateOrder } from "@workspace/api-client-react";
+import type { UpdateOrderBodyStatus } from "@workspace/api-zod";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useDebounce } from "@/hooks/use-debounce";
 import { Input } from "@/components/ui/input";
@@ -20,7 +20,7 @@ import { type WhatsAppOrderData } from "@/lib/whatsapp";
 import { WhatsAppDialog } from "@/components/whatsapp-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { ordersApi } from "@/lib/api";
+import { ordersApi, shippingApi } from "@/lib/api";
 
 // Local type alias – includes warehouse_ready which older generated types may omit
 type OrderStatusValue = "pending" | "warehouse_ready" | "in_shipping" | "received" | "delayed" | "returned" | "partial_received";
@@ -62,7 +62,15 @@ export default function Orders() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<string>("all");
   const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [filterProduct, setFilterProduct] = useState("");
+  const [filterCity, setFilterCity] = useState("all");
+  const [filterShippingCo, setFilterShippingCo] = useState("all");
+  const [filterAmountMin, setFilterAmountMin] = useState("");
+  const [filterAmountMax, setFilterAmountMax] = useState("");
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const debouncedSearch = useDebounce(search, 300);
+  const debouncedProduct = useDebounce(filterProduct, 300);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { user, isAdmin } = useAuth();
@@ -78,10 +86,18 @@ export default function Orders() {
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [pendingBulkStatus, setPendingBulkStatus] = useState<string | null>(null);
 
-  const { data: orders, isLoading } = useListOrders(
-    { search: debouncedSearch || undefined, status: status !== "all" ? (status as ListOrdersStatus) : undefined },
-    { query: { staleTime: 15_000, gcTime: 60_000 } }
-  );
+  const { data: orders, isLoading } = useQuery({
+    queryKey: ["orders-list", debouncedSearch, status, dateFrom, dateTo, filterShippingCo],
+    queryFn: () => ordersApi.list({
+      search: debouncedSearch || undefined,
+      status: status !== "all" ? status : undefined,
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo || undefined,
+      shippingCompanyId: filterShippingCo !== "all" ? filterShippingCo : undefined,
+    }),
+    staleTime: 15_000,
+    gcTime: 60_000,
+  } as any);
 
   // IDs of orders already in a shipping manifest (to detect "still in warehouse")
   const { data: inManifestData } = useQuery({
@@ -91,16 +107,35 @@ export default function Orders() {
   });
   const inManifestSet = new Set(inManifestData?.ids ?? []);
 
+  const { data: shippingCompanies } = useQuery({
+    queryKey: ["shipping-companies"],
+    queryFn: shippingApi.list,
+    staleTime: 60_000,
+  });
+
   const rawFiltered = orders?.filter(o => {
-    if (!dateFrom) return true;
-    return new Date(o.createdAt) >= new Date(dateFrom);
+    if (debouncedProduct && !o.product?.toLowerCase().includes(debouncedProduct.toLowerCase())) return false;
+    if (filterCity !== "all" && (o as any).city !== filterCity) return false;
+    if (filterAmountMin && o.totalPrice < parseFloat(filterAmountMin)) return false;
+    if (filterAmountMax && o.totalPrice > parseFloat(filterAmountMax)) return false;
+    return true;
   }) ?? [];
 
   const filtered = rawFiltered;
 
-  const hasActiveFilter = search || status !== "all" || dateFrom;
+  const allCities = [...new Set(orders?.map(o => (o as any).city).filter(Boolean) ?? [])].sort((a,b) => a.localeCompare(b, "ar"));
 
-  const clearFilters = () => { setSearch(""); setStatus("all"); setDateFrom(""); };
+  const advancedFiltersCount = [
+    dateTo, filterProduct, filterCity !== "all", filterShippingCo !== "all", filterAmountMin, filterAmountMax
+  ].filter(Boolean).length;
+
+  const hasActiveFilter = search || status !== "all" || dateFrom || advancedFiltersCount > 0;
+
+  const clearFilters = () => {
+    setSearch(""); setStatus("all"); setDateFrom(""); setDateTo("");
+    setFilterProduct(""); setFilterCity("all"); setFilterShippingCo("all");
+    setFilterAmountMin(""); setFilterAmountMax("");
+  };
 
   const toggleSelect = (order: (typeof filtered)[0]) => {
     const ids: number[] = (order as any)._isGroup ? (order as any)._groupIds : [order.id];
@@ -149,7 +184,7 @@ export default function Orders() {
         body: JSON.stringify({ ids: Array.from(selectedIds) }),
       });
       const data = await res.json();
-      await queryClient.refetchQueries({ queryKey: getListOrdersQueryKey() });
+      await queryClient.refetchQueries({ queryKey: ["orders-list"] });
       const skippedMsg = data.skipped > 0 ? ` (${data.skipped} محظور — مسلّمة)` : "";
       toast({ title: `تم حذف ${data.deleted} طلب ✅`, description: `تم حذف الطلبات بنجاح${skippedMsg}` });
       exitBulkMode();
@@ -192,7 +227,7 @@ export default function Orders() {
         failed++;
       }
     }
-    queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
+    queryClient.invalidateQueries({ queryKey: ["orders-list"] });
     const label = statusLabels[newStatus] ?? newStatus;
     const failedMsg = failed > 0 ? ` (${failed} فشل)` : "";
     toast({ title: `تم تحديث ${done} طلب ✅`, description: `تم تغيير الحالة إلى «${label}»${failedMsg}` });
@@ -212,7 +247,7 @@ export default function Orders() {
     if (currentStatus === "pending") {
       updateOrder.mutate(
         { id: orderId, data: { status: "warehouse_ready" as UpdateOrderBodyStatus } },
-        { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() }); toast({ title: "تم إرسال واتساب ✅", description: `تم تحويل الطلب #${orderId.toString().padStart(4,"0")} لـ «قيد الشحن في المخزن»` }); } }
+        { onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["orders-list"] }); toast({ title: "تم إرسال واتساب ✅", description: `تم تحويل الطلب #${orderId.toString().padStart(4,"0")} لـ «قيد الشحن في المخزن»` }); } }
       );
     } else {
       toast({ title: "تم فتح واتساب ✅", description: "الرسالة جاهزة للإرسال" });
@@ -295,6 +330,7 @@ export default function Orders() {
 
       <Card className="border-border overflow-hidden">
         <div className="p-3 border-b border-border bg-muted/10 flex flex-col gap-2">
+          {/* ── الصف الأول: بحث + حالة + زر فلتر متقدم ── */}
           <div className="flex flex-col sm:flex-row gap-2">
             <div className="relative flex-1">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -315,15 +351,37 @@ export default function Orders() {
                 <SelectItem value="partial_received">استلم جزئي</SelectItem>
               </SelectContent>
             </Select>
+            <Button
+              variant={showAdvancedFilters ? "default" : "outline"}
+              size="sm"
+              className="h-9 gap-1.5 text-xs font-bold shrink-0 px-3"
+              onClick={() => setShowAdvancedFilters(v => !v)}
+            >
+              <Filter className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">فلتر متقدم</span>
+              <span className="sm:hidden">فلتر</span>
+              {advancedFiltersCount > 0 && (
+                <span className="bg-primary-foreground text-primary rounded-full w-4 h-4 text-[9px] font-black flex items-center justify-center">
+                  {advancedFiltersCount}
+                </span>
+              )}
+            </Button>
           </div>
+
+          {/* ── الصف الثاني: تاريخ من + مسح ── */}
           <div className="flex items-center gap-2 flex-wrap">
             <div className="relative">
               <CalendarDays className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-              <Input type="date" className="pr-9 bg-card text-sm h-8 w-48 text-xs" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+              <Input type="date" className="pr-9 bg-card text-sm h-8 w-40 text-xs" value={dateFrom} onChange={e => setDateFrom(e.target.value)} title="من تاريخ" />
+            </div>
+            <span className="text-xs text-muted-foreground">←</span>
+            <div className="relative">
+              <CalendarDays className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+              <Input type="date" className="pr-9 bg-card text-sm h-8 w-40 text-xs" value={dateTo} onChange={e => setDateTo(e.target.value)} title="إلى تاريخ" />
             </div>
             {hasActiveFilter && (
               <Button variant="ghost" size="sm" className="h-8 text-xs gap-1 text-muted-foreground" onClick={clearFilters}>
-                <X className="w-3 h-3" />مسح الفلاتر
+                <X className="w-3 h-3" />مسح الكل
               </Button>
             )}
             {bulkSelectMode && filtered.length > 0 && canWriteOrders && (
@@ -332,6 +390,100 @@ export default function Orders() {
               </Button>
             )}
           </div>
+
+          {/* ── فلاتر متقدمة ── */}
+          {showAdvancedFilters && (
+            <div className="rounded-lg border border-border bg-card p-3 space-y-3 mt-1">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">فلاتر متقدمة للجرد والتحليل</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {/* فلتر المنتج */}
+                <div>
+                  <p className="text-[10px] text-muted-foreground mb-1 font-semibold">📦 المنتج</p>
+                  <div className="relative">
+                    <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
+                    <Input
+                      placeholder="اسم المنتج..."
+                      className="pr-7 h-8 text-xs bg-background"
+                      value={filterProduct}
+                      onChange={e => setFilterProduct(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* فلتر المحافظة */}
+                <div>
+                  <p className="text-[10px] text-muted-foreground mb-1 font-semibold">📍 المحافظة</p>
+                  <Select value={filterCity} onValueChange={setFilterCity}>
+                    <SelectTrigger className="h-8 text-xs bg-background"><SelectValue placeholder="كل المحافظات" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">كل المحافظات</SelectItem>
+                      {allCities.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* فلتر شركة الشحن */}
+                <div>
+                  <p className="text-[10px] text-muted-foreground mb-1 font-semibold">🚚 شركة الشحن</p>
+                  <Select value={filterShippingCo} onValueChange={setFilterShippingCo}>
+                    <SelectTrigger className="h-8 text-xs bg-background"><SelectValue placeholder="كل الشركات" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">كل الشركات</SelectItem>
+                      {shippingCompanies?.map(c => (
+                        <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* فلتر نطاق المبلغ */}
+                <div className="sm:col-span-2 lg:col-span-3">
+                  <p className="text-[10px] text-muted-foreground mb-1 font-semibold">💰 نطاق المبلغ (ج.م)</p>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      placeholder="من"
+                      className="h-8 text-xs bg-background w-28"
+                      value={filterAmountMin}
+                      onChange={e => setFilterAmountMin(e.target.value)}
+                    />
+                    <span className="text-xs text-muted-foreground">—</span>
+                    <Input
+                      type="number"
+                      placeholder="إلى"
+                      className="h-8 text-xs bg-background w-28"
+                      value={filterAmountMax}
+                      onChange={e => setFilterAmountMax(e.target.value)}
+                    />
+                    {(filterAmountMin || filterAmountMax) && (
+                      <Button variant="ghost" size="sm" className="h-8 text-xs gap-1 text-muted-foreground px-2"
+                        onClick={() => { setFilterAmountMin(""); setFilterAmountMax(""); }}>
+                        <X className="w-3 h-3" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* إحصاء النتائج */}
+              <div className="flex items-center justify-between pt-1 border-t border-border/50">
+                <p className="text-[10px] text-muted-foreground">
+                  {filtered.length} نتيجة
+                  {filtered.length > 0 && (
+                    <span className="mr-2 text-primary font-bold">
+                      إجمالي: {new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(filtered.reduce((s, o) => s + o.totalPrice, 0))}
+                    </span>
+                  )}
+                </p>
+                {advancedFiltersCount > 0 && (
+                  <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1 text-muted-foreground"
+                    onClick={() => { setFilterProduct(""); setFilterCity("all"); setFilterShippingCo("all"); setFilterAmountMin(""); setFilterAmountMax(""); setDateTo(""); }}>
+                    <X className="w-2.5 h-2.5" />مسح الفلاتر المتقدمة
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {isLoading ? (

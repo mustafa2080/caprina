@@ -563,6 +563,18 @@ export interface BatchCreateOrderResponse {
   orders: any[];
 }
 
+export interface OrdersFilterParams {
+  search?: string;
+  status?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  shippingCompanyId?: string;
+  city?: string;
+  product?: string;
+  amountMin?: string;
+  amountMax?: string;
+}
+
 export const ordersApi = {
   stats: () => apiFetch<OrderStats>("/orders/stats"),
   delete: (id: number) => apiFetch<void>(`/orders/${id}`, { method: "DELETE" }),
@@ -573,6 +585,16 @@ export const ordersApi = {
     apiFetch<any[]>(`/orders/by-invoice/${encodeURIComponent(invoiceNumber)}`),
   batchCreate: (data: BatchCreateOrderBody) =>
     apiFetch<BatchCreateOrderResponse>("/orders/batch", { method: "POST", body: JSON.stringify(data) }),
+  list: (filters?: OrdersFilterParams) => {
+    const q = new URLSearchParams();
+    if (filters?.search) q.set("search", filters.search);
+    if (filters?.status && filters.status !== "all") q.set("status", filters.status);
+    if (filters?.dateFrom) q.set("dateFrom", filters.dateFrom);
+    if (filters?.dateTo) q.set("dateTo", filters.dateTo);
+    if (filters?.shippingCompanyId && filters.shippingCompanyId !== "all") q.set("shippingCompanyId", filters.shippingCompanyId);
+    const qs = q.toString();
+    return apiFetch<any[]>(`/orders${qs ? `?${qs}` : ""}`);
+  },
 };
 
 export type MovementType = "IN" | "OUT";
