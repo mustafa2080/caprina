@@ -65,8 +65,9 @@ export default function Invoices() {
   const rawOrders = useMemo(() => {
     if (!allOrders) return [];
     return allOrders.filter(o => {
-      // الفواتير تظهر فقط لـ warehouse_ready وما بعدها — ليس pending فقط
+      // الفواتير تظهر فقط لـ warehouse_ready وما بعدها — لا pending ولا in_shipping
       if (o.status === "pending") return false;
+      if (o.status === "in_shipping") return false;
       return true;
     });
   }, [allOrders]);
