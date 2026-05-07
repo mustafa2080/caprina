@@ -652,6 +652,8 @@ export async function reverseShipping(
   orderId?: number | null,
 ): Promise<void> {
   if (qty <= 0) return;
+  // لو الطلب مش مرتبط بمخزن محدد → تخطى عملية المخزون (طلبات قديمة بدون warehouse_id)
+  if (!order.warehouseId && !order.variantId && !order.productId) return;
   const { variantId, productId } = await resolveInventoryTarget(order);
   if (!variantId && !productId) return;
 
