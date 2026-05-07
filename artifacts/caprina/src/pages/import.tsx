@@ -4,7 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Upload, FileSpreadsheet, CheckCircle2,
   ArrowRight, ArrowLeft, Settings2, Eye, Loader2,
-  RotateCcw, Info, Link2, ShoppingCart, Package, Undo2,
+  RotateCcw, Info, Link2, ShoppingCart, Package, Undo2, AlertTriangle, GitMerge, List,
 } from "lucide-react";
 import { importApi, type ParsedImport, type ColumnMapping } from "@/lib/api";
 import { getListOrdersQueryKey, getGetOrdersSummaryQueryKey, getGetRecentOrdersQueryKey } from "@workspace/api-client-react";
@@ -175,6 +175,8 @@ export default function Import() {
   const [result, setResult] = useState<any>(null);
   const [fileName, setFileName] = useState("");
   const [hasSavedMapping, setHasSavedMapping] = useState(false);
+  const [duplicateCustomers, setDuplicateCustomers] = useState<{ name: string; count: number; rows: number[] }[]>([]);
+  const [duplicateAction, setDuplicateAction] = useState<"separate" | "merge" | null>(null);
 
   const currentFields = mode === "orders" ? ORDERS_FIELDS : mode === "products" ? PRODUCTS_FIELDS : RETURNS_FIELDS ?? [];
 
@@ -184,10 +186,27 @@ export default function Import() {
 
   const reset = () => {
     setStep(1); setParsed(null); setMapping({}); setResult(null); setError(null); setFileName("");
+    setDuplicateCustomers([]); setDuplicateAction(null);
+  };
+
+  // ── Detect duplicate customers ────────────────────────────────────────────────
+  const detectDuplicates = (rows: any[][], hdrs: string[], mp: Record<string, string>) => {
+    if (mode !== "orders") return [];
+    const nameCol = mp["name"];
+    const nameIdx = nameCol ? hdrs.indexOf(nameCol) : -1;
+    if (nameIdx < 0) return [];
+    const counts: Record<string, number[]> = {};
+    rows.forEach((row, i) => {
+      const name = String(row[nameIdx] ?? "").trim();
+      if (!name) return;
+      if (!counts[name]) counts[name] = [];
+      counts[name].push(i + 1);
+    });
+    return Object.entries(counts)
+      .filter(([, rowNums]) => rowNums.length > 1)
+      .map(([name, rowNums]) => ({ name, count: rowNums.length, rows: rowNums }));
   };
   const resetAll = () => { reset(); setMode(null); };
-
-  // ── Parse File ────────────────────────────────────────────────────────────────
   const handleFile = useCallback(async (file: File) => {
     if (!mode) return;
     if (!file.name.match(/\.(xlsx|xls|csv)$/i)) { setError("يرجى رفع ملف Excel (.xlsx, .xls) أو CSV."); return; }
@@ -243,7 +262,7 @@ export default function Import() {
     setHasSavedMapping(true);
     try {
       let res: any;
-      const payload = { headers: parsed.headers, rows: parsed.allRows, mapping };
+      const payload = { headers: parsed.headers, rows: parsed.allRows, mapping, duplicateAction: duplicateAction ?? "separate" };
       if (mode === "orders") res = await importApi.execute({ ...payload, mapping: mapping as any as ColumnMapping });
       else if (mode === "products") res = await importApi.executeProducts(payload);
       else res = await importApi.executeReturns(payload);
@@ -513,7 +532,14 @@ export default function Import() {
             <Button variant="outline" size="sm" className="border-border gap-1" onClick={() => setStep(1)}>
               <ArrowRight className="w-3.5 h-3.5" />رجوع
             </Button>
-            <Button size="sm" className="gap-1 font-bold" onClick={() => setStep(3)} disabled={requiredMissing.length > 0}>
+            <Button size="sm" className="gap-1 font-bold" onClick={() => {
+              if (parsed) {
+                const dups = detectDuplicates(parsed.allRows, parsed.headers, mapping);
+                setDuplicateCustomers(dups);
+                setDuplicateAction(dups.length > 0 ? null : "separate");
+              }
+              setStep(3);
+            }} disabled={requiredMissing.length > 0}>
               معاينة<ArrowLeft className="w-3.5 h-3.5" />
             </Button>
           </div>
@@ -523,6 +549,61 @@ export default function Import() {
       {/* ── Step 3: Preview ────────────────────────────────────────────────────── */}
       {step === 3 && parsed && (
         <div className="space-y-4">
+
+          {/* ── Duplicate customers warning ───────────────────────────────────── */}
+          {duplicateCustomers.length > 0 && (
+            <Card className="border-amber-700/50 bg-amber-900/10">
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="font-bold text-amber-400 text-sm mb-1">
+                      {duplicateCustomers.length === 1
+                        ? "عميل واحد عنده أكثر من طلب في الملف"
+                        : `${duplicateCustomers.length} عملاء عندهم أكثر من طلب في الملف`}
+                    </p>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {duplicateCustomers.map(d => (
+                        <Badge key={d.name} variant="outline" className="border-amber-700/50 text-amber-300 text-[10px] gap-1">
+                          {d.name}
+                          <span className="bg-amber-700/40 rounded px-1">{d.count} طلبات</span>
+                          <span className="text-amber-600 font-mono">صفوف: {d.rows.join("، ")}</span>
+                        </Badge>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-3">كيف تريد التعامل مع هذه الطلبات؟</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => setDuplicateAction("separate")}
+                        className={`p-3 rounded-lg border text-right transition-all ${duplicateAction === "separate"
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border hover:border-primary/40 text-muted-foreground hover:text-foreground"}`}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <List className="w-4 h-4 shrink-0" />
+                          <span className="font-bold text-xs">طلبات منفصلة</span>
+                        </div>
+                        <p className="text-[10px] opacity-70">كل صف يُستورد كطلب مستقل كما هو</p>
+                      </button>
+                      <button
+                        onClick={() => setDuplicateAction("merge")}
+                        className={`p-3 rounded-lg border text-right transition-all ${duplicateAction === "merge"
+                          ? "border-emerald-500 bg-emerald-900/20 text-emerald-400"
+                          : "border-border hover:border-emerald-700/40 text-muted-foreground hover:text-foreground"}`}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <GitMerge className="w-4 h-4 shrink-0" />
+                          <span className="font-bold text-xs">دمج في طلب واحد</span>
+                        </div>
+                        <p className="text-[10px] opacity-70">طلبات نفس العميل تُجمع في طلب واحد</p>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <Card className="border-border">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-3">
@@ -576,10 +657,13 @@ export default function Import() {
             <Button variant="outline" size="sm" className="border-border gap-1" onClick={() => setStep(2)}>
               <ArrowRight className="w-3.5 h-3.5" />تعديل الأعمدة
             </Button>
-            <Button size="sm" className="gap-1.5 font-bold min-w-[140px]" onClick={handleImport} disabled={isLoading}>
+            <Button size="sm" className="gap-1.5 font-bold min-w-[140px]" onClick={handleImport}
+              disabled={isLoading || (duplicateCustomers.length > 0 && duplicateAction === null)}>
               {isLoading
                 ? <><Loader2 className="w-4 h-4 animate-spin" />جاري الاستيراد...</>
-                : <>تأكيد الاستيراد<ArrowLeft className="w-3.5 h-3.5" /></>}
+                : duplicateCustomers.length > 0 && duplicateAction === null
+                  ? <>⚠ اختر كيفية التعامل مع التكرار</>
+                  : <>تأكيد الاستيراد<ArrowLeft className="w-3.5 h-3.5" /></>}
             </Button>
           </div>
         </div>
