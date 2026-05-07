@@ -6,7 +6,7 @@ import { format } from "date-fns";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // used for perPage only
 import { Printer, FileText, CheckSquare, Square } from "lucide-react";
 import { useBrand } from "@/contexts/BrandContext";
 
@@ -45,7 +45,7 @@ export default function Invoices() {
       ? new Set([preselectedInvoiceNumber])
       : new Set()
   );
-  const [statusFilter, setStatusFilter] = useState<InvoiceListStatus>("warehouse_ready");
+  const [statusFilter] = useState<InvoiceListStatus>("warehouse_ready");
   const [perPage, setPerPage] = useState<number>(4);
 
   const { data: allOrders, isLoading } = useListOrders({
@@ -592,21 +592,6 @@ export default function Invoices() {
       </div>
 
       <div className="flex items-center gap-3 flex-wrap">
-          <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as InvoiceListStatus)}>
-            <SelectTrigger className="w-44 h-9 text-sm bg-card border-border">
-              <SelectValue placeholder="تصفية بالحالة" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">كل الحالات</SelectItem>
-              <SelectItem value="warehouse_ready">قيد الشحن في المخزن</SelectItem>
-              <SelectItem value="in_shipping">قيد الشحن</SelectItem>
-              <SelectItem value="received">استلم</SelectItem>
-              <SelectItem value="delayed">مؤجل</SelectItem>
-              <SelectItem value="returned">مرتجع</SelectItem>
-              <SelectItem value="partial_received">استلم جزئي</SelectItem>
-            </SelectContent>
-        </Select>
-
         <Button variant="outline" size="sm" className="h-9 text-xs gap-1 border-border" onClick={selectAll}>
           <CheckSquare className="w-3.5 h-3.5" />تحديد الكل
         </Button>
