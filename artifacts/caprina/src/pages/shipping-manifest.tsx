@@ -2466,6 +2466,8 @@ export default function ShippingManifestPage() {
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showOrders, setShowOrders] = useState(true);
   const [showRolloverDialog, setShowRolloverDialog] = useState<null | { id: number; manifestNumber: string; orderCount: number; breakdown: string }>(null);
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [productSearch, setProductSearch] = useState("");
 
   const { data: manifest, isLoading, error } = useQuery({
     queryKey: ["shipping-manifest", id],
@@ -2558,6 +2560,25 @@ export default function ShippingManifestPage() {
     (o) => o.deliveryStatus === "pending"
   ).length;
   const groupedManifestOrders = groupManifestOrders(manifest.orders);
+
+  // ─── Filtered groups based on customer/product search ──────────────────────
+  const filteredManifestOrders = useMemo(() => {
+    if (!customerSearch.trim() && !productSearch.trim()) return groupedManifestOrders;
+    const cq = customerSearch.trim().toLowerCase();
+    const pq = productSearch.trim().toLowerCase();
+    return groupedManifestOrders.filter((group) => {
+      const rep = group[0];
+      const matchesCustomer = !cq || (
+        rep.customerName.toLowerCase().includes(cq) ||
+        ((rep as any).invoiceNumber ?? "").toLowerCase().includes(cq) ||
+        rep.id.toString().includes(cq)
+      );
+      const matchesProduct = !pq || group.some((o) =>
+        o.product.toLowerCase().includes(pq)
+      );
+      return matchesCustomer && matchesProduct;
+    });
+  }, [groupedManifestOrders, customerSearch, productSearch]);
 
   const statusLabel = (st: DeliveryStatus) => {
     switch (st) {
@@ -3021,16 +3042,70 @@ export default function ShippingManifestPage() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
+                {/* Search Bar */}
+                <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-muted/10">
+                  <div className="relative flex-1">
+                    <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                    <Input
+                      value={customerSearch}
+                      onChange={(e) => setCustomerSearch(e.target.value)}
+                      placeholder="بحث عن عميل أو رقم فاتورة..."
+                      className="h-8 text-xs pr-8 bg-background"
+                    />
+                    {customerSearch && (
+                      <button
+                        onClick={() => setCustomerSearch("")}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="relative flex-1">
+                    <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                    <Input
+                      value={productSearch}
+                      onChange={(e) => setProductSearch(e.target.value)}
+                      placeholder="بحث باسم المنتج..."
+                      className="h-8 text-xs pr-8 bg-background"
+                    />
+                    {productSearch && (
+                      <button
+                        onClick={() => setProductSearch("")}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  {(customerSearch || productSearch) && (
+                    <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                      {filteredManifestOrders.length} نتيجة
+                    </span>
+                  )}
+                </div>
                 {/* Table header */}
                 <div className="grid grid-cols-[1fr_1fr_60px_80px_120px_80px] gap-0 border-b border-border bg-muted/20 px-3 py-2 text-[10px] font-semibold text-muted-foreground">
-                  <div>العميل</div>
-                  <div>المنتج</div>
+                  <div className="flex items-center gap-1 cursor-pointer select-none" onClick={() => setCustomerSearch("")}>العميل</div>
+                  <div className="flex items-center gap-1 cursor-pointer select-none" onClick={() => setProductSearch("")}>المنتج</div>
                   <div className="text-center">الكمية</div>
                   <div className="text-left">الإجمالي</div>
                   <div>حالة التسليم</div>
                   <div className="text-left">إجراء</div>
                 </div>
-                {groupedManifestOrders.map((group, index) => (
+                {filteredManifestOrders.length === 0 && (customerSearch || productSearch) ? (
+                  <div className="p-6 text-center text-muted-foreground text-sm">
+                    <Search className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                    <p>لا توجد نتائج للبحث</p>
+                    <button
+                      onClick={() => { setCustomerSearch(""); setProductSearch(""); }}
+                      className="text-xs text-primary hover:underline mt-1"
+                    >
+                      مسح البحث
+                    </button>
+                  </div>
+                ) : (
+                  filteredManifestOrders.map((group, index) => (
                   <InvoiceGroupDeliveryRow
                     key={group.map((order) => `${order.id}-${order.deliveryStatus}-${order.partialQuantity ?? 0}-${order.deliveryNote ?? ""}`).join("|")}
                     group={group}
@@ -3038,7 +3113,8 @@ export default function ShippingManifestPage() {
                     locked={isLocked && !isAdmin}
                     onSaved={refetch}
                   />
-                ))}
+                  ))
+                )}
               </div>
             )}
           </>
