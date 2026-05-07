@@ -255,9 +255,8 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
 
   // جلب تقرير المرتب التفصيلي (الحضور + الخصومات + البونص)
   const { data: salaryReport } = useQuery({
-    queryKey: ["salary-report", report.userId, report.period.month],
+    queryKey: ["salary-report", report.profile?.id, report.period.month],
     queryFn: () => {
-      // نحوّل userId إلى profileId من الـ report.profile
       const profileId = report.profile?.id;
       if (!profileId) return null;
       return attendanceApi.salaryReport(profileId, report.period.month);
