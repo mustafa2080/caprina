@@ -312,6 +312,7 @@ router.get("/shipping-manifests/:id", async (req, res): Promise<void> => {
 // ─── Update manifest (PATCH) ──────────────────────────────────────────────────
 
 router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<void> => {
+  try {
   const id = parseInt(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const Schema = z.object({ status: z.enum(["open", "closed"]).optional(), notes: z.string().nullish(), invoicePrice: z.number().nonnegative().nullish(), invoiceNotes: z.string().nullish(), manualShippingCost: z.number().nonnegative().nullish() });
@@ -420,6 +421,10 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
   }
 
   res.json({ ...updated, invoicePrice: updated.invoicePrice ? Number(updated.invoicePrice) : null, rolledOverManifest });
+  } catch (err: any) {
+    console.error("[PATCH shipping-manifests] error:", err);
+    res.status(500).json({ error: err?.message ?? "حدث خطأ أثناء تحديث البيان" });
+  }
 });
 
 // ─── Delete manifest ──────────────────────────────────────────────────────────

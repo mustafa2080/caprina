@@ -191,4 +191,23 @@ async function ensureOrdersInvoiceNumber() {
 }
 ensureOrdersInvoiceNumber();
 
+// ─── Ensure shipping_manifests columns exist (safe migration) ─────────────────
+async function ensureShippingManifestColumns() {
+  const stmts: Array<() => Promise<any>> = [
+    () => db.execute(sql`ALTER TABLE shipping_manifests ADD COLUMN IF NOT EXISTS invoice_price DECIMAL(10,2) NULL`),
+    () => db.execute(sql`ALTER TABLE shipping_manifests ADD COLUMN IF NOT EXISTS invoice_notes TEXT NULL`),
+    () => db.execute(sql`ALTER TABLE shipping_manifests ADD COLUMN IF NOT EXISTS manual_shipping_cost DECIMAL(10,2) NULL`),
+    () => db.execute(sql`ALTER TABLE shipping_manifests ADD COLUMN IF NOT EXISTS closed_at DATETIME NULL`),
+  ];
+  for (const fn of stmts) {
+    try { await fn(); } catch (err: any) {
+      if (err?.message && !err.message.includes("Duplicate column")) {
+        logger.error({ err }, "ensureShippingManifestColumns failed");
+      }
+    }
+  }
+  logger.info("shipping_manifests columns ensured");
+}
+ensureShippingManifestColumns();
+
 export default app;
