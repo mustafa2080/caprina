@@ -13,3 +13,10 @@ export * from "./employee_kpis";
 export * from "./employee_daily_logs";
 export * from "./app_settings";
 export * from "./session_logs";
+
+// ─── Finance Module (New) ────────────────────────────────────────────────────
+export * from "./suppliers";
+export * from "./purchases";
+export * from "./expenses";
+export * from "./shipping_financial_invoices";
+export * from "./attendance";

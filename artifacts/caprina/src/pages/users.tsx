@@ -35,6 +35,7 @@ const ALL_PERMISSIONS = [
   { key: "users", label: "إدارة المستخدمين" },
   { key: "audit", label: "سجل التعديلات" },
   { key: "whatsapp", label: "إعدادات واتساب" },
+  { key: "finance", label: "الماليات" },
 ];
 
 const ORDERS_WRITE_PERMISSION = { key: "orders_write", label: "تعديل الطلبات", desc: "يقدر يضيف ويعدل ويحذف الطلبات ويشوف أيقونة واتساب — بدون هذه الصلاحية يكون الوصول للطلبات للعرض فقط" };
@@ -74,6 +75,8 @@ const SIDEBAR_SECTION_PERMISSIONS = [
   { key: "section_users",               label: "إدارة المستخدمين",    desc: "قسم إدارة المستخدمين والصلاحيات"                           },
   { key: "section_sessions_report",     label: "تقرير الجلسات",        desc: "قسم عرض سجل دخول وخروج الموظفين"                           },
   { key: "section_audit",               label: "سجل التعديلات",        desc: "قسم تتبع كل التعديلات والعمليات في النظام"                 },
+  // ── الماليات ──
+  { key: "section_finance",             label: "قسم الماليات",         desc: "عرض جميع صفحات الماليات: لوحة، أوامر شراء، موردين، مصروفات، فواتير شحن" },
 ];
 
 const DEFAULT_PERMISSIONS: Record<string, () => string[]> = {

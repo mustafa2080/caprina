@@ -50,7 +50,7 @@ const MAX_POLL_FAILURES = 3;
 const ROLE_DEFAULT_PERMISSIONS: Record<string, string[]> = {
   admin: [
     "dashboard", "orders", "inventory", "movements", "shipping", "invoices",
-    "import", "analytics", "users", "audit", "whatsapp",
+    "import", "analytics", "users", "audit", "whatsapp", "finance",
     "view_financials", "edit_inventory", "edit_delete_inventory",
     "view_product_performance", "add_team_member", "edit_brand",
     "section_dashboard", "section_product_performance", "section_team_performance",
@@ -58,7 +58,7 @@ const ROLE_DEFAULT_PERMISSIONS: Record<string, string[]> = {
     "section_orders", "section_new_order", "section_archive", "section_shipping_followup",
     "section_whatsapp", "section_inventory", "section_warehouses", "section_movements",
     "section_shipping", "section_invoices", "section_import", "section_export_data",
-    "section_users", "section_sessions_report", "section_audit",
+    "section_users", "section_sessions_report", "section_audit", "section_finance",
   ],
   employee: [
     "dashboard", "orders",

@@ -65,6 +65,11 @@ const ExportPage            = lazy(() => import("@/pages/export"));
 const InvoiceGroupPage      = lazy(() => import("@/pages/invoice-group"));
 const NotFound              = lazy(() => import("@/pages/not-found"));
 const Login                 = lazy(() => import("@/pages/login"));
+const FinanceDashboard      = lazy(() => import("@/pages/finance-dashboard"));
+const FinancePurchases      = lazy(() => import("@/pages/finance-purchases"));
+const FinanceSuppliers      = lazy(() => import("@/pages/finance-suppliers"));
+const FinanceExpenses       = lazy(() => import("@/pages/finance-expenses"));
+const FinanceShippingInvoices = lazy(() => import("@/pages/finance-shipping-invoices"));
 
 // ─── Global QueryClient with smart caching defaults ──────────────────────────
 const queryClient = new QueryClient({
@@ -224,6 +229,12 @@ function Router() {
           <Route path="/whatsapp"                 component={() => <ProtectedRoute permission="whatsapp" component={WhatsAppSettingsPage} />} />
           <Route path="/sessions-report"          component={() => <ProtectedRoute permission="users" component={SessionsReportPage} />} />
           <Route path="/export"                   component={() => <ProtectedRoute permission="import" component={ExportPage} />} />
+          {/* Finance */}
+          <Route path="/finance"                  component={() => <ProtectedRoute permission="finance" component={FinanceDashboard} />} />
+          <Route path="/finance/purchases"        component={() => <ProtectedRoute permission="finance" component={FinancePurchases} />} />
+          <Route path="/finance/suppliers"        component={() => <ProtectedRoute permission="finance" component={FinanceSuppliers} />} />
+          <Route path="/finance/expenses"         component={() => <ProtectedRoute permission="finance" component={FinanceExpenses} />} />
+          <Route path="/finance/shipping-invoices" component={() => <ProtectedRoute permission="finance" component={FinanceShippingInvoices} />} />
           <Route                                  component={NotFound} />
         </Switch>
       </Suspense>
