@@ -267,8 +267,9 @@ router.post("/orders/import/execute", async (req, res): Promise<void> => {
   res.json({
     imported: insertedCount,
     failed: errors.length,
-    errors: errors.slice(0, 30),
+    errors: errors.slice(0, 50),
     receivedRows: rows.length,
+    validCount: validOrders.length,
     orders: [],
   });
 });
