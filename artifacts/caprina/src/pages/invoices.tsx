@@ -65,12 +65,16 @@ export default function Invoices() {
   const rawOrders = useMemo(() => {
     if (!allOrders) return [];
     return allOrders.filter(o => {
-      // الفواتير تظهر فقط لـ warehouse_ready وما بعدها — لا pending ولا in_shipping
-      if (o.status === "pending") return false;
-      if (o.status === "in_shipping") return false;
+      // لو فيه فلتر محدد (مش "all") → نطبقه بدقة
+      if (statusFilter !== "all" && o.status !== statusFilter) return false;
+      // لو "all" → نشيل بس pending وin_shipping
+      if (statusFilter === "all") {
+        if (o.status === "pending") return false;
+        if (o.status === "in_shipping") return false;
+      }
       return true;
     });
-  }, [allOrders]);
+  }, [allOrders, statusFilter]);
 
   // ─── Group orders by invoiceNumber ───────────────────────────────────────
   type InvoiceGroup = {
@@ -154,11 +158,14 @@ export default function Invoices() {
       toFetch.map(async grp => {
         try {
           const orders = await ordersApi.byInvoice(grp.invoiceNumber);
-          if (orders && orders.length > 0) {
-            return { key: grp.invoiceNumber, orders };
+          // فلتر: نحتفظ بس بالـ orders اللي حالتها زي الفلتر الحالي
+          const filtered = (statusFilter !== "all")
+            ? orders.filter((o: any) => o.status === statusFilter)
+            : orders.filter((o: any) => o.status !== "pending" && o.status !== "in_shipping");
+          if (filtered && filtered.length > 0) {
+            return { key: grp.invoiceNumber, orders: filtered };
           }
         } catch {}
-        // fallback: استخدم _invoiceOrders اللي جاتنا من الـ list
         return { key: grp.invoiceNumber, orders: grp.orders };
       })
     ).then(results => {
@@ -168,7 +175,13 @@ export default function Invoices() {
         return next;
       });
     });
-  }, [invoiceGroups]);
+  }, [invoiceGroups, statusFilter]);
+
+  // ─── Reset cache when filter changes ─────────────────────────────────────
+  useEffect(() => {
+    setRealOrdersCache(new Map());
+    fetchedRef.current = new Set();
+  }, [statusFilter]);
 
   const toggleSelect = (invoiceNumber: string) => {
     setSelectedIds(prev => {
