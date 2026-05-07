@@ -19,6 +19,9 @@ import settingsRouter from "./settings";
 import exportRouter from "./export";
 import whatsappRouter from "./whatsapp";
 import sessionsRouter from "./sessions";
+import financeSuppliersRouter from "./finance-suppliers";
+import financeOperationsRouter from "./finance-operations";
+import attendanceRouter from "./attendance";
 import { requireAuth } from "../middlewares/requireAuth.js";
 
 const router: IRouter = Router();
@@ -47,5 +50,8 @@ router.use(employeeRouter);
 router.use(exportRouter);
 router.use(whatsappRouter);
 router.use("/sessions", sessionsRouter);
+router.use(financeSuppliersRouter);
+router.use(financeOperationsRouter);
+router.use(attendanceRouter);
 
 export default router;
