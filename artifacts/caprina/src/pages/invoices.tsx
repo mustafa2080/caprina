@@ -45,7 +45,7 @@ export default function Invoices() {
       ? new Set([preselectedInvoiceNumber])
       : new Set()
   );
-  const [statusFilter, setStatusFilter] = useState<InvoiceListStatus>("warehouse_ready");
+  const [statusFilter, setStatusFilter] = useState<InvoiceListStatus>("all");
   const [perPage, setPerPage] = useState<number>(4);
 
   const { data: allOrders, isLoading } = useListOrders({
@@ -67,11 +67,8 @@ export default function Invoices() {
     return allOrders.filter(o => {
       // لو فيه فلتر محدد (مش "all") → نطبقه بدقة
       if (statusFilter !== "all" && o.status !== statusFilter) return false;
-      // لو "all" → نشيل بس pending وin_shipping
-      if (statusFilter === "all") {
-        if (o.status === "pending") return false;
-        if (o.status === "in_shipping") return false;
-      }
+      // لو "all" → نعرض بس warehouse_ready (قيد الشحن في المخزن)
+      if (statusFilter === "all" && o.status !== "warehouse_ready") return false;
       return true;
     });
   }, [allOrders, statusFilter]);
@@ -597,6 +594,7 @@ export default function Invoices() {
             <SelectValue placeholder="تصفية بالحالة" />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="all">كل الحالات</SelectItem>
             <SelectItem value="warehouse_ready">قيد الشحن في المخزن</SelectItem>
             <SelectItem value="in_shipping">قيد الشحن</SelectItem>
             <SelectItem value="received">استلم</SelectItem>
