@@ -3,7 +3,7 @@ import { authApi } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff, ShieldCheck, UserCircle2, Fingerprint, Globe, X } from "lucide-react";
+import { Eye, EyeOff, ShieldCheck, UserCircle2, Fingerprint, Globe, X, LogIn, ExternalLink } from "lucide-react";
 
 export default function Login() {
   const { login } = useAuth();
@@ -572,7 +572,7 @@ export default function Login() {
           {/* Buttons */}
           <div className="fade-up-5 action-row">
             <button className="btn-login" onClick={() => setShowForm(true)}>
-              <Fingerprint size={20} />
+              <LogIn size={20} />
               تسجيل الدخول للمتابعة
             </button>
             <a
@@ -581,7 +581,7 @@ export default function Login() {
               rel="noopener noreferrer"
               className="btn-site"
             >
-              <Globe size={20} />
+              <ExternalLink size={20} />
               الانتقال إلى الموقع الرئيسي
             </a>
           </div>
