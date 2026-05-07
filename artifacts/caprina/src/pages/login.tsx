@@ -3,7 +3,7 @@ import { authApi } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff, ShieldCheck, UserCircle2, Fingerprint, Globe, X, Sparkles } from "lucide-react";
+import { Eye, EyeOff, ShieldCheck, UserCircle2, Fingerprint, Globe, X } from "lucide-react";
 
 export default function Login() {
   const { login } = useAuth();
@@ -52,10 +52,6 @@ export default function Login() {
           0%, 100% { box-shadow: 0 0 8px #d97706, 0 0 20px rgba(217,119,6,0.4); }
           50%       { box-shadow: 0 0 16px #f59e0b, 0 0 40px rgba(245,158,11,0.6); }
         }
-        @keyframes orbitSpin {
-          from { transform: rotate(0deg) translateX(38px) rotate(0deg); }
-          to   { transform: rotate(360deg) translateX(38px) rotate(-360deg); }
-        }
         @keyframes flamePulse {
           0%   { filter: drop-shadow(0 0 4px rgba(245,158,11,0.2)) brightness(0.75); }
           50%  { filter: drop-shadow(0 0 28px rgba(245,158,11,1)) brightness(1.35); }
@@ -72,10 +68,6 @@ export default function Login() {
           0%   { background-position: -200% center; }
           100% { background-position: 200% center; }
         }
-        @keyframes dotGlow {
-          0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 6px #f59e0b; }
-          50%       { opacity: 0.5; transform: scale(1.4); box-shadow: 0 0 14px #f59e0b; }
-        }
         @keyframes iconFloat {
           0%, 100% { transform: translateY(0px) rotate(0deg); }
           50%       { transform: translateY(-5px) rotate(5deg); }
@@ -83,6 +75,10 @@ export default function Login() {
         @keyframes scanline {
           0%   { top: 0%; }
           100% { top: 100%; }
+        }
+        @keyframes copyrightGlow {
+          0%, 100% { opacity: 0.55; letter-spacing: 0.12em; }
+          50%       { opacity: 0.85; letter-spacing: 0.16em; }
         }
 
         .fade-up-1 { animation: fadeUp 0.7s 0.05s both; }
@@ -151,31 +147,6 @@ export default function Login() {
           letter-spacing: -0.02em;
         }
 
-        /* ══ Badge ══ */
-        .os-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.45rem;
-          padding: 0.32rem 1rem;
-          border: 1px solid rgba(245,158,11,0.35);
-          border-radius: 999px;
-          font-size: 0.71rem;
-          font-weight: 700;
-          letter-spacing: 0.1em;
-          color: rgba(253,230,138,0.85);
-          background: rgba(245,158,11,0.1);
-          backdrop-filter: blur(8px);
-          margin-bottom: 1.2rem;
-        }
-        .os-badge-dot {
-          width: 7px;
-          height: 7px;
-          border-radius: 50%;
-          background: #f59e0b;
-          animation: dotGlow 2.2s infinite;
-          flex-shrink: 0;
-        }
-
         /* ══ Hero content ══ */
         .hero-content {
           direction: rtl;
@@ -230,40 +201,6 @@ export default function Login() {
           animation: shimmer 3s linear infinite;
           margin-bottom: 2.4rem;
         }
-
-        /* ══ 3D Feature cards row ══ */
-        .feature-cards {
-          display: flex;
-          gap: 0.6rem;
-          margin-bottom: 2rem;
-          flex-wrap: wrap;
-          direction: rtl;
-        }
-        .feat-card {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.4rem;
-          padding: 0.4rem 0.75rem;
-          background: linear-gradient(145deg, rgba(30,15,5,0.9), rgba(20,10,2,0.95));
-          border: 1px solid rgba(245,158,11,0.2);
-          border-radius: 0.5rem;
-          font-size: 0.7rem;
-          font-weight: 700;
-          color: rgba(253,230,138,0.8);
-          box-shadow:
-            0 4px 12px rgba(0,0,0,0.4),
-            inset 0 1px 0 rgba(255,220,100,0.08);
-          transform: perspective(300px) rotateX(0deg);
-          transition: transform 0.25s, box-shadow 0.25s;
-        }
-        .feat-card:hover {
-          transform: perspective(300px) rotateX(-8deg) translateY(-2px);
-          box-shadow:
-            0 8px 24px rgba(217,119,6,0.3),
-            inset 0 1px 0 rgba(255,220,100,0.12);
-          border-color: rgba(245,158,11,0.4);
-        }
-        .feat-card svg { color: #f59e0b; flex-shrink: 0; animation: iconFloat 3s ease-in-out infinite; }
 
         /* ══ Action buttons ══ */
         .action-row {
@@ -353,11 +290,32 @@ export default function Login() {
         .btn-site svg { animation: iconFloat 3s ease-in-out infinite 0.5s; }
 
         /* ══ Copyright ══ */
-        .copyright {
-          margin-top: 2.8rem;
-          font-size: 0.65rem;
-          color: rgba(245,158,11,0.22);
-          letter-spacing: 0.05em;
+        .copyright-bar {
+          margin-top: 3rem;
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          direction: rtl;
+        }
+        .copyright-line {
+          flex: 1;
+          height: 1px;
+          background: linear-gradient(90deg, rgba(245,158,11,0.4), transparent);
+        }
+        .copyright-line.left {
+          background: linear-gradient(270deg, rgba(245,158,11,0.4), transparent);
+        }
+        .copyright-text {
+          font-size: 0.78rem;
+          font-weight: 700;
+          letter-spacing: 0.12em;
+          background: linear-gradient(90deg, #d97706 0%, #fbbf24 50%, #d97706 100%);
+          background-size: 200% auto;
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          animation: shimmer 4s linear infinite, copyrightGlow 3s ease-in-out infinite;
+          white-space: nowrap;
         }
 
         /* ══════════════════════════════════════
@@ -397,19 +355,16 @@ export default function Login() {
           position: relative;
           overflow: hidden;
         }
-        /* scanline shimmer on card */
         .form-card::before {
           content: '';
           position: absolute;
           left: 0; right: 0;
           height: 2px;
-          background: linear-gradient(90deg,
-            transparent 0%, rgba(245,158,11,0.3) 50%, transparent 100%);
+          background: linear-gradient(90deg, transparent 0%, rgba(245,158,11,0.3) 50%, transparent 100%);
           animation: scanline 4s linear infinite;
           pointer-events: none;
           opacity: 0.6;
         }
-        /* top golden accent line */
         .form-card::after {
           content: '';
           position: absolute;
@@ -426,8 +381,6 @@ export default function Login() {
           justify-content: space-between;
           margin-bottom: 1.8rem;
         }
-
-        /* small shield icon in header */
         .form-card-icon {
           width: 42px;
           height: 42px;
@@ -438,13 +391,10 @@ export default function Login() {
           align-items: center;
           justify-content: center;
           color: #fbbf24;
-          box-shadow:
-            0 4px 12px rgba(217,119,6,0.2),
-            inset 0 1px 0 rgba(255,220,100,0.15);
+          box-shadow: 0 4px 12px rgba(217,119,6,0.2), inset 0 1px 0 rgba(255,220,100,0.15);
           flex-shrink: 0;
           margin-left: 0.75rem;
         }
-
         .form-card-title {
           font-size: 1.2rem;
           font-weight: 900;
@@ -459,16 +409,13 @@ export default function Login() {
           margin-top: 0.22rem;
         }
         .btn-close {
-          width: 32px;
-          height: 32px;
+          width: 32px; height: 32px;
           border-radius: 50%;
           border: 1px solid rgba(245,158,11,0.2);
           background: rgba(245,158,11,0.06);
           color: rgba(253,230,138,0.4);
           cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
+          display: flex; align-items: center; justify-content: center;
           transition: all 0.15s;
           flex-shrink: 0;
         }
@@ -478,111 +425,60 @@ export default function Login() {
           border-color: rgba(245,158,11,0.5);
           transform: rotate(90deg);
         }
-
-        /* ══ Form fields ══ */
         .form-label {
-          font-size: 0.77rem;
-          font-weight: 700;
-          color: #fbbf24;
-          display: flex;
-          align-items: center;
-          gap: 0.4rem;
+          font-size: 0.77rem; font-weight: 700; color: #fbbf24;
+          display: flex; align-items: center; gap: 0.4rem;
           margin-bottom: 0.45rem;
         }
         .form-label svg { color: rgba(245,158,11,0.7); }
-
-        .form-input-wrap {
-          position: relative;
-          margin-bottom: 1.15rem;
-        }
+        .form-input-wrap { position: relative; margin-bottom: 1.15rem; }
         .form-input-icon {
-          position: absolute;
-          right: 0.8rem;
-          top: 50%;
+          position: absolute; right: 0.8rem; top: 50%;
           transform: translateY(-50%);
-          color: rgba(245,158,11,0.5);
-          pointer-events: none;
+          color: rgba(245,158,11,0.5); pointer-events: none;
         }
         .form-input-icon-left {
-          position: absolute;
-          left: 0.8rem;
-          top: 50%;
+          position: absolute; left: 0.8rem; top: 50%;
           transform: translateY(-50%);
           color: rgba(245,158,11,0.4);
-          cursor: pointer;
-          background: none;
-          border: none;
-          padding: 0;
-          transition: color 0.15s;
-          display: flex;
-          align-items: center;
+          cursor: pointer; background: none; border: none; padding: 0;
+          transition: color 0.15s; display: flex; align-items: center;
         }
         .form-input-icon-left:hover { color: #fcd34d; }
-
         .custom-input {
-          width: 100%;
-          height: 46px;
-          padding: 0 2.5rem;
+          width: 100%; height: 46px; padding: 0 2.5rem;
           background: linear-gradient(145deg, rgba(30,15,3,0.9), rgba(20,10,2,0.95));
           border: 1px solid rgba(245,158,11,0.2);
-          border-radius: 0.7rem;
-          color: #fef9ee;
-          font-size: 0.88rem;
-          outline: none;
-          transition: border-color 0.2s, box-shadow 0.2s;
-          box-sizing: border-box;
-          box-shadow: inset 0 2px 6px rgba(0,0,0,0.3);
+          border-radius: 0.7rem; color: #fef9ee; font-size: 0.88rem;
+          outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+          box-sizing: border-box; box-shadow: inset 0 2px 6px rgba(0,0,0,0.3);
         }
         .custom-input::placeholder { color: rgba(253,230,138,0.2); }
         .custom-input:focus {
           border-color: rgba(245,158,11,0.6);
-          box-shadow:
-            inset 0 2px 6px rgba(0,0,0,0.3),
-            0 0 0 3px rgba(245,158,11,0.1),
-            0 0 12px rgba(245,158,11,0.15);
+          box-shadow: inset 0 2px 6px rgba(0,0,0,0.3), 0 0 0 3px rgba(245,158,11,0.1), 0 0 12px rgba(245,158,11,0.15);
         }
-
-        /* ══ Submit button ══ */
         .btn-submit {
-          width: 100%;
-          height: 48px;
+          width: 100%; height: 48px;
           background: linear-gradient(145deg, #fbbf24, #d97706, #92400e);
-          color: #1c0a00;
-          font-size: 0.95rem;
-          font-weight: 800;
-          border: none;
-          border-radius: 0.75rem;
-          cursor: pointer;
-          margin-top: 0.6rem;
-          transition: all 0.22s;
-          box-shadow:
-            0 5px 0 #7c2d12,
-            0 8px 22px rgba(217,119,6,0.4),
-            inset 0 1px 0 rgba(255,240,180,0.35);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.5rem;
-          position: relative;
-          overflow: hidden;
+          color: #1c0a00; font-size: 0.95rem; font-weight: 800;
+          border: none; border-radius: 0.75rem; cursor: pointer;
+          margin-top: 0.6rem; transition: all 0.22s;
+          box-shadow: 0 5px 0 #7c2d12, 0 8px 22px rgba(217,119,6,0.4), inset 0 1px 0 rgba(255,240,180,0.35);
+          display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+          position: relative; overflow: hidden;
         }
         .btn-submit::before {
-          content: '';
-          position: absolute;
-          top: 0; left: -100%;
-          width: 60%;
-          height: 100%;
+          content: ''; position: absolute; top: 0; left: -100%;
+          width: 60%; height: 100%;
           background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
-          transform: skewX(-20deg);
-          transition: left 0.5s;
+          transform: skewX(-20deg); transition: left 0.5s;
         }
         .btn-submit:hover:not(:disabled)::before { left: 150%; }
         .btn-submit:hover:not(:disabled) {
           background: linear-gradient(145deg, #fcd34d, #f59e0b, #b45309);
           transform: translateY(-2px);
-          box-shadow:
-            0 7px 0 #7c2d12,
-            0 12px 28px rgba(217,119,6,0.55);
+          box-shadow: 0 7px 0 #7c2d12, 0 12px 28px rgba(217,119,6,0.55);
         }
         .btn-submit:active:not(:disabled) {
           transform: translateY(3px);
@@ -596,22 +492,13 @@ export default function Login() {
           .login-page { padding: 3rem 4vw; }
         }
         @media (max-width: 768px) {
-          .login-page {
-            justify-content: center;
-            align-items: center;
-            padding: 2.5rem 2rem;
-          }
-          .hero-content {
-            max-width: 100%;
-            text-align: right;
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-          }
+          .login-page { justify-content: center; align-items: center; padding: 2.5rem 2rem; }
+          .hero-content { max-width: 100%; text-align: right; display: flex; flex-direction: column; align-items: flex-end; }
           .hero-heading { font-size: 2.4rem; line-height: 1.18; }
           .hero-desc { font-size: 1.05rem; max-width: 100%; }
           .action-row { flex-wrap: wrap; justify-content: flex-end; gap: 0.75rem; width: 100%; }
           .btn-login, .btn-site { font-size: 0.9rem; padding: 0.82rem 1.4rem; }
+          .copyright-bar { justify-content: center; }
         }
         @media (max-width: 480px) {
           .login-page { padding: 2rem 1.25rem; }
@@ -622,7 +509,6 @@ export default function Login() {
           .btn-login, .btn-site { width: 100%; justify-content: center; font-size: 0.93rem; padding: 0.85rem 1rem; }
           .logo-orb { width: 72px; height: 72px; }
           .logo-orb-letter { font-size: 1.8rem; }
-          .feature-cards { gap: 0.45rem; }
         }
         @media (max-width: 360px) {
           .hero-heading { font-size: 1.75rem; }
@@ -640,15 +526,6 @@ export default function Login() {
           <div className="fade-up-1">
             <div className="logo-orb">
               <span className="logo-orb-letter">C</span>
-            </div>
-          </div>
-
-          {/* Badge */}
-          <div className="fade-up-1">
-            <div className="os-badge">
-              <div className="os-badge-dot" />
-              <Sparkles size={11} />
-              نظام إدارة العمليات · الإصدار الأخير
             </div>
           </div>
 
@@ -672,13 +549,6 @@ export default function Login() {
             <span className="win-die">WIN OR DIE</span>
           </div>
 
-          {/* Feature mini-cards */}
-          <div className="fade-up-4 feature-cards">
-            <div className="feat-card"><ShieldCheck size={13} /> حماية كاملة</div>
-            <div className="feat-card"><Fingerprint size={13} /> دخول آمن</div>
-            <div className="feat-card"><Globe size={13} /> متعدد المستخدمين</div>
-          </div>
-
           {/* Buttons */}
           <div className="fade-up-5 action-row">
             <button className="btn-login" onClick={() => setShowForm(true)}>
@@ -697,9 +567,12 @@ export default function Login() {
           </div>
 
           {/* Copyright */}
-          <p className="copyright fade-up-5">
-            جميع الحقوق محفوظة &copy; CAPRINA 2026
-          </p>
+          <div className="fade-up-5 copyright-bar">
+            <div className="copyright-line" />
+            <span className="copyright-text">جميع الحقوق محفوظة &copy; CAPRINA 2026</span>
+            <div className="copyright-line left" />
+          </div>
+
         </div>
       </div>
 
