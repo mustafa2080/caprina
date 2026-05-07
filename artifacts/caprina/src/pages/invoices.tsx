@@ -45,7 +45,7 @@ export default function Invoices() {
       ? new Set([preselectedInvoiceNumber])
       : new Set()
   );
-  const [statusFilter, setStatusFilter] = useState<InvoiceListStatus>(preselectedInvoiceNumber ? "all" : "in_shipping");
+  const [statusFilter, setStatusFilter] = useState<InvoiceListStatus>("all");
   const [perPage, setPerPage] = useState<number>(4);
 
   const { data: allOrders, isLoading } = useListOrders({
