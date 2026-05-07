@@ -23,32 +23,38 @@ async function parseFileToRaw(buffer: Buffer, originalname: string): Promise<{ h
   const worksheet = workbook.worksheets[0];
   if (!worksheet) return { headers: [], rows: [] };
 
+  // اعرف عدد الأعمدة الفعلي من الـ worksheet مش من أول صف فقط
+  const actualColCount = worksheet.columnCount || worksheet.actualColumnCount || 0;
+
   let headers: string[] = [];
-  let columnCount = 0;
   const rows: any[][] = [];
 
   worksheet.eachRow({ includeEmpty: false }, (row, rowNum) => {
-    const values = (row.values as any[]).slice(1).map(v => {
-      if (v === null || v === undefined) return "";
-      if (typeof v === "object" && "result" in v) return v.result ?? "";
-      return v;
-    });
+    // جيب كل القيم بما فيها الخلايا الفاضية
+    const rawValues = row.values as any[];
+    // ExcelJS بيبدأ من index 1
+    const values: any[] = [];
+    const maxCol = Math.max(actualColCount, rawValues.length - 1);
+    for (let c = 1; c <= maxCol; c++) {
+      const v = rawValues[c];
+      if (v === null || v === undefined) {
+        values.push("");
+      } else if (typeof v === "object" && "result" in v) {
+        values.push(v.result ?? "");
+      } else {
+        values.push(v);
+      }
+    }
 
     if (rowNum === 1) {
       headers = values.map((v, i) => {
         const s = String(v ?? "").trim();
         return s || `عمود_${i + 1}`;
       });
-      while (headers.length > 0 && headers[headers.length - 1].startsWith("عمود_")) {
-        const idx = headers.length - 1;
-        const orig = values[idx];
-        if (!orig || String(orig).trim() === "") headers.pop();
-        else break;
-      }
-      columnCount = headers.length;
     } else {
-      // تجاهل الصفوف الفاضية تماماً (كل خلاياها فاضية)
-      const trimmed = values.slice(0, columnCount);
+      const trimmed = values.slice(0, headers.length);
+      // أكمّل بـ "" لو الصف أقصر من عدد الأعمدة
+      while (trimmed.length < headers.length) trimmed.push("");
       const isEmpty = trimmed.every(v => v === "" || v === null || v === undefined);
       if (!isEmpty) {
         rows.push(trimmed);
