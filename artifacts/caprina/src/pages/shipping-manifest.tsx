@@ -206,7 +206,7 @@ function OrderDeliveryRow({
   return (
     <div className={`border-b border-border/50 transition-colors ${editing ? "bg-primary/5" : "hover:bg-muted/10"}`}>
       {/* Main row */}
-      <div className="grid grid-cols-[1fr_1fr_60px_80px_120px_80px] gap-0 items-start px-3 py-2.5 text-xs">
+      <div className="hidden md:grid grid-cols-[1fr_1fr_60px_80px_120px_80px] gap-0 items-start px-3 py-2.5 text-xs">
         {/* Order ID only — no customer name (already shown in parent row) */}
         <div className="min-w-0 pr-1 flex items-center gap-1.5">
           <span className="font-mono text-[10px] text-muted-foreground bg-muted/40 rounded px-1.5 py-0.5 border border-border/40">
@@ -312,6 +312,70 @@ function OrderDeliveryRow({
             </Link>
           )}
         </div>
+      </div>
+
+      {/* Mobile card (md:hidden) */}
+      <div className="md:hidden px-3 py-2.5 text-xs flex flex-col gap-1.5">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex flex-col gap-0.5 min-w-0">
+            <span className="font-mono text-[10px] text-muted-foreground bg-muted/40 rounded px-1.5 py-0.5 border border-border/40 self-start">
+              #{order.id.toString().padStart(4, "0")}
+            </span>
+            {order.phone && <span className="text-[10px] text-muted-foreground">{order.phone}</span>}
+          </div>
+          <Badge variant="outline" className={`text-[9px] font-bold border shrink-0 ${opt.bg} ${opt.color}`}>
+            {opt.label}
+          </Badge>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <p className="font-medium truncate">{order.product}</p>
+            {(order.color || order.size) && (
+              <p className="text-muted-foreground text-[10px]">{[order.color, order.size].filter(Boolean).join(" / ")}</p>
+            )}
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="font-bold">{order.quantity}</span>
+            <span className="font-bold text-primary">{formatCurrency(order.totalPrice)}</span>
+          </div>
+        </div>
+        {order.deliveryStatus === "returned" && (order as any).returnReceived === 1 && (
+          <p className="text-[10px] text-emerald-600 font-semibold">↩ تم الاستلام</p>
+        )}
+        {order.deliveryStatus === "returned" && (order as any).returnReceived === 0 && (
+          <p className="text-[10px] text-orange-500 font-semibold">⏳ عند شركة الشحن</p>
+        )}
+        {order.deliveryStatus === "partial_received" && (order as any).returnReceived === 1 && (
+          <p className="text-[10px] text-emerald-600 font-semibold">↩ الباقي في المخزن</p>
+        )}
+        {order.deliveryStatus === "partial_received" && (order as any).returnReceived === 0 && (
+          <p className="text-[10px] text-orange-500 font-semibold">🚚 الباقي عند الشحن</p>
+        )}
+        {order.deliveryNote && !editing && (
+          <p className="text-[10px] text-muted-foreground">{order.deliveryNote}</p>
+        )}
+        {!locked && !hideAction && (
+          <div className="flex justify-end">
+            {editing ? (
+              <Button variant="ghost" size="sm" className="h-6 text-[10px] px-1.5 text-muted-foreground"
+                onClick={() => { setEditing(false); setStatus(order.deliveryStatus); setNote(order.deliveryNote ?? ""); setPartialProduct(""); setPartialQty(order.partialQuantity?.toString() ?? ""); setReturnReceived((order as any).returnReceived === 1 ? true : (order as any).returnReceived === 0 ? false : null); setPartialReturnReceived(order.deliveryStatus === "partial_received" ? ((order as any).returnReceived === 1 ? true : (order as any).returnReceived === 0 ? false : null) : null); }}>
+                <X className="w-3 h-3" />
+              </Button>
+            ) : (
+              <Button variant="ghost" size="sm" className="h-6 text-[10px] px-1.5 text-primary hover:text-primary"
+                onClick={() => { setStatus(order.deliveryStatus); setNote(order.deliveryNote ?? ""); setPartialQty(order.partialQuantity?.toString() ?? ""); setReturnReceived((order as any).returnReceived === 1 ? true : (order as any).returnReceived === 0 ? false : null); setPartialReturnReceived(order.deliveryStatus === "partial_received" ? ((order as any).returnReceived === 1 ? true : (order as any).returnReceived === 0 ? false : null) : null); setEditing(true); }}>
+                <Edit2 className="w-3 h-3 ml-0.5" />تقفيل
+              </Button>
+            )}
+          </div>
+        )}
+        {locked && !hideAction && (
+          <div className="flex justify-end">
+            <Link href={`/orders/${order.id}`}>
+              <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2 text-primary hover:text-primary">عرض</Button>
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* Editing panel -- Select + qty + note + save */}
@@ -767,7 +831,8 @@ function InvoiceGroupDeliveryRow({
     <>
       {/* ── Main group row ── */}
       <div className={`border-b border-border/50 transition-colors ${bulkEditing ? "bg-primary/5" : "hover:bg-muted/10"}`}>
-        <div className="grid grid-cols-[1fr_1fr_1fr_60px_80px_120px_80px] gap-0 items-start px-3 py-2.5 text-xs">
+        {/* Desktop row */}
+        <div className="hidden md:grid grid-cols-[1fr_1fr_1fr_60px_80px_120px_80px] gap-0 items-start px-3 py-2.5 text-xs">
           {/* Customer */}
           <div className="min-w-0 pr-1">
             <p className="font-semibold truncate">{rep.customerName}</p>
@@ -932,6 +997,73 @@ function InvoiceGroupDeliveryRow({
               )
             )}
           </div>
+        </div>
+
+        {/* Mobile card (md:hidden) */}
+        <div className="md:hidden px-3 py-2.5 text-xs flex flex-col gap-2">
+          {/* Row 1: customer + status badge */}
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="font-semibold truncate">{rep.customerName}</p>
+              <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                {invoiceNum && <span className="text-[9px] bg-primary/10 text-primary px-1 rounded font-mono">{invoiceNum}</span>}
+                {rep.phone && <span className="text-muted-foreground text-[10px]">{rep.phone}</span>}
+                {rep.city && <span className="text-muted-foreground text-[10px]">📍 {rep.city}</span>}
+              </div>
+            </div>
+            <div className="shrink-0">
+              {hasMultipleStatuses && !hasMixedPartial ? (
+                <Badge variant="outline" className="text-[9px] font-bold border border-border text-muted-foreground">حالات متعددة</Badge>
+              ) : (
+                <Badge variant="outline" className={`text-[9px] font-bold border ${displayOpt.bg} ${displayOpt.color}`}>
+                  {displayOpt.label}
+                </Badge>
+              )}
+            </div>
+          </div>
+          {/* Row 2: products + qty + price */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              {isMulti ? (
+                <button type="button" className="text-right w-full" onClick={() => setExpanded(!expanded)}>
+                  <p className="text-primary text-[10px] font-bold flex items-center gap-1">
+                    {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                    {group.length} منتجات
+                  </p>
+                  <p className="text-muted-foreground text-[10px] truncate">{expanded ? "إخفاء المنتجات" : productsText}</p>
+                </button>
+              ) : (
+                <>
+                  <p className="truncate">{rep.product}</p>
+                  {(rep.color || rep.size) && <p className="text-muted-foreground text-[10px]">{[rep.color, rep.size].filter(Boolean).join(" / ")}</p>}
+                </>
+              )}
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="font-bold">{totalQty}</span>
+              <span className="font-bold text-primary">{formatCurrency(totalPrice)}</span>
+            </div>
+          </div>
+          {/* Sub-statuses */}
+          {displayStatus === "returned" && (rep as any).returnReceived === 1 && <p className="text-[10px] text-emerald-600 font-semibold">↩ تم الاستلام</p>}
+          {displayStatus === "returned" && (rep as any).returnReceived === 0 && <p className="text-[10px] text-orange-500 font-semibold">⏳ عند شركة الشحن</p>}
+          {displayStatus === "partial_received" && (rep as any).returnReceived === 1 && <p className="text-[10px] text-emerald-600 font-semibold">↩ الباقي في المخزن</p>}
+          {displayStatus === "partial_received" && (rep as any).returnReceived === 0 && <p className="text-[10px] text-orange-500 font-semibold">🚚 الباقي عند الشحن</p>}
+          {/* Action button */}
+          {!locked && (
+            <div className="flex justify-end">
+              {bulkEditing ? (
+                <Button variant="ghost" size="sm" className="h-6 text-[10px] px-1.5 text-muted-foreground" onClick={() => setBulkEditing(false)}>
+                  <X className="w-3 h-3" />
+                </Button>
+              ) : (
+                <Button variant="ghost" size="sm" className="h-6 text-[10px] px-1.5 text-primary hover:text-primary"
+                  onClick={() => { setBulkEditing(true); setBulkStatus(groupStatus); setBulkNote(rep.deliveryNote ?? ""); setPartialQtyMap(Object.fromEntries(group.map(o => [o.id, o.partialQuantity?.toString() ?? ""]))); setPerOrderStatus(Object.fromEntries(group.map(o => [o.id, o.deliveryStatus as DeliveryStatus]))); setBulkReturnReceived((rep as any).returnReceived === 1 ? true : (rep as any).returnReceived === 0 ? false : null); const ep = (rep as any).returnReceived === 1 ? true : (rep as any).returnReceived === 0 ? false : null; setPartialReturnReceived(groupStatus === "partial_received" && ep === null ? false : ep); }}>
+                  <Edit2 className="w-3 h-3 ml-0.5" />تقفيل
+                </Button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Bulk editing panel */}
@@ -2788,14 +2920,14 @@ export default function ShippingManifestPage() {
             <Button
               variant="outline"
               size="icon"
-              className="h-8 w-8 rounded-full border-border"
+              className="h-8 w-8 rounded-full border-border shrink-0"
             >
               <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl font-bold">{manifest.manifestNumber}</h1>
+              <h1 className="text-lg sm:text-xl font-bold">{manifest.manifestNumber}</h1>
               <Badge
                 variant="outline"
                 className={`text-[10px] font-bold border ${
@@ -2807,7 +2939,7 @@ export default function ShippingManifestPage() {
                 {isLocked ? "مغلق" : "مفتوح"}
               </Badge>
             </div>
-            <div className="flex items-center gap-3 mt-0.5">
+            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
               <p className="text-xs text-muted-foreground flex items-center gap-1">
                 <Truck className="w-3 h-3" />
                 {manifest.companyName}
@@ -2823,7 +2955,7 @@ export default function ShippingManifestPage() {
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2 print:hidden">
+        <div className="flex items-center gap-1.5 flex-wrap print:hidden">
           <Button
             variant="outline"
             size="sm"
@@ -3060,7 +3192,7 @@ export default function ShippingManifestPage() {
                 </div>
               ) : (
                 <>
-                <div className="grid grid-cols-[1fr_1fr_1fr_60px_80px_120px_80px] gap-0 border-b border-border bg-muted/20 px-3 py-2 text-[10px] font-semibold text-muted-foreground">
+                <div className="hidden md:grid grid-cols-[1fr_1fr_1fr_60px_80px_120px_80px] gap-0 border-b border-border bg-muted/20 px-3 py-2 text-[10px] font-semibold text-muted-foreground">
                   {/* ─── عمود العميل — نص / سيرش عند الضغط ─── */}
                   <div className="relative">
                     {showCustomerSearch ? (
