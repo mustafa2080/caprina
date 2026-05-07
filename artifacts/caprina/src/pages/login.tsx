@@ -308,7 +308,7 @@ export default function Login() {
         }
         .copyright-text {
           font-size: 0.82rem;
-          font-weight: 800;
+          font-weight: 900;
           letter-spacing: 0.18em;
           color: #0D0B08;
           text-shadow:
