@@ -196,6 +196,9 @@ export async function adjustWarehouseStock(
         .set({ quantity: newQty, updatedAt: new Date() })
         .where(eq(warehouseStockTable.id, row.id));
     } else if (delta > 0) {
+      // تحقق إن المخزن موجود فعلاً قبل الإضافة
+      const [wh] = await db.select({ id: warehousesTable.id }).from(warehousesTable).where(eq(warehousesTable.id, warehouseId));
+      if (!wh) return warehouseId; // المخزن اتحذف — تجاهل العملية
       // صف جديد — فقط للإضافة
       await db.insert(warehouseStockTable).values({
         warehouseId,
