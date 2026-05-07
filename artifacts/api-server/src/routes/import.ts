@@ -141,8 +141,9 @@ router.post("/orders/import/execute", async (req, res): Promise<void> => {
     return `INV-${yy}${mm}${dd}-${rand}`;
   }
 
+  // في mode "منفصل": كل صف ياخد invoice خاص بيه
+  // في mode "دمج": نفس العميل ياخد نفس الـ invoice
   const customerInvoiceMap = new Map<string, string>();
-  let lastCustomerKey = "";
 
   const AD_SOURCE_MAP: Record<string, string> = {
     "فيسبوك": "facebook", "facebook": "facebook",
@@ -191,11 +192,15 @@ router.post("/orders/import/execute", async (req, res): Promise<void> => {
       : null;
 
     const customerKey = `${customerName.trim().toLowerCase()}|${(phone ?? "").trim()}`;
-    if (customerKey !== lastCustomerKey || !customerInvoiceMap.has(customerKey)) {
-      customerInvoiceMap.set(customerKey, generateInvoiceNumber());
-      lastCustomerKey = customerKey;
+    // في mode "منفصل": كل صف ياخد invoice فريد حتى لو نفس العميل
+    // في mode "دمج": نفس العميل ياخد نفس الـ invoice (يتدمجوا بعدين في mergeMap)
+    let invoiceNumber: string;
+    if (duplicateAction === "merge" && customerInvoiceMap.has(customerKey)) {
+      invoiceNumber = customerInvoiceMap.get(customerKey)!;
+    } else {
+      invoiceNumber = generateInvoiceNumber();
+      customerInvoiceMap.set(customerKey, invoiceNumber);
     }
-    const invoiceNumber = customerInvoiceMap.get(customerKey)!;
 
     validOrders.push({
       customerName,
