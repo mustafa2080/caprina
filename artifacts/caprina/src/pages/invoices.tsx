@@ -45,7 +45,7 @@ export default function Invoices() {
       ? new Set([preselectedInvoiceNumber])
       : new Set()
   );
-  const [statusFilter, setStatusFilter] = useState<InvoiceListStatus>("all");
+  const [statusFilter, setStatusFilter] = useState<InvoiceListStatus>("warehouse_ready");
   const [perPage, setPerPage] = useState<number>(4);
 
   const { data: allOrders, isLoading } = useListOrders({
