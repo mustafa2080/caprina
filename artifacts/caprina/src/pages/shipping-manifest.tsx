@@ -2468,6 +2468,10 @@ export default function ShippingManifestPage() {
   const [showRolloverDialog, setShowRolloverDialog] = useState<null | { id: number; manifestNumber: string; orderCount: number; breakdown: string }>(null);
   const [showCustomerSearch, setShowCustomerSearch] = useState(false);
   const [showProductSearch, setShowProductSearch] = useState(false);
+  // قيمة الـ input (لحظية — بتتغير مع كل حرف)
+  const [customerSearchInput, setCustomerSearchInput] = useState("");
+  const [productSearchInput, setProductSearchInput] = useState("");
+  // قيمة الفلتر المطبقة على الجدول (بتثبت بعد إغلاق الـ popover)
   const [customerSearch, setCustomerSearch] = useState("");
   const [productSearch, setProductSearch] = useState("");
   const customerSearchRef = useRef<HTMLDivElement>(null);
@@ -2475,19 +2479,25 @@ export default function ShippingManifestPage() {
   const customerInputRef = useRef<HTMLInputElement>(null);
   const productInputRef = useRef<HTMLInputElement>(null);
 
-  // ─── Close search popover on outside click ──────────────────────────────────
+  // ─── Close search popover on outside click — وتطبيق الفلتر على الجدول ──────
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (customerSearchRef.current && !customerSearchRef.current.contains(e.target as Node)) {
-        setShowCustomerSearch(false);
+        if (showCustomerSearch) {
+          setCustomerSearch(customerSearchInput);
+          setShowCustomerSearch(false);
+        }
       }
       if (productSearchRef.current && !productSearchRef.current.contains(e.target as Node)) {
-        setShowProductSearch(false);
+        if (showProductSearch) {
+          setProductSearch(productSearchInput);
+          setShowProductSearch(false);
+        }
       }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, []);
+  }, [showCustomerSearch, showProductSearch, customerSearchInput, productSearchInput]);
 
   const { data: manifest, isLoading, error } = useQuery({
     queryKey: ["shipping-manifest", id],
@@ -3084,29 +3094,42 @@ export default function ShippingManifestPage() {
                       {customerSearch && <span className="text-[9px] bg-primary/20 text-primary rounded px-1">•</span>}
                     </button>
                     {showCustomerSearch && (
-                      <div className="absolute top-full right-0 z-50 mt-1 w-64 rounded-lg border border-border bg-card shadow-xl p-2 flex flex-col gap-1.5">
+                      <div className="fixed z-[9999] mt-1 w-64 rounded-lg border border-border bg-card shadow-xl p-2 flex flex-col gap-1.5"
+                        style={{ top: customerSearchRef.current ? customerSearchRef.current.getBoundingClientRect().bottom + 4 : 0, right: customerSearchRef.current ? window.innerWidth - customerSearchRef.current.getBoundingClientRect().right : 0 }}
+                      >
                         <p className="text-[10px] text-muted-foreground font-normal px-0.5">بحث بالاسم / رقم الفاتورة / رقم الهاتف</p>
                         <div className="relative">
                           <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
                           <input
                             ref={customerInputRef}
-                            value={customerSearch}
-                            onChange={e => setCustomerSearch(e.target.value)}
+                            value={customerSearchInput}
+                            onChange={e => setCustomerSearchInput(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === "Enter") { setCustomerSearch(customerSearchInput); setShowCustomerSearch(false); }
+                              if (e.key === "Escape") { setShowCustomerSearch(false); }
+                            }}
                             placeholder="ابحث هنا..."
                             className="w-full h-8 text-xs pr-8 pl-7 rounded-md border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
                           />
-                          {customerSearch && (
+                          {customerSearchInput && (
                             <button
                               type="button"
-                              onClick={() => setCustomerSearch("")}
+                              onClick={() => { setCustomerSearchInput(""); setCustomerSearch(""); }}
                               className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                             >
                               <X className="w-3.5 h-3.5" />
                             </button>
                           )}
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => { setCustomerSearch(customerSearchInput); setShowCustomerSearch(false); }}
+                          className="w-full h-7 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                        >
+                          بحث
+                        </button>
                         {customerSearch && (
-                          <p className="text-[10px] text-primary px-0.5">{filteredManifestOrders.length} نتيجة</p>
+                          <p className="text-[10px] text-primary px-0.5">{filteredManifestOrders.length} نتيجة مطبقة</p>
                         )}
                       </div>
                     )}
@@ -3127,29 +3150,42 @@ export default function ShippingManifestPage() {
                       {productSearch && <span className="text-[9px] bg-primary/20 text-primary rounded px-1">•</span>}
                     </button>
                     {showProductSearch && (
-                      <div className="absolute top-full right-0 z-50 mt-1 w-56 rounded-lg border border-border bg-card shadow-xl p-2 flex flex-col gap-1.5">
+                      <div className="fixed z-[9999] mt-1 w-56 rounded-lg border border-border bg-card shadow-xl p-2 flex flex-col gap-1.5"
+                        style={{ top: productSearchRef.current ? productSearchRef.current.getBoundingClientRect().bottom + 4 : 0, right: productSearchRef.current ? window.innerWidth - productSearchRef.current.getBoundingClientRect().right : 0 }}
+                      >
                         <p className="text-[10px] text-muted-foreground font-normal px-0.5">بحث باسم المنتج</p>
                         <div className="relative">
                           <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
                           <input
                             ref={productInputRef}
-                            value={productSearch}
-                            onChange={e => setProductSearch(e.target.value)}
+                            value={productSearchInput}
+                            onChange={e => setProductSearchInput(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === "Enter") { setProductSearch(productSearchInput); setShowProductSearch(false); }
+                              if (e.key === "Escape") { setShowProductSearch(false); }
+                            }}
                             placeholder="اسم المنتج..."
                             className="w-full h-8 text-xs pr-8 pl-7 rounded-md border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
                           />
-                          {productSearch && (
+                          {productSearchInput && (
                             <button
                               type="button"
-                              onClick={() => setProductSearch("")}
+                              onClick={() => { setProductSearchInput(""); setProductSearch(""); }}
                               className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                             >
                               <X className="w-3.5 h-3.5" />
                             </button>
                           )}
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => { setProductSearch(productSearchInput); setShowProductSearch(false); }}
+                          className="w-full h-7 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                        >
+                          بحث
+                        </button>
                         {productSearch && (
-                          <p className="text-[10px] text-primary px-0.5">{filteredManifestOrders.length} نتيجة</p>
+                          <p className="text-[10px] text-primary px-0.5">{filteredManifestOrders.length} نتيجة مطبقة</p>
                         )}
                       </div>
                     )}
