@@ -1,5 +1,4 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "@/lib/api";
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +11,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Truck, CheckCircle, Clock, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+
+const api = {
+  get: (url: string) => fetch(`/api${url}`, { credentials: "include" }).then(r => { if (!r.ok) throw new Error(r.statusText); return r.json(); }),
+  post: (url: string, body: any) => fetch(`/api${url}`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(r => { if (!r.ok) throw new Error(r.statusText); return r.json(); }),
+  patch: (url: string, body: any) => fetch(`/api${url}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(r => { if (!r.ok) throw new Error(r.statusText); return r.json(); }),
+  del: (url: string) => fetch(`/api${url}`, { method: "DELETE", credentials: "include" }).then(r => { if (!r.ok) throw new Error(r.statusText); }),
+};
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   pending:   { label: "بانتظار التسوية", color: "bg-amber-50 text-amber-700 border-amber-300" },
@@ -33,16 +39,16 @@ export default function FinanceShippingInvoices() {
 
   const { data: invoices = [], isLoading } = useQuery<any[]>({
     queryKey: ["finance-shipping-invoices"],
-    queryFn: () => apiClient.get("/finance/shipping-invoices").then(r => r.data),
+    queryFn: () => api.get("/finance/shipping-invoices"),
   });
 
   const { data: shippingCompanies = [] } = useQuery<any[]>({
     queryKey: ["shipping"],
-    queryFn: () => apiClient.get("/shipping-companies").then(r => r.data),
+    queryFn: () => api.get("/shipping-companies"),
   });
 
   const save = useMutation({
-    mutationFn: () => apiClient.post("/finance/shipping-invoices", {
+    mutationFn: () => api.post("/finance/shipping-invoices", {
       ...form,
       shippingCompanyId: parseInt(form.shippingCompanyId),
       totalOrders: parseInt(form.totalOrders) || 0,
@@ -58,7 +64,7 @@ export default function FinanceShippingInvoices() {
 
   const pay = useMutation({
     mutationFn: ({ id, paidAmount }: { id: number; paidAmount: number }) =>
-      apiClient.patch(`/finance/shipping-invoices/${id}`, { status: "paid", paidAmount }),
+      api.patch(`/finance/shipping-invoices/${id}`, { status: "paid", paidAmount }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["finance-shipping-invoices"] }); toast({ title: "تم تسجيل الدفع" }); },
   });
 

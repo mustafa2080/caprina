@@ -1,5 +1,4 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "@/lib/api";
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +11,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Receipt, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+
+const api = {
+  get: (url: string) => fetch(`/api${url}`, { credentials: "include" }).then(r => { if (!r.ok) throw new Error(r.statusText); return r.json(); }),
+  post: (url: string, body: any) => fetch(`/api${url}`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(r => { if (!r.ok) throw new Error(r.statusText); return r.json(); }),
+  del: (url: string) => fetch(`/api${url}`, { method: "DELETE", credentials: "include" }).then(r => { if (!r.ok) throw new Error(r.statusText); }),
+};
 
 const EXPENSE_CATEGORIES = [
   { value: "shipping_fees",   label: "مصاريف شحن" },
@@ -36,16 +41,16 @@ export default function FinanceExpenses() {
 
   const { data: expenses = [], isLoading } = useQuery<any[]>({
     queryKey: ["finance-expenses"],
-    queryFn: () => apiClient.get("/finance/expenses").then(r => r.data),
+    queryFn: () => api.get("/finance/expenses"),
   });
 
   const save = useMutation({
-    mutationFn: () => apiClient.post("/finance/expenses", { ...form, amount: parseFloat(form.amount) }),
+    mutationFn: () => api.post("/finance/expenses", { ...form, amount: parseFloat(form.amount) }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["finance-expenses"] }); setOpen(false); toast({ title: "تمت إضافة المصروف" }); },
   });
 
   const del = useMutation({
-    mutationFn: (id: number) => apiClient.delete(`/finance/expenses/${id}`),
+    mutationFn: (id: number) => api.del(`/finance/expenses/${id}`),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["finance-expenses"] }); toast({ title: "تم الحذف" }); },
   });
 

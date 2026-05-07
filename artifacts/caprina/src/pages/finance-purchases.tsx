@@ -1,5 +1,4 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "@/lib/api";
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +11,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, ShoppingCart, Trash2, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+
+const api = {
+  get: (url: string) => fetch(`/api${url}`, { credentials: "include" }).then(r => { if (!r.ok) throw new Error(r.statusText); return r.json(); }),
+  post: (url: string, body: any) => fetch(`/api${url}`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(r => { if (!r.ok) throw new Error(r.statusText); return r.json(); }),
+};
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   draft:            { label: "مسودة",          color: "bg-gray-100 text-gray-600 border-gray-300" },
@@ -38,11 +42,11 @@ export default function FinancePurchases() {
 
   const { data: purchases = [], isLoading } = useQuery<any[]>({
     queryKey: ["finance-purchases"],
-    queryFn: () => apiClient.get("/finance/purchases").then(r => r.data),
+    queryFn: () => api.get("/finance/purchases"),
   });
   const { data: suppliers = [] } = useQuery<any[]>({
     queryKey: ["finance-suppliers"],
-    queryFn: () => apiClient.get("/finance/suppliers").then(r => r.data),
+    queryFn: () => api.get("/finance/suppliers"),
   });
 
   const addItem = () => setItems(prev => [...prev, { productName: "", quantity: 1, unitCost: 0, color: "", size: "" }]);
@@ -53,7 +57,7 @@ export default function FinancePurchases() {
   const grandTotal = totalItems + parseFloat(form.shippingCost || "0") + parseFloat(form.taxAmount || "0") - parseFloat(form.discountAmount || "0");
 
   const save = useMutation({
-    mutationFn: () => apiClient.post("/finance/purchases", {
+    mutationFn: () => api.post("/finance/purchases", {
       supplierId: form.supplierId ? parseInt(form.supplierId) : undefined,
       warehouseId: form.warehouseId ? parseInt(form.warehouseId) : undefined,
       shippingCost: parseFloat(form.shippingCost) || 0,

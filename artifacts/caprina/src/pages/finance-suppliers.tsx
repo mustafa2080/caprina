@@ -1,5 +1,4 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "@/lib/api";
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +9,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Building2, Phone, Mail, Edit2, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+
+const api = {
+  get: (url: string) => fetch(`/api${url}`, { credentials: "include" }).then(r => { if (!r.ok) throw new Error(r.statusText); return r.json(); }),
+  post: (url: string, body: any) => fetch(`/api${url}`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(r => { if (!r.ok) throw new Error(r.statusText); return r.json(); }),
+  patch: (url: string, body: any) => fetch(`/api${url}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(r => { if (!r.ok) throw new Error(r.statusText); return r.json(); }),
+  del: (url: string) => fetch(`/api${url}`, { method: "DELETE", credentials: "include" }).then(r => { if (!r.ok) throw new Error(r.statusText); }),
+};
 
 type Supplier = {
   id: number; name: string; phone?: string; email?: string;
@@ -34,18 +40,18 @@ export default function FinanceSuppliers() {
 
   const { data: suppliers = [], isLoading } = useQuery<Supplier[]>({
     queryKey: ["finance-suppliers"],
-    queryFn: () => apiClient.get("/finance/suppliers").then(r => r.data),
+    queryFn: () => api.get("/finance/suppliers"),
   });
 
   const save = useMutation({
     mutationFn: (d: typeof form) => editing
-      ? apiClient.patch(`/finance/suppliers/${editing.id}`, d)
-      : apiClient.post("/finance/suppliers", d),
+      ? api.patch(`/finance/suppliers/${editing.id}`, d)
+      : api.post("/finance/suppliers", d),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["finance-suppliers"] }); setOpen(false); toast({ title: editing ? "تم التعديل" : "تمت الإضافة" }); },
   });
 
   const del = useMutation({
-    mutationFn: (id: number) => apiClient.delete(`/finance/suppliers/${id}`),
+    mutationFn: (id: number) => api.del(`/finance/suppliers/${id}`),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["finance-suppliers"] }); toast({ title: "تم الحذف" }); },
   });
 
