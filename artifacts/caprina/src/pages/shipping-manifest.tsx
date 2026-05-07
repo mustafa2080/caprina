@@ -2466,38 +2466,9 @@ export default function ShippingManifestPage() {
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showOrders, setShowOrders] = useState(true);
   const [showRolloverDialog, setShowRolloverDialog] = useState<null | { id: number; manifestNumber: string; orderCount: number; breakdown: string }>(null);
-  const [showCustomerSearch, setShowCustomerSearch] = useState(false);
-  const [showProductSearch, setShowProductSearch] = useState(false);
-  // قيمة الـ input (لحظية — بتتغير مع كل حرف)
-  const [customerSearchInput, setCustomerSearchInput] = useState("");
-  const [productSearchInput, setProductSearchInput] = useState("");
-  // قيمة الفلتر المطبقة على الجدول (بتثبت بعد إغلاق الـ popover)
+  // ─── البحث المباشر — بدون popover ──────────────────────────────────────────
   const [customerSearch, setCustomerSearch] = useState("");
   const [productSearch, setProductSearch] = useState("");
-  const customerSearchRef = useRef<HTMLDivElement>(null);
-  const productSearchRef = useRef<HTMLDivElement>(null);
-  const customerInputRef = useRef<HTMLInputElement>(null);
-  const productInputRef = useRef<HTMLInputElement>(null);
-
-  // ─── Close search popover on outside click — وتطبيق الفلتر على الجدول ──────
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (customerSearchRef.current && !customerSearchRef.current.contains(e.target as Node)) {
-        if (showCustomerSearch) {
-          setCustomerSearch(customerSearchInput);
-          setShowCustomerSearch(false);
-        }
-      }
-      if (productSearchRef.current && !productSearchRef.current.contains(e.target as Node)) {
-        if (showProductSearch) {
-          setProductSearch(productSearchInput);
-          setShowProductSearch(false);
-        }
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [showCustomerSearch, showProductSearch, customerSearchInput, productSearchInput]);
 
   const { data: manifest, isLoading, error } = useQuery({
     queryKey: ["shipping-manifest", id],
@@ -2505,7 +2476,7 @@ export default function ShippingManifestPage() {
     enabled: !isNaN(id),
   });
 
-  // ─── Search filter — must be before any early returns (hooks rules) ─────────
+  // ─── Search filter — real-time, no popover ────────────────────────────────
   const filteredManifestOrders = useMemo(() => {
     const orders = manifest?.orders ?? [];
     const grouped = groupManifestOrders(orders);
@@ -2514,12 +2485,15 @@ export default function ShippingManifestPage() {
     const pq = productSearch.trim().toLowerCase();
     return grouped.filter((group) => {
       const rep = group[0];
+      // بحث في رقم الفاتورة من أي مكان (contains)
+      const invoiceNum = ((rep as any).invoiceNumber ?? "").toLowerCase();
+      const cqDigits = cq.replace(/\D/g, "");
       const matchesCustomer = !cq || (
         rep.customerName.toLowerCase().includes(cq) ||
-        ((rep as any).invoiceNumber ?? "").toLowerCase().includes(cq) ||
+        invoiceNum.includes(cq) ||
         rep.id.toString().includes(cq) ||
-        (rep.phone ?? "").replace(/\D/g, "").includes(cq.replace(/\D/g, "")) ||
-        (rep.phone ?? "").includes(cq)
+        (rep.phone ?? "").includes(cq) ||
+        (cqDigits.length > 0 && (rep.phone ?? "").replace(/\D/g, "").includes(cqDigits))
       );
       const matchesProduct = !pq || group.some((o) =>
         o.product.toLowerCase().includes(pq)
@@ -3077,113 +3051,42 @@ export default function ShippingManifestPage() {
               ) : (
                 <>
                 <div className="grid grid-cols-[1fr_1fr_60px_80px_120px_80px] gap-0 border-b border-border bg-muted/20 px-3 py-2 text-[10px] font-semibold text-muted-foreground">
-                  <div className="relative" ref={customerSearchRef}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowCustomerSearch(v => !v);
-                        setShowProductSearch(false);
-                        setTimeout(() => customerInputRef.current?.focus(), 50);
-                      }}
-                      className={`flex items-center gap-1 rounded px-1 py-0.5 transition-colors hover:bg-primary/10 hover:text-primary ${customerSearch ? "text-primary font-bold" : ""}`}
-                    >
-                      <Search className="w-3 h-3" />
-                      العميل
-                      {customerSearch && <span className="text-[9px] bg-primary/20 text-primary rounded px-1">•</span>}
-                    </button>
-                    {showCustomerSearch && (
-                      <div className="absolute z-[9999] top-full mt-1 right-0 w-64 rounded-lg border border-border bg-card shadow-xl p-2 flex flex-col gap-1.5"
+                  {/* ─── بحث العميل — input مباشر بدون popover ─── */}
+                  <div className="relative">
+                    <Search className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
+                    <input
+                      value={customerSearch}
+                      onChange={e => setCustomerSearch(e.target.value)}
+                      placeholder="العميل / فاتورة / هاتف..."
+                      className={`w-full h-7 text-[10px] pr-6 pl-5 rounded border bg-background focus:outline-none focus:ring-1 focus:ring-primary transition-colors ${customerSearch ? "border-primary text-primary font-bold" : "border-border text-muted-foreground"}`}
+                    />
+                    {customerSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setCustomerSearch("")}
+                        className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                       >
-                        <p className="text-[10px] text-muted-foreground font-normal px-0.5">بحث بالاسم / رقم الفاتورة / رقم الهاتف</p>
-                        <div className="relative">
-                          <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-                          <input
-                            ref={customerInputRef}
-                            value={customerSearchInput}
-                            onChange={e => setCustomerSearchInput(e.target.value)}
-                            onKeyDown={e => {
-                              if (e.key === "Enter") { setCustomerSearch(customerSearchInput); setShowCustomerSearch(false); }
-                              if (e.key === "Escape") { setShowCustomerSearch(false); }
-                            }}
-                            placeholder="ابحث هنا..."
-                            className="w-full h-8 text-xs pr-8 pl-7 rounded-md border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
-                          />
-                          {customerSearchInput && (
-                            <button
-                              type="button"
-                              onClick={() => { setCustomerSearchInput(""); setCustomerSearch(""); }}
-                              className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => { setCustomerSearch(customerSearchInput); setShowCustomerSearch(false); }}
-                          className="w-full h-7 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-                        >
-                          بحث
-                        </button>
-                        {customerSearch && (
-                          <p className="text-[10px] text-primary px-0.5">{filteredManifestOrders.length} نتيجة مطبقة</p>
-                        )}
-                      </div>
+                        <X className="w-3 h-3" />
+                      </button>
                     )}
                   </div>
-                  {/* Product header with search popover */}
-                  <div className="relative" ref={productSearchRef}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowProductSearch(v => !v);
-                        setShowCustomerSearch(false);
-                        setTimeout(() => productInputRef.current?.focus(), 50);
-                      }}
-                      className={`flex items-center gap-1 rounded px-1 py-0.5 transition-colors hover:bg-primary/10 hover:text-primary ${productSearch ? "text-primary font-bold" : ""}`}
-                    >
-                      <Search className="w-3 h-3" />
-                      المنتج
-                      {productSearch && <span className="text-[9px] bg-primary/20 text-primary rounded px-1">•</span>}
-                    </button>
-                    {showProductSearch && (
-                      <div className="absolute z-[9999] top-full mt-1 right-0 w-56 rounded-lg border border-border bg-card shadow-xl p-2 flex flex-col gap-1.5"
+                  {/* ─── بحث المنتج — input مباشر بدون popover ─── */}
+                  <div className="relative">
+                    <Search className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
+                    <input
+                      value={productSearch}
+                      onChange={e => setProductSearch(e.target.value)}
+                      placeholder="المنتج..."
+                      className={`w-full h-7 text-[10px] pr-6 pl-5 rounded border bg-background focus:outline-none focus:ring-1 focus:ring-primary transition-colors ${productSearch ? "border-primary text-primary font-bold" : "border-border text-muted-foreground"}`}
+                    />
+                    {productSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setProductSearch("")}
+                        className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                       >
-                        <p className="text-[10px] text-muted-foreground font-normal px-0.5">بحث باسم المنتج</p>
-                        <div className="relative">
-                          <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-                          <input
-                            ref={productInputRef}
-                            value={productSearchInput}
-                            onChange={e => setProductSearchInput(e.target.value)}
-                            onKeyDown={e => {
-                              if (e.key === "Enter") { setProductSearch(productSearchInput); setShowProductSearch(false); }
-                              if (e.key === "Escape") { setShowProductSearch(false); }
-                            }}
-                            placeholder="اسم المنتج..."
-                            className="w-full h-8 text-xs pr-8 pl-7 rounded-md border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
-                          />
-                          {productSearchInput && (
-                            <button
-                              type="button"
-                              onClick={() => { setProductSearchInput(""); setProductSearch(""); }}
-                              className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => { setProductSearch(productSearchInput); setShowProductSearch(false); }}
-                          className="w-full h-7 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-                        >
-                          بحث
-                        </button>
-                        {productSearch && (
-                          <p className="text-[10px] text-primary px-0.5">{filteredManifestOrders.length} نتيجة مطبقة</p>
-                        )}
-                      </div>
+                        <X className="w-3 h-3" />
+                      </button>
                     )}
                   </div>
                   <div className="text-center">الكمية</div>
