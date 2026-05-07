@@ -57,7 +57,21 @@ export default function Login() {
         .fu5{animation:fadeUp .6s .54s both}
 
         .lp { position:fixed;inset:0;z-index:10;display:flex;align-items:center;justify-content:flex-start;padding:0 8vw;direction:rtl; }
-        .hc { max-width:520px;width:100%;display:flex;flex-direction:column;align-items:flex-start; }
+        .hc {
+          max-width:500px;width:100%;
+          display:flex;flex-direction:column;align-items:flex-start;
+          background:linear-gradient(145deg,rgba(9,8,7,0.88) 0%,rgba(18,14,5,0.84) 100%);
+          backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+          border:1px solid rgba(201,168,76,0.22);
+          border-radius:1.4rem;
+          padding:2.5rem 2.8rem;
+          box-shadow:0 24px 80px rgba(0,0,0,0.75),0 0 0 1px rgba(201,168,76,0.06),inset 0 1px 0 rgba(201,168,76,0.1);
+          position:relative;overflow:hidden;
+        }
+        .hc::before {
+          content:'';position:absolute;top:0;left:15%;right:15%;height:1px;
+          background:linear-gradient(90deg,transparent,var(--gold),rgba(201,168,76,0.5),var(--gold),transparent);
+        }
 
         .logo-wrap { display:flex;align-items:center;gap:1.1rem;margin-bottom:2.2rem;animation:floatY 5s ease-in-out infinite; }
         .logo-ring {
@@ -82,12 +96,12 @@ export default function Login() {
 
         .gold-divider { width:100%;height:1px;background:linear-gradient(90deg,var(--gold) 0%,rgba(201,168,76,0.1) 100%);margin-bottom:2rem;animation:bglow 3s ease-in-out infinite; }
 
-        .h-title { font-size:clamp(1.9rem,4.5vw,3.2rem);font-weight:900;line-height:1.15;color:var(--white);margin-bottom:.6rem;text-shadow:0 2px 20px rgba(0,0,0,0.8);letter-spacing:-.01em; }
+        .h-title { font-size:clamp(1.9rem,4.5vw,3.2rem);font-weight:900;line-height:1.15;color:var(--white);margin-bottom:.6rem;text-shadow:0 2px 4px rgba(0,0,0,1),0 4px 20px rgba(0,0,0,0.9);letter-spacing:-.01em; }
         .h-title .g {
           background:linear-gradient(135deg,var(--gold-light) 0%,var(--gold) 50%,var(--gold-dim) 100%);
           background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:shimmer 3s linear infinite;
         }
-        .h-desc { font-size:1rem;font-weight:400;color:rgba(255,255,255,0.55);line-height:1.8;margin-bottom:.5rem;max-width:400px; }
+        .h-desc { font-size:1rem;font-weight:500;color:rgba(255,255,255,0.75);line-height:1.8;margin-bottom:.5rem;max-width:400px;text-shadow:0 1px 6px rgba(0,0,0,0.9); }
 
         .tagline {
           font-size:.78rem;font-weight:700;letter-spacing:.4em;color:var(--gold-dim);text-transform:uppercase;
