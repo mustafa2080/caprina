@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { apiClient } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown, DollarSign, Package, Truck, AlertCircle } from "lucide-react";
@@ -15,7 +14,11 @@ export default function FinanceDashboard() {
 
   const { data: summary, isLoading } = useQuery({
     queryKey: ["finance-summary", from, to],
-    queryFn: () => apiClient.get(`/finance/summary?from=${from}&to=${to}`).then(r => r.data),
+    queryFn: async () => {
+      const res = await fetch(`/api/finance/summary?from=${from}&to=${to}`, { credentials: "include" });
+      if (!res.ok) throw new Error("فشل تحميل البيانات");
+      return res.json();
+    },
   });
 
   const kpis = [
