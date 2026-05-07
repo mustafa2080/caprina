@@ -742,17 +742,20 @@ function AttendanceTab({ profileId, monthlySalary, isAdmin }: {
             <div className="space-y-1">
               <p className="text-xs font-bold text-muted-foreground">البونص والخصومات</p>
               {adjustments.map(adj => (
-                <div key={adj.id} className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs border ${adj.type === "bonus" ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800" : "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"}`}>
-                  <div className="flex items-center gap-2">
-                    {adj.type === "bonus"
-                      ? <Gift className="w-3.5 h-3.5 text-emerald-600" />
-                      : <MinusCircle className="w-3.5 h-3.5 text-red-600" />}
-                    <span className="font-medium">{adj.reason}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`font-bold ${adj.type === "bonus" ? "text-emerald-600" : "text-red-600"}`}>
-                      {adj.type === "bonus" ? "+" : "-"}{fmt(adj.amount)}
-                    </span>
+                <div key={adj.id} className={`rounded-lg px-3 py-2 text-xs border ${adj.type === "bonus" ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800" : "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"}`}>
+                  {/* السطر الأول: الأيقونة + المبلغ + زر الحذف */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      {adj.type === "bonus"
+                        ? <Gift className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        : <MinusCircle className="w-3.5 h-3.5 text-red-600 shrink-0" />}
+                      <span className={`font-bold text-sm ${adj.type === "bonus" ? "text-emerald-600" : "text-red-600"}`}>
+                        {adj.type === "bonus" ? "+" : "-"}{fmt(adj.amount)}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {adj.type === "bonus" ? "بونص" : "خصم"}
+                      </span>
+                    </div>
                     {isAdmin && (
                       <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:text-destructive"
                         onClick={() => handleDeleteAdj(adj.id)}>
@@ -760,6 +763,12 @@ function AttendanceTab({ profileId, monthlySalary, isAdmin }: {
                       </Button>
                     )}
                   </div>
+                  {/* السطر الثاني: السبب */}
+                  {adj.reason && (
+                    <p className="text-[11px] text-muted-foreground mt-1 pr-5 leading-snug">
+                      {adj.reason}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
