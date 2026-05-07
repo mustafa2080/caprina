@@ -188,6 +188,8 @@ export default function Inventory() {
   const [filterModel, setFilterModel] = useState<string>("all");
   const [filterColor, setFilterColor] = useState<string>("all");
   const [filterSize, setFilterSize] = useState<string>("all");
+  const [filterStockStatus, setFilterStockStatus] = useState<string>("all"); // all / out / low / ok
+  const [filterWarehouse, setFilterWarehouse] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("name");
   const [showFilters, setShowFilters] = useState(false);
 
@@ -427,7 +429,7 @@ export default function Inventory() {
   // قائمة الموديلات (أسماء المنتجات) للفلتر
   const allModels = [...new Set(products?.map(p => p.name) ?? [])].sort((a, b) => a.localeCompare(b, "ar"));
 
-  const activeFiltersCount = [filterModel !== "all", filterColor !== "all", filterSize !== "all", sortBy !== "name"].filter(Boolean).length;
+  const activeFiltersCount = [filterModel !== "all", filterColor !== "all", filterSize !== "all", filterStockStatus !== "all", filterWarehouse !== "all", sortBy !== "name"].filter(Boolean).length;
 
   // ─── فلترة المنتجات بشكل صحيح ───
   const filteredProducts = (products?.filter(p => {
@@ -447,12 +449,27 @@ export default function Inventory() {
     // فلتر المقاس — لازم يكون في على الأقل variant بهذا المقاس
     if (filterSize !== "all" && !variants.some(v => v.size === filterSize)) return false;
 
+    // فلتر حالة المخزون
+    if (filterStockStatus !== "all") {
+      const hasOut = variants.some(v => v.totalQuantity === 0);
+      const hasLow = variants.some(v => v.totalQuantity > 0 && v.totalQuantity <= v.lowStockThreshold);
+      const hasOk  = variants.some(v => v.totalQuantity > v.lowStockThreshold);
+      if (filterStockStatus === "out" && !hasOut) return false;
+      if (filterStockStatus === "low" && !hasLow) return false;
+      if (filterStockStatus === "ok"  && !hasOk)  return false;
+    }
+
     return true;
   }) ?? []).sort((a, b) => {
     const sA = getProductVariants(a.id).reduce((s, v) => s + v.totalQuantity, 0);
     const sB = getProductVariants(b.id).reduce((s, v) => s + v.totalQuantity, 0);
     if (sortBy === "stock_desc") return sB - sA;
     if (sortBy === "stock_asc") return sA - sB;
+    if (sortBy === "low_first") {
+      const scoreA = getProductVariants(a.id).some(v => v.totalQuantity === 0) ? 0 : getProductVariants(a.id).some(v => v.totalQuantity > 0 && v.totalQuantity <= v.lowStockThreshold) ? 1 : 2;
+      const scoreB = getProductVariants(b.id).some(v => v.totalQuantity === 0) ? 0 : getProductVariants(b.id).some(v => v.totalQuantity > 0 && v.totalQuantity <= v.lowStockThreshold) ? 1 : 2;
+      return scoreA - scoreB;
+    }
     if (sortBy === "price_desc") return b.unitPrice - a.unitPrice;
     if (sortBy === "price_asc") return a.unitPrice - b.unitPrice;
     return a.name.localeCompare(b.name, "ar");
@@ -464,6 +481,9 @@ export default function Inventory() {
     return variants.filter(v => {
       if (filterColor !== "all" && v.color !== filterColor) return false;
       if (filterSize !== "all" && v.size !== filterSize) return false;
+      if (filterStockStatus === "out" && v.totalQuantity !== 0) return false;
+      if (filterStockStatus === "low" && !(v.totalQuantity > 0 && v.totalQuantity <= v.lowStockThreshold)) return false;
+      if (filterStockStatus === "ok"  && !(v.totalQuantity > v.lowStockThreshold)) return false;
       return true;
     });
   };
@@ -605,16 +625,65 @@ export default function Inventory() {
                 <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="name">الاسم</SelectItem>
-                  <SelectItem value="stock_desc">مخزون ↓</SelectItem>
-                  <SelectItem value="stock_asc">مخزون ↑</SelectItem>
+                  <SelectItem value="stock_desc">مخزون ↓ (الأعلى أولاً)</SelectItem>
+                  <SelectItem value="stock_asc">مخزون ↑ (الأقل أولاً)</SelectItem>
+                  <SelectItem value="low_first">🔴 منخفض أولاً</SelectItem>
                   <SelectItem value="price_desc">سعر ↓</SelectItem>
                   <SelectItem value="price_asc">سعر ↑</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
+
+          {/* صف ثاني — حالة المخزون + المستودع */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 border-t border-border/50 pt-2.5">
+            {/* فلتر حالة المخزون */}
+            <div>
+              <p className="text-[10px] text-muted-foreground mb-1 font-semibold">🔍 حالة المخزون (للجرد)</p>
+              <div className="flex gap-1.5 flex-wrap">
+                {[
+                  { value: "all", label: "الكل",       cls: "border-border text-muted-foreground" },
+                  { value: "out", label: "🔴 نافد",     cls: "border-red-500 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20" },
+                  { value: "low", label: "🟡 منخفض",   cls: "border-amber-500 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20" },
+                  { value: "ok",  label: "🟢 متاح",    cls: "border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20" },
+                ].map(opt => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setFilterStockStatus(opt.value)}
+                    className={`h-7 px-2.5 text-[11px] font-bold rounded-md border transition-all ${filterStockStatus === opt.value ? opt.cls + " shadow-sm" : "border-border text-muted-foreground hover:border-primary/40"}`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {/* فلتر المستودع */}
+            {warehouses && warehouses.length > 1 && (
+              <div>
+                <p className="text-[10px] text-muted-foreground mb-1 font-semibold">🏭 المستودع</p>
+                <div className="flex gap-1.5 flex-wrap">
+                  <button
+                    onClick={() => setFilterWarehouse("all")}
+                    className={`h-7 px-2.5 text-[11px] font-bold rounded-md border transition-all ${filterWarehouse === "all" ? "border-primary text-primary bg-primary/10" : "border-border text-muted-foreground hover:border-primary/40"}`}
+                  >
+                    كل المستودعات
+                  </button>
+                  {warehouses.map(wh => (
+                    <button
+                      key={wh.id}
+                      onClick={() => setFilterWarehouse(String(wh.id))}
+                      className={`h-7 px-2.5 text-[11px] font-bold rounded-md border transition-all flex items-center gap-1 ${filterWarehouse === String(wh.id) ? "border-primary text-primary bg-primary/10" : "border-border text-muted-foreground hover:border-primary/40"}`}
+                    >
+                      <WarehouseIcon className="w-2.5 h-2.5" />{wh.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
           {activeFiltersCount > 0 && (
-            <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => { setFilterModel("all"); setFilterColor("all"); setFilterSize("all"); setSortBy("name"); }}>
+            <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => { setFilterModel("all"); setFilterColor("all"); setFilterSize("all"); setFilterStockStatus("all"); setFilterWarehouse("all"); setSortBy("name"); }}>
               <X className="w-3 h-3" />مسح الفلاتر ({activeFiltersCount})
             </Button>
           )}
