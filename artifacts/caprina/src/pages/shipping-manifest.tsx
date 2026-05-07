@@ -2475,6 +2475,27 @@ export default function ShippingManifestPage() {
     enabled: !isNaN(id),
   });
 
+  // ─── Search filter — must be before any early returns (hooks rules) ─────────
+  const filteredManifestOrders = useMemo(() => {
+    const orders = manifest?.orders ?? [];
+    const grouped = groupManifestOrders(orders);
+    if (!customerSearch.trim() && !productSearch.trim()) return grouped;
+    const cq = customerSearch.trim().toLowerCase();
+    const pq = productSearch.trim().toLowerCase();
+    return grouped.filter((group) => {
+      const rep = group[0];
+      const matchesCustomer = !cq || (
+        rep.customerName.toLowerCase().includes(cq) ||
+        ((rep as any).invoiceNumber ?? "").toLowerCase().includes(cq) ||
+        rep.id.toString().includes(cq)
+      );
+      const matchesProduct = !pq || group.some((o) =>
+        o.product.toLowerCase().includes(pq)
+      );
+      return matchesCustomer && matchesProduct;
+    });
+  }, [manifest?.orders, customerSearch, productSearch]);
+
   const refetch = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ["shipping-manifest", id] });
     queryClient.invalidateQueries({ queryKey: ["shipping-manifests"] });
@@ -2560,25 +2581,6 @@ export default function ShippingManifestPage() {
     (o) => o.deliveryStatus === "pending"
   ).length;
   const groupedManifestOrders = groupManifestOrders(manifest.orders);
-
-  // ─── Filtered groups based on customer/product search ──────────────────────
-  const filteredManifestOrders = useMemo(() => {
-    if (!customerSearch.trim() && !productSearch.trim()) return groupedManifestOrders;
-    const cq = customerSearch.trim().toLowerCase();
-    const pq = productSearch.trim().toLowerCase();
-    return groupedManifestOrders.filter((group) => {
-      const rep = group[0];
-      const matchesCustomer = !cq || (
-        rep.customerName.toLowerCase().includes(cq) ||
-        ((rep as any).invoiceNumber ?? "").toLowerCase().includes(cq) ||
-        rep.id.toString().includes(cq)
-      );
-      const matchesProduct = !pq || group.some((o) =>
-        o.product.toLowerCase().includes(pq)
-      );
-      return matchesCustomer && matchesProduct;
-    });
-  }, [groupedManifestOrders, customerSearch, productSearch]);
 
   const statusLabel = (st: DeliveryStatus) => {
     switch (st) {
