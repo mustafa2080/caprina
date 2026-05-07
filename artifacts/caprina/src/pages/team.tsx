@@ -4,6 +4,7 @@ import {
   Users, Plus, Edit2, Trash2, Target, FileText, ChevronRight, Check, X,
   TrendingUp, TrendingDown, Printer, Star, AlertCircle, Trophy, Briefcase,
   DollarSign, Calendar, BarChart2, Settings, ArrowLeft, Save, RefreshCw, UserPlus,
+  Clock, UserCheck, UserX, Gift, MinusCircle, CheckCircle2, XCircle, AlertTriangle,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-import { employeeApi, usersApi, type EmployeeProfile, type EmployeeKpi, type EmployeeReport, type AppUser, type DailyKpiEntry, type DailyLogDay, appSettingsApi } from "@/lib/api";
+import { employeeApi, usersApi, type EmployeeProfile, type EmployeeKpi, type EmployeeReport, type AppUser, type DailyKpiEntry, type DailyLogDay, appSettingsApi, attendanceApi, type AttendanceRecord, type AttendanceStatus, type PayrollAdjustment, type MonthlySalaryReport } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 
 const fmt = (n: number) =>
@@ -450,6 +451,321 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
 
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Attendance Tab ──────────────────────────────────────────────────────────
+const STATUS_CONFIG: Record<AttendanceStatus, { label: string; color: string; bg: string; icon: any; deductPct: number }> = {
+  present:  { label: "حاضر",       color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-900/20", icon: CheckCircle2,   deductPct: 0    },
+  late:     { label: "متأخر",      color: "text-amber-600",   bg: "bg-amber-50 dark:bg-amber-900/20",     icon: Clock,          deductPct: 0    },
+  half_day: { label: "نصف يوم",    color: "text-blue-600",    bg: "bg-blue-50 dark:bg-blue-900/20",       icon: AlertTriangle,  deductPct: 50   },
+  absent:   { label: "غائب",       color: "text-red-600",     bg: "bg-red-50 dark:bg-red-900/20",         icon: XCircle,        deductPct: 100  },
+  holiday:  { label: "إجازة",      color: "text-purple-600",  bg: "bg-purple-50 dark:bg-purple-900/20",   icon: Calendar,       deductPct: 0    },
+  excused:  { label: "إذن/مبرر",   color: "text-gray-500",    bg: "bg-gray-50 dark:bg-gray-900/20",       icon: AlertCircle,    deductPct: 0    },
+};
+
+function AttendanceTab({ profileId, monthlySalary, isAdmin }: {
+  profileId: number; monthlySalary: number; isAdmin: boolean;
+}) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const today = new Date().toISOString().slice(0, 10);
+  const [month, setMonth] = useState(() => today.slice(0, 7));
+  const [savingDay, setSavingDay] = useState<string | null>(null);
+  const [adjType, setAdjType] = useState<"bonus" | "deduction">("bonus");
+  const [adjAmount, setAdjAmount] = useState("");
+  const [adjReason, setAdjReason] = useState("");
+  const [savingAdj, setSavingAdj] = useState(false);
+  const [activeView, setActiveView] = useState<"calendar" | "salary">("calendar");
+
+  // جلب سجل الحضور
+  const { data: records = [], isLoading } = useQuery({
+    queryKey: ["attendance", profileId, month],
+    queryFn: () => attendanceApi.list(profileId, month),
+  });
+
+  // جلب الخصومات والبونص
+  const { data: adjustments = [] } = useQuery({
+    queryKey: ["attendance-adjustments", profileId, month],
+    queryFn: () => attendanceApi.listAdjustments(profileId, month),
+  });
+
+  // بناء خريطة التواريخ
+  const recMap = Object.fromEntries(records.map(r => [r.date, r]));
+
+  // حساب أيام الشهر
+  const [year, mon] = month.split("-").map(Number);
+  const daysInMonth = new Date(year, mon, 0).getDate();
+  const days = Array.from({ length: daysInMonth }, (_, i) => {
+    const d = String(i + 1).padStart(2, "0");
+    return `${month}-${d}`;
+  });
+
+  // إحصائيات الحضور
+  const stats = days.reduce((acc, date) => {
+    const rec = recMap[date];
+    if (!rec) return acc;
+    if (rec.status === "present") acc.present++;
+    else if (rec.status === "absent") acc.absent++;
+    else if (rec.status === "late") { acc.present++; acc.late++; }
+    else if (rec.status === "half_day") acc.halfDay++;
+    else if (rec.status === "holiday" || rec.status === "excused") acc.excused++;
+    acc.totalDeduction += rec.deduction;
+    return acc;
+  }, { present: 0, absent: 0, late: 0, halfDay: 0, excused: 0, totalDeduction: 0 });
+
+  const workedDays = stats.present + stats.halfDay * 0.5;
+  const bonusTotal = adjustments.filter(a => a.type === "bonus").reduce((s, a) => s + a.amount, 0);
+  const deductTotal = adjustments.filter(a => a.type === "deduction").reduce((s, a) => s + a.amount, 0);
+  const netSalary = monthlySalary - stats.totalDeduction + bonusTotal - deductTotal;
+
+  // تغيير حالة يوم
+  const handleDayStatus = async (date: string, status: AttendanceStatus) => {
+    setSavingDay(date);
+    const dailySalary = monthlySalary / daysInMonth;
+    const cfg = STATUS_CONFIG[status];
+    const deduction = (dailySalary * cfg.deductPct) / 100;
+    try {
+      await attendanceApi.save({ profileId, date, status, deduction });
+      qc.invalidateQueries({ queryKey: ["attendance", profileId, month] });
+      toast({ title: `تم تسجيل ${cfg.label} ليوم ${date}` });
+    } catch (e: any) {
+      toast({ title: "خطأ", description: e.message, variant: "destructive" });
+    } finally { setSavingDay(null); }
+  };
+
+  const handleAddAdjustment = async () => {
+    if (!adjAmount || !adjReason.trim()) {
+      toast({ title: "أدخل المبلغ والسبب", variant: "destructive" }); return;
+    }
+    setSavingAdj(true);
+    try {
+      await attendanceApi.addAdjustment({ profileId, month, type: adjType, amount: parseFloat(adjAmount), reason: adjReason });
+      qc.invalidateQueries({ queryKey: ["attendance-adjustments", profileId, month] });
+      setAdjAmount(""); setAdjReason("");
+      toast({ title: adjType === "bonus" ? "تم إضافة البونص ✅" : "تم إضافة الخصم ✅" });
+    } catch (e: any) {
+      toast({ title: "خطأ", description: e.message, variant: "destructive" });
+    } finally { setSavingAdj(false); }
+  };
+
+  const handleDeleteAdj = async (id: number) => {
+    try {
+      await attendanceApi.deleteAdjustment(id);
+      qc.invalidateQueries({ queryKey: ["attendance-adjustments", profileId, month] });
+      toast({ title: "تم الحذف" });
+    } catch (e: any) {
+      toast({ title: "خطأ", description: e.message, variant: "destructive" });
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Header: شهر + تبويب */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Calendar className="w-4 h-4 text-muted-foreground" />
+          <Input type="month" value={month} onChange={e => setMonth(e.target.value)} className="h-8 text-xs w-36" />
+        </div>
+        <div className="flex gap-1 mr-auto">
+          <Button size="sm" variant={activeView === "calendar" ? "default" : "outline"} className="h-7 text-xs" onClick={() => setActiveView("calendar")}>
+            <Calendar className="w-3 h-3 ml-1" />الحضور
+          </Button>
+          <Button size="sm" variant={activeView === "salary" ? "default" : "outline"} className="h-7 text-xs" onClick={() => setActiveView("salary")}>
+            <DollarSign className="w-3 h-3 ml-1" />المرتب
+          </Button>
+        </div>
+      </div>
+
+      {/* بطاقات الإحصائيات */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {[
+          { label: "أيام الحضور",   val: stats.present,  icon: UserCheck,    color: "text-emerald-600" },
+          { label: "أيام الغياب",   val: stats.absent,   icon: UserX,        color: "text-red-600"     },
+          { label: "أيام التأخير",  val: stats.late,     icon: Clock,        color: "text-amber-600"   },
+          { label: "إجمالي العمل",  val: `${workedDays} يوم`, icon: BarChart2, color: "text-blue-600" },
+        ].map(({ label, val, icon: Icon, color }) => (
+          <Card key={label} className="border-border">
+            <CardContent className="p-3 flex items-center gap-2">
+              <Icon className={`w-5 h-5 ${color} shrink-0`} />
+              <div>
+                <p className="text-[10px] text-muted-foreground">{label}</p>
+                <p className={`text-sm font-bold ${color}`}>{val}</p>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* ─── عرض التقويم ─── */}
+      {activeView === "calendar" && (
+        <div className="space-y-3">
+          {isLoading && <p className="text-center text-xs text-muted-foreground py-6">جاري التحميل...</p>}
+          {!isLoading && (
+            <div className="grid grid-cols-7 gap-1">
+              {["أحد","إثن","ثلا","أرب","خمس","جمع","سبت"].map(d => (
+                <div key={d} className="text-center text-[9px] font-bold text-muted-foreground py-1">{d}</div>
+              ))}
+              {/* padding للبداية */}
+              {Array.from({ length: new Date(`${month}-01`).getDay() }).map((_, i) => (
+                <div key={`pad-${i}`} />
+              ))}
+              {days.map(date => {
+                const rec = recMap[date];
+                const d = parseInt(date.split("-")[2]);
+                const isToday = date === today;
+                const isFuture = date > today;
+                const cfg = rec ? STATUS_CONFIG[rec.status] : null;
+                const Icon = cfg?.icon;
+                return (
+                  <div key={date} className={`relative rounded-lg border text-center p-1 transition-all ${isToday ? "ring-2 ring-primary" : ""} ${cfg ? cfg.bg : "bg-card"} ${isFuture ? "opacity-40" : ""}`}>
+                    <div className={`text-[10px] font-bold mb-0.5 ${cfg ? cfg.color : "text-foreground"}`}>{d}</div>
+                    {Icon && <Icon className={`w-3 h-3 mx-auto ${cfg.color}`} />}
+                    {!isFuture && isAdmin && (
+                      <Select
+                        value={rec?.status ?? ""}
+                        onValueChange={val => handleDayStatus(date, val as AttendanceStatus)}
+                        disabled={savingDay === date}
+                      >
+                        <SelectTrigger className="h-4 text-[8px] mt-0.5 px-0.5 border-0 bg-transparent p-0 shadow-none focus:ring-0">
+                          <SelectValue placeholder="—" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(STATUS_CONFIG).map(([val, s]) => (
+                            <SelectItem key={val} value={val} className="text-xs">{s.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    {!isAdmin && cfg && (
+                      <p className={`text-[8px] font-bold mt-0.5 ${cfg.color}`}>{cfg.label}</p>
+                    )}
+                    {rec?.deduction ? (
+                      <p className="text-[8px] text-red-500 font-bold">-{rec.deduction.toFixed(0)}</p>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Legend */}
+          <div className="flex flex-wrap gap-2 pt-1">
+            {Object.entries(STATUS_CONFIG).map(([k, s]) => (
+              <div key={k} className="flex items-center gap-1">
+                <div className={`w-2 h-2 rounded-full ${s.bg.split(" ")[0].replace("bg-","bg-")} ${s.color}`} style={{background:"currentColor"}} />
+                <span className="text-[9px] text-muted-foreground">{s.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ─── عرض المرتب ─── */}
+      {activeView === "salary" && (
+        <div className="space-y-4">
+          {/* ملخص المرتب */}
+          <Card className="border-border">
+            <CardHeader className="pb-2 pt-3 px-4">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <DollarSign className="w-4 h-4 text-primary" />
+                ملخص المرتب — {month}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4 space-y-2">
+              {[
+                { label: "الراتب الأساسي",      val: monthlySalary,          color: "text-foreground",    sign: ""  },
+                { label: "خصم الغياب/النصف",     val: -stats.totalDeduction,  color: "text-red-600",       sign: "-" },
+                { label: "بونص إضافي",           val: bonusTotal,             color: "text-emerald-600",   sign: "+" },
+                { label: "خصومات إضافية",        val: -deductTotal,           color: "text-red-600",       sign: "-" },
+              ].map(({ label, val, color, sign }) => (
+                <div key={label} className="flex justify-between items-center text-xs border-b border-border pb-1">
+                  <span className="text-muted-foreground">{label}</span>
+                  <span className={`font-bold ${color}`}>{sign}{fmt(Math.abs(val))}</span>
+                </div>
+              ))}
+              <div className="flex justify-between items-center pt-1">
+                <span className="font-bold text-sm">صافي المرتب</span>
+                <span className={`text-lg font-black ${netSalary >= monthlySalary ? "text-emerald-600" : "text-amber-600"}`}>
+                  {fmt(netSalary)}
+                </span>
+              </div>
+              <div className="text-[10px] text-muted-foreground pt-1">
+                أيام العمل الفعلية: <strong>{workedDays}</strong> من <strong>{daysInMonth}</strong> يوم
+                {stats.late > 0 && <span> · تأخير: <strong className="text-amber-600">{stats.late} مرة</strong></span>}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* إضافة بونص أو خصم */}
+          {isAdmin && (
+            <Card className="border-border">
+              <CardHeader className="pb-2 pt-3 px-4">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Gift className="w-4 h-4 text-primary" />
+                  إضافة بونص / خصم
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 space-y-2">
+                <div className="flex gap-2">
+                  <Button size="sm" variant={adjType === "bonus" ? "default" : "outline"}
+                    className="h-7 text-xs flex-1 gap-1" onClick={() => setAdjType("bonus")}>
+                    <Gift className="w-3 h-3" />بونص
+                  </Button>
+                  <Button size="sm" variant={adjType === "deduction" ? "destructive" : "outline"}
+                    className="h-7 text-xs flex-1 gap-1" onClick={() => setAdjType("deduction")}>
+                    <MinusCircle className="w-3 h-3" />خصم
+                  </Button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-[10px]">المبلغ (ج.م)</Label>
+                    <Input type="number" min="0" placeholder="500" value={adjAmount}
+                      onChange={e => setAdjAmount(e.target.value)} className="h-8 text-xs mt-1" />
+                  </div>
+                  <div>
+                    <Label className="text-[10px]">السبب</Label>
+                    <Input placeholder="مكافأة أداء..." value={adjReason}
+                      onChange={e => setAdjReason(e.target.value)} className="h-8 text-xs mt-1" />
+                  </div>
+                </div>
+                <Button size="sm" className="h-7 text-xs w-full gap-1" onClick={handleAddAdjustment} disabled={savingAdj}>
+                  <Plus className="w-3 h-3" />{savingAdj ? "جاري الحفظ..." : "إضافة"}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* قائمة البونص والخصومات */}
+          {adjustments.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-xs font-bold text-muted-foreground">البونص والخصومات</p>
+              {adjustments.map(adj => (
+                <div key={adj.id} className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs border ${adj.type === "bonus" ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800" : "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"}`}>
+                  <div className="flex items-center gap-2">
+                    {adj.type === "bonus"
+                      ? <Gift className="w-3.5 h-3.5 text-emerald-600" />
+                      : <MinusCircle className="w-3.5 h-3.5 text-red-600" />}
+                    <span className="font-medium">{adj.reason}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`font-bold ${adj.type === "bonus" ? "text-emerald-600" : "text-red-600"}`}>
+                      {adj.type === "bonus" ? "+" : "-"}{fmt(adj.amount)}
+                    </span>
+                    {isAdmin && (
+                      <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:text-destructive"
+                        onClick={() => handleDeleteAdj(adj.id)}>
+                        <X className="w-3 h-3" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -956,13 +1272,23 @@ function EmployeeDetail({
         </div>
       </div>
 
-      <Tabs defaultValue="daily">
+      <Tabs defaultValue="attendance">
         <TabsList className="h-8 text-xs">
+          <TabsTrigger value="attendance" className="text-xs">الحضور والمرتب</TabsTrigger>
           <TabsTrigger value="daily" className="text-xs">متابعة يومية</TabsTrigger>
           <TabsTrigger value="kpis" className="text-xs">مؤشرات الأداء</TabsTrigger>
           <TabsTrigger value="report" className="text-xs">التقرير الشهري</TabsTrigger>
           <TabsTrigger value="profile" className="text-xs">الملف الشخصي</TabsTrigger>
         </TabsList>
+
+        {/* ─── Attendance Tab ─── */}
+        <TabsContent value="attendance" className="space-y-3 mt-3">
+          <AttendanceTab
+            profileId={profileId}
+            monthlySalary={fullProfile?.monthlySalary ?? 0}
+            isAdmin={isAdmin}
+          />
+        </TabsContent>
 
         {/* ─── Daily Tracker Tab ─── */}
         <TabsContent value="daily" className="space-y-3 mt-3">

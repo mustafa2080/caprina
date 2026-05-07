@@ -1083,3 +1083,88 @@ export const appSettingsApi = {
   update: (data: Partial<AppSettings>) =>
     apiFetch<AppSettings>("/settings", { method: "PATCH", body: JSON.stringify(data) }),
 };
+
+// ─── Attendance & Payroll API ────────────────────────────────────────────────
+
+export type AttendanceStatus = "present" | "absent" | "late" | "half_day" | "holiday" | "excused";
+
+export interface AttendanceRecord {
+  id: number;
+  profileId: number;
+  date: string;
+  status: AttendanceStatus;
+  checkIn: string | null;
+  checkOut: string | null;
+  lateMinutes: number;
+  deduction: number;
+  notes: string | null;
+  createdAt: string;
+}
+
+export interface PayrollAdjustment {
+  id: number;
+  profileId: number;
+  month: string;
+  type: "bonus" | "deduction";
+  amount: number;
+  reason: string;
+  createdAt: string;
+}
+
+export interface MonthlySalaryReport {
+  profileId: number;
+  displayName: string;
+  month: string;
+  baseSalary: number;
+  workedDays: number;
+  absentDays: number;
+  lateDays: number;
+  halfDays: number;
+  totalWorkingDays: number;
+  attendanceDeduction: number;
+  bonuses: number;
+  extraDeductions: number;
+  netSalary: number;
+  attendance: AttendanceRecord[];
+  adjustments: PayrollAdjustment[];
+}
+
+export const attendanceApi = {
+  // جلب سجل الحضور لموظف في شهر معين
+  list: (profileId: number, month: string) =>
+    apiFetch<AttendanceRecord[]>(`/attendance/${profileId}?month=${month}`),
+
+  // تسجيل أو تعديل يوم حضور
+  save: (data: {
+    profileId: number;
+    date: string;
+    status: AttendanceStatus;
+    checkIn?: string | null;
+    checkOut?: string | null;
+    lateMinutes?: number;
+    notes?: string | null;
+  }) => apiFetch<AttendanceRecord>("/attendance", { method: "POST", body: JSON.stringify(data) }),
+
+  // حذف سجل يوم
+  delete: (id: number) => apiFetch<void>(`/attendance/${id}`, { method: "DELETE" }),
+
+  // تقرير المرتب الشهري كامل
+  salaryReport: (profileId: number, month: string) =>
+    apiFetch<MonthlySalaryReport>(`/attendance/${profileId}/salary-report?month=${month}`),
+
+  // إضافة خصم أو بونص
+  addAdjustment: (data: {
+    profileId: number;
+    month: string;
+    type: "bonus" | "deduction";
+    amount: number;
+    reason: string;
+  }) => apiFetch<PayrollAdjustment>("/attendance/adjustments", { method: "POST", body: JSON.stringify(data) }),
+
+  // جلب الخصومات والبونص لشهر
+  listAdjustments: (profileId: number, month: string) =>
+    apiFetch<PayrollAdjustment[]>(`/attendance/adjustments/${profileId}?month=${month}`),
+
+  // حذف خصم أو بونص
+  deleteAdjustment: (id: number) => apiFetch<void>(`/attendance/adjustments/${id}`, { method: "DELETE" }),
+};
