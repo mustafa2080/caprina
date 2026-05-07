@@ -60,9 +60,9 @@ export default function Login() {
         .hc {
           max-width:500px;width:100%;
           display:flex;flex-direction:column;align-items:flex-start;
-          background:linear-gradient(145deg,rgba(9,8,7,0.88) 0%,rgba(18,14,5,0.84) 100%);
-          backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
-          border:1px solid rgba(201,168,76,0.22);
+          background:linear-gradient(145deg,rgba(9,8,7,0.45) 0%,rgba(18,14,5,0.4) 100%);
+          backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+          border:1px solid rgba(201,168,76,0.18);
           border-radius:1.4rem;
           padding:2.5rem 2.8rem;
           box-shadow:0 24px 80px rgba(0,0,0,0.75),0 0 0 1px rgba(201,168,76,0.06),inset 0 1px 0 rgba(201,168,76,0.1);
