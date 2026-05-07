@@ -90,7 +90,7 @@ router.post("/orders/import/parse", upload.single("file"), async (req, res): Pro
 
 // ─── Step 2: Execute with mapping ─────────────────────────────────────────────
 router.post("/orders/import/execute", async (req, res): Promise<void> => {
-  const { headers, rows, mapping } = req.body as {
+  const { headers, rows, mapping, duplicateAction } = req.body as {
     headers: string[];
     rows: any[][];
     mapping: {
@@ -109,6 +109,7 @@ router.post("/orders/import/execute", async (req, res): Promise<void> => {
       assignedUserId: string;
       shippingCost: string;
     };
+    duplicateAction?: "separate" | "merge";
   };
 
   if (!headers?.length || !rows?.length || !mapping) {
@@ -219,14 +220,41 @@ router.post("/orders/import/execute", async (req, res): Promise<void> => {
     });
   }
 
+  // ── Merge duplicate customers if requested ──────────────────────────────
+  let finalOrders = validOrders;
+  if (duplicateAction === "merge") {
+    const mergeMap = new Map<string, any>();
+    for (const order of validOrders) {
+      const key = `${order.customerName.trim().toLowerCase()}|${(order.phone ?? "").trim()}`;
+      if (mergeMap.has(key)) {
+        const existing = mergeMap.get(key)!;
+        // دمج الكميات والأسعار
+        existing.quantity += order.quantity;
+        existing.totalPrice += order.totalPrice;
+        existing.shippingCost = Math.max(existing.shippingCost, order.shippingCost);
+        // دمج اسم المنتج
+        if (order.product && !existing.product.includes(order.product)) {
+          existing.product = `${existing.product} + ${order.product}`;
+        }
+        // دمج الملاحظات
+        if (order.notes) {
+          existing.notes = existing.notes ? `${existing.notes} | ${order.notes}` : order.notes;
+        }
+      } else {
+        mergeMap.set(key, { ...order });
+      }
+    }
+    finalOrders = Array.from(mergeMap.values());
+  }
+
   // ── Insert in batches of 100 to avoid huge payloads ─────────────────────
   const BATCH_SIZE = 100;
   let insertedCount = 0;
 
-  if (validOrders.length > 0) {
+  if (finalOrders.length > 0) {
     try {
-      for (let i = 0; i < validOrders.length; i += BATCH_SIZE) {
-        const batch = validOrders.slice(i, i + BATCH_SIZE);
+      for (let i = 0; i < finalOrders.length; i += BATCH_SIZE) {
+        const batch = finalOrders.slice(i, i + BATCH_SIZE);
         await db.insert(ordersTable).values(batch);
         insertedCount += batch.length;
       }
