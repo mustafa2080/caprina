@@ -348,9 +348,11 @@ export default function OrderDetail() {
               >
                 {isOrderLocked ? <Lock className="w-3 h-3" /> : <Pencil className="w-3 h-3" />}تعديل
               </Button>
-              <Button variant="outline" size="sm" onClick={handlePrint} className="h-8 text-xs gap-1 border-border">
-                <Printer className="w-3 h-3" />فاتورة
-              </Button>
+              {order.status === "in_shipping" && (
+                <Button variant="outline" size="sm" onClick={handlePrint} className="h-8 text-xs gap-1 border-border">
+                  <Printer className="w-3 h-3" />فاتورة
+                </Button>
+              )}
               {(order.status === "pending" || order.status === "warehouse_ready") && (
                 <Button
                   variant="outline" size="sm"
