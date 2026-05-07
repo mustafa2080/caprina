@@ -3041,7 +3041,7 @@ export default function ShippingManifestPage() {
       {canViewFinancials && <SettlementCard manifest={manifest} onSaved={refetch} />}
 
       {/* ─── Orders Table ─── */}
-      <Card className="border-border bg-card overflow-hidden print:break-inside-avoid">
+      <Card className="border-border bg-card overflow-visible print:break-inside-avoid">
         <div
           className="flex items-center justify-between px-4 py-3 border-b border-border cursor-pointer hover:bg-muted/10 transition-colors"
           onClick={() => setShowOrders(!showOrders)}
@@ -3075,10 +3075,8 @@ export default function ShippingManifestPage() {
                   لا توجد طلبيات
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                {/* Table header with inline search popovers */}
+                <>
                 <div className="grid grid-cols-[1fr_1fr_60px_80px_120px_80px] gap-0 border-b border-border bg-muted/20 px-3 py-2 text-[10px] font-semibold text-muted-foreground">
-                  {/* Customer header with search popover */}
                   <div className="relative" ref={customerSearchRef}>
                     <button
                       type="button"
@@ -3094,8 +3092,7 @@ export default function ShippingManifestPage() {
                       {customerSearch && <span className="text-[9px] bg-primary/20 text-primary rounded px-1">•</span>}
                     </button>
                     {showCustomerSearch && (
-                      <div className="fixed z-[9999] mt-1 w-64 rounded-lg border border-border bg-card shadow-xl p-2 flex flex-col gap-1.5"
-                        style={{ top: customerSearchRef.current ? customerSearchRef.current.getBoundingClientRect().bottom + 4 : 0, right: customerSearchRef.current ? window.innerWidth - customerSearchRef.current.getBoundingClientRect().right : 0 }}
+                      <div className="absolute z-[9999] top-full mt-1 right-0 w-64 rounded-lg border border-border bg-card shadow-xl p-2 flex flex-col gap-1.5"
                       >
                         <p className="text-[10px] text-muted-foreground font-normal px-0.5">بحث بالاسم / رقم الفاتورة / رقم الهاتف</p>
                         <div className="relative">
@@ -3150,8 +3147,7 @@ export default function ShippingManifestPage() {
                       {productSearch && <span className="text-[9px] bg-primary/20 text-primary rounded px-1">•</span>}
                     </button>
                     {showProductSearch && (
-                      <div className="fixed z-[9999] mt-1 w-56 rounded-lg border border-border bg-card shadow-xl p-2 flex flex-col gap-1.5"
-                        style={{ top: productSearchRef.current ? productSearchRef.current.getBoundingClientRect().bottom + 4 : 0, right: productSearchRef.current ? window.innerWidth - productSearchRef.current.getBoundingClientRect().right : 0 }}
+                      <div className="absolute z-[9999] top-full mt-1 right-0 w-56 rounded-lg border border-border bg-card shadow-xl p-2 flex flex-col gap-1.5"
                       >
                         <p className="text-[10px] text-muted-foreground font-normal px-0.5">بحث باسم المنتج</p>
                         <div className="relative">
@@ -3217,7 +3213,7 @@ export default function ShippingManifestPage() {
                   />
                   ))
                 )}
-              </div>
+              </>
             )}
           </>
         )}
