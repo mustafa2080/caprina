@@ -253,6 +253,18 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
   const printRef = useRef<HTMLDivElement>(null);
   const ratingCfg = RATING_CONFIG[report.rating] ?? RATING_CONFIG["غير محدد"];
 
+  // جلب تقرير المرتب التفصيلي (الحضور + الخصومات + البونص)
+  const { data: salaryReport } = useQuery({
+    queryKey: ["salary-report", report.userId, report.period.month],
+    queryFn: () => {
+      // نحوّل userId إلى profileId من الـ report.profile
+      const profileId = report.profile?.id;
+      if (!profileId) return null;
+      return attendanceApi.salaryReport(profileId, report.period.month);
+    },
+    enabled: !!report.profile?.id,
+  });
+
   const handlePrint = () => {
     const content = printRef.current;
     if (!content) return;
@@ -295,6 +307,14 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
           .score-big { font-size: 36px; font-weight: 900; color: #c9a227; }
           .rating-badge { font-size: 18px; font-weight: 800; }
           .salary-section { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px; }
+          .attendance-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-bottom: 12px; }
+          .att-box { background: #f8f8f8; border-radius: 6px; padding: 8px 6px; text-align: center; }
+          .att-val { font-size: 18px; font-weight: 800; }
+          .att-label { font-size: 9px; color: #888; margin-top: 2px; }
+          .salary-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+          .salary-table th { background: #c9a227; color: white; padding: 6px 10px; text-align: right; font-size: 11px; }
+          .salary-table td { padding: 6px 10px; border-bottom: 1px solid #eee; font-size: 12px; }
+          .adj-row { display: flex; justify-content: space-between; font-size: 11px; padding: 4px 8px; border-radius: 4px; margin-bottom: 3px; }
           .footer { text-align: center; font-size: 10px; color: #aaa; margin-top: 24px; border-top: 1px solid #eee; padding-top: 12px; }
           @media print { @page { size: A4; margin: 15mm; } .report { margin: 0; padding: 0; max-width: 100%; } }
         </style>
@@ -435,14 +455,81 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
             </div>
           </div>
 
-          {/* Salary */}
-          <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: 12, marginBottom: 20 }}>
-            <h3 style={{ fontSize: 11, color: "#888", marginBottom: 8 }}>الراتب الشهري</h3>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ fontSize: 12 }}>الراتب المستحق عن شهر {periodLabel}</span>
-              <span style={{ fontSize: 20, fontWeight: 900, color: "#16a34a" }}>{fmt(report.salary)}</span>
+          {/* Attendance & Salary Section */}
+          {salaryReport && (
+            <div style={{ marginBottom: 20 }}>
+              <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 8, borderRight: "3px solid #c9a227", paddingRight: 8 }}>الحضور والمرتب التفصيلي</h3>
+
+              {/* Attendance stats grid */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 6, marginBottom: 12 }}>
+                {[
+                  { label: "أيام الحضور",  val: salaryReport.workedDays,        color: "#16a34a" },
+                  { label: "أيام الغياب",  val: salaryReport.absentDays,        color: "#dc2626" },
+                  { label: "أيام التأخير", val: salaryReport.lateDays,          color: "#d97706" },
+                  { label: "نصف يوم",      val: salaryReport.halfDays,          color: "#2563eb" },
+                  { label: "إجمالي أيام",  val: salaryReport.totalWorkingDays,  color: "#555"    },
+                ].map(s => (
+                  <div key={s.label} style={{ background: "#f8f8f8", borderRadius: 6, padding: "8px 6px", textAlign: "center" }}>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: s.color }}>{s.val}</div>
+                    <div style={{ fontSize: 9, color: "#888", marginTop: 2 }}>{s.label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Salary breakdown table */}
+              <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 8 }}>
+                <thead>
+                  <tr>
+                    <th style={{ background: "#c9a227", color: "white", padding: "6px 10px", textAlign: "right", fontSize: 11 }}>البند</th>
+                    <th style={{ background: "#c9a227", color: "white", padding: "6px 10px", textAlign: "left", fontSize: 11 }}>المبلغ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    { label: "الراتب الأساسي", val: salaryReport.baseSalary, color: "#1a1a1a", sign: "" },
+                    { label: "خصم الغياب / نصف اليوم", val: -salaryReport.attendanceDeduction, color: salaryReport.attendanceDeduction > 0 ? "#dc2626" : "#888", sign: salaryReport.attendanceDeduction > 0 ? "−" : "" },
+                    { label: "بونص إضافي", val: salaryReport.bonuses, color: salaryReport.bonuses > 0 ? "#16a34a" : "#888", sign: salaryReport.bonuses > 0 ? "+" : "" },
+                    { label: "خصومات إضافية", val: -salaryReport.extraDeductions, color: salaryReport.extraDeductions > 0 ? "#dc2626" : "#888", sign: salaryReport.extraDeductions > 0 ? "−" : "" },
+                  ].map(({ label, val, color, sign }) => (
+                    <tr key={label}>
+                      <td style={{ padding: "6px 10px", borderBottom: "1px solid #eee", fontSize: 12 }}>{label}</td>
+                      <td style={{ padding: "6px 10px", borderBottom: "1px solid #eee", fontSize: 12, textAlign: "left", fontWeight: 600, color }}>{sign}{fmt(Math.abs(val))}</td>
+                    </tr>
+                  ))}
+                  <tr>
+                    <td style={{ padding: "8px 10px", fontSize: 13, fontWeight: 800 }}>صافي المرتب</td>
+                    <td style={{ padding: "8px 10px", fontSize: 18, fontWeight: 900, textAlign: "left", color: salaryReport.netSalary >= salaryReport.baseSalary ? "#16a34a" : "#d97706" }}>{fmt(salaryReport.netSalary)}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              {/* Adjustments list */}
+              {salaryReport.adjustments.length > 0 && (
+                <div style={{ marginTop: 8 }}>
+                  <p style={{ fontSize: 11, color: "#888", marginBottom: 6 }}>تفاصيل البونص والخصومات:</p>
+                  {salaryReport.adjustments.map(adj => (
+                    <div key={adj.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, padding: "4px 8px", background: adj.type === "bonus" ? "#f0fdf4" : "#fef2f2", borderRadius: 4, marginBottom: 3 }}>
+                      <span style={{ color: "#555" }}>{adj.reason}</span>
+                      <span style={{ fontWeight: 700, color: adj.type === "bonus" ? "#16a34a" : "#dc2626" }}>
+                        {adj.type === "bonus" ? "+" : "−"}{fmt(adj.amount)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          </div>
+          )}
+
+          {/* Salary fallback (if no salaryReport) */}
+          {!salaryReport && (
+            <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: 12, marginBottom: 20 }}>
+              <h3 style={{ fontSize: 11, color: "#888", marginBottom: 8 }}>الراتب الشهري</h3>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 12 }}>الراتب المستحق عن شهر {periodLabel}</span>
+                <span style={{ fontSize: 20, fontWeight: 900, color: "#16a34a" }}>{fmt(report.salary)}</span>
+              </div>
+            </div>
+          )}
 
           {/* Footer */}
           <div style={{ textAlign: "center", fontSize: 10, color: "#aaa", marginTop: 24, borderTop: "1px solid #eee", paddingTop: 12 }}>
