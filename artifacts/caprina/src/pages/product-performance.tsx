@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, RefreshCw, BarChart3, AlertTriangle, Target } from "lucide-react";
+import { TrendingUp, TrendingDown, RefreshCw, BarChart3, AlertTriangle, Target, Search, X, SlidersHorizontal, ChevronDown, ChevronUp } from "lucide-react";
 import { analyticsApi, type ProductPerformance } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { Input } from "@/components/ui/input";
+import { useDebounce } from "@/hooks/use-debounce";
 
 const fc = (n: number) =>
   new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(n);
@@ -87,6 +89,15 @@ export default function ProductPerformancePage() {
   const [, navigate] = useLocation();
   const [sort, setSort] = useState<SortMode>("profit");
 
+  // ── فلاتر البحث ──────────────────────────────────────────────────────────
+  const [search, setSearch]                   = useState("");
+  const [showAdvanced, setShowAdvanced]       = useState(false);
+  const [filterStatus, setFilterStatus]       = useState<"all" | "profit" | "loss" | "high_return">("all");
+  const [filterMarginMin, setFilterMarginMin] = useState("");
+  const [filterMarginMax, setFilterMarginMax] = useState("");
+  const [filterRevenueMin, setFilterRevenueMin] = useState("");
+  const debouncedSearch = useDebounce(search, 250);
+
   if (!can("view_product_performance")) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground">
@@ -122,6 +133,29 @@ export default function ProductPerformancePage() {
   const list = sort === "profit" ? data.byProfit : sort === "loss" ? data.byLoss : data.byReturns;
   const maxProfit = Math.max(...data.byProfit.map(p => p.netProfit), 1);
   const maxLoss = Math.max(...(data.byLoss.map(p => Math.abs(p.netProfit))), 1);
+
+  // ── تطبيق الفلاتر ────────────────────────────────────────────────────────
+  const applyFilters = (arr: ProductPerformance[]) => arr.filter(p => {
+    if (debouncedSearch && !p.name.toLowerCase().includes(debouncedSearch.toLowerCase())) return false;
+    if (filterStatus === "profit"      && p.netProfit <= 0) return false;
+    if (filterStatus === "loss"        && p.netProfit >= 0) return false;
+    if (filterStatus === "high_return" && p.returnRate < 30) return false;
+    if (filterMarginMin && p.margin < parseFloat(filterMarginMin)) return false;
+    if (filterMarginMax && p.margin > parseFloat(filterMarginMax)) return false;
+    if (filterRevenueMin && p.totalRevenue < parseFloat(filterRevenueMin)) return false;
+    return true;
+  });
+
+  const filteredList     = applyFilters(list);
+  const filteredProducts = applyFilters(data.products);
+
+  const hasFilter    = search || filterStatus !== "all" || filterMarginMin || filterMarginMax || filterRevenueMin;
+  const advancedCount = [filterStatus !== "all", filterMarginMin, filterMarginMax, filterRevenueMin].filter(Boolean).length;
+
+  const clearFilters = () => {
+    setSearch(""); setFilterStatus("all");
+    setFilterMarginMin(""); setFilterMarginMax(""); setFilterRevenueMin("");
+  };
 
   return (
     <div className="space-y-6">
@@ -167,6 +201,104 @@ export default function ProductPerformancePage() {
         </Card>
       </div>
 
+      {/* ── شريط البحث والفلاتر ── */}
+      <div className="rounded-lg border border-border bg-muted/5 p-3 space-y-2">
+        {/* صف البحث */}
+        <div className="flex gap-2 flex-col sm:flex-row">
+          <div className="relative flex-1">
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+            <Input
+              placeholder="ابحث باسم المنتج..."
+              className="pr-9 h-9 text-sm bg-card"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+            {search && (
+              <button onClick={() => setSearch("")} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+          <button
+            onClick={() => setShowAdvanced(v => !v)}
+            className={`flex items-center gap-1.5 px-3 h-9 rounded-md border text-xs font-bold transition-colors shrink-0 ${
+              showAdvanced
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-card text-muted-foreground border-border hover:border-primary/40"
+            }`}
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            فلتر متقدم
+            {advancedCount > 0 && (
+              <span className={`rounded-full w-4 h-4 text-[9px] font-black flex items-center justify-center ${showAdvanced ? "bg-primary-foreground text-primary" : "bg-primary text-primary-foreground"}`}>
+                {advancedCount}
+              </span>
+            )}
+            {showAdvanced ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+          </button>
+          {hasFilter && (
+            <button onClick={clearFilters} className="flex items-center gap-1 px-2 h-9 text-xs text-muted-foreground hover:text-foreground shrink-0">
+              <X className="w-3 h-3" />مسح
+            </button>
+          )}
+        </div>
+
+        {/* فلاتر متقدمة */}
+        {showAdvanced && (
+          <div className="pt-2 border-t border-border grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* حالة المنتج */}
+            <div>
+              <p className="text-[10px] text-muted-foreground mb-1.5 font-semibold">📊 حالة المنتج</p>
+              <div className="flex gap-1 flex-wrap">
+                {(["all", "profit", "loss", "high_return"] as const).map(s => (
+                  <button
+                    key={s}
+                    onClick={() => setFilterStatus(s)}
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold border transition-colors ${
+                      filterStatus === s
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-card text-muted-foreground border-border hover:border-primary/40"
+                    }`}
+                  >
+                    {s === "all" ? "الكل" : s === "profit" ? "✅ رابح" : s === "loss" ? "❌ خاسر" : "⚠️ مرتجعات عالية"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* نطاق الهامش */}
+            <div>
+              <p className="text-[10px] text-muted-foreground mb-1.5 font-semibold">💹 نطاق الهامش %</p>
+              <div className="flex items-center gap-2">
+                <Input type="number" placeholder="من" className="h-7 text-xs bg-background w-20" value={filterMarginMin} onChange={e => setFilterMarginMin(e.target.value)} />
+                <span className="text-xs text-muted-foreground">—</span>
+                <Input type="number" placeholder="إلى" className="h-7 text-xs bg-background w-20" value={filterMarginMax} onChange={e => setFilterMarginMax(e.target.value)} />
+              </div>
+            </div>
+
+            {/* حد أدنى للإيرادات */}
+            <div>
+              <p className="text-[10px] text-muted-foreground mb-1.5 font-semibold">💰 حد أدنى للإيرادات (ج.م)</p>
+              <Input type="number" placeholder="مثلاً: 5000" className="h-7 text-xs bg-background w-36" value={filterRevenueMin} onChange={e => setFilterRevenueMin(e.target.value)} />
+            </div>
+          </div>
+        )}
+
+        {/* إحصاء */}
+        <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1">
+          <span>
+            {hasFilter
+              ? `${filteredProducts.length} من ${data.products.length} منتج`
+              : `${data.products.length} منتج`}
+          </span>
+          {filteredProducts.length > 0 && (
+            <span className="text-primary font-bold">
+              إجمالي الإيرادات: {fc(filteredProducts.reduce((s, p) => s + p.totalRevenue, 0))}
+            </span>
+          )}
+        </div>
+      </div>
+
       {/* Sort tabs + table */}
       <Card className="border-border bg-card">
         <CardHeader className="pb-3 border-b border-border">
@@ -193,13 +325,13 @@ export default function ProductPerformancePage() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          {list.length === 0 ? (
+          {filteredList.length === 0 ? (
             <div className="py-12 text-center text-muted-foreground text-sm">
-              {sort === "loss" ? "لا توجد منتجات خاسرة" : sort === "returns" ? "لا توجد مرتجعات" : "لا توجد بيانات"}
+              {hasFilter ? "لا توجد نتائج — جرّب تغيير الفلاتر" : sort === "loss" ? "لا توجد منتجات خاسرة" : sort === "returns" ? "لا توجد مرتجعات" : "لا توجد بيانات"}
             </div>
           ) : (
             <div className="px-4">
-              {list.map(p => (
+              {filteredList.map(p => (
                 <ProductRow
                   key={p.name}
                   p={p}
@@ -237,7 +369,7 @@ export default function ProductPerformancePage() {
               </tr>
             </thead>
             <tbody>
-              {data.products.map(p => {
+              {filteredProducts.map(p => {
                 const isLosing = p.netProfit < 0;
                 return (
                   <tr key={p.name} className="border-b border-border/50 hover:bg-muted/10 transition-colors">
