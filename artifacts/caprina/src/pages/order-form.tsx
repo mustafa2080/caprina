@@ -149,23 +149,47 @@ function ProductItem({
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const productId   = watch(`items.${index}.productId`);
-  const color       = watch(`items.${index}.color`);
-  const variantId   = watch(`items.${index}.variantId`);
   const qty         = watch(`items.${index}.quantity`) || 0;
   const price       = watch(`items.${index}.unitPrice`) || 0;
   const cost        = watch(`items.${index}.costPrice`) || 0;
   const productName = watch(`items.${index}.product`) || `منتج ${index + 1}`;
 
   const productVariants = allVariants.filter((v: any) => v.productId === Number(productId));
-  const availableColors = [...new Set(productVariants.map((v: any) => v.color))];
-  const availableSizes  = productVariants.filter((v: any) => v.color === color).map((v: any) => v.size);
-  const selectedVariant = allVariants.find((v: any) => v.id === Number(variantId));
-  const availableQty    = selectedVariant ? selectedVariant.totalQuantity : null;
+  const availableColors = [...new Set(productVariants.map((v: any) => v.color))] as string[];
   const selectedProduct = products.find((p: any) => p.id === Number(productId));
+
+  // variant rows local state: [{color, size, quantity}]
+  const [variantRows, setVariantRows] = useState<{color: string; size: string; quantity: number}[]>([
+    { color: "", size: "", quantity: 1 }
+  ]);
 
   const revenue   = qty * price;
   const costTotal = qty * cost;
   const profit    = revenue - costTotal;
+
+  // sync first variant row into form fields + update total quantity
+  useEffect(() => {
+    const filled = variantRows.filter(r => r.color && r.size);
+    if (filled.length === 0) return;
+    const first = filled[0];
+    const variant = productVariants.find((v: any) => v.color === first.color && v.size === first.size);
+    if (variant) {
+      setValue(`items.${index}.color`, first.color);
+      setValue(`items.${index}.size`, first.size);
+      setValue(`items.${index}.variantId`, variant.id);
+      setValue(`items.${index}.unitPrice`, variant.unitPrice);
+      if ((variant as any).costPrice) setValue(`items.${index}.costPrice`, (variant as any).costPrice);
+    }
+    const totalQty = filled.reduce((s, r) => s + r.quantity, 0);
+    setValue(`items.${index}.quantity`, totalQty);
+  }, [variantRows]);
+
+  const updateRow = (i: number, key: string, val: any) => {
+    setVariantRows(rows => rows.map((r, idx) => idx === i ? { ...r, [key]: val, ...(key === "color" ? { size: "" } : {}) } : r));
+  };
+
+  const addRow = () => setVariantRows(rows => [...rows, { color: "", size: "", quantity: 1 }]);
+  const removeRow = (i: number) => setVariantRows(rows => rows.filter((_, idx) => idx !== i));
 
   const handleSelectProduct = (p: any) => {
     setValue(`items.${index}.productId`, p.id);
@@ -174,6 +198,7 @@ function ProductItem({
     setValue(`items.${index}.variantId`, null);
     setValue(`items.${index}.color`, "");
     setValue(`items.${index}.size`, "");
+    setVariantRows([{ color: "", size: "", quantity: 1 }]);
   };
 
   const handleClearProduct = () => {
@@ -183,6 +208,7 @@ function ProductItem({
     setValue(`items.${index}.color`, "");
     setValue(`items.${index}.size`, "");
     setValue(`items.${index}.unitPrice`, 0);
+    setVariantRows([{ color: "", size: "", quantity: 1 }]);
   };
 
   return (
@@ -237,56 +263,76 @@ function ProductItem({
 
           {/* Color & Size (variants) */}
           {productId && productVariants.length > 0 && (
-            <div className="grid grid-cols-2 gap-3 p-3 bg-muted/10 rounded-md border border-border/40">
-              <FormField control={control} name={`items.${index}.color`} render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-xs">اللون</FormLabel>
-                  <Select value={field.value || "none"} onValueChange={v => {
-                    field.onChange(v === "none" ? "" : v);
-                    setValue(`items.${index}.size`, "");
-                    setValue(`items.${index}.variantId`, null);
-                  }}>
-                    <SelectTrigger className="h-9 text-sm bg-card"><SelectValue placeholder="اختر لون" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">اختر لون...</SelectItem>
-                      {availableColors.map((c: any) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </FormItem>
-              )} />
-              <FormField control={control} name={`items.${index}.size`} render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-xs">المقاس</FormLabel>
-                  <Select value={field.value || "none"} disabled={!color} onValueChange={v => {
-                    field.onChange(v === "none" ? "" : v);
-                    const variant = productVariants.find((pv: any) => pv.color === color && pv.size === v);
-                    if (variant) {
-                      setValue(`items.${index}.variantId`, variant.id);
-                      setValue(`items.${index}.unitPrice`, variant.unitPrice);
-                      if ((variant as any).costPrice) setValue(`items.${index}.costPrice`, (variant as any).costPrice);
-                    }
-                  }}>
-                    <SelectTrigger className="h-9 text-sm bg-card"><SelectValue placeholder={color ? "اختر مقاس" : "اختر لون أولاً"} /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">اختر مقاس...</SelectItem>
-                      {availableSizes.map((s: any) => {
-                        const variant = productVariants.find((pv: any) => pv.color === color && pv.size === s);
-                        const avail = variant ? (variant.totalQuantity ?? 0) : 0;
-                        return <SelectItem key={s} value={s} disabled={avail === 0}>{s} {avail === 0 ? "(نفد)" : `(${avail} متاح)`}</SelectItem>;
-                      })}
-                    </SelectContent>
-                  </Select>
-                </FormItem>
-              )} />
-              {selectedVariant && (
-                <div className="col-span-2">
-                  <Badge variant="outline" className={`text-[9px] font-bold border ${
-                    availableQty !== null && availableQty <= (selectedVariant.lowStockThreshold ?? 5)
-                      ? "border-red-400 text-red-700 dark:border-red-800 dark:text-red-400"
-                      : "border-emerald-400 text-emerald-700 dark:border-emerald-800 dark:text-emerald-400"
-                  }`}>متاح: {availableQty ?? 0}</Badge>
-                </div>
-              )}
+            <div className="space-y-2">
+              {variantRows.map((row, ri) => {
+                const sizesForColor = productVariants.filter((v: any) => v.color === row.color).map((v: any) => v.size);
+                const rowVariant = productVariants.find((v: any) => v.color === row.color && v.size === row.size);
+                const avail = rowVariant ? (rowVariant.totalQuantity ?? 0) : null;
+                return (
+                  <div key={ri} className="flex items-end gap-2 p-2 bg-muted/10 rounded-md border border-border/40">
+                    {/* اللون */}
+                    <div className="flex-1">
+                      <label className="text-[10px] text-muted-foreground mb-1 block">اللون</label>
+                      <select
+                        value={row.color}
+                        onChange={e => updateRow(ri, "color", e.target.value)}
+                        className="w-full h-9 text-sm rounded-md border border-input bg-card px-2 focus:outline-none focus:ring-1 focus:ring-ring"
+                      >
+                        <option value="">اختر لون...</option>
+                        {availableColors.map((c: string) => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
+                    {/* المقاس */}
+                    <div className="flex-1">
+                      <label className="text-[10px] text-muted-foreground mb-1 block">المقاس</label>
+                      <select
+                        value={row.size}
+                        disabled={!row.color}
+                        onChange={e => updateRow(ri, "size", e.target.value)}
+                        className="w-full h-9 text-sm rounded-md border border-input bg-card px-2 focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
+                      >
+                        <option value="">اختر مقاس...</option>
+                        {sizesForColor.map((s: string) => {
+                          const v = productVariants.find((pv: any) => pv.color === row.color && pv.size === s);
+                          const a = v ? (v.totalQuantity ?? 0) : 0;
+                          return <option key={s} value={s} disabled={a === 0}>{s} {a === 0 ? "(نفد)" : `(${a})`}</option>;
+                        })}
+                      </select>
+                    </div>
+                    {/* الكمية */}
+                    <div>
+                      <label className="text-[10px] text-muted-foreground mb-1 block">الكمية</label>
+                      <div className="flex items-center gap-1">
+                        <button type="button"
+                          onClick={() => updateRow(ri, "quantity", Math.max(1, row.quantity - 1))}
+                          className="w-7 h-9 flex items-center justify-center rounded border border-input bg-card hover:bg-muted text-sm font-bold">−</button>
+                        <span className="w-8 text-center text-sm font-bold">{row.quantity}</span>
+                        <button type="button"
+                          onClick={() => updateRow(ri, "quantity", avail !== null ? Math.min(avail, row.quantity + 1) : row.quantity + 1)}
+                          className="w-7 h-9 flex items-center justify-center rounded border border-input bg-card hover:bg-muted text-sm font-bold">+</button>
+                      </div>
+                    </div>
+                    {/* حذف الصف */}
+                    {variantRows.length > 1 && (
+                      <button type="button" onClick={() => removeRow(ri)}
+                        className="mb-0.5 p-1.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 transition-colors">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {/* متاح badge */}
+                    {avail !== null && (
+                      <span className={`text-[9px] font-bold mb-1 shrink-0 ${avail <= 5 ? "text-red-500" : "text-emerald-600 dark:text-emerald-400"}`}>
+                        متاح:{avail}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+              {/* زر إضافة لون/مقاس آخر */}
+              <button type="button" onClick={addRow}
+                className="w-full flex items-center justify-center gap-1.5 text-xs font-bold text-primary border border-dashed border-primary/40 hover:bg-primary/5 py-2 rounded-md transition-colors">
+                <Plus className="w-3.5 h-3.5" />أضف لون / مقاس آخر
+              </button>
             </div>
           )}
 
