@@ -906,13 +906,14 @@ function InvoiceGroupDeliveryRow({
             ) : totalQty}
           </div>
           {/* Price */}
-          <div className="text-left font-bold">
+          <div className="text-left font-bold px-1">
             {formatCurrency(totalPrice)}
             {totalPrice !== totalFullPrice && (
               <p className="text-[9px] text-muted-foreground font-normal line-through">{formatCurrency(totalFullPrice)}</p>
             )}
           </div>
-          <div>
+          {/* Status */}
+          <div className="px-2">
             {hasMultipleStatuses && !hasMixedPartial ? (
               <div className="flex flex-col gap-0.5">
                 <Badge variant="outline" className="text-[9px] font-bold border border-border text-muted-foreground">
