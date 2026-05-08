@@ -3310,7 +3310,8 @@ export default function ShippingManifestPage() {
                     </button>
                   </div>
                 ) : (
-                  filteredManifestOrders.map((group, index) => (
+                  <div key={`${customerSearch}__${totalSearch}`}>
+                  {filteredManifestOrders.map((group, index) => (
                   <InvoiceGroupDeliveryRow
                     key={group.map((order) => `${order.id}-${order.deliveryStatus}-${order.partialQuantity ?? 0}-${order.deliveryNote ?? ""}`).join("|")}
                     group={group}
@@ -3319,7 +3320,8 @@ export default function ShippingManifestPage() {
                     onSaved={refetch}
                     rowIndex={index}
                   />
-                  ))
+                  ))}
+                  </div>
                 )}
               </>
             )}
