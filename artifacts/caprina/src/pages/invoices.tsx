@@ -416,12 +416,6 @@ export default function Invoices() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">قيد الشحن في المخزن</SelectItem>
-                <SelectItem value="warehouse_ready">قيد الشحن في المخزن فقط</SelectItem>
-                <SelectItem value="in_shipping">قيد الشحن</SelectItem>
-                <SelectItem value="received">استلم</SelectItem>
-                <SelectItem value="delayed">مؤجل</SelectItem>
-                <SelectItem value="returned">مرتجع</SelectItem>
-                <SelectItem value="partial_received">استلم جزئي</SelectItem>
               </SelectContent>
             </Select>
             <Button
