@@ -221,37 +221,60 @@ const StatusDonut = memo(function StatusDonut({
       </div>
 
       {/* Legend — قابلة للضغط */}
-      <div className="space-y-2">
-        {sorted.map(item => {
-          const cfg = STATUS_CFG[item.status] ?? { label: item.status, color: "#888", bg: "#88881a" };
-          const isSelected = selectedStatus === item.status;
-          return (
-            <button
-              key={item.status}
-              type="button"
-              onClick={() => onStatusClick?.(isSelected ? null : item.status)}
-              className="w-full flex items-center gap-3 rounded-lg px-2 py-1 transition-all text-right"
-              style={{
-                background: isSelected ? cfg.bg : "transparent",
-                border: isSelected ? `1px solid ${cfg.color}55` : "1px solid transparent",
-                cursor: onStatusClick ? "pointer" : "default",
-              }}
-            >
-              <span className="w-3 h-3 rounded-full shrink-0" style={{ background: cfg.color }} />
-              <span className="text-xs font-semibold text-foreground flex-1 truncate">{cfg.label}</span>
-              <span className="text-xs font-bold px-2 py-0.5 rounded-md shrink-0"
-                style={{ background: cfg.bg, color: cfg.color }}>
-                {item.count}
-              </span>
-              <span className="text-xs font-black w-9 text-right shrink-0" style={{ color: cfg.color }}>
-                {item.pct}%
-              </span>
-              {isSelected && (
-                <span className="text-[9px] font-bold shrink-0" style={{ color: cfg.color }}>▼</span>
-              )}
-            </button>
-          );
-        })}
+      <div className="space-y-1">
+        {(() => {
+          // الحالات اللي تتجمع مع بعض تحت "في الانتظار والتحضير"
+          const waitingGroup = ["pending", "warehouse_ready"];
+          const elements: React.ReactNode[] = [];
+          let waitingHeaderAdded = false;
+          sorted.forEach((item, idx) => {
+            const cfg = STATUS_CFG[item.status] ?? { label: item.status, color: "#888", bg: "#88881a" };
+            const isSelected = selectedStatus === item.status;
+
+            // أضف header للمجموعة قبل أول عنصر فيها
+            if (waitingGroup.includes(item.status) && !waitingHeaderAdded) {
+              waitingHeaderAdded = true;
+              elements.push(
+                <div key="waiting-header" className="flex items-center gap-1.5 pt-1 pb-0.5 px-2">
+                  <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">قيد الانتظار والتحضير</span>
+                  <div className="flex-1 h-px bg-border/60" />
+                </div>
+              );
+            }
+
+            elements.push(
+              <button
+                key={item.status}
+                type="button"
+                onClick={() => onStatusClick?.(isSelected ? null : item.status)}
+                className={`w-full flex items-center gap-3 rounded-lg px-2 py-1 transition-all text-right ${waitingGroup.includes(item.status) ? "ml-2 pl-3" : ""}`}
+                style={{
+                  background: isSelected ? cfg.bg : "transparent",
+                  border: isSelected ? `1px solid ${cfg.color}55` : "1px solid transparent",
+                  cursor: onStatusClick ? "pointer" : "default",
+                }}
+              >
+                {waitingGroup.includes(item.status) && (
+                  <span className="text-[9px] text-muted-foreground shrink-0">└</span>
+                )}
+                <span className="w-3 h-3 rounded-full shrink-0" style={{ background: cfg.color }} />
+                <span className="text-xs font-semibold text-foreground flex-1 truncate">{cfg.label}</span>
+                <span className="text-xs font-bold px-2 py-0.5 rounded-md shrink-0"
+                  style={{ background: cfg.bg, color: cfg.color }}>
+                  {item.count}
+                </span>
+                <span className="text-xs font-black w-9 text-right shrink-0" style={{ color: cfg.color }}>
+                  {item.pct}%
+                </span>
+                {isSelected && (
+                  <span className="text-[9px] font-bold shrink-0" style={{ color: cfg.color }}>▼</span>
+                )}
+              </button>
+            );
+          });
+
+          return elements;
+        })()}
       </div>
     </div>
   );
