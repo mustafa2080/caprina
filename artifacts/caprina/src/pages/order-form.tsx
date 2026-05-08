@@ -142,12 +142,12 @@ function ProductSearchCombobox({ products, allVariants, onSelect }: {
 // ── Single product item row ───────────────────────────────────────────────────
 function ProductItem({
   index, control, watch, setValue, remove, products, allVariants, canViewFinancials, isOnly,
-  allItems, replaceItems,
+  onVariantRowsChange,
 }: {
   index: number; control: any; watch: any; setValue: any;
   remove: () => void; products: any[]; allVariants: any[];
   canViewFinancials: boolean; isOnly: boolean;
-  allItems: any[]; replaceItems: (items: any[]) => void;
+  onVariantRowsChange: (index: number, rows: {color: string; size: string; quantity: number}[]) => void;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const productId   = watch(`items.${index}.productId`);
@@ -160,7 +160,6 @@ function ProductItem({
   const availableColors = [...new Set(productVariants.map((v: any) => v.color))] as string[];
   const selectedProduct = products.find((p: any) => p.id === Number(productId));
 
-  // variant rows local state: [{color, size, quantity}]
   const [variantRows, setVariantRows] = useState<{color: string; size: string; quantity: number}[]>([
     { color: "", size: "", quantity: 1 }
   ]);
@@ -169,52 +168,40 @@ function ProductItem({
   const costTotal = qty * cost;
   const profit    = revenue - costTotal;
 
-  // sync variant rows → form items (replace this product's items in the global list)
-  const syncToForm = (rows: {color: string; size: string; quantity: number}[]) => {
-    const filled = rows.filter(r => r.color && r.size);
-    if (filled.length === 0) return;
-
-    const newRows = filled.map((r) => {
-      const variant = productVariants.find((v: any) => v.color === r.color && v.size === r.size);
-      const baseItem = allItems[index] || emptyItem();
-      return {
-        ...baseItem,
-        color: r.color,
-        size: r.size,
-        quantity: r.quantity,
-        variantId: variant?.id ?? null,
-        unitPrice: variant?.unitPrice ?? baseItem.unitPrice,
-        costPrice: variant?.costPrice ?? baseItem.costPrice ?? null,
-      };
-    });
-
-    // ضع الـ rows الجديدة مكان الـ item الحالي
-    const before = allItems.slice(0, index);
-    const after  = allItems.slice(index + 1);
-    replaceItems([...before, ...newRows, ...after]);
+  // لما الـ variantRows تتغير → بلّغ الـ parent + حدّث أول item في الـ form
+  const applyRows = (rows: {color: string; size: string; quantity: number}[]) => {
+    setVariantRows(rows);
+    onVariantRowsChange(index, rows);
+    // حدّث الـ form item الحالي بأول row معبية
+    const first = rows.find(r => r.color && r.size);
+    if (first) {
+      const fv = productVariants.find((v: any) => v.color === first.color && v.size === first.size);
+      setValue(`items.${index}.color`, first.color);
+      setValue(`items.${index}.size`, first.size);
+      setValue(`items.${index}.quantity`, first.quantity);
+      setValue(`items.${index}.variantId`, fv?.id ?? null);
+      if (fv?.unitPrice) setValue(`items.${index}.unitPrice`, fv.unitPrice);
+      if (fv?.costPrice) setValue(`items.${index}.costPrice`, fv.costPrice);
+    }
   };
 
   const updateRow = (i: number, key: string, val: any) => {
     setVariantRows(rows => {
       const next = rows.map((r, idx) => idx === i ? { ...r, [key]: val, ...(key === "color" ? { size: "" } : {}) } : r);
-      syncToForm(next);
+      applyRows(next);
       return next;
     });
   };
 
   const addRow = () => {
-    setVariantRows(rows => {
-      const next = [...rows, { color: "", size: "", quantity: 1 }];
-      return next;
-    });
+    const next = [...variantRows, { color: "", size: "", quantity: 1 }];
+    setVariantRows(next);
+    onVariantRowsChange(index, next);
   };
 
   const removeRow = (i: number) => {
-    setVariantRows(rows => {
-      const next = rows.filter((_, idx) => idx !== i);
-      syncToForm(next);
-      return next;
-    });
+    const next = variantRows.filter((_, idx) => idx !== i);
+    applyRows(next);
   };
 
   const handleSelectProduct = (p: any) => {
@@ -224,7 +211,9 @@ function ProductItem({
     setValue(`items.${index}.variantId`, null);
     setValue(`items.${index}.color`, "");
     setValue(`items.${index}.size`, "");
-    setVariantRows([{ color: "", size: "", quantity: 1 }]);
+    const init = [{ color: "", size: "", quantity: 1 }];
+    setVariantRows(init);
+    onVariantRowsChange(index, init);
   };
 
   const handleClearProduct = () => {
@@ -234,7 +223,9 @@ function ProductItem({
     setValue(`items.${index}.color`, "");
     setValue(`items.${index}.size`, "");
     setValue(`items.${index}.unitPrice`, 0);
-    setVariantRows([{ color: "", size: "", quantity: 1 }]);
+    const init = [{ color: "", size: "", quantity: 1 }];
+    setVariantRows(init);
+    onVariantRowsChange(index, init);
   };
 
   return (
@@ -440,7 +431,7 @@ export default function OrderForm() {
     },
   });
 
-  const { fields, append, remove, replace } = useFieldArray({ control: form.control, name: "items" });
+  const { fields, append, remove } = useFieldArray({ control: form.control, name: "items" });
   const items        = form.watch("items");
   const shippingCost = form.watch("shippingCost") || 0;
   const totalRevenue = items.reduce((s, it) => s + (it.quantity || 0) * (it.unitPrice || 0), 0);
@@ -450,9 +441,41 @@ export default function OrderForm() {
   const totalQty     = items.reduce((s, it) => s + (it.quantity || 0), 0);
   const [submitting, setSubmitting] = useState(false);
 
+  // نحتفظ بالـ variantRows لكل item بالـ index
+  const variantRowsMapRef = useRef<Map<number, {color: string; size: string; quantity: number}[]>>(new Map());
+
+  const handleVariantRowsChange = (index: number, rows: {color: string; size: string; quantity: number}[]) => {
+    variantRowsMapRef.current.set(index, rows);
+  };
+
   const onSubmit = async (values: FormValues) => {
     setSubmitting(true);
     try {
+      // expand variant rows: كل item تتحول لـ items متعددة لو فيها أكتر من row
+      const expandedItems: typeof values.items = [];
+      values.items.forEach((item, idx) => {
+        const rows = variantRowsMapRef.current.get(idx);
+        if (rows && rows.length > 0) {
+          const filled = rows.filter(r => r.color && r.size);
+          if (filled.length > 0) {
+            filled.forEach(r => {
+              const variant = allVariants.find((v: any) => v.productId === item.productId && v.color === r.color && v.size === r.size);
+              expandedItems.push({
+                ...item,
+                color: r.color,
+                size: r.size,
+                quantity: r.quantity,
+                variantId: variant?.id ?? item.variantId,
+                unitPrice: variant?.unitPrice ?? item.unitPrice,
+                costPrice: variant?.costPrice ?? item.costPrice,
+              });
+            });
+            return;
+          }
+        }
+        expandedItems.push(item);
+      });
+
       const result = await ordersApi.batchCreate({
         customerName: values.customerName, phone: values.phone || null,
         city: values.city || null, address: values.address || null,
@@ -462,7 +485,7 @@ export default function OrderForm() {
         assignedUserId: values.assignedUserId || null,
         adSource: values.adSource || null, adCampaign: values.adCampaign || null,
         notes: values.notes || null,
-        items: values.items.map(item => ({
+        items: expandedItems.map(item => ({
           product: item.product, color: item.color || null, size: item.size || null,
           quantity: item.quantity, unitPrice: item.unitPrice,
           costPrice: item.costPrice ?? null,
@@ -577,7 +600,7 @@ export default function OrderForm() {
                     control={form.control} watch={form.watch} setValue={form.setValue}
                     remove={() => remove(index)} products={products} allVariants={allVariants}
                     canViewFinancials={canViewFinancials} isOnly={fields.length === 1}
-                    allItems={items} replaceItems={(newItems) => replace(newItems)} />
+                    onVariantRowsChange={handleVariantRowsChange} />
                 ))}
 
                 {fields.length >= 2 && (
