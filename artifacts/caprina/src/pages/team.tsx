@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Users, Plus, Edit2, Trash2, Target, FileText, ChevronRight, Check, X,
-  TrendingUp, TrendingDown, Printer, Star, AlertCircle, Trophy, Briefcase,
+  TrendingUp, TrendingDown, Printer, Star, AlertCircle, Trophy, Briefcase, Package,
   DollarSign, Calendar, BarChart2, Settings, ArrowLeft, Save, RefreshCw, UserPlus,
   Clock, UserCheck, UserX, Gift, MinusCircle, CheckCircle2, XCircle, AlertTriangle,
 } from "lucide-react";
@@ -1464,17 +1464,20 @@ function EmployeeDetail({
           {report && !reportLoading && (
             <>
               {/* Quick stats row */}
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                 {[
-                  { label: "الطلبيات", value: fmtNum(report.orderStats.total), color: "text-primary" },
-                  { label: "مُسلَّم", value: fmtNum(report.orderStats.delivered), color: "text-emerald-400" },
-                  { label: "مُرتجَع", value: fmtNum(report.orderStats.returned), color: "text-red-400" },
-                  { label: "نسبة التسليم", value: `${report.orderStats.deliveryRate}%`, color: "text-primary" },
+                  { label: "الطلبيات",      value: fmtNum(report.orderStats.total),          icon: Package,     color: "text-primary",                         bg: "bg-primary/5 dark:bg-primary/10"              },
+                  { label: "مُسلَّم",        value: fmtNum(report.orderStats.delivered),      icon: TrendingUp,  color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-900/20"         },
+                  { label: "مُرتجَع",        value: fmtNum(report.orderStats.returned),       icon: TrendingDown, color: "text-red-600 dark:text-red-400",        bg: "bg-red-50 dark:bg-red-900/20"                 },
+                  { label: "نسبة التسليم",  value: `${report.orderStats.deliveryRate}%`,     icon: Star,        color: "text-amber-600 dark:text-amber-400",     bg: "bg-amber-50 dark:bg-amber-900/20"             },
                 ].map(s => (
-                  <Card key={s.label} className="border-border bg-card">
-                    <CardContent className="px-3 py-2 text-center">
-                      <p className={`text-base font-bold ${s.color}`}>{s.value}</p>
-                      <p className="text-[9px] text-muted-foreground">{s.label}</p>
+                  <Card key={s.label} className={`border-border ${s.bg}`}>
+                    <CardContent className="px-3 py-3 flex items-center gap-2">
+                      <s.icon className={`w-4 h-4 shrink-0 ${s.color}`} />
+                      <div>
+                        <p className={`text-base font-bold ${s.color}`}>{s.value}</p>
+                        <p className="text-[9px] text-muted-foreground">{s.label}</p>
+                      </div>
                     </CardContent>
                   </Card>
                 ))}
@@ -1483,37 +1486,59 @@ function EmployeeDetail({
               {/* KPI Evaluation */}
               {report.kpis.length > 0 && (
                 <div className="space-y-2">
-                  <h3 className="text-xs font-bold text-muted-foreground">تقييم المؤشرات</h3>
+                  <h3 className="text-xs font-bold text-muted-foreground flex items-center gap-1.5">
+                    <Target className="w-3.5 h-3.5" />تقييم المؤشرات
+                  </h3>
                   {report.kpis.map(kpi => (
-                    <div key={kpi.id} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-card">
-                      <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${kpi.achieved === true ? "bg-emerald-900/40" : kpi.achieved === false ? "bg-red-900/40" : "bg-muted/40"}`}>
-                        {kpi.achieved === true ? <Check className="w-3 h-3 text-emerald-400" /> : kpi.achieved === false ? <X className="w-3 h-3 text-red-400" /> : <AlertCircle className="w-3 h-3 text-muted-foreground" />}
+                    <div key={kpi.id} className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                      kpi.achieved === true  ? "border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20" :
+                      kpi.achieved === false ? "border-red-200 dark:border-red-800/50 bg-red-50 dark:bg-red-900/10" :
+                                               "border-border bg-card"
+                    }`}>
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${
+                        kpi.achieved === true  ? "bg-emerald-100 dark:bg-emerald-900/50" :
+                        kpi.achieved === false ? "bg-red-100 dark:bg-red-900/40" :
+                                                 "bg-muted/40"
+                      }`}>
+                        {kpi.achieved === true  ? <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> :
+                         kpi.achieved === false ? <X className="w-3.5 h-3.5 text-red-600 dark:text-red-400" /> :
+                                                  <AlertCircle className="w-3.5 h-3.5 text-muted-foreground" />}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2 mb-1">
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
                           <p className="text-xs font-bold">{kpi.name}</p>
                           <span className="text-[10px] text-muted-foreground shrink-0">
-                            الفعلي: <strong className={kpi.achieved ? "text-emerald-400" : "text-foreground"}>
+                            الفعلي: <strong className={kpi.achieved === true ? "text-emerald-600 dark:text-emerald-400" : kpi.achieved === false ? "text-red-600 dark:text-red-400" : "text-foreground"}>
                               {kpi.actualValue !== null ? `${fmtNum(kpi.actualValue)} ${kpi.unit}` : "—"}
                             </strong>
                             {" / هدف: "}{kpi.direction === "lower_is_better" ? "≤" : "≥"}{fmtNum(kpi.targetValue)} {kpi.unit}
                           </span>
                         </div>
-                        <Progress value={kpi.score ?? 0} className="h-1.5" />
+                        <Progress
+                          value={kpi.score ?? 0}
+                          className={`h-1.5 ${kpi.achieved === true ? "[&>div]:bg-emerald-500" : kpi.achieved === false ? "[&>div]:bg-red-400" : "[&>div]:bg-primary"}`}
+                        />
                       </div>
-                      <div className="text-xs font-bold w-10 text-center shrink-0">
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] shrink-0 ${
+                          kpi.achieved === true  ? "border-emerald-500 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400" :
+                          kpi.achieved === false ? "border-red-500 dark:border-red-700 text-red-700 dark:text-red-400" :
+                                                   "border-border text-muted-foreground"
+                        }`}
+                      >
                         {kpi.score !== null ? `${kpi.score}%` : "—"}
-                      </div>
+                      </Badge>
                     </div>
                   ))}
                 </div>
               )}
 
-              {/* Salary + print */}
-              <Card className="border-emerald-900/40 bg-emerald-900/5">
+              {/* Salary card */}
+              <Card className="border-emerald-200 dark:border-emerald-900/40 bg-emerald-50 dark:bg-emerald-900/10">
                 <CardContent className="px-4 py-3 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <DollarSign className="w-4 h-4 text-emerald-400" />
+                    <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                     <div>
                       <p className="text-xs font-bold">الراتب المستحق</p>
                       <p className="text-[10px] text-muted-foreground">
@@ -1522,7 +1547,7 @@ function EmployeeDetail({
                       </p>
                     </div>
                   </div>
-                  <span className="text-xl font-black text-emerald-400">{fmt(report.salary)}</span>
+                  <span className="text-xl font-black text-emerald-600 dark:text-emerald-400">{fmt(report.salary)}</span>
                 </CardContent>
               </Card>
 
