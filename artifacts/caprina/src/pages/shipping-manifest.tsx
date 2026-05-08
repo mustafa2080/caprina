@@ -840,9 +840,9 @@ function InvoiceGroupDeliveryRow({
         }}
       >
         {/* Desktop row */}
-        <div dir="rtl" className="hidden md:grid grid-cols-[1fr_1fr_1fr_60px_90px_130px_80px] gap-0 items-start px-3 py-2.5 text-xs">
+        <div dir="rtl" className="hidden md:grid grid-cols-[1fr_1fr_1fr_60px_90px_130px_80px] gap-0 items-start py-2.5 text-xs">
           {/* Customer */}
-          <div className="min-w-0 pr-1">
+          <div className="min-w-0 px-3">
             <p className="font-semibold truncate">{rep.customerName}</p>
             <div className="flex items-center gap-1 flex-wrap">
               {invoiceNum && (
@@ -856,7 +856,7 @@ function InvoiceGroupDeliveryRow({
             </div>
           </div>
           {/* المحافظة / العنوان */}
-          <div className="min-w-0 px-2">
+          <div className="min-w-0 px-3">
             {rep.city && (
               <p className="font-semibold text-[10px] truncate">{rep.city}</p>
             )}
@@ -868,7 +868,7 @@ function InvoiceGroupDeliveryRow({
             )}
           </div>
           {/* Products */}
-          <div className="min-w-0 px-2">
+          <div className="min-w-0 px-3">
             {isMulti ? (
               <div className="space-y-1">
                 <button
@@ -906,14 +906,14 @@ function InvoiceGroupDeliveryRow({
             ) : totalQty}
           </div>
           {/* Price */}
-          <div className="text-left font-bold px-1">
+          <div className="text-left font-bold px-3">
             {formatCurrency(totalPrice)}
             {totalPrice !== totalFullPrice && (
               <p className="text-[9px] text-muted-foreground font-normal line-through">{formatCurrency(totalFullPrice)}</p>
             )}
           </div>
           {/* Status */}
-          <div className="px-2">
+          <div className="px-3">
             {hasMultipleStatuses && !hasMixedPartial ? (
               <div className="flex flex-col gap-0.5">
                 <Badge variant="outline" className="text-[9px] font-bold border border-border text-muted-foreground">
@@ -3288,14 +3288,14 @@ export default function ShippingManifestPage() {
                     )}
                   </div>
                   {/* ─── حالة التسليم ─── */}
-                  <div className="flex items-center gap-1.5 px-2 h-9">
+                  <div className="flex items-center gap-1.5 px-3 h-9">
                     <span className="w-5 h-5 rounded bg-muted flex items-center justify-center shrink-0">
                       <CheckCircle2 className="w-2.5 h-2.5 opacity-50" />
                     </span>
                     <span>الحالة</span>
                   </div>
                   {/* ─── إجراء ─── */}
-                  <div className="flex items-center justify-center h-9 text-[9px] opacity-60">
+                  <div className="flex items-center justify-center h-9 text-[9px] opacity-60 px-3">
                     إجراء
                   </div>
                 </div>
