@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, gte, lte, and, sql } from "drizzle-orm";
-import { db, expensesTable, shippingFinancialInvoicesTable, ordersTable, shippingManifestsTable, shippingManifestOrdersTable } from "@workspace/db";
+import { eq, desc, gte, lte, and, sql, lt, isNull } from "drizzle-orm";
+import { db, expensesTable, shippingFinancialInvoicesTable, ordersTable, shippingManifestsTable, shippingManifestOrdersTable, purchasesTable } from "@workspace/db";
 import { z } from "zod";
 
 const router: IRouter = Router();
@@ -158,6 +158,208 @@ router.get("/finance/summary", async (req, res): Promise<void> => {
     netProfit,
     netMargin: totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(1) : "0",
     unpaidShippingDues: Number(unpaidShipping?.total ?? 0),
+  });
+});
+
+// ── Finance Analytics (P&L + Alerts + Trends) ─────────────────────────────
+router.get("/finance/analytics", async (req, res): Promise<void> => {
+  const { from, to } = req.query;
+
+  // ── تحديد الفترة الحالية والسابقة ────────────────────────────────────────
+  const now = new Date();
+  const curFrom  = from ? new Date(from as string) : new Date(now.getFullYear(), now.getMonth(), 1);
+  const curTo    = to   ? new Date(to   as string) : now;
+  const diffMs   = curTo.getTime() - curFrom.getTime();
+  const prevTo   = new Date(curFrom.getTime() - 1);
+  const prevFrom = new Date(prevTo.getTime() - diffMs);
+
+  // ── helper: جلب بيانات مالية لفترة معينة ─────────────────────────────────
+  async function fetchPeriodData(pFrom: Date, pTo: Date) {
+    const pToEnd = new Date(pTo); pToEnd.setHours(23, 59, 59, 999);
+
+    // الطلبات المستلمة (received + partial_received)
+    const ordersData = await db.select({
+      revenue:  sql<number>`COALESCE(SUM(total_price), 0)`,
+      cogs:     sql<number>`COALESCE(SUM(cost_price * quantity), 0)`,
+      shipping: sql<number>`COALESCE(SUM(shipping_cost), 0)`,
+      count:    sql<number>`COUNT(*)`,
+    }).from(ordersTable).where(and(
+      isNull(ordersTable.deletedAt),
+      sql`status IN ('received','partial_received')`,
+      gte(ordersTable.createdAt, pFrom),
+      lte(ordersTable.createdAt, pToEnd),
+    ));
+
+    // الطلبات المرتجعة
+    const [returnedData] = await db.select({
+      count: sql<number>`COUNT(*)`,
+      loss:  sql<number>`COALESCE(SUM(total_price), 0)`,
+    }).from(ordersTable).where(and(
+      isNull(ordersTable.deletedAt),
+      eq(ordersTable.status as any, "returned"),
+      gte(ordersTable.createdAt, pFrom),
+      lte(ordersTable.createdAt, pToEnd),
+    ));
+
+    // المصروفات
+    const [expData] = await db.select({
+      total: sql<number>`COALESCE(SUM(CAST(amount AS DECIMAL(14,2))), 0)`,
+    }).from(expensesTable).where(and(
+      gte(expensesTable.expenseDate, pFrom),
+      lte(expensesTable.expenseDate, pToEnd),
+    ));
+
+    // المصروفات حسب فئة
+    const expByCategory = await db.select({
+      category: expensesTable.category,
+      total: sql<number>`COALESCE(SUM(CAST(amount AS DECIMAL(14,2))), 0)`,
+    }).from(expensesTable).where(and(
+      gte(expensesTable.expenseDate, pFrom),
+      lte(expensesTable.expenseDate, pToEnd),
+    )).groupBy(expensesTable.category);
+
+    // إجمالي الطلبات (كل الحالات) لحساب نسبة التسليم
+    const [allOrdersData] = await db.select({
+      total:     sql<number>`COUNT(*)`,
+      delivered: sql<number>`SUM(CASE WHEN status IN ('received','partial_received') THEN 1 ELSE 0 END)`,
+      returned:  sql<number>`SUM(CASE WHEN status = 'returned' THEN 1 ELSE 0 END)`,
+    }).from(ordersTable).where(and(
+      isNull(ordersTable.deletedAt),
+      gte(ordersTable.createdAt, pFrom),
+      lte(ordersTable.createdAt, pToEnd),
+    ));
+
+    const revenue  = Number(ordersData[0]?.revenue  ?? 0);
+    const cogs     = Number(ordersData[0]?.cogs     ?? 0);
+    const shipping = Number(ordersData[0]?.shipping ?? 0);
+    const expenses = Number(expData?.total ?? 0);
+    const grossProfit = revenue - cogs - shipping;
+    const netProfit   = grossProfit - expenses;
+    const returnLoss  = Number(returnedData?.loss ?? 0);
+
+    return {
+      revenue, cogs, shipping, expenses, grossProfit, netProfit, returnLoss,
+      netMargin: revenue > 0 ? +((netProfit / revenue) * 100).toFixed(1) : 0,
+      grossMargin: revenue > 0 ? +((grossProfit / revenue) * 100).toFixed(1) : 0,
+      ordersCount: Number(ordersData[0]?.count ?? 0),
+      totalOrders: Number(allOrdersData?.total ?? 0),
+      deliveredOrders: Number(allOrdersData?.delivered ?? 0),
+      returnedOrders: Number(allOrdersData?.returned ?? 0),
+      deliveryRate: Number(allOrdersData?.total ?? 0) > 0
+        ? +((Number(allOrdersData?.delivered ?? 0) / Number(allOrdersData?.total ?? 0)) * 100).toFixed(1)
+        : 0,
+      returnRate: Number(allOrdersData?.total ?? 0) > 0
+        ? +((Number(allOrdersData?.returned ?? 0) / Number(allOrdersData?.total ?? 0)) * 100).toFixed(1)
+        : 0,
+      expByCategory,
+    };
+  }
+
+  const [cur, prev] = await Promise.all([
+    fetchPeriodData(curFrom, curTo),
+    fetchPeriodData(prevFrom, prevTo),
+  ]);
+
+  // ── مقارنة الفترتين ───────────────────────────────────────────────────────
+  const pct = (a: number, b: number) => b === 0 ? null : +((( a - b) / b) * 100).toFixed(1);
+  const comparison = {
+    revenue:    pct(cur.revenue,    prev.revenue),
+    netProfit:  pct(cur.netProfit,  prev.netProfit),
+    expenses:   pct(cur.expenses,   prev.expenses),
+    returnRate: pct(cur.returnRate, prev.returnRate),
+    deliveryRate: pct(cur.deliveryRate, prev.deliveryRate),
+  };
+
+  // ── فواتير الشحن المستحقة (متأخرة) ───────────────────────────────────────
+  const overdueInvoices = await db.select({
+    id: shippingFinancialInvoicesTable.id,
+    invoiceNumber: shippingFinancialInvoicesTable.invoiceNumber,
+    netDue: shippingFinancialInvoicesTable.netDue,
+    paidAmount: shippingFinancialInvoicesTable.paidAmount,
+    dueDate: shippingFinancialInvoicesTable.dueDate,
+  }).from(shippingFinancialInvoicesTable)
+    .where(and(
+      sql`status IN ('pending','verified')`,
+      sql`due_date IS NOT NULL`,
+      lt(shippingFinancialInvoicesTable.dueDate as any, now),
+    ));
+
+  // ── طلبات في الشحن (in_shipping) = كاش متوقع ────────────────────────────
+  const [inShipping] = await db.select({
+    count:           sql<number>`COUNT(*)`,
+    expectedRevenue: sql<number>`COALESCE(SUM(total_price), 0)`,
+  }).from(ordersTable).where(and(
+    isNull(ordersTable.deletedAt),
+    eq(ordersTable.status as any, "in_shipping"),
+  ));
+
+  // ── فواتير شحن غير مسددة (إجمالي) ───────────────────────────────────────
+  const [unpaidShipping] = await db.select({
+    total: sql<number>`COALESCE(SUM(CAST(net_due AS DECIMAL(14,2)) - CAST(paid_amount AS DECIMAL(14,2))), 0)`,
+    count: sql<number>`COUNT(*)`,
+  }).from(shippingFinancialInvoicesTable)
+    .where(sql`status IN ('pending','verified')`);
+
+  // ── أعلى 5 فئات مصروفات ──────────────────────────────────────────────────
+  const topExpenseCategories = [...cur.expByCategory]
+    .sort((a, b) => Number(b.total) - Number(a.total))
+    .slice(0, 5)
+    .map(e => ({ category: e.category, total: Number(e.total) }));
+
+  // ── Smart Alerts ──────────────────────────────────────────────────────────
+  const alerts: { type: "danger" | "warning" | "info" | "success"; message: string; detail?: string }[] = [];
+
+  // خسارة صافية
+  if (cur.netProfit < 0) {
+    alerts.push({ type: "danger", message: "الشهر الحالي بخسارة صافية", detail: `الخسارة: ${Math.abs(cur.netProfit).toLocaleString("ar-EG")} ج.م` });
+  }
+  // هامش ربح منخفض
+  else if (cur.netMargin < 10 && cur.revenue > 0) {
+    alerts.push({ type: "warning", message: "هامش الربح الصافي منخفض", detail: `الهامش الحالي ${cur.netMargin}% — المثالي فوق 20%` });
+  }
+
+  // نسبة مرتجعات مرتفعة
+  if (cur.returnRate > 25) {
+    alerts.push({ type: "danger", message: "نسبة المرتجعات مرتفعة جداً", detail: `${cur.returnRate}% من الطلبات — المعدل الطبيعي أقل من 20%` });
+  } else if (cur.returnRate > 18) {
+    alerts.push({ type: "warning", message: "نسبة المرتجعات فوق المعدل", detail: `${cur.returnRate}% — راجع أسباب الرجوع` });
+  }
+
+  // فواتير شحن متأخرة
+  if (overdueInvoices.length > 0) {
+    const totalOverdue = overdueInvoices.reduce((s, i) => s + Number(i.netDue) - Number(i.paidAmount), 0);
+    alerts.push({ type: "danger", message: `${overdueInvoices.length} فاتورة شحن متأخر سدادها`, detail: `إجمالي المتأخر: ${totalOverdue.toLocaleString("ar-EG")} ج.م` });
+  }
+
+  // مصروفات ارتفعت كثيراً
+  if (comparison.expenses !== null && comparison.expenses > 30) {
+    alerts.push({ type: "warning", message: "المصروفات ارتفعت بشكل ملحوظ", detail: `+${comparison.expenses}% مقارنة بالفترة السابقة` });
+  }
+
+  // إيراد انخفض
+  if (comparison.revenue !== null && comparison.revenue < -15) {
+    alerts.push({ type: "warning", message: "انخفاض في الإيرادات", detail: `${comparison.revenue}% مقارنة بالفترة السابقة` });
+  }
+
+  // إيجابي: ربح ارتفع
+  if (comparison.netProfit !== null && comparison.netProfit > 20 && cur.netProfit > 0) {
+    alerts.push({ type: "success", message: "أداء ممتاز — الربح ارتفع", detail: `+${comparison.netProfit}% مقارنة بالفترة السابقة` });
+  }
+
+  res.json({
+    period: { from: curFrom, to: curTo },
+    current: cur,
+    previous: prev,
+    comparison,
+    alerts,
+    cashFlow: {
+      inShippingOrders: Number(inShipping?.count ?? 0),
+      expectedIncoming: Number(inShipping?.expectedRevenue ?? 0),
+      unpaidShippingDues: Number(unpaidShipping?.total ?? 0),
+      unpaidShippingCount: Number(unpaidShipping?.count ?? 0),
+      overdueInvoicesCount: overdueInvoices.length,
+    },
+    topExpenseCategories,
   });
 });
 
