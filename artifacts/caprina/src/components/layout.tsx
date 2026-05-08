@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useState, useMemo } from "react";
-import { LayoutDashboard, Package, Plus, Boxes, Truck, FileText, Upload, Activity, BarChart3, Users, Shield, LogOut, ChevronDown, KeyRound, Warehouse, Megaphone, UserCheck, UserCog, Sun, Moon, Brain, Archive, Clock, MessageCircle, Menu, X, Download, DollarSign, ShoppingCart, Receipt, Building2, Wallet } from "lucide-react";
+import { LayoutDashboard, Package, Plus, Boxes, Truck, FileText, Upload, Activity, BarChart3, Users, Shield, LogOut, ChevronDown, KeyRound, Warehouse, Megaphone, UserCheck, UserCog, Sun, Moon, Brain, Archive, Clock, MessageCircle, Menu, X, Download, DollarSign, ShoppingCart, Receipt, Building2, Wallet, ChevronLeft } from "lucide-react";
 import { BrandFull } from "@/components/brand-logo";
 import { BrandSettingsDialog } from "@/components/brand-settings-dialog";
 import { cn } from "@/lib/utils";
@@ -47,13 +47,16 @@ const ALL_NAV = [
   { href: "/whatsapp",          label: "إعدادات واتساب",     icon: MessageCircle,               permission: "whatsapp",                section: "section_whatsapp",          iconColor: "text-emerald-500"    },
   { href: "/sessions-report",   label: "تقرير الجلسات",       icon: Clock,                       permission: "users",                   section: "section_sessions_report",   iconColor: "text-slate-400"      },
   { href: "/audit-logs",        label: "سجل التعديلات",       icon: Shield,                      permission: "audit",                   section: "section_audit",             iconColor: "text-red-400"        },
-  // ── الماليات ────────────────────────────────────────────────────────────────
-  { href: "/finance",           label: "لوحة الماليات",       icon: DollarSign,                  permission: "finance",                 section: "section_finance",           iconColor: "text-emerald-400"    },
-  { href: "/finance/cash",      label: "الخزنة",              icon: Wallet,                      permission: "finance",                 section: "section_finance",           iconColor: "text-yellow-400"     },
-  { href: "/finance/purchases", label: "أوامر الشراء",        icon: ShoppingCart,                permission: "finance",                 section: "section_finance",           iconColor: "text-violet-400"     },
-  { href: "/finance/suppliers", label: "الموردون",            icon: Building2,                   permission: "finance",                 section: "section_finance",           iconColor: "text-blue-400"       },
-  { href: "/finance/expenses",  label: "المصروفات",           icon: Receipt,                     permission: "finance",                 section: "section_finance",           iconColor: "text-rose-400"       },
-  { href: "/finance/shipping-invoices", label: "فواتير الشحن", icon: Truck,                      permission: "finance",                 section: "section_finance",           iconColor: "text-sky-400"        },
+];
+
+// ── الماليات — قسم منفصل في الـ sidebar ──────────────────────────────────────
+const FINANCE_NAV = [
+  { href: "/finance",                   label: "لوحة الماليات", icon: DollarSign,   iconColor: "text-emerald-400" },
+  { href: "/finance/cash",              label: "الخزنة",        icon: Wallet,       iconColor: "text-yellow-400"  },
+  { href: "/finance/purchases",         label: "أوامر الشراء",  icon: ShoppingCart, iconColor: "text-violet-400"  },
+  { href: "/finance/suppliers",         label: "الموردون",      icon: Building2,    iconColor: "text-blue-400"    },
+  { href: "/finance/expenses",          label: "المصروفات",     icon: Receipt,      iconColor: "text-rose-400"    },
+  { href: "/finance/shipping-invoices", label: "فواتير الشحن",  icon: Truck,        iconColor: "text-sky-400"     },
 ];
 
 const ROLE_LABELS: Record<string, string> = {
@@ -62,11 +65,12 @@ const ROLE_LABELS: Record<string, string> = {
 
 export default function Layout({ children }: LayoutProps) {
   const [location] = useLocation();
-  const { user, logout, can } = useAuth();
+  const { user, logout, can, isAdmin } = useAuth();
   const { theme, toggleTheme, setTheme } = useTheme();
   const { toast } = useToast();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [financeOpen, setFinanceOpen] = useState(() => location.startsWith("/finance"));
   const [pwDialogOpen, setPwDialogOpen] = useState(false);
   const [brandSettingsOpen, setBrandSettingsOpen] = useState(false);
   const [currentPw, setCurrentPw] = useState("");
@@ -138,6 +142,49 @@ export default function Layout({ children }: LayoutProps) {
               </Link>
             );
           })}
+
+          {/* ── قسم الماليات ────────────────────────────────────────── */}
+          {(isAdmin || can("finance")) && (
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => setFinanceOpen(v => !v)}
+                className={cn(
+                  "w-full flex items-center gap-3 px-3 py-2 rounded-md text-xs font-semibold transition-all",
+                  location.startsWith("/finance")
+                    ? "bg-emerald-500/15 text-emerald-400"
+                    : "text-sidebar-foreground/55 hover:text-sidebar-foreground hover:bg-foreground/5"
+                )}
+              >
+                <DollarSign className={cn("w-3.5 h-3.5 shrink-0", location.startsWith("/finance") ? "text-emerald-400" : "text-emerald-400")} />
+                <span className="flex-1 text-right">الماليات</span>
+                <ChevronLeft className={cn("w-3 h-3 transition-transform", financeOpen ? "-rotate-90" : "")} />
+              </button>
+              {financeOpen && (
+                <div className="mt-0.5 mr-2 border-r border-emerald-500/20 pr-1 space-y-0.5">
+                  {FINANCE_NAV.map((item) => {
+                    const isActive = location === item.href || location.startsWith(item.href + "/");
+                    const Icon = item.icon;
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-1.5 rounded-md text-xs font-semibold transition-all",
+                          isActive
+                            ? "bg-primary text-primary-foreground"
+                            : "text-sidebar-foreground/55 hover:text-sidebar-foreground hover:bg-foreground/5"
+                        )}
+                      >
+                        <Icon className={cn("w-3.5 h-3.5 shrink-0", isActive ? "text-primary-foreground" : item.iconColor)} />
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </nav>
 
         {/* Theme Toggle */}
@@ -298,6 +345,50 @@ export default function Layout({ children }: LayoutProps) {
                     </Link>
                   );
                 })}
+
+                {/* ── قسم الماليات في الموبايل ─────────────────────────── */}
+                {(isAdmin || can("finance")) && (
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setFinanceOpen(v => !v)}
+                      className={cn(
+                        "w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-semibold transition-all",
+                        location.startsWith("/finance")
+                          ? "bg-emerald-500/15 text-emerald-400"
+                          : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-foreground/5"
+                      )}
+                    >
+                      <DollarSign className="w-4 h-4 shrink-0 text-emerald-400" />
+                      <span className="flex-1 text-right">الماليات</span>
+                      <ChevronLeft className={cn("w-3.5 h-3.5 transition-transform", financeOpen ? "-rotate-90" : "")} />
+                    </button>
+                    {financeOpen && (
+                      <div className="mt-0.5 mr-2 border-r border-emerald-500/20 pr-1 space-y-0.5">
+                        {FINANCE_NAV.map((item) => {
+                          const isActive = location === item.href || location.startsWith(item.href + "/");
+                          const Icon = item.icon;
+                          return (
+                            <Link
+                              key={item.href}
+                              href={item.href}
+                              onClick={() => setMobileMenuOpen(false)}
+                              className={cn(
+                                "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-semibold transition-all",
+                                isActive
+                                  ? "bg-primary text-primary-foreground"
+                                  : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-foreground/5"
+                              )}
+                            >
+                              <Icon className={cn("w-4 h-4 shrink-0", isActive ? "text-primary-foreground" : item.iconColor)} />
+                              {item.label}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </nav>
 
               {/* Theme toggle */}
