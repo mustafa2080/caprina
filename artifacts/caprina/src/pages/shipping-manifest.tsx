@@ -611,11 +611,13 @@ function InvoiceGroupDeliveryRow({
   manifestId,
   locked,
   onSaved,
+  rowIndex = 0,
 }: {
   group: ManifestOrder[];
   manifestId: number;
   locked: boolean;
   onSaved: () => void;
+  rowIndex?: number;
 }) {
   const { toast } = useToast();
   const [expanded, setExpanded] = useState(false);
@@ -830,7 +832,13 @@ function InvoiceGroupDeliveryRow({
   return (
     <>
       {/* ── Main group row ── */}
-      <div className={`border-b border-border/50 transition-colors ${bulkEditing ? "bg-primary/5" : "hover:bg-muted/10"}`}>
+      <div
+        className={`border-b border-border/50 transition-colors ${bulkEditing ? "bg-primary/5" : "hover:bg-muted/10"}`}
+        style={{
+          animation: "rowFadeIn 0.35s ease both",
+          animationDelay: `${rowIndex * 45}ms`,
+        }}
+      >
         {/* Desktop row */}
         <div className="hidden md:grid grid-cols-[1fr_1fr_1fr_60px_80px_120px_80px] gap-0 items-start px-3 py-2.5 text-xs">
           {/* Customer */}
@@ -3309,6 +3317,7 @@ export default function ShippingManifestPage() {
                     manifestId={id}
                     locked={isLocked && !isAdmin}
                     onSaved={refetch}
+                    rowIndex={index}
                   />
                   ))
                 )}

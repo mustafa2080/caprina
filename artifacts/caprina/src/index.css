@@ -517,3 +517,15 @@ html.login-active #root {
   outline: none !important;
   box-shadow: none !important;
 }
+
+/* ─── Shipping manifest row fade-in animation ─── */
+@keyframes rowFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
