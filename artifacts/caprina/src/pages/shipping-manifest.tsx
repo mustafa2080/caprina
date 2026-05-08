@@ -840,7 +840,7 @@ function InvoiceGroupDeliveryRow({
         }}
       >
         {/* Desktop row */}
-        <div className="hidden md:grid grid-cols-[1fr_1fr_1fr_60px_80px_120px_80px] gap-0 items-start px-3 py-2.5 text-xs">
+        <div className="hidden md:grid grid-cols-[1fr_1fr_1fr_60px_90px_130px_80px] gap-0 items-start px-3 py-2.5 text-xs">
           {/* Customer */}
           <div className="min-w-0 pr-1">
             <p className="font-semibold truncate">{rep.customerName}</p>
@@ -3204,7 +3204,7 @@ export default function ShippingManifestPage() {
               ) : (
                 <>
                 {/* ══ رأس الجدول المحسَّن ══ */}
-                <div className="hidden md:grid grid-cols-[1fr_1fr_1fr_60px_80px_120px_80px] gap-0 border-b-2 border-border bg-gradient-to-l from-muted/50 via-muted/30 to-transparent text-[10px] font-bold text-muted-foreground tracking-wide
+                <div className="hidden md:grid grid-cols-[1fr_1fr_1fr_60px_90px_130px_80px] gap-0 border-b-2 border-border bg-gradient-to-l from-muted/50 via-muted/30 to-transparent text-[10px] font-bold text-muted-foreground tracking-wide
                   [&>*:not(:last-child)]:border-r [&>*]:border-border/30">
                   {/* ─── عمود العميل — نص / سيرش عند الضغط ─── */}
                   <div className="relative">
