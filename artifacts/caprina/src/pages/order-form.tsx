@@ -142,10 +142,12 @@ function ProductSearchCombobox({ products, allVariants, onSelect }: {
 // ── Single product item row ───────────────────────────────────────────────────
 function ProductItem({
   index, control, watch, setValue, remove, products, allVariants, canViewFinancials, isOnly,
+  allItems, replaceItems,
 }: {
   index: number; control: any; watch: any; setValue: any;
   remove: () => void; products: any[]; allVariants: any[];
   canViewFinancials: boolean; isOnly: boolean;
+  allItems: any[]; replaceItems: (items: any[]) => void;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const productId   = watch(`items.${index}.productId`);
@@ -167,29 +169,53 @@ function ProductItem({
   const costTotal = qty * cost;
   const profit    = revenue - costTotal;
 
-  // sync first variant row into form fields + update total quantity
-  useEffect(() => {
-    const filled = variantRows.filter(r => r.color && r.size);
+  // sync variant rows → form items (replace this product's items in the global list)
+  const syncToForm = (rows: {color: string; size: string; quantity: number}[]) => {
+    const filled = rows.filter(r => r.color && r.size);
     if (filled.length === 0) return;
-    const first = filled[0];
-    const variant = productVariants.find((v: any) => v.color === first.color && v.size === first.size);
-    if (variant) {
-      setValue(`items.${index}.color`, first.color);
-      setValue(`items.${index}.size`, first.size);
-      setValue(`items.${index}.variantId`, variant.id);
-      setValue(`items.${index}.unitPrice`, variant.unitPrice);
-      if ((variant as any).costPrice) setValue(`items.${index}.costPrice`, (variant as any).costPrice);
-    }
-    const totalQty = filled.reduce((s, r) => s + r.quantity, 0);
-    setValue(`items.${index}.quantity`, totalQty);
-  }, [variantRows]);
 
-  const updateRow = (i: number, key: string, val: any) => {
-    setVariantRows(rows => rows.map((r, idx) => idx === i ? { ...r, [key]: val, ...(key === "color" ? { size: "" } : {}) } : r));
+    const newRows = filled.map((r) => {
+      const variant = productVariants.find((v: any) => v.color === r.color && v.size === r.size);
+      const baseItem = allItems[index] || emptyItem();
+      return {
+        ...baseItem,
+        color: r.color,
+        size: r.size,
+        quantity: r.quantity,
+        variantId: variant?.id ?? null,
+        unitPrice: variant?.unitPrice ?? baseItem.unitPrice,
+        costPrice: variant?.costPrice ?? baseItem.costPrice ?? null,
+      };
+    });
+
+    // ضع الـ rows الجديدة مكان الـ item الحالي
+    const before = allItems.slice(0, index);
+    const after  = allItems.slice(index + 1);
+    replaceItems([...before, ...newRows, ...after]);
   };
 
-  const addRow = () => setVariantRows(rows => [...rows, { color: "", size: "", quantity: 1 }]);
-  const removeRow = (i: number) => setVariantRows(rows => rows.filter((_, idx) => idx !== i));
+  const updateRow = (i: number, key: string, val: any) => {
+    setVariantRows(rows => {
+      const next = rows.map((r, idx) => idx === i ? { ...r, [key]: val, ...(key === "color" ? { size: "" } : {}) } : r);
+      syncToForm(next);
+      return next;
+    });
+  };
+
+  const addRow = () => {
+    setVariantRows(rows => {
+      const next = [...rows, { color: "", size: "", quantity: 1 }];
+      return next;
+    });
+  };
+
+  const removeRow = (i: number) => {
+    setVariantRows(rows => {
+      const next = rows.filter((_, idx) => idx !== i);
+      syncToForm(next);
+      return next;
+    });
+  };
 
   const handleSelectProduct = (p: any) => {
     setValue(`items.${index}.productId`, p.id);
@@ -414,7 +440,7 @@ export default function OrderForm() {
     },
   });
 
-  const { fields, append, remove } = useFieldArray({ control: form.control, name: "items" });
+  const { fields, append, remove, replace } = useFieldArray({ control: form.control, name: "items" });
   const items        = form.watch("items");
   const shippingCost = form.watch("shippingCost") || 0;
   const totalRevenue = items.reduce((s, it) => s + (it.quantity || 0) * (it.unitPrice || 0), 0);
@@ -550,7 +576,8 @@ export default function OrderForm() {
                   <ProductItem key={field.id} index={index}
                     control={form.control} watch={form.watch} setValue={form.setValue}
                     remove={() => remove(index)} products={products} allVariants={allVariants}
-                    canViewFinancials={canViewFinancials} isOnly={fields.length === 1} />
+                    canViewFinancials={canViewFinancials} isOnly={fields.length === 1}
+                    allItems={items} replaceItems={(newItems) => replace(newItems)} />
                 ))}
 
                 {fields.length >= 2 && (
