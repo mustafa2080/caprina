@@ -19,4 +19,5 @@ export * from "./suppliers";
 export * from "./purchases";
 export * from "./expenses";
 export * from "./shipping_financial_invoices";
+export * from "./cash_registers";
 export * from "./attendance";

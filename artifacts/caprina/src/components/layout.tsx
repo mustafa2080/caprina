@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useState, useMemo } from "react";
-import { LayoutDashboard, Package, Plus, Boxes, Truck, FileText, Upload, Activity, BarChart3, Users, Shield, LogOut, ChevronDown, KeyRound, Warehouse, Megaphone, UserCheck, UserCog, Sun, Moon, Brain, Archive, Clock, MessageCircle, Menu, X, Download, DollarSign, ShoppingCart, Receipt, Building2 } from "lucide-react";
+import { LayoutDashboard, Package, Plus, Boxes, Truck, FileText, Upload, Activity, BarChart3, Users, Shield, LogOut, ChevronDown, KeyRound, Warehouse, Megaphone, UserCheck, UserCog, Sun, Moon, Brain, Archive, Clock, MessageCircle, Menu, X, Download, DollarSign, ShoppingCart, Receipt, Building2, Wallet } from "lucide-react";
 import { BrandFull } from "@/components/brand-logo";
 import { BrandSettingsDialog } from "@/components/brand-settings-dialog";
 import { cn } from "@/lib/utils";
@@ -49,6 +49,7 @@ const ALL_NAV = [
   { href: "/audit-logs",        label: "سجل التعديلات",       icon: Shield,                      permission: "audit",                   section: "section_audit",             iconColor: "text-red-400"        },
   // ── الماليات ────────────────────────────────────────────────────────────────
   { href: "/finance",           label: "لوحة الماليات",       icon: DollarSign,                  permission: "finance",                 section: "section_finance",           iconColor: "text-emerald-400"    },
+  { href: "/finance/cash",      label: "الخزنة",              icon: Wallet,                      permission: "finance",                 section: "section_finance",           iconColor: "text-yellow-400"     },
   { href: "/finance/purchases", label: "أوامر الشراء",        icon: ShoppingCart,                permission: "finance",                 section: "section_finance",           iconColor: "text-violet-400"     },
   { href: "/finance/suppliers", label: "الموردون",            icon: Building2,                   permission: "finance",                 section: "section_finance",           iconColor: "text-blue-400"       },
   { href: "/finance/expenses",  label: "المصروفات",           icon: Receipt,                     permission: "finance",                 section: "section_finance",           iconColor: "text-rose-400"       },
