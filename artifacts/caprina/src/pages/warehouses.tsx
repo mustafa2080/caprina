@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Warehouse, Package, Edit2, Trash2, Star, ArrowLeft, Printer, TrendingDown, DollarSign, BoxIcon, ShoppingBag } from "lucide-react";
+import { Plus, Warehouse, Package, Edit2, Trash2, Star, ArrowLeft, Printer, TrendingDown, DollarSign, BoxIcon, ShoppingBag, Search, X, SlidersHorizontal, ChevronDown, ChevronUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Link } from "wouter";
 import { warehousesApi, type Warehouse as WarehouseType, type WarehouseDetail, productsApi, variantsApi } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDebounce } from "@/hooks/use-debounce";
 
 const fmt = (n: number) =>
   new Intl.NumberFormat("ar-EG").format(n);
@@ -101,6 +102,14 @@ function StockEditor({ warehouseId, onClose, canEdit }: { warehouseId: number; o
   const [qty, setQty] = useState(0);
   const [adding, setAdding] = useState(false);
 
+  // ── فلاتر البحث داخل المخزن ──────────────────────────────────────────────
+  const [stockSearch, setStockSearch]         = useState("");
+  const [showAdvanced, setShowAdvanced]       = useState(false);
+  const [filterStockMin, setFilterStockMin]   = useState("");
+  const [filterStockMax, setFilterStockMax]   = useState("");
+  const [filterStockStatus, setFilterStockStatus] = useState<"all" | "low" | "ok" | "zero">("all");
+  const debouncedStockSearch = useDebounce(stockSearch, 250);
+
   const productVariants = allVariants?.filter(v => v.productId === Number(selectedProductId)) ?? [];
 
   // ── حسابات المخزون ──────────────────────────────────────────────────────────
@@ -109,6 +118,32 @@ function StockEditor({ warehouseId, onClose, canEdit }: { warehouseId: number; o
   const availableQty  = stockItems.filter(i => i.quantity > 0).reduce((s, i) => s + i.quantity, 0);
   const lowStockCount = stockItems.filter(i => i.quantity > 0 && i.quantity <= (i.lowStockThreshold ?? 5)).length;
   const stockValue    = stockItems.reduce((s, i) => s + i.quantity * (i.costPrice ?? i.unitPrice ?? 0), 0);
+
+  // ── تطبيق الفلاتر على جدول المنتجات ─────────────────────────────────────
+  const filteredStock = useMemo(() => {
+    return stockItems.filter(item => {
+      const q = debouncedStockSearch.toLowerCase();
+      if (q) {
+        const nameMatch    = item.productName?.toLowerCase().includes(q);
+        const colorMatch   = item.variantColor?.toLowerCase().includes(q);
+        const sizeMatch    = item.variantSize?.toLowerCase().includes(q);
+        if (!nameMatch && !colorMatch && !sizeMatch) return false;
+      }
+      if (filterStockMin && item.quantity < parseFloat(filterStockMin)) return false;
+      if (filterStockMax && item.quantity > parseFloat(filterStockMax)) return false;
+      if (filterStockStatus === "zero" && item.quantity !== 0) return false;
+      if (filterStockStatus === "low"  && !(item.quantity > 0 && item.quantity <= (item.lowStockThreshold ?? 5))) return false;
+      if (filterStockStatus === "ok"   && !(item.quantity > (item.lowStockThreshold ?? 5))) return false;
+      return true;
+    });
+  }, [stockItems, debouncedStockSearch, filterStockMin, filterStockMax, filterStockStatus]);
+
+  const hasStockFilter = stockSearch || filterStockMin || filterStockMax || filterStockStatus !== "all";
+  const advancedCount  = [filterStockMin, filterStockMax, filterStockStatus !== "all"].filter(Boolean).length;
+
+  const clearStockFilters = () => {
+    setStockSearch(""); setFilterStockMin(""); setFilterStockMax(""); setFilterStockStatus("all");
+  };
 
   // ── طباعة المخزون ───────────────────────────────────────────────────────────
   const handlePrint = () => {
@@ -328,6 +363,98 @@ function StockEditor({ warehouseId, onClose, canEdit }: { warehouseId: number; o
       </Card>
       )}
 
+      {/* ── شريط البحث والفلاتر ── */}
+      <div className="rounded-md border border-border bg-muted/5 p-3 space-y-2">
+        {/* صف البحث */}
+        <div className="flex gap-2 flex-col sm:flex-row">
+          <div className="relative flex-1">
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+            <Input
+              placeholder="ابحث باسم المنتج، اللون، أو المقاس..."
+              className="pr-9 h-8 text-xs bg-card"
+              value={stockSearch}
+              onChange={e => setStockSearch(e.target.value)}
+            />
+            {stockSearch && (
+              <button onClick={() => setStockSearch("")} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+          <Button
+            variant={showAdvanced ? "default" : "outline"}
+            size="sm"
+            className="h-8 gap-1.5 text-xs shrink-0"
+            onClick={() => setShowAdvanced(v => !v)}
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            فلتر متقدم
+            {advancedCount > 0 && (
+              <span className="bg-primary-foreground text-primary rounded-full w-4 h-4 text-[9px] font-black flex items-center justify-center">
+                {advancedCount}
+              </span>
+            )}
+            {showAdvanced ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+          </Button>
+          {hasStockFilter && (
+            <Button variant="ghost" size="sm" className="h-8 text-xs gap-1 text-muted-foreground" onClick={clearStockFilters}>
+              <X className="w-3 h-3" />مسح
+            </Button>
+          )}
+        </div>
+
+        {/* فلاتر متقدمة */}
+        {showAdvanced && (
+          <div className="pt-2 border-t border-border space-y-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {/* حالة المخزون */}
+              <div>
+                <p className="text-[10px] text-muted-foreground mb-1 font-semibold">📊 حالة المخزون</p>
+                <div className="flex gap-1 flex-wrap">
+                  {(["all", "ok", "low", "zero"] as const).map(s => (
+                    <button
+                      key={s}
+                      onClick={() => setFilterStockStatus(s)}
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold border transition-colors ${
+                        filterStockStatus === s
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-card text-muted-foreground border-border hover:border-primary/40"
+                      }`}
+                    >
+                      {s === "all" ? "الكل" : s === "ok" ? "✅ جيد" : s === "low" ? "⚠️ منخفض" : "❌ نفذ"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* نطاق الكمية */}
+              <div className="sm:col-span-2">
+                <p className="text-[10px] text-muted-foreground mb-1 font-semibold">📦 نطاق الكمية</p>
+                <div className="flex items-center gap-2">
+                  <Input type="number" placeholder="من" className="h-7 text-xs bg-background w-24" value={filterStockMin} onChange={e => setFilterStockMin(e.target.value)} />
+                  <span className="text-xs text-muted-foreground">—</span>
+                  <Input type="number" placeholder="إلى" className="h-7 text-xs bg-background w-24" value={filterStockMax} onChange={e => setFilterStockMax(e.target.value)} />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* إحصاء النتائج */}
+        <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1">
+          <span>
+            {filteredStock.length !== stockItems.length
+              ? `${filteredStock.length} من ${stockItems.length} صنف`
+              : `${stockItems.length} صنف`}
+          </span>
+          {filteredStock.length > 0 && (
+            <span className="text-primary font-bold">
+              إجمالي: {fmt(filteredStock.reduce((s, i) => s + i.quantity, 0))} وحدة
+            </span>
+          )}
+        </div>
+      </div>
+
       {/* Stock table */}
       <div className="rounded-md border border-border overflow-hidden">
         <Table>
@@ -340,10 +467,12 @@ function StockEditor({ warehouseId, onClose, canEdit }: { warehouseId: number; o
             </TableRow>
           </TableHeader>
           <TableBody>
-            {warehouse?.stock.length === 0 && (
-              <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground text-xs py-6">لا توجد بيانات مخزون</TableCell></TableRow>
+            {filteredStock.length === 0 && (
+              <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground text-xs py-6">
+                {hasStockFilter ? "لا توجد نتائج — جرّب تغيير الفلاتر" : "لا توجد بيانات مخزون"}
+              </TableCell></TableRow>
             )}
-            {warehouse?.stock.map(item => (
+            {filteredStock.map(item => (
               <TableRow key={item.id}>
                 <TableCell className="text-xs font-medium">{item.productName ?? "—"}</TableCell>
                 <TableCell className="text-xs text-muted-foreground">
@@ -381,6 +510,8 @@ export default function WarehousesPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingWarehouse, setEditingWarehouse] = useState<WarehouseType | undefined>();
   const [stockViewId, setStockViewId] = useState<number | null>(null);
+  const [warehouseSearch, setWarehouseSearch] = useState("");
+  const debouncedWarehouseSearch = useDebounce(warehouseSearch, 250);
 
   const { data: warehouses = [], isLoading } = useQuery({
     queryKey: ["warehouses"],
@@ -400,6 +531,16 @@ export default function WarehousesPage() {
       toast({ title: "خطأ", description: e.message, variant: "destructive" });
     }
   };
+
+  const filteredWarehouses = useMemo(() => {
+    if (!debouncedWarehouseSearch) return warehouses;
+    const q = debouncedWarehouseSearch.toLowerCase();
+    return warehouses.filter(w =>
+      w.name.toLowerCase().includes(q) ||
+      w.address?.toLowerCase().includes(q) ||
+      w.notes?.toLowerCase().includes(q)
+    );
+  }, [warehouses, debouncedWarehouseSearch]);
 
   if (stockViewId !== null) {
     return (
@@ -423,6 +564,24 @@ export default function WarehousesPage() {
         )}
       </div>
 
+      {/* ── شريط البحث ── */}
+      {!isLoading && warehouses.length > 0 && (
+        <div className="relative max-w-sm">
+          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="ابحث باسم المخزن أو العنوان..."
+            className="pr-9 h-9 text-sm bg-card"
+            value={warehouseSearch}
+            onChange={e => setWarehouseSearch(e.target.value)}
+          />
+          {warehouseSearch && (
+            <button onClick={() => setWarehouseSearch("")} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      )}
+
       {isLoading && <p className="text-center text-muted-foreground text-sm py-12">جاري التحميل...</p>}
 
       {!isLoading && warehouses.length === 0 && (
@@ -432,8 +591,16 @@ export default function WarehousesPage() {
         </div>
       )}
 
+      {!isLoading && filteredWarehouses.length === 0 && warehouses.length > 0 && (
+        <div className="text-center py-10 text-muted-foreground">
+          <Search className="w-8 h-8 mx-auto mb-2 opacity-20" />
+          <p className="text-sm">لا توجد مخازن تطابق البحث</p>
+          <button onClick={() => setWarehouseSearch("")} className="text-xs text-primary mt-1 hover:underline">مسح البحث</button>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {warehouses.map(w => (
+        {filteredWarehouses.map(w => (
           <Card key={w.id} className="border-border bg-card hover:border-primary/40 transition-colors">
             <CardHeader className="pb-2 pt-4 px-4">
               <div className="flex items-start justify-between gap-2">
