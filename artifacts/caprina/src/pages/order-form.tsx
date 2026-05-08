@@ -291,7 +291,7 @@ function ProductItem({
               )}
             </div>
               {/* زر إضافة مقاس/لون آخر لنفس المنتج */}
-              {selectedVariant && (
+              {productId && productVariants.length > 0 && (
                 <button
                   type="button"
                   onClick={() => {
