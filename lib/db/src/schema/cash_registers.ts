@@ -19,11 +19,12 @@ export type CashTransactionType = (typeof CASH_TRANSACTION_TYPES)[number];
 // ─── جدول الخزن ──────────────────────────────────────────────────────────────
 export const cashRegistersTable = mysqlTable("cash_registers", {
   id:             int("id").primaryKey().autoincrement(),
-  name:           varchar("name", { length: 255 }).notNull(),          // اسم الخزنة
-  type:           varchar("type", { length: 50 }).notNull().default("branch"), // main | branch
+  name:           varchar("name", { length: 255 }).notNull(),
+  type:           varchar("type", { length: 50 }).notNull().default("branch"),
   balance:        decimal("balance", { precision: 14, scale: 2 }).notNull().default("0"),
   description:    text("description"),
   isActive:       boolean("is_active").notNull().default(true),
+  lowBalanceThreshold: decimal("low_balance_threshold", { precision: 14, scale: 2 }), // حد التنبيه
   createdByUserId: int("created_by_user_id"),
   createdByName:  varchar("created_by_name", { length: 255 }),
   createdAt:      datetime("created_at").notNull(),
@@ -38,13 +39,11 @@ export const cashTransactionsTable = mysqlTable("cash_transactions", {
   amount:          decimal("amount", { precision: 14, scale: 2 }).notNull(),
   balanceBefore:   decimal("balance_before", { precision: 14, scale: 2 }).notNull(),
   balanceAfter:    decimal("balance_after", { precision: 14, scale: 2 }).notNull(),
-  // روابط اختيارية للمصدر
   orderId:         int("order_id"),
   expenseId:       int("expense_id"),
   purchaseOrderId: int("purchase_order_id"),
   shippingInvoiceId: int("shipping_invoice_id"),
-  transferToRegisterId: int("transfer_to_register_id"), // لو تحويل للفرع
-  // تفاصيل
+  transferToRegisterId: int("transfer_to_register_id"),
   description:     text("description"),
   referenceNumber: varchar("reference_number", { length: 100 }),
   transactionDate: datetime("transaction_date").notNull(),

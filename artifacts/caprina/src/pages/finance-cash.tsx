@@ -1,6 +1,11 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Wallet, ArrowUpCircle, ArrowDownCircle, ArrowRightLeft, Building2, Star, Trash2, Eye } from "lucide-react";
+import {
+  Plus, Wallet, ArrowUpCircle, ArrowDownCircle, ArrowRightLeft,
+  Star, Trash2, TrendingUp, TrendingDown, RefreshCw,
+  Search, Download, ChevronLeft, ChevronRight,
+  Building2, CreditCard, Pencil, X, Bell, BellOff, Settings2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -8,8 +13,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
+import { format, startOfMonth } from "date-fns";
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
 const apiFetch = async (url: string, options?: RequestInit) => {
   const res = await fetch(url, { credentials: "include", ...options });
@@ -17,327 +23,507 @@ const apiFetch = async (url: string, options?: RequestInit) => {
   return res.json();
 };
 
-// ─── types ────────────────────────────────────────────────────────────────────
-interface CashRegister {
-  id: number;
-  name: string;
-  type: "main" | "branch";
-  balance: string;
-  description?: string;
-  isActive: boolean;
-  createdAt: string;
-}
-
-interface CashTransaction {
-  id: number;
-  registerId: number;
-  type: string;
-  amount: string;
-  balanceBefore: string;
-  balanceAfter: string;
-  description?: string;
-  referenceNumber?: string;
-  transactionDate: string;
-  createdByName?: string;
-}
-
-// ─── helpers ──────────────────────────────────────────────────────────────────
 const fmt = (v: string | number) =>
   Number(v).toLocaleString("ar-EG", { minimumFractionDigits: 2 }) + " ج.م";
+const fmtShort = (v: number) =>
+  v >= 1000 ? (v / 1000).toFixed(1) + "k" : v.toFixed(0);
 
-const TX_LABELS: Record<string, string> = {
-  deposit:          "إيداع",
-  withdrawal:       "سحب",
-  order_collected:  "تحصيل طلب",
-  shipping_transfer:"تحويل شحن",
-  cash_sale:        "مبيعات نقدية",
-  expense_paid:     "دفع مصروف",
-  purchase_paid:    "دفع مورد",
-  transfer_in:      "تحويل وارد",
-  transfer_out:     "تحويل صادر",
+const TX_LABELS: Record<string, { label: string; color: string }> = {
+  deposit:          { label: "إيداع",            color: "text-emerald-500" },
+  withdrawal:       { label: "سحب",              color: "text-rose-500"    },
+  order_collected:  { label: "تحصيل طلب",        color: "text-emerald-500" },
+  shipping_transfer:{ label: "تحويل شحن",        color: "text-emerald-500" },
+  cash_sale:        { label: "مبيعات نقدية",     color: "text-emerald-500" },
+  expense_paid:     { label: "دفع مصروف",        color: "text-rose-500"    },
+  purchase_paid:    { label: "دفع مورد",         color: "text-rose-500"    },
+  transfer_in:      { label: "تحويل وارد",       color: "text-sky-500"     },
+  transfer_out:     { label: "تحويل صادر",       color: "text-amber-500"   },
 };
 
-const CREDIT_TYPES = ["deposit", "order_collected", "shipping_transfer", "cash_sale", "transfer_in"];
+const CREDIT_TYPES = ["deposit","order_collected","shipping_transfer","cash_sale","transfer_in"];
 
-// ─── component ────────────────────────────────────────────────────────────────
+interface CashRegister {
+  id: number; name: string; type: "main"|"branch";
+  balance: string; description?: string; isActive: boolean;
+  monthlyIn: number; monthlyOut: number; txCount: number;
+  lowBalanceThreshold?: string;
+}
+interface CashTransaction {
+  id: number; registerId: number; type: string; amount: string;
+  balanceBefore: string; balanceAfter: string;
+  description?: string; referenceNumber?: string;
+  transactionDate: string; createdByName?: string;
+}
+interface Alert { registerId: number; name: string; balance: number; threshold: number; type: string; }
+
 export default function FinanceCashPage() {
   const qc = useQueryClient();
   const { toast } = useToast();
 
-  // dialogs
-  const [addRegisterOpen, setAddRegisterOpen]   = useState(false);
-  const [txOpen, setTxOpen]                     = useState(false);
-  const [transferOpen, setTransferOpen]         = useState(false);
-  const [viewTxOpen, setViewTxOpen]             = useState(false);
-  const [selectedReg, setSelectedReg]           = useState<CashRegister | null>(null);
+  const [activeTab, setActiveTab]   = useState<number | "all">("all");
+  const [addRegOpen, setAddRegOpen] = useState(false);
+  const [txOpen, setTxOpen]         = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [editOpen, setEditOpen]     = useState(false);
+  const [thresholdOpen, setThresholdOpen] = useState(false);
+  const [selectedReg, setSelectedReg] = useState<CashRegister | null>(null);
 
-  // forms
-  const [newReg, setNewReg]     = useState({ name: "", type: "branch", description: "", initialBalance: "" });
-  const [txForm, setTxForm]     = useState({ type: "deposit", amount: "", description: "", referenceNumber: "" });
-  const [transfer, setTransfer] = useState({ toId: "", amount: "", description: "" });
+  const [ledgerFrom, setLedgerFrom] = useState(format(startOfMonth(new Date()), "yyyy-MM-dd"));
+  const [ledgerTo,   setLedgerTo]   = useState(format(new Date(), "yyyy-MM-dd"));
+  const [ledgerType, setLedgerType] = useState("all");
+  const [ledgerSearch, setLedgerSearch] = useState("");
+  const [ledgerPage, setLedgerPage] = useState(1);
 
-  // ── queries ──────────────────────────────────────────────────────────────────
+  const [newReg,  setNewReg]  = useState({ name: "", type: "branch", description: "", initialBalance: "" });
+  const [txForm,  setTxForm]  = useState({ type: "deposit", amount: "", description: "", referenceNumber: "", transactionDate: format(new Date(), "yyyy-MM-dd") });
+  const [transfer, setTransfer] = useState({ fromId: "", toId: "", amount: "", description: "" });
+  const [editForm, setEditForm] = useState({ name: "", description: "" });
+  const [thresholdVal, setThresholdVal] = useState("");
+
   const { data: regData, isLoading } = useQuery<{ registers: CashRegister[]; totalBalance: number }>({
     queryKey: ["/api/cash-registers"],
     queryFn: () => apiFetch("/api/cash-registers"),
+    refetchInterval: 30000,
   });
 
-  const { data: transactions = [] } = useQuery<CashTransaction[]>({
-    queryKey: ["/api/cash-registers", selectedReg?.id, "transactions"],
-    queryFn: () => apiFetch(`/api/cash-registers/${selectedReg!.id}/transactions?limit=100`),
-    enabled: !!selectedReg && viewTxOpen,
+  const { data: alertsData } = useQuery<{ alerts: Alert[] }>({
+    queryKey: ["/api/cash-registers/alerts"],
+    queryFn: () => apiFetch("/api/cash-registers/alerts"),
+    refetchInterval: 60000,
   });
+
+  const ledgerRegId = activeTab !== "all" ? activeTab : null;
+
+  const { data: ledgerData, isLoading: ledgerLoading } = useQuery({
+    queryKey: ["/api/cash-registers/ledger", ledgerRegId, ledgerFrom, ledgerTo, ledgerType, ledgerPage],
+    queryFn: () => apiFetch(`/api/cash-registers/${ledgerRegId}/transactions?from=${ledgerFrom}&to=${ledgerTo}&type=${ledgerType}&page=${ledgerPage}&limit=25`),
+    enabled: !!ledgerRegId,
+  });
+
+  const { data: flowData } = useQuery({
+    queryKey: ["/api/cash-registers/flow", ledgerRegId],
+    queryFn: () => apiFetch(`/api/cash-registers/${ledgerRegId}/flow?days=30`),
+    enabled: !!ledgerRegId,
+  });
+
+  const registers    = regData?.registers ?? [];
+  const totalBalance = regData?.totalBalance ?? 0;
+  const mainReg      = registers.find(r => r.type === "main");
+  const activeReg    = typeof activeTab === "number" ? registers.find(r => r.id === activeTab) ?? null : null;
+  const alerts       = alertsData?.alerts ?? [];
+  const transactions: CashTransaction[] = ledgerData?.transactions ?? [];
+  const stats        = ledgerData?.stats;
+  const pagination   = ledgerData?.pagination;
+
+  const filteredTx = useMemo(() =>
+    ledgerSearch ? transactions.filter(tx =>
+      tx.description?.includes(ledgerSearch) ||
+      tx.referenceNumber?.includes(ledgerSearch) ||
+      TX_LABELS[tx.type]?.label.includes(ledgerSearch)
+    ) : transactions,
+    [transactions, ledgerSearch]
+  );
+
+  const handleExport = () => {
+    if (!activeReg) return;
+    const params = new URLSearchParams({ from: ledgerFrom, to: ledgerTo });
+    if (ledgerType !== "all") params.append("type", ledgerType);
+    window.open(`/api/cash-registers/${activeReg.id}/export?${params}`, "_blank");
+  };
 
   const addRegMut = useMutation({
-    mutationFn: (data: any) => apiFetch("/api/cash-registers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/cash-registers"] }); setAddRegisterOpen(false); setNewReg({ name: "", type: "branch", description: "", initialBalance: "" }); toast({ title: "✅ تم إنشاء الخزنة" }); },
-    onError: (e: any) => toast({ title: "❌ خطأ", description: e.message, variant: "destructive" }),
+    mutationFn: (d: any) => apiFetch("/api/cash-registers", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(d) }),
+    onSuccess: () => { qc.invalidateQueries({queryKey:["/api/cash-registers"]}); setAddRegOpen(false); setNewReg({name:"",type:"branch",description:"",initialBalance:""}); toast({title:"✅ تم إنشاء الخزنة"}); },
+    onError: (e:any) => toast({title:"❌ خطأ", description:e.message, variant:"destructive"}),
   });
 
   const txMut = useMutation({
-    mutationFn: (data: any) => apiFetch(`/api/cash-registers/${selectedReg!.id}/transaction`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/cash-registers"] }); setTxOpen(false); setTxForm({ type: "deposit", amount: "", description: "", referenceNumber: "" }); toast({ title: "✅ تم تسجيل الحركة" }); },
-    onError: (e: any) => toast({ title: "❌ خطأ", description: e.message, variant: "destructive" }),
+    mutationFn: (d: any) => apiFetch(`/api/cash-registers/${selectedReg!.id}/transaction`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(d) }),
+    onSuccess: () => { qc.invalidateQueries({queryKey:["/api/cash-registers"]}); qc.invalidateQueries({queryKey:["/api/cash-registers/ledger"]}); qc.invalidateQueries({queryKey:["/api/cash-registers/alerts"]}); setTxOpen(false); setTxForm({type:"deposit",amount:"",description:"",referenceNumber:"",transactionDate:format(new Date(),"yyyy-MM-dd")}); toast({title:"✅ تم تسجيل الحركة"}); },
+    onError: (e:any) => toast({title:"❌ خطأ", description:e.message, variant:"destructive"}),
   });
 
   const transferMut = useMutation({
-    mutationFn: (data: any) => apiFetch("/api/cash-registers/transfer", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/cash-registers"] }); setTransferOpen(false); setTransfer({ toId: "", amount: "", description: "" }); toast({ title: "✅ تم التحويل بنجاح" }); },
-    onError: (e: any) => toast({ title: "❌ خطأ", description: e.message, variant: "destructive" }),
+    mutationFn: (d: any) => apiFetch("/api/cash-registers/transfer", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(d) }),
+    onSuccess: () => { qc.invalidateQueries({queryKey:["/api/cash-registers"]}); qc.invalidateQueries({queryKey:["/api/cash-registers/ledger"]}); setTransferOpen(false); setTransfer({fromId:"",toId:"",amount:"",description:""}); toast({title:"✅ تم التحويل"}); },
+    onError: (e:any) => toast({title:"❌ خطأ", description:e.message, variant:"destructive"}),
   });
 
-  const deleteRegMut = useMutation({
-    mutationFn: (id: number) => apiFetch(`/api/cash-registers/${id}`, { method: "DELETE" }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/cash-registers"] }); toast({ title: "✅ تم تعطيل الخزنة" }); },
-    onError: (e: any) => toast({ title: "❌ خطأ", description: e.message, variant: "destructive" }),
+  const editMut = useMutation({
+    mutationFn: (d: any) => apiFetch(`/api/cash-registers/${selectedReg!.id}`, { method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify(d) }),
+    onSuccess: () => { qc.invalidateQueries({queryKey:["/api/cash-registers"]}); setEditOpen(false); toast({title:"✅ تم التعديل"}); },
+    onError: (e:any) => toast({title:"❌ خطأ", description:e.message, variant:"destructive"}),
   });
 
-  const registers   = regData?.registers ?? [];
-  const totalBalance = regData?.totalBalance ?? 0;
-  const mainReg     = registers.find(r => r.type === "main");
-  const branchRegs  = registers.filter(r => r.type === "branch");
+  const thresholdMut = useMutation({
+    mutationFn: (d: any) => apiFetch(`/api/cash-registers/${selectedReg!.id}/threshold`, { method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify(d) }),
+    onSuccess: () => { qc.invalidateQueries({queryKey:["/api/cash-registers"]}); qc.invalidateQueries({queryKey:["/api/cash-registers/alerts"]}); setThresholdOpen(false); toast({title:"✅ تم ضبط حد التنبيه"}); },
+    onError: (e:any) => toast({title:"❌ خطأ", description:e.message, variant:"destructive"}),
+  });
 
-  if (isLoading) return <div className="flex items-center justify-center h-64 text-muted-foreground">جارٍ التحميل...</div>;
+  const delMut = useMutation({
+    mutationFn: (id:number) => apiFetch(`/api/cash-registers/${id}`, { method:"DELETE" }),
+    onSuccess: () => { qc.invalidateQueries({queryKey:["/api/cash-registers"]}); setActiveTab("all"); toast({title:"✅ تم تعطيل الخزنة"}); },
+    onError: (e:any) => toast({title:"❌ خطأ", description:e.message, variant:"destructive"}),
+  });
+
+  if (isLoading) return (
+    <div className="flex items-center justify-center h-64 gap-3 text-muted-foreground">
+      <RefreshCw className="w-5 h-5 animate-spin" /> جارٍ التحميل...
+    </div>
+  );
 
   return (
-    <div className="p-6 space-y-6 max-w-5xl mx-auto" dir="rtl">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-5 animate-in fade-in duration-500" dir="rtl">
+
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><Wallet className="text-emerald-500" /> الخزنة</h1>
-          <p className="text-sm text-muted-foreground mt-1">إدارة الخزنة الرئيسية والفروع</p>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Wallet className="w-6 h-6 text-emerald-500" /> الخزنة
+          </h1>
+          <p className="text-sm text-muted-foreground">إدارة الخزنة الرئيسية والفروع</p>
         </div>
-        <Button onClick={() => setAddRegisterOpen(true)} className="gap-2">
-          <Plus className="w-4 h-4" /> خزنة فرعية جديدة
-        </Button>
+        <div className="flex gap-2 flex-wrap">
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setTransferOpen(true)}>
+            <ArrowRightLeft className="w-4 h-4" /> تحويل بين خزنتين
+          </Button>
+          <Button size="sm" className="gap-1.5" onClick={() => setAddRegOpen(true)}>
+            <Plus className="w-4 h-4" /> خزنة جديدة
+          </Button>
+        </div>
       </div>
 
-      {/* إجمالي الكاش */}
-      <div className="rounded-2xl bg-gradient-to-l from-emerald-500 to-teal-600 text-white p-6 shadow-lg">
-        <p className="text-sm opacity-80 mb-1">إجمالي الكاش (كل الخزن)</p>
-        <p className="text-4xl font-bold">{fmt(totalBalance)}</p>
-        <p className="text-xs opacity-70 mt-2">{registers.length} خزنة نشطة</p>
-      </div>
-
-      {/* الخزنة الرئيسية */}
-      {mainReg && (
-        <div>
-          <h2 className="font-semibold text-base mb-3 flex items-center gap-2"><Star className="w-4 h-4 text-yellow-500" />الخزنة الرئيسية</h2>
-          <RegisterCard
-            register={mainReg}
-            isMain
-            onTx={(r) => { setSelectedReg(r); setTxOpen(true); }}
-            onTransfer={(r) => { setSelectedReg(r); setTransferOpen(true); }}
-            onView={(r) => { setSelectedReg(r); setViewTxOpen(true); }}
-          />
-        </div>
-      )}
-
-      {/* الخزن الفرعية */}
-      {branchRegs.length > 0 && (
-        <div>
-          <h2 className="font-semibold text-base mb-3 flex items-center gap-2"><Building2 className="w-4 h-4 text-blue-500" />الخزن الفرعية</h2>
-          <div className="grid gap-4 md:grid-cols-2">
-            {branchRegs.map(r => (
-              <RegisterCard
-                key={r.id}
-                register={r}
-                onTx={(r) => { setSelectedReg(r); setTxOpen(true); }}
-                onView={(r) => { setSelectedReg(r); setViewTxOpen(true); }}
-                onDelete={(id) => { if (confirm("هتعطل الخزنة دي؟")) deleteRegMut.mutate(id); }}
-              />
+      {/* ── تنبيهات الرصيد المنخفض ── */}
+      {alerts.length > 0 && (
+        <div className="rounded-xl border border-rose-400/40 bg-rose-50/30 dark:bg-rose-950/20 p-4 space-y-2">
+          <p className="text-sm font-bold text-rose-600 flex items-center gap-2">
+            <Bell className="w-4 h-4" /> تنبيهات الرصيد المنخفض
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {alerts.map(a => (
+              <div key={a.registerId} className="flex items-center gap-2 bg-rose-100/50 dark:bg-rose-900/30 px-3 py-1.5 rounded-lg text-xs">
+                <span className="font-semibold text-rose-700 dark:text-rose-400">{a.name}</span>
+                <span className="text-muted-foreground">الرصيد: <span className="font-bold text-rose-600">{fmt(a.balance)}</span></span>
+                <span className="text-muted-foreground">الحد: {fmt(a.threshold)}</span>
+              </div>
             ))}
           </div>
         </div>
       )}
 
-      {registers.length === 0 && (
-        <div className="text-center py-16 text-muted-foreground">
-          <Wallet className="w-12 h-12 mx-auto mb-3 opacity-30" />
-          <p>مفيش خزن بعد. ابدأ بإنشاء الخزنة الرئيسية.</p>
-          <Button className="mt-4" onClick={() => { setNewReg(p => ({...p, type: "main"})); setAddRegisterOpen(true); }}>
-            إنشاء الخزنة الرئيسية
-          </Button>
+      {/* ── إجمالي الكاش ── */}
+      <div className="rounded-2xl bg-gradient-to-l from-emerald-600 to-teal-600 text-white p-5 shadow-lg">
+        <p className="text-sm opacity-80 mb-1 flex items-center gap-1.5">
+          <Wallet className="w-4 h-4" /> إجمالي الكاش (كل الخزن)
+        </p>
+        <p className="text-4xl font-black">{fmt(totalBalance)}</p>
+        <p className="text-xs opacity-70 mt-1">{registers.length} خزنة نشطة</p>
+      </div>
+
+      {/* ── Tabs الخزن ── */}
+      <div className="flex gap-2 flex-wrap border-b border-border pb-2">
+        <button onClick={() => setActiveTab("all")}
+          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${activeTab==="all" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>
+          كل الخزن
+        </button>
+        {registers.map(r => (
+          <button key={r.id} onClick={() => { setActiveTab(r.id); setLedgerPage(1); }}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${activeTab===r.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>
+            {r.type==="main" ? <Star className="w-3 h-3" /> : <Building2 className="w-3 h-3" />}
+            {r.name}
+            {alerts.some(a => a.registerId === r.id) && <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Tab: كل الخزن ── */}
+      {activeTab === "all" && (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {registers.map(r => {
+            const net = r.monthlyIn - r.monthlyOut;
+            const hasAlert = alerts.some(a => a.registerId === r.id);
+            return (
+              <div key={r.id}
+                className={`rounded-xl border p-5 bg-card shadow-sm cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all ${hasAlert ? "border-rose-400/60" : r.type==="main" ? "border-yellow-400/40 bg-yellow-50/20 dark:bg-yellow-900/10" : "border-border"}`}
+                onClick={() => { setActiveTab(r.id); setLedgerPage(1); }}>
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    {r.type==="main"
+                      ? <div className="w-9 h-9 rounded-xl bg-yellow-500/15 flex items-center justify-center"><Star className="w-5 h-5 text-yellow-500" /></div>
+                      : <div className="w-9 h-9 rounded-xl bg-blue-500/15 flex items-center justify-center"><Building2 className="w-5 h-5 text-blue-500" /></div>}
+                    <div>
+                      <p className="font-semibold text-sm">{r.name}</p>
+                      <Badge variant="outline" className="text-xs mt-0.5">{r.type==="main" ? "رئيسية" : "فرعية"}</Badge>
+                    </div>
+                  </div>
+                  <div className="flex gap-1">
+                    {hasAlert && <Bell className="w-4 h-4 text-rose-500" />}
+                    <button className="p-1.5 rounded-lg hover:bg-muted" onClick={e => { e.stopPropagation(); setSelectedReg(r); setEditForm({name:r.name, description:r.description??""}); setEditOpen(true); }}><Pencil className="w-3.5 h-3.5 text-muted-foreground" /></button>
+                    <button className="p-1.5 rounded-lg hover:bg-muted" onClick={e => { e.stopPropagation(); setSelectedReg(r); setThresholdVal(r.lowBalanceThreshold ?? ""); setThresholdOpen(true); }}><Bell className="w-3.5 h-3.5 text-muted-foreground" /></button>
+                    {r.type !== "main" && (
+                      <button className="p-1.5 rounded-lg hover:bg-muted" onClick={e => { e.stopPropagation(); if (confirm(`تعطيل "${r.name}"؟`)) delMut.mutate(r.id); }}><Trash2 className="w-3.5 h-3.5 text-rose-400" /></button>
+                    )}
+                  </div>
+                </div>
+                <p className={`text-2xl font-black mb-3 ${hasAlert ? "text-rose-600" : "text-emerald-600"}`}>{fmt(r.balance)}</p>
+                {r.lowBalanceThreshold && (
+                  <p className="text-xs text-muted-foreground mb-2">حد التنبيه: {fmt(r.lowBalanceThreshold)}</p>
+                )}
+                <div className="grid grid-cols-3 gap-2 text-center text-xs border-t border-border pt-3">
+                  <div><p className="text-muted-foreground mb-0.5">دخل الشهر</p><p className="font-semibold text-emerald-500">+{fmtShort(r.monthlyIn)}</p></div>
+                  <div><p className="text-muted-foreground mb-0.5">خروج الشهر</p><p className="font-semibold text-rose-500">-{fmtShort(r.monthlyOut)}</p></div>
+                  <div><p className="text-muted-foreground mb-0.5">صافي</p><p className={`font-semibold ${net>=0?"text-emerald-500":"text-rose-500"}`}>{net>=0?"+":""}{fmtShort(net)}</p></div>
+                </div>
+                <div className="mt-3 flex gap-2">
+                  <Button size="sm" variant="outline" className="flex-1 gap-1 text-xs" onClick={e => { e.stopPropagation(); setSelectedReg(r); setTxOpen(true); }}><Plus className="w-3 h-3" /> حركة</Button>
+                  <Button size="sm" variant="ghost" className="flex-1 gap-1 text-xs" onClick={e => { e.stopPropagation(); setActiveTab(r.id); }}><CreditCard className="w-3 h-3" /> كشف الحساب</Button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {/* ─── Dialog: خزنة جديدة ─── */}
-      <Dialog open={addRegisterOpen} onOpenChange={setAddRegisterOpen}>
+      {/* ── Tab: خزنة محددة ── */}
+      {activeReg && (
+        <div className="space-y-5">
+          {/* بطاقة الخزنة */}
+          <div className={`rounded-2xl border p-5 ${alerts.some(a=>a.registerId===activeReg.id) ? "border-rose-400/60 bg-rose-50/20 dark:bg-rose-950/10" : activeReg.type==="main" ? "border-yellow-400/40 bg-yellow-50/20 dark:bg-yellow-900/10" : "border-border bg-card"}`}>
+            <div className="flex items-start justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-3">
+                {activeReg.type==="main"
+                  ? <div className="w-12 h-12 rounded-2xl bg-yellow-500/15 flex items-center justify-center"><Star className="w-6 h-6 text-yellow-500" /></div>
+                  : <div className="w-12 h-12 rounded-2xl bg-blue-500/15 flex items-center justify-center"><Building2 className="w-6 h-6 text-blue-500" /></div>}
+                <div>
+                  <p className="text-xl font-bold">{activeReg.name}</p>
+                  {activeReg.description && <p className="text-sm text-muted-foreground">{activeReg.description}</p>}
+                  {activeReg.lowBalanceThreshold && (
+                    <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1"><Bell className="w-3 h-3" /> حد التنبيه: {fmt(activeReg.lowBalanceThreshold)}</p>
+                  )}
+                </div>
+              </div>
+              <div className="text-end">
+                <p className={`text-3xl font-black ${alerts.some(a=>a.registerId===activeReg.id) ? "text-rose-600" : "text-emerald-600"}`}>{fmt(activeReg.balance)}</p>
+                <p className="text-xs text-muted-foreground mt-1">الرصيد الحالي</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-border">
+              <div className="text-center"><p className="text-xs text-muted-foreground mb-1">دخل الشهر</p><p className="text-lg font-bold text-emerald-500">+{fmt(activeReg.monthlyIn)}</p></div>
+              <div className="text-center"><p className="text-xs text-muted-foreground mb-1">خروج الشهر</p><p className="text-lg font-bold text-rose-500">-{fmt(activeReg.monthlyOut)}</p></div>
+              <div className="text-center"><p className="text-xs text-muted-foreground mb-1">صافي الشهر</p>
+                <p className={`text-lg font-bold ${(activeReg.monthlyIn-activeReg.monthlyOut)>=0?"text-emerald-500":"text-rose-500"}`}>{fmt(activeReg.monthlyIn - activeReg.monthlyOut)}</p>
+              </div>
+            </div>
+            <div className="flex gap-2 mt-4 flex-wrap">
+              <Button size="sm" className="gap-1.5" onClick={() => { setSelectedReg(activeReg); setTxOpen(true); }}><Plus className="w-4 h-4" /> حركة جديدة</Button>
+              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setTransferOpen(true)}><ArrowRightLeft className="w-4 h-4" /> تحويل</Button>
+              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => { setSelectedReg(activeReg); setEditForm({name:activeReg.name,description:activeReg.description??""}); setEditOpen(true); }}><Pencil className="w-4 h-4" /> تعديل</Button>
+              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => { setSelectedReg(activeReg); setThresholdVal(activeReg.lowBalanceThreshold ?? ""); setThresholdOpen(true); }}><Bell className="w-4 h-4" /> حد التنبيه</Button>
+            </div>
+          </div>
+
+          {/* Chart */}
+          {flowData && flowData.length > 1 && (
+            <div className="rounded-xl border border-border bg-card p-4">
+              <p className="text-sm font-semibold mb-3">التدفق النقدي — آخر 30 يوم</p>
+              <ResponsiveContainer width="100%" height={160}>
+                <AreaChart data={flowData} margin={{top:4,right:4,left:0,bottom:0}}>
+                  <defs>
+                    <linearGradient id="gin" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/><stop offset="95%" stopColor="#10b981" stopOpacity={0}/></linearGradient>
+                    <linearGradient id="gout" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3}/><stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/></linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.1}/>
+                  <XAxis dataKey="day" tick={{fontSize:10}} tickFormatter={v=>v?.slice(5)}/>
+                  <YAxis tick={{fontSize:10}} tickFormatter={v=>fmtShort(v)}/>
+                  <Tooltip formatter={(v:any)=>fmt(v)} labelFormatter={v=>`يوم ${v}`}/>
+                  <Area type="monotone" dataKey="in"  stroke="#10b981" strokeWidth={1.5} fill="url(#gin)"  name="دخل"/>
+                  <Area type="monotone" dataKey="out" stroke="#f43f5e" strokeWidth={1.5} fill="url(#gout)" name="خروج"/>
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* كشف الحساب */}
+          <div className="rounded-xl border border-border bg-card overflow-hidden">
+            <div className="p-4 border-b border-border bg-muted/30">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-sm font-bold">كشف الحساب</p>
+                <Button size="sm" variant="outline" className="gap-1.5 text-xs h-7" onClick={handleExport}>
+                  <Download className="w-3.5 h-3.5" /> تصدير CSV
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <div className="flex items-center gap-1 text-xs">
+                  <label className="text-muted-foreground">من</label>
+                  <input type="date" className="border border-border rounded px-2 py-1 text-xs bg-card" value={ledgerFrom} onChange={e=>{setLedgerFrom(e.target.value);setLedgerPage(1);}}/>
+                </div>
+                <div className="flex items-center gap-1 text-xs">
+                  <label className="text-muted-foreground">إلى</label>
+                  <input type="date" className="border border-border rounded px-2 py-1 text-xs bg-card" value={ledgerTo} onChange={e=>{setLedgerTo(e.target.value);setLedgerPage(1);}}/>
+                </div>
+                <select className="border border-border rounded px-2 py-1 text-xs bg-card" value={ledgerType} onChange={e=>{setLedgerType(e.target.value);setLedgerPage(1);}}>
+                  <option value="all">كل الحركات</option>
+                  {Object.entries(TX_LABELS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+                </select>
+                <div className="relative flex-1 min-w-32">
+                  <Search className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground"/>
+                  <input type="text" placeholder="بحث..." className="w-full border border-border rounded pr-6 pl-2 py-1 text-xs bg-card" value={ledgerSearch} onChange={e=>setLedgerSearch(e.target.value)}/>
+                </div>
+              </div>
+            </div>
+
+            {stats && (
+              <div className="grid grid-cols-3 divide-x divide-x-reverse divide-border border-b border-border text-center">
+                <div className="px-4 py-3"><p className="text-xs text-muted-foreground">إجمالي الدخل</p><p className="text-sm font-bold text-emerald-500">+{fmt(stats.totalIn)}</p></div>
+                <div className="px-4 py-3"><p className="text-xs text-muted-foreground">إجمالي الخروج</p><p className="text-sm font-bold text-rose-500">-{fmt(stats.totalOut)}</p></div>
+                <div className="px-4 py-3"><p className="text-xs text-muted-foreground">الصافي</p><p className={`text-sm font-bold ${stats.net>=0?"text-emerald-500":"text-rose-500"}`}>{fmt(stats.net)}</p></div>
+              </div>
+            )}
+
+            {ledgerLoading ? (
+              <div className="flex items-center justify-center py-12 gap-2 text-muted-foreground text-sm"><RefreshCw className="w-4 h-4 animate-spin"/> جارٍ التحميل...</div>
+            ) : filteredTx.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground"><CreditCard className="w-10 h-10 mx-auto mb-2 opacity-20"/><p className="text-sm">مفيش حركات في هذه الفترة</p></div>
+            ) : (
+              <div className="divide-y divide-border">
+                {filteredTx.map(tx => {
+                  const isCredit = CREDIT_TYPES.includes(tx.type);
+                  const meta = TX_LABELS[tx.type] ?? {label:tx.type, color:"text-foreground"};
+                  return (
+                    <div key={tx.id} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isCredit?"bg-emerald-500/10":"bg-rose-500/10"}`}>
+                        {isCredit ? <ArrowUpCircle className="w-4 h-4 text-emerald-500"/> : <ArrowDownCircle className="w-4 h-4 text-rose-500"/>}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs font-semibold ${meta.color}`}>{meta.label}</span>
+                          {tx.referenceNumber && <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">#{tx.referenceNumber}</span>}
+                        </div>
+                        {tx.description && <p className="text-xs text-muted-foreground truncate mt-0.5">{tx.description}</p>}
+                        <p className="text-xs text-muted-foreground">{new Date(tx.transactionDate).toLocaleDateString("ar-EG")} — {tx.createdByName??""}</p>
+                      </div>
+                      <div className="text-end shrink-0">
+                        <p className={`text-sm font-bold ${isCredit?"text-emerald-500":"text-rose-500"}`}>{isCredit?"+":"-"}{fmt(tx.amount)}</p>
+                        <p className="text-xs text-muted-foreground">رصيد: {fmt(tx.balanceAfter)}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {pagination && pagination.total > pagination.limit && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+                <p className="text-xs text-muted-foreground">{pagination.total} حركة إجمالي</p>
+                <div className="flex gap-1">
+                  <Button size="sm" variant="outline" className="h-7 w-7 p-0" disabled={ledgerPage===1} onClick={()=>setLedgerPage(p=>p-1)}><ChevronRight className="w-3.5 h-3.5"/></Button>
+                  <span className="text-xs px-2 py-1 text-muted-foreground">صفحة {ledgerPage}</span>
+                  <Button size="sm" variant="outline" className="h-7 w-7 p-0" disabled={ledgerPage*pagination.limit>=pagination.total} onClick={()=>setLedgerPage(p=>p+1)}><ChevronLeft className="w-3.5 h-3.5"/></Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+
+      {/* ══════════════════ DIALOGS ══════════════════ */}
+
+      {/* خزنة جديدة */}
+      <Dialog open={addRegOpen} onOpenChange={setAddRegOpen}>
         <DialogContent dir="rtl" className="max-w-md">
           <DialogHeader><DialogTitle>إضافة خزنة جديدة</DialogTitle></DialogHeader>
           <div className="space-y-4 pt-2">
-            <div><Label>اسم الخزنة</Label><Input placeholder="مثال: خزنة فرع المعادي" value={newReg.name} onChange={e => setNewReg(p => ({...p, name: e.target.value}))} /></div>
+            <div><Label>اسم الخزنة</Label><Input placeholder="مثال: خزنة فرع المعادي" value={newReg.name} onChange={e=>setNewReg(p=>({...p,name:e.target.value}))}/></div>
             <div><Label>نوع الخزنة</Label>
-              <Select value={newReg.type} onValueChange={v => setNewReg(p => ({...p, type: v}))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+              <Select value={newReg.type} onValueChange={v=>setNewReg(p=>({...p,type:v}))}>
+                <SelectTrigger><SelectValue/></SelectTrigger>
                 <SelectContent>
                   {!mainReg && <SelectItem value="main">رئيسية</SelectItem>}
                   <SelectItem value="branch">فرعية</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div><Label>رصيد افتتاحي (اختياري)</Label><Input type="number" placeholder="0" value={newReg.initialBalance} onChange={e => setNewReg(p => ({...p, initialBalance: e.target.value}))} /></div>
-            <div><Label>ملاحظات</Label><Textarea placeholder="وصف اختياري" value={newReg.description} onChange={e => setNewReg(p => ({...p, description: e.target.value}))} /></div>
-            <Button className="w-full" onClick={() => addRegMut.mutate(newReg)} disabled={!newReg.name || addRegMut.isPending}>
-              {addRegMut.isPending ? "جارٍ الحفظ..." : "إنشاء الخزنة"}
-            </Button>
+            <div><Label>رصيد افتتاحي (اختياري)</Label><Input type="number" placeholder="0" value={newReg.initialBalance} onChange={e=>setNewReg(p=>({...p,initialBalance:e.target.value}))}/></div>
+            <div><Label>ملاحظات</Label><Textarea placeholder="وصف اختياري" value={newReg.description} onChange={e=>setNewReg(p=>({...p,description:e.target.value}))}/></div>
+            <Button className="w-full" onClick={()=>addRegMut.mutate(newReg)} disabled={!newReg.name||addRegMut.isPending}>{addRegMut.isPending?"جارٍ الحفظ...":"إنشاء الخزنة"}</Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* ─── Dialog: حركة (إيداع/سحب) ─── */}
+      {/* حركة جديدة */}
       <Dialog open={txOpen} onOpenChange={setTxOpen}>
         <DialogContent dir="rtl" className="max-w-md">
-          <DialogHeader><DialogTitle>حركة على خزنة: {selectedReg?.name}</DialogTitle></DialogHeader>
-          <div className="text-sm text-muted-foreground mb-2">الرصيد الحالي: <span className="font-bold text-foreground">{fmt(selectedReg?.balance ?? 0)}</span></div>
+          <DialogHeader><DialogTitle>حركة على: {selectedReg?.name}</DialogTitle></DialogHeader>
+          <div className="text-sm text-muted-foreground mb-1">الرصيد الحالي: <span className="font-bold text-foreground">{fmt(selectedReg?.balance??0)}</span></div>
           <div className="space-y-4">
             <div><Label>نوع الحركة</Label>
-              <Select value={txForm.type} onValueChange={v => setTxForm(p => ({...p, type: v}))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Object.entries(TX_LABELS).filter(([k]) => !["transfer_in","transfer_out"].includes(k)).map(([k,v]) => (
-                    <SelectItem key={k} value={k}>{v}</SelectItem>
-                  ))}
-                </SelectContent>
+              <Select value={txForm.type} onValueChange={v=>setTxForm(p=>({...p,type:v}))}>
+                <SelectTrigger><SelectValue/></SelectTrigger>
+                <SelectContent>{Object.entries(TX_LABELS).filter(([k])=>!["transfer_in","transfer_out"].includes(k)).map(([k,v])=><SelectItem key={k} value={k}>{v.label}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div><Label>المبلغ</Label><Input type="number" placeholder="0.00" value={txForm.amount} onChange={e => setTxForm(p => ({...p, amount: e.target.value}))} /></div>
-            <div><Label>رقم مرجعي (اختياري)</Label><Input placeholder="رقم الفاتورة أو الأمر..." value={txForm.referenceNumber} onChange={e => setTxForm(p => ({...p, referenceNumber: e.target.value}))} /></div>
-            <div><Label>ملاحظة</Label><Input placeholder="وصف الحركة..." value={txForm.description} onChange={e => setTxForm(p => ({...p, description: e.target.value}))} /></div>
-            <Button className="w-full" onClick={() => txMut.mutate(txForm)} disabled={!txForm.amount || txMut.isPending}>
-              {txMut.isPending ? "جارٍ التسجيل..." : "تسجيل الحركة"}
-            </Button>
+            <div><Label>المبلغ</Label><Input type="number" placeholder="0.00" value={txForm.amount} onChange={e=>setTxForm(p=>({...p,amount:e.target.value}))}/></div>
+            <div><Label>التاريخ</Label><Input type="date" value={txForm.transactionDate} onChange={e=>setTxForm(p=>({...p,transactionDate:e.target.value}))}/></div>
+            <div><Label>رقم مرجعي (اختياري)</Label><Input placeholder="رقم الفاتورة..." value={txForm.referenceNumber} onChange={e=>setTxForm(p=>({...p,referenceNumber:e.target.value}))}/></div>
+            <div><Label>ملاحظة</Label><Input placeholder="وصف الحركة..." value={txForm.description} onChange={e=>setTxForm(p=>({...p,description:e.target.value}))}/></div>
+            <Button className="w-full" onClick={()=>txMut.mutate(txForm)} disabled={!txForm.amount||txMut.isPending}>{txMut.isPending?"جارٍ التسجيل...":"تسجيل الحركة"}</Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* ─── Dialog: تحويل للفرع ─── */}
+      {/* تحويل بين خزنتين */}
       <Dialog open={transferOpen} onOpenChange={setTransferOpen}>
         <DialogContent dir="rtl" className="max-w-md">
-          <DialogHeader><DialogTitle>تحويل من الخزنة الرئيسية</DialogTitle></DialogHeader>
-          <div className="text-sm text-muted-foreground mb-2">رصيد الرئيسية: <span className="font-bold text-foreground">{fmt(mainReg?.balance ?? 0)}</span></div>
-          <div className="space-y-4">
-            <div><Label>الخزنة الفرعية المستقبِلة</Label>
-              <Select value={transfer.toId} onValueChange={v => setTransfer(p => ({...p, toId: v}))}>
-                <SelectTrigger><SelectValue placeholder="اختر الفرع..." /></SelectTrigger>
-                <SelectContent>
-                  {branchRegs.map(r => <SelectItem key={r.id} value={String(r.id)}>{r.name} — {fmt(r.balance)}</SelectItem>)}
-                </SelectContent>
+          <DialogHeader><DialogTitle>تحويل بين خزنتين</DialogTitle></DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div><Label>من خزنة</Label>
+              <Select value={transfer.fromId} onValueChange={v=>setTransfer(p=>({...p,fromId:v,toId:p.toId===v?"":p.toId}))}>
+                <SelectTrigger><SelectValue placeholder="اختر المصدر..."/></SelectTrigger>
+                <SelectContent>{registers.map(r=><SelectItem key={r.id} value={String(r.id)}>{r.name} — {fmt(r.balance)}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div><Label>المبلغ</Label><Input type="number" placeholder="0.00" value={transfer.amount} onChange={e => setTransfer(p => ({...p, amount: e.target.value}))} /></div>
-            <div><Label>ملاحظة (اختياري)</Label><Input placeholder="سبب التحويل..." value={transfer.description} onChange={e => setTransfer(p => ({...p, description: e.target.value}))} /></div>
-            <Button className="w-full" onClick={() => transferMut.mutate({ fromId: mainReg?.id, toId: parseInt(transfer.toId), amount: transfer.amount, description: transfer.description })} disabled={!transfer.toId || !transfer.amount || transferMut.isPending}>
-              {transferMut.isPending ? "جارٍ التحويل..." : "تحويل"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* ─── Dialog: كشف حساب ─── */}
-      <Dialog open={viewTxOpen} onOpenChange={setViewTxOpen}>
-        <DialogContent dir="rtl" className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>كشف حساب: {selectedReg?.name}</DialogTitle></DialogHeader>
-          <div className="text-sm text-muted-foreground mb-3">الرصيد الحالي: <span className="font-bold text-foreground">{fmt(selectedReg?.balance ?? 0)}</span></div>
-          {transactions.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">مفيش حركات بعد</p>
-          ) : (
-            <div className="space-y-2">
-              {transactions.map(tx => {
-                const isCredit = CREDIT_TYPES.includes(tx.type);
-                return (
-                  <div key={tx.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/40 border border-border">
-                    <div className="flex items-center gap-3">
-                      {isCredit
-                        ? <ArrowUpCircle className="w-5 h-5 text-emerald-500 shrink-0" />
-                        : <ArrowDownCircle className="w-5 h-5 text-red-500 shrink-0" />}
-                      <div>
-                        <p className="text-sm font-medium">{TX_LABELS[tx.type] ?? tx.type}</p>
-                        {tx.description && <p className="text-xs text-muted-foreground">{tx.description}</p>}
-                        <p className="text-xs text-muted-foreground">{new Date(tx.transactionDate).toLocaleDateString("ar-EG")}</p>
-                      </div>
-                    </div>
-                    <div className="text-end">
-                      <p className={`font-semibold ${isCredit ? "text-emerald-600" : "text-red-500"}`}>
-                        {isCredit ? "+" : "-"}{fmt(tx.amount)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">الرصيد: {fmt(tx.balanceAfter)}</p>
-                    </div>
-                  </div>
-                );
-              })}
+            <div><Label>إلى خزنة</Label>
+              <Select value={transfer.toId} onValueChange={v=>setTransfer(p=>({...p,toId:v}))}>
+                <SelectTrigger><SelectValue placeholder="اختر المستقبل..."/></SelectTrigger>
+                <SelectContent>{registers.filter(r=>String(r.id)!==transfer.fromId).map(r=><SelectItem key={r.id} value={String(r.id)}>{r.name} — {fmt(r.balance)}</SelectItem>)}</SelectContent>
+              </Select>
             </div>
-          )}
+            <div><Label>المبلغ</Label><Input type="number" placeholder="0.00" value={transfer.amount} onChange={e=>setTransfer(p=>({...p,amount:e.target.value}))}/></div>
+            <div><Label>ملاحظة (اختياري)</Label><Input placeholder="سبب التحويل..." value={transfer.description} onChange={e=>setTransfer(p=>({...p,description:e.target.value}))}/></div>
+            <Button className="w-full" onClick={()=>transferMut.mutate({fromId:parseInt(transfer.fromId),toId:parseInt(transfer.toId),amount:transfer.amount,description:transfer.description})} disabled={!transfer.fromId||!transfer.toId||!transfer.amount||transfer.fromId===transfer.toId||transferMut.isPending}>{transferMut.isPending?"جارٍ التحويل...":"تحويل"}</Button>
+          </div>
         </DialogContent>
       </Dialog>
-    </div>
-  );
-}
 
-// ─── RegisterCard component ────────────────────────────────────────────────────
-function RegisterCard({ register, isMain = false, onTx, onTransfer, onView, onDelete }: {
-  register: CashRegister;
-  isMain?: boolean;
-  onTx: (r: CashRegister) => void;
-  onTransfer?: (r: CashRegister) => void;
-  onView: (r: CashRegister) => void;
-  onDelete?: (id: number) => void;
-}) {
-  const fmt = (v: string | number) =>
-    Number(v).toLocaleString("ar-EG", { minimumFractionDigits: 2 }) + " ج.م";
-
-  return (
-    <div className={`rounded-xl border p-5 shadow-sm bg-card ${isMain ? "border-yellow-300 bg-yellow-50/30 dark:bg-yellow-900/10" : ""}`}>
-      <div className="flex items-start justify-between mb-3">
-        <div>
-          <div className="flex items-center gap-2">
-            {isMain ? <Star className="w-4 h-4 text-yellow-500" /> : <Building2 className="w-4 h-4 text-blue-500" />}
-            <span className="font-semibold">{register.name}</span>
-            <Badge variant={isMain ? "default" : "secondary"} className="text-xs">{isMain ? "رئيسية" : "فرعية"}</Badge>
+      {/* تعديل اسم الخزنة */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent dir="rtl" className="max-w-md">
+          <DialogHeader><DialogTitle>تعديل: {selectedReg?.name}</DialogTitle></DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div><Label>الاسم</Label><Input value={editForm.name} onChange={e=>setEditForm(p=>({...p,name:e.target.value}))}/></div>
+            <div><Label>ملاحظات</Label><Textarea value={editForm.description} onChange={e=>setEditForm(p=>({...p,description:e.target.value}))}/></div>
+            <Button className="w-full" onClick={()=>editMut.mutate(editForm)} disabled={!editForm.name||editMut.isPending}>{editMut.isPending?"جارٍ الحفظ...":"حفظ التعديلات"}</Button>
           </div>
-          {register.description && <p className="text-xs text-muted-foreground mt-1">{register.description}</p>}
-        </div>
-        <p className="text-2xl font-bold text-emerald-600">{fmt(register.balance)}</p>
-      </div>
-      <Separator className="my-3" />
-      <div className="flex flex-wrap gap-2">
-        <Button size="sm" variant="outline" className="gap-1" onClick={() => onTx(register)}>
-          <Plus className="w-3 h-3" /> حركة
-        </Button>
-        {isMain && onTransfer && (
-          <Button size="sm" variant="outline" className="gap-1 text-blue-600" onClick={() => onTransfer(register)}>
-            <ArrowRightLeft className="w-3 h-3" /> تحويل للفرع
-          </Button>
-        )}
-        <Button size="sm" variant="ghost" className="gap-1" onClick={() => onView(register)}>
-          <Eye className="w-3 h-3" /> الحركات
-        </Button>
-        {!isMain && onDelete && (
-          <Button size="sm" variant="ghost" className="gap-1 text-red-500 hover:text-red-600" onClick={() => onDelete(register.id)}>
-            <Trash2 className="w-3 h-3" />
-          </Button>
-        )}
-      </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ضبط حد التنبيه */}
+      <Dialog open={thresholdOpen} onOpenChange={setThresholdOpen}>
+        <DialogContent dir="rtl" className="max-w-md">
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><Bell className="w-4 h-4" /> حد التنبيه — {selectedReg?.name}</DialogTitle></DialogHeader>
+          <div className="space-y-4 pt-2">
+            <p className="text-sm text-muted-foreground">لما الرصيد يوصل للمبلغ ده هيظهر تنبيه. اتركه فاضي لتعطيل التنبيه.</p>
+            <div><Label>حد الرصيد (ج.م)</Label><Input type="number" placeholder="مثال: 500" value={thresholdVal} onChange={e=>setThresholdVal(e.target.value)}/></div>
+            <div className="flex gap-2">
+              <Button className="flex-1" onClick={()=>thresholdMut.mutate({lowBalanceThreshold: thresholdVal ? parseFloat(thresholdVal) : null})} disabled={thresholdMut.isPending}>{thresholdMut.isPending?"جارٍ الحفظ...":"حفظ"}</Button>
+              {thresholdVal && <Button variant="outline" onClick={()=>{setThresholdVal(""); thresholdMut.mutate({lowBalanceThreshold:null});}} disabled={thresholdMut.isPending}><BellOff className="w-4 h-4" /> تعطيل</Button>}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
