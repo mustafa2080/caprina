@@ -3228,7 +3228,7 @@ export default function ShippingManifestPage() {
                   {/* ─── عمود المنتج — نص ثابت ─── */}
                   <div className="flex items-center px-1 h-7">المنتج</div>
                   <div className="text-center">الكمية</div>
-                  {/* ─── عمود الإجمالي — سيرش عند الضغط ─── */}
+                  {/* ─── عمود الإجمالي — سيرش بمطابقة تامة ─── */}
                   <div className="relative">
                     {showTotalSearch ? (
                       <>
@@ -3236,11 +3236,14 @@ export default function ShippingManifestPage() {
                         <input
                           autoFocus
                           value={totalSearch}
-                          onChange={e => setTotalSearch(e.target.value)}
+                          onChange={e => {
+                            const v = e.target.value.replace(/[^\d.]/g, "");
+                            setTotalSearch(v);
+                          }}
                           onBlur={() => { if (!totalSearch) setShowTotalSearch(false); }}
-                          placeholder="مثال: 1000"
-                          type="number"
-                          className={`w-full h-7 text-[10px] pr-6 pl-5 rounded border bg-background focus:outline-none focus:ring-1 focus:ring-primary transition-colors ${totalSearch ? "border-primary text-primary font-bold" : "border-border text-muted-foreground"}`}
+                          placeholder="الرقم كامل..."
+                          inputMode="numeric"
+                          className={`w-full h-7 text-[10px] pr-6 pl-5 rounded border bg-background focus:outline-none focus:ring-1 focus:ring-primary transition-colors [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${totalSearch ? "border-primary text-primary font-bold" : "border-border text-muted-foreground"}`}
                         />
                         {totalSearch && (
                           <button type="button" onClick={() => { setTotalSearch(""); setShowTotalSearch(false); }} className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
@@ -3252,7 +3255,7 @@ export default function ShippingManifestPage() {
                       <button type="button" onClick={() => setShowTotalSearch(true)} className="flex items-center gap-1 hover:text-primary transition-colors w-full h-7 px-1">
                         <Search className="w-3 h-3 opacity-50" />
                         <span className={totalSearch ? "text-primary font-bold" : ""}>الإجمالي</span>
-                        {totalSearch && <span className="text-primary text-[9px]">({totalSearch})</span>}
+                        {totalSearch && <span className="text-primary text-[9px] bg-primary/10 px-1 rounded">= {Number(totalSearch).toLocaleString("ar-EG")}</span>}
                       </button>
                     )}
                   </div>
