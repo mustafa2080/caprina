@@ -3195,7 +3195,9 @@ export default function ShippingManifestPage() {
                 </div>
               ) : (
                 <>
-                <div className="hidden md:grid grid-cols-[1fr_1fr_1fr_60px_80px_120px_80px] gap-0 border-b border-border bg-muted/20 px-3 py-2 text-[10px] font-semibold text-muted-foreground">
+                {/* ══ رأس الجدول المحسَّن ══ */}
+                <div className="hidden md:grid grid-cols-[1fr_1fr_1fr_60px_80px_120px_80px] gap-0 border-b-2 border-border bg-gradient-to-l from-muted/50 via-muted/30 to-transparent text-[10px] font-bold text-muted-foreground tracking-wide
+                  [&>*:not(:last-child)]:border-r [&>*]:border-border/30">
                   {/* ─── عمود العميل — نص / سيرش عند الضغط ─── */}
                   <div className="relative">
                     {showCustomerSearch ? (
@@ -3207,7 +3209,7 @@ export default function ShippingManifestPage() {
                           onChange={e => setCustomerSearch(e.target.value)}
                           onBlur={() => { if (!customerSearch) setShowCustomerSearch(false); }}
                           placeholder="العميل / فاتورة / هاتف..."
-                          className={`w-full h-7 text-[10px] pr-6 pl-5 rounded border bg-background focus:outline-none focus:ring-1 focus:ring-primary transition-colors ${customerSearch ? "border-primary text-primary font-bold" : "border-border text-muted-foreground"}`}
+                          className={`w-full h-9 text-[10px] pr-6 pl-5 bg-background focus:outline-none focus:ring-1 focus:ring-primary transition-colors ${customerSearch ? "text-primary font-bold" : "text-muted-foreground"}`}
                         />
                         {customerSearch && (
                           <button type="button" onClick={() => { setCustomerSearch(""); setShowCustomerSearch(false); }} className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
@@ -3216,18 +3218,32 @@ export default function ShippingManifestPage() {
                         )}
                       </>
                     ) : (
-                      <button type="button" onClick={() => setShowCustomerSearch(true)} className="flex items-center gap-1 hover:text-primary transition-colors w-full h-7 px-1">
-                        <Search className="w-3 h-3 opacity-50" />
+                      <button type="button" onClick={() => setShowCustomerSearch(true)}
+                        className="flex items-center gap-2 hover:text-primary transition-colors w-full h-9 px-3 group">
+                        <span className="w-5 h-5 rounded bg-muted flex items-center justify-center shrink-0 group-hover:bg-primary/15 transition-colors">
+                          <Search className="w-2.5 h-2.5 opacity-50 group-hover:opacity-100" />
+                        </span>
                         <span className={customerSearch ? "text-primary font-bold" : ""}>العميل</span>
-                        {customerSearch && <span className="text-primary text-[9px]">({customerSearch})</span>}
+                        {customerSearch && <span className="text-primary text-[9px] bg-primary/10 px-1.5 py-0.5 rounded-full mr-auto">({customerSearch})</span>}
                       </button>
                     )}
                   </div>
                   {/* ─── عمود المحافظة / العنوان ─── */}
-                  <div className="flex items-center px-1 h-7">المحافظة / العنوان</div>
+                  <div className="flex items-center gap-2 px-3 h-9">
+                    <span className="w-5 h-5 rounded bg-muted flex items-center justify-center shrink-0">
+                      <svg className="w-2.5 h-2.5 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M12 22s-8-4.5-8-11.8A8 8 0 0112 2a8 8 0 018 8.2c0 7.3-8 11.8-8 11.8z"/><circle cx="12" cy="10" r="3"/></svg>
+                    </span>
+                    المحافظة
+                  </div>
                   {/* ─── عمود المنتج — نص ثابت ─── */}
-                  <div className="flex items-center px-1 h-7">المنتج</div>
-                  <div className="text-center">الكمية</div>
+                  <div className="flex items-center gap-2 px-3 h-9">
+                    <span className="w-5 h-5 rounded bg-muted flex items-center justify-center shrink-0">
+                      <Package className="w-2.5 h-2.5 opacity-50" />
+                    </span>
+                    المنتج
+                  </div>
+                  {/* ─── الكمية ─── */}
+                  <div className="flex items-center justify-center h-9">الكمية</div>
                   {/* ─── عمود الإجمالي — سيرش بمطابقة تامة ─── */}
                   <div className="relative">
                     {showTotalSearch ? (
@@ -3243,7 +3259,7 @@ export default function ShippingManifestPage() {
                           onBlur={() => { if (!totalSearch) setShowTotalSearch(false); }}
                           placeholder="الرقم كامل..."
                           inputMode="numeric"
-                          className={`w-full h-7 text-[10px] pr-6 pl-5 rounded border bg-background focus:outline-none focus:ring-1 focus:ring-primary transition-colors [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${totalSearch ? "border-primary text-primary font-bold" : "border-border text-muted-foreground"}`}
+                          className={`w-full h-9 text-[10px] pr-6 pl-5 bg-background focus:outline-none focus:ring-1 focus:ring-primary transition-colors [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${totalSearch ? "text-primary font-bold" : "text-muted-foreground"}`}
                         />
                         {totalSearch && (
                           <button type="button" onClick={() => { setTotalSearch(""); setShowTotalSearch(false); }} className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
@@ -3252,15 +3268,27 @@ export default function ShippingManifestPage() {
                         )}
                       </>
                     ) : (
-                      <button type="button" onClick={() => setShowTotalSearch(true)} className="flex items-center gap-1 hover:text-primary transition-colors w-full h-7 px-1">
-                        <Search className="w-3 h-3 opacity-50" />
+                      <button type="button" onClick={() => setShowTotalSearch(true)}
+                        className="flex items-center gap-2 hover:text-primary transition-colors w-full h-9 px-3 group">
+                        <span className="w-5 h-5 rounded bg-muted flex items-center justify-center shrink-0 group-hover:bg-primary/15 transition-colors">
+                          <Search className="w-2.5 h-2.5 opacity-50 group-hover:opacity-100" />
+                        </span>
                         <span className={totalSearch ? "text-primary font-bold" : ""}>الإجمالي</span>
-                        {totalSearch && <span className="text-primary text-[9px] bg-primary/10 px-1 rounded">= {Number(totalSearch).toLocaleString("ar-EG")}</span>}
+                        {totalSearch && <span className="text-primary text-[9px] bg-primary/10 px-1.5 py-0.5 rounded-full mr-auto">= {Number(totalSearch).toLocaleString("ar-EG")}</span>}
                       </button>
                     )}
                   </div>
-                  <div>حالة التسليم</div>
-                  <div className="text-left">إجراء</div>
+                  {/* ─── حالة التسليم ─── */}
+                  <div className="flex items-center gap-1.5 px-2 h-9">
+                    <span className="w-5 h-5 rounded bg-muted flex items-center justify-center shrink-0">
+                      <CheckCircle2 className="w-2.5 h-2.5 opacity-50" />
+                    </span>
+                    <span>الحالة</span>
+                  </div>
+                  {/* ─── إجراء ─── */}
+                  <div className="flex items-center justify-center h-9 text-[9px] opacity-60">
+                    إجراء
+                  </div>
                 </div>
                 {filteredManifestOrders.length === 0 && (customerSearch || totalSearch) ? (
                   <div className="p-6 text-center text-muted-foreground text-sm">
