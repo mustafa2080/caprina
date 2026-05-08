@@ -219,12 +219,20 @@ function ProductItem({
         <div className="flex items-center gap-2">
           <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary shrink-0">{index + 1}</div>
           <Package className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-          <span className="text-xs font-bold truncate max-w-[140px]">{productName}</span>
-          {qty > 0 && price > 0 && (
+          <span className="text-xs font-bold truncate max-w-[120px]">{productName}</span>
+          {variantRows.filter(r => r.color && r.size).length > 0 ? (
+            <div className="flex flex-wrap gap-1">
+              {variantRows.filter(r => r.color && r.size).map((r, i) => (
+                <Badge key={i} variant="outline" className="text-[9px] font-bold border-primary/30 text-primary">
+                  {r.color} {r.size} ×{r.quantity}
+                </Badge>
+              ))}
+            </div>
+          ) : qty > 0 && price > 0 ? (
             <Badge variant="outline" className="text-[9px] font-bold border-primary/30 text-primary">
               {qty} × {formatCurrency(price)}
             </Badge>
-          )}
+          ) : null}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {!isOnly && (
