@@ -1,8 +1,5 @@
 import { Router } from "express";
-import { db } from "@db";
-import {
-  cashRegistersTable, cashTransactionsTable,
-} from "@db/schema";
+import { db, cashRegistersTable, cashTransactionsTable } from "@workspace/db";
 import { eq, desc, sql, and, gte, lte, ne, inArray } from "drizzle-orm";
 
 export const cashRegistersRouter = Router();
