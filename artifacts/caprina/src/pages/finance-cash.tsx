@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Wallet, ArrowUpCircle, ArrowDownCircle, ArrowRightLeft, Building2, Star, Trash2, RefreshCw, Eye } from "lucide-react";
+import { Plus, Wallet, ArrowUpCircle, ArrowDownCircle, ArrowRightLeft, Building2, Star, Trash2, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -9,8 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { apiRequest } from "@/lib/queryClient";
-import { toast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast";
+
+const apiFetch = async (url: string, options?: RequestInit) => {
+  const res = await fetch(url, { credentials: "include", ...options });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error ?? "خطأ في الخادم"); }
+  return res.json();
+};
 
 // ─── types ────────────────────────────────────────────────────────────────────
 interface CashRegister {
@@ -57,6 +62,7 @@ const CREDIT_TYPES = ["deposit", "order_collected", "shipping_transfer", "cash_s
 // ─── component ────────────────────────────────────────────────────────────────
 export default function FinanceCashPage() {
   const qc = useQueryClient();
+  const { toast } = useToast();
 
   // dialogs
   const [addRegisterOpen, setAddRegisterOpen]   = useState(false);
@@ -73,36 +79,35 @@ export default function FinanceCashPage() {
   // ── queries ──────────────────────────────────────────────────────────────────
   const { data: regData, isLoading } = useQuery<{ registers: CashRegister[]; totalBalance: number }>({
     queryKey: ["/api/cash-registers"],
-    queryFn: () => apiRequest("/api/cash-registers"),
+    queryFn: () => apiFetch("/api/cash-registers"),
   });
 
   const { data: transactions = [] } = useQuery<CashTransaction[]>({
     queryKey: ["/api/cash-registers", selectedReg?.id, "transactions"],
-    queryFn: () => apiRequest(`/api/cash-registers/${selectedReg!.id}/transactions?limit=100`),
+    queryFn: () => apiFetch(`/api/cash-registers/${selectedReg!.id}/transactions?limit=100`),
     enabled: !!selectedReg && viewTxOpen,
   });
 
-  // ── mutations ─────────────────────────────────────────────────────────────────
   const addRegMut = useMutation({
-    mutationFn: (data: any) => apiRequest("/api/cash-registers", { method: "POST", body: JSON.stringify(data) }),
+    mutationFn: (data: any) => apiFetch("/api/cash-registers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/cash-registers"] }); setAddRegisterOpen(false); setNewReg({ name: "", type: "branch", description: "", initialBalance: "" }); toast({ title: "✅ تم إنشاء الخزنة" }); },
     onError: (e: any) => toast({ title: "❌ خطأ", description: e.message, variant: "destructive" }),
   });
 
   const txMut = useMutation({
-    mutationFn: (data: any) => apiRequest(`/api/cash-registers/${selectedReg!.id}/transaction`, { method: "POST", body: JSON.stringify(data) }),
+    mutationFn: (data: any) => apiFetch(`/api/cash-registers/${selectedReg!.id}/transaction`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/cash-registers"] }); setTxOpen(false); setTxForm({ type: "deposit", amount: "", description: "", referenceNumber: "" }); toast({ title: "✅ تم تسجيل الحركة" }); },
     onError: (e: any) => toast({ title: "❌ خطأ", description: e.message, variant: "destructive" }),
   });
 
   const transferMut = useMutation({
-    mutationFn: (data: any) => apiRequest("/api/cash-registers/transfer", { method: "POST", body: JSON.stringify(data) }),
+    mutationFn: (data: any) => apiFetch("/api/cash-registers/transfer", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/cash-registers"] }); setTransferOpen(false); setTransfer({ toId: "", amount: "", description: "" }); toast({ title: "✅ تم التحويل بنجاح" }); },
     onError: (e: any) => toast({ title: "❌ خطأ", description: e.message, variant: "destructive" }),
   });
 
   const deleteRegMut = useMutation({
-    mutationFn: (id: number) => apiRequest(`/api/cash-registers/${id}`, { method: "DELETE" }),
+    mutationFn: (id: number) => apiFetch(`/api/cash-registers/${id}`, { method: "DELETE" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/cash-registers"] }); toast({ title: "✅ تم تعطيل الخزنة" }); },
     onError: (e: any) => toast({ title: "❌ خطأ", description: e.message, variant: "destructive" }),
   });
