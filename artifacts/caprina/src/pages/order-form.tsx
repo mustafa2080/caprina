@@ -141,12 +141,11 @@ function ProductSearchCombobox({ products, allVariants, onSelect }: {
 
 // ── Single product item row ───────────────────────────────────────────────────
 function ProductItem({
-  index, control, watch, setValue, remove, products, allVariants, canViewFinancials, isOnly, onAddVariantRow,
+  index, control, watch, setValue, remove, products, allVariants, canViewFinancials, isOnly,
 }: {
   index: number; control: any; watch: any; setValue: any;
   remove: () => void; products: any[]; allVariants: any[];
   canViewFinancials: boolean; isOnly: boolean;
-  onAddVariantRow: (item: any) => void;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const productId   = watch(`items.${index}.productId`);
@@ -288,30 +287,6 @@ function ProductItem({
                       : "border-emerald-400 text-emerald-700 dark:border-emerald-800 dark:text-emerald-400"
                   }`}>متاح: {availableQty ?? 0}</Badge>
                 </div>
-              )}
-            </div>
-              {/* زر إضافة مقاس/لون آخر لنفس المنتج */}
-              {productId && productVariants.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const currentProduct = products.find((p: any) => p.id === Number(productId));
-                    onAddVariantRow({
-                      product: currentProduct?.name ?? productName,
-                      productId: Number(productId),
-                      color: "",
-                      size: "",
-                      quantity: 1,
-                      unitPrice: 0,
-                      costPrice: cost || null,
-                      variantId: null,
-                    });
-                  }}
-                  className="w-full flex items-center justify-center gap-1.5 text-xs font-bold text-primary border border-dashed border-primary/40 hover:bg-primary/5 py-2 rounded-md transition-colors"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  أضف لون / مقاس آخر لنفس المنتج
-                </button>
               )}
             </div>
           )}
@@ -522,8 +497,7 @@ export default function OrderForm() {
                   <ProductItem key={field.id} index={index}
                     control={form.control} watch={form.watch} setValue={form.setValue}
                     remove={() => remove(index)} products={products} allVariants={allVariants}
-                    canViewFinancials={canViewFinancials} isOnly={fields.length === 1}
-                    onAddVariantRow={(newItem) => append(newItem)} />
+                    canViewFinancials={canViewFinancials} isOnly={fields.length === 1} />
                 ))}
 
                 {fields.length >= 2 && (
