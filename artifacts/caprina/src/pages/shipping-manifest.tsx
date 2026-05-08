@@ -856,7 +856,7 @@ function InvoiceGroupDeliveryRow({
             </div>
           </div>
           {/* المحافظة / العنوان */}
-          <div className="min-w-0 pr-1">
+          <div className="min-w-0 px-2">
             {rep.city && (
               <p className="font-semibold text-[10px] truncate">{rep.city}</p>
             )}
@@ -868,7 +868,7 @@ function InvoiceGroupDeliveryRow({
             )}
           </div>
           {/* Products */}
-          <div className="min-w-0 pr-2">
+          <div className="min-w-0 px-2">
             {isMulti ? (
               <div className="space-y-1">
                 <button
