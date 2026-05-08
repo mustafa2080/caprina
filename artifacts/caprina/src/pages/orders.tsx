@@ -60,6 +60,7 @@ const formatCurrency = (amount: number) =>
 
 export default function Orders() {
   const [search, setSearch] = useState("");
+  const [customerSearch, setCustomerSearch] = useState("");
   const [status, setStatus] = useState<string>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -114,6 +115,7 @@ export default function Orders() {
   });
 
   const rawFiltered = orders?.filter(o => {
+    if (customerSearch && !o.customerName?.toLowerCase().includes(customerSearch.toLowerCase())) return false;
     if (debouncedProduct && !o.product?.toLowerCase().includes(debouncedProduct.toLowerCase())) return false;
     if (filterCity !== "all" && (o as any).city !== filterCity) return false;
     if (filterAmountMin && o.totalPrice < parseFloat(filterAmountMin)) return false;
@@ -129,10 +131,10 @@ export default function Orders() {
     dateTo, filterProduct, filterCity !== "all", filterShippingCo !== "all", filterAmountMin, filterAmountMax
   ].filter(Boolean).length;
 
-  const hasActiveFilter = search || status !== "all" || dateFrom || advancedFiltersCount > 0;
+  const hasActiveFilter = search || customerSearch || status !== "all" || dateFrom || advancedFiltersCount > 0;
 
   const clearFilters = () => {
-    setSearch(""); setStatus("all"); setDateFrom(""); setDateTo("");
+    setSearch(""); setCustomerSearch(""); setStatus("all"); setDateFrom(""); setDateTo("");
     setFilterProduct(""); setFilterCity("all"); setFilterShippingCo("all");
     setFilterAmountMin(""); setFilterAmountMax("");
   };
@@ -330,11 +332,35 @@ export default function Orders() {
 
       <Card className="border-border overflow-hidden">
         <div className="p-3 border-b border-border bg-muted/10 flex flex-col gap-2">
-          {/* ── الصف الأول: بحث + حالة + زر فلتر متقدم ── */}
+          {/* ── بحث اسم العميل realtime ── */}
+          <div className="relative">
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/60" />
+            <Input
+              placeholder="ابحث باسم العميل..."
+              className="pr-9 bg-card text-sm h-10 font-medium border-primary/30 focus-visible:ring-primary/40 placeholder:text-muted-foreground/60"
+              value={customerSearch}
+              onChange={e => setCustomerSearch(e.target.value)}
+            />
+            {customerSearch && (
+              <>
+                <button
+                  className="absolute left-9 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setCustomerSearch("")}
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
+                  {filtered.length}
+                </span>
+              </>
+            )}
+          </div>
+
+          {/* ── الصف الأول: بحث عام + حالة + زر فلتر متقدم ── */}
           <div className="flex flex-col sm:flex-row gap-2">
             <div className="relative flex-1">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input placeholder="ابحث بالاسم، المنتج، أو الهاتف..." className="pr-9 bg-card text-sm h-9" value={search} onChange={e => setSearch(e.target.value)} />
+              <Input placeholder="ابحث بالمنتج أو الهاتف..." className="pr-9 bg-card text-sm h-9" value={search} onChange={e => setSearch(e.target.value)} />
             </div>
             <Select value={status} onValueChange={setStatus}>
               <SelectTrigger className="w-full sm:w-48 bg-card h-9 text-sm">
@@ -594,7 +620,7 @@ export default function Orders() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map((order) => {
+                  {filtered.map((order, rowIndex) => {
                     const retReason  = (order as any).returnReason as string | null;
                     const retNote    = (order as any).returnNote   as string | null;
                     const isGroup = !!(order as any)._groupCount && (order as any)._groupCount > 1;
@@ -610,6 +636,10 @@ export default function Orders() {
                       <TableRow
                         key={order.id}
                         className={`border-border hover:bg-muted/20 cursor-pointer ${isSelected ? "bg-primary/5" : ""}`}
+                        style={{
+                          animation: "rowFadeIn 0.3s ease both",
+                          animationDelay: `${Math.min(rowIndex * 35, 600)}ms`,
+                        }}
                         onClick={() => canWriteOrders && bulkSelectMode ? toggleSelect(order) : (window.location.href = navTarget)}
                       >
                         {canWriteOrders && bulkSelectMode && (
