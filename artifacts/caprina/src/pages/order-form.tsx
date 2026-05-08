@@ -237,8 +237,7 @@ function ProductItem({
 
           {/* Color & Size (variants) */}
           {productId && productVariants.length > 0 && (
-            <div className="space-y-2">
-              <div className="grid grid-cols-2 gap-3 p-3 bg-muted/10 rounded-md border border-border/40">
+            <div className="grid grid-cols-2 gap-3 p-3 bg-muted/10 rounded-md border border-border/40">
               <FormField control={control} name={`items.${index}.color`} render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-xs">اللون</FormLabel>
