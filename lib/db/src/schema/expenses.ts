@@ -24,6 +24,7 @@ export const expensesTable = mysqlTable("expenses", {
   referenceId: varchar("reference_id", { length: 100 }), // رقم الفاتورة / أمر الشراء ...
   supplierId: int("supplier_id"),                          // مورد مرتبط (اختياري)
   shippingCompanyId: int("shipping_company_id"),           // شركة شحن (اختياري)
+  cashRegisterId: int("cash_register_id"),   // خزنة الدفع المرتبطة (اختياري)
   notes: text("notes"),
   expenseDate: datetime("expense_date").notNull(),
   createdByUserId: int("created_by_user_id"),

@@ -94,6 +94,12 @@ export default function FinanceCashPage() {
     refetchInterval: 60000,
   });
 
+  const { data: smartAlertsData } = useQuery<{ alerts: any[] }>({
+    queryKey: ["/api/cash-registers/smart-alerts"],
+    queryFn: () => apiFetch("/api/cash-registers/smart-alerts"),
+    refetchInterval: 120000,
+  });
+
   const ledgerRegId = activeTab !== "all" ? activeTab : null;
 
   const { data: ledgerData, isLoading: ledgerLoading } = useQuery({
@@ -113,6 +119,7 @@ export default function FinanceCashPage() {
   const mainReg      = registers.find(r => r.type === "main");
   const activeReg    = typeof activeTab === "number" ? registers.find(r => r.id === activeTab) ?? null : null;
   const alerts       = alertsData?.alerts ?? [];
+  const smartAlerts  = smartAlertsData?.alerts ?? [];
   const transactions: CashTransaction[] = ledgerData?.transactions ?? [];
   const stats        = ledgerData?.stats;
   const pagination   = ledgerData?.pagination;
@@ -211,6 +218,33 @@ export default function FinanceCashPage() {
                 <span className="font-semibold text-rose-700 dark:text-rose-400">{a.name}</span>
                 <span className="text-muted-foreground">الرصيد: <span className="font-bold text-rose-600">{fmt(a.balance)}</span></span>
                 <span className="text-muted-foreground">الحد: {fmt(a.threshold)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── التنبيهات الذكية ── */}
+      {smartAlerts.length > 0 && (
+        <div className="rounded-xl border border-amber-400/40 bg-amber-50/30 dark:bg-amber-950/20 p-4 space-y-2">
+          <p className="text-sm font-bold text-amber-700 dark:text-amber-400 flex items-center gap-2">
+            <Bell className="w-4 h-4" /> تنبيهات ذكية
+          </p>
+          <div className="space-y-2">
+            {smartAlerts.map((a: any, i: number) => (
+              <div key={i} className={`flex items-start gap-2.5 text-xs rounded-lg px-3 py-2 ${
+                a.type==="danger"  ? "bg-rose-100/50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-400" :
+                a.type==="warning" ? "bg-amber-100/50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400" :
+                a.type==="success" ? "bg-emerald-100/50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400" :
+                "bg-sky-100/50 dark:bg-sky-900/20 text-sky-700 dark:text-sky-400"
+              }`}>
+                <span className="text-base leading-none mt-0.5">
+                  {a.type==="danger"?"🔴":a.type==="warning"?"🟡":a.type==="success"?"🟢":"🔵"}
+                </span>
+                <div>
+                  <p className="font-semibold">{a.title}</p>
+                  {a.detail && <p className="opacity-80 mt-0.5">{a.detail}</p>}
+                </div>
               </div>
             ))}
           </div>

@@ -79,6 +79,65 @@ cashRegistersRouter.post("/", async (req, res) => {
   }
 });
 
+// ─── GET /api/cash-registers/smart-alerts (تنبيهات ذكية شاملة) ──────────────
+cashRegistersRouter.get("/smart-alerts", async (req, res) => {
+  try {
+    const registers = await db.select().from(cashRegistersTable).where(eq(cashRegistersTable.isActive, true));
+    const now = new Date();
+    const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    const alerts: { type: "danger"|"warning"|"info"|"success"; title: string; detail: string; registerId?: number; registerName?: string }[] = [];
+
+    // 1. تنبيهات رصيد منخفض
+    for (const r of registers) {
+      if (r.lowBalanceThreshold && parseFloat(r.balance ?? "0") <= parseFloat(r.lowBalanceThreshold)) {
+        alerts.push({ type: "danger", title: `رصيد "${r.name}" منخفض`, detail: `الرصيد الحالي: ${parseFloat(r.balance??'0').toLocaleString("ar-EG")} ج.م — الحد: ${parseFloat(r.lowBalanceThreshold).toLocaleString("ar-EG")} ج.م`, registerId: r.id, registerName: r.name });
+      }
+    }
+
+    // 2. تحويلات كبيرة آخر 24 ساعة (> 5000 ج.م)
+    const bigTransfers = await db.select().from(cashTransactionsTable)
+      .where(and(
+        eq(cashTransactionsTable.type, "transfer_out"),
+        gte(cashTransactionsTable.createdAt, dayAgo),
+        sql`CAST(amount AS DECIMAL(14,2)) >= 5000`
+      )).orderBy(desc(cashTransactionsTable.createdAt));
+
+    if (bigTransfers.length > 0) {
+      const total = bigTransfers.reduce((s, t) => s + parseFloat(t.amount ?? "0"), 0);
+      alerts.push({ type: "warning", title: `${bigTransfers.length} تحويل كبير آخر 24 ساعة`, detail: `إجمالي المحوّل: ${total.toLocaleString("ar-EG")} ج.م` });
+    }
+
+    // 3. خزنة بدون حركات آخر أسبوع (خزنة راكدة)
+    for (const r of registers) {
+      const [last] = await db.select({ lastDate: sql<Date>`MAX(transaction_date)` })
+        .from(cashTransactionsTable).where(eq(cashTransactionsTable.registerId, r.id));
+      const lastDate = last?.lastDate ? new Date(last.lastDate) : null;
+      if (!lastDate || lastDate < weekAgo) {
+        if (parseFloat(r.balance ?? "0") > 0) {
+          alerts.push({ type: "info", title: `خزنة "${r.name}" بدون حركات 7 أيام`, detail: `الرصيد المجمّد: ${parseFloat(r.balance??'0').toLocaleString("ar-EG")} ج.م`, registerId: r.id, registerName: r.name });
+        }
+      }
+    }
+
+    // 4. خزنة رصيدها صفر وفيها حركات سابقة (محتاجة تعبئة)
+    for (const r of registers) {
+      if (parseFloat(r.balance ?? "0") === 0) {
+        const [cnt] = await db.select({ c: sql<number>`COUNT(*)` }).from(cashTransactionsTable).where(eq(cashTransactionsTable.registerId, r.id));
+        if (Number(cnt?.c ?? 0) > 0) {
+          alerts.push({ type: "warning", title: `خزنة "${r.name}" رصيدها صفر`, detail: "تحتاج إيداع أو تحويل من خزنة أخرى", registerId: r.id, registerName: r.name });
+        }
+      }
+    }
+
+    res.json({ alerts, generatedAt: now });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "فشل جلب التنبيهات الذكية" });
+  }
+});
+
 // ─── GET /api/cash-registers/analytics (تحليلات المرحلة الثانية) ─────────────
 cashRegistersRouter.get("/analytics", async (req, res) => {
   try {

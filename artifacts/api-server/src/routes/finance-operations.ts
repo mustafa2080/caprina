@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, gte, lte, and, sql, lt, isNull } from "drizzle-orm";
-import { db, expensesTable, shippingFinancialInvoicesTable, ordersTable, shippingManifestsTable, shippingManifestOrdersTable, purchasesTable } from "@workspace/db";
+import { db, expensesTable, shippingFinancialInvoicesTable, ordersTable, shippingManifestsTable, shippingManifestOrdersTable, purchasesTable, cashRegistersTable, cashTransactionsTable } from "@workspace/db";
 import { z } from "zod";
 
 const router: IRouter = Router();
@@ -13,6 +13,7 @@ const ExpenseSchema = z.object({
   referenceId: z.string().nullish(),
   supplierId: z.number().nullish(),
   shippingCompanyId: z.number().nullish(),
+  cashRegisterId: z.number().nullish(),
   notes: z.string().nullish(),
   expenseDate: z.string(),
 });
@@ -34,9 +35,44 @@ router.post("/finance/expenses", async (req, res): Promise<void> => {
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   const now = new Date();
   const user = (req as any).user;
+  const data = parsed.data;
+  const amt = data.amount;
+
+  // ── ربط تلقائي بالخزنة: خصم المصروف من الخزنة المحددة ──────────────────
+  if (data.cashRegisterId) {
+    const [reg] = await db.select().from(cashRegistersTable).where(eq(cashRegistersTable.id, data.cashRegisterId));
+    if (!reg) { res.status(404).json({ error: "الخزنة المحددة غير موجودة" }); return; }
+    const balBefore = parseFloat(reg.balance ?? "0");
+    const balAfter  = balBefore - amt;
+    if (balAfter < 0) {
+      res.status(400).json({ error: `رصيد الخزنة "${reg.name}" مش كفاية — المتاح: ${balBefore.toLocaleString("ar-EG")} ج.م` });
+      return;
+    }
+    // خصم من الخزنة
+    await db.update(cashRegistersTable)
+      .set({ balance: String(balAfter), updatedAt: now })
+      .where(eq(cashRegistersTable.id, data.cashRegisterId));
+    // تسجيل حركة expense_paid في الخزنة
+    await db.insert(cashTransactionsTable).values({
+      registerId: data.cashRegisterId,
+      type: "expense_paid",
+      amount: String(amt),
+      balanceBefore: String(balBefore),
+      balanceAfter: String(balAfter),
+      description: data.title,
+      referenceNumber: data.referenceId ?? undefined,
+      expenseId: undefined, // سيتحدث بعد إنشاء المصروف
+      transactionDate: new Date(data.expenseDate),
+      createdByUserId: user?.id ?? null,
+      createdByName: user?.displayName ?? null,
+      createdAt: now,
+    });
+  }
+
   const result = await db.insert(expensesTable).values({
-    ...parsed.data,
-    expenseDate: new Date(parsed.data.expenseDate),
+    ...data,
+    cashRegisterId: data.cashRegisterId ?? null,
+    expenseDate: new Date(data.expenseDate),
     createdByUserId: user?.id,
     createdByName: user?.displayName,
     createdAt: now,
