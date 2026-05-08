@@ -136,8 +136,8 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 // ─── Permission-protected route ───────────────────────────────────────────────
 // لو الصلاحية اتشالت (realtime) → redirect للـ أول صفحة مسموح بيها — بدون loop
 function ProtectedRoute({ permission, component: Comp }: { permission: string; component: React.ComponentType }) {
-  const { can, user } = useAuth();
-  if (!can(permission)) {
+  const { can, user, isAdmin } = useAuth();
+  if (!can(permission) && !(isAdmin && permission === "finance")) {
     // لو كان الـ permission نفسه dashboard نبعد عن الـ loop
     if (permission === "dashboard") {
       if (can("orders"))    return <Redirect to="/orders" />;
