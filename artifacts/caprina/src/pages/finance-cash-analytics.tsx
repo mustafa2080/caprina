@@ -10,7 +10,13 @@ import {
 } from "recharts";
 
 const apiFetch = async (url: string) => {
-  const res = await fetch(url, { credentials: "include" });
+  const token = localStorage.getItem("caprina_token");
+  const res = await fetch(url, {
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
   if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error ?? "خطأ"); }
   return res.json();
 };
