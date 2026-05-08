@@ -1,10 +1,11 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import {
   Plus, Wallet, ArrowUpCircle, ArrowDownCircle, ArrowRightLeft,
   Star, Trash2, TrendingUp, TrendingDown, RefreshCw,
   Search, Download, ChevronLeft, ChevronRight,
-  Building2, CreditCard, Pencil, X, Bell, BellOff, Settings2,
+  Building2, CreditCard, Pencil, X, Bell, BellOff, Settings2, BarChart3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -59,6 +60,7 @@ interface Alert { registerId: number; name: string; balance: number; threshold: 
 export default function FinanceCashPage() {
   const qc = useQueryClient();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   const [activeTab, setActiveTab]   = useState<number | "all">("all");
   const [addRegOpen, setAddRegOpen] = useState(false);
@@ -185,6 +187,9 @@ export default function FinanceCashPage() {
           <p className="text-sm text-muted-foreground">إدارة الخزنة الرئيسية والفروع</p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => navigate("/finance/cash/analytics")}>
+            <BarChart3 className="w-4 h-4" /> تحليلات
+          </Button>
           <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setTransferOpen(true)}>
             <ArrowRightLeft className="w-4 h-4" /> تحويل بين خزنتين
           </Button>

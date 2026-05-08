@@ -79,6 +79,91 @@ cashRegistersRouter.post("/", async (req, res) => {
   }
 });
 
+// ─── GET /api/cash-registers/analytics (تحليلات المرحلة الثانية) ─────────────
+cashRegistersRouter.get("/analytics", async (req, res) => {
+  try {
+    const CREDIT_TYPES = ["deposit","order_collected","shipping_transfer","cash_sale","transfer_in"];
+    const DEBIT_TYPES  = ["withdrawal","expense_paid","purchase_paid","transfer_out"];
+    const creditSql = sql.raw(CREDIT_TYPES.map(t=>`'${t}'`).join(","));
+    const debitSql  = sql.raw(DEBIT_TYPES.map(t=>`'${t}'`).join(","));
+
+    const now = new Date();
+    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonthEnd   = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+
+    // ── 1. ملخص الشهر الحالي والسابق ───────────────────────────────────────
+    const [thisMo] = await db.select({
+      totalIn:  sql<number>`COALESCE(SUM(CASE WHEN type IN (${creditSql}) THEN CAST(amount AS DECIMAL(14,2)) ELSE 0 END),0)`,
+      totalOut: sql<number>`COALESCE(SUM(CASE WHEN type IN (${debitSql})  THEN CAST(amount AS DECIMAL(14,2)) ELSE 0 END),0)`,
+      txCount:  sql<number>`COUNT(*)`,
+    }).from(cashTransactionsTable).where(gte(cashTransactionsTable.transactionDate, thisMonthStart));
+
+    const [lastMo] = await db.select({
+      totalIn:  sql<number>`COALESCE(SUM(CASE WHEN type IN (${creditSql}) THEN CAST(amount AS DECIMAL(14,2)) ELSE 0 END),0)`,
+      totalOut: sql<number>`COALESCE(SUM(CASE WHEN type IN (${debitSql})  THEN CAST(amount AS DECIMAL(14,2)) ELSE 0 END),0)`,
+      txCount:  sql<number>`COUNT(*)`,
+    }).from(cashTransactionsTable).where(and(gte(cashTransactionsTable.transactionDate, lastMonthStart), lte(cashTransactionsTable.transactionDate, lastMonthEnd)));
+
+    const thisIn  = Number(thisMo?.totalIn??0);  const thisOut = Number(thisMo?.totalOut??0);
+    const lastIn  = Number(lastMo?.totalIn??0);  const lastOut = Number(lastMo?.totalOut??0);
+    const pct = (cur:number, prev:number) => prev === 0 ? null : Math.round(((cur-prev)/prev)*100);
+
+    // ── 2. Chart شهري آخر 6 شهور ────────────────────────────────────────────
+    const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+    const monthlyRows = await db.select({
+      month:    sql<string>`DATE_FORMAT(transaction_date, '%Y-%m')`,
+      totalIn:  sql<number>`COALESCE(SUM(CASE WHEN type IN (${creditSql}) THEN CAST(amount AS DECIMAL(14,2)) ELSE 0 END),0)`,
+      totalOut: sql<number>`COALESCE(SUM(CASE WHEN type IN (${debitSql})  THEN CAST(amount AS DECIMAL(14,2)) ELSE 0 END),0)`,
+    }).from(cashTransactionsTable)
+      .where(gte(cashTransactionsTable.transactionDate, sixMonthsAgo))
+      .groupBy(sql`DATE_FORMAT(transaction_date, '%Y-%m')`)
+      .orderBy(sql`DATE_FORMAT(transaction_date, '%Y-%m')`);
+
+    // ── 3. توزيع حسب نوع الحركة (الشهر الحالي) ─────────────────────────────
+    const typeRows = await db.select({
+      type:  cashTransactionsTable.type,
+      total: sql<number>`COALESCE(SUM(CAST(amount AS DECIMAL(14,2))),0)`,
+      count: sql<number>`COUNT(*)`,
+    }).from(cashTransactionsTable)
+      .where(gte(cashTransactionsTable.transactionDate, thisMonthStart))
+      .groupBy(cashTransactionsTable.type)
+      .orderBy(desc(sql`SUM(CAST(amount AS DECIMAL(14,2)))`));
+
+    // ── 4. مقارنة الخزن (نشاطاً وحجماً) ───────────────────────────────────
+    const registers = await db.select().from(cashRegistersTable).where(eq(cashRegistersTable.isActive, true));
+    const regComparison = await Promise.all(registers.map(async (r) => {
+      const [s] = await db.select({
+        totalIn:  sql<number>`COALESCE(SUM(CASE WHEN type IN (${creditSql}) THEN CAST(amount AS DECIMAL(14,2)) ELSE 0 END),0)`,
+        totalOut: sql<number>`COALESCE(SUM(CASE WHEN type IN (${debitSql})  THEN CAST(amount AS DECIMAL(14,2)) ELSE 0 END),0)`,
+        txCount:  sql<number>`COUNT(*)`,
+      }).from(cashTransactionsTable).where(
+        and(eq(cashTransactionsTable.registerId, r.id), gte(cashTransactionsTable.transactionDate, thisMonthStart))
+      );
+      return { id: r.id, name: r.name, type: r.type, balance: parseFloat(r.balance??'0'),
+        monthlyIn: Number(s?.totalIn??0), monthlyOut: Number(s?.totalOut??0), txCount: Number(s?.txCount??0) };
+    }));
+
+    // ── 5. أعلى 5 حركات الشهر ──────────────────────────────────────────────
+    const topTx = await db.select().from(cashTransactionsTable)
+      .where(gte(cashTransactionsTable.transactionDate, thisMonthStart))
+      .orderBy(desc(sql`CAST(amount AS DECIMAL(14,2))`)).limit(5);
+
+    res.json({
+      currentMonth: { totalIn: thisIn, totalOut: thisOut, net: thisIn - thisOut, txCount: Number(thisMo?.txCount??0) },
+      lastMonth:    { totalIn: lastIn, totalOut: lastOut, net: lastIn - lastOut, txCount: Number(lastMo?.txCount??0) },
+      changes: { inPct: pct(thisIn, lastIn), outPct: pct(thisOut, lastOut), netPct: pct(thisIn-thisOut, lastIn-lastOut) },
+      monthlyChart: monthlyRows.map(r => ({ month: r.month, in: Number(r.totalIn), out: Number(r.totalOut), net: Number(r.totalIn)-Number(r.totalOut) })),
+      typeBreakdown: typeRows.map(r => ({ type: r.type, total: Number(r.total), count: Number(r.count) })),
+      registerComparison: regComparison,
+      topTransactions: topTx,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "فشل جلب التحليلات" });
+  }
+});
+
 // ─── GET /api/cash-registers/alerts (تنبيهات الرصيد المنخفض) ────────────────
 cashRegistersRouter.get("/alerts", async (req, res) => {
   try {

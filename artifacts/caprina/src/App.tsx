@@ -71,6 +71,7 @@ const FinanceSuppliers      = lazy(() => import("@/pages/finance-suppliers"));
 const FinanceExpenses       = lazy(() => import("@/pages/finance-expenses"));
 const FinanceShippingInvoices = lazy(() => import("@/pages/finance-shipping-invoices"));
 const FinanceCash           = lazy(() => import("@/pages/finance-cash"));
+const FinanceCashAnalytics  = lazy(() => import("@/pages/finance-cash-analytics"));
 
 // ─── Global QueryClient with smart caching defaults ──────────────────────────
 const queryClient = new QueryClient({
@@ -237,6 +238,7 @@ function Router() {
           <Route path="/finance/expenses"         component={() => <ProtectedRoute permission="finance" component={FinanceExpenses} />} />
           <Route path="/finance/shipping-invoices" component={() => <ProtectedRoute permission="finance" component={FinanceShippingInvoices} />} />
           <Route path="/finance/cash"              component={() => <ProtectedRoute permission="finance" component={FinanceCash} />} />
+          <Route path="/finance/cash/analytics"  component={() => <ProtectedRoute permission="finance" component={FinanceCashAnalytics} />} />
           <Route                                  component={NotFound} />
         </Switch>
       </Suspense>
