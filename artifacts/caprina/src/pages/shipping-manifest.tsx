@@ -2637,10 +2637,11 @@ export default function ShippingManifestPage() {
         (rep.phone ?? "").includes(cq) ||
         (cqDigits.length > 0 && (rep.phone ?? "").replace(/\D/g, "").includes(cqDigits))
       );
-      // بحث في الإجمالي: نجمع totalPrice للمجموعة ونقارنها بالرقم المكتوب
+      // بحث في الإجمالي: نجمع totalPrice للمجموعة ونقارنها بالرقم المكتوب — مطابقة تامة فقط
       const matchesTotal = !tq || (() => {
-        const groupTotal = group.reduce((s, o) => s + o.totalPrice, 0);
-        return groupTotal.toString().includes(tq);
+        const groupTotal = Math.round(group.reduce((s, o) => s + o.totalPrice, 0));
+        const tqNum = parseFloat(tq);
+        return !isNaN(tqNum) && Math.round(tqNum) === groupTotal;
       })();
       return matchesCustomer && matchesTotal;
     });
