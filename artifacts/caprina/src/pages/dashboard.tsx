@@ -9,6 +9,7 @@ import {
   TrendingUp, TrendingDown, DollarSign, Package, AlertCircle,
   Plus, Activity, Boxes, ArrowUpRight, ArrowDownRight,
   Star, Wallet, BarChart3, ShoppingCart, AlertTriangle, RefreshCw, Bell, Brain, Zap, Archive, Clock,
+  Receipt, Building2, FileText,
 } from "lucide-react";
 import {
   analyticsApi, type PeriodProfit, type ProductProfit, type FinancialSummary, type Alert,
@@ -543,6 +544,35 @@ export default function Dashboard() {
               </div>
             </div>
           </Link>
+        </div>
+      )}
+
+      {/* === FINANCE MODULES (admin only) === */}
+      {isAdmin && (
+        <div>
+          <h2 className="text-xs sm:text-sm font-bold mb-2 sm:mb-3 text-muted-foreground">الأقسام المالية</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+            {[
+              { href: "/finance",                   label: "لوحة الماليات",  icon: DollarSign, color: "text-emerald-500", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
+              { href: "/finance/cash",              label: "الخزنة",         icon: Wallet,     color: "text-yellow-500",  bg: "bg-yellow-500/10",  border: "border-yellow-500/20"  },
+              { href: "/finance/purchases",         label: "أوامر الشراء",   icon: ShoppingCart, color: "text-violet-500", bg: "bg-violet-500/10", border: "border-violet-500/20" },
+              { href: "/finance/suppliers",         label: "الموردون",       icon: Building2,  color: "text-blue-500",    bg: "bg-blue-500/10",    border: "border-blue-500/20"    },
+              { href: "/finance/expenses",          label: "المصروفات",      icon: Receipt,    color: "text-rose-500",    bg: "bg-rose-500/10",    border: "border-rose-500/20"    },
+              { href: "/finance/shipping-invoices", label: "فواتير الشحن",   icon: FileText,   color: "text-sky-500",     bg: "bg-sky-500/10",     border: "border-sky-500/20"     },
+            ].map((mod) => {
+              const Icon = mod.icon;
+              return (
+                <Link key={mod.href} href={mod.href}>
+                  <Card className={`p-3 border ${mod.border} hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer group text-center`}>
+                    <div className={`w-8 h-8 rounded-lg ${mod.bg} flex items-center justify-center mx-auto mb-2`}>
+                      <Icon className={`w-4 h-4 ${mod.color}`} />
+                    </div>
+                    <p className="text-[10px] sm:text-xs font-semibold leading-tight">{mod.label}</p>
+                  </Card>
+                </Link>
+              );
+            })}
+          </div>
         </div>
       )}
 
