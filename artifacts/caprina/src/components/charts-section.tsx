@@ -35,8 +35,9 @@ const STATUS_CFG: Record<string, { label: string; color: string; bg: string }> =
   received:         { label: "مُسلَّم",       color: "#22c55e", bg: "#22c55e18" },
   returned:         { label: "مرتجع",         color: "#ef4444", bg: "#ef444418" },
   pending:          { label: "قيد الانتظار",  color: "#f59e0b", bg: "#f59e0b18" },
-  in_shipping:      { label: "قيد الشحن",     color: "#3b82f6", bg: "#3b82f618" },
-  delayed:          { label: "مؤجل",          color: "#8b5cf6", bg: "#8b5cf618" },
+  in_shipping:      { label: "قيد الشحن",            color: "#3b82f6", bg: "#3b82f618" },
+  warehouse_ready:  { label: "قيد الشحن في المخزن",  color: "#f97316", bg: "#f9731618" },
+  delayed:          { label: "مؤجل",                 color: "#8b5cf6", bg: "#8b5cf618" },
   partial_received: { label: "استلم جزئي",    color: "#06b6d4", bg: "#06b6d418" },
   cancelled:        { label: "ملغي",          color: "#6b7280", bg: "#6b728018" },
 };

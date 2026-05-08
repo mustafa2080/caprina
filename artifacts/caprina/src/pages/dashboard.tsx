@@ -30,10 +30,12 @@ const pct = (n: number, color = true) => {
 const STATUS_LABELS: Record<string, string> = {
   pending: "قيد الانتظار", in_shipping: "قيد الشحن", received: "استلم",
   delayed: "مؤجل", returned: "مرتجع", partial_received: "استلم جزئي",
+  warehouse_ready: "قيد الشحن في المخزن",
 };
 const STATUS_CLASSES: Record<string, string> = {
   pending:          "bg-amber-50   dark:bg-amber-900/30   text-amber-700   dark:text-amber-400   border-amber-300   dark:border-amber-800",
   in_shipping:      "bg-sky-50     dark:bg-sky-900/30     text-sky-700     dark:text-sky-400     border-sky-300     dark:border-sky-800",
+  warehouse_ready:  "bg-orange-50  dark:bg-orange-900/30  text-orange-700  dark:text-orange-400  border-orange-300  dark:border-orange-800",
   received:         "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800",
   delayed:          "bg-blue-50    dark:bg-blue-900/30    text-blue-700    dark:text-blue-400    border-blue-300    dark:border-blue-800",
   returned:         "bg-red-50     dark:bg-red-900/30     text-red-700     dark:text-red-400     border-red-300     dark:border-red-800",
@@ -711,6 +713,7 @@ export default function Dashboard() {
                 {[
                   { label: "قيد الانتظار", val: summary.pendingOrders, color: "text-amber-700 dark:text-amber-400" },
                   { label: "قيد الشحن", val: summary.shippingOrders ?? 0, color: "text-sky-600 dark:text-sky-400" },
+                  { label: "قيد الشحن في المخزن", val: summary.warehouseReadyOrders ?? 0, color: "text-orange-600 dark:text-orange-400" },
                   { label: "استلم", val: summary.receivedOrders, color: "text-emerald-600 dark:text-emerald-400" },
                   { label: "مؤجل", val: summary.delayedOrders ?? 0, color: "text-blue-600 dark:text-blue-400" },
                   { label: "مرتجع", val: summary.returnedOrders ?? 0, color: "text-red-600 dark:text-red-400" },

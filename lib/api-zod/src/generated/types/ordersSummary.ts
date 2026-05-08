@@ -10,6 +10,7 @@ export interface OrdersSummary {
   totalOrders: number;
   pendingOrders: number;
   shippingOrders: number;
+  warehouseReadyOrders: number;
   receivedOrders: number;
   delayedOrders: number;
   returnedOrders: number;
