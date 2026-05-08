@@ -2608,9 +2608,9 @@ export default function ShippingManifestPage() {
   const [showRolloverDialog, setShowRolloverDialog] = useState<null | { id: number; manifestNumber: string; orderCount: number; breakdown: string }>(null);
   // ─── البحث المباشر — بدون popover ──────────────────────────────────────────
   const [customerSearch, setCustomerSearch] = useState("");
-  const [productSearch, setProductSearch] = useState("");
+  const [totalSearch, setTotalSearch] = useState("");
   const [showCustomerSearch, setShowCustomerSearch] = useState(false);
-  const [showProductSearch, setShowProductSearch] = useState(false);
+  const [showTotalSearch, setShowTotalSearch] = useState(false);
 
   const { data: manifest, isLoading, error } = useQuery({
     queryKey: ["shipping-manifest", id],
@@ -2622,9 +2622,9 @@ export default function ShippingManifestPage() {
   const filteredManifestOrders = useMemo(() => {
     const orders = manifest?.orders ?? [];
     const grouped = groupManifestOrders(orders);
-    if (!customerSearch.trim() && !productSearch.trim()) return grouped;
+    if (!customerSearch.trim() && !totalSearch.trim()) return grouped;
     const cq = customerSearch.trim().toLowerCase();
-    const pq = productSearch.trim().toLowerCase();
+    const tq = totalSearch.trim().replace(/,/g, "");
     return grouped.filter((group) => {
       const rep = group[0];
       // بحث في رقم الفاتورة من أي مكان (contains)
@@ -2637,12 +2637,14 @@ export default function ShippingManifestPage() {
         (rep.phone ?? "").includes(cq) ||
         (cqDigits.length > 0 && (rep.phone ?? "").replace(/\D/g, "").includes(cqDigits))
       );
-      const matchesProduct = !pq || group.some((o) =>
-        o.product.toLowerCase().includes(pq)
-      );
-      return matchesCustomer && matchesProduct;
+      // بحث في الإجمالي: نجمع totalPrice للمجموعة ونقارنها بالرقم المكتوب
+      const matchesTotal = !tq || (() => {
+        const groupTotal = group.reduce((s, o) => s + o.totalPrice, 0);
+        return groupTotal.toString().includes(tq);
+      })();
+      return matchesCustomer && matchesTotal;
     });
-  }, [manifest?.orders, customerSearch, productSearch]);
+  }, [manifest?.orders, customerSearch, totalSearch]);
 
   const refetch = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ["shipping-manifest", id] });
@@ -3222,44 +3224,46 @@ export default function ShippingManifestPage() {
                   </div>
                   {/* ─── عمود المحافظة / العنوان ─── */}
                   <div className="flex items-center px-1 h-7">المحافظة / العنوان</div>
-                  {/* ─── عمود المنتج — نص / سيرش عند الضغط ─── */}
+                  {/* ─── عمود المنتج — نص ثابت ─── */}
+                  <div className="flex items-center px-1 h-7">المنتج</div>
+                  <div className="text-center">الكمية</div>
+                  {/* ─── عمود الإجمالي — سيرش عند الضغط ─── */}
                   <div className="relative">
-                    {showProductSearch ? (
+                    {showTotalSearch ? (
                       <>
                         <Search className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
                         <input
                           autoFocus
-                          value={productSearch}
-                          onChange={e => setProductSearch(e.target.value)}
-                          onBlur={() => { if (!productSearch) setShowProductSearch(false); }}
-                          placeholder="المنتج..."
-                          className={`w-full h-7 text-[10px] pr-6 pl-5 rounded border bg-background focus:outline-none focus:ring-1 focus:ring-primary transition-colors ${productSearch ? "border-primary text-primary font-bold" : "border-border text-muted-foreground"}`}
+                          value={totalSearch}
+                          onChange={e => setTotalSearch(e.target.value)}
+                          onBlur={() => { if (!totalSearch) setShowTotalSearch(false); }}
+                          placeholder="مثال: 1000"
+                          type="number"
+                          className={`w-full h-7 text-[10px] pr-6 pl-5 rounded border bg-background focus:outline-none focus:ring-1 focus:ring-primary transition-colors ${totalSearch ? "border-primary text-primary font-bold" : "border-border text-muted-foreground"}`}
                         />
-                        {productSearch && (
-                          <button type="button" onClick={() => { setProductSearch(""); setShowProductSearch(false); }} className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                        {totalSearch && (
+                          <button type="button" onClick={() => { setTotalSearch(""); setShowTotalSearch(false); }} className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                             <X className="w-3 h-3" />
                           </button>
                         )}
                       </>
                     ) : (
-                      <button type="button" onClick={() => setShowProductSearch(true)} className="flex items-center gap-1 hover:text-primary transition-colors w-full h-7 px-1">
+                      <button type="button" onClick={() => setShowTotalSearch(true)} className="flex items-center gap-1 hover:text-primary transition-colors w-full h-7 px-1">
                         <Search className="w-3 h-3 opacity-50" />
-                        <span className={productSearch ? "text-primary font-bold" : ""}>المنتج</span>
-                        {productSearch && <span className="text-primary text-[9px]">({productSearch})</span>}
+                        <span className={totalSearch ? "text-primary font-bold" : ""}>الإجمالي</span>
+                        {totalSearch && <span className="text-primary text-[9px]">({totalSearch})</span>}
                       </button>
                     )}
                   </div>
-                  <div className="text-center">الكمية</div>
-                  <div className="text-left">الإجمالي</div>
                   <div>حالة التسليم</div>
                   <div className="text-left">إجراء</div>
                 </div>
-                {filteredManifestOrders.length === 0 && (customerSearch || productSearch) ? (
+                {filteredManifestOrders.length === 0 && (customerSearch || totalSearch) ? (
                   <div className="p-6 text-center text-muted-foreground text-sm">
                     <Search className="w-8 h-8 mx-auto mb-2 opacity-30" />
                     <p>لا توجد نتائج للبحث</p>
                     <button
-                      onClick={() => { setCustomerSearch(""); setProductSearch(""); }}
+                      onClick={() => { setCustomerSearch(""); setTotalSearch(""); }}
                       className="text-xs text-primary hover:underline mt-1"
                     >
                       مسح البحث
