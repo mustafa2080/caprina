@@ -2,6 +2,7 @@ export const RETURN_REASONS: { value: string; label: string }[] = [
   { value: "size_mismatch", label: "مقاس غير مناسب" },
   { value: "quality",       label: "جودة" },
   { value: "customer_refused", label: "رفض العميل" },
+  { value: "delay",         label: "سبب التأخير" },
   { value: "other",         label: "سبب آخر" },
 ];
 
