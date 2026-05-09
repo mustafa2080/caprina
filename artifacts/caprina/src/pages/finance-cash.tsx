@@ -212,7 +212,7 @@ export default function FinanceCashPage() {
           <Button variant="outline" size="sm" className="gap-1.5 h-9 text-xs rounded-xl border-border/60 hover:border-border" onClick={() => setTransferOpen(true)}>
             <ArrowRightLeft className="w-3.5 h-3.5" /> تحويل
           </Button>
-          <Button size="sm" className="gap-1.5 h-9 text-xs rounded-xl bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-500/20" onClick={() => setAddRegOpen(true)}>
+          <Button size="sm" className="gap-1.5 h-9 text-xs rounded-xl bg-amber-500 hover:bg-amber-600 text-black font-bold shadow-md shadow-amber-500/30" onClick={() => setAddRegOpen(true)}>
             <Plus className="w-3.5 h-3.5" /> خزنة جديدة
           </Button>
         </div>
@@ -265,26 +265,26 @@ export default function FinanceCashPage() {
       )}
 
       {/* ── إجمالي الكاش ── */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-600 via-emerald-500 to-teal-400 text-white p-6 shadow-2xl shadow-emerald-500/30">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500 via-yellow-500 to-amber-400 dark:from-amber-600 dark:via-yellow-600 dark:to-amber-500 text-white p-6 shadow-2xl shadow-amber-500/30">
         {/* decorative shapes */}
-        <div className="absolute -top-8 -left-8 w-40 h-40 rounded-full bg-white/5" />
-        <div className="absolute -bottom-10 -right-6 w-52 h-52 rounded-full bg-white/5" />
+        <div className="absolute -top-8 -left-8 w-40 h-40 rounded-full bg-white/10" />
+        <div className="absolute -bottom-10 -right-6 w-52 h-52 rounded-full bg-black/10" />
         <div className="absolute top-4 left-1/2 w-20 h-20 rounded-full bg-white/5" />
         <div className="relative z-10">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-xs font-semibold opacity-75 mb-2 flex items-center gap-1.5 uppercase tracking-widest">
+              <p className="text-xs font-semibold opacity-80 mb-2 flex items-center gap-1.5 uppercase tracking-widest">
                 <Wallet className="w-3.5 h-3.5" /> إجمالي الكاش
               </p>
-              <p className="text-5xl font-black tracking-tight leading-none">{fmt(totalBalance)}</p>
+              <p className="text-5xl font-black tracking-tight leading-none drop-shadow-sm">{fmt(totalBalance)}</p>
             </div>
-            <div className="w-14 h-14 rounded-2xl bg-white/15 flex items-center justify-center backdrop-blur-sm">
+            <div className="w-14 h-14 rounded-2xl bg-black/15 flex items-center justify-center backdrop-blur-sm">
               <TrendingUp className="w-7 h-7" />
             </div>
           </div>
           <div className="flex items-center gap-2.5 mt-4">
-            <span className="text-xs font-medium bg-white/15 backdrop-blur-sm px-3 py-1 rounded-full">{registers.length} خزنة نشطة</span>
-            {mainReg && <span className="text-xs font-medium bg-white/15 backdrop-blur-sm px-3 py-1 rounded-full">رئيسية: {fmt(mainReg.balance)}</span>}
+            <span className="text-xs font-semibold bg-black/15 backdrop-blur-sm px-3 py-1 rounded-full">{registers.length} خزنة نشطة</span>
+            {mainReg && <span className="text-xs font-semibold bg-black/15 backdrop-blur-sm px-3 py-1 rounded-full">رئيسية: {fmt(mainReg.balance)}</span>}
           </div>
         </div>
       </div>
@@ -393,7 +393,7 @@ export default function FinanceCashPage() {
 
                 {/* actions */}
                 <div className="flex gap-2 mt-3">
-                  <Button size="sm" variant="outline" className="flex-1 gap-1 text-[11px] h-8 rounded-xl hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 dark:hover:bg-emerald-900/20"
+                  <Button size="sm" variant="outline" className="flex-1 gap-1 text-[11px] h-8 rounded-xl hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300 dark:hover:bg-amber-900/20"
                     onClick={e => { e.stopPropagation(); setSelectedReg(r); setTxOpen(true); }}>
                     <Plus className="w-3 h-3" /> حركة
                   </Button>
@@ -439,7 +439,7 @@ export default function FinanceCashPage() {
               </div>
             </div>
             <div className="flex gap-2 mt-5 flex-wrap">
-              <Button size="sm" className="gap-1.5 rounded-xl h-9 bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-500/20" onClick={() => { setSelectedReg(activeReg); setTxOpen(true); }}><Plus className="w-4 h-4" /> حركة جديدة</Button>
+              <Button size="sm" className="gap-1.5 rounded-xl h-9 bg-amber-500 hover:bg-amber-600 text-black font-bold shadow-md shadow-amber-500/20" onClick={() => { setSelectedReg(activeReg); setTxOpen(true); }}><Plus className="w-4 h-4" /> حركة جديدة</Button>
               <Button size="sm" variant="outline" className="gap-1.5 rounded-xl h-9" onClick={() => setTransferOpen(true)}><ArrowRightLeft className="w-4 h-4" /> تحويل</Button>
               <Button size="sm" variant="outline" className="gap-1.5 rounded-xl h-9" onClick={() => { setSelectedReg(activeReg); setEditForm({name:activeReg.name,description:activeReg.description??""}); setEditOpen(true); }}><Pencil className="w-4 h-4" /> تعديل</Button>
               <Button size="sm" variant="outline" className="gap-1.5 rounded-xl h-9" onClick={() => { setSelectedReg(activeReg); setThresholdVal(activeReg.lowBalanceThreshold ?? ""); setThresholdOpen(true); }}><Bell className="w-4 h-4" /> حد التنبيه</Button>
@@ -449,7 +449,7 @@ export default function FinanceCashPage() {
           {/* Chart */}
           {flowData && flowData.length > 1 && (
             <div className="rounded-2xl border border-border bg-card p-5">
-              <p className="text-sm font-bold mb-4 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-emerald-500" /> التدفق النقدي — آخر 30 يوم</p>
+              <p className="text-sm font-bold mb-4 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-amber-500" /> التدفق النقدي — آخر 30 يوم</p>
               <ResponsiveContainer width="100%" height={160}>
                 <AreaChart data={flowData} margin={{top:4,right:4,left:0,bottom:0}}>
                   <defs>
