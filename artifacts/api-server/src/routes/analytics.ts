@@ -929,32 +929,52 @@ router.get("/analytics/smart-insights", async (_req, res): Promise<void> => {
     .sort((a, b) => b.frozenCapital - a.frozenCapital)
     .slice(0, 8);
 
-  // ── 3. Return Insights ───────────────────────────────────────────────────────
+  // ── 3. Return Insights ──────────────────────────────────────────────
   const returnedOrders = allOrders.filter(o => o.status === "returned");
   const reasonCount: Record<string, number> = {};
+  const otherNoteCount: Record<string, number> = {};
   let noReasonCount = 0;
 
   for (const o of returnedOrders) {
-    const reason = o.returnReason ?? "__none__";
+    const reason = (o as any).returnReason ?? "__none__";
     if (reason === "__none__") { noReasonCount++; continue; }
     reasonCount[reason] = (reasonCount[reason] ?? 0) + 1;
+    if (reason === "other") {
+      const note = ((o as any).returnNote as string | null)?.trim();
+      if (note) otherNoteCount[note] = (otherNoteCount[note] ?? 0) + 1;
+    }
   }
 
   const REASON_LABELS: Record<string, string> = {
     size_mismatch: "مقاس غير مناسب",
     quality: "جودة المنتج",
     customer_refused: "رفض العميل",
+    delay: "سبب التأخير",
     other: "سبب آخر",
   };
 
   const totalReturns = returnedOrders.length;
+
+  const otherTotal = reasonCount["other"] ?? 0;
+  const otherNotesEntries = Object.entries(otherNoteCount).sort((a: any, b: any) => b[1] - a[1]);
+  const otherWithoutNote = otherTotal - otherNotesEntries.reduce((s: number, [, c]: any) => s + c, 0);
+
+  const expandedReasons: Array<{ reason: string; label: string; count: number; pct: number }> = [];
+  for (const [reason, count] of Object.entries(reasonCount)) {
+    if (reason === "other") {
+      for (const [note, cnt] of otherNotesEntries as any) {
+        expandedReasons.push({ reason: "other_note", label: note as string, count: cnt, pct: totalReturns > 0 ? Math.round((cnt / totalReturns) * 100) : 0 });
+      }
+      if (otherWithoutNote > 0) {
+        expandedReasons.push({ reason: "other", label: "سبب آخر (غير مفصّل)", count: otherWithoutNote, pct: totalReturns > 0 ? Math.round((otherWithoutNote / totalReturns) * 100) : 0 });
+      }
+    } else {
+      expandedReasons.push({ reason, label: REASON_LABELS[reason] ?? reason, count, pct: totalReturns > 0 ? Math.round((count / totalReturns) * 100) : 0 });
+    }
+  }
+
   const byReason = [
-    ...Object.entries(reasonCount).map(([reason, count]) => ({
-      reason,
-      label: REASON_LABELS[reason] ?? reason,
-      count,
-      pct: totalReturns > 0 ? Math.round((count / totalReturns) * 100) : 0,
-    })),
+    ...expandedReasons,
     ...(noReasonCount > 0 ? [{ reason: "__none__", label: "غير محدد", count: noReasonCount, pct: Math.round((noReasonCount / totalReturns) * 100) }] : []),
   ].sort((a, b) => b.count - a.count);
 
