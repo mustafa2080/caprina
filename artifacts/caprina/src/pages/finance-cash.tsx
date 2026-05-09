@@ -191,7 +191,8 @@ export default function FinanceCashPage() {
     onError: (e:any) => toast({title:"❌ خطأ", description:e.message, variant:"destructive"}),
   });
 
-  if (isLoading) return (
+  // أول تحميل فقط (مفيش بيانات خالص) — بعدين placeholderData بيمنع إعادة التحميل
+  if (isLoading && !regData) return (
     <div className="flex flex-col items-center justify-center h-64 gap-4 text-muted-foreground">
       <div className="relative w-16 h-16">
         <div className="absolute inset-0 rounded-2xl animate-pulse" style={{background:"#DEA82115"}} />
