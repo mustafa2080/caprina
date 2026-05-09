@@ -237,7 +237,6 @@ const StatusDonut = memo(function StatusDonut({
               elements.push(
                 <div key="waiting-header" className="flex items-center gap-1.5 pt-1 pb-0.5 px-2">
                   <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">قيد الانتظار والتحضير</span>
-                  <div className="flex-1 h-px bg-border/60" />
                 </div>
               );
             }
