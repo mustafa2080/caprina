@@ -239,6 +239,8 @@ export const UpdateOrderBody = zod.object({
   notes: zod.string().nullish(),
   returnReason: zod.string().nullish(),
   returnNote: zod.string().nullish(),
+  returnReceived: zod.union([zod.boolean(), zod.number()]).nullish(),
+  isDamaged: zod.boolean().nullish(),
 });
 
 export const UpdateOrderResponse = zod.object({
