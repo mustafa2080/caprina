@@ -78,7 +78,7 @@ function CompanyStats({ companyId, canViewFinancials }: { companyId: number; can
         </div>
         <div className="bg-muted/20 rounded p-2">
           <p className="text-[10px] text-muted-foreground">مؤجَّل</p>
-          <p className="text-sm font-black text-amber-400">{stats.pending}</p>
+          <p className="text-sm font-black text-amber-400">{(stats as any).postponed ?? stats.pending}</p>
         </div>
       </div>
       {canViewFinancials && (

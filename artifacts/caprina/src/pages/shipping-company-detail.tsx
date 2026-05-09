@@ -212,9 +212,9 @@ export default function ShippingCompanyDetailPage() {
             <p className="text-[10px] text-emerald-600">{stats.deliveryRate}% تسليم</p>
           </Card>
           <Card className="border-red-900/40 bg-red-900/10 p-3 text-center">
-            <p className="text-[10px] text-red-400 mb-0.5">مُرتجَع / معلَّق</p>
+            <p className="text-[10px] text-red-400 mb-0.5">مُرتجَع</p>
             <p className="text-2xl font-black text-red-400">{stats.returned}</p>
-            <p className="text-[10px] text-amber-600">{stats.pending} معلَّق</p>
+            <p className="text-[10px] text-amber-600">{(stats as any).postponed ?? stats.pending} مؤجَّل</p>
           </Card>
           <Card className={`p-3 text-center border ${stats.netProfit >= 0 ? "border-primary/30 bg-primary/5" : "border-red-900/40 bg-red-900/10"}`}>
             <p className="text-[10px] text-muted-foreground mb-0.5">صافي الربح</p>

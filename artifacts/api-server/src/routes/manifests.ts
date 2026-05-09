@@ -70,6 +70,11 @@ function computeStats(orders: OrderWithDelivery[]) {
   const total = groupedOrders.length;
   const delivered = groupedOrders.filter((g) => g.every((o) => o.deliveryStatus === "delivered" || o.deliveryStatus === "partial_received")).length;
   const returned = groupedOrders.filter((g) => g.every((o) => o.deliveryStatus === "returned")).length;
+  const postponed = groupedOrders.filter((g) =>
+    g.some((o) => o.deliveryStatus === "postponed") &&
+    !g.every((o) => o.deliveryStatus === "returned") &&
+    !g.every((o) => o.deliveryStatus === "delivered" || o.deliveryStatus === "partial_received")
+  ).length;
   const pending = groupedOrders.filter((g) =>
     g.some((o) => ["pending", "postponed"].includes(o.deliveryStatus)) ||
     (!g.every((o) => o.deliveryStatus === "returned") && !g.every((o) => o.deliveryStatus === "delivered" || o.deliveryStatus === "partial_received"))
@@ -102,7 +107,7 @@ function computeStats(orders: OrderWithDelivery[]) {
     .reduce((sum, o) => sum + (o.shippingCost ?? 0), 0);
   const dueFromCompany = deliveredGross - actuallyDeliveredShipping;
   return {
-    total, delivered, returned, pending, deliveryRate,
+    total, delivered, returned, pending, postponed, deliveryRate,
     totalRevenue, totalCost, totalShippingCost, returnLosses,
     netProfit: totalRevenue - totalCost - totalShippingCost,
     deliveredGross, dueFromCompany, stillAtShippingCount, stillAtShippingAmount, actuallyDeliveredShipping,
