@@ -46,6 +46,10 @@ router.get("/shipping-companies/:id/stats", async (req, res): Promise<void> => {
     return;
   }
 
+  // البيان المفتوح (لو موجود)
+  const openManifest = manifests.find(m => (m as any).status === "open");
+  const openManifestId = openManifest?.id ?? null;
+
   const manifestIds = manifests.map(m => m.id);
 
   // Get all orders in these manifests
@@ -54,6 +58,7 @@ router.get("/shipping-companies/:id/stats", async (req, res): Promise<void> => {
       deliveryStatus: shippingManifestOrdersTable.deliveryStatus,
       partialQuantity: shippingManifestOrdersTable.partialQuantity,
       orderId: shippingManifestOrdersTable.orderId,
+      manifestId: shippingManifestOrdersTable.manifestId,
     })
     .from(shippingManifestOrdersTable)
     .where(inArray(shippingManifestOrdersTable.manifestId, manifestIds));
@@ -68,17 +73,15 @@ router.get("/shipping-companies/:id/stats", async (req, res): Promise<void> => {
   const orderMap = new Map(orders.map(o => [o.id, o]));
 
   // ─── تجميع الطلبات بنفس invoiceNumber في فاتورة واحدة ───────────────────
-  // نفس منطق computeStats في manifests.ts
-  const invoiceMap = new Map<string, { status: string; orders: typeof orders[0][] }>();
+  const invoiceMap = new Map<string, { status: string; manifestId: number; orders: typeof orders[0][] }>();
   for (const link of links) {
     const order = orderMap.get(link.orderId);
     if (!order) continue;
     const key = order.invoiceNumber?.trim() || `solo-${order.id}`;
     if (!invoiceMap.has(key)) {
-      invoiceMap.set(key, { status: link.deliveryStatus, orders: [order] });
+      invoiceMap.set(key, { status: link.deliveryStatus, manifestId: link.manifestId, orders: [order] });
     } else {
       invoiceMap.get(key)!.orders.push(order);
-      // لو أي طلب في الفاتورة مؤجل → الفاتورة مؤجلة
       const cur = invoiceMap.get(key)!.status;
       const s = link.deliveryStatus;
       if (s === "postponed" || cur === "postponed") {
@@ -105,10 +108,12 @@ router.get("/shipping-companies/:id/stats", async (req, res): Promise<void> => {
         returnLosses += shipping;
       }
     }
-    // عد الفواتير مرة واحدة فقط
     if (status === "delivered" || status === "partial_received") delivered++;
     else if (status === "returned") returned++;
-    else if (status === "postponed") postponed++;
+    else if (status === "postponed") {
+      // المؤجل يُعد فقط لو في البيان المفتوح
+      if (openManifestId && invoice.manifestId === openManifestId) postponed++;
+    }
     else pending++;
   }
 
