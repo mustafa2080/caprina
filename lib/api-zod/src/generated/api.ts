@@ -214,6 +214,8 @@ export const UpdateOrderBody = zod.object({
   city: zod.string().nullish(),
   address: zod.string().nullish(),
   product: zod.string().optional(),
+  color: zod.string().nullish(),
+  size: zod.string().nullish(),
   quantity: zod.number().min(1).optional(),
   unitPrice: zod.number().min(updateOrderBodyUnitPriceMin).optional(),
   costPrice: zod.number().nullish(),
