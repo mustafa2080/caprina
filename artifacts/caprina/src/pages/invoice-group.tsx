@@ -463,6 +463,7 @@ export default function InvoiceGroup() {
   const [waOrder, setWaOrder]                           = useState<WhatsAppOrderData | null>(null);
   const [showAddProduct, setShowAddProduct]             = useState(false);
   const [isEditingInvoice, setIsEditingInvoice]         = useState(false);
+  const [editingProduct, setEditingProduct]             = useState<any>(null);
 
   // Inline edit form state
   const [editCustomerName, setEditCustomerName]         = useState("");
@@ -845,117 +846,96 @@ export default function InvoiceGroup() {
         </CardContent>
       </Card>
 
-      {/* Inline edit form */}
+      {/* Inline edit form — نفس شكل order-detail */}
       {isEditingInvoice && (
         <Card className="border-primary/40 bg-card">
           <CardHeader className="pb-3 pt-4 px-4 border-b border-border">
             <CardTitle className="text-sm font-bold text-primary flex items-center gap-2">
-              <Pencil className="w-4 h-4" />تعديل بيانات الفاتورة
+              <Pencil className="w-4 h-4" />تعديل الطلب
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 space-y-3">
+            {/* بيانات العميل */}
             <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2">
-                <Label className="text-xs font-medium mb-1.5 block">اسم العميل *</Label>
-                <Input value={editCustomerName} onChange={e => setEditCustomerName(e.target.value)} className="h-8 text-sm" placeholder="اسم العميل" />
+              <div>
+                <Label className="text-xs">اسم العميل</Label>
+                <Input value={editCustomerName} onChange={e => setEditCustomerName(e.target.value)} className="h-8 text-sm mt-1" />
               </div>
               <div>
-                <Label className="text-xs font-medium mb-1.5 block">الهاتف</Label>
-                <Input value={editPhone} onChange={e => setEditPhone(e.target.value)} className="h-8 text-sm" placeholder="رقم الهاتف" dir="ltr" />
-              </div>
-              <div>
-                <Label className="text-xs font-medium mb-1.5 block">المحافظة</Label>
-                <Input value={editCity} onChange={e => setEditCity(e.target.value)} className="h-8 text-sm" placeholder="المحافظة" />
-              </div>
-              <div className="col-span-2">
-                <Label className="text-xs font-medium mb-1.5 block">العنوان</Label>
-                <Input value={editAddress} onChange={e => setEditAddress(e.target.value)} className="h-8 text-sm" placeholder="العنوان التفصيلي" />
-              </div>
-              <div>
-                <Label className="text-xs font-medium mb-1.5 block">شركة الشحن</Label>
-                <select value={editShippingCompanyId} onChange={e => setEditShippingCompanyId(e.target.value)}
-                  className="w-full h-8 text-sm rounded-md border border-input bg-card px-2 focus:outline-none focus:ring-1 focus:ring-ring">
-                  <option value="">بدون شركة شحن</option>
-                  {shippingCompanies.map((c: any) => (
-                    <option key={c.id} value={String(c.id)}>{c.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <Label className="text-xs font-medium mb-1.5 block">رقم التتبع</Label>
-                <Input value={editTrackingNumber} onChange={e => setEditTrackingNumber(e.target.value)} className="h-8 text-sm font-mono" placeholder="رقم التتبع" dir="ltr" />
-              </div>
-              <div className="col-span-2">
-                <Label className="text-xs font-medium mb-1.5 block">ملاحظات</Label>
-                <Textarea value={editNotes} onChange={e => setEditNotes(e.target.value)} className="min-h-[60px] text-sm resize-none" placeholder="ملاحظات اختيارية..." />
+                <Label className="text-xs">الهاتف</Label>
+                <Input value={editPhone} onChange={e => setEditPhone(e.target.value)} className="h-8 text-sm mt-1" dir="ltr" />
               </div>
             </div>
-            {/* تعديل المنتجات */}
-            <div className="border-t border-border/50 pt-3 space-y-2">
-              <p className="text-xs font-bold text-muted-foreground flex items-center gap-1.5">
-                <Package className="w-3.5 h-3.5" />تعديل المنتجات
-              </p>
-              {orders.map((order: any, i: number) => (
-                <div key={order.id} className="p-3 bg-muted/10 rounded-md border border-border/40 space-y-2">
-                  <p className="text-[10px] font-bold text-muted-foreground">منتج {i + 1}: {order.product}</p>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="col-span-1">
-                      <Label className="text-[10px] text-muted-foreground mb-1 block">اسم المنتج</Label>
-                      <Input
-                        defaultValue={order.product}
-                        id={`edit-product-name-${order.id}`}
-                        className="h-7 text-xs"
-                      />
+            <div>
+              <Label className="text-xs">العنوان</Label>
+              <Input value={editAddress} onChange={e => setEditAddress(e.target.value)} className="h-8 text-sm mt-1" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">شركة الشحن</Label>
+                <Select value={editShippingCompanyId || "none"} onValueChange={v => setEditShippingCompanyId(v === "none" ? "" : v)}>
+                  <SelectTrigger className="h-8 text-sm bg-card mt-1"><SelectValue placeholder="بدون" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">بدون</SelectItem>
+                    {shippingCompanies.map((c: any) => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">رقم التتبع</Label>
+                <Input value={editTrackingNumber} onChange={e => setEditTrackingNumber(e.target.value)} className="h-8 text-sm mt-1 font-mono" placeholder="TRK-12345" dir="ltr" />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">ملاحظات</Label>
+              <Textarea value={editNotes} onChange={e => setEditNotes(e.target.value)} className="min-h-[60px] text-sm resize-none mt-1" />
+            </div>
+
+            {/* قسم منتجات الفاتورة */}
+            <div className="border-t border-border pt-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold text-muted-foreground flex items-center gap-1">
+                  <Package className="w-3.5 h-3.5" />منتجات الفاتورة ({orders.length})
+                </h3>
+                <button onClick={() => { setIsEditingInvoice(false); setShowAddProduct(true); }}
+                  className="flex items-center gap-1.5 text-xs font-bold text-primary border border-dashed border-primary/40 hover:bg-primary/5 px-3 py-1.5 rounded-md transition-colors">
+                  <Plus className="w-3.5 h-3.5" />إضافة منتج للفاتورة
+                </button>
+              </div>
+              {orders.map((o: any) => (
+                <Card key={o.id} className="border border-border bg-card">
+                  <CardContent className="p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold truncate">{o.product}</p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          {o.color && <Badge variant="outline" className="text-[9px] border-border text-muted-foreground">{o.color}</Badge>}
+                          {o.size && <Badge variant="outline" className="text-[9px] border-border text-muted-foreground">{o.size}</Badge>}
+                        </div>
+                        <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
+                          <span>{o.quantity} وحدة × {formatCurrency(o.unitPrice)}</span>
+                          <span className="font-bold text-foreground">{formatCurrency(o.totalPrice)}</span>
+                        </div>
+                      </div>
+                      <Button variant="outline" size="sm" className="h-7 text-xs gap-1 border-border shrink-0"
+                        onClick={() => { setEditingProduct(o); setIsEditingInvoice(false); }}>
+                        <Pencil className="w-3 h-3" />تعديل
+                      </Button>
                     </div>
-                    <div>
-                      <Label className="text-[10px] text-muted-foreground mb-1 block">الكمية</Label>
-                      <Input
-                        type="number" min={1}
-                        defaultValue={order.quantity}
-                        id={`edit-product-qty-${order.id}`}
-                        className="h-7 text-xs"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-[10px] text-muted-foreground mb-1 block">السعر (ج.م)</Label>
-                      <Input
-                        type="number" min={0}
-                        defaultValue={order.unitPrice}
-                        id={`edit-product-price-${order.id}`}
-                        className="h-7 text-xs"
-                      />
-                    </div>
-                  </div>
-                </div>
+                  </CardContent>
+                </Card>
               ))}
             </div>
 
-            <div className="flex items-center gap-2 pt-1">
-              <Button size="sm" onClick={async () => {
-                // حفظ بيانات العميل
-                await handleSaveEdit(orders);
-                // حفظ بيانات المنتجات
-                if (!editCustomerName.trim()) return;
-                for (const order of orders) {
-                  const nameEl = document.getElementById(`edit-product-name-${order.id}`) as HTMLInputElement;
-                  const qtyEl  = document.getElementById(`edit-product-qty-${order.id}`) as HTMLInputElement;
-                  const priceEl = document.getElementById(`edit-product-price-${order.id}`) as HTMLInputElement;
-                  const newName  = nameEl?.value?.trim() || order.product;
-                  const newQty   = parseInt(qtyEl?.value) || order.quantity;
-                  const newPrice = parseFloat(priceEl?.value) || order.unitPrice;
-                  if (newName !== order.product || newQty !== order.quantity || newPrice !== order.unitPrice) {
-                    await new Promise<void>((resolve) => {
-                      updateOrder.mutate({ id: order.id, data: { product: newName, quantity: newQty, unitPrice: newPrice } as any }, {
-                        onSuccess: () => resolve(), onError: () => resolve(),
-                      });
-                    });
-                  }
-                }
-                invalidateAll();
-              }} disabled={isSavingEdit || !editCustomerName.trim()} className="gap-1 h-8 text-xs">
-                <Save className="w-3 h-3" />{isSavingEdit ? "جاري الحفظ..." : "حفظ الكل"}
+            <div className="flex items-center gap-2 pt-1 border-t border-border">
+              <Button size="sm" onClick={() => handleSaveEdit(orders)}
+                disabled={isSavingEdit || !editCustomerName.trim()} className="gap-1 h-8 text-xs">
+                <Save className="w-3 h-3" />{isSavingEdit ? "جاري الحفظ..." : "حفظ"}
               </Button>
-              <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setIsEditingInvoice(false)}>إلغاء</Button>
+              <Button size="sm" variant="ghost" className="h-8 text-xs gap-1"
+                onClick={() => setIsEditingInvoice(false)}>
+                <X className="w-3 h-3" />إلغاء
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -1024,6 +1004,14 @@ export default function InvoiceGroup() {
         onOpenChange={setShowAddProduct}
         repOrder={rep}
         invoiceNumber={invoiceNumber}
+        onSuccess={invalidateAll}
+      />
+
+      {/* Edit Product Dialog */}
+      <EditProductDialog
+        open={!!editingProduct}
+        onOpenChange={v => { if (!v) setEditingProduct(null); }}
+        order={editingProduct}
         onSuccess={invalidateAll}
       />
 
