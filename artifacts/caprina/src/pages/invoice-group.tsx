@@ -461,7 +461,6 @@ export default function InvoiceGroup() {
   const [pendingStatus, setPendingStatus]               = useState<string | null>(null);
   const [isUpdatingStatus, setIsUpdatingStatus]         = useState(false);
   const [waOrder, setWaOrder]                           = useState<WhatsAppOrderData | null>(null);
-  const [editingOrder, setEditingOrder]                 = useState<any>(null);
   const [showAddProduct, setShowAddProduct]             = useState(false);
   const [isEditingInvoice, setIsEditingInvoice]         = useState(false);
 
@@ -894,10 +893,70 @@ export default function InvoiceGroup() {
                 <Textarea value={editNotes} onChange={e => setEditNotes(e.target.value)} className="min-h-[60px] text-sm resize-none" placeholder="ملاحظات اختيارية..." />
               </div>
             </div>
+            {/* تعديل المنتجات */}
+            <div className="border-t border-border/50 pt-3 space-y-2">
+              <p className="text-xs font-bold text-muted-foreground flex items-center gap-1.5">
+                <Package className="w-3.5 h-3.5" />تعديل المنتجات
+              </p>
+              {orders.map((order: any, i: number) => (
+                <div key={order.id} className="p-3 bg-muted/10 rounded-md border border-border/40 space-y-2">
+                  <p className="text-[10px] font-bold text-muted-foreground">منتج {i + 1}: {order.product}</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="col-span-1">
+                      <Label className="text-[10px] text-muted-foreground mb-1 block">اسم المنتج</Label>
+                      <Input
+                        defaultValue={order.product}
+                        id={`edit-product-name-${order.id}`}
+                        className="h-7 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-[10px] text-muted-foreground mb-1 block">الكمية</Label>
+                      <Input
+                        type="number" min={1}
+                        defaultValue={order.quantity}
+                        id={`edit-product-qty-${order.id}`}
+                        className="h-7 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-[10px] text-muted-foreground mb-1 block">السعر (ج.م)</Label>
+                      <Input
+                        type="number" min={0}
+                        defaultValue={order.unitPrice}
+                        id={`edit-product-price-${order.id}`}
+                        className="h-7 text-xs"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
             <div className="flex items-center gap-2 pt-1">
-              <Button size="sm" onClick={() => handleSaveEdit(orders)} disabled={isSavingEdit || !editCustomerName.trim()}
-                className="gap-1 h-8 text-xs">
-                <Save className="w-3 h-3" />{isSavingEdit ? "جاري الحفظ..." : "حفظ التعديل"}
+              <Button size="sm" onClick={async () => {
+                // حفظ بيانات العميل
+                await handleSaveEdit(orders);
+                // حفظ بيانات المنتجات
+                if (!editCustomerName.trim()) return;
+                for (const order of orders) {
+                  const nameEl = document.getElementById(`edit-product-name-${order.id}`) as HTMLInputElement;
+                  const qtyEl  = document.getElementById(`edit-product-qty-${order.id}`) as HTMLInputElement;
+                  const priceEl = document.getElementById(`edit-product-price-${order.id}`) as HTMLInputElement;
+                  const newName  = nameEl?.value?.trim() || order.product;
+                  const newQty   = parseInt(qtyEl?.value) || order.quantity;
+                  const newPrice = parseFloat(priceEl?.value) || order.unitPrice;
+                  if (newName !== order.product || newQty !== order.quantity || newPrice !== order.unitPrice) {
+                    await new Promise<void>((resolve) => {
+                      updateOrder.mutate({ id: order.id, data: { product: newName, quantity: newQty, unitPrice: newPrice } as any }, {
+                        onSuccess: () => resolve(), onError: () => resolve(),
+                      });
+                    });
+                  }
+                }
+                invalidateAll();
+              }} disabled={isSavingEdit || !editCustomerName.trim()} className="gap-1 h-8 text-xs">
+                <Save className="w-3 h-3" />{isSavingEdit ? "جاري الحفظ..." : "حفظ الكل"}
               </Button>
               <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setIsEditingInvoice(false)}>إلغاء</Button>
             </div>
@@ -938,12 +997,6 @@ export default function InvoiceGroup() {
                     {statusLabels[order.status] || order.status}
                   </Badge>
                 </div>
-                {!isAnyLocked && !hasOpenManifest && (
-                  <Button variant="ghost" size="icon" onClick={() => setEditingOrder(order)}
-                    className="h-7 w-7 hover:bg-primary/10 text-muted-foreground hover:text-primary shrink-0" title="تعديل المنتج">
-                    <Pencil className="w-3.5 h-3.5" />
-                  </Button>
-                )}
               </div>
             </div>
           ))}
@@ -967,16 +1020,6 @@ export default function InvoiceGroup() {
           )}
         </CardContent>
       </Card>
-
-      {/* Edit Dialog (product) */}
-      {editingOrder && (
-        <EditProductDialog
-          open={!!editingOrder}
-          onOpenChange={(v) => { if (!v) setEditingOrder(null); }}
-          order={editingOrder}
-          onSuccess={invalidateAll}
-        />
-      )}
 
       {/* Add Product Dialog */}
       <AddProductDialog
