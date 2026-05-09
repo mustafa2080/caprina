@@ -739,75 +739,72 @@ export default function InvoiceGroup() {
     <div className="max-w-4xl mx-auto space-y-5 animate-in fade-in duration-500">
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Link href="/orders">
-            <Button variant="outline" size="icon" className="h-8 w-8 rounded-full border-border">
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          </Link>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold">فاتورة #{invoiceNumber}</h1>
-              <Badge variant="outline" className={`font-bold border text-[10px] ${statusClasses[dominantStatus] || ""}`}>
-                {allSameStatus ? statusLabels[dominantStatus] || dominantStatus : "حالات متعددة"}
-              </Badge>
-              {isAnyLocked && (
-                <Badge variant="outline" className="text-[9px] font-bold border-amber-700 bg-amber-900/10 text-amber-400 gap-1 flex items-center">
-                  <Lock className="w-2.5 h-2.5" /> مقفل جزئياً
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <Link href="/orders">
+              <Button variant="outline" size="icon" className="h-8 w-8 rounded-full border-border shrink-0">
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-xl font-bold">فاتورة #{invoiceNumber}</h1>
+                <Badge variant="outline" className={`font-bold border text-[10px] ${statusClasses[dominantStatus] || ""}`}>
+                  {allSameStatus ? statusLabels[dominantStatus] || dominantStatus : "حالات متعددة"}
                 </Badge>
-              )}
+                {isAnyLocked && (
+                  <Badge variant="outline" className="text-[9px] font-bold border-amber-700 bg-amber-900/10 text-amber-400 gap-1 flex items-center">
+                    <Lock className="w-2.5 h-2.5" /> مقفل جزئياً
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {orders.length} منتج · {format(new Date(rep.createdAt), "yyyy/MM/dd HH:mm")}
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {orders.length} منتج · {format(new Date(rep.createdAt), "yyyy/MM/dd HH:mm")}
-            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* حذف الكل */}
+        {/* Action buttons — all in one row, no wrapping */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
           <Button
             variant="outline" size="sm"
             onClick={() => !isAnyLocked && !hasOpenManifest && setShowBulkDeleteDialog(true)}
             disabled={isAnyLocked || hasOpenManifest}
-            className="h-9 text-xs gap-1.5 bg-red-600 hover:bg-red-700 text-white border-red-600 hover:border-red-700 disabled:opacity-40 font-bold">
+            className="h-9 text-xs gap-1.5 bg-red-600 hover:bg-red-700 text-white border-red-600 hover:border-red-700 disabled:opacity-40 font-bold shrink-0">
             <Trash2 className="w-3.5 h-3.5" />حذف
           </Button>
 
-          {/* إضافة منتج */}
           {!isAnyLocked && !hasOpenManifest && (
             <Button size="sm" onClick={() => setShowAddProduct(true)}
-              className="h-9 text-xs gap-1.5 font-bold">
+              className="h-9 text-xs gap-1.5 font-bold shrink-0">
               <Plus className="w-3.5 h-3.5" />إضافة منتج
             </Button>
           )}
 
-          {/* تعديل */}
           {!isAnyLocked && !hasOpenManifest && (
             <Button variant="outline" size="sm"
               onClick={() => isEditingInvoice ? setIsEditingInvoice(false) : handleOpenEdit(rep)}
-              className={`h-9 text-xs gap-1.5 font-bold border-border`}>
+              className="h-9 text-xs gap-1.5 font-bold border-border shrink-0">
               <Pencil className="w-3.5 h-3.5" />تعديل
             </Button>
           )}
 
-          {/* فاتورة (طباعة) */}
           <Button variant="outline" size="sm" onClick={handlePrint}
-            className="h-9 text-xs gap-1.5 border-border font-bold">
+            className="h-9 text-xs gap-1.5 border-border font-bold shrink-0">
             <Printer className="w-3.5 h-3.5" />فاتورة
           </Button>
 
-          {/* واتساب */}
           {orders.some((o: any) => ["pending","warehouse_ready","in_shipping","delayed"].includes(o.status)) && (
             <Button variant="outline" size="sm" onClick={handleWhatsApp}
-              className="h-9 text-xs gap-1.5 border-green-700 text-green-400 hover:bg-green-500/10 font-bold">
+              className="h-9 text-xs gap-1.5 border-green-700 text-green-400 hover:bg-green-500/10 font-bold shrink-0">
               <MessageCircle className="w-3.5 h-3.5" />واتساب
             </Button>
           )}
 
-          {/* تغيير حالة الكل */}
           <Select value="" onValueChange={(v) => { if (v) setPendingStatus(v); }} disabled={isUpdatingStatus || isAnyLocked || hasOpenManifest}>
-            <SelectTrigger className="h-9 text-xs bg-primary text-primary-foreground border-primary hover:bg-primary/90 font-bold w-auto gap-1.5 px-3"
+            <SelectTrigger className="h-9 text-xs bg-primary text-primary-foreground border-primary hover:bg-primary/90 font-bold w-auto gap-1.5 px-3 shrink-0"
               title={hasOpenManifest ? `مرتبط ببيان مفتوح (${openManifestEntry?.manifestNumber})` : undefined}>
               <div className="flex items-center gap-1.5">
                 <RefreshCw className={`w-3.5 h-3.5 ${isUpdatingStatus ? "animate-spin" : ""}`} />
