@@ -97,6 +97,156 @@ router.get("/analytics/team-performance", async (req, res): Promise<void> => {
   res.json(result);
 });
 
+// ─── Team Performance Extended ─────────────────────────────────────────────────
+router.get("/analytics/team-performance-extended", async (req, res): Promise<void> => {
+  const dateFrom = req.query.dateFrom as string | undefined;
+  const dateTo = req.query.dateTo as string | undefined;
+
+  let conditions: any[] = [
+    // exclude deleted
+  ];
+  if (dateFrom) conditions.push(gte(ordersTable.createdAt, new Date(dateFrom)));
+  if (dateTo) {
+    const to = new Date(dateTo);
+    to.setHours(23, 59, 59, 999);
+    conditions.push(lte(ordersTable.createdAt, to));
+  }
+
+  const orders = await db
+    .select()
+    .from(ordersTable)
+    .where(conditions.length > 0 ? and(...conditions) : undefined);
+
+  const users = await db.select().from(usersTable);
+  const userMap = new Map(users.map((u) => [u.id, u]));
+
+  type ExtStats = {
+    userId: number;
+    userName: string;
+    displayName: string;
+    total: number;
+    delivered: number;
+    returned: number;
+    pending: number;
+    profit: number;
+    deliveryRate: number;
+    returnRate: number;
+    // Extended
+    avgProcessingHours: number | null; // avg hours from createdAt to updatedAt for delivered orders
+    sourceCounts: Record<string, number>;
+    topSource: string | null;
+    ordersPerDay: number;
+    score: number; // gamified score
+    // internals
+    _processingHoursSum: number;
+    _processingCount: number;
+    _firstOrder: Date | null;
+    _lastOrder: Date | null;
+  };
+
+  const stats: Record<number, ExtStats> = {};
+
+  for (const o of orders) {
+    const uid = o.assignedUserId ?? 0;
+    if (!stats[uid]) {
+      const user = uid ? userMap.get(uid) : null;
+      stats[uid] = {
+        userId: uid,
+        userName: user?.username ?? "غير محدد",
+        displayName: user?.displayName ?? "غير محدد",
+        total: 0, delivered: 0, returned: 0, pending: 0,
+        profit: 0, deliveryRate: 0, returnRate: 0,
+        avgProcessingHours: null,
+        sourceCounts: {},
+        topSource: null,
+        ordersPerDay: 0,
+        score: 0,
+        _processingHoursSum: 0,
+        _processingCount: 0,
+        _firstOrder: null,
+        _lastOrder: null,
+      };
+    }
+    const s = stats[uid];
+    s.total++;
+
+    // Track date range for this user
+    const oDate = new Date(o.createdAt);
+    if (!s._firstOrder || oDate < s._firstOrder) s._firstOrder = oDate;
+    if (!s._lastOrder || oDate > s._lastOrder) s._lastOrder = oDate;
+
+    // Source tracking
+    const src = o.adSource ?? "organic";
+    s.sourceCounts[src] = (s.sourceCounts[src] ?? 0) + 1;
+
+    if (o.status === "received" || o.status === "partial_received") {
+      s.delivered++;
+      // Processing time: createdAt → updatedAt
+      const diffHours = (new Date(o.updatedAt).getTime() - new Date(o.createdAt).getTime()) / 3600000;
+      if (diffHours >= 0) {
+        s._processingHoursSum += diffHours;
+        s._processingCount++;
+      }
+    } else if (o.status === "returned") {
+      s.returned++;
+    } else {
+      s.pending++;
+    }
+    s.profit += profitFromOrder(o);
+  }
+
+  const result = Object.values(stats).map((s) => {
+    const deliveryRate = s.total > 0 ? Math.round((s.delivered / s.total) * 100) : 0;
+    const returnRate = s.total > 0 ? Math.round((s.returned / s.total) * 100) : 0;
+
+    // Avg processing hours
+    const avgProcessingHours = s._processingCount > 0
+      ? Math.round(s._processingHoursSum / s._processingCount)
+      : null;
+
+    // Top source
+    let topSource: string | null = null;
+    let topCount = 0;
+    for (const [src, cnt] of Object.entries(s.sourceCounts)) {
+      if (cnt > topCount) { topCount = cnt; topSource = src; }
+    }
+
+    // Orders per day
+    let ordersPerDay = 0;
+    if (s._firstOrder && s._lastOrder && s.total > 0) {
+      const days = Math.max(1, Math.round((s._lastOrder.getTime() - s._firstOrder.getTime()) / 86400000) + 1);
+      ordersPerDay = Math.round((s.total / days) * 10) / 10;
+    }
+
+    // Score: delivery=3pts, profit bonus, speed bonus
+    const score = (s.delivered * 3)
+      + Math.max(0, Math.round(s.profit / 100))
+      + (avgProcessingHours !== null && avgProcessingHours <= 24 ? s.delivered * 2 : 0)
+      - (s.returned * 1);
+
+    return {
+      userId: s.userId,
+      userName: s.userName,
+      displayName: s.displayName,
+      total: s.total,
+      delivered: s.delivered,
+      returned: s.returned,
+      pending: s.pending,
+      profit: s.profit,
+      deliveryRate,
+      returnRate,
+      avgProcessingHours,
+      sourceCounts: s.sourceCounts,
+      topSource,
+      ordersPerDay,
+      score: Math.max(0, score),
+    };
+  });
+
+  result.sort((a, b) => b.score - a.score);
+  res.json(result);
+});
+
 // ─── Campaign / Ads Analytics ──────────────────────────────────────────────────
 router.get("/analytics/campaigns", async (req, res): Promise<void> => {
   const dateFrom = req.query.dateFrom as string | undefined;

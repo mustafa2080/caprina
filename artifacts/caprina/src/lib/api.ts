@@ -818,6 +818,14 @@ export interface TeamMemberStats {
   returnRate: number;
 }
 
+export interface TeamMemberExtStats extends TeamMemberStats {
+  avgProcessingHours: number | null;
+  sourceCounts: Record<string, number>;
+  topSource: string | null;
+  ordersPerDay: number;
+  score: number;
+}
+
 export interface CampaignStats {
   adSource: string;
   adCampaign: string | null;
@@ -986,6 +994,13 @@ export const teamAnalyticsApi = {
     if (dateTo) params.set("dateTo", dateTo);
     const qs = params.toString();
     return apiFetch<TeamMemberStats[]>(`/analytics/team-performance${qs ? `?${qs}` : ""}`);
+  },
+  teamPerformanceExtended: (dateFrom?: string, dateTo?: string) => {
+    const params = new URLSearchParams();
+    if (dateFrom) params.set("dateFrom", dateFrom);
+    if (dateTo) params.set("dateTo", dateTo);
+    const qs = params.toString();
+    return apiFetch<TeamMemberExtStats[]>(`/analytics/team-performance-extended${qs ? `?${qs}` : ""}`);
   },
   campaigns: (dateFrom?: string, dateTo?: string) => {
     const params = new URLSearchParams();
