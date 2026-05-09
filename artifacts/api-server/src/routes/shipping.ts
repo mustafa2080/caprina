@@ -42,7 +42,7 @@ router.get("/shipping-companies/:id/stats", async (req, res): Promise<void> => {
   const manifestCount = manifests.length;
 
   if (manifestCount === 0) {
-    res.json({ delivered: 0, returned: 0, pending: 0, deliveryRate: 0, netProfit: 0, manifestCount: 0 });
+    res.json({ delivered: 0, returned: 0, pending: 0, postponed: 0, deliveryRate: 0, netProfit: 0, manifestCount: 0 });
     return;
   }
 
@@ -59,7 +59,7 @@ router.get("/shipping-companies/:id/stats", async (req, res): Promise<void> => {
     .where(inArray(shippingManifestOrdersTable.manifestId, manifestIds));
 
   if (links.length === 0) {
-    res.json({ delivered: 0, returned: 0, pending: 0, deliveryRate: 0, netProfit: 0, manifestCount });
+    res.json({ delivered: 0, returned: 0, pending: 0, postponed: 0, deliveryRate: 0, netProfit: 0, manifestCount });
     return;
   }
 
@@ -67,7 +67,7 @@ router.get("/shipping-companies/:id/stats", async (req, res): Promise<void> => {
   const orders = await db.select().from(ordersTable).where(inArray(ordersTable.id, orderIds));
   const orderMap = new Map(orders.map(o => [o.id, o]));
 
-  let delivered = 0, returned = 0, pending = 0;
+  let delivered = 0, returned = 0, pending = 0, postponed = 0;
   let totalRevenue = 0, totalCost = 0, totalShipping = 0, returnLosses = 0;
 
   for (const link of links) {
@@ -89,6 +89,10 @@ router.get("/shipping-companies/:id/stats", async (req, res): Promise<void> => {
       returned++;
       returnLosses += order.shippingCost ?? 0;
       totalShipping += order.shippingCost ?? 0;
+    } else if (status === "postponed") {
+      postponed++;
+      pending++;
+      totalShipping += order.shippingCost ?? 0;
     } else {
       pending++;
       totalShipping += order.shippingCost ?? 0;
@@ -99,7 +103,7 @@ router.get("/shipping-companies/:id/stats", async (req, res): Promise<void> => {
   const deliveryRate = total > 0 ? Math.round((delivered / total) * 100) : 0;
   const netProfit = totalRevenue - totalCost - totalShipping - returnLosses;
 
-  res.json({ delivered, returned, pending, deliveryRate, netProfit, manifestCount });
+  res.json({ delivered, returned, pending, postponed, deliveryRate, netProfit, manifestCount });
 });
 
 router.patch("/shipping-companies/:id", async (req, res): Promise<void> => {
