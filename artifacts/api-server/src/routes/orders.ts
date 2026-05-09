@@ -88,27 +88,39 @@ router.get("/orders", async (req, res): Promise<void> => {
     if (isDashboard) {
       conditions.push(eq(ordersTable.status, params.data.status as any));
     } else {
-      const statusRows = await db
-        .select({ invoiceNumber: ordersTable.invoiceNumber, id: ordersTable.id })
+      // بنجيب فقط الـ invoiceNumbers اللي كل rows فيها نفس الـ status المطلوب
+      const allInvRows = await db
+        .select({ invoiceNumber: ordersTable.invoiceNumber, id: ordersTable.id, status: ordersTable.status })
         .from(ordersTable)
-        .where(and(isNull(ordersTable.deletedAt), eq(ordersTable.status, params.data.status as any)));
-      const invNums = new Set<string>();
+        .where(isNull(ordersTable.deletedAt));
+
+      // نجمّع كل الحالات لكل invoiceNumber
+      const invStatusMap = new Map<string, Set<string>>();
       const soloIds = new Set<number>();
-      for (const r of statusRows) {
-        if (r.invoiceNumber) invNums.add(r.invoiceNumber);
-        else soloIds.add(r.id);
+      for (const r of allInvRows) {
+        if (r.invoiceNumber) {
+          if (!invStatusMap.has(r.invoiceNumber)) invStatusMap.set(r.invoiceNumber, new Set());
+          invStatusMap.get(r.invoiceNumber)!.add(r.status);
+        } else if (r.status === params.data.status) {
+          soloIds.add(r.id);
+        }
       }
-      const statusFilterInvoiceNumbers = Array.from(invNums);
-      if (statusFilterInvoiceNumbers.length > 0 && soloIds.size > 0) {
+
+      // نأخذ فقط الـ invoiceNumbers اللي كل rows فيها نفس الـ status المطلوب
+      const matchingInvNums: string[] = [];
+      for (const [inv, statuses] of invStatusMap.entries()) {
+        if (statuses.has(params.data.status) && statuses.size === 1) {
+          matchingInvNums.push(inv);
+        }
+      }
+
+      if (matchingInvNums.length > 0 && soloIds.size > 0) {
         conditions.push(or(
-          inArray(ordersTable.invoiceNumber, statusFilterInvoiceNumbers),
+          inArray(ordersTable.invoiceNumber, matchingInvNums),
           and(isNull(ordersTable.invoiceNumber), inArray(ordersTable.id, Array.from(soloIds)))
         ));
-      } else if (statusFilterInvoiceNumbers.length > 0) {
-        conditions.push(or(
-          inArray(ordersTable.invoiceNumber, statusFilterInvoiceNumbers),
-          and(isNull(ordersTable.invoiceNumber), eq(ordersTable.status, params.data.status as any))
-        ));
+      } else if (matchingInvNums.length > 0) {
+        conditions.push(inArray(ordersTable.invoiceNumber, matchingInvNums));
       } else if (soloIds.size > 0) {
         conditions.push(and(isNull(ordersTable.invoiceNumber), inArray(ordersTable.id, Array.from(soloIds))));
       } else {
