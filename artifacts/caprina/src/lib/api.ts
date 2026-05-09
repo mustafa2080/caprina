@@ -535,6 +535,7 @@ export const analyticsApi = {
 };
 
 export interface BatchCreateOrderBody {
+  invoiceNumber?: string | null;
   customerName: string;
   phone?: string | null;
   city?: string | null;

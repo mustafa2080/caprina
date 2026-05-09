@@ -1,6 +1,6 @@
 import { useParams, Link, useLocation } from "wouter";
 import { format } from "date-fns";
-import { ArrowRight, AlertCircle, Pencil, Save, X, Printer, Phone, MapPin, Trash2, RotateCcw, TrendingUp, TrendingDown, AlertTriangle, Lock, MessageCircle, Package, Truck, CheckCircle2, Clock } from "lucide-react";
+import { ArrowRight, AlertCircle, Pencil, Save, X, Printer, Phone, MapPin, Trash2, RotateCcw, TrendingUp, TrendingDown, AlertTriangle, Lock, MessageCircle, Package, Truck, CheckCircle2, Clock, Plus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState, useRef, useEffect } from "react";
 import { useForm } from "react-hook-form";
@@ -33,6 +33,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 const editSchema = z.object({
   customerName: z.string().min(2),
@@ -65,6 +72,15 @@ export default function OrderDetail() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showWaDialog, setShowWaDialog] = useState(false);
+
+  // Add product dialog state
+  const [showAddProduct, setShowAddProduct] = useState(false);
+  const [addProductName, setAddProductName] = useState("");
+  const [addProductQty, setAddProductQty] = useState(1);
+  const [addProductPrice, setAddProductPrice] = useState(0);
+  const [addProductColor, setAddProductColor] = useState("");
+  const [addProductSize, setAddProductSize] = useState("");
+  const [isAddingProduct, setIsAddingProduct] = useState(false);
 
   // Return reason state
   const [showReturnInput, setShowReturnInput] = useState(false);
@@ -241,6 +257,39 @@ export default function OrderDetail() {
     });
   };
 
+  const handleAddProduct = async () => {
+    if (!order || !addProductName.trim() || addProductPrice <= 0) return;
+    setIsAddingProduct(true);
+    try {
+      await ordersApi.batchCreate({
+        invoiceNumber: (order as any).invoiceNumber ?? undefined,
+        customerName: order.customerName,
+        phone: order.phone ?? null,
+        city: (order as any).city ?? null,
+        address: order.address ?? null,
+        shippingCompanyId: order.shippingCompanyId ?? null,
+        notes: null,
+        items: [{
+          product: addProductName.trim(),
+          color: addProductColor || null,
+          size: addProductSize || null,
+          quantity: addProductQty,
+          unitPrice: addProductPrice,
+        }],
+      });
+      queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getGetOrdersSummaryQueryKey() });
+      setShowAddProduct(false);
+      setAddProductName(""); setAddProductQty(1); setAddProductPrice(0);
+      setAddProductColor(""); setAddProductSize("");
+      toast({ title: "تم إضافة المنتج", description: `${addProductName} اتضاف لنفس الفاتورة بنجاح.` });
+    } catch (e: any) {
+      toast({ title: "خطأ", description: e?.message || "فشل إضافة المنتج.", variant: "destructive" });
+    } finally {
+      setIsAddingProduct(false);
+    }
+  };
+
   const handleDelete = async () => {
     setIsDeleting(true);
     try {
@@ -351,6 +400,13 @@ export default function OrderDetail() {
                 className="h-8 text-xs gap-1 border-border disabled:opacity-40"
               >
                 {isOrderLocked ? <Lock className="w-3 h-3" /> : <Pencil className="w-3 h-3" />}تعديل
+              </Button>
+              <Button
+                variant="outline" size="sm"
+                onClick={() => setShowAddProduct(true)}
+                className="h-8 text-xs gap-1 border-primary/40 text-primary hover:bg-primary/10"
+              >
+                <Plus className="w-3 h-3" />إضافة منتج
               </Button>
               {order.status === "warehouse_ready" && (
                 <Button variant="outline" size="sm" onClick={handlePrint} className="h-8 text-xs gap-1 border-border">
@@ -1147,6 +1203,60 @@ export default function OrderDetail() {
           </p>
         </div>
       </div>
+
+      {/* ── Add Product Dialog ── */}
+      <Dialog open={showAddProduct} onOpenChange={setShowAddProduct}>
+        <DialogContent className="max-w-sm" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-sm">
+              <Plus className="w-4 h-4 text-primary" />
+              إضافة منتج لنفس الفاتورة
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <Label className="text-xs mb-1 block">اسم المنتج *</Label>
+              <Input
+                placeholder="مثال: CORE 1"
+                value={addProductName}
+                onChange={e => setAddProductName(e.target.value)}
+                className="h-9 text-sm"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs mb-1 block">اللون</Label>
+                <Input placeholder="مثال: أسود" value={addProductColor} onChange={e => setAddProductColor(e.target.value)} className="h-9 text-sm" />
+              </div>
+              <div>
+                <Label className="text-xs mb-1 block">المقاس</Label>
+                <Input placeholder="مثال: 44" value={addProductSize} onChange={e => setAddProductSize(e.target.value)} className="h-9 text-sm" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs mb-1 block">الكمية *</Label>
+                <Input type="number" min={1} value={addProductQty} onChange={e => setAddProductQty(Number(e.target.value))} className="h-9 text-sm" />
+              </div>
+              <div>
+                <Label className="text-xs mb-1 block">السعر *</Label>
+                <Input type="number" min={0} placeholder="0" value={addProductPrice || ""} onChange={e => setAddProductPrice(Number(e.target.value))} className="h-9 text-sm" />
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setShowAddProduct(false)} className="flex-1">إلغاء</Button>
+            <Button
+              size="sm"
+              onClick={handleAddProduct}
+              disabled={isAddingProduct || !addProductName.trim() || addProductPrice <= 0}
+              className="flex-1 gap-1"
+            >
+              <Plus className="w-3 h-3" />{isAddingProduct ? "جاري الإضافة..." : "إضافة"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
