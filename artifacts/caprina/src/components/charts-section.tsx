@@ -1,4 +1,4 @@
-import React, { useState, useMemo, memo, useCallback } from "react";
+﻿import React, { useState, useMemo, memo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useListOrders } from "@workspace/api-client-react";
 import { analyticsApi, apiFetch, type ChartsData, type ChartDayItem } from "@/lib/api";
@@ -220,42 +220,32 @@ const StatusDonut = memo(function StatusDonut({
         </ResponsiveContainer>
       </div>
 
-      {/* Legend — قابلة للضغط */}
+      {/* Legend */}
       <div className="space-y-1">
-        {(() => {
-          // الحالات اللي تتجمع مع بعض تحت "في الانتظار والتحضير"
-          const waitingGroup = ["pending", "warehouse_ready"];
-          const elements: React.ReactNode[] = [];
-          let waitingHeaderAdded = false;
-          sorted.forEach((item, idx) => {
+      <div className="flex flex-col gap-1.5">
+          {(() => {
+          //الترتيب المطلوب
+          const ORDER = ["pending", "received", "in_shipping", "warehouse_ready", "returned"];
+          const orderedItems = [
+            ...ORDER.map(s => sorted.find(i => i.status === s)).filter(Boolean),
+            ...sorted.filter(i => !ORDER.includes(i.status)),
+          ];
+
+          return (orderedItems as typeof sorted).map((item) => {
             const cfg = STATUS_CFG[item.status] ?? { label: item.status, color: "#888", bg: "#88881a" };
             const isSelected = selectedStatus === item.status;
-
-            // أضف header للمجموعة قبل أول عنصر فيها
-            if (waitingGroup.includes(item.status) && !waitingHeaderAdded) {
-              waitingHeaderAdded = true;
-              elements.push(
-                <div key="waiting-header" className="flex items-center gap-1.5 pt-1 pb-0.5 px-2">
-                  <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">قيد الانتظار والتحضير</span>
-                </div>
-              );
-            }
-
-            elements.push(
+            return (
               <button
                 key={item.status}
                 type="button"
                 onClick={() => onStatusClick?.(isSelected ? null : item.status)}
-                className={`w-full flex items-center gap-3 rounded-lg px-2 py-1 transition-all text-right ${waitingGroup.includes(item.status) ? "ml-2 pl-3" : ""}`}
+                className="w-full flex items-center gap-3 rounded-lg px-2 py-1 transition-all text-right"
                 style={{
                   background: isSelected ? cfg.bg : "transparent",
                   border: isSelected ? `1px solid ${cfg.color}55` : "1px solid transparent",
                   cursor: onStatusClick ? "pointer" : "default",
                 }}
               >
-                {waitingGroup.includes(item.status) && (
-                  <span className="text-[9px] text-muted-foreground shrink-0">└</span>
-                )}
                 <span className="w-3 h-3 rounded-full shrink-0" style={{ background: cfg.color }} />
                 <span className="text-xs font-semibold text-foreground flex-1 truncate">{cfg.label}</span>
                 <span className="text-xs font-bold px-2 py-0.5 rounded-md shrink-0"
@@ -271,8 +261,6 @@ const StatusDonut = memo(function StatusDonut({
               </button>
             );
           });
-
-          return elements;
         })()}
       </div>
     </div>
