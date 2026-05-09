@@ -67,35 +67,49 @@ router.get("/shipping-companies/:id/stats", async (req, res): Promise<void> => {
   const orders = await db.select().from(ordersTable).where(inArray(ordersTable.id, orderIds));
   const orderMap = new Map(orders.map(o => [o.id, o]));
 
-  let delivered = 0, returned = 0, pending = 0, postponed = 0;
-  let totalRevenue = 0, totalCost = 0, totalShipping = 0, returnLosses = 0;
-
+  // ─── تجميع الطلبات بنفس invoiceNumber في فاتورة واحدة ───────────────────
+  // نفس منطق computeStats في manifests.ts
+  const invoiceMap = new Map<string, { status: string; orders: typeof orders[0][] }>();
   for (const link of links) {
     const order = orderMap.get(link.orderId);
     if (!order) continue;
-
-    const status = link.deliveryStatus;
-    const qty = status === "partial_received" && link.partialQuantity != null ? link.partialQuantity : order.quantity;
-
-    if (status === "delivered" || status === "partial_received") {
-      delivered++;
-      const revenue = status === "partial_received" && link.partialQuantity != null
-        ? order.unitPrice * link.partialQuantity
-        : order.totalPrice;
-      totalRevenue += revenue;
-      totalCost += (order.costPrice ?? 0) * qty;
-      totalShipping += order.shippingCost ?? 0;
-    } else if (status === "returned") {
-      returned++;
-      returnLosses += order.shippingCost ?? 0;
-      totalShipping += order.shippingCost ?? 0;
-    } else if (status === "postponed") {
-      postponed++;
-      totalShipping += order.shippingCost ?? 0;
+    const key = order.invoiceNumber?.trim() || `solo-${order.id}`;
+    if (!invoiceMap.has(key)) {
+      invoiceMap.set(key, { status: link.deliveryStatus, orders: [order] });
     } else {
-      pending++;
-      totalShipping += order.shippingCost ?? 0;
+      invoiceMap.get(key)!.orders.push(order);
+      // لو أي طلب في الفاتورة مؤجل → الفاتورة مؤجلة
+      const cur = invoiceMap.get(key)!.status;
+      const s = link.deliveryStatus;
+      if (s === "postponed" || cur === "postponed") {
+        invoiceMap.get(key)!.status = "postponed";
+      } else if (s !== "delivered" && s !== "partial_received") {
+        invoiceMap.get(key)!.status = s;
+      }
     }
+  }
+
+  let delivered = 0, returned = 0, pending = 0, postponed = 0;
+  let totalRevenue = 0, totalCost = 0, totalShipping = 0, returnLosses = 0;
+
+  for (const [, invoice] of invoiceMap) {
+    const status = invoice.status;
+    for (const order of invoice.orders) {
+      const qty = order.quantity;
+      const shipping = order.shippingCost ?? 0;
+      totalShipping += shipping;
+      if (status === "delivered" || status === "partial_received") {
+        totalRevenue += order.totalPrice;
+        totalCost += (order.costPrice ?? 0) * qty;
+      } else if (status === "returned") {
+        returnLosses += shipping;
+      }
+    }
+    // عد الفواتير مرة واحدة فقط
+    if (status === "delivered" || status === "partial_received") delivered++;
+    else if (status === "returned") returned++;
+    else if (status === "postponed") postponed++;
+    else pending++;
   }
 
   const total = delivered + returned + postponed + pending;
