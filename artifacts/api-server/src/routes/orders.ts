@@ -740,6 +740,17 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
     .set({ ...data, totalPrice: newTotalPrice, updatedAt: new Date() })
     .where(eq(ordersTable.id, params.data.id));
 
+  // لو الحالة اتغيرت وفيه invoiceNumber → غير كل منتجات الـ invoice بنفس الحالة
+  if (data.status && data.status !== oldStatus && existing.invoiceNumber) {
+    await db.update(ordersTable)
+      .set({ status: data.status, updatedAt: new Date() })
+      .where(and(
+        eq(ordersTable.invoiceNumber, existing.invoiceNumber),
+        isNull(ordersTable.deletedAt),
+        // مش الـ order الحالي عشان اتعمله update فوق
+      ));
+  }
+
   const [updated] = await db.select().from(ordersTable).where(eq(ordersTable.id, params.data.id));
   if (!updated) { res.status(500).json({ error: "Update failed" }); return; }
 
