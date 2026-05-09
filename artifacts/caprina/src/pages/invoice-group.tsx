@@ -446,130 +446,6 @@ function AddProductDialog({ open, onOpenChange, repOrder, invoiceNumber: invNum,
   );
 }
 
-// ── Edit Invoice Dialog (all customer data) ───────────────────────────────────
-function EditInvoiceDialog({ open, onOpenChange, repOrder, invoiceNumber: invNum, orders, onSuccess }: {
-  open: boolean; onOpenChange: (v: boolean) => void; repOrder: any; invoiceNumber: string; orders: any[]; onSuccess: () => void;
-}) {
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const updateOrder = useUpdateOrder();
-  const { data: shippingCompanies = [] } = useQuery({ queryKey: ["shipping-companies"], queryFn: shippingApi.list });
-
-  const [customerName, setCustomerName]           = useState("");
-  const [phone, setPhone]                         = useState("");
-  const [city, setCity]                           = useState("");
-  const [address, setAddress]                     = useState("");
-  const [shippingCompanyId, setShippingCompanyId] = useState<string>("");
-  const [trackingNumber, setTrackingNumber]       = useState("");
-  const [notes, setNotes]                         = useState("");
-  const [isSubmitting, setIsSubmitting]           = useState(false);
-
-  useEffect(() => {
-    if (repOrder && open) {
-      setCustomerName(repOrder.customerName || "");
-      setPhone(repOrder.phone || "");
-      setCity(repOrder.city || "");
-      setAddress(repOrder.address || "");
-      setShippingCompanyId(repOrder.shippingCompanyId ? String(repOrder.shippingCompanyId) : "");
-      setTrackingNumber(repOrder.trackingNumber || "");
-      setNotes(repOrder.notes || "");
-    }
-  }, [repOrder, open]);
-
-  const handleSubmit = async () => {
-    if (!customerName.trim()) {
-      toast({ title: "خطأ", description: "اسم العميل مطلوب.", variant: "destructive" });
-      return;
-    }
-    setIsSubmitting(true);
-    try {
-      const payload: any = {
-        customerName: customerName.trim(),
-        phone: phone.trim() || null,
-        city: city.trim() || null,
-        address: address.trim() || null,
-        shippingCompanyId: shippingCompanyId ? Number(shippingCompanyId) : null,
-        trackingNumber: trackingNumber.trim() || null,
-        notes: notes.trim() || null,
-      };
-      // Update all orders in invoice with shared fields
-      for (const order of orders) {
-        await new Promise<void>((resolve, reject) => {
-          updateOrder.mutate({ id: order.id, data: payload }, {
-            onSuccess: () => resolve(),
-            onError: () => reject(),
-          });
-        });
-      }
-      queryClient.invalidateQueries({ queryKey: ["invoice-group"] });
-      queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
-      toast({ title: "تم الحفظ ✅", description: "تم تعديل بيانات الفاتورة بنجاح." });
-      onSuccess(); onOpenChange(false);
-    } catch {
-      toast({ title: "خطأ", description: "فشل حفظ البيانات.", variant: "destructive" });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md" dir="rtl">
-        <DialogHeader>
-          <DialogTitle className="text-sm flex items-center gap-2">
-            <Pencil className="w-4 h-4 text-primary" />تعديل بيانات الفاتورة
-          </DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3 py-1">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2">
-              <Label className="text-xs font-medium mb-1.5 block">اسم العميل *</Label>
-              <Input value={customerName} onChange={e => setCustomerName(e.target.value)} className="h-9 text-sm" placeholder="اسم العميل" />
-            </div>
-            <div>
-              <Label className="text-xs font-medium mb-1.5 block">الهاتف</Label>
-              <Input value={phone} onChange={e => setPhone(e.target.value)} className="h-9 text-sm" placeholder="رقم الهاتف" dir="ltr" />
-            </div>
-            <div>
-              <Label className="text-xs font-medium mb-1.5 block">المحافظة</Label>
-              <Input value={city} onChange={e => setCity(e.target.value)} className="h-9 text-sm" placeholder="المحافظة" />
-            </div>
-            <div className="col-span-2">
-              <Label className="text-xs font-medium mb-1.5 block">العنوان</Label>
-              <Input value={address} onChange={e => setAddress(e.target.value)} className="h-9 text-sm" placeholder="العنوان التفصيلي" />
-            </div>
-            <div>
-              <Label className="text-xs font-medium mb-1.5 block">شركة الشحن</Label>
-              <select value={shippingCompanyId} onChange={e => setShippingCompanyId(e.target.value)}
-                className="w-full h-9 text-sm rounded-md border border-input bg-card px-2 focus:outline-none focus:ring-1 focus:ring-ring">
-                <option value="">بدون شركة شحن</option>
-                {shippingCompanies.map((c: any) => (
-                  <option key={c.id} value={String(c.id)}>{c.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <Label className="text-xs font-medium mb-1.5 block">رقم التتبع</Label>
-              <Input value={trackingNumber} onChange={e => setTrackingNumber(e.target.value)} className="h-9 text-sm" placeholder="رقم التتبع" dir="ltr" />
-            </div>
-            <div className="col-span-2">
-              <Label className="text-xs font-medium mb-1.5 block">ملاحظات</Label>
-              <Textarea value={notes} onChange={e => setNotes(e.target.value)} className="min-h-[60px] text-sm resize-none" placeholder="ملاحظات اختيارية..." />
-            </div>
-          </div>
-        </div>
-        <DialogFooter className="flex gap-2 mt-2">
-          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} className="flex-1">إلغاء</Button>
-          <Button size="sm" onClick={handleSubmit} disabled={isSubmitting || !customerName.trim()}
-            className="flex-1 gap-1">
-            <Save className="w-3 h-3" />{isSubmitting ? "جاري الحفظ..." : "حفظ التعديل"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 export default function InvoiceGroup() {
   const { brand } = useBrand();
   const params = useParams<{ invoiceNumber: string }>();
@@ -587,7 +463,19 @@ export default function InvoiceGroup() {
   const [waOrder, setWaOrder]                           = useState<WhatsAppOrderData | null>(null);
   const [editingOrder, setEditingOrder]                 = useState<any>(null);
   const [showAddProduct, setShowAddProduct]             = useState(false);
-  const [showEditInvoice, setShowEditInvoice]           = useState(false);
+  const [isEditingInvoice, setIsEditingInvoice]         = useState(false);
+
+  // Inline edit form state
+  const [editCustomerName, setEditCustomerName]         = useState("");
+  const [editPhone, setEditPhone]                       = useState("");
+  const [editCity, setEditCity]                         = useState("");
+  const [editAddress, setEditAddress]                   = useState("");
+  const [editShippingCompanyId, setEditShippingCompanyId] = useState<string>("");
+  const [editTrackingNumber, setEditTrackingNumber]     = useState("");
+  const [editNotes, setEditNotes]                       = useState("");
+  const [isSavingEdit, setIsSavingEdit]                 = useState(false);
+
+  const { data: shippingCompanies = [] } = useQuery({ queryKey: ["shipping-companies"], queryFn: shippingApi.list });
 
   const { data: orders, isLoading, error } = useQuery({
     queryKey: ["invoice-group", invoiceNumber],
@@ -612,6 +500,51 @@ export default function InvoiceGroup() {
     queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
     queryClient.invalidateQueries({ queryKey: getGetOrdersSummaryQueryKey() });
     queryClient.invalidateQueries({ queryKey: ["invoice-group", invoiceNumber] });
+  };
+
+  const handleOpenEdit = (r: any) => {
+    setEditCustomerName(r.customerName || "");
+    setEditPhone(r.phone || "");
+    setEditCity(r.city || "");
+    setEditAddress(r.address || "");
+    setEditShippingCompanyId(r.shippingCompanyId ? String(r.shippingCompanyId) : "");
+    setEditTrackingNumber(r.trackingNumber || "");
+    setEditNotes(r.notes || "");
+    setIsEditingInvoice(true);
+  };
+
+  const handleSaveEdit = async (ordersToUpdate: any[]) => {
+    if (!editCustomerName.trim()) {
+      toast({ title: "خطأ", description: "اسم العميل مطلوب.", variant: "destructive" });
+      return;
+    }
+    setIsSavingEdit(true);
+    try {
+      const payload: any = {
+        customerName: editCustomerName.trim(),
+        phone: editPhone.trim() || null,
+        city: editCity.trim() || null,
+        address: editAddress.trim() || null,
+        shippingCompanyId: editShippingCompanyId ? Number(editShippingCompanyId) : null,
+        trackingNumber: editTrackingNumber.trim() || null,
+        notes: editNotes.trim() || null,
+      };
+      for (const order of ordersToUpdate) {
+        await new Promise<void>((resolve, reject) => {
+          updateOrder.mutate({ id: order.id, data: payload }, {
+            onSuccess: () => resolve(),
+            onError: () => reject(),
+          });
+        });
+      }
+      invalidateAll();
+      toast({ title: "تم الحفظ ✅", description: "تم تعديل بيانات الفاتورة بنجاح." });
+      setIsEditingInvoice(false);
+    } catch {
+      toast({ title: "خطأ", description: "فشل حفظ البيانات.", variant: "destructive" });
+    } finally {
+      setIsSavingEdit(false);
+    }
   };
 
   const handleBulkStatusChange = async (newStatus: string) => {
@@ -850,11 +783,13 @@ export default function InvoiceGroup() {
             </Button>
           )}
 
-          {/* تعديل بيانات الفاتورة */}
+          {/* تعديل بيانات الفاتورة inline */}
           {!isAnyLocked && !hasOpenManifest && (
-            <Button variant="outline" size="sm" onClick={() => setShowEditInvoice(true)}
-              className="h-9 text-xs gap-1.5 border-border font-bold">
-              <Pencil className="w-3.5 h-3.5" />تعديل
+            <Button variant="outline" size="sm"
+              onClick={() => isEditingInvoice ? setIsEditingInvoice(false) : handleOpenEdit(rep)}
+              className={`h-9 text-xs gap-1.5 font-bold ${isEditingInvoice ? "border-primary text-primary bg-primary/10" : "border-border"}`}>
+              {isEditingInvoice ? <X className="w-3.5 h-3.5" /> : <Pencil className="w-3.5 h-3.5" />}
+              {isEditingInvoice ? "إلغاء" : "تعديل"}
             </Button>
           )}
 
@@ -913,6 +848,62 @@ export default function InvoiceGroup() {
           {rep.address && <div><p className="text-muted-foreground mb-0.5 flex items-center gap-1"><MapPin className="w-3 h-3" />العنوان</p><p className="font-bold">{rep.address}</p></div>}
         </CardContent>
       </Card>
+
+      {/* Inline edit form */}
+      {isEditingInvoice && (
+        <Card className="border-primary/40 bg-card">
+          <CardHeader className="pb-3 pt-4 px-4 border-b border-border">
+            <CardTitle className="text-sm font-bold text-primary flex items-center gap-2">
+              <Pencil className="w-4 h-4" />تعديل بيانات الفاتورة
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <Label className="text-xs font-medium mb-1.5 block">اسم العميل *</Label>
+                <Input value={editCustomerName} onChange={e => setEditCustomerName(e.target.value)} className="h-8 text-sm" placeholder="اسم العميل" />
+              </div>
+              <div>
+                <Label className="text-xs font-medium mb-1.5 block">الهاتف</Label>
+                <Input value={editPhone} onChange={e => setEditPhone(e.target.value)} className="h-8 text-sm" placeholder="رقم الهاتف" dir="ltr" />
+              </div>
+              <div>
+                <Label className="text-xs font-medium mb-1.5 block">المحافظة</Label>
+                <Input value={editCity} onChange={e => setEditCity(e.target.value)} className="h-8 text-sm" placeholder="المحافظة" />
+              </div>
+              <div className="col-span-2">
+                <Label className="text-xs font-medium mb-1.5 block">العنوان</Label>
+                <Input value={editAddress} onChange={e => setEditAddress(e.target.value)} className="h-8 text-sm" placeholder="العنوان التفصيلي" />
+              </div>
+              <div>
+                <Label className="text-xs font-medium mb-1.5 block">شركة الشحن</Label>
+                <select value={editShippingCompanyId} onChange={e => setEditShippingCompanyId(e.target.value)}
+                  className="w-full h-8 text-sm rounded-md border border-input bg-card px-2 focus:outline-none focus:ring-1 focus:ring-ring">
+                  <option value="">بدون شركة شحن</option>
+                  {shippingCompanies.map((c: any) => (
+                    <option key={c.id} value={String(c.id)}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label className="text-xs font-medium mb-1.5 block">رقم التتبع</Label>
+                <Input value={editTrackingNumber} onChange={e => setEditTrackingNumber(e.target.value)} className="h-8 text-sm font-mono" placeholder="رقم التتبع" dir="ltr" />
+              </div>
+              <div className="col-span-2">
+                <Label className="text-xs font-medium mb-1.5 block">ملاحظات</Label>
+                <Textarea value={editNotes} onChange={e => setEditNotes(e.target.value)} className="min-h-[60px] text-sm resize-none" placeholder="ملاحظات اختيارية..." />
+              </div>
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              <Button size="sm" onClick={() => handleSaveEdit(orders)} disabled={isSavingEdit || !editCustomerName.trim()}
+                className="gap-1 h-8 text-xs">
+                <Save className="w-3 h-3" />{isSavingEdit ? "جاري الحفظ..." : "حفظ التعديل"}
+              </Button>
+              <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setIsEditingInvoice(false)}>إلغاء</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Products list */}
       <Card className="border-border bg-card">
@@ -977,17 +968,7 @@ export default function InvoiceGroup() {
         </CardContent>
       </Card>
 
-      {/* Edit Invoice Dialog */}
-      <EditInvoiceDialog
-        open={showEditInvoice}
-        onOpenChange={setShowEditInvoice}
-        repOrder={rep}
-        invoiceNumber={invoiceNumber}
-        orders={orders}
-        onSuccess={invalidateAll}
-      />
-
-      {/* Edit Dialog */}
+      {/* Edit Dialog (product) */}
       {editingOrder && (
         <EditProductDialog
           open={!!editingOrder}
