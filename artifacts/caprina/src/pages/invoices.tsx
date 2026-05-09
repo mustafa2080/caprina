@@ -182,9 +182,7 @@ export default function Invoices() {
     Promise.all(toFetch.map(async grp => {
       try {
         const orders = await ordersApi.byInvoice(grp.invoiceNumber);
-        const f = (statusFilter !== "all")
-          ? orders.filter((o: any) => o.status === statusFilter)
-          : orders.filter((o: any) => o.status !== "pending" && o.status !== "in_shipping");
+        const f = orders.filter((o: any) => o.status === grp.status);
         return { key: grp.invoiceNumber, orders: f.length > 0 ? f : grp.orders };
       } catch { return { key: grp.invoiceNumber, orders: grp.orders }; }
     })).then(results => {
