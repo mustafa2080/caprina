@@ -82,12 +82,13 @@ export default function FinanceCashPage() {
   const [editForm, setEditForm] = useState({ name: "", description: "" });
   const [thresholdVal, setThresholdVal] = useState("");
 
-  const { data: regData, isLoading } = useQuery<{ registers: CashRegister[]; totalBalance: number }>({
+  const { data: regData, isLoading, isFetching } = useQuery<{ registers: CashRegister[]; totalBalance: number }>({
     queryKey: ["/api/cash-registers"],
     queryFn: () => apiFetch("/api/cash-registers"),
     refetchInterval: 120000,
     staleTime: 60000,
     refetchIntervalInBackground: false,
+    placeholderData: (prev) => prev,
   });
 
   const { data: alertsData } = useQuery<{ alerts: Alert[] }>({
@@ -96,6 +97,7 @@ export default function FinanceCashPage() {
     refetchInterval: 180000,
     staleTime: 120000,
     refetchIntervalInBackground: false,
+    placeholderData: (prev) => prev,
   });
 
   const { data: smartAlertsData } = useQuery<{ alerts: any[] }>({
@@ -104,6 +106,7 @@ export default function FinanceCashPage() {
     refetchInterval: 300000,
     staleTime: 180000,
     refetchIntervalInBackground: false,
+    placeholderData: (prev) => prev,
   });
 
   const ledgerRegId = activeTab !== "all" ? activeTab : null;
@@ -114,6 +117,7 @@ export default function FinanceCashPage() {
     enabled: !!ledgerRegId,
     staleTime: 60000,
     refetchIntervalInBackground: false,
+    placeholderData: (prev: any) => prev,
   });
 
   const { data: flowData } = useQuery({
@@ -122,6 +126,7 @@ export default function FinanceCashPage() {
     enabled: !!ledgerRegId,
     staleTime: 120000,
     refetchIntervalInBackground: false,
+    placeholderData: (prev: any) => prev,
   });
 
   const registers    = regData?.registers ?? [];
