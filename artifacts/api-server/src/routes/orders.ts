@@ -344,15 +344,24 @@ router.post("/orders/batch", async (req, res): Promise<void> => {
 router.get("/orders/summary", async (_req, res): Promise<void> => {
   // مرتبة desc عشان أول row لكل invoice هو الأحدث — نفس منطق analytics/charts
   const rows = await db.select().from(ordersTable).where(isNull(ordersTable.deletedAt)).orderBy(desc(ordersTable.createdAt));
-  type InvoiceGroup = { status: string; totalPrice: number };
-  const invoiceMap = new Map<string, InvoiceGroup>();
+  // نفس منطق analytics/charts تماماً:
+  // invoice بتتحسب بحالة X بس لو كل rows فيها بحالة X واحدة
+  type InvoiceRaw = { statuses: Set<string>; totalPrice: number };
+  const invoiceMapRaw = new Map<string, InvoiceRaw>();
   for (const o of rows) {
     const key = o.invoiceNumber ?? `solo-${o.id}`;
-    if (!invoiceMap.has(key)) invoiceMap.set(key, { status: o.status, totalPrice: 0 });
-    invoiceMap.get(key)!.totalPrice += o.totalPrice;
-    // لا نعدّل status تاني — أول row (الأحدث، ترتيب desc) هو المعتمد كما في analytics/charts
+    if (!invoiceMapRaw.has(key)) invoiceMapRaw.set(key, { statuses: new Set(), totalPrice: 0 });
+    invoiceMapRaw.get(key)!.statuses.add(o.status);
+    invoiceMapRaw.get(key)!.totalPrice += o.totalPrice;
   }
-  const invoices = Array.from(invoiceMap.values());
+  type InvoiceGroup = { status: string; totalPrice: number };
+  const invoices: InvoiceGroup[] = [];
+  for (const raw of invoiceMapRaw.values()) {
+    if (raw.statuses.size === 1) {
+      invoices.push({ status: Array.from(raw.statuses)[0], totalPrice: raw.totalPrice });
+    }
+    // invoice فيها حالات مختلطة: مش بتتحسب في أي حالة (نفس سلوك charts)
+  }
   const summary = {
     totalOrders: invoices.length,
     pendingOrders: invoices.filter(o => o.status === "pending").length,
