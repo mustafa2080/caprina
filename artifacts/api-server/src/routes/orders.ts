@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+﻿import { Router, type IRouter } from "express";
 import { eq, desc, like, or, gte, lte, and, isNull, isNotNull, inArray, notInArray } from "drizzle-orm";
 import { db, ordersTable, productsTable, productVariantsTable, shippingManifestOrdersTable, shippingManifestsTable, shippingCompaniesTable, inventoryMovementsTable } from "@workspace/db";
 import {
@@ -23,7 +23,7 @@ router.use(requireAuth);
 
 const LOCKED_STATUSES = ["received", "partial_received"] as const;
 
-// ─── Helper: generate invoice number ─────────────────────────────────────────
+// ظ¤ظ¤ظ¤ Helper: generate invoice number ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
 function generateInvoiceNumber(): string {
   const now = new Date();
   const yy = String(now.getFullYear()).slice(-2);
@@ -33,7 +33,7 @@ function generateInvoiceNumber(): string {
   return `INV-${yy}${mm}${dd}-${rand}`;
 }
 
-// ─── Stats ────────────────────────────────────────────────────────────────────
+// ظ¤ظ¤ظ¤ Stats ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
 
 router.get("/orders/stats", async (req, res): Promise<void> => {
   const now = new Date();
@@ -74,7 +74,7 @@ router.get("/orders/stats", async (req, res): Promise<void> => {
   });
 });
 
-// ─── List orders ──────────────────────────────────────────────────────────────
+// ظ¤ظ¤ظ¤ List orders ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
 
 router.get("/orders", async (req, res): Promise<void> => {
   const params = ListOrdersQueryParams.safeParse(req.query);
@@ -88,13 +88,13 @@ router.get("/orders", async (req, res): Promise<void> => {
     if (isDashboard) {
       conditions.push(eq(ordersTable.status, params.data.status as any));
     } else {
-      // بنجيب فقط الـ invoiceNumbers اللي كل rows فيها نفس الـ status المطلوب
+      // ╪ذ┘╪ش┘è╪ذ ┘┘é╪╖ ╪د┘┘ invoiceNumbers ╪د┘┘┘è ┘â┘ rows ┘┘è┘ç╪د ┘┘╪│ ╪د┘┘ status ╪د┘┘à╪╖┘┘ê╪ذ
       const allInvRows = await db
         .select({ invoiceNumber: ordersTable.invoiceNumber, id: ordersTable.id, status: ordersTable.status })
         .from(ordersTable)
         .where(isNull(ordersTable.deletedAt));
 
-      // نجمّع كل الحالات لكل invoiceNumber
+      // ┘╪ش┘à┘ّ╪╣ ┘â┘ ╪د┘╪ص╪د┘╪د╪ز ┘┘â┘ invoiceNumber
       const invStatusMap = new Map<string, Set<string>>();
       const soloIds = new Set<number>();
       for (const r of allInvRows) {
@@ -106,7 +106,7 @@ router.get("/orders", async (req, res): Promise<void> => {
         }
       }
 
-      // نأخذ فقط الـ invoiceNumbers اللي كل rows فيها نفس الـ status المطلوب
+      // ┘╪ث╪«╪░ ┘┘é╪╖ ╪د┘┘ invoiceNumbers ╪د┘┘┘è ┘â┘ rows ┘┘è┘ç╪د ┘┘╪│ ╪د┘┘ status ╪د┘┘à╪╖┘┘ê╪ذ
       const matchingInvNums: string[] = [];
       for (const [inv, statuses] of invStatusMap.entries()) {
         if (statuses.has(params.data.status) && statuses.size === 1) {
@@ -183,7 +183,7 @@ router.get("/orders", async (req, res): Promise<void> => {
           manifestReturnMap.set(link.orderId, link.returnReceived ?? null);
         }
       }
-    } catch (_) { /* تجاهل */ }
+    } catch (_) { /* ╪ز╪ش╪د┘ç┘ */ }
   }
 
   const partialIds = rows.filter(o => o.status === "partial_received").map(o => o.id);
@@ -200,7 +200,7 @@ router.get("/orders", async (req, res): Promise<void> => {
           manifestPartialMap.set(link.orderId, link.partialQuantity);
         }
       }
-    } catch (_) { /* تجاهل */ }
+    } catch (_) { /* ╪ز╪ش╪د┘ç┘ */ }
   }
 
   const groupMap = new Map<string, typeof rows>();
@@ -252,7 +252,7 @@ router.get("/orders", async (req, res): Promise<void> => {
     const rep = { ...grp[0] } as any;
     rep.totalPrice     = grp.reduce((s, o) => s + o.totalPrice, 0);
     rep.quantity       = grp.reduce((s, o) => s + o.quantity,   0);
-    rep.product        = grp.map(o => `${o.product}×${o.quantity}`).join("، ");
+    rep.product        = grp.map(o => `${o.product}├ù${o.quantity}`).join("╪î ");
     rep._groupIds      = grp.map(o => o.id);
     rep._groupCount    = grp.length;
     rep._groupStatuses = grp.map(o => o.status);
@@ -275,7 +275,7 @@ router.get("/orders", async (req, res): Promise<void> => {
   res.json(grouped);
 });
 
-// ─── Create order (single) ────────────────────────────────────────────────────
+// ظ¤ظ¤ظ¤ Create order (single) ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
 
 router.post("/orders", async (req, res): Promise<void> => {
   const parsed = CreateOrderBody.safeParse(req.body);
@@ -299,7 +299,7 @@ router.post("/orders", async (req, res): Promise<void> => {
 
   await logAudit({
     action: "create", entityType: "order", entityId: order.id,
-    entityName: `${order.customerName} — ${order.product}`,
+    entityName: `${order.customerName} ظ¤ ${order.product}`,
     after: { customerName: order.customerName, product: order.product, quantity: order.quantity, unitPrice: order.unitPrice, status: order.status },
     userId: req.user?.id, userName: req.user?.displayName,
   });
@@ -307,11 +307,11 @@ router.post("/orders", async (req, res): Promise<void> => {
   res.status(201).json(GetOrderResponse.parse(order));
 });
 
-// ─── Create batch orders ──────────────────────────────────────────────────────
+// ظ¤ظ¤ظ¤ Create batch orders ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
 
 router.post("/orders/batch", async (req, res): Promise<void> => {
   const { items, ...sharedFields } = req.body;
-  if (!Array.isArray(items) || items.length === 0) { res.status(400).json({ error: "يجب إرسال قائمة منتجات (items)" }); return; }
+  if (!Array.isArray(items) || items.length === 0) { res.status(400).json({ error: "┘è╪ش╪ذ ╪ح╪▒╪│╪د┘ ┘é╪د╪خ┘à╪ر ┘à┘╪ز╪ش╪د╪ز (items)" }); return; }
 
   const invoiceNumber = sharedFields.invoiceNumber ?? generateInvoiceNumber();
   const shippingPerItem = sharedFields.shippingCost ? Number(sharedFields.shippingCost) / items.length : 0;
@@ -319,7 +319,7 @@ router.post("/orders/batch", async (req, res): Promise<void> => {
 
   for (const item of items) {
     const parsed = CreateOrderBody.safeParse({ ...sharedFields, product: item.product, color: item.color ?? null, size: item.size ?? null, quantity: item.quantity, unitPrice: item.unitPrice, costPrice: item.costPrice ?? null, shippingCost: shippingPerItem, productId: item.productId ?? null, variantId: item.variantId ?? null });
-    if (!parsed.success) { res.status(400).json({ error: `منتج غير صالح: ${parsed.error.message}` }); return; }
+    if (!parsed.success) { res.status(400).json({ error: `┘à┘╪ز╪ش ╪║┘è╪▒ ╪╡╪د┘╪ص: ${parsed.error.message}` }); return; }
     const totalPrice = parsed.data.quantity * parsed.data.unitPrice;
     let costPrice = (parsed.data as any).costPrice ?? null;
     if (!costPrice && (parsed.data as any).variantId) {
@@ -334,22 +334,23 @@ router.post("/orders/batch", async (req, res): Promise<void> => {
     const insertId = (result as any)[0]?.insertId ?? (result as any).insertId;
     const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, insertId));
     createdOrders.push(order);
-    await logAudit({ action: "create", entityType: "order", entityId: order.id, entityName: `${order.customerName} — ${order.product} [${invoiceNumber}]`, after: { customerName: order.customerName, product: order.product, quantity: order.quantity, unitPrice: order.unitPrice, status: order.status, invoiceNumber }, userId: req.user?.id, userName: req.user?.displayName });
+    await logAudit({ action: "create", entityType: "order", entityId: order.id, entityName: `${order.customerName} ظ¤ ${order.product} [${invoiceNumber}]`, after: { customerName: order.customerName, product: order.product, quantity: order.quantity, unitPrice: order.unitPrice, status: order.status, invoiceNumber }, userId: req.user?.id, userName: req.user?.displayName });
   }
   res.status(201).json({ invoiceNumber, orders: createdOrders });
 });
 
-// ─── Summary ──────────────────────────────────────────────────────────────────
+// ظ¤ظ¤ظ¤ Summary ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
 
 router.get("/orders/summary", async (_req, res): Promise<void> => {
-  const rows = await db.select().from(ordersTable).where(isNull(ordersTable.deletedAt));
+  // مرتبة desc عشان أول row لكل invoice هو الأحدث — نفس منطق analytics/charts
+  const rows = await db.select().from(ordersTable).where(isNull(ordersTable.deletedAt)).orderBy(desc(ordersTable.createdAt));
   type InvoiceGroup = { status: string; totalPrice: number };
   const invoiceMap = new Map<string, InvoiceGroup>();
   for (const o of rows) {
     const key = o.invoiceNumber ?? `solo-${o.id}`;
     if (!invoiceMap.has(key)) invoiceMap.set(key, { status: o.status, totalPrice: 0 });
     invoiceMap.get(key)!.totalPrice += o.totalPrice;
-    invoiceMap.get(key)!.status = o.status;
+    // لا نعدّل status تاني — أول row (الأحدث، ترتيب desc) هو المعتمد كما في analytics/charts
   }
   const invoices = Array.from(invoiceMap.values());
   const summary = {
@@ -366,7 +367,7 @@ router.get("/orders/summary", async (_req, res): Promise<void> => {
   res.json(GetOrdersSummaryResponse.parse(summary));
 });
 
-// ─── Recent orders ────────────────────────────────────────────────────────────
+// ظ¤ظ¤ظ¤ Recent orders ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
 
 router.get("/orders/recent", async (_req, res): Promise<void> => {
   const rows = await db.select().from(ordersTable).where(isNull(ordersTable.deletedAt)).orderBy(desc(ordersTable.createdAt)).limit(80);
@@ -379,29 +380,29 @@ router.get("/orders/recent", async (_req, res): Promise<void> => {
   res.json(GetRecentOrdersResponse.parse(unique));
 });
 
-// ─── Archived orders ──────────────────────────────────────────────────────────
+// ظ¤ظ¤ظ¤ Archived orders ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
 
 router.get("/orders/archived", async (_req, res): Promise<void> => {
   const orders = await db.select().from(ordersTable).where(isNotNull(ordersTable.deletedAt)).orderBy(desc(ordersTable.deletedAt));
   res.json(orders);
 });
 
-// ─── Purge archived orders permanently (admin only) ──────────────────────────
+// ظ¤ظ¤ظ¤ Purge archived orders permanently (admin only) ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
 router.delete("/orders/archived/purge", async (req, res): Promise<void> => {
   const { ids } = req.body;
   if (!Array.isArray(ids) || ids.length === 0) {
-    res.status(400).json({ error: "ids مطلوبة" });
+    res.status(400).json({ error: "ids ┘à╪╖┘┘ê╪ذ╪ر" });
     return;
   }
   const numericIds = ids.map(Number).filter(n => !isNaN(n));
-  // حذف نهائي — بس للطلبات المؤرشفة (deletedAt IS NOT NULL)
+  // ╪ص╪░┘ ┘┘ç╪د╪خ┘è ظ¤ ╪ذ╪│ ┘┘╪╖┘╪ذ╪د╪ز ╪د┘┘à╪ج╪▒╪┤┘╪ر (deletedAt IS NOT NULL)
   await db.delete(ordersTable).where(
     and(inArray(ordersTable.id, numericIds), isNotNull(ordersTable.deletedAt))
   );
   res.json({ success: true, deleted: numericIds.length });
 });
 
-// ─── Orders in manifest ───────────────────────────────────────────────────────
+// ظ¤ظ¤ظ¤ Orders in manifest ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
 
 router.get("/orders/in-manifest-ids", async (_req, res): Promise<void> => {
   const openManifests = await db.select({ id: shippingManifestsTable.id }).from(shippingManifestsTable).where(eq(shippingManifestsTable.status, "open"));
@@ -411,12 +412,12 @@ router.get("/orders/in-manifest-ids", async (_req, res): Promise<void> => {
   res.json({ ids: rows.map(r => r.orderId) });
 });
 
-// ─── Bulk delete orders (must be BEFORE /:id routes) ─────────────────────────
+// ظ¤ظ¤ظ¤ Bulk delete orders (must be BEFORE /:id routes) ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
 
 router.delete("/orders/bulk", async (req, res): Promise<void> => {
   const { ids } = req.body;
   if (!Array.isArray(ids) || ids.length === 0) {
-    res.status(400).json({ error: "يجب إرسال قائمة IDs" });
+    res.status(400).json({ error: "┘è╪ش╪ذ ╪ح╪▒╪│╪د┘ ┘é╪د╪خ┘à╪ر IDs" });
     return;
   }
   const userRole = (req as any).user?.role;
@@ -433,7 +434,7 @@ router.delete("/orders/bulk", async (req, res): Promise<void> => {
     await db.update(ordersTable).set({ deletedAt: new Date() }).where(eq(ordersTable.id, order.id));
     await logAudit({
       action: "delete", entityType: "order", entityId: order.id,
-      entityName: `${order.customerName} — ${order.product}`,
+      entityName: `${order.customerName} ظ¤ ${order.product}`,
       before: { customerName: order.customerName, product: order.product, status: order.status },
       userId: (req as any).user?.id, userName: (req as any).user?.displayName,
     });
@@ -442,7 +443,7 @@ router.delete("/orders/bulk", async (req, res): Promise<void> => {
   res.json({ deleted, skipped });
 });
 
-// ─── Restore archived order ───────────────────────────────────────────────────
+// ظ¤ظ¤ظ¤ Restore archived order ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
 
 router.post("/orders/:id/restore", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
@@ -452,15 +453,15 @@ router.post("/orders/:id/restore", async (req, res): Promise<void> => {
   if (!existing.deletedAt) { res.status(400).json({ error: "Order is not archived" }); return; }
   await db.update(ordersTable).set({ deletedAt: null }).where(eq(ordersTable.id, id));
   const [restored] = await db.select().from(ordersTable).where(eq(ordersTable.id, id));
-  await logAudit({ action: "restore", entityType: "order", entityId: id, entityName: `${existing.customerName} — ${existing.product}`, after: { status: existing.status, restoredAt: new Date().toISOString() }, userId: req.user?.id, userName: req.user?.displayName });
+  await logAudit({ action: "restore", entityType: "order", entityId: id, entityName: `${existing.customerName} ظ¤ ${existing.product}`, after: { status: existing.status, restoredAt: new Date().toISOString() }, userId: req.user?.id, userName: req.user?.displayName });
   res.json(restored);
 });
 
-// ─── Invoice manifest status ──────────────────────────────────────────────────
+// ظ¤ظ¤ظ¤ Invoice manifest status ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
 
 router.get("/orders/invoice-manifest-status/:invoiceNumber", async (req, res): Promise<void> => {
   const { invoiceNumber } = req.params;
-  if (!invoiceNumber) { res.status(400).json({ error: "invoiceNumber مطلوب" }); return; }
+  if (!invoiceNumber) { res.status(400).json({ error: "invoiceNumber ┘à╪╖┘┘ê╪ذ" }); return; }
 
   const invoiceOrders = await db.select().from(ordersTable)
     .where(and(eq(ordersTable.invoiceNumber, invoiceNumber), isNull(ordersTable.deletedAt)))
@@ -495,16 +496,16 @@ router.get("/orders/invoice-manifest-status/:invoiceNumber", async (req, res): P
   res.json(result);
 });
 
-// ─── Orders by invoice ────────────────────────────────────────────────────────
+// ظ¤ظ¤ظ¤ Orders by invoice ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
 
 router.get("/orders/by-invoice/:invoiceNumber", async (req, res): Promise<void> => {
   const { invoiceNumber } = req.params;
-  if (!invoiceNumber) { res.status(400).json({ error: "invoiceNumber مطلوب" }); return; }
+  if (!invoiceNumber) { res.status(400).json({ error: "invoiceNumber ┘à╪╖┘┘ê╪ذ" }); return; }
   const orders = await db.select().from(ordersTable).where(and(eq(ordersTable.invoiceNumber, invoiceNumber), isNull(ordersTable.deletedAt))).orderBy(ordersTable.id);
   res.json(orders);
 });
 
-// ─── Get order manifest status ────────────────────────────────────────────────
+// ظ¤ظ¤ظ¤ Get order manifest status ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
 
 router.get("/orders/:id/manifest-status", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
@@ -516,7 +517,7 @@ router.get("/orders/:id/manifest-status", async (req, res): Promise<void> => {
     .orderBy(desc(shippingManifestOrdersTable.id));
   if (links.length === 0) { res.json(null); return; }
   const link = links[0];
-  // اقرأ returnReceived من جدول orders مباشرة (مصدر الحقيقة)
+  // ╪د┘é╪▒╪ث returnReceived ┘à┘ ╪ش╪»┘ê┘ orders ┘à╪ذ╪د╪┤╪▒╪ر (┘à╪╡╪»╪▒ ╪د┘╪ص┘é┘è┘é╪ر)
   const [orderRow] = await db.select({ returnReceived: ordersTable.returnReceived }).from(ordersTable).where(eq(ordersTable.id, id));
   const rr = (orderRow?.returnReceived != null) ? Number(orderRow.returnReceived) : (link.mo.returnReceived == null ? null : Number(link.mo.returnReceived));
   res.json({
@@ -527,7 +528,7 @@ router.get("/orders/:id/manifest-status", async (req, res): Promise<void> => {
   });
 });
 
-// ─── Get single order ─────────────────────────────────────────────────────────
+// ظ¤ظ¤ظ¤ Get single order ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
 
 router.get("/orders/:id", async (req, res): Promise<void> => {
   const params = GetOrderParams.safeParse(req.params);
@@ -537,7 +538,7 @@ router.get("/orders/:id", async (req, res): Promise<void> => {
   res.json(GetOrderResponse.parse(order));
 });
 
-// ─── Update order (PATCH) ─────────────────────────────────────────────────────
+// ظ¤ظ¤ظ¤ Update order (PATCH) ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
 
 router.patch("/orders/:id", async (req, res): Promise<void> => {
   const params = UpdateOrderParams.safeParse(req.params);
@@ -548,7 +549,7 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
 
   const userRole = (req as any).user?.role;
   if (LOCKED_STATUSES.includes(existing.status as any) && userRole !== "admin") {
-    res.status(403).json({ error: "هذا الطلب مقفل ولا يمكن تعديله" });
+    res.status(403).json({ error: "┘ç╪░╪د ╪د┘╪╖┘╪ذ ┘à┘é┘┘ ┘ê┘╪د ┘è┘à┘â┘ ╪ز╪╣╪»┘è┘┘ç" });
     return;
   }
 
@@ -563,7 +564,7 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
   const oldStatus = existing.status;
   const newStatus = data.status ?? oldStatus;
 
-  // لو الطلب في بيان شحن → حركات المخزون مسؤولية البيان فقط، لا نعملها هنا
+  // ┘┘ê ╪د┘╪╖┘╪ذ ┘┘è ╪ذ┘è╪د┘ ╪┤╪ص┘ ظْ ╪ص╪▒┘â╪د╪ز ╪د┘┘à╪«╪▓┘ê┘ ┘à╪│╪ج┘ê┘┘è╪ر ╪د┘╪ذ┘è╪د┘ ┘┘é╪╖╪î ┘╪د ┘╪╣┘à┘┘ç╪د ┘ç┘╪د
   const [manifestLink] = await db
     .select({ id: shippingManifestOrdersTable.id })
     .from(shippingManifestOrdersTable)
@@ -575,15 +576,15 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
   if (newStatus !== oldStatus && !isInManifest) {
     const orderRef = { variantId: existing.variantId, productId: existing.productId, product: existing.product, color: existing.color, size: existing.size, warehouseId: existing.warehouseId };
 
-    // ── منطق حركات المخزون ──────────────────────────────────────────────────
-    // القاعدة الجديدة:
-    //   warehouse_ready = الطلب جاهز في المخزن، لكن لم يخصم بعد (يُخصم عند إضافته لبيان)
-    //   in_shipping = الطلب في شركة الشحن (خُصم من المخزن عند إنشاء البيان)
+    // ظ¤ظ¤ ┘à┘╪╖┘é ╪ص╪▒┘â╪د╪ز ╪د┘┘à╪«╪▓┘ê┘ ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
+    // ╪د┘┘é╪د╪╣╪»╪ر ╪د┘╪ش╪»┘è╪»╪ر:
+    //   warehouse_ready = ╪د┘╪╖┘╪ذ ╪ش╪د┘ç╪▓ ┘┘è ╪د┘┘à╪«╪▓┘╪î ┘┘â┘ ┘┘à ┘è╪«╪╡┘à ╪ذ╪╣╪» (┘è┘╪«╪╡┘à ╪╣┘╪» ╪ح╪╢╪د┘╪ز┘ç ┘╪ذ┘è╪د┘)
+    //   in_shipping = ╪د┘╪╖┘╪ذ ┘┘è ╪┤╪▒┘â╪ر ╪د┘╪┤╪ص┘ (╪«┘╪╡┘à ┘à┘ ╪د┘┘à╪«╪▓┘ ╪╣┘╪» ╪ح┘╪┤╪د╪ة ╪د┘╪ذ┘è╪د┘)
 
-    // ── لو الحالة الجديدة warehouse_ready: لا يحدث خصم في المخزون ──────────
-    // نتجاهل أي تغيير مخزون هنا — الخصم يحدث لما يتضاف للبيان
+    // ظ¤ظ¤ ┘┘ê ╪د┘╪ص╪د┘╪ر ╪د┘╪ش╪»┘è╪»╪ر warehouse_ready: ┘╪د ┘è╪ص╪»╪س ╪«╪╡┘à ┘┘è ╪د┘┘à╪«╪▓┘ê┘ ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
+    // ┘╪ز╪ش╪د┘ç┘ ╪ث┘è ╪ز╪║┘è┘è╪▒ ┘à╪«╪▓┘ê┘ ┘ç┘╪د ظ¤ ╪د┘╪«╪╡┘à ┘è╪ص╪»╪س ┘┘à╪د ┘è╪ز╪╢╪د┘ ┘┘╪ذ┘è╪د┘
 
-    // هل في حركة موجودة للأوردر ده في جدول المخزون؟
+    // ┘ç┘ ┘┘è ╪ص╪▒┘â╪ر ┘à┘ê╪ش┘ê╪»╪ر ┘┘╪ث┘ê╪▒╪»╪▒ ╪»┘ç ┘┘è ╪ش╪»┘ê┘ ╪د┘┘à╪«╪▓┘ê┘╪ا
     const [existingMovement] = await db
       .select({ id: inventoryMovementsTable.id, reason: inventoryMovementsTable.reason })
       .from(inventoryMovementsTable)
@@ -592,42 +593,42 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
       .limit(1)
       .catch(() => []);
 
-    // ── warehouse_ready → لا حركة مخزون ──────────────────────────────────
+    // ظ¤ظ¤ warehouse_ready ظْ ┘╪د ╪ص╪▒┘â╪ر ┘à╪«╪▓┘ê┘ ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
     if (newStatus === "warehouse_ready") {
-      // لا يوجد خصم من المخزون هنا — الخصم يحدث لما يدخل البيان
+      // ┘╪د ┘è┘ê╪ش╪» ╪«╪╡┘à ┘à┘ ╪د┘┘à╪«╪▓┘ê┘ ┘ç┘╪د ظ¤ ╪د┘╪«╪╡┘à ┘è╪ص╪»╪س ┘┘à╪د ┘è╪»╪«┘ ╪د┘╪ذ┘è╪د┘
     }
 
     if (newStatus === "in_shipping" && oldStatus !== "in_shipping") {
       if (existingMovement) {
-        // لو الحركة الموجودة adjustment (المنتج كان في المخزون) → لازم نخصم المخزون دلوقتي
+        // ┘┘ê ╪د┘╪ص╪▒┘â╪ر ╪د┘┘à┘ê╪ش┘ê╪»╪ر adjustment (╪د┘┘à┘╪ز╪ش ┘â╪د┘ ┘┘è ╪د┘┘à╪«╪▓┘ê┘) ظْ ┘╪د╪▓┘à ┘╪«╪╡┘à ╪د┘┘à╪«╪▓┘ê┘ ╪»┘┘ê┘é╪ز┘è
         if (existingMovement.reason === "adjustment") {
           const { variantId, productId } = await resolveInventoryTarget(orderRef);
           await adjustWarehouseStock(existing.warehouseId, variantId, productId, -existing.quantity).catch(() => {});
           await syncProductQuantityFromWarehouses(variantId, productId).catch(() => {});
         }
-        await updateMovementReason(existing.id, existingMovement.reason as any, "to_shipping" as any, "تحويل لشركة الشحن").catch(() => {});
+        await updateMovementReason(existing.id, existingMovement.reason as any, "to_shipping" as any, "╪ز╪ص┘ê┘è┘ ┘╪┤╪▒┘â╪ر ╪د┘╪┤╪ص┘").catch(() => {});
       } else {
-        // مفيش حركة → اخصم من المخزون وسجّل to_shipping
+        // ┘à┘┘è╪┤ ╪ص╪▒┘â╪ر ظْ ╪د╪«╪╡┘à ┘à┘ ╪د┘┘à╪«╪▓┘ê┘ ┘ê╪│╪ش┘ّ┘ to_shipping
         await processToShipping(orderRef, existing.quantity, existing.id).catch(() => {});
       }
     }
 
     if (newStatus === "received") {
       if (existingMovement) {
-        // في حركة موجودة → غيّر reason لـ sale فقط (لا خصم جديد)
-        await updateMovementReason(existing.id, existingMovement.reason as any, "sale", "تم الاستلام — بيع").catch(() => {});
+        // ┘┘è ╪ص╪▒┘â╪ر ┘à┘ê╪ش┘ê╪»╪ر ظْ ╪║┘è┘ّ╪▒ reason ┘┘ sale ┘┘é╪╖ (┘╪د ╪«╪╡┘à ╪ش╪»┘è╪»)
+        await updateMovementReason(existing.id, existingMovement.reason as any, "sale", "╪ز┘à ╪د┘╪د╪│╪ز┘╪د┘à ظ¤ ╪ذ┘è╪╣").catch(() => {});
       } else {
-        // مفيش حركة → اخصم كبيع مباشرة
+        // ┘à┘┘è╪┤ ╪ص╪▒┘â╪ر ظْ ╪د╪«╪╡┘à ┘â╪ذ┘è╪╣ ┘à╪ذ╪د╪┤╪▒╪ر
         await processDelivery(orderRef, existing.quantity, "sale", existing.id).catch(() => {});
       }
     }
 
     if (newStatus === "partial_received") {
       if (existingMovement) {
-        // في حركة موجودة → غيّر reason لـ partial_sale فقط (لا خصم جديد)
-        await updateMovementReason(existing.id, existingMovement.reason as any, "partial_sale", "استلام جزئي").catch(() => {});
+        // ┘┘è ╪ص╪▒┘â╪ر ┘à┘ê╪ش┘ê╪»╪ر ظْ ╪║┘è┘ّ╪▒ reason ┘┘ partial_sale ┘┘é╪╖ (┘╪د ╪«╪╡┘à ╪ش╪»┘è╪»)
+        await updateMovementReason(existing.id, existingMovement.reason as any, "partial_sale", "╪د╪│╪ز┘╪د┘à ╪ش╪▓╪خ┘è").catch(() => {});
       } else {
-        // مفيش حركة → اخصم كبيع جزئي
+        // ┘à┘┘è╪┤ ╪ص╪▒┘â╪ر ظْ ╪د╪«╪╡┘à ┘â╪ذ┘è╪╣ ╪ش╪▓╪خ┘è
         await processDelivery(orderRef, existing.quantity, "partial_sale", existing.id).catch(() => {});
       }
     }
@@ -639,26 +640,26 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
       if (existingMovement) {
         const wasDeducted = ["sale", "partial_sale", "to_shipping"].includes(existingMovement.reason ?? "");
         if (returnReceived) {
-          // تم الاستلام → أرجع المخزون بالموجب (IN) لو كانت متخصومة
+          // ╪ز┘à ╪د┘╪د╪│╪ز┘╪د┘à ظْ ╪ث╪▒╪ش╪╣ ╪د┘┘à╪«╪▓┘ê┘ ╪ذ╪د┘┘à┘ê╪ش╪ذ (IN) ┘┘ê ┘â╪د┘╪ز ┘à╪ز╪«╪╡┘ê┘à╪ر
           if (wasDeducted) {
             await adjustWarehouseStock(existing.warehouseId, variantId, productId, existing.quantity).catch(() => {});
             await syncProductQuantityFromWarehouses(variantId, productId).catch(() => {});
           }
-          await updateMovementReason(existing.id, existingMovement.reason as any, "return", "مرتجع — تم الاستلام ودخل المخزن").catch(() => {});
+          await updateMovementReason(existing.id, existingMovement.reason as any, "return", "┘à╪▒╪ز╪ش╪╣ ظ¤ ╪ز┘à ╪د┘╪د╪│╪ز┘╪د┘à ┘ê╪»╪«┘ ╪د┘┘à╪«╪▓┘").catch(() => {});
         } else {
-          // مازال عند الشحن → لا ترجع المخزون، سجل OUT
-          await updateMovementReason(existing.id, existingMovement.reason as any, "return", "مرتجع — مازال عند شركة الشحن").catch(() => {});
+          // ┘à╪د╪▓╪د┘ ╪╣┘╪» ╪د┘╪┤╪ص┘ ظْ ┘╪د ╪ز╪▒╪ش╪╣ ╪د┘┘à╪«╪▓┘ê┘╪î ╪│╪ش┘ OUT
+          await updateMovementReason(existing.id, existingMovement.reason as any, "return", "┘à╪▒╪ز╪ش╪╣ ظ¤ ┘à╪د╪▓╪د┘ ╪╣┘╪» ╪┤╪▒┘â╪ر ╪د┘╪┤╪ص┘").catch(() => {});
         }
       } else {
         const wasReceived = oldStatus === "received" || oldStatus === "partial_received";
         if (returnReceived) {
-          // تم الاستلام → IN موجب
+          // ╪ز┘à ╪د┘╪د╪│╪ز┘╪د┘à ظْ IN ┘à┘ê╪ش╪ذ
           await processReturn({ ...orderRef, quantity: existing.quantity }, wasReceived, false, existing.id).catch(() => {});
         } else {
-          // مازال عند الشحن → OUT سالب (لا يدخل المخزن)
+          // ┘à╪د╪▓╪د┘ ╪╣┘╪» ╪د┘╪┤╪ص┘ ظْ OUT ╪│╪د┘╪ذ (┘╪د ┘è╪»╪«┘ ╪د┘┘à╪«╪▓┘)
           if (variantId || productId) {
             await recordMovement({
-              product: existing.product ?? "منتج",
+              product: existing.product ?? "┘à┘╪ز╪ش",
               color: existing.color,
               size: existing.size,
               quantity: existing.quantity,
@@ -668,7 +669,7 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
               variantId: variantId ?? null,
               warehouseId: existing.warehouseId ?? null,
               orderId: existing.id,
-              notes: "مرتجع — مازال عند شركة الشحن",
+              notes: "┘à╪▒╪ز╪ش╪╣ ظ¤ ┘à╪د╪▓╪د┘ ╪╣┘╪» ╪┤╪▒┘â╪ر ╪د┘╪┤╪ص┘",
             }).catch(() => {});
           }
         }
@@ -676,12 +677,12 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
     }
 
     if (oldStatus === "in_shipping" && newStatus !== "in_shipping" && newStatus !== "received" && newStatus !== "partial_received" && newStatus !== "returned") {
-      // إلغاء الشحن (رجع لـ pending مثلاً) → أرجع المخزون وعدّل الحركة
+      // ╪ح┘╪║╪د╪ة ╪د┘╪┤╪ص┘ (╪▒╪ش╪╣ ┘┘ pending ┘à╪س┘╪د┘ï) ظْ ╪ث╪▒╪ش╪╣ ╪د┘┘à╪«╪▓┘ê┘ ┘ê╪╣╪»┘ّ┘ ╪د┘╪ص╪▒┘â╪ر
       if (existingMovement) {
         const { variantId, productId } = await resolveInventoryTarget(orderRef);
         await adjustWarehouseStock(existing.warehouseId, variantId, productId, existing.quantity).catch(() => {});
         await syncProductQuantityFromWarehouses(variantId, productId).catch(() => {});
-        await updateMovementReason(existing.id, existingMovement.reason as any, "adjustment" as any, "إلغاء شحن — إرجاع للمخزون").catch(() => {});
+        await updateMovementReason(existing.id, existingMovement.reason as any, "adjustment" as any, "╪ح┘╪║╪د╪ة ╪┤╪ص┘ ظ¤ ╪ح╪▒╪ش╪د╪╣ ┘┘┘à╪«╪▓┘ê┘").catch(() => {});
       } else {
         await reverseShipping(orderRef, existing.quantity, existing.id).catch(() => {});
       }
@@ -689,11 +690,11 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
 
     if (oldStatus === "received" && newStatus !== "received") {
       if (existingMovement) {
-        // في حركة موجودة → أرجع المخزون وعدّل reason
+        // ┘┘è ╪ص╪▒┘â╪ر ┘à┘ê╪ش┘ê╪»╪ر ظْ ╪ث╪▒╪ش╪╣ ╪د┘┘à╪«╪▓┘ê┘ ┘ê╪╣╪»┘ّ┘ reason
         const { variantId, productId } = await resolveInventoryTarget(orderRef);
         await adjustWarehouseStock(existing.warehouseId, variantId, productId, existing.quantity).catch(() => {});
         await syncProductQuantityFromWarehouses(variantId, productId).catch(() => {});
-        await updateMovementReason(existing.id, existingMovement.reason as any, "adjustment" as any, "إلغاء استلام").catch(() => {});
+        await updateMovementReason(existing.id, existingMovement.reason as any, "adjustment" as any, "╪ح┘╪║╪د╪ة ╪د╪│╪ز┘╪د┘à").catch(() => {});
       } else {
         await reverseDelivery(orderRef, existing.quantity, existing.id).catch(() => {});
       }
@@ -710,12 +711,12 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
   if (!updated) { res.status(500).json({ error: "Update failed" }); return; }
 
   const after = { customerName: updated.customerName, product: updated.product, status: updated.status, quantity: updated.quantity, unitPrice: updated.unitPrice };
-  await logAudit({ action: "update", entityType: "order", entityId: updated.id, entityName: `${updated.customerName} — ${updated.product}`, before, after: diffObjects(before, after), userId: (req as any).user?.id, userName: (req as any).user?.displayName });
+  await logAudit({ action: "update", entityType: "order", entityId: updated.id, entityName: `${updated.customerName} ظ¤ ${updated.product}`, before, after: diffObjects(before, after), userId: (req as any).user?.id, userName: (req as any).user?.displayName });
 
   res.json(UpdateOrderResponse.parse(updated));
 });
 
-// ─── Delete single order (soft delete) ───────────────────────────────────────
+// ظ¤ظ¤ظ¤ Delete single order (soft delete) ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
 
 router.delete("/orders/:id", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
@@ -726,7 +727,7 @@ router.delete("/orders/:id", async (req, res): Promise<void> => {
 
   const userRole = (req as any).user?.role;
   if (LOCKED_STATUSES.includes(existing.status as any) && userRole !== "admin") {
-    res.status(403).json({ error: "هذا الطلب مقفل ولا يمكن حذفه" });
+    res.status(403).json({ error: "┘ç╪░╪د ╪د┘╪╖┘╪ذ ┘à┘é┘┘ ┘ê┘╪د ┘è┘à┘â┘ ╪ص╪░┘┘ç" });
     return;
   }
 
@@ -734,7 +735,7 @@ router.delete("/orders/:id", async (req, res): Promise<void> => {
 
   await logAudit({
     action: "delete", entityType: "order", entityId: id,
-    entityName: `${existing.customerName} — ${existing.product}`,
+    entityName: `${existing.customerName} ظ¤ ${existing.product}`,
     before: { customerName: existing.customerName, product: existing.product, status: existing.status },
     userId: (req as any).user?.id, userName: (req as any).user?.displayName,
   });
