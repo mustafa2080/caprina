@@ -182,8 +182,7 @@ export default function Invoices() {
     Promise.all(toFetch.map(async grp => {
       try {
         const orders = await ordersApi.byInvoice(grp.invoiceNumber);
-        const f = orders.filter((o: any) => o.status === grp.status);
-        return { key: grp.invoiceNumber, orders: f.length > 0 ? f : grp.orders };
+        return { key: grp.invoiceNumber, orders: orders.length > 0 ? orders : grp.orders };
       } catch { return { key: grp.invoiceNumber, orders: grp.orders }; }
     })).then(results => {
       setRealOrdersCache(prev => {
@@ -217,8 +216,7 @@ export default function Invoices() {
       try {
         const orders = await ordersApi.byInvoice(grp.invoiceNumber);
         if (orders?.length) {
-          const filtered = orders.filter((o: any) => o.status === grp.status);
-          realOrdersMap.set(grp.invoiceNumber, filtered.length > 0 ? filtered : orders);
+          realOrdersMap.set(grp.invoiceNumber, orders);
           return;
         }
       } catch {}
