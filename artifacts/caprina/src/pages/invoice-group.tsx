@@ -708,12 +708,44 @@ export default function InvoiceGroup() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          {/* حذف الكل */}
+          <Button
+            variant="outline" size="sm"
+            onClick={() => !isAnyLocked && !hasOpenManifest && setShowBulkDeleteDialog(true)}
+            disabled={isAnyLocked || hasOpenManifest}
+            className="h-9 text-xs gap-1.5 border-red-800 text-red-400 hover:bg-red-900/20 hover:text-red-400 disabled:opacity-40 font-bold">
+            <Trash2 className="w-3.5 h-3.5" />حذف الكل
+          </Button>
+
+          {/* إضافة منتج */}
+          {!isAnyLocked && !hasOpenManifest && (
+            <Button variant="outline" size="sm" onClick={() => setShowAddProduct(true)}
+              className="h-9 text-xs gap-1.5 border-primary/50 text-primary hover:bg-primary/10 font-bold">
+              <Plus className="w-3.5 h-3.5" />إضافة منتج
+            </Button>
+          )}
+
+          {/* فاتورة (طباعة) */}
+          <Button variant="outline" size="sm" onClick={handlePrint}
+            className="h-9 text-xs gap-1.5 border-border font-bold">
+            <Printer className="w-3.5 h-3.5" />فاتورة
+          </Button>
+
+          {/* واتساب */}
+          {orders.some((o: any) => ["pending","warehouse_ready","in_shipping","delayed"].includes(o.status)) && (
+            <Button variant="outline" size="sm" onClick={handleWhatsApp}
+              className="h-9 text-xs gap-1.5 border-green-700 text-green-400 hover:bg-green-500/10 font-bold">
+              <MessageCircle className="w-3.5 h-3.5" />واتساب
+            </Button>
+          )}
+
+          {/* تغيير حالة الكل */}
           <Select value="" onValueChange={(v) => { if (v) setPendingStatus(v); }} disabled={isUpdatingStatus || isAnyLocked || hasOpenManifest}>
-            <SelectTrigger className="h-8 text-xs bg-card border-border w-44"
+            <SelectTrigger className="h-9 text-xs bg-primary text-primary-foreground border-primary hover:bg-primary/90 font-bold w-36 gap-1"
               title={hasOpenManifest ? `مرتبط ببيان مفتوح (${openManifestEntry?.manifestNumber})` : undefined}>
-              <div className="flex items-center gap-1">
-                <RefreshCw className={`w-3 h-3 ${isUpdatingStatus ? "animate-spin" : ""}`} />
-                <span>تغيير حالة الكل</span>
+              <div className="flex items-center gap-1.5">
+                <RefreshCw className={`w-3.5 h-3.5 ${isUpdatingStatus ? "animate-spin" : ""}`} />
+                <span>تغيير الحالة</span>
               </div>
             </SelectTrigger>
             <SelectContent>
@@ -724,21 +756,6 @@ export default function InvoiceGroup() {
               <SelectItem value="returned">مرتجع</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" size="sm" onClick={handlePrint} className="h-8 text-xs gap-1 border-border">
-            <Printer className="w-3 h-3" />فاتورة
-          </Button>
-          {orders.some((o: any) => ["pending","warehouse_ready","in_shipping","delayed"].includes(o.status)) && (
-            <Button variant="outline" size="sm" onClick={handleWhatsApp}
-              className="h-8 text-xs gap-1 border-green-700 text-green-400 hover:bg-green-500/10 hover:text-green-400">
-              <MessageCircle className="w-3 h-3" />واتساب
-            </Button>
-          )}
-          <Button variant="outline" size="sm"
-            onClick={() => !isAnyLocked && !hasOpenManifest && setShowBulkDeleteDialog(true)}
-            disabled={isAnyLocked || hasOpenManifest}
-            className="h-8 text-xs gap-1 border-red-800 text-red-400 hover:bg-red-900/20 hover:text-red-400 disabled:opacity-40">
-            <Trash2 className="w-3 h-3" />حذف الكل
-          </Button>
         </div>
       </div>
 
@@ -772,12 +789,6 @@ export default function InvoiceGroup() {
               <Package className="w-4 h-4 text-primary" />
               المنتجات ({orders.length})
             </div>
-            {!isAnyLocked && !hasOpenManifest && (
-              <Button variant="outline" size="sm" onClick={() => setShowAddProduct(true)}
-                className="h-7 text-xs gap-1 border-primary/40 text-primary hover:bg-primary/10">
-                <Plus className="w-3 h-3" />إضافة منتج
-              </Button>
-            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="px-4 pb-4 space-y-2">
