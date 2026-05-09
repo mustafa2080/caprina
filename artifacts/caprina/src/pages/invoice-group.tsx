@@ -770,25 +770,24 @@ export default function InvoiceGroup() {
             variant="outline" size="sm"
             onClick={() => !isAnyLocked && !hasOpenManifest && setShowBulkDeleteDialog(true)}
             disabled={isAnyLocked || hasOpenManifest}
-            className="h-9 text-xs gap-1.5 border-red-800 text-red-400 hover:bg-red-900/20 hover:text-red-400 disabled:opacity-40 font-bold">
-            <Trash2 className="w-3.5 h-3.5" />حذف الكل
+            className="h-9 text-xs gap-1.5 bg-red-600 hover:bg-red-700 text-white border-red-600 hover:border-red-700 disabled:opacity-40 font-bold">
+            <Trash2 className="w-3.5 h-3.5" />حذف
           </Button>
 
           {/* إضافة منتج */}
           {!isAnyLocked && !hasOpenManifest && (
-            <Button variant="outline" size="sm" onClick={() => setShowAddProduct(true)}
-              className="h-9 text-xs gap-1.5 border-primary/50 text-primary hover:bg-primary/10 font-bold">
+            <Button size="sm" onClick={() => setShowAddProduct(true)}
+              className="h-9 text-xs gap-1.5 font-bold">
               <Plus className="w-3.5 h-3.5" />إضافة منتج
             </Button>
           )}
 
-          {/* تعديل بيانات الفاتورة inline */}
+          {/* تعديل */}
           {!isAnyLocked && !hasOpenManifest && (
             <Button variant="outline" size="sm"
               onClick={() => isEditingInvoice ? setIsEditingInvoice(false) : handleOpenEdit(rep)}
-              className={`h-9 text-xs gap-1.5 font-bold ${isEditingInvoice ? "border-primary text-primary bg-primary/10" : "border-border"}`}>
-              {isEditingInvoice ? <X className="w-3.5 h-3.5" /> : <Pencil className="w-3.5 h-3.5" />}
-              {isEditingInvoice ? "إلغاء" : "تعديل"}
+              className={`h-9 text-xs gap-1.5 font-bold border-border`}>
+              <Pencil className="w-3.5 h-3.5" />تعديل
             </Button>
           )}
 
@@ -808,15 +807,16 @@ export default function InvoiceGroup() {
 
           {/* تغيير حالة الكل */}
           <Select value="" onValueChange={(v) => { if (v) setPendingStatus(v); }} disabled={isUpdatingStatus || isAnyLocked || hasOpenManifest}>
-            <SelectTrigger className="h-9 text-xs bg-primary text-primary-foreground border-primary hover:bg-primary/90 font-bold w-36 gap-1"
+            <SelectTrigger className="h-9 text-xs bg-primary text-primary-foreground border-primary hover:bg-primary/90 font-bold w-auto gap-1.5 px-3"
               title={hasOpenManifest ? `مرتبط ببيان مفتوح (${openManifestEntry?.manifestNumber})` : undefined}>
               <div className="flex items-center gap-1.5">
                 <RefreshCw className={`w-3.5 h-3.5 ${isUpdatingStatus ? "animate-spin" : ""}`} />
-                <span>تغيير الحالة</span>
+                <span>{isUpdatingStatus ? "جاري..." : "تغيير الحالة"}</span>
               </div>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="pending">قيد الانتظار</SelectItem>
+              <SelectItem value="warehouse_ready">قيد الشحن في المخزن</SelectItem>
               <SelectItem value="in_shipping">قيد الشحن</SelectItem>
               <SelectItem value="received">استلم ✓</SelectItem>
               <SelectItem value="delayed">مؤجل</SelectItem>
