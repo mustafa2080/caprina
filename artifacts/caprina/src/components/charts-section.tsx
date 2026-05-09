@@ -165,6 +165,12 @@ const StatusDonut = memo(function StatusDonut({
   const sorted = useMemo(() => [...data].sort((a, b) => b.count - a.count), [data]);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
+  const ORDER = ["pending", "received", "in_shipping", "warehouse_ready", "returned"];
+  const orderedItems = useMemo(() => [
+    ...ORDER.map(s => sorted.find(i => i.status === s)).filter(Boolean),
+    ...sorted.filter(i => !ORDER.includes(i.status)),
+  ] as typeof sorted, [sorted]);
+
   return (
     <div className="space-y-5">
       <div className="relative" style={{ height: 240 }}>
@@ -223,15 +229,7 @@ const StatusDonut = memo(function StatusDonut({
       {/* Legend */}
       <div className="space-y-1">
       <div className="flex flex-col gap-1.5">
-          {(() => {
-          //الترتيب المطلوب
-          const ORDER = ["pending", "received", "in_shipping", "warehouse_ready", "returned"];
-          const orderedItems = [
-            ...ORDER.map(s => sorted.find(i => i.status === s)).filter(Boolean),
-            ...sorted.filter(i => !ORDER.includes(i.status)),
-          ];
-
-          return (orderedItems as typeof sorted).map((item) => {
+          {orderedItems.map((item) => {
             const cfg = STATUS_CFG[item.status] ?? { label: item.status, color: "#888", bg: "#88881a" };
             const isSelected = selectedStatus === item.status;
             return (
@@ -260,8 +258,8 @@ const StatusDonut = memo(function StatusDonut({
                 )}
               </button>
             );
-          });
-        })()}
+          })}
+      </div>
       </div>
     </div>
   );

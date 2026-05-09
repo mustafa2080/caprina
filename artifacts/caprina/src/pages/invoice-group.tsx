@@ -143,7 +143,7 @@ function EditProductDialog({ open, onOpenChange, order: o, onSuccess }: {
   const handleSelectProduct = (p: any) => {
     setSelectedProduct(p);
     setProduct(p.name);
-    setColor(""); setSize("");
+    // لا نمسح color وsize — نحتفظ بالقيم الحالية
     if (p.unitPrice) setUnitPrice(p.unitPrice);
   };
 
@@ -184,6 +184,7 @@ function EditProductDialog({ open, onOpenChange, order: o, onSuccess }: {
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-1">
+          {/* اختيار من المخزون - اختياري */}
           <div>
             <label className="text-xs font-medium mb-1.5 block">اختر من المخزون (اختياري)</label>
             {selectedProduct ? (
@@ -199,18 +200,28 @@ function EditProductDialog({ open, onOpenChange, order: o, onSuccess }: {
               <ProductSearchCombobox products={products} allVariants={allVariants} onSelect={handleSelectProduct} />
             )}
           </div>
-          {selectedProduct && hasVariants && (
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="text-[10px] text-muted-foreground mb-1 block">اللون</label>
+          {/* اسم المنتج */}
+          <div>
+            <label className="text-xs font-medium mb-1.5 block">اسم المنتج *</label>
+            <Input value={product} onChange={e => setProduct(e.target.value)} className="h-9 text-sm" placeholder="اسم المنتج" />
+          </div>
+          {/* اللون والمقاس */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium mb-1.5 block">اللون</label>
+              {selectedProduct && hasVariants ? (
                 <select value={color} onChange={e => { setColor(e.target.value); setSize(""); }}
                   className="w-full h-9 text-sm rounded-md border border-input bg-card px-2 focus:outline-none focus:ring-1 focus:ring-ring">
                   <option value="">اختر لون...</option>
                   {availableColors.map((c: string) => <option key={c} value={c}>{c}</option>)}
                 </select>
-              </div>
-              <div>
-                <label className="text-[10px] text-muted-foreground mb-1 block">المقاس</label>
+              ) : (
+                <Input value={color} onChange={e => setColor(e.target.value)} className="h-9 text-sm" placeholder="مثال: أسود" />
+              )}
+            </div>
+            <div>
+              <label className="text-xs font-medium mb-1.5 block">المقاس</label>
+              {selectedProduct && hasVariants ? (
                 <select value={size} disabled={!color} onChange={e => {
                   setSize(e.target.value);
                   const v = productVariants.find((pv: any) => pv.color === color && pv.size === e.target.value);
@@ -223,23 +234,12 @@ function EditProductDialog({ open, onOpenChange, order: o, onSuccess }: {
                     return <option key={v.id} value={v.size} disabled={a === 0}>{v.size} {a === 0 ? "(نفد)" : `(${a})`}</option>;
                   })}
                 </select>
-              </div>
-            </div>
-          )}
-          <div>
-            <label className="text-xs font-medium mb-1.5 block">اسم المنتج *</label>
-            <Input value={product} onChange={e => setProduct(e.target.value)} className="h-9 text-sm" placeholder="اسم المنتج" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-medium mb-1.5 block">اللون</label>
-              <Input value={color} onChange={e => setColor(e.target.value)} className="h-9 text-sm" placeholder="مثال: أسود" />
-            </div>
-            <div>
-              <label className="text-xs font-medium mb-1.5 block">المقاس</label>
-              <Input value={size} onChange={e => setSize(e.target.value)} className="h-9 text-sm" placeholder="مثال: XL" />
+              ) : (
+                <Input value={size} onChange={e => setSize(e.target.value)} className="h-9 text-sm" placeholder="مثال: XL" />
+              )}
             </div>
           </div>
+          {/* الكمية والسعر */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium mb-1.5 block">الكمية *</label>
@@ -256,6 +256,7 @@ function EditProductDialog({ open, onOpenChange, order: o, onSuccess }: {
               <Input type="number" min={0} value={unitPrice || ""} onChange={e => setUnitPrice(Number(e.target.value))} className="h-9 text-sm" />
             </div>
           </div>
+          {/* ملاحظات */}
           <div>
             <label className="text-xs font-medium mb-1.5 block">ملاحظات</label>
             <Textarea value={notes} onChange={e => setNotes(e.target.value)} className="min-h-[50px] text-sm resize-none" placeholder="ملاحظات اختيارية..." />
