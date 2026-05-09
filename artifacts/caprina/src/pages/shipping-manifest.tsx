@@ -1828,12 +1828,20 @@ function CloseConfirmDialog({
           <div className="space-y-2">
             <div className="p-3 rounded-md bg-primary/10 border border-primary/30 text-xs">
               <p className="text-muted-foreground mb-1">صافي المستحق من الشركة</p>
-              <p className="font-black text-lg text-primary">
-                {formatCurrency((s as any).dueFromCompany ?? (s.deliveredGross - s.totalShippingCost))}
-              </p>
-              <p className="text-[10px] text-muted-foreground mt-1">
-                إيرادات مستلمة ({formatCurrency(s.deliveredGross)}) − تكلفة شحن ({formatCurrency((s as any).actuallyDeliveredShipping ?? s.totalShippingCost)})
-              </p>
+              {(() => {
+                const effectiveShipping = manifest.manualShippingCost ?? s.totalShippingCost;
+                const due = s.deliveredGross - effectiveShipping;
+                return (
+                  <>
+                    <p className="font-black text-lg text-primary">
+                      {formatCurrency(due)}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      إيرادات مستلمة ({formatCurrency(s.deliveredGross)}) − تكلفة شحن ({formatCurrency(effectiveShipping)})
+                    </p>
+                  </>
+                );
+              })()}
               {manifest.invoicePrice != null && (
                 <p className="text-muted-foreground mt-1">
                   سعر الفاتورة المتفق: {formatCurrency(manifest.invoicePrice)}
