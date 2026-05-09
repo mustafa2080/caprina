@@ -349,6 +349,264 @@ function AddProductDialog({ open, onOpenChange, order, onSuccess }: {
   );
 }
 
+// ── Edit Single Order Row Dialog ─────────────────────────────────────────────
+function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, products, allVariants, onSuccess }: {
+  open: boolean; onOpenChange: (v: boolean) => void; order: any;
+  shippingCompanies: any[]; products: any[]; allVariants: any[]; onSuccess: () => void;
+}) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const updateOrder = useUpdateOrder();
+  const [editProductId, setEditProductId] = useState<number | null>(null);
+  const [editColor, setEditColor] = useState("");
+
+  const rowSchema = z.object({
+    product: z.string().min(1),
+    quantity: z.coerce.number().int().min(1),
+    unitPrice: z.coerce.number().min(0),
+    notes: z.string().optional().nullable(),
+  });
+  const form = useForm<z.infer<typeof rowSchema>>({
+    resolver: zodResolver(rowSchema),
+    defaultValues: { product: o?.product || "", quantity: o?.quantity || 1, unitPrice: o?.unitPrice || 0, notes: o?.notes || "" },
+  });
+
+  useEffect(() => {
+    if (o && open) {
+      form.reset({ product: o.product, quantity: o.quantity, unitPrice: o.unitPrice, notes: o.notes ?? "" });
+      setEditProductId(null); setEditColor("");
+    }
+  }, [o, open]);
+
+  const onSubmit = (values: z.infer<typeof rowSchema>) => {
+    updateOrder.mutate({ id: o.id, data: values }, {
+      onSuccess: (updated: any) => {
+        queryClient.setQueryData(getGetOrderQueryKey(o.id), updated);
+        queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
+        queryClient.invalidateQueries({ queryKey: ["invoice-orders"] });
+        toast({ title: "تم الحفظ", description: "تم تعديل المنتج بنجاح." });
+        onSuccess(); onOpenChange(false);
+      },
+      onError: () => toast({ title: "خطأ", description: "فشل الحفظ.", variant: "destructive" }),
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md" dir="rtl">
+        <DialogHeader><DialogTitle className="text-sm flex items-center gap-2"><Pencil className="w-4 h-4 text-primary" />تعديل المنتج</DialogTitle></DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
+            <div className="space-y-2 p-3 bg-muted/10 rounded border border-border/50">
+              <p className="text-[10px] text-muted-foreground font-bold flex items-center gap-1"><Package className="w-3 h-3" />اختر من المخزون (اختياري)</p>
+              <Select value={editProductId?.toString() || "none"} onValueChange={v => {
+                if (v === "none") { setEditProductId(null); setEditColor(""); }
+                else {
+                  const pid = Number(v); setEditProductId(pid); setEditColor("");
+                  const p = products?.find((p: any) => p.id === pid);
+                  if (p) form.setValue("product", p.name);
+                }
+              }}>
+                <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="اختر من المخزون..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">— إدخال يدوي —</SelectItem>
+                  {products?.map((p: any) => {
+                    const avail = p.totalQuantity - p.reservedQuantity - p.soldQuantity;
+                    return <SelectItem key={p.id} value={String(p.id)}>{p.name} ({avail} متاح)</SelectItem>;
+                  })}
+                </SelectContent>
+              </Select>
+              {editProductId && allVariants?.some((v: any) => v.productId === editProductId) && (
+                <Select value={editColor || "none"} onValueChange={v => {
+                  setEditColor(v === "none" ? "" : v);
+                  const variant = allVariants?.find((va: any) => va.productId === editProductId && `${va.color}-${va.size}` === v);
+                  if (variant) form.setValue("unitPrice", variant.unitPrice);
+                }}>
+                  <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="اختر لون / مقاس..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">— بدون تحديد —</SelectItem>
+                    {allVariants?.filter((v: any) => v.productId === editProductId).map((v: any) => {
+                      const avail = v.totalQuantity - v.reservedQuantity - v.soldQuantity;
+                      return <SelectItem key={v.id} value={`${v.color}-${v.size}`} disabled={avail === 0}>{v.color} / {v.size} — {avail === 0 ? "نفد" : `${avail} متاح`}</SelectItem>;
+                    })}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <FormField control={form.control} name="product" render={({ field }) => (
+                <FormItem className="col-span-1"><FormLabel className="text-xs">اسم المنتج *</FormLabel><FormControl><Input className="h-8 text-sm" {...field} /></FormControl><FormMessage className="text-xs" /></FormItem>
+              )} />
+              <FormField control={form.control} name="quantity" render={({ field }) => (
+                <FormItem><FormLabel className="text-xs">الكمية</FormLabel><FormControl><Input type="number" min="1" className="h-8 text-sm" {...field} /></FormControl></FormItem>
+              )} />
+              <FormField control={form.control} name="unitPrice" render={({ field }) => (
+                <FormItem><FormLabel className="text-xs">السعر</FormLabel><FormControl><Input type="number" min="0" step="0.01" className="h-8 text-sm" {...field} /></FormControl></FormItem>
+              )} />
+            </div>
+            <FormField control={form.control} name="notes" render={({ field }) => (
+              <FormItem><FormLabel className="text-xs">ملاحظات</FormLabel><FormControl><Textarea className="min-h-[50px] text-sm resize-none" {...field} value={field.value ?? ""} /></FormControl></FormItem>
+            )} />
+            <DialogFooter className="gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)} className="flex-1">إلغاء</Button>
+              <Button type="submit" size="sm" disabled={updateOrder.isPending} className="flex-1 gap-1">
+                <Save className="w-3 h-3" />{updateOrder.isPending ? "جاري..." : "حفظ التعديل"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Invoice View (multi-product) ─────────────────────────────────────────────
+function InvoiceView({ orders, currentId, shippingCompanies, products, allVariants, onRefresh, isAdmin, formatCurrency }: {
+  orders: any[]; currentId: number; shippingCompanies: any[]; products: any[]; allVariants: any[];
+  onRefresh: () => void; isAdmin: boolean; formatCurrency: (n: number) => string;
+}) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
+  const [editingOrder, setEditingOrder] = useState<any>(null);
+  const [showAddProduct, setShowAddProduct] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [showDeleteId, setShowDeleteId] = useState<number | null>(null);
+
+  const primaryOrder = orders.find(o => o.id === currentId) || orders[0];
+  const invoiceTotal = orders.reduce((s, o) => s + (o.totalPrice ?? 0), 0);
+
+  const handleDeleteItem = async (id: number) => {
+    setDeletingId(id);
+    try {
+      await ordersApi.delete(id);
+      queryClient.removeQueries({ queryKey: getGetOrderQueryKey(id) });
+      queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getGetOrdersSummaryQueryKey() });
+      toast({ title: "تم الحذف", description: "تم حذف المنتج من الفاتورة." });
+      if (id === currentId) {
+        const remaining = orders.filter(o => o.id !== id);
+        if (remaining.length > 0) navigate(`/orders/${remaining[0].id}`);
+        else navigate("/orders");
+      } else { onRefresh(); }
+    } catch (e: any) {
+      toast({ title: "خطأ", description: e?.message || "فشل الحذف.", variant: "destructive" });
+    } finally { setDeletingId(null); setShowDeleteId(null); }
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Header الفاتورة */}
+      <Card className="border-primary/40 bg-card">
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono text-muted-foreground">فاتورة</span>
+                <span className="text-sm font-black text-primary">{primaryOrder.invoiceNumber}</span>
+                <Badge variant="outline" className="text-[9px] border-primary/40 text-primary">{orders.length} منتجات</Badge>
+              </div>
+              <p className="text-base font-bold">{primaryOrder.customerName}</p>
+              {primaryOrder.phone && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="w-3 h-3" />{primaryOrder.phone}</p>
+              )}
+              {primaryOrder.address && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="w-3 h-3" />{primaryOrder.address}</p>
+              )}
+            </div>
+            <div className="text-left">
+              <p className="text-xs text-muted-foreground mb-1">إجمالي الفاتورة</p>
+              <p className="text-xl font-black text-primary">{formatCurrency(invoiceTotal)}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* قائمة المنتجات */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-bold text-muted-foreground flex items-center gap-1">
+            <Package className="w-3.5 h-3.5" />منتجات الفاتورة
+          </h3>
+          {isAdmin && (
+            <button onClick={() => setShowAddProduct(true)}
+              className="flex items-center gap-1.5 text-xs font-bold text-primary border border-dashed border-primary/40 hover:bg-primary/5 px-3 py-1.5 rounded-md transition-colors">
+              <Plus className="w-3.5 h-3.5" />إضافة منتج
+            </button>
+          )}
+        </div>
+
+        {orders.map(o => {
+          const isThis = o.id === currentId;
+          return (
+            <Card key={o.id} className={`border ${isThis ? "border-primary/50 bg-primary/5" : "border-border bg-card"}`}>
+              <CardContent className="p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      {isThis && <span className="text-[9px] text-primary font-black bg-primary/10 px-1.5 py-0.5 rounded">← هذا الطلب</span>}
+                      <Badge variant="outline" className={`text-[9px] font-bold ${statusClasses[o.status] || ""}`}>
+                        {statusLabels[o.status] || o.status}
+                      </Badge>
+                    </div>
+                    <p className="text-sm font-bold truncate">{o.product}</p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      {o.color && <Badge variant="outline" className="text-[9px] border-border text-muted-foreground">{o.color}</Badge>}
+                      {o.size && <Badge variant="outline" className="text-[9px] border-border text-muted-foreground">{o.size}</Badge>}
+                    </div>
+                    <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
+                      <span>{o.quantity} وحدة × {formatCurrency(o.unitPrice)}</span>
+                      <span className="font-bold text-foreground">{formatCurrency(o.totalPrice)}</span>
+                    </div>
+                    {o.notes && <p className="text-[10px] text-muted-foreground mt-1 italic">{o.notes}</p>}
+                  </div>
+                  {isAdmin && (
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Button variant="outline" size="sm" className="h-7 text-xs gap-1 border-border"
+                        onClick={() => setEditingOrder(o)}>
+                        <Pencil className="w-3 h-3" />تعديل
+                      </Button>
+                      <Button variant="outline" size="sm" className="h-7 text-xs gap-1 border-red-800 text-red-400 hover:bg-red-900/20"
+                        onClick={() => setShowDeleteId(o.id)} disabled={deletingId === o.id}>
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      <EditOrderRowDialog
+        open={!!editingOrder} onOpenChange={v => { if (!v) setEditingOrder(null); }}
+        order={editingOrder} shippingCompanies={shippingCompanies}
+        products={products} allVariants={allVariants} onSuccess={onRefresh}
+      />
+      <AddProductDialog
+        open={showAddProduct} onOpenChange={setShowAddProduct}
+        order={primaryOrder} onSuccess={onRefresh}
+      />
+      <AlertDialog open={!!showDeleteId} onOpenChange={v => { if (!v) setShowDeleteId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>تأكيد حذف المنتج</AlertDialogTitle>
+            <AlertDialogDescription>هل أنت متأكد من حذف هذا المنتج من الفاتورة؟ لا يمكن التراجع.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction onClick={() => showDeleteId && handleDeleteItem(showDeleteId)}
+              disabled={!!deletingId} className="bg-red-600 hover:bg-red-700 text-white">
+              {deletingId ? "جاري الحذف..." : "نعم، احذف"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
 export default function OrderDetail() {
   const params = useParams();
   const id = Number(params.id);
@@ -651,11 +909,43 @@ export default function OrderDetail() {
   const orderReturnReason = (order as any).returnReason as string | null;
   const orderReturnNote = (order as any).returnNote as string | null;
   const isOrderLocked = (order.status === "received" || order.status === "partial_received") && !isAdmin;
-  const isManifestLocked = !!invoiceManifestStatus; // بيان مفتوح → ممنوع الحذف
+  const isManifestLocked = !!invoiceManifestStatus;
+  const isInvoiceMode = invoiceOrders.length > 1;
 
   return (
     <div className="max-w-4xl mx-auto space-y-5 animate-in fade-in duration-500">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+
+      {/* ── وضع الفاتورة المتعددة: عرض مختلف تماماً ── */}
+      {isInvoiceMode && (
+        <>
+          <div className="flex items-center gap-3">
+            <Link href="/orders">
+              <Button variant="outline" size="icon" className="h-8 w-8 rounded-full border-border"><ArrowRight className="h-4 w-4" /></Button>
+            </Link>
+            <div>
+              <h1 className="text-xl font-bold">فاتورة {invoiceNumber}</h1>
+              <p className="text-xs text-muted-foreground mt-0.5">{format(new Date(order.createdAt), "yyyy/MM/dd HH:mm")}</p>
+            </div>
+          </div>
+          <InvoiceView
+            orders={invoiceOrders}
+            currentId={id}
+            shippingCompanies={shippingCompanies ?? []}
+            products={products ?? []}
+            allVariants={allVariants ?? []}
+            isAdmin={isAdmin}
+            formatCurrency={formatCurrency}
+            onRefresh={() => {
+              refetchInvoiceOrders();
+              queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
+              queryClient.invalidateQueries({ queryKey: getGetOrdersSummaryQueryKey() });
+            }}
+          />
+        </>
+      )}
+
+      {/* ── وضع الطلب الفردي ── */}
+      {!isInvoiceMode && <><div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Link href="/orders">
             <Button variant="outline" size="icon" className="h-8 w-8 rounded-full border-border"><ArrowRight className="h-4 w-4" /></Button>
@@ -1616,6 +1906,7 @@ export default function OrderDetail() {
           refetchInvoiceOrders();
         }}
       />
+      </>}
     </div>
   );
 }
