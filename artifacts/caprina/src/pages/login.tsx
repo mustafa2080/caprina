@@ -171,22 +171,55 @@ export default function Login() {
         .btn-sub:active:not(:disabled) { transform:translateY(2px);box-shadow:0 1px 0 var(--gold-dim); }
         .btn-sub:disabled { opacity:.3;cursor:not-allowed; }
 
+        @media(max-width:1024px){
+          .lp{padding:0 5vw;}
+          .hc{max-width:460px;}
+        }
         @media(max-width:768px){
-          .lp{justify-content:center;padding:2rem 1.5rem;}
-          .hc{align-items:center;text-align:center;}
-          .h-title{font-size:2.2rem;text-align:center;}
-          .h-desc{text-align:center;}
-          .btn-row{justify-content:center;}
+          .lp{justify-content:center;padding:1.5rem 1.2rem;align-items:center;}
+          .hc{align-items:center;text-align:center;padding:2rem 1.8rem;max-width:100%;}
+          .h-title{font-size:2rem;text-align:center;}
+          .h-desc{text-align:center;font-size:.92rem;}
+          .btn-row{justify-content:center;width:100%;}
           .copy-bar{justify-content:center;}
           .gold-divider{display:none;}
+          .logo-wrap{margin-bottom:1.6rem;}
+          .tagline{margin-bottom:1.6rem;}
         }
         @media(max-width:480px){
-          .h-title{font-size:1.85rem;}
-          .btn-primary,.btn-ghost{width:100%;justify-content:center;}
-          .btn-row{flex-direction:column;gap:.7rem;width:100%;}
-          .logo-ring{width:72px;height:72px;}
-          .logo-ring img{width:52px;height:52px;}
-          .logo-brand{font-size:1.55rem;}
+          .lp{padding:1rem .9rem;align-items:flex-start;padding-top:2rem;}
+          .hc{padding:1.6rem 1.3rem;}
+          .h-title{font-size:1.65rem;}
+          .h-desc{font-size:.85rem;}
+          .btn-primary,.btn-ghost{width:100%;justify-content:center;padding:.8rem 1.2rem;}
+          .btn-row{flex-direction:column;gap:.65rem;width:100%;}
+          .logo-ring{width:68px;height:68px;}
+          .logo-ring img{width:50px;height:50px;}
+          .logo-brand{font-size:1.4rem;}
+          .logo-wrap{gap:.8rem;margin-bottom:1.4rem;}
+          .tagline{font-size:.7rem;margin-bottom:1.4rem;}
+          .copy-bar{gap:.5rem;}
+          .copy-text{font-size:.65rem;letter-spacing:.1em;}
+        }
+        @media(max-width:360px){
+          .hc{padding:1.3rem 1rem;}
+          .h-title{font-size:1.45rem;}
+          .logo-ring{width:60px;height:60px;}
+          .logo-ring img{width:44px;height:44px;}
+          .logo-brand{font-size:1.25rem;}
+        }
+        @media(min-width:1400px){
+          .lp{padding:0 10vw;}
+          .hc{max-width:560px;}
+          .h-title{font-size:3.5rem;}
+          .h-desc{font-size:1.1rem;}
+        }
+        @media(max-width:480px){
+          .ov{padding:.8rem;}
+          .card{padding:1.8rem 1.4rem;border-radius:1rem;}
+          .card-title{font-size:1rem;}
+          .f-input{height:44px;font-size:.85rem;}
+          .btn-sub{height:46px;font-size:.88rem;}
         }
       `}</style>
 
