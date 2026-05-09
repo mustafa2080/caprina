@@ -471,6 +471,8 @@ export default function InvoiceGroup() {
   const [showAddProduct, setShowAddProduct]             = useState(false);
   const [isEditingInvoice, setIsEditingInvoice]         = useState(false);
   const [editingProduct, setEditingProduct]             = useState<any>(null);
+  const [deletingProductId, setDeletingProductId]       = useState<number | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId]           = useState<number | null>(null);
 
   // Inline edit form state
   const [editCustomerName, setEditCustomerName]         = useState("");
@@ -551,6 +553,30 @@ export default function InvoiceGroup() {
       toast({ title: "خطأ", description: "فشل حفظ البيانات.", variant: "destructive" });
     } finally {
       setIsSavingEdit(false);
+    }
+  };
+
+  const handleDeleteProduct = async (orderId: number) => {
+    if (orders.length <= 1) {
+      toast({ title: "خطأ", description: "لا يمكن حذف المنتج الوحيد في الفاتورة. استخدم حذف الفاتورة كلها.", variant: "destructive" });
+      setConfirmDeleteId(null);
+      return;
+    }
+    setDeletingProductId(orderId);
+    try {
+      const token = localStorage.getItem("caprina_token");
+      const res = await fetch(`/api/orders/${orderId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("فشل الحذف");
+      invalidateAll();
+      toast({ title: "تم الحذف ✅", description: "تم حذف المنتج من الفاتورة." });
+    } catch {
+      toast({ title: "خطأ", description: "فشل حذف المنتج.", variant: "destructive" });
+    } finally {
+      setDeletingProductId(null);
+      setConfirmDeleteId(null);
     }
   };
 
@@ -924,10 +950,18 @@ export default function InvoiceGroup() {
                           <span className="font-bold text-foreground">{formatCurrency(o.totalPrice)}</span>
                         </div>
                       </div>
-                      <Button variant="outline" size="sm" className="h-7 text-xs gap-1 border-border shrink-0"
-                        onClick={() => { setEditingProduct(o); setIsEditingInvoice(false); }}>
-                        <Pencil className="w-3 h-3" />تعديل
-                      </Button>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Button variant="outline" size="sm" className="h-7 text-xs gap-1 border-border"
+                          onClick={() => { setEditingProduct(o); setIsEditingInvoice(false); }}>
+                          <Pencil className="w-3 h-3" />تعديل
+                        </Button>
+                        <Button variant="outline" size="sm"
+                          className="h-7 text-xs gap-1 border-red-800 text-red-400 hover:bg-red-900/20"
+                          disabled={deletingProductId === o.id}
+                          onClick={() => setConfirmDeleteId(o.id)}>
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -1021,6 +1055,27 @@ export default function InvoiceGroup() {
         order={editingProduct}
         onSuccess={invalidateAll}
       />
+
+      {/* Delete single product confirm */}
+      <AlertDialog open={!!confirmDeleteId} onOpenChange={open => { if (!open) setConfirmDeleteId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>تأكيد حذف المنتج</AlertDialogTitle>
+            <AlertDialogDescription>
+              هل أنت متأكد من حذف هذا المنتج من الفاتورة؟ لا يمكن التراجع عن هذا الإجراء.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={() => confirmDeleteId && handleDeleteProduct(confirmDeleteId)}
+              disabled={!!deletingProductId}>
+              {deletingProductId ? "جاري الحذف..." : "نعم، احذف"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Status change confirm */}
       <AlertDialog open={!!pendingStatus} onOpenChange={open => { if (!open) setPendingStatus(null); }}>
