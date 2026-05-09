@@ -186,7 +186,11 @@ export default function OrderDetail() {
   const handleReturnConfirm = () => {
     if (!returnReason) { toast({ title: "خطأ", description: "اختر سبب الإرجاع.", variant: "destructive" }); return; }
     if (returnReason === "other" && !returnNote.trim()) { toast({ title: "خطأ", description: "اكتب سبب الإرجاع.", variant: "destructive" }); return; }
-    if (returnReceived === null) { toast({ title: "خطأ", description: "حدد هل تم استلام المرتجع أم لا.", variant: "destructive" }); return; }
+
+    // لو الطلب مش في بيان شحن → المرتجع تلقائياً في المخزن
+    const inManifest = !!manifestStatus;
+    const finalReturnReceived = inManifest ? returnReceived : true;
+    if (inManifest && returnReceived === null) { toast({ title: "خطأ", description: "حدد هل تم استلام المرتجع أم لا.", variant: "destructive" }); return; }
 
     updateOrder.mutate({
       id,
@@ -195,7 +199,7 @@ export default function OrderDetail() {
         returnReason,
         returnNote: returnReason === "other" ? returnNote.trim() : null,
         isDamaged: returnIsDamaged,
-        returnReceived,
+        returnReceived: finalReturnReceived,
       } as any,
     }, {
       onSuccess: (updated) => {
@@ -471,7 +475,8 @@ export default function OrderDetail() {
                 />
               </div>
             )}
-            {/* هل تم استلام المرتجع؟ */}
+            {/* هل تم استلام المرتجع؟ — يظهر فقط لو الطلب في بيان شحن */}
+            {!!manifestStatus && (
             <div className="space-y-2">
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">هل تم استلام المرتجع؟ *</p>
               <div className="flex gap-2.5">
@@ -533,6 +538,7 @@ export default function OrderDetail() {
                 {returnReceived === null && "⚠ مطلوب — حدد حالة الاستلام"}
               </p>
             </div>
+            )}
             {/* Damaged checkbox */}
             <div
               className={`flex items-center gap-3 p-2.5 rounded border cursor-pointer transition-colors ${returnIsDamaged ? "border-amber-700 bg-amber-900/20" : "border-border bg-card/50"}`}
