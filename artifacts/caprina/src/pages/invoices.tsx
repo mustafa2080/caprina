@@ -300,31 +300,18 @@ export default function Invoices() {
       const orderNum = String(rep.id).padStart(4, "0");
       const city = (rep as any).city ?? "";
 
-      type FlatRow = { product: string; color: string; size: string; quantity: number; partialQuantity: number | null; unitPrice: number; totalPrice: number; };
-      const mergedMap = new Map<string, FlatRow>();
-      for (const o of realOrders) {
-        const color = (o as any).color ?? "";
-        const size = (o as any).size ?? "";
-        const key = `${o.product}|||${color}|||${size}|||${o.unitPrice}`;
-        if (mergedMap.has(key)) {
-          const ex = mergedMap.get(key)!;
-          ex.quantity += o.quantity;
-          ex.totalPrice = parseFloat((ex.totalPrice + o.totalPrice).toFixed(2));
-          if ((o as any).partialQuantity != null) ex.partialQuantity = (ex.partialQuantity ?? 0) + (o as any).partialQuantity;
-        } else {
-          mergedMap.set(key, { product: o.product, color, size, quantity: o.quantity, partialQuantity: (o as any).partialQuantity ?? null, unitPrice: o.unitPrice, totalPrice: o.totalPrice });
-        }
-      }
-
-      const rowCount = mergedMap.size;
+      const rowCount = realOrders.length;
       const maxRowsNoScale = perPage === 4 ? 4 : perPage === 2 ? 8 : 15;
       const scaleFactor = rowCount <= maxRowsNoScale ? 1 : Math.max(0.6, maxRowsNoScale / rowCount);
       const tblFontSize = (7 * scaleFactor).toFixed(1);
       const cellPad = scaleFactor < 0.85 ? "0.4mm 0.8mm" : "0.8mm 1mm";
 
-      const productRows = Array.from(mergedMap.values()).map(r => {
-        const displayQty = r.partialQuantity != null ? `${r.partialQuantity} / ${r.quantity}` : `${r.quantity}`;
-        return `<tr><td class="name-col" style="padding:${cellPad}">${r.product}</td><td style="padding:${cellPad}">${r.size || "&#8212;"}</td><td style="padding:${cellPad}">${r.color || "&#8212;"}</td><td style="font-weight:900;padding:${cellPad}">${displayQty}</td><td style="padding:${cellPad}">${formatCurrency(r.unitPrice)}</td><td style="font-weight:900;padding:${cellPad}">${formatCurrency(r.totalPrice)}</td></tr>`;
+      const productRows = realOrders.map((o: any) => {
+        const color = o.color ?? "";
+        const size = o.size ?? "";
+        const partialQuantity = o.partialQuantity ?? null;
+        const displayQty = partialQuantity != null ? `${partialQuantity} / ${o.quantity}` : `${o.quantity}`;
+        return `<tr><td class="name-col" style="padding:${cellPad}">${o.product}</td><td style="padding:${cellPad}">${size || "&#8212;"}</td><td style="padding:${cellPad}">${color || "&#8212;"}</td><td style="font-weight:900;padding:${cellPad}">${displayQty}</td><td style="padding:${cellPad}">${formatCurrency(o.unitPrice)}</td><td style="font-weight:900;padding:${cellPad}">${formatCurrency(o.totalPrice)}</td></tr>`;
       }).join("");
 
       const totalQty = realOrders.reduce((s: number, o: any) => s + o.quantity, 0);
