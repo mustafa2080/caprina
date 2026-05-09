@@ -657,6 +657,7 @@ export interface ManifestStats {
   delivered: number;
   returned: number;
   pending: number;
+  postponed: number;
   deliveryRate: number;
   totalRevenue: number;
   totalCost: number;
