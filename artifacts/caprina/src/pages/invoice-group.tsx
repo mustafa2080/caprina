@@ -163,7 +163,8 @@ function EditProductDialog({ open, onOpenChange, order: o, onSuccess }: {
           onError: () => reject(),
         });
       });
-      queryClient.invalidateQueries({ queryKey: ["invoice-group"] });
+      await queryClient.invalidateQueries({ queryKey: ["invoice-group"] });
+      await queryClient.refetchQueries({ queryKey: ["invoice-group"] });
       queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
       toast({ title: "تم الحفظ", description: "تم تعديل المنتج بنجاح." });
       onSuccess(); onOpenChange(false);
@@ -228,6 +229,16 @@ function EditProductDialog({ open, onOpenChange, order: o, onSuccess }: {
           <div>
             <label className="text-xs font-medium mb-1.5 block">اسم المنتج *</label>
             <Input value={product} onChange={e => setProduct(e.target.value)} className="h-9 text-sm" placeholder="اسم المنتج" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium mb-1.5 block">اللون</label>
+              <Input value={color} onChange={e => setColor(e.target.value)} className="h-9 text-sm" placeholder="مثال: أسود" />
+            </div>
+            <div>
+              <label className="text-xs font-medium mb-1.5 block">المقاس</label>
+              <Input value={size} onChange={e => setSize(e.target.value)} className="h-9 text-sm" placeholder="مثال: XL" />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>

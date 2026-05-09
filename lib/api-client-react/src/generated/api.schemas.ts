@@ -110,6 +110,10 @@ export interface UpdateOrderBody {
   /** @nullable */
   address?: string | null;
   product?: string;
+  /** @nullable */
+  color?: string | null;
+  /** @nullable */
+  size?: string | null;
   /** @minimum 1 */
   quantity?: number;
   /** @minimum 0 */
