@@ -3,23 +3,30 @@ import { format } from "date-fns";
 import {
   ArrowRight, AlertCircle, Printer, Trash2, RefreshCw,
   Package, Phone, MapPin, RotateCcw, Lock, MessageCircle,
+  Pencil, Plus, Save, X, Search,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useState } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useUpdateOrder, getListOrdersQueryKey, getGetOrdersSummaryQueryKey } from "@workspace/api-client-react";
+import { useUpdateOrder, getGetOrderQueryKey, getListOrdersQueryKey, getGetOrdersSummaryQueryKey } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ordersApi, apiFetch, manifestsApi } from "@/lib/api";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+import { ordersApi, apiFetch, manifestsApi, productsApi, variantsApi } from "@/lib/api";
 import { STATUS_LABELS as statusLabels, STATUS_CLASSES as statusClasses } from "@/lib/order-constants";
 import { type WhatsAppOrderData } from "@/lib/whatsapp";
 import { WhatsAppDialog } from "@/components/whatsapp-dialog";
@@ -27,6 +34,417 @@ import { useBrand } from "@/contexts/BrandContext";
 
 const formatCurrency = (n: number) =>
   new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(n);
+
+// ── Product Search Combobox ───────────────────────────────────────────────────
+function ProductSearchCombobox({ products, allVariants, onSelect }: {
+  products: any[]; allVariants: any[]; onSelect: (p: any) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const inStockProducts = useMemo(() => products.filter((p: any) => {
+    const variants = allVariants.filter((v: any) => v.productId === p.id);
+    if (variants.length > 0) return variants.some((v: any) => (v.totalQuantity ?? 0) > 0);
+    return (p.totalQuantity ?? 0) > 0;
+  }), [products, allVariants]);
+
+  const filtered = useMemo(() => {
+    const q = query.toLowerCase().trim();
+    return (q ? inStockProducts.filter((p: any) => p.name?.toLowerCase().includes(q)) : inStockProducts).slice(0, 20);
+  }, [query, inStockProducts]);
+
+  useEffect(() => {
+    const fn = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", fn);
+    return () => document.removeEventListener("mousedown", fn);
+  }, []);
+
+  const getStock = (p: any) => {
+    const variants = allVariants.filter((v: any) => v.productId === p.id);
+    return variants.length > 0
+      ? variants.reduce((s: number, v: any) => s + (v.totalQuantity ?? 0), 0)
+      : (p.totalQuantity ?? 0);
+  };
+
+  return (
+    <div ref={ref} className="relative">
+      <div className="relative">
+        <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+        <Input className="h-9 text-sm pr-8 bg-card" placeholder="ابحث عن منتج من المخزون..."
+          value={query} onChange={e => { setQuery(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)} />
+        {query && (
+          <button type="button" onClick={() => setQuery("")} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+      {open && (
+        <div className="absolute z-50 mt-1 w-full bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
+          {filtered.length === 0 ? (
+            <div className="px-3 py-4 text-center text-sm text-muted-foreground">لا يوجد منتج في المخزون</div>
+          ) : filtered.map((p: any) => {
+            const stock = getStock(p);
+            return (
+              <button key={p.id} type="button"
+                className="w-full text-right flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-muted/50 transition-colors text-sm border-b border-border/30 last:border-0"
+                onClick={() => { onSelect(p); setQuery(""); setOpen(false); }}>
+                <div className="flex items-center gap-2 min-w-0">
+                  <Package className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                  <span className="font-medium truncate">{p.name}</span>
+                </div>
+                <Badge variant="outline" className={`text-[9px] font-bold shrink-0 ${stock > 0 ? "border-emerald-400 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400" : "border-red-400 text-red-600"}`}>
+                  {stock > 0 ? `${stock} متاح` : "نفد"}
+                </Badge>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Edit Product Dialog ───────────────────────────────────────────────────────
+function EditProductDialog({ open, onOpenChange, order: o, onSuccess }: {
+  open: boolean; onOpenChange: (v: boolean) => void; order: any; onSuccess: () => void;
+}) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const updateOrder = useUpdateOrder();
+  const { data: products = [] } = useQuery({ queryKey: ["products"], queryFn: productsApi.list });
+  const { data: allVariants = [] } = useQuery({ queryKey: ["variants"], queryFn: variantsApi.listAll });
+
+  const [product, setProduct] = useState("");
+  const [quantity, setQuantity] = useState(1);
+  const [unitPrice, setUnitPrice] = useState(0);
+  const [color, setColor] = useState("");
+  const [size, setSize] = useState("");
+  const [notes, setNotes] = useState("");
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (o && open) {
+      setProduct(o.product || "");
+      setQuantity(o.quantity || 1);
+      setUnitPrice(o.unitPrice || 0);
+      setColor(o.color || "");
+      setSize(o.size || "");
+      setNotes(o.notes || "");
+      setSelectedProduct(null);
+    }
+  }, [o, open]);
+
+  const productVariants = allVariants.filter((v: any) => v.productId === selectedProduct?.id);
+  const availableColors = [...new Set(productVariants.map((v: any) => v.color))] as string[];
+  const hasVariants = productVariants.length > 0;
+
+  const handleSelectProduct = (p: any) => {
+    setSelectedProduct(p);
+    setProduct(p.name);
+    setColor(""); setSize("");
+    if (p.unitPrice) setUnitPrice(p.unitPrice);
+  };
+
+  const handleSubmit = async () => {
+    if (!product.trim() || unitPrice <= 0 || quantity < 1) {
+      toast({ title: "خطأ", description: "تأكد من اسم المنتج والسعر والكمية.", variant: "destructive" });
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await new Promise<void>((resolve, reject) => {
+        updateOrder.mutate({ id: o.id, data: { product, quantity, unitPrice, notes: notes || null } as any }, {
+          onSuccess: (updated: any) => {
+            queryClient.setQueryData(getGetOrderQueryKey(o.id), updated);
+            resolve();
+          },
+          onError: () => reject(),
+        });
+      });
+      queryClient.invalidateQueries({ queryKey: ["invoice-group"] });
+      queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
+      toast({ title: "تم الحفظ", description: "تم تعديل المنتج بنجاح." });
+      onSuccess(); onOpenChange(false);
+    } catch {
+      toast({ title: "خطأ", description: "فشل الحفظ.", variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="text-sm flex items-center gap-2">
+            <Pencil className="w-4 h-4 text-primary" />تعديل المنتج
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-1">
+          <div>
+            <label className="text-xs font-medium mb-1.5 block">اختر من المخزون (اختياري)</label>
+            {selectedProduct ? (
+              <div className="flex items-center justify-between gap-2 px-3 py-2 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800 rounded-md">
+                <div className="flex items-center gap-2">
+                  <Package className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span className="text-sm font-bold">{selectedProduct.name}</span>
+                </div>
+                <button type="button" onClick={() => setSelectedProduct(null)}
+                  className="text-muted-foreground hover:text-red-500"><X className="w-4 h-4" /></button>
+              </div>
+            ) : (
+              <ProductSearchCombobox products={products} allVariants={allVariants} onSelect={handleSelectProduct} />
+            )}
+          </div>
+          {selectedProduct && hasVariants && (
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[10px] text-muted-foreground mb-1 block">اللون</label>
+                <select value={color} onChange={e => { setColor(e.target.value); setSize(""); }}
+                  className="w-full h-9 text-sm rounded-md border border-input bg-card px-2 focus:outline-none focus:ring-1 focus:ring-ring">
+                  <option value="">اختر لون...</option>
+                  {availableColors.map((c: string) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] text-muted-foreground mb-1 block">المقاس</label>
+                <select value={size} disabled={!color} onChange={e => {
+                  setSize(e.target.value);
+                  const v = productVariants.find((pv: any) => pv.color === color && pv.size === e.target.value);
+                  if (v?.unitPrice) setUnitPrice(v.unitPrice);
+                }}
+                  className="w-full h-9 text-sm rounded-md border border-input bg-card px-2 focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50">
+                  <option value="">اختر مقاس...</option>
+                  {productVariants.filter((v: any) => v.color === color).map((v: any) => {
+                    const a = v.totalQuantity ?? 0;
+                    return <option key={v.id} value={v.size} disabled={a === 0}>{v.size} {a === 0 ? "(نفد)" : `(${a})`}</option>;
+                  })}
+                </select>
+              </div>
+            </div>
+          )}
+          <div>
+            <label className="text-xs font-medium mb-1.5 block">اسم المنتج *</label>
+            <Input value={product} onChange={e => setProduct(e.target.value)} className="h-9 text-sm" placeholder="اسم المنتج" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium mb-1.5 block">الكمية *</label>
+              <div className="flex items-center gap-1">
+                <button type="button" onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                  className="w-8 h-9 flex items-center justify-center rounded border border-input bg-card hover:bg-muted text-sm font-bold">−</button>
+                <span className="w-10 text-center text-sm font-bold">{quantity}</span>
+                <button type="button" onClick={() => setQuantity(q => q + 1)}
+                  className="w-8 h-9 flex items-center justify-center rounded border border-input bg-card hover:bg-muted text-sm font-bold">+</button>
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-medium mb-1.5 block">سعر البيع (ج.م) *</label>
+              <Input type="number" min={0} value={unitPrice || ""} onChange={e => setUnitPrice(Number(e.target.value))} className="h-9 text-sm" />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-medium mb-1.5 block">ملاحظات</label>
+            <Textarea value={notes} onChange={e => setNotes(e.target.value)} className="min-h-[50px] text-sm resize-none" placeholder="ملاحظات اختيارية..." />
+          </div>
+        </div>
+        <DialogFooter className="flex gap-2 mt-2">
+          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} className="flex-1">إلغاء</Button>
+          <Button size="sm" onClick={handleSubmit} disabled={isSubmitting || !product.trim() || unitPrice <= 0}
+            className="flex-1 gap-1">
+            <Save className="w-3 h-3" />{isSubmitting ? "جاري الحفظ..." : "حفظ التعديل"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Add Product Dialog ────────────────────────────────────────────────────────
+function AddProductDialog({ open, onOpenChange, repOrder, invoiceNumber: invNum, onSuccess }: {
+  open: boolean; onOpenChange: (v: boolean) => void; repOrder: any; invoiceNumber: string; onSuccess: () => void;
+}) {
+  const { toast } = useToast();
+  const { data: products = [] } = useQuery({ queryKey: ["products"], queryFn: productsApi.list });
+  const { data: allVariants = [] } = useQuery({ queryKey: ["variants"], queryFn: variantsApi.listAll });
+
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [variantRows, setVariantRows] = useState<{ color: string; size: string; quantity: number }[]>([{ color: "", size: "", quantity: 1 }]);
+  const [unitPrice, setUnitPrice] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const productVariants = allVariants.filter((v: any) => v.productId === selectedProduct?.id);
+  const availableColors = [...new Set(productVariants.map((v: any) => v.color))] as string[];
+  const hasVariants = productVariants.length > 0;
+
+  const reset = () => {
+    setSelectedProduct(null);
+    setVariantRows([{ color: "", size: "", quantity: 1 }]);
+    setUnitPrice(0);
+  };
+
+  const handleSelectProduct = (p: any) => {
+    setSelectedProduct(p);
+    setVariantRows([{ color: "", size: "", quantity: 1 }]);
+    if (p.unitPrice) setUnitPrice(p.unitPrice);
+  };
+
+  const updateRow = (i: number, key: string, val: any) => {
+    setVariantRows(rows => {
+      const next = rows.map((r, idx) => idx === i ? { ...r, [key]: val, ...(key === "color" ? { size: "" } : {}) } : r);
+      if (key === "size") {
+        const row = next[i];
+        const v = productVariants.find((pv: any) => pv.color === row.color && pv.size === val);
+        if (v?.unitPrice) setUnitPrice(v.unitPrice);
+      }
+      return next;
+    });
+  };
+
+  const handleSubmit = async () => {
+    if (!selectedProduct) return;
+    setIsSubmitting(true);
+    try {
+      const filledRows = hasVariants ? variantRows.filter(r => r.color && r.size) : variantRows;
+      if (filledRows.length === 0) {
+        toast({ title: "خطأ", description: "اختر لون ومقاس على الأقل.", variant: "destructive" });
+        return;
+      }
+      const items = filledRows.map(r => ({
+        product: selectedProduct.name,
+        color: r.color || null,
+        size: r.size || null,
+        quantity: r.quantity,
+        unitPrice,
+        productId: selectedProduct.id,
+        variantId: hasVariants ? (productVariants.find((v: any) => v.color === r.color && v.size === r.size)?.id ?? null) : null,
+      }));
+      await ordersApi.batchCreate({
+        invoiceNumber: invNum,
+        customerName: repOrder.customerName,
+        phone: repOrder.phone ?? null,
+        city: repOrder.city ?? null,
+        address: repOrder.address ?? null,
+        shippingCompanyId: repOrder.shippingCompanyId ?? null,
+        notes: null,
+        items,
+      });
+      toast({ title: "تم إضافة المنتج", description: `${selectedProduct.name} اتضاف للفاتورة بنجاح.` });
+      reset(); onOpenChange(false); onSuccess();
+    } catch (e: any) {
+      toast({ title: "خطأ", description: e?.message || "فشل الإضافة.", variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={v => { if (!v) reset(); onOpenChange(v); }}>
+      <DialogContent className="max-w-md" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="text-sm flex items-center gap-2">
+            <Plus className="w-4 h-4 text-primary" />إضافة منتج للفاتورة
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-1">
+          <div>
+            <label className="text-xs font-medium mb-1.5 block">اختر من المخزون *</label>
+            {selectedProduct ? (
+              <div className="flex items-center justify-between gap-2 px-3 py-2 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800 rounded-md">
+                <div className="flex items-center gap-2">
+                  <Package className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span className="text-sm font-bold">{selectedProduct.name}</span>
+                </div>
+                <button type="button" onClick={() => { setSelectedProduct(null); setVariantRows([{ color: "", size: "", quantity: 1 }]); }}
+                  className="text-muted-foreground hover:text-red-500"><X className="w-4 h-4" /></button>
+              </div>
+            ) : (
+              <ProductSearchCombobox products={products} allVariants={allVariants} onSelect={handleSelectProduct} />
+            )}
+          </div>
+          {selectedProduct && hasVariants && (
+            <div className="space-y-2">
+              {variantRows.map((row, ri) => {
+                const sizesForColor = productVariants.filter((v: any) => v.color === row.color).map((v: any) => v.size);
+                return (
+                  <div key={ri} className="flex items-end gap-2 p-2 bg-muted/10 rounded-md border border-border/40">
+                    <div className="flex-1">
+                      <label className="text-[10px] text-muted-foreground mb-1 block">اللون</label>
+                      <select value={row.color} onChange={e => updateRow(ri, "color", e.target.value)}
+                        className="w-full h-9 text-sm rounded-md border border-input bg-card px-2 focus:outline-none focus:ring-1 focus:ring-ring">
+                        <option value="">اختر لون...</option>
+                        {availableColors.map((c: string) => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-[10px] text-muted-foreground mb-1 block">المقاس</label>
+                      <select value={row.size} disabled={!row.color} onChange={e => updateRow(ri, "size", e.target.value)}
+                        className="w-full h-9 text-sm rounded-md border border-input bg-card px-2 focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50">
+                        <option value="">اختر مقاس...</option>
+                        {sizesForColor.map((s: string) => {
+                          const v = productVariants.find((pv: any) => pv.color === row.color && pv.size === s);
+                          const a = v ? (v.totalQuantity ?? 0) : 0;
+                          return <option key={s} value={s} disabled={a === 0}>{s} {a === 0 ? "(نفد)" : `(${a})`}</option>;
+                        })}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground mb-1 block">الكمية</label>
+                      <div className="flex items-center gap-1">
+                        <button type="button" onClick={() => updateRow(ri, "quantity", Math.max(1, row.quantity - 1))}
+                          className="w-7 h-9 flex items-center justify-center rounded border border-input bg-card hover:bg-muted text-sm font-bold">−</button>
+                        <span className="w-7 text-center text-sm font-bold">{row.quantity}</span>
+                        <button type="button" onClick={() => updateRow(ri, "quantity", row.quantity + 1)}
+                          className="w-7 h-9 flex items-center justify-center rounded border border-input bg-card hover:bg-muted text-sm font-bold">+</button>
+                      </div>
+                    </div>
+                    {variantRows.length > 1 && (
+                      <button type="button" onClick={() => setVariantRows(r => r.filter((_, idx) => idx !== ri))}
+                        className="mb-0.5 p-1.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+              <button type="button" onClick={() => setVariantRows(r => [...r, { color: "", size: "", quantity: 1 }])}
+                className="w-full flex items-center justify-center gap-1.5 text-xs font-bold text-primary border border-dashed border-primary/40 hover:bg-primary/5 py-2 rounded-md transition-colors">
+                <Plus className="w-3.5 h-3.5" />أضف لون / مقاس آخر
+              </button>
+            </div>
+          )}
+          {selectedProduct && !hasVariants && (
+            <div>
+              <label className="text-xs font-medium mb-1.5 block">الكمية *</label>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => setVariantRows(r => [{ ...r[0], quantity: Math.max(1, r[0].quantity - 1) }])}
+                  className="w-9 h-9 flex items-center justify-center rounded border border-input bg-card hover:bg-muted text-sm font-bold">−</button>
+                <span className="w-10 text-center text-sm font-bold">{variantRows[0]?.quantity ?? 1}</span>
+                <button type="button" onClick={() => setVariantRows(r => [{ ...r[0], quantity: r[0].quantity + 1 }])}
+                  className="w-9 h-9 flex items-center justify-center rounded border border-input bg-card hover:bg-muted text-sm font-bold">+</button>
+              </div>
+            </div>
+          )}
+          {selectedProduct && (
+            <div>
+              <label className="text-xs font-medium mb-1.5 block">سعر البيع (ج.م) *</label>
+              <Input type="number" min={0} value={unitPrice || ""} onChange={e => setUnitPrice(Number(e.target.value))} className="h-9 text-sm" />
+            </div>
+          )}
+        </div>
+        <DialogFooter className="flex gap-2 mt-2">
+          <Button variant="outline" size="sm" onClick={() => { reset(); onOpenChange(false); }} className="flex-1">إلغاء</Button>
+          <Button size="sm" onClick={handleSubmit} disabled={isSubmitting || !selectedProduct || unitPrice <= 0}
+            className="flex-1 gap-1">
+            <Plus className="w-3 h-3" />{isSubmitting ? "جاري الإضافة..." : "إضافة للفاتورة"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function InvoiceGroup() {
   const { brand } = useBrand();
@@ -43,8 +461,9 @@ export default function InvoiceGroup() {
   const [pendingStatus, setPendingStatus]               = useState<string | null>(null);
   const [isUpdatingStatus, setIsUpdatingStatus]         = useState(false);
   const [waOrder, setWaOrder]                           = useState<WhatsAppOrderData | null>(null);
+  const [editingOrder, setEditingOrder]                 = useState<any>(null);
+  const [showAddProduct, setShowAddProduct]             = useState(false);
 
-  // ─── Fetch all orders in this invoice ─────────────────────────────────────
   const { data: orders, isLoading, error } = useQuery({
     queryKey: ["invoice-group", invoiceNumber],
     queryFn: () => apiFetch<any[]>(`/orders/by-invoice/${encodeURIComponent(invoiceNumber)}`),
@@ -54,7 +473,6 @@ export default function InvoiceGroup() {
     retryDelay: 1000,
   });
 
-  // ─── Fetch manifest status for this invoice ────────────────────────────────
   const { data: invoiceManifestData } = useQuery({
     queryKey: ["invoice-manifest-status", invoiceNumber],
     queryFn: () => manifestsApi.getInvoiceManifestStatus(invoiceNumber),
@@ -62,7 +480,6 @@ export default function InvoiceGroup() {
     staleTime: 0,
   });
 
-  // أي طلب في الفاتورة عنده بيان مفتوح؟
   const openManifestEntry = invoiceManifestData?.find((e: any) => e.manifestStatus === "open");
   const hasOpenManifest = !!openManifestEntry;
 
@@ -72,15 +489,12 @@ export default function InvoiceGroup() {
     queryClient.invalidateQueries({ queryKey: ["invoice-group", invoiceNumber] });
   };
 
-  // ─── Bulk status change for all orders in group ───────────────────────────
   const handleBulkStatusChange = async (newStatus: string) => {
     if (!orders?.length) return;
-
-    // ── تحقق من وجود بيان شحن مفتوح ──────────────────────────────────────
     if (hasOpenManifest) {
       toast({
         title: "⛔ لا يمكن تعديل حالة الطلب",
-        description: `هذه الفاتورة مرتبطة ببيان شحن مفتوح (${openManifestEntry?.manifestNumber}). يجب تعديل حالة الطلبات من داخل البيان في قسم شركات الشحن فقط.`,
+        description: `هذه الفاتورة مرتبطة ببيان شحن مفتوح (${openManifestEntry?.manifestNumber}).`,
         variant: "destructive",
       });
       setPendingStatus(null);
@@ -105,21 +519,17 @@ export default function InvoiceGroup() {
     toast({ title: `تم تحديث ${done} طلب ✅`, description: `الحالة: ${statusLabels[newStatus] ?? newStatus}` });
   };
 
-  // ─── Bulk delete all orders in group ─────────────────────────────────────
   const handleBulkDelete = async () => {
     if (!orders?.length) return;
-
-    // ── تحقق من وجود بيان شحن مفتوح قبل الحذف ────────────────────────────
     if (hasOpenManifest) {
       toast({
         title: "⛔ لا يمكن حذف الطلبات",
-        description: `هذه الفاتورة مرتبطة ببيان شحن مفتوح (${openManifestEntry?.manifestNumber}). لا يمكن حذف الطلبات إلا بعد إغلاق البيان من قسم شركات الشحن.`,
+        description: `هذه الفاتورة مرتبطة ببيان شحن مفتوح (${openManifestEntry?.manifestNumber}).`,
         variant: "destructive",
       });
       setShowBulkDeleteDialog(false);
       return;
     }
-
     setIsBulkDeleting(true);
     try {
       const token = localStorage.getItem("caprina_token");
@@ -141,7 +551,6 @@ export default function InvoiceGroup() {
     }
   };
 
-  // ─── Print invoice ────────────────────────────────────────────────────────
   const handlePrint = () => {
     if (!orders?.length) return;
     const rep = orders[0];
@@ -150,7 +559,6 @@ export default function InvoiceGroup() {
     const shippingCost = rep.shippingCost ?? 0;
     const brandName = brand.name || "CAPRINA";
     const dateLabel = format(new Date(rep.createdAt), "yyyy/MM/dd HH:mm");
-
     const rowsHtml = orders.map((order: any, index: number) => `
       <tr>
         <td>${index + 1}</td>
@@ -161,93 +569,45 @@ export default function InvoiceGroup() {
         <td>${formatCurrency(order.totalPrice)}</td>
       </tr>
     `).join("");
-
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
-
     printWindow.document.write(`<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="UTF-8" />
-  <title>فاتورة ${invoiceNumber}</title>
-  <style>
-    body { font-family: Arial, Tahoma, sans-serif; margin: 0; padding: 24px; color: #111; background: #fff; }
-    .sheet { max-width: 900px; margin: 0 auto; border: 1px solid #ddd; padding: 24px; }
-    .header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 20px; border-bottom: 2px solid #111; padding-bottom: 16px; }
-    .brand { font-size: 28px; font-weight: 800; }
-    .muted { color: #666; font-size: 13px; }
-    .title { font-size: 24px; font-weight: 800; margin: 0 0 8px; }
-    .meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 24px; margin-bottom: 20px; }
-    .meta-item { font-size: 14px; }
-    .meta-item b { display: inline-block; min-width: 88px; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
-    th, td { border: 1px solid #ddd; padding: 10px 8px; text-align: center; font-size: 14px; }
-    th { background: #111; color: #fff; }
-    td.name { text-align: right; font-weight: 700; }
-    .totals { width: 320px; margin-right: auto; }
-    .totals-row { display: flex; justify-content: space-between; border-bottom: 1px solid #ddd; padding: 8px 0; font-size: 14px; }
-    .totals-row.total { font-size: 18px; font-weight: 800; border-bottom: 2px solid #111; }
-    @media print {
-      body { padding: 0; }
-      .sheet { border: 0; max-width: none; }
-    }
-  </style>
-</head>
-<body>
-  <div class="sheet">
-    <div class="header">
-      <div>
-        <div class="brand">${brandName}</div>
-        <div class="muted">فاتورة رقم: ${invoiceNumber}</div>
-        <div class="muted">${dateLabel}</div>
-      </div>
-      <div>
-        <h1 class="title">فاتورة العميل</h1>
-        <div class="muted">${orders.length} منتجات / ${totalQty} قطعة</div>
-      </div>
-    </div>
-
-    <div class="meta">
-      <div class="meta-item"><b>العميل:</b> ${rep.customerName || "-"}</div>
-      <div class="meta-item"><b>الهاتف:</b> ${rep.phone || "-"}</div>
-      <div class="meta-item"><b>المحافظة:</b> ${rep.city || "-"}</div>
-      <div class="meta-item"><b>العنوان:</b> ${rep.address || "-"}</div>
-    </div>
-
-    <table>
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>المنتج</th>
-          <th>اللون / المقاس</th>
-          <th>الكمية</th>
-          <th>سعر الوحدة</th>
-          <th>الإجمالي</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${rowsHtml}
-      </tbody>
-    </table>
-
-    <div class="totals">
-      <div class="totals-row"><span>إجمالي المنتجات</span><b>${formatCurrency(totalPrice)}</b></div>
-      <div class="totals-row"><span>الشحن</span><b>${formatCurrency(shippingCost)}</b></div>
-      <div class="totals-row total"><span>الإجمالي الكلي</span><b>${formatCurrency(totalPrice + shippingCost)}</b></div>
-    </div>
-  </div>
-</body>
-</html>`);
+<html lang="ar" dir="rtl"><head><meta charset="UTF-8" /><title>فاتورة ${invoiceNumber}</title>
+<style>
+  body{font-family:Arial,Tahoma,sans-serif;margin:0;padding:24px;color:#111;background:#fff}
+  .sheet{max-width:900px;margin:0 auto;border:1px solid #ddd;padding:24px}
+  .header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:20px;border-bottom:2px solid #111;padding-bottom:16px}
+  .brand{font-size:28px;font-weight:800}.muted{color:#666;font-size:13px}
+  .title{font-size:24px;font-weight:800;margin:0 0 8px}
+  .meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 24px;margin-bottom:20px}
+  .meta-item{font-size:14px}.meta-item b{display:inline-block;min-width:88px}
+  table{width:100%;border-collapse:collapse;margin-bottom:18px}
+  th,td{border:1px solid #ddd;padding:10px 8px;text-align:center;font-size:14px}
+  th{background:#111;color:#fff}td.name{text-align:right;font-weight:700}
+  .totals{width:320px;margin-right:auto}
+  .totals-row{display:flex;justify-content:space-between;border-bottom:1px solid #ddd;padding:8px 0;font-size:14px}
+  .totals-row.total{font-size:18px;font-weight:800;border-bottom:2px solid #111}
+  @media print{body{padding:0}.sheet{border:0;max-width:none}}
+</style></head><body><div class="sheet">
+<div class="header"><div><div class="brand">${brandName}</div><div class="muted">فاتورة رقم: ${invoiceNumber}</div><div class="muted">${dateLabel}</div></div>
+<div><h1 class="title">فاتورة العميل</h1><div class="muted">${orders.length} منتجات / ${totalQty} قطعة</div></div></div>
+<div class="meta">
+  <div class="meta-item"><b>العميل:</b> ${rep.customerName || "-"}</div>
+  <div class="meta-item"><b>الهاتف:</b> ${rep.phone || "-"}</div>
+  <div class="meta-item"><b>المحافظة:</b> ${rep.city || "-"}</div>
+  <div class="meta-item"><b>العنوان:</b> ${rep.address || "-"}</div>
+</div>
+<table><thead><tr><th>#</th><th>المنتج</th><th>اللون/المقاس</th><th>الكمية</th><th>سعر الوحدة</th><th>الإجمالي</th></tr></thead>
+<tbody>${rowsHtml}</tbody></table>
+<div class="totals">
+  <div class="totals-row"><span>إجمالي المنتجات</span><b>${formatCurrency(totalPrice)}</b></div>
+  <div class="totals-row"><span>الشحن</span><b>${formatCurrency(shippingCost)}</b></div>
+  <div class="totals-row total"><span>الإجمالي الكلي</span><b>${formatCurrency(totalPrice + shippingCost)}</b></div>
+</div></div></body></html>`);
     printWindow.document.close();
-    printWindow.onload = () => {
-      setTimeout(() => {
-        printWindow.focus();
-        printWindow.print();
-      }, 400);
-    };
+    printWindow.onload = () => { setTimeout(() => { printWindow.focus(); printWindow.print(); }, 400); };
   };
 
-  // ─── WhatsApp ─────────────────────────────────────────────────────────────
   const handleWhatsApp = () => {
     if (!orders?.length) return;
     const rep = orders[0];
@@ -269,10 +629,7 @@ export default function InvoiceGroup() {
       for (const order of orders) {
         if (order.status === "pending") {
           await new Promise<void>((resolve) => {
-            updateOrder.mutate(
-              { id: order.id, data: { status: "warehouse_ready" } },
-              { onSuccess: () => resolve(), onError: () => resolve() }
-            );
+            updateOrder.mutate({ id: order.id, data: { status: "warehouse_ready" } }, { onSuccess: () => resolve(), onError: () => resolve() });
           });
         }
       }
@@ -283,14 +640,12 @@ export default function InvoiceGroup() {
     }
   };
 
-  // ─── Loading / error states ───────────────────────────────────────────────
   if (isLoading) return <div className="p-12 text-center text-muted-foreground animate-pulse">جاري التحميل...</div>;
   if (error) return (
     <div className="p-12 text-center">
       <AlertCircle className="w-12 h-12 mx-auto mb-3 text-destructive opacity-50" />
       <h2 className="text-lg font-bold mb-2">حدث خطأ في تحميل الفاتورة</h2>
       <p className="text-sm text-muted-foreground mb-3">{(error as any)?.message || "تعذر الاتصال بالسيرفر"}</p>
-      <p className="text-xs text-muted-foreground mb-4 font-mono bg-muted/20 p-2 rounded">رقم الفاتورة: {invoiceNumber || "(فارغ)"}</p>
       <div className="flex gap-2 justify-center">
         <Button variant="outline" onClick={() => window.location.reload()}>إعادة المحاولة</Button>
         <Link href="/orders"><Button variant="outline">العودة للطلبات</Button></Link>
@@ -307,22 +662,21 @@ export default function InvoiceGroup() {
   );
 
   const rep = orders[0];
-  // السعر المستلم فعلاً لكل طلب: partial_received → unitPrice × partialQuantity، غير كده totalPrice
   const getReceivedPrice = (o: any): number => {
     if (o.status === "partial_received" && o.partialQuantity != null && o.unitPrice != null) {
       return Math.round(o.unitPrice * o.partialQuantity);
     }
     return o.totalPrice;
   };
-  const totalPrice     = orders.reduce((s: number, o: any) => s + getReceivedPrice(o), 0);
-  const totalFullPrice = orders.reduce((s: number, o: any) => s + o.totalPrice, 0);
-  const totalQty       = orders.reduce((s: number, o: any) => s + o.quantity, 0);
+  const totalPrice      = orders.reduce((s: number, o: any) => s + getReceivedPrice(o), 0);
+  const totalFullPrice  = orders.reduce((s: number, o: any) => s + o.totalPrice, 0);
+  const totalQty        = orders.reduce((s: number, o: any) => s + o.quantity, 0);
   const totalReceivedQty = orders.reduce((s: number, o: any) => s + (o.status === "partial_received" && o.partialQuantity != null ? o.partialQuantity : o.quantity), 0);
-  const hasPartial     = orders.some((o: any) => o.status === "partial_received");
-  const shippingCost   = rep.shippingCost ?? 0;
-  const allSameStatus = orders.every((o: any) => o.status === rep.status);
-  const dominantStatus = rep.status;
-  const isAnyLocked = orders.some((o: any) => (o.status === "received" || o.status === "partial_received")) && !isAdmin;
+  const hasPartial      = orders.some((o: any) => o.status === "partial_received");
+  const shippingCost    = rep.shippingCost ?? 0;
+  const allSameStatus   = orders.every((o: any) => o.status === rep.status);
+  const dominantStatus  = rep.status;
+  const isAnyLocked     = orders.some((o: any) => (o.status === "received" || o.status === "partial_received")) && !isAdmin;
 
   return (
     <div className="max-w-4xl mx-auto space-y-5 animate-in fade-in duration-500">
@@ -354,16 +708,9 @@ export default function InvoiceGroup() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Change status for all */}
-          <Select
-            value=""
-            onValueChange={(v) => { if (v) setPendingStatus(v); }}
-            disabled={isUpdatingStatus || isAnyLocked || hasOpenManifest}
-          >
-            <SelectTrigger
-              className="h-8 text-xs bg-card border-border w-44"
-              title={hasOpenManifest ? `مرتبط ببيان مفتوح (${openManifestEntry?.manifestNumber})` : undefined}
-            >
+          <Select value="" onValueChange={(v) => { if (v) setPendingStatus(v); }} disabled={isUpdatingStatus || isAnyLocked || hasOpenManifest}>
+            <SelectTrigger className="h-8 text-xs bg-card border-border w-44"
+              title={hasOpenManifest ? `مرتبط ببيان مفتوح (${openManifestEntry?.manifestNumber})` : undefined}>
               <div className="flex items-center gap-1">
                 <RefreshCw className={`w-3 h-3 ${isUpdatingStatus ? "animate-spin" : ""}`} />
                 <span>تغيير حالة الكل</span>
@@ -377,40 +724,32 @@ export default function InvoiceGroup() {
               <SelectItem value="returned">مرتجع</SelectItem>
             </SelectContent>
           </Select>
-
           <Button variant="outline" size="sm" onClick={handlePrint} className="h-8 text-xs gap-1 border-border">
             <Printer className="w-3 h-3" />فاتورة
           </Button>
-          {orders.some((o: any) => o.status === "pending" || o.status === "warehouse_ready" || o.status === "in_shipping" || o.status === "delayed") && (
-            <Button
-              variant="outline" size="sm"
-              onClick={handleWhatsApp}
-              className="h-8 text-xs gap-1 border-green-700 text-green-400 hover:bg-green-500/10 hover:text-green-400"
-              title="إرسال رسالة واتساب للعميل"
-            >
+          {orders.some((o: any) => ["pending","warehouse_ready","in_shipping","delayed"].includes(o.status)) && (
+            <Button variant="outline" size="sm" onClick={handleWhatsApp}
+              className="h-8 text-xs gap-1 border-green-700 text-green-400 hover:bg-green-500/10 hover:text-green-400">
               <MessageCircle className="w-3 h-3" />واتساب
             </Button>
           )}
-          <Button
-            variant="outline" size="sm"
+          <Button variant="outline" size="sm"
             onClick={() => !isAnyLocked && !hasOpenManifest && setShowBulkDeleteDialog(true)}
             disabled={isAnyLocked || hasOpenManifest}
-            title={hasOpenManifest ? `لا يمكن الحذف — الفاتورة مرتبطة ببيان مفتوح (${openManifestEntry?.manifestNumber})` : undefined}
-            className="h-8 text-xs gap-1 border-red-800 text-red-400 hover:bg-red-900/20 hover:text-red-400 disabled:opacity-40"
-          >
+            className="h-8 text-xs gap-1 border-red-800 text-red-400 hover:bg-red-900/20 hover:text-red-400 disabled:opacity-40">
             <Trash2 className="w-3 h-3" />حذف الكل
           </Button>
         </div>
       </div>
 
-      {/* ── بيان مفتوح — تحذير ── */}
+      {/* بيان مفتوح */}
       {hasOpenManifest && (
         <div className="flex items-center gap-2 p-3 rounded-lg bg-orange-500/10 border border-orange-500/40 text-xs text-orange-400">
           <span className="text-base shrink-0">⛔</span>
           <span>
             هذه الفاتورة مرتبطة ببيان شحن مفتوح
             <span className="font-bold mx-1 text-orange-300">({openManifestEntry?.manifestNumber})</span>
-            — لا يمكن تعديل حالة الطلبات إلا من داخل البيان في قسم شركات الشحن. يمكن التعديل فقط بعد إغلاق البيان.
+            — لا يمكن تعديل حالة الطلبات إلا من داخل البيان في قسم شركات الشحن.
           </span>
         </div>
       )}
@@ -418,37 +757,27 @@ export default function InvoiceGroup() {
       {/* Customer info */}
       <Card className="border-border bg-card">
         <CardContent className="px-4 py-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-          <div>
-            <p className="text-muted-foreground mb-0.5">العميل</p>
-            <p className="font-bold">{rep.customerName}</p>
-          </div>
-          {rep.phone && (
-            <div>
-              <p className="text-muted-foreground mb-0.5 flex items-center gap-1"><Phone className="w-3 h-3" />الهاتف</p>
-              <p className="font-bold">{rep.phone}</p>
-            </div>
-          )}
-          {rep.city && (
-            <div>
-              <p className="text-muted-foreground mb-0.5 flex items-center gap-1"><MapPin className="w-3 h-3" />المحافظة</p>
-              <p className="font-bold">{rep.city}</p>
-            </div>
-          )}
-          {rep.address && (
-            <div>
-              <p className="text-muted-foreground mb-0.5 flex items-center gap-1"><MapPin className="w-3 h-3" />العنوان</p>
-              <p className="font-bold">{rep.address}</p>
-            </div>
-          )}
+          <div><p className="text-muted-foreground mb-0.5">العميل</p><p className="font-bold">{rep.customerName}</p></div>
+          {rep.phone && <div><p className="text-muted-foreground mb-0.5 flex items-center gap-1"><Phone className="w-3 h-3" />الهاتف</p><p className="font-bold">{rep.phone}</p></div>}
+          {rep.city && <div><p className="text-muted-foreground mb-0.5 flex items-center gap-1"><MapPin className="w-3 h-3" />المحافظة</p><p className="font-bold">{rep.city}</p></div>}
+          {rep.address && <div><p className="text-muted-foreground mb-0.5 flex items-center gap-1"><MapPin className="w-3 h-3" />العنوان</p><p className="font-bold">{rep.address}</p></div>}
         </CardContent>
       </Card>
 
       {/* Products list */}
       <Card className="border-border bg-card">
         <CardHeader className="pb-2 pt-4 px-4">
-          <CardTitle className="text-sm font-bold flex items-center gap-2">
-            <Package className="w-4 h-4 text-primary" />
-            المنتجات ({orders.length})
+          <CardTitle className="text-sm font-bold flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Package className="w-4 h-4 text-primary" />
+              المنتجات ({orders.length})
+            </div>
+            {!isAnyLocked && !hasOpenManifest && (
+              <Button variant="outline" size="sm" onClick={() => setShowAddProduct(true)}
+                className="h-7 text-xs gap-1 border-primary/40 text-primary hover:bg-primary/10">
+                <Plus className="w-3 h-3" />إضافة منتج
+              </Button>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="px-4 pb-4 space-y-2">
@@ -460,23 +789,26 @@ export default function InvoiceGroup() {
                   <p className="text-sm font-bold">{order.product}</p>
                   <p className="text-[10px] text-muted-foreground">
                     {[order.color, order.size].filter(Boolean).join(" · ")}
-                    {order.color || order.size ? " · " : ""}
-                    ×{order.quantity}
+                    {order.color || order.size ? " · " : ""}×{order.quantity}
                   </p>
                 </div>
               </div>
-              <div className="text-left">
-                <p className="text-sm font-bold text-primary">
-                  {new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(getReceivedPrice(order))}
-                </p>
-                {order.status === "partial_received" && getReceivedPrice(order) !== order.totalPrice && (
-                  <p className="text-[9px] text-muted-foreground line-through">
-                    {new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(order.totalPrice)}
-                  </p>
+              <div className="flex items-center gap-2">
+                <div className="text-left">
+                  <p className="text-sm font-bold text-primary">{formatCurrency(getReceivedPrice(order))}</p>
+                  {order.status === "partial_received" && getReceivedPrice(order) !== order.totalPrice && (
+                    <p className="text-[9px] text-muted-foreground line-through">{formatCurrency(order.totalPrice)}</p>
+                  )}
+                  <Badge variant="outline" className={`text-[8px] font-bold border mt-0.5 ${statusClasses[order.status] || ""}`}>
+                    {statusLabels[order.status] || order.status}
+                  </Badge>
+                </div>
+                {!isAnyLocked && !hasOpenManifest && (
+                  <Button variant="ghost" size="icon" onClick={() => setEditingOrder(order)}
+                    className="h-7 w-7 hover:bg-primary/10 text-muted-foreground hover:text-primary shrink-0" title="تعديل المنتج">
+                    <Pencil className="w-3.5 h-3.5" />
+                  </Button>
                 )}
-                <Badge variant="outline" className={`text-[8px] font-bold border mt-0.5 ${statusClasses[order.status] || ""}`}>
-                  {statusLabels[order.status] || order.status}
-                </Badge>
               </div>
             </div>
           ))}
@@ -486,22 +818,41 @@ export default function InvoiceGroup() {
           <div className="flex items-center justify-between text-sm font-bold">
             <span>الإجمالي ({hasPartial ? `${totalReceivedQty} من ${totalQty}` : `${totalQty}`} قطعة)</span>
             <div className="text-left">
-              <span className="text-primary text-base">{new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(totalPrice)}</span>
+              <span className="text-primary text-base">{formatCurrency(totalPrice)}</span>
               {hasPartial && totalPrice !== totalFullPrice && (
-                <p className="text-[10px] text-muted-foreground line-through font-normal">{new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(totalFullPrice)}</p>
+                <p className="text-[10px] text-muted-foreground line-through font-normal">{formatCurrency(totalFullPrice)}</p>
               )}
             </div>
           </div>
           {shippingCost > 0 && (
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>تكلفة الشحن</span>
-              <span>{new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(shippingCost)}</span>
+              <span>{formatCurrency(shippingCost)}</span>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Dialogs */}
+      {/* Edit Dialog */}
+      {editingOrder && (
+        <EditProductDialog
+          open={!!editingOrder}
+          onOpenChange={(v) => { if (!v) setEditingOrder(null); }}
+          order={editingOrder}
+          onSuccess={invalidateAll}
+        />
+      )}
+
+      {/* Add Product Dialog */}
+      <AddProductDialog
+        open={showAddProduct}
+        onOpenChange={setShowAddProduct}
+        repOrder={rep}
+        invoiceNumber={invoiceNumber}
+        onSuccess={invalidateAll}
+      />
+
+      {/* Status change confirm */}
       <AlertDialog open={!!pendingStatus} onOpenChange={open => { if (!open) setPendingStatus(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -519,6 +870,7 @@ export default function InvoiceGroup() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Delete confirm */}
       <AlertDialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
