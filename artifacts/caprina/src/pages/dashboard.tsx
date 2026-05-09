@@ -434,7 +434,6 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
             <ChartCard
               title="توزيع حالات الطلبات"
-              subtitle="اضغط على الحالة لعرض طلباتها"
               dot="#22c55e"
               liveTag
             >
@@ -712,12 +711,10 @@ export default function Dashboard() {
                 </p>
                 {[
                   { label: "قيد الانتظار", val: summary.pendingOrders, color: "text-amber-700 dark:text-amber-400" },
+                  { label: "مُسلَّم", val: summary.receivedOrders, color: "text-emerald-600 dark:text-emerald-400" },
                   { label: "قيد الشحن", val: summary.shippingOrders ?? 0, color: "text-sky-600 dark:text-sky-400" },
-                  { label: "قيد الشحن في المخزن", val: summary.warehouseReadyOrders ?? 0, color: "text-orange-600 dark:text-orange-400" },
-                  { label: "استلم", val: summary.receivedOrders, color: "text-emerald-600 dark:text-emerald-400" },
-                  { label: "مؤجل", val: summary.delayedOrders ?? 0, color: "text-blue-600 dark:text-blue-400" },
+                  { label: "في المخزن", val: summary.warehouseReadyOrders ?? 0, color: "text-orange-600 dark:text-orange-400" },
                   { label: "مرتجع", val: summary.returnedOrders ?? 0, color: "text-red-600 dark:text-red-400" },
-                  { label: "استلم جزئي", val: summary.partialOrders ?? 0, color: "text-purple-600 dark:text-purple-400" },
                 ].map(({ label, val, color }) => (
                   <div key={label} className="flex justify-between text-[10px] sm:text-xs py-1 border-b border-border/30 last:border-0">
                     <span className="text-muted-foreground">{label}</span>
