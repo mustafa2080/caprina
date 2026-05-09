@@ -1,8 +1,8 @@
 import { useParams, Link, useLocation } from "wouter";
 import { format } from "date-fns";
-import { ArrowRight, AlertCircle, Pencil, Save, X, Printer, Phone, MapPin, Trash2, RotateCcw, TrendingUp, TrendingDown, AlertTriangle, Lock, MessageCircle, Package, Truck, CheckCircle2, Clock, Plus } from "lucide-react";
+import { ArrowRight, AlertCircle, Pencil, Save, X, Printer, Phone, MapPin, Trash2, RotateCcw, TrendingUp, TrendingDown, AlertTriangle, Lock, MessageCircle, Package, Truck, CheckCircle2, Clock, Plus, Search } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -57,6 +57,297 @@ type EditFormValues = z.infer<typeof editSchema>;
 
 const formatCurrency = (n: number) =>
   new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(n);
+
+// ── Product Search Combobox (same as order-form) ──────────────────────────────
+function ProductSearchCombobox({ products, allVariants, onSelect }: {
+  products: any[]; allVariants: any[]; onSelect: (p: any) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const inStockProducts = useMemo(() => products.filter((p: any) => {
+    const variants = allVariants.filter((v: any) => v.productId === p.id);
+    if (variants.length > 0) return variants.some((v: any) => (v.totalQuantity ?? 0) > 0);
+    return (p.totalQuantity ?? 0) > 0;
+  }), [products, allVariants]);
+
+  const filtered = useMemo(() => {
+    const q = query.toLowerCase().trim();
+    return (q ? inStockProducts.filter((p: any) => p.name?.toLowerCase().includes(q)) : inStockProducts).slice(0, 20);
+  }, [query, inStockProducts]);
+
+  useEffect(() => {
+    const fn = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", fn);
+    return () => document.removeEventListener("mousedown", fn);
+  }, []);
+
+  const getStock = (p: any) => {
+    const variants = allVariants.filter((v: any) => v.productId === p.id);
+    return variants.length > 0
+      ? variants.reduce((s: number, v: any) => s + (v.totalQuantity ?? 0), 0)
+      : (p.totalQuantity ?? 0);
+  };
+
+  return (
+    <div ref={ref} className="relative">
+      <div className="relative">
+        <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+        <Input className="h-9 text-sm pr-8 bg-card" placeholder="ابحث عن منتج من المخزون..."
+          value={query} onChange={e => { setQuery(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)} />
+        {query && (
+          <button type="button" onClick={() => setQuery("")} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+      {open && (
+        <div className="absolute z-50 mt-1 w-full bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
+          {filtered.length === 0 ? (
+            <div className="px-3 py-4 text-center text-sm text-muted-foreground">
+              {query ? "لا يوجد منتج بهذا الاسم في المخزون" : "لا توجد منتجات متاحة"}
+            </div>
+          ) : filtered.map((p: any) => {
+            const stock = getStock(p);
+            return (
+              <button key={p.id} type="button"
+                className="w-full text-right flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-muted/50 transition-colors text-sm border-b border-border/30 last:border-0"
+                onClick={() => { onSelect(p); setQuery(""); setOpen(false); }}>
+                <div className="flex items-center gap-2 min-w-0">
+                  <Package className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                  <span className="font-medium truncate">{p.name}</span>
+                </div>
+                <Badge variant="outline" className={`text-[9px] font-bold shrink-0 ${stock > 0 ? "border-emerald-400 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400" : "border-red-400 text-red-600"}`}>
+                  {stock > 0 ? `${stock} متاح` : "نفد"}
+                </Badge>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Add Product Dialog ────────────────────────────────────────────────────────
+function AddProductDialog({ open, onOpenChange, order, onSuccess }: {
+  open: boolean; onOpenChange: (v: boolean) => void; order: any; onSuccess: () => void;
+}) {
+  const { toast } = useToast();
+  const { data: products = [] } = useQuery({ queryKey: ["products"], queryFn: productsApi.list });
+  const { data: allVariants = [] } = useQuery({ queryKey: ["variants"], queryFn: variantsApi.listAll });
+  const { canViewFinancials } = useAuth();
+
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [variantRows, setVariantRows] = useState<{ color: string; size: string; quantity: number }[]>([{ color: "", size: "", quantity: 1 }]);
+  const [unitPrice, setUnitPrice] = useState(0);
+  const [costPrice, setCostPrice] = useState<number | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const productVariants = allVariants.filter((v: any) => v.productId === selectedProduct?.id);
+  const availableColors = [...new Set(productVariants.map((v: any) => v.color))] as string[];
+  const hasVariants = productVariants.length > 0;
+
+  const reset = () => {
+    setSelectedProduct(null);
+    setVariantRows([{ color: "", size: "", quantity: 1 }]);
+    setUnitPrice(0); setCostPrice(null);
+  };
+
+  const handleSelectProduct = (p: any) => {
+    setSelectedProduct(p);
+    setVariantRows([{ color: "", size: "", quantity: 1 }]);
+    if (p.unitPrice) setUnitPrice(p.unitPrice);
+    if (p.costPrice) setCostPrice(p.costPrice);
+  };
+
+  const updateRow = (i: number, key: string, val: any) => {
+    setVariantRows(rows => {
+      const next = rows.map((r, idx) => idx === i ? { ...r, [key]: val, ...(key === "color" ? { size: "" } : {}) } : r);
+      // auto-fill price from variant
+      if (key === "size") {
+        const row = next[i];
+        const v = productVariants.find((pv: any) => pv.color === row.color && pv.size === val);
+        if (v?.unitPrice) setUnitPrice(v.unitPrice);
+        if (v?.costPrice) setCostPrice(v.costPrice);
+      }
+      return next;
+    });
+  };
+
+  const handleSubmit = async () => {
+    if (!selectedProduct) return;
+    setIsSubmitting(true);
+    try {
+      const filledRows = hasVariants ? variantRows.filter(r => r.color && r.size) : variantRows;
+      if (filledRows.length === 0) {
+        toast({ title: "خطأ", description: "اختر لون ومقاس على الأقل.", variant: "destructive" });
+        return;
+      }
+      const items = filledRows.map(r => ({
+        product: selectedProduct.name,
+        color: r.color || null,
+        size: r.size || null,
+        quantity: r.quantity,
+        unitPrice,
+        costPrice: costPrice ?? null,
+        productId: selectedProduct.id,
+        variantId: hasVariants
+          ? (productVariants.find((v: any) => v.color === r.color && v.size === r.size)?.id ?? null)
+          : null,
+      }));
+      await ordersApi.batchCreate({
+        invoiceNumber: order.invoiceNumber ?? undefined,
+        customerName: order.customerName,
+        phone: order.phone ?? null,
+        city: order.city ?? null,
+        address: order.address ?? null,
+        shippingCompanyId: order.shippingCompanyId ?? null,
+        notes: null,
+        items,
+      });
+      toast({ title: "تم إضافة المنتج", description: `${selectedProduct.name} اتضاف للفاتورة بنجاح.` });
+      reset();
+      onOpenChange(false);
+      onSuccess();
+    } catch (e: any) {
+      toast({ title: "خطأ", description: e?.message || "فشل الإضافة.", variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) reset(); onOpenChange(v); }}>
+      <DialogContent className="max-w-md" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-sm">
+            <Plus className="w-4 h-4 text-primary" />إضافة منتج لنفس الفاتورة
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-1">
+          {/* Product selector */}
+          <div>
+            <label className="text-xs font-medium mb-1.5 block">اختر من المخزون *</label>
+            {selectedProduct ? (
+              <div className="flex items-center justify-between gap-2 px-3 py-2 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800 rounded-md">
+                <div className="flex items-center gap-2">
+                  <Package className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span className="text-sm font-bold">{selectedProduct.name}</span>
+                </div>
+                <button type="button" onClick={() => { setSelectedProduct(null); setVariantRows([{ color: "", size: "", quantity: 1 }]); }}
+                  className="text-muted-foreground hover:text-red-500 transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <ProductSearchCombobox products={products} allVariants={allVariants} onSelect={handleSelectProduct} />
+            )}
+          </div>
+
+          {/* Variants */}
+          {selectedProduct && hasVariants && (
+            <div className="space-y-2">
+              {variantRows.map((row, ri) => {
+                const sizesForColor = productVariants.filter((v: any) => v.color === row.color).map((v: any) => v.size);
+                const rowVariant = productVariants.find((v: any) => v.color === row.color && v.size === row.size);
+                const avail = rowVariant ? (rowVariant.totalQuantity ?? 0) : null;
+                return (
+                  <div key={ri} className="flex items-end gap-2 p-2 bg-muted/10 rounded-md border border-border/40">
+                    <div className="flex-1">
+                      <label className="text-[10px] text-muted-foreground mb-1 block">اللون</label>
+                      <select value={row.color} onChange={e => updateRow(ri, "color", e.target.value)}
+                        className="w-full h-9 text-sm rounded-md border border-input bg-card px-2 focus:outline-none focus:ring-1 focus:ring-ring">
+                        <option value="">اختر لون...</option>
+                        {availableColors.map((c: string) => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-[10px] text-muted-foreground mb-1 block">المقاس</label>
+                      <select value={row.size} disabled={!row.color} onChange={e => updateRow(ri, "size", e.target.value)}
+                        className="w-full h-9 text-sm rounded-md border border-input bg-card px-2 focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50">
+                        <option value="">اختر مقاس...</option>
+                        {sizesForColor.map((s: string) => {
+                          const v = productVariants.find((pv: any) => pv.color === row.color && pv.size === s);
+                          const a = v ? (v.totalQuantity ?? 0) : 0;
+                          return <option key={s} value={s} disabled={a === 0}>{s} {a === 0 ? "(نفد)" : `(${a})`}</option>;
+                        })}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground mb-1 block">الكمية</label>
+                      <div className="flex items-center gap-1">
+                        <button type="button" onClick={() => updateRow(ri, "quantity", Math.max(1, row.quantity - 1))}
+                          className="w-7 h-9 flex items-center justify-center rounded border border-input bg-card hover:bg-muted text-sm font-bold">−</button>
+                        <span className="w-8 text-center text-sm font-bold">{row.quantity}</span>
+                        <button type="button" onClick={() => updateRow(ri, "quantity", avail !== null ? Math.min(avail, row.quantity + 1) : row.quantity + 1)}
+                          className="w-7 h-9 flex items-center justify-center rounded border border-input bg-card hover:bg-muted text-sm font-bold">+</button>
+                      </div>
+                    </div>
+                    {variantRows.length > 1 && (
+                      <button type="button" onClick={() => setVariantRows(r => r.filter((_, idx) => idx !== ri))}
+                        className="mb-0.5 p-1.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 transition-colors">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {avail !== null && (
+                      <span className={`text-[9px] font-bold mb-1 shrink-0 ${avail <= 5 ? "text-red-500" : "text-emerald-600 dark:text-emerald-400"}`}>متاح:{avail}</span>
+                    )}
+                  </div>
+                );
+              })}
+              <button type="button" onClick={() => setVariantRows(r => [...r, { color: "", size: "", quantity: 1 }])}
+                className="w-full flex items-center justify-center gap-1.5 text-xs font-bold text-primary border border-dashed border-primary/40 hover:bg-primary/5 py-2 rounded-md transition-colors">
+                <Plus className="w-3.5 h-3.5" />أضف لون / مقاس آخر
+              </button>
+            </div>
+          )}
+
+          {/* Qty (no variants) */}
+          {selectedProduct && !hasVariants && (
+            <div>
+              <label className="text-xs font-medium mb-1.5 block">الكمية *</label>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => setVariantRows(r => [{ ...r[0], quantity: Math.max(1, r[0].quantity - 1) }])}
+                  className="w-9 h-9 flex items-center justify-center rounded border border-input bg-card hover:bg-muted text-sm font-bold">−</button>
+                <span className="w-10 text-center text-sm font-bold">{variantRows[0]?.quantity ?? 1}</span>
+                <button type="button" onClick={() => setVariantRows(r => [{ ...r[0], quantity: r[0].quantity + 1 }])}
+                  className="w-9 h-9 flex items-center justify-center rounded border border-input bg-card hover:bg-muted text-sm font-bold">+</button>
+              </div>
+            </div>
+          )}
+
+          {/* Price */}
+          {selectedProduct && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium mb-1.5 block">سعر البيع (ج.م) *</label>
+                <Input type="number" min={0} value={unitPrice || ""} onChange={e => setUnitPrice(Number(e.target.value))} className="h-9 text-sm" />
+              </div>
+              {canViewFinancials && (
+                <div>
+                  <label className="text-xs font-medium mb-1.5 block">تكلفة الوحدة (ج.م)</label>
+                  <Input type="number" min={0} value={costPrice ?? ""} onChange={e => setCostPrice(e.target.value ? Number(e.target.value) : null)} className="h-9 text-sm" />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="flex gap-2 mt-2">
+          <Button variant="outline" size="sm" onClick={() => { reset(); onOpenChange(false); }} className="flex-1">إلغاء</Button>
+          <Button size="sm" onClick={handleSubmit}
+            disabled={isSubmitting || !selectedProduct || unitPrice <= 0}
+            className="flex-1 gap-1">
+            <Plus className="w-3 h-3" />{isSubmitting ? "جاري الإضافة..." : "إضافة للفاتورة"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function OrderDetail() {
   const params = useParams();
@@ -1205,58 +1496,15 @@ export default function OrderDetail() {
       </div>
 
       {/* ── Add Product Dialog ── */}
-      <Dialog open={showAddProduct} onOpenChange={setShowAddProduct}>
-        <DialogContent className="max-w-sm" dir="rtl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-sm">
-              <Plus className="w-4 h-4 text-primary" />
-              إضافة منتج لنفس الفاتورة
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            <div>
-              <Label className="text-xs mb-1 block">اسم المنتج *</Label>
-              <Input
-                placeholder="مثال: CORE 1"
-                value={addProductName}
-                onChange={e => setAddProductName(e.target.value)}
-                className="h-9 text-sm"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label className="text-xs mb-1 block">اللون</Label>
-                <Input placeholder="مثال: أسود" value={addProductColor} onChange={e => setAddProductColor(e.target.value)} className="h-9 text-sm" />
-              </div>
-              <div>
-                <Label className="text-xs mb-1 block">المقاس</Label>
-                <Input placeholder="مثال: 44" value={addProductSize} onChange={e => setAddProductSize(e.target.value)} className="h-9 text-sm" />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label className="text-xs mb-1 block">الكمية *</Label>
-                <Input type="number" min={1} value={addProductQty} onChange={e => setAddProductQty(Number(e.target.value))} className="h-9 text-sm" />
-              </div>
-              <div>
-                <Label className="text-xs mb-1 block">السعر *</Label>
-                <Input type="number" min={0} placeholder="0" value={addProductPrice || ""} onChange={e => setAddProductPrice(Number(e.target.value))} className="h-9 text-sm" />
-              </div>
-            </div>
-          </div>
-          <DialogFooter className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setShowAddProduct(false)} className="flex-1">إلغاء</Button>
-            <Button
-              size="sm"
-              onClick={handleAddProduct}
-              disabled={isAddingProduct || !addProductName.trim() || addProductPrice <= 0}
-              className="flex-1 gap-1"
-            >
-              <Plus className="w-3 h-3" />{isAddingProduct ? "جاري الإضافة..." : "إضافة"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <AddProductDialog
+        open={showAddProduct}
+        onOpenChange={setShowAddProduct}
+        order={order}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getGetOrdersSummaryQueryKey() });
+        }}
+      />
     </div>
   );
 }
