@@ -216,7 +216,11 @@ export default function Invoices() {
       if (grp.invoiceNumber.startsWith("solo-")) { realOrdersMap.set(grp.invoiceNumber, grp.orders); return; }
       try {
         const orders = await ordersApi.byInvoice(grp.invoiceNumber);
-        if (orders?.length) { realOrdersMap.set(grp.invoiceNumber, orders); return; }
+        if (orders?.length) {
+          const filtered = orders.filter((o: any) => o.status === grp.status);
+          realOrdersMap.set(grp.invoiceNumber, filtered.length > 0 ? filtered : orders);
+          return;
+        }
       } catch {}
       if (realOrdersCache.has(grp.invoiceNumber)) { realOrdersMap.set(grp.invoiceNumber, realOrdersCache.get(grp.invoiceNumber)!); return; }
       if (directInvoiceOrders?.length && (directInvoiceOrders[0] as any).invoiceNumber === grp.invoiceNumber) {
