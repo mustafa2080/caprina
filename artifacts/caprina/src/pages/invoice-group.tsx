@@ -27,7 +27,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { ordersApi, apiFetch, manifestsApi, productsApi, variantsApi, shippingApi } from "@/lib/api";
-import { STATUS_LABELS as statusLabels, STATUS_CLASSES as statusClasses } from "@/lib/order-constants";
+import { STATUS_LABELS as statusLabels, STATUS_CLASSES as statusClasses, RETURN_REASONS } from "@/lib/order-constants";
 import { type WhatsAppOrderData } from "@/lib/whatsapp";
 import { WhatsAppDialog } from "@/components/whatsapp-dialog";
 import { useBrand } from "@/contexts/BrandContext";
@@ -478,6 +478,9 @@ export default function InvoiceGroup() {
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting]             = useState(false);
   const [pendingStatus, setPendingStatus]               = useState<string | null>(null);
+  const [returnReason, setReturnReason]                 = useState<string>("");
+  const [returnNote, setReturnNote]                     = useState<string>("");
+  const [showReturnDialog, setShowReturnDialog]         = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus]         = useState(false);
   const [waOrder, setWaOrder]                           = useState<WhatsAppOrderData | null>(null);
   const [showAddProduct, setShowAddProduct]             = useState(false);
@@ -592,7 +595,7 @@ export default function InvoiceGroup() {
     }
   };
 
-  const handleBulkStatusChange = async (newStatus: string) => {
+  const handleBulkStatusChange = async (newStatus: string, reason?: string, note?: string) => {
     if (!orders?.length) return;
     if (hasOpenManifest) {
       toast({
@@ -609,7 +612,7 @@ export default function InvoiceGroup() {
       try {
         await new Promise<void>((resolve, reject) => {
           updateOrder.mutate(
-            { id: order.id, data: { status: newStatus as any } },
+            { id: order.id, data: { status: newStatus as any, ...(reason ? { returnReason: reason, returnNote: reason === 'other' ? (note ?? null) : null } : {}) } as any },
             { onSuccess: () => resolve(), onError: () => reject() }
           );
         });
@@ -849,7 +852,7 @@ export default function InvoiceGroup() {
             </Button>
           )}
 
-          <Select value="" onValueChange={(v) => { if (v) setPendingStatus(v); }} disabled={isUpdatingStatus || isAnyLocked || hasOpenManifest}>
+          <Select value="" onValueChange={(v) => { if (!v) return; if (v === "returned") { setShowReturnDialog(true); } else { setPendingStatus(v); } }} disabled={isUpdatingStatus || isAnyLocked || hasOpenManifest}>
             <SelectTrigger className="h-9 text-xs bg-primary text-primary-foreground border-primary hover:bg-primary/90 font-bold w-auto gap-1.5 px-3 shrink-0"
               title={hasOpenManifest ? `مرتبط ببيان مفتوح (${openManifestEntry?.manifestNumber})` : undefined}>
               <div className="flex items-center gap-1.5">
@@ -1102,6 +1105,62 @@ export default function InvoiceGroup() {
             <AlertDialogCancel>إلغاء</AlertDialogCancel>
             <AlertDialogAction onClick={() => pendingStatus && handleBulkStatusChange(pendingStatus)} disabled={isUpdatingStatus}>
               {isUpdatingStatus ? "جاري التحديث..." : "تأكيد"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Return reason dialog */}
+      <AlertDialog open={showReturnDialog} onOpenChange={open => { if (!open) { setShowReturnDialog(false); setReturnReason(""); setReturnNote(""); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-400">
+              <RotateCcw className="w-4 h-4" /> تسجيل مرتجع — ما سبب الإرجاع؟
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              سيتم تحويل {orders.length} منتج إلى «مرتجع».
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">سبب الإرجاع *</Label>
+              <Select value={returnReason} onValueChange={setReturnReason}>
+                <SelectTrigger className="h-9 text-sm bg-card border-red-800 focus:ring-red-700">
+                  <SelectValue placeholder="اختر السبب..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {RETURN_REASONS.map(r => (
+                    <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {returnReason === "other" && (
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">اكتب السبب *</Label>
+                <Textarea
+                  placeholder="اكتب سبب الإرجاع بالتفصيل..."
+                  className="min-h-[70px] text-sm resize-none bg-card border-red-800 focus:ring-red-700"
+                  value={returnNote}
+                  onChange={e => setReturnNote(e.target.value)}
+                />
+              </div>
+            )}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { setReturnReason(""); setReturnNote(""); }}>إلغاء</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-700 hover:bg-red-600 text-white"
+              disabled={!returnReason || (returnReason === "other" && !returnNote.trim()) || isUpdatingStatus}
+              onClick={() => {
+                if (!returnReason) return;
+                setShowReturnDialog(false);
+                handleBulkStatusChange("returned", returnReason, returnNote);
+                setReturnReason("");
+                setReturnNote("");
+              }}
+            >
+              {isUpdatingStatus ? "جاري التحديث..." : "تأكيد الإرجاع"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
