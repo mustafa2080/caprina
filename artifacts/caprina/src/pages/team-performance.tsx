@@ -172,7 +172,7 @@ function MemberCard({
               { val: member.total, label: "إجمالي", cls: "bg-muted/20" },
               { val: member.delivered, label: "مُسلَّم", cls: "bg-emerald-100 dark:bg-emerald-900/20", textCls: "text-emerald-600 dark:text-emerald-400" },
               { val: member.returned, label: "مُرتجَع", cls: "bg-red-100 dark:bg-red-900/20", textCls: "text-red-600 dark:text-red-400" },
-              { val: member.pending, label: "معلّق", cls: "bg-amber-50 dark:bg-amber-900/20", textCls: "text-amber-700 dark:text-amber-400" },
+              { val: member.pending, label: "مؤجَّل", cls: "bg-amber-50 dark:bg-amber-900/20", textCls: "text-amber-700 dark:text-amber-400" },
             ].map(({ val, label, cls, textCls }) => (
               <div key={label} className={`${cls} rounded-lg p-1.5`}>
                 <p className={`text-sm font-bold ${textCls ?? ""}`}>{fmtNum(val)}</p>
@@ -623,7 +623,7 @@ export default function TeamPerformancePage() {
               <div className="flex items-center gap-3 text-xs flex-wrap">
                 <span className="text-emerald-600 dark:text-emerald-400">{fmtNum(unassigned.delivered)} مسلَّم</span>
                 <span className="text-red-500">{fmtNum(unassigned.returned)} مرتجع</span>
-                <span className="text-amber-600 dark:text-amber-400">{fmtNum(unassigned.pending)} معلّق</span>
+                <span className="text-amber-600 dark:text-amber-400">{fmtNum(unassigned.pending)} مؤجَّل</span>
                 {canViewFinancials && (
                   <Badge variant="outline"
                     className={`text-[10px] ${unassigned.profit >= 0
