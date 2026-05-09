@@ -177,8 +177,17 @@ export default function FinanceCashPage() {
   });
 
   if (isLoading) return (
-    <div className="flex items-center justify-center h-64 gap-3 text-muted-foreground">
-      <RefreshCw className="w-5 h-5 animate-spin" /> جارٍ التحميل...
+    <div className="flex flex-col items-center justify-center h-64 gap-4 text-muted-foreground">
+      <div className="relative w-16 h-16">
+        <div className="absolute inset-0 rounded-2xl bg-emerald-500/10 animate-pulse" />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <RefreshCw className="w-7 h-7 animate-spin text-emerald-500" />
+        </div>
+      </div>
+      <div className="text-center">
+        <p className="text-sm font-medium text-foreground">جارٍ تحميل الخزنة</p>
+        <p className="text-xs text-muted-foreground mt-0.5">يرجى الانتظار...</p>
+      </div>
     </div>
   );
 
@@ -188,36 +197,40 @@ export default function FinanceCashPage() {
       {/* ── Header ── */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Wallet className="w-6 h-6 text-emerald-500" /> الخزنة
+          <h1 className="text-2xl font-black flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-500/10 flex items-center justify-center shadow-sm">
+              <Wallet className="w-5 h-5 text-emerald-500" />
+            </div>
+            إدارة الخزنة
           </h1>
-          <p className="text-sm text-muted-foreground">إدارة الخزنة الرئيسية والفروع</p>
+          <p className="text-xs text-muted-foreground mt-1 mr-12">تتبع الرصيد والحركات النقدية لكل الخزن</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => navigate("/finance/cash/analytics")}>
-            <BarChart3 className="w-4 h-4" /> تحليلات
+          <Button variant="outline" size="sm" className="gap-1.5 h-9 text-xs rounded-xl border-border/60 hover:border-border" onClick={() => navigate("/finance/cash/analytics")}>
+            <BarChart3 className="w-3.5 h-3.5" /> تحليلات
           </Button>
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setTransferOpen(true)}>
-            <ArrowRightLeft className="w-4 h-4" /> تحويل بين خزنتين
+          <Button variant="outline" size="sm" className="gap-1.5 h-9 text-xs rounded-xl border-border/60 hover:border-border" onClick={() => setTransferOpen(true)}>
+            <ArrowRightLeft className="w-3.5 h-3.5" /> تحويل
           </Button>
-          <Button size="sm" className="gap-1.5" onClick={() => setAddRegOpen(true)}>
-            <Plus className="w-4 h-4" /> خزنة جديدة
+          <Button size="sm" className="gap-1.5 h-9 text-xs rounded-xl bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-500/20" onClick={() => setAddRegOpen(true)}>
+            <Plus className="w-3.5 h-3.5" /> خزنة جديدة
           </Button>
         </div>
       </div>
 
       {/* ── تنبيهات الرصيد المنخفض ── */}
       {alerts.length > 0 && (
-        <div className="rounded-xl border border-rose-400/40 bg-rose-50/30 dark:bg-rose-950/20 p-4 space-y-2">
-          <p className="text-sm font-bold text-rose-600 flex items-center gap-2">
-            <Bell className="w-4 h-4" /> تنبيهات الرصيد المنخفض
+        <div className="rounded-xl border border-rose-400/30 bg-rose-50/40 dark:bg-rose-950/20 px-4 py-3 space-y-2">
+          <p className="text-xs font-semibold text-rose-600 flex items-center gap-1.5">
+            <Bell className="w-3.5 h-3.5" /> تنبيهات الرصيد المنخفض
           </p>
           <div className="flex flex-wrap gap-2">
             {alerts.map(a => (
-              <div key={a.registerId} className="flex items-center gap-2 bg-rose-100/50 dark:bg-rose-900/30 px-3 py-1.5 rounded-lg text-xs">
+              <div key={a.registerId} className="flex items-center gap-2 bg-white/60 dark:bg-rose-900/20 border border-rose-300/40 px-3 py-1.5 rounded-lg text-xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
                 <span className="font-semibold text-rose-700 dark:text-rose-400">{a.name}</span>
-                <span className="text-muted-foreground">الرصيد: <span className="font-bold text-rose-600">{fmt(a.balance)}</span></span>
-                <span className="text-muted-foreground">الحد: {fmt(a.threshold)}</span>
+                <span className="text-muted-foreground">رصيد: <span className="font-bold text-rose-600">{fmt(a.balance)}</span></span>
+                <span className="text-muted-foreground/60">/ {fmt(a.threshold)}</span>
               </div>
             ))}
           </div>
@@ -226,11 +239,11 @@ export default function FinanceCashPage() {
 
       {/* ── التنبيهات الذكية ── */}
       {smartAlerts.length > 0 && (
-        <div className="rounded-xl border border-amber-400/40 bg-amber-50/30 dark:bg-amber-950/20 p-4 space-y-2">
-          <p className="text-sm font-bold text-amber-700 dark:text-amber-400 flex items-center gap-2">
-            <Bell className="w-4 h-4" /> تنبيهات ذكية
+        <div className="rounded-xl border border-amber-400/30 bg-amber-50/30 dark:bg-amber-950/20 px-4 py-3 space-y-2">
+          <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+            <Bell className="w-3.5 h-3.5" /> تنبيهات ذكية
           </p>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {smartAlerts.map((a: any, i: number) => (
               <div key={i} className={`flex items-start gap-2.5 text-xs rounded-lg px-3 py-2 ${
                 a.type==="danger"  ? "bg-rose-100/50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-400" :
@@ -238,12 +251,12 @@ export default function FinanceCashPage() {
                 a.type==="success" ? "bg-emerald-100/50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400" :
                 "bg-sky-100/50 dark:bg-sky-900/20 text-sky-700 dark:text-sky-400"
               }`}>
-                <span className="text-base leading-none mt-0.5">
+                <span className="text-sm leading-none mt-0.5">
                   {a.type==="danger"?"🔴":a.type==="warning"?"🟡":a.type==="success"?"🟢":"🔵"}
                 </span>
                 <div>
                   <p className="font-semibold">{a.title}</p>
-                  {a.detail && <p className="opacity-80 mt-0.5">{a.detail}</p>}
+                  {a.detail && <p className="opacity-70 mt-0.5">{a.detail}</p>}
                 </div>
               </div>
             ))}
@@ -252,71 +265,142 @@ export default function FinanceCashPage() {
       )}
 
       {/* ── إجمالي الكاش ── */}
-      <div className="rounded-2xl bg-gradient-to-l from-emerald-600 to-teal-600 text-white p-5 shadow-lg">
-        <p className="text-sm opacity-80 mb-1 flex items-center gap-1.5">
-          <Wallet className="w-4 h-4" /> إجمالي الكاش (كل الخزن)
-        </p>
-        <p className="text-4xl font-black">{fmt(totalBalance)}</p>
-        <p className="text-xs opacity-70 mt-1">{registers.length} خزنة نشطة</p>
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-600 via-emerald-500 to-teal-400 text-white p-6 shadow-2xl shadow-emerald-500/30">
+        {/* decorative shapes */}
+        <div className="absolute -top-8 -left-8 w-40 h-40 rounded-full bg-white/5" />
+        <div className="absolute -bottom-10 -right-6 w-52 h-52 rounded-full bg-white/5" />
+        <div className="absolute top-4 left-1/2 w-20 h-20 rounded-full bg-white/5" />
+        <div className="relative z-10">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-semibold opacity-75 mb-2 flex items-center gap-1.5 uppercase tracking-widest">
+                <Wallet className="w-3.5 h-3.5" /> إجمالي الكاش
+              </p>
+              <p className="text-5xl font-black tracking-tight leading-none">{fmt(totalBalance)}</p>
+            </div>
+            <div className="w-14 h-14 rounded-2xl bg-white/15 flex items-center justify-center backdrop-blur-sm">
+              <TrendingUp className="w-7 h-7" />
+            </div>
+          </div>
+          <div className="flex items-center gap-2.5 mt-4">
+            <span className="text-xs font-medium bg-white/15 backdrop-blur-sm px-3 py-1 rounded-full">{registers.length} خزنة نشطة</span>
+            {mainReg && <span className="text-xs font-medium bg-white/15 backdrop-blur-sm px-3 py-1 rounded-full">رئيسية: {fmt(mainReg.balance)}</span>}
+          </div>
+        </div>
       </div>
 
       {/* ── Tabs الخزن ── */}
-      <div className="flex gap-2 flex-wrap border-b border-border pb-2">
+      <div className="flex gap-1.5 flex-wrap border-b border-border/40 pb-3">
         <button onClick={() => setActiveTab("all")}
-          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${activeTab==="all" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>
+          className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 ${
+            activeTab==="all"
+              ? "bg-primary text-primary-foreground shadow-md"
+              : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+          }`}>
           كل الخزن
         </button>
         {registers.map(r => (
           <button key={r.id} onClick={() => { setActiveTab(r.id); setLedgerPage(1); }}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${activeTab===r.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>
+            className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 ${
+              activeTab===r.id
+                ? "bg-primary text-primary-foreground shadow-md"
+                : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+            }`}>
             {r.type==="main" ? <Star className="w-3 h-3" /> : <Building2 className="w-3 h-3" />}
             {r.name}
-            {alerts.some(a => a.registerId === r.id) && <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />}
+            {alerts.some(a => a.registerId === r.id) && <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0 animate-pulse" />}
           </button>
         ))}
       </div>
 
       {/* ── Tab: كل الخزن ── */}
       {activeTab === "all" && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           {registers.map(r => {
             const net = r.monthlyIn - r.monthlyOut;
             const hasAlert = alerts.some(a => a.registerId === r.id);
+            const isMain = r.type === "main";
             return (
               <div key={r.id}
-                className={`rounded-xl border p-5 bg-card shadow-sm cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all ${hasAlert ? "border-rose-400/60" : r.type==="main" ? "border-yellow-400/40 bg-yellow-50/20 dark:bg-yellow-900/10" : "border-border"}`}
+                className={`group rounded-2xl border p-5 bg-card cursor-pointer
+                  hover:shadow-xl hover:-translate-y-1 transition-all duration-300
+                  ${hasAlert ? "border-rose-400/50 shadow-rose-500/10 shadow-md"
+                    : isMain ? "border-yellow-400/40 shadow-yellow-500/10 shadow-md"
+                    : "border-border/50 hover:border-border hover:shadow-md"}`}
                 onClick={() => { setActiveTab(r.id); setLedgerPage(1); }}>
+
+                {/* card header */}
                 <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    {r.type==="main"
-                      ? <div className="w-9 h-9 rounded-xl bg-yellow-500/15 flex items-center justify-center"><Star className="w-5 h-5 text-yellow-500" /></div>
-                      : <div className="w-9 h-9 rounded-xl bg-blue-500/15 flex items-center justify-center"><Building2 className="w-5 h-5 text-blue-500" /></div>}
+                  <div className="flex items-center gap-3">
+                    <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 shadow-sm
+                      ${isMain ? "bg-gradient-to-br from-yellow-500/20 to-amber-500/10" : "bg-gradient-to-br from-primary/15 to-primary/5"}`}>
+                      {isMain
+                        ? <Star className="w-5 h-5 text-yellow-500" />
+                        : <Building2 className="w-5 h-5 text-primary" />}
+                    </div>
                     <div>
-                      <p className="font-semibold text-sm">{r.name}</p>
-                      <Badge variant="outline" className="text-xs mt-0.5">{r.type==="main" ? "رئيسية" : "فرعية"}</Badge>
+                      <p className="font-semibold text-sm leading-tight">{r.name}</p>
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full mt-0.5 inline-block
+                        ${isMain ? "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400" : "bg-muted text-muted-foreground"}`}>
+                        {isMain ? "رئيسية" : "فرعية"}
+                      </span>
                     </div>
                   </div>
-                  <div className="flex gap-1">
-                    {hasAlert && <Bell className="w-4 h-4 text-rose-500" />}
-                    <button className="p-1.5 rounded-lg hover:bg-muted" onClick={e => { e.stopPropagation(); setSelectedReg(r); setEditForm({name:r.name, description:r.description??""}); setEditOpen(true); }}><Pencil className="w-3.5 h-3.5 text-muted-foreground" /></button>
-                    <button className="p-1.5 rounded-lg hover:bg-muted" onClick={e => { e.stopPropagation(); setSelectedReg(r); setThresholdVal(r.lowBalanceThreshold ?? ""); setThresholdOpen(true); }}><Bell className="w-3.5 h-3.5 text-muted-foreground" /></button>
-                    {r.type !== "main" && (
-                      <button className="p-1.5 rounded-lg hover:bg-muted" onClick={e => { e.stopPropagation(); if (confirm(`تعطيل "${r.name}"؟`)) delMut.mutate(r.id); }}><Trash2 className="w-3.5 h-3.5 text-rose-400" /></button>
+                  <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {hasAlert && <Bell className="w-3.5 h-3.5 text-rose-500 mx-1" />}
+                    <button className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+                      onClick={e => { e.stopPropagation(); setSelectedReg(r); setEditForm({name:r.name, description:r.description??""}); setEditOpen(true); }}>
+                      <Pencil className="w-3 h-3 text-muted-foreground" />
+                    </button>
+                    <button className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+                      onClick={e => { e.stopPropagation(); setSelectedReg(r); setThresholdVal(r.lowBalanceThreshold ?? ""); setThresholdOpen(true); }}>
+                      <Bell className="w-3 h-3 text-muted-foreground" />
+                    </button>
+                    {!isMain && (
+                      <button className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+                        onClick={e => { e.stopPropagation(); if (confirm(`تعطيل "${r.name}"؟`)) delMut.mutate(r.id); }}>
+                        <Trash2 className="w-3 h-3 text-rose-400" />
+                      </button>
                     )}
                   </div>
                 </div>
-                <p className={`text-2xl font-black mb-3 ${hasAlert ? "text-rose-600" : "text-emerald-600"}`}>{fmt(r.balance)}</p>
+
+                {/* balance */}
+                <p className={`text-3xl font-black tabular-nums mb-1 ${hasAlert ? "text-rose-600" : "text-emerald-600 dark:text-emerald-400"}`}>
+                  {fmt(r.balance)}
+                </p>
                 {r.lowBalanceThreshold && (
-                  <p className="text-xs text-muted-foreground mb-2">حد التنبيه: {fmt(r.lowBalanceThreshold)}</p>
+                  <p className="text-[10px] text-muted-foreground mb-2 flex items-center gap-1">
+                    <Bell className="w-2.5 h-2.5" /> حد: {fmt(r.lowBalanceThreshold)}
+                  </p>
                 )}
-                <div className="grid grid-cols-3 gap-2 text-center text-xs border-t border-border pt-3">
-                  <div><p className="text-muted-foreground mb-0.5">دخل الشهر</p><p className="font-semibold text-emerald-500">+{fmtShort(r.monthlyIn)}</p></div>
-                  <div><p className="text-muted-foreground mb-0.5">خروج الشهر</p><p className="font-semibold text-rose-500">-{fmtShort(r.monthlyOut)}</p></div>
-                  <div><p className="text-muted-foreground mb-0.5">صافي</p><p className={`font-semibold ${net>=0?"text-emerald-500":"text-rose-500"}`}>{net>=0?"+":""}{fmtShort(net)}</p></div>
+
+                {/* monthly mini stats */}
+                <div className="grid grid-cols-3 gap-2 text-center mt-3 pt-3 border-t border-border/40">
+                  <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl py-2">
+                    <p className="text-[10px] text-muted-foreground mb-0.5">دخل</p>
+                    <p className="text-xs font-bold text-emerald-600">+{fmtShort(r.monthlyIn)}</p>
+                  </div>
+                  <div className="bg-rose-50 dark:bg-rose-900/20 rounded-xl py-2">
+                    <p className="text-[10px] text-muted-foreground mb-0.5">خروج</p>
+                    <p className="text-xs font-bold text-rose-600">-{fmtShort(r.monthlyOut)}</p>
+                  </div>
+                  <div className={`rounded-xl py-2 ${net>=0 ? "bg-emerald-50 dark:bg-emerald-900/20" : "bg-rose-50 dark:bg-rose-900/20"}`}>
+                    <p className="text-[10px] text-muted-foreground mb-0.5">صافي</p>
+                    <p className={`text-xs font-bold ${net>=0?"text-emerald-600":"text-rose-600"}`}>{net>=0?"+":""}{fmtShort(net)}</p>
+                  </div>
                 </div>
-                <div className="mt-3 flex gap-2">
-                  <Button size="sm" variant="outline" className="flex-1 gap-1 text-xs" onClick={e => { e.stopPropagation(); setSelectedReg(r); setTxOpen(true); }}><Plus className="w-3 h-3" /> حركة</Button>
-                  <Button size="sm" variant="ghost" className="flex-1 gap-1 text-xs" onClick={e => { e.stopPropagation(); setActiveTab(r.id); }}><CreditCard className="w-3 h-3" /> كشف الحساب</Button>
+
+                {/* actions */}
+                <div className="flex gap-2 mt-3">
+                  <Button size="sm" variant="outline" className="flex-1 gap-1 text-[11px] h-8 rounded-xl hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 dark:hover:bg-emerald-900/20"
+                    onClick={e => { e.stopPropagation(); setSelectedReg(r); setTxOpen(true); }}>
+                    <Plus className="w-3 h-3" /> حركة
+                  </Button>
+                  <Button size="sm" variant="ghost" className="flex-1 gap-1 text-[11px] h-8 rounded-xl hover:bg-muted"
+                    onClick={e => { e.stopPropagation(); setActiveTab(r.id); }}>
+                    <CreditCard className="w-3 h-3" /> كشف
+                  </Button>
                 </div>
               </div>
             );
@@ -328,44 +412,44 @@ export default function FinanceCashPage() {
       {activeReg && (
         <div className="space-y-5">
           {/* بطاقة الخزنة */}
-          <div className={`rounded-2xl border p-5 ${alerts.some(a=>a.registerId===activeReg.id) ? "border-rose-400/60 bg-rose-50/20 dark:bg-rose-950/10" : activeReg.type==="main" ? "border-yellow-400/40 bg-yellow-50/20 dark:bg-yellow-900/10" : "border-border bg-card"}`}>
+          <div className={`rounded-2xl border p-6 shadow-sm ${alerts.some(a=>a.registerId===activeReg.id) ? "border-rose-400/60 bg-rose-50/20 dark:bg-rose-950/10" : activeReg.type==="main" ? "border-yellow-400/40 bg-yellow-50/20 dark:bg-yellow-900/10" : "border-border bg-card"}`}>
             <div className="flex items-start justify-between flex-wrap gap-3">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-4">
                 {activeReg.type==="main"
-                  ? <div className="w-12 h-12 rounded-2xl bg-yellow-500/15 flex items-center justify-center"><Star className="w-6 h-6 text-yellow-500" /></div>
-                  : <div className="w-12 h-12 rounded-2xl bg-blue-500/15 flex items-center justify-center"><Building2 className="w-6 h-6 text-blue-500" /></div>}
+                  ? <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-yellow-500/20 to-amber-500/10 flex items-center justify-center shadow-sm"><Star className="w-7 h-7 text-yellow-500" /></div>
+                  : <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500/15 to-indigo-500/10 flex items-center justify-center shadow-sm"><Building2 className="w-7 h-7 text-blue-500" /></div>}
                 <div>
-                  <p className="text-xl font-bold">{activeReg.name}</p>
-                  {activeReg.description && <p className="text-sm text-muted-foreground">{activeReg.description}</p>}
+                  <p className="text-2xl font-black">{activeReg.name}</p>
+                  {activeReg.description && <p className="text-sm text-muted-foreground mt-0.5">{activeReg.description}</p>}
                   {activeReg.lowBalanceThreshold && (
-                    <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1"><Bell className="w-3 h-3" /> حد التنبيه: {fmt(activeReg.lowBalanceThreshold)}</p>
+                    <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5 bg-muted/50 w-fit px-2 py-1 rounded-lg"><Bell className="w-3 h-3" /> حد التنبيه: {fmt(activeReg.lowBalanceThreshold)}</p>
                   )}
                 </div>
               </div>
               <div className="text-end">
-                <p className={`text-3xl font-black ${alerts.some(a=>a.registerId===activeReg.id) ? "text-rose-600" : "text-emerald-600"}`}>{fmt(activeReg.balance)}</p>
-                <p className="text-xs text-muted-foreground mt-1">الرصيد الحالي</p>
+                <p className={`text-4xl font-black tabular-nums ${alerts.some(a=>a.registerId===activeReg.id) ? "text-rose-600" : "text-emerald-600"}`}>{fmt(activeReg.balance)}</p>
+                <p className="text-xs text-muted-foreground mt-1.5 bg-muted/50 px-2 py-0.5 rounded-full inline-block">الرصيد الحالي</p>
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-border">
-              <div className="text-center"><p className="text-xs text-muted-foreground mb-1">دخل الشهر</p><p className="text-lg font-bold text-emerald-500">+{fmt(activeReg.monthlyIn)}</p></div>
-              <div className="text-center"><p className="text-xs text-muted-foreground mb-1">خروج الشهر</p><p className="text-lg font-bold text-rose-500">-{fmt(activeReg.monthlyOut)}</p></div>
-              <div className="text-center"><p className="text-xs text-muted-foreground mb-1">صافي الشهر</p>
+            <div className="grid grid-cols-3 gap-3 mt-5 pt-5 border-t border-border/50">
+              <div className="text-center bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl p-3"><p className="text-xs text-muted-foreground mb-1">دخل الشهر</p><p className="text-lg font-bold text-emerald-500">+{fmt(activeReg.monthlyIn)}</p></div>
+              <div className="text-center bg-rose-50 dark:bg-rose-900/20 rounded-2xl p-3"><p className="text-xs text-muted-foreground mb-1">خروج الشهر</p><p className="text-lg font-bold text-rose-500">-{fmt(activeReg.monthlyOut)}</p></div>
+              <div className={`text-center rounded-2xl p-3 ${(activeReg.monthlyIn-activeReg.monthlyOut)>=0?"bg-emerald-50 dark:bg-emerald-900/20":"bg-rose-50 dark:bg-rose-900/20"}`}><p className="text-xs text-muted-foreground mb-1">صافي الشهر</p>
                 <p className={`text-lg font-bold ${(activeReg.monthlyIn-activeReg.monthlyOut)>=0?"text-emerald-500":"text-rose-500"}`}>{fmt(activeReg.monthlyIn - activeReg.monthlyOut)}</p>
               </div>
             </div>
-            <div className="flex gap-2 mt-4 flex-wrap">
-              <Button size="sm" className="gap-1.5" onClick={() => { setSelectedReg(activeReg); setTxOpen(true); }}><Plus className="w-4 h-4" /> حركة جديدة</Button>
-              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setTransferOpen(true)}><ArrowRightLeft className="w-4 h-4" /> تحويل</Button>
-              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => { setSelectedReg(activeReg); setEditForm({name:activeReg.name,description:activeReg.description??""}); setEditOpen(true); }}><Pencil className="w-4 h-4" /> تعديل</Button>
-              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => { setSelectedReg(activeReg); setThresholdVal(activeReg.lowBalanceThreshold ?? ""); setThresholdOpen(true); }}><Bell className="w-4 h-4" /> حد التنبيه</Button>
+            <div className="flex gap-2 mt-5 flex-wrap">
+              <Button size="sm" className="gap-1.5 rounded-xl h-9 bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-500/20" onClick={() => { setSelectedReg(activeReg); setTxOpen(true); }}><Plus className="w-4 h-4" /> حركة جديدة</Button>
+              <Button size="sm" variant="outline" className="gap-1.5 rounded-xl h-9" onClick={() => setTransferOpen(true)}><ArrowRightLeft className="w-4 h-4" /> تحويل</Button>
+              <Button size="sm" variant="outline" className="gap-1.5 rounded-xl h-9" onClick={() => { setSelectedReg(activeReg); setEditForm({name:activeReg.name,description:activeReg.description??""}); setEditOpen(true); }}><Pencil className="w-4 h-4" /> تعديل</Button>
+              <Button size="sm" variant="outline" className="gap-1.5 rounded-xl h-9" onClick={() => { setSelectedReg(activeReg); setThresholdVal(activeReg.lowBalanceThreshold ?? ""); setThresholdOpen(true); }}><Bell className="w-4 h-4" /> حد التنبيه</Button>
             </div>
           </div>
 
           {/* Chart */}
           {flowData && flowData.length > 1 && (
-            <div className="rounded-xl border border-border bg-card p-4">
-              <p className="text-sm font-semibold mb-3">التدفق النقدي — آخر 30 يوم</p>
+            <div className="rounded-2xl border border-border bg-card p-5">
+              <p className="text-sm font-bold mb-4 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-emerald-500" /> التدفق النقدي — آخر 30 يوم</p>
               <ResponsiveContainer width="100%" height={160}>
                 <AreaChart data={flowData} margin={{top:4,right:4,left:0,bottom:0}}>
                   <defs>
@@ -384,60 +468,65 @@ export default function FinanceCashPage() {
           )}
 
           {/* كشف الحساب */}
-          <div className="rounded-xl border border-border bg-card overflow-hidden">
-            <div className="p-4 border-b border-border bg-muted/30">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-sm font-bold">كشف الحساب</p>
-                <Button size="sm" variant="outline" className="gap-1.5 text-xs h-7" onClick={handleExport}>
+          <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm">
+            <div className="p-5 border-b border-border bg-muted/20">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-sm font-bold flex items-center gap-2"><CreditCard className="w-4 h-4 text-primary" /> كشف الحساب</p>
+                <Button size="sm" variant="outline" className="gap-1.5 text-xs h-8 rounded-xl" onClick={handleExport}>
                   <Download className="w-3.5 h-3.5" /> تصدير CSV
                 </Button>
               </div>
               <div className="flex flex-wrap gap-2">
-                <div className="flex items-center gap-1 text-xs">
-                  <label className="text-muted-foreground">من</label>
-                  <input type="date" className="border border-border rounded px-2 py-1 text-xs bg-card" value={ledgerFrom} onChange={e=>{setLedgerFrom(e.target.value);setLedgerPage(1);}}/>
+                <div className="flex items-center gap-1.5 text-xs">
+                  <label className="text-muted-foreground font-medium">من</label>
+                  <input type="date" className="border border-border rounded-lg px-2.5 py-1.5 text-xs bg-card focus:outline-none focus:ring-2 focus:ring-primary/30" value={ledgerFrom} onChange={e=>{setLedgerFrom(e.target.value);setLedgerPage(1);}}/>
                 </div>
-                <div className="flex items-center gap-1 text-xs">
-                  <label className="text-muted-foreground">إلى</label>
-                  <input type="date" className="border border-border rounded px-2 py-1 text-xs bg-card" value={ledgerTo} onChange={e=>{setLedgerTo(e.target.value);setLedgerPage(1);}}/>
+                <div className="flex items-center gap-1.5 text-xs">
+                  <label className="text-muted-foreground font-medium">إلى</label>
+                  <input type="date" className="border border-border rounded-lg px-2.5 py-1.5 text-xs bg-card focus:outline-none focus:ring-2 focus:ring-primary/30" value={ledgerTo} onChange={e=>{setLedgerTo(e.target.value);setLedgerPage(1);}}/>
                 </div>
-                <select className="border border-border rounded px-2 py-1 text-xs bg-card" value={ledgerType} onChange={e=>{setLedgerType(e.target.value);setLedgerPage(1);}}>
+                <select className="border border-border rounded-lg px-2.5 py-1.5 text-xs bg-card focus:outline-none focus:ring-2 focus:ring-primary/30" value={ledgerType} onChange={e=>{setLedgerType(e.target.value);setLedgerPage(1);}}>
                   <option value="all">كل الحركات</option>
                   {Object.entries(TX_LABELS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
                 </select>
                 <div className="relative flex-1 min-w-32">
-                  <Search className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground"/>
-                  <input type="text" placeholder="بحث..." className="w-full border border-border rounded pr-6 pl-2 py-1 text-xs bg-card" value={ledgerSearch} onChange={e=>setLedgerSearch(e.target.value)}/>
+                  <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground"/>
+                  <input type="text" placeholder="بحث..." className="w-full border border-border rounded-lg pr-7 pl-2 py-1.5 text-xs bg-card focus:outline-none focus:ring-2 focus:ring-primary/30" value={ledgerSearch} onChange={e=>setLedgerSearch(e.target.value)}/>
                 </div>
               </div>
             </div>
 
             {stats && (
-              <div className="grid grid-cols-3 divide-x divide-x-reverse divide-border border-b border-border text-center">
-                <div className="px-4 py-3"><p className="text-xs text-muted-foreground">إجمالي الدخل</p><p className="text-sm font-bold text-emerald-500">+{fmt(stats.totalIn)}</p></div>
-                <div className="px-4 py-3"><p className="text-xs text-muted-foreground">إجمالي الخروج</p><p className="text-sm font-bold text-rose-500">-{fmt(stats.totalOut)}</p></div>
-                <div className="px-4 py-3"><p className="text-xs text-muted-foreground">الصافي</p><p className={`text-sm font-bold ${stats.net>=0?"text-emerald-500":"text-rose-500"}`}>{fmt(stats.net)}</p></div>
+              <div className="grid grid-cols-3 divide-x divide-x-reverse divide-border/50 border-b border-border/50 text-center">
+                <div className="px-4 py-4 bg-emerald-50/50 dark:bg-emerald-900/10"><p className="text-xs text-muted-foreground mb-1">إجمالي الدخل</p><p className="text-sm font-bold text-emerald-500">+{fmt(stats.totalIn)}</p></div>
+                <div className="px-4 py-4 bg-rose-50/50 dark:bg-rose-900/10"><p className="text-xs text-muted-foreground mb-1">إجمالي الخروج</p><p className="text-sm font-bold text-rose-500">-{fmt(stats.totalOut)}</p></div>
+                <div className={`px-4 py-4 ${stats.net>=0?"bg-emerald-50/50 dark:bg-emerald-900/10":"bg-rose-50/50 dark:bg-rose-900/10"}`}><p className="text-xs text-muted-foreground mb-1">الصافي</p><p className={`text-sm font-bold ${stats.net>=0?"text-emerald-500":"text-rose-500"}`}>{fmt(stats.net)}</p></div>
               </div>
             )}
 
             {ledgerLoading ? (
-              <div className="flex items-center justify-center py-12 gap-2 text-muted-foreground text-sm"><RefreshCw className="w-4 h-4 animate-spin"/> جارٍ التحميل...</div>
+              <div className="flex items-center justify-center py-14 gap-2 text-muted-foreground text-sm"><RefreshCw className="w-4 h-4 animate-spin text-primary"/> جارٍ التحميل...</div>
             ) : filteredTx.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground"><CreditCard className="w-10 h-10 mx-auto mb-2 opacity-20"/><p className="text-sm">مفيش حركات في هذه الفترة</p></div>
+              <div className="text-center py-14 text-muted-foreground">
+                <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-3">
+                  <CreditCard className="w-8 h-8 opacity-30"/>
+                </div>
+                <p className="text-sm font-medium">مفيش حركات في هذه الفترة</p>
+              </div>
             ) : (
-              <div className="divide-y divide-border">
+              <div className="divide-y divide-border/50">
                 {filteredTx.map(tx => {
                   const isCredit = CREDIT_TYPES.includes(tx.type);
                   const meta = TX_LABELS[tx.type] ?? {label:tx.type, color:"text-foreground"};
                   return (
-                    <div key={tx.id} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isCredit?"bg-emerald-500/10":"bg-rose-500/10"}`}>
-                        {isCredit ? <ArrowUpCircle className="w-4 h-4 text-emerald-500"/> : <ArrowDownCircle className="w-4 h-4 text-rose-500"/>}
+                    <div key={tx.id} className="flex items-center gap-3 px-5 py-3.5 hover:bg-muted/30 transition-colors">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isCredit?"bg-emerald-500/10":"bg-rose-500/10"}`}>
+                        {isCredit ? <ArrowUpCircle className="w-4.5 h-4.5 text-emerald-500"/> : <ArrowDownCircle className="w-4.5 h-4.5 text-rose-500"/>}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className={`text-xs font-semibold ${meta.color}`}>{meta.label}</span>
-                          {tx.referenceNumber && <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">#{tx.referenceNumber}</span>}
+                          <span className={`text-xs font-bold ${meta.color}`}>{meta.label}</span>
+                          {tx.referenceNumber && <span className="text-xs text-muted-foreground bg-muted/70 px-1.5 py-0.5 rounded-md">#{tx.referenceNumber}</span>}
                         </div>
                         {tx.description && <p className="text-xs text-muted-foreground truncate mt-0.5">{tx.description}</p>}
                         <p className="text-xs text-muted-foreground">{new Date(tx.transactionDate).toLocaleDateString("ar-EG")} — {tx.createdByName??""}</p>
@@ -453,12 +542,12 @@ export default function FinanceCashPage() {
             )}
 
             {pagination && pagination.total > pagination.limit && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-border">
-                <p className="text-xs text-muted-foreground">{pagination.total} حركة إجمالي</p>
-                <div className="flex gap-1">
-                  <Button size="sm" variant="outline" className="h-7 w-7 p-0" disabled={ledgerPage===1} onClick={()=>setLedgerPage(p=>p-1)}><ChevronRight className="w-3.5 h-3.5"/></Button>
-                  <span className="text-xs px-2 py-1 text-muted-foreground">صفحة {ledgerPage}</span>
-                  <Button size="sm" variant="outline" className="h-7 w-7 p-0" disabled={ledgerPage*pagination.limit>=pagination.total} onClick={()=>setLedgerPage(p=>p+1)}><ChevronLeft className="w-3.5 h-3.5"/></Button>
+              <div className="flex items-center justify-between px-5 py-4 border-t border-border/50 bg-muted/10">
+                <p className="text-xs text-muted-foreground font-medium">{pagination.total} حركة إجمالي</p>
+                <div className="flex gap-1.5 items-center">
+                  <Button size="sm" variant="outline" className="h-8 w-8 p-0 rounded-lg" disabled={ledgerPage===1} onClick={()=>setLedgerPage(p=>p-1)}><ChevronRight className="w-3.5 h-3.5"/></Button>
+                  <span className="text-xs px-3 py-1.5 bg-muted rounded-lg text-muted-foreground font-medium">صفحة {ledgerPage}</span>
+                  <Button size="sm" variant="outline" className="h-8 w-8 p-0 rounded-lg" disabled={ledgerPage*pagination.limit>=pagination.total} onClick={()=>setLedgerPage(p=>p+1)}><ChevronLeft className="w-3.5 h-3.5"/></Button>
                 </div>
               </div>
             )}
