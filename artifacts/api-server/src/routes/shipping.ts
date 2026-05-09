@@ -72,10 +72,10 @@ router.get("/shipping-companies/:id/stats", async (req, res): Promise<void> => {
   const orders = await db.select().from(ordersTable).where(inArray(ordersTable.id, orderIds));
   const orderMap = new Map(orders.map(o => [o.id, o]));
 
-  // ─── حساب المؤجل من البيان المفتوح فقط ─────────────────────────────────
+  // ─── حساب المؤجل = عدد الفواتير الفريدة في البيان المفتوح ─────────────
   let postponed = 0;
   if (openManifestId) {
-    const openLinks = links.filter(l => l.manifestId === openManifestId && l.deliveryStatus === "postponed");
+    const openLinks = links.filter(l => l.manifestId === openManifestId);
     const openOrderIds = openLinks.map(l => l.orderId);
     const openOrders = openOrderIds.map(id => orderMap.get(id)).filter(Boolean);
     const seenInvoices = new Set<string>();
