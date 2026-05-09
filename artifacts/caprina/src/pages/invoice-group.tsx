@@ -305,13 +305,17 @@ function AddProductDialog({ open, onOpenChange, repOrder, invoiceNumber: invNum,
 
   const handleSubmit = async () => {
     if (!selectedProduct) return;
+    if (unitPrice <= 0) {
+      toast({ title: "خطأ", description: "أدخل سعر البيع.", variant: "destructive" });
+      return;
+    }
+    const filledRows = hasVariants ? variantRows.filter(r => r.color && r.size) : variantRows;
+    if (hasVariants && filledRows.length === 0) {
+      toast({ title: "خطأ", description: "اختر لون ومقاس على الأقل.", variant: "destructive" });
+      return;
+    }
     setIsSubmitting(true);
     try {
-      const filledRows = hasVariants ? variantRows.filter(r => r.color && r.size) : variantRows;
-      if (filledRows.length === 0) {
-        toast({ title: "خطأ", description: "اختر لون ومقاس على الأقل.", variant: "destructive" });
-        return;
-      }
       const items = filledRows.map(r => ({
         product: selectedProduct.name,
         color: r.color || null,
@@ -331,10 +335,13 @@ function AddProductDialog({ open, onOpenChange, repOrder, invoiceNumber: invNum,
         notes: null,
         items,
       });
-      toast({ title: "تم إضافة المنتج", description: `${selectedProduct.name} اتضاف للفاتورة بنجاح.` });
-      reset(); onOpenChange(false); onSuccess();
+      toast({ title: "تم إضافة المنتج ✅", description: `${selectedProduct.name} اتضاف للفاتورة بنجاح.` });
+      reset();
+      onOpenChange(false);
+      onSuccess();
     } catch (e: any) {
-      toast({ title: "خطأ", description: e?.message || "فشل الإضافة.", variant: "destructive" });
+      console.error("AddProduct error:", e);
+      toast({ title: "خطأ", description: e?.message || "فشل الإضافة، حاول تاني.", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }

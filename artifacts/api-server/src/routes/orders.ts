@@ -301,7 +301,7 @@ router.post("/orders/batch", async (req, res): Promise<void> => {
   const { items, ...sharedFields } = req.body;
   if (!Array.isArray(items) || items.length === 0) { res.status(400).json({ error: "يجب إرسال قائمة منتجات (items)" }); return; }
 
-  const invoiceNumber = generateInvoiceNumber();
+  const invoiceNumber = sharedFields.invoiceNumber ?? generateInvoiceNumber();
   const shippingPerItem = sharedFields.shippingCost ? Number(sharedFields.shippingCost) / items.length : 0;
   const createdOrders = [];
 
