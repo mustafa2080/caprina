@@ -85,19 +85,25 @@ export default function FinanceCashPage() {
   const { data: regData, isLoading } = useQuery<{ registers: CashRegister[]; totalBalance: number }>({
     queryKey: ["/api/cash-registers"],
     queryFn: () => apiFetch("/api/cash-registers"),
-    refetchInterval: 30000,
+    refetchInterval: 120000,
+    staleTime: 60000,
+    refetchIntervalInBackground: false,
   });
 
   const { data: alertsData } = useQuery<{ alerts: Alert[] }>({
     queryKey: ["/api/cash-registers/alerts"],
     queryFn: () => apiFetch("/api/cash-registers/alerts"),
-    refetchInterval: 60000,
+    refetchInterval: 180000,
+    staleTime: 120000,
+    refetchIntervalInBackground: false,
   });
 
   const { data: smartAlertsData } = useQuery<{ alerts: any[] }>({
     queryKey: ["/api/cash-registers/smart-alerts"],
     queryFn: () => apiFetch("/api/cash-registers/smart-alerts"),
-    refetchInterval: 120000,
+    refetchInterval: 300000,
+    staleTime: 180000,
+    refetchIntervalInBackground: false,
   });
 
   const ledgerRegId = activeTab !== "all" ? activeTab : null;
@@ -106,12 +112,16 @@ export default function FinanceCashPage() {
     queryKey: ["/api/cash-registers/ledger", ledgerRegId, ledgerFrom, ledgerTo, ledgerType, ledgerPage],
     queryFn: () => apiFetch(`/api/cash-registers/${ledgerRegId}/transactions?from=${ledgerFrom}&to=${ledgerTo}&type=${ledgerType}&page=${ledgerPage}&limit=25`),
     enabled: !!ledgerRegId,
+    staleTime: 60000,
+    refetchIntervalInBackground: false,
   });
 
   const { data: flowData } = useQuery({
     queryKey: ["/api/cash-registers/flow", ledgerRegId],
     queryFn: () => apiFetch(`/api/cash-registers/${ledgerRegId}/flow?days=30`),
     enabled: !!ledgerRegId,
+    staleTime: 120000,
+    refetchIntervalInBackground: false,
   });
 
   const registers    = regData?.registers ?? [];
@@ -179,9 +189,9 @@ export default function FinanceCashPage() {
   if (isLoading) return (
     <div className="flex flex-col items-center justify-center h-64 gap-4 text-muted-foreground">
       <div className="relative w-16 h-16">
-        <div className="absolute inset-0 rounded-2xl bg-emerald-500/10 animate-pulse" />
+        <div className="absolute inset-0 rounded-2xl animate-pulse" style={{background:"#DEA82115"}} />
         <div className="absolute inset-0 flex items-center justify-center">
-          <RefreshCw className="w-7 h-7 animate-spin text-emerald-500" />
+          <RefreshCw className="w-7 h-7 animate-spin" style={{color:"#DEA821"}} />
         </div>
       </div>
       <div className="text-center">
@@ -198,8 +208,8 @@ export default function FinanceCashPage() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-black flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-500/10 flex items-center justify-center shadow-sm">
-              <Wallet className="w-5 h-5 text-emerald-500" />
+            <div className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-sm" style={{background:"#DEA82120"}}>
+              <Wallet className="w-5 h-5" style={{color:"#DEA821"}} />
             </div>
             إدارة الخزنة
           </h1>
@@ -212,7 +222,7 @@ export default function FinanceCashPage() {
           <Button variant="outline" size="sm" className="gap-1.5 h-9 text-xs rounded-xl border-border/60 hover:border-border" onClick={() => setTransferOpen(true)}>
             <ArrowRightLeft className="w-3.5 h-3.5" /> تحويل
           </Button>
-          <Button size="sm" className="gap-1.5 h-9 text-xs rounded-xl bg-amber-500 hover:bg-amber-600 text-black font-bold shadow-md shadow-amber-500/30" onClick={() => setAddRegOpen(true)}>
+          <Button size="sm" className="gap-1.5 h-9 text-xs rounded-xl font-bold shadow-md text-black" style={{background:"#DEA821"}} onMouseEnter={e=>(e.currentTarget.style.background="#c8931c")} onMouseLeave={e=>(e.currentTarget.style.background="#DEA821")} onClick={() => setAddRegOpen(true)}>
             <Plus className="w-3.5 h-3.5" /> خزنة جديدة
           </Button>
         </div>
@@ -265,26 +275,26 @@ export default function FinanceCashPage() {
       )}
 
       {/* ── إجمالي الكاش ── */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500 via-yellow-500 to-amber-400 dark:from-amber-600 dark:via-yellow-600 dark:to-amber-500 text-white p-6 shadow-2xl shadow-amber-500/30">
+      <div className="relative overflow-hidden rounded-2xl text-black p-6 shadow-2xl" style={{background:"linear-gradient(135deg, #DEA821 0%, #f5c842 50%, #DEA821 100%)", boxShadow:"0 20px 60px #DEA82140"}}>
         {/* decorative shapes */}
-        <div className="absolute -top-8 -left-8 w-40 h-40 rounded-full bg-white/10" />
-        <div className="absolute -bottom-10 -right-6 w-52 h-52 rounded-full bg-black/10" />
-        <div className="absolute top-4 left-1/2 w-20 h-20 rounded-full bg-white/5" />
+        <div className="absolute -top-8 -left-8 w-40 h-40 rounded-full bg-black/5" />
+        <div className="absolute -bottom-10 -right-6 w-52 h-52 rounded-full bg-black/8" />
+        <div className="absolute top-4 left-1/2 w-20 h-20 rounded-full bg-white/10" />
         <div className="relative z-10">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-xs font-semibold opacity-80 mb-2 flex items-center gap-1.5 uppercase tracking-widest">
+              <p className="text-xs font-bold opacity-70 mb-2 flex items-center gap-1.5 uppercase tracking-widest">
                 <Wallet className="w-3.5 h-3.5" /> إجمالي الكاش
               </p>
               <p className="text-5xl font-black tracking-tight leading-none drop-shadow-sm">{fmt(totalBalance)}</p>
             </div>
-            <div className="w-14 h-14 rounded-2xl bg-black/15 flex items-center justify-center backdrop-blur-sm">
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center backdrop-blur-sm" style={{background:"#00000018"}}>
               <TrendingUp className="w-7 h-7" />
             </div>
           </div>
           <div className="flex items-center gap-2.5 mt-4">
-            <span className="text-xs font-semibold bg-black/15 backdrop-blur-sm px-3 py-1 rounded-full">{registers.length} خزنة نشطة</span>
-            {mainReg && <span className="text-xs font-semibold bg-black/15 backdrop-blur-sm px-3 py-1 rounded-full">رئيسية: {fmt(mainReg.balance)}</span>}
+            <span className="text-xs font-bold px-3 py-1 rounded-full" style={{background:"#00000015"}}>{registers.length} خزنة نشطة</span>
+            {mainReg && <span className="text-xs font-bold px-3 py-1 rounded-full" style={{background:"#00000015"}}>رئيسية: {fmt(mainReg.balance)}</span>}
           </div>
         </div>
       </div>
@@ -439,7 +449,7 @@ export default function FinanceCashPage() {
               </div>
             </div>
             <div className="flex gap-2 mt-5 flex-wrap">
-              <Button size="sm" className="gap-1.5 rounded-xl h-9 bg-amber-500 hover:bg-amber-600 text-black font-bold shadow-md shadow-amber-500/20" onClick={() => { setSelectedReg(activeReg); setTxOpen(true); }}><Plus className="w-4 h-4" /> حركة جديدة</Button>
+              <Button size="sm" className="gap-1.5 rounded-xl h-9 font-bold text-black shadow-md" style={{background:"#DEA821"}} onMouseEnter={e=>(e.currentTarget.style.background="#c8931c")} onMouseLeave={e=>(e.currentTarget.style.background="#DEA821")} onClick={() => { setSelectedReg(activeReg); setTxOpen(true); }}><Plus className="w-4 h-4" /> حركة جديدة</Button>
               <Button size="sm" variant="outline" className="gap-1.5 rounded-xl h-9" onClick={() => setTransferOpen(true)}><ArrowRightLeft className="w-4 h-4" /> تحويل</Button>
               <Button size="sm" variant="outline" className="gap-1.5 rounded-xl h-9" onClick={() => { setSelectedReg(activeReg); setEditForm({name:activeReg.name,description:activeReg.description??""}); setEditOpen(true); }}><Pencil className="w-4 h-4" /> تعديل</Button>
               <Button size="sm" variant="outline" className="gap-1.5 rounded-xl h-9" onClick={() => { setSelectedReg(activeReg); setThresholdVal(activeReg.lowBalanceThreshold ?? ""); setThresholdOpen(true); }}><Bell className="w-4 h-4" /> حد التنبيه</Button>
@@ -449,7 +459,7 @@ export default function FinanceCashPage() {
           {/* Chart */}
           {flowData && flowData.length > 1 && (
             <div className="rounded-2xl border border-border bg-card p-5">
-              <p className="text-sm font-bold mb-4 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-amber-500" /> التدفق النقدي — آخر 30 يوم</p>
+              <p className="text-sm font-bold mb-4 flex items-center gap-2"><TrendingUp className="w-4 h-4" style={{color:"#DEA821"}} /> التدفق النقدي — آخر 30 يوم</p>
               <ResponsiveContainer width="100%" height={160}>
                 <AreaChart data={flowData} margin={{top:4,right:4,left:0,bottom:0}}>
                   <defs>
