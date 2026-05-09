@@ -356,11 +356,20 @@ router.get("/orders/summary", async (_req, res): Promise<void> => {
   }
   type InvoiceGroup = { status: string; totalPrice: number };
   const invoices: InvoiceGroup[] = [];
+  const STATUS_PRIORITY: Record<string, number> = {
+    pending: 1, in_shipping: 2, warehouse_ready: 3, delayed: 4,
+    partial_received: 5, received: 6, returned: 7,
+  };
   for (const raw of invoiceMapRaw.values()) {
+    let resolvedStatus: string;
     if (raw.statuses.size === 1) {
-      invoices.push({ status: Array.from(raw.statuses)[0], totalPrice: raw.totalPrice });
+      resolvedStatus = Array.from(raw.statuses)[0];
+    } else {
+      resolvedStatus = Array.from(raw.statuses).sort(
+        (a, b) => (STATUS_PRIORITY[a] ?? 99) - (STATUS_PRIORITY[b] ?? 99)
+      )[0];
     }
-    // invoice فيها حالات مختلطة: مش بتتحسب في أي حالة (نفس سلوك charts)
+    invoices.push({ status: resolvedStatus, totalPrice: raw.totalPrice });
   }
   const summary = {
     totalOrders: invoices.length,

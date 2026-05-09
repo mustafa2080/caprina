@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+﻿import { Router, type IRouter } from "express";
 import { db, ordersTable, productsTable, productVariantsTable, shippingCompaniesTable, shippingManifestsTable, shippingManifestOrdersTable } from "@workspace/db";
 import { eq, isNull, and, desc, lte } from "drizzle-orm";
 import { requireAdmin } from "../middlewares/requireRole.js";
@@ -1009,25 +1009,64 @@ router.get("/analytics/charts", async (_req, res): Promise<void> => {
     revenue: number;
   };
 
-  const invoiceMap = new Map<string, InvoiceGroup>();
+  // نجمع كل الحالات لكل invoice — نفس منطق صفحة الطلبات تماماً
+  // invoice بتتحسب بحالة X بس لو كل rows فيها بحالة X
+  type InvoiceRaw = {
+    invoiceKey: string;
+    statuses: Set<string>;
+    createdAt: Date;
+    adSource: string | null;
+    revenue: number;
+  };
+  const invoiceMapRaw = new Map<string, InvoiceRaw>();
   for (const o of allOrders) {
     const key = o.invoiceNumber ?? `solo-${o.id}`;
-    if (!invoiceMap.has(key)) {
-      invoiceMap.set(key, {
+    if (!invoiceMapRaw.has(key)) {
+      invoiceMapRaw.set(key, {
         invoiceKey: key,
-        status: o.status,
+        statuses: new Set(),
         createdAt: o.createdAt,
         adSource: o.adSource ?? null,
         revenue: 0,
       });
     }
-    const grp = invoiceMap.get(key)!;
-    // آخر status يكتب فوق السابق — نفس منطق orders/summary
-    grp.status = o.status;
+    const grp = invoiceMapRaw.get(key)!;
+    grp.statuses.add(o.status);
     if (o.status === "received" || o.status === "partial_received") {
       const qty = o.status === "partial_received" ? (o.partialQuantity ?? o.quantity) : o.quantity;
       grp.revenue += qty * o.unitPrice;
     }
+  }
+  // حوّل لـ invoiceMap: نفس منطق صفحة الطلبات — أولوية الحالات
+  // لو كل rows بحالة واحدة → استخدمها مباشرة
+  // لو مختلطة → استخدم الحالة الأكثر "نشاطاً" (أولوية: pending > in_shipping > warehouse_ready > delayed > partial_received > received > returned)
+  const STATUS_PRIORITY: Record<string, number> = {
+    pending: 1,
+    in_shipping: 2,
+    warehouse_ready: 3,
+    delayed: 4,
+    partial_received: 5,
+    received: 6,
+    returned: 7,
+  };
+  const invoiceMap = new Map<string, InvoiceGroup>();
+  for (const [key, raw] of invoiceMapRaw.entries()) {
+    let resolvedStatus: string;
+    if (raw.statuses.size === 1) {
+      resolvedStatus = Array.from(raw.statuses)[0];
+    } else {
+      // اختار الحالة الأقل رقماً (الأكثر نشاطاً)
+      resolvedStatus = Array.from(raw.statuses).sort(
+        (a, b) => (STATUS_PRIORITY[a] ?? 99) - (STATUS_PRIORITY[b] ?? 99)
+      )[0];
+    }
+    invoiceMap.set(key, {
+      invoiceKey: key,
+      status: resolvedStatus,
+      createdAt: raw.createdAt,
+      adSource: raw.adSource,
+      revenue: raw.revenue,
+    });
   }
 
   const invoices = Array.from(invoiceMap.values());
