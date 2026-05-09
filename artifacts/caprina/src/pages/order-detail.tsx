@@ -384,6 +384,18 @@ export default function OrderDetail() {
   const initializedRef = useRef(false);
 
   const { data: order, isLoading, error } = useGetOrder(id, { query: { enabled: !!id, queryKey: getGetOrderQueryKey(id) } });
+
+  // جيب كل أوردرات الفاتورة (لو فيه invoiceNumber)
+  const invoiceNumber = (order as any)?.invoiceNumber as string | null | undefined;
+  const { data: invoiceOrders = [], refetch: refetchInvoiceOrders } = useQuery({
+    queryKey: ["invoice-orders", invoiceNumber],
+    queryFn: () => ordersApi.byInvoice(invoiceNumber!),
+    enabled: !!invoiceNumber,
+    staleTime: 0,
+  });
+  // كل أوردرات الفاتورة ماعدا الحالي (للعرض في القائمة)
+  const otherInvoiceOrders = invoiceOrders.filter((o: any) => o.id !== id);
+
   const { data: shippingCompanies } = useQuery({ queryKey: ["shipping"], queryFn: shippingApi.list });
   const { data: products } = useQuery({ queryKey: ["products"], queryFn: productsApi.list });
   const { data: allVariants } = useQuery({ queryKey: ["variants"], queryFn: variantsApi.listAll });
@@ -1193,6 +1205,35 @@ export default function OrderDetail() {
                     <FormField control={form.control} name="notes" render={({ field }) => (
                       <FormItem><FormLabel className="text-xs">ملاحظات</FormLabel><FormControl><Textarea className="min-h-[60px] text-sm resize-none" {...field} value={field.value ?? ""} /></FormControl></FormItem>
                     )} />
+
+                    {/* ── إضافة منتج جوه التعديل ── */}
+                    {invoiceNumber && (
+                      <div className="border border-dashed border-primary/30 rounded-md p-3 bg-primary/5">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[10px] font-bold text-primary flex items-center gap-1">
+                            <Package className="w-3 h-3" />منتجات الفاتورة ({invoiceOrders.length > 0 ? invoiceOrders.length : 1})
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => { setIsEditing(false); setTimeout(() => setShowAddProduct(true), 100); }}
+                            className="flex items-center gap-1 text-[10px] font-bold text-primary bg-primary/10 hover:bg-primary/20 px-2.5 py-1 rounded transition-colors"
+                          >
+                            <Plus className="w-3 h-3" />إضافة منتج للفاتورة
+                          </button>
+                        </div>
+                        {otherInvoiceOrders.length > 0 && (
+                          <div className="mt-2 flex flex-col gap-1">
+                            {otherInvoiceOrders.map((o: any) => (
+                              <div key={o.id} className="flex items-center justify-between text-[10px] text-muted-foreground px-1">
+                                <span className="font-medium">{o.product}{o.color ? ` — ${o.color}` : ""}{o.size ? ` / ${o.size}` : ""}</span>
+                                <span>{o.quantity} وحدة</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     <div className="flex gap-2 pt-2">
                       <Button type="submit" size="sm" className="h-8 text-xs gap-1" disabled={updateOrder.isPending}>
                         <Save className="w-3 h-3" />{updateOrder.isPending ? "جاري..." : "حفظ"}
@@ -1396,6 +1437,74 @@ export default function OrderDetail() {
                   </div>
                 )}
 
+                {/* ── منتجات الفاتورة الأخرى ── */}
+                {otherInvoiceOrders.length > 0 && (
+                  <div className="mt-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs font-bold text-muted-foreground flex items-center gap-1">
+                        <Package className="w-3 h-3" />منتجات الفاتورة ({otherInvoiceOrders.length + 1} منتجات)
+                      </p>
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => setShowAddProduct(true)}
+                          className="flex items-center gap-1 text-[10px] font-bold text-primary border border-dashed border-primary/40 hover:bg-primary/5 px-2 py-1 rounded transition-colors"
+                        >
+                          <Plus className="w-3 h-3" />إضافة منتج
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      {/* الطلب الحالي */}
+                      <div className="flex items-center justify-between rounded-md px-2.5 py-2 border border-primary/40 bg-primary/5">
+                        <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[9px] text-primary font-bold">← هذا الطلب</span>
+                          </div>
+                          <span className="text-xs font-semibold text-primary truncate">{order.product}</span>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            {(order as any).color && <Badge variant="outline" className="text-[9px] border-border text-muted-foreground">{(order as any).color}</Badge>}
+                            {(order as any).size && <Badge variant="outline" className="text-[9px] border-primary/40 text-primary font-bold">{(order as any).size}</Badge>}
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          <span className="text-xs font-bold">{order.quantity} وحدة</span>
+                          <span className="text-[10px] text-primary font-bold">{formatCurrency(order.totalPrice)}</span>
+                        </div>
+                      </div>
+                      {/* باقي المنتجات في الفاتورة */}
+                      {otherInvoiceOrders.map((o: any) => (
+                        <div key={o.id} className="flex items-center justify-between rounded-md px-2.5 py-2 border border-border/60 bg-muted/10 hover:bg-muted/20 transition-colors">
+                          <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                            <span className="text-xs font-semibold truncate">{o.product}</span>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              {o.color && <Badge variant="outline" className="text-[9px] border-border text-muted-foreground">{o.color}</Badge>}
+                              {o.size && <Badge variant="outline" className="text-[9px] border-border text-muted-foreground font-bold">{o.size}</Badge>}
+                            </div>
+                            <Badge variant="outline" className={`text-[9px] font-bold w-fit mt-0.5 ${statusClasses[o.status] || ""}`}>
+                              {statusLabels[o.status] || o.status}
+                            </Badge>
+                          </div>
+                          <div className="flex flex-col items-end gap-1 shrink-0">
+                            <span className="text-xs font-bold">{o.quantity} وحدة</span>
+                            <span className="text-[10px] text-muted-foreground font-bold">{formatCurrency(o.totalPrice)}</span>
+                            <Link href={`/orders/${o.id}`}>
+                              <span className="text-[9px] text-primary hover:underline cursor-pointer">عرض ←</span>
+                            </Link>
+                          </div>
+                        </div>
+                      ))}
+                      {/* إجمالي الفاتورة */}
+                      <div className="flex items-center justify-between rounded-md px-2.5 py-1.5 bg-muted/20 border border-border/40 mt-1">
+                        <span className="text-xs font-bold text-muted-foreground">إجمالي الفاتورة</span>
+                        <span className="text-sm font-black text-primary">
+                          {formatCurrency([...invoiceOrders].reduce((s: number, o: any) => s + (o.totalPrice ?? 0), 0))}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {order.notes && (
                   <div className="mt-2">
                     <p className="text-xs text-muted-foreground mb-1">ملاحظات</p>
@@ -1503,6 +1612,8 @@ export default function OrderDetail() {
         onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
           queryClient.invalidateQueries({ queryKey: getGetOrdersSummaryQueryKey() });
+          queryClient.invalidateQueries({ queryKey: ["invoice-orders", invoiceNumber] });
+          refetchInvoiceOrders();
         }}
       />
     </div>
