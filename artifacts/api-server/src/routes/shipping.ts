@@ -91,7 +91,6 @@ router.get("/shipping-companies/:id/stats", async (req, res): Promise<void> => {
       totalShipping += order.shippingCost ?? 0;
     } else if (status === "postponed") {
       postponed++;
-      pending++;
       totalShipping += order.shippingCost ?? 0;
     } else {
       pending++;
@@ -99,7 +98,7 @@ router.get("/shipping-companies/:id/stats", async (req, res): Promise<void> => {
     }
   }
 
-  const total = delivered + returned + pending;
+  const total = delivered + returned + postponed + pending;
   const deliveryRate = total > 0 ? Math.round((delivered / total) * 100) : 0;
   const netProfit = totalRevenue - totalCost - totalShipping - returnLosses;
 
