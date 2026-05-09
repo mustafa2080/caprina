@@ -155,7 +155,7 @@ function EditProductDialog({ open, onOpenChange, order: o, onSuccess }: {
     setIsSubmitting(true);
     try {
       await new Promise<void>((resolve, reject) => {
-        updateOrder.mutate({ id: o.id, data: { product, quantity, unitPrice, notes: notes || null } as any }, {
+        updateOrder.mutate({ id: o.id, data: { product, quantity, unitPrice, color: color || null, size: size || null, notes: notes || null } as any }, {
           onSuccess: (updated: any) => {
             queryClient.setQueryData(getGetOrderQueryKey(o.id), updated);
             resolve();
