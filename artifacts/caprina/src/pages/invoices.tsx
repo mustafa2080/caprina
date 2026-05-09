@@ -6,11 +6,9 @@ import { format } from "date-fns";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Printer, FileText, CheckSquare, Square, Search, Filter, X, CalendarDays, SlidersHorizontal, ChevronDown, ChevronUp } from "lucide-react";
+import { Printer, FileText, CheckSquare, Square } from "lucide-react";
 import { useBrand } from "@/contexts/BrandContext";
-import { useDebounce } from "@/hooks/use-debounce";
 
 const statusLabels: Record<string, string> = {
   pending:          "قيد الانتظار",
@@ -47,20 +45,6 @@ export default function Invoices() {
   );
   const [statusFilter, setStatusFilter] = useState<InvoiceListStatus>("all");
   const [perPage, setPerPage] = useState<number>(4);
-
-  // ── فلاتر البحث ──────────────────────────────────────────────────────────
-  const [search, setSearch]               = useState("");
-  const [dateFrom, setDateFrom]           = useState("");
-  const [dateTo, setDateTo]               = useState("");
-  const [filterCity, setFilterCity]       = useState("all");
-  const [filterShipCo, setFilterShipCo]   = useState("all");
-  const [filterAmountMin, setFilterAmountMin] = useState("");
-  const [filterAmountMax, setFilterAmountMax] = useState("");
-  const [filterProduct, setFilterProduct] = useState("");
-  const [showAdvanced, setShowAdvanced]   = useState(false);
-
-  const debouncedSearch  = useDebounce(search,  300);
-  const debouncedProduct = useDebounce(filterProduct, 300);
 
   const { data: allOrders, isLoading } = useListOrders({
     status: statusFilter !== "all" ? statusFilter : undefined,
@@ -130,43 +114,7 @@ export default function Invoices() {
   }, [rawOrders, directInvoiceOrders, preselectedInvoiceNumber]);
 
   // ── تطبيق الفلاتر على invoiceGroups ──────────────────────────────────────
-  const filtered = useMemo(() => {
-    return invoiceGroups.filter(grp => {
-      const q = debouncedSearch.toLowerCase();
-      if (q) {
-        const matchName  = grp.customerName.toLowerCase().includes(q);
-        const matchPhone = grp.phone?.includes(q);
-        const matchInv   = grp.invoiceNumber.toLowerCase().includes(q);
-        const matchProd  = grp.orders.some((o: any) => o.product?.toLowerCase().includes(q));
-        if (!matchName && !matchPhone && !matchInv && !matchProd) return false;
-      }
-      if (dateFrom && new Date(grp.createdAt) < new Date(dateFrom)) return false;
-      if (dateTo   && new Date(grp.createdAt) > new Date(dateTo + "T23:59:59")) return false;
-      if (filterCity !== "all" && grp.city !== filterCity) return false;
-      if (filterShipCo !== "all" && String(grp.shippingCompanyId) !== filterShipCo) return false;
-      if (filterAmountMin && grp.totalPrice < parseFloat(filterAmountMin)) return false;
-      if (filterAmountMax && grp.totalPrice > parseFloat(filterAmountMax)) return false;
-      if (debouncedProduct && !grp.orders.some((o: any) => o.product?.toLowerCase().includes(debouncedProduct.toLowerCase()))) return false;
-      return true;
-    });
-  }, [invoiceGroups, debouncedSearch, dateFrom, dateTo, filterCity, filterShipCo, filterAmountMin, filterAmountMax, debouncedProduct]);
-
-  const allCities = useMemo(() =>
-    [...new Set(invoiceGroups.map(g => g.city).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b, "ar")),
-    [invoiceGroups]
-  );
-
-  const advancedCount = [
-    dateFrom, dateTo, filterCity !== "all", filterShipCo !== "all", filterAmountMin, filterAmountMax, debouncedProduct
-  ].filter(Boolean).length;
-
-  const hasFilter = search || statusFilter !== "all" || advancedCount > 0;
-
-  const clearAllFilters = () => {
-    setSearch(""); setDateFrom(""); setDateTo("");
-    setFilterCity("all"); setFilterShipCo("all");
-    setFilterAmountMin(""); setFilterAmountMax(""); setFilterProduct("");
-  };
+  const filtered = useMemo(() => invoiceGroups, [invoiceGroups]);
 
   // ─── Cache & prefetch ─────────────────────────────────────────────────────
   const [realOrdersCache, setRealOrdersCache] = useState<Map<string, any[]>>(new Map());
@@ -377,149 +325,9 @@ export default function Invoices() {
         </div>
       </div>
 
-      {/* ── شريط البحث والفلاتر ── */}
+      {/* ── شريط الأدوات ── */}
       <Card className="border-border overflow-hidden">
-        <div className="p-3 space-y-2">
-
-          {/* الصف الأول: بحث + حالة + زر فلتر */}
-          <div className="flex flex-col sm:flex-row gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-              <Input
-                placeholder="ابحث بالاسم، الهاتف، رقم الفاتورة، أو المنتج..."
-                className="pr-9 bg-card text-sm h-9"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-              />
-              {search && (
-                <button onClick={() => setSearch("")} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as InvoiceListStatus)}>
-              <SelectTrigger className="w-full sm:w-52 bg-card h-9 text-sm">
-                <div className="flex items-center gap-2"><Filter className="w-3.5 h-3.5 text-muted-foreground" /><SelectValue /></div>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">قيد الشحن في المخزن</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button
-              variant={showAdvanced ? "default" : "outline"}
-              size="sm"
-              className="h-9 gap-1.5 text-xs font-bold shrink-0"
-              onClick={() => setShowAdvanced(v => !v)}
-            >
-              <SlidersHorizontal className="w-3.5 h-3.5" />
-              فلتر متقدم
-              {advancedCount > 0 && (
-                <span className="bg-primary-foreground text-primary rounded-full w-4 h-4 text-[9px] font-black flex items-center justify-center">
-                  {advancedCount}
-                </span>
-              )}
-              {showAdvanced ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-            </Button>
-          </div>
-
-          {/* فلاتر التاريخ */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="relative">
-              <CalendarDays className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-              <Input type="date" className="pr-9 bg-card text-sm h-8 w-40 text-xs" value={dateFrom} onChange={e => setDateFrom(e.target.value)} title="من تاريخ" />
-            </div>
-            <span className="text-xs text-muted-foreground">←</span>
-            <div className="relative">
-              <CalendarDays className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-              <Input type="date" className="pr-9 bg-card text-sm h-8 w-40 text-xs" value={dateTo} onChange={e => setDateTo(e.target.value)} title="إلى تاريخ" />
-            </div>
-            {hasFilter && (
-              <Button variant="ghost" size="sm" className="h-8 text-xs gap-1 text-muted-foreground" onClick={clearAllFilters}>
-                <X className="w-3 h-3" />مسح الكل
-              </Button>
-            )}
-          </div>
-
-          {/* فلاتر متقدمة */}
-          {showAdvanced && (
-            <div className="rounded-lg border border-border bg-muted/5 p-3 space-y-3">
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">فلاتر متقدمة</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-
-                {/* المنتج */}
-                <div>
-                  <p className="text-[10px] text-muted-foreground mb-1 font-semibold">📦 المنتج</p>
-                  <div className="relative">
-                    <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
-                    <Input placeholder="اسم المنتج..." className="pr-7 h-8 text-xs bg-background" value={filterProduct} onChange={e => setFilterProduct(e.target.value)} />
-                  </div>
-                </div>
-
-                {/* المحافظة */}
-                <div>
-                  <p className="text-[10px] text-muted-foreground mb-1 font-semibold">📍 المحافظة</p>
-                  <Select value={filterCity} onValueChange={setFilterCity}>
-                    <SelectTrigger className="h-8 text-xs bg-background"><SelectValue placeholder="كل المحافظات" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">كل المحافظات</SelectItem>
-                      {allCities.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* شركة الشحن */}
-                <div>
-                  <p className="text-[10px] text-muted-foreground mb-1 font-semibold">🚚 شركة الشحن</p>
-                  <Select value={filterShipCo} onValueChange={setFilterShipCo}>
-                    <SelectTrigger className="h-8 text-xs bg-background"><SelectValue placeholder="كل الشركات" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">كل الشركات</SelectItem>
-                      {shippingCompanies?.map(c => (
-                        <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* نطاق المبلغ */}
-                <div className="sm:col-span-2 lg:col-span-3">
-                  <p className="text-[10px] text-muted-foreground mb-1 font-semibold">💰 نطاق المبلغ (ج.م)</p>
-                  <div className="flex items-center gap-2">
-                    <Input type="number" placeholder="من" className="h-8 text-xs bg-background w-28" value={filterAmountMin} onChange={e => setFilterAmountMin(e.target.value)} />
-                    <span className="text-xs text-muted-foreground">—</span>
-                    <Input type="number" placeholder="إلى" className="h-8 text-xs bg-background w-28" value={filterAmountMax} onChange={e => setFilterAmountMax(e.target.value)} />
-                    {(filterAmountMin || filterAmountMax) && (
-                      <Button variant="ghost" size="sm" className="h-8 text-xs gap-1 px-2 text-muted-foreground" onClick={() => { setFilterAmountMin(""); setFilterAmountMax(""); }}>
-                        <X className="w-3 h-3" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* إحصاء النتائج */}
-              <div className="flex items-center justify-between pt-1 border-t border-border/50">
-                <p className="text-[10px] text-muted-foreground">
-                  {filtered.length} فاتورة
-                  {filtered.length > 0 && (
-                    <span className="mr-2 text-primary font-bold">
-                      إجمالي: {formatCurrency(totalAmount)}
-                    </span>
-                  )}
-                </p>
-                {advancedCount > 0 && (
-                  <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1 text-muted-foreground"
-                    onClick={() => { setFilterProduct(""); setFilterCity("all"); setFilterShipCo("all"); setFilterAmountMin(""); setFilterAmountMax(""); }}>
-                    <X className="w-2.5 h-2.5" />مسح الفلاتر المتقدمة
-                  </Button>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* ── شريط الأدوات ── */}
-        <div className="px-3 pb-3 flex items-center gap-2 flex-wrap">
+        <div className="p-3 flex items-center gap-2 flex-wrap">
           <Button variant="outline" size="sm" className="h-8 text-xs gap-1 border-border" onClick={selectAll}>
             <CheckSquare className="w-3.5 h-3.5" />تحديد النتائج ({filtered.length})
           </Button>
@@ -623,13 +431,8 @@ export default function Invoices() {
       ) : (
         <Card className="border-border p-12 text-center">
           <FileText className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-20" />
-          <p className="font-bold">{hasFilter ? "لا توجد نتائج للبحث" : "لا توجد فواتير"}</p>
-          <p className="text-sm text-muted-foreground mt-1">{hasFilter ? "جرّب تغيير معايير البحث أو الفلاتر." : "سيظهر هنا الطلبات بعد إنشائها"}</p>
-          {hasFilter && (
-            <Button variant="outline" size="sm" className="mt-3 text-xs gap-1" onClick={clearAllFilters}>
-              <X className="w-3 h-3" />مسح كل الفلاتر
-            </Button>
-          )}
+          <p className="font-bold">لا توجد فواتير</p>
+          <p className="text-sm text-muted-foreground mt-1">سيظهر هنا الطلبات بعد إنشائها</p>
         </Card>
       )}
     </div>
