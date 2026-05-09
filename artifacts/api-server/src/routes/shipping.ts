@@ -47,7 +47,7 @@ router.get("/shipping-companies/:id/stats", async (req, res): Promise<void> => {
   }
 
   // البيان المفتوح (لو موجود)
-  const openManifest = manifests.find(m => (m as any).status === "open");
+  const openManifest = manifests.find(m => m.status === "open");
   const openManifestId = openManifest?.id ?? null;
 
   const manifestIds = manifests.map(m => m.id);
@@ -72,14 +72,27 @@ router.get("/shipping-companies/:id/stats", async (req, res): Promise<void> => {
   const orders = await db.select().from(ordersTable).where(inArray(ordersTable.id, orderIds));
   const orderMap = new Map(orders.map(o => [o.id, o]));
 
-  // ─── تجميع الطلبات بنفس invoiceNumber في فاتورة واحدة ───────────────────
-  const invoiceMap = new Map<string, { status: string; manifestId: number; orders: typeof orders[0][] }>();
+  // ─── حساب المؤجل من البيان المفتوح فقط ─────────────────────────────────
+  let postponed = 0;
+  if (openManifestId) {
+    const openLinks = links.filter(l => l.manifestId === openManifestId && l.deliveryStatus === "postponed");
+    const openOrderIds = openLinks.map(l => l.orderId);
+    const openOrders = openOrderIds.map(id => orderMap.get(id)).filter(Boolean);
+    const seenInvoices = new Set<string>();
+    for (const order of openOrders) {
+      const key = order!.invoiceNumber?.trim() || `solo-${order!.id}`;
+      if (!seenInvoices.has(key)) { seenInvoices.add(key); postponed++; }
+    }
+  }
+
+  // ─── تجميع الطلبات بنفس invoiceNumber في فاتورة واحدة (لكل البيانات) ───
+  const invoiceMap = new Map<string, { status: string; orders: typeof orders[0][] }>();
   for (const link of links) {
     const order = orderMap.get(link.orderId);
     if (!order) continue;
     const key = order.invoiceNumber?.trim() || `solo-${order.id}`;
     if (!invoiceMap.has(key)) {
-      invoiceMap.set(key, { status: link.deliveryStatus, manifestId: link.manifestId, orders: [order] });
+      invoiceMap.set(key, { status: link.deliveryStatus, orders: [order] });
     } else {
       invoiceMap.get(key)!.orders.push(order);
       const cur = invoiceMap.get(key)!.status;
@@ -92,7 +105,7 @@ router.get("/shipping-companies/:id/stats", async (req, res): Promise<void> => {
     }
   }
 
-  let delivered = 0, returned = 0, pending = 0, postponed = 0;
+  let delivered = 0, returned = 0, pending = 0;
   let totalRevenue = 0, totalCost = 0, totalShipping = 0, returnLosses = 0;
 
   for (const [, invoice] of invoiceMap) {
@@ -110,11 +123,8 @@ router.get("/shipping-companies/:id/stats", async (req, res): Promise<void> => {
     }
     if (status === "delivered" || status === "partial_received") delivered++;
     else if (status === "returned") returned++;
-    else if (status === "postponed") {
-      // المؤجل يُعد فقط لو في البيان المفتوح
-      if (openManifestId && invoice.manifestId === openManifestId) postponed++;
-    }
-    else pending++;
+    else if (status === "pending") pending++;
+    // postponed محسوب مسبقاً من البيان المفتوح فقط
   }
 
   const total = delivered + returned + postponed + pending;
