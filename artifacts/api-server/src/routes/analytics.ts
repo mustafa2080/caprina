@@ -1237,20 +1237,30 @@ router.get("/analytics/orders-by-status", requireAuth, async (req, res): Promise
     .where(isNull(ordersTable.deletedAt))
     .orderBy(desc(ordersTable.createdAt));
 
-  // نفس منطق charts endpoint بالظبط
-  const invoiceMap = new Map<string, { invoiceKey: string; status: string; rows: typeof allOrders }>();
+  // نفس منطق charts بالظبط: أولوية الحالات للـ invoices المختلطة
+  const STATUS_PRIO: Record<string, number> = {
+    pending: 1, in_shipping: 2, warehouse_ready: 3, delayed: 4,
+    partial_received: 5, received: 6, returned: 7,
+  };
+  const invoiceMap = new Map<string, { invoiceKey: string; statuses: Set<string>; rows: typeof allOrders }>();
   for (const o of allOrders) {
     const key = o.invoiceNumber ?? `solo-${o.id}`;
     if (!invoiceMap.has(key)) {
-      invoiceMap.set(key, { invoiceKey: key, status: o.status, rows: [] });
+      invoiceMap.set(key, { invoiceKey: key, statuses: new Set(), rows: [] });
     }
     const grp = invoiceMap.get(key)!;
-    grp.status = o.status; // آخر status يكتب فوق السابق
+    grp.statuses.add(o.status);
     grp.rows.push(o);
   }
+  const resolveInvStatus = (statuses: Set<string>): string => {
+    if (statuses.size === 1) return Array.from(statuses)[0];
+    return Array.from(statuses).sort(
+      (a, b) => (STATUS_PRIO[a] ?? 99) - (STATUS_PRIO[b] ?? 99)
+    )[0];
+  };
 
-  // فلتر بالـ status المطلوب
-  const matchedGroups = Array.from(invoiceMap.values()).filter(g => g.status === status);
+  // فلتر بالـ status المطلوب بعد تطبيق الأولوية
+  const matchedGroups = Array.from(invoiceMap.values()).filter(g => resolveInvStatus(g.statuses) === status);
 
   // نبني الـ response: كل invoice = row واحد merged
   const result = matchedGroups.map(grp => {
