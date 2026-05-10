@@ -13,6 +13,7 @@ export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
 
 export const OrderStatus = {
   pending: "pending",
+  warehouse_ready: "warehouse_ready",
   in_shipping: "in_shipping",
   received: "received",
   delayed: "delayed",
@@ -96,6 +97,7 @@ export type UpdateOrderBodyStatus =
 
 export const UpdateOrderBodyStatus = {
   pending: "pending",
+  warehouse_ready: "warehouse_ready",
   in_shipping: "in_shipping",
   received: "received",
   delayed: "delayed",
@@ -232,6 +234,7 @@ export type ListOrdersStatus =
 
 export const ListOrdersStatus = {
   pending: "pending",
+  warehouse_ready: "warehouse_ready",
   in_shipping: "in_shipping",
   received: "received",
   delayed: "delayed",
