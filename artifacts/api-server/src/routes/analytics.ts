@@ -948,7 +948,8 @@ router.get("/analytics/smart-insights", async (_req, res): Promise<void> => {
   const REASON_LABELS: Record<string, string> = {
     size_mismatch: "مقاس غير مناسب",
     quality: "جودة المنتج",
-    customer_refused: "رفض العميل",
+    customer_refused: "عميل غير جاد",
+    customer_requested_return: "طلب العميل مرتجع",
     delay: "التأخير على العميل",
     other: "سبب آخر",
   };
