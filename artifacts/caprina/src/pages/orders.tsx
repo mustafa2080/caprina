@@ -140,7 +140,9 @@ export default function Orders() {
   };
 
   const toggleSelect = (order: (typeof filtered)[0]) => {
-    const ids: number[] = (order as any)._isGroup ? (order as any)._groupIds : [order.id];
+    const ids: number[] = (order as any)._groupIds?.length > 1
+      ? (order as any)._groupIds
+      : [order.id];
     setSelectedIds(prev => {
       const next = new Set(prev);
       const allSelected = ids.every(id => next.has(id));
@@ -151,13 +153,15 @@ export default function Orders() {
   };
 
   const isGroupSelected = (order: (typeof filtered)[0]) => {
-    const ids: number[] = (order as any)._isGroup ? (order as any)._groupIds : [order.id];
+    const ids: number[] = (order as any)._groupIds?.length > 1
+      ? (order as any)._groupIds
+      : [order.id];
     return ids.every(id => selectedIds.has(id));
   };
 
   const toggleSelectAll = () => {
-    const allIds = filtered.flatMap(o => (o as any)._isGroup ? (o as any)._groupIds : [o.id]);
-    setSelectedIds(selectedIds.size === rawFiltered.length ? new Set() : new Set(allIds));
+    const allIds = filtered.flatMap(o => (o as any)._groupIds?.length > 1 ? (o as any)._groupIds : [o.id]);
+    setSelectedIds(selectedIds.size === allIds.length ? new Set() : new Set(allIds));
   };
 
   const exitBulkMode = () => { setBulkSelectMode(false); setSelectedIds(new Set()); };
