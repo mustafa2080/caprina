@@ -651,6 +651,7 @@ function InvoiceGroupDeliveryRow({
   const [bulkReturnReceived, setBulkReturnReceived] = useState<boolean | null>(
     (rep as any).returnReceived === 1 ? true : (rep as any).returnReceived === 0 ? false : null
   );
+  const [bulkReturnReason, setBulkReturnReason] = useState<string>((rep as any).returnReason ?? "");
 
   // لكل منتج في الفاتورة: حالة مستقلة — نستخدم o.id كـ key
   const [perOrderStatus, setPerOrderStatus] = useState<Record<number, DeliveryStatus>>(
@@ -709,6 +710,7 @@ function InvoiceGroupDeliveryRow({
       setBulkStatus(groupStatus);
       setBulkNote(rep.deliveryNote ?? "");
       setBulkReturnReceived((rep as any).returnReceived === 1 ? true : (rep as any).returnReceived === 0 ? false : null);
+      setBulkReturnReason((rep as any).returnReason ?? "");
       setPerOrderStatus(Object.fromEntries(group.map(o => [o.id, o.deliveryStatus as DeliveryStatus])));
       setPartialQtyMap(Object.fromEntries(group.map(o => [o.id, o.partialQuantity?.toString() ?? ""])));
       const serverPartialReturn = group[0]?.returnReceived === 1 ? true : group[0]?.returnReceived === 0 ? false : null;
@@ -790,7 +792,7 @@ function InvoiceGroupDeliveryRow({
           deliveryNote: bulkNote.trim() || null,
           partialQuantity: finalPartialQty,
           ...(finalStatus === 'partial_received' ? { partialReturnReceived: partialReturnReceived ?? false } : {}),
-          ...(finalStatus === 'returned' ? { returnReceived: bulkReturnReceived } : {}),
+          ...(finalStatus === 'returned' ? { returnReceived: bulkReturnReceived, returnReason: bulkReturnReason || null } : {}),
         });
       }
     },
@@ -1079,6 +1081,12 @@ function InvoiceGroupDeliveryRow({
           {/* Sub-statuses */}
           {displayStatus === "returned" && (rep as any).returnReceived === 1 && <p className="text-[10px] text-emerald-600 font-semibold">↩ تم الاستلام</p>}
           {displayStatus === "returned" && (rep as any).returnReceived === 0 && <p className="text-[10px] text-orange-500 font-semibold">⏳ عند شركة الشحن</p>}
+          {displayStatus === "returned" && (rep as any).returnReason && (
+            <p className="text-[10px] text-red-500 font-medium flex items-center gap-1">
+              <RotateCcw className="w-2.5 h-2.5 shrink-0" />
+              {RETURN_REASONS.find(r => r.value === (rep as any).returnReason)?.label ?? (rep as any).returnReason}
+            </p>
+          )}
           {displayStatus === "partial_received" && (rep as any).returnReceived === 1 && <p className="text-[10px] text-emerald-600 font-semibold">↩ الباقي في المخزن</p>}
           {displayStatus === "partial_received" && (rep as any).returnReceived === 0 && <p className="text-[10px] text-orange-500 font-semibold">🚚 الباقي عند الشحن</p>}
           {/* Action button */}
@@ -1090,7 +1098,7 @@ function InvoiceGroupDeliveryRow({
                 </Button>
               ) : (
                 <Button variant="ghost" size="sm" className="h-6 text-[10px] px-1.5 text-primary hover:text-primary"
-                  onClick={() => { setBulkEditing(true); setBulkStatus(groupStatus); setBulkNote(rep.deliveryNote ?? ""); setPartialQtyMap(Object.fromEntries(group.map(o => [o.id, o.partialQuantity?.toString() ?? ""]))); setPerOrderStatus(Object.fromEntries(group.map(o => [o.id, o.deliveryStatus as DeliveryStatus]))); setBulkReturnReceived((rep as any).returnReceived === 1 ? true : (rep as any).returnReceived === 0 ? false : null); const ep = (rep as any).returnReceived === 1 ? true : (rep as any).returnReceived === 0 ? false : null; setPartialReturnReceived(groupStatus === "partial_received" && ep === null ? false : ep); }}>
+                  onClick={() => { setBulkEditing(true); setBulkStatus(groupStatus); setBulkNote(rep.deliveryNote ?? ""); setBulkReturnReason((rep as any).returnReason ?? ""); setPartialQtyMap(Object.fromEntries(group.map(o => [o.id, o.partialQuantity?.toString() ?? ""]))); setPerOrderStatus(Object.fromEntries(group.map(o => [o.id, o.deliveryStatus as DeliveryStatus]))); setBulkReturnReceived((rep as any).returnReceived === 1 ? true : (rep as any).returnReceived === 0 ? false : null); const ep = (rep as any).returnReceived === 1 ? true : (rep as any).returnReceived === 0 ? false : null; setPartialReturnReceived(groupStatus === "partial_received" && ep === null ? false : ep); }}>
                   <Edit2 className="w-3 h-3 ml-0.5" />تقفيل
                 </Button>
               )}
@@ -1327,6 +1335,20 @@ function InvoiceGroupDeliveryRow({
             {/* حالة استلام المرتجع — تظهر فقط لما المستخدم يختار "مرتجع" */}
             {bulkStatus === "returned" && (
               <div className="space-y-2">
+                {/* سبب الإرجاع */}
+                <div>
+                  <Label className="text-[10px] mb-1 block text-muted-foreground">سبب الإرجاع</Label>
+                  <Select value={bulkReturnReason} onValueChange={setBulkReturnReason}>
+                    <SelectTrigger className="h-8 text-xs w-52 bg-background border-red-800/60 focus:ring-red-700">
+                      <SelectValue placeholder="اختر السبب..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {RETURN_REASONS.map(r => (
+                        <SelectItem key={r.value} value={r.value} className="text-xs">{r.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">هل تم استلام المرتجع؟</p>
                 <div className="flex gap-3">
                   <button type="button" onClick={() => setBulkReturnReceived(true)}
