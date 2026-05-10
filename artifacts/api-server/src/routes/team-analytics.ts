@@ -63,7 +63,7 @@ router.get("/analytics/team-performance", async (req, res): Promise<void> => {
   > = {};
 
   for (const o of orders) {
-    const uid = o.assignedUserId ?? 0; // 0 = unassigned
+    const uid = o.createdByUserId ?? 0; // 0 = unassigned
     if (!stats[uid]) {
       const user = uid ? userMap.get(uid) : null;
       stats[uid] = {
@@ -147,7 +147,7 @@ router.get("/analytics/team-performance-extended", async (req, res): Promise<voi
   const stats: Record<number, ExtStats> = {};
 
   for (const o of orders) {
-    const uid = o.assignedUserId ?? 0;
+    const uid = o.createdByUserId ?? 0;
     if (!stats[uid]) {
       const user = uid ? userMap.get(uid) : null;
       stats[uid] = {
