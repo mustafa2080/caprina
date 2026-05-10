@@ -131,10 +131,28 @@ router.get("/shipping-manifests", async (req, res): Promise<void> => {
     .orderBy(desc(shippingManifestsTable.createdAt));
   const manifestIds = manifests.map((m) => m.manifest.id);
   if (manifestIds.length === 0) { res.json([]); return; }
-  const allLinks = await db.select({ manifestId: shippingManifestOrdersTable.manifestId })
-    .from(shippingManifestOrdersTable).where(inArray(shippingManifestOrdersTable.manifestId, manifestIds));
+  // جيب manifestId + orderId + invoiceNumber عشان نعدّ الفواتير الفريدة
+  const allLinks = await db
+    .select({
+      manifestId: shippingManifestOrdersTable.manifestId,
+      orderId: shippingManifestOrdersTable.orderId,
+      invoiceNumber: ordersTable.invoiceNumber,
+    })
+    .from(shippingManifestOrdersTable)
+    .leftJoin(ordersTable, eq(shippingManifestOrdersTable.orderId, ordersTable.id))
+    .where(inArray(shippingManifestOrdersTable.manifestId, manifestIds));
+
+  // عدّ الفواتير الفريدة لكل بيان
   const countMap: Record<number, number> = {};
-  for (const link of allLinks) countMap[link.manifestId] = (countMap[link.manifestId] ?? 0) + 1;
+  const seenKeys: Record<number, Set<string>> = {};
+  for (const link of allLinks) {
+    const mid = link.manifestId;
+    if (!seenKeys[mid]) seenKeys[mid] = new Set();
+    const key = link.invoiceNumber?.trim() || `solo-${link.orderId}`;
+    seenKeys[mid].add(key);
+    countMap[mid] = seenKeys[mid].size;
+  }
+
   res.json(manifests.map((m) => ({
     ...m.manifest, invoicePrice: m.manifest.invoicePrice ? Number(m.manifest.invoicePrice) : null,
     companyName: m.company?.name ?? "غير محدد", orderCount: countMap[m.manifest.id] ?? 0,
