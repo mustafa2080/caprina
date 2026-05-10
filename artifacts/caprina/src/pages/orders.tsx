@@ -191,6 +191,7 @@ export default function Orders() {
       });
       const data = await res.json();
       await queryClient.refetchQueries({ queryKey: ["orders-list"] });
+      queryClient.invalidateQueries({ queryKey: ["archived-orders"] });
       const skippedMsg = data.skipped > 0 ? ` (${data.skipped} محظور — مسلّمة)` : "";
       toast({ title: `تم حذف ${data.deleted} طلب ✅`, description: `تم حذف الطلبات بنجاح${skippedMsg}` });
       exitBulkMode();
