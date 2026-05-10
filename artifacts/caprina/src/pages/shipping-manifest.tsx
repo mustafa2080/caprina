@@ -3360,7 +3360,7 @@ export default function ShippingManifestPage() {
                     </button>
                   </div>
                 ) : (
-                  <div key={`${customerSearch}__${totalSearch}__${statusSort}`}>
+                  <div key={`${customerSearch}__${totalSearch}`}>
                   {sortedManifestOrders.map((group, index) => (
                   <InvoiceGroupDeliveryRow
                     key={group.map((order) => `${order.id}-${order.deliveryStatus}-${order.partialQuantity ?? 0}-${order.deliveryNote ?? ""}`).join("|")}
