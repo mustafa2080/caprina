@@ -612,17 +612,22 @@ function InvoiceGroupDeliveryRow({
   locked,
   onSaved,
   rowIndex = 0,
+  selected = false,
+  onToggleSelect,
 }: {
   group: ManifestOrder[];
   manifestId: number;
   locked: boolean;
   onSaved: () => void;
   rowIndex?: number;
+  selected?: boolean;
+  onToggleSelect?: (groupKey: string) => void;
 }) {
   const { toast } = useToast();
   const [expanded, setExpanded] = useState(false);
 
   const rep = group[0];
+  const groupKey = getManifestGroupKey(rep);
   const totalQty = group.reduce((s, o) => s + o.quantity, 0);
   // السعر الفعلي: لو partial_received احسب الجزء المستلم فقط
   const totalPrice = group.reduce((s, o) => {
@@ -833,7 +838,7 @@ function InvoiceGroupDeliveryRow({
     <>
       {/* ── Main group row ── */}
       <div
-        className={`border-b border-border/50 transition-colors ${bulkEditing ? "bg-primary/5" : "hover:bg-muted/10"}`}
+        className={`border-b border-border/50 transition-colors ${bulkEditing ? "bg-primary/5" : selected ? "bg-primary/10 border-primary/30" : "hover:bg-muted/10"}`}
         style={{
           animation: "rowFadeIn 0.35s ease both",
           animationDelay: `${rowIndex * 45}ms`,
@@ -842,17 +847,27 @@ function InvoiceGroupDeliveryRow({
         {/* Desktop row */}
         <div dir="rtl" className="hidden md:grid grid-cols-[1fr_1fr_1fr_60px_90px_160px_80px] gap-0 items-start py-2.5 text-xs">
           {/* Customer */}
-          <div className="min-w-0 px-3">
-            <p className="font-semibold truncate">{rep.customerName}</p>
-            <div className="flex items-center gap-1 flex-wrap">
-              {invoiceNum && (
-                <span className="text-[9px] bg-primary/10 text-primary px-1 rounded font-mono">
-                  {invoiceNum}
-                </span>
-              )}
-              {rep.phone && (
-                <span className="text-muted-foreground text-[10px]">{rep.phone}</span>
-              )}
+          <div className="min-w-0 px-3 flex items-start gap-2">
+            {onToggleSelect && (
+              <Checkbox
+                checked={selected}
+                onCheckedChange={() => onToggleSelect(groupKey)}
+                className="mt-0.5 shrink-0"
+                onClick={e => e.stopPropagation()}
+              />
+            )}
+            <div className="min-w-0">
+              <p className="font-semibold truncate">{rep.customerName}</p>
+              <div className="flex items-center gap-1 flex-wrap">
+                {invoiceNum && (
+                  <span className="text-[9px] bg-primary/10 text-primary px-1 rounded font-mono">
+                    {invoiceNum}
+                  </span>
+                )}
+                {rep.phone && (
+                  <span className="text-muted-foreground text-[10px]">{rep.phone}</span>
+                )}
+              </div>
             </div>
           </div>
           {/* المحافظة / العنوان */}
@@ -1012,12 +1027,22 @@ function InvoiceGroupDeliveryRow({
         <div className="md:hidden px-3 py-2.5 text-xs flex flex-col gap-2">
           {/* Row 1: customer + status badge */}
           <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className="font-semibold truncate">{rep.customerName}</p>
-              <div className="flex items-center gap-1 flex-wrap mt-0.5">
-                {invoiceNum && <span className="text-[9px] bg-primary/10 text-primary px-1 rounded font-mono">{invoiceNum}</span>}
-                {rep.phone && <span className="text-muted-foreground text-[10px]">{rep.phone}</span>}
-                {rep.city && <span className="text-muted-foreground text-[10px]">📍 {rep.city}</span>}
+            <div className="flex items-start gap-2 min-w-0">
+              {onToggleSelect && (
+                <Checkbox
+                  checked={selected}
+                  onCheckedChange={() => onToggleSelect(groupKey)}
+                  className="mt-0.5 shrink-0"
+                  onClick={e => e.stopPropagation()}
+                />
+              )}
+              <div className="min-w-0">
+                <p className="font-semibold truncate">{rep.customerName}</p>
+                <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                  {invoiceNum && <span className="text-[9px] bg-primary/10 text-primary px-1 rounded font-mono">{invoiceNum}</span>}
+                  {rep.phone && <span className="text-muted-foreground text-[10px]">{rep.phone}</span>}
+                  {rep.city && <span className="text-muted-foreground text-[10px]">📍 {rep.city}</span>}
+                </div>
               </div>
             </div>
             <div className="shrink-0">
@@ -2639,6 +2664,8 @@ export default function ShippingManifestPage() {
   const [showTotalSearch, setShowTotalSearch] = useState(false);
   // ─── ترتيب حسب الحالة ───────────────────────────────────────────────────────
   const [statusSort, setStatusSort] = useState<"none" | "asc" | "desc">("none");
+  // ─── نظام التحديد (Bulk Selection) ─────────────────────────────────────────
+  const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set());
 
   const { data: manifest, isLoading, error } = useQuery({
     queryKey: ["shipping-manifest", id],
@@ -2688,6 +2715,32 @@ export default function ShippingManifestPage() {
       return statusSort === "asc" ? diff : -diff;
     });
   }, [filteredManifestOrders, statusSort]);
+
+  // ─── Selection helpers ───────────────────────────────────────────────────────
+  const allGroupKeys = useMemo(
+    () => sortedManifestOrders.map(g => getManifestGroupKey(g[0])),
+    [sortedManifestOrders]
+  );
+  const allSelected = allGroupKeys.length > 0 && allGroupKeys.every(k => selectedGroups.has(k));
+  const someSelected = !allSelected && allGroupKeys.some(k => selectedGroups.has(k));
+
+  const toggleGroup = useCallback((key: string) => {
+    setSelectedGroups(prev => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  }, []);
+
+  const toggleAll = useCallback(() => {
+    if (allSelected) {
+      setSelectedGroups(new Set());
+    } else {
+      setSelectedGroups(new Set(allGroupKeys));
+    }
+  }, [allSelected, allGroupKeys]);
+
+  const clearSelection = useCallback(() => setSelectedGroups(new Set()), []);
 
   const refetch = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ["shipping-manifest", id] });
@@ -3237,11 +3290,39 @@ export default function ShippingManifestPage() {
                 </div>
               ) : (
                 <>
+                {/* ══ Selection Action Bar ══ */}
+                {selectedGroups.size > 0 && (
+                  <div dir="rtl" className="flex items-center gap-3 px-4 py-2.5 bg-primary/10 border-b border-primary/30 text-xs">
+                    <Checkbox checked={allSelected} onCheckedChange={toggleAll} className={someSelected ? "opacity-60" : ""} />
+                    <span className="font-bold text-primary">
+                      {selectedGroups.size} محدد من {allGroupKeys.length}
+                    </span>
+                    <div className="flex items-center gap-2 mr-auto">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-[11px] px-2.5 text-muted-foreground hover:text-foreground border border-border/50"
+                        onClick={clearSelection}
+                      >
+                        <X className="w-3 h-3 ml-1" />
+                        إلغاء التحديد
+                      </Button>
+                    </div>
+                  </div>
+                )}
                 {/* ══ رأس الجدول المحسَّن ══ */}
                 <div dir="rtl" className="hidden md:grid grid-cols-[1fr_1fr_1fr_60px_90px_160px_80px] gap-0 border-b-2 border-border bg-muted/20 text-[10px] font-bold text-muted-foreground tracking-wide
                   [&>*:not(:last-child)]:border-l [&>*]:border-border/30">
-                  {/* ─── عمود العميل — نص / سيرش عند الضغط ─── */}
-                  <div className="relative">
+                  {/* ─── عمود العميل — checkbox + نص/سيرش ─── */}
+                  <div className="relative flex items-center">
+                    <div className="flex items-center px-3 shrink-0">
+                      <Checkbox
+                        checked={allSelected}
+                        onCheckedChange={toggleAll}
+                        className={someSelected ? "opacity-60" : ""}
+                        aria-label="تحديد الكل"
+                      />
+                    </div>
                     {showCustomerSearch ? (
                       <>
                         <Search className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
@@ -3369,6 +3450,8 @@ export default function ShippingManifestPage() {
                     locked={isLocked && !isAdmin}
                     onSaved={refetch}
                     rowIndex={index}
+                    selected={selectedGroups.has(getManifestGroupKey(group[0]))}
+                    onToggleSelect={toggleGroup}
                   />
                   ))}
                   </div>
