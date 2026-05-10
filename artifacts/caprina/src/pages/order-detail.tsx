@@ -854,16 +854,30 @@ export default function OrderDetail() {
   const handleDelete = async () => {
     setIsDeleting(true);
     try {
-      await ordersApi.delete(id);
-      // Remove this order from cache immediately so it won't show on return
-      queryClient.removeQueries({ queryKey: getGetOrderQueryKey(id) });
-      // Force-refetch the orders list (bypass staleTime)
+      // لو فاتورة متعددة → احذف كل الطلبات في الفاتورة دفعة واحدة
+      const idsToDelete = invoiceOrders.length > 1
+        ? invoiceOrders.map((o: any) => o.id)
+        : [id];
+
+      const token = localStorage.getItem("caprina_token");
+      await fetch("/api/orders/bulk", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ ids: idsToDelete }),
+      });
+
+      // امسح كل الطلبات من الكاش
+      idsToDelete.forEach((oid: number) => queryClient.removeQueries({ queryKey: getGetOrderQueryKey(oid) }));
       await queryClient.refetchQueries({ queryKey: getListOrdersQueryKey() });
       queryClient.invalidateQueries({ queryKey: getGetOrdersSummaryQueryKey() });
       queryClient.invalidateQueries({ queryKey: getGetRecentOrdersQueryKey() });
       queryClient.invalidateQueries({ queryKey: ["orders-stats"] });
       queryClient.invalidateQueries({ queryKey: ["products"] });
-      toast({ title: "تم الحذف", description: "تم حذف الطلب بنجاح." });
+
+      const msg = idsToDelete.length > 1
+        ? `تم حذف الطلب وكل منتجاته (${idsToDelete.length} منتج).`
+        : "تم حذف الطلب بنجاح.";
+      toast({ title: "تم الحذف", description: msg });
       navigate("/orders");
     } catch (err: any) {
       const msg = err?.message || "فشل حذف الطلب.";
