@@ -72,14 +72,22 @@ router.get("/shipping-companies/:id/stats", async (req, res): Promise<void> => {
   const orders = await db.select().from(ordersTable).where(inArray(ordersTable.id, orderIds));
   const orderMap = new Map(orders.map(o => [o.id, o]));
 
-  // ─── حساب "البيان الحالي" = عدد الطلبات الـ pending/postponed في البيان المفتوح فقط ─
+  // ─── حساب "البيان الحالي" = عدد الفواتير الفريدة الـ pending/postponed في البيان المفتوح ─
   let postponed = 0;
   if (openManifestId) {
     const openLinks = links.filter(
       l => l.manifestId === openManifestId &&
         (l.deliveryStatus === "pending" || l.deliveryStatus === "postponed")
     );
-    postponed = openLinks.length;
+    // عدّ الفواتير الفريدة (invoiceNumber) بدل عدد الطلبات الفردية
+    const uniqueInvoices = new Set<string>();
+    for (const link of openLinks) {
+      const order = orderMap.get(link.orderId);
+      if (!order) continue;
+      const key = order.invoiceNumber?.trim() || `solo-${order.id}`;
+      uniqueInvoices.add(key);
+    }
+    postponed = uniqueInvoices.size;
   }
 
   // ─── تجميع الطلبات بنفس invoiceNumber في فاتورة واحدة (لكل البيانات) ───
