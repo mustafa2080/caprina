@@ -853,20 +853,20 @@ export default function InvoiceGroup() {
           )}
 
           <Select value="" onValueChange={(v) => { if (!v) return; if (v === "returned") { setShowReturnDialog(true); } else { setPendingStatus(v); } }} disabled={isUpdatingStatus || isAnyLocked || hasOpenManifest}>
-            <SelectTrigger className="h-9 text-xs bg-primary text-primary-foreground border-primary hover:bg-primary/90 font-bold w-auto gap-1.5 px-3 shrink-0"
+            <SelectTrigger className="h-9 text-xs bg-card text-foreground border-border hover:bg-muted font-bold w-auto gap-1.5 px-3 shrink-0 transition-colors"
               title={hasOpenManifest ? `مرتبط ببيان مفتوح (${openManifestEntry?.manifestNumber})` : undefined}>
               <div className="flex items-center gap-1.5">
                 <RefreshCw className={`w-3.5 h-3.5 ${isUpdatingStatus ? "animate-spin" : ""}`} />
                 <span>{isUpdatingStatus ? "جاري..." : "تغيير الحالة"}</span>
               </div>
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="pending">قيد الانتظار</SelectItem>
-              <SelectItem value="warehouse_ready">قيد الشحن في المخزن</SelectItem>
-              <SelectItem value="in_shipping">قيد الشحن</SelectItem>
-              <SelectItem value="received">استلم ✓</SelectItem>
-              <SelectItem value="delayed">مؤجل</SelectItem>
-              <SelectItem value="returned">مرتجع</SelectItem>
+            <SelectContent className="bg-card border-border text-foreground">
+              <SelectItem value="pending" className="text-yellow-400 focus:bg-yellow-500/10 focus:text-yellow-300 cursor-pointer">⏳ قيد الانتظار</SelectItem>
+              <SelectItem value="warehouse_ready" className="text-blue-400 focus:bg-blue-500/10 focus:text-blue-300 cursor-pointer">📦 قيد الشحن في المخزن</SelectItem>
+              <SelectItem value="in_shipping" className="text-purple-400 focus:bg-purple-500/10 focus:text-purple-300 cursor-pointer">🚚 قيد الشحن</SelectItem>
+              <SelectItem value="received" className="text-green-400 focus:bg-green-500/10 focus:text-green-300 cursor-pointer">✅ استلم</SelectItem>
+              <SelectItem value="delayed" className="text-orange-400 focus:bg-orange-500/10 focus:text-orange-300 cursor-pointer">⏸ مؤجل</SelectItem>
+              <SelectItem value="returned" className="text-red-400 focus:bg-red-500/10 focus:text-red-300 cursor-pointer">↩ مرتجع</SelectItem>
             </SelectContent>
           </Select>
         </div>
