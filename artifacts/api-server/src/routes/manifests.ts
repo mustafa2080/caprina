@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+﻿import { Router, type IRouter } from "express";
 import { eq, desc, and, inArray, or, sql, count, isNull } from "drizzle-orm";
 import {
   db,
@@ -67,18 +67,12 @@ function computeStats(orders: OrderWithDelivery[]) {
     groupMap.get(key)!.push(order);
   }
   const groupedOrders = Array.from(groupMap.values());
-  const total = groupedOrders.length;
-  const delivered = groupedOrders.filter((g) => g.every((o) => o.deliveryStatus === "delivered" || o.deliveryStatus === "partial_received")).length;
-  const returned = groupedOrders.filter((g) => g.every((o) => o.deliveryStatus === "returned")).length;
-  const postponed = groupedOrders.filter((g) =>
-    g.some((o) => o.deliveryStatus === "postponed") &&
-    !g.every((o) => o.deliveryStatus === "returned") &&
-    !g.every((o) => o.deliveryStatus === "delivered" || o.deliveryStatus === "partial_received")
-  ).length;
-  const pending = groupedOrders.filter((g) =>
-    g.some((o) => ["pending", "postponed"].includes(o.deliveryStatus)) ||
-    (!g.every((o) => o.deliveryStatus === "returned") && !g.every((o) => o.deliveryStatus === "delivered" || o.deliveryStatus === "partial_received"))
-  ).length;
+  // الإحصائيات تُحسب على مستوى الطلبيات الفردية (مش الفواتير المجمّعة)
+  const total = orders.length;
+  const delivered = orders.filter((o) => o.deliveryStatus === "delivered" || o.deliveryStatus === "partial_received").length;
+  const returned = orders.filter((o) => o.deliveryStatus === "returned").length;
+  const postponed = orders.filter((o) => o.deliveryStatus === "postponed").length;
+  const pending = orders.filter((o) => ["pending", "postponed"].includes(o.deliveryStatus)).length;
   const deliveryRate = total > 0 ? Math.round((delivered / total) * 100) : 0;
   let totalRevenue = 0, totalCost = 0, totalShippingCost = 0, returnLosses = 0, deliveredGross = 0;
   let stillAtShippingCount = 0, stillAtShippingAmount = 0;
