@@ -166,6 +166,12 @@ export default function Orders() {
 
   const exitBulkMode = () => { setBulkSelectMode(false); setSelectedIds(new Set()); };
 
+  // عدد الفواتير المحددة (مش عدد الـ sub-IDs)
+  const selectedInvoiceCount = filtered.filter(o => {
+    const ids: number[] = (o as any)._groupIds?.length > 1 ? (o as any)._groupIds : [o.id];
+    return ids.every(id => selectedIds.has(id));
+  }).length;
+
   const handleBulkDelete = async () => {
     if (selectedIds.size === 0) return;
 
@@ -285,7 +291,7 @@ export default function Orders() {
                     disabled={selectedIds.size === 0 || isBulkUpdating}
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${isBulkUpdating ? "animate-spin" : ""}`} />
-                    تغيير الحالة {selectedIds.size > 0 ? `(${selectedIds.size})` : ""}
+                    تغيير الحالة {selectedInvoiceCount > 0 ? `(${selectedInvoiceCount})` : ""}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-44" style={{ direction: "rtl" }}>
@@ -314,7 +320,7 @@ export default function Orders() {
                     onClick={() => setShowBulkDeleteConfirm(true)}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
-                    حذف {selectedIds.size > 0 ? `(${selectedIds.size})` : ""}
+                    حذف {selectedInvoiceCount > 0 ? `(${selectedInvoiceCount})` : ""}
                     {lockedCount > 0 && <span className="text-[9px] bg-white/20 rounded px-1">⛔ {lockedCount} مرتبط ببيان شحن</span>}
                   </Button>
                 );
@@ -737,7 +743,7 @@ export default function Orders() {
         <p className="text-xs text-muted-foreground text-left">
           إجمالي {filtered.length} طلب
           {orders && filtered.length !== orders.length && ` (من ${orders.length})`}
-          {bulkSelectMode && selectedIds.size > 0 && ` — محدد: ${selectedIds.size}`}
+          {bulkSelectMode && selectedIds.size > 0 && ` — محدد: ${selectedInvoiceCount}`}
         </p>
       )}
 
@@ -757,13 +763,13 @@ export default function Orders() {
           <AlertDialogHeader>
             <AlertDialogTitle>تأكيد حذف الطلبات</AlertDialogTitle>
             <AlertDialogDescription>
-              هتحذف {selectedIds.size} طلب. الطلبات المسلّمة لن تُحذف إلا إذا كنت مدير. هذا الإجراء لا يمكن التراجع عنه.
+              هتحذف {selectedInvoiceCount} طلب. الطلبات المسلّمة لن تُحذف إلا إذا كنت مدير. هذا الإجراء لا يمكن التراجع عنه.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>إلغاء</AlertDialogCancel>
             <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={handleBulkDelete} disabled={isBulkDeleting}>
-              {isBulkDeleting ? "جاري الحذف..." : `حذف ${selectedIds.size} طلب`}
+              {isBulkDeleting ? "جاري الحذف..." : `حذف ${selectedInvoiceCount} طلب`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -775,7 +781,7 @@ export default function Orders() {
           <AlertDialogHeader>
             <AlertDialogTitle>تأكيد تغيير الحالة</AlertDialogTitle>
             <AlertDialogDescription>
-              هتغير حالة {selectedIds.size} طلب إلى «{statusLabels[pendingBulkStatus ?? ""] ?? pendingBulkStatus}». هل أنت متأكد؟
+              هتغير حالة {selectedInvoiceCount} طلب إلى «{statusLabels[pendingBulkStatus ?? ""] ?? pendingBulkStatus}». هل أنت متأكد؟
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
