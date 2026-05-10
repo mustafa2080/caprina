@@ -1878,6 +1878,15 @@ function CloseConfirmDialog({
   );
 }
 
+// ─── Status sort priority — pending أقل أهمية، delivered أعلى ───────────────
+const STATUS_SORT_PRIORITY: Record<string, number> = {
+  pending: 0,
+  postponed: 1,
+  partial_received: 2,
+  returned: 3,
+  delivered: 4,
+};
+
 // ─── Status label helper ──────────────────────────────────────────────────────
 const STATUS_LABEL_AR: Record<string, string> = {
   delivered:        "مسلَّم",
@@ -2628,6 +2637,8 @@ export default function ShippingManifestPage() {
   const [totalSearch, setTotalSearch] = useState("");
   const [showCustomerSearch, setShowCustomerSearch] = useState(false);
   const [showTotalSearch, setShowTotalSearch] = useState(false);
+  // ─── ترتيب حسب الحالة ───────────────────────────────────────────────────────
+  const [statusSort, setStatusSort] = useState<"none" | "asc" | "desc">("none");
 
   const { data: manifest, isLoading, error } = useQuery({
     queryKey: ["shipping-manifest", id],
@@ -2663,6 +2674,20 @@ export default function ShippingManifestPage() {
       return matchesCustomer && matchesTotal;
     });
   }, [manifest?.orders, customerSearch, totalSearch]);
+
+  // ─── Sort — حسب الحالة فوق الـ filter ──────────────────────────────────────
+  const sortedManifestOrders = useMemo(() => {
+    if (statusSort === "none") return filteredManifestOrders;
+    const getGroupPriority = (group: ManifestOrder[]) => {
+      const statuses = [...new Set(group.map(o => o.deliveryStatus))];
+      const maxP = Math.max(...statuses.map(s => STATUS_SORT_PRIORITY[s] ?? 0));
+      return maxP;
+    };
+    return [...filteredManifestOrders].sort((a, b) => {
+      const diff = getGroupPriority(a) - getGroupPriority(b);
+      return statusSort === "asc" ? diff : -diff;
+    });
+  }, [filteredManifestOrders, statusSort]);
 
   const refetch = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ["shipping-manifest", id] });
@@ -3300,14 +3325,30 @@ export default function ShippingManifestPage() {
                     <span className="w-5 h-5 rounded bg-muted flex items-center justify-center shrink-0">
                       <CheckCircle2 className="w-2.5 h-2.5 opacity-50" />
                     </span>
-                    <span>الحالة</span>
+                    <button
+                      type="button"
+                      onClick={() => setStatusSort(s => s === "none" ? "asc" : s === "asc" ? "desc" : "none")}
+                      className={`flex items-center gap-1 hover:text-primary transition-colors group ${statusSort !== "none" ? "text-primary font-bold" : ""}`}
+                      title="ترتيب حسب الحالة"
+                    >
+                      <span>الحالة</span>
+                      <span className={`flex flex-col gap-[1px] transition-opacity ${statusSort !== "none" ? "opacity-100" : "opacity-40 group-hover:opacity-80"}`}>
+                        <ChevronUp   className={`w-2.5 h-2.5 ${statusSort === "asc"  ? "text-primary" : "text-muted-foreground"}`} />
+                        <ChevronDown className={`w-2.5 h-2.5 ${statusSort === "desc" ? "text-primary" : "text-muted-foreground"}`} />
+                      </span>
+                      {statusSort !== "none" && (
+                        <span className="text-[8px] bg-primary/15 text-primary rounded-full px-1.5 py-0.5 font-bold">
+                          {statusSort === "asc" ? "انتظار → مسلَّم" : "مسلَّم → انتظار"}
+                        </span>
+                      )}
+                    </button>
                   </div>
                   {/* ─── إجراء ─── */}
                   <div className="flex items-center justify-center h-9 text-[9px] opacity-60 px-3">
                     إجراء
                   </div>
                 </div>
-                {filteredManifestOrders.length === 0 && (customerSearch || totalSearch) ? (
+                {sortedManifestOrders.length === 0 && (customerSearch || totalSearch) ? (
                   <div className="p-6 text-center text-muted-foreground text-sm">
                     <Search className="w-8 h-8 mx-auto mb-2 opacity-30" />
                     <p>لا توجد نتائج للبحث</p>
@@ -3319,8 +3360,8 @@ export default function ShippingManifestPage() {
                     </button>
                   </div>
                 ) : (
-                  <div key={`${customerSearch}__${totalSearch}`}>
-                  {filteredManifestOrders.map((group, index) => (
+                  <div key={`${customerSearch}__${totalSearch}__${statusSort}`}>
+                  {sortedManifestOrders.map((group, index) => (
                   <InvoiceGroupDeliveryRow
                     key={group.map((order) => `${order.id}-${order.deliveryStatus}-${order.partialQuantity ?? 0}-${order.deliveryNote ?? ""}`).join("|")}
                     group={group}
