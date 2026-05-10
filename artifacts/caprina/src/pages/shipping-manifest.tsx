@@ -840,7 +840,7 @@ function InvoiceGroupDeliveryRow({
         }}
       >
         {/* Desktop row */}
-        <div dir="rtl" className="hidden md:grid grid-cols-[1fr_1fr_1fr_60px_90px_130px_80px] gap-0 items-start py-2.5 text-xs">
+        <div dir="rtl" className="hidden md:grid grid-cols-[1fr_1fr_1fr_60px_90px_160px_80px] gap-0 items-start py-2.5 text-xs">
           {/* Customer */}
           <div className="min-w-0 px-3">
             <p className="font-semibold truncate">{rep.customerName}</p>
@@ -3238,7 +3238,7 @@ export default function ShippingManifestPage() {
               ) : (
                 <>
                 {/* ══ رأس الجدول المحسَّن ══ */}
-                <div dir="rtl" className="hidden md:grid grid-cols-[1fr_1fr_1fr_60px_90px_130px_80px] gap-0 border-b-2 border-border bg-muted/20 text-[10px] font-bold text-muted-foreground tracking-wide
+                <div dir="rtl" className="hidden md:grid grid-cols-[1fr_1fr_1fr_60px_90px_160px_80px] gap-0 border-b-2 border-border bg-muted/20 text-[10px] font-bold text-muted-foreground tracking-wide
                   [&>*:not(:last-child)]:border-l [&>*]:border-border/30">
                   {/* ─── عمود العميل — نص / سيرش عند الضغط ─── */}
                   <div className="relative">
@@ -3321,24 +3321,24 @@ export default function ShippingManifestPage() {
                     )}
                   </div>
                   {/* ─── حالة التسليم ─── */}
-                  <div className="flex items-center gap-1.5 px-3 h-9">
+                  <div className="flex items-center gap-1.5 px-3 h-9 overflow-hidden">
                     <span className="w-5 h-5 rounded bg-muted flex items-center justify-center shrink-0">
                       <CheckCircle2 className="w-2.5 h-2.5 opacity-50" />
                     </span>
                     <button
                       type="button"
                       onClick={() => setStatusSort(s => s === "none" ? "asc" : s === "asc" ? "desc" : "none")}
-                      className={`flex items-center gap-1 hover:text-primary transition-colors group ${statusSort !== "none" ? "text-primary font-bold" : ""}`}
-                      title="ترتيب حسب الحالة"
+                      className={`flex items-center gap-1 hover:text-primary transition-colors group min-w-0 ${statusSort !== "none" ? "text-primary font-bold" : ""}`}
+                      title={statusSort === "asc" ? "انتظار → مسلَّم (اضغط للعكس)" : statusSort === "desc" ? "مسلَّم → انتظار (اضغط لإلغاء)" : "ترتيب حسب الحالة"}
                     >
-                      <span>الحالة</span>
-                      <span className={`flex flex-col gap-[1px] transition-opacity ${statusSort !== "none" ? "opacity-100" : "opacity-40 group-hover:opacity-80"}`}>
-                        <ChevronUp   className={`w-2.5 h-2.5 ${statusSort === "asc"  ? "text-primary" : "text-muted-foreground"}`} />
-                        <ChevronDown className={`w-2.5 h-2.5 ${statusSort === "desc" ? "text-primary" : "text-muted-foreground"}`} />
+                      <span className="shrink-0">الحالة</span>
+                      <span className="flex flex-col gap-[1px] shrink-0 transition-opacity opacity-40 group-hover:opacity-80">
+                        <ChevronUp   className={`w-2.5 h-2.5 ${statusSort === "asc"  ? "text-primary opacity-100" : ""}`} />
+                        <ChevronDown className={`w-2.5 h-2.5 ${statusSort === "desc" ? "text-primary opacity-100" : ""}`} />
                       </span>
                       {statusSort !== "none" && (
-                        <span className="text-[8px] bg-primary/15 text-primary rounded-full px-1.5 py-0.5 font-bold">
-                          {statusSort === "asc" ? "انتظار → مسلَّم" : "مسلَّم → انتظار"}
+                        <span className="text-[8px] bg-primary/15 text-primary rounded-full px-1.5 py-0.5 font-bold shrink-0 hidden lg:inline">
+                          {statusSort === "asc" ? "↑" : "↓"}
                         </span>
                       )}
                     </button>
