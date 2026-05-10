@@ -872,7 +872,7 @@ function ChartCard({
   glassStyle,
 }: {
   title: string;
-  subtitle: string;
+  subtitle?: string;
   dot: string;
   children: React.ReactNode;
   liveTag?: boolean;
