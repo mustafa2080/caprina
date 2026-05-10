@@ -1901,13 +1901,14 @@ function CloseConfirmDialog({
   );
 }
 
-// ─── Status sort priority — pending أقل أهمية، delivered أعلى ───────────────
+// ─── Status sort priority — ترتيب أبجدي عربي ────────────────────────────────
+// أ→ي: استلم جزئي(0) ← مرتجع(1) ← مسلَّم(2) ← مؤجل(3) ← قيد الانتظار(4)
 const STATUS_SORT_PRIORITY: Record<string, number> = {
-  pending: 0,
-  postponed: 1,
-  partial_received: 2,
-  returned: 3,
-  delivered: 4,
+  partial_received: 0, // استلم جزئي
+  returned:         1, // مرتجع
+  delivered:        2, // مسلَّم
+  postponed:        3, // مؤجل
+  pending:          4, // قيد الانتظار
 };
 
 // ─── Status label helper ──────────────────────────────────────────────────────
