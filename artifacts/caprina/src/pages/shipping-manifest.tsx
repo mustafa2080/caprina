@@ -2676,6 +2676,8 @@ export default function ShippingManifestPage() {
   const [showTotalSearch, setShowTotalSearch] = useState(false);
   // ─── ترتيب حسب الحالة ───────────────────────────────────────────────────────
   const [statusSort, setStatusSort] = useState<"none" | "asc" | "desc">("none");
+  // ─── ترتيب حسب تاريخ الإضافة ────────────────────────────────────────────────
+  const [dateSort, setDateSort] = useState<"none" | "asc" | "desc">("none");
   // ─── نظام التحديد (Bulk Selection) ─────────────────────────────────────────
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set());
 
@@ -2716,17 +2718,30 @@ export default function ShippingManifestPage() {
 
   // ─── Sort — حسب الحالة فوق الـ filter ──────────────────────────────────────
   const sortedManifestOrders = useMemo(() => {
-    if (statusSort === "none") return filteredManifestOrders;
+    if (statusSort === "none" && dateSort === "none") return filteredManifestOrders;
     const getGroupPriority = (group: ManifestOrder[]) => {
       const statuses = [...new Set(group.map(o => o.deliveryStatus))];
       const maxP = Math.max(...statuses.map(s => STATUS_SORT_PRIORITY[s] ?? 0));
       return maxP;
     };
+    const getGroupDate = (group: ManifestOrder[]) => {
+      const ts = (group[0] as any).addedAt;
+      return ts ? new Date(ts).getTime() : 0;
+    };
     return [...filteredManifestOrders].sort((a, b) => {
-      const diff = getGroupPriority(a) - getGroupPriority(b);
-      return statusSort === "asc" ? diff : -diff;
+      // الترتيب حسب التاريخ له الأولوية لو كان مفعّل
+      if (dateSort !== "none") {
+        const diff = getGroupDate(a) - getGroupDate(b);
+        if (diff !== 0) return dateSort === "asc" ? diff : -diff;
+      }
+      // ثم الترتيب حسب الحالة
+      if (statusSort !== "none") {
+        const diff = getGroupPriority(a) - getGroupPriority(b);
+        if (diff !== 0) return statusSort === "asc" ? diff : -diff;
+      }
+      return 0;
     });
-  }, [filteredManifestOrders, statusSort]);
+  }, [filteredManifestOrders, statusSort, dateSort]);
 
   // ─── Selection helpers ───────────────────────────────────────────────────────
   const allGroupKeys = useMemo(
@@ -3434,6 +3449,21 @@ export default function ShippingManifestPage() {
                           {statusSort === "asc" ? "↑" : "↓"}
                         </span>
                       )}
+                    </button>
+                  </div>
+                  {/* ─── تاريخ الإضافة ─── */}
+                  <div className="flex items-center justify-center h-9 px-2">
+                    <button
+                      type="button"
+                      onClick={() => setDateSort(s => s === "none" ? "asc" : s === "asc" ? "desc" : "none")}
+                      className={`flex items-center gap-1 hover:text-primary transition-colors group min-w-0 text-[9px] ${dateSort !== "none" ? "text-primary font-bold opacity-100" : "opacity-60"}`}
+                      title={dateSort === "asc" ? "الأقدم أولاً (اضغط للعكس)" : dateSort === "desc" ? "الأحدث أولاً (اضغط لإلغاء)" : "ترتيب حسب تاريخ الإضافة"}
+                    >
+                      <span className="shrink-0">الإضافة</span>
+                      <span className="flex flex-col gap-[1px] shrink-0 transition-opacity opacity-40 group-hover:opacity-80">
+                        <ChevronUp   className={`w-2.5 h-2.5 ${dateSort === "asc"  ? "text-primary opacity-100" : ""}`} />
+                        <ChevronDown className={`w-2.5 h-2.5 ${dateSort === "desc" ? "text-primary opacity-100" : ""}`} />
+                      </span>
                     </button>
                   </div>
                   {/* ─── إجراء ─── */}
