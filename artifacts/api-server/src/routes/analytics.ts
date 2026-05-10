@@ -949,7 +949,7 @@ router.get("/analytics/smart-insights", async (_req, res): Promise<void> => {
     size_mismatch: "مقاس غير مناسب",
     quality: "جودة المنتج",
     customer_refused: "رفض العميل",
-    delay: "سبب التأخير",
+    delay: "التأخير على العميل",
     other: "سبب آخر",
   };
 
