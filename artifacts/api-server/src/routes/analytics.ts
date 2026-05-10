@@ -929,13 +929,26 @@ router.get("/analytics/smart-insights", async (_req, res): Promise<void> => {
     .sort((a, b) => b.frozenCapital - a.frozenCapital)
     .slice(0, 8);
 
-  // ── 3. Return Insights ──────────────────────────────────────────────
+  // ── 3. Return Insights ────────────────────────────────────
   const returnedOrders = allOrders.filter(o => o.status === "returned");
+
+  // حساب بالفاتورة — orders نفس الفاتورة تتحسب مرة واحدة فقط
+  const seenInvoices = new Set<string>();
+  const uniqueReturnedUnits: typeof returnedOrders = [];
+  for (const o of returnedOrders) {
+    const inv = (o as any).invoiceNumber as string | null;
+    if (inv) {
+      if (seenInvoices.has(inv)) continue;
+      seenInvoices.add(inv);
+    }
+    uniqueReturnedUnits.push(o);
+  }
+
   const reasonCount: Record<string, number> = {};
   const otherNoteCount: Record<string, number> = {};
   let noReasonCount = 0;
 
-  for (const o of returnedOrders) {
+  for (const o of uniqueReturnedUnits) {
     const reason = (o as any).returnReason ?? "__none__";
     if (reason === "__none__") { noReasonCount++; continue; }
     reasonCount[reason] = (reasonCount[reason] ?? 0) + 1;
@@ -954,7 +967,7 @@ router.get("/analytics/smart-insights", async (_req, res): Promise<void> => {
     other: "سبب آخر",
   };
 
-  const totalReturns = returnedOrders.length;
+  const totalReturns = uniqueReturnedUnits.length;
 
   const otherTotal = reasonCount["other"] ?? 0;
   const otherNotesEntries = Object.entries(otherNoteCount).sort((a: any, b: any) => b[1] - a[1]);
