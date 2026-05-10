@@ -3324,7 +3324,7 @@ export default function ShippingManifestPage() {
                   </div>
                 )}
                 {/* ══ رأس الجدول المحسَّن ══ */}
-                <div dir="rtl" className="hidden md:grid grid-cols-[1fr_1fr_1fr_60px_90px_160px_80px] gap-0 border-b-2 border-border bg-muted/20 text-[10px] font-bold text-muted-foreground tracking-wide
+                <div dir="rtl" className="hidden md:grid grid-cols-[1fr_1fr_1fr_60px_90px_160px_90px_80px] gap-0 border-b-2 border-border bg-muted/20 text-[10px] font-bold text-muted-foreground tracking-wide
                   [&>*:not(:last-child)]:border-l [&>*]:border-border/30">
                   {/* ─── عمود العميل — checkbox + نص/سيرش ─── */}
                   <div className="relative flex items-center">
