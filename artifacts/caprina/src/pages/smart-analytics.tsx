@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { analyticsApi, type AdSourceStat, type SmartProduct, type DeadStockItem, type ReturnReasonItem, type HighReturnProduct, type StockPredictorItem } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
@@ -195,7 +196,14 @@ function StarsSection({ stars, deadStock, showProfit }: { stars: SmartProduct[];
 function ReturnInsightsSection({
   byReason, highReturnProducts, totalReturnRate, totalReturns,
 }: { byReason: ReturnReasonItem[]; highReturnProducts: HighReturnProduct[]; totalReturnRate: number; totalReturns: number }) {
-  const topReasons = byReason.slice(0, 4);
+  const [showOtherNotes, setShowOtherNotes] = useState(false);
+
+  // split: named reasons vs other_note items
+  const namedReasons = byReason.filter(r => r.reason !== "other_note" && r.reason !== "other");
+  const otherItem    = byReason.find(r => r.reason === "other");
+  const otherNotes   = byReason.filter(r => r.reason === "other_note");
+  // build display list: named + collapsed "سبب آخر" row
+  const topReasons = namedReasons.slice(0, 4);
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
@@ -225,7 +233,61 @@ function ReturnInsightsSection({
               </div>
             );
           })}
-          {topReasons.length === 0 && (
+
+          {/* سبب آخر — قابل للتوسيع */}
+          {(otherNotes.length > 0 || otherItem) && (
+            <div>
+              <button
+                onClick={() => setShowOtherNotes(v => !v)}
+                className="w-full flex items-center justify-between mb-1 group"
+              >
+                <span className="text-xs font-semibold text-amber-400 group-hover:text-amber-300 flex items-center gap-1">
+                  <span>{showOtherNotes ? "▾" : "▸"}</span>
+                  سبب آخر
+                </span>
+                <span className="text-xs font-black text-amber-400">
+                  {(otherNotes.reduce((s, r) => s + r.count, 0) + (otherItem?.count ?? 0))} (
+                  {Math.round(((otherNotes.reduce((s, r) => s + r.count, 0) + (otherItem?.count ?? 0)) / totalReturns) * 100)}%)
+                </span>
+              </button>
+              {/* progress bar للإجمالي */}
+              <div className="h-2.5 bg-muted rounded-full overflow-hidden mb-2">
+                <div
+                  className="h-full rounded-full transition-all duration-700 bg-amber-500 dark:bg-amber-400"
+                  style={{ width: `${Math.round(((otherNotes.reduce((s, r) => s + r.count, 0) + (otherItem?.count ?? 0)) / totalReturns) * 100)}%` }}
+                />
+              </div>
+              {/* التفاصيل عند الضغط */}
+              {showOtherNotes && (
+                <div className="mt-2 space-y-2 pr-3 border-r-2 border-amber-500/30">
+                  {otherNotes.map((note, ni) => (
+                    <div key={ni}>
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-xs text-muted-foreground truncate max-w-[160px]" title={note.label}>{note.label}</span>
+                        <span className="text-xs font-bold text-amber-300">{note.count} ({note.pct}%)</span>
+                      </div>
+                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div className="h-full rounded-full bg-amber-400/60" style={{ width: `${note.pct}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                  {otherItem && (
+                    <div>
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-xs text-muted-foreground">غير مفصّل</span>
+                        <span className="text-xs font-bold text-amber-300">{otherItem.count} ({otherItem.pct}%)</span>
+                      </div>
+                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div className="h-full rounded-full bg-amber-400/40" style={{ width: `${otherItem.pct}%` }} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {byReason.length === 0 && (
             <div className="text-center py-6 text-muted-foreground text-xs">
               <RotateCcw className="w-6 h-6 mx-auto mb-2 opacity-30" />
               لا توجد مرتجعات مسجلة
