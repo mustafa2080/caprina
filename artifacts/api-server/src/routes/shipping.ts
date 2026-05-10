@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+﻿import { Router, type IRouter } from "express";
 import { eq, desc, and, inArray } from "drizzle-orm";
 import { db, shippingCompaniesTable, shippingManifestsTable, shippingManifestOrdersTable, ordersTable } from "@workspace/db";
 import { z } from "zod";
@@ -76,13 +76,7 @@ router.get("/shipping-companies/:id/stats", async (req, res): Promise<void> => {
   let postponed = 0;
   if (openManifestId) {
     const openLinks = links.filter(l => l.manifestId === openManifestId);
-    const openOrderIds = openLinks.map(l => l.orderId);
-    const openOrders = openOrderIds.map(id => orderMap.get(id)).filter(Boolean);
-    const seenInvoices = new Set<string>();
-    for (const order of openOrders) {
-      const key = order!.invoiceNumber?.trim() || `solo-${order!.id}`;
-      if (!seenInvoices.has(key)) { seenInvoices.add(key); postponed++; }
-    }
+    postponed = openLinks.length;
   }
 
   // ─── تجميع الطلبات بنفس invoiceNumber في فاتورة واحدة (لكل البيانات) ───
