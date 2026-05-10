@@ -845,7 +845,7 @@ function InvoiceGroupDeliveryRow({
         }}
       >
         {/* Desktop row */}
-        <div dir="rtl" className="hidden md:grid grid-cols-[1fr_1fr_1fr_60px_90px_160px_80px] gap-0 items-start py-2.5 text-xs">
+        <div dir="rtl" className="hidden md:grid grid-cols-[1fr_1fr_1fr_60px_90px_160px_90px_80px] gap-0 items-start py-2.5 text-xs">
           {/* Customer */}
           <div className="min-w-0 px-3 flex items-start gap-2">
             {onToggleSelect && (
@@ -985,6 +985,18 @@ function InvoiceGroupDeliveryRow({
                   <p className="text-[10px] text-orange-500 mt-0.5 font-semibold">🚚 الباقي عند الشحن</p>
                 )}
               </div>
+            )}
+          </div>
+          {/* Added At */}
+          <div className="px-2 text-center">
+            {rep.addedAt ? (
+              <p className="text-[9px] text-muted-foreground leading-tight">
+                {format(new Date((rep as any).addedAt), "MM/dd")}
+                <br />
+                <span className="text-[8px] opacity-70">{format(new Date((rep as any).addedAt), "HH:mm")}</span>
+              </p>
+            ) : (
+              <p className="text-[9px] text-muted-foreground/40">—</p>
             )}
           </div>
           {/* Action */}

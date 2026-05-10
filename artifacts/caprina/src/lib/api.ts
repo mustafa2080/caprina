@@ -678,6 +678,7 @@ export interface ManifestOrder extends Order {
   deliveredAt: string | null;
   manifestOrderId: number;
   returnReceived: 0 | 1 | null;
+  addedAt: string | null;
 }
 
 export interface ShippingManifestDetail extends ShippingManifestListItem {
