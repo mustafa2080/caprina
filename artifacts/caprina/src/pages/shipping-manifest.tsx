@@ -73,6 +73,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBrand } from "@/contexts/BrandContext";
 import { format } from "date-fns";
+import { RETURN_REASONS } from "@/lib/order-constants";
 
 const formatCurrency = (n: number) =>
   new Intl.NumberFormat("ar-EG", {
@@ -119,6 +120,9 @@ function OrderDeliveryRow({
   const [returnReceived, setReturnReceived] = useState<boolean | null>(
     (order as any).returnReceived === 1 ? true : (order as any).returnReceived === 0 ? false : null
   );
+  const [returnReason, setReturnReason] = useState<string>(
+    (order as any).returnReason ?? ""
+  );
   const [partialReturnReceived, setPartialReturnReceived] = useState<boolean | null>(
     order.deliveryStatus === "partial_received"
       ? ((order as any).returnReceived === 1 ? true : (order as any).returnReceived === 0 ? false : null)
@@ -134,6 +138,7 @@ function OrderDeliveryRow({
       setReturnReceived(
         (order as any).returnReceived === 1 ? true : (order as any).returnReceived === 0 ? false : null
       );
+      setReturnReason((order as any).returnReason ?? "");
       setPartialReturnReceived(
         order.deliveryStatus === "partial_received"
           ? ((order as any).returnReceived === 1 ? true : (order as any).returnReceived === 0 ? false : null)
@@ -177,6 +182,7 @@ function OrderDeliveryRow({
             ? parseInt(partialQty)
             : null,
         ...(status === "returned" ? { returnReceived } : {}),
+        ...(status === "returned" && returnReason ? { returnReason } : {}),
         ...(status === "partial_received" ? { partialReturnReceived } : {}),
       });
     },
@@ -473,66 +479,46 @@ function OrderDeliveryRow({
               </p>
             </div>
           )}
-          {/* حالة استلام المرتجع — 3D buttons */}
+          {/* حالة استلام المرتجع + سبب — زي الطلبات */}
           {status === "returned" && (
-            <div className="space-y-2">
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">هل تم استلام المرتجع؟</p>
-              <div className="flex gap-3">
-                {/* ── تم استلام المرتجع ── */}
-                <button type="button" onClick={() => setReturnReceived(true)}
-                  className="flex-1 relative outline-none cursor-pointer p-0 border-0 bg-transparent select-none"
-                  style={{ borderRadius: 18 }}>
-                  <div className="absolute inset-0 rounded-[18px] transition-all duration-150" style={{
-                    background: returnReceived === true ? "linear-gradient(175deg,#043d2a 0%,#021f15 100%)" : "linear-gradient(175deg,#065c3e 0%,#033d28 100%)",
-                    boxShadow: returnReceived === true ? "0 1px 0 #010f09, 0 0 0 1.5px rgba(0,180,100,0.18)" : "0 5px 0 #032918, 0 0 0 1.5px rgba(0,180,100,0.22), 0 8px 20px rgba(0,180,100,0.12)",
-                  }} />
-                  <div className="relative z-10 flex flex-col items-center gap-1 px-3 pt-4 pb-3.5 rounded-[18px] overflow-hidden transition-all duration-150" style={{
-                    background: returnReceived === true ? "linear-gradient(155deg,#0d8f62 0%,#09714c 55%,#065539 100%)" : "linear-gradient(155deg,#12c482 0%,#0daa6e 55%,#098f5b 100%)",
-                    border: returnReceived === true ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(255,255,255,0.14)",
-                    boxShadow: returnReceived === true ? "inset 0 -4px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.12)" : "inset 0 -4px 8px rgba(0,0,0,0.18), inset 0 2px 0 rgba(255,255,255,0.28)",
-                    transform: returnReceived === true ? "translateY(4px)" : "translateY(0)",
-                  }}>
-                    <div className="absolute left-1/2 -translate-x-1/2 w-14 h-5 rounded-full" style={{ background: "radial-gradient(ellipse,rgba(180,255,220,0.38) 0%,transparent 75%)", top: 6 }} />
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center mb-0.5" style={{ background: returnReceived === true ? "radial-gradient(circle,rgba(0,0,0,0.25) 0%,rgba(0,0,0,0.35) 100%)" : "radial-gradient(circle,rgba(0,0,0,0.12) 0%,rgba(0,0,0,0.22) 100%)", boxShadow: "inset 0 2px 4px rgba(0,0,0,0.3), 0 0 12px rgba(20,220,140,0.3)" }}>
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#c6f6d5" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" style={{ filter: "drop-shadow(0 0 6px rgba(134,239,172,0.85))" }}>
-                        <path d="M20 6L9 17l-5-5"/>
-                      </svg>
-                    </div>
-                    <span className="text-[12.5px] font-black leading-tight tracking-tight" style={{ color: returnReceived === true ? "#a7f3d0" : "#d1fae5", textShadow: "0 1px 3px rgba(0,0,0,0.5)" }}>تم استلام المرتجع</span>
-                    <span className="text-[9.5px] font-medium leading-tight" style={{ color: returnReceived === true ? "rgba(167,243,208,0.65)" : "rgba(209,250,229,0.7)" }}>يُعاد للمخزن تلقائياً</span>
-                  </div>
-                </button>
-                {/* ── مازال في الشحن ── */}
-                <button type="button" onClick={() => setReturnReceived(false)}
-                  className="flex-1 relative outline-none cursor-pointer p-0 border-0 bg-transparent select-none"
-                  style={{ borderRadius: 18 }}>
-                  <div className="absolute inset-0 rounded-[18px] transition-all duration-150" style={{
-                    background: returnReceived === false ? "linear-gradient(175deg,#4a2204 0%,#2e1502 100%)" : "linear-gradient(175deg,#7c3d08 0%,#4f2804 100%)",
-                    boxShadow: returnReceived === false ? "0 1px 0 #180900, 0 0 0 1.5px rgba(200,130,20,0.2)" : "0 5px 0 #3e1d03, 0 0 0 1.5px rgba(200,140,30,0.25), 0 8px 20px rgba(200,140,30,0.12)",
-                  }} />
-                  <div className="relative z-10 flex flex-col items-center gap-1 px-3 pt-4 pb-3.5 rounded-[18px] overflow-hidden transition-all duration-150" style={{
-                    background: returnReceived === false ? "linear-gradient(155deg,#b8860b 0%,#996b08 55%,#7a5406 100%)" : "linear-gradient(155deg,#e8a820 0%,#c98e14 55%,#a87010 100%)",
-                    border: returnReceived === false ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(255,255,255,0.15)",
-                    boxShadow: returnReceived === false ? "inset 0 -4px 8px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.1)" : "inset 0 -4px 8px rgba(0,0,0,0.18), inset 0 2px 0 rgba(255,255,255,0.30)",
-                    transform: returnReceived === false ? "translateY(4px)" : "translateY(0)",
-                  }}>
-                    <div className="absolute left-1/2 -translate-x-1/2 w-14 h-5 rounded-full" style={{ background: "radial-gradient(ellipse,rgba(255,240,160,0.38) 0%,transparent 75%)", top: 6 }} />
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center mb-0.5" style={{ background: returnReceived === false ? "radial-gradient(circle,rgba(0,0,0,0.28) 0%,rgba(0,0,0,0.38) 100%)" : "radial-gradient(circle,rgba(0,0,0,0.12) 0%,rgba(0,0,0,0.22) 100%)", boxShadow: "inset 0 2px 4px rgba(0,0,0,0.32), 0 0 12px rgba(220,170,20,0.3)" }}>
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fef3c7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ filter: "drop-shadow(0 0 6px rgba(253,230,138,0.85))" }}>
-                        <rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/>
-                        <circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
-                      </svg>
-                    </div>
-                    <span className="text-[12.5px] font-black leading-tight tracking-tight" style={{ color: returnReceived === false ? "#fde68a" : "#fff8e1", textShadow: "0 1px 3px rgba(0,0,0,0.55)" }}>مازال في الشحن</span>
-                    <span className="text-[9.5px] font-medium leading-tight" style={{ color: returnReceived === false ? "rgba(253,230,138,0.65)" : "rgba(255,248,225,0.72)" }}>لن يؤثر على المخزن</span>
-                  </div>
-                </button>
+            <div className="flex flex-wrap gap-2 items-end">
+              {/* سبب الإرجاع */}
+              <div>
+                <Label className="text-[10px] mb-1 block text-muted-foreground">سبب الإرجاع</Label>
+                <Select value={returnReason} onValueChange={setReturnReason}>
+                  <SelectTrigger className="h-8 text-xs w-44 bg-background border-red-800/60 focus:ring-red-700">
+                    <SelectValue placeholder="اختر السبب..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {RETURN_REASONS.map(r => (
+                      <SelectItem key={r.value} value={r.value} className="text-xs">{r.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <p className="text-[10px] text-center font-medium" style={{ color: returnReceived === true ? "#0F6E56" : returnReceived === false ? "#854F0B" : "var(--color-text-secondary)" }}>
-                {returnReceived === true && "✓ سيتم إرجاع البضاعة للمخزن تلقائياً"}
-                {returnReceived === false && "⏳ مرتجع مازال في شركة الشحن — لن يؤثر على المخزن"}
-                {returnReceived === null && "⚠ يجب اختيار حالة الاستلام قبل الحفظ"}
-              </p>
+              {/* هل تم استلام المرتجع */}
+              <div>
+                <Label className="text-[10px] mb-1 block text-muted-foreground">حالة الاستلام *</Label>
+                <Select
+                  value={returnReceived === true ? "received" : returnReceived === false ? "at_shipping" : ""}
+                  onValueChange={v => setReturnReceived(v === "received" ? true : v === "at_shipping" ? false : null)}
+                >
+                  <SelectTrigger className="h-8 text-xs w-44 bg-background border-red-800/60 focus:ring-red-700">
+                    <SelectValue placeholder="اختر الحالة... *" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="received" className="text-xs">
+                      <span className="text-emerald-600 dark:text-emerald-400">↩ تم استلام المرتجع — يُعاد للمخزن</span>
+                    </SelectItem>
+                    <SelectItem value="at_shipping" className="text-xs">
+                      <span className="text-orange-600 dark:text-orange-400">🚚 مازال في الشحن — سيُرحَّل</span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {returnReceived === null && (
+                <p className="text-[10px] text-destructive w-full">⚠ يجب اختيار حالة الاستلام قبل الحفظ</p>
+              )}
             </div>
           )}
           <div>
