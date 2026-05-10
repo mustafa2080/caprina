@@ -1652,9 +1652,16 @@ export default function OrderDetail() {
                                 <Badge variant="outline" className="text-[9px] font-bold border-red-600 text-red-400 w-fit">
                                   ↩ مرتجع
                                 </Badge>
-                                <Badge variant="outline" className="text-[9px] font-bold border-orange-600 text-orange-400 w-fit">
-                                  <Clock className="w-2.5 h-2.5 ml-1" />مازال عند شركة الشحن
-                                </Badge>
+                                {(returnRec === 0 || returnRec === false) && (
+                                  <Badge variant="outline" className="text-[9px] font-bold border-orange-600 text-orange-400 w-fit">
+                                    <Clock className="w-2.5 h-2.5 ml-1" />مازال عند شركة الشحن
+                                  </Badge>
+                                )}
+                                {(returnRec === 1 || returnRec === true) && (
+                                  <Badge variant="outline" className="text-[9px] font-bold border-emerald-600 text-emerald-400 w-fit">
+                                    <CheckCircle2 className="w-2.5 h-2.5 ml-1" />في المخزن
+                                  </Badge>
+                                )}
                               </>
                             )}
                           </div>
