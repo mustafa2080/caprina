@@ -63,16 +63,19 @@ const formatCurrency = (amount: number) =>
 type ColKey = "id" | "date" | "customer" | "phone" | "product" | "total" | "creator" | "status";
 type ColFilters = Record<ColKey, Set<string>>;
 
-function ColFilterBtn({ col, colFilters, getColOptions, toggleColFilter, clearColFilter }: {
+function ColFilterBtn({ col, colFilters, getColOptions, toggleColFilter, clearColFilter, sortCol, sortDir, onSort }: {
   col: ColKey;
   colFilters: ColFilters;
   getColOptions: (col: ColKey) => string[];
   toggleColFilter: (col: ColKey, val: string) => void;
   clearColFilter: (col: ColKey) => void;
+  sortCol: ColKey | null;
+  sortDir: "asc" | "desc";
+  onSort: (col: ColKey, dir: "asc" | "desc") => void;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [sort, setSort] = useState<"asc" | "desc">("asc");
+  const sort = sortCol === col ? sortDir : "asc";
   const btnRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ top: 0, left: 0 });
@@ -132,12 +135,12 @@ function ColFilterBtn({ col, colFilters, getColOptions, toggleColFilter, clearCo
           dir="rtl"
         >
           <div className="flex gap-1 p-2 border-b border-border/50">
-            <button type="button" onClick={() => setSort("asc")}
-              className={`flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded border text-[10px] transition-all ${sort === "asc" ? "border-primary bg-primary/10 text-primary font-bold" : "border-border text-muted-foreground hover:bg-muted/30"}`}>
+            <button type="button" onClick={() => { onSort(col, "asc"); setOpen(false); }}
+              className={`flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded border text-[10px] transition-all ${sort === "asc" && sortCol === col ? "border-primary bg-primary/10 text-primary font-bold" : "border-border text-muted-foreground hover:bg-muted/30"}`}>
               <ChevronUp className="w-2.5 h-2.5" />أ→ي
             </button>
-            <button type="button" onClick={() => setSort("desc")}
-              className={`flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded border text-[10px] transition-all ${sort === "desc" ? "border-primary bg-primary/10 text-primary font-bold" : "border-border text-muted-foreground hover:bg-muted/30"}`}>
+            <button type="button" onClick={() => { onSort(col, "desc"); setOpen(false); }}
+              className={`flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded border text-[10px] transition-all ${sort === "desc" && sortCol === col ? "border-primary bg-primary/10 text-primary font-bold" : "border-border text-muted-foreground hover:bg-muted/30"}`}>
               <ChevronDown className="w-2.5 h-2.5" />ي→أ
             </button>
           </div>
@@ -188,6 +191,13 @@ export default function Orders() {
   });
   const colFilterHasActive = Object.values(colFilters).some(s => s.size > 0);
   const [showColFilters, setShowColFilters] = useState(false);
+  const [sortCol, setSortCol] = useState<ColKey | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  const handleSort = useCallback((col: ColKey, dir: "asc" | "desc") => {
+    setSortCol(col);
+    setSortDir(dir);
+  }, []);
   const debouncedSearch = useDebounce(search, 300);
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -272,6 +282,16 @@ export default function Orders() {
       })
     );
   }, [filtered, colFilters, colFilterHasActive, getColVal]);
+
+  const displayRows = useMemo(() => {
+    if (!sortCol) return colFilteredRows;
+    return [...colFilteredRows].sort((a, b) => {
+      const va = getColVal(sortCol, a);
+      const vb = getColVal(sortCol, b);
+      const cmp = va.localeCompare(vb, "ar", { numeric: true });
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [colFilteredRows, sortCol, sortDir, getColVal]);
 
   const hasActiveFilter = search || customerSearch || status !== "all" || dateFrom || dateTo;
 
@@ -531,7 +551,7 @@ export default function Orders() {
             </Select>
           </div>
 
-          {/* ── الصف الثاني: تاريخ من + مسح ── */}
+          {/* ── الصف الثاني: تاريخ من + زر فلتر + مسح ── */}
           <div className="flex items-center gap-2 flex-wrap">
             <div className="relative">
               <CalendarDays className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
@@ -542,6 +562,20 @@ export default function Orders() {
               <CalendarDays className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
               <Input type="date" className="pr-9 bg-card text-sm h-8 w-40 text-xs" value={dateTo} onChange={e => setDateTo(e.target.value)} title="إلى تاريخ" />
             </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (showColFilters) {
+                  setColFilters({ id: new Set(), date: new Set(), customer: new Set(), phone: new Set(), product: new Set(), total: new Set(), creator: new Set(), status: new Set() });
+                  setSortCol(null);
+                }
+                setShowColFilters(v => !v);
+              }}
+              className={`h-8 flex items-center gap-1.5 px-3 rounded-lg border text-xs font-medium transition-all ${showColFilters ? "border-destructive/50 text-destructive bg-destructive/5 hover:bg-destructive/10" : "border-primary/40 text-primary bg-primary/5 hover:bg-primary/10"}`}
+            >
+              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill={showColFilters ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+              {showColFilters ? "إلغاء الفلتر" : "إنشاء فلتر"}
+            </button>
             {hasActiveFilter && (
               <Button variant="ghost" size="sm" className="h-8 text-xs gap-1 text-muted-foreground" onClick={clearFilters}>
                 <X className="w-3 h-3" />مسح الكل
@@ -641,23 +675,6 @@ export default function Orders() {
               })}
             </div>
 
-            {/* ── Filter Toggle Button ── */}
-            <div className="hidden sm:flex justify-end mb-2">
-              <button
-                type="button"
-                onClick={() => {
-                  if (showColFilters) {
-                    setColFilters({ id: new Set(), date: new Set(), customer: new Set(), phone: new Set(), product: new Set(), total: new Set(), creator: new Set(), status: new Set() });
-                  }
-                  setShowColFilters(v => !v);
-                }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${showColFilters ? "border-destructive/50 text-destructive bg-destructive/5 hover:bg-destructive/10" : "border-primary/40 text-primary bg-primary/5 hover:bg-primary/10"}`}
-              >
-                <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill={showColFilters ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-                {showColFilters ? "إلغاء الفلتر" : "إنشاء فلتر"}
-              </button>
-            </div>
-
             {/* ── Desktop ── */}
             <div className="hidden sm:block overflow-x-auto">
               <Table>
@@ -665,38 +682,38 @@ export default function Orders() {
                   <TableRow className="border-border hover:bg-transparent">
                     {canWriteOrders && bulkSelectMode && (
                       <TableHead className="w-10 text-center">
-                        <Checkbox checked={selectedIds.size === colFilteredRows.length && colFilteredRows.length > 0} onCheckedChange={toggleSelectAll} />
+                        <Checkbox checked={selectedIds.size === displayRows.length && displayRows.length > 0} onCheckedChange={toggleSelectAll} />
                       </TableHead>
                     )}
                     <TableHead className="text-right text-xs">
-                      <div className="flex items-center gap-1">#{showColFilters && <ColFilterBtn col="id" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />}</div>
+                      <div className="flex items-center gap-1">#{showColFilters && <ColFilterBtn col="id" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />}</div>
                     </TableHead>
                     <TableHead className="text-right text-xs">
-                      <div className="flex items-center gap-1">التاريخ{showColFilters && <ColFilterBtn col="date" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />}</div>
+                      <div className="flex items-center gap-1">التاريخ{showColFilters && <ColFilterBtn col="date" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />}</div>
                     </TableHead>
                     <TableHead className="text-right text-xs">
-                      <div className="flex items-center gap-1">العميل{showColFilters && <ColFilterBtn col="customer" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />}</div>
+                      <div className="flex items-center gap-1">العميل{showColFilters && <ColFilterBtn col="customer" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />}</div>
                     </TableHead>
                     <TableHead className="text-right text-xs">
-                      <div className="flex items-center gap-1">الهاتف{showColFilters && <ColFilterBtn col="phone" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />}</div>
+                      <div className="flex items-center gap-1">الهاتف{showColFilters && <ColFilterBtn col="phone" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />}</div>
                     </TableHead>
                     <TableHead className="text-right text-xs">
-                      <div className="flex items-center gap-1">المنتج{showColFilters && <ColFilterBtn col="product" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />}</div>
+                      <div className="flex items-center gap-1">المنتج{showColFilters && <ColFilterBtn col="product" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />}</div>
                     </TableHead>
                     <TableHead className="text-right text-xs">
-                      <div className="flex items-center gap-1">الإجمالي{showColFilters && <ColFilterBtn col="total" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />}</div>
+                      <div className="flex items-center gap-1">الإجمالي{showColFilters && <ColFilterBtn col="total" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />}</div>
                     </TableHead>
                     <TableHead className="text-right text-xs">
-                      <div className="flex items-center gap-1">المنشئ{showColFilters && <ColFilterBtn col="creator" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />}</div>
+                      <div className="flex items-center gap-1">المنشئ{showColFilters && <ColFilterBtn col="creator" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />}</div>
                     </TableHead>
                     <TableHead className="text-center text-xs w-36">
-                      <div className="flex items-center justify-center gap-1">الحالة{showColFilters && <ColFilterBtn col="status" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />}</div>
+                      <div className="flex items-center justify-center gap-1">الحالة{showColFilters && <ColFilterBtn col="status" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />}</div>
                     </TableHead>
                     <TableHead className="text-center text-xs w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {colFilteredRows.map((order, rowIndex) => {
+                  {displayRows.map((order, rowIndex) => {
                     const retReason  = (order as any).returnReason as string | null;
                     const retNote    = (order as any).returnNote   as string | null;
                     const isGroup = !!(order as any)._groupCount && (order as any)._groupCount > 1;
