@@ -2884,7 +2884,7 @@ export default function ShippingManifestPage() {
       case "status": {
         const statuses = [...new Set(group.map(o => o.deliveryStatus))];
         const labels: Record<string, string> = {
-          delivered:"مسلَّم", returned:"مرتجع", pending:"انتظار",
+          delivered:"مسلَّم", returned:"مرتجع", pending:"قيد الانتظار",
           postponed:"مؤجَّل", partial_received:"استلام جزئي",
         };
         return statuses.map(s => labels[s] ?? s).join(" / ");
@@ -3048,7 +3048,7 @@ export default function ShippingManifestPage() {
       case "returned":         return { label: "مرتجع",           cls: "status-returned" };
       case "postponed":        return { label: "مؤجل",            cls: "status-postponed" };
       case "partial_received": return { label: "جزئي",            cls: "status-partial" };
-      default:                 return { label: "انتظار",          cls: "status-pending" };
+      default:                 return { label: "قيد الانتظار",   cls: "status-pending" };
     }
   };
 
