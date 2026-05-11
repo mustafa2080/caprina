@@ -2858,7 +2858,7 @@ export default function ShippingManifestPage() {
     const rep = group[0];
     switch (col) {
       case "customer":    return rep.customerName ?? "";
-      case "governorate": return (rep as any).governorate ?? "";
+      case "governorate": return rep.city ?? "";
       case "product":     return group.map(o => o.product).filter(Boolean).join(", ");
       case "qty":         return String(group.reduce((s, o) => s + o.quantity, 0));
       case "total":       return String(group.reduce((s, o) => s + o.totalPrice, 0));
