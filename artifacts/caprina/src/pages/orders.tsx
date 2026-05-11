@@ -1,7 +1,8 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "wouter";
 import { format } from "date-fns";
-import { Search, Filter, Plus, Package, CalendarDays, X, RotateCcw, MessageCircle, Trash2, CheckSquare, RefreshCw } from "lucide-react";
+import { Search, Filter, Plus, Package, CalendarDays, X, RotateCcw, MessageCircle, Trash2, CheckSquare, RefreshCw, ChevronUp, ChevronDown } from "lucide-react";
 import { useUpdateOrder } from "@workspace/api-client-react";
 import type { UpdateOrderBodyStatus } from "@workspace/api-zod";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
@@ -58,6 +59,120 @@ const STATUS_OPTIONS = [
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(amount);
 
+// ── ColFilterBtn: فلتر Excel لكل عمود ─────────────────────────────────────
+type ColKey = "id" | "date" | "customer" | "phone" | "product" | "total" | "creator" | "status";
+type ColFilters = Record<ColKey, Set<string>>;
+
+function ColFilterBtn({ col, colFilters, getColOptions, toggleColFilter, clearColFilter }: {
+  col: ColKey;
+  colFilters: ColFilters;
+  getColOptions: (col: ColKey) => string[];
+  toggleColFilter: (col: ColKey, val: string) => void;
+  clearColFilter: (col: ColKey) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<"asc" | "desc">("asc");
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const active = colFilters[col].size > 0;
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (
+        panelRef.current && !panelRef.current.contains(e.target as Node) &&
+        btnRef.current && !btnRef.current.contains(e.target as Node)
+      ) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const handleOpen = () => {
+    if (!open && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      const panelW = 208;
+      const left = Math.max(4, Math.min(r.left, window.innerWidth - panelW - 4));
+      setPos({ top: r.bottom + 4, left });
+    }
+    setOpen(o => !o);
+    setSearch("");
+  };
+
+  let opts = getColOptions(col);
+  if (search) opts = opts.filter(v => v.toLowerCase().includes(search.toLowerCase()));
+  if (sort === "desc") opts = [...opts].reverse();
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={handleOpen}
+        title="فلتر"
+        className={`inline-flex items-center justify-center w-5 h-5 rounded transition-all shrink-0 ${active ? "text-primary bg-primary/15" : "text-muted-foreground hover:text-foreground hover:bg-muted/40"}`}
+      >
+        {active ? (
+          <svg viewBox="0 0 24 24" className="w-3 h-3" fill="currentColor">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+          </svg>
+        ) : (
+          <svg viewBox="0 0 24 24" className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+          </svg>
+        )}
+      </button>
+      {open && typeof document !== "undefined" && createPortal(
+        <div
+          ref={panelRef}
+          style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 9999 }}
+          className="bg-background border border-border rounded-lg shadow-2xl text-[11px] w-52"
+        >
+          <div className="flex gap-1 p-2 border-b border-border/50">
+            <button type="button" onClick={() => setSort("asc")}
+              className={`flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded border text-[10px] transition-all ${sort === "asc" ? "border-primary bg-primary/10 text-primary font-bold" : "border-border text-muted-foreground hover:bg-muted/30"}`}>
+              <ChevronUp className="w-2.5 h-2.5" />أ→ي
+            </button>
+            <button type="button" onClick={() => setSort("desc")}
+              className={`flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded border text-[10px] transition-all ${sort === "desc" ? "border-primary bg-primary/10 text-primary font-bold" : "border-border text-muted-foreground hover:bg-muted/30"}`}>
+              <ChevronDown className="w-2.5 h-2.5" />ي→أ
+            </button>
+          </div>
+          <div className="px-2 pt-2">
+            <input value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="بحث في القيم..."
+              className="w-full h-7 text-[10px] px-2 border border-border rounded bg-muted/30 focus:outline-none focus:ring-1 focus:ring-primary" />
+          </div>
+          <div className="max-h-52 overflow-y-auto px-1 py-1.5 flex flex-col gap-0.5">
+            {opts.length === 0
+              ? <p className="text-muted-foreground text-center py-3 text-[10px]">لا توجد قيم</p>
+              : opts.map(val => (
+                <label key={val} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-muted/40 cursor-pointer">
+                  <input type="checkbox" checked={colFilters[col].has(val)}
+                    onChange={() => toggleColFilter(col, val)}
+                    className="accent-primary w-3 h-3 shrink-0" />
+                  <span className="truncate">{val}</span>
+                </label>
+              ))
+            }
+          </div>
+          {active && (
+            <div className="border-t border-border/50 px-2 py-1.5">
+              <button type="button" onClick={() => { clearColFilter(col); setOpen(false); }}
+                className="text-destructive text-[10px] hover:underline w-full text-right">
+                مسح الفلتر
+              </button>
+            </div>
+          )}
+        </div>,
+        document.body
+      )}
+    </>
+  );
+}
+
 export default function Orders() {
   const [search, setSearch] = useState("");
   const [customerSearch, setCustomerSearch] = useState("");
@@ -70,6 +185,12 @@ export default function Orders() {
   const [filterAmountMin, setFilterAmountMin] = useState("");
   const [filterAmountMax, setFilterAmountMax] = useState("");
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  // ── Column Filters (Excel-style) ────────────────────────────────────────────
+  const [colFilters, setColFilters] = useState<ColFilters>({
+    id: new Set(), date: new Set(), customer: new Set(), phone: new Set(),
+    product: new Set(), total: new Set(), creator: new Set(), status: new Set(),
+  });
+  const colFilterHasActive = Object.values(colFilters).some(s => s.size > 0);
   const debouncedSearch = useDebounce(search, 300);
   const debouncedProduct = useDebounce(filterProduct, 300);
   const queryClient = useQueryClient();
@@ -124,6 +245,49 @@ export default function Orders() {
   }) ?? [];
 
   const filtered = rawFiltered;
+
+  // ── Col Filter helpers ──────────────────────────────────────────────────────
+  const getColVal = useCallback((col: ColKey, o: (typeof rawFiltered)[0]): string => {
+    switch (col) {
+      case "id":       return `#${o.id.toString().padStart(4,"0")}`;
+      case "date":     return format(new Date(o.createdAt), "yyyy/MM/dd");
+      case "customer": return o.customerName ?? "";
+      case "phone":    return o.phone ?? "";
+      case "product":  return o.product ?? "";
+      case "total":    return String(Math.round(o.totalPrice));
+      case "creator":  return (o as any).createdByName ?? "";
+      case "status":   return statusLabels[o.status] ?? o.status;
+      default:         return "";
+    }
+  }, []);
+
+  const getColOptions = useCallback((col: ColKey): string[] => {
+    const vals = [...new Set(filtered.map(o => getColVal(col, o)))].filter(Boolean);
+    return vals.sort((a, b) => a.localeCompare(b, "ar"));
+  }, [filtered, getColVal]);
+
+  const toggleColFilter = useCallback((col: ColKey, val: string) => {
+    setColFilters(prev => {
+      const next = new Set(prev[col]);
+      next.has(val) ? next.delete(val) : next.add(val);
+      return { ...prev, [col]: next };
+    });
+  }, []);
+
+  const clearColFilter = useCallback((col: ColKey) => {
+    setColFilters(prev => ({ ...prev, [col]: new Set() }));
+  }, []);
+
+  const colFilteredRows = useMemo(() => {
+    if (!colFilterHasActive) return filtered;
+    return filtered.filter(o =>
+      (Object.keys(colFilters) as ColKey[]).every(col => {
+        const s = colFilters[col];
+        if (s.size === 0) return true;
+        return s.has(getColVal(col, o));
+      })
+    );
+  }, [filtered, colFilters, colFilterHasActive, getColVal]);
 
   const allCities = [...new Set(orders?.map(o => (o as any).city).filter(Boolean) ?? [])].sort((a,b) => a.localeCompare(b, "ar"));
 
@@ -616,22 +780,38 @@ export default function Orders() {
                   <TableRow className="border-border hover:bg-transparent">
                     {canWriteOrders && bulkSelectMode && (
                       <TableHead className="w-10 text-center">
-                        <Checkbox checked={selectedIds.size === filtered.length && filtered.length > 0} onCheckedChange={toggleSelectAll} />
+                        <Checkbox checked={selectedIds.size === colFilteredRows.length && colFilteredRows.length > 0} onCheckedChange={toggleSelectAll} />
                       </TableHead>
                     )}
-                    <TableHead className="text-right text-xs">#</TableHead>
-                    <TableHead className="text-right text-xs">التاريخ</TableHead>
-                    <TableHead className="text-right text-xs">العميل</TableHead>
-                    <TableHead className="text-right text-xs">الهاتف</TableHead>
-                    <TableHead className="text-right text-xs">المنتج</TableHead>
-                    <TableHead className="text-right text-xs">الإجمالي</TableHead>
-                    <TableHead className="text-right text-xs">المنشئ</TableHead>
-                    <TableHead className="text-center text-xs w-36">الحالة</TableHead>
+                    <TableHead className="text-right text-xs">
+                      <div className="flex items-center gap-1">#<ColFilterBtn col="id" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} /></div>
+                    </TableHead>
+                    <TableHead className="text-right text-xs">
+                      <div className="flex items-center gap-1">التاريخ<ColFilterBtn col="date" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} /></div>
+                    </TableHead>
+                    <TableHead className="text-right text-xs">
+                      <div className="flex items-center gap-1">العميل<ColFilterBtn col="customer" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} /></div>
+                    </TableHead>
+                    <TableHead className="text-right text-xs">
+                      <div className="flex items-center gap-1">الهاتف<ColFilterBtn col="phone" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} /></div>
+                    </TableHead>
+                    <TableHead className="text-right text-xs">
+                      <div className="flex items-center gap-1">المنتج<ColFilterBtn col="product" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} /></div>
+                    </TableHead>
+                    <TableHead className="text-right text-xs">
+                      <div className="flex items-center gap-1">الإجمالي<ColFilterBtn col="total" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} /></div>
+                    </TableHead>
+                    <TableHead className="text-right text-xs">
+                      <div className="flex items-center gap-1">المنشئ<ColFilterBtn col="creator" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} /></div>
+                    </TableHead>
+                    <TableHead className="text-center text-xs w-36">
+                      <div className="flex items-center justify-center gap-1">الحالة<ColFilterBtn col="status" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} /></div>
+                    </TableHead>
                     <TableHead className="text-center text-xs w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map((order, rowIndex) => {
+                  {colFilteredRows.map((order, rowIndex) => {
                     const retReason  = (order as any).returnReason as string | null;
                     const retNote    = (order as any).returnNote   as string | null;
                     const isGroup = !!(order as any)._groupCount && (order as any)._groupCount > 1;
