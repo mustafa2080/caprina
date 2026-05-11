@@ -1,8 +1,9 @@
-import { useState, useMemo } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   ArrowDownCircle, ArrowUpCircle, BarChart3, CalendarDays,
   Filter, Package, Plus, X, TrendingDown, TrendingUp, Activity, Printer, Pencil,
-  ArrowRightLeft, Trash2, CheckSquare,
+  ArrowRightLeft, Trash2, CheckSquare, ChevronUp, ChevronDown,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -81,6 +82,123 @@ function formatMovementDate(raw: string | Date): string {
   });
 }
 
+// ─── Column Filter Types & Component ─────────────────────────────────────────
+type ColKey = "date" | "type" | "product" | "variant" | "qty" | "reason" | "order" | "location" | "notes";
+type ColFilters = Record<ColKey, Set<string>>;
+
+function ColFilterBtn({ col, colFilters, getColOptions, toggleColFilter, clearColFilter }: {
+  col: ColKey;
+  colFilters: ColFilters;
+  getColOptions: (col: ColKey) => string[];
+  toggleColFilter: (col: ColKey, val: string) => void;
+  clearColFilter: (col: ColKey) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<"asc" | "desc">("asc");
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const active = colFilters[col].size > 0;
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (
+        panelRef.current && !panelRef.current.contains(e.target as Node) &&
+        btnRef.current && !btnRef.current.contains(e.target as Node)
+      ) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const handleOpen = () => {
+    if (!open && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      const panelW = 208;
+      const left = Math.max(4, Math.min(r.left, window.innerWidth - panelW - 4));
+      setPos({ top: r.bottom + 4, left });
+    }
+    setOpen(o => !o);
+    setSearch("");
+  };
+
+  let opts = getColOptions(col);
+  if (search) opts = opts.filter(v => v.toLowerCase().includes(search.toLowerCase()));
+  if (sort === "desc") opts = [...opts].reverse();
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={handleOpen}
+        title="فلتر"
+        className={`flex items-center justify-center w-5 h-5 rounded transition-all shrink-0 ${active ? "text-primary" : "text-muted-foreground/40 hover:text-muted-foreground"}`}
+      >
+        {active ? (
+          <svg viewBox="0 0 24 24" className="w-3 h-3" fill="currentColor">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+          </svg>
+        ) : (
+          <svg viewBox="0 0 24 24" className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+          </svg>
+        )}
+      </button>
+      {open && typeof document !== "undefined" && createPortal(
+        <div
+          ref={panelRef}
+          style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 9999 }}
+          className="bg-background border border-border rounded-lg shadow-2xl text-[11px] w-52"
+        >
+          <div className="flex gap-1 p-2 border-b border-border/50">
+            <button type="button" onClick={() => setSort("asc")}
+              className={`flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded border text-[10px] transition-all ${sort === "asc" ? "border-primary bg-primary/10 text-primary font-bold" : "border-border text-muted-foreground hover:bg-muted/30"}`}>
+              <ChevronUp className="w-2.5 h-2.5" />أ→ي
+            </button>
+            <button type="button" onClick={() => setSort("desc")}
+              className={`flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded border text-[10px] transition-all ${sort === "desc" ? "border-primary bg-primary/10 text-primary font-bold" : "border-border text-muted-foreground hover:bg-muted/30"}`}>
+              <ChevronDown className="w-2.5 h-2.5" />ي→أ
+            </button>
+            {active && (
+              <button type="button" onClick={() => clearColFilter(col)}
+                className="flex items-center justify-center w-7 rounded border border-destructive/40 text-destructive hover:bg-destructive/10 transition-all">
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+          <div className="px-2 pt-2">
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="بحث..."
+              className="w-full h-7 text-[10px] px-2 rounded border border-border bg-muted/30 focus:outline-none focus:ring-1 focus:ring-primary mb-1"
+            />
+          </div>
+          <div className="max-h-48 overflow-y-auto px-1 pb-2">
+            {opts.length === 0 ? (
+              <p className="text-center text-muted-foreground py-3 text-[10px]">لا توجد خيارات</p>
+            ) : opts.map(val => (
+              <label key={val} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-muted/40 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={colFilters[col].has(val)}
+                  onChange={() => toggleColFilter(col, val)}
+                  className="w-3 h-3 accent-primary"
+                />
+                <span className="truncate">{val}</span>
+              </label>
+            ))}
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
+  );
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function Movements() {
@@ -117,7 +235,60 @@ export default function Movements() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
-  // Dialogs
+  // ─── Excel-style Column Filters ──────────────────────────────────────────
+  const [colFilters, setColFilters] = useState<ColFilters>({
+    date: new Set(), type: new Set(), product: new Set(), variant: new Set(),
+    qty: new Set(), reason: new Set(), order: new Set(), location: new Set(), notes: new Set(),
+  });
+  const colFilterHasActive = Object.values(colFilters).some(s => s.size > 0);
+
+  const getColVal = useCallback((col: ColKey, m: InventoryMovement): string => {
+    const isTransfer = m.reason === "transfer";
+    switch (col) {
+      case "date":     return formatMovementDate(m.createdAt);
+      case "type":     return isTransfer ? "تحويل" : m.type === "IN" ? "دخول" : "خروج";
+      case "product":  return m.product ?? "";
+      case "variant":  return [m.color, m.size].filter(Boolean).join(" / ") || "—";
+      case "qty":      return isTransfer ? String(m.quantity) : formatQty(m.type, m.quantity);
+      case "reason":   return REASON_LABELS[m.reason] ?? m.reason;
+      case "order":    return m.orderId ? `#${String(m.orderId).padStart(4, "0")}` : "—";
+      case "location": return isTransfer && m.fromLocation && m.toLocation
+        ? `${m.fromLocation} ← ${m.toLocation}`
+        : (m as any).warehouseName ?? "—";
+      case "notes":    return m.notes || "—";
+      default:         return "";
+    }
+  }, []);
+
+  const getColOptions = useCallback((col: ColKey): string[] => {
+    const vals = [...new Set((movements as InventoryMovement[]).map(m => getColVal(col, m)))].filter(v => v && v !== "—");
+    return vals.sort((a, b) => a.localeCompare(b, "ar"));
+  }, [movements, getColVal]);
+
+  const toggleColFilter = useCallback((col: ColKey, val: string) => {
+    setColFilters(prev => {
+      const next = new Set(prev[col]);
+      next.has(val) ? next.delete(val) : next.add(val);
+      return { ...prev, [col]: next };
+    });
+  }, []);
+
+  const clearColFilter = useCallback((col: ColKey) => {
+    setColFilters(prev => ({ ...prev, [col]: new Set() }));
+  }, []);
+
+  const colFilteredMovements = useMemo(() => {
+    if (!colFilterHasActive) return movements as InventoryMovement[];
+    return (movements as InventoryMovement[]).filter(m =>
+      (Object.keys(colFilters) as ColKey[]).every(col => {
+        const s = colFilters[col];
+        if (s.size === 0) return true;
+        return s.has(getColVal(col, m));
+      })
+    );
+  }, [movements, colFilters, colFilterHasActive, getColVal]);
+
+
   const [showDialog, setShowDialog] = useState(false);
   const [editingMovement, setEditingMovement] = useState<InventoryMovement | null>(null);
   const [form, setForm] = useState({
@@ -573,21 +744,39 @@ ${filtersRow}
                       />
                     </TableHead>
                   )}
-                  <TableHead className="text-right text-xs w-40">التاريخ</TableHead>
-                  <TableHead className="text-center text-xs w-20">النوع</TableHead>
-                  <TableHead className="text-right text-xs">المنتج</TableHead>
-                  <TableHead className="text-right text-xs">اللون / المقاس</TableHead>
-                  <TableHead className="text-center text-xs">الكمية</TableHead>
-                  <TableHead className="text-center text-xs">السبب</TableHead>
-                  <TableHead className="text-center text-xs">طلب</TableHead>
-                  <TableHead className="text-right text-xs">الموقع</TableHead>
-                  <TableHead className="text-right text-xs">ملاحظات</TableHead>
+                  <TableHead className="text-right text-xs w-40">
+                    <div className="flex items-center justify-between gap-1">التاريخ <ColFilterBtn col="date" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} /></div>
+                  </TableHead>
+                  <TableHead className="text-center text-xs w-20">
+                    <div className="flex items-center justify-between gap-1">النوع <ColFilterBtn col="type" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} /></div>
+                  </TableHead>
+                  <TableHead className="text-right text-xs">
+                    <div className="flex items-center justify-between gap-1">المنتج <ColFilterBtn col="product" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} /></div>
+                  </TableHead>
+                  <TableHead className="text-right text-xs">
+                    <div className="flex items-center justify-between gap-1">اللون / المقاس <ColFilterBtn col="variant" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} /></div>
+                  </TableHead>
+                  <TableHead className="text-center text-xs">
+                    <div className="flex items-center justify-between gap-1">الكمية <ColFilterBtn col="qty" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} /></div>
+                  </TableHead>
+                  <TableHead className="text-center text-xs">
+                    <div className="flex items-center justify-between gap-1">السبب <ColFilterBtn col="reason" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} /></div>
+                  </TableHead>
+                  <TableHead className="text-center text-xs">
+                    <div className="flex items-center justify-between gap-1">طلب <ColFilterBtn col="order" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} /></div>
+                  </TableHead>
+                  <TableHead className="text-right text-xs">
+                    <div className="flex items-center justify-between gap-1">الموقع <ColFilterBtn col="location" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} /></div>
+                  </TableHead>
+                  <TableHead className="text-right text-xs">
+                    <div className="flex items-center justify-between gap-1">ملاحظات <ColFilterBtn col="notes" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} /></div>
+                  </TableHead>
                   <TableHead className="text-center text-xs w-14">تعديل</TableHead>
                   {isAdmin && <TableHead className="text-center text-xs w-14">حذف</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {movements.map((m: InventoryMovement) => {
+                {colFilteredMovements.map((m: InventoryMovement) => {
                   const isTransfer = m.reason === "transfer";
                   return (
                   <TableRow key={m.id} className={`border-border hover:bg-muted/20 ${selectedIds.has(m.id) ? "bg-destructive/5" : ""}`}>
