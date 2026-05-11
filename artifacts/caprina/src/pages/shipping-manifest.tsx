@@ -2803,9 +2803,7 @@ export default function ShippingManifestPage() {
   const [showRolloverDialog, setShowRolloverDialog] = useState<null | { id: number; manifestNumber: string; orderCount: number; breakdown: string }>(null);
   // ─── البحث المباشر — بدون popover ──────────────────────────────────────────
   const [customerSearch, setCustomerSearch] = useState("");
-  const [totalSearch, setTotalSearch] = useState("");
   const [showCustomerSearch, setShowCustomerSearch] = useState(false);
-  const [showTotalSearch, setShowTotalSearch] = useState(false);
   // ─── ترتيب حسب الحالة ───────────────────────────────────────────────────────
   const [statusSort, setStatusSort] = useState<"none" | "asc" | "desc">("none");
   // ─── ترتيب حسب تاريخ الإضافة ────────────────────────────────────────────────
@@ -2831,18 +2829,8 @@ export default function ShippingManifestPage() {
   // ─── Search filter — real-time, no popover ────────────────────────────────
   const filteredManifestOrders = useMemo(() => {
     const orders = manifest?.orders ?? [];
-    const grouped = groupManifestOrders(orders);
-    if (!totalSearch.trim()) return grouped;
-    const tq = totalSearch.trim().replace(/,/g, "");
-    return grouped.filter((group) => {
-      const matchesTotal = !tq || (() => {
-        const groupTotal = Math.round(group.reduce((s, o) => s + o.totalPrice, 0));
-        const tqNum = parseFloat(tq);
-        return !isNaN(tqNum) && Math.round(tqNum) === groupTotal;
-      })();
-      return matchesTotal;
-    });
-  }, [manifest?.orders, totalSearch]);
+    return groupManifestOrders(orders);
+  }, [manifest?.orders]);
 
   // ─── Sort — حسب الحالة فوق الـ filter ──────────────────────────────────────
   const sortedManifestOrders = useMemo(() => {
@@ -3569,42 +3557,10 @@ export default function ShippingManifestPage() {
                     الكمية
                     <ColFilterBtn col="qty" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />
                   </div>
-                  {/* ─── عمود الإجمالي — سيرش بمطابقة تامة ─── */}
-                  <div className="relative">
-                    {showTotalSearch ? (
-                      <>
-                        <Search className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
-                        <input
-                          autoFocus
-                          value={totalSearch}
-                          onChange={e => {
-                            const v = e.target.value.replace(/[^\d.]/g, "");
-                            setTotalSearch(v);
-                          }}
-                          onBlur={() => { if (!totalSearch) setShowTotalSearch(false); }}
-                          placeholder="الرقم كامل..."
-                          inputMode="numeric"
-                          className={`w-full h-9 text-[10px] pr-6 pl-5 bg-background focus:outline-none focus:ring-1 focus:ring-primary transition-colors [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${totalSearch ? "text-primary font-bold" : "text-muted-foreground"}`}
-                        />
-                        {totalSearch && (
-                          <button type="button" onClick={() => { setTotalSearch(""); setShowTotalSearch(false); }} className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                            <X className="w-3 h-3" />
-                          </button>
-                        )}
-                      </>
-                    ) : (
-                      <button type="button" onClick={() => setShowTotalSearch(true)}
-                        className="flex items-center gap-1.5 hover:text-primary transition-colors w-full h-9 px-3 group">
-                        <span className="w-5 h-5 rounded bg-muted flex items-center justify-center shrink-0 group-hover:bg-primary/15 transition-colors">
-                          <Search className="w-2.5 h-2.5 opacity-50 group-hover:opacity-100" />
-                        </span>
-                        <span className={totalSearch ? "text-primary font-bold" : ""}>الإجمالي</span>
-                        {totalSearch && <span className="text-primary text-[9px] bg-primary/10 px-1.5 py-0.5 rounded-full">= {Number(totalSearch).toLocaleString("ar-EG")}</span>}
-                        <span className="mr-auto">
-                          <ColFilterBtn col="total" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />
-                        </span>
-                      </button>
-                    )}
+                  {/* ─── عمود الإجمالي ─── */}
+                  <div className="flex items-center justify-between gap-1 px-3 h-9">
+                    <span className="font-bold">الإجمالي</span>
+                    <ColFilterBtn col="total" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />
                   </div>
                   {/* ─── حالة التسليم ─── */}
                   <div className="flex items-center gap-1 px-2 h-9">
@@ -3644,19 +3600,19 @@ export default function ShippingManifestPage() {
                     الحالة
                   </div>
                 </div>
-                {colFilteredGroups.length === 0 && (totalSearch || colFilterHasActive) ? (
+                {colFilteredGroups.length === 0 && colFilterHasActive ? (
                   <div className="p-6 text-center text-muted-foreground text-sm">
                     <Search className="w-8 h-8 mx-auto mb-2 opacity-30" />
                     <p>لا توجد نتائج للبحث</p>
                     <button
-                      onClick={() => { setCustomerSearch(""); setTotalSearch(""); clearAllColFilters(); }}
+                      onClick={() => { setCustomerSearch(""); clearAllColFilters(); }}
                       className="text-xs text-primary hover:underline mt-1"
                     >
                       مسح كل الفلاتر
                     </button>
                   </div>
                 ) : (
-                  <div key={`${customerSearch}__${totalSearch}`}>
+                  <div key={customerSearch}>
                   {colFilteredGroups.map((group, index) => (
                   <InvoiceGroupDeliveryRow
                     key={group.map((order) => `${order.id}-${order.deliveryStatus}-${order.partialQuantity ?? 0}-${order.deliveryNote ?? ""}`).join("|")}
