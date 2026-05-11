@@ -3118,7 +3118,7 @@ export default function ShippingManifestPage() {
       <div className="manifest-print-stats">
         <div className="manifest-print-stat">
           <div className="manifest-print-stat-label">إجمالي الطلبيات</div>
-          <div className="manifest-print-stat-value">{groupedManifestOrders.length}</div>
+          <div className="manifest-print-stat-value">{displayGroups.length}</div>
         </div>
         <div className="manifest-print-stat">
           <div className="manifest-print-stat-label">مسلَّم</div>
@@ -3161,7 +3161,7 @@ export default function ShippingManifestPage() {
           </tr>
         </thead>
         <tbody>
-          {groupedManifestOrders.map((group, idx) => {
+          {displayGroups.map((group, idx) => {
             const rep = group[0];
             const statuses = [...new Set(group.map((o) => o.deliveryStatus))];
             const isSingleStatus = statuses.length === 1;
