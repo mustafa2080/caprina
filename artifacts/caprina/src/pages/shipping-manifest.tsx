@@ -3666,17 +3666,7 @@ export default function ShippingManifestPage() {
                     <span className="w-5 h-5 rounded bg-muted flex items-center justify-center shrink-0">
                       <CheckCircle2 className="w-2.5 h-2.5 opacity-50" />
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => setStatusSort(s => s === "none" ? "asc" : s === "asc" ? "desc" : "none")}
-                      className={`flex items-center gap-1 hover:text-primary transition-colors group min-w-0 ${statusSort !== "none" ? "text-primary font-bold" : ""}`}
-                    >
-                      <span className="shrink-0">الحالة</span>
-                      <span className="flex flex-col gap-[1px] shrink-0 opacity-40 group-hover:opacity-80">
-                        <ChevronUp   className={`w-2.5 h-2.5 ${statusSort === "asc"  ? "text-primary opacity-100" : ""}`} />
-                        <ChevronDown className={`w-2.5 h-2.5 ${statusSort === "desc" ? "text-primary opacity-100" : ""}`} />
-                      </span>
-                    </button>
+                    <span className="shrink-0">الحالة</span>
                     {showColFilters && <ColFilterBtn col="status" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />}
                   </div>
                   {/* ─── تاريخ الإضافة ─── */}
