@@ -308,6 +308,7 @@ export default function Movements() {
     date: new Set(), type: new Set(), product: new Set(), variant: new Set(),
     qty: new Set(), reason: new Set(), order: new Set(), location: new Set(), notes: new Set(),
   });
+  const [showColFilters, setShowColFilters] = useState(false);
   const colFilterHasActive = Object.values(colFilters).some(s => s.size > 0);
 
   const getColVal = useCallback((col: ColKey, m: InventoryMovement): string => {
@@ -736,7 +737,23 @@ ${filtersRow}
             <p className="text-sm text-muted-foreground mt-1">لم يتم تسجيل أي حركة مخزون حتى الآن.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            <div className="flex justify-end px-4 pt-3">
+              <button
+                type="button"
+                onClick={() => {
+                  if (showColFilters) {
+                    setColFilters({ date: new Set(), type: new Set(), product: new Set(), variant: new Set(), qty: new Set(), reason: new Set(), order: new Set(), location: new Set(), notes: new Set() });
+                  }
+                  setShowColFilters(v => !v);
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${showColFilters ? "border-destructive/50 text-destructive bg-destructive/5 hover:bg-destructive/10" : "border-primary/40 text-primary bg-primary/5 hover:bg-primary/10"}`}
+              >
+                <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill={showColFilters ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                {showColFilters ? "إلغاء الفلتر" : "إنشاء فلتر"}
+              </button>
+            </div>
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="border-border hover:bg-transparent">
@@ -750,31 +767,31 @@ ${filtersRow}
                     </TableHead>
                   )}
                   <TableHead className="text-right text-xs w-40">
-                    <div className="flex items-center justify-between gap-1">التاريخ <ColFilterBtn col="date" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} /></div>
+                    <div className="flex items-center justify-between gap-1">التاريخ {showColFilters && <ColFilterBtn col="date" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />}</div>
                   </TableHead>
                   <TableHead className="text-center text-xs w-20">
-                    <div className="flex items-center justify-between gap-1">النوع <ColFilterBtn col="type" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} /></div>
+                    <div className="flex items-center justify-between gap-1">النوع {showColFilters && <ColFilterBtn col="type" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />}</div>
                   </TableHead>
                   <TableHead className="text-right text-xs">
-                    <div className="flex items-center justify-between gap-1">المنتج <ColFilterBtn col="product" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} /></div>
+                    <div className="flex items-center justify-between gap-1">المنتج {showColFilters && <ColFilterBtn col="product" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />}</div>
                   </TableHead>
                   <TableHead className="text-right text-xs">
-                    <div className="flex items-center justify-between gap-1">اللون / المقاس <ColFilterBtn col="variant" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} /></div>
+                    <div className="flex items-center justify-between gap-1">اللون / المقاس {showColFilters && <ColFilterBtn col="variant" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />}</div>
                   </TableHead>
                   <TableHead className="text-center text-xs">
-                    <div className="flex items-center justify-between gap-1">الكمية <ColFilterBtn col="qty" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} /></div>
+                    <div className="flex items-center justify-between gap-1">الكمية {showColFilters && <ColFilterBtn col="qty" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />}</div>
                   </TableHead>
                   <TableHead className="text-center text-xs">
-                    <div className="flex items-center justify-between gap-1">السبب <ColFilterBtn col="reason" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} /></div>
+                    <div className="flex items-center justify-between gap-1">السبب {showColFilters && <ColFilterBtn col="reason" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />}</div>
                   </TableHead>
                   <TableHead className="text-center text-xs">
-                    <div className="flex items-center justify-between gap-1">طلب <ColFilterBtn col="order" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} /></div>
+                    <div className="flex items-center justify-between gap-1">طلب {showColFilters && <ColFilterBtn col="order" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />}</div>
                   </TableHead>
                   <TableHead className="text-right text-xs">
-                    <div className="flex items-center justify-between gap-1">الموقع <ColFilterBtn col="location" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} /></div>
+                    <div className="flex items-center justify-between gap-1">الموقع {showColFilters && <ColFilterBtn col="location" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />}</div>
                   </TableHead>
                   <TableHead className="text-right text-xs">
-                    <div className="flex items-center justify-between gap-1">ملاحظات <ColFilterBtn col="notes" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} /></div>
+                    <div className="flex items-center justify-between gap-1">ملاحظات {showColFilters && <ColFilterBtn col="notes" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />}</div>
                   </TableHead>
                   <TableHead className="text-center text-xs w-14">تعديل</TableHead>
                   {isAdmin && <TableHead className="text-center text-xs w-14">حذف</TableHead>}
@@ -869,6 +886,7 @@ ${filtersRow}
               </TableBody>
             </Table>
           </div>
+          </>
         )}
       </Card>
 
