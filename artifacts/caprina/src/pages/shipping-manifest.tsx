@@ -2814,30 +2814,17 @@ export default function ShippingManifestPage() {
   const filteredManifestOrders = useMemo(() => {
     const orders = manifest?.orders ?? [];
     const grouped = groupManifestOrders(orders);
-    if (!customerSearch.trim() && !totalSearch.trim()) return grouped;
-    const cq = customerSearch.trim().toLowerCase();
+    if (!totalSearch.trim()) return grouped;
     const tq = totalSearch.trim().replace(/,/g, "");
     return grouped.filter((group) => {
-      const rep = group[0];
-      // بحث في رقم الفاتورة من أي مكان (contains)
-      const invoiceNum = ((rep as any).invoiceNumber ?? "").toLowerCase();
-      const cqDigits = cq.replace(/\D/g, "");
-      const matchesCustomer = !cq || (
-        rep.customerName.toLowerCase().includes(cq) ||
-        invoiceNum.includes(cq) ||
-        rep.id.toString().includes(cq) ||
-        (rep.phone ?? "").includes(cq) ||
-        (cqDigits.length > 0 && (rep.phone ?? "").replace(/\D/g, "").includes(cqDigits))
-      );
-      // بحث في الإجمالي: نجمع totalPrice للمجموعة ونقارنها بالرقم المكتوب — مطابقة تامة فقط
       const matchesTotal = !tq || (() => {
         const groupTotal = Math.round(group.reduce((s, o) => s + o.totalPrice, 0));
         const tqNum = parseFloat(tq);
         return !isNaN(tqNum) && Math.round(tqNum) === groupTotal;
       })();
-      return matchesCustomer && matchesTotal;
+      return matchesTotal;
     });
-  }, [manifest?.orders, customerSearch, totalSearch]);
+  }, [manifest?.orders, totalSearch]);
 
   // ─── Sort — حسب الحالة فوق الـ filter ──────────────────────────────────────
   const sortedManifestOrders = useMemo(() => {
@@ -3532,36 +3519,10 @@ export default function ShippingManifestPage() {
                         aria-label="تحديد الكل"
                       />
                     </div>
-                    {showCustomerSearch ? (
-                      <>
-                        <Search className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
-                        <input
-                          autoFocus
-                          value={customerSearch}
-                          onChange={e => setCustomerSearch(e.target.value)}
-                          onBlur={() => { if (!customerSearch) setShowCustomerSearch(false); }}
-                          placeholder="العميل / فاتورة / هاتف..."
-                          className={`w-full h-9 text-[10px] pr-6 pl-5 bg-background focus:outline-none focus:ring-1 focus:ring-primary transition-colors ${customerSearch ? "text-primary font-bold" : "text-muted-foreground"}`}
-                        />
-                        {customerSearch && (
-                          <button type="button" onClick={() => { setCustomerSearch(""); setShowCustomerSearch(false); }} className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                            <X className="w-3 h-3" />
-                          </button>
-                        )}
-                      </>
-                    ) : (
-                      <button type="button" onClick={() => setShowCustomerSearch(true)}
-                        className="flex items-center gap-1.5 hover:text-primary transition-colors w-full h-9 px-3 group">
-                        <span className="w-5 h-5 rounded bg-muted flex items-center justify-center shrink-0 group-hover:bg-primary/15 transition-colors">
-                          <Search className="w-2.5 h-2.5 opacity-50 group-hover:opacity-100" />
-                        </span>
-                        <span className={customerSearch ? "text-primary font-bold" : ""}>العميل</span>
-                        {customerSearch && <span className="text-primary text-[9px] bg-primary/10 px-1.5 py-0.5 rounded-full">({customerSearch})</span>}
-                        <span className="mr-auto">
-                          <ColFilterBtn col="customer" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />
-                        </span>
-                      </button>
-                    )}
+                    <div className="flex items-center justify-between w-full h-9 px-3">
+                      <span className="font-bold">العميل</span>
+                      <ColFilterBtn col="customer" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />
+                    </div>
                   </div>
                   {/* ─── عمود المحافظة / العنوان ─── */}
                   <div className="flex items-center justify-between gap-1 px-3 h-9">
@@ -3663,7 +3624,7 @@ export default function ShippingManifestPage() {
                     إجراء
                   </div>
                 </div>
-                {colFilteredGroups.length === 0 && (customerSearch || totalSearch || colFilterHasActive) ? (
+                {colFilteredGroups.length === 0 && (totalSearch || colFilterHasActive) ? (
                   <div className="p-6 text-center text-muted-foreground text-sm">
                     <Search className="w-8 h-8 mx-auto mb-2 opacity-30" />
                     <p>لا توجد نتائج للبحث</p>
