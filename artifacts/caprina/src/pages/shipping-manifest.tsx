@@ -2849,7 +2849,7 @@ export default function ShippingManifestPage() {
     return groups.filter(group => {
       const rep = group[0];
       if (cLow && !(rep.customerName ?? "").toLowerCase().includes(cLow)) return false;
-      if (pLow && !group.some(o => (o.product ?? "").toLowerCase().includes(pLow))) return false;
+      if (pLow && !group.some(o => (o.product ?? "").toLowerCase().includes(pLow) || (o.phone ?? "").toLowerCase().includes(pLow))) return false;
       if (manifestTotalSearch) {
         const total = group.reduce((s, o) => s + (o.totalPrice ?? 0), 0);
         if (!String(Math.round(total)).includes(manifestTotalSearch)) return false;
@@ -3592,7 +3592,7 @@ export default function ShippingManifestPage() {
                     <input
                       value={manifestProductSearch}
                       onChange={e => setManifestProductSearch(e.target.value)}
-                      placeholder="ابحث بالمنتج..."
+                      placeholder="ابحث بالمنتج أو الهاتف..."
                       className="w-full pr-9 bg-card text-sm h-9 border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary/40 placeholder:text-muted-foreground/60"
                       dir="rtl"
                     />
