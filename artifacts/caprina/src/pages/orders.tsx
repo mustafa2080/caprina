@@ -323,14 +323,14 @@ export default function Orders() {
   };
 
   const toggleSelectAll = () => {
-    const allIds = filtered.flatMap(o => (o as any)._groupIds?.length > 1 ? (o as any)._groupIds : [o.id]);
+    const allIds = displayRows.flatMap(o => (o as any)._groupIds?.length > 1 ? (o as any)._groupIds : [o.id]);
     setSelectedIds(selectedIds.size === allIds.length ? new Set() : new Set(allIds));
   };
 
   const exitBulkMode = () => { setBulkSelectMode(false); setSelectedIds(new Set()); };
 
   // عدد الفواتير المحددة (مش عدد الـ sub-IDs)
-  const selectedInvoiceCount = filtered.filter(o => {
+  const selectedInvoiceCount = displayRows.filter(o => {
     const ids: number[] = (o as any)._groupIds?.length > 1 ? (o as any)._groupIds : [o.id];
     return ids.every(id => selectedIds.has(id));
   }).length;
