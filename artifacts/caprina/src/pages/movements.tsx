@@ -721,12 +721,27 @@ ${filtersRow}
       </Card>
 
       <Card className="border-border overflow-hidden">
-        <CardHeader className="py-3 px-4 border-b border-border">
+        <CardHeader className="py-3 px-4 border-b border-border flex flex-row items-center justify-between">
           <CardTitle className="text-sm font-bold flex items-center gap-2">
             <Activity className="w-3.5 h-3.5 text-muted-foreground" />
             جدول الحركات
             {!isLoading && <Badge variant="outline" className="text-[9px] font-normal border-border text-muted-foreground mr-1">{movements.length} حركة</Badge>}
           </CardTitle>
+          {!isLoading && movements.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                if (showColFilters) {
+                  setColFilters({ date: new Set(), type: new Set(), product: new Set(), variant: new Set(), qty: new Set(), reason: new Set(), order: new Set(), location: new Set(), notes: new Set() });
+                }
+                setShowColFilters(v => !v);
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${showColFilters ? "border-destructive/50 text-destructive bg-destructive/5 hover:bg-destructive/10" : "border-primary/40 text-primary bg-primary/5 hover:bg-primary/10"}`}
+            >
+              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill={showColFilters ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+              {showColFilters ? "إلغاء الفلتر" : "إنشاء فلتر"}
+            </button>
+          )}
         </CardHeader>
         {isLoading ? (
           <div className="p-8 text-center text-muted-foreground text-sm">جاري التحميل...</div>
@@ -738,21 +753,6 @@ ${filtersRow}
           </div>
         ) : (
           <>
-            <div className="flex justify-end px-4 pt-3">
-              <button
-                type="button"
-                onClick={() => {
-                  if (showColFilters) {
-                    setColFilters({ date: new Set(), type: new Set(), product: new Set(), variant: new Set(), qty: new Set(), reason: new Set(), order: new Set(), location: new Set(), notes: new Set() });
-                  }
-                  setShowColFilters(v => !v);
-                }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${showColFilters ? "border-destructive/50 text-destructive bg-destructive/5 hover:bg-destructive/10" : "border-primary/40 text-primary bg-primary/5 hover:bg-primary/10"}`}
-              >
-                <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill={showColFilters ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-                {showColFilters ? "إلغاء الفلتر" : "إنشاء فلتر"}
-              </button>
-            </div>
             <div className="overflow-x-auto">
             <Table>
               <TableHeader>
