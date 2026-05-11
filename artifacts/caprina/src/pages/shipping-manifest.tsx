@@ -213,7 +213,7 @@ function OrderDeliveryRow({
   return (
     <div className={`border-b border-border/50 transition-colors ${editing ? "bg-primary/5" : "hover:bg-muted/10"}`}>
       {/* Main row */}
-      <div className="hidden md:grid grid-cols-[1fr_1fr_60px_80px_120px_80px] gap-0 items-start px-3 py-2.5 text-xs">
+      <div className="hidden md:grid grid-cols-[minmax(140px,1fr)_minmax(120px,1fr)_minmax(140px,1fr)_60px_80px_80px] min-w-[860px] gap-0 items-start px-3 py-2.5 text-xs">
         {/* Order ID only — no customer name (already shown in parent row) */}
         <div className="min-w-0 pr-1 flex items-center gap-1.5">
           <span className="font-mono text-[10px] text-muted-foreground bg-muted/40 rounded px-1.5 py-0.5 border border-border/40">
@@ -834,7 +834,7 @@ function InvoiceGroupDeliveryRow({
         }}
       >
         {/* Desktop row */}
-        <div dir="rtl" className="hidden md:grid grid-cols-[1fr_1fr_1fr_60px_90px_160px_90px_80px] gap-0 items-start py-2.5 text-xs">
+        <div dir="rtl" className="hidden md:grid grid-cols-[minmax(140px,1fr)_minmax(120px,1fr)_minmax(140px,1fr)_60px_90px_160px_90px_80px] min-w-[860px] gap-0 items-start py-2.5 text-xs">
           {/* Customer */}
           <div className="min-w-0 px-3 flex items-start gap-2">
             {onToggleSelect && (
@@ -3525,7 +3525,9 @@ export default function ShippingManifestPage() {
                   </div>
                 )}
                 {/* ══ رأس الجدول المحسَّن ══ */}
-                <div dir="rtl" className="hidden md:grid grid-cols-[1fr_1fr_1fr_60px_90px_160px_90px_80px] gap-0 border-b-2 border-border bg-muted/20 text-[10px] font-bold text-muted-foreground tracking-wide
+                {/* wrapper — scroll أفقي على الشاشات المتوسطة */}
+                <div className="overflow-x-auto">
+                <div dir="rtl" className="hidden md:grid grid-cols-[minmax(140px,1fr)_minmax(120px,1fr)_minmax(140px,1fr)_60px_90px_160px_90px_80px] min-w-[860px] gap-0 border-b-2 border-border bg-muted/20 text-[10px] font-bold text-muted-foreground tracking-wide
                   [&>*:not(:last-child)]:border-l [&>*]:border-border/30">
                   {/* ─── عمود العميل — checkbox + نص/سيرش ─── */}
                   <div className="relative flex items-center">
@@ -3669,6 +3671,7 @@ export default function ShippingManifestPage() {
                   ))}
                   </div>
                 )}
+                </div>{/* end overflow-x-auto */}
               </>
             )}
           </>
