@@ -187,6 +187,7 @@ export default function Orders() {
     product: new Set(), total: new Set(), creator: new Set(), status: new Set(),
   });
   const colFilterHasActive = Object.values(colFilters).some(s => s.size > 0);
+  const [showColFilters, setShowColFilters] = useState(false);
   const debouncedSearch = useDebounce(search, 300);
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -640,6 +641,23 @@ export default function Orders() {
               })}
             </div>
 
+            {/* ── Filter Toggle Button ── */}
+            <div className="hidden sm:flex justify-end mb-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (showColFilters) {
+                    setColFilters({ id: new Set(), date: new Set(), customer: new Set(), phone: new Set(), product: new Set(), total: new Set(), creator: new Set(), status: new Set() });
+                  }
+                  setShowColFilters(v => !v);
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${showColFilters ? "border-destructive/50 text-destructive bg-destructive/5 hover:bg-destructive/10" : "border-primary/40 text-primary bg-primary/5 hover:bg-primary/10"}`}
+              >
+                <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill={showColFilters ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                {showColFilters ? "إلغاء الفلتر" : "إنشاء فلتر"}
+              </button>
+            </div>
+
             {/* ── Desktop ── */}
             <div className="hidden sm:block overflow-x-auto">
               <Table>
@@ -651,28 +669,28 @@ export default function Orders() {
                       </TableHead>
                     )}
                     <TableHead className="text-right text-xs">
-                      <div className="flex items-center gap-1">#<ColFilterBtn col="id" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} /></div>
+                      <div className="flex items-center gap-1">#{showColFilters && <ColFilterBtn col="id" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />}</div>
                     </TableHead>
                     <TableHead className="text-right text-xs">
-                      <div className="flex items-center gap-1">التاريخ<ColFilterBtn col="date" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} /></div>
+                      <div className="flex items-center gap-1">التاريخ{showColFilters && <ColFilterBtn col="date" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />}</div>
                     </TableHead>
                     <TableHead className="text-right text-xs">
-                      <div className="flex items-center gap-1">العميل<ColFilterBtn col="customer" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} /></div>
+                      <div className="flex items-center gap-1">العميل{showColFilters && <ColFilterBtn col="customer" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />}</div>
                     </TableHead>
                     <TableHead className="text-right text-xs">
-                      <div className="flex items-center gap-1">الهاتف<ColFilterBtn col="phone" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} /></div>
+                      <div className="flex items-center gap-1">الهاتف{showColFilters && <ColFilterBtn col="phone" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />}</div>
                     </TableHead>
                     <TableHead className="text-right text-xs">
-                      <div className="flex items-center gap-1">المنتج<ColFilterBtn col="product" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} /></div>
+                      <div className="flex items-center gap-1">المنتج{showColFilters && <ColFilterBtn col="product" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />}</div>
                     </TableHead>
                     <TableHead className="text-right text-xs">
-                      <div className="flex items-center gap-1">الإجمالي<ColFilterBtn col="total" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} /></div>
+                      <div className="flex items-center gap-1">الإجمالي{showColFilters && <ColFilterBtn col="total" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />}</div>
                     </TableHead>
                     <TableHead className="text-right text-xs">
-                      <div className="flex items-center gap-1">المنشئ<ColFilterBtn col="creator" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} /></div>
+                      <div className="flex items-center gap-1">المنشئ{showColFilters && <ColFilterBtn col="creator" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />}</div>
                     </TableHead>
                     <TableHead className="text-center text-xs w-36">
-                      <div className="flex items-center justify-center gap-1">الحالة<ColFilterBtn col="status" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} /></div>
+                      <div className="flex items-center justify-center gap-1">الحالة{showColFilters && <ColFilterBtn col="status" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />}</div>
                     </TableHead>
                     <TableHead className="text-center text-xs w-10"></TableHead>
                   </TableRow>
