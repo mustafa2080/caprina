@@ -2822,6 +2822,7 @@ export default function ShippingManifestPage() {
   const [showColFilters, setShowColFilters] = useState(false);
   const [manifestCustomerSearch, setManifestCustomerSearch] = useState("");
   const [manifestProductSearch, setManifestProductSearch] = useState("");
+  const [manifestTotalSearch, setManifestTotalSearch] = useState("");
   const [sortCol, setSortCol] = useState<keyof ColFilters | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const handleSort = useCallback((col: keyof ColFilters, dir: "asc" | "desc") => {
@@ -2842,16 +2843,20 @@ export default function ShippingManifestPage() {
   const filteredManifestOrders = useMemo(() => {
     const orders = manifest?.orders ?? [];
     const groups = groupManifestOrders(orders);
-    if (!manifestCustomerSearch && !manifestProductSearch) return groups;
+    if (!manifestCustomerSearch && !manifestProductSearch && !manifestTotalSearch) return groups;
     const cLow = manifestCustomerSearch.toLowerCase();
     const pLow = manifestProductSearch.toLowerCase();
     return groups.filter(group => {
       const rep = group[0];
       if (cLow && !(rep.customerName ?? "").toLowerCase().includes(cLow)) return false;
       if (pLow && !group.some(o => (o.product ?? "").toLowerCase().includes(pLow))) return false;
+      if (manifestTotalSearch) {
+        const total = group.reduce((s, o) => s + (o.totalPrice ?? 0), 0);
+        if (!String(Math.round(total)).includes(manifestTotalSearch)) return false;
+      }
       return true;
     });
-  }, [manifest?.orders, manifestCustomerSearch, manifestProductSearch]);
+  }, [manifest?.orders, manifestCustomerSearch, manifestProductSearch, manifestTotalSearch]);
 
   // ─── Sort — حسب الحالة فوق الـ filter ──────────────────────────────────────
   const sortedManifestOrders = useMemo(() => {
@@ -3644,7 +3649,16 @@ export default function ShippingManifestPage() {
                   </div>
                   {/* ─── عمود الإجمالي ─── */}
                   <div className="flex items-center justify-between gap-1 px-3 h-9">
-                    <span className="font-bold">الإجمالي</span>
+                    {!showColFilters
+                      ? <input
+                          value={manifestTotalSearch}
+                          onChange={e => setManifestTotalSearch(e.target.value)}
+                          placeholder="الإجمالي..."
+                          className="w-full h-5 text-[10px] px-1.5 border border-border rounded bg-muted/30 focus:outline-none focus:ring-1 focus:ring-primary"
+                          dir="rtl"
+                        />
+                      : <span className="font-bold">الإجمالي</span>
+                    }
                     {showColFilters && <ColFilterBtn col="total" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />}
                   </div>
                   {/* ─── حالة التسليم ─── */}
