@@ -2686,45 +2686,64 @@ function ColFilterBtn({ col, colFilters, getColOptions, toggleColFilter, clearCo
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<"asc" | "desc">("asc");
-  const ref = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
   const active = colFilters[col].size > 0;
 
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (
+        panelRef.current && !panelRef.current.contains(e.target as Node) &&
+        btnRef.current && !btnRef.current.contains(e.target as Node)
+      ) setOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
+
+  const handleOpen = () => {
+    if (!open && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      // استخدم fixed بدل absolute — بيعمل صح بغض النظر عن الـ scroll أو الـ overflow
+      const panelW = 208; // w-52
+      const left = Math.max(4, Math.min(r.left, window.innerWidth - panelW - 4));
+      setPos({ top: r.bottom + 4, left });
+    }
+    setOpen(o => !o);
+    setSearch("");
+  };
 
   let opts = getColOptions(col);
   if (search) opts = opts.filter(v => v.toLowerCase().includes(search.toLowerCase()));
   if (sort === "desc") opts = [...opts].reverse();
 
   return (
-    <div ref={ref} className="relative inline-flex shrink-0">
+    <>
       <button
+        ref={btnRef}
         type="button"
-        onClick={() => { setOpen(o => !o); setSearch(""); }}
+        onClick={handleOpen}
         title="فلتر"
-        className={`flex items-center justify-center w-5 h-5 rounded transition-all ${active ? "text-primary" : "text-muted-foreground/40 hover:text-muted-foreground"}`}
+        className={`flex items-center justify-center w-5 h-5 rounded transition-all shrink-0 ${active ? "text-primary" : "text-muted-foreground/40 hover:text-muted-foreground"}`}
       >
         {active ? (
-          /* أيقونة فلتر ممتلئة لما يكون فيه فلتر فعّال */
           <svg viewBox="0 0 24 24" className="w-3 h-3" fill="currentColor">
             <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
           </svg>
         ) : (
-          /* أيقونة فلتر outline عادية */
           <svg viewBox="0 0 24 24" className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
           </svg>
         )}
       </button>
-      {open && (
-        <div className="absolute top-full left-0 mt-1 z-[100] bg-background border border-border rounded-lg shadow-2xl text-[11px] w-52" style={{ minWidth: 200 }}>
-          {/* ترتيب أبجدي */}
+      {open && typeof document !== "undefined" && createPortal(
+        <div
+          ref={panelRef}
+          style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 9999 }}
+          className="bg-background border border-border rounded-lg shadow-2xl text-[11px] w-52"
+        >
           <div className="flex gap-1 p-2 border-b border-border/50">
             <button type="button" onClick={() => setSort("asc")}
               className={`flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded border text-[10px] transition-all ${sort === "asc" ? "border-primary bg-primary/10 text-primary font-bold" : "border-border text-muted-foreground hover:bg-muted/30"}`}>
@@ -2735,13 +2754,11 @@ function ColFilterBtn({ col, colFilters, getColOptions, toggleColFilter, clearCo
               <ChevronDown className="w-2.5 h-2.5" />ي→أ
             </button>
           </div>
-          {/* بحث */}
           <div className="px-2 pt-2">
             <input value={search} onChange={e => setSearch(e.target.value)}
               placeholder="بحث في القيم..."
               className="w-full h-7 text-[10px] px-2 border border-border rounded bg-muted/30 focus:outline-none focus:ring-1 focus:ring-primary" />
           </div>
-          {/* القيم */}
           <div className="max-h-48 overflow-y-auto px-1 py-1.5 flex flex-col gap-0.5">
             {opts.length === 0
               ? <p className="text-muted-foreground text-center py-3 text-[10px]">لا توجد قيم</p>
@@ -2755,7 +2772,6 @@ function ColFilterBtn({ col, colFilters, getColOptions, toggleColFilter, clearCo
               ))
             }
           </div>
-          {/* مسح */}
           {active && (
             <div className="border-t border-border/50 px-2 py-1.5">
               <button type="button" onClick={() => { clearColFilter(col); setOpen(false); }}
@@ -2764,9 +2780,10 @@ function ColFilterBtn({ col, colFilters, getColOptions, toggleColFilter, clearCo
               </button>
             </div>
           )}
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 }
 
@@ -3587,7 +3604,7 @@ export default function ShippingManifestPage() {
                     )}
                   </div>
                   {/* ─── حالة التسليم ─── */}
-                  <div className="flex items-center gap-1 px-2 h-9 overflow-hidden">
+                  <div className="flex items-center gap-1 px-2 h-9">
                     <span className="w-5 h-5 rounded bg-muted flex items-center justify-center shrink-0">
                       <CheckCircle2 className="w-2.5 h-2.5 opacity-50" />
                     </span>
