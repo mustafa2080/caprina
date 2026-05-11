@@ -235,59 +235,6 @@ export default function Movements() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
-  // ─── Excel-style Column Filters ──────────────────────────────────────────
-  const [colFilters, setColFilters] = useState<ColFilters>({
-    date: new Set(), type: new Set(), product: new Set(), variant: new Set(),
-    qty: new Set(), reason: new Set(), order: new Set(), location: new Set(), notes: new Set(),
-  });
-  const colFilterHasActive = Object.values(colFilters).some(s => s.size > 0);
-
-  const getColVal = useCallback((col: ColKey, m: InventoryMovement): string => {
-    const isTransfer = m.reason === "transfer";
-    switch (col) {
-      case "date":     return formatMovementDate(m.createdAt);
-      case "type":     return isTransfer ? "تحويل" : m.type === "IN" ? "دخول" : "خروج";
-      case "product":  return m.product ?? "";
-      case "variant":  return [m.color, m.size].filter(Boolean).join(" / ") || "—";
-      case "qty":      return isTransfer ? String(m.quantity) : formatQty(m.type, m.quantity);
-      case "reason":   return REASON_LABELS[m.reason] ?? m.reason;
-      case "order":    return m.orderId ? `#${String(m.orderId).padStart(4, "0")}` : "—";
-      case "location": return isTransfer && m.fromLocation && m.toLocation
-        ? `${m.fromLocation} ← ${m.toLocation}`
-        : (m as any).warehouseName ?? "—";
-      case "notes":    return m.notes || "—";
-      default:         return "";
-    }
-  }, []);
-
-  const getColOptions = useCallback((col: ColKey): string[] => {
-    const vals = [...new Set((movements as InventoryMovement[]).map(m => getColVal(col, m)))].filter(v => v && v !== "—");
-    return vals.sort((a, b) => a.localeCompare(b, "ar"));
-  }, [movements, getColVal]);
-
-  const toggleColFilter = useCallback((col: ColKey, val: string) => {
-    setColFilters(prev => {
-      const next = new Set(prev[col]);
-      next.has(val) ? next.delete(val) : next.add(val);
-      return { ...prev, [col]: next };
-    });
-  }, []);
-
-  const clearColFilter = useCallback((col: ColKey) => {
-    setColFilters(prev => ({ ...prev, [col]: new Set() }));
-  }, []);
-
-  const colFilteredMovements = useMemo(() => {
-    if (!colFilterHasActive) return movements as InventoryMovement[];
-    return (movements as InventoryMovement[]).filter(m =>
-      (Object.keys(colFilters) as ColKey[]).every(col => {
-        const s = colFilters[col];
-        if (s.size === 0) return true;
-        return s.has(getColVal(col, m));
-      })
-    );
-  }, [movements, colFilters, colFilterHasActive, getColVal]);
-
 
   const [showDialog, setShowDialog] = useState(false);
   const [editingMovement, setEditingMovement] = useState<InventoryMovement | null>(null);
@@ -354,6 +301,59 @@ export default function Movements() {
     const sc = (shippingCompanies as any[]).map((c: any) => ({ value: `شركة شحن: ${c.name}`, label: `🚚 شركة شحن: ${c.name}` }));
     return [...wh, ...sc];
   }, [warehouses, shippingCompanies]);
+
+  // ─── Excel-style Column Filters ──────────────────────────────────────────
+  const [colFilters, setColFilters] = useState<ColFilters>({
+    date: new Set(), type: new Set(), product: new Set(), variant: new Set(),
+    qty: new Set(), reason: new Set(), order: new Set(), location: new Set(), notes: new Set(),
+  });
+  const colFilterHasActive = Object.values(colFilters).some(s => s.size > 0);
+
+  const getColVal = useCallback((col: ColKey, m: InventoryMovement): string => {
+    const isTransfer = m.reason === "transfer";
+    switch (col) {
+      case "date":     return formatMovementDate(m.createdAt);
+      case "type":     return isTransfer ? "تحويل" : m.type === "IN" ? "دخول" : "خروج";
+      case "product":  return m.product ?? "";
+      case "variant":  return [m.color, m.size].filter(Boolean).join(" / ") || "—";
+      case "qty":      return isTransfer ? String(m.quantity) : formatQty(m.type, m.quantity);
+      case "reason":   return REASON_LABELS[m.reason] ?? m.reason;
+      case "order":    return m.orderId ? `#${String(m.orderId).padStart(4, "0")}` : "—";
+      case "location": return isTransfer && m.fromLocation && m.toLocation
+        ? `${m.fromLocation} ← ${m.toLocation}`
+        : (m as any).warehouseName ?? "—";
+      case "notes":    return m.notes || "—";
+      default:         return "";
+    }
+  }, []);
+
+  const getColOptions = useCallback((col: ColKey): string[] => {
+    const vals = [...new Set((movements as InventoryMovement[]).map(m => getColVal(col, m)))].filter(v => v && v !== "—");
+    return vals.sort((a, b) => a.localeCompare(b, "ar"));
+  }, [movements, getColVal]);
+
+  const toggleColFilter = useCallback((col: ColKey, val: string) => {
+    setColFilters(prev => {
+      const next = new Set(prev[col]);
+      next.has(val) ? next.delete(val) : next.add(val);
+      return { ...prev, [col]: next };
+    });
+  }, []);
+
+  const clearColFilter = useCallback((col: ColKey) => {
+    setColFilters(prev => ({ ...prev, [col]: new Set() }));
+  }, []);
+
+  const colFilteredMovements = useMemo(() => {
+    if (!colFilterHasActive) return movements as InventoryMovement[];
+    return (movements as InventoryMovement[]).filter(m =>
+      (Object.keys(colFilters) as ColKey[]).every(col => {
+        const s = colFilters[col];
+        if (s.size === 0) return true;
+        return s.has(getColVal(col, m));
+      })
+    );
+  }, [movements, colFilters, colFilterHasActive, getColVal]);
 
   const createMutation = useMutation({
     mutationFn: movementsApi.create,
