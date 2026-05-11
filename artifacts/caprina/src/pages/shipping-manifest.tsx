@@ -2848,7 +2848,7 @@ export default function ShippingManifestPage() {
     return groups.filter(group => {
       const rep = group[0];
       if (cLow && !(rep.customerName ?? "").toLowerCase().includes(cLow)) return false;
-      if (pLow && !group.some(o => (o.product ?? "").toLowerCase().includes(pLow) || (o.phone ?? "").toLowerCase().includes(pLow))) return false;
+      if (pLow && !group.some(o => (o.product ?? "").toLowerCase().includes(pLow))) return false;
       return true;
     });
   }, [manifest?.orders, manifestCustomerSearch, manifestProductSearch]);
@@ -3587,7 +3587,7 @@ export default function ShippingManifestPage() {
                     <input
                       value={manifestProductSearch}
                       onChange={e => setManifestProductSearch(e.target.value)}
-                      placeholder="ابحث بالمنتج أو الهاتف..."
+                      placeholder="ابحث بالمنتج..."
                       className="w-full pr-9 bg-card text-sm h-9 border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary/40 placeholder:text-muted-foreground/60"
                       dir="rtl"
                     />
