@@ -873,6 +873,7 @@ export default function OrderDetail() {
       queryClient.invalidateQueries({ queryKey: getGetRecentOrdersQueryKey() });
       queryClient.invalidateQueries({ queryKey: ["orders-stats"] });
       queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["archived-orders"] });
 
       const msg = idsToDelete.length > 1
         ? `تم حذف الطلب وكل منتجاته (${idsToDelete.length} منتج).`

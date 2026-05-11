@@ -152,6 +152,7 @@ function ColFilterBtn({ col, colFilters, getColOptions, toggleColFilter, clearCo
           ref={panelRef}
           style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 9999 }}
           className="bg-background border border-border rounded-lg shadow-2xl text-[11px] w-52"
+          dir="rtl"
         >
           <div className="flex gap-1 p-2 border-b border-border/50">
             <button type="button" onClick={() => setSort("asc")}
