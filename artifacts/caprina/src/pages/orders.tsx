@@ -179,12 +179,7 @@ export default function Orders() {
   const [status, setStatus] = useState<string>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [filterProduct, setFilterProduct] = useState("");
-  const [filterCity, setFilterCity] = useState("all");
   const [filterShippingCo, setFilterShippingCo] = useState("all");
-  const [filterAmountMin, setFilterAmountMin] = useState("");
-  const [filterAmountMax, setFilterAmountMax] = useState("");
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   // ── Column Filters (Excel-style) ────────────────────────────────────────────
   const [colFilters, setColFilters] = useState<ColFilters>({
     id: new Set(), date: new Set(), customer: new Set(), phone: new Set(),
@@ -192,7 +187,6 @@ export default function Orders() {
   });
   const colFilterHasActive = Object.values(colFilters).some(s => s.size > 0);
   const debouncedSearch = useDebounce(search, 300);
-  const debouncedProduct = useDebounce(filterProduct, 300);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { user, isAdmin } = useAuth();
@@ -229,25 +223,13 @@ export default function Orders() {
   });
   const inManifestSet = new Set(inManifestData?.ids ?? []);
 
-  const { data: shippingCompanies } = useQuery({
-    queryKey: ["shipping-companies"],
-    queryFn: shippingApi.list,
-    staleTime: 60_000,
-  });
-
-  const rawFiltered = orders?.filter(o => {
+  const filtered = orders?.filter(o => {
     if (customerSearch && !o.customerName?.toLowerCase().includes(customerSearch.toLowerCase())) return false;
-    if (debouncedProduct && !o.product?.toLowerCase().includes(debouncedProduct.toLowerCase())) return false;
-    if (filterCity !== "all" && (o as any).city !== filterCity) return false;
-    if (filterAmountMin && o.totalPrice < parseFloat(filterAmountMin)) return false;
-    if (filterAmountMax && o.totalPrice > parseFloat(filterAmountMax)) return false;
     return true;
   }) ?? [];
 
-  const filtered = rawFiltered;
-
   // ── Col Filter helpers ──────────────────────────────────────────────────────
-  const getColVal = useCallback((col: ColKey, o: (typeof rawFiltered)[0]): string => {
+  const getColVal = useCallback((col: ColKey, o: (typeof filtered)[0]): string => {
     switch (col) {
       case "id":       return `#${o.id.toString().padStart(4,"0")}`;
       case "date":     return format(new Date(o.createdAt), "yyyy/MM/dd");
@@ -289,18 +271,11 @@ export default function Orders() {
     );
   }, [filtered, colFilters, colFilterHasActive, getColVal]);
 
-  const allCities = [...new Set(orders?.map(o => (o as any).city).filter(Boolean) ?? [])].sort((a,b) => a.localeCompare(b, "ar"));
-
-  const advancedFiltersCount = [
-    dateTo, filterProduct, filterCity !== "all", filterShippingCo !== "all", filterAmountMin, filterAmountMax
-  ].filter(Boolean).length;
-
-  const hasActiveFilter = search || customerSearch || status !== "all" || dateFrom || advancedFiltersCount > 0;
+  const hasActiveFilter = search || customerSearch || status !== "all" || dateFrom || dateTo;
 
   const clearFilters = () => {
     setSearch(""); setCustomerSearch(""); setStatus("all"); setDateFrom(""); setDateTo("");
-    setFilterProduct(""); setFilterCity("all"); setFilterShippingCo("all");
-    setFilterAmountMin(""); setFilterAmountMax("");
+    setFilterShippingCo("all");
   };
 
   const toggleSelect = (order: (typeof filtered)[0]) => {
@@ -531,7 +506,7 @@ export default function Orders() {
             )}
           </div>
 
-          {/* ── الصف الأول: بحث عام + حالة + زر فلتر متقدم ── */}
+          {/* ── الصف الأول: بحث عام + حالة ── */}
           <div className="flex flex-col sm:flex-row gap-2">
             <div className="relative flex-1">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -552,21 +527,6 @@ export default function Orders() {
                 <SelectItem value="partial_received">استلم جزئي</SelectItem>
               </SelectContent>
             </Select>
-            <Button
-              variant={showAdvancedFilters ? "default" : "outline"}
-              size="sm"
-              className="h-9 gap-1.5 text-xs font-bold shrink-0 px-3"
-              onClick={() => setShowAdvancedFilters(v => !v)}
-            >
-              <Filter className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">فلتر متقدم</span>
-              <span className="sm:hidden">فلتر</span>
-              {advancedFiltersCount > 0 && (
-                <span className="bg-primary-foreground text-primary rounded-full w-4 h-4 text-[9px] font-black flex items-center justify-center">
-                  {advancedFiltersCount}
-                </span>
-              )}
-            </Button>
           </div>
 
           {/* ── الصف الثاني: تاريخ من + مسح ── */}
@@ -591,100 +551,6 @@ export default function Orders() {
               </Button>
             )}
           </div>
-
-          {/* ── فلاتر متقدمة ── */}
-          {showAdvancedFilters && (
-            <div className="rounded-lg border border-border bg-card p-3 space-y-3 mt-1">
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">فلاتر متقدمة للجرد والتحليل</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                {/* فلتر المنتج */}
-                <div>
-                  <p className="text-[10px] text-muted-foreground mb-1 font-semibold">📦 المنتج</p>
-                  <div className="relative">
-                    <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
-                    <Input
-                      placeholder="اسم المنتج..."
-                      className="pr-7 h-8 text-xs bg-background"
-                      value={filterProduct}
-                      onChange={e => setFilterProduct(e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                {/* فلتر المحافظة */}
-                <div>
-                  <p className="text-[10px] text-muted-foreground mb-1 font-semibold">📍 المحافظة</p>
-                  <Select value={filterCity} onValueChange={setFilterCity}>
-                    <SelectTrigger className="h-8 text-xs bg-background"><SelectValue placeholder="كل المحافظات" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">كل المحافظات</SelectItem>
-                      {allCities.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* فلتر شركة الشحن */}
-                <div>
-                  <p className="text-[10px] text-muted-foreground mb-1 font-semibold">🚚 شركة الشحن</p>
-                  <Select value={filterShippingCo} onValueChange={setFilterShippingCo}>
-                    <SelectTrigger className="h-8 text-xs bg-background"><SelectValue placeholder="كل الشركات" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">كل الشركات</SelectItem>
-                      {shippingCompanies?.map(c => (
-                        <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* فلتر نطاق المبلغ */}
-                <div className="sm:col-span-2 lg:col-span-3">
-                  <p className="text-[10px] text-muted-foreground mb-1 font-semibold">💰 نطاق المبلغ (ج.م)</p>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      placeholder="من"
-                      className="h-8 text-xs bg-background w-28"
-                      value={filterAmountMin}
-                      onChange={e => setFilterAmountMin(e.target.value)}
-                    />
-                    <span className="text-xs text-muted-foreground">—</span>
-                    <Input
-                      type="number"
-                      placeholder="إلى"
-                      className="h-8 text-xs bg-background w-28"
-                      value={filterAmountMax}
-                      onChange={e => setFilterAmountMax(e.target.value)}
-                    />
-                    {(filterAmountMin || filterAmountMax) && (
-                      <Button variant="ghost" size="sm" className="h-8 text-xs gap-1 text-muted-foreground px-2"
-                        onClick={() => { setFilterAmountMin(""); setFilterAmountMax(""); }}>
-                        <X className="w-3 h-3" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* إحصاء النتائج */}
-              <div className="flex items-center justify-between pt-1 border-t border-border/50">
-                <p className="text-[10px] text-muted-foreground">
-                  {filtered.length} نتيجة
-                  {filtered.length > 0 && (
-                    <span className="mr-2 text-primary font-bold">
-                      إجمالي: {new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(filtered.reduce((s, o) => s + o.totalPrice, 0))}
-                    </span>
-                  )}
-                </p>
-                {advancedFiltersCount > 0 && (
-                  <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1 text-muted-foreground"
-                    onClick={() => { setFilterProduct(""); setFilterCity("all"); setFilterShippingCo("all"); setFilterAmountMin(""); setFilterAmountMax(""); setDateTo(""); }}>
-                    <X className="w-2.5 h-2.5" />مسح الفلاتر المتقدمة
-                  </Button>
-                )}
-              </div>
-            </div>
-          )}
         </div>
 
         {isLoading ? (
