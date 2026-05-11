@@ -191,6 +191,7 @@ export default function Orders() {
   });
   const colFilterHasActive = Object.values(colFilters).some(s => s.size > 0);
   const [showColFilters, setShowColFilters] = useState(false);
+  const [totalSearch, setTotalSearch] = useState("");
   const [sortCol, setSortCol] = useState<ColKey | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
@@ -237,6 +238,7 @@ export default function Orders() {
 
   const filtered = orders?.filter(o => {
     if (customerSearch && !o.customerName?.toLowerCase().includes(customerSearch.toLowerCase())) return false;
+    if (totalSearch && !String(Math.round(o.totalPrice)).includes(totalSearch)) return false;
     return true;
   }) ?? [];
 
@@ -692,7 +694,18 @@ export default function Orders() {
                       <div className="flex items-center gap-1">التاريخ{showColFilters && <ColFilterBtn col="date" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />}</div>
                     </TableHead>
                     <TableHead className="text-right text-xs">
-                      <div className="flex items-center gap-1">العميل{showColFilters && <ColFilterBtn col="customer" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />}</div>
+                      <div className="flex items-center gap-1">
+                        {!showColFilters
+                          ? <input
+                              value={customerSearch}
+                              onChange={e => setCustomerSearch(e.target.value)}
+                              placeholder="العميل..."
+                              className="w-24 h-5 text-[10px] px-1.5 border border-border rounded bg-muted/30 focus:outline-none focus:ring-1 focus:ring-primary"
+                            />
+                          : <span>العميل</span>
+                        }
+                        {showColFilters && <ColFilterBtn col="customer" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />}
+                      </div>
                     </TableHead>
                     <TableHead className="text-right text-xs">
                       <div className="flex items-center gap-1">الهاتف{showColFilters && <ColFilterBtn col="phone" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />}</div>
@@ -701,7 +714,18 @@ export default function Orders() {
                       <div className="flex items-center gap-1">المنتج{showColFilters && <ColFilterBtn col="product" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />}</div>
                     </TableHead>
                     <TableHead className="text-right text-xs">
-                      <div className="flex items-center gap-1">الإجمالي{showColFilters && <ColFilterBtn col="total" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />}</div>
+                      <div className="flex items-center gap-1">
+                        {!showColFilters
+                          ? <input
+                              value={totalSearch}
+                              onChange={e => setTotalSearch(e.target.value)}
+                              placeholder="الإجمالي..."
+                              className="w-20 h-5 text-[10px] px-1.5 border border-border rounded bg-muted/30 focus:outline-none focus:ring-1 focus:ring-primary"
+                            />
+                          : <span>الإجمالي</span>
+                        }
+                        {showColFilters && <ColFilterBtn col="total" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />}
+                      </div>
                     </TableHead>
                     <TableHead className="text-right text-xs">
                       <div className="flex items-center gap-1">المنشئ{showColFilters && <ColFilterBtn col="creator" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />}</div>
