@@ -2820,6 +2820,8 @@ export default function ShippingManifestPage() {
     qty: new Set(), total: new Set(), date: new Set(), status: new Set(),
   });
   const [showColFilters, setShowColFilters] = useState(false);
+  const [manifestCustomerSearch, setManifestCustomerSearch] = useState("");
+  const [manifestProductSearch, setManifestProductSearch] = useState("");
   const [sortCol, setSortCol] = useState<keyof ColFilters | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const handleSort = useCallback((col: keyof ColFilters, dir: "asc" | "desc") => {
@@ -2839,8 +2841,17 @@ export default function ShippingManifestPage() {
   // ─── Search filter — real-time, no popover ────────────────────────────────
   const filteredManifestOrders = useMemo(() => {
     const orders = manifest?.orders ?? [];
-    return groupManifestOrders(orders);
-  }, [manifest?.orders]);
+    const groups = groupManifestOrders(orders);
+    if (!manifestCustomerSearch && !manifestProductSearch) return groups;
+    const cLow = manifestCustomerSearch.toLowerCase();
+    const pLow = manifestProductSearch.toLowerCase();
+    return groups.filter(group => {
+      const rep = group[0];
+      if (cLow && !(rep.customerName ?? "").toLowerCase().includes(cLow)) return false;
+      if (pLow && !group.some(o => (o.product ?? "").toLowerCase().includes(pLow) || (o.phone ?? "").toLowerCase().includes(pLow))) return false;
+      return true;
+    });
+  }, [manifest?.orders, manifestCustomerSearch, manifestProductSearch]);
 
   // ─── Sort — حسب الحالة فوق الـ filter ──────────────────────────────────────
   const sortedManifestOrders = useMemo(() => {
@@ -3549,6 +3560,44 @@ export default function ShippingManifestPage() {
                     </div>
                   </div>
                 )}
+                {/* ══ Search Bar ══ */}
+                <div className="p-3 border-b border-border bg-muted/10 flex flex-col gap-2">
+                  <div className="relative">
+                    <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-primary/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input
+                      value={manifestCustomerSearch}
+                      onChange={e => setManifestCustomerSearch(e.target.value)}
+                      placeholder="ابحث باسم العميل..."
+                      className="w-full pr-9 pl-8 bg-card text-sm h-9 border border-primary/30 rounded-md focus:outline-none focus:ring-1 focus:ring-primary/40 placeholder:text-muted-foreground/60 font-medium"
+                      dir="rtl"
+                    />
+                    {manifestCustomerSearch && (
+                      <>
+                        <button className="absolute left-9 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => setManifestCustomerSearch("")}>
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
+                          {displayGroups.length}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input
+                      value={manifestProductSearch}
+                      onChange={e => setManifestProductSearch(e.target.value)}
+                      placeholder="ابحث بالمنتج أو الهاتف..."
+                      className="w-full pr-9 bg-card text-sm h-9 border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary/40 placeholder:text-muted-foreground/60"
+                      dir="rtl"
+                    />
+                    {manifestProductSearch && (
+                      <button className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => setManifestProductSearch("")}>
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
                 {/* ══ رأس الجدول المحسَّن ══ */}
                 <div className="overflow-x-auto">
                 <div dir="rtl" className="hidden md:grid grid-cols-[minmax(140px,1fr)_minmax(120px,1fr)_minmax(140px,1fr)_60px_90px_160px_90px_80px] min-w-[860px] gap-0 border-b-2 border-border bg-muted/20 text-[10px] font-bold text-muted-foreground tracking-wide
