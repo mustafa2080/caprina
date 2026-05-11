@@ -2675,6 +2675,101 @@ type ColFilters = {
   status: Set<string>;
 };
 
+/* ── أيقونة فلتر Excel لكل عمود ── */
+function ColFilterBtn({ col, colFilters, getColOptions, toggleColFilter, clearColFilter }: {
+  col: keyof ColFilters;
+  colFilters: ColFilters;
+  getColOptions: (col: keyof ColFilters) => string[];
+  toggleColFilter: (col: keyof ColFilters, val: string) => void;
+  clearColFilter: (col: keyof ColFilters) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<"asc" | "desc">("asc");
+  const ref = useRef<HTMLDivElement>(null);
+  const active = colFilters[col].size > 0;
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  let opts = getColOptions(col);
+  if (search) opts = opts.filter(v => v.toLowerCase().includes(search.toLowerCase()));
+  if (sort === "desc") opts = [...opts].reverse();
+
+  return (
+    <div ref={ref} className="relative inline-flex shrink-0">
+      <button
+        type="button"
+        onClick={() => { setOpen(o => !o); setSearch(""); }}
+        title="فلتر"
+        className={`flex items-center justify-center w-5 h-5 rounded transition-all ${active ? "text-primary" : "text-muted-foreground/40 hover:text-muted-foreground"}`}
+      >
+        {active ? (
+          /* أيقونة فلتر ممتلئة لما يكون فيه فلتر فعّال */
+          <svg viewBox="0 0 24 24" className="w-3 h-3" fill="currentColor">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+          </svg>
+        ) : (
+          /* أيقونة فلتر outline عادية */
+          <svg viewBox="0 0 24 24" className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+          </svg>
+        )}
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 mt-1 z-[100] bg-background border border-border rounded-lg shadow-2xl text-[11px] w-52" style={{ minWidth: 200 }}>
+          {/* ترتيب أبجدي */}
+          <div className="flex gap-1 p-2 border-b border-border/50">
+            <button type="button" onClick={() => setSort("asc")}
+              className={`flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded border text-[10px] transition-all ${sort === "asc" ? "border-primary bg-primary/10 text-primary font-bold" : "border-border text-muted-foreground hover:bg-muted/30"}`}>
+              <ChevronUp className="w-2.5 h-2.5" />أ→ي
+            </button>
+            <button type="button" onClick={() => setSort("desc")}
+              className={`flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded border text-[10px] transition-all ${sort === "desc" ? "border-primary bg-primary/10 text-primary font-bold" : "border-border text-muted-foreground hover:bg-muted/30"}`}>
+              <ChevronDown className="w-2.5 h-2.5" />ي→أ
+            </button>
+          </div>
+          {/* بحث */}
+          <div className="px-2 pt-2">
+            <input value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="بحث في القيم..."
+              className="w-full h-7 text-[10px] px-2 border border-border rounded bg-muted/30 focus:outline-none focus:ring-1 focus:ring-primary" />
+          </div>
+          {/* القيم */}
+          <div className="max-h-48 overflow-y-auto px-1 py-1.5 flex flex-col gap-0.5">
+            {opts.length === 0
+              ? <p className="text-muted-foreground text-center py-3 text-[10px]">لا توجد قيم</p>
+              : opts.map(val => (
+                <label key={val} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-muted/40 cursor-pointer">
+                  <input type="checkbox" checked={colFilters[col].has(val)}
+                    onChange={() => toggleColFilter(col, val)}
+                    className="accent-primary w-3 h-3 shrink-0" />
+                  <span className="truncate">{val}</span>
+                </label>
+              ))
+            }
+          </div>
+          {/* مسح */}
+          {active && (
+            <div className="border-t border-border/50 px-2 py-1.5">
+              <button type="button" onClick={() => { clearColFilter(col); setOpen(false); }}
+                className="text-destructive text-[10px] hover:underline w-full text-right">
+                مسح الفلتر
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ShippingManifestPage() {
   const params = useParams();
   const id = Number(params.id);
@@ -3425,128 +3520,6 @@ export default function ShippingManifestPage() {
                   </div>
                 )}
                 {/* ══ رأس الجدول المحسَّن ══ */}
-                {/* ── شريط زر الفلتر + مؤشر الفلاتر الفعّالة ── */}
-                <div dir="rtl" className="hidden md:flex items-center gap-2 px-3 py-1.5 border-b border-border/40 bg-muted/10">
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => { setColFilterOpen(o => !o); setActiveFilterCol(null); setColFilterSearch(""); setColFilterSort("none"); }}
-                      className={`flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded border transition-all ${colFilterHasActive ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground hover:border-primary/50"}`}
-                    >
-                      <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                        <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
-                      </svg>
-                      فلتر الأعمدة
-                      {colFilterHasActive && (
-                        <span className="bg-primary text-primary-foreground text-[9px] font-black px-1 rounded-full">
-                          {Object.values(colFilters).filter(s => s.size > 0).length}
-                        </span>
-                      )}
-                    </button>
-                    {/* ── Panel الفلتر ── */}
-                    {colFilterOpen && (
-                      <div className="absolute top-full right-0 mt-1 z-50 bg-background border border-border rounded-lg shadow-xl w-64 text-[11px]" style={{ minWidth: 240 }}>
-                        {/* اختيار العمود */}
-                        {activeFilterCol === null ? (
-                          <div className="p-2 flex flex-col gap-0.5">
-                            <p className="text-[9px] font-bold text-muted-foreground uppercase px-2 py-1">اختر العمود</p>
-                            {([
-                              ["customer","العميل"],["governorate","المحافظة"],["product","المنتج"],
-                              ["qty","الكمية"],["total","الإجمالي"],["date","تاريخ الإضافة"],["status","الحالة"],
-                            ] as [keyof ColFilters, string][]).map(([col, label]) => (
-                              <button key={col} type="button"
-                                onClick={() => { setActiveFilterCol(col); setColFilterSearch(""); setColFilterSort("none"); }}
-                                className={`flex items-center justify-between px-3 py-1.5 rounded hover:bg-muted/50 transition-colors text-right ${colFilters[col].size > 0 ? "text-primary font-bold" : ""}`}>
-                                <span>{label}</span>
-                                <div className="flex items-center gap-1">
-                                  {colFilters[col].size > 0 && (
-                                    <span className="text-[9px] bg-primary/15 text-primary px-1.5 rounded-full font-bold">{colFilters[col].size}</span>
-                                  )}
-                                  <ChevronDown className="w-3 h-3 -rotate-90 opacity-40" />
-                                </div>
-                              </button>
-                            ))}
-                            {colFilterHasActive && (
-                              <button type="button" onClick={clearAllColFilters}
-                                className="mt-1 text-destructive text-[10px] hover:underline px-3 py-1 text-right w-full">
-                                مسح كل الفلاتر
-                              </button>
-                            )}
-                          </div>
-                        ) : (
-                          /* تفاصيل عمود محدد */
-                          <div className="flex flex-col">
-                            <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
-                              <button type="button" onClick={() => { setActiveFilterCol(null); setColFilterSearch(""); }}
-                                className="text-muted-foreground hover:text-foreground">
-                                <ChevronDown className="w-3.5 h-3.5 rotate-90" />
-                              </button>
-                              <span className="font-bold text-[11px]">
-                                {["customer","العميل"],["governorate","المحافظة"],["product","المنتج"],["qty","الكمية"],["total","الإجمالي"],["date","تاريخ الإضافة"],["status","الحالة"]}
-                                {{customer:"العميل",governorate:"المحافظة",product:"المنتج",qty:"الكمية",total:"الإجمالي",date:"تاريخ الإضافة",status:"الحالة"}[activeFilterCol as keyof ColFilters]}
-                              </span>
-                              {colFilters[activeFilterCol as keyof ColFilters].size > 0 && (
-                                <button type="button" onClick={() => clearColFilter(activeFilterCol as keyof ColFilters)}
-                                  className="mr-auto text-destructive text-[9px] hover:underline">مسح</button>
-                              )}
-                            </div>
-                            {/* ترتيب أبجدي */}
-                            <div className="flex gap-1 px-3 pt-2">
-                              <button type="button" onClick={() => setColFilterSort("asc")}
-                                className={`flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded border text-[10px] transition-all ${colFilterSort === "asc" ? "border-primary bg-primary/10 text-primary font-bold" : "border-border text-muted-foreground hover:bg-muted/30"}`}>
-                                <ChevronUp className="w-3 h-3" />أ→ي
-                              </button>
-                              <button type="button" onClick={() => setColFilterSort("desc")}
-                                className={`flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded border text-[10px] transition-all ${colFilterSort === "desc" ? "border-primary bg-primary/10 text-primary font-bold" : "border-border text-muted-foreground hover:bg-muted/30"}`}>
-                                <ChevronDown className="w-3 h-3" />ي→أ
-                              </button>
-                            </div>
-                            {/* بحث داخل القيم */}
-                            <div className="px-3 pt-2">
-                              <input value={colFilterSearch} onChange={e => setColFilterSearch(e.target.value)}
-                                placeholder="بحث..."
-                                className="w-full h-7 text-[10px] px-2 border border-border rounded bg-muted/30 focus:outline-none focus:ring-1 focus:ring-primary" />
-                            </div>
-                            {/* القيم */}
-                            <div className="max-h-52 overflow-y-auto px-2 py-2 flex flex-col gap-0.5">
-                              {(() => {
-                                const col = activeFilterCol as keyof ColFilters;
-                                let opts = getColOptions(col);
-                                if (colFilterSearch) opts = opts.filter(v => v.toLowerCase().includes(colFilterSearch.toLowerCase()));
-                                if (colFilterSort === "desc") opts = [...opts].reverse();
-                                if (opts.length === 0) return <p className="text-muted-foreground text-center py-3 text-[10px]">لا توجد قيم</p>;
-                                return opts.map(val => (
-                                  <label key={val} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-muted/40 cursor-pointer">
-                                    <input type="checkbox" checked={colFilters[col].has(val)}
-                                      onChange={() => toggleColFilter(col, val)}
-                                      className="accent-primary w-3 h-3 shrink-0" />
-                                    <span className="truncate">{val}</span>
-                                  </label>
-                                ));
-                              })()}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  {/* مؤشرات الفلاتر الفعّالة */}
-                  {colFilterHasActive && (Object.keys(colFilters) as (keyof ColFilters)[]).map(col => {
-                    if (colFilters[col].size === 0) return null;
-                    const labels = {customer:"العميل",governorate:"المحافظة",product:"المنتج",qty:"الكمية",total:"الإجمالي",date:"تاريخ",status:"الحالة"};
-                    return (
-                      <span key={col} className="flex items-center gap-1 bg-primary/10 text-primary border border-primary/30 text-[9px] font-bold px-2 py-0.5 rounded-full">
-                        {labels[col]}: {colFilters[col].size}
-                        <button type="button" onClick={() => clearColFilter(col)} className="hover:text-destructive ml-0.5">×</button>
-                      </span>
-                    );
-                  })}
-                  {colFilterHasActive && (
-                    <span className="text-[9px] text-muted-foreground mr-auto">
-                      {colFilteredGroups.length} من {sortedManifestOrders.length} فاتورة
-                    </span>
-                  )}
-                </div>
                 <div dir="rtl" className="hidden md:grid grid-cols-[1fr_1fr_1fr_60px_90px_160px_90px_80px] gap-0 border-b-2 border-border bg-muted/20 text-[10px] font-bold text-muted-foreground tracking-wide
                   [&>*:not(:last-child)]:border-l [&>*]:border-border/30">
                   {/* ─── عمود العميل — checkbox + نص/سيرش ─── */}
@@ -3578,31 +3551,43 @@ export default function ShippingManifestPage() {
                       </>
                     ) : (
                       <button type="button" onClick={() => setShowCustomerSearch(true)}
-                        className="flex items-center gap-2 hover:text-primary transition-colors w-full h-9 px-3 group">
+                        className="flex items-center gap-1.5 hover:text-primary transition-colors w-full h-9 px-3 group">
                         <span className="w-5 h-5 rounded bg-muted flex items-center justify-center shrink-0 group-hover:bg-primary/15 transition-colors">
                           <Search className="w-2.5 h-2.5 opacity-50 group-hover:opacity-100" />
                         </span>
                         <span className={customerSearch ? "text-primary font-bold" : ""}>العميل</span>
-                        {customerSearch && <span className="text-primary text-[9px] bg-primary/10 px-1.5 py-0.5 rounded-full mr-auto">({customerSearch})</span>}
+                        {customerSearch && <span className="text-primary text-[9px] bg-primary/10 px-1.5 py-0.5 rounded-full">({customerSearch})</span>}
+                        <span className="mr-auto">
+                          <ColFilterBtn col="customer" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />
+                        </span>
                       </button>
                     )}
                   </div>
                   {/* ─── عمود المحافظة / العنوان ─── */}
-                  <div className="flex items-center gap-2 px-3 h-9">
-                    <span className="w-5 h-5 rounded bg-muted flex items-center justify-center shrink-0">
-                      <svg className="w-2.5 h-2.5 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M12 22s-8-4.5-8-11.8A8 8 0 0112 2a8 8 0 018 8.2c0 7.3-8 11.8-8 11.8z"/><circle cx="12" cy="10" r="3"/></svg>
-                    </span>
-                    المحافظة
+                  <div className="flex items-center justify-between gap-1 px-3 h-9">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-5 h-5 rounded bg-muted flex items-center justify-center shrink-0">
+                        <svg className="w-2.5 h-2.5 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M12 22s-8-4.5-8-11.8A8 8 0 0112 2a8 8 0 018 8.2c0 7.3-8 11.8-8 11.8z"/><circle cx="12" cy="10" r="3"/></svg>
+                      </span>
+                      المحافظة
+                    </div>
+                    <ColFilterBtn col="governorate" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />
                   </div>
                   {/* ─── عمود المنتج — نص ثابت ─── */}
-                  <div className="flex items-center gap-2 px-3 h-9">
-                    <span className="w-5 h-5 rounded bg-muted flex items-center justify-center shrink-0">
-                      <Package className="w-2.5 h-2.5 opacity-50" />
-                    </span>
-                    المنتج
+                  <div className="flex items-center justify-between gap-1 px-3 h-9">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-5 h-5 rounded bg-muted flex items-center justify-center shrink-0">
+                        <Package className="w-2.5 h-2.5 opacity-50" />
+                      </span>
+                      المنتج
+                    </div>
+                    <ColFilterBtn col="product" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />
                   </div>
                   {/* ─── الكمية ─── */}
-                  <div className="flex items-center justify-center h-9">الكمية</div>
+                  <div className="flex items-center justify-center gap-1 h-9">
+                    الكمية
+                    <ColFilterBtn col="qty" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />
+                  </div>
                   {/* ─── عمود الإجمالي — سيرش بمطابقة تامة ─── */}
                   <div className="relative">
                     {showTotalSearch ? (
@@ -3628,17 +3613,20 @@ export default function ShippingManifestPage() {
                       </>
                     ) : (
                       <button type="button" onClick={() => setShowTotalSearch(true)}
-                        className="flex items-center gap-2 hover:text-primary transition-colors w-full h-9 px-3 group">
+                        className="flex items-center gap-1.5 hover:text-primary transition-colors w-full h-9 px-3 group">
                         <span className="w-5 h-5 rounded bg-muted flex items-center justify-center shrink-0 group-hover:bg-primary/15 transition-colors">
                           <Search className="w-2.5 h-2.5 opacity-50 group-hover:opacity-100" />
                         </span>
                         <span className={totalSearch ? "text-primary font-bold" : ""}>الإجمالي</span>
-                        {totalSearch && <span className="text-primary text-[9px] bg-primary/10 px-1.5 py-0.5 rounded-full mr-auto">= {Number(totalSearch).toLocaleString("ar-EG")}</span>}
+                        {totalSearch && <span className="text-primary text-[9px] bg-primary/10 px-1.5 py-0.5 rounded-full">= {Number(totalSearch).toLocaleString("ar-EG")}</span>}
+                        <span className="mr-auto">
+                          <ColFilterBtn col="total" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />
+                        </span>
                       </button>
                     )}
                   </div>
                   {/* ─── حالة التسليم ─── */}
-                  <div className="flex items-center gap-1.5 px-3 h-9 overflow-hidden">
+                  <div className="flex items-center gap-1 px-2 h-9 overflow-hidden">
                     <span className="w-5 h-5 rounded bg-muted flex items-center justify-center shrink-0">
                       <CheckCircle2 className="w-2.5 h-2.5 opacity-50" />
                     </span>
@@ -3646,34 +3634,29 @@ export default function ShippingManifestPage() {
                       type="button"
                       onClick={() => setStatusSort(s => s === "none" ? "asc" : s === "asc" ? "desc" : "none")}
                       className={`flex items-center gap-1 hover:text-primary transition-colors group min-w-0 ${statusSort !== "none" ? "text-primary font-bold" : ""}`}
-                      title={statusSort === "asc" ? "انتظار → مسلَّم (اضغط للعكس)" : statusSort === "desc" ? "مسلَّم → انتظار (اضغط لإلغاء)" : "ترتيب حسب الحالة"}
                     >
                       <span className="shrink-0">الحالة</span>
-                      <span className="flex flex-col gap-[1px] shrink-0 transition-opacity opacity-40 group-hover:opacity-80">
+                      <span className="flex flex-col gap-[1px] shrink-0 opacity-40 group-hover:opacity-80">
                         <ChevronUp   className={`w-2.5 h-2.5 ${statusSort === "asc"  ? "text-primary opacity-100" : ""}`} />
                         <ChevronDown className={`w-2.5 h-2.5 ${statusSort === "desc" ? "text-primary opacity-100" : ""}`} />
                       </span>
-                      {statusSort !== "none" && (
-                        <span className="text-[8px] bg-primary/15 text-primary rounded-full px-1.5 py-0.5 font-bold shrink-0 hidden lg:inline">
-                          {statusSort === "asc" ? "↑" : "↓"}
-                        </span>
-                      )}
                     </button>
+                    <ColFilterBtn col="status" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />
                   </div>
                   {/* ─── تاريخ الإضافة ─── */}
-                  <div className="flex items-center justify-center h-9 px-2">
+                  <div className="flex items-center justify-center gap-1 h-9 px-1">
                     <button
                       type="button"
                       onClick={() => setDateSort(s => s === "none" ? "asc" : s === "asc" ? "desc" : "none")}
                       className={`flex items-center gap-1 hover:text-primary transition-colors group min-w-0 text-[9px] ${dateSort !== "none" ? "text-primary font-bold opacity-100" : "opacity-60"}`}
-                      title={dateSort === "asc" ? "الأقدم أولاً (اضغط للعكس)" : dateSort === "desc" ? "الأحدث أولاً (اضغط لإلغاء)" : "ترتيب حسب تاريخ الإضافة"}
                     >
                       <span className="shrink-0">الإضافة</span>
-                      <span className="flex flex-col gap-[1px] shrink-0 transition-opacity opacity-40 group-hover:opacity-80">
+                      <span className="flex flex-col gap-[1px] shrink-0 opacity-40 group-hover:opacity-80">
                         <ChevronUp   className={`w-2.5 h-2.5 ${dateSort === "asc"  ? "text-primary opacity-100" : ""}`} />
                         <ChevronDown className={`w-2.5 h-2.5 ${dateSort === "desc" ? "text-primary opacity-100" : ""}`} />
                       </span>
                     </button>
+                    <ColFilterBtn col="date" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />
                   </div>
                   {/* ─── إجراء ─── */}
                   <div className="flex items-center justify-center h-9 text-[9px] opacity-60 px-3">
