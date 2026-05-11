@@ -2816,6 +2816,7 @@ export default function ShippingManifestPage() {
     customer: new Set(), governorate: new Set(), product: new Set(),
     qty: new Set(), total: new Set(), date: new Set(), status: new Set(),
   });
+  const [showColFilters, setShowColFilters] = useState(false);
   const [colFilterSearch, setColFilterSearch] = useState("");
   const [colFilterSort, setColFilterSort] = useState<"none" | "asc" | "desc">("none");
   // ─── نظام التحديد (Bulk Selection) ─────────────────────────────────────────
@@ -3515,7 +3516,22 @@ export default function ShippingManifestPage() {
                 )}
                 {/* ══ رأس الجدول المحسَّن ══ */}
                 {/* wrapper — scroll أفقي على الشاشات المتوسطة */}
-                <div className="overflow-x-auto">
+                <div className="flex justify-end mb-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (showColFilters) {
+                    setColFilters({ customer: new Set(), governorate: new Set(), product: new Set(), qty: new Set(), total: new Set(), date: new Set(), status: new Set() });
+                  }
+                  setShowColFilters(v => !v);
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${showColFilters ? "border-destructive/50 text-destructive bg-destructive/5 hover:bg-destructive/10" : "border-primary/40 text-primary bg-primary/5 hover:bg-primary/10"}`}
+              >
+                <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill={showColFilters ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                {showColFilters ? "إلغاء الفلتر" : "إنشاء فلتر"}
+              </button>
+            </div>
+            <div className="overflow-x-auto">
                 <div dir="rtl" className="hidden md:grid grid-cols-[minmax(140px,1fr)_minmax(120px,1fr)_minmax(140px,1fr)_60px_90px_160px_90px_80px] min-w-[860px] gap-0 border-b-2 border-border bg-muted/20 text-[10px] font-bold text-muted-foreground tracking-wide
                   [&>*:not(:last-child)]:border-l [&>*]:border-border/30">
                   {/* ─── عمود العميل — checkbox + نص/سيرش ─── */}
@@ -3530,7 +3546,7 @@ export default function ShippingManifestPage() {
                     </div>
                     <div className="flex items-center justify-between w-full h-9 px-3">
                       <span className="font-bold">العميل</span>
-                      <ColFilterBtn col="customer" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />
+                      {showColFilters && <ColFilterBtn col="customer" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />}
                     </div>
                   </div>
                   {/* ─── عمود المحافظة / العنوان ─── */}
@@ -3541,7 +3557,7 @@ export default function ShippingManifestPage() {
                       </span>
                       المحافظة
                     </div>
-                    <ColFilterBtn col="governorate" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />
+                    {showColFilters && <ColFilterBtn col="governorate" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />}
                   </div>
                   {/* ─── عمود المنتج — نص ثابت ─── */}
                   <div className="flex items-center justify-between gap-1 px-3 h-9">
@@ -3551,17 +3567,17 @@ export default function ShippingManifestPage() {
                       </span>
                       المنتج
                     </div>
-                    <ColFilterBtn col="product" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />
+                    {showColFilters && <ColFilterBtn col="product" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />}
                   </div>
                   {/* ─── الكمية ─── */}
                   <div className="flex items-center justify-center gap-1 h-9">
                     الكمية
-                    <ColFilterBtn col="qty" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />
+                    {showColFilters && <ColFilterBtn col="qty" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />}
                   </div>
                   {/* ─── عمود الإجمالي ─── */}
                   <div className="flex items-center justify-between gap-1 px-3 h-9">
                     <span className="font-bold">الإجمالي</span>
-                    <ColFilterBtn col="total" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />
+                    {showColFilters && <ColFilterBtn col="total" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />}
                   </div>
                   {/* ─── حالة التسليم ─── */}
                   <div className="flex items-center gap-1 px-2 h-9">
@@ -3579,7 +3595,7 @@ export default function ShippingManifestPage() {
                         <ChevronDown className={`w-2.5 h-2.5 ${statusSort === "desc" ? "text-primary opacity-100" : ""}`} />
                       </span>
                     </button>
-                    <ColFilterBtn col="status" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />
+                    {showColFilters && <ColFilterBtn col="status" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />}
                   </div>
                   {/* ─── تاريخ الإضافة ─── */}
                   <div className="flex items-center justify-center gap-1 h-9 px-1">
@@ -3594,7 +3610,7 @@ export default function ShippingManifestPage() {
                         <ChevronDown className={`w-2.5 h-2.5 ${dateSort === "desc" ? "text-primary opacity-100" : ""}`} />
                       </span>
                     </button>
-                    <ColFilterBtn col="date" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />
+                    {showColFilters && <ColFilterBtn col="date" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />}
                   </div>
                   {/* ─── حالة الطلب ─── */}
                   <div className="flex items-center justify-center h-9 text-[9px] opacity-60 px-3">
