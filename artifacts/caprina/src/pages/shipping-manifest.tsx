@@ -3611,7 +3611,7 @@ export default function ShippingManifestPage() {
                       onClick={() => setDateSort(s => s === "none" ? "asc" : s === "asc" ? "desc" : "none")}
                       className={`flex items-center gap-1 hover:text-primary transition-colors group min-w-0 text-[9px] ${dateSort !== "none" ? "text-primary font-bold opacity-100" : "opacity-60"}`}
                     >
-                      <span className="shrink-0">الإضافة</span>
+                      <span className="shrink-0">تاريخ الإضافة</span>
                       <span className="flex flex-col gap-[1px] shrink-0 opacity-40 group-hover:opacity-80">
                         <ChevronUp   className={`w-2.5 h-2.5 ${dateSort === "asc"  ? "text-primary opacity-100" : ""}`} />
                         <ChevronDown className={`w-2.5 h-2.5 ${dateSort === "desc" ? "text-primary opacity-100" : ""}`} />
@@ -3619,9 +3619,9 @@ export default function ShippingManifestPage() {
                     </button>
                     <ColFilterBtn col="date" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} />
                   </div>
-                  {/* ─── إجراء ─── */}
+                  {/* ─── حالة الطلب ─── */}
                   <div className="flex items-center justify-center h-9 text-[9px] opacity-60 px-3">
-                    إجراء
+                    الحالة
                   </div>
                 </div>
                 {colFilteredGroups.length === 0 && (totalSearch || colFilterHasActive) ? (
