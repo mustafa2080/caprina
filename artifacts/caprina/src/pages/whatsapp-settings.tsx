@@ -73,6 +73,10 @@ export default function WhatsAppSettingsPage() {
     if (notifyTpl) setNotifyBody(notifyTpl.body);
   }, [notifyTpl?.id]);
 
+  useEffect(() => {
+    if (shippingTpl) setShippingBody(shippingTpl.body);
+  }, [shippingTpl?.id]);
+
   const handleSaveNotifyTemplate = async () => {
     setSavingNotify(true);
     try {
@@ -568,7 +572,9 @@ export default function WhatsAppSettingsPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {templates.map(tpl => (
+              {templates
+                .filter(tpl => tpl.name !== NOTIFY_TEMPLATE_NAME && tpl.name !== SHIPPING_TEMPLATE_NAME)
+                .map(tpl => (
                 <div key={tpl.id} className={`border rounded-lg p-4 ${tpl.isDefault ? "border-green-600/40 bg-green-500/5" : "border-border bg-card"}`}>
                   {editingId === tpl.id ? (
                     <div className="space-y-3">
