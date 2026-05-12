@@ -38,20 +38,22 @@ function buildShippingFollowupMessage(o: {
 }): string {
   const orderNum = o.id.toString().padStart(4, "0");
   const tracking = o.trackingNumber
-    ? `📦 رقم التتبع: *${o.trackingNumber}*\n`
+    ? `• رقم التتبع: *${o.trackingNumber}*\n`
     : "";
   const company = o.shippingCompany
-    ? `🚚 شركة الشحن: *${o.shippingCompany}*\n`
+    ? `• شركة الشحن: *${o.shippingCompany}*\n`
     : "";
   return (
-    `أهلاً يا ${o.customerName} 👋\n\n` +
-    `بنتابع معاكم أوردر رقم *#${orderNum}* من *CAPRINA* 🛍️\n` +
-    `📌 المنتج: *${o.product}*\n` +
+    `السلام عليكم يا ${o.customerName} 🌸\n\n` +
+    `بنتواصل معاكم من *CAPRINA* بخصوص طلبكم رقم *#${orderNum}* 🛍️\n\n` +
+    `*تفاصيل الطلب:*\n` +
+    `• المنتج: *${o.product}*\n` +
     `${company}` +
     `${tracking}` +
-    `⏳ الأوردر قيد الشحن منذ *${o.daysPending} يوم*\n\n` +
-    `هل وصلك الأوردر؟ لو في أي استفسار إحنا هنا! 😊\n\n` +
-    `شكراً لثقتك في CAPRINA ❤️`
+    `• مدة الشحن: *${o.daysPending} يوم*\n\n` +
+    `هل وصلكم الطلب بشكل سليم؟ 🤍\n` +
+    `لو عندكم أي استفسار إحنا دايماً هنا.\n\n` +
+    `شكراً لثقتكم في CAPRINA ❤️`
   );
 }
 
