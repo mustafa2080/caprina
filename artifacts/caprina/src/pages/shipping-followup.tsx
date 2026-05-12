@@ -1,13 +1,13 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Clock, AlertTriangle, Phone, Package, Truck, Link2, RefreshCw, Hash, MessageCircle } from "lucide-react";
-import { analyticsApi, ordersApi } from "@/lib/api";
+import { Clock, AlertTriangle, Phone, Package, Truck, Link2, RefreshCw, Hash, MessageCircle, CheckCircle2 } from "lucide-react";
+import { analyticsApi, ordersApi, apiFetch } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "wouter";
 import { useState } from "react";
-import { buildWhatsAppLink, formatEgyptianPhone } from "@/lib/whatsapp";
+import { buildWhatsAppLink, formatEgyptianPhone, applyShippingTemplate, type WaSettings } from "@/lib/whatsapp";
 
 const formatCurrency = (n: number) =>
   new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(n);
@@ -27,8 +27,8 @@ function urgencyLabel(days: number) {
   return "متأخر";
 }
 
-/** بتبني رسالة واتساب خاصة بمتابعة الشحن */
-function buildShippingFollowupMessage(o: {
+/** رسالة متابعة الشحن الافتراضية (fallback لو مفيش قالب) */
+function buildDefaultShippingMessage(o: {
   id: number;
   customerName: string;
   product: string;
@@ -37,19 +37,14 @@ function buildShippingFollowupMessage(o: {
   daysPending: number;
 }): string {
   const orderNum = o.id.toString().padStart(4, "0");
-  const tracking = o.trackingNumber
-    ? `• رقم التتبع: *${o.trackingNumber}*\n`
-    : "";
-  const company = o.shippingCompany
-    ? `• شركة الشحن: *${o.shippingCompany}*\n`
-    : "";
+  const tracking = o.trackingNumber ? `• رقم التتبع: *${o.trackingNumber}*\n` : "";
+  const company  = o.shippingCompany ? `• شركة الشحن: *${o.shippingCompany}*\n` : "";
   return (
     `السلام عليكم يا ${o.customerName},\n\n` +
     `بنتواصل معاكم من *CAPRINA* بخصوص طلبكم رقم *#${orderNum}*.\n\n` +
     `*تفاصيل الطلب:*\n` +
     `• المنتج: *${o.product}*\n` +
-    `${company}` +
-    `${tracking}` +
+    `${company}${tracking}` +
     `• مدة الشحن: *${o.daysPending} يوم*\n\n` +
     `هل وصلكم الطلب بشكل سليم؟\n` +
     `لو عندكم أي استفسار إحنا دايماً هنا.\n\n` +
@@ -57,10 +52,29 @@ function buildShippingFollowupMessage(o: {
   );
 }
 
+const FOLLOWED_KEY = "shippingFollowedUp";
+
 export default function ShippingFollowupPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
+
+  // تحميل الـ IDs اللي اتعملتلهم متابعة من localStorage
+  const [followedIds, setFollowedIds] = useState<Set<number>>(() => {
+    try {
+      const saved = localStorage.getItem(FOLLOWED_KEY);
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch { return new Set(); }
+  });
+
+  const markFollowed = (id: number) => {
+    setFollowedIds(prev => {
+      const next = new Set(prev);
+      next.add(id);
+      try { localStorage.setItem(FOLLOWED_KEY, JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  };
 
   const { data: orders = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ["shipping-followup"],
@@ -68,6 +82,14 @@ export default function ShippingFollowupPage() {
     staleTime: 2 * 60 * 1000,
     throwOnError: false,
   });
+
+  const { data: waSettings } = useQuery<WaSettings>({
+    queryKey: ["whatsapp-settings"],
+    queryFn: () => apiFetch<WaSettings>("/whatsapp/settings"),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const shippingTemplate = waSettings?.templates?.find(t => t.isDefault) ?? null;
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -147,7 +169,9 @@ export default function ShippingFollowupPage() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {orders.map((o: any) => (
+          {orders.map((o: any) => {
+            const isFollowed = followedIds.has(o.id);
+            return (
             <div
               key={o.id}
               className={`rounded-xl border p-4 space-y-3 ${urgencyColor(o.daysPending)}`}
@@ -161,6 +185,12 @@ export default function ShippingFollowupPage() {
                   >
                     {urgencyLabel(o.daysPending)} — {o.daysPending} يوم
                   </Badge>
+                  {isFollowed && (
+                    <Badge className="text-xs gap-1 bg-green-600/20 text-green-700 dark:text-green-400 border border-green-600/40">
+                      <CheckCircle2 className="h-3 w-3" />
+                      تم المتابعة
+                    </Badge>
+                  )}
                 </div>
                 <div className="flex items-center gap-1.5 flex-wrap justify-end">
                   <Link href={`/orders/${o.id}`}>
@@ -173,22 +203,37 @@ export default function ShippingFollowupPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-7 text-xs gap-1 border-green-600 text-green-700 bg-green-50 hover:bg-green-100 dark:border-green-500 dark:text-green-400 dark:bg-green-950/30 dark:hover:bg-green-900/40"
+                      className={`h-7 text-xs gap-1 ${
+                        isFollowed
+                          ? "border-green-700 text-green-800 bg-green-100 dark:border-green-600 dark:text-green-300 dark:bg-green-900/40"
+                          : "border-green-600 text-green-700 bg-green-50 hover:bg-green-100 dark:border-green-500 dark:text-green-400 dark:bg-green-950/30 dark:hover:bg-green-900/40"
+                      }`}
                       onClick={() => {
-                        const msg = buildShippingFollowupMessage({
-                          id: o.id,
-                          customerName: o.customerName,
-                          product: o.product,
-                          trackingNumber: o.trackingNumber,
-                          shippingCompany: o.shippingCompany,
-                          daysPending: o.daysPending,
-                        });
+                        const msg = shippingTemplate
+                          ? applyShippingTemplate(shippingTemplate.body, {
+                              id: o.id,
+                              customerName: o.customerName,
+                              product: o.product,
+                              trackingNumber: o.trackingNumber,
+                              shippingCompany: o.shippingCompany,
+                              daysPending: o.daysPending,
+                            })
+                          : buildDefaultShippingMessage({
+                              id: o.id,
+                              customerName: o.customerName,
+                              product: o.product,
+                              trackingNumber: o.trackingNumber,
+                              shippingCompany: o.shippingCompany,
+                              daysPending: o.daysPending,
+                            });
                         const link = buildWhatsAppLink(o.phone, msg);
                         window.open(link, "_blank", "noopener,noreferrer");
+                        markFollowed(o.id);
+                        toast({ title: "تم فتح واتساب", description: `تم تسجيل متابعة الأوردر #${o.id.toString().padStart(4,"0")}` });
                       }}
                     >
-                      <MessageCircle className="h-3 w-3" />
-                      متابعة الشحن مع العميل
+                      {isFollowed ? <CheckCircle2 className="h-3 w-3" /> : <MessageCircle className="h-3 w-3" />}
+                      {isFollowed ? "متابعة مرة أخرى" : "متابعة الشحن مع العميل"}
                     </Button>
                   )}
                 </div>
@@ -224,7 +269,8 @@ export default function ShippingFollowupPage() {
                 <span className="font-medium">{formatCurrency(o.totalPrice)}</span>
               </div>
             </div>
-          ))}
+          );
+          })}
         </div>
       )}
 

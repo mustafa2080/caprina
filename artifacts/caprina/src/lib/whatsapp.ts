@@ -20,6 +20,16 @@ export interface WhatsAppOrderData {
   phone?: string | null;
 }
 
+export interface WhatsAppShippingData {
+  id: number;
+  customerName: string;
+  product: string;
+  trackingNumber?: string | null;
+  shippingCompany?: string | null;
+  daysPending: number;
+  phone?: string | null;
+}
+
 export function formatEgyptianPhone(raw: string): string {
   const digits = raw.replace(/\D/g, "");
   if (digits.startsWith("002")) return `+${digits.slice(2)}`;
@@ -74,6 +84,19 @@ export function openWhatsApp(order: WhatsAppOrderData): boolean {
   return true;
 }
 
+export function applyShippingTemplate(templateBody: string, order: WhatsAppShippingData): string {
+  const orderNum = order.id.toString().padStart(4, "0");
+  const tracking = order.trackingNumber ?? "—";
+  const company  = order.shippingCompany ?? "—";
+  return templateBody
+    .replace(/\{customerName\}/g, order.customerName)
+    .replace(/\{orderNumber\}/g, orderNum)
+    .replace(/\{product\}/g, order.product)
+    .replace(/\{trackingNumber\}/g, tracking)
+    .replace(/\{shippingCompany\}/g, company)
+    .replace(/\{daysPending\}/g, String(order.daysPending));
+}
+
 export const TEMPLATE_VARIABLES = [
   { var: "{customerName}", label: "اسم العميل" },
   { var: "{orderNumber}", label: "رقم الأوردر" },
@@ -81,4 +104,13 @@ export const TEMPLATE_VARIABLES = [
   { var: "{quantity}", label: "الكمية" },
   { var: "{amount}", label: "المبلغ الإجمالي" },
   { var: "{status}", label: "حالة الأوردر" },
+];
+
+export const SHIPPING_TEMPLATE_VARIABLES = [
+  { var: "{customerName}", label: "اسم العميل" },
+  { var: "{orderNumber}", label: "رقم الأوردر" },
+  { var: "{product}", label: "المنتج" },
+  { var: "{shippingCompany}", label: "شركة الشحن" },
+  { var: "{trackingNumber}", label: "رقم التتبع" },
+  { var: "{daysPending}", label: "أيام الانتظار" },
 ];

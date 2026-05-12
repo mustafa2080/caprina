@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "@/lib/api";
-import { type WaSettings, type WaTemplate, TEMPLATE_VARIABLES } from "@/lib/whatsapp";
+import { type WaSettings, type WaTemplate, TEMPLATE_VARIABLES, SHIPPING_TEMPLATE_VARIABLES } from "@/lib/whatsapp";
 import { useAuth } from "@/contexts/AuthContext";
 
 const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
@@ -193,25 +193,48 @@ export default function WhatsAppSettingsPage() {
         <CardHeader className="pb-3">
           <CardTitle className="text-base">المتغيرات المتاحة في القوالب</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {TEMPLATE_VARIABLES.map(v => (
-              <button
-                key={v.var}
-                onClick={() => copyVar(v.var)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted/40 border border-border hover:border-primary text-xs transition-all"
-                title="انقر للنسخ"
-              >
-                <code className="text-primary font-mono">{v.var}</code>
-                <span className="text-muted-foreground">= {v.label}</span>
-                {copiedVar === v.var
-                  ? <Check className="w-3 h-3 text-green-500" />
-                  : <Copy className="w-3 h-3 text-muted-foreground" />
-                }
-              </button>
-            ))}
+        <CardContent className="space-y-4">
+          <div>
+            <p className="text-xs text-muted-foreground mb-2 font-medium">قوالب تأكيد الطلب:</p>
+            <div className="flex flex-wrap gap-2">
+              {TEMPLATE_VARIABLES.map(v => (
+                <button
+                  key={v.var}
+                  onClick={() => copyVar(v.var)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted/40 border border-border hover:border-primary text-xs transition-all"
+                  title="انقر للنسخ"
+                >
+                  <code className="text-primary font-mono">{v.var}</code>
+                  <span className="text-muted-foreground">= {v.label}</span>
+                  {copiedVar === v.var
+                    ? <Check className="w-3 h-3 text-green-500" />
+                    : <Copy className="w-3 h-3 text-muted-foreground" />
+                  }
+                </button>
+              ))}
+            </div>
           </div>
-          <p className="text-xs text-muted-foreground mt-2">انقر على أي متغير لنسخه ثم الصقه في القالب</p>
+          <div>
+            <p className="text-xs text-muted-foreground mb-2 font-medium">قوالب متابعة الشحن:</p>
+            <div className="flex flex-wrap gap-2">
+              {SHIPPING_TEMPLATE_VARIABLES.map(v => (
+                <button
+                  key={v.var}
+                  onClick={() => copyVar(v.var)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/30 hover:border-blue-500 text-xs transition-all"
+                  title="انقر للنسخ"
+                >
+                  <code className="text-blue-500 font-mono">{v.var}</code>
+                  <span className="text-muted-foreground">= {v.label}</span>
+                  {copiedVar === v.var
+                    ? <Check className="w-3 h-3 text-green-500" />
+                    : <Copy className="w-3 h-3 text-muted-foreground" />
+                  }
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">انقر على أي متغير لنسخه ثم الصقه في القالب</p>
         </CardContent>
       </Card>
 
