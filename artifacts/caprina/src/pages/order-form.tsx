@@ -308,6 +308,7 @@ function ProductItem({
     setValue(`items.${index}.color`, "");
     setValue(`items.${index}.size`, "");
     setValue(`items.${index}.unitPrice`, 0);
+    setValue(`items.${index}.costPrice`, null);
     const init = [{ color: "", size: "", quantity: 1 }];
     setVariantRows(init);
     onVariantRowsChange(index, init);
@@ -465,7 +466,7 @@ function ProductItem({
           </div>
 
           {/* Cost & profit (admin only) */}
-          {canViewFinancials && (
+          {canViewFinancials && productId && (
             <div className="space-y-2">
               <FormField control={control} name={`items.${index}.costPrice`} render={({ field }) => (
                 <FormItem>
