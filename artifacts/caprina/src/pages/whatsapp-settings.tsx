@@ -43,9 +43,31 @@ export default function WhatsAppSettingsPage() {
     `المندوب في طريقه إليك — يرجى الاستعداد للاستلام والدفع ✅\n\n` +
     `شكراً لثقتك في CAPRINA ❤️`;
 
+  // ─── قالب متابعة الشحن ──────────────────────────────────────────────────
+  const SHIPPING_TEMPLATE_NAME = "متابعة الشحن";
+  const DEFAULT_SHIPPING_BODY =
+    `السلام عليكم يا {customerName} 👋\n\n` +
+    `بنتواصل معاكم من *CAPRINA* بخصوص طلبكم رقم *#${"{orderNumber}"}*.\n\n` +
+    `*تفاصيل الطلب:*\n` +
+    `• المنتج: *{product}*\n` +
+    `• شركة الشحن: *{shippingCompany}*\n` +
+    `• رقم التتبع: *{trackingNumber}*\n` +
+    `• مدة الشحن: *{daysPending} يوم*\n\n` +
+    `هل وصلكم الطلب بشكل سليم؟ 📦\n` +
+    `لو عندكم أي استفسار إحنا دايماً هنا.\n\n` +
+    `شكراً لثقتكم في CAPRINA ❤️`;
+
+  const templates = settings?.templates ?? [];
+  const notifyTpl = templates.find(t => t.name === NOTIFY_TEMPLATE_NAME) ?? null;
+  const shippingTpl = templates.find(t => t.name === SHIPPING_TEMPLATE_NAME) ?? null;
+
   const [notifyBody, setNotifyBody] = useState(DEFAULT_NOTIFY_BODY);
   const [savingNotify, setSavingNotify] = useState(false);
   const [editingNotify, setEditingNotify] = useState(false);
+
+  const [shippingBody, setShippingBody] = useState(DEFAULT_SHIPPING_BODY);
+  const [savingShipping, setSavingShipping] = useState(false);
+  const [editingShipping, setEditingShipping] = useState(false);
 
   useEffect(() => {
     if (notifyTpl) setNotifyBody(notifyTpl.body);
@@ -75,32 +97,7 @@ export default function WhatsAppSettingsPage() {
     }
   };
 
-  // ─── قالب متابعة الشحن ──────────────────────────────────────────────────
-  const SHIPPING_TEMPLATE_NAME = "متابعة الشحن";
-  const DEFAULT_SHIPPING_BODY =
-    `السلام عليكم يا {customerName} 👋\n\n` +
-    `بنتواصل معاكم من *CAPRINA* بخصوص طلبكم رقم *#${"{orderNumber}"}*.\n\n` +
-    `*تفاصيل الطلب:*\n` +
-    `• المنتج: *{product}*\n` +
-    `• شركة الشحن: *{shippingCompany}*\n` +
-    `• رقم التتبع: *{trackingNumber}*\n` +
-    `• مدة الشحن: *{daysPending} يوم*\n\n` +
-    `هل وصلكم الطلب بشكل سليم؟ 📦\n` +
-    `لو عندكم أي استفسار إحنا دايماً هنا.\n\n` +
-    `شكراً لثقتكم في CAPRINA ❤️`;
 
-  const templates = settings?.templates ?? [];
-  const notifyTpl = templates.find(t => t.name === NOTIFY_TEMPLATE_NAME) ?? null;
-  const shippingTpl = templates.find(t => t.name === SHIPPING_TEMPLATE_NAME) ?? null;
-
-  const [shippingBody, setShippingBody] = useState(DEFAULT_SHIPPING_BODY);
-  const [savingShipping, setSavingShipping] = useState(false);
-  const [editingShipping, setEditingShipping] = useState(false);
-
-  // لما الـ settings تتحمل، حدّث الـ body بالقالب الموجود
-  useEffect(() => {
-    if (shippingTpl) setShippingBody(shippingTpl.body);
-  }, [shippingTpl?.id]);
 
   const handleSaveShippingTemplate = async () => {
     setSavingShipping(true);
