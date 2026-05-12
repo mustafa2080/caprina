@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { MessageCircle, Plus, Pencil, Trash2, Star, StarOff, Save, X, Phone, Info, Copy, Check } from "lucide-react";
+import { MessageCircle, Plus, Pencil, Trash2, Star, StarOff, Save, X, Phone, Info, Copy, Check, Truck } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,7 +33,57 @@ export default function WhatsAppSettingsPage() {
   const [newBody, setNewBody] = useState("");
   const [copiedVar, setCopiedVar] = useState<string | null>(null);
 
+  // ─── قالب متابعة الشحن ──────────────────────────────────────────────────
+  const SHIPPING_TEMPLATE_NAME = "متابعة الشحن";
+  const DEFAULT_SHIPPING_BODY =
+    `السلام عليكم يا {customerName} 👋\n\n` +
+    `بنتواصل معاكم من *CAPRINA* بخصوص طلبكم رقم *#${"{orderNumber}"}*.\n\n` +
+    `*تفاصيل الطلب:*\n` +
+    `• المنتج: *{product}*\n` +
+    `• شركة الشحن: *{shippingCompany}*\n` +
+    `• رقم التتبع: *{trackingNumber}*\n` +
+    `• مدة الشحن: *{daysPending} يوم*\n\n` +
+    `هل وصلكم الطلب بشكل سليم؟ 📦\n` +
+    `لو عندكم أي استفسار إحنا دايماً هنا.\n\n` +
+    `شكراً لثقتكم في CAPRINA ❤️`;
+
   const templates = settings?.templates ?? [];
+  const shippingTpl = templates.find(t => t.name === SHIPPING_TEMPLATE_NAME) ?? null;
+
+  const [shippingBody, setShippingBody] = useState(DEFAULT_SHIPPING_BODY);
+  const [savingShipping, setSavingShipping] = useState(false);
+  const [editingShipping, setEditingShipping] = useState(false);
+
+  // لما الـ settings تتحمل، حدّث الـ body بالقالب الموجود
+  useEffect(() => {
+    if (shippingTpl) setShippingBody(shippingTpl.body);
+  }, [shippingTpl?.id]);
+
+  const handleSaveShippingTemplate = async () => {
+    setSavingShipping(true);
+    try {
+      if (shippingTpl) {
+        // عدّل القالب الموجود
+        await apiFetch(`/whatsapp/templates/${shippingTpl.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ name: SHIPPING_TEMPLATE_NAME, body: shippingBody }),
+        });
+      } else {
+        // أضف قالب جديد
+        await apiFetch("/whatsapp/templates", {
+          method: "POST",
+          body: JSON.stringify({ name: SHIPPING_TEMPLATE_NAME, body: shippingBody }),
+        });
+      }
+      refresh();
+      setEditingShipping(false);
+      toast({ title: "تم حفظ قالب متابعة الشحن ✅" });
+    } catch {
+      toast({ title: "خطأ", description: "فشل حفظ القالب", variant: "destructive" });
+    } finally {
+      setSavingShipping(false);
+    }
+  };
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["whatsapp-settings"] });
 
@@ -235,6 +285,100 @@ export default function WhatsAppSettingsPage() {
             </div>
           </div>
           <p className="text-xs text-muted-foreground">انقر على أي متغير لنسخه ثم الصقه في القالب</p>
+        </CardContent>
+      </Card>
+
+      {/* ─── قالب متابعة الشحن ─────────────────────────────────────────────── */}
+      <Card className="border-blue-500/30 bg-blue-500/5">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Truck className="w-4 h-4 text-blue-500" />
+            قالب متابعة الشحن مع العميل
+            {shippingTpl && (
+              <Badge className="text-[10px] bg-blue-600/20 text-blue-400 border-blue-600/30 font-bold mr-auto">
+                محفوظ ✓
+              </Badge>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            هذه الرسالة تُستخدم تلقائياً في قسم <strong>متابعة الشحن</strong> عند الضغط على زر واتساب.
+            يمكنك تعديلها وحفظها، وستُطبَّق على جميع الطلبات المتأخرة.
+          </p>
+
+          {/* معاينة المتغيرات الخاصة */}
+          <div className="flex flex-wrap gap-1.5">
+            {SHIPPING_TEMPLATE_VARIABLES.map(v => (
+              <button
+                key={v.var}
+                onClick={() => copyVar(v.var)}
+                className="flex items-center gap-1 px-2 py-1 rounded bg-blue-500/10 border border-blue-500/30 hover:border-blue-500 text-xs transition-all"
+                title="انقر للنسخ"
+              >
+                <code className="text-blue-400 font-mono text-[10px]">{v.var}</code>
+                {copiedVar === v.var
+                  ? <Check className="w-2.5 h-2.5 text-green-500" />
+                  : <Copy className="w-2.5 h-2.5 text-muted-foreground" />
+                }
+              </button>
+            ))}
+          </div>
+
+          {editingShipping || !shippingTpl ? (
+            <div className="space-y-3">
+              <Textarea
+                value={shippingBody}
+                onChange={e => setShippingBody(e.target.value)}
+                className="bg-muted/20 text-sm min-h-[200px] resize-none font-[Cairo] leading-relaxed"
+                dir="rtl"
+                disabled={!isAdmin}
+              />
+              {isAdmin && (
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={handleSaveShippingTemplate}
+                    disabled={savingShipping}
+                    className="gap-1 h-8 bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    {savingShipping ? "جاري الحفظ..." : "حفظ القالب"}
+                  </Button>
+                  {shippingTpl && (
+                    <Button size="sm" variant="ghost" onClick={() => { setEditingShipping(false); setShippingBody(shippingTpl.body); }} className="h-8 gap-1">
+                      <X className="w-3.5 h-3.5" />إلغاء
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setShippingBody(DEFAULT_SHIPPING_BODY)}
+                    className="h-8 text-xs text-muted-foreground"
+                  >
+                    استعادة الافتراضي
+                  </Button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-[Cairo] leading-relaxed bg-muted/20 rounded-md p-3 border border-blue-500/20">
+                {shippingTpl.body}
+              </pre>
+              {isAdmin && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => { setEditingShipping(true); setShippingBody(shippingTpl.body); }}
+                  className="h-8 gap-1 text-xs border-blue-500/40 text-blue-400 hover:bg-blue-500/10"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                  تعديل القالب
+                </Button>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 

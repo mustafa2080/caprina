@@ -89,7 +89,10 @@ export default function ShippingFollowupPage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const shippingTemplate = waSettings?.templates?.find(t => t.isDefault) ?? null;
+  const shippingTemplate =
+    waSettings?.templates?.find(t => t.name === "متابعة الشحن") ??
+    waSettings?.templates?.find(t => t.isDefault) ??
+    null;
 
   const handleRefresh = async () => {
     setRefreshing(true);
