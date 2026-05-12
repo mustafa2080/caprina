@@ -73,6 +73,7 @@ function ProductSearchCombobox({ products, allVariants, onSelect }: {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const inStockProducts = useMemo(() => products.filter(p => {
     const variants = allVariants.filter(v => v.productId === p.id);
@@ -80,9 +81,10 @@ function ProductSearchCombobox({ products, allVariants, onSelect }: {
     return (p.totalQuantity ?? 0) > 0;
   }), [products, allVariants]);
 
+  // كل المنتجات مش بس 20 — مع فلتر البحث
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim();
-    return (q ? inStockProducts.filter(p => p.name?.toLowerCase().includes(q)) : inStockProducts).slice(0, 20);
+    return q ? inStockProducts.filter(p => p.name?.toLowerCase().includes(q)) : inStockProducts;
   }, [query, inStockProducts]);
 
   useEffect(() => {
@@ -90,6 +92,11 @@ function ProductSearchCombobox({ products, allVariants, onSelect }: {
     document.addEventListener("mousedown", fn);
     return () => document.removeEventListener("mousedown", fn);
   }, []);
+
+  // لما بيفتح الـ dropdown — focus على البحث تلقائي
+  useEffect(() => {
+    if (open) setTimeout(() => searchRef.current?.focus(), 50);
+  }, [open]);
 
   const getStock = (p: any) => {
     const variants = allVariants.filter(v => v.productId === p.id);
@@ -100,38 +107,67 @@ function ProductSearchCombobox({ products, allVariants, onSelect }: {
 
   return (
     <div ref={ref} className="relative">
-      <div className="relative">
-        <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-        <Input className="h-9 text-sm pr-8 bg-card" placeholder="ابحث عن منتج من المخزون..."
-          value={query} onChange={e => { setQuery(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)} />
-        {query && (
-          <button type="button" onClick={() => setQuery("")} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-            <X className="w-3.5 h-3.5" />
-          </button>
-        )}
-      </div>
+      {/* زرار لفتح الـ dropdown */}
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className="w-full h-9 flex items-center justify-between gap-2 px-3 rounded-md border border-input bg-card text-sm hover:bg-muted/40 transition-colors"
+      >
+        <span className="text-muted-foreground">اختر منتج من المخزون...</span>
+        <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {/* الـ dropdown */}
       {open && (
-        <div className="absolute z-50 mt-1 w-full bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
-          {filtered.length === 0 ? (
-            <div className="px-3 py-4 text-center text-sm text-muted-foreground">
-              {query ? "لا يوجد منتج بهذا الاسم في المخزون" : "لا توجد منتجات متاحة في المخزون"}
+        <div className="absolute z-50 mt-1 w-full bg-popover border border-border rounded-md shadow-xl">
+          {/* بحث داخل الـ dropdown */}
+          <div className="p-2 border-b border-border/50">
+            <div className="relative">
+              <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+              <input
+                ref={searchRef}
+                type="text"
+                className="w-full h-8 text-sm pr-8 pl-3 rounded-md border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                placeholder="ابحث بالاسم..."
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+              />
+              {query && (
+                <button type="button" onClick={() => setQuery("")} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                  <X className="w-3 h-3" />
+                </button>
+              )}
             </div>
-          ) : filtered.map(p => {
-            const stock = getStock(p);
-            return (
-              <button key={p.id} type="button"
-                className="w-full text-right flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-muted/50 transition-colors text-sm border-b border-border/30 last:border-0"
-                onClick={() => { onSelect(p); setQuery(""); setOpen(false); }}>
-                <div className="flex items-center gap-2 min-w-0">
-                  <Package className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                  <span className="font-medium truncate">{p.name}</span>
-                </div>
-                <Badge variant="outline" className={`text-[9px] font-bold shrink-0 ${stock > 0 ? "border-emerald-400 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400" : "border-red-400 text-red-600"}`}>
-                  {stock > 0 ? `${stock} متاح` : "نفد"}
-                </Badge>
-              </button>
-            );
-          })}
+          </div>
+
+          {/* القائمة scrollable */}
+          <div className="max-h-56 overflow-y-auto">
+            {filtered.length === 0 ? (
+              <div className="px-3 py-5 text-center text-sm text-muted-foreground">
+                {query ? "لا يوجد منتج بهذا الاسم" : "لا توجد منتجات متاحة في المخزون"}
+              </div>
+            ) : filtered.map(p => {
+              const stock = getStock(p);
+              return (
+                <button key={p.id} type="button"
+                  className="w-full text-right flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-muted/50 transition-colors text-sm border-b border-border/20 last:border-0"
+                  onClick={() => { onSelect(p); setQuery(""); setOpen(false); }}>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Package className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    <span className="font-medium truncate">{p.name}</span>
+                  </div>
+                  <Badge variant="outline" className={`text-[9px] font-bold shrink-0 ${stock > 0 ? "border-emerald-400 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400" : "border-red-400 text-red-600"}`}>
+                    {stock > 0 ? `${stock} متاح` : "نفد"}
+                  </Badge>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* عدد المنتجات */}
+          <div className="px-3 py-1.5 border-t border-border/30 text-[10px] text-muted-foreground text-center">
+            {filtered.length} منتج
+          </div>
         </div>
       )}
     </div>
