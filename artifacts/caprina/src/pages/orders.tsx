@@ -426,19 +426,33 @@ export default function Orders() {
     const templates = waSettings?.templates ?? [];
     const status = order.status;
 
-    // اختيار القالب بناءً على حالة الأوردر
-    const TEMPLATE_MAP: Record<string, string[]> = {
-      pending:         ["تأكيد الاوردر", "تأكيد الطلب", "تأكيد"],
-      warehouse_ready: ["اشعار الشحن", "إشعار الشحن", "جاهز للشحن"],
-      in_shipping:     ["متابعة الشحن"],
-      delayed:         ["متابعة بعد التأجيل", "تأجيل", "مؤجل"],
+    // اختيار القالب بناءً على حالة الأوردر — بالاسم بالظبط أو مطابقة مرنة
+    const TEMPLATE_NAMES: Record<string, string> = {
+      pending:         "تأكيد الأوردر",
+      warehouse_ready: "إشعار الشحن",
+      in_shipping:     "متابعة الشحن",
+      delayed:         "متابعة بعد التأجيل",
     };
 
-    const names = TEMPLATE_MAP[status] ?? [];
-    let tpl = names.length > 0
-      ? names.map(n => templates.find(t => t.name === n)).find(Boolean) ?? null
-      : null;
-    // fallback: الـ default أو أول قالب
+    const TEMPLATE_KEYWORDS: Record<string, string[]> = {
+      pending:         ["تأكيد"],
+      warehouse_ready: ["إشعار الشحن", "اشعار الشحن"],
+      in_shipping:     ["متابعة الشحن"],
+      delayed:         ["تأجيل", "مؤجل", "متابعة بعد"],
+    };
+
+    // أول حاجة: دور بالاسم بالظبط
+    const exactName = TEMPLATE_NAMES[status];
+    let tpl = exactName ? (templates.find(t => t.name === exactName) ?? null) : null;
+
+    // لو ملقوش بالاسم: دور بـ keywords
+    if (!tpl) {
+      const keywords = TEMPLATE_KEYWORDS[status] ?? [];
+      tpl = keywords.length > 0
+        ? templates.find(t => keywords.some(kw => t.name.includes(kw))) ?? null
+        : null;
+    }
+    // fallback عام: الـ default أو أول قالب
     if (!tpl) tpl = templates.find(t => t.isDefault) ?? templates[0] ?? null;
 
     let message = "";

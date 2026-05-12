@@ -33,6 +33,49 @@ export default function WhatsAppSettingsPage() {
   const [newBody, setNewBody] = useState("");
   const [copiedVar, setCopiedVar] = useState<string | null>(null);
 
+  // ─── قالب إشعار الشحن (warehouse_ready) ───────────────────────────────
+  const NOTIFY_TEMPLATE_NAME = "إشعار الشحن";
+  const DEFAULT_NOTIFY_BODY =
+    `أهلاً يا {customerName} 👋\n\n` +
+    `أوردرك رقم *#${"{orderNumber}"}* من *CAPRINA* خرج للشحن! 📦\n\n` +
+    `📌 المنتج: *{product}* × {quantity}\n` +
+    `💰 المبلغ: *{amount}*\n\n` +
+    `المندوب في طريقه إليك — يرجى الاستعداد للاستلام والدفع ✅\n\n` +
+    `شكراً لثقتك في CAPRINA ❤️`;
+
+  const notifyTpl = templates.find(t => t.name === NOTIFY_TEMPLATE_NAME) ?? null;
+  const [notifyBody, setNotifyBody] = useState(DEFAULT_NOTIFY_BODY);
+  const [savingNotify, setSavingNotify] = useState(false);
+  const [editingNotify, setEditingNotify] = useState(false);
+
+  useEffect(() => {
+    if (notifyTpl) setNotifyBody(notifyTpl.body);
+  }, [notifyTpl?.id]);
+
+  const handleSaveNotifyTemplate = async () => {
+    setSavingNotify(true);
+    try {
+      if (notifyTpl) {
+        await apiFetch(`/whatsapp/templates/${notifyTpl.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ name: NOTIFY_TEMPLATE_NAME, body: notifyBody }),
+        });
+      } else {
+        await apiFetch("/whatsapp/templates", {
+          method: "POST",
+          body: JSON.stringify({ name: NOTIFY_TEMPLATE_NAME, body: notifyBody }),
+        });
+      }
+      refresh();
+      setEditingNotify(false);
+      toast({ title: "تم حفظ قالب إشعار الشحن ✅" });
+    } catch {
+      toast({ title: "خطأ", description: "فشل حفظ القالب", variant: "destructive" });
+    } finally {
+      setSavingNotify(false);
+    }
+  };
+
   // ─── قالب متابعة الشحن ──────────────────────────────────────────────────
   const SHIPPING_TEMPLATE_NAME = "متابعة الشحن";
   const DEFAULT_SHIPPING_BODY =
@@ -285,6 +328,97 @@ export default function WhatsAppSettingsPage() {
             </div>
           </div>
           <p className="text-xs text-muted-foreground">انقر على أي متغير لنسخه ثم الصقه في القالب</p>
+        </CardContent>
+      </Card>
+
+      {/* ─── قالب إشعار الشحن (warehouse_ready) ──────────────────────────── */}
+      <Card className="border-teal-500/30 bg-teal-500/5">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Truck className="w-4 h-4 text-teal-500" />
+            قالب إشعار الشحن
+            {notifyTpl && (
+              <Badge className="text-[10px] bg-teal-600/20 text-teal-400 border-teal-600/30 font-bold mr-auto">
+                محفوظ ✓
+              </Badge>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            هذه الرسالة تُستخدم تلقائياً عند الضغط على زر واتساب لطلب بحالة <strong>«قيد الشحن في المخزن»</strong>.
+            تُرسل للعميل إشعاراً بأن طلبه خرج للشحن.
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {TEMPLATE_VARIABLES.map(v => (
+              <button
+                key={v.var}
+                onClick={() => copyVar(v.var)}
+                className="flex items-center gap-1 px-2 py-1 rounded bg-teal-500/10 border border-teal-500/30 hover:border-teal-500 text-xs transition-all"
+                title="انقر للنسخ"
+              >
+                <code className="text-teal-400 font-mono text-[10px]">{v.var}</code>
+                {copiedVar === v.var
+                  ? <Check className="w-2.5 h-2.5 text-green-500" />
+                  : <Copy className="w-2.5 h-2.5 text-muted-foreground" />
+                }
+              </button>
+            ))}
+          </div>
+          {editingNotify || !notifyTpl ? (
+            <div className="space-y-3">
+              <Textarea
+                value={notifyBody}
+                onChange={e => setNotifyBody(e.target.value)}
+                className="bg-muted/20 text-sm min-h-[160px] resize-none font-[Cairo] leading-relaxed"
+                dir="rtl"
+                disabled={!isAdmin}
+              />
+              {isAdmin && (
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={handleSaveNotifyTemplate}
+                    disabled={savingNotify}
+                    className="gap-1 h-8 bg-teal-600 hover:bg-teal-700 text-white"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    {savingNotify ? "جاري الحفظ..." : "حفظ القالب"}
+                  </Button>
+                  {notifyTpl && (
+                    <Button size="sm" variant="ghost" onClick={() => { setEditingNotify(false); setNotifyBody(notifyTpl.body); }} className="h-8 gap-1">
+                      <X className="w-3.5 h-3.5" />إلغاء
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setNotifyBody(DEFAULT_NOTIFY_BODY)}
+                    className="h-8 text-xs text-muted-foreground"
+                  >
+                    استعادة الافتراضي
+                  </Button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-[Cairo] leading-relaxed bg-muted/20 rounded-md p-3 border border-teal-500/20">
+                {notifyTpl.body}
+              </pre>
+              {isAdmin && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => { setEditingNotify(true); setNotifyBody(notifyTpl.body); }}
+                  className="h-8 gap-1 text-xs border-teal-500/40 text-teal-400 hover:bg-teal-500/10"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                  تعديل القالب
+                </Button>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
