@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, and, gte, lte } from "drizzle-orm";
+import { eq, desc, and, gte, lte, isNull } from "drizzle-orm";
 import { db, ordersTable, usersTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
 
@@ -29,7 +29,7 @@ router.get("/analytics/team-performance", async (req, res): Promise<void> => {
   const dateFrom = req.query.dateFrom as string | undefined;
   const dateTo = req.query.dateTo as string | undefined;
 
-  let conditions: any[] = [];
+  let conditions: any[] = [isNull(ordersTable.deletedAt)];
   if (dateFrom) conditions.push(gte(ordersTable.createdAt, new Date(dateFrom)));
   if (dateTo) {
     const to = new Date(dateTo);
@@ -40,7 +40,7 @@ router.get("/analytics/team-performance", async (req, res): Promise<void> => {
   const orders = await db
     .select()
     .from(ordersTable)
-    .where(conditions.length > 0 ? and(...conditions) : undefined);
+    .where(and(...conditions));
 
   const users = await db.select().from(usersTable);
   const userMap = new Map(users.map((u) => [u.id, u]));
@@ -102,9 +102,7 @@ router.get("/analytics/team-performance-extended", async (req, res): Promise<voi
   const dateFrom = req.query.dateFrom as string | undefined;
   const dateTo = req.query.dateTo as string | undefined;
 
-  let conditions: any[] = [
-    // exclude deleted
-  ];
+  let conditions: any[] = [isNull(ordersTable.deletedAt)];
   if (dateFrom) conditions.push(gte(ordersTable.createdAt, new Date(dateFrom)));
   if (dateTo) {
     const to = new Date(dateTo);
@@ -115,7 +113,7 @@ router.get("/analytics/team-performance-extended", async (req, res): Promise<voi
   const orders = await db
     .select()
     .from(ordersTable)
-    .where(conditions.length > 0 ? and(...conditions) : undefined);
+    .where(and(...conditions));
 
   const users = await db.select().from(usersTable);
   const userMap = new Map(users.map((u) => [u.id, u]));
@@ -252,7 +250,7 @@ router.get("/analytics/campaigns", async (req, res): Promise<void> => {
   const dateFrom = req.query.dateFrom as string | undefined;
   const dateTo = req.query.dateTo as string | undefined;
 
-  let conditions: any[] = [];
+  let conditions: any[] = [isNull(ordersTable.deletedAt)];
   if (dateFrom) conditions.push(gte(ordersTable.createdAt, new Date(dateFrom)));
   if (dateTo) {
     const to = new Date(dateTo);
@@ -263,7 +261,7 @@ router.get("/analytics/campaigns", async (req, res): Promise<void> => {
   const orders = await db
     .select()
     .from(ordersTable)
-    .where(conditions.length > 0 ? and(...conditions) : undefined);
+    .where(and(...conditions));
 
   // Aggregate per adSource + adCampaign
   type CampaignKey = string;
