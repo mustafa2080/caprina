@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { apiFetch as _apiFetch } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
@@ -49,8 +50,7 @@ const ALERT_STYLE: Record<string,{bg:string;border:string;icon:string;Icon:any}>
 };
 
 // ─── Utils ────────────────────────────────────────────────────────────────────
-const apiFetch = (url: string) =>
-  fetch(url, { credentials: "include" }).then(r => { if (!r.ok) throw new Error(); return r.json(); });
+const apiFetch = (url: string) => _apiFetch<any>(url.replace(/^\/api/, ""));
 
 const fmt  = (v:number) => Number(v).toLocaleString("ar-EG", {minimumFractionDigits:0, maximumFractionDigits:0});
 const fmtF = (v:number) => Number(v).toLocaleString("ar-EG", {minimumFractionDigits:2}) + " ج.م";

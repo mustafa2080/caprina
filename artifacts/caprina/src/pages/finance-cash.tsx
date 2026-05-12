@@ -17,11 +17,10 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { format, startOfMonth } from "date-fns";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { apiFetch as _apiFetch } from "@/lib/api";
 
 const apiFetch = async (url: string, options?: RequestInit) => {
-  const res = await fetch(url, { credentials: "include", ...options });
-  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error ?? "خطأ في الخادم"); }
-  return res.json();
+  return _apiFetch<any>(url.replace(/^\/api/, ""), options);
 };
 
 const fmt = (v: string | number) =>

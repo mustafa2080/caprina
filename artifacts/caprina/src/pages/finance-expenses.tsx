@@ -11,11 +11,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Receipt, Trash2, Wallet, Link } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { apiFetch } from "@/lib/api";
 
 const api = {
-  get: (url: string) => fetch(url, { credentials: "include" }).then(r => { if (!r.ok) throw new Error(r.statusText); return r.json(); }),
-  post: (url: string, body: any) => fetch(url, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(async r => { if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.error ?? r.statusText); } return r.json(); }),
-  del: (url: string) => fetch(url, { method: "DELETE", credentials: "include" }).then(r => { if (!r.ok) throw new Error(r.statusText); }),
+  get: (url: string) => apiFetch<any>(url.replace(/^\/api/, "")),
+  post: (url: string, body: any) => apiFetch<any>(url.replace(/^\/api/, ""), { method: "POST", body: JSON.stringify(body) }),
+  del: (url: string) => apiFetch<void>(url.replace(/^\/api/, ""), { method: "DELETE" }),
 };
 
 const EXPENSE_CATEGORIES = [

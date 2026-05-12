@@ -10,6 +10,7 @@ import { useState } from "react";
 import { format, startOfMonth } from "date-fns";
 import { Link } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
+import { apiFetch } from "@/lib/api";
 
 const fmt = (n: number) =>
   new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(n);
@@ -59,21 +60,13 @@ export default function FinanceDashboard() {
   // ── API: analytics (P&L + alerts + cashflow) ─────────────────────────────
   const { data: analytics, isLoading } = useQuery({
     queryKey: ["finance-analytics", from, to],
-    queryFn: async () => {
-      const res = await fetch(`/api/finance/analytics?from=${from}&to=${to}`, { credentials: "include" });
-      if (!res.ok) throw new Error("فشل تحميل البيانات");
-      return res.json();
-    },
+    queryFn: () => apiFetch<any>(`/finance/analytics?from=${from}&to=${to}`),
   });
 
   // ── API: رصيد الخزنة ─────────────────────────────────────────────────────
   const { data: cashData } = useQuery({
     queryKey: ["/api/cash-registers"],
-    queryFn: async () => {
-      const res = await fetch("/api/cash-registers", { credentials: "include" });
-      if (!res.ok) throw new Error();
-      return res.json();
-    },
+    queryFn: () => apiFetch<any>("/cash-registers"),
     enabled: isAdmin,
   });
 

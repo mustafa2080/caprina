@@ -8,12 +8,9 @@ import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, Legend, PieChart, Pie, Cell,
 } from "recharts";
+import { apiFetch as _apiFetch } from "@/lib/api";
 
-const apiFetch = async (url: string) => {
-  const res = await fetch(url, { credentials: "include" });
-  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error ?? "خطأ"); }
-  return res.json();
-};
+const apiFetch = (url: string) => _apiFetch<any>(url.replace(/^\/api/, ""));
 
 const fmt = (v: number) =>
   v >= 1000000 ? (v / 1000000).toFixed(2) + "م" :
