@@ -11,7 +11,8 @@ import Layout from "@/components/layout";
 
 // ─── Global Error Boundary ───────────────────────────────────────────────────
 interface EBState { hasError: boolean; errorMsg: string }
-class ErrorBoundary extends Component<{ children: ReactNode }, EBState> {
+interface EBProps { children: ReactNode; onRetry?: () => void }
+class ErrorBoundary extends Component<EBProps, EBState> {
   state: EBState = { hasError: false, errorMsg: "" };
   static getDerivedStateFromError(err: unknown): EBState {
     const msg = err instanceof Error ? err.message : String(err);
@@ -20,7 +21,8 @@ class ErrorBoundary extends Component<{ children: ReactNode }, EBState> {
   componentDidCatch(err: unknown) { console.error("[ErrorBoundary]", err); }
 
   handleRetry = () => {
-    // مسح الـ cache وإعادة المحاولة بدل ما نعمل reload كامل
+    // نعمل clear للـ query cache عشان ما يرجعش نفس الخطأ المخزن
+    this.props.onRetry?.();
     this.setState({ hasError: false, errorMsg: "" });
   };
 
@@ -96,8 +98,8 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 60_000,
       gcTime: 10 * 60_000,
-      retry: 3,                        // بدل 1 — بيحاول 3 مرات قبل ما يعتبرها error
-      retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 30_000), // exponential backoff
+      retry: 1,                        // محاولة واحدة إضافية بس — عشان ما يتأخرش في إظهار الخطأ
+      retryDelay: 2000,
       refetchOnWindowFocus: false,
       refetchOnReconnect: true,        // لما الانترنت يرجع يعمل refetch تلقائي
     },
@@ -279,7 +281,7 @@ function App() {
             <BrandProvider>
               <AuthProvider>
                 <AuthGuard>
-                  <ErrorBoundary>
+                  <ErrorBoundary onRetry={() => queryClient.clear()}>
                     <PermissionRefresher />
                     <Router />
                   </ErrorBoundary>

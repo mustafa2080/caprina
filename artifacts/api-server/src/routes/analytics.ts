@@ -1312,7 +1312,7 @@ router.get("/analytics/orders-by-status", requireAuth, async (req, res): Promise
 
 // ─── GET /api/analytics/shipping-followup ───────────────────────────────────
 // Returns in_shipping orders that have been pending for > 3 days
-router.get("/analytics/shipping-followup", async (_req, res): Promise<void> => {
+router.get("/analytics/shipping-followup", requireAuth, async (_req, res): Promise<void> => {
   const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
 
   const orders = await db

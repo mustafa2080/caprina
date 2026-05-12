@@ -31,10 +31,11 @@ export default function ShippingFollowupPage() {
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
 
-  const { data: orders = [], isLoading, refetch } = useQuery({
+  const { data: orders = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ["shipping-followup"],
     queryFn: analyticsApi.shippingFollowup,
     staleTime: 2 * 60 * 1000,
+    throwOnError: false,
   });
 
   const handleRefresh = async () => {
@@ -84,8 +85,23 @@ export default function ShippingFollowupPage() {
         </div>
       )}
 
+  {/* Error State */}
+      {isError && (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center h-48 gap-3 text-muted-foreground">
+            <AlertTriangle className="h-8 w-8 text-red-500" />
+            <p className="font-medium text-red-600">تعذّر تحميل البيانات</p>
+            <p className="text-xs text-center opacity-70">{error instanceof Error ? error.message : "خطأ في الاتصال بالسيرفر"}</p>
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
+              <RefreshCw className="h-3.5 w-3.5 ml-1.5" />
+              إعادة المحاولة
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Orders List */}
-      {isLoading ? (
+      {!isError && isLoading ? (
         <div className="flex flex-col items-center justify-center h-48 text-muted-foreground gap-3">
           <Truck className="h-8 w-8 animate-bounce" />
           <p className="text-sm">جاري التحميل...</p>
