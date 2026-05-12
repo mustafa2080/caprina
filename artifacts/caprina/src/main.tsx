@@ -14,26 +14,23 @@ if ("serviceWorker" in navigator) {
       .then((reg) => {
         console.info("[PWA] Service worker registered", reg.scope);
 
-        // لما يلاقي SW جديد — يحدث تلقائياً بدون ما المستخدم يعمل حاجة
+        // لما يلاقي SW جديد — لا نعمل reload تلقائي، نخلي المستخدم يقرر
         reg.addEventListener("updatefound", () => {
           const newWorker = reg.installing;
           if (!newWorker) return;
           newWorker.addEventListener("statechange", () => {
             if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
-              // فيه نسخة جديدة — قول للـ SW القديم يتنحى وحدث الصفحة
-              newWorker.postMessage({ type: "SKIP_WAITING" });
-              window.location.reload();
+              // فيه نسخة جديدة — نعلم المستخدم بس مش نعمل reload إجباري
+              console.info("[PWA] New version available — user can refresh manually");
+              // اختياري: ممكن تضيف toast هنا لو حابب تعلم المستخدم
             }
           });
         });
       })
       .catch((err) => console.warn("[PWA] SW registration failed:", err));
 
-    // لو الـ SW اتغير من تاب تاني — حدث
-    let refreshing = false;
-    navigator.serviceWorker.addEventListener("controllerchange", () => {
-      if (!refreshing) { refreshing = true; window.location.reload(); }
-    });
+    // إزالة الـ controllerchange auto-reload — كان بيسبب الـ reload التلقائي
+    // لو حابب تفعله تاني: navigator.serviceWorker.addEventListener("controllerchange", ...)
   });
 }
 

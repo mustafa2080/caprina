@@ -10,11 +10,20 @@ import { BrandLogoMark } from "@/components/brand-logo";
 import Layout from "@/components/layout";
 
 // ─── Global Error Boundary ───────────────────────────────────────────────────
-interface EBState { hasError: boolean }
+interface EBState { hasError: boolean; errorMsg: string }
 class ErrorBoundary extends Component<{ children: ReactNode }, EBState> {
-  state: EBState = { hasError: false };
-  static getDerivedStateFromError(): EBState { return { hasError: true }; }
+  state: EBState = { hasError: false, errorMsg: "" };
+  static getDerivedStateFromError(err: unknown): EBState {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { hasError: true, errorMsg: msg };
+  }
   componentDidCatch(err: unknown) { console.error("[ErrorBoundary]", err); }
+
+  handleRetry = () => {
+    // مسح الـ cache وإعادة المحاولة بدل ما نعمل reload كامل
+    this.setState({ hasError: false, errorMsg: "" });
+  };
+
   render() {
     if (!this.state.hasError) return this.props.children;
     return (
@@ -23,14 +32,22 @@ class ErrorBoundary extends Component<{ children: ReactNode }, EBState> {
           <div className="w-14 h-14 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center mx-auto text-2xl">⚠️</div>
           <div>
             <p className="font-black text-foreground text-lg">حدث خطأ غير متوقع</p>
-            <p className="text-muted-foreground text-sm mt-1">يرجى إعادة المحاولة. إذا استمر الخطأ، أعد تحميل الصفحة.</p>
+            <p className="text-muted-foreground text-sm mt-1">يرجى إعادة المحاولة.</p>
           </div>
-          <button
-            onClick={() => this.setState({ hasError: false })}
-            className="bg-primary text-primary-foreground px-5 py-2 rounded-lg text-sm font-bold hover:bg-primary/90 transition-colors"
-          >
-            حاول مرة أخرى
-          </button>
+          <div className="flex gap-2 justify-center">
+            <button
+              onClick={this.handleRetry}
+              className="bg-primary text-primary-foreground px-5 py-2 rounded-lg text-sm font-bold hover:bg-primary/90 transition-colors"
+            >
+              حاول مرة أخرى
+            </button>
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-muted text-foreground px-5 py-2 rounded-lg text-sm font-bold hover:bg-muted/80 transition-colors"
+            >
+              إعادة تحميل
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -78,9 +95,14 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 60_000,
-      gcTime: 5 * 60_000,
-      retry: 1,
+      gcTime: 10 * 60_000,
+      retry: 3,                        // بدل 1 — بيحاول 3 مرات قبل ما يعتبرها error
+      retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 30_000), // exponential backoff
       refetchOnWindowFocus: false,
+      refetchOnReconnect: true,        // لما الانترنت يرجع يعمل refetch تلقائي
+    },
+    mutations: {
+      retry: 1,
     },
   },
 });
