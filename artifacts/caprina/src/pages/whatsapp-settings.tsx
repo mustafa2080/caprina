@@ -43,7 +43,6 @@ export default function WhatsAppSettingsPage() {
     `المندوب في طريقه إليك — يرجى الاستعداد للاستلام والدفع ✅\n\n` +
     `شكراً لثقتك في CAPRINA ❤️`;
 
-  const notifyTpl = templates.find(t => t.name === NOTIFY_TEMPLATE_NAME) ?? null;
   const [notifyBody, setNotifyBody] = useState(DEFAULT_NOTIFY_BODY);
   const [savingNotify, setSavingNotify] = useState(false);
   const [editingNotify, setEditingNotify] = useState(false);
@@ -91,6 +90,7 @@ export default function WhatsAppSettingsPage() {
     `شكراً لثقتكم في CAPRINA ❤️`;
 
   const templates = settings?.templates ?? [];
+  const notifyTpl = templates.find(t => t.name === NOTIFY_TEMPLATE_NAME) ?? null;
   const shippingTpl = templates.find(t => t.name === SHIPPING_TEMPLATE_NAME) ?? null;
 
   const [shippingBody, setShippingBody] = useState(DEFAULT_SHIPPING_BODY);
