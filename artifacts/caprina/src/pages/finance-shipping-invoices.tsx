@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { apiFetch } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,10 +14,10 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
 const api = {
-  get: (url: string) => fetch(`/api${url}`, { credentials: "include" }).then(r => { if (!r.ok) throw new Error(r.statusText); return r.json(); }),
-  post: (url: string, body: any) => fetch(`/api${url}`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(r => { if (!r.ok) throw new Error(r.statusText); return r.json(); }),
-  patch: (url: string, body: any) => fetch(`/api${url}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(r => { if (!r.ok) throw new Error(r.statusText); return r.json(); }),
-  del: (url: string) => fetch(`/api${url}`, { method: "DELETE", credentials: "include" }).then(r => { if (!r.ok) throw new Error(r.statusText); }),
+  get: (url: string) => apiFetch<any>(url),
+  post: (url: string, body: any) => apiFetch<any>(url, { method: "POST", body: JSON.stringify(body) }),
+  patch: (url: string, body: any) => apiFetch<any>(url, { method: "PATCH", body: JSON.stringify(body) }),
+  del: (url: string) => apiFetch<void>(url, { method: "DELETE" }),
 };
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
