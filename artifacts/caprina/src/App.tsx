@@ -91,6 +91,7 @@ const FinanceExpenses       = lazy(() => import("@/pages/finance-expenses"));
 const FinanceShippingInvoices = lazy(() => import("@/pages/finance-shipping-invoices"));
 const FinanceCash           = lazy(() => import("@/pages/finance-cash"));
 const FinanceCashAnalytics  = lazy(() => import("@/pages/finance-cash-analytics"));
+const FinanceHub            = lazy(() => import("@/pages/finance-hub"));
 
 // ─── Global QueryClient with smart caching defaults ──────────────────────────
 const queryClient = new QueryClient({
@@ -256,7 +257,8 @@ function Router() {
           <Route path="/sessions-report"          component={() => <ProtectedRoute permission="users" component={SessionsReportPage} />} />
           <Route path="/export"                   component={() => <ProtectedRoute permission="import" component={ExportPage} />} />
           {/* Finance */}
-          <Route path="/finance"                  component={() => <ProtectedRoute permission="finance" component={FinanceDashboard} />} />
+          <Route path="/finance"                  component={() => <ProtectedRoute permission="finance" component={FinanceHub} />} />
+          <Route path="/finance/dashboard"        component={() => <ProtectedRoute permission="finance" component={FinanceDashboard} />} />
           <Route path="/finance/purchases"        component={() => <ProtectedRoute permission="finance" component={FinancePurchases} />} />
           <Route path="/finance/suppliers"        component={() => <ProtectedRoute permission="finance" component={FinanceSuppliers} />} />
           <Route path="/finance/expenses"         component={() => <ProtectedRoute permission="finance" component={FinanceExpenses} />} />

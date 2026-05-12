@@ -1,0 +1,615 @@
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
+import {
+  Wallet, TrendingUp, TrendingDown, ArrowRightLeft, Building2,
+  Star, AlertCircle, RefreshCw, Banknote, BarChart3, Receipt,
+  ShoppingCart, Truck, FileText, Activity, CheckCircle2,
+  Package, Clock, Info, ArrowLeft, Zap, Eye, ChevronRight,
+  DollarSign, ArrowUpCircle, ArrowDownCircle, PiggyBank,
+  ShieldAlert, Layers, CircleDot, Flame,
+} from "lucide-react";
+import {
+  AreaChart, Area, BarChart, Bar, LineChart, Line,
+  XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
+  PieChart, Pie, Cell, Legend, ComposedChart,
+} from "recharts";
+import { format, startOfMonth } from "date-fns";
+import { useAuth } from "@/contexts/AuthContext";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+
+// ─── Config ───────────────────────────────────────────────────────────────────
+const PIE_COLORS = ["#10b981","#f43f5e","#3b82f6","#f59e0b","#8b5cf6","#06b6d4","#ec4899","#84cc16","#f97316"];
+
+const MONTH_AR: Record<string,string> = {
+  "01":"يناير","02":"فبراير","03":"مارس","04":"أبريل","05":"مايو","06":"يونيو",
+  "07":"يوليو","08":"أغسطس","09":"سبتمبر","10":"أكتوبر","11":"نوفمبر","12":"ديسمبر",
+};
+
+const CAT_LABELS: Record<string,string> = {
+  shipping_fees:"مصاريف شحن", warehouse_rent:"إيجار مخزن", salary:"مرتبات",
+  marketing:"تسويق", packaging:"تغليف", utilities:"خدمات", maintenance:"صيانة",
+  returns_loss:"خسائر مرتجعات", other:"أخرى",
+};
+
+const TX_LABELS: Record<string,{label:string;credit:boolean}> = {
+  deposit:{label:"إيداع",credit:true}, withdrawal:{label:"سحب",credit:false},
+  order_collected:{label:"تحصيل طلب",credit:true}, shipping_transfer:{label:"تحويل شحن",credit:true},
+  cash_sale:{label:"مبيعات نقدية",credit:true}, expense_paid:{label:"دفع مصروف",credit:false},
+  purchase_paid:{label:"دفع مورد",credit:false}, transfer_in:{label:"تحويل وارد",credit:true},
+  transfer_out:{label:"تحويل صادر",credit:false},
+};
+
+const ALERT_STYLE: Record<string,{bg:string;border:string;icon:string;Icon:any}> = {
+  danger:  {bg:"bg-rose-500/8",  border:"border-rose-500/30",  icon:"text-rose-500",   Icon:ShieldAlert  },
+  warning: {bg:"bg-amber-500/8", border:"border-amber-500/30", icon:"text-amber-500",  Icon:AlertCircle  },
+  info:    {bg:"bg-sky-500/8",   border:"border-sky-500/30",   icon:"text-sky-500",    Icon:Info         },
+  success: {bg:"bg-emerald-500/8",border:"border-emerald-500/30",icon:"text-emerald-500",Icon:CheckCircle2},
+};
+
+// ─── Utils ────────────────────────────────────────────────────────────────────
+const apiFetch = (url: string) =>
+  fetch(url, { credentials: "include" }).then(r => { if (!r.ok) throw new Error(); return r.json(); });
+
+const fmt  = (v:number) => Number(v).toLocaleString("ar-EG", {minimumFractionDigits:0, maximumFractionDigits:0});
+const fmtF = (v:number) => Number(v).toLocaleString("ar-EG", {minimumFractionDigits:2}) + " ج.م";
+const fmtS = (v:number) => v >= 1_000_000 ? (v/1_000_000).toFixed(1)+"م" : v >= 1_000 ? (v/1_000).toFixed(1)+"k" : fmt(v);
+const pctColor = (v:number|null,inverse=false) => {
+  if (v===null) return "text-muted-foreground";
+  return (inverse ? v < 0 : v > 0) ? "text-emerald-500" : "text-rose-500";
+};
+
+// ─── Animated Counter ─────────────────────────────────────────────────────────
+function AnimNum({ value, prefix="", suffix="" }:{value:number;prefix?:string;suffix?:string}) {
+  const [display, setDisplay] = useState(0);
+  const ref = useRef(0);
+  useEffect(() => {
+    const start = ref.current; const diff = value - start;
+    const dur = 900; const t0 = performance.now();
+    const step = (now:number) => {
+      const t = Math.min((now-t0)/dur,1);
+      const ease = 1-Math.pow(1-t,3);
+      setDisplay(Math.round(start+diff*ease));
+      if (t<1) requestAnimationFrame(step); else ref.current=value;
+    };
+    requestAnimationFrame(step);
+  }, [value]);
+  return <>{prefix}{display.toLocaleString("ar-EG")}{suffix}</>;
+}
+
+// ─── KPI Card ─────────────────────────────────────────────────────────────────
+function KpiCard({label,value,sub,icon:Icon,color,bg,delta,link}:{
+  label:string;value:number;sub:string;icon:any;color:string;bg:string;delta?:number|null;link?:string
+}) {
+  const inner = (
+    <div className={`rounded-2xl border border-border bg-card p-5 relative overflow-hidden group hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-default ${link?"cursor-pointer":""}`}>
+      <div className={`absolute top-0 right-0 w-28 h-28 ${bg} rounded-full -translate-y-10 translate-x-10 opacity-25 group-hover:opacity-40 transition-opacity duration-300`}/>
+      <div className={`w-11 h-11 ${bg} rounded-xl flex items-center justify-center mb-4 shadow-sm`}>
+        <Icon className={`w-5 h-5 ${color}`}/>
+      </div>
+      <p className="text-xs text-muted-foreground mb-1 font-medium">{label}</p>
+      <p className={`text-2xl font-black ${color}`}>
+        <AnimNum value={Math.round(Math.abs(value))}/> <span className="text-xs font-normal text-muted-foreground">ج.م</span>
+      </p>
+      <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50">
+        <p className="text-xs text-muted-foreground">{sub}</p>
+        {delta!=null && (
+          <span className={`text-xs font-bold flex items-center gap-0.5 px-1.5 py-0.5 rounded-full ${delta>=0?"bg-emerald-500/10 text-emerald-600":"bg-rose-500/10 text-rose-500"}`}>
+            {delta>=0?<TrendingUp className="w-3 h-3"/>:<TrendingDown className="w-3 h-3"/>}
+            {Math.abs(delta)}%
+          </span>
+        )}
+      </div>
+    </div>
+  );
+  return link ? <Link href={link}>{inner}</Link> : inner;
+}
+
+// ─── Section Header ───────────────────────────────────────────────────────────
+function SectionHeader({icon:Icon,title,sub,link}:{icon:any;title:string;sub?:string;link?:string}) {
+  return (
+    <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center gap-2">
+        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+          <Icon className="w-4 h-4 text-primary"/>
+        </div>
+        <div>
+          <h2 className="text-sm font-bold">{title}</h2>
+          {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
+        </div>
+      </div>
+      {link && (
+        <Link href={link}>
+          <Button variant="ghost" size="sm" className="text-xs gap-1 h-7">
+            عرض الكل <ChevronRight className="w-3 h-3"/>
+          </Button>
+        </Link>
+      )}
+    </div>
+  );
+}
+
+// ─── Custom Tooltip ───────────────────────────────────────────────────────────
+function ChartTooltip({active,payload,label}:any) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-xl border border-border bg-card/95 backdrop-blur p-3 shadow-xl text-xs space-y-1.5">
+      <p className="font-bold text-muted-foreground">{label}</p>
+      {payload.map((p:any,i:number) => (
+        <div key={i} className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full" style={{background:p.color}}/>
+          <span>{p.name}: <strong>{fmtS(p.value)}</strong></span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Cash Flow Sankey ─────────────────────────────────────────────────────────
+function CashFlowMap({registers}:{registers:any[]}) {
+  const main     = registers.find(r => r.type === "main");
+  const branches = registers.filter(r => r.type !== "main");
+  const total    = registers.reduce((s,r) => s + r.balance, 0);
+  return (
+    <div className="space-y-3">
+      {branches.map(b => {
+        const pct = total > 0 ? Math.round((b.balance/total)*100) : 0;
+        return (
+          <div key={b.id} className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-3 group hover:border-blue-500/40 transition-all">
+            <div className="flex items-center justify-between mb-2">
+              <span className="flex items-center gap-1.5 text-xs font-semibold">
+                <Building2 className="w-3 h-3 text-blue-400"/>{b.name}
+                {b.lowBalanceThreshold && b.balance <= b.lowBalanceThreshold && (
+                  <span className="text-[10px] bg-rose-500/10 text-rose-500 px-1 rounded-full">منخفض!</span>
+                )}
+              </span>
+              <span className="text-xs text-blue-400 font-bold">{pct}%</span>
+            </div>
+            <p className="text-base font-black text-blue-500">{fmtF(b.balance)}</p>
+            <div className="mt-2 flex items-center justify-between text-[10px] text-muted-foreground">
+              <span>↑ دخل: {fmtS(b.monthlyIn)}</span>
+              <span>↓ خرج: {fmtS(b.monthlyOut)}</span>
+            </div>
+            <div className="mt-1.5 h-1 bg-blue-500/10 rounded-full overflow-hidden">
+              <div className="h-full bg-blue-500 rounded-full" style={{width:`${pct}%`,transition:"width 1.2s cubic-bezier(.4,0,.2,1)"}}/>
+            </div>
+          </div>
+        );
+      })}
+
+      {/* الخزنة الرئيسية */}
+      {main && (
+        <div className="rounded-xl border-2 border-yellow-500/40 bg-gradient-to-br from-yellow-500/10 to-amber-500/5 p-4 relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/5 to-transparent pointer-events-none"/>
+          <div className="flex items-center gap-2 mb-2">
+            <Star className="w-4 h-4 text-yellow-500 fill-yellow-500"/>
+            <span className="text-sm font-bold text-yellow-600">{main.name}</span>
+            <span className="text-[10px] bg-yellow-500/15 text-yellow-600 px-1.5 py-0.5 rounded-full">رئيسية</span>
+          </div>
+          <p className="text-2xl font-black text-yellow-500">{fmtF(main.balance)}</p>
+          <div className="mt-2 flex items-center justify-between text-[10px] text-muted-foreground">
+            <span>↑ دخل هذا الشهر: {fmtS(main.monthlyIn)}</span>
+            <span>↓ خرج هذا الشهر: {fmtS(main.monthlyOut)}</span>
+          </div>
+        </div>
+      )}
+      {registers.length === 0 && (
+        <div className="text-center py-8 text-muted-foreground text-sm">
+          <Wallet className="w-8 h-8 mx-auto mb-2 opacity-20"/>
+          لا توجد خزن مضافة بعد
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+export default function FinanceHub() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+
+  const [from, setFrom] = useState(format(startOfMonth(new Date()), "yyyy-MM-dd"));
+  const [to,   setTo]   = useState(format(new Date(), "yyyy-MM-dd"));
+
+  const { data, isLoading, refetch, isFetching } = useQuery({
+    queryKey: ["finance-hub", from, to],
+    queryFn: () => apiFetch(`/api/finance/hub?from=${from}&to=${to}`),
+    staleTime: 60_000,
+    refetchInterval: 300_000,
+  });
+
+  const pnl  = data?.pnl;
+  const cash = data?.cash;
+  const ords = data?.orders;
+  const alts = data?.alerts ?? [];
+  const expCat = data?.expByCategory ?? [];
+  const monthly: any[] = data?.monthlyChart ?? [];
+  const dailyFlow: any[] = data?.dailyFlow ?? [];
+  const recentTx: any[] = data?.recentTransactions ?? [];
+
+  const monthlyChartData = monthly.map(m => ({
+    ...m,
+    label: (() => {
+      const [, mon] = m.month.split("-");
+      return MONTH_AR[mon] ?? m.month;
+    })(),
+  }));
+
+  const dailyChartData = dailyFlow.map(d => ({
+    ...d,
+    label: new Date(d.day).toLocaleDateString("ar-EG", {day:"numeric", month:"numeric"}),
+  }));
+
+  // Pie chart للمصروفات
+  const pieData = expCat.slice(0,7).map((e:any) => ({
+    name: CAT_LABELS[e.category] ?? e.category,
+    value: e.total,
+  }));
+
+  const totalCash = cash?.totalBalance ?? 0;
+
+  return (
+    <div className="space-y-6 animate-in fade-in duration-500" dir="rtl">
+
+      {/* ── Header ──────────────────────────────────────────────────────────── */}
+      <div className="flex items-start justify-between flex-wrap gap-4">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg">
+              <Layers className="w-5 h-5 text-primary-foreground"/>
+            </div>
+            <h1 className="text-2xl font-black">مركز الماليات</h1>
+            {isFetching && <RefreshCw className="w-4 h-4 animate-spin text-muted-foreground"/>}
+          </div>
+          <p className="text-muted-foreground text-sm mr-11">لوحة تحكم مالية شاملة — أرباح · خزن · مصروفات · تحليلات</p>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 text-sm bg-card border border-border rounded-xl px-3 py-2">
+            <span className="text-muted-foreground text-xs">من</span>
+            <input type="date" className="bg-transparent text-sm outline-none w-32" value={from} onChange={e=>setFrom(e.target.value)}/>
+            <span className="text-muted-foreground text-xs">إلى</span>
+            <input type="date" className="bg-transparent text-sm outline-none w-32" value={to} onChange={e=>setTo(e.target.value)}/>
+          </div>
+          <Button variant="outline" size="sm" onClick={()=>refetch()} className="gap-1.5 h-9">
+            <RefreshCw className="w-3.5 h-3.5"/> تحديث
+          </Button>
+        </div>
+      </div>
+
+      {/* ── Smart Alerts ────────────────────────────────────────────────────── */}
+      {alts.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {alts.map((a:any, i:number) => {
+            const s = ALERT_STYLE[a.type] ?? ALERT_STYLE.info;
+            return (
+              <div key={i} className={`flex items-start gap-2.5 rounded-xl border ${s.border} ${s.bg} px-3.5 py-2.5 animate-in slide-in-from-top-1`} style={{animationDelay:`${i*50}ms`}}>
+                <s.Icon className={`w-4 h-4 mt-0.5 shrink-0 ${s.icon}`}/>
+                <div>
+                  <p className="text-xs font-semibold">{a.title}</p>
+                  <p className="text-[11px] text-muted-foreground">{a.detail}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── KPI Cards ───────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <KpiCard label="إجمالي الكاش" value={totalCash} sub={`${cash?.registers?.length ?? 0} خزنة نشطة`}
+          icon={Banknote} color="text-yellow-500" bg="bg-yellow-500/10"
+          link="/finance/cash"
+        />
+        <KpiCard label="الإيراد" value={pnl?.revenue ?? 0} sub={`${fmt(ords?.delivered ?? 0)} طلب مسلّم`}
+          icon={TrendingUp} color="text-emerald-500" bg="bg-emerald-500/10"
+          delta={pnl?.changes?.revenue}
+        />
+        <KpiCard label="صافي الربح" value={pnl?.netProfit ?? 0} sub={`هامش ${pnl?.netMargin ?? 0}%`}
+          icon={PiggyBank} color={pnl?.netProfit >= 0 ? "text-blue-500" : "text-rose-500"}
+          bg={pnl?.netProfit >= 0 ? "bg-blue-500/10" : "bg-rose-500/10"}
+          delta={pnl?.changes?.netProfit}
+        />
+        <KpiCard label="المصروفات" value={pnl?.expenses ?? 0} sub={`${expCat.length} فئة مصروفات`}
+          icon={Receipt} color="text-rose-500" bg="bg-rose-500/10"
+          delta={pnl?.changes?.expenses} link="/finance/expenses"
+        />
+      </div>
+
+
+      {/* ── Chart المبيعات والأرباح (آخر 6 شهور) ───────────────────────────── */}
+      <Card className="border-border p-5">
+        <SectionHeader icon={BarChart3} title="الإيرادات والأرباح — آخر 6 شهور" sub="مقارنة الإيراد والمصروفات وصافي الربح شهرياً"/>
+        {isLoading ? (
+          <div className="h-56 flex items-center justify-center text-muted-foreground text-sm">جاري التحميل...</div>
+        ) : monthlyChartData.length === 0 ? (
+          <div className="h-56 flex flex-col items-center justify-center text-muted-foreground">
+            <BarChart3 className="w-10 h-10 mb-2 opacity-20"/>
+            <p className="text-sm">لا توجد بيانات بعد — ستظهر هنا بمجرد تسجيل أول طلب أو مصروف</p>
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={220}>
+            <ComposedChart data={monthlyChartData} margin={{top:5,right:5,left:0,bottom:0}}>
+              <defs>
+                <linearGradient id="gradRev" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                </linearGradient>
+                <linearGradient id="gradExp" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.2}/>
+                  <stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4}/>
+              <XAxis dataKey="label" tick={{fontSize:10, fill:"hsl(var(--muted-foreground))"}} axisLine={false} tickLine={false}/>
+              <YAxis tick={{fontSize:10, fill:"hsl(var(--muted-foreground))"}} axisLine={false} tickLine={false} tickFormatter={v=>fmtS(v)} width={45}/>
+              <Tooltip content={<ChartTooltip/>}/>
+              <Area type="monotone" dataKey="revenue" name="الإيراد" stroke="#10b981" strokeWidth={2.5} fill="url(#gradRev)" dot={false}/>
+              <Area type="monotone" dataKey="expenses" name="المصروفات" stroke="#f43f5e" strokeWidth={2} fill="url(#gradExp)" dot={false}/>
+              <Line type="monotone" dataKey="profit" name="صافي الربح" stroke="#3b82f6" strokeWidth={2.5} dot={{r:3,fill:"#3b82f6"}} strokeDasharray="4 2"/>
+            </ComposedChart>
+          </ResponsiveContainer>
+        )}
+      </Card>
+
+      {/* ── Grid: تدفق يومي + خريطة الخزن ─────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+        {/* التدفق النقدي اليومي */}
+        <Card className="border-border p-5">
+          <SectionHeader icon={Activity} title="التدفق النقدي اليومي" sub="آخر 30 يوم" link="/finance/cash/analytics"/>
+          {isLoading ? (
+            <div className="h-44 flex items-center justify-center text-muted-foreground text-sm">جاري التحميل...</div>
+          ) : dailyChartData.length === 0 ? (
+            <div className="h-44 flex flex-col items-center justify-center text-muted-foreground">
+              <Activity className="w-8 h-8 mb-2 opacity-20"/>
+              <p className="text-xs text-center">لا توجد حركات خزنة بعد<br/>أضف خزنة وسجّل أول حركة</p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={176}>
+              <AreaChart data={dailyChartData} margin={{top:5,right:5,left:0,bottom:0}}>
+                <defs>
+                  <linearGradient id="gradIn" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.35}/>
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="gradOut" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.25}/>
+                    <stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3}/>
+                <XAxis dataKey="label" tick={{fontSize:9}} axisLine={false} tickLine={false} interval={4}/>
+                <YAxis tick={{fontSize:9}} axisLine={false} tickLine={false} tickFormatter={v=>fmtS(v)} width={38}/>
+                <Tooltip content={<ChartTooltip/>}/>
+                <Area type="monotone" dataKey="in" name="دخل" stroke="#10b981" strokeWidth={2} fill="url(#gradIn)"/>
+                <Area type="monotone" dataKey="out" name="خرج" stroke="#f43f5e" strokeWidth={1.5} fill="url(#gradOut)"/>
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+        </Card>
+
+        {/* خريطة الخزن */}
+        <Card className="border-border p-5">
+          <SectionHeader icon={Wallet} title="الخزنة وتدفق الأموال" sub={`إجمالي الكاش: ${fmtF(totalCash)}`} link="/finance/cash"/>
+          <CashFlowMap registers={cash?.registers ?? []}/>
+        </Card>
+      </div>
+
+
+      {/* ── Grid: P&L + مؤشرات الطلبات ─────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+        {/* P&L Statement */}
+        <Card className="border-border overflow-hidden lg:col-span-2">
+          <div className="px-5 py-4 border-b border-border bg-muted/30 flex items-center justify-between">
+            <SectionHeader icon={FileText} title="قائمة الأرباح والخسائر" sub="مقارنة بالفترة السابقة"/>
+          </div>
+          <div className="divide-y divide-border">
+            {[
+              {label:"الإيراد الإجمالي",  val:pnl?.revenue??0,      color:"text-emerald-500", sign:"+",Icon:DollarSign },
+              {label:"تكلفة البضاعة",     val:pnl?.cogs??0,          color:"text-orange-400",  sign:"−",Icon:Package    },
+              {label:"مصاريف الشحن",      val:pnl?.shipping??0,      color:"text-sky-400",     sign:"−",Icon:Truck      },
+              {label:"المصروفات التشغيلية",val:pnl?.expenses??0,     color:"text-rose-400",    sign:"−",Icon:Receipt    },
+            ].map(row => (
+              <div key={row.label} className="flex items-center justify-between px-5 py-3 hover:bg-muted/20 transition-colors">
+                <div className="flex items-center gap-2.5">
+                  <row.Icon className={`w-4 h-4 ${row.color}`}/>
+                  <p className="text-sm">{row.label}</p>
+                </div>
+                <p className={`text-sm font-bold ${row.color}`}>{isLoading?"...": `${row.sign} ${fmtF(row.val)}`}</p>
+              </div>
+            ))}
+            {/* مجمل الربح */}
+            <div className="flex items-center justify-between px-5 py-3 bg-blue-500/5">
+              <p className="text-sm font-semibold text-blue-500">مجمل الربح</p>
+              <div className="text-end">
+                <p className="text-sm font-bold text-blue-500">{isLoading?"...":fmtF(pnl?.grossProfit??0)}</p>
+                <p className="text-[11px] text-muted-foreground">هامش {pnl?.grossMargin??0}%</p>
+              </div>
+            </div>
+            {/* صافي الربح */}
+            <div className={`flex items-center justify-between px-5 py-4 ${(pnl?.netProfit??0)>=0?"bg-emerald-500/8":"bg-rose-500/8"}`}>
+              <div className="flex items-center gap-2">
+                {(pnl?.netProfit??0)>=0 ? <TrendingUp className="w-5 h-5 text-emerald-500"/> : <TrendingDown className="w-5 h-5 text-rose-500"/>}
+                <p className="font-bold">صافي الربح</p>
+              </div>
+              <div className="text-end">
+                <p className={`text-xl font-black ${(pnl?.netProfit??0)>=0?"text-emerald-500":"text-rose-500"}`}>
+                  {isLoading?"...":fmtF(pnl?.netProfit??0)}
+                </p>
+                <p className="text-xs text-muted-foreground">هامش {pnl?.netMargin??0}%</p>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        {/* مؤشرات الطلبات */}
+        <div className="space-y-3">
+          <SectionHeader icon={Package} title="مؤشرات الطلبات"/>
+          {[
+            {label:"إجمالي الطلبات", val:fmt(ords?.total??0), sub:"في الفترة المحددة", color:"text-foreground", bg:"bg-muted/50", Icon:Package},
+            {label:"طلبات مسلّمة",   val:fmt(ords?.delivered??0), sub:`نسبة ${ords?.deliveryRate??0}%`, color:"text-emerald-500", bg:"bg-emerald-500/10", Icon:CheckCircle2},
+            {label:"طلبات مرتجعة",  val:fmt(ords?.returned??0), sub:`نسبة ${ords?.returnRate??0}%`, color:"text-rose-500", bg:"bg-rose-500/10", Icon:RefreshCw},
+            {label:"قيد الشحن",     val:fmt(ords?.pending??0), sub:"لم يُحسم بعد", color:"text-sky-500", bg:"bg-sky-500/10", Icon:Truck},
+          ].map(item => (
+            <div key={item.label} className={`rounded-xl ${item.bg} border border-border p-3.5 flex items-center gap-3`}>
+              <div className={`w-9 h-9 rounded-lg ${item.bg} flex items-center justify-center shrink-0`}>
+                <item.Icon className={`w-4 h-4 ${item.color}`}/>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">{item.label}</p>
+                <p className={`text-xl font-black ${item.color}`}>{isLoading?"...":item.val}</p>
+                <p className="text-[11px] text-muted-foreground">{item.sub}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+
+      {/* ── Grid: توزيع المصروفات + آخر الحركات ────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+        {/* Pie: توزيع المصروفات */}
+        <Card className="border-border p-5">
+          <SectionHeader icon={Receipt} title="توزيع المصروفات" sub="بالفئة للفترة المحددة" link="/finance/expenses"/>
+          {isLoading ? (
+            <div className="h-52 flex items-center justify-center text-muted-foreground text-sm">جاري التحميل...</div>
+          ) : pieData.length === 0 ? (
+            <div className="h-52 flex flex-col items-center justify-center text-muted-foreground">
+              <Receipt className="w-8 h-8 mb-2 opacity-20"/>
+              <p className="text-xs text-center">لا توجد مصروفات بعد<br/>أضف أول مصروف من قسم المصروفات</p>
+            </div>
+          ) : (
+            <div className="flex items-center gap-4">
+              <ResponsiveContainer width="55%" height={180}>
+                <PieChart>
+                  <Pie data={pieData} cx="50%" cy="50%" innerRadius={45} outerRadius={80}
+                    paddingAngle={3} dataKey="value" isAnimationActive animationDuration={800}>
+                    {pieData.map((_:any, i:number) => <Cell key={i} fill={PIE_COLORS[i%PIE_COLORS.length]}/>)}
+                  </Pie>
+                  <Tooltip formatter={(v:number)=>[fmtF(v),"المبلغ"]}/>
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="flex-1 space-y-1.5 overflow-hidden">
+                {pieData.slice(0,6).map((e:any, i:number) => (
+                  <div key={i} className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-full shrink-0" style={{background:PIE_COLORS[i%PIE_COLORS.length]}}/>
+                    <span className="text-xs truncate flex-1">{e.name}</span>
+                    <span className="text-xs font-bold shrink-0">{fmtS(e.value)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </Card>
+
+        {/* آخر حركات الخزنة */}
+        <Card className="border-border p-5">
+          <SectionHeader icon={Clock} title="آخر الحركات النقدية" link="/finance/cash"/>
+          {isLoading ? (
+            <div className="h-52 flex items-center justify-center text-muted-foreground text-sm">جاري التحميل...</div>
+          ) : recentTx.length === 0 ? (
+            <div className="h-52 flex flex-col items-center justify-center text-muted-foreground">
+              <Clock className="w-8 h-8 mb-2 opacity-20"/>
+              <p className="text-xs text-center">لا توجد حركات بعد<br/>ستظهر هنا بعد أول حركة خزنة</p>
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-52 overflow-y-auto pr-1 scrollbar-thin">
+              {recentTx.map((tx:any, i:number) => {
+                const info = TX_LABELS[tx.type] ?? {label:tx.type, credit:true};
+                return (
+                  <div key={tx.id} className="flex items-center gap-2.5 py-2 border-b border-border/50 last:border-0 animate-in slide-in-from-right-1" style={{animationDelay:`${i*30}ms`}}>
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${info.credit?"bg-emerald-500/10":"bg-rose-500/10"}`}>
+                      {info.credit ? <ArrowUpCircle className="w-3.5 h-3.5 text-emerald-500"/> : <ArrowDownCircle className="w-3.5 h-3.5 text-rose-500"/>}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium truncate">{info.label}</p>
+                      <p className="text-[11px] text-muted-foreground truncate">{tx.description ?? "—"}</p>
+                    </div>
+                    <div className="text-end shrink-0">
+                      <p className={`text-xs font-bold ${info.credit?"text-emerald-500":"text-rose-500"}`}>
+                        {info.credit?"+":"−"}{fmtS(parseFloat(tx.amount??0))}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {new Date(tx.transactionDate).toLocaleDateString("ar-EG",{month:"numeric",day:"numeric"})}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Card>
+      </div>
+
+
+      {/* ── مستحقات + أوامر الشراء ──────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {/* مستحقات الشحن */}
+        <Link href="/finance/shipping-invoices">
+          <div className="rounded-2xl border border-sky-500/20 bg-sky-500/5 p-4 hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer group">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-9 h-9 rounded-xl bg-sky-500/10 flex items-center justify-center">
+                <Truck className="w-4 h-4 text-sky-500"/>
+              </div>
+              <div>
+                <p className="text-sm font-bold">مستحقات الشحن</p>
+                <p className="text-[11px] text-muted-foreground">فواتير غير مسددة</p>
+              </div>
+            </div>
+            <p className="text-2xl font-black text-sky-500">{isLoading?"...":fmtF(data?.unpaidShipping?.total??0)}</p>
+            <div className="flex items-center justify-between mt-1">
+              <p className="text-xs text-muted-foreground">{data?.unpaidShipping?.count??0} فاتورة</p>
+              {(data?.unpaidShipping?.overdueCount??0) > 0 && (
+                <span className="text-[11px] bg-rose-500/10 text-rose-500 px-1.5 py-0.5 rounded-full font-bold">
+                  {data?.unpaidShipping?.overdueCount} متأخرة!
+                </span>
+              )}
+            </div>
+          </div>
+        </Link>
+
+        {/* أوامر الشراء المعلقة */}
+        <Link href="/finance/purchases">
+          <div className="rounded-2xl border border-violet-500/20 bg-violet-500/5 p-4 hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer group">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-9 h-9 rounded-xl bg-violet-500/10 flex items-center justify-center">
+                <ShoppingCart className="w-4 h-4 text-violet-500"/>
+              </div>
+              <div>
+                <p className="text-sm font-bold">أوامر الشراء</p>
+                <p className="text-[11px] text-muted-foreground">معلقة وجارية</p>
+              </div>
+            </div>
+            <p className="text-2xl font-black text-violet-500">{isLoading?"...":fmtF(data?.pendingPurchases?.total??0)}</p>
+            <p className="text-xs text-muted-foreground mt-1">{data?.pendingPurchases?.count??0} أمر شراء</p>
+          </div>
+        </Link>
+
+        {/* روابط سريعة */}
+        <div className="rounded-2xl border border-border bg-card p-4">
+          <p className="text-xs font-bold text-muted-foreground mb-3">وصول سريع</p>
+          <div className="space-y-2">
+            {[
+              {href:"/finance/cash",              label:"الخزنة والحركات",    Icon:Wallet,       color:"text-yellow-500"},
+              {href:"/finance/expenses",          label:"إضافة مصروف",        Icon:Receipt,      color:"text-rose-500"},
+              {href:"/finance/suppliers",         label:"الموردون",           Icon:Building2,    color:"text-blue-500"},
+              {href:"/finance/cash/analytics",    label:"تحليلات الخزنة",     Icon:BarChart3,    color:"text-emerald-500"},
+            ].map(item => (
+              <Link key={item.href} href={item.href}>
+                <div className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer">
+                  <item.Icon className={`w-3.5 h-3.5 ${item.color}`}/>
+                  <span className="text-xs">{item.label}</span>
+                  <ArrowLeft className="w-3 h-3 text-muted-foreground/40 mr-auto"/>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </div>
+
+    </div>
+  );
+}

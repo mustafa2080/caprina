@@ -21,6 +21,7 @@ import whatsappRouter from "./whatsapp";
 import sessionsRouter from "./sessions";
 import financeSuppliersRouter from "./finance-suppliers";
 import financeOperationsRouter from "./finance-operations";
+import financeHubRouter from "./finance-hub";
 import { cashRegistersRouter } from "./cash-registers";
 import attendanceRouter from "./attendance";
 import { requireAuth } from "../middlewares/requireAuth.js";
@@ -53,6 +54,7 @@ router.use(whatsappRouter);
 router.use("/sessions", sessionsRouter);
 router.use(financeSuppliersRouter);
 router.use(financeOperationsRouter);
+router.use(financeHubRouter);
 router.use("/cash-registers", cashRegistersRouter);
 router.use(attendanceRouter);
 
