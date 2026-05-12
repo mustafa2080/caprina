@@ -6,6 +6,17 @@ import { requireAuth } from "../middlewares/requireAuth";
 const router: IRouter = Router();
 router.use(requireAuth);
 
+// Status priority for resolving invoice status when rows have mixed statuses
+const STATUS_PRIORITY: Record<string, number> = {
+  pending: 1, in_shipping: 2, warehouse_ready: 3, delayed: 4,
+  partial_received: 5, received: 6, returned: 7,
+};
+
+function resolveInvoiceStatus(statuses: string[]): string {
+  if (statuses.length === 1) return statuses[0];
+  return [...statuses].sort((a, b) => (STATUS_PRIORITY[a] ?? 99) - (STATUS_PRIORITY[b] ?? 99))[0];
+}
+
 function profitFromOrder(o: typeof ordersTable.$inferSelect): number {
   const qty =
     o.status === "partial_received" && o.partialQuantity
@@ -24,6 +35,53 @@ function profitFromOrder(o: typeof ordersTable.$inferSelect): number {
   return 0;
 }
 
+/**
+ * Group raw order rows into logical "invoices" (same invoiceNumber = 1 order).
+ * This matches the orders list page: invoice with 3 products = 1 order, not 3.
+ */
+function groupOrdersIntoInvoices(orders: (typeof ordersTable.$inferSelect)[]) {
+  const invoiceMap = new Map<string, {
+    createdByUserId: number | null;
+    statuses: string[];
+    createdAt: Date;
+    updatedAt: Date;
+    adSource: string | null;
+    adCampaign: string | null;
+    profit: number;
+  }>();
+
+  for (const o of orders) {
+    const key = o.invoiceNumber ?? `solo-${o.id}`;
+    if (!invoiceMap.has(key)) {
+      invoiceMap.set(key, {
+        createdByUserId: o.createdByUserId ?? null,
+        statuses: [],
+        createdAt: new Date(o.createdAt),
+        updatedAt: new Date(o.updatedAt),
+        adSource: o.adSource ?? null,
+        adCampaign: o.adCampaign ?? null,
+        profit: 0,
+      });
+    }
+    const inv = invoiceMap.get(key)!;
+    inv.statuses.push(o.status);
+    inv.profit += profitFromOrder(o);
+    const upd = new Date(o.updatedAt);
+    if (upd > inv.updatedAt) inv.updatedAt = upd;
+  }
+
+  return Array.from(invoiceMap.entries()).map(([key, inv]) => ({
+    invoiceKey: key,
+    createdByUserId: inv.createdByUserId,
+    status: resolveInvoiceStatus(inv.statuses),
+    createdAt: inv.createdAt,
+    updatedAt: inv.updatedAt,
+    adSource: inv.adSource,
+    adCampaign: inv.adCampaign,
+    profit: inv.profit,
+  }));
+}
+
 // ─── Team Performance ──────────────────────────────────────────────────────────
 router.get("/analytics/team-performance", async (req, res): Promise<void> => {
   const dateFrom = req.query.dateFrom as string | undefined;
@@ -37,56 +95,49 @@ router.get("/analytics/team-performance", async (req, res): Promise<void> => {
     conditions.push(lte(ordersTable.createdAt, to));
   }
 
-  const orders = await db
+  const rawOrders = await db
     .select()
     .from(ordersTable)
     .where(and(...conditions));
 
+  // Group into invoices so counts match the orders list page
+  const orders = groupOrdersIntoInvoices(rawOrders);
+
   const users = await db.select().from(usersTable);
   const userMap = new Map(users.map((u) => [u.id, u]));
 
-  // Aggregate per assignedUserId
-  const stats: Record<
-    number,
-    {
-      userId: number;
-      userName: string;
-      displayName: string;
-      total: number;
-      delivered: number;
-      returned: number;
-      pending: number;
-      profit: number;
-      deliveryRate: number;
-      returnRate: number;
-    }
-  > = {};
+  const stats: Record<number, {
+    userId: number;
+    userName: string;
+    displayName: string;
+    total: number;
+    delivered: number;
+    returned: number;
+    pending: number;
+    profit: number;
+    deliveryRate: number;
+    returnRate: number;
+  }> = {};
 
   for (const o of orders) {
-    const uid = o.createdByUserId ?? 0; // 0 = unassigned
+    const uid = o.createdByUserId ?? 0;
     if (!stats[uid]) {
       const user = uid ? userMap.get(uid) : null;
       stats[uid] = {
         userId: uid,
         userName: user?.username ?? "غير محدد",
         displayName: user?.displayName ?? "غير محدد",
-        total: 0,
-        delivered: 0,
-        returned: 0,
-        pending: 0,
-        profit: 0,
-        deliveryRate: 0,
-        returnRate: 0,
+        total: 0, delivered: 0, returned: 0, pending: 0,
+        profit: 0, deliveryRate: 0, returnRate: 0,
       };
     }
     stats[uid].total++;
     if (o.status === "received" || o.status === "partial_received") stats[uid].delivered++;
     else if (o.status === "returned") stats[uid].returned++;
     else stats[uid].pending++;
-    stats[uid].profit += profitFromOrder(o);
+    stats[uid].profit += o.profit;
   }
 
-  // Compute rates
   const result = Object.values(stats).map((s) => ({
     ...s,
     deliveryRate: s.total > 0 ? Math.round((s.delivered / s.total) * 100) : 0,
@@ -110,10 +161,13 @@ router.get("/analytics/team-performance-extended", async (req, res): Promise<voi
     conditions.push(lte(ordersTable.createdAt, to));
   }
 
-  const orders = await db
+  const rawOrders = await db
     .select()
     .from(ordersTable)
     .where(and(...conditions));
+
+  // Group into invoices so counts match the orders list page
+  const orders = groupOrdersIntoInvoices(rawOrders);
 
   const users = await db.select().from(usersTable);
   const userMap = new Map(users.map((u) => [u.id, u]));
@@ -129,13 +183,11 @@ router.get("/analytics/team-performance-extended", async (req, res): Promise<voi
     profit: number;
     deliveryRate: number;
     returnRate: number;
-    // Extended
-    avgProcessingHours: number | null; // avg hours from createdAt to updatedAt for delivered orders
+    avgProcessingHours: number | null;
     sourceCounts: Record<string, number>;
     topSource: string | null;
     ordersPerDay: number;
-    score: number; // gamified score
-    // internals
+    score: number;
     _processingHoursSum: number;
     _processingCount: number;
     _firstOrder: Date | null;
@@ -168,18 +220,15 @@ router.get("/analytics/team-performance-extended", async (req, res): Promise<voi
     const s = stats[uid];
     s.total++;
 
-    // Track date range for this user
     const oDate = new Date(o.createdAt);
     if (!s._firstOrder || oDate < s._firstOrder) s._firstOrder = oDate;
     if (!s._lastOrder || oDate > s._lastOrder) s._lastOrder = oDate;
 
-    // Source tracking
     const src = o.adSource ?? "organic";
     s.sourceCounts[src] = (s.sourceCounts[src] ?? 0) + 1;
 
     if (o.status === "received" || o.status === "partial_received") {
       s.delivered++;
-      // Processing time: createdAt → updatedAt
       const diffHours = (new Date(o.updatedAt).getTime() - new Date(o.createdAt).getTime()) / 3600000;
       if (diffHours >= 0) {
         s._processingHoursSum += diffHours;
@@ -190,33 +239,28 @@ router.get("/analytics/team-performance-extended", async (req, res): Promise<voi
     } else {
       s.pending++;
     }
-    s.profit += profitFromOrder(o);
+    s.profit += o.profit;
   }
 
   const result = Object.values(stats).map((s) => {
     const deliveryRate = s.total > 0 ? Math.round((s.delivered / s.total) * 100) : 0;
     const returnRate = s.total > 0 ? Math.round((s.returned / s.total) * 100) : 0;
-
-    // Avg processing hours
     const avgProcessingHours = s._processingCount > 0
       ? Math.round(s._processingHoursSum / s._processingCount)
       : null;
 
-    // Top source
     let topSource: string | null = null;
     let topCount = 0;
     for (const [src, cnt] of Object.entries(s.sourceCounts)) {
       if (cnt > topCount) { topCount = cnt; topSource = src; }
     }
 
-    // Orders per day
     let ordersPerDay = 0;
     if (s._firstOrder && s._lastOrder && s.total > 0) {
       const days = Math.max(1, Math.round((s._lastOrder.getTime() - s._firstOrder.getTime()) / 86400000) + 1);
       ordersPerDay = Math.round((s.total / days) * 10) / 10;
     }
 
-    // Score: delivery=3pts, profit bonus, speed bonus
     const score = (s.delivered * 3)
       + Math.max(0, Math.round(s.profit / 100))
       + (avgProcessingHours !== null && avgProcessingHours <= 24 ? s.delivered * 2 : 0)
@@ -258,29 +302,26 @@ router.get("/analytics/campaigns", async (req, res): Promise<void> => {
     conditions.push(lte(ordersTable.createdAt, to));
   }
 
-  const orders = await db
+  const rawOrders = await db
     .select()
     .from(ordersTable)
     .where(and(...conditions));
 
-  // Aggregate per adSource + adCampaign
+  // Group into invoices so counts match the orders list page
+  const orders = groupOrdersIntoInvoices(rawOrders);
+
   type CampaignKey = string;
-  const stats: Record<
-    CampaignKey,
-    {
-      adSource: string;
-      adCampaign: string | null;
-      total: number;
-      delivered: number;
-      returned: number;
-      pending: number;
-      revenue: number;
-      cost: number;
-      profit: number;
-      deliveryRate: number;
-      roi: number;
-    }
-  > = {};
+  const stats: Record<CampaignKey, {
+    adSource: string;
+    adCampaign: string | null;
+    total: number;
+    delivered: number;
+    returned: number;
+    pending: number;
+    profit: number;
+    deliveryRate: number;
+    roi: number;
+  }> = {};
 
   for (const o of orders) {
     const src = o.adSource ?? "organic";
@@ -289,43 +330,20 @@ router.get("/analytics/campaigns", async (req, res): Promise<void> => {
 
     if (!stats[key]) {
       stats[key] = {
-        adSource: src,
-        adCampaign: camp,
-        total: 0,
-        delivered: 0,
-        returned: 0,
-        pending: 0,
-        revenue: 0,
-        cost: 0,
-        profit: 0,
-        deliveryRate: 0,
-        roi: 0,
+        adSource: src, adCampaign: camp,
+        total: 0, delivered: 0, returned: 0, pending: 0,
+        profit: 0, deliveryRate: 0, roi: 0,
       };
     }
 
     const s = stats[key];
     s.total++;
-
-    const qty =
-      o.status === "partial_received" && o.partialQuantity
-        ? o.partialQuantity
-        : o.quantity;
-    const orderCost = (o.costPrice ?? 0) * qty + (o.shippingCost ?? 0);
-    const orderProfit = profitFromOrder(o);
+    s.profit += o.profit;
 
     if (o.status === "received" || o.status === "partial_received") {
       s.delivered++;
-      const revenue =
-        o.status === "partial_received" && o.partialQuantity
-          ? o.unitPrice * o.partialQuantity
-          : o.totalPrice;
-      s.revenue += revenue;
-      s.cost += orderCost;
-      s.profit += orderProfit;
     } else if (o.status === "returned") {
       s.returned++;
-      s.cost += orderCost;
-      s.profit += orderProfit;
     } else {
       s.pending++;
     }
@@ -334,7 +352,7 @@ router.get("/analytics/campaigns", async (req, res): Promise<void> => {
   const result = Object.values(stats).map((s) => ({
     ...s,
     deliveryRate: s.total > 0 ? Math.round((s.delivered / s.total) * 100) : 0,
-    roi: s.cost > 0 ? Math.round((s.profit / s.cost) * 100) : 0,
+    roi: 0, // ROI requires cost which isn't tracked at campaign level here
   }));
 
   result.sort((a, b) => b.profit - a.profit);
