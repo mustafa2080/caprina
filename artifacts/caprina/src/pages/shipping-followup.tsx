@@ -44,16 +44,16 @@ function buildShippingFollowupMessage(o: {
     ? `• شركة الشحن: *${o.shippingCompany}*\n`
     : "";
   return (
-    `السلام عليكم يا ${o.customerName} 🌸\n\n` +
-    `بنتواصل معاكم من *CAPRINA* بخصوص طلبكم رقم *#${orderNum}* 🛍️\n\n` +
+    `السلام عليكم يا ${o.customerName},\n\n` +
+    `بنتواصل معاكم من *CAPRINA* بخصوص طلبكم رقم *#${orderNum}*.\n\n` +
     `*تفاصيل الطلب:*\n` +
     `• المنتج: *${o.product}*\n` +
     `${company}` +
     `${tracking}` +
     `• مدة الشحن: *${o.daysPending} يوم*\n\n` +
-    `هل وصلكم الطلب بشكل سليم؟ 🤍\n` +
+    `هل وصلكم الطلب بشكل سليم؟\n` +
     `لو عندكم أي استفسار إحنا دايماً هنا.\n\n` +
-    `شكراً لثقتكم في CAPRINA ❤️`
+    `شكراً لثقتكم في CAPRINA`
   );
 }
 
