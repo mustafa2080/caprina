@@ -17,11 +17,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { returnReasonLabel } from "@/lib/order-constants";
-import { type WhatsAppOrderData } from "@/lib/whatsapp";
-import { WhatsAppDialog } from "@/components/whatsapp-dialog";
+import { type WhatsAppOrderData, type WaSettings, applyTemplate, applyShippingTemplate, buildWhatsAppLink } from "@/lib/whatsapp";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { ordersApi, shippingApi } from "@/lib/api";
+import { ordersApi, shippingApi, apiFetch } from "@/lib/api";
 
 // Local type alias – includes warehouse_ready which older generated types may omit
 type OrderStatusValue = "pending" | "warehouse_ready" | "in_shipping" | "received" | "delayed" | "returned" | "partial_received";
@@ -206,14 +205,19 @@ export default function Orders() {
   // canWriteOrders: أدمن أو عنده صلاحية orders_write
   const canWriteOrders = isAdmin || (user?.permissions?.includes("orders_write") ?? false);
   const updateOrder = useUpdateOrder();
-  const [waOrder, setWaOrder] = useState<WhatsAppOrderData | null>(null);
-  const waOrderRef = useRef<WhatsAppOrderData | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkSelectMode, setBulkSelectMode] = useState(false);
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [pendingBulkStatus, setPendingBulkStatus] = useState<string | null>(null);
+
+  // قالب واتساب — يتحمل مرة وبيستخدمه الـ handleWhatsApp مباشرة
+  const { data: waSettings } = useQuery<WaSettings>({
+    queryKey: ["whatsapp-settings"],
+    queryFn: () => apiFetch<WaSettings>("/whatsapp/settings"),
+    staleTime: 5 * 60 * 1000,
+  });
 
   const { data: orders, isLoading } = useQuery({
     queryKey: ["orders-list", debouncedSearch, status, dateFrom, dateTo, filterShippingCo],
@@ -414,19 +418,76 @@ export default function Orders() {
 
   const handleWhatsApp = (e: React.MouseEvent, order: NonNullable<typeof orders>[0]) => {
     e.stopPropagation();
-    const wa: WhatsAppOrderData = { id: order.id, customerName: order.customerName, product: order.product, quantity: order.quantity, totalPrice: order.totalPrice, status: order.status, phone: order.phone };
-    waOrderRef.current = wa;
-    setWaOrder(wa);
-  };
+    if (!order.phone) {
+      toast({ title: "لا يوجد رقم هاتف", description: "أضف رقم هاتف للعميل أولاً", variant: "destructive" });
+      return;
+    }
 
-  const handleWaSent = (orderId: number, currentStatus: string) => {
-    if (currentStatus === "pending") {
+    const templates = waSettings?.templates ?? [];
+    const status = order.status;
+
+    // اختيار القالب بناءً على حالة الأوردر
+    const TEMPLATE_MAP: Record<string, string[]> = {
+      pending:         ["تأكيد الاوردر", "تأكيد الطلب", "تأكيد"],
+      warehouse_ready: ["اشعار الشحن", "إشعار الشحن", "جاهز للشحن"],
+      in_shipping:     ["متابعة الشحن"],
+      delayed:         ["متابعة بعد التأجيل", "تأجيل", "مؤجل"],
+    };
+
+    const names = TEMPLATE_MAP[status] ?? [];
+    let tpl = names.length > 0
+      ? names.map(n => templates.find(t => t.name === n)).find(Boolean) ?? null
+      : null;
+    // fallback: الـ default أو أول قالب
+    if (!tpl) tpl = templates.find(t => t.isDefault) ?? templates[0] ?? null;
+
+    let message = "";
+    if (status === "in_shipping" && tpl) {
+      // استخدام applyShippingTemplate للحالة دي
+      message = applyShippingTemplate(tpl.body, {
+        id: order.id,
+        customerName: order.customerName,
+        product: order.product,
+        trackingNumber: (order as any).trackingNumber ?? null,
+        shippingCompany: (order as any).shippingCompany ?? null,
+        daysPending: (order as any).daysPending ?? 0,
+      });
+    } else if (tpl) {
+      message = applyTemplate(tpl.body, {
+        id: order.id,
+        customerName: order.customerName,
+        product: order.product,
+        quantity: order.quantity,
+        totalPrice: order.totalPrice,
+        status: order.status,
+        phone: order.phone,
+      });
+    }
+
+    if (!message) {
+      toast({ title: "لا يوجد قالب", description: "أضف قالب رسالة أولاً من إعدادات واتساب", variant: "destructive" });
+      return;
+    }
+
+    const link = buildWhatsAppLink(order.phone, message);
+    window.open(link, "_blank", "noopener,noreferrer");
+
+    // تغيير الحالة تلقائياً لو pending → warehouse_ready
+    if (status === "pending") {
       updateOrder.mutate(
-        { id: orderId, data: { status: "warehouse_ready" as UpdateOrderBodyStatus } },
-        { onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["orders-list"] }); toast({ title: "تم إرسال واتساب ✅", description: `تم تحويل الطلب #${orderId.toString().padStart(4,"0")} لـ «قيد الشحن في المخزن»` }); } }
+        { id: order.id, data: { status: "warehouse_ready" as UpdateOrderBodyStatus } },
+        { onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ["orders-list"] });
+          toast({ title: "تم فتح واتساب ✅", description: `تم تحويل الطلب #${order.id.toString().padStart(4,"0")} إلى «قيد الشحن في المخزن»` });
+        }}
       );
     } else {
-      toast({ title: "تم فتح واتساب ✅", description: "الرسالة جاهزة للإرسال" });
+      const statusMsg: Record<string, string> = {
+        warehouse_ready: "تم إرسال إشعار الشحن",
+        in_shipping:     "تم فتح متابعة الشحن",
+        delayed:         "تم فتح متابعة التأجيل",
+      };
+      toast({ title: "تم فتح واتساب ✅", description: statusMsg[status] ?? "الرسالة جاهزة للإرسال" });
     }
   };
 
@@ -852,16 +913,6 @@ export default function Orders() {
           {bulkSelectMode && selectedIds.size > 0 && ` — محدد: ${selectedInvoiceCount}`}
         </p>
       )}
-
-      <WhatsAppDialog
-        open={!!waOrder}
-        onOpenChange={open => { if (!open) setWaOrder(null); }}
-        order={waOrder}
-        onSent={() => {
-          const snap = waOrderRef.current;
-          if (snap) handleWaSent(snap.id, snap.status);
-        }}
-      />
 
       {/* تأكيد الحذف بالجملة */}
       <AlertDialog open={showBulkDeleteConfirm} onOpenChange={setShowBulkDeleteConfirm}>
