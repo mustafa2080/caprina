@@ -53,8 +53,16 @@ const DEFAULT_TEMPLATES: WaTemplate[] = [
 async function getTemplates(): Promise<WaTemplate[]> {
   const raw = await getSetting(KEY_TEMPLATES);
   if (!raw) return DEFAULT_TEMPLATES;
-  try { return JSON.parse(raw); }
+  let saved: WaTemplate[];
+  try { saved = JSON.parse(raw); }
   catch { return DEFAULT_TEMPLATES; }
+
+  // تأكد إن كل القوالب الافتراضية موجودة — لو مش موجودة أضفها تلقائياً
+  for (const def of DEFAULT_TEMPLATES) {
+    const exists = saved.some(t => t.name === def.name);
+    if (!exists) saved.push({ ...def });
+  }
+  return saved;
 }
 
 // GET /api/whatsapp/settings
