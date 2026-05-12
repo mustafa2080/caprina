@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Clock, AlertTriangle, Phone, Package, Truck, Link2, RefreshCw, Hash } from "lucide-react";
+import { Clock, AlertTriangle, Phone, Package, Truck, Link2, RefreshCw, Hash, MessageCircle } from "lucide-react";
 import { analyticsApi, ordersApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "wouter";
 import { useState } from "react";
+import { buildWhatsAppLink, formatEgyptianPhone } from "@/lib/whatsapp";
 
 const formatCurrency = (n: number) =>
   new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(n);
@@ -24,6 +25,34 @@ function urgencyLabel(days: number) {
   if (days >= 10) return "عاجل جداً";
   if (days >= 7)  return "عاجل";
   return "متأخر";
+}
+
+/** بتبني رسالة واتساب خاصة بمتابعة الشحن */
+function buildShippingFollowupMessage(o: {
+  id: number;
+  customerName: string;
+  product: string;
+  trackingNumber?: string | null;
+  shippingCompany?: string | null;
+  daysPending: number;
+}): string {
+  const orderNum = o.id.toString().padStart(4, "0");
+  const tracking = o.trackingNumber
+    ? `📦 رقم التتبع: *${o.trackingNumber}*\n`
+    : "";
+  const company = o.shippingCompany
+    ? `🚚 شركة الشحن: *${o.shippingCompany}*\n`
+    : "";
+  return (
+    `أهلاً يا ${o.customerName} 👋\n\n` +
+    `بنتابع معاكم أوردر رقم *#${orderNum}* من *CAPRINA* 🛍️\n` +
+    `📌 المنتج: *${o.product}*\n` +
+    `${company}` +
+    `${tracking}` +
+    `⏳ الأوردر قيد الشحن منذ *${o.daysPending} يوم*\n\n` +
+    `هل وصلك الأوردر؟ لو في أي استفسار إحنا هنا! 😊\n\n` +
+    `شكراً لثقتك في CAPRINA ❤️`
+  );
 }
 
 export default function ShippingFollowupPage() {
@@ -131,12 +160,36 @@ export default function ShippingFollowupPage() {
                     {urgencyLabel(o.daysPending)} — {o.daysPending} يوم
                   </Badge>
                 </div>
-                <Link href={`/orders/${o.id}`}>
-                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1 border-current bg-white/50 dark:bg-black/20">
-                    <Link2 className="h-3 w-3" />
-                    فتح الطلب
-                  </Button>
-                </Link>
+                <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                  <Link href={`/orders/${o.id}`}>
+                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1 border-current bg-white/50 dark:bg-black/20">
+                      <Link2 className="h-3 w-3" />
+                      فتح الطلب
+                    </Button>
+                  </Link>
+                  {o.phone && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs gap-1 border-green-600 text-green-700 bg-green-50 hover:bg-green-100 dark:border-green-500 dark:text-green-400 dark:bg-green-950/30 dark:hover:bg-green-900/40"
+                      onClick={() => {
+                        const msg = buildShippingFollowupMessage({
+                          id: o.id,
+                          customerName: o.customerName,
+                          product: o.product,
+                          trackingNumber: o.trackingNumber,
+                          shippingCompany: o.shippingCompany,
+                          daysPending: o.daysPending,
+                        });
+                        const link = buildWhatsAppLink(o.phone, msg);
+                        window.open(link, "_blank", "noopener,noreferrer");
+                      }}
+                    >
+                      <MessageCircle className="h-3 w-3" />
+                      متابعة الشحن مع العميل
+                    </Button>
+                  )}
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-x-4 gap-y-2">
