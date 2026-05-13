@@ -1,6 +1,10 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, and, sql } from "drizzle-orm";
-import { db, suppliersTable, purchaseOrdersTable, purchaseOrderItemsTable, cashRegistersTable, cashTransactionsTable } from "@workspace/db";
+import { eq, desc, and, sql, or, like } from "drizzle-orm";
+import {
+  db, suppliersTable, purchaseOrdersTable, purchaseOrderItemsTable,
+  cashRegistersTable, cashTransactionsTable,
+} from "@workspace/db";
+import ExcelJS from "exceljs";
 import { z } from "zod";
 
 const router: IRouter = Router();
@@ -45,11 +49,177 @@ const PurchaseOrderSchema = z.object({
 });
 
 // ── Suppliers CRUD ──────────────────────────────────────────────────────────
-router.get("/finance/suppliers", async (_req, res): Promise<void> => {
-  const suppliers = await db.select().from(suppliersTable).orderBy(desc(suppliersTable.createdAt));
+router.get("/finance/suppliers", async (req, res): Promise<void> => {
+  const { search, category } = req.query as Record<string, string>;
+  const conditions: any[] = [];
+  if (search?.trim()) {
+    const q = `%${search.trim()}%`;
+    conditions.push(
+      or(
+        like(suppliersTable.name, q),
+        like(suppliersTable.phone, q),
+        like(suppliersTable.email, q),
+      )
+    );
+  }
+  if (category?.trim() && category !== "all") {
+    conditions.push(eq(suppliersTable.category, category.trim()));
+  }
+  const suppliers = await db.select().from(suppliersTable)
+    .where(conditions.length ? and(...conditions) : undefined)
+    .orderBy(desc(suppliersTable.createdAt));
   res.json(suppliers);
 });
 
+// ── Export Suppliers Excel ──────────────────────────────────────────────────
+router.get("/finance/suppliers/export-excel", async (req, res): Promise<void> => {
+  const { search, category } = req.query as Record<string, string>;
+  const conditions: any[] = [];
+  if (search?.trim()) {
+    const q = `%${search.trim()}%`;
+    conditions.push(or(like(suppliersTable.name, q), like(suppliersTable.phone, q)));
+  }
+  if (category?.trim() && category !== "all") {
+    conditions.push(eq(suppliersTable.category, category.trim()));
+  }
+  const suppliers = await db.select().from(suppliersTable)
+    .where(conditions.length ? and(...conditions) : undefined)
+    .orderBy(desc(suppliersTable.createdAt));
+
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet("الموردون");
+  ws.views = [{ rightToLeft: true }];
+  ws.columns = [
+    { header: "#",          key: "id",       width: 6  },
+    { header: "الاسم",      key: "name",     width: 28 },
+    { header: "الفئة",      key: "category", width: 18 },
+    { header: "هاتف",       key: "phone",    width: 16 },
+    { header: "بريد",       key: "email",    width: 24 },
+    { header: "شروط الدفع", key: "terms",    width: 20 },
+    { header: "الرصيد",     key: "balance",  width: 14 },
+    { header: "الحالة",     key: "active",   width: 10 },
+  ];
+  ws.getRow(1).font = { bold: true, size: 11 };
+  ws.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE2E8F0" } };
+
+  const CATS: Record<string, string> = {
+    raw_materials: "خامات", products: "منتجات", packaging: "تغليف",
+    services: "خدمات", other: "أخرى",
+  };
+  suppliers.forEach(s => {
+    ws.addRow({
+      id: s.id, name: s.name,
+      category: CATS[s.category ?? ""] ?? s.category ?? "",
+      phone: s.phone ?? "", email: s.email ?? "",
+      terms: s.paymentTerms ?? "",
+      balance: parseFloat(s.balance ?? "0"),
+      active: s.isActive ? "نشط" : "غير نشط",
+    });
+  });
+
+  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  res.setHeader("Content-Disposition", `attachment; filename="suppliers.xlsx"`);
+  await wb.xlsx.write(res);
+  res.end();
+});
+
+
+// ── Supplier Statement (كشف حساب مورد) ─────────────────────────────────────
+router.get("/finance/suppliers/:id/statement", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id);
+  const { from, to } = req.query as Record<string, string>;
+
+  const [supplier] = await db.select().from(suppliersTable).where(eq(suppliersTable.id, id));
+  if (!supplier) { res.status(404).json({ error: "المورد غير موجود" }); return; }
+
+  // أوامر الشراء المرتبطة بالمورد
+  const conditions: any[] = [eq(purchaseOrdersTable.supplierId, id)];
+  if (from) conditions.push(sql`${purchaseOrdersTable.createdAt} >= ${new Date(from)}`);
+  if (to)   conditions.push(sql`${purchaseOrdersTable.createdAt} <= ${new Date(to + "T23:59:59")}`);
+
+  const orders = await db.select().from(purchaseOrdersTable)
+    .where(and(...conditions))
+    .orderBy(desc(purchaseOrdersTable.createdAt));
+
+  const totalOrders   = orders.length;
+  const totalAmount   = orders.reduce((s, o) => s + parseFloat(o.totalAmount ?? "0"), 0);
+  const totalPaid     = orders.reduce((s, o) => s + parseFloat(o.paidAmount  ?? "0"), 0);
+  const totalUnpaid   = totalAmount - totalPaid;
+
+  res.json({
+    supplier,
+    orders,
+    summary: { totalOrders, totalAmount, totalPaid, totalUnpaid },
+  });
+});
+
+// ── Supplier Statement Export Excel ────────────────────────────────────────
+router.get("/finance/suppliers/:id/statement/export-excel", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id);
+  const { from, to } = req.query as Record<string, string>;
+
+  const [supplier] = await db.select().from(suppliersTable).where(eq(suppliersTable.id, id));
+  if (!supplier) { res.status(404).json({ error: "المورد غير موجود" }); return; }
+
+  const conditions: any[] = [eq(purchaseOrdersTable.supplierId, id)];
+  if (from) conditions.push(sql`${purchaseOrdersTable.createdAt} >= ${new Date(from)}`);
+  if (to)   conditions.push(sql`${purchaseOrdersTable.createdAt} <= ${new Date(to + "T23:59:59")}`);
+
+  const orders = await db.select().from(purchaseOrdersTable)
+    .where(and(...conditions)).orderBy(desc(purchaseOrdersTable.createdAt));
+
+  const PAY_STATUS: Record<string, string> = { unpaid: "غير مدفوع", partial: "جزئي", paid: "مدفوع" };
+  const PO_STATUS: Record<string, string>  = {
+    draft: "مسودة", ordered: "مُرسَل", received: "مُستلَم",
+    partial_received: "مستلم جزئياً", cancelled: "ملغي",
+  };
+
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet("كشف حساب");
+  ws.views = [{ rightToLeft: true }];
+  ws.mergeCells("A1:H1");
+  ws.getCell("A1").value = `كشف حساب — ${supplier.name}`;
+  ws.getCell("A1").font = { bold: true, size: 14 };
+  ws.getCell("A1").alignment = { horizontal: "center" };
+
+  ws.addRow([]);
+  ws.columns = [
+    { header: "رقم الأمر",   key: "po",      width: 18 },
+    { header: "التاريخ",     key: "date",    width: 14 },
+    { header: "الحالة",      key: "status",  width: 16 },
+    { header: "الإجمالي",    key: "total",   width: 14 },
+    { header: "المدفوع",     key: "paid",    width: 14 },
+    { header: "المتبقي",     key: "due",     width: 14 },
+    { header: "حالة الدفع",  key: "payStatus", width: 14 },
+    { header: "ملاحظات",     key: "notes",   width: 28 },
+  ];
+  const hdrRow = ws.getRow(3);
+  hdrRow.font = { bold: true };
+  hdrRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE2E8F0" } };
+
+  orders.forEach(o => {
+    const total = parseFloat(o.totalAmount ?? "0");
+    const paid  = parseFloat(o.paidAmount  ?? "0");
+    ws.addRow({
+      po:        o.poNumber,
+      date:      o.createdAt ? new Date(o.createdAt).toLocaleDateString("ar-EG") : "",
+      status:    PO_STATUS[o.status ?? ""] ?? o.status ?? "",
+      total,
+      paid,
+      due:       total - paid,
+      payStatus: PAY_STATUS[o.paymentStatus ?? ""] ?? o.paymentStatus ?? "",
+      notes:     o.notes ?? "",
+    });
+  });
+
+  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  res.setHeader("Content-Disposition", `attachment; filename="supplier-statement-${id}.xlsx"`);
+  await wb.xlsx.write(res);
+  res.end();
+});
+
+
+// ── Suppliers CRUD (post / patch / delete) ─────────────────────────────────
 router.post("/finance/suppliers", async (req, res): Promise<void> => {
   const parsed = SupplierSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
@@ -76,6 +246,7 @@ router.delete("/finance/suppliers/:id", async (req, res): Promise<void> => {
   res.status(204).send();
 });
 
+
 // ── Purchase Orders ─────────────────────────────────────────────────────────
 router.get("/finance/purchases", async (_req, res): Promise<void> => {
   const orders = await db.select().from(purchaseOrdersTable).orderBy(desc(purchaseOrdersTable.createdAt));
@@ -99,21 +270,14 @@ router.post("/finance/purchases", async (req, res): Promise<void> => {
     + (orderData.shippingCost ?? 0) + (orderData.taxAmount ?? 0) - (orderData.discountAmount ?? 0);
   const poNumber = `PO-${Date.now()}`;
   const result = await db.insert(purchaseOrdersTable).values({
-    ...orderData,
-    poNumber,
-    totalAmount: String(totalAmount),
-    paidAmount: "0",
-    paymentStatus: "unpaid",
-    createdAt: now,
-    updatedAt: now,
+    ...orderData, poNumber, totalAmount: String(totalAmount),
+    paidAmount: "0", paymentStatus: "unpaid", createdAt: now, updatedAt: now,
   });
   const poId = (result as any)[0]?.insertId;
   for (const item of items) {
     await db.insert(purchaseOrderItemsTable).values({
-      purchaseOrderId: poId,
-      ...item,
-      receivedQuantity: 0,
-      totalCost: String(item.quantity * item.unitCost),
+      purchaseOrderId: poId, ...item,
+      receivedQuantity: 0, totalCost: String(item.quantity * item.unitCost),
     });
   }
   const [order] = await db.select().from(purchaseOrdersTable).where(eq(purchaseOrdersTable.id, poId));
@@ -121,132 +285,76 @@ router.post("/finance/purchases", async (req, res): Promise<void> => {
   res.status(201).json({ ...order, items: newItems });
 });
 
+
 router.patch("/finance/purchases/:id", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
   const { status, paymentStatus, paidAmount, notes } = req.body;
   const now = new Date();
 
-  // جيب الأمر قبل التعديل عشان نعرف الحالة السابقة
   const [orderBefore] = await db.select().from(purchaseOrdersTable).where(eq(purchaseOrdersTable.id, id));
   if (!orderBefore) { res.status(404).json({ error: "أمر الشراء مش موجود" }); return; }
 
-  // حدّث الأمر
   await db.update(purchaseOrdersTable)
     .set({ status, paymentStatus, paidAmount, notes, updatedAt: now })
     .where(eq(purchaseOrdersTable.id, id));
 
-  // ── خصم أو إرجاع من/للخزنة لو تغيرت حالة الدفع ─────────────────────────
   const prevPay = orderBefore.paymentStatus;
   const newPay  = paymentStatus ?? prevPay;
   const prevPaidAmount = parseFloat(orderBefore.paidAmount ?? "0");
-
-  // ── حالة الإرجاع: كان مدفوع (كلي أو جزئي) وبقى "غير مدفوع" ──────────────
   const shouldRefund = newPay === "unpaid" && prevPay !== "unpaid" && prevPaidAmount > 0;
-
-  // ── حالة الخصم: الحالة الجديدة مش "unpaid" ومفيش خصم كافي اتعمل قبل كده ──
-  const shouldDebit = newPay !== "unpaid" && (prevPay !== "paid" || prevPaidAmount === 0);
+  const shouldDebit  = newPay !== "unpaid" && (prevPay !== "paid" || prevPaidAmount === 0);
 
   if (shouldRefund) {
     try {
-      const registers = await db
-        .select().from(cashRegistersTable)
-        .where(eq(cashRegistersTable.isActive, true)).limit(10);
+      const registers = await db.select().from(cashRegistersTable).where(eq(cashRegistersTable.isActive, true)).limit(10);
       const mainReg = registers.find(r => r.type === "main") ?? registers[0] ?? null;
-
       if (mainReg) {
         const balBefore = parseFloat(mainReg.balance ?? "0");
         const balAfter  = balBefore + prevPaidAmount;
-
-        await db.update(cashRegistersTable)
-          .set({ balance: String(balAfter), updatedAt: now })
-          .where(eq(cashRegistersTable.id, mainReg.id));
-
+        await db.update(cashRegistersTable).set({ balance: String(balAfter), updatedAt: now }).where(eq(cashRegistersTable.id, mainReg.id));
         await db.insert(cashTransactionsTable).values({
-          registerId:      mainReg.id,
-          type:            "deposit",
-          amount:          String(prevPaidAmount),
-          balanceBefore:   String(balBefore),
-          balanceAfter:    String(balAfter),
+          registerId: mainReg.id, type: "deposit",
+          amount: String(prevPaidAmount), balanceBefore: String(balBefore), balanceAfter: String(balAfter),
           purchaseOrderId: id,
-          description:     `إرجاع دفع — أمر شراء ${orderBefore.poNumber} (تم إلغاء الدفع)`,
-          referenceNumber: orderBefore.poNumber,
-          transactionDate: now,
-          createdAt:       now,
+          description: `إرجاع دفع — أمر شراء ${orderBefore.poNumber} (تم إلغاء الدفع)`,
+          referenceNumber: orderBefore.poNumber, transactionDate: now, createdAt: now,
         });
-
-        // صفّر paidAmount في الأمر
-        await db.update(purchaseOrdersTable)
-          .set({ paidAmount: "0", updatedAt: now })
-          .where(eq(purchaseOrdersTable.id, id));
+        await db.update(purchaseOrdersTable).set({ paidAmount: "0", updatedAt: now }).where(eq(purchaseOrdersTable.id, id));
       }
     } catch (e) {
       console.error("[purchase PATCH] cash refund error:", e);
-      res.status(500).json({ error: "حدث خطأ أثناء إرجاع المبلغ للخزنة" });
-      return;
+      res.status(500).json({ error: "حدث خطأ أثناء إرجاع المبلغ للخزنة" }); return;
     }
   }
 
   if (shouldDebit) {
     try {
-      const total       = parseFloat(orderBefore.totalAmount ?? "0");
-      const alreadyPaid = parseFloat(orderBefore.paidAmount  ?? "0");
-
-      // لو paid → الإجمالي كامل | لو partial → المبلغ الجديد اللي بعتوه
-      const newPaidAmount = newPay === "paid"
-        ? total
-        : Math.min(parseFloat(paidAmount ?? "0"), total); // مينفعش يعدى الإجمالي
-
-      const toDebit = newPaidAmount - alreadyPaid;  // الفرق بس اللي محتاج يتخصم
-
+      const total = parseFloat(orderBefore.totalAmount ?? "0");
+      const alreadyPaid = parseFloat(orderBefore.paidAmount ?? "0");
+      const newPaidAmount = newPay === "paid" ? total : Math.min(parseFloat(paidAmount ?? "0"), total);
+      const toDebit = newPaidAmount - alreadyPaid;
       if (toDebit > 0) {
-        // جيب الخزنة الرئيسية، أو أي خزنة نشطة كـ fallback
-        const registers = await db
-          .select()
-          .from(cashRegistersTable)
-          .where(eq(cashRegistersTable.isActive, true))
-          .limit(10);
-
+        const registers = await db.select().from(cashRegistersTable).where(eq(cashRegistersTable.isActive, true)).limit(10);
         const mainReg = registers.find(r => r.type === "main") ?? registers[0] ?? null;
-
-        if (!mainReg) {
-          res.status(400).json({ error: "لا توجد خزنة — أنشئ خزنة أولاً لتسجيل الدفع" });
-          return;
-        }
-
+        if (!mainReg) { res.status(400).json({ error: "لا توجد خزنة — أنشئ خزنة أولاً لتسجيل الدفع" }); return; }
         const balBefore = parseFloat(mainReg.balance ?? "0");
         if (balBefore < toDebit) {
-          res.status(400).json({ error: `رصيد الخزنة الرئيسية مش كفاية — المتاح: ${balBefore.toLocaleString("ar-EG")} ج.م، المطلوب: ${toDebit.toLocaleString("ar-EG")} ج.م` });
-          return;
+          res.status(400).json({ error: `رصيد الخزنة مش كفاية — المتاح: ${balBefore.toLocaleString("ar-EG")} ج.م، المطلوب: ${toDebit.toLocaleString("ar-EG")} ج.م` }); return;
         }
-
         const balAfter = balBefore - toDebit;
-
-        await db.update(cashRegistersTable)
-          .set({ balance: String(balAfter), updatedAt: now })
-          .where(eq(cashRegistersTable.id, mainReg.id));
-
+        await db.update(cashRegistersTable).set({ balance: String(balAfter), updatedAt: now }).where(eq(cashRegistersTable.id, mainReg.id));
         await db.insert(cashTransactionsTable).values({
-          registerId:      mainReg.id,
-          type:            "purchase_paid",
-          amount:          String(toDebit),
-          balanceBefore:   String(balBefore),
-          balanceAfter:    String(balAfter),
+          registerId: mainReg.id, type: "purchase_paid",
+          amount: String(toDebit), balanceBefore: String(balBefore), balanceAfter: String(balAfter),
           purchaseOrderId: id,
-          description:     `دفع ${newPay === "paid" ? "كامل" : "جزئي"} — أمر شراء ${orderBefore.poNumber}`,
-          referenceNumber: orderBefore.poNumber,
-          transactionDate: now,
-          createdAt:       now,
+          description: `دفع ${newPay === "paid" ? "كامل" : "جزئي"} — أمر شراء ${orderBefore.poNumber}`,
+          referenceNumber: orderBefore.poNumber, transactionDate: now, createdAt: now,
         });
-
-        // حدّث paidAmount في الأمر بالقيمة الفعلية الجديدة
-        await db.update(purchaseOrdersTable)
-          .set({ paidAmount: String(newPaidAmount), updatedAt: now })
-          .where(eq(purchaseOrdersTable.id, id));
+        await db.update(purchaseOrdersTable).set({ paidAmount: String(newPaidAmount), updatedAt: now }).where(eq(purchaseOrdersTable.id, id));
       }
     } catch (e) {
       console.error("[purchase PATCH] cash debit error:", e);
-      res.status(500).json({ error: "حدث خطأ أثناء خصم المبلغ من الخزنة" });
-      return;
+      res.status(500).json({ error: "حدث خطأ أثناء خصم المبلغ من الخزنة" }); return;
     }
   }
 
