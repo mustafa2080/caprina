@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, ShoppingCart, Trash2, ChevronDown } from "lucide-react";
+import { Plus, ShoppingCart, Trash2, ChevronDown, Search, X, Filter } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { apiFetch } from "@/lib/api";
@@ -20,20 +20,21 @@ const api = {
 };
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  draft:            { label: "مسودة",          color: "bg-gray-100 text-gray-600 border-gray-300" },
-  ordered:          { label: "تم الطلب",        color: "bg-blue-50 text-blue-700 border-blue-300" },
-  received:         { label: "تم الاستلام",     color: "bg-emerald-50 text-emerald-700 border-emerald-300" },
-  partial_received: { label: "استلام جزئي",     color: "bg-purple-50 text-purple-700 border-purple-300" },
-  cancelled:        { label: "ملغي",            color: "bg-red-50 text-red-700 border-red-300" },
+  draft:            { label: "مسودة",        color: "bg-gray-100 text-gray-600 border-gray-300" },
+  ordered:          { label: "تم الطلب",      color: "bg-blue-50 text-blue-700 border-blue-300" },
+  received:         { label: "تم الاستلام",   color: "bg-emerald-50 text-emerald-700 border-emerald-300" },
+  partial_received: { label: "استلام جزئي",   color: "bg-purple-50 text-purple-700 border-purple-300" },
+  cancelled:        { label: "ملغي",          color: "bg-red-50 text-red-700 border-red-300" },
 };
 
 const PAY_LABELS: Record<string, { label: string; color: string }> = {
-  unpaid:  { label: "غير مدفوع", color: "text-rose-500" },
+  unpaid:  { label: "غير مدفوع",    color: "text-rose-500" },
   partial: { label: "مدفوع جزئياً", color: "text-amber-500" },
-  paid:    { label: "مدفوع بالكامل", color: "text-emerald-500" },
+  paid:    { label: "مدفوع بالكامل",color: "text-emerald-500" },
 };
 
-const fmt = (n: string | number) => new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(Number(n));
+const fmt = (n: string | number) =>
+  new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(Number(n));
 
 export default function FinancePurchases() {
   const qc = useQueryClient();
@@ -41,6 +42,14 @@ export default function FinancePurchases() {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState([{ productName: "", quantity: 1, unitCost: 0, color: "", size: "" }]);
   const [form, setForm] = useState({ supplierId: "", warehouseId: "", shippingCost: "0", taxAmount: "0", discountAmount: "0", notes: "", expectedDate: "" });
+
+  // ── فلاتر ────────────────────────────────────────────────────────────────
+  const [search,        setSearch]        = useState("");
+  const [filterPay,     setFilterPay]     = useState("all");
+  const [filterStatus,  setFilterStatus]  = useState("all");
+  const [filterDateFrom,setFilterDateFrom]= useState("");
+  const [filterDateTo,  setFilterDateTo]  = useState("");
+  const [filterSupplier,setFilterSupplier]= useState("all");
 
   // Dialog الدفع الجزئي
   const [partialDialog, setPartialDialog] = useState<{ open: boolean; poId: number; total: number; alreadyPaid: number } | null>(null);
@@ -55,25 +64,66 @@ export default function FinancePurchases() {
     queryFn: () => api.get("/finance/suppliers"),
   });
 
-  const addItem = () => setItems(prev => [...prev, { productName: "", quantity: 1, unitCost: 0, color: "", size: "" }]);
+  const addItem    = () => setItems(prev => [...prev, { productName: "", quantity: 1, unitCost: 0, color: "", size: "" }]);
   const removeItem = (i: number) => setItems(prev => prev.filter((_, idx) => idx !== i));
-  const updateItem = (i: number, key: string, val: any) => setItems(prev => prev.map((item, idx) => idx === i ? { ...item, [key]: val } : item));
+  const updateItem = (i: number, key: string, val: any) =>
+    setItems(prev => prev.map((item, idx) => idx === i ? { ...item, [key]: val } : item));
 
   const totalItems = items.reduce((s, i) => s + i.quantity * i.unitCost, 0);
   const grandTotal = totalItems + parseFloat(form.shippingCost || "0") + parseFloat(form.taxAmount || "0") - parseFloat(form.discountAmount || "0");
 
+  // ── منطق الفلترة ─────────────────────────────────────────────────────────
+  const filtered = useMemo(() => {
+    return purchases.filter(p => {
+      const supplierName = (suppliers.find((s: any) => s.id === p.supplierId)?.name ?? p.supplierName ?? "").toLowerCase();
+      const q = search.toLowerCase();
+      if (q && !p.poNumber?.toLowerCase().includes(q) && !supplierName.includes(q) && !p.notes?.toLowerCase().includes(q))
+        return false;
+      if (filterPay    !== "all" && p.paymentStatus !== filterPay)    return false;
+      if (filterStatus !== "all" && p.status        !== filterStatus) return false;
+      if (filterSupplier !== "all" && String(p.supplierId) !== filterSupplier && p.supplierName !== filterSupplier)
+        return false;
+      if (filterDateFrom) {
+        const d = new Date(p.createdAt); const from = new Date(filterDateFrom);
+        if (d < from) return false;
+      }
+      if (filterDateTo) {
+        const d = new Date(p.createdAt); const to = new Date(filterDateTo);
+        to.setHours(23, 59, 59);
+        if (d > to) return false;
+      }
+      return true;
+    });
+  }, [purchases, suppliers, search, filterPay, filterStatus, filterSupplier, filterDateFrom, filterDateTo]);
+
+  // ── ملخص الأرقام (بعد الفلترة) ───────────────────────────────────────────
+  const summary = useMemo(() => {
+    const total    = filtered.reduce((s, p) => s + parseFloat(p.totalAmount ?? "0"), 0);
+    const paid     = filtered.reduce((s, p) => s + parseFloat(p.paidAmount  ?? "0"), 0);
+    const unpaid   = total - paid;
+    return { count: filtered.length, total, paid, unpaid };
+  }, [filtered]);
+
+  const hasFilters = search || filterPay !== "all" || filterStatus !== "all" || filterSupplier !== "all" || filterDateFrom || filterDateTo;
+  const resetFilters = () => {
+    setSearch(""); setFilterPay("all"); setFilterStatus("all");
+    setFilterSupplier("all"); setFilterDateFrom(""); setFilterDateTo("");
+  };
+
   const save = useMutation({
     mutationFn: () => api.post("/finance/purchases", {
-      supplierId: form.supplierId ? parseInt(form.supplierId) : undefined,
-      warehouseId: form.warehouseId ? parseInt(form.warehouseId) : undefined,
-      shippingCost: parseFloat(form.shippingCost) || 0,
-      taxAmount: parseFloat(form.taxAmount) || 0,
+      supplierId:     form.supplierId  ? parseInt(form.supplierId)  : undefined,
+      warehouseId:    form.warehouseId ? parseInt(form.warehouseId) : undefined,
+      shippingCost:   parseFloat(form.shippingCost)   || 0,
+      taxAmount:      parseFloat(form.taxAmount)      || 0,
       discountAmount: parseFloat(form.discountAmount) || 0,
-      notes: form.notes,
-      expectedDate: form.expectedDate || undefined,
-      items,
+      notes: form.notes, expectedDate: form.expectedDate || undefined, items,
     }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["finance-purchases"] }); setOpen(false); toast({ title: "تم إنشاء أمر الشراء" }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["finance-purchases"] });
+      setOpen(false);
+      toast({ title: "تم إنشاء أمر الشراء" });
+    },
   });
 
   const updatePO = useMutation({
@@ -86,8 +136,7 @@ export default function FinancePurchases() {
       qc.invalidateQueries({ queryKey: ["finance-purchases"] });
       qc.invalidateQueries({ queryKey: ["/api/cash-registers"] });
       qc.invalidateQueries({ queryKey: ["/api/cash-registers/ledger"] });
-      setPartialDialog(null);
-      setPartialAmount("");
+      setPartialDialog(null); setPartialAmount("");
       toast({ title: "✅ تم تحديث الحالة" });
     },
     onError: (e: any) => toast({ title: "❌ خطأ", description: e.message, variant: "destructive" }),
@@ -95,17 +144,17 @@ export default function FinancePurchases() {
 
   const handlePaymentStatusChange = (p: any, val: string) => {
     if (val === "partial") {
-      // افتح dialog لإدخال المبلغ
       setPartialAmount(String(Math.round(parseFloat(p.totalAmount) / 2)));
       setPartialDialog({ open: true, poId: p.id, total: parseFloat(p.totalAmount), alreadyPaid: parseFloat(p.paidAmount ?? "0") });
     } else {
-      // paid أو unpaid — بعت مباشرة
       updatePO.mutate({ id: p.id, paymentStatus: val });
     }
   };
 
   return (
     <div className="space-y-5 animate-in fade-in duration-500" dir="rtl">
+
+      {/* ── Header ── */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold">أوامر الشراء</h1>
@@ -114,14 +163,122 @@ export default function FinancePurchases() {
         <Button onClick={() => setOpen(true)} className="gap-2"><Plus className="w-4 h-4" />أمر شراء جديد</Button>
       </div>
 
+      {/* ── كاردات الملخص ── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[
+          { label: "إجمالي الأوامر", value: summary.count, isCount: true, color: "text-primary" },
+          { label: "إجمالي المشتريات", value: summary.total, color: "text-primary" },
+          { label: "إجمالي المدفوع",   value: summary.paid,  color: "text-emerald-500" },
+          { label: "إجمالي المتبقي",   value: summary.unpaid,color: "text-rose-500" },
+        ].map(c => (
+          <Card key={c.label} className="p-3 border-border">
+            <p className="text-xs text-muted-foreground mb-1">{c.label}</p>
+            <p className={`font-black text-lg ${c.color}`}>
+              {c.isCount ? summary.count : fmt(c.value)}
+            </p>
+          </Card>
+        ))}
+      </div>
+
+      {/* ── شريط الفلاتر ── */}
+      <div className="space-y-2">
+        <div className="flex flex-wrap gap-2 items-center">
+          {/* بحث */}
+          <div className="relative flex-1 min-w-[180px]">
+            <Search className="absolute right-2.5 top-2 w-4 h-4 text-muted-foreground" />
+            <Input
+              className="h-8 text-sm pr-8"
+              placeholder="بحث برقم الأمر أو المورد..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+
+          {/* فلتر حالة الدفع */}
+          <Select value={filterPay} onValueChange={setFilterPay}>
+            <SelectTrigger className="h-8 text-xs w-[140px]">
+              <SelectValue placeholder="حالة الدفع" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">كل حالات الدفع</SelectItem>
+              {Object.entries(PAY_LABELS).map(([v, m]) => (
+                <SelectItem key={v} value={v}>{m.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* فلتر حالة الطلب */}
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger className="h-8 text-xs w-[140px]">
+              <SelectValue placeholder="حالة الطلب" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">كل الحالات</SelectItem>
+              {Object.entries(STATUS_LABELS).map(([v, m]) => (
+                <SelectItem key={v} value={v}>{m.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* فلتر المورد */}
+          <Select value={filterSupplier} onValueChange={setFilterSupplier}>
+            <SelectTrigger className="h-8 text-xs w-[140px]">
+              <SelectValue placeholder="المورد" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">كل الموردين</SelectItem>
+              {suppliers.map((s: any) => (
+                <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* زر مسح الفلاتر */}
+          {hasFilters && (
+            <Button size="sm" variant="ghost" className="h-8 text-xs gap-1 text-muted-foreground" onClick={resetFilters}>
+              <X className="w-3 h-3" /> مسح الفلاتر
+            </Button>
+          )}
+        </div>
+
+        {/* فلتر التاريخ */}
+        <div className="flex flex-wrap gap-2 items-center">
+          <Filter className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">من:</span>
+          <Input type="date" className="h-8 text-xs w-[140px]" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} />
+          <span className="text-xs text-muted-foreground">إلى:</span>
+          <Input type="date" className="h-8 text-xs w-[140px]" value={filterDateTo}   onChange={e => setFilterDateTo(e.target.value)} />
+          {(filterDateFrom || filterDateTo) && (
+            <button className="text-xs text-muted-foreground hover:text-foreground" onClick={() => { setFilterDateFrom(""); setFilterDateTo(""); }}>
+              <X className="w-3 h-3 inline" /> مسح التاريخ
+            </button>
+          )}
+        </div>
+
+        {/* عداد النتائج */}
+        {hasFilters && (
+          <p className="text-xs text-muted-foreground">
+            عرض {filtered.length} من {purchases.length} أمر
+          </p>
+        )}
+      </div>
+
+      {/* ── قائمة الأوامر ── */}
       {isLoading ? (
         <div className="p-8 text-center text-muted-foreground">جاري التحميل...</div>
+      ) : filtered.length === 0 ? (
+        <div className="p-10 text-center text-muted-foreground border border-dashed border-border rounded-lg">
+          <ShoppingCart className="w-8 h-8 mx-auto mb-2 opacity-30" />
+          <p className="text-sm">{hasFilters ? "لا توجد أوامر تطابق الفلاتر المحددة" : "لا توجد أوامر شراء بعد"}</p>
+        </div>
       ) : (
         <div className="space-y-3">
-          {purchases.map(p => {
+          {filtered.map(p => {
             const supplier = suppliers.find((s: any) => s.id === p.supplierId);
             const st = STATUS_LABELS[p.status] ?? { label: p.status, color: "" };
             const py = PAY_LABELS[p.paymentStatus] ?? { label: p.paymentStatus, color: "" };
+            const paidPct = parseFloat(p.totalAmount) > 0
+              ? Math.round((parseFloat(p.paidAmount ?? "0") / parseFloat(p.totalAmount)) * 100) : 0;
             return (
               <Card key={p.id} className="p-4 border-border">
                 <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -131,15 +288,15 @@ export default function FinancePurchases() {
                     </div>
                     <div>
                       <p className="font-bold text-sm">{p.poNumber}</p>
-                      <p className="text-xs text-muted-foreground">{supplier?.name ?? p.supplierName ?? "—"} · {format(new Date(p.createdAt), "yyyy/MM/dd")}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {supplier?.name ?? p.supplierName ?? "—"} · {format(new Date(p.createdAt), "yyyy/MM/dd")}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <Badge variant="outline" className={`text-[9px] border ${st.color}`}>{st.label}</Badge>
                     <span className={`text-[10px] font-bold ${py.color}`}>{py.label}</span>
                     <p className="font-black text-primary text-sm">{fmt(p.totalAmount)}</p>
-
-                    {/* تغيير حالة الطلب */}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button size="sm" variant="outline" className="h-7 text-xs gap-1 border-border" disabled={updatePO.isPending}>
@@ -148,21 +305,15 @@ export default function FinancePurchases() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-44">
                         {Object.entries(STATUS_LABELS).map(([val, meta]) => (
-                          <DropdownMenuItem
-                            key={val}
-                            className={p.status === val ? "font-bold bg-muted" : ""}
-                            onClick={() => updatePO.mutate({ id: p.id, status: val })}
-                          >
+                          <DropdownMenuItem key={val} className={p.status === val ? "font-bold bg-muted" : ""}
+                            onClick={() => updatePO.mutate({ id: p.id, status: val })}>
                             {p.status === val ? "✓ " : ""}{meta.label}
                           </DropdownMenuItem>
                         ))}
                         <DropdownMenuSeparator />
                         {Object.entries(PAY_LABELS).map(([val, meta]) => (
-                          <DropdownMenuItem
-                            key={val}
-                            className={p.paymentStatus === val ? "font-bold bg-muted" : ""}
-                            onClick={() => handlePaymentStatusChange(p, val)}
-                          >
+                          <DropdownMenuItem key={val} className={p.paymentStatus === val ? "font-bold bg-muted" : ""}
+                            onClick={() => handlePaymentStatusChange(p, val)}>
                             {p.paymentStatus === val ? "✓ " : ""}{meta.label}
                           </DropdownMenuItem>
                         ))}
@@ -170,6 +321,24 @@ export default function FinancePurchases() {
                     </DropdownMenu>
                   </div>
                 </div>
+
+                {/* شريط تقدم الدفع */}
+                {parseFloat(p.totalAmount) > 0 && p.paymentStatus !== "unpaid" && (
+                  <div className="mt-3">
+                    <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+                      <span>مدفوع: {fmt(p.paidAmount ?? 0)}</span>
+                      <span>{paidPct}%</span>
+                      <span>متبقي: {fmt(parseFloat(p.totalAmount) - parseFloat(p.paidAmount ?? "0"))}</span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${paidPct >= 100 ? "bg-emerald-500" : "bg-amber-500"}`}
+                        style={{ width: `${Math.min(paidPct, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
                 {p.notes && <p className="text-xs text-muted-foreground mt-2 border-t border-border pt-2">{p.notes}</p>}
               </Card>
             );
@@ -177,7 +346,7 @@ export default function FinancePurchases() {
         </div>
       )}
 
-      {/* Dialog الدفع الجزئي */}
+      {/* ── Dialog الدفع الجزئي ── */}
       {partialDialog && (
         <Dialog open={partialDialog.open} onOpenChange={() => { setPartialDialog(null); setPartialAmount(""); }}>
           <DialogContent className="bg-card border-border max-w-sm" dir="rtl">
@@ -192,29 +361,17 @@ export default function FinancePurchases() {
               </div>
               <div>
                 <Label className="text-xs mb-1 block">المبلغ المدفوع الآن (ج.م)</Label>
-                <Input
-                  type="number"
-                  className="h-10 text-base font-bold"
-                  value={partialAmount}
+                <Input type="number" className="h-10 text-base font-bold" value={partialAmount}
                   onChange={e => setPartialAmount(e.target.value)}
-                  min={1}
-                  max={partialDialog.total - partialDialog.alreadyPaid}
-                  autoFocus
-                />
+                  min={1} max={partialDialog.total - partialDialog.alreadyPaid} autoFocus />
                 <p className="text-xs text-muted-foreground mt-1">
-                  المبلغ الإجمالي الجديد المدفوع سيكون: {fmt(partialDialog.alreadyPaid + (parseFloat(partialAmount) || 0))}
+                  الإجمالي المدفوع سيكون: {fmt(partialDialog.alreadyPaid + (parseFloat(partialAmount) || 0))}
                 </p>
               </div>
               <div className="flex gap-2">
-                <Button
-                  className="flex-1 h-9 font-bold"
+                <Button className="flex-1 h-9 font-bold"
                   disabled={updatePO.isPending || !partialAmount || parseFloat(partialAmount) <= 0}
-                  onClick={() => updatePO.mutate({
-                    id: partialDialog.poId,
-                    paymentStatus: "partial",
-                    paidAmount: partialDialog.alreadyPaid + parseFloat(partialAmount),
-                  })}
-                >
+                  onClick={() => updatePO.mutate({ id: partialDialog.poId, paymentStatus: "partial", paidAmount: partialDialog.alreadyPaid + parseFloat(partialAmount) })}>
                   {updatePO.isPending ? "جاري الحفظ..." : "تأكيد الدفع"}
                 </Button>
                 <Button variant="outline" className="h-9 border-border" onClick={() => { setPartialDialog(null); setPartialAmount(""); }}>إلغاء</Button>
@@ -224,6 +381,7 @@ export default function FinancePurchases() {
         </Dialog>
       )}
 
+      {/* ── Dialog إنشاء أمر جديد ── */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="bg-card border-border max-w-2xl" dir="rtl">
           <DialogHeader><DialogTitle>أمر شراء جديد</DialogTitle></DialogHeader>
@@ -236,10 +394,11 @@ export default function FinancePurchases() {
                   <SelectContent>{suppliers.map((s: any) => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div><Label className="text-xs mb-1 block">تاريخ الاستلام المتوقع</Label><Input type="date" className="h-9 text-sm" value={form.expectedDate} onChange={e => setForm(f => ({ ...f, expectedDate: e.target.value }))} /></div>
+              <div>
+                <Label className="text-xs mb-1 block">تاريخ الاستلام المتوقع</Label>
+                <Input type="date" className="h-9 text-sm" value={form.expectedDate} onChange={e => setForm(f => ({ ...f, expectedDate: e.target.value }))} />
+              </div>
             </div>
-
-            {/* Items */}
             <div>
               <div className="flex items-center justify-between mb-2">
                 <Label className="text-xs">البنود *</Label>
@@ -258,23 +417,22 @@ export default function FinancePurchases() {
                 ))}
               </div>
             </div>
-
             <div className="grid grid-cols-3 gap-3">
               <div><Label className="text-xs mb-1 block">تكلفة الشحن</Label><Input type="number" className="h-9 text-sm" value={form.shippingCost} onChange={e => setForm(f => ({ ...f, shippingCost: e.target.value }))} /></div>
               <div><Label className="text-xs mb-1 block">الضرائب</Label><Input type="number" className="h-9 text-sm" value={form.taxAmount} onChange={e => setForm(f => ({ ...f, taxAmount: e.target.value }))} /></div>
               <div><Label className="text-xs mb-1 block">الخصم</Label><Input type="number" className="h-9 text-sm" value={form.discountAmount} onChange={e => setForm(f => ({ ...f, discountAmount: e.target.value }))} /></div>
             </div>
-
             <Card className="p-3 bg-primary/5 border-primary/20">
               <div className="flex justify-between text-sm font-bold">
                 <span>الإجمالي الكلي</span>
                 <span className="text-primary">{fmt(grandTotal)}</span>
               </div>
             </Card>
-
             <div><Label className="text-xs mb-1 block">ملاحظات</Label><Textarea className="text-sm min-h-[60px]" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} /></div>
             <div className="flex gap-2 pt-2">
-              <Button className="flex-1 h-9 font-bold" onClick={() => save.mutate()} disabled={save.isPending || !items.some(i => i.productName)}>{save.isPending ? "جاري الحفظ..." : "إنشاء أمر الشراء"}</Button>
+              <Button className="flex-1 h-9 font-bold" onClick={() => save.mutate()} disabled={save.isPending || !items.some(i => i.productName)}>
+                {save.isPending ? "جاري الحفظ..." : "إنشاء أمر الشراء"}
+              </Button>
               <Button variant="outline" className="h-9 border-border" onClick={() => setOpen(false)}>إلغاء</Button>
             </div>
           </div>
