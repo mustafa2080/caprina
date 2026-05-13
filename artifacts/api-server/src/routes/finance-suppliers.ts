@@ -155,15 +155,17 @@ router.patch("/finance/purchases/:id", async (req, res): Promise<void> => {
       const toDebit = newPaidAmount - alreadyPaid;  // الفرق بس اللي محتاج يتخصم
 
       if (toDebit > 0) {
-        // ✅ إصلاح 2: لو مفيش خزنة رئيسية → ارفض العملية بـ error واضح
-        const [mainReg] = await db
+        // جيب الخزنة الرئيسية، أو أي خزنة نشطة كـ fallback
+        const registers = await db
           .select()
           .from(cashRegistersTable)
-          .where(eq(cashRegistersTable.type as any, "main"))
-          .limit(1);
+          .where(eq(cashRegistersTable.isActive, true))
+          .limit(10);
+
+        const mainReg = registers.find(r => r.type === "main") ?? registers[0] ?? null;
 
         if (!mainReg) {
-          res.status(400).json({ error: "لا توجد خزنة رئيسية — أنشئ خزنة رئيسية أولاً لتسجيل الدفع" });
+          res.status(400).json({ error: "لا توجد خزنة — أنشئ خزنة أولاً لتسجيل الدفع" });
           return;
         }
 
@@ -180,15 +182,16 @@ router.patch("/finance/purchases/:id", async (req, res): Promise<void> => {
           .where(eq(cashRegistersTable.id, mainReg.id));
 
         await db.insert(cashTransactionsTable).values({
-          registerId:     mainReg.id,
-          type:           "purchase_paid" as any,
-          amount:         String(toDebit),
-          balanceBefore:  String(balBefore),
-          balanceAfter:   String(balAfter),
-          description:    `دفع ${newPay === "paid" ? "كامل" : "جزئي"} — أمر شراء ${orderBefore.poNumber}`,
+          registerId:      mainReg.id,
+          type:            "purchase_paid",
+          amount:          String(toDebit),
+          balanceBefore:   String(balBefore),
+          balanceAfter:    String(balAfter),
+          purchaseOrderId: id,
+          description:     `دفع ${newPay === "paid" ? "كامل" : "جزئي"} — أمر شراء ${orderBefore.poNumber}`,
           referenceNumber: orderBefore.poNumber,
           transactionDate: now,
-          createdAt:      now,
+          createdAt:       now,
         });
 
         // حدّث paidAmount في الأمر بالقيمة الفعلية الجديدة
