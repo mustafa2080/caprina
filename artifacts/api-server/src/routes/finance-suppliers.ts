@@ -139,8 +139,11 @@ router.patch("/finance/purchases/:id", async (req, res): Promise<void> => {
   const prevPay = orderBefore.paymentStatus;
   const newPay  = paymentStatus ?? prevPay;
 
-  // ✅ إصلاح 1: بيخصم في أي حالة ما دام الدفع اتغيّر ومفيش paid قبل كده
-  const shouldDebit = newPay !== "unpaid" && prevPay !== "paid";
+  // بيخصم لو:
+  // 1. الحالة الجديدة مش "unpaid"
+  // 2. AND: إما الحالة السابقة مش "paid"، أو كانت "paid" بس paidAmount = 0 (خصم مش اتعمل قبل كده)
+  const prevPaidAmount = parseFloat(orderBefore.paidAmount ?? "0");
+  const shouldDebit = newPay !== "unpaid" && (prevPay !== "paid" || prevPaidAmount === 0);
 
   if (shouldDebit) {
     try {
