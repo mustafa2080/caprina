@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, cashRegistersTable, cashTransactionsTable } from "@workspace/db";
+import { db, cashRegistersTable, cashTransactionsTable, shippingFinancialInvoicesTable, shippingCompaniesTable, shippingManifestsTable } from "@workspace/db";
 import { eq, desc, sql, and, gte, lte, ne, inArray } from "drizzle-orm";
 
 export const cashRegistersRouter = Router();
@@ -73,6 +73,59 @@ cashRegistersRouter.post("/", async (req, res) => {
         createdAt: now,
       });
     }
+
+    // ── لو الخزنة من نوع main → نشوف الفواتير المالية اللي لسه pending وما اتحولتش ──
+    if (type === "main") {
+      try {
+        const pendingInvoices = await db
+          .select()
+          .from(shippingFinancialInvoicesTable)
+          .where(eq(shippingFinancialInvoicesTable.status, "pending"));
+
+        let runningBalance = parseFloat(String(initialBalance));
+        for (const inv of pendingInvoices) {
+          const netDue = Number(inv.netDue ?? 0);
+          if (netDue <= 0) continue;
+          const balanceBefore = runningBalance;
+          const balanceAfter  = runningBalance + netDue;
+          runningBalance = balanceAfter;
+
+          const [manifest] = inv.manifestId
+            ? await db.select().from(shippingManifestsTable).where(eq(shippingManifestsTable.id, inv.manifestId))
+            : [null];
+          const [company] = await db.select().from(shippingCompaniesTable)
+            .where(eq(shippingCompaniesTable.id, inv.shippingCompanyId));
+
+          await db.insert(cashTransactionsTable).values({
+            registerId: newId,
+            type: "shipping_transfer" as any,
+            amount: String(netDue),
+            balanceBefore: String(balanceBefore),
+            balanceAfter:  String(balanceAfter),
+            description: `تحصيل بيان شحن ${manifest?.manifestNumber ?? inv.invoiceNumber} - ${company?.name ?? ""}`,
+            referenceNumber: inv.invoiceNumber,
+            transactionDate: now,
+            createdByUserId: req.body.userId ?? null,
+            createdByName:   req.body.userName ?? null,
+            createdAt: now,
+          });
+
+          await db.update(shippingFinancialInvoicesTable)
+            .set({ status: "paid", paidAmount: String(netDue), paidAt: now, updatedAt: now })
+            .where(eq(shippingFinancialInvoicesTable.id, inv.id));
+        }
+
+        // حدّث رصيد الخزنة بعد تحويل كل الفواتير
+        if (runningBalance !== parseFloat(String(initialBalance))) {
+          await db.update(cashRegistersTable)
+            .set({ balance: String(runningBalance), updatedAt: now })
+            .where(eq(cashRegistersTable.id, newId));
+        }
+      } catch (e) {
+        console.error("[cash-register create main] error settling pending invoices:", e);
+      }
+    }
+
     res.json({ success: true, id: newId });
   } catch (err) {
     res.status(500).json({ error: "فشل إنشاء الخزنة" });

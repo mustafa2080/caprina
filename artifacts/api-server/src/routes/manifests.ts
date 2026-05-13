@@ -7,6 +7,9 @@ import {
   shippingCompaniesTable,
   ordersTable,
   inventoryMovementsTable,
+  shippingFinancialInvoicesTable,
+  cashRegistersTable,
+  cashTransactionsTable,
 } from "@workspace/db";
 import { z } from "zod";
 import { requireAuth } from "../middlewares/requireAuth";
@@ -50,6 +53,115 @@ async function generateManifestNumber(companyId: number): Promise<string> {
     .where(eq(shippingManifestsTable.shippingCompanyId, companyId));
   const seq = (Number(row?.cnt ?? 0) + 1).toString().padStart(3, "0");
   return `MNF-${companyId}-${seq}`;
+}
+
+// ─── إنشاء فاتورة مالية تلقائية عند قفل البيان + تحويل للخزنة ───────────────
+async function createFinancialInvoiceOnClose(
+  manifest: typeof shippingManifestsTable.$inferSelect,
+  allOrders: (typeof ordersTable.$inferSelect & { deliveryStatus: string; partialQuantity?: number | null })[],
+  userId: number | null,
+  userName: string | null,
+): Promise<void> {
+  const now = new Date();
+
+  // ── حساب إحصائيات البيان ──────────────────────────────────────────────────
+  const totalOrders = allOrders.length;
+  const delivered   = allOrders.filter(o => o.deliveryStatus === "delivered" || o.deliveryStatus === "partial_received").length;
+  const returned    = allOrders.filter(o => o.deliveryStatus === "returned").length;
+
+  let grossRevenue = 0;
+  let shippingFees = 0;
+  let returnFees   = 0;
+
+  for (const o of allOrders) {
+    const isPartial  = o.deliveryStatus === "partial_received";
+    const partialQty = isPartial && o.partialQuantity != null ? o.partialQuantity : null;
+    const shipping   = Number(o.shippingCost ?? 0);
+
+    if (o.deliveryStatus === "delivered" || isPartial) {
+      const revenue = partialQty !== null ? o.unitPrice * partialQty : Number(o.totalPrice);
+      grossRevenue += revenue;
+      shippingFees += shipping;
+    } else if (o.deliveryStatus === "returned") {
+      returnFees += shipping;
+    }
+  }
+
+  // لو في manualShippingCost على البيان → استخدمه كـ shippingFees
+  if (manifest.manualShippingCost != null) {
+    shippingFees = Number(manifest.manualShippingCost);
+  }
+
+  const netDue = grossRevenue - shippingFees - returnFees;
+
+  // رقم الفاتورة = FIN-{manifestNumber}
+  const invoiceNumber = `FIN-${manifest.manifestNumber}`;
+
+  // إنشاء الفاتورة المالية
+  const [insertResult] = await db.insert(shippingFinancialInvoicesTable).values({
+    invoiceNumber,
+    shippingCompanyId: manifest.shippingCompanyId,
+    manifestId: manifest.id,
+    totalOrders,
+    deliveredOrders: delivered,
+    returnedOrders:  returned,
+    grossRevenue: String(grossRevenue),
+    shippingFees:  String(shippingFees),
+    returnFees:    String(returnFees),
+    netDue:        String(netDue > 0 ? netDue : 0),
+    paidAmount:    "0",
+    status: "pending",
+    notes: manifest.notes ?? null,
+    invoiceDate: now,
+    dueDate: null,
+    createdByUserId: userId,
+    createdByName:   userName,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  const newInvoiceId = (insertResult as any).insertId ?? (insertResult as any)[0]?.insertId;
+  if (!newInvoiceId || netDue <= 0) return;
+
+  // ── تحويل صافي المستحق للخزنة الرئيسية لو موجودة ──────────────────────────
+  const [mainRegister] = await db
+    .select()
+    .from(cashRegistersTable)
+    .where(and(eq(cashRegistersTable.type, "main"), eq(cashRegistersTable.isActive, true)))
+    .limit(1);
+
+  if (!mainRegister) {
+    // مفيش خزنة رئيسية → نسجل في الفاتورة إنها في انتظار الخزنة (status يفضل pending)
+    return;
+  }
+
+  // إيداع في الخزنة الرئيسية
+  const balanceBefore = Number(mainRegister.balance ?? 0);
+  const balanceAfter  = balanceBefore + netDue;
+  const [company] = await db.select().from(shippingCompaniesTable).where(eq(shippingCompaniesTable.id, manifest.shippingCompanyId));
+
+  await db.insert(cashTransactionsTable).values({
+    registerId:       mainRegister.id,
+    type:             "shipping_transfer" as any,
+    amount:           String(netDue),
+    balanceBefore:    String(balanceBefore),
+    balanceAfter:     String(balanceAfter),
+    description:      `تحصيل بيان شحن ${manifest.manifestNumber} - ${company?.name ?? ""}`,
+    referenceNumber:  invoiceNumber,
+    transactionDate:  now,
+    createdByUserId:  userId,
+    createdByName:    userName,
+    createdAt:        now,
+  });
+
+  await db.update(cashRegistersTable)
+    .set({ balance: String(balanceAfter), updatedAt: now })
+    .where(eq(cashRegistersTable.id, mainRegister.id));
+
+  // تحديث الفاتورة لـ paid
+  await db.update(shippingFinancialInvoicesTable)
+    .set({ status: "paid", paidAmount: String(netDue), paidAt: now, updatedAt: now })
+    .where(eq(shippingFinancialInvoicesTable.id, newInvoiceId));
 }
 
 type OrderWithDelivery = typeof ordersTable.$inferSelect & {
@@ -435,6 +547,32 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
         returnedInShippingCount: pendingLinks.filter((l) => l.deliveryStatus === "returned").length,
         partialInShippingCount: pendingLinks.filter((l) => l.deliveryStatus === "partial_received").length,
       };
+    }
+  }
+
+  // ── إنشاء فاتورة مالية تلقائية عند قفل البيان ─────────────────────────────
+  if (parsed.data.status === "closed") {
+    try {
+      // جيب كل طلبات البيان مع حالة التسليم
+      const allLinks = await db.select().from(shippingManifestOrdersTable)
+        .where(eq(shippingManifestOrdersTable.manifestId, id));
+      const allOrderIds = allLinks.map(l => l.orderId);
+      if (allOrderIds.length > 0) {
+        const allManifestOrders = await db.select().from(ordersTable)
+          .where(inArray(ordersTable.id, allOrderIds));
+        // دمج deliveryStatus من links
+        const enriched = allManifestOrders.map(o => ({
+          ...o,
+          deliveryStatus: allLinks.find(l => l.orderId === o.id)?.deliveryStatus ?? "pending",
+          partialQuantity: allLinks.find(l => l.orderId === o.id)?.partialQuantity ?? null,
+        }));
+        const userId   = (req as any).user?.id ?? null;
+        const userName = (req as any).user?.name ?? null;
+        await createFinancialInvoiceOnClose(updated, enriched, userId, userName);
+      }
+    } catch (invoiceErr) {
+      // لو فيه error في إنشاء الفاتورة → نلوغ بس ومش نوقف الـ response
+      console.error("[manifest close] error creating financial invoice:", invoiceErr);
     }
   }
 
