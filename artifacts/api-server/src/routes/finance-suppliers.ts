@@ -135,15 +135,56 @@ router.patch("/finance/purchases/:id", async (req, res): Promise<void> => {
     .set({ status, paymentStatus, paidAmount, notes, updatedAt: now })
     .where(eq(purchaseOrdersTable.id, id));
 
-  // ── خصم من الخزنة لو تغيرت حالة الدفع ──────────────────────────────────
+  // ── خصم أو إرجاع من/للخزنة لو تغيرت حالة الدفع ─────────────────────────
   const prevPay = orderBefore.paymentStatus;
   const newPay  = paymentStatus ?? prevPay;
-
-  // بيخصم لو:
-  // 1. الحالة الجديدة مش "unpaid"
-  // 2. AND: إما الحالة السابقة مش "paid"، أو كانت "paid" بس paidAmount = 0 (خصم مش اتعمل قبل كده)
   const prevPaidAmount = parseFloat(orderBefore.paidAmount ?? "0");
+
+  // ── حالة الإرجاع: كان مدفوع (كلي أو جزئي) وبقى "غير مدفوع" ──────────────
+  const shouldRefund = newPay === "unpaid" && prevPay !== "unpaid" && prevPaidAmount > 0;
+
+  // ── حالة الخصم: الحالة الجديدة مش "unpaid" ومفيش خصم كافي اتعمل قبل كده ──
   const shouldDebit = newPay !== "unpaid" && (prevPay !== "paid" || prevPaidAmount === 0);
+
+  if (shouldRefund) {
+    try {
+      const registers = await db
+        .select().from(cashRegistersTable)
+        .where(eq(cashRegistersTable.isActive, true)).limit(10);
+      const mainReg = registers.find(r => r.type === "main") ?? registers[0] ?? null;
+
+      if (mainReg) {
+        const balBefore = parseFloat(mainReg.balance ?? "0");
+        const balAfter  = balBefore + prevPaidAmount;
+
+        await db.update(cashRegistersTable)
+          .set({ balance: String(balAfter), updatedAt: now })
+          .where(eq(cashRegistersTable.id, mainReg.id));
+
+        await db.insert(cashTransactionsTable).values({
+          registerId:      mainReg.id,
+          type:            "deposit",
+          amount:          String(prevPaidAmount),
+          balanceBefore:   String(balBefore),
+          balanceAfter:    String(balAfter),
+          purchaseOrderId: id,
+          description:     `إرجاع دفع — أمر شراء ${orderBefore.poNumber} (تم إلغاء الدفع)`,
+          referenceNumber: orderBefore.poNumber,
+          transactionDate: now,
+          createdAt:       now,
+        });
+
+        // صفّر paidAmount في الأمر
+        await db.update(purchaseOrdersTable)
+          .set({ paidAmount: "0", updatedAt: now })
+          .where(eq(purchaseOrdersTable.id, id));
+      }
+    } catch (e) {
+      console.error("[purchase PATCH] cash refund error:", e);
+      res.status(500).json({ error: "حدث خطأ أثناء إرجاع المبلغ للخزنة" });
+      return;
+    }
+  }
 
   if (shouldDebit) {
     try {
