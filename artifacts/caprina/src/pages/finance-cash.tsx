@@ -152,7 +152,7 @@ export default function FinanceCashPage() {
     const params = new URLSearchParams({ from: ledgerFrom, to: ledgerTo });
     if (ledgerType !== "all") params.append("type", ledgerType);
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("caprina_token");
       const res = await fetch(`/api/cash-registers/${activeReg.id}/export?${params}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
