@@ -38,37 +38,24 @@ router.post("/finance/expenses", async (req, res): Promise<void> => {
   const data = parsed.data;
   const amt = data.amount;
 
-  // ── ربط تلقائي بالخزنة: خصم المصروف من الخزنة المحددة ──────────────────
+  // ── التحقق من رصيد الخزنة أولاً (قبل أي insert) ────────────────────────
+  let reg: any = null;
+  let balBefore = 0;
+  let balAfter  = 0;
+
   if (data.cashRegisterId) {
-    const [reg] = await db.select().from(cashRegistersTable).where(eq(cashRegistersTable.id, data.cashRegisterId));
-    if (!reg) { res.status(404).json({ error: "الخزنة المحددة غير موجودة" }); return; }
-    const balBefore = parseFloat(reg.balance ?? "0");
-    const balAfter  = balBefore - amt;
+    const [found] = await db.select().from(cashRegistersTable).where(eq(cashRegistersTable.id, data.cashRegisterId));
+    if (!found) { res.status(404).json({ error: "الخزنة المحددة غير موجودة" }); return; }
+    balBefore = parseFloat(found.balance ?? "0");
+    balAfter  = balBefore - amt;
     if (balAfter < 0) {
-      res.status(400).json({ error: `رصيد الخزنة "${reg.name}" مش كفاية — المتاح: ${balBefore.toLocaleString("ar-EG")} ج.م` });
+      res.status(400).json({ error: `رصيد الخزنة "${found.name}" مش كفاية — المتاح: ${balBefore.toLocaleString("ar-EG")} ج.م` });
       return;
     }
-    // خصم من الخزنة
-    await db.update(cashRegistersTable)
-      .set({ balance: String(balAfter), updatedAt: now })
-      .where(eq(cashRegistersTable.id, data.cashRegisterId));
-    // تسجيل حركة expense_paid في الخزنة
-    await db.insert(cashTransactionsTable).values({
-      registerId: data.cashRegisterId,
-      type: "expense_paid",
-      amount: String(amt),
-      balanceBefore: String(balBefore),
-      balanceAfter: String(balAfter),
-      description: data.title,
-      referenceNumber: data.referenceId ?? undefined,
-      expenseId: undefined, // سيتحدث بعد إنشاء المصروف
-      transactionDate: new Date(data.expenseDate),
-      createdByUserId: user?.id ?? null,
-      createdByName: user?.displayName ?? null,
-      createdAt: now,
-    });
+    reg = found;
   }
 
+  // ── إنشاء المصروف أولاً عشان ناخد الـ id ────────────────────────────────
   const result = await db.insert(expensesTable).values({
     ...data,
     cashRegisterId: data.cashRegisterId ?? null,
@@ -77,13 +64,77 @@ router.post("/finance/expenses", async (req, res): Promise<void> => {
     createdByName: user?.displayName,
     createdAt: now,
   });
-  const id = (result as any)[0]?.insertId;
-  const [expense] = await db.select().from(expensesTable).where(eq(expensesTable.id, id));
+  const expenseId = (result as any)[0]?.insertId;
+
+  // ── بعد ما عرفنا الـ id: خصم من الخزنة وسجّل الحركة ────────────────────
+  if (reg && data.cashRegisterId) {
+    await db.update(cashRegistersTable)
+      .set({ balance: String(balAfter), updatedAt: now })
+      .where(eq(cashRegistersTable.id, data.cashRegisterId));
+
+    await db.insert(cashTransactionsTable).values({
+      registerId: data.cashRegisterId,
+      type: "expense_paid",
+      amount: String(amt),
+      balanceBefore: String(balBefore),
+      balanceAfter: String(balAfter),
+      description: data.title,
+      referenceNumber: data.referenceId ?? undefined,
+      expenseId,                          // ✅ الـ id الحقيقي دلوقتي
+      transactionDate: new Date(data.expenseDate),
+      createdByUserId: user?.id ?? null,
+      createdByName: user?.displayName ?? null,
+      createdAt: now,
+    });
+  }
+
+  const [expense] = await db.select().from(expensesTable).where(eq(expensesTable.id, expenseId));
   res.status(201).json(expense);
 });
 
 router.delete("/finance/expenses/:id", async (req, res): Promise<void> => {
-  await db.delete(expensesTable).where(eq(expensesTable.id, parseInt(req.params.id)));
+  const id  = parseInt(req.params.id);
+  const now = new Date();
+  const user = (req as any).user;
+
+  // 1. جيب المصروف قبل الحذف
+  const [expense] = await db.select().from(expensesTable).where(eq(expensesTable.id, id));
+  if (!expense) { res.status(404).json({ error: "المصروف غير موجود" }); return; }
+
+  // 2. لو كان مرتبط بخزنة → ارجع الفلوس
+  if (expense.cashRegisterId) {
+    const [reg] = await db.select().from(cashRegistersTable)
+      .where(eq(cashRegistersTable.id, expense.cashRegisterId));
+
+    if (reg) {
+      const balBefore = parseFloat(reg.balance ?? "0");
+      const amt       = parseFloat(expense.amount ?? "0");
+      const balAfter  = balBefore + amt;                  // رجوع المبلغ للخزنة
+
+      // حدّث رصيد الخزنة
+      await db.update(cashRegistersTable)
+        .set({ balance: String(balAfter), updatedAt: now })
+        .where(eq(cashRegistersTable.id, reg.id));
+
+      // سجّل حركة عكسية (deposit كـ reversal)
+      await db.insert(cashTransactionsTable).values({
+        registerId:    reg.id,
+        type:          "deposit",
+        amount:        String(amt),
+        balanceBefore: String(balBefore),
+        balanceAfter:  String(balAfter),
+        description:   `إلغاء مصروف: ${expense.title}`,
+        referenceNumber: String(id),
+        transactionDate: now,
+        createdByUserId: user?.id   ?? null,
+        createdByName:   user?.displayName ?? null,
+        createdAt:     now,
+      });
+    }
+  }
+
+  // 3. احذف المصروف
+  await db.delete(expensesTable).where(eq(expensesTable.id, id));
   res.status(204).send();
 });
 
@@ -148,53 +199,6 @@ router.patch("/finance/shipping-invoices/:id", async (req, res): Promise<void> =
   await db.update(shippingFinancialInvoicesTable).set(updates).where(eq(shippingFinancialInvoicesTable.id, id));
   const [inv] = await db.select().from(shippingFinancialInvoicesTable).where(eq(shippingFinancialInvoicesTable.id, id));
   res.json(inv);
-});
-
-// ── Finance Dashboard Summary ───────────────────────────────────────────────
-router.get("/finance/summary", async (req, res): Promise<void> => {
-  const { from, to } = req.query;
-  const dateFrom = from ? new Date(from as string) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-  const dateTo = to ? new Date(to as string) : new Date();
-
-  // إجمالي المصروفات
-  const [expensesAgg] = await db.select({
-    total: sql<number>`COALESCE(SUM(CAST(amount AS DECIMAL(14,2))), 0)`
-  }).from(expensesTable).where(and(gte(expensesTable.expenseDate, dateFrom), lte(expensesTable.expenseDate, dateTo)));
-
-  // إيرادات المبيعات من الطلبات المستلمة
-  const [salesAgg] = await db.select({
-    revenue: sql<number>`COALESCE(SUM(total_price), 0)`,
-    cost: sql<number>`COALESCE(SUM(cost_price * quantity), 0)`,
-    shipping: sql<number>`COALESCE(SUM(shipping_cost), 0)`,
-  }).from(ordersTable).where(and(
-    eq(ordersTable.status as any, "received"),
-    gte(ordersTable.createdAt, dateFrom),
-    lte(ordersTable.createdAt, dateTo)
-  ));
-
-  // مستحقات شركات الشحن غير المدفوعة
-  const [unpaidShipping] = await db.select({
-    total: sql<number>`COALESCE(SUM(CAST(net_due AS DECIMAL(14,2)) - CAST(paid_amount AS DECIMAL(14,2))), 0)`
-  }).from(shippingFinancialInvoicesTable).where(eq(shippingFinancialInvoicesTable.status as any, "pending"));
-
-  const totalExpenses = Number(expensesAgg?.total ?? 0);
-  const totalRevenue = Number(salesAgg?.revenue ?? 0);
-  const totalCOGS = Number(salesAgg?.cost ?? 0);
-  const totalShipping = Number(salesAgg?.shipping ?? 0);
-  const grossProfit = totalRevenue - totalCOGS - totalShipping;
-  const netProfit = grossProfit - totalExpenses;
-
-  res.json({
-    period: { from: dateFrom, to: dateTo },
-    revenue: totalRevenue,
-    cogs: totalCOGS,
-    shippingSpend: totalShipping,
-    grossProfit,
-    operatingExpenses: totalExpenses,
-    netProfit,
-    netMargin: totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(1) : "0",
-    unpaidShippingDues: Number(unpaidShipping?.total ?? 0),
-  });
 });
 
 // ── Finance Analytics (P&L + Alerts + Trends) ─────────────────────────────

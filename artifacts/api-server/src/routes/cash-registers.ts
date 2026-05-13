@@ -1,6 +1,9 @@
 import { Router } from "express";
-import { db, cashRegistersTable, cashTransactionsTable, shippingFinancialInvoicesTable, shippingCompaniesTable, shippingManifestsTable } from "@workspace/db";
+import { db, cashRegistersTable, cashTransactionsTable, shippingFinancialInvoicesTable, shippingCompaniesTable, shippingManifestsTable, CREDIT_TYPES, DEBIT_TYPES } from "@workspace/db";
 import { eq, desc, sql, and, gte, lte, ne, inArray } from "drizzle-orm";
+
+const creditSql = sql.raw([...CREDIT_TYPES].map(t => `'${t}'`).join(","));
+const debitSql  = sql.raw([...DEBIT_TYPES].map(t => `'${t}'`).join(","));
 
 export const cashRegistersRouter = Router();
 
@@ -18,13 +21,10 @@ cashRegistersRouter.get("/", async (req, res) => {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const CREDIT_TYPES = ["deposit","order_collected","shipping_transfer","cash_sale","transfer_in"];
-    const DEBIT_TYPES  = ["withdrawal","expense_paid","purchase_paid","transfer_out"];
-
     const summaries = await Promise.all(registers.map(async (reg) => {
       const [s] = await db.select({
-        totalIn:  sql<number>`COALESCE(SUM(CASE WHEN type IN (${sql.raw(CREDIT_TYPES.map(t=>`'${t}'`).join(","))}) THEN CAST(amount AS DECIMAL(14,2)) ELSE 0 END), 0)`,
-        totalOut: sql<number>`COALESCE(SUM(CASE WHEN type IN (${sql.raw(DEBIT_TYPES.map(t=>`'${t}'`).join(","))}) THEN CAST(amount AS DECIMAL(14,2)) ELSE 0 END), 0)`,
+        totalIn:  sql<number>`COALESCE(SUM(CASE WHEN type IN (${creditSql}) THEN CAST(amount AS DECIMAL(14,2)) ELSE 0 END), 0)`,
+        totalOut: sql<number>`COALESCE(SUM(CASE WHEN type IN (${debitSql})  THEN CAST(amount AS DECIMAL(14,2)) ELSE 0 END), 0)`,
         txCount:  sql<number>`COUNT(*)`,
       }).from(cashTransactionsTable).where(
         and(
@@ -84,10 +84,14 @@ cashRegistersRouter.post("/", async (req, res) => {
 
         let runningBalance = parseFloat(String(initialBalance));
         for (const inv of pendingInvoices) {
-          const netDue = Number(inv.netDue ?? 0);
-          if (netDue <= 0) continue;
+          const totalDue  = Number(inv.netDue    ?? 0);
+          const alreadyPaid = Number(inv.paidAmount ?? 0);
+          const remaining = totalDue - alreadyPaid;   // ✅ المتبقي الفعلي فقط
+
+          if (remaining <= 0) continue;               // مدفوعة كاملاً — تخطّ
+
           const balanceBefore = runningBalance;
-          const balanceAfter  = runningBalance + netDue;
+          const balanceAfter  = runningBalance + remaining;
           runningBalance = balanceAfter;
 
           const [manifest] = inv.manifestId
@@ -99,7 +103,7 @@ cashRegistersRouter.post("/", async (req, res) => {
           await db.insert(cashTransactionsTable).values({
             registerId: newId,
             type: "shipping_transfer" as any,
-            amount: String(netDue),
+            amount: String(remaining),               // ✅ المتبقي مش الإجمالي
             balanceBefore: String(balanceBefore),
             balanceAfter:  String(balanceAfter),
             description: `تحصيل بيان شحن ${manifest?.manifestNumber ?? inv.invoiceNumber} - ${company?.name ?? ""}`,
@@ -111,7 +115,7 @@ cashRegistersRouter.post("/", async (req, res) => {
           });
 
           await db.update(shippingFinancialInvoicesTable)
-            .set({ status: "paid", paidAmount: String(netDue), paidAt: now, updatedAt: now })
+            .set({ status: "paid", paidAmount: String(totalDue), paidAt: now, updatedAt: now })
             .where(eq(shippingFinancialInvoicesTable.id, inv.id));
         }
 
@@ -194,11 +198,6 @@ cashRegistersRouter.get("/smart-alerts", async (req, res) => {
 // ─── GET /api/cash-registers/analytics (تحليلات المرحلة الثانية) ─────────────
 cashRegistersRouter.get("/analytics", async (req, res) => {
   try {
-    const CREDIT_TYPES = ["deposit","order_collected","shipping_transfer","cash_sale","transfer_in"];
-    const DEBIT_TYPES  = ["withdrawal","expense_paid","purchase_paid","transfer_out"];
-    const creditSql = sql.raw(CREDIT_TYPES.map(t=>`'${t}'`).join(","));
-    const debitSql  = sql.raw(DEBIT_TYPES.map(t=>`'${t}'`).join(","));
-
     const now = new Date();
     const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -381,12 +380,9 @@ cashRegistersRouter.get("/:id/transactions", async (req, res) => {
     if (to) { const toDate = new Date(to); toDate.setHours(23,59,59,999); conditions.push(lte(cashTransactionsTable.transactionDate, toDate)); }
     if (type && type !== "all") conditions.push(eq(cashTransactionsTable.type, type));
 
-    const CREDIT_TYPES = ["deposit","order_collected","shipping_transfer","cash_sale","transfer_in"];
-    const DEBIT_TYPES  = ["withdrawal","expense_paid","purchase_paid","transfer_out"];
-
     const [stats] = await db.select({
-      totalIn:  sql<number>`COALESCE(SUM(CASE WHEN type IN (${sql.raw(CREDIT_TYPES.map(t=>`'${t}'`).join(","))}) THEN CAST(amount AS DECIMAL(14,2)) ELSE 0 END), 0)`,
-      totalOut: sql<number>`COALESCE(SUM(CASE WHEN type IN (${sql.raw(DEBIT_TYPES.map(t=>`'${t}'`).join(","))}) THEN CAST(amount AS DECIMAL(14,2)) ELSE 0 END), 0)`,
+      totalIn:  sql<number>`COALESCE(SUM(CASE WHEN type IN (${creditSql}) THEN CAST(amount AS DECIMAL(14,2)) ELSE 0 END), 0)`,
+      totalOut: sql<number>`COALESCE(SUM(CASE WHEN type IN (${debitSql})  THEN CAST(amount AS DECIMAL(14,2)) ELSE 0 END), 0)`,
       txCount:  sql<number>`COUNT(*)`,
     }).from(cashTransactionsTable).where(and(...conditions));
 
@@ -421,14 +417,13 @@ cashRegistersRouter.get("/:id/export", async (req, res) => {
       .where(and(...conditions)).orderBy(desc(cashTransactionsTable.transactionDate)).limit(5000);
 
     const TX_LABELS: Record<string, string> = { deposit:"إيداع", withdrawal:"سحب", order_collected:"تحصيل طلب", shipping_transfer:"تحويل شحن", cash_sale:"مبيعات نقدية", expense_paid:"دفع مصروف", purchase_paid:"دفع مورد", transfer_in:"تحويل وارد", transfer_out:"تحويل صادر" };
-    const CREDIT_TYPES = ["deposit","order_collected","shipping_transfer","cash_sale","transfer_in"];
 
     const rows = [
       ["التاريخ","نوع الحركة","الاتجاه","المبلغ","الرصيد قبل","الرصيد بعد","مرجع","ملاحظة","بواسطة"],
       ...transactions.map(tx => [
         new Date(tx.transactionDate).toLocaleDateString("ar-EG"),
         TX_LABELS[tx.type] ?? tx.type,
-        CREDIT_TYPES.includes(tx.type) ? "دخل" : "خروج",
+        CREDIT_TYPES.includes(tx.type as any) ? "دخل" : "خروج",
         tx.amount, tx.balanceBefore, tx.balanceAfter,
         tx.referenceNumber ?? "", tx.description ?? "", tx.createdByName ?? "",
       ])
@@ -453,13 +448,10 @@ cashRegistersRouter.get("/:id/flow", async (req, res) => {
     const daysNum = Math.min(90, parseInt(days));
     const since = new Date(); since.setDate(since.getDate() - daysNum);
 
-    const CREDIT_TYPES = ["deposit","order_collected","shipping_transfer","cash_sale","transfer_in"];
-    const DEBIT_TYPES  = ["withdrawal","expense_paid","purchase_paid","transfer_out"];
-
     const rows = await db.select({
       day:      sql<string>`DATE(transaction_date)`,
-      totalIn:  sql<number>`COALESCE(SUM(CASE WHEN type IN (${sql.raw(CREDIT_TYPES.map(t=>`'${t}'`).join(","))}) THEN CAST(amount AS DECIMAL(14,2)) ELSE 0 END), 0)`,
-      totalOut: sql<number>`COALESCE(SUM(CASE WHEN type IN (${sql.raw(DEBIT_TYPES.map(t=>`'${t}'`).join(","))}) THEN CAST(amount AS DECIMAL(14,2)) ELSE 0 END), 0)`,
+      totalIn:  sql<number>`COALESCE(SUM(CASE WHEN type IN (${creditSql}) THEN CAST(amount AS DECIMAL(14,2)) ELSE 0 END), 0)`,
+      totalOut: sql<number>`COALESCE(SUM(CASE WHEN type IN (${debitSql})  THEN CAST(amount AS DECIMAL(14,2)) ELSE 0 END), 0)`,
     }).from(cashTransactionsTable)
       .where(and(eq(cashTransactionsTable.registerId, registerId), gte(cashTransactionsTable.transactionDate, since)))
       .groupBy(sql`DATE(transaction_date)`)

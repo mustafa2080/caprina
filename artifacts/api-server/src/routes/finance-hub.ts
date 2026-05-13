@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, cashRegistersTable, cashTransactionsTable, expensesTable, ordersTable, purchaseOrdersTable, shippingFinancialInvoicesTable } from "@workspace/db";
+import { db, cashRegistersTable, cashTransactionsTable, expensesTable, ordersTable, purchaseOrdersTable, shippingFinancialInvoicesTable, CREDIT_TYPES, DEBIT_TYPES } from "@workspace/db";
 import { eq, desc, gte, lte, and, sql, lt, isNull } from "drizzle-orm";
 
 const router = Router();
@@ -19,10 +19,8 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
     const prevFrom = new Date(prevTo.getTime() - diffMs);
     const prevToEnd = new Date(prevTo); prevToEnd.setHours(23, 59, 59, 999);
 
-    const CREDIT_TYPES = ["deposit","order_collected","shipping_transfer","cash_sale","transfer_in"];
-    const DEBIT_TYPES  = ["withdrawal","expense_paid","purchase_paid","transfer_out"];
-    const creditSql    = sql.raw(CREDIT_TYPES.map(t=>`'${t}'`).join(","));
-    const debitSql     = sql.raw(DEBIT_TYPES.map(t=>`'${t}'`).join(","));
+    const creditSql = sql.raw([...CREDIT_TYPES].map(t=>`'${t}'`).join(","));
+    const debitSql  = sql.raw([...DEBIT_TYPES].map(t=>`'${t}'`).join(","));
 
     // ── 1. الخزن ────────────────────────────────────────────────────────────
     const registers = await db.select().from(cashRegistersTable)

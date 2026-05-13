@@ -16,6 +16,15 @@ export const CASH_TRANSACTION_TYPES = [
 ] as const;
 export type CashTransactionType = (typeof CASH_TRANSACTION_TYPES)[number];
 
+// ─── تصنيف الحركات (دخل / خرج) ───────────────────────────────────────────────
+export const CREDIT_TYPES = [
+  "deposit", "order_collected", "shipping_transfer", "cash_sale", "transfer_in",
+] as const;
+
+export const DEBIT_TYPES = [
+  "withdrawal", "expense_paid", "purchase_paid", "transfer_out",
+] as const;
+
 // ─── جدول الخزن ──────────────────────────────────────────────────────────────
 export const cashRegistersTable = mysqlTable("cash_registers", {
   id:             int("id").primaryKey().autoincrement(),
