@@ -83,7 +83,7 @@ export default function FinanceShippingInvoices() {
             الفواتير المالية المُنشأة تلقائياً عند إقفال بيانات الشحن
           </p>
         </div>
-        <Link href="/shipping-companies">
+        <Link href="/shipping">
           <Button variant="outline" className="gap-2 border-border">
             <LinkIcon className="w-4 h-4" />
             إدارة بيانات الشحن
@@ -199,7 +199,7 @@ export default function FinanceShippingInvoices() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-bold text-sm">{inv.invoiceNumber}</p>
                         {inv.manifestId && (
-                          <Link href={`/shipping-companies`}>
+                          <Link href={`/shipping`}>
                             <span className="text-[9px] text-sky-500 border border-sky-500/30 rounded px-1.5 py-0.5 cursor-pointer hover:bg-sky-500/10 flex items-center gap-1">
                               <LinkIcon className="w-2.5 h-2.5" />
                               بيان شحن مرتبط
