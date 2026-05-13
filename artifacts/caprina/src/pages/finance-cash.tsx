@@ -147,11 +147,26 @@ export default function FinanceCashPage() {
     [transactions, ledgerSearch]
   );
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (!activeReg) return;
     const params = new URLSearchParams({ from: ledgerFrom, to: ledgerTo });
     if (ledgerType !== "all") params.append("type", ledgerType);
-    window.open(`/api/cash-registers/${activeReg.id}/export?${params}`, "_blank");
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`/api/cash-registers/${activeReg.id}/export?${params}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error("فشل التصدير");
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = url;
+      a.download = `كشف-${activeReg.name}-${ledgerFrom}-${ledgerTo}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      toast({ title: "❌ خطأ في التصدير", description: e.message, variant: "destructive" });
+    }
   };
 
   const addRegMut = useMutation({
