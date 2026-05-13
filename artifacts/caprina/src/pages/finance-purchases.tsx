@@ -8,10 +8,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, ShoppingCart, Trash2, Eye } from "lucide-react";
+import { Plus, ShoppingCart, Trash2, ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { apiFetch } from "@/lib/api";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const api = {
   get: (url: string) => apiFetch<any>(url),
@@ -71,6 +72,19 @@ export default function FinancePurchases() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["finance-purchases"] }); setOpen(false); toast({ title: "تم إنشاء أمر الشراء" }); },
   });
 
+  const updatePO = useMutation({
+    mutationFn: ({ id, status, paymentStatus }: { id: number; status?: string; paymentStatus?: string }) =>
+      apiFetch<any>(`/finance/purchases/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status, paymentStatus }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["finance-purchases"] });
+      toast({ title: "✅ تم تحديث الحالة" });
+    },
+    onError: (e: any) => toast({ title: "❌ خطأ", description: e.message, variant: "destructive" }),
+  });
+
   return (
     <div className="space-y-5 animate-in fade-in duration-500" dir="rtl">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -105,6 +119,36 @@ export default function FinancePurchases() {
                     <Badge variant="outline" className={`text-[9px] border ${st.color}`}>{st.label}</Badge>
                     <span className={`text-[10px] font-bold ${py.color}`}>{py.label}</span>
                     <p className="font-black text-primary text-sm">{fmt(p.totalAmount)}</p>
+
+                    {/* تغيير حالة الطلب */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size="sm" variant="outline" className="h-7 text-xs gap-1 border-border" disabled={updatePO.isPending}>
+                          حالة الطلب <ChevronDown className="w-3 h-3" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-44">
+                        {Object.entries(STATUS_LABELS).map(([val, meta]) => (
+                          <DropdownMenuItem
+                            key={val}
+                            className={p.status === val ? "font-bold bg-muted" : ""}
+                            onClick={() => updatePO.mutate({ id: p.id, status: val })}
+                          >
+                            {p.status === val ? "✓ " : ""}{meta.label}
+                          </DropdownMenuItem>
+                        ))}
+                        <DropdownMenuSeparator />
+                        {Object.entries(PAY_LABELS).map(([val, meta]) => (
+                          <DropdownMenuItem
+                            key={val}
+                            className={p.paymentStatus === val ? "font-bold bg-muted" : ""}
+                            onClick={() => updatePO.mutate({ id: p.id, paymentStatus: val })}
+                          >
+                            {p.paymentStatus === val ? "✓ " : ""}{meta.label}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
                 {p.notes && <p className="text-xs text-muted-foreground mt-2 border-t border-border pt-2">{p.notes}</p>}
