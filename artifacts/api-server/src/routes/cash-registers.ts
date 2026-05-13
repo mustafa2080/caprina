@@ -435,8 +435,10 @@ cashRegistersRouter.get("/:id/export", async (req, res) => {
     ];
 
     const csv = "\uFEFF" + rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(",")).join("\r\n");
+    const dateStr = new Date().toISOString().slice(0,10);
+    const safeName = encodeURIComponent(`cash-register-${registerId}-${dateStr}.csv`);
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader("Content-Disposition", `attachment; filename="cash-${register.name}-${new Date().toISOString().slice(0,10)}.csv"`);
+    res.setHeader("Content-Disposition", `attachment; filename="cash-${registerId}-${dateStr}.csv"; filename*=UTF-8''${safeName}`);
     res.send(csv);
   } catch (err) {
     res.status(500).json({ error: "فشل التصدير" });
