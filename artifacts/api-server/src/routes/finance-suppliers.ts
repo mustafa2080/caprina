@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, and, sql } from "drizzle-orm";
-import { db, suppliersTable, purchaseOrdersTable, purchaseOrderItemsTable } from "@workspace/db";
+import { db, suppliersTable, purchaseOrdersTable, purchaseOrderItemsTable, cashRegistersTable, cashTransactionsTable } from "@workspace/db";
 import { z } from "zod";
 
 const router: IRouter = Router();
@@ -124,7 +124,79 @@ router.post("/finance/purchases", async (req, res): Promise<void> => {
 router.patch("/finance/purchases/:id", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
   const { status, paymentStatus, paidAmount, notes } = req.body;
-  await db.update(purchaseOrdersTable).set({ status, paymentStatus, paidAmount, notes, updatedAt: new Date() }).where(eq(purchaseOrdersTable.id, id));
+  const now = new Date();
+
+  // جيب الأمر قبل التعديل عشان نعرف الحالة السابقة
+  const [orderBefore] = await db.select().from(purchaseOrdersTable).where(eq(purchaseOrdersTable.id, id));
+  if (!orderBefore) { res.status(404).json({ error: "أمر الشراء مش موجود" }); return; }
+
+  // حدّث الأمر
+  await db.update(purchaseOrdersTable)
+    .set({ status, paymentStatus, paidAmount, notes, updatedAt: now })
+    .where(eq(purchaseOrdersTable.id, id));
+
+  // ── خصم من الخزنة لو تغيرت حالة الدفع لـ paid أو partial ──────────────
+  const prevPay = orderBefore.paymentStatus;
+  const newPay  = paymentStatus ?? prevPay;
+
+  const shouldDebit =
+    (newPay === "paid"    && prevPay !== "paid") ||
+    (newPay === "partial" && prevPay === "unpaid");
+
+  if (shouldDebit) {
+    try {
+      // المبلغ المطلوب خصمه
+      const total     = parseFloat(orderBefore.totalAmount ?? "0");
+      const alreadyPaid = parseFloat(orderBefore.paidAmount ?? "0");
+      const newPaidAmount = newPay === "paid"
+        ? total
+        : parseFloat(paidAmount ?? "0") || total / 2; // partial: خد القيمة المرسلة أو نص الإجمالي
+      const toDebit = newPaidAmount - alreadyPaid;
+
+      if (toDebit > 0) {
+        // جيب الخزنة الرئيسية
+        const [mainReg] = await db
+          .select()
+          .from(cashRegistersTable)
+          .where(eq(cashRegistersTable.type as any, "main"))
+          .limit(1);
+
+        if (mainReg) {
+          const balBefore = parseFloat(mainReg.balance ?? "0");
+          if (balBefore < toDebit) {
+            res.status(400).json({ error: `رصيد الخزنة الرئيسية مش كفاية — المتاح: ${balBefore.toLocaleString("ar-EG")} ج.م` });
+            return;
+          }
+          const balAfter = balBefore - toDebit;
+
+          await db.update(cashRegistersTable)
+            .set({ balance: String(balAfter), updatedAt: now })
+            .where(eq(cashRegistersTable.id, mainReg.id));
+
+          await db.insert(cashTransactionsTable).values({
+            registerId:    mainReg.id,
+            type:          "purchase_paid" as any,
+            amount:        String(toDebit),
+            balanceBefore: String(balBefore),
+            balanceAfter:  String(balAfter),
+            description:   `دفع ${newPay === "paid" ? "كامل" : "جزئي"} — أمر شراء ${orderBefore.poNumber}`,
+            referenceNumber: orderBefore.poNumber,
+            transactionDate: now,
+            createdAt:     now,
+          });
+
+          // حدّث paidAmount في الأمر
+          await db.update(purchaseOrdersTable)
+            .set({ paidAmount: String(newPaidAmount), updatedAt: now })
+            .where(eq(purchaseOrdersTable.id, id));
+        }
+        // لو مفيش خزنة رئيسية — نكمل بدون خطأ (الحالة اتغيرت بس مفيش خصم)
+      }
+    } catch (e) {
+      console.error("[purchase PATCH] cash debit error:", e);
+    }
+  }
+
   const [order] = await db.select().from(purchaseOrdersTable).where(eq(purchaseOrdersTable.id, id));
   res.json(order);
 });
