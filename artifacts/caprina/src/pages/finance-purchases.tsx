@@ -42,6 +42,10 @@ export default function FinancePurchases() {
   const [items, setItems] = useState([{ productName: "", quantity: 1, unitCost: 0, color: "", size: "" }]);
   const [form, setForm] = useState({ supplierId: "", warehouseId: "", shippingCost: "0", taxAmount: "0", discountAmount: "0", notes: "", expectedDate: "" });
 
+  // Dialog الدفع الجزئي
+  const [partialDialog, setPartialDialog] = useState<{ open: boolean; poId: number; total: number; alreadyPaid: number } | null>(null);
+  const [partialAmount, setPartialAmount] = useState("");
+
   const { data: purchases = [], isLoading } = useQuery<any[]>({
     queryKey: ["finance-purchases"],
     queryFn: () => api.get("/finance/purchases"),
@@ -73,17 +77,30 @@ export default function FinancePurchases() {
   });
 
   const updatePO = useMutation({
-    mutationFn: ({ id, status, paymentStatus }: { id: number; status?: string; paymentStatus?: string }) =>
+    mutationFn: ({ id, status, paymentStatus, paidAmount }: { id: number; status?: string; paymentStatus?: string; paidAmount?: number }) =>
       apiFetch<any>(`/finance/purchases/${id}`, {
         method: "PATCH",
-        body: JSON.stringify({ status, paymentStatus }),
+        body: JSON.stringify({ status, paymentStatus, paidAmount: paidAmount !== undefined ? String(paidAmount) : undefined }),
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["finance-purchases"] });
+      setPartialDialog(null);
+      setPartialAmount("");
       toast({ title: "✅ تم تحديث الحالة" });
     },
     onError: (e: any) => toast({ title: "❌ خطأ", description: e.message, variant: "destructive" }),
   });
+
+  const handlePaymentStatusChange = (p: any, val: string) => {
+    if (val === "partial") {
+      // افتح dialog لإدخال المبلغ
+      setPartialAmount(String(Math.round(parseFloat(p.totalAmount) / 2)));
+      setPartialDialog({ open: true, poId: p.id, total: parseFloat(p.totalAmount), alreadyPaid: parseFloat(p.paidAmount ?? "0") });
+    } else {
+      // paid أو unpaid — بعت مباشرة
+      updatePO.mutate({ id: p.id, paymentStatus: val });
+    }
+  };
 
   return (
     <div className="space-y-5 animate-in fade-in duration-500" dir="rtl">
@@ -142,7 +159,7 @@ export default function FinancePurchases() {
                           <DropdownMenuItem
                             key={val}
                             className={p.paymentStatus === val ? "font-bold bg-muted" : ""}
-                            onClick={() => updatePO.mutate({ id: p.id, paymentStatus: val })}
+                            onClick={() => handlePaymentStatusChange(p, val)}
                           >
                             {p.paymentStatus === val ? "✓ " : ""}{meta.label}
                           </DropdownMenuItem>
@@ -156,6 +173,53 @@ export default function FinancePurchases() {
             );
           })}
         </div>
+      )}
+
+      {/* Dialog الدفع الجزئي */}
+      {partialDialog && (
+        <Dialog open={partialDialog.open} onOpenChange={() => { setPartialDialog(null); setPartialAmount(""); }}>
+          <DialogContent className="bg-card border-border max-w-sm" dir="rtl">
+            <DialogHeader><DialogTitle>تسجيل دفع جزئي</DialogTitle></DialogHeader>
+            <div className="space-y-4 mt-2">
+              <div className="bg-muted/30 rounded-lg p-3 text-sm space-y-1">
+                <div className="flex justify-between"><span className="text-muted-foreground">إجمالي الأمر</span><span className="font-bold">{fmt(partialDialog.total)}</span></div>
+                {partialDialog.alreadyPaid > 0 && (
+                  <div className="flex justify-between"><span className="text-muted-foreground">مدفوع سابقاً</span><span className="font-bold text-amber-500">{fmt(partialDialog.alreadyPaid)}</span></div>
+                )}
+                <div className="flex justify-between"><span className="text-muted-foreground">المتبقي</span><span className="font-bold text-rose-500">{fmt(partialDialog.total - partialDialog.alreadyPaid)}</span></div>
+              </div>
+              <div>
+                <Label className="text-xs mb-1 block">المبلغ المدفوع الآن (ج.م)</Label>
+                <Input
+                  type="number"
+                  className="h-10 text-base font-bold"
+                  value={partialAmount}
+                  onChange={e => setPartialAmount(e.target.value)}
+                  min={1}
+                  max={partialDialog.total - partialDialog.alreadyPaid}
+                  autoFocus
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  المبلغ الإجمالي الجديد المدفوع سيكون: {fmt(partialDialog.alreadyPaid + (parseFloat(partialAmount) || 0))}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  className="flex-1 h-9 font-bold"
+                  disabled={updatePO.isPending || !partialAmount || parseFloat(partialAmount) <= 0}
+                  onClick={() => updatePO.mutate({
+                    id: partialDialog.poId,
+                    paymentStatus: "partial",
+                    paidAmount: partialDialog.alreadyPaid + parseFloat(partialAmount),
+                  })}
+                >
+                  {updatePO.isPending ? "جاري الحفظ..." : "تأكيد الدفع"}
+                </Button>
+                <Button variant="outline" className="h-9 border-border" onClick={() => { setPartialDialog(null); setPartialAmount(""); }}>إلغاء</Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
