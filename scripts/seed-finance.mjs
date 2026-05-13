@@ -27,9 +27,24 @@ loadEnv();
 const DB_URL = process.env.DATABASE_URL || process.env.DB_URL;
 
 function parseDbUrl(url) {
-  const m = url.match(/mysql:\/\/([^:]+):([^@]+)@([^:\/]+):?(\d+)?\/(.+)/);
-  if (!m) throw new Error("DATABASE_URL format invalid");
-  return { user: m[1], password: m[2], host: m[3], port: parseInt(m[4] || "3306"), database: m[5].split("?")[0] };
+  // نشيل mysql:// من الأول
+  const withoutProto = url.replace(/^mysql:\/\//, "");
+  // آخر @ قبل الـ host هو الفاصل الحقيقي بين credentials والـ host
+  const atIndex = withoutProto.lastIndexOf("@");
+  const credentials = withoutProto.slice(0, atIndex);
+  const hostPart    = withoutProto.slice(atIndex + 1);
+  const colonIdx    = credentials.indexOf(":");
+  const user        = credentials.slice(0, colonIdx);
+  const password    = credentials.slice(colonIdx + 1);
+  const hostMatch   = hostPart.match(/^([^:\/]+):?(\d+)?\/(.+)/);
+  if (!hostMatch) throw new Error("DATABASE_URL format invalid");
+  return {
+    user,
+    password,
+    host:     hostMatch[1],
+    port:     parseInt(hostMatch[2] || "3306"),
+    database: hostMatch[3].split("?")[0],
+  };
 }
 
 const now = new Date();
