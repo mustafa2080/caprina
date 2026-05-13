@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, gte, lte, and, sql, lt, isNull } from "drizzle-orm";
+import { eq, desc, gte, lte, and, sql, lt, isNull, like, or } from "drizzle-orm";
+import ExcelJS from "exceljs";
 import { db, expensesTable, shippingFinancialInvoicesTable, ordersTable, shippingManifestsTable, shippingManifestOrdersTable, purchasesTable, cashRegistersTable, cashTransactionsTable } from "@workspace/db";
 import { z } from "zod";
 
@@ -18,16 +19,105 @@ const ExpenseSchema = z.object({
   expenseDate: z.string(),
 });
 
+// ── helper: بناء شروط الفلترة للمصروفات ──────────────────────────────────
+function buildExpenseConditions(query: Record<string, any>) {
+  const { from, to, category, search } = query;
+  const conditions: any[] = [];
+  if (from)     conditions.push(gte(expensesTable.expenseDate, new Date(from as string)));
+  if (to)       conditions.push(lte(expensesTable.expenseDate, new Date(to   as string)));
+  if (category && category !== "all") conditions.push(eq(expensesTable.category, category as string));
+  if (search) {
+    const q = `%${search}%`;
+    conditions.push(or(like(expensesTable.title, q), like(expensesTable.notes, q), like(expensesTable.referenceId, q)));
+  }
+  return conditions;
+}
+
 router.get("/finance/expenses", async (req, res): Promise<void> => {
-  const { from, to, category } = req.query;
-  const conditions = [];
-  if (from) conditions.push(gte(expensesTable.expenseDate, new Date(from as string)));
-  if (to) conditions.push(lte(expensesTable.expenseDate, new Date(to as string)));
-  if (category) conditions.push(eq(expensesTable.category, category as string));
-  const expenses = conditions.length
-    ? await db.select().from(expensesTable).where(and(...conditions)).orderBy(desc(expensesTable.expenseDate))
-    : await db.select().from(expensesTable).orderBy(desc(expensesTable.expenseDate));
-  res.json(expenses);
+  const { page = "1", limit = "25" } = req.query;
+  const conditions = buildExpenseConditions(req.query);
+  const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
+
+  const [{ total }] = await db.select({ total: sql<number>`COUNT(*)` })
+    .from(expensesTable)
+    .where(conditions.length ? and(...conditions) : undefined);
+
+  const expenses = await db.select().from(expensesTable)
+    .where(conditions.length ? and(...conditions) : undefined)
+    .orderBy(desc(expensesTable.expenseDate))
+    .limit(parseInt(limit as string))
+    .offset(offset);
+
+  res.json({ expenses, total: Number(total), page: parseInt(page as string), limit: parseInt(limit as string) });
+});
+
+// ── تصدير Excel للمصروفات ─────────────────────────────────────────────────
+router.get("/finance/expenses/export-excel", async (req, res): Promise<void> => {
+  const conditions = buildExpenseConditions(req.query);
+  const expenses = await db.select().from(expensesTable)
+    .where(conditions.length ? and(...conditions) : undefined)
+    .orderBy(desc(expensesTable.expenseDate));
+
+  const CAT_LABELS: Record<string, string> = {
+    shipping_fees:"مصاريف شحن", warehouse_rent:"إيجار مخزن", salary:"مرتبات",
+    marketing:"تسويق وإعلانات", packaging:"تغليف", utilities:"كهرباء / خدمات",
+    maintenance:"صيانة", returns_loss:"خسائر مرتجعات", other:"أخرى",
+  };
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "Caprina"; wb.created = new Date();
+  const ws = wb.addWorksheet("المصروفات", { views: [{ rightToLeft: true }] });
+
+  ws.columns = [
+    { header: "#",          key: "id",          width: 8  },
+    { header: "العنوان",    key: "title",        width: 30 },
+    { header: "التصنيف",    key: "category",     width: 20 },
+    { header: "المبلغ",     key: "amount",       width: 16 },
+    { header: "التاريخ",    key: "expenseDate",  width: 14 },
+    { header: "رقم مرجعي", key: "referenceId",  width: 16 },
+    { header: "ملاحظات",   key: "notes",        width: 30 },
+    { header: "بواسطة",    key: "createdByName",width: 18 },
+  ];
+
+  // تنسيق الهيدر
+  ws.getRow(1).eachCell(cell => {
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDEA821" } };
+    cell.font = { bold: true, color: { argb: "FF000000" } };
+    cell.alignment = { horizontal: "center", vertical: "middle" };
+  });
+  ws.getRow(1).height = 22;
+
+  let totalAmount = 0;
+  expenses.forEach((e, i) => {
+    const amt = parseFloat(e.amount ?? "0");
+    totalAmount += amt;
+    const row = ws.addRow({
+      id: e.id,
+      title: e.title,
+      category: CAT_LABELS[e.category ?? ""] ?? e.category,
+      amount: amt,
+      expenseDate: e.expenseDate ? new Date(e.expenseDate).toLocaleDateString("ar-EG") : "",
+      referenceId: e.referenceId ?? "",
+      notes: e.notes ?? "",
+      createdByName: e.createdByName ?? "",
+    });
+    row.getCell("amount").numFmt = '#,##0.00 "ج.م"';
+    if (i % 2 === 1) {
+      row.eachCell(cell => { cell.fill = { type:"pattern", pattern:"solid", fgColor:{ argb:"FFF9F9F9" } }; });
+    }
+  });
+
+  // صف الإجمالي
+  const totalRow = ws.addRow({ title: "الإجمالي", amount: totalAmount });
+  totalRow.getCell("title").font = { bold: true };
+  totalRow.getCell("amount").numFmt = '#,##0.00 "ج.م"';
+  totalRow.getCell("amount").font = { bold: true, color: { argb: "FFC0392B" } };
+  totalRow.eachCell(cell => { cell.fill = { type:"pattern", pattern:"solid", fgColor:{ argb:"FFFFF3CD" } }; });
+
+  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  res.setHeader("Content-Disposition", `attachment; filename="expenses-${Date.now()}.xlsx"`);
+  await wb.xlsx.write(res);
+  res.end();
 });
 
 router.post("/finance/expenses", async (req, res): Promise<void> => {
