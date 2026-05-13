@@ -84,9 +84,10 @@ export default function FinanceCashPage() {
   const { data: regData, isLoading, isFetching } = useQuery<{ registers: CashRegister[]; totalBalance: number }>({
     queryKey: ["/api/cash-registers"],
     queryFn: () => apiFetch("/api/cash-registers"),
-    refetchInterval: 120000,
-    staleTime: 60000,
+    refetchInterval: 30000,
+    staleTime: 0,
     refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
     placeholderData: (prev) => prev,
   });
 
@@ -114,7 +115,8 @@ export default function FinanceCashPage() {
     queryKey: ["/api/cash-registers/ledger", ledgerRegId, ledgerFrom, ledgerTo, ledgerType, ledgerPage],
     queryFn: () => apiFetch(`/api/cash-registers/${ledgerRegId}/transactions?from=${ledgerFrom}&to=${ledgerTo}&type=${ledgerType}&page=${ledgerPage}&limit=25`),
     enabled: !!ledgerRegId,
-    staleTime: 60000,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
     refetchIntervalInBackground: false,
     placeholderData: (prev: any) => prev,
   });

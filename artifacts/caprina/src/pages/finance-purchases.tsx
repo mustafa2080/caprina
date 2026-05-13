@@ -84,6 +84,8 @@ export default function FinancePurchases() {
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["finance-purchases"] });
+      qc.invalidateQueries({ queryKey: ["/api/cash-registers"] });
+      qc.invalidateQueries({ queryKey: ["/api/cash-registers/ledger"] });
       setPartialDialog(null);
       setPartialAmount("");
       toast({ title: "✅ تم تحديث الحالة" });
