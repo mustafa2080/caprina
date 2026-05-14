@@ -182,8 +182,45 @@ router.post("/finance/expenses", async (req, res): Promise<void> => {
   res.status(201).json(expense);
 });
 
+// ── تقرير المصروفات شهر بشهر (MoM) ─────────────────────────────────────────
+router.get("/finance/expenses/monthly-breakdown", async (req, res): Promise<void> => {
+  // آخر 6 شهور افتراضياً
+  const monthsBack = parseInt((req.query.months as string) ?? "6");
+  const now = new Date();
+  const results: Record<string, Record<string, number>> = {};
+  const monthLabels: string[] = [];
+
+  for (let i = monthsBack - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const from = new Date(d.getFullYear(), d.getMonth(), 1);
+    const to   = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59);
+    const label = d.toLocaleDateString("ar-EG", { month: "short", year: "numeric" });
+    monthLabels.push(label);
+
+    const rows = await db.select({
+      category: expensesTable.category,
+      total: sql<number>`COALESCE(SUM(CAST(amount AS DECIMAL(14,2))), 0)`,
+    }).from(expensesTable).where(and(
+      gte(expensesTable.expenseDate, from),
+      lte(expensesTable.expenseDate, to),
+    )).groupBy(expensesTable.category);
+
+    results[label] = {};
+    for (const row of rows) {
+      results[label][row.category ?? "other"] = Number(row.total);
+    }
+  }
+
+  // كل التصنيفات الموجودة عبر الشهور
+  const allCategories = Array.from(
+    new Set(Object.values(results).flatMap(m => Object.keys(m)))
+  );
+
+  res.json({ months: monthLabels, categories: allCategories, data: results });
+});
+
 router.delete("/finance/expenses/:id", async (req, res): Promise<void> => {
-  const id  = parseInt(req.params.id);
+  const id = parseInt(req.params.id);
   const now = new Date();
   const user = (req as any).user;
 

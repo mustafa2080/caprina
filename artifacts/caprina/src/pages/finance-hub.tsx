@@ -378,6 +378,177 @@ function BreakEvenTracker({ pnl, orders, isLoading }: { pnl: any; orders: any; i
   );
 }
 
+// ─── MoM Expense Comparison ──────────────────────────────────────────────────
+const CAT_COLORS: Record<string, string> = {
+  shipping_fees: "#3B82F6", warehouse_rent: "#8B5CF6", salary: "#10B981",
+  marketing: "#F59E0B", packaging: "#06B6D4", utilities: "#EAB308",
+  maintenance: "#F97316", returns_loss: "#EF4444", other: "#6B7280",
+};
+
+function MoMExpenseReport() {
+  const { data, isLoading } = useQuery({
+    queryKey: ["expense-monthly-breakdown"],
+    queryFn: () => apiFetch("/api/finance/expenses/monthly-breakdown"),
+    staleTime: 120_000,
+  });
+
+  const months: string[]     = data?.months     ?? [];
+  const categories: string[] = data?.categories ?? [];
+  const raw: Record<string, Record<string, number>> = data?.data ?? {};
+
+  // حوّل البيانات لـ recharts format
+  const chartData = months.map(m => {
+    const row: Record<string, any> = { month: m };
+    let total = 0;
+    for (const cat of categories) {
+      const val = raw[m]?.[cat] ?? 0;
+      row[cat] = val;
+      total += val;
+    }
+    row._total = total;
+    return row;
+  });
+
+  // جدول مقارنة: كل فئة × كل شهر
+  const tableCategories = categories.filter(cat =>
+    months.some(m => (raw[m]?.[cat] ?? 0) > 0)
+  );
+
+  const [view, setView] = useState<"chart" | "table">("chart");
+
+  return (
+    <div className="relative overflow-hidden rounded-[22px] p-5"
+      style={{
+        background: "linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(255,255,255,0.01) 100%)",
+        border: "1px solid rgba(99,102,241,0.25)",
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.10), 0 8px 32px rgba(99,102,241,0.15)",
+        backdropFilter: "blur(12px)",
+      }}>
+      {/* خط الضوء العلوي */}
+      <div className="absolute inset-x-10 top-0 h-px pointer-events-none"
+        style={{ background: "linear-gradient(90deg, transparent, #6366F1, transparent)" }} />
+
+      {/* Header */}
+      <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+            style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.30)" }}>
+            <BarChart3 className="w-4 h-4 text-indigo-400" />
+          </div>
+          <div>
+            <h3 className="text-sm font-black">مقارنة المصروفات شهر بشهر</h3>
+            <p className="text-[11px] text-muted-foreground">كل فئة مصروف لكل شهر — اعرف فين بتصرف أكتر</p>
+          </div>
+        </div>
+        <div className="flex gap-1">
+          {(["chart","table"] as const).map(v => (
+            <button key={v} onClick={() => setView(v)}
+              className={`text-xs px-3 py-1 rounded-lg font-bold transition-all ${view===v ? "bg-indigo-500 text-white" : "bg-white/5 text-muted-foreground hover:bg-white/10"}`}>
+              {v === "chart" ? "📊 رسم بياني" : "📋 جدول"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="h-52 flex items-center justify-center text-muted-foreground text-sm">جاري التحميل...</div>
+      ) : months.length === 0 ? (
+        <div className="h-52 flex flex-col items-center justify-center text-muted-foreground">
+          <BarChart3 className="w-10 h-10 mb-2 opacity-20" />
+          <p className="text-sm">لا توجد مصروفات مسجلة بعد</p>
+        </div>
+      ) : view === "chart" ? (
+        <>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.07)" vertical={false} />
+              <XAxis dataKey="month" tick={{ fontSize: 10, fill: "rgba(255,255,255,0.45)" }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 10, fill: "rgba(255,255,255,0.45)" }} axisLine={false} tickLine={false} tickFormatter={v => fmtS(v)} width={42} />
+              <Tooltip content={<ChartTooltip />} />
+              <Legend formatter={(v) => CAT_LABELS[v] ?? v} wrapperStyle={{ fontSize: 10 }} />
+              {tableCategories.map((cat, i) => (
+                <Bar key={cat} dataKey={cat} name={CAT_LABELS[cat] ?? cat}
+                  stackId="a" fill={CAT_COLORS[cat] ?? PIE_COLORS[i % PIE_COLORS.length]}
+                  radius={i === tableCategories.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]} />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+          {/* Totals row */}
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+            {chartData.map(d => (
+              <div key={d.month} className="shrink-0 text-center px-3 py-1.5 rounded-lg"
+                style={{ background: "rgba(99,102,241,0.10)", border: "1px solid rgba(99,102,241,0.15)" }}>
+                <p className="text-[10px] text-muted-foreground">{d.month}</p>
+                <p className="text-xs font-black text-indigo-400">{fmtS(d._total)}</p>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : (
+        /* Table view */
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-white/10">
+                <th className="text-right pb-2 pr-1 text-muted-foreground font-bold">الفئة</th>
+                {months.map(m => (
+                  <th key={m} className="text-center pb-2 px-2 text-muted-foreground font-bold whitespace-nowrap">{m}</th>
+                ))}
+                <th className="text-center pb-2 px-2 font-bold text-indigo-400">المجموع</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tableCategories.map((cat, i) => {
+                const catTotal = months.reduce((s, m) => s + (raw[m]?.[cat] ?? 0), 0);
+                return (
+                  <tr key={cat} className={`border-b border-white/5 ${i % 2 === 0 ? "bg-white/2" : ""}`}>
+                    <td className="py-2 pr-1">
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2 h-2 rounded-full shrink-0"
+                          style={{ background: CAT_COLORS[cat] ?? PIE_COLORS[i % PIE_COLORS.length] }} />
+                        <span className="font-medium">{CAT_LABELS[cat] ?? cat}</span>
+                      </div>
+                    </td>
+                    {months.map(m => {
+                      const val = raw[m]?.[cat] ?? 0;
+                      const maxForCat = Math.max(...months.map(mo => raw[mo]?.[cat] ?? 0));
+                      const isMax = val > 0 && val === maxForCat;
+                      return (
+                        <td key={m} className="text-center px-2 py-2">
+                          {val > 0 ? (
+                            <span className={`font-bold ${isMax ? "text-rose-400" : "text-foreground"}`}>
+                              {isMax ? "🔴 " : ""}{fmtS(val)}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground/30">—</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                    <td className="text-center px-2 py-2 font-black text-indigo-400">{fmtS(catTotal)}</td>
+                  </tr>
+                );
+              })}
+              {/* صف الإجمالي */}
+              <tr className="border-t-2 border-indigo-500/30 bg-indigo-500/5">
+                <td className="py-2.5 pr-1 font-black text-indigo-400">الإجمالي</td>
+                {months.map(m => (
+                  <td key={m} className="text-center px-2 py-2.5 font-black text-indigo-400">
+                    {fmtS(chartData.find(d => d.month === m)?._total ?? 0)}
+                  </td>
+                ))}
+                <td className="text-center px-2 py-2.5 font-black text-indigo-500">
+                  {fmtS(chartData.reduce((s, d) => s + d._total, 0))}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function FinanceHub() {
   const { user } = useAuth();
@@ -721,6 +892,9 @@ export default function FinanceHub() {
 
       {/* ── Break-Even Tracker ──────────────────────────────────────────────── */}
       <BreakEvenTracker pnl={pnl} orders={ords} isLoading={isLoading} />
+
+      {/* ── MoM Expense Comparison ──────────────────────────────────────────── */}
+      <MoMExpenseReport />
 
       {/* ── مستحقات + أوامر الشراء ──────────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
