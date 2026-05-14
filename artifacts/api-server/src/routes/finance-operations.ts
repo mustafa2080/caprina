@@ -128,14 +128,17 @@ router.post("/finance/expenses", async (req, res): Promise<void> => {
   const data = parsed.data;
   const amt = data.amount;
 
-  // ── التحقق من رصيد الخزنة أولاً (قبل أي insert) ────────────────────────
+  // ── تحديد الخزنة: المحددة من المستخدم أو الافتراضية تلقائياً ────────────
   let reg: any = null;
   let balBefore = 0;
   let balAfter  = 0;
+  let resolvedRegisterId: number | null = data.cashRegisterId ?? null;
 
-  if (data.cashRegisterId) {
-    const [found] = await db.select().from(cashRegistersTable).where(eq(cashRegistersTable.id, data.cashRegisterId));
-    if (!found) { res.status(404).json({ error: "الخزنة المحددة غير موجودة" }); return; }
+  if (resolvedRegisterId) {
+    // خزنة محددة من المستخدم - تحقق منها
+    const [found] = await db.select().from(cashRegistersTable)
+      .where(and(eq(cashRegistersTable.id, resolvedRegisterId), eq(cashRegistersTable.isActive, true)));
+    if (!found) { res.status(404).json({ error: "الخزنة المحددة غير موجودة أو غير نشطة" }); return; }
     balBefore = parseFloat(found.balance ?? "0");
     balAfter  = balBefore - amt;
     if (balAfter < 0) {
@@ -143,12 +146,29 @@ router.post("/finance/expenses", async (req, res): Promise<void> => {
       return;
     }
     reg = found;
+  } else {
+    // مفيش خزنة محددة → جيب الافتراضية أو أول خزنة نشطة
+    const registers = await db.select().from(cashRegistersTable)
+      .where(eq(cashRegistersTable.isActive, true))
+      .orderBy(cashRegistersTable.id);
+    const defaultReg = registers.find((r: any) => r.isDefault) ?? registers[0] ?? null;
+    if (defaultReg) {
+      balBefore = parseFloat(defaultReg.balance ?? "0");
+      balAfter  = balBefore - amt;
+      if (balAfter < 0) {
+        res.status(400).json({ error: `رصيد الخزنة الافتراضية "${defaultReg.name}" مش كفاية — المتاح: ${balBefore.toLocaleString("ar-EG")} ج.م` });
+        return;
+      }
+      reg = defaultReg;
+      resolvedRegisterId = defaultReg.id;
+    }
+    // لو مفيش أي خزنة نشطة → نكمل بدون خصم (edge case نادر)
   }
 
   // ── إنشاء المصروف أولاً عشان ناخد الـ id ────────────────────────────────
   const result = await db.insert(expensesTable).values({
     ...data,
-    cashRegisterId: data.cashRegisterId ?? null,
+    cashRegisterId: resolvedRegisterId,
     expenseDate: new Date(data.expenseDate),
     createdByUserId: user?.id,
     createdByName: user?.displayName,
@@ -157,13 +177,13 @@ router.post("/finance/expenses", async (req, res): Promise<void> => {
   const expenseId = (result as any)[0]?.insertId;
 
   // ── بعد ما عرفنا الـ id: خصم من الخزنة وسجّل الحركة ────────────────────
-  if (reg && data.cashRegisterId) {
+  if (reg && resolvedRegisterId) {
     await db.update(cashRegistersTable)
       .set({ balance: String(balAfter), updatedAt: now })
-      .where(eq(cashRegistersTable.id, data.cashRegisterId));
+      .where(eq(cashRegistersTable.id, resolvedRegisterId));
 
     await db.insert(cashTransactionsTable).values({
-      registerId: data.cashRegisterId,
+      registerId: resolvedRegisterId,
       type: "expense_paid",
       amount: String(amt),
       balanceBefore: String(balBefore),
@@ -462,7 +482,7 @@ router.get("/finance/analytics", async (req, res): Promise<void> => {
 
   // ── فواتير شحن غير مسددة (إجمالي) ───────────────────────────────────────
   const [unpaidShipping] = await db.select({
-    total: sql<number>`COALESCE(SUM(CAST(net_due AS DECIMAL(14,2)) - CAST(paid_amount AS DECIMAL(14,2))), 0)`,
+    total: sql<number>`COALESCE(SUM(CAST(net_due AS DECIMAL(14,2)) - COALESCE(CAST(paid_amount AS DECIMAL(14,2)),0)), 0)`,
     count: sql<number>`COUNT(*)`,
   }).from(shippingFinancialInvoicesTable)
     .where(sql`status IN ('pending','verified')`);
