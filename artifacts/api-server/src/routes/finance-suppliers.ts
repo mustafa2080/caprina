@@ -296,4 +296,11 @@ router.patch("/finance/purchases/:id", async (req, res): Promise<void> => {
   res.json(order);
 });
 
+router.delete("/finance/purchases/:id", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id);
+  await db.delete(purchaseOrderItemsTable).where(eq(purchaseOrderItemsTable.purchaseOrderId, id));
+  await db.delete(purchaseOrdersTable).where(eq(purchaseOrdersTable.id, id));
+  res.status(204).send();
+});
+
 export default router;

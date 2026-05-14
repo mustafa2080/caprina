@@ -1,5 +1,5 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -210,46 +210,56 @@ export default function FinanceSuppliers() {
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {paged.map(s => (
-              <Card key={s.id} className="p-4 border-border hover:border-primary/30 transition-colors">
+            {paged.map(s => {
+              const bal = parseFloat(s.balance);
+              const color = bal < 0 ? "#ef4444" : "#26A69A";
+              const glow  = bal < 0 ? "rgba(239,68,68,0.22)" : "rgba(38,166,154,0.20)";
+              const bg    = bal < 0
+                ? "linear-gradient(135deg, rgba(239,68,68,0.28) 0%, rgba(239,68,68,0.10) 52%, rgba(255,255,255,0.05) 100%)"
+                : "linear-gradient(135deg, rgba(126,87,194,0.28) 0%, rgba(126,87,194,0.10) 52%, rgba(255,255,255,0.05) 100%)";
+              return (
+              <div key={s.id}
+                className="group relative overflow-hidden rounded-[20px] p-4 transition-all duration-300 hover:-translate-y-0.5"
+                style={{ background: bg, border: `1px solid ${glow}`, boxShadow: `inset 0 1px 0 rgba(255,255,255,0.13), 0 8px 24px ${glow}`, backdropFilter: "blur(12px)" }}>
+                <div className="absolute inset-x-6 top-0 h-px pointer-events-none"
+                  style={{ background: `linear-gradient(90deg, transparent, ${bal < 0 ? "#ef4444" : "#7E57C2"}, transparent)` }} />
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                      <Building2 className="w-4 h-4 text-primary" />
+                    <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
+                      style={{ background: "rgba(255,255,255,0.10)" }}>
+                      <Building2 className="w-4 h-4" style={{ color: bal < 0 ? "#ef4444" : "#7E57C2" }} />
                     </div>
                     <div>
-                      <p className="font-bold text-sm">{s.name}</p>
-                      <Badge variant="outline" className="text-[9px] mt-0.5">
+                      <p className="font-bold text-sm" style={{ color: "hsl(var(--foreground))" }}>{s.name}</p>
+                      <Badge variant="outline" className="text-[9px] mt-0.5 border-white/20 text-white/60">
                         {CATEGORIES.find(c => c.value === s.category)?.label ?? s.category}
                       </Badge>
                     </div>
                   </div>
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-400" title="كشف حساب"
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-400 hover:bg-white/10" title="كشف حساب"
                       onClick={() => { setStmtSupplier(s); setStmtFrom(""); setStmtTo(""); }}>
                       <BookOpen className="w-3.5 h-3.5" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(s)}>
-                      <Edit2 className="w-3.5 h-3.5" />
+                    <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-white/10" onClick={() => openEdit(s)}>
+                      <Edit2 className="w-3.5 h-3.5" style={{ color: "hsl(var(--muted-foreground))" }} />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => del.mutate(s.id)}>
-                      <Trash2 className="w-3.5 h-3.5" />
+                    <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-rose-500/10" onClick={() => del.mutate(s.id)}>
+                      <Trash2 className="w-3.5 h-3.5 text-rose-400" />
                     </Button>
                   </div>
                 </div>
-                <div className="mt-3 space-y-1 text-xs text-muted-foreground">
+                <div className="mt-3 space-y-1 text-xs" style={{ color: "hsl(var(--muted-foreground))" }}>
                   {s.phone && <p className="flex items-center gap-1.5"><Phone className="w-3 h-3" />{s.phone}</p>}
                   {s.email && <p className="flex items-center gap-1.5"><Mail className="w-3 h-3" />{s.email}</p>}
-                  {s.paymentTerms && <p>شروط الدفع: <span className="text-foreground font-medium">{s.paymentTerms}</span></p>}
-                  <div className="flex items-center justify-between pt-2 border-t border-border mt-2">
+                  {s.paymentTerms && <p>شروط الدفع: <span className="font-medium" style={{ color: "hsl(var(--foreground))" }}>{s.paymentTerms}</span></p>}
+                  <div className="flex items-center justify-between pt-2 mt-2" style={{ borderTop: "1px solid rgba(255,255,255,0.10)" }}>
                     <span>الرصيد</span>
-                    <span className={`font-bold ${parseFloat(s.balance) >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
-                      {fmt(parseFloat(s.balance))}
-                    </span>
+                    <span className="font-bold" style={{ color, textShadow: `0 0 10px ${color}88` }}>{fmt(bal)}</span>
                   </div>
                 </div>
-              </Card>
-            ))}
+              </div>
+            )})}
           </div>
 
           {/* Pagination */}
@@ -345,17 +355,19 @@ export default function FinanceSuppliers() {
               {/* Summary cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {[
-                  { label: "إجمالي الأوامر", value: stmtData.summary.totalOrders, isCount: true },
-                  { label: "إجمالي المشتريات", value: stmtData.summary.totalAmount },
-                  { label: "المدفوع",          value: stmtData.summary.totalPaid,    color: "emerald" },
-                  { label: "المتبقي",          value: stmtData.summary.totalUnpaid,  color: "rose" },
-                ].map(({ label, value, isCount, color }) => (
-                  <Card key={label} className="p-3 border-border text-center">
-                    <p className="text-xs text-muted-foreground mb-1">{label}</p>
-                    <p className={`font-bold text-sm ${color === "emerald" ? "text-emerald-500" : color === "rose" ? "text-rose-500" : ""}`}>
-                      {isCount ? value : fmt(value as number)}
+                  { label: "إجمالي الأوامر",    value: stmtData.summary.totalOrders,  isCount: true, color: "#7E57C2", glow: "rgba(126,87,194,0.28)", bg: "linear-gradient(135deg, rgba(126,87,194,0.42) 0%, rgba(126,87,194,0.16) 52%, rgba(255,255,255,0.08) 100%)" },
+                  { label: "إجمالي المشتريات", value: stmtData.summary.totalAmount,               color: "#FFB74D", glow: "rgba(255,183,77,0.28)",  bg: "linear-gradient(135deg, rgba(255,183,77,0.42) 0%, rgba(255,183,77,0.16) 52%, rgba(255,255,255,0.08) 100%)" },
+                  { label: "المدفوع",           value: stmtData.summary.totalPaid,                color: "#26A69A", glow: "rgba(38,166,154,0.28)",  bg: "linear-gradient(135deg, rgba(38,166,154,0.44) 0%, rgba(38,166,154,0.16) 52%, rgba(255,255,255,0.08) 100%)" },
+                  { label: "المتبقي",           value: stmtData.summary.totalUnpaid,              color: "#ef4444", glow: "rgba(239,68,68,0.28)",   bg: "linear-gradient(135deg, rgba(239,68,68,0.42) 0%, rgba(239,68,68,0.16) 52%, rgba(255,255,255,0.08) 100%)" },
+                ].map(c => (
+                  <div key={c.label} className="relative overflow-hidden rounded-[18px] px-4 py-3.5 text-center"
+                    style={{ background: c.bg, border: `1px solid ${c.glow}`, boxShadow: `inset 0 1px 0 rgba(255,255,255,0.18), 0 10px 24px ${c.glow}`, backdropFilter: "blur(12px)" }}>
+                    <div className="absolute inset-x-6 top-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${c.color}, transparent)` }} />
+                    <p className="text-[11px] font-bold mb-1" style={{ color: "rgba(255,255,255,0.65)" }}>{c.label}</p>
+                    <p className="font-black text-base" style={{ color: c.color, textShadow: `0 0 14px ${c.color}88` }}>
+                      {c.isCount ? c.value : fmt(c.value as number)}
                     </p>
-                  </Card>
+                  </div>
                 ))}
               </div>
 
