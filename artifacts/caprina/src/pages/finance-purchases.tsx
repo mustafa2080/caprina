@@ -20,11 +20,11 @@ const api = {
 };
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  draft:            { label: "مسودة",        color: "bg-gray-100 text-gray-600 border-gray-300" },
-  ordered:          { label: "تم الطلب",      color: "bg-blue-50 text-blue-700 border-blue-300" },
-  received:         { label: "تم الاستلام",   color: "bg-emerald-50 text-emerald-700 border-emerald-300" },
-  partial_received: { label: "استلام جزئي",   color: "bg-purple-50 text-purple-700 border-purple-300" },
-  cancelled:        { label: "ملغي",          color: "bg-red-50 text-red-700 border-red-300" },
+  draft:            { label: "مسودة",        color: "bg-white/10 text-white/50 border-white/20" },
+  ordered:          { label: "تم الطلب",      color: "bg-blue-500/20 text-blue-300 border-blue-500/30" },
+  received:         { label: "تم الاستلام",   color: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" },
+  partial_received: { label: "استلام جزئي",   color: "bg-purple-500/20 text-purple-300 border-purple-500/30" },
+  cancelled:        { label: "ملغي",          color: "bg-rose-500/20 text-rose-300 border-rose-500/30" },
 };
 
 const PAY_LABELS: Record<string, { label: string; color: string }> = {
@@ -61,23 +61,23 @@ function PORow({
   const paid  = parseFloat(order.paidAmount ?? "0");
   const due   = total - paid;
   return (
-    <tr className="border-b hover:bg-gray-50/60 transition-colors">
-      <td className="px-3 py-3 font-mono text-xs text-blue-700 font-semibold">{order.poNumber}</td>
-      <td className="px-3 py-3 text-sm text-gray-700">{supplierName}</td>
+    <tr className="border-b border-white/5 hover:bg-white/5 transition-colors">
+      <td className="px-3 py-3 font-mono text-xs text-cyan-400 font-semibold">{order.poNumber}</td>
+      <td className="px-3 py-3 text-sm text-white/80">{supplierName}</td>
       <td className="px-3 py-3">
         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${st.color}`}>{st.label}</span>
       </td>
-      <td className="px-3 py-3 text-sm font-semibold text-gray-800">{fmt(total)}</td>
-      <td className="px-3 py-3 text-sm text-emerald-600 font-medium">{fmt(paid)}</td>
-      <td className={`px-3 py-3 text-sm font-semibold ${due > 0 ? "text-rose-500" : "text-gray-400"}`}>{fmt(due)}</td>
+      <td className="px-3 py-3 text-sm font-semibold text-white/90">{fmt(total)}</td>
+      <td className="px-3 py-3 text-sm text-emerald-400 font-medium">{fmt(paid)}</td>
+      <td className={`px-3 py-3 text-sm font-semibold ${due > 0 ? "text-rose-400" : "text-white/30"}`}>{fmt(due)}</td>
       <td className={`px-3 py-3 text-xs font-semibold ${pt.color}`}>{pt.label}</td>
-      <td className="px-3 py-3 text-xs text-gray-500">
+      <td className="px-3 py-3 text-xs text-white/40">
         {order.createdAt ? format(new Date(order.createdAt), "dd/MM/yyyy") : "—"}
       </td>
       <td className="px-3 py-3">
         <div className="flex gap-1">
-          <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => onEdit(order)}>تعديل</Button>
-          <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-red-500 hover:text-red-700 hover:bg-red-50"
+          <Button size="sm" variant="outline" className="h-7 px-2 text-xs border-white/20 text-white/70 hover:bg-white/10 hover:text-white bg-transparent" onClick={() => onEdit(order)}>تعديل</Button>
+          <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
             onClick={() => onDelete(order.id)}><Trash2 className="w-3 h-3" /></Button>
         </div>
       </td>
@@ -440,13 +440,13 @@ export default function FinancePurchases() {
       </Card>
 
       {/* ── الجدول ── */}
-      <Card className="overflow-hidden">
+      <div className="rounded-2xl bg-gradient-to-br from-[#0f1a0f] to-[#1a2a1a] border border-white/10 shadow-xl overflow-hidden">
         {isLoading ? (
-          <div className="flex items-center justify-center py-16 text-gray-400">
+          <div className="flex items-center justify-center py-16 text-white/30">
             <ShoppingCart className="w-8 h-8 animate-pulse ml-2" />جارٍ التحميل…
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+          <div className="flex flex-col items-center justify-center py-16 text-white/30">
             <ShoppingCart className="w-12 h-12 mb-3 opacity-30" />
             <p className="text-lg font-medium">لا توجد أوامر شراء</p>
             <p className="text-sm mt-1">اضغط "أمر جديد" لإنشاء أول أمر</p>
@@ -454,10 +454,10 @@ export default function FinancePurchases() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b">
-                <tr>
+              <thead>
+                <tr className="border-b border-white/10 bg-white/5">
                   {["رقم الأمر","المورد","الحالة","الإجمالي","المدفوع","المتبقي","الدفع","التاريخ","إجراءات"].map(h => (
-                    <th key={h} className="px-3 py-3 text-right text-xs text-gray-500 font-semibold">{h}</th>
+                    <th key={h} className="px-3 py-3 text-right text-xs text-white/40 font-semibold tracking-wide">{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -471,7 +471,7 @@ export default function FinancePurchases() {
             </table>
           </div>
         )}
-      </Card>
+      </div>
 
       {/* ── النموذج ── */}
       {formOpen && (
