@@ -210,4 +210,27 @@ async function ensureShippingManifestColumns() {
 }
 ensureShippingManifestColumns();
 
+// ─── Ensure cash_registers.is_default column exists ──────────────────────────
+async function ensureCashRegisterIsDefault() {
+  try {
+    await db.execute(sql`
+      ALTER TABLE cash_registers ADD COLUMN IF NOT EXISTS is_default TINYINT(1) NOT NULL DEFAULT 0
+    `);
+    // لو مفيش خزنة default → عيّن الخزنة الرئيسية تلقائياً
+    const [rows] = await db.execute(sql`SELECT COUNT(*) as cnt FROM cash_registers WHERE is_default = 1`);
+    const cnt = (rows as any)[0]?.cnt ?? 0;
+    if (Number(cnt) === 0) {
+      await db.execute(sql`
+        UPDATE cash_registers SET is_default = 1 WHERE type = 'main' ORDER BY id LIMIT 1
+      `);
+    }
+    logger.info("cash_registers.is_default column ensured");
+  } catch (err: any) {
+    if (err?.message && !err.message.includes("Duplicate column")) {
+      logger.error({ err }, "Failed to ensure is_default column");
+    }
+  }
+}
+ensureCashRegisterIsDefault();
+
 export default app;

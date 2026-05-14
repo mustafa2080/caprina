@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, gte, lte, and, sql, lt, isNull, like, or } from "drizzle-orm";
 import ExcelJS from "exceljs";
-import { db, expensesTable, shippingFinancialInvoicesTable, ordersTable, shippingManifestsTable, shippingManifestOrdersTable, purchasesTable, cashRegistersTable, cashTransactionsTable } from "@workspace/db";
+import { db, expensesTable, shippingFinancialInvoicesTable, ordersTable, shippingManifestsTable, shippingManifestOrdersTable, cashRegistersTable, cashTransactionsTable } from "@workspace/db";
 import { z } from "zod";
 
 const router: IRouter = Router();

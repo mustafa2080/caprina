@@ -33,6 +33,7 @@ export const cashRegistersTable = mysqlTable("cash_registers", {
   balance:        decimal("balance", { precision: 14, scale: 2 }).notNull().default("0"),
   description:    text("description"),
   isActive:       boolean("is_active").notNull().default(true),
+  isDefault:      boolean("is_default").notNull().default(false),                      // الخزنة الافتراضية
   lowBalanceThreshold: decimal("low_balance_threshold", { precision: 14, scale: 2 }), // حد التنبيه
   createdByUserId: int("created_by_user_id"),
   createdByName:  varchar("created_by_name", { length: 255 }),
