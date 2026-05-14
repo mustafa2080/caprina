@@ -134,8 +134,7 @@ export default function FinanceSuppliers() {
     const p = new URLSearchParams();
     if (search.trim()) p.set("search", search.trim());
     if (catFilter !== "all") p.set("category", catFilter);
-    const base = (window as any).__API_BASE__ || "";
-    window.open(`${base}/finance/suppliers/export-excel?${p}`, "_blank");
+    window.open(`/api/finance/suppliers/export-excel?${p}`, "_blank");
   };
 
   const exportStatement = () => {
@@ -143,8 +142,7 @@ export default function FinanceSuppliers() {
     const p = new URLSearchParams();
     if (stmtFrom) p.set("from", stmtFrom);
     if (stmtTo)   p.set("to",   stmtTo);
-    const base = (window as any).__API_BASE__ || "";
-    window.open(`${base}/finance/suppliers/${stmtSupplier.id}/statement/export-excel?${p}`, "_blank");
+    window.open(`/api/finance/suppliers/${stmtSupplier.id}/statement/export-excel?${p}`, "_blank");
   };
 
   // ── pagination ─────────────────────────────────────────────────────────────
@@ -244,7 +242,7 @@ export default function FinanceSuppliers() {
                     <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-white/10" onClick={() => openEdit(s)}>
                       <Edit2 className="w-3.5 h-3.5" style={{ color: "hsl(var(--muted-foreground))" }} />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-rose-500/10" onClick={() => del.mutate(s.id)}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-rose-500/10" onClick={() => { if (confirm(`حذف المورد "${s.name}"؟ لا يمكن التراجع عن هذا الإجراء.`)) del.mutate(s.id); }}>
                       <Trash2 className="w-3.5 h-3.5 text-rose-400" />
                     </Button>
                   </div>

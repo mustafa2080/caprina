@@ -76,7 +76,7 @@ export default function FinanceCashPage() {
   const [ledgerSearch, setLedgerSearch] = useState("");
   const [ledgerPage, setLedgerPage] = useState(1);
 
-  const [newReg,  setNewReg]  = useState({ name: "", type: "branch", description: "", initialBalance: "" });
+  const [newReg,  setNewReg]  = useState({ name: "", type: "branch", description: "", initialBalance: "", isDefault: false });
   const [txForm,  setTxForm]  = useState({ type: "deposit", amount: "", description: "", referenceNumber: "", transactionDate: format(new Date(), "yyyy-MM-dd") });
   const [transfer, setTransfer] = useState({ fromId: "", toId: "", amount: "", description: "" });
   const [editForm, setEditForm] = useState({ name: "", description: "", isDefault: false });
@@ -564,6 +564,16 @@ export default function FinanceCashPage() {
             </div>
             <div className="space-y-1"><Label className="text-xs">رصيد افتتاحي</Label><Input type="number" placeholder="0" value={newReg.initialBalance} onChange={e=>setNewReg(p=>({...p,initialBalance:e.target.value}))} className="text-sm"/></div>
             <div className="space-y-1"><Label className="text-xs">ملاحظات</Label><Textarea placeholder="وصف اختياري" value={newReg.description} onChange={e=>setNewReg(p=>({...p,description:e.target.value}))} className="text-sm" rows={2}/></div>
+            <div className="flex items-center justify-between rounded-xl border border-border p-3">
+              <div>
+                <p className="text-xs font-semibold">تعيين كخزنة افتراضية</p>
+                <p className="text-[11px] text-muted-foreground">تُستخدم تلقائياً للمصروفات وأوامر الشراء</p>
+              </div>
+              <button onClick={()=>setNewReg(p=>({...p,isDefault:!p.isDefault}))}
+                className={`w-10 h-6 rounded-full transition-all duration-200 relative ${newReg.isDefault?"bg-emerald-500":"bg-muted"}`}>
+                <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-all duration-200 ${newReg.isDefault?"right-0.5":"left-0.5"}`}/>
+              </button>
+            </div>
             <Button className="w-full text-black font-bold" style={{background:"#DEA821"}} disabled={!newReg.name||addRegMut.isPending} onClick={()=>addRegMut.mutate(newReg)}>{addRegMut.isPending?"جارٍ الإنشاء...":"إنشاء الخزنة"}</Button>
           </div>
         </DialogContent>

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -113,6 +113,21 @@ function POForm({
   type ItemRow = { productId: string; productName: string; color: string; size: string; sku: string; quantity: number; unitCost: number };
   const blankItem = (): ItemRow => ({ productId: "", productName: "", color: "", size: "", sku: "", quantity: 1, unitCost: 0 });
   const [items, setItems] = useState<ItemRow[]>([blankItem()]);
+
+  // reset الـ form لما بيتفتح أمر جديد أو edit مختلف
+  useEffect(() => {
+    setSupplierId(String(editOrder?.supplierId ?? ""));
+    setSupplierName(editOrder?.supplierName ?? "");
+    setStatus(editOrder?.status ?? "draft");
+    setPayStatus(editOrder?.paymentStatus ?? "unpaid");
+    setPaidAmount(editOrder?.paidAmount ?? "0");
+    setShippingCost(editOrder?.shippingCost ?? "0");
+    setTaxAmount(editOrder?.taxAmount ?? "0");
+    setDiscount(editOrder?.discountAmount ?? "0");
+    setNotes(editOrder?.notes ?? "");
+    setExpectedDate(editOrder?.expectedDate?.split("T")[0] ?? "");
+    setItems([blankItem()]);
+  }, [editOrder, open]);
 
   const updateItem = (i: number, field: keyof ItemRow, val: any) => {
     setItems(prev => prev.map((r, idx) => idx === i ? { ...r, [field]: val } : r));
