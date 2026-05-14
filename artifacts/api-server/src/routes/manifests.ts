@@ -963,7 +963,7 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
   if (deliveryStatus === "returned" && returnReceived != null) orderUpdate.returnReceived = returnReceived ? 1 : 0;
   else if (deliveryStatus !== "returned" && deliveryStatus !== "partial_received") orderUpdate.returnReceived = null;
   // حفظ سبب الإرجاع في جدول الطلبات
-  if (deliveryStatus === "returned" && returnReason) orderUpdate.returnReason = returnReason;
+  if (deliveryStatus === "returned") orderUpdate.returnReason = returnReason ?? null;
   await db.update(ordersTable).set(orderUpdate).where(eq(ordersTable.id, orderId));
 
   // ─── فواتير متعددة (siblings): لا نحدث الـ siblings خالص ──
