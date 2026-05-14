@@ -255,10 +255,30 @@ function OrderDeliveryRow({
           </Badge>
           {/* sub-status للمرتجع */}
           {order.deliveryStatus === "returned" && (order as any).returnReceived === 1 && (
-            <p className="text-[10px] text-emerald-600 mt-0.5 font-semibold">↩ تم الاستلام</p>
+            <>
+              <p className="text-[10px] text-emerald-600 mt-0.5 font-semibold">↩ تم الاستلام</p>
+              {!editing && (
+                <p className="text-[10px] text-red-400 mt-0.5 truncate max-w-[110px] flex items-center gap-0.5">
+                  ↳ {(order as any).returnReason ? returnReasonLabel((order as any).returnReason) : "لم يحدد السبب"}
+                </p>
+              )}
+            </>
           )}
           {order.deliveryStatus === "returned" && (order as any).returnReceived === 0 && (
-            <p className="text-[10px] text-orange-500 mt-0.5 font-semibold">⏳ عند شركة الشحن</p>
+            <>
+              <p className="text-[10px] text-orange-500 mt-0.5 font-semibold">⏳ عند شركة الشحن</p>
+              {!editing && (
+                <p className="text-[10px] text-red-400 mt-0.5 truncate max-w-[110px] flex items-center gap-0.5">
+                  ↳ {(order as any).returnReason ? returnReasonLabel((order as any).returnReason) : "لم يحدد السبب"}
+                </p>
+              )}
+            </>
+          )}
+          {/* لو returnReceived لسه null (لم يختر بعد) */}
+          {order.deliveryStatus === "returned" && (order as any).returnReceived == null && !editing && (
+            <p className="text-[10px] text-red-400 mt-0.5 truncate max-w-[110px] flex items-center gap-0.5">
+              ↳ {(order as any).returnReason ? returnReasonLabel((order as any).returnReason) : "لم يحدد السبب"}
+            </p>
           )}
           {/* sub-status للاستلام الجزئي — الباقي */}
           {order.deliveryStatus === "partial_received" && (order as any).returnReceived === 1 && (
@@ -270,11 +290,6 @@ function OrderDeliveryRow({
           {order.deliveryNote && !editing && (
             <p className="text-[10px] text-muted-foreground mt-0.5 truncate max-w-[110px]">
               {order.deliveryNote}
-            </p>
-          )}
-          {order.deliveryStatus === "returned" && !editing && (
-            <p className="text-[10px] text-red-400 mt-0.5 truncate max-w-[110px]">
-              ↩ {(order as any).returnReason ? returnReasonLabel((order as any).returnReason) : "لم يحدد السبب"}
             </p>
           )}
         </div>
@@ -352,11 +367,32 @@ function OrderDeliveryRow({
           </div>
         </div>
         {order.deliveryStatus === "returned" && (order as any).returnReceived === 1 && (
-          <p className="text-[10px] text-emerald-600 font-semibold">↩ تم الاستلام</p>
+          <>
+            <p className="text-[10px] text-emerald-600 font-semibold">↩ تم الاستلام</p>
+            {!editing && (
+              <p className="text-[10px] text-red-400 font-semibold">
+                ↳ {(order as any).returnReason ? returnReasonLabel((order as any).returnReason) : "لم يحدد السبب"}
+              </p>
+            )}
+          </>
         )}
         {order.deliveryStatus === "returned" && (order as any).returnReceived === 0 && (
-          <p className="text-[10px] text-orange-500 font-semibold">⏳ عند شركة الشحن</p>
+          <>
+            <p className="text-[10px] text-orange-500 font-semibold">⏳ عند شركة الشحن</p>
+            {!editing && (
+              <p className="text-[10px] text-red-400 font-semibold">
+                ↳ {(order as any).returnReason ? returnReasonLabel((order as any).returnReason) : "لم يحدد السبب"}
+              </p>
+            )}
+          </>
         )}
+        {/* لو returnReceived لسه null */}
+        {order.deliveryStatus === "returned" && (order as any).returnReceived == null && !editing && (
+          <p className="text-[10px] text-red-400 font-semibold">
+            ↳ {(order as any).returnReason ? returnReasonLabel((order as any).returnReason) : "لم يحدد السبب"}
+          </p>
+        )}
+        {/* سبب الإرجاع مباشرة تحت حالة الاستلام */}
         {order.deliveryStatus === "partial_received" && (order as any).returnReceived === 1 && (
           <p className="text-[10px] text-emerald-600 font-semibold">↩ الباقي في المخزن</p>
         )}
@@ -365,9 +401,6 @@ function OrderDeliveryRow({
         )}
         {order.deliveryNote && !editing && (
           <p className="text-[10px] text-muted-foreground">{order.deliveryNote}</p>
-        )}
-        {order.deliveryStatus === "returned" && !editing && (
-          <p className="text-[10px] text-red-400 font-semibold">↩ {(order as any).returnReason ? returnReasonLabel((order as any).returnReason) : "لم يحدد السبب"}</p>
         )}
         {!locked && !hideAction && (
           <div className="flex justify-end">
@@ -1088,12 +1121,29 @@ function InvoiceGroupDeliveryRow({
             </div>
           </div>
           {/* Sub-statuses */}
-          {displayStatus === "returned" && (rep as any).returnReceived === 1 && <p className="text-[10px] text-emerald-600 font-semibold">↩ تم الاستلام</p>}
-          {displayStatus === "returned" && (rep as any).returnReceived === 0 && <p className="text-[10px] text-orange-500 font-semibold">⏳ عند شركة الشحن</p>}
-          {displayStatus === "returned" && (
+          {displayStatus === "returned" && (rep as any).returnReceived === 1 && (
+            <>
+              <p className="text-[10px] text-emerald-600 font-semibold">↩ تم الاستلام</p>
+              <p className="text-[10px] text-red-500 font-medium flex items-center gap-1">
+                ↳ {(rep as any).returnReason
+                  ? (RETURN_REASONS.find(r => r.value === (rep as any).returnReason)?.label ?? (rep as any).returnReason)
+                  : "لم يحدد السبب"}
+              </p>
+            </>
+          )}
+          {displayStatus === "returned" && (rep as any).returnReceived === 0 && (
+            <>
+              <p className="text-[10px] text-orange-500 font-semibold">⏳ عند شركة الشحن</p>
+              <p className="text-[10px] text-red-500 font-medium flex items-center gap-1">
+                ↳ {(rep as any).returnReason
+                  ? (RETURN_REASONS.find(r => r.value === (rep as any).returnReason)?.label ?? (rep as any).returnReason)
+                  : "لم يحدد السبب"}
+              </p>
+            </>
+          )}
+          {displayStatus === "returned" && (rep as any).returnReceived == null && (
             <p className="text-[10px] text-red-500 font-medium flex items-center gap-1">
-              <RotateCcw className="w-2.5 h-2.5 shrink-0" />
-              {(rep as any).returnReason
+              ↳ {(rep as any).returnReason
                 ? (RETURN_REASONS.find(r => r.value === (rep as any).returnReason)?.label ?? (rep as any).returnReason)
                 : "لم يحدد السبب"}
             </p>
