@@ -340,12 +340,102 @@ router.post("/finance/shipping-invoices", async (req, res): Promise<void> => {
 router.patch("/finance/shipping-invoices/:id", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
   const { status, paidAmount } = req.body;
-  const updates: any = { updatedAt: new Date() };
-  if (status) updates.status = status;
-  if (paidAmount !== undefined) { updates.paidAmount = String(paidAmount); if (parseFloat(paidAmount) > 0) updates.paidAt = new Date(); }
-  await db.update(shippingFinancialInvoicesTable).set(updates).where(eq(shippingFinancialInvoicesTable.id, id));
+  const now = new Date();
+  const user = (req as any).user;
+
+  // جيب الفاتورة الحالية
   const [inv] = await db.select().from(shippingFinancialInvoicesTable).where(eq(shippingFinancialInvoicesTable.id, id));
-  res.json(inv);
+  if (!inv) { res.status(404).json({ error: "الفاتورة غير موجودة" }); return; }
+
+  const prevStatus = inv.status;
+  const newStatus  = status ?? prevStatus;
+  const prevPaid   = parseFloat(inv.paidAmount ?? "0");
+  const netDue     = parseFloat(inv.netDue ?? "0");
+  const newPaid    = paidAmount !== undefined ? parseFloat(String(paidAmount)) : prevPaid;
+
+  const updates: any = { updatedAt: now };
+  if (status)                               updates.status    = newStatus;
+  if (paidAmount !== undefined)             updates.paidAmount = String(newPaid);
+  if (newPaid > 0 && prevPaid === 0)        updates.paidAt    = now;
+
+  // ── ربط بالخزنة: لما الفاتورة تتحول لـ paid أضف المبلغ للخزنة ────────────
+  // هنا الشركة بتحوّل لك (إيداع وارد)
+  if (newStatus === "paid" && prevStatus !== "paid") {
+    try {
+      const amountToCredit = newPaid > 0 ? newPaid : netDue;
+      // جيب الخزنة الرئيسية أو الافتراضية
+      const regs = await db.select().from(cashRegistersTable)
+        .where(eq(cashRegistersTable.isActive, true))
+        .orderBy(cashRegistersTable.id);
+      const reg = regs.find((r: any) => r.isDefault)
+               ?? regs.find((r: any) => r.type === "main")
+               ?? regs[0]
+               ?? null;
+
+      if (reg) {
+        const bb = parseFloat(reg.balance ?? "0");
+        const ba = bb + amountToCredit;
+        await db.update(cashRegistersTable)
+          .set({ balance: String(ba), updatedAt: now })
+          .where(eq(cashRegistersTable.id, reg.id));
+        await db.insert(cashTransactionsTable).values({
+          registerId:      reg.id,
+          type:            "shipping_transfer",
+          amount:          String(amountToCredit),
+          balanceBefore:   String(bb),
+          balanceAfter:    String(ba),
+          description:     `تحصيل فاتورة شحن ${inv.invoiceNumber}`,
+          referenceNumber: inv.invoiceNumber,
+          transactionDate: now,
+          createdByUserId: user?.id   ?? null,
+          createdByName:   user?.displayName ?? null,
+          createdAt:       now,
+        });
+        updates.paidAmount = String(amountToCredit);
+        updates.paidAt     = now;
+      }
+    } catch (e) { console.error("[shipping-invoice paid]", e); }
+  }
+
+  // ── لو تم التراجع عن paid → ارجع المبلغ من الخزنة ────────────────────────
+  if (prevStatus === "paid" && newStatus !== "paid" && prevPaid > 0) {
+    try {
+      const regs = await db.select().from(cashRegistersTable)
+        .where(eq(cashRegistersTable.isActive, true))
+        .orderBy(cashRegistersTable.id);
+      const reg = regs.find((r: any) => r.isDefault)
+               ?? regs.find((r: any) => r.type === "main")
+               ?? regs[0]
+               ?? null;
+
+      if (reg) {
+        const bb = parseFloat(reg.balance ?? "0");
+        const ba = Math.max(0, bb - prevPaid);
+        await db.update(cashRegistersTable)
+          .set({ balance: String(ba), updatedAt: now })
+          .where(eq(cashRegistersTable.id, reg.id));
+        await db.insert(cashTransactionsTable).values({
+          registerId:      reg.id,
+          type:            "withdrawal",
+          amount:          String(prevPaid),
+          balanceBefore:   String(bb),
+          balanceAfter:    String(ba),
+          description:     `إلغاء تحصيل فاتورة شحن ${inv.invoiceNumber}`,
+          referenceNumber: inv.invoiceNumber,
+          transactionDate: now,
+          createdByUserId: user?.id   ?? null,
+          createdByName:   user?.displayName ?? null,
+          createdAt:       now,
+        });
+        updates.paidAmount = "0";
+        updates.paidAt     = null;
+      }
+    } catch (e) { console.error("[shipping-invoice unpaid]", e); }
+  }
+
+  await db.update(shippingFinancialInvoicesTable).set(updates).where(eq(shippingFinancialInvoicesTable.id, id));
+  const [updated] = await db.select().from(shippingFinancialInvoicesTable).where(eq(shippingFinancialInvoicesTable.id, id));
+  res.json(updated);
 });
 
 // ── Finance Analytics (P&L + Alerts + Trends) ─────────────────────────────
