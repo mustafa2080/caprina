@@ -995,10 +995,25 @@ function InvoiceGroupDeliveryRow({
                 </Badge>
                 {/* sub-status للمرتجع في الـ group row */}
                 {displayStatus === "returned" && (rep as any).returnReceived === 1 && (
-                  <p className="text-[10px] text-emerald-600 mt-0.5 font-semibold">↩ تم الاستلام</p>
+                  <>
+                    <p className="text-[10px] text-emerald-600 mt-0.5 font-semibold">↩ تم الاستلام</p>
+                    <p className="text-[10px] text-red-400 mt-0.5 flex items-center gap-0.5">
+                      ↳ {(rep as any).returnReason ? (RETURN_REASONS.find(r => r.value === (rep as any).returnReason)?.label ?? (rep as any).returnReason) : "لم يحدد السبب"}
+                    </p>
+                  </>
                 )}
                 {displayStatus === "returned" && (rep as any).returnReceived === 0 && (
-                  <p className="text-[10px] text-orange-500 mt-0.5 font-semibold">⏳ عند شركة الشحن</p>
+                  <>
+                    <p className="text-[10px] text-orange-500 mt-0.5 font-semibold">⏳ عند شركة الشحن</p>
+                    <p className="text-[10px] text-red-400 mt-0.5 flex items-center gap-0.5">
+                      ↳ {(rep as any).returnReason ? (RETURN_REASONS.find(r => r.value === (rep as any).returnReason)?.label ?? (rep as any).returnReason) : "لم يحدد السبب"}
+                    </p>
+                  </>
+                )}
+                {displayStatus === "returned" && (rep as any).returnReceived == null && (
+                  <p className="text-[10px] text-red-400 mt-0.5 flex items-center gap-0.5">
+                    ↳ {(rep as any).returnReason ? (RETURN_REASONS.find(r => r.value === (rep as any).returnReason)?.label ?? (rep as any).returnReason) : "لم يحدد السبب"}
+                  </p>
                 )}
                 {displayStatus === "partial_received" && (rep as any).returnReceived === 1 && (
                   <p className="text-[10px] text-emerald-600 mt-0.5 font-semibold">↩ الباقي في المخزن</p>
