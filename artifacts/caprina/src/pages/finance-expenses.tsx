@@ -106,7 +106,7 @@ export default function FinanceExpenses() {
       qc.invalidateQueries({ queryKey: ["/api/cash-registers"] });
       qc.invalidateQueries({ queryKey: ["/api/cash-registers/alerts"] });
       setOpen(false); setForm(defaultForm());
-      toast({ title: "✅ تمت إضافة المصروف" + (form.cashRegisterId ? " وتم الخصم من الخزنة" : "") });
+      toast({ title: "✅ تمت إضافة المصروف وتم الخصم من الخزنة" });
     },
     onError: (e: any) => toast({ title: "❌ خطأ", description: e.message, variant: "destructive" }),
   });
@@ -364,12 +364,12 @@ export default function FinanceExpenses() {
             </div>
             <div>
               <Label className="text-xs mb-1 block flex items-center gap-1">
-                <Wallet className="w-3 h-3 text-emerald-500"/> خصم من خزنة (اختياري)
+                <Wallet className="w-3 h-3 text-emerald-500"/> خصم من خزنة
               </Label>
-              <Select value={form.cashRegisterId} onValueChange={v => F("cashRegisterId", v === "none" ? "" : v)}>
-                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="بدون ربط بخزنة"/></SelectTrigger>
+              <Select value={form.cashRegisterId} onValueChange={v => F("cashRegisterId", v === "auto" ? "" : v)}>
+                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="خصم تلقائي من الخزنة الافتراضية"/></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">بدون ربط بخزنة</SelectItem>
+                  <SelectItem value="auto">خصم تلقائي من الخزنة الافتراضية</SelectItem>
                   {registers.map(r => (
                     <SelectItem key={r.id} value={String(r.id)}>
                       {r.name} — رصيد: {Number(r.balance).toLocaleString("ar-EG")} ج.م
@@ -392,7 +392,7 @@ export default function FinanceExpenses() {
             <div className="flex gap-2 pt-2">
               <Button className="flex-1 h-9 font-bold" onClick={() => save.mutate()}
                 disabled={save.isPending || !form.title || !form.amount}>
-                {save.isPending ? "جاري الحفظ..." : form.cashRegisterId ? "حفظ والخصم من الخزنة" : "حفظ"}
+                {save.isPending ? "جاري الحفظ..." : form.cashRegisterId ? `حفظ والخصم من ${registers.find(r=>String(r.id)===form.cashRegisterId)?.name ?? "الخزنة"}` : "حفظ والخصم من الخزنة الافتراضية"}
               </Button>
               <Button variant="outline" className="h-9 border-border" onClick={() => setOpen(false)}>إلغاء</Button>
             </div>
