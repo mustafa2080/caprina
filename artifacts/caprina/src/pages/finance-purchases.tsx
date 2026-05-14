@@ -146,8 +146,8 @@ function POForm({
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["finance-purchases"] });
-      qc.invalidateQueries({ queryKey: ["cash-registers"] });
-      qc.invalidateQueries({ queryKey: ["finance-cash-ledger"] });
+      qc.invalidateQueries({ queryKey: ["/api/cash-registers"] });
+      qc.invalidateQueries({ queryKey: ["/api/cash-registers/alerts"] });
       toast({ title: isEdit ? "تم تحديث الأمر" : "تم إنشاء الأمر" });
       onSuccess(); onClose();
     },

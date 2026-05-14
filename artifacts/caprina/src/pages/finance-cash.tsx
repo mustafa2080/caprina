@@ -79,7 +79,7 @@ export default function FinanceCashPage() {
   const [newReg,  setNewReg]  = useState({ name: "", type: "branch", description: "", initialBalance: "" });
   const [txForm,  setTxForm]  = useState({ type: "deposit", amount: "", description: "", referenceNumber: "", transactionDate: format(new Date(), "yyyy-MM-dd") });
   const [transfer, setTransfer] = useState({ fromId: "", toId: "", amount: "", description: "" });
-  const [editForm, setEditForm] = useState({ name: "", description: "" });
+  const [editForm, setEditForm] = useState({ name: "", description: "", isDefault: false });
   const [thresholdVal, setThresholdVal] = useState("");
 
   const { data: regData, isLoading, isFetching } = useQuery<{ registers: CashRegister[]; totalBalance: number }>({
@@ -347,7 +347,7 @@ export default function FinanceCashPage() {
                   </div>
                   <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                     {hasAlert&&<Bell className="w-3.5 h-3.5 text-rose-500 mx-1"/>}
-                    <button className="p-1.5 rounded-lg hover:bg-muted transition-colors" onClick={e=>{e.stopPropagation();setSelectedReg(r);setEditForm({name:r.name,description:r.description??""});setEditOpen(true);}}><Pencil className="w-3 h-3 text-muted-foreground"/></button>
+                    <button className="p-1.5 rounded-lg hover:bg-muted transition-colors" onClick={e=>{e.stopPropagation();setSelectedReg(r);setEditForm({name:r.name,description:r.description??"",isDefault:!!(r as any).isDefault});setEditOpen(true);}}><Pencil className="w-3 h-3 text-muted-foreground"/></button>
                     <button className="p-1.5 rounded-lg hover:bg-muted transition-colors" onClick={e=>{e.stopPropagation();setSelectedReg(r);setThresholdVal(r.lowBalanceThreshold??"");setThresholdOpen(true);}}><Bell className="w-3 h-3 text-muted-foreground"/></button>
                     {!isMain&&(<button className="p-1.5 rounded-lg hover:bg-muted transition-colors" onClick={e=>{e.stopPropagation();if(confirm(`تعطيل "${r.name}"؟`))delMut.mutate(r.id);}}><Trash2 className="w-3 h-3 text-rose-400"/></button>)}
                   </div>
@@ -620,6 +620,17 @@ export default function FinanceCashPage() {
           <div className="space-y-3 pt-2">
             <div className="space-y-1"><Label className="text-xs">الاسم</Label><Input value={editForm.name} onChange={e=>setEditForm(p=>({...p,name:e.target.value}))} className="text-sm"/></div>
             <div className="space-y-1"><Label className="text-xs">ملاحظات</Label><Textarea value={editForm.description} onChange={e=>setEditForm(p=>({...p,description:e.target.value}))} className="text-sm" rows={2}/></div>
+            <div className="flex items-center justify-between rounded-xl border border-border p-3">
+              <div>
+                <p className="text-xs font-semibold">الخزنة الافتراضية</p>
+                <p className="text-[11px] text-muted-foreground">تُستخدم تلقائياً للمصروفات وأوامر الشراء</p>
+              </div>
+              <button
+                onClick={() => setEditForm(p => ({ ...p, isDefault: !p.isDefault }))}
+                className={`w-10 h-6 rounded-full transition-all duration-200 relative ${editForm.isDefault ? "bg-emerald-500" : "bg-muted"}`}>
+                <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-all duration-200 ${editForm.isDefault ? "right-0.5" : "left-0.5"}`}/>
+              </button>
+            </div>
             <Button className="w-full text-black font-bold" style={{background:"#DEA821"}} disabled={editMut.isPending} onClick={()=>editMut.mutate(editForm)}>{editMut.isPending?"جارٍ الحفظ...":"حفظ التعديلات"}</Button>
           </div>
         </DialogContent>
