@@ -103,9 +103,23 @@ router.patch("/finance/suppliers/:id", async (req, res): Promise<void> => {
 });
 
 router.delete("/finance/suppliers/:id", async (req, res): Promise<void> => {
-  const id = parseInt(req.params.id);
-  await db.delete(suppliersTable).where(eq(suppliersTable.id, id));
-  res.status(204).send();
+  try {
+    const id = parseInt(req.params.id);
+    // تحقق من وجود أوامر شراء مرتبطة
+    const relatedOrders = await db.select({ id: purchaseOrdersTable.id })
+      .from(purchaseOrdersTable)
+      .where(eq(purchaseOrdersTable.supplierId, id))
+      .limit(1);
+    if (relatedOrders.length > 0) {
+      res.status(400).json({ error: "لا يمكن حذف المورد — يوجد أوامر شراء مرتبطة به" });
+      return;
+    }
+    await db.delete(suppliersTable).where(eq(suppliersTable.id, id));
+    res.status(204).send();
+  } catch (err) {
+    console.error("[DELETE supplier]", err);
+    res.status(500).json({ error: "فشل حذف المورد" });
+  }
 });
 
 // ── Supplier Statement ──────────────────────────────────────────────────────

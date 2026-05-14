@@ -185,7 +185,7 @@ export default function FinanceCashPage() {
 
   const addRegMut = useMutation({
     mutationFn: (d: any) => apiFetch("/api/cash-registers", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(d) }),
-    onSuccess: () => { qc.invalidateQueries({queryKey:["/api/cash-registers"]}); setAddRegOpen(false); setNewReg({name:"",type:"branch",description:"",initialBalance:""}); toast({title:"✅ تم إنشاء الخزنة"}); },
+    onSuccess: () => { qc.invalidateQueries({queryKey:["/api/cash-registers"]}); setAddRegOpen(false); setNewReg({name:"",type:"branch",description:"",initialBalance:"",isDefault:false}); toast({title:"✅ تم إنشاء الخزنة"}); },
     onError: (e:any) => toast({title:"❌ خطأ", description:e.message, variant:"destructive"}),
   });
 

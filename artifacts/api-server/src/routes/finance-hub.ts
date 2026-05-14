@@ -147,10 +147,22 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
       month:   sql<string>`DATE_FORMAT(created_at, '%Y-%m')`,
       revenue: sql<number>`COALESCE(SUM(total_price),0)`,
       cogs:    sql<number>`COALESCE(SUM(cost_price * quantity),0)`,
+      shipping: sql<number>`COALESCE(SUM(shipping_cost),0)`,
       count:   sql<number>`COUNT(*)`,
     }).from(ordersTable).where(and(
       isNull(ordersTable.deletedAt),
       sql`status IN ('received','partial_received')`,
+      gte(ordersTable.createdAt, sixMonthsAgo),
+    )).groupBy(sql`DATE_FORMAT(created_at, '%Y-%m')`).orderBy(sql`DATE_FORMAT(created_at, '%Y-%m')`);
+
+    // المرتجعات الشهرية لحساب الخسارة في الـ chart
+    const monthlyReturns = await db.select({
+      month:       sql<string>`DATE_FORMAT(created_at, '%Y-%m')`,
+      returnCogs:  sql<number>`COALESCE(SUM(cost_price * quantity),0)`,
+      returnShip:  sql<number>`COALESCE(SUM(shipping_cost),0)`,
+    }).from(ordersTable).where(and(
+      isNull(ordersTable.deletedAt),
+      sql`status = 'returned'`,
       gte(ordersTable.createdAt, sixMonthsAgo),
     )).groupBy(sql`DATE_FORMAT(created_at, '%Y-%m')`).orderBy(sql`DATE_FORMAT(created_at, '%Y-%m')`);
 
@@ -171,9 +183,11 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
     const monthlyChart = allMonths.map(month => {
       const rev = monthlyRevenue.find(r => r.month === month);
       const exp = monthlyExpenses.find(e => e.month === month);
-      const revenue  = Number(rev?.revenue ?? 0);
-      const expenses = Number(exp?.total ?? 0);
-      const profit   = revenue - Number(rev?.cogs ?? 0) - expenses;
+      const ret = monthlyReturns.find(r => r.month === month);
+      const revenue    = Number(rev?.revenue ?? 0);
+      const expenses   = Number(exp?.total ?? 0);
+      const returnLoss = Number(ret?.returnCogs ?? 0) + Number(ret?.returnShip ?? 0);
+      const profit     = revenue - Number(rev?.cogs ?? 0) - Number(rev?.shipping ?? 0) - returnLoss - expenses;
       return { month, revenue, expenses, profit, orders: Number(rev?.count ?? 0) };
     });
 
