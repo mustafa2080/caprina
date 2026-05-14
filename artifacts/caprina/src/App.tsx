@@ -84,7 +84,6 @@ const ExportPage            = lazy(() => import("@/pages/export"));
 const InvoiceGroupPage      = lazy(() => import("@/pages/invoice-group"));
 const NotFound              = lazy(() => import("@/pages/not-found"));
 const Login                 = lazy(() => import("@/pages/login"));
-const FinanceDashboard      = lazy(() => import("@/pages/finance-dashboard"));
 const FinancePurchases      = lazy(() => import("@/pages/finance-purchases"));
 const FinanceSuppliers      = lazy(() => import("@/pages/finance-suppliers"));
 const FinanceExpenses       = lazy(() => import("@/pages/finance-expenses"));
@@ -258,7 +257,7 @@ function Router() {
           <Route path="/export"                   component={() => <ProtectedRoute permission="import" component={ExportPage} />} />
           {/* Finance */}
           <Route path="/finance"                  component={() => <ProtectedRoute permission="finance" component={FinanceHub} />} />
-          <Route path="/finance/dashboard"        component={() => <ProtectedRoute permission="finance" component={FinanceDashboard} />} />
+          <Route path="/finance/dashboard"        component={() => <Redirect to="/finance" />} />
           <Route path="/finance/purchases"        component={() => <ProtectedRoute permission="finance" component={FinancePurchases} />} />
           <Route path="/finance/suppliers"        component={() => <ProtectedRoute permission="finance" component={FinanceSuppliers} />} />
           <Route path="/finance/expenses"         component={() => <ProtectedRoute permission="finance" component={FinanceExpenses} />} />
