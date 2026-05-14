@@ -59,6 +59,7 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
       .orderBy(sql`DATE(transaction_date)`);
 
     // ── 3. مؤشرات المبيعات (الفترة الحالية) ─────────────────────────────────
+    // الطلبات المُسلَّمة: الإيراد + التكلفة + الشحن
     const [salesCur] = await db.select({
       revenue:  sql<number>`COALESCE(SUM(total_price),0)`,
       cogs:     sql<number>`COALESCE(SUM(cost_price * quantity),0)`,
@@ -71,6 +72,18 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
       lte(ordersTable.createdAt, curToEnd),
     ));
 
+    // الطلبات المرتجعة: تكلفة البضاعة + تكلفة الشحن المدفوعة = خسارة صافية
+    const [returnsCur] = await db.select({
+      returnCogs:     sql<number>`COALESCE(SUM(cost_price * quantity),0)`,
+      returnShipping: sql<number>`COALESCE(SUM(shipping_cost),0)`,
+      count:          sql<number>`COUNT(*)`,
+    }).from(ordersTable).where(and(
+      isNull(ordersTable.deletedAt),
+      sql`status = 'returned'`,
+      gte(ordersTable.createdAt, curFrom),
+      lte(ordersTable.createdAt, curToEnd),
+    ));
+
     const [salesPrev] = await db.select({
       revenue:  sql<number>`COALESCE(SUM(total_price),0)`,
       cogs:     sql<number>`COALESCE(SUM(cost_price * quantity),0)`,
@@ -78,6 +91,16 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
     }).from(ordersTable).where(and(
       isNull(ordersTable.deletedAt),
       sql`status IN ('received','partial_received')`,
+      gte(ordersTable.createdAt, prevFrom),
+      lte(ordersTable.createdAt, prevToEnd),
+    ));
+
+    const [returnsPrev] = await db.select({
+      returnCogs:     sql<number>`COALESCE(SUM(cost_price * quantity),0)`,
+      returnShipping: sql<number>`COALESCE(SUM(shipping_cost),0)`,
+    }).from(ordersTable).where(and(
+      isNull(ordersTable.deletedAt),
+      sql`status = 'returned'`,
       gte(ordersTable.createdAt, prevFrom),
       lte(ordersTable.createdAt, prevToEnd),
     ));
@@ -184,15 +207,18 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
     const cogs     = Number(salesCur?.cogs    ?? 0);
     const shipping = Number(salesCur?.shipping ?? 0);
     const expenses = Number(expCur?.total ?? 0);
-    const grossProfit = revenue - cogs - shipping;
+    // خسارة المرتجعات = تكلفة البضاعة + تكلفة الشحن المدفوعة
+    const returnLoss = Number(returnsCur?.returnCogs ?? 0) + Number(returnsCur?.returnShipping ?? 0);
+    const grossProfit = revenue - cogs - shipping - returnLoss;
     const netProfit   = grossProfit - expenses;
     const netMargin   = revenue > 0 ? +((netProfit / revenue) * 100).toFixed(1) : 0;
     const grossMargin = revenue > 0 ? +((grossProfit / revenue) * 100).toFixed(1) : 0;
 
-    const prevRevenue = Number(salesPrev?.revenue ?? 0);
-    const prevCogs    = Number(salesPrev?.cogs    ?? 0);
-    const prevExp     = Number(expPrev?.total ?? 0);
-    const prevProfit  = prevRevenue - prevCogs - Number(salesPrev?.shipping ?? 0) - prevExp;
+    const prevRevenue    = Number(salesPrev?.revenue ?? 0);
+    const prevCogs       = Number(salesPrev?.cogs    ?? 0);
+    const prevExp        = Number(expPrev?.total ?? 0);
+    const prevReturnLoss = Number(returnsPrev?.returnCogs ?? 0) + Number(returnsPrev?.returnShipping ?? 0);
+    const prevProfit     = prevRevenue - prevCogs - Number(salesPrev?.shipping ?? 0) - prevReturnLoss - prevExp;
 
     const pct = (a:number, b:number) => b === 0 ? null : +((( a - b) / b) * 100).toFixed(1);
 
@@ -223,6 +249,7 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
       dailyFlow: dailyFlow.map(r=>({ day: r.day, in: Number(r.totalIn), out: Number(r.totalOut), net: Number(r.totalIn)-Number(r.totalOut) })),
       pnl: {
         revenue, cogs, shipping, expenses, grossProfit, netProfit, netMargin, grossMargin,
+        returnLoss, returnCount: Number(returnsCur?.count ?? 0),
         prevRevenue, prevProfit,
         changes: { revenue: pct(revenue,prevRevenue), netProfit: pct(netProfit,prevProfit), expenses: pct(expenses,prevExp) },
       },
