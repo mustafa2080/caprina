@@ -20,17 +20,17 @@ const api = {
 };
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  draft:            { label: "مسودة",        color: "bg-white/10 text-white/50 border-white/20" },
-  ordered:          { label: "تم الطلب",      color: "bg-blue-500/20 text-blue-300 border-blue-500/30" },
-  received:         { label: "تم الاستلام",   color: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" },
-  partial_received: { label: "استلام جزئي",   color: "bg-purple-500/20 text-purple-300 border-purple-500/30" },
-  cancelled:        { label: "ملغي",          color: "bg-rose-500/20 text-rose-300 border-rose-500/30" },
+  draft:            { label: "مسودة",        color: "bg-muted/50 text-muted-foreground border-border" },
+  ordered:          { label: "تم الطلب",      color: "bg-blue-500/15 text-blue-400 border-blue-500/30" },
+  received:         { label: "تم الاستلام",   color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
+  partial_received: { label: "استلام جزئي",   color: "bg-purple-500/15 text-purple-400 border-purple-500/30" },
+  cancelled:        { label: "ملغي",          color: "bg-rose-500/15 text-rose-400 border-rose-500/30" },
 };
 
 const PAY_LABELS: Record<string, { label: string; color: string }> = {
   unpaid:  { label: "غير مدفوع",    color: "text-rose-500" },
-  partial: { label: "مدفوع جزئياً", color: "text-amber-500" },
-  paid:    { label: "مدفوع بالكامل",color: "text-emerald-500" },
+  partial: { label: "مدفوع جزئياً", color: "text-amber-400" },
+  paid:    { label: "مدفوع بالكامل",color: "text-emerald-400" },
 };
 
 const fmt = (n: string | number) =>
@@ -61,23 +61,24 @@ function PORow({
   const paid  = parseFloat(order.paidAmount ?? "0");
   const due   = total - paid;
   return (
-    <tr className="border-b border-white/5 hover:bg-white/5 transition-colors">
-      <td className="px-3 py-3 font-mono text-xs text-cyan-400 font-semibold">{order.poNumber}</td>
-      <td className="px-3 py-3 text-sm text-white/80">{supplierName}</td>
+    <tr style={{ borderBottom: "1px solid hsl(var(--border)/0.5)" }}
+      className="transition-colors hover:bg-muted/20">
+      <td className="px-3 py-3 font-mono text-xs font-semibold" style={{ color: "#FFB74D" }}>{order.poNumber}</td>
+      <td className="px-3 py-3 text-sm" style={{ color: "hsl(var(--foreground))" }}>{supplierName}</td>
       <td className="px-3 py-3">
         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${st.color}`}>{st.label}</span>
       </td>
-      <td className="px-3 py-3 text-sm font-semibold text-white/90">{fmt(total)}</td>
-      <td className="px-3 py-3 text-sm text-emerald-400 font-medium">{fmt(paid)}</td>
-      <td className={`px-3 py-3 text-sm font-semibold ${due > 0 ? "text-rose-400" : "text-white/30"}`}>{fmt(due)}</td>
+      <td className="px-3 py-3 text-sm font-semibold" style={{ color: "hsl(var(--foreground))" }}>{fmt(total)}</td>
+      <td className="px-3 py-3 text-sm font-medium" style={{ color: "#26A69A" }}>{fmt(paid)}</td>
+      <td className="px-3 py-3 text-sm font-semibold" style={{ color: due > 0 ? "#ef4444" : "hsl(var(--muted-foreground))" }}>{fmt(due)}</td>
       <td className={`px-3 py-3 text-xs font-semibold ${pt.color}`}>{pt.label}</td>
-      <td className="px-3 py-3 text-xs text-white/40">
+      <td className="px-3 py-3 text-xs" style={{ color: "hsl(var(--muted-foreground))" }}>
         {order.createdAt ? format(new Date(order.createdAt), "dd/MM/yyyy") : "—"}
       </td>
       <td className="px-3 py-3">
         <div className="flex gap-1">
-          <Button size="sm" variant="outline" className="h-7 px-2 text-xs border-white/20 text-white/70 hover:bg-white/10 hover:text-white bg-transparent" onClick={() => onEdit(order)}>تعديل</Button>
-          <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
+          <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => onEdit(order)}>تعديل</Button>
+          <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-rose-500 hover:text-rose-600 hover:bg-rose-500/10"
             onClick={() => onDelete(order.id)}><Trash2 className="w-3 h-3" /></Button>
         </div>
       </td>
@@ -444,10 +445,15 @@ export default function FinancePurchases() {
       </Card>
 
       {/* ── الجدول ── */}
-      <div className="relative rounded-2xl bg-gradient-to-br from-[#0f1a0f] to-[#1a2a1a] border border-white/10 shadow-xl overflow-hidden">
-        {/* glow في أعلى الجدول */}
-        <div className="absolute inset-x-0 top-0 h-40 pointer-events-none"
-          style={{ background: "radial-gradient(ellipse 60% 100% at 50% 0%, rgba(255,255,255,0.07) 0%, transparent 70%)" }} />
+      <div className="relative overflow-hidden rounded-[22px]"
+        style={{
+          background: "hsl(var(--card))",
+          border: "1px solid hsl(var(--border))",
+          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06), 0 8px 32px rgba(0,0,0,0.18)",
+        }}>
+        {/* خط ضوء أعلى الجدول */}
+        <div className="absolute inset-x-0 top-0 h-px"
+          style={{ background: "linear-gradient(90deg, transparent, rgba(255,183,77,0.6), rgba(38,166,154,0.6), transparent)" }} />
         {isLoading ? (
           <div className="flex items-center justify-center py-16 text-white/30">
             <ShoppingCart className="w-8 h-8 animate-pulse ml-2" />جارٍ التحميل…
@@ -462,9 +468,10 @@ export default function FinancePurchases() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-white/10 bg-white/5">
+                <tr style={{ background: "hsl(var(--muted)/0.3)", borderBottom: "1px solid hsl(var(--border))" }}>
                   {["رقم الأمر","المورد","الحالة","الإجمالي","المدفوع","المتبقي","الدفع","التاريخ","إجراءات"].map(h => (
-                    <th key={h} className="px-3 py-3 text-right text-xs text-white/40 font-semibold tracking-wide">{h}</th>
+                    <th key={h} className="px-3 py-3 text-right text-xs font-semibold tracking-wide"
+                      style={{ color: "hsl(var(--muted-foreground))" }}>{h}</th>
                   ))}
                 </tr>
               </thead>
