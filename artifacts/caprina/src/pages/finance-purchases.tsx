@@ -380,15 +380,16 @@ export default function FinancePurchases() {
       {/* ── بطاقات الإحصائيات ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: "إجمالي الأوامر", value: fmt(stats.total), color: "text-blue-700", bg: "bg-blue-50" },
-          { label: "إجمالي المدفوع", value: fmt(stats.paid),  color: "text-emerald-700", bg: "bg-emerald-50" },
-          { label: "المتبقي",        value: fmt(stats.unpaid), color: "text-rose-700",    bg: "bg-rose-50" },
-          { label: "غير مدفوع / جزئي", value: `${stats.countUnpaid} / ${stats.countPartial}`, color: "text-amber-700", bg: "bg-amber-50" },
+          { label: "إجمالي الأوامر",   value: fmt(stats.total),  gradient: "from-[#1a2a1a] to-[#2d4a2d]", valueColor: "text-[#a8e6a8]" },
+          { label: "إجمالي المدفوع",   value: fmt(stats.paid),   gradient: "from-[#0f2a2a] to-[#1a4a3a]", valueColor: "text-[#7eecd4]" },
+          { label: "المتبقي",          value: fmt(stats.unpaid), gradient: "from-[#2a1a1a] to-[#4a2020]", valueColor: "text-[#f87171]" },
+          { label: "غير مدفوع / جزئي", value: `${stats.countUnpaid} / ${stats.countPartial}`, gradient: "from-[#2a2010] to-[#4a3a10]", valueColor: "text-[#fbbf24]" },
         ].map(c => (
-          <Card key={c.label} className={`p-3 ${c.bg} border-0`}>
-            <p className="text-xs text-gray-500">{c.label}</p>
-            <p className={`text-lg font-bold mt-0.5 ${c.color}`}>{c.value}</p>
-          </Card>
+          <div key={c.label} className={`relative rounded-2xl bg-gradient-to-br ${c.gradient} p-4 border border-white/10 shadow-lg overflow-hidden`}>
+            <div className="absolute inset-0 opacity-10 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white to-transparent pointer-events-none" />
+            <p className="text-xs text-white/50 font-medium mb-1">{c.label}</p>
+            <p className={`text-xl font-bold ${c.valueColor} drop-shadow`}>{c.value}</p>
+          </div>
         ))}
       </div>
 
