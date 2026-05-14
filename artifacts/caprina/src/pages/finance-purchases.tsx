@@ -386,7 +386,9 @@ export default function FinancePurchases() {
           { label: "غير مدفوع / جزئي", value: `${stats.countUnpaid} / ${stats.countPartial}`, gradient: "from-[#2a2010] to-[#4a3a10]", valueColor: "text-[#fbbf24]" },
         ].map(c => (
           <div key={c.label} className={`relative rounded-2xl bg-gradient-to-br ${c.gradient} p-4 border border-white/10 shadow-lg overflow-hidden`}>
-            <div className="absolute inset-0 opacity-10 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white to-transparent pointer-events-none" />
+            {/* glow — نقطة ضوء في المنتصف */}
+            <div className="absolute inset-0 pointer-events-none"
+              style={{ background: "radial-gradient(ellipse 70% 60% at 50% 30%, rgba(255,255,255,0.12) 0%, transparent 70%)" }} />
             <p className="text-xs text-white/50 font-medium mb-1">{c.label}</p>
             <p className={`text-xl font-bold ${c.valueColor} drop-shadow`}>{c.value}</p>
           </div>
@@ -440,7 +442,10 @@ export default function FinancePurchases() {
       </Card>
 
       {/* ── الجدول ── */}
-      <div className="rounded-2xl bg-gradient-to-br from-[#0f1a0f] to-[#1a2a1a] border border-white/10 shadow-xl overflow-hidden">
+      <div className="relative rounded-2xl bg-gradient-to-br from-[#0f1a0f] to-[#1a2a1a] border border-white/10 shadow-xl overflow-hidden">
+        {/* glow في أعلى الجدول */}
+        <div className="absolute inset-x-0 top-0 h-40 pointer-events-none"
+          style={{ background: "radial-gradient(ellipse 60% 100% at 50% 0%, rgba(255,255,255,0.07) 0%, transparent 70%)" }} />
         {isLoading ? (
           <div className="flex items-center justify-center py-16 text-white/30">
             <ShoppingCart className="w-8 h-8 animate-pulse ml-2" />جارٍ التحميل…
