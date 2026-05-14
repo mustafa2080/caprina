@@ -325,8 +325,21 @@ export default function FinanceCashPage() {
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           {registers.map(r => {
             const net = r.monthlyIn - r.monthlyOut; const hasAlert = alerts.some(a=>a.registerId===r.id); const isMain = r.type==="main";
+            const cardColor = isMain ? "#DEA821" : hasAlert ? "#ef4444" : "#7E57C2";
+            const cardGlow  = isMain ? "rgba(222,168,33,0.28)" : hasAlert ? "rgba(239,68,68,0.22)" : "rgba(126,87,194,0.22)";
+            const cardBg    = isMain
+              ? "linear-gradient(135deg, rgba(222,168,33,0.38) 0%, rgba(222,168,33,0.14) 52%, rgba(255,255,255,0.06) 100%)"
+              : hasAlert
+              ? "linear-gradient(135deg, rgba(239,68,68,0.32) 0%, rgba(239,68,68,0.12) 52%, rgba(255,255,255,0.06) 100%)"
+              : "linear-gradient(135deg, rgba(126,87,194,0.32) 0%, rgba(126,87,194,0.12) 52%, rgba(255,255,255,0.06) 100%)";
             return (
-              <div key={r.id} className={`group rounded-2xl border p-5 bg-card cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-300 ${hasAlert?"border-rose-400/50 shadow-rose-500/10 shadow-md":isMain?"border-yellow-400/40 shadow-yellow-500/10 shadow-md":"border-border/50 hover:border-border hover:shadow-md"}`} onClick={() => { setActiveTab(r.id); setLedgerPage(1); }}>
+              <div key={r.id}
+                className="group relative overflow-hidden rounded-[22px] p-5 cursor-pointer transition-all duration-300 hover:-translate-y-1"
+                style={{ background: cardBg, border: `1px solid ${cardGlow}`, boxShadow: `inset 0 1px 0 rgba(255,255,255,0.15), 0 10px 28px ${cardGlow}`, backdropFilter: "blur(12px)" }}
+                onClick={() => { setActiveTab(r.id); setLedgerPage(1); }}>
+                {/* خط ضوء أعلى الكارد */}
+                <div className="absolute inset-x-6 top-0 h-px pointer-events-none"
+                  style={{ background: `linear-gradient(90deg, transparent, ${cardColor}, transparent)` }} />
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${isMain?"bg-gradient-to-br from-yellow-500/20 to-amber-500/10":"bg-gradient-to-br from-primary/15 to-primary/5"}`}>{isMain?<Star className="w-5 h-5 text-yellow-500"/>:<Building2 className="w-5 h-5 text-primary"/>}</div>
@@ -380,18 +393,18 @@ export default function FinanceCashPage() {
           {/* ملخص stats */}
           {stats && (
             <div className="grid grid-cols-3 gap-3">
-              <div className="rounded-xl border border-border/50 bg-card p-4 text-center">
-                <p className="text-[10px] text-muted-foreground mb-1 flex items-center justify-center gap-1"><ArrowUpCircle className="w-3 h-3 text-emerald-500"/> إجمالي الدخل</p>
-                <p className="text-lg font-black text-emerald-600">{fmt(stats.totalIn)}</p>
-              </div>
-              <div className="rounded-xl border border-border/50 bg-card p-4 text-center">
-                <p className="text-[10px] text-muted-foreground mb-1 flex items-center justify-center gap-1"><ArrowDownCircle className="w-3 h-3 text-rose-500"/> إجمالي الخروج</p>
-                <p className="text-lg font-black text-rose-600">{fmt(stats.totalOut)}</p>
-              </div>
-              <div className="rounded-xl border border-border/50 bg-card p-4 text-center">
-                <p className="text-[10px] text-muted-foreground mb-1 flex items-center justify-center gap-1">{stats.net>=0?<TrendingUp className="w-3 h-3 text-emerald-500"/>:<TrendingDown className="w-3 h-3 text-rose-500"/>} الصافي</p>
-                <p className={`text-lg font-black ${stats.net>=0?"text-emerald-600":"text-rose-600"}`}>{stats.net>=0?"+":""}{fmt(stats.net)}</p>
-              </div>
+              {[
+                { label: "إجمالي الدخل",  icon: <ArrowUpCircle className="w-3 h-3"/>, value: fmt(stats.totalIn),  color: "#26A69A", glow: "rgba(38,166,154,0.28)",  bg: "linear-gradient(135deg, rgba(38,166,154,0.44) 0%, rgba(38,166,154,0.16) 52%, rgba(255,255,255,0.08) 100%)" },
+                { label: "إجمالي الخروج", icon: <ArrowDownCircle className="w-3 h-3"/>, value: fmt(stats.totalOut), color: "#ef4444", glow: "rgba(239,68,68,0.28)",   bg: "linear-gradient(135deg, rgba(239,68,68,0.42) 0%, rgba(239,68,68,0.16) 52%, rgba(255,255,255,0.08) 100%)" },
+                { label: "الصافي",         icon: stats.net>=0?<TrendingUp className="w-3 h-3"/>:<TrendingDown className="w-3 h-3"/>, value: (stats.net>=0?"+":"")+fmt(stats.net), color: stats.net>=0?"#26A69A":"#ef4444", glow: stats.net>=0?"rgba(38,166,154,0.28)":"rgba(239,68,68,0.28)", bg: stats.net>=0?"linear-gradient(135deg, rgba(38,166,154,0.44) 0%, rgba(38,166,154,0.16) 52%, rgba(255,255,255,0.08) 100%)":"linear-gradient(135deg, rgba(239,68,68,0.42) 0%, rgba(239,68,68,0.16) 52%, rgba(255,255,255,0.08) 100%)" },
+              ].map(c => (
+                <div key={c.label} className="relative overflow-hidden rounded-[18px] px-4 py-3.5 text-center"
+                  style={{ background: c.bg, border: `1px solid ${c.glow}`, boxShadow: `inset 0 1px 0 rgba(255,255,255,0.18), 0 10px 24px ${c.glow}`, backdropFilter: "blur(12px)" }}>
+                  <div className="absolute inset-x-6 top-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${c.color}, transparent)` }} />
+                  <p className="text-[10px] font-bold text-white/60 mb-1 flex items-center justify-center gap-1" style={{ color: c.color }}>{c.icon}{c.label}</p>
+                  <p className="text-lg font-black" style={{ color: c.color, textShadow: `0 0 14px ${c.color}88` }}>{c.value}</p>
+                </div>
+              ))}
             </div>
           )}
 
@@ -464,7 +477,10 @@ export default function FinanceCashPage() {
           </div>
 
           {/* ── جدول الحركات ── */}
-          <div className="rounded-2xl border border-border/50 bg-card overflow-hidden">
+          <div className="relative overflow-hidden rounded-[22px]"
+            style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06), 0 8px 32px rgba(0,0,0,0.18)" }}>
+            <div className="absolute inset-x-0 top-0 h-px"
+              style={{ background: "linear-gradient(90deg, transparent, rgba(38,166,154,0.7), rgba(222,168,33,0.7), transparent)" }} />
             {ledgerLoading ? (
               <div className="flex items-center justify-center h-32 text-muted-foreground text-sm gap-2">
                 <RefreshCw className="w-4 h-4 animate-spin"/> جارٍ التحميل...
@@ -478,14 +494,15 @@ export default function FinanceCashPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="border-b border-border/40 bg-muted/30">
-                      <th className="text-right p-3 font-semibold text-muted-foreground">التاريخ</th>
-                      <th className="text-right p-3 font-semibold text-muted-foreground">نوع الحركة</th>
-                      <th className="text-right p-3 font-semibold text-muted-foreground">الاتجاه</th>
-                      <th className="text-left p-3 font-semibold text-muted-foreground">المبلغ</th>
-                      <th className="text-left p-3 font-semibold text-muted-foreground hidden md:table-cell">الرصيد بعد</th>
-                      <th className="text-right p-3 font-semibold text-muted-foreground hidden md:table-cell">ملاحظة</th>
-                      <th className="text-right p-3 font-semibold text-muted-foreground hidden lg:table-cell">بواسطة</th>
+                    <tr style={{ background: "hsl(var(--muted)/0.3)", borderBottom: "1px solid hsl(var(--border))" }}>
+                      {["التاريخ","نوع الحركة","الاتجاه","المبلغ","الرصيد بعد","ملاحظة","بواسطة"].map(h => (
+                        <th key={h} className="text-right p-3 text-xs font-semibold tracking-wide"
+                          style={{ color: "hsl(var(--muted-foreground))" }}
+                          {...(["الرصيد بعد"].includes(h) ? { className: "text-left p-3 text-xs font-semibold tracking-wide hidden md:table-cell" } : {})}
+                          {...(["ملاحظة"].includes(h) ? { className: "text-right p-3 text-xs font-semibold tracking-wide hidden md:table-cell" } : {})}
+                          {...(["بواسطة"].includes(h) ? { className: "text-right p-3 text-xs font-semibold tracking-wide hidden lg:table-cell" } : {})}
+                        >{h}</th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
