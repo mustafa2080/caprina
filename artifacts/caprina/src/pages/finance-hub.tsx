@@ -8,7 +8,8 @@ import {
   ShoppingCart, Truck, FileText, Activity, CheckCircle2,
   Package, Clock, Info, ArrowLeft, Zap, Eye, ChevronRight,
   DollarSign, ArrowUpCircle, ArrowDownCircle, PiggyBank,
-  ShieldAlert, Layers, CircleDot, Flame,
+  ShieldAlert, Layers, CircleDot, Flame, Target, TrendingUp as TrendUp,
+  Crosshair, Minus, AlertTriangle, CheckCircle,
 } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar, LineChart, Line,
@@ -199,6 +200,179 @@ function CashFlowMap({registers}:{registers:any[]}) {
           <Wallet className="w-8 h-8 mx-auto mb-2 opacity-20"/>
           لا توجد خزن مضافة بعد
         </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Break-Even Tracker ───────────────────────────────────────────────────────
+function BreakEvenTracker({ pnl, orders, isLoading }: { pnl: any; orders: any; isLoading: boolean }) {
+  const revenue   = Number(pnl?.revenue   ?? 0);
+  const cogs      = Number(pnl?.cogs      ?? 0);
+  const shipping  = Number(pnl?.shipping  ?? 0);
+  const expenses  = Number(pnl?.expenses  ?? 0);
+  const delivered = Number(orders?.delivered ?? 0);
+
+  // الحسابات
+  const avgRevPerOrder      = delivered > 0 ? revenue / delivered : 0;
+  const variableCostPerOrder = delivered > 0 ? (cogs + shipping) / delivered : 0;
+  const contributionMargin  = avgRevPerOrder - variableCostPerOrder;
+  const cmRatio             = avgRevPerOrder > 0 ? (contributionMargin / avgRevPerOrder) * 100 : 0;
+  const breakEvenUnits      = contributionMargin > 0 ? Math.ceil(expenses / contributionMargin) : null;
+  const breakEvenRevenue    = breakEvenUnits !== null ? breakEvenUnits * avgRevPerOrder : null;
+  const safetyMargin        = breakEvenUnits !== null && delivered > 0
+    ? +((( delivered - breakEvenUnits) / delivered) * 100).toFixed(1)
+    : null;
+  const progressPct         = breakEvenUnits !== null && breakEvenUnits > 0
+    ? Math.min(Math.round((delivered / breakEvenUnits) * 100), 100)
+    : 0;
+  const achieved            = breakEvenUnits !== null && delivered >= breakEvenUnits;
+  const hasData             = revenue > 0 && delivered > 0;
+
+  const statusColor  = achieved ? "#10B981" : progressPct >= 70 ? "#F59E0B" : "#EF4444";
+  const statusGlow   = achieved ? "rgba(16,185,129,0.25)" : progressPct >= 70 ? "rgba(245,158,11,0.25)" : "rgba(239,68,68,0.25)";
+  const statusLabel  = achieved ? "✅ تجاوزت نقطة التعادل" : progressPct >= 70 ? "⚡ قريب جداً" : "📊 لم تصل بعد";
+
+  return (
+    <div className="relative overflow-hidden rounded-[22px] p-5"
+      style={{
+        background: `linear-gradient(135deg, ${statusGlow.replace("0.25","0.20")} 0%, rgba(255,255,255,0.02) 100%)`,
+        border: `1px solid ${statusGlow}`,
+        boxShadow: `inset 0 1px 0 rgba(255,255,255,0.12), 0 8px 32px ${statusGlow}`,
+        backdropFilter: "blur(12px)",
+      }}>
+      {/* خط الضوء العلوي */}
+      <div className="absolute inset-x-10 top-0 h-px pointer-events-none"
+        style={{ background: `linear-gradient(90deg, transparent, ${statusColor}, transparent)` }} />
+
+      {/* Header */}
+      <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+            style={{ background: statusGlow, border: `1px solid ${statusGlow.replace("0.25","0.40")}` }}>
+            <Crosshair className="w-4 h-4" style={{ color: statusColor }} />
+          </div>
+          <div>
+            <h3 className="text-sm font-black" style={{ color: "hsl(var(--foreground))" }}>نقطة التعادل</h3>
+            <p className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>كام طلب محتاج عشان تغطي مصروفاتك؟</p>
+          </div>
+        </div>
+        <span className="text-[11px] font-bold px-2.5 py-1 rounded-full"
+          style={{ background: statusGlow, color: statusColor, border: `1px solid ${statusGlow.replace("0.25","0.35")}` }}>
+          {isLoading ? "..." : statusLabel}
+        </span>
+      </div>
+
+      {!hasData && !isLoading ? (
+        <div className="text-center py-6" style={{ color: "hsl(var(--muted-foreground))" }}>
+          <Target className="w-10 h-10 mx-auto mb-2 opacity-20" />
+          <p className="text-sm">لا توجد بيانات كافية في هذه الفترة</p>
+          <p className="text-xs mt-1 opacity-60">سجّل طلبات ومصروفات لتفعيل الحساب</p>
+        </div>
+      ) : (
+        <>
+          {/* أرقام Break-Even الرئيسية */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+            {[
+              {
+                label: "نقطة التعادل (طلبات)",
+                value: isLoading ? "..." : breakEvenUnits !== null ? breakEvenUnits.toLocaleString("ar-EG") : "—",
+                sub: "الحد الأدنى للربحية",
+                color: statusColor, icon: Target,
+              },
+              {
+                label: "إيراد التعادل",
+                value: isLoading ? "..." : breakEvenRevenue !== null ? fmtS(breakEvenRevenue) + " ج.م" : "—",
+                sub: "الإيراد اللازم للتغطية",
+                color: "#6366F1", icon: DollarSign,
+              },
+              {
+                label: "هامش الأمان",
+                value: isLoading ? "..." : safetyMargin !== null ? `${safetyMargin > 0 ? "+" : ""}${safetyMargin}%` : "—",
+                sub: safetyMargin !== null && safetyMargin > 0 ? "فوق نقطة التعادل" : "تحت نقطة التعادل",
+                color: safetyMargin !== null && safetyMargin > 0 ? "#10B981" : "#EF4444", icon: TrendingUp,
+              },
+              {
+                label: "هامش المساهمة",
+                value: isLoading ? "..." : contributionMargin > 0 ? fmtS(contributionMargin) + " ج.م" : "—",
+                sub: `${cmRatio.toFixed(1)}% لكل طلب`,
+                color: "#F59E0B", icon: PiggyBank,
+              },
+            ].map(c => (
+              <div key={c.label} className="relative overflow-hidden rounded-[16px] px-3 py-3 text-center"
+                style={{
+                  background: `rgba(255,255,255,0.04)`,
+                  border: `1px solid rgba(255,255,255,0.10)`,
+                  backdropFilter: "blur(8px)",
+                }}>
+                <c.icon className="w-3.5 h-3.5 mx-auto mb-1" style={{ color: c.color }} />
+                <p className="text-[10px] font-bold mb-0.5" style={{ color: "rgba(255,255,255,0.55)" }}>{c.label}</p>
+                <p className="font-black text-base leading-tight" style={{ color: c.color, textShadow: `0 0 12px ${c.color}66` }}>{c.value}</p>
+                <p className="text-[9px] mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>{c.sub}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Progress Bar */}
+          {breakEvenUnits !== null && (
+            <div className="mb-5">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold" style={{ color: "hsl(var(--muted-foreground))" }}>
+                  التقدم نحو نقطة التعادل
+                </span>
+                <span className="text-xs font-black" style={{ color: statusColor }}>
+                  {delivered.toLocaleString("ar-EG")} / {breakEvenUnits.toLocaleString("ar-EG")} طلب ({progressPct}%)
+                </span>
+              </div>
+              <div className="h-3 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
+                <div className="h-full rounded-full transition-all duration-1000 relative"
+                  style={{
+                    width: `${progressPct}%`,
+                    background: `linear-gradient(90deg, ${statusColor}99, ${statusColor})`,
+                    boxShadow: `0 0 10px ${statusColor}88`,
+                  }}>
+                  {progressPct > 15 && (
+                    <div className="absolute inset-0 flex items-center justify-end pr-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-white/80" />
+                    </div>
+                  )}
+                </div>
+              </div>
+              {achieved && (
+                <p className="text-[11px] mt-1.5 font-bold text-center" style={{ color: "#10B981" }}>
+                  🎉 تجاوزت نقطة التعادل بـ {(delivered - breakEvenUnits).toLocaleString("ar-EG")} طلب إضافي
+                </p>
+              )}
+              {!achieved && breakEvenUnits !== null && (
+                <p className="text-[11px] mt-1.5 text-center" style={{ color: "rgba(255,255,255,0.45)" }}>
+                  محتاج {Math.max(breakEvenUnits - delivered, 0).toLocaleString("ar-EG")} طلب إضافي للوصول لنقطة التعادل
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* تفاصيل الحساب */}
+          <div className="rounded-[14px] p-3.5 space-y-2.5"
+            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+            <p className="text-[11px] font-bold" style={{ color: "rgba(255,255,255,0.50)" }}>📐 تفاصيل الحساب</p>
+            {[
+              { label: "متوسط إيراد الطلب",           value: fmtF(avgRevPerOrder),      color: "#10B981" },
+              { label: "متوسط التكلفة المتغيرة / طلب", value: fmtF(variableCostPerOrder), color: "#EF4444" },
+              { label: "هامش المساهمة / طلب",          value: fmtF(contributionMargin),  color: "#F59E0B" },
+              { label: "المصروفات الثابتة (التشغيلية)", value: fmtF(expenses),            color: "#8B5CF6" },
+            ].map(row => (
+              <div key={row.label} className="flex items-center justify-between">
+                <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.50)" }}>{row.label}</span>
+                <span className="text-[11px] font-bold" style={{ color: row.color }}>{isLoading ? "..." : row.value}</span>
+              </div>
+            ))}
+            <div className="pt-2 mt-1" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+              <p className="text-[10px] text-center" style={{ color: "rgba(255,255,255,0.30)" }}>
+                نقطة التعادل = المصروفات الثابتة ÷ هامش المساهمة لكل طلب
+              </p>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
@@ -544,6 +718,9 @@ export default function FinanceHub() {
         </Card>
       </div>
 
+
+      {/* ── Break-Even Tracker ──────────────────────────────────────────────── */}
+      <BreakEvenTracker pnl={pnl} orders={ords} isLoading={isLoading} />
 
       {/* ── مستحقات + أوامر الشراء ──────────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
