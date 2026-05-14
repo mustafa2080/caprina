@@ -251,53 +251,115 @@ router.post("/finance/purchases", async (req, res): Promise<void> => {
   res.status(201).json({ ...order, items:newItems });
 });
 
+// ── helper: جيب الخزنة الافتراضية أو أول خزنة نشطة ─────────────────────
+async function getDefaultRegister() {
+  const regs = await db.select().from(cashRegistersTable)
+    .where(eq(cashRegistersTable.isActive, true))
+    .orderBy(cashRegistersTable.id);
+  return (regs.find((r: any) => r.isDefault) ?? regs.find((r: any) => r.type === "main") ?? regs[0]) ?? null;
+}
+
 router.patch("/finance/purchases/:id", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
   const { status, paymentStatus, paidAmount, notes } = req.body;
   const now = new Date();
+
   const [ob] = await db.select().from(purchaseOrdersTable).where(eq(purchaseOrdersTable.id, id));
   if (!ob) { res.status(404).json({ error:"أمر الشراء مش موجود" }); return; }
-  await db.update(purchaseOrdersTable).set({ status, paymentStatus, paidAmount, notes, updatedAt:now }).where(eq(purchaseOrdersTable.id, id));
-  const prevPay = ob.paymentStatus; const newPay = paymentStatus ?? prevPay;
+
+  const prevPay  = ob.paymentStatus ?? "unpaid";
+  const newPay   = paymentStatus ?? prevPay;
   const prevPaid = parseFloat(ob.paidAmount ?? "0");
-  const shouldRefund = newPay === "unpaid" && prevPay !== "unpaid" && prevPaid > 0;
-  const shouldDebit  = newPay !== "unpaid" && (prevPay !== "paid" || prevPaid === 0);
-  if (shouldRefund) {
-    try {
-      const regs = await db.select().from(cashRegistersTable).where(eq(cashRegistersTable.isActive,true)).limit(10);
-      const reg = regs.find(r => r.type === "main") ?? regs[0] ?? null;
+  const total    = parseFloat(ob.totalAmount ?? "0");
+
+  // ── حساب المبلغ الجديد المدفوع ────────────────────────────────────────────
+  let newPaidAmt: number;
+  if (newPay === "unpaid")  newPaidAmt = 0;
+  else if (newPay === "paid") newPaidAmt = total;
+  else newPaidAmt = Math.min(Math.max(parseFloat(paidAmount ?? "0"), 0), total); // partial
+
+  const delta = newPaidAmt - prevPaid; // موجب = خصم، سالب = إرجاع
+
+  try {
+    if (delta > 0) {
+      // ── خصم من الخزنة ──────────────────────────────────────────────────
+      const reg = await getDefaultRegister();
+      if (!reg) { res.status(400).json({ error:"لا توجد خزنة نشطة" }); return; }
+      const bb = parseFloat(reg.balance ?? "0");
+      if (bb < delta) {
+        res.status(400).json({ error:`رصيد الخزنة "${reg.name}" مش كفاية — المتاح: ${bb.toLocaleString("ar-EG")} ج.م` });
+        return;
+      }
+      const ba = bb - delta;
+      await db.update(cashRegistersTable).set({ balance:String(ba), updatedAt:now }).where(eq(cashRegistersTable.id, reg.id));
+      await db.insert(cashTransactionsTable).values({
+        registerId:reg.id, type:"purchase_paid", amount:String(delta),
+        balanceBefore:String(bb), balanceAfter:String(ba),
+        purchaseOrderId:id,
+        description:`دفع ${newPay==="paid"?"كامل":"جزئي"} — أمر شراء ${ob.poNumber}`,
+        referenceNumber:ob.poNumber, transactionDate:now, createdAt:now,
+      });
+
+    } else if (delta < 0) {
+      // ── إرجاع للخزنة ───────────────────────────────────────────────────
+      const refund = Math.abs(delta);
+      const reg = await getDefaultRegister();
       if (reg) {
-        const bb = parseFloat(reg.balance??"0"); const ba = bb + prevPaid;
+        const bb = parseFloat(reg.balance ?? "0");
+        const ba = bb + refund;
         await db.update(cashRegistersTable).set({ balance:String(ba), updatedAt:now }).where(eq(cashRegistersTable.id, reg.id));
-        await db.insert(cashTransactionsTable).values({ registerId:reg.id, type:"deposit", amount:String(prevPaid), balanceBefore:String(bb), balanceAfter:String(ba), purchaseOrderId:id, description:`إرجاع دفع — أمر شراء ${ob.poNumber}`, referenceNumber:ob.poNumber, transactionDate:now, createdAt:now });
-        await db.update(purchaseOrdersTable).set({ paidAmount:"0", updatedAt:now }).where(eq(purchaseOrdersTable.id, id));
+        await db.insert(cashTransactionsTable).values({
+          registerId:reg.id, type:"deposit", amount:String(refund),
+          balanceBefore:String(bb), balanceAfter:String(ba),
+          purchaseOrderId:id,
+          description:`إرجاع دفع — أمر شراء ${ob.poNumber}`,
+          referenceNumber:ob.poNumber, transactionDate:now, createdAt:now,
+        });
       }
-    } catch(e) { console.error(e); res.status(500).json({ error:"خطأ أثناء الإرجاع" }); return; }
-  }
-  if (shouldDebit) {
-    try {
-      const total = parseFloat(ob.totalAmount??"0"); const alreadyPaid = parseFloat(ob.paidAmount??"0");
-      const newPaidAmt = newPay === "paid" ? total : Math.min(parseFloat(paidAmount??"0"), total);
-      const toDebit = newPaidAmt - alreadyPaid;
-      if (toDebit > 0) {
-        const regs = await db.select().from(cashRegistersTable).where(eq(cashRegistersTable.isActive,true)).limit(10);
-        const reg = regs.find(r => r.type === "main") ?? regs[0] ?? null;
-        if (!reg) { res.status(400).json({ error:"لا توجد خزنة" }); return; }
-        const bb = parseFloat(reg.balance??"0");
-        if (bb < toDebit) { res.status(400).json({ error:`رصيد الخزنة مش كفاية — المتاح: ${bb.toLocaleString("ar-EG")} ج.م` }); return; }
-        const ba = bb - toDebit;
-        await db.update(cashRegistersTable).set({ balance:String(ba), updatedAt:now }).where(eq(cashRegistersTable.id, reg.id));
-        await db.insert(cashTransactionsTable).values({ registerId:reg.id, type:"purchase_paid", amount:String(toDebit), balanceBefore:String(bb), balanceAfter:String(ba), purchaseOrderId:id, description:`دفع ${newPay==="paid"?"كامل":"جزئي"} — أمر شراء ${ob.poNumber}`, referenceNumber:ob.poNumber, transactionDate:now, createdAt:now });
-        await db.update(purchaseOrdersTable).set({ paidAmount:String(newPaidAmt), updatedAt:now }).where(eq(purchaseOrdersTable.id, id));
-      }
-    } catch(e) { console.error(e); res.status(500).json({ error:"خطأ أثناء الخصم" }); return; }
-  }
+    }
+    // delta === 0 → لا تغيير في الخزنة
+
+    // ── تحديث أمر الشراء ──────────────────────────────────────────────────
+    const finalPayStatus = newPaidAmt <= 0 ? "unpaid" : newPaidAmt >= total ? "paid" : "partial";
+    await db.update(purchaseOrdersTable).set({
+      status:        status ?? ob.status,
+      paymentStatus: finalPayStatus,
+      paidAmount:    String(newPaidAmt),
+      notes:         notes ?? ob.notes,
+      updatedAt:     now,
+    }).where(eq(purchaseOrdersTable.id, id));
+
+  } catch(e) { console.error(e); res.status(500).json({ error:"خطأ أثناء تحديث أمر الشراء" }); return; }
+
   const [order] = await db.select().from(purchaseOrdersTable).where(eq(purchaseOrdersTable.id, id));
   res.json(order);
 });
 
 router.delete("/finance/purchases/:id", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
+  const now = new Date();
+
+  const [ob] = await db.select().from(purchaseOrdersTable).where(eq(purchaseOrdersTable.id, id));
+  if (!ob) { res.status(404).json({ error:"أمر الشراء مش موجود" }); return; }
+
+  // ── لو فيه مبلغ مدفوع → ارجعه للخزنة قبل الحذف ──────────────────────────
+  const paidSoFar = parseFloat(ob.paidAmount ?? "0");
+  if (paidSoFar > 0) {
+    const reg = await getDefaultRegister();
+    if (reg) {
+      const bb = parseFloat(reg.balance ?? "0");
+      const ba = bb + paidSoFar;
+      await db.update(cashRegistersTable).set({ balance:String(ba), updatedAt:now }).where(eq(cashRegistersTable.id, reg.id));
+      await db.insert(cashTransactionsTable).values({
+        registerId:reg.id, type:"deposit", amount:String(paidSoFar),
+        balanceBefore:String(bb), balanceAfter:String(ba),
+        purchaseOrderId:id,
+        description:`إلغاء أمر شراء ${ob.poNumber} — إرجاع ${paidSoFar.toLocaleString("ar-EG")} ج.م`,
+        referenceNumber:ob.poNumber, transactionDate:now, createdAt:now,
+      });
+    }
+  }
+
   await db.delete(purchaseOrderItemsTable).where(eq(purchaseOrderItemsTable.purchaseOrderId, id));
   await db.delete(purchaseOrdersTable).where(eq(purchaseOrdersTable.id, id));
   res.status(204).send();
