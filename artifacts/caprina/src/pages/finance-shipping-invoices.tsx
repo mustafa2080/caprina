@@ -65,13 +65,19 @@ export default function FinanceShippingInvoices() {
     ? invoices
     : invoices.filter(inv => inv.status === statusFilter);
 
+  // helper: تحويل آمن لأي قيمة لرقم — يتعامل مع null/undefined/"null"/NaN
+  const safeNum = (v: any): number => {
+    const n = parseFloat(String(v ?? 0));
+    return isNaN(n) ? 0 : n;
+  };
+
   const totalPending = invoices
     .filter(i => i.status === "pending")
-    .reduce((s, i) => s + Number(i.netDue) - Number(i.paidAmount ?? 0), 0);
+    .reduce((s, i) => s + safeNum(i.netDue) - safeNum(i.paidAmount), 0);
 
   const totalPaid = invoices
     .filter(i => i.status === "paid")
-    .reduce((s, i) => s + Number(i.netDue), 0);
+    .reduce((s, i) => s + safeNum(i.netDue), 0);
 
   return (
     <div className="space-y-5 animate-in fade-in duration-500" dir="rtl">
@@ -214,7 +220,7 @@ export default function FinanceShippingInvoices() {
           {filtered.map(inv => {
             const company = companies.find((c: any) => c.id === inv.shippingCompanyId);
             const st = STATUS_LABELS[inv.status] ?? { label: inv.status, color: "#6B7280", glow: "rgba(107,114,128,0.25)", solid: "rgba(107,114,128,0.15)" };
-            const remaining = Number(inv.netDue) - Number(inv.paidAmount ?? 0);
+            const remaining = safeNum(inv.netDue) - safeNum(inv.paidAmount);
 
             return (
               <div key={inv.id}
@@ -300,7 +306,7 @@ export default function FinanceShippingInvoices() {
                   <div className="mt-2 pt-2 flex items-center gap-2" style={{ borderTop: `1px solid ${st.glow}` }}>
                     <Wallet className="w-3.5 h-3.5 text-emerald-500" />
                     <p className="text-[10px] text-emerald-500">
-                      تم إضافة {fmt(inv.paidAmount ?? inv.netDue)} للخزنة الرئيسية
+                      تم إضافة {fmt(safeNum(inv.paidAmount) || safeNum(inv.netDue))} للخزنة الرئيسية
                       {inv.paidAt ? ` · ${format(new Date(inv.paidAt), "yyyy/MM/dd")}` : ""}
                     </p>
                   </div>
