@@ -44,9 +44,17 @@ cashRegistersRouter.get("/", async (req, res) => {
 // ─── POST /api/cash-registers ────────────────────────────────────────────────
 cashRegistersRouter.post("/", async (req, res) => {
   try {
-    const { name, type = "branch", description, initialBalance = 0 } = req.body as any;
+    const { name, type = "branch", description, initialBalance = 0, isDefault = false } = req.body as any;
     const now = new Date();
-    const [result] = await db.insert(cashRegistersTable).values({ name, type, description, balance: String(initialBalance), createdByUserId: req.body.userId ?? null, createdByName: req.body.userName ?? null, createdAt: now, updatedAt: now });
+
+    // لو الخزنة الجديدة هتبقى default → اشيل الـ default من أي خزنة تانية
+    if (isDefault) {
+      await db.update(cashRegistersTable)
+        .set({ isDefault: false, updatedAt: now })
+        .where(eq(cashRegistersTable.isDefault, true));
+    }
+
+    const [result] = await db.insert(cashRegistersTable).values({ name, type, description, balance: String(initialBalance), isDefault: isDefault ? true : false, createdByUserId: req.body.userId ?? null, createdByName: req.body.userName ?? null, createdAt: now, updatedAt: now });
     const newId = (result as any).insertId;
     if (parseFloat(initialBalance) > 0) {
       await db.insert(cashTransactionsTable).values({ registerId: newId, type: "deposit", amount: String(initialBalance), balanceBefore: "0", balanceAfter: String(initialBalance), description: "رصيد افتتاحي", transactionDate: now, createdByUserId: req.body.userId ?? null, createdByName: req.body.userName ?? null, createdAt: now });
@@ -249,10 +257,25 @@ cashRegistersRouter.get("/:id/flow", async (req, res) => {
 
 cashRegistersRouter.patch("/:id", async (req, res) => {
   try {
-    const{name,description}=req.body as any;
-    await db.update(cashRegistersTable).set({name,description,updatedAt:new Date()}).where(eq(cashRegistersTable.id,parseInt(req.params.id)));
-    res.json({success:true});
-  } catch(err){res.status(500).json({error:"فشل التعديل"});}
+    const id = parseInt(req.params.id);
+    const { name, description, isDefault } = req.body as any;
+    const now = new Date();
+
+    // لو بيحدد isDefault = true → اشيل الـ default من الخزن الأخرى الأول
+    if (isDefault === true) {
+      await db.update(cashRegistersTable)
+        .set({ isDefault: false, updatedAt: now })
+        .where(eq(cashRegistersTable.isDefault, true));
+    }
+
+    const updates: any = { updatedAt: now };
+    if (name !== undefined)      updates.name        = name;
+    if (description !== undefined) updates.description = description;
+    if (isDefault !== undefined) updates.isDefault   = isDefault;
+
+    await db.update(cashRegistersTable).set(updates).where(eq(cashRegistersTable.id, id));
+    res.json({ success: true });
+  } catch(err){ res.status(500).json({ error: "فشل التعديل" }); }
 });
 
 cashRegistersRouter.patch("/:id/threshold", async (req, res) => {
