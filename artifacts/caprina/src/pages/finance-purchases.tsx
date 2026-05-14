@@ -380,17 +380,19 @@ export default function FinancePurchases() {
       {/* ── بطاقات الإحصائيات ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: "إجمالي الأوامر",   value: fmt(stats.total),  gradient: "from-[#1a2a1a] to-[#2d4a2d]", valueColor: "text-[#a8e6a8]" },
-          { label: "إجمالي المدفوع",   value: fmt(stats.paid),   gradient: "from-[#0f2a2a] to-[#1a4a3a]", valueColor: "text-[#7eecd4]" },
-          { label: "المتبقي",          value: fmt(stats.unpaid), gradient: "from-[#2a1a1a] to-[#4a2020]", valueColor: "text-[#f87171]" },
-          { label: "غير مدفوع / جزئي", value: `${stats.countUnpaid} / ${stats.countPartial}`, gradient: "from-[#2a2010] to-[#4a3a10]", valueColor: "text-[#fbbf24]" },
+          { label: "إجمالي الأوامر",   value: fmt(stats.total),  color: "#FFB74D", glow: "rgba(255,183,77,0.32)",  bg: "linear-gradient(135deg, rgba(255,183,77,0.42) 0%, rgba(255,183,77,0.16) 52%, rgba(255,255,255,0.08) 100%)" },
+          { label: "إجمالي المدفوع",   value: fmt(stats.paid),   color: "#26A69A", glow: "rgba(38,166,154,0.28)",  bg: "linear-gradient(135deg, rgba(38,166,154,0.44) 0%, rgba(38,166,154,0.18) 52%, rgba(255,255,255,0.08) 100%)" },
+          { label: "المتبقي",          value: fmt(stats.unpaid), color: "#ef4444", glow: "rgba(239,68,68,0.28)",   bg: "linear-gradient(135deg, rgba(239,68,68,0.42) 0%, rgba(239,68,68,0.16) 52%, rgba(255,255,255,0.08) 100%)" },
+          { label: "غير مدفوع / جزئي", value: `${stats.countUnpaid} / ${stats.countPartial}`, color: "#7E57C2", glow: "rgba(126,87,194,0.32)", bg: "linear-gradient(135deg, rgba(126,87,194,0.42) 0%, rgba(126,87,194,0.16) 52%, rgba(255,255,255,0.08) 100%)" },
         ].map(c => (
-          <div key={c.label} className={`relative rounded-2xl bg-gradient-to-br ${c.gradient} p-4 border border-white/10 shadow-lg overflow-hidden`}>
-            {/* glow — نقطة ضوء في المنتصف */}
-            <div className="absolute inset-0 pointer-events-none"
-              style={{ background: "radial-gradient(ellipse 70% 60% at 50% 30%, rgba(255,255,255,0.12) 0%, transparent 70%)" }} />
-            <p className="text-xs text-white/50 font-medium mb-1">{c.label}</p>
-            <p className={`text-xl font-bold ${c.valueColor} drop-shadow`}>{c.value}</p>
+          <div key={c.label} className="relative overflow-hidden rounded-[18px] px-4 py-3.5 text-center transition-transform duration-300 hover:-translate-y-0.5"
+            style={{ background: c.bg, border: `1px solid ${c.glow}`, boxShadow: `inset 0 1px 0 rgba(255,255,255,0.18), 0 10px 24px ${c.glow}`, backdropFilter: "blur(12px)" }}>
+            {/* خط ضوء أعلى الكارد */}
+            <div className="absolute inset-x-6 top-0 h-px opacity-80"
+              style={{ background: `linear-gradient(90deg, transparent, ${c.color}, transparent)` }} />
+            <p className="text-[11px] font-bold tracking-tight text-white/70">{c.label}</p>
+            <p className="mt-1 truncate text-xl font-black sm:text-2xl"
+              style={{ color: c.color, textShadow: `0 0 14px ${c.color}88` }}>{c.value}</p>
           </div>
         ))}
       </div>
