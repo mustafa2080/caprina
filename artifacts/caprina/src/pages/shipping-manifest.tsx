@@ -257,26 +257,22 @@ function OrderDeliveryRow({
           {order.deliveryStatus === "returned" && (order as any).returnReceived === 1 && (
             <>
               <p className="text-[10px] text-emerald-600 mt-0.5 font-semibold">↩ تم الاستلام</p>
-              {!editing && (
-                <p className="text-[10px] text-red-400 mt-0.5 truncate max-w-[110px] flex items-center gap-0.5">
-                  ↳ {(order as any).returnReason ? returnReasonLabel((order as any).returnReason) : "لم يحدد السبب"}
-                </p>
-              )}
+              <p className="text-[10px] text-red-400 mt-0.5 flex items-center gap-0.5">
+                ↳ {(order as any).returnReason ? returnReasonLabel((order as any).returnReason) : "لم يحدد السبب"}
+              </p>
             </>
           )}
           {order.deliveryStatus === "returned" && (order as any).returnReceived === 0 && (
             <>
               <p className="text-[10px] text-orange-500 mt-0.5 font-semibold">⏳ عند شركة الشحن</p>
-              {!editing && (
-                <p className="text-[10px] text-red-400 mt-0.5 truncate max-w-[110px] flex items-center gap-0.5">
-                  ↳ {(order as any).returnReason ? returnReasonLabel((order as any).returnReason) : "لم يحدد السبب"}
-                </p>
-              )}
+              <p className="text-[10px] text-red-400 mt-0.5 flex items-center gap-0.5">
+                ↳ {(order as any).returnReason ? returnReasonLabel((order as any).returnReason) : "لم يحدد السبب"}
+              </p>
             </>
           )}
           {/* لو returnReceived لسه null (لم يختر بعد) */}
-          {order.deliveryStatus === "returned" && (order as any).returnReceived == null && !editing && (
-            <p className="text-[10px] text-red-400 mt-0.5 truncate max-w-[110px] flex items-center gap-0.5">
+          {order.deliveryStatus === "returned" && (order as any).returnReceived == null && (
+            <p className="text-[10px] text-red-400 mt-0.5 flex items-center gap-0.5">
               ↳ {(order as any).returnReason ? returnReasonLabel((order as any).returnReason) : "لم يحدد السبب"}
             </p>
           )}
@@ -369,25 +365,21 @@ function OrderDeliveryRow({
         {order.deliveryStatus === "returned" && (order as any).returnReceived === 1 && (
           <>
             <p className="text-[10px] text-emerald-600 font-semibold">↩ تم الاستلام</p>
-            {!editing && (
-              <p className="text-[10px] text-red-400 font-semibold">
-                ↳ {(order as any).returnReason ? returnReasonLabel((order as any).returnReason) : "لم يحدد السبب"}
-              </p>
-            )}
+            <p className="text-[10px] text-red-400 font-semibold">
+              ↳ {(order as any).returnReason ? returnReasonLabel((order as any).returnReason) : "لم يحدد السبب"}
+            </p>
           </>
         )}
         {order.deliveryStatus === "returned" && (order as any).returnReceived === 0 && (
           <>
             <p className="text-[10px] text-orange-500 font-semibold">⏳ عند شركة الشحن</p>
-            {!editing && (
-              <p className="text-[10px] text-red-400 font-semibold">
-                ↳ {(order as any).returnReason ? returnReasonLabel((order as any).returnReason) : "لم يحدد السبب"}
-              </p>
-            )}
+            <p className="text-[10px] text-red-400 font-semibold">
+              ↳ {(order as any).returnReason ? returnReasonLabel((order as any).returnReason) : "لم يحدد السبب"}
+            </p>
           </>
         )}
         {/* لو returnReceived لسه null */}
-        {order.deliveryStatus === "returned" && (order as any).returnReceived == null && !editing && (
+        {order.deliveryStatus === "returned" && (order as any).returnReceived == null && (
           <p className="text-[10px] text-red-400 font-semibold">
             ↳ {(order as any).returnReason ? returnReasonLabel((order as any).returnReason) : "لم يحدد السبب"}
           </p>
