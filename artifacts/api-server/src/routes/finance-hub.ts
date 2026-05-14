@@ -195,7 +195,7 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
     const [pendingPurchases] = await db.select({
       count: sql<number>`COUNT(*)`,
       total: sql<number>`COALESCE(SUM(CAST(total_amount AS DECIMAL(14,2))),0)`,
-    }).from(purchaseOrdersTable).where(sql`status IN ('pending','ordered','partially_received')`);
+    }).from(purchaseOrdersTable).where(sql`status IN ('pending','ordered','partial_received')`);
 
     // ── 7. فواتير الشحن غير المسددة ─────────────────────────────────────────
     // COALESCE على كل عمود على حدة عشان NULL في paid_amount ما يخليش الطرح NULL

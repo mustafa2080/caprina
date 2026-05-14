@@ -39,7 +39,7 @@ export default function FinanceShippingInvoices() {
 
   // ── جيب الخزنة الرئيسية ──────────────────────────────────────────────────
   const { data: cashData } = useQuery<any>({
-    queryKey: ["cash-registers"],
+    queryKey: ["/api/cash-registers"],
     queryFn: () => apiFetch<any>("/cash-registers"),
   });
 
@@ -54,7 +54,9 @@ export default function FinanceShippingInvoices() {
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["finance-shipping-invoices"] });
-      qc.invalidateQueries({ queryKey: ["cash-registers"] });
+      qc.invalidateQueries({ queryKey: ["/api/cash-registers"] });
+      qc.invalidateQueries({ queryKey: ["/api/cash-registers/alerts"] });
+      qc.invalidateQueries({ queryKey: ["finance-hub"] });
       toast({ title: "✅ تم تحديث حالة الفاتورة" });
     },
     onError: (e: any) => toast({ title: "❌ خطأ", description: e.message, variant: "destructive" }),
