@@ -23,18 +23,20 @@ const api = {
 };
 
 const EXPENSE_CATEGORIES = [
-  { value: "shipping_fees",  label: "مصاريف شحن" },
-  { value: "warehouse_rent", label: "إيجار مخزن" },
-  { value: "salary",         label: "مرتبات" },
-  { value: "marketing",      label: "تسويق وإعلانات" },
-  { value: "packaging",      label: "تغليف" },
-  { value: "utilities",      label: "كهرباء / خدمات" },
-  { value: "maintenance",    label: "صيانة" },
-  { value: "returns_loss",   label: "خسائر مرتجعات" },
-  { value: "other",          label: "أخرى" },
+  { value: "shipping_fees",  label: "مصاريف شحن",      color: "#3B82F6", glow: "rgba(59,130,246,0.25)" },
+  { value: "warehouse_rent", label: "إيجار مخزن",       color: "#8B5CF6", glow: "rgba(139,92,246,0.25)" },
+  { value: "salary",         label: "مرتبات",           color: "#10B981", glow: "rgba(16,185,129,0.25)" },
+  { value: "marketing",      label: "تسويق وإعلانات",   color: "#F59E0B", glow: "rgba(245,158,11,0.25)" },
+  { value: "packaging",      label: "تغليف",            color: "#06B6D4", glow: "rgba(6,182,212,0.25)"  },
+  { value: "utilities",      label: "كهرباء / خدمات",   color: "#EAB308", glow: "rgba(234,179,8,0.25)"  },
+  { value: "maintenance",    label: "صيانة",            color: "#F97316", glow: "rgba(249,115,22,0.25)" },
+  { value: "returns_loss",   label: "خسائر مرتجعات",    color: "#EF4444", glow: "rgba(239,68,68,0.25)"  },
+  { value: "other",          label: "أخرى",             color: "#6B7280", glow: "rgba(107,114,128,0.25)"},
 ];
 
 const catLabel = (v: string) => EXPENSE_CATEGORIES.find(c => c.value === v)?.label ?? v;
+const catColor = (v: string) => EXPENSE_CATEGORIES.find(c => c.value === v)?.color ?? "#6B7280";
+const catGlow  = (v: string) => EXPENSE_CATEGORIES.find(c => c.value === v)?.glow  ?? "rgba(107,114,128,0.25)";
 const fmt = (n: string | number) =>
   Number(n).toLocaleString("ar-EG", { minimumFractionDigits: 2 }) + " ج.م";
 
@@ -176,16 +178,30 @@ export default function FinanceExpenses() {
 
       {/* ── KPI ── */}
       <div className="grid grid-cols-2 gap-3">
-        <Card className="p-4 border-rose-500/30 bg-rose-500/5">
-          <p className="text-xs text-muted-foreground">إجمالي الصفحة الحالية</p>
-          <p className="text-2xl font-black text-rose-500">{fmt(pageTotal)}</p>
-          <p className="text-xs text-muted-foreground mt-1">{total} مصروف إجمالي</p>
-        </Card>
-        <Card className="p-4 border-emerald-500/30 bg-emerald-500/5">
-          <p className="text-xs text-muted-foreground">مربوطة بخزنة (الصفحة)</p>
-          <p className="text-2xl font-black text-emerald-600">{withCash}</p>
-          <p className="text-xs text-muted-foreground mt-1">خُصمت تلقائياً</p>
-        </Card>
+        <div className="relative overflow-hidden rounded-[20px] p-4 transition-all duration-300"
+          style={{
+            background: "linear-gradient(135deg, rgba(239,68,68,0.42) 0%, rgba(239,68,68,0.16) 52%, rgba(255,255,255,0.06) 100%)",
+            border: "1px solid rgba(239,68,68,0.30)",
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.15), 0 10px 28px rgba(239,68,68,0.22)",
+            backdropFilter: "blur(12px)",
+          }}>
+          <div className="absolute inset-x-8 top-0 h-px" style={{ background: "linear-gradient(90deg, transparent, #EF4444, transparent)" }} />
+          <p className="text-xs font-bold mb-1" style={{ color: "rgba(255,255,255,0.60)" }}>إجمالي الصفحة الحالية</p>
+          <p className="text-2xl font-black" style={{ color: "#EF4444", textShadow: "0 0 16px rgba(239,68,68,0.55)" }}>{fmt(pageTotal)}</p>
+          <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.40)" }}>{total} مصروف إجمالي</p>
+        </div>
+        <div className="relative overflow-hidden rounded-[20px] p-4 transition-all duration-300"
+          style={{
+            background: "linear-gradient(135deg, rgba(16,185,129,0.42) 0%, rgba(16,185,129,0.16) 52%, rgba(255,255,255,0.06) 100%)",
+            border: "1px solid rgba(16,185,129,0.30)",
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.15), 0 10px 28px rgba(16,185,129,0.22)",
+            backdropFilter: "blur(12px)",
+          }}>
+          <div className="absolute inset-x-8 top-0 h-px" style={{ background: "linear-gradient(90deg, transparent, #10B981, transparent)" }} />
+          <p className="text-xs font-bold mb-1" style={{ color: "rgba(255,255,255,0.60)" }}>مربوطة بخزنة (الصفحة)</p>
+          <p className="text-2xl font-black" style={{ color: "#10B981", textShadow: "0 0 16px rgba(16,185,129,0.55)" }}>{withCash}</p>
+          <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.40)" }}>خُصمت تلقائياً</p>
+        </div>
       </div>
 
       {/* ── فلاتر ── */}
@@ -243,21 +259,38 @@ export default function FinanceExpenses() {
       ) : (
         <div className="space-y-2">
           {expenses.map((e: any) => {
-            const reg = registers.find(r => r.id === e.cashRegisterId);
+            const reg   = registers.find(r => r.id === e.cashRegisterId);
+            const color = catColor(e.category);
+            const glow  = catGlow(e.category);
             return (
-              <Card key={e.id} className="p-3 border-border flex items-center justify-between gap-3 hover:shadow-sm transition-shadow">
+              <div key={e.id}
+                className="group relative overflow-hidden rounded-[16px] px-4 py-3 flex items-center justify-between gap-3 transition-all duration-200 hover:-translate-y-0.5"
+                style={{
+                  background: `linear-gradient(135deg, ${glow.replace("0.25","0.18")} 0%, rgba(255,255,255,0.03) 100%)`,
+                  border: `1px solid ${glow.replace("0.25","0.20")}`,
+                  boxShadow: `inset 0 1px 0 rgba(255,255,255,0.08), 0 4px 16px ${glow}`,
+                  backdropFilter: "blur(8px)",
+                }}>
+                <div className="absolute inset-x-10 top-0 h-px pointer-events-none"
+                  style={{ background: `linear-gradient(90deg, transparent, ${color}, transparent)` }} />
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-9 h-9 rounded-lg bg-rose-500/10 flex items-center justify-center shrink-0">
-                    <Receipt className="w-4 h-4 text-rose-500"/>
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                    style={{ background: glow, border: `1px solid ${glow.replace("0.25","0.35")}` }}>
+                    <Receipt className="w-4 h-4" style={{ color }} />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-bold text-sm truncate">{e.title}</p>
+                    <p className="font-bold text-sm truncate" style={{ color: "hsl(var(--foreground))" }}>{e.title}</p>
                     <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                      <Badge variant="outline" className="text-[9px]">{catLabel(e.category)}</Badge>
-                      <span className="text-[10px] text-muted-foreground">{e.expenseDate ? format(new Date(e.expenseDate), "yyyy/MM/dd") : ""}</span>
-                      {e.referenceId && <span className="text-[10px] text-muted-foreground">#{e.referenceId}</span>}
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md"
+                        style={{ background: glow, color, border: `1px solid ${glow.replace("0.25","0.40")}` }}>
+                        {catLabel(e.category)}
+                      </span>
+                      <span className="text-[10px]" style={{ color: "hsl(var(--muted-foreground))" }}>
+                        {e.expenseDate ? format(new Date(e.expenseDate), "yyyy/MM/dd") : ""}
+                      </span>
+                      {e.referenceId && <span className="text-[10px]" style={{ color: "hsl(var(--muted-foreground))" }}>#{e.referenceId}</span>}
                       {reg && (
-                        <span className="flex items-center gap-0.5 text-[10px] text-emerald-600 font-medium">
+                        <span className="flex items-center gap-0.5 text-[10px] font-medium" style={{ color: "#10B981" }}>
                           <Wallet className="w-2.5 h-2.5"/> {reg.name}
                         </span>
                       )}
@@ -265,12 +298,13 @@ export default function FinanceExpenses() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
-                  <p className="font-black text-rose-500 text-sm">{fmt(e.amount)}</p>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => del.mutate(e.id)}>
-                    <Trash2 className="w-3.5 h-3.5"/>
+                  <p className="font-black text-sm" style={{ color, textShadow: `0 0 10px ${glow}` }}>{fmt(e.amount)}</p>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-500/10"
+                    onClick={() => del.mutate(e.id)}>
+                    <Trash2 className="w-3.5 h-3.5 text-rose-400"/>
                   </Button>
                 </div>
-              </Card>
+              </div>
             );
           })}
         </div>
