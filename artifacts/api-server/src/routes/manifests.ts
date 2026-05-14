@@ -733,6 +733,7 @@ const DeliveryStatusSchema = z.object({
   partialQuantity: z.union([z.number().int().min(0), z.string().transform(v => { const n = parseInt(v); return isNaN(n) ? null : n; })]).nullish(),
   partialReturnReceived: z.boolean().nullish(),
   returnReceived: z.boolean().nullish(),
+  returnReason: z.string().nullish(),
 });
 
 const STATUS_MAP: Record<string, string> = {
@@ -745,7 +746,7 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
   if (isNaN(manifestId) || isNaN(orderId)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const parsed = DeliveryStatusSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
-  const { deliveryStatus, deliveryNote, partialQuantity, returnReceived, partialReturnReceived } = parsed.data;
+  const { deliveryStatus, deliveryNote, partialQuantity, returnReceived, partialReturnReceived, returnReason } = parsed.data;
 
   const [link] = await db.select().from(shippingManifestOrdersTable)
     .where(and(eq(shippingManifestOrdersTable.manifestId, manifestId), eq(shippingManifestOrdersTable.orderId, orderId)));
@@ -961,6 +962,8 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
   if (deliveryStatus === "partial_received") orderUpdate.returnReceived = (partialReturnReceived ?? false) ? 1 : 0;
   if (deliveryStatus === "returned" && returnReceived != null) orderUpdate.returnReceived = returnReceived ? 1 : 0;
   else if (deliveryStatus !== "returned" && deliveryStatus !== "partial_received") orderUpdate.returnReceived = null;
+  // حفظ سبب الإرجاع في جدول الطلبات
+  if (deliveryStatus === "returned" && returnReason) orderUpdate.returnReason = returnReason;
   await db.update(ordersTable).set(orderUpdate).where(eq(ordersTable.id, orderId));
 
   // ─── فواتير متعددة (siblings): لا نحدث الـ siblings خالص ──

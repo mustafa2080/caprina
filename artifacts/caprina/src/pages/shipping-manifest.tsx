@@ -74,7 +74,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBrand } from "@/contexts/BrandContext";
 import { format } from "date-fns";
-import { RETURN_REASONS } from "@/lib/order-constants";
+import { RETURN_REASONS, returnReasonLabel } from "@/lib/order-constants";
 
 const formatCurrency = (n: number) =>
   new Intl.NumberFormat("ar-EG", {
@@ -272,6 +272,11 @@ function OrderDeliveryRow({
               {order.deliveryNote}
             </p>
           )}
+          {(order as any).returnReason && !editing && (
+            <p className="text-[10px] text-red-400 mt-0.5 truncate max-w-[110px]">
+              ↩ {returnReasonLabel((order as any).returnReason)}
+            </p>
+          )}
         </div>
         {/* Action */}
         <div className="flex justify-end">
@@ -360,6 +365,9 @@ function OrderDeliveryRow({
         )}
         {order.deliveryNote && !editing && (
           <p className="text-[10px] text-muted-foreground">{order.deliveryNote}</p>
+        )}
+        {(order as any).returnReason && !editing && (
+          <p className="text-[10px] text-red-400 font-semibold">↩ {returnReasonLabel((order as any).returnReason)}</p>
         )}
         {!locked && !hideAction && (
           <div className="flex justify-end">
