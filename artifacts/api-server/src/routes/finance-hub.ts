@@ -238,7 +238,7 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
     if (lowBalanceAlerts.length > 0)
       alerts.push({ type:"warning", title:`${lowBalanceAlerts.length} خزنة رصيدها منخفض`, detail: lowBalanceAlerts.map(a=>a.name).join(" — ") });
     if (overdueShipping.length > 0)
-      alerts.push({ type:"danger", title:`${overdueShipping.length} فاتورة شحن متأخرة`, detail:`إجمالي: ${overdueShipping.reduce((s,i)=>s+Number(i.netDue)-Number(i.paidAmount),0).toLocaleString("ar-EG")} ج.م` });
+      alerts.push({ type:"danger", title:`${overdueShipping.length} فاتورة شحن متأخرة`, detail:`إجمالي: ${overdueShipping.reduce((s,i)=>s+Number(i.netDue??0)-Math.max(0,parseFloat(String(i.paidAmount??0))||0),0).toLocaleString("ar-EG")} ج.م` });
     if (Number(pendingPurchases?.count ?? 0) > 0)
       alerts.push({ type:"info", title:`${pendingPurchases?.count} أمر شراء معلق`, detail:`إجمالي: ${Number(pendingPurchases?.total??0).toLocaleString("ar-EG")} ج.م` });
     if (netProfit > 0 && prevProfit > 0 && netProfit > prevProfit * 1.2)

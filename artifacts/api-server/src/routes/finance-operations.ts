@@ -240,6 +240,7 @@ router.get("/finance/expenses/monthly-breakdown", async (req, res): Promise<void
 });
 
 router.delete("/finance/expenses/:id", async (req, res): Promise<void> => {
+  try {
   const id = parseInt(req.params.id);
   const now = new Date();
   const user = (req as any).user;
@@ -283,6 +284,7 @@ router.delete("/finance/expenses/:id", async (req, res): Promise<void> => {
   // 3. احذف المصروف
   await db.delete(expensesTable).where(eq(expensesTable.id, id));
   res.status(204).send();
+  } catch (err) { console.error("[DELETE expense]", err); res.status(500).json({ error: "فشل حذف المصروف" }); }
 });
 
 // ── Shipping Financial Invoices ─────────────────────────────────────────────
@@ -510,9 +512,9 @@ router.get("/finance/analytics", async (req, res): Promise<void> => {
     const cogs     = Number(ordersData[0]?.cogs     ?? 0);
     const shipping = Number(ordersData[0]?.shipping ?? 0);
     const expenses = Number(expData?.total ?? 0);
-    const grossProfit = revenue - cogs - shipping;
-    const netProfit   = grossProfit - expenses;
     const returnLoss  = Number(returnedData?.loss ?? 0);
+    const grossProfit = revenue - cogs - shipping - returnLoss;
+    const netProfit   = grossProfit - expenses;
 
     return {
       revenue, cogs, shipping, expenses, grossProfit, netProfit, returnLoss,
