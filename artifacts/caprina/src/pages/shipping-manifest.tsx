@@ -3185,7 +3185,7 @@ export default function ShippingManifestPage() {
       <div className="manifest-print-stats">
         <div className="manifest-print-stat">
           <div className="manifest-print-stat-label">إجمالي الطلبيات</div>
-          <div className="manifest-print-stat-value">{displayGroups.length}</div>
+          <div className="manifest-print-stat-value">{s.total}</div>
         </div>
         <div className="manifest-print-stat">
           <div className="manifest-print-stat-label">مسلَّم</div>
