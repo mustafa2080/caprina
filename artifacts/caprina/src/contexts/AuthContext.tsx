@@ -231,6 +231,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // استمع لـ 401 من apiFetch — اعمل logout بس لو التوكن منتهي فعلاً
+  useEffect(() => {
+    const handle401 = () => {
+      const tkn = localStorage.getItem(TOKEN_KEY);
+      if (!tkn) {
+        // مفيش توكن أصلاً → logout
+        logoutRef.current();
+        return;
+      }
+      // تحقق من /auth/me — لو فشل فعلاً → logout، لو نجح → ignore (كان error مؤقت)
+      fetch("/api/auth/me", { headers: { Authorization: `Bearer ${tkn}` }, cache: "no-store" })
+        .then((r) => {
+          if (!r.ok) logoutRef.current();
+          // لو ok → ignore — الـ 401 كان في request تاني مش في الـ session
+        })
+        .catch(() => {
+          // network error → ignore, مش logout
+        });
+    };
+    window.addEventListener("caprina:unauthorized", handle401);
+    return () => window.removeEventListener("caprina:unauthorized", handle401);
+  }, []);
+
   const login = useCallback(
     async (newToken: string, newUser: AuthUser) => {
       const normalized = normalizeUser(newUser);

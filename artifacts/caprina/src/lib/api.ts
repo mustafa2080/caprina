@@ -13,9 +13,8 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
   });
   if (res.status === 204) return undefined as unknown as T;
   if (res.status === 401) {
-    localStorage.removeItem("caprina_token");
-    localStorage.removeItem("caprina_user");
-    window.location.href = "/login";
+    // dispatch event — AuthContext هو المسؤول عن الـ logout وليس apiFetch مباشرة
+    window.dispatchEvent(new CustomEvent("caprina:unauthorized"));
     throw new Error("غير مصرح");
   }
   const data = await res.json();
