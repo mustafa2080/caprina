@@ -7,9 +7,10 @@ function getToken(): string | null {
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const token = getToken();
   const authHeader = token ? { Authorization: `Bearer ${token}` } : {};
+  const { headers: optHeaders, ...restOptions } = options ?? {};
   const res = await fetch(`${BASE}${path}`, {
-    headers: { "Content-Type": "application/json", ...authHeader, ...options?.headers },
-    ...options,
+    ...restOptions,
+    headers: { "Content-Type": "application/json", ...authHeader, ...(optHeaders as Record<string, string> | undefined) },
   });
   if (res.status === 204) return undefined as unknown as T;
   if (res.status === 401) {
