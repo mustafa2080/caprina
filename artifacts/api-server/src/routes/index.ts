@@ -24,7 +24,9 @@ import financeOperationsRouter from "./finance-operations";
 import financeHubRouter from "./finance-hub";
 import { cashRegistersRouter } from "./cash-registers";
 import attendanceRouter from "./attendance";
+import adminTenantsRouter from "./admin-tenants";
 import { requireAuth } from "../middlewares/requireAuth.js";
+import { checkSubscription } from "../middlewares/checkSubscription.js";
 
 const router: IRouter = Router();
 
@@ -36,6 +38,7 @@ router.use(settingsRouter); // GET/PATCH /settings — app feature flags
 
 // All routes below require authentication
 router.use(requireAuth);
+router.use(checkSubscription); // ← فحص الاشتراك بعد الـ auth مباشرة
 router.use("/users", usersRouter);
 router.use("/audit-logs", auditRouter);
 router.use(importRouter);
@@ -57,5 +60,6 @@ router.use(financeOperationsRouter);
 router.use(financeHubRouter);
 router.use("/cash-registers", cashRegistersRouter);
 router.use(attendanceRouter);
+router.use(adminTenantsRouter); // super_admin فقط — محمي داخلياً
 
 export default router;

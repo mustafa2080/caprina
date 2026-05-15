@@ -21,3 +21,6 @@ export * from "./expenses";
 export * from "./shipping_financial_invoices";
 export * from "./cash_registers";
 export * from "./attendance";
+
+// ─── Subscription / Multi-Tenant ─────────────────────────────────────────────
+export * from "./tenants";

@@ -2,10 +2,11 @@ import { mysqlTable, text, int, boolean, datetime, json, varchar } from "drizzle
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
-export const USER_ROLES = ["admin", "employee", "warehouse"] as const;
+export const USER_ROLES = ["super_admin", "admin", "employee", "warehouse"] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
 export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
+  super_admin: ["*"],
   admin: ["*"],
   employee: ["orders", "dashboard"],
   warehouse: ["inventory", "movements", "dashboard"],
@@ -17,6 +18,7 @@ export const usersTable = mysqlTable("users", {
   passwordHash: text("password_hash").notNull(),
   displayName: varchar("display_name", { length: 255 }).notNull(),
   role: varchar("role", { length: 50 }).notNull().default("employee"),
+  tenantId: int("tenant_id"),   // null = super_admin بيدخل على كل tenant
   permissions: json("permissions").$type<string[]>().default([]),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: datetime("created_at").notNull().default(new Date()),
