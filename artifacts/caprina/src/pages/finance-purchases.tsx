@@ -46,42 +46,36 @@ type Product  = { id: number; name: string; costPrice?: string };
 
 // ── Column Filter Dropdown ─────────────────────────────────────────────────
 function ColFilter({
-  label, active, visible, children,
-}: { label: string; active: boolean; visible: boolean; children: React.ReactNode }) {
-  const [open, setOpen] = useState(false);
+  label, active, visible, isOpen, onToggle, children,
+}: {
+  label: string; active: boolean; visible: boolean;
+  isOpen: boolean; onToggle: () => void;
+  children: React.ReactNode;
+}) {
   const ref = useRef<HTMLDivElement>(null);
-
-  // أغلق الـ dropdown لما الفلاتر بتتخفى
-  useEffect(() => {
-    if (!visible) setOpen(false);
-  }, [visible]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node)) onToggle();
     };
-    if (open) document.addEventListener("mousedown", handler);
+    if (isOpen) document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
+  }, [isOpen]);
 
   return (
-    <div ref={ref} className="relative inline-flex items-center gap-1 group">
-      {/* اسم العمود */}
-      <span
-        className="text-xs font-semibold"
-        style={{ color: active ? "#FFB74D" : "hsl(var(--muted-foreground))" }}
-      >
+    <div ref={ref} className="relative inline-flex items-center gap-1">
+      <span className="text-xs font-semibold"
+        style={{ color: active ? "#FFB74D" : "hsl(var(--muted-foreground))" }}>
         {label}
       </span>
 
-      {/* أيقونة الفلتر — تظهر فقط لما visible = true */}
       {visible && (
         <button
-          onClick={() => setOpen(p => !p)}
+          onClick={onToggle}
           className="inline-flex items-center justify-center rounded transition-colors"
           style={{
             width: 18, height: 18,
-            background: active ? "rgba(255,183,77,0.18)" : open ? "hsl(var(--muted)/0.6)" : "transparent",
+            background: active ? "rgba(255,183,77,0.18)" : isOpen ? "hsl(var(--muted)/0.6)" : "transparent",
             color: active ? "#FFB74D" : "hsl(var(--muted-foreground))",
           }}
           title={`فلتر ${label}`}
@@ -89,23 +83,19 @@ function ColFilter({
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
             <path d="M1 2.5h8M2.5 5h5M4 7.5h2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
           </svg>
-          {active && (
-            <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-amber-400" />
-          )}
+          {active && <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-amber-400" />}
         </button>
       )}
 
-      {visible && open && (
-        <div
-          className="absolute z-50 mt-1 rounded-xl border shadow-xl"
+      {visible && isOpen && (
+        <div className="absolute z-50 mt-1 rounded-xl border shadow-xl"
           style={{
             top: "100%", right: 0, minWidth: 190,
             background: "hsl(var(--card))",
             border: "1px solid hsl(var(--border))",
             boxShadow: "0 8px 32px rgba(0,0,0,0.28)",
           }}
-          onClick={e => e.stopPropagation()}
-        >
+          onClick={e => e.stopPropagation()}>
           {children}
         </div>
       )}
@@ -550,11 +540,14 @@ export default function FinancePurchases() {
 
   const activeFilters = [filterStatus !== "all", filterPay !== "all", filterSupplier !== "all", !!fromDate, !!toDate].filter(Boolean).length;
 
-  // item لتبسيط dropdown
+  // ── state للـ dropdown المفتوح ─────────────────────────────────────────
+  const [openCol, setOpenCol] = useState<string | null>(null);
+
+  // item لتبسيط dropdown — بيقفل الـ dropdown بعد الاختيار
   const filterItem = (label: string, active: boolean, onClick: () => void) => (
     <button
       key={label}
-      onClick={onClick}
+      onClick={() => { onClick(); setOpenCol(null); }}
       className="w-full text-right px-3 py-2 text-sm transition-colors hover:bg-muted/40 flex items-center justify-between"
       style={{ color: active ? "#FFB74D" : "hsl(var(--foreground))" }}
     >
@@ -657,39 +650,33 @@ export default function FinancePurchases() {
 
                 {/* رقم الأمر */}
                 <th className="px-3 py-3 text-right">
-                  <ColFilter label="رقم الأمر" active={!!search.trim()} visible={colFiltersVisible}>
+                  <ColFilter label="رقم الأمر" active={!!search.trim()} visible={colFiltersVisible}
+                    isOpen={openCol === "poNumber"} onToggle={() => setOpenCol(p => p === "poNumber" ? null : "poNumber")}>
                     <div className="p-2">
-                      <Input
-                        className="h-7 text-xs"
-                        placeholder="بحث برقم الأمر…"
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
-                        autoFocus
-                      />
+                      <Input className="h-7 text-xs" placeholder="بحث برقم الأمر…"
+                        value={search} onChange={e => setSearch(e.target.value)} autoFocus />
                     </div>
                   </ColFilter>
                 </th>
 
                 {/* المورد */}
                 <th className="px-3 py-3 text-right">
-                  <ColFilter label="المورد" active={filterSupplier !== "all"} visible={colFiltersVisible}>
+                  <ColFilter label="المورد" active={filterSupplier !== "all"} visible={colFiltersVisible}
+                    isOpen={openCol === "supplier"} onToggle={() => setOpenCol(p => p === "supplier" ? null : "supplier")}>
                     <div className="py-1 max-h-52 overflow-y-auto">
                       {filterItem("الكل", filterSupplier === "all", () => setFilterSupplier("all"))}
-                      {suppliers.map(s =>
-                        filterItem(s.name, filterSupplier === String(s.id), () => setFilterSupplier(String(s.id)))
-                      )}
+                      {suppliers.map(s => filterItem(s.name, filterSupplier === String(s.id), () => setFilterSupplier(String(s.id))))}
                     </div>
                   </ColFilter>
                 </th>
 
                 {/* الحالة */}
                 <th className="px-3 py-3 text-right">
-                  <ColFilter label="الحالة" active={filterStatus !== "all"} visible={colFiltersVisible}>
+                  <ColFilter label="الحالة" active={filterStatus !== "all"} visible={colFiltersVisible}
+                    isOpen={openCol === "status"} onToggle={() => setOpenCol(p => p === "status" ? null : "status")}>
                     <div className="py-1">
                       {filterItem("الكل", filterStatus === "all", () => setFilterStatus("all"))}
-                      {Object.entries(STATUS_LABELS).map(([k, v]) =>
-                        filterItem(v.label, filterStatus === k, () => setFilterStatus(k))
-                      )}
+                      {Object.entries(STATUS_LABELS).map(([k, v]) => filterItem(v.label, filterStatus === k, () => setFilterStatus(k)))}
                     </div>
                   </ColFilter>
                 </th>
@@ -702,19 +689,19 @@ export default function FinancePurchases() {
 
                 {/* الدفع */}
                 <th className="px-3 py-3 text-right">
-                  <ColFilter label="الدفع" active={filterPay !== "all"} visible={colFiltersVisible}>
+                  <ColFilter label="الدفع" active={filterPay !== "all"} visible={colFiltersVisible}
+                    isOpen={openCol === "pay"} onToggle={() => setOpenCol(p => p === "pay" ? null : "pay")}>
                     <div className="py-1">
                       {filterItem("الكل", filterPay === "all", () => setFilterPay("all"))}
-                      {Object.entries(PAY_LABELS).map(([k, v]) =>
-                        filterItem(v.label, filterPay === k, () => setFilterPay(k))
-                      )}
+                      {Object.entries(PAY_LABELS).map(([k, v]) => filterItem(v.label, filterPay === k, () => setFilterPay(k)))}
                     </div>
                   </ColFilter>
                 </th>
 
                 {/* التاريخ */}
                 <th className="px-3 py-3 text-right">
-                  <ColFilter label="التاريخ" active={!!fromDate || !!toDate} visible={colFiltersVisible}>
+                  <ColFilter label="التاريخ" active={!!fromDate || !!toDate} visible={colFiltersVisible}
+                    isOpen={openCol === "date"} onToggle={() => setOpenCol(p => p === "date" ? null : "date")}>
                     <div className="p-2 space-y-2">
                       <div>
                         <p className="text-[10px] text-muted-foreground mb-1">من</p>
@@ -726,7 +713,7 @@ export default function FinancePurchases() {
                       </div>
                       {(fromDate || toDate) && (
                         <button className="w-full text-xs text-rose-400 hover:text-rose-500 py-1"
-                          onClick={() => { setFromDate(""); setToDate(""); }}>
+                          onClick={() => { setFromDate(""); setToDate(""); setOpenCol(null); }}>
                           مسح التاريخ
                         </button>
                       )}
