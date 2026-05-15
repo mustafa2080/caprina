@@ -87,6 +87,8 @@ function PORow({
 }
 
 // ── مكوّن نموذج إضافة/تعديل أمر الشراء ────────────────────────────────────
+type ItemRow = { id?: number; productId: string; productName: string; color: string; size: string; sku: string; quantity: number; receivedQuantity?: number; unitCost: number; totalCost?: string };
+
 function POForm({
   open, onClose, editOrder, suppliers, products, onSuccess,
 }: {
@@ -110,11 +112,11 @@ function POForm({
   const [notes, setNotes]             = useState(editOrder?.notes ?? "");
   const [expectedDate, setExpectedDate] = useState(editOrder?.expectedDate?.split("T")[0] ?? "");
 
-  type ItemRow = { productId: string; productName: string; color: string; size: string; sku: string; quantity: number; unitCost: number };
   const blankItem = (): ItemRow => ({ productId: "", productName: "", color: "", size: "", sku: "", quantity: 1, unitCost: 0 });
   const [items, setItems] = useState<ItemRow[]>([blankItem()]);
+  const [itemsLoading, setItemsLoading] = useState(false);
 
-  // reset الـ form لما بيتفتح أمر جديد أو edit مختلف
+  // reset الـ form + جيب البنود لما بيتفتح
   useEffect(() => {
     setSupplierId(String(editOrder?.supplierId ?? ""));
     setSupplierName(editOrder?.supplierName ?? "");
@@ -127,6 +129,30 @@ function POForm({
     setNotes(editOrder?.notes ?? "");
     setExpectedDate(editOrder?.expectedDate?.split("T")[0] ?? "");
     setItems([blankItem()]);
+
+    // لو edit mode → جيب البنود من الـ API
+    if (open && editOrder?.id) {
+      setItemsLoading(true);
+      apiFetch<any>(`/finance/purchases/${editOrder.id}`)
+        .then(data => {
+          if (data?.items?.length) {
+            setItems(data.items.map((item: any) => ({
+              id:               item.id,
+              productId:        item.productId ? String(item.productId) : "",
+              productName:      item.productName ?? "",
+              color:            item.color ?? "",
+              size:             item.size  ?? "",
+              sku:              item.sku   ?? "",
+              quantity:         item.quantity ?? 1,
+              receivedQuantity: item.receivedQuantity ?? 0,
+              unitCost:         parseFloat(item.unitCost ?? "0"),
+              totalCost:        item.totalCost,
+            })));
+          }
+        })
+        .catch(() => { /* الـ items هتفضل فاضية — ما هيبانش للمستخدم */ })
+        .finally(() => setItemsLoading(false));
+    }
   }, [editOrder, open]);
 
   const updateItem = (i: number, field: keyof ItemRow, val: any) => {
@@ -227,8 +253,91 @@ function POForm({
           <div className="col-span-2"><Label>ملاحظات</Label><Textarea rows={2} value={notes} onChange={e => setNotes(e.target.value)} /></div>
         </div>
 
-        {/* بنود الأمر — فقط في الإنشاء */}
-        {!isEdit && (
+        {/* بنود الأمر */}
+        {isEdit ? (
+          /* ── edit mode: البنود read-only ── */
+          <div className="mt-4">
+            <div className="flex items-center justify-between mb-2">
+              <Label className="text-base font-semibold">بنود الأمر</Label>
+              {itemsLoading && (
+                <span className="text-xs text-muted-foreground animate-pulse">جارٍ التحميل…</span>
+              )}
+            </div>
+            {itemsLoading ? (
+              <div className="rounded-lg border p-6 flex items-center justify-center gap-2 text-muted-foreground text-sm">
+                <ShoppingCart className="w-4 h-4 animate-pulse" />
+                <span>جارٍ جلب البنود…</span>
+              </div>
+            ) : items.length === 0 || (items.length === 1 && !items[0].productName) ? (
+              <div className="rounded-lg border p-4 text-center text-sm text-muted-foreground">
+                لا توجد بنود مسجلة لهذا الأمر
+              </div>
+            ) : (
+              <div className="rounded-lg border overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead style={{ background: "hsl(var(--muted)/0.4)" }}>
+                    <tr>
+                      {["المنتج", "لون / مقاس", "الكمية", "المستلم", "التكلفة/وحدة", "الإجمالي"].map(h => (
+                        <th key={h} className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((row, i) => {
+                      const receivedPct = row.quantity > 0 ? Math.round(((row.receivedQuantity ?? 0) / row.quantity) * 100) : 0;
+                      const isFullyReceived = (row.receivedQuantity ?? 0) >= row.quantity;
+                      return (
+                        <tr key={i} style={{ borderTop: "1px solid hsl(var(--border)/0.5)" }}
+                          className="hover:bg-muted/10 transition-colors">
+                          <td className="px-3 py-2.5">
+                            <p className="font-medium text-sm">{row.productName || "—"}</p>
+                            {row.sku && <p className="text-xs text-muted-foreground font-mono">{row.sku}</p>}
+                          </td>
+                          <td className="px-3 py-2.5 text-xs text-muted-foreground">
+                            {[row.color, row.size].filter(Boolean).join(" / ") || "—"}
+                          </td>
+                          <td className="px-3 py-2.5 font-semibold text-center">{row.quantity}</td>
+                          <td className="px-3 py-2.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className={`font-semibold text-sm ${isFullyReceived ? "text-emerald-500" : (row.receivedQuantity ?? 0) > 0 ? "text-amber-500" : "text-muted-foreground"}`}>
+                                {row.receivedQuantity ?? 0}
+                              </span>
+                              <div className="flex-1 min-w-[40px] h-1.5 rounded-full bg-muted overflow-hidden">
+                                <div className="h-full rounded-full transition-all"
+                                  style={{
+                                    width: `${receivedPct}%`,
+                                    background: isFullyReceived ? "#10b981" : (row.receivedQuantity ?? 0) > 0 ? "#f59e0b" : "transparent"
+                                  }} />
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-3 py-2.5 text-sm">{fmt(row.unitCost)}</td>
+                          <td className="px-3 py-2.5 font-semibold text-sm" style={{ color: "#26A69A" }}>
+                            {fmt(row.quantity * row.unitCost)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot style={{ borderTop: "2px solid hsl(var(--border))", background: "hsl(var(--muted)/0.2)" }}>
+                    <tr>
+                      <td colSpan={5} className="px-3 py-2.5 text-sm font-semibold text-right text-muted-foreground">
+                        الإجمالي الكلي
+                      </td>
+                      <td className="px-3 py-2.5 text-base font-black" style={{ color: "#FFB74D" }}>
+                        {fmt(editOrder?.totalAmount ?? "0")}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+            <p className="mt-2 text-xs text-muted-foreground">
+              💡 لا يمكن تعديل البنود بعد الإنشاء — يمكنك تعديل الحالة وبيانات الدفع فقط
+            </p>
+          </div>
+        ) : (
+          /* ── create mode: البنود قابلة للتعديل ── */
           <div className="mt-4">
             <div className="flex items-center justify-between mb-2">
               <Label className="text-base font-semibold">البنود</Label>
