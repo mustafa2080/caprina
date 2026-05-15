@@ -46,10 +46,15 @@ type Product  = { id: number; name: string; costPrice?: string };
 
 // ── Column Filter Dropdown ─────────────────────────────────────────────────
 function ColFilter({
-  label, active, children,
-}: { label: string; active: boolean; children: React.ReactNode }) {
+  label, active, visible, children,
+}: { label: string; active: boolean; visible: boolean; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+
+  // أغلق الـ dropdown لما الفلاتر بتتخفى
+  useEffect(() => {
+    if (!visible) setOpen(false);
+  }, [visible]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -60,33 +65,44 @@ function ColFilter({
   }, [open]);
 
   return (
-    <div ref={ref} className="relative inline-block">
-      <button
-        onClick={() => setOpen(p => !p)}
-        className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[11px] font-semibold transition-colors"
-        style={{
-          color: active ? "#FFB74D" : "hsl(var(--muted-foreground))",
-          background: active ? "rgba(255,183,77,0.12)" : "transparent",
-        }}
+    <div ref={ref} className="relative inline-flex items-center gap-1 group">
+      {/* اسم العمود */}
+      <span
+        className="text-xs font-semibold"
+        style={{ color: active ? "#FFB74D" : "hsl(var(--muted-foreground))" }}
       >
         {label}
-        <ChevronDown
-          className="w-3 h-3 transition-transform"
-          style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", color: active ? "#FFB74D" : undefined }}
-        />
-        {active && (
-          <span className="ml-0.5 w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
-        )}
-      </button>
+      </span>
 
-      {open && (
+      {/* أيقونة الفلتر — تظهر فقط لما visible = true */}
+      {visible && (
+        <button
+          onClick={() => setOpen(p => !p)}
+          className="inline-flex items-center justify-center rounded transition-colors"
+          style={{
+            width: 18, height: 18,
+            background: active ? "rgba(255,183,77,0.18)" : open ? "hsl(var(--muted)/0.6)" : "transparent",
+            color: active ? "#FFB74D" : "hsl(var(--muted-foreground))",
+          }}
+          title={`فلتر ${label}`}
+        >
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+            <path d="M1 2.5h8M2.5 5h5M4 7.5h2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+          </svg>
+          {active && (
+            <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-amber-400" />
+          )}
+        </button>
+      )}
+
+      {visible && open && (
         <div
           className="absolute z-50 mt-1 rounded-xl border shadow-xl"
           style={{
-            top: "100%", right: 0, minWidth: 180,
+            top: "100%", right: 0, minWidth: 190,
             background: "hsl(var(--card))",
             border: "1px solid hsl(var(--border))",
-            boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.28)",
           }}
           onClick={e => e.stopPropagation()}
         >
@@ -578,8 +594,8 @@ export default function FinancePurchases() {
             style={colFiltersVisible ? { background: "rgba(255,183,77,0.15)", color: "#FFB74D", border: "1px solid rgba(255,183,77,0.4)" } : {}}
           >
             <SlidersHorizontal className="w-4 h-4" />
-            فلتر
-            {activeFilters > 0 && (
+            {colFiltersVisible ? "إخفاء الفلتر" : "إنشاء فلتر"}
+            {!colFiltersVisible && activeFilters > 0 && (
               <span className="absolute -top-1 -left-1 w-4 h-4 rounded-full text-[10px] font-bold flex items-center justify-center"
                 style={{ background: "#FFB74D", color: "#000" }}>
                 {activeFilters}
@@ -632,134 +648,138 @@ export default function FinancePurchases() {
         <div className="absolute inset-x-0 top-0 h-px"
           style={{ background: "linear-gradient(90deg, transparent, rgba(255,183,77,0.6), rgba(38,166,154,0.6), transparent)" }} />
 
-        {isLoading ? (
-          <div className="flex items-center justify-center py-16 text-white/30">
-            <ShoppingCart className="w-8 h-8 animate-pulse ml-2" />جارٍ التحميل…
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-white/30">
-            <ShoppingCart className="w-12 h-12 mb-3 opacity-30" />
-            <p className="text-lg font-medium">لا توجد أوامر شراء</p>
-            <p className="text-sm mt-1">اضغط "أمر جديد" لإنشاء أول أمر</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr style={{ background: "hsl(var(--muted)/0.3)", borderBottom: "1px solid hsl(var(--border))" }}>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
 
-                  {/* رقم الأمر */}
-                  <th className="px-3 py-3 text-right">
-                    {colFiltersVisible ? (
-                      <ColFilter label="رقم الأمر" active={false}>
-                        <div className="p-2">
-                          <Input
-                            className="h-7 text-xs"
-                            placeholder="بحث برقم الأمر…"
-                            value={search}
-                            onChange={e => setSearch(e.target.value)}
-                          />
-                        </div>
-                      </ColFilter>
-                    ) : (
-                      <span className="text-xs font-semibold" style={{ color: "hsl(var(--muted-foreground))" }}>رقم الأمر</span>
-                    )}
-                  </th>
+            {/* ── thead — دايماً ظاهر ── */}
+            <thead>
+              <tr style={{ background: "hsl(var(--muted)/0.3)", borderBottom: "1px solid hsl(var(--border))" }}>
 
-                  {/* المورد */}
-                  <th className="px-3 py-3 text-right">
-                    {colFiltersVisible ? (
-                      <ColFilter label="المورد" active={filterSupplier !== "all"}>
-                        <div className="py-1 max-h-52 overflow-y-auto">
-                          {filterItem("الكل", filterSupplier === "all", () => setFilterSupplier("all"))}
-                          {suppliers.map(s =>
-                            filterItem(s.name, filterSupplier === String(s.id), () => setFilterSupplier(String(s.id)))
-                          )}
-                        </div>
-                      </ColFilter>
-                    ) : (
-                      <span className="text-xs font-semibold" style={{ color: "hsl(var(--muted-foreground))" }}>المورد</span>
-                    )}
-                  </th>
+                {/* رقم الأمر */}
+                <th className="px-3 py-3 text-right">
+                  <ColFilter label="رقم الأمر" active={!!search.trim()} visible={colFiltersVisible}>
+                    <div className="p-2">
+                      <Input
+                        className="h-7 text-xs"
+                        placeholder="بحث برقم الأمر…"
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                        autoFocus
+                      />
+                    </div>
+                  </ColFilter>
+                </th>
 
-                  {/* الحالة */}
-                  <th className="px-3 py-3 text-right">
-                    {colFiltersVisible ? (
-                      <ColFilter label="الحالة" active={filterStatus !== "all"}>
-                        <div className="py-1">
-                          {filterItem("الكل", filterStatus === "all", () => setFilterStatus("all"))}
-                          {Object.entries(STATUS_LABELS).map(([k, v]) =>
-                            filterItem(v.label, filterStatus === k, () => setFilterStatus(k))
-                          )}
-                        </div>
-                      </ColFilter>
-                    ) : (
-                      <span className="text-xs font-semibold" style={{ color: "hsl(var(--muted-foreground))" }}>الحالة</span>
-                    )}
-                  </th>
+                {/* المورد */}
+                <th className="px-3 py-3 text-right">
+                  <ColFilter label="المورد" active={filterSupplier !== "all"} visible={colFiltersVisible}>
+                    <div className="py-1 max-h-52 overflow-y-auto">
+                      {filterItem("الكل", filterSupplier === "all", () => setFilterSupplier("all"))}
+                      {suppliers.map(s =>
+                        filterItem(s.name, filterSupplier === String(s.id), () => setFilterSupplier(String(s.id)))
+                      )}
+                    </div>
+                  </ColFilter>
+                </th>
 
-                  {/* الإجمالي / المدفوع / المتبقي — بدون فلتر */}
-                  {["الإجمالي", "المدفوع", "المتبقي"].map(h => (
-                    <th key={h} className="px-3 py-3 text-right text-xs font-semibold"
-                      style={{ color: "hsl(var(--muted-foreground))" }}>{h}</th>
-                  ))}
+                {/* الحالة */}
+                <th className="px-3 py-3 text-right">
+                  <ColFilter label="الحالة" active={filterStatus !== "all"} visible={colFiltersVisible}>
+                    <div className="py-1">
+                      {filterItem("الكل", filterStatus === "all", () => setFilterStatus("all"))}
+                      {Object.entries(STATUS_LABELS).map(([k, v]) =>
+                        filterItem(v.label, filterStatus === k, () => setFilterStatus(k))
+                      )}
+                    </div>
+                  </ColFilter>
+                </th>
 
-                  {/* الدفع */}
-                  <th className="px-3 py-3 text-right">
-                    {colFiltersVisible ? (
-                      <ColFilter label="الدفع" active={filterPay !== "all"}>
-                        <div className="py-1">
-                          {filterItem("الكل", filterPay === "all", () => setFilterPay("all"))}
-                          {Object.entries(PAY_LABELS).map(([k, v]) =>
-                            filterItem(v.label, filterPay === k, () => setFilterPay(k))
-                          )}
-                        </div>
-                      </ColFilter>
-                    ) : (
-                      <span className="text-xs font-semibold" style={{ color: "hsl(var(--muted-foreground))" }}>الدفع</span>
-                    )}
-                  </th>
+                {/* الإجمالي / المدفوع / المتبقي — بدون فلتر */}
+                {["الإجمالي", "المدفوع", "المتبقي"].map(h => (
+                  <th key={h} className="px-3 py-3 text-right text-xs font-semibold"
+                    style={{ color: "hsl(var(--muted-foreground))" }}>{h}</th>
+                ))}
 
-                  {/* التاريخ */}
-                  <th className="px-3 py-3 text-right">
-                    {colFiltersVisible ? (
-                      <ColFilter label="التاريخ" active={!!fromDate || !!toDate}>
-                        <div className="p-2 space-y-2">
-                          <div>
-                            <p className="text-[10px] text-muted-foreground mb-1">من</p>
-                            <Input type="date" className="h-7 text-xs" value={fromDate} onChange={e => setFromDate(e.target.value)} />
-                          </div>
-                          <div>
-                            <p className="text-[10px] text-muted-foreground mb-1">إلى</p>
-                            <Input type="date" className="h-7 text-xs" value={toDate} onChange={e => setToDate(e.target.value)} />
-                          </div>
-                          {(fromDate || toDate) && (
-                            <button className="w-full text-xs text-rose-400 hover:text-rose-500 py-1"
-                              onClick={() => { setFromDate(""); setToDate(""); }}>
-                              مسح التاريخ
-                            </button>
-                          )}
-                        </div>
-                      </ColFilter>
-                    ) : (
-                      <span className="text-xs font-semibold" style={{ color: "hsl(var(--muted-foreground))" }}>التاريخ</span>
-                    )}
-                  </th>
+                {/* الدفع */}
+                <th className="px-3 py-3 text-right">
+                  <ColFilter label="الدفع" active={filterPay !== "all"} visible={colFiltersVisible}>
+                    <div className="py-1">
+                      {filterItem("الكل", filterPay === "all", () => setFilterPay("all"))}
+                      {Object.entries(PAY_LABELS).map(([k, v]) =>
+                        filterItem(v.label, filterPay === k, () => setFilterPay(k))
+                      )}
+                    </div>
+                  </ColFilter>
+                </th>
 
-                  <th className="px-3 py-3 text-right text-xs font-semibold"
-                    style={{ color: "hsl(var(--muted-foreground))" }}>إجراءات</th>
+                {/* التاريخ */}
+                <th className="px-3 py-3 text-right">
+                  <ColFilter label="التاريخ" active={!!fromDate || !!toDate} visible={colFiltersVisible}>
+                    <div className="p-2 space-y-2">
+                      <div>
+                        <p className="text-[10px] text-muted-foreground mb-1">من</p>
+                        <Input type="date" className="h-7 text-xs" value={fromDate} onChange={e => setFromDate(e.target.value)} />
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-muted-foreground mb-1">إلى</p>
+                        <Input type="date" className="h-7 text-xs" value={toDate} onChange={e => setToDate(e.target.value)} />
+                      </div>
+                      {(fromDate || toDate) && (
+                        <button className="w-full text-xs text-rose-400 hover:text-rose-500 py-1"
+                          onClick={() => { setFromDate(""); setToDate(""); }}>
+                          مسح التاريخ
+                        </button>
+                      )}
+                    </div>
+                  </ColFilter>
+                </th>
+
+                <th className="px-3 py-3 text-right text-xs font-semibold"
+                  style={{ color: "hsl(var(--muted-foreground))" }}>إجراءات</th>
+              </tr>
+            </thead>
+
+            {/* ── tbody — loading / empty / data ── */}
+            <tbody>
+              {isLoading ? (
+                <tr>
+                  <td colSpan={9} className="py-16 text-center">
+                    <div className="flex items-center justify-center gap-2" style={{ color: "hsl(var(--muted-foreground))" }}>
+                      <ShoppingCart className="w-6 h-6 animate-pulse" />
+                      <span className="text-sm">جارٍ التحميل…</span>
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {filtered.map(o => (
+              ) : filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="py-14 text-center">
+                    <div className="flex flex-col items-center gap-2" style={{ color: "hsl(var(--muted-foreground)/0.5)" }}>
+                      <ShoppingCart className="w-10 h-10 opacity-30" />
+                      <p className="text-sm font-medium">
+                        {activeFilters > 0 || search ? "لا توجد نتائج للفلتر الحالي" : "لا توجد أوامر شراء"}
+                      </p>
+                      {(activeFilters > 0 || search) && (
+                        <button
+                          className="text-xs mt-1 underline"
+                          style={{ color: "#FFB74D" }}
+                          onClick={() => { setSearch(""); setFilterStatus("all"); setFilterPay("all"); setFilterSupplier("all"); setFromDate(""); setToDate(""); }}
+                        >
+                          مسح كل الفلاتر
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filtered.map(o => (
                   <PORow key={o.id} order={o} suppliers={suppliers} onDelete={id => {
                     if (confirm("هل تريد حذف هذا الأمر؟")) deleteMut.mutate(id);
                   }} onEdit={o => { setEditOrder(o); setFormOpen(true); }} />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* ── النموذج ── */}
