@@ -5,10 +5,9 @@ import { requireAuth } from "../middlewares/requireAuth.js";
 import { requireAdmin } from "../middlewares/requireRole.js";
 
 const router: IRouter = Router();
-router.use(requireAuth);
 
-// POST /sessions/login — يُسجَّل تلقائياً عند الدخول
-router.post("/login", async (req, res): Promise<void> => {
+// POST /sessions/login — لا يحتاج requireAuth لأن الـ token بيتبعت في نفس الوقت مع الـ login
+router.post("/login", requireAuth, async (req, res): Promise<void> => {
   const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim()
     ?? req.socket.remoteAddress ?? null;
   const result = await db.insert(sessionLogsTable).values({
