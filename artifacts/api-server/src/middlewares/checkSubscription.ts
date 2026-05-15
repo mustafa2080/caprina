@@ -24,12 +24,9 @@ export async function checkSubscription(
     return;
   }
 
-  // ── 2. لازم يكون عنده tenantId ────────────────────────────────────────────
+  // ── 2. لو مفيش tenantId → bypass (نظام قديم بدون multi-tenant)
   if (!user?.tenantId) {
-    res.status(403).json({
-      error: "subscription_required",
-      message: "لم يتم ربط حسابك بأي اشتراك — تواصل مع الإدارة",
-    });
+    next();
     return;
   }
 
