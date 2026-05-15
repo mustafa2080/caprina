@@ -180,12 +180,20 @@ function computeStats(orders: OrderWithDelivery[]) {
     groupMap.get(key)!.push(order);
   }
   const groupedOrders = Array.from(groupMap.values());
-  // الإحصائيات تُحسب على مستوى الطلبيات الفردية (مش الفواتير المجمّعة)
-  const total = orders.length;
-  const delivered = orders.filter((o) => o.deliveryStatus === "delivered" || o.deliveryStatus === "partial_received").length;
-  const returned = orders.filter((o) => o.deliveryStatus === "returned").length;
-  const postponed = orders.filter((o) => o.deliveryStatus === "postponed").length;
-  const pending = orders.filter((o) => ["pending", "postponed"].includes(o.deliveryStatus)).length;
+  // الإحصائيات تُحسب على مستوى الفواتير/الطلبات (مش المنتجات الفردية)
+  // كل فاتورة = طلب واحد، حالتها = حالة أسوأ منتج فيها
+  function groupStatus(group: OrderWithDelivery[]): string {
+    // أولوية الحالات: returned > postponed > partial_received > pending > delivered
+    const priority: Record<string, number> = { returned: 5, postponed: 4, pending: 3, partial_received: 2, delivered: 1 };
+    return group.reduce((worst, o) => {
+      return (priority[o.deliveryStatus] ?? 0) > (priority[worst] ?? 0) ? o.deliveryStatus : worst;
+    }, group[0].deliveryStatus);
+  }
+  const total = groupedOrders.length;
+  const delivered = groupedOrders.filter((g) => { const s = groupStatus(g); return s === "delivered" || s === "partial_received"; }).length;
+  const returned = groupedOrders.filter((g) => groupStatus(g) === "returned").length;
+  const postponed = groupedOrders.filter((g) => groupStatus(g) === "postponed").length;
+  const pending = groupedOrders.filter((g) => ["pending", "postponed"].includes(groupStatus(g))).length;
   const deliveryRate = total > 0 ? Math.round((delivered / total) * 100) : 0;
   let totalRevenue = 0, totalCost = 0, totalShippingCost = 0, returnLosses = 0, deliveredGross = 0;
   let stillAtShippingCount = 0, stillAtShippingAmount = 0;
