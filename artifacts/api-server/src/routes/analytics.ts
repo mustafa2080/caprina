@@ -645,8 +645,8 @@ router.get("/analytics/alerts", async (_req, res): Promise<void> => {
     const returnRate = s.closedOrders > 0 ? (s.returned / s.closedOrders) * 100 : 0;
     const margin = s.revenue > 0 ? (s.profit / s.revenue) * 100 : 0;
 
-    // Alert: high return rate (>= 30%, min 2 closed orders)
-    if (s.closedOrders >= 2 && returnRate >= 30) {
+    // Alert: high return rate (>= 30%, min 1 closed order)
+    if (s.closedOrders >= 1 && returnRate >= 30) {
       alerts.push({
         id: `high_return_${s.name}`,
         type: "HIGH_RETURN",
