@@ -436,20 +436,20 @@ export default function FinanceCashPage() {
 
       {/* ── كشف الحساب (خزنة مفردة) ── */}
       {activeTab !== "all" && activeReg && (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {/* header الخزنة */}
-          <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm ${activeReg.type==="main"?"bg-gradient-to-br from-yellow-500/20 to-amber-500/10":"bg-gradient-to-br from-primary/15 to-primary/5"}`}>
-                {activeReg.type==="main"?<Star className="w-6 h-6 text-yellow-500"/>:<Building2 className="w-6 h-6 text-primary"/>}
+              <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center shadow-sm shrink-0 ${activeReg.type==="main"?"bg-gradient-to-br from-yellow-500/20 to-amber-500/10":"bg-gradient-to-br from-primary/15 to-primary/5"}`}>
+                {activeReg.type==="main"?<Star className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-500"/>:<Building2 className="w-5 h-5 sm:w-6 sm:h-6 text-primary"/>}
               </div>
               <div>
-                <h2 className="text-xl font-black">{activeReg.name}</h2>
+                <h2 className="text-lg sm:text-xl font-black">{activeReg.name}</h2>
                 <p className="text-xs text-muted-foreground">الرصيد الحالي: <span className="font-bold text-emerald-600 text-sm">{fmt(activeReg.balance)}</span></p>
               </div>
             </div>
             <div className="flex gap-2 flex-wrap">
-              <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs rounded-xl" onClick={() => { setSelectedReg(activeReg); setTxOpen(true); }}><Plus className="w-3.5 h-3.5"/> حركة جديدة</Button>
+              <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs rounded-xl flex-1 sm:flex-none" onClick={() => { setSelectedReg(activeReg); setTxOpen(true); }}><Plus className="w-3.5 h-3.5"/> حركة جديدة</Button>
               <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs rounded-xl" onClick={handleExportCSV}><Download className="w-3.5 h-3.5"/> CSV</Button>
               <Button size="sm" className="gap-1.5 h-8 text-xs rounded-xl text-black font-bold" style={{background:"#DEA821"}} onMouseEnter={e=>(e.currentTarget.style.background="#c8931c")} onMouseLeave={e=>(e.currentTarget.style.background="#DEA821")} onClick={handleExportExcel}><FileSpreadsheet className="w-3.5 h-3.5"/> Excel</Button>
             </div>
@@ -457,17 +457,21 @@ export default function FinanceCashPage() {
 
           {/* ملخص stats */}
           {stats && (
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
               {[
-                { label: "إجمالي الدخل",  icon: <ArrowUpCircle className="w-3 h-3"/>, value: fmt(stats.totalIn),  color: "#26A69A", glow: "rgba(38,166,154,0.28)",  bg: "linear-gradient(135deg, rgba(38,166,154,0.44) 0%, rgba(38,166,154,0.16) 52%, rgba(255,255,255,0.08) 100%)" },
-                { label: "إجمالي الخروج", icon: <ArrowDownCircle className="w-3 h-3"/>, value: fmt(stats.totalOut), color: "#ef4444", glow: "rgba(239,68,68,0.28)",   bg: "linear-gradient(135deg, rgba(239,68,68,0.42) 0%, rgba(239,68,68,0.16) 52%, rgba(255,255,255,0.08) 100%)" },
-                { label: "الصافي",         icon: stats.net>=0?<TrendingUp className="w-3 h-3"/>:<TrendingDown className="w-3 h-3"/>, value: (stats.net>=0?"+":"")+fmt(stats.net), color: stats.net>=0?"#26A69A":"#ef4444", glow: stats.net>=0?"rgba(38,166,154,0.28)":"rgba(239,68,68,0.28)", bg: stats.net>=0?"linear-gradient(135deg, rgba(38,166,154,0.44) 0%, rgba(38,166,154,0.16) 52%, rgba(255,255,255,0.08) 100%)":"linear-gradient(135deg, rgba(239,68,68,0.42) 0%, rgba(239,68,68,0.16) 52%, rgba(255,255,255,0.08) 100%)" },
+                { label: "إجمالي الدخل",  shortLabel: "دخل",   icon: <ArrowUpCircle className="w-3 h-3"/>, value: fmt(stats.totalIn),  color: "#26A69A", glow: "rgba(38,166,154,0.28)",  bg: "linear-gradient(135deg, rgba(38,166,154,0.44) 0%, rgba(38,166,154,0.16) 52%, rgba(255,255,255,0.08) 100%)" },
+                { label: "إجمالي الخروج", shortLabel: "خروج",  icon: <ArrowDownCircle className="w-3 h-3"/>, value: fmt(stats.totalOut), color: "#ef4444", glow: "rgba(239,68,68,0.28)",   bg: "linear-gradient(135deg, rgba(239,68,68,0.42) 0%, rgba(239,68,68,0.16) 52%, rgba(255,255,255,0.08) 100%)" },
+                { label: "الصافي",         shortLabel: "صافي",  icon: stats.net>=0?<TrendingUp className="w-3 h-3"/>:<TrendingDown className="w-3 h-3"/>, value: (stats.net>=0?"+":"")+fmt(stats.net), color: stats.net>=0?"#26A69A":"#ef4444", glow: stats.net>=0?"rgba(38,166,154,0.28)":"rgba(239,68,68,0.28)", bg: stats.net>=0?"linear-gradient(135deg, rgba(38,166,154,0.44) 0%, rgba(38,166,154,0.16) 52%, rgba(255,255,255,0.08) 100%)":"linear-gradient(135deg, rgba(239,68,68,0.42) 0%, rgba(239,68,68,0.16) 52%, rgba(255,255,255,0.08) 100%)" },
               ].map(c => (
-                <div key={c.label} className="relative overflow-hidden rounded-[18px] px-4 py-3.5 text-center"
+                <div key={c.label} className="relative overflow-hidden rounded-[16px] sm:rounded-[18px] px-2 sm:px-4 py-3 sm:py-3.5 text-center"
                   style={{ background: c.bg, border: `1px solid ${c.glow}`, boxShadow: `inset 0 1px 0 rgba(255,255,255,0.18), 0 10px 24px ${c.glow}`, backdropFilter: "blur(12px)" }}>
                   <div className="absolute inset-x-6 top-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${c.color}, transparent)` }} />
-                  <p className="text-[10px] font-bold text-white/60 mb-1 flex items-center justify-center gap-1" style={{ color: c.color }}>{c.icon}{c.label}</p>
-                  <p className="text-lg font-black" style={{ color: c.color, textShadow: `0 0 14px ${c.color}88` }}>{c.value}</p>
+                  <p className="text-[9px] sm:text-[10px] font-bold mb-1 flex items-center justify-center gap-1" style={{ color: c.color }}>
+                    {c.icon}
+                    <span className="hidden sm:inline">{c.label}</span>
+                    <span className="sm:hidden">{c.shortLabel}</span>
+                  </p>
+                  <p className="text-sm sm:text-lg font-black leading-tight" style={{ color: c.color, textShadow: `0 0 14px ${c.color}88` }}>{c.value}</p>
                 </div>
               ))}
             </div>
@@ -475,17 +479,17 @@ export default function FinanceCashPage() {
 
           {/* تدفق المال chart */}
           {flowData && flowData.length > 0 && (
-            <div className="rounded-2xl border border-border/50 bg-card p-4">
+            <div className="rounded-2xl border border-border/50 bg-card p-3 sm:p-4">
               <p className="text-xs font-semibold text-muted-foreground mb-3 flex items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5"/> تدفق الكاش — آخر 30 يوم</p>
-              <ResponsiveContainer width="100%" height={110}>
+              <ResponsiveContainer width="100%" height={100}>
                 <AreaChart data={flowData} margin={{top:0,right:0,left:0,bottom:0}}>
                   <defs>
                     <linearGradient id="gin" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/><stop offset="95%" stopColor="#10b981" stopOpacity={0}/></linearGradient>
                     <linearGradient id="gout" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3}/><stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/></linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4}/>
-                  <XAxis dataKey="day" tick={{fontSize:9}} tickFormatter={d=>d.slice(5)} stroke="hsl(var(--muted-foreground))"/>
-                  <YAxis tick={{fontSize:9}} tickFormatter={fmtShort} width={32} stroke="hsl(var(--muted-foreground))"/>
+                  <XAxis dataKey="day" tick={{fontSize:8}} tickFormatter={d=>d.slice(5)} stroke="hsl(var(--muted-foreground))"/>
+                  <YAxis tick={{fontSize:8}} tickFormatter={fmtShort} width={28} stroke="hsl(var(--muted-foreground))"/>
                   <Tooltip formatter={(v:any,n:string)=>[fmt(v),n==="in"?"دخل":n==="out"?"خروج":"صافي"]} labelFormatter={l=>`يوم ${l}`} contentStyle={{fontSize:11,borderRadius:8}}/>
                   <Area type="monotone" dataKey="in" stroke="#10b981" strokeWidth={2} fill="url(#gin)" name="in"/>
                   <Area type="monotone" dataKey="out" stroke="#f43f5e" strokeWidth={2} fill="url(#gout)" name="out"/>
@@ -497,25 +501,26 @@ export default function FinanceCashPage() {
           {/* ── أزرار التصدير + فلتر ── */}
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex gap-2">
-              <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs rounded-xl" onClick={handleExportCSV}><Download className="w-3.5 h-3.5"/> CSV</Button>
-              <Button size="sm" className="gap-1.5 h-8 text-xs rounded-xl text-black font-bold" style={{background:"#DEA821"}} onMouseEnter={e=>(e.currentTarget.style.background="#c8931c")} onMouseLeave={e=>(e.currentTarget.style.background="#DEA821")} onClick={handleExportExcel}><FileSpreadsheet className="w-3.5 h-3.5"/> Excel</Button>
+              <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs rounded-xl" onClick={handleExportCSV}><Download className="w-3.5 h-3.5"/> <span className="hidden sm:inline">CSV</span></Button>
+              <Button size="sm" className="gap-1.5 h-8 text-xs rounded-xl text-black font-bold" style={{background:"#DEA821"}} onMouseEnter={e=>(e.currentTarget.style.background="#c8931c")} onMouseLeave={e=>(e.currentTarget.style.background="#DEA821")} onClick={handleExportExcel}><FileSpreadsheet className="w-3.5 h-3.5"/> <span className="hidden sm:inline">Excel</span></Button>
             </div>
             <div className="flex gap-2">
               {colFilterActive && Object.values(colFilters).some(v => v) && (
                 <button onClick={() => setColFilters({})} className="flex items-center gap-1 text-[11px] text-rose-500 hover:text-rose-600 px-2 py-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors border border-rose-300/40">
-                  <X className="w-3 h-3"/> إلغاء الفلتر
+                  <X className="w-3 h-3"/> إلغاء
                 </button>
               )}
               <button
                 onClick={() => { setColFilterActive(v => !v); setColFilters({}); }}
                 className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl border transition-all ${colFilterActive ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}>
                 <SlidersHorizontal className="w-3.5 h-3.5"/>
-                {colFilterActive ? "إخفاء الفلتر" : "إنشاء فلتر"}
+                <span className="hidden sm:inline">{colFilterActive ? "إخفاء الفلتر" : "إنشاء فلتر"}</span>
+                <span className="sm:hidden">فلتر</span>
               </button>
             </div>
           </div>
 
-          {/* ── جدول الحركات ── */}
+          {/* ── جدول الحركات (desktop) / كاردات (mobile) ── */}
           <div className="relative overflow-hidden rounded-[22px]"
             style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06), 0 8px 32px rgba(0,0,0,0.18)" }}>
             <div className="absolute inset-x-0 top-0 h-px"
@@ -530,85 +535,112 @@ export default function FinanceCashPage() {
                 <p className="text-xs">لا توجد حركات بهذه الفلاتر</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr style={{ background: "hsl(var(--muted)/0.3)", borderBottom: "1px solid hsl(var(--border))" }}>
-                      {[
-                        { key: "date",   label: "التاريخ",    filterKey: "date", options: colOptions.date },
-                        { key: "type",   label: "نوع الحركة", filterKey: "type", options: colOptions.type },
-                        { key: "dir",    label: "الاتجاه",    filterKey: "dir",  options: colOptions.dir  },
-                        { key: "amount", label: "المبلغ",     filterKey: "",     options: []              },
-                        { key: "after",  label: "الرصيد بعد", filterKey: "",     options: []              },
-                        { key: "desc",   label: "ملاحظة",     filterKey: "",     options: []              },
-                        { key: "by",     label: "بواسطة",     filterKey: "by",   options: colOptions.by   },
-                        { key: "actions",label: "",           filterKey: "",     options: []              },
-                      ].map(col => (
-                        <th key={col.key} className={`text-right p-3 text-xs font-semibold tracking-wide ${col.key === "after" ? "hidden md:table-cell" : ""} ${col.key === "desc" ? "hidden md:table-cell" : ""} ${col.key === "by" ? "hidden lg:table-cell" : ""}`}
-                          style={{ color: "hsl(var(--muted-foreground))" }}>
-                          <div className="flex flex-col gap-1.5">
-                            <span className="flex items-center gap-1">
-                              {col.label}
-                              {colFilterActive && col.filterKey && <Filter className="w-2.5 h-2.5 text-primary opacity-60"/>}
-                            </span>
-                            {colFilterActive && col.filterKey && col.options.length > 0 && (
-                              <select
-                                value={colFilters[col.filterKey] ?? ""}
-                                onChange={e => setColFilters(p => ({ ...p, [col.filterKey]: e.target.value }))}
-                                onClick={e => e.stopPropagation()}
-                                className="w-full h-7 px-2 rounded-lg border border-border bg-background text-[10px] font-normal text-foreground outline-none focus:border-primary/50 cursor-pointer"
-                              >
-                                <option value="">الكل</option>
-                                {col.options.map(opt => (
-                                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                ))}
-                              </select>
-                            )}
-                          </div>
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {colFilteredTx.map((tx, i) => {
-                      const isIn = CREDIT_TYPES.includes(tx.type);
-                      const lbl = TX_LABELS[tx.type];
-                      return (
-                        <tr key={tx.id} className={`group border-b border-border/20 transition-colors hover:bg-muted/30 ${i%2===0?"bg-transparent":"bg-muted/10"}`}>
-                          <td className="p-3 text-muted-foreground">{new Date(tx.transactionDate).toLocaleDateString("ar-EG")}</td>
-                          <td className="p-3"><span className={`font-semibold ${lbl?.color??""}`}>{lbl?.label??tx.type}</span></td>
-                          <td className="p-3">
+              <>
+                {/* ── موبايل: كاردات ── */}
+                <div className="md:hidden divide-y divide-border/30">
+                  {colFilteredTx.map((tx, i) => {
+                    const isIn = CREDIT_TYPES.includes(tx.type);
+                    const lbl = TX_LABELS[tx.type];
+                    return (
+                      <div key={tx.id} className={`p-3 flex flex-col gap-1.5 ${i%2===0?"bg-transparent":"bg-muted/10"}`}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${isIn?"bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400":"bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400"}`}>
-                              {isIn?<ArrowUpCircle className="w-2.5 h-2.5"/>:<ArrowDownCircle className="w-2.5 h-2.5"/>}
-                              {isIn?"دخل":"خروج"}
+                              {isIn?<ArrowUpCircle className="w-2.5 h-2.5"/>:<ArrowDownCircle className="w-2.5 h-2.5"/>}{isIn?"دخل":"خروج"}
                             </span>
-                          </td>
-                          <td className={`p-3 font-bold tabular-nums text-left ${isIn?"text-emerald-600":"text-rose-600"}`}>
-                            {isIn?"+":"-"}{fmt(tx.amount)}
-                          </td>
-                          <td className="p-3 text-muted-foreground tabular-nums text-left hidden md:table-cell">{fmt(tx.balanceAfter)}</td>
-                          <td className="p-3 text-muted-foreground hidden md:table-cell max-w-[180px] truncate">{tx.description??""}{tx.referenceNumber&&<span className="text-[10px] text-muted-foreground/60 mr-1">#{tx.referenceNumber}</span>}</td>
-                          <td className="p-3 text-muted-foreground hidden lg:table-cell">{tx.createdByName??""}</td>
-                          <td className="p-3">
-                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button
-                                onClick={() => { setSelectedTx(tx); setEditTxForm({ type: tx.type, amount: tx.amount, description: tx.description ?? "", referenceNumber: tx.referenceNumber ?? "", transactionDate: tx.transactionDate.slice(0,10) }); setEditTxOpen(true); }}
-                                className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
-                                <Pencil className="w-3 h-3"/>
-                              </button>
-                              <button
-                                onClick={() => { if (confirm("حذف هذه الحركة نهائياً؟")) deleteTxMut.mutate(tx.id); }}
-                                className="p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/20 text-muted-foreground hover:text-rose-500 transition-colors">
-                                <Trash2 className="w-3 h-3"/>
-                              </button>
+                            <span className={`text-xs font-semibold ${lbl?.color??""}`}>{lbl?.label??tx.type}</span>
+                          </div>
+                          <div className="flex items-center gap-0.5">
+                            <button onClick={() => { setSelectedTx(tx); setEditTxForm({ type: tx.type, amount: tx.amount, description: tx.description ?? "", referenceNumber: tx.referenceNumber ?? "", transactionDate: tx.transactionDate.slice(0,10) }); setEditTxOpen(true); }} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground transition-colors"><Pencil className="w-3 h-3"/></button>
+                            <button onClick={() => { if (confirm("حذف هذه الحركة نهائياً؟")) deleteTxMut.mutate(tx.id); }} className="p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/20 text-muted-foreground hover:text-rose-500 transition-colors"><Trash2 className="w-3 h-3"/></button>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className={`text-base font-black tabular-nums ${isIn?"text-emerald-600":"text-rose-600"}`}>{isIn?"+":"-"}{fmt(tx.amount)}</span>
+                          <span className="text-[10px] text-muted-foreground">{new Date(tx.transactionDate).toLocaleDateString("ar-EG")}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                          <span>رصيد بعد: <span className="font-semibold tabular-nums">{fmt(tx.balanceAfter)}</span></span>
+                          {tx.createdByName && <span>{tx.createdByName}</span>}
+                        </div>
+                        {(tx.description || tx.referenceNumber) && (
+                          <p className="text-[10px] text-muted-foreground/70 truncate">{tx.description}{tx.referenceNumber&&<span className="mr-1">#{tx.referenceNumber}</span>}</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* ── ديسكتوب: جدول ── */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr style={{ background: "hsl(var(--muted)/0.3)", borderBottom: "1px solid hsl(var(--border))" }}>
+                        {[
+                          { key: "date",   label: "التاريخ",    filterKey: "date", options: colOptions.date },
+                          { key: "type",   label: "نوع الحركة", filterKey: "type", options: colOptions.type },
+                          { key: "dir",    label: "الاتجاه",    filterKey: "dir",  options: colOptions.dir  },
+                          { key: "amount", label: "المبلغ",     filterKey: "",     options: []              },
+                          { key: "after",  label: "الرصيد بعد", filterKey: "",     options: []              },
+                          { key: "desc",   label: "ملاحظة",     filterKey: "",     options: []              },
+                          { key: "by",     label: "بواسطة",     filterKey: "by",   options: colOptions.by   },
+                          { key: "actions",label: "",           filterKey: "",     options: []              },
+                        ].map(col => (
+                          <th key={col.key} className={`text-right p-3 text-xs font-semibold tracking-wide ${col.key === "by" ? "hidden lg:table-cell" : ""}`}
+                            style={{ color: "hsl(var(--muted-foreground))" }}>
+                            <div className="flex flex-col gap-1.5">
+                              <span className="flex items-center gap-1">
+                                {col.label}
+                                {colFilterActive && col.filterKey && <Filter className="w-2.5 h-2.5 text-primary opacity-60"/>}
+                              </span>
+                              {colFilterActive && col.filterKey && col.options.length > 0 && (
+                                <select
+                                  value={colFilters[col.filterKey] ?? ""}
+                                  onChange={e => setColFilters(p => ({ ...p, [col.filterKey]: e.target.value }))}
+                                  onClick={e => e.stopPropagation()}
+                                  className="w-full h-7 px-2 rounded-lg border border-border bg-background text-[10px] font-normal text-foreground outline-none focus:border-primary/50 cursor-pointer"
+                                >
+                                  <option value="">الكل</option>
+                                  {col.options.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                  ))}
+                                </select>
+                              )}
                             </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {colFilteredTx.map((tx, i) => {
+                        const isIn = CREDIT_TYPES.includes(tx.type);
+                        const lbl = TX_LABELS[tx.type];
+                        return (
+                          <tr key={tx.id} className={`group border-b border-border/20 transition-colors hover:bg-muted/30 ${i%2===0?"bg-transparent":"bg-muted/10"}`}>
+                            <td className="p-3 text-muted-foreground">{new Date(tx.transactionDate).toLocaleDateString("ar-EG")}</td>
+                            <td className="p-3"><span className={`font-semibold ${lbl?.color??""}`}>{lbl?.label??tx.type}</span></td>
+                            <td className="p-3">
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${isIn?"bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400":"bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400"}`}>
+                                {isIn?<ArrowUpCircle className="w-2.5 h-2.5"/>:<ArrowDownCircle className="w-2.5 h-2.5"/>}
+                                {isIn?"دخل":"خروج"}
+                              </span>
+                            </td>
+                            <td className={`p-3 font-bold tabular-nums text-left ${isIn?"text-emerald-600":"text-rose-600"}`}>{isIn?"+":"-"}{fmt(tx.amount)}</td>
+                            <td className="p-3 text-muted-foreground tabular-nums text-left">{fmt(tx.balanceAfter)}</td>
+                            <td className="p-3 text-muted-foreground max-w-[180px] truncate">{tx.description??""}{tx.referenceNumber&&<span className="text-[10px] text-muted-foreground/60 mr-1">#{tx.referenceNumber}</span>}</td>
+                            <td className="p-3 text-muted-foreground hidden lg:table-cell">{tx.createdByName??""}</td>
+                            <td className="p-3">
+                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onClick={() => { setSelectedTx(tx); setEditTxForm({ type: tx.type, amount: tx.amount, description: tx.description ?? "", referenceNumber: tx.referenceNumber ?? "", transactionDate: tx.transactionDate.slice(0,10) }); setEditTxOpen(true); }} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"><Pencil className="w-3 h-3"/></button>
+                                <button onClick={() => { if (confirm("حذف هذه الحركة نهائياً؟")) deleteTxMut.mutate(tx.id); }} className="p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/20 text-muted-foreground hover:text-rose-500 transition-colors"><Trash2 className="w-3 h-3"/></button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </div>
 
