@@ -68,30 +68,47 @@ function periodStats(
 ) {
   const completed = orders.filter(o => o.status === "received" || o.status === "partial_received");
   const returned = orders.filter(o => o.status === "returned");
-  // نسبة المرتجعات من الطلبات المنتهية فعلاً بس (مش pending/in_shipping)
-  const closedOrders = completed.length + returned.length;
+
+  // نعدّ الفواتير الفريدة بدل عدد الصفوف
+  const completedInvoices = new Set(completed.map(o => o.invoiceNumber ?? `solo-${o.id}`));
+  const returnedInvoices  = new Set(returned.map(o => o.invoiceNumber ?? `solo-${o.id}`));
+  const allInvoices       = new Set(orders.map(o => o.invoiceNumber ?? `solo-${o.id}`));
+  const closedInvoices    = new Set([...completedInvoices, ...returnedInvoices]);
 
   let revenue = 0, cost = 0, shipping = 0, netProfit = 0;
+  // نتتبع الفواتير اللي حسبنا شحنها عشان منكررش
+  const processedShippingInvoices = new Set<string>();
   for (const o of completed) {
     const rc = resolveCost(o, variantMap, productMap);
     const sc = (o.shippingCost ?? 0) + (shippingPerOrder.get(o.id) ?? 0);
     const p = calcOrderProfit({ ...o, shippingCost: sc }, rc);
     revenue += p.revenue;
     cost += p.cost;
-    shipping += p.shippingCost;
-    netProfit += p.netProfit;
+    // الشحن نحسبه مرة واحدة لكل فاتورة
+    const invKey = o.invoiceNumber ?? `solo-${o.id}`;
+    if (!processedShippingInvoices.has(invKey)) {
+      processedShippingInvoices.add(invKey);
+      shipping += sc;
+    }
+    netProfit += (p.revenue - p.cost - (processedShippingInvoices.has(invKey) ? 0 : sc));
   }
+  // إعادة حساب netProfit بشكل صحيح
+  netProfit = revenue - cost - shipping;
+
   for (const o of returned) {
-    const rc = resolveCost(o, variantMap, productMap);
     const sc = (o.shippingCost ?? 0) + (shippingPerOrder.get(o.id) ?? 0);
-    // المرتجع: البضاعة رجعت للمخزن → خسارة الشحن فقط
-    shipping += sc;
-    netProfit -= sc;
+    const invKey = o.invoiceNumber ?? `solo-${o.id}`;
+    // المرتجع: خسارة الشحن مرة واحدة فقط لكل فاتورة
+    if (!processedShippingInvoices.has(invKey)) {
+      processedShippingInvoices.add(invKey);
+      shipping += sc;
+      netProfit -= sc;
+    }
   }
 
-  const returnRate = closedOrders > 0 ? Math.round((returned.length / closedOrders) * 100) : 0;
+  const returnRate = closedInvoices.size > 0 ? Math.round((returnedInvoices.size / closedInvoices.size) * 100) : 0;
 
-  return { orders: orders.length, revenue, cost, shippingCost: shipping, netProfit, returnRate, returnCount: returned.length };
+  return { orders: allInvoices.size, revenue, cost, shippingCost: shipping, netProfit, returnRate, returnCount: returnedInvoices.size };
 }
 
 // ─── GET /api/analytics/profit ──────────────────────────────────────────────────
@@ -398,16 +415,16 @@ router.get("/analytics/financial-summary", requireAdmin, async (req, res): Promi
     return s + avail * p.unitPrice;
   }, 0);
 
-  const returnCount = allOrders.filter(o => o.status === "returned").length;
-  // نسبة المرتجعات من الطلبات المنتهية فعلاً (received + partial_received + returned)
-  const closedOrders = allOrders.filter(o => ["received", "partial_received", "returned"].includes(o.status)).length;
-  const returnRate = closedOrders > 0 ? Math.round((returnCount / closedOrders) * 100) : 0;
+  const returnCount = new Set(allOrders.filter(o => o.status === "returned").map(o => o.invoiceNumber ?? `solo-${o.id}`)).size;
+  // نسبة المرتجعات من الطلبات المنتهية فعلاً (received + partial_received + returned) — نعدّ الفواتير الفريدة
+  const closedInvoices = new Set(allOrders.filter(o => ["received", "partial_received", "returned"].includes(o.status)).map(o => o.invoiceNumber ?? `solo-${o.id}`)).size;
+  const returnRate = closedInvoices > 0 ? Math.round((returnCount / closedInvoices) * 100) : 0;
 
   res.json({
     cashIn, costOfGoods, shippingSpend, grossProfit, grossMargin, netProfit, netMargin,
     returnLoss, returnRevLost, pendingRevenue, returnCount, returnRate,
-    totalOrders: allOrders.length,
-    completedOrders: completedOrders.length,
+    totalOrders: new Set(allOrders.map(o => o.invoiceNumber ?? `solo-${o.id}`)).size,
+    completedOrders: new Set(allOrders.filter(o => ["received","partial_received"].includes(o.status)).map(o => o.invoiceNumber ?? `solo-${o.id}`)).size,
     avgProfitPerOrder, avgOrderValue, avgCostPerOrder,
     inventoryAtCost, inventoryAtSell,
     potentialInventoryProfit: inventoryAtSell - inventoryAtCost,
