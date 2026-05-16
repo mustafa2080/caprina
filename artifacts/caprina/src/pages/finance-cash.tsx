@@ -420,6 +420,13 @@ export default function FinanceCashPage() {
                 <div className="flex gap-2 mt-3">
                   <Button size="sm" variant="outline" className="flex-1 gap-1 text-[11px] h-8 rounded-xl" onClick={e=>{e.stopPropagation();setSelectedReg(r);setTxOpen(true);}}><Plus className="w-3 h-3"/> حركة</Button>
                   <Button size="sm" variant="ghost" className="flex-1 gap-1 text-[11px] h-8 rounded-xl" onClick={e=>{e.stopPropagation();setActiveTab(r.id);}}><CreditCard className="w-3 h-3"/> كشف</Button>
+                  {!isMain && (
+                    <Button size="sm" variant="ghost"
+                      className="gap-1 text-[11px] h-8 rounded-xl text-rose-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20"
+                      onClick={e=>{e.stopPropagation();if(confirm(`أرشفة "${r.name}"؟\nسيتم نقلها للأرشيف ويمكنك استعادتها لاحقاً.`))delMut.mutate(r.id);}}>
+                      <Trash2 className="w-3 h-3"/>
+                    </Button>
+                  )}
                 </div>
               </div>
             );
