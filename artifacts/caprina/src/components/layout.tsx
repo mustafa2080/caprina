@@ -1,7 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useState, useMemo } from "react";
-import { LayoutDashboard, Package, Plus, Boxes, Truck, FileText, Upload, Activity, BarChart3, Users, Shield, LogOut, ChevronDown, KeyRound, Warehouse, Megaphone, UserCheck, UserCog, Sun, Moon, Brain, Archive, Clock, MessageCircle, Menu, X, Download, DollarSign, ShoppingCart, Receipt, Building2, Wallet, ChevronLeft, Crown } from "lucide-react";
-import { BrandFull } from "@/components/brand-logo";
+import { LayoutDashboard, Package, Plus, Boxes, Truck, FileText, Upload, Activity, BarChart3, Users, Shield, LogOut, ChevronDown, KeyRound, Warehouse, Megaphone, UserCheck, UserCog, Sun, Moon, Brain, Archive, Clock, MessageCircle, Menu, X, Download, DollarSign, ShoppingCart, Receipt, Building2, Wallet, ChevronLeft, Crown } from "lucide-react";import { BrandFull } from "@/components/brand-logo";
 import { BrandSettingsDialog } from "@/components/brand-settings-dialog";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -53,6 +52,7 @@ const ALL_NAV = [
 const FINANCE_NAV = [
   { href: "/finance",                   label: "لوحة الماليات", icon: DollarSign,   iconColor: "text-emerald-400" },
   { href: "/finance/cash",              label: "الخزنة",        icon: Wallet,       iconColor: "text-yellow-400"  },
+  { href: "/finance/cash/archive",      label: "أرشيف الخزن",  icon: Archive,      iconColor: "text-stone-400"   },
   { href: "/finance/purchases",         label: "أوامر الشراء",  icon: ShoppingCart, iconColor: "text-violet-400"  },
   { href: "/finance/suppliers",         label: "الموردون",      icon: Building2,    iconColor: "text-blue-400"    },
   { href: "/finance/expenses",          label: "المصروفات",     icon: Receipt,      iconColor: "text-rose-400"    },

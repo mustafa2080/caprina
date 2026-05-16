@@ -5,7 +5,7 @@ import {
   Plus, Wallet, ArrowUpCircle, ArrowDownCircle, ArrowRightLeft,
   Star, Trash2, TrendingUp, TrendingDown, RefreshCw,
   Search, Download, ChevronLeft, ChevronRight, FileSpreadsheet,
-  Building2, CreditCard, Pencil, X, Bell, BellOff, Settings2, BarChart3, Filter, SlidersHorizontal,
+  Building2, CreditCard, Pencil, X, Bell, BellOff, Settings2, BarChart3, Filter, SlidersHorizontal, Archive, RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -86,14 +86,6 @@ export default function FinanceCashPage() {
   const [colFilterActive, setColFilterActive] = useState(false);
   const [colFilters, setColFilters] = useState<Record<string, string>>({});
 
-  // unique values لكل عمود من البيانات الموجودة
-  const colOptions = useMemo(() => ({
-    type: [...new Set(transactions.map(tx => tx.type))].map(t => ({ value: t, label: TX_LABELS[t]?.label ?? t })),
-    dir:  [{ value: "in", label: "دخل" }, { value: "out", label: "خروج" }],
-    by:   [...new Set(transactions.map(tx => tx.createdByName ?? "").filter(Boolean))].map(v => ({ value: v, label: v })),
-    date: [...new Set(transactions.map(tx => new Date(tx.transactionDate).toLocaleDateString("ar-EG")))].map(v => ({ value: v, label: v })),
-  }), [transactions]);
-
   // تاسك 2: تعديل/حذف حركة
   const [editTxOpen, setEditTxOpen] = useState(false);
   const [deleteTxId, setDeleteTxId] = useState<number | null>(null);
@@ -124,7 +116,7 @@ export default function FinanceCashPage() {
     refetchIntervalInBackground: false, placeholderData: (prev) => prev,
   });
 
-  const ledgerRegId = activeTab !== "all" ? activeTab : null;
+  const ledgerRegId = (typeof activeTab === "number") ? activeTab : null;
 
   const { data: ledgerData, isLoading: ledgerLoading } = useQuery({
     queryKey: ["/api/cash-registers/ledger", ledgerRegId, ledgerFrom, ledgerTo, ledgerType, ledgerDirection, ledgerPage],
@@ -171,6 +163,14 @@ export default function FinanceCashPage() {
     ) : transactions,
     [transactions, ledgerSearch]
   );
+
+  // unique values لكل عمود — يجب أن يكون بعد filteredTx
+  const colOptions = useMemo(() => ({
+    type: [...new Set(filteredTx.map(tx => tx.type))].map(t => ({ value: t, label: TX_LABELS[t]?.label ?? t })),
+    dir:  [{ value: "in", label: "دخل" }, { value: "out", label: "خروج" }],
+    by:   [...new Set(filteredTx.map(tx => tx.createdByName ?? "").filter(Boolean))].map(v => ({ value: v, label: v })),
+    date: [...new Set(filteredTx.map(tx => new Date(tx.transactionDate).toLocaleDateString("ar-EG")))].map(v => ({ value: v, label: v })),
+  }), [filteredTx]);
 
   const buildExportParams = () => {
     const params = new URLSearchParams({ from: ledgerFrom, to: ledgerTo });
