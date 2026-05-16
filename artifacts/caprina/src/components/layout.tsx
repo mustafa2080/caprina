@@ -50,13 +50,14 @@ const ALL_NAV = [
 
 // ── الماليات — قسم منفصل في الـ sidebar ──────────────────────────────────────
 const FINANCE_NAV = [
-  { href: "/finance",                   label: "لوحة الماليات", icon: DollarSign,   iconColor: "text-emerald-400" },
-  { href: "/finance/cash",              label: "الخزنة",        icon: Wallet,       iconColor: "text-yellow-400"  },
-  { href: "/finance/cash/archive",      label: "أرشيف الخزن",  icon: Archive,      iconColor: "text-stone-400"   },
-  { href: "/finance/purchases",         label: "أوامر الشراء",  icon: ShoppingCart, iconColor: "text-violet-400"  },
-  { href: "/finance/suppliers",         label: "الموردون",      icon: Building2,    iconColor: "text-blue-400"    },
-  { href: "/finance/expenses",          label: "المصروفات",     icon: Receipt,      iconColor: "text-rose-400"    },
-  { href: "/finance/shipping-invoices", label: "فواتير الشحن",  icon: Truck,        iconColor: "text-sky-400"     },
+  { href: "/finance",                   label: "لوحة الماليات",          icon: DollarSign,   iconColor: "text-emerald-400"  },
+  { href: "/finance/cash",              label: "الخزنة",                  icon: Wallet,       iconColor: "text-yellow-400"   },
+  { href: "/finance/cash/archive",      label: "أرشيف الخزن",            icon: Archive,      iconColor: "text-stone-400"    },
+  { href: "/finance/cash/analytics",    label: "تحليل الماليات الذكي 🧠", icon: Brain,        iconColor: "text-fuchsia-400"  },
+  { href: "/finance/purchases",         label: "أوامر الشراء",            icon: ShoppingCart, iconColor: "text-violet-400"   },
+  { href: "/finance/suppliers",         label: "الموردون",                icon: Building2,    iconColor: "text-blue-400"     },
+  { href: "/finance/expenses",          label: "المصروفات",               icon: Receipt,      iconColor: "text-rose-400"     },
+  { href: "/finance/shipping-invoices", label: "فواتير الشحن",            icon: Truck,        iconColor: "text-sky-400"      },
 ];
 
 const ROLE_LABELS: Record<string, string> = {
