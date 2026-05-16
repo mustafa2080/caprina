@@ -72,38 +72,38 @@ export default function SuperAdminPage() {
 
   const { data: tenants = [], isLoading } = useQuery<Tenant[]>({
     queryKey: ["admin-tenants"],
-    queryFn: () => apiFetch("/api/admin/tenants"),
+    queryFn: () => apiFetch("/admin/tenants"),
     refetchInterval: 30000,
   });
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["admin-tenants"] });
 
   const createMut = useMutation({
-    mutationFn: (body: any) => apiFetch("/api/admin/tenants", { method: "POST", body: JSON.stringify(body) }),
+    mutationFn: (body: any) => apiFetch("/admin/tenants", { method: "POST", body: JSON.stringify(body) }),
     onSuccess: () => { toast({ title: "✅ تم إنشاء الاشتراك" }); invalidate(); setShowCreate(false); setForm({ name: "", slug: "", plan: "starter", contactEmail: "", contactPhone: "", notes: "", durationDays: "30" }); },
     onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
 
   const renewMut = useMutation({
-    mutationFn: ({ id, body }: { id: number; body: any }) => apiFetch(`/api/admin/tenants/${id}/activate`, { method: "PATCH", body: JSON.stringify(body) }),
+    mutationFn: ({ id, body }: { id: number; body: any }) => apiFetch(`/admin/tenants/${id}/activate`, { method: "PATCH", body: JSON.stringify(body) }),
     onSuccess: () => { toast({ title: "✅ تم تجديد الاشتراك" }); invalidate(); setShowRenew(null); },
     onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
 
   const suspendMut = useMutation({
-    mutationFn: (id: number) => apiFetch(`/api/admin/tenants/${id}/suspend`, { method: "PATCH" }),
+    mutationFn: (id: number) => apiFetch(`/admin/tenants/${id}/suspend`, { method: "PATCH" }),
     onSuccess: () => { toast({ title: "تم إيقاف الاشتراك" }); invalidate(); },
     onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
 
   const expireMut = useMutation({
-    mutationFn: (id: number) => apiFetch(`/api/admin/tenants/${id}/expire`, { method: "PATCH" }),
+    mutationFn: (id: number) => apiFetch(`/admin/tenants/${id}/expire`, { method: "PATCH" }),
     onSuccess: () => { toast({ title: "تم إنهاء الاشتراك" }); invalidate(); },
     onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
 
   const deleteMut = useMutation({
-    mutationFn: (id: number) => apiFetch(`/api/admin/tenants/${id}`, { method: "DELETE" }),
+    mutationFn: (id: number) => apiFetch(`/admin/tenants/${id}`, { method: "DELETE" }),
     onSuccess: () => { toast({ title: "تم حذف العميل" }); invalidate(); },
     onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
