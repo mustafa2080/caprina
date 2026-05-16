@@ -1,11 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import {
   Plus, Wallet, ArrowUpCircle, ArrowDownCircle, ArrowRightLeft,
   Star, Trash2, TrendingUp, TrendingDown, RefreshCw,
   Search, Download, ChevronLeft, ChevronRight, FileSpreadsheet,
-  Building2, CreditCard, Pencil, X, Bell, BellOff, Settings2, BarChart3, Filter,
+  Building2, CreditCard, Pencil, X, Bell, BellOff, Settings2, BarChart3, Filter, SlidersHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -81,6 +81,16 @@ export default function FinanceCashPage() {
   const [transfer, setTransfer] = useState({ fromId: "", toId: "", amount: "", description: "" });
   const [editForm, setEditForm] = useState({ name: "", description: "", isDefault: false });
   const [thresholdVal, setThresholdVal] = useState("");
+
+  // تاسك 1: column filter
+  const [colFilterActive, setColFilterActive] = useState(false);
+  const [colFilters, setColFilters] = useState<Record<string, string>>({});
+
+  // تاسك 2: تعديل/حذف حركة
+  const [editTxOpen, setEditTxOpen] = useState(false);
+  const [deleteTxId, setDeleteTxId] = useState<number | null>(null);
+  const [selectedTx, setSelectedTx] = useState<CashTransaction | null>(null);
+  const [editTxForm, setEditTxForm] = useState({ type: "", amount: "", description: "", referenceNumber: "", transactionDate: "" });
 
   const { data: regData, isLoading, isFetching } = useQuery<{ registers: CashRegister[]; totalBalance: number }>({
     queryKey: ["/api/cash-registers"],
@@ -215,9 +225,46 @@ export default function FinanceCashPage() {
 
   const delMut = useMutation({
     mutationFn: (id:number) => apiFetch(`/api/cash-registers/${id}`, { method:"DELETE" }),
-    onSuccess: () => { qc.invalidateQueries({queryKey:["/api/cash-registers"]}); setActiveTab("all"); toast({title:"✅ تم تعطيل الخزنة"}); },
+    onSuccess: () => { qc.invalidateQueries({queryKey:["/api/cash-registers"]}); setActiveTab("all"); toast({title:"✅ تم أرشفة الخزنة"}); },
     onError: (e:any) => toast({title:"❌ خطأ", description:e.message, variant:"destructive"}),
   });
+
+  // تاسك 2: mutations التعديل والحذف للحركات
+  const editTxMut = useMutation({
+    mutationFn: ({ id, body }: { id: number; body: any }) =>
+      apiFetch(`/api/cash-registers/transactions/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/cash-registers"] });
+      qc.invalidateQueries({ queryKey: ["/api/cash-registers/ledger"] });
+      setEditTxOpen(false);
+      toast({ title: "✅ تم تعديل الحركة" });
+    },
+    onError: (e: any) => toast({ title: "❌ خطأ", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteTxMut = useMutation({
+    mutationFn: (id: number) => apiFetch(`/api/cash-registers/transactions/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/cash-registers"] });
+      qc.invalidateQueries({ queryKey: ["/api/cash-registers/ledger"] });
+      setDeleteTxId(null);
+      toast({ title: "✅ تم حذف الحركة" });
+    },
+    onError: (e: any) => toast({ title: "❌ خطأ", description: e.message, variant: "destructive" }),
+  });
+
+  // تاسك 1: تطبيق column filters على الجدول
+  const colFilteredTx = useMemo(() => {
+    if (!colFilterActive || Object.values(colFilters).every(v => !v)) return filteredTx;
+    return filteredTx.filter(tx => {
+      if (colFilters.date && !new Date(tx.transactionDate).toLocaleDateString("ar-EG").includes(colFilters.date)) return false;
+      if (colFilters.type && !(TX_LABELS[tx.type]?.label ?? tx.type).includes(colFilters.type)) return false;
+      if (colFilters.amount && !tx.amount.toString().includes(colFilters.amount)) return false;
+      if (colFilters.desc && !(tx.description ?? "").includes(colFilters.desc) && !(tx.referenceNumber ?? "").includes(colFilters.desc)) return false;
+      if (colFilters.by && !(tx.createdByName ?? "").includes(colFilters.by)) return false;
+      return true;
+    });
+  }, [filteredTx, colFilters, colFilterActive]);
 
   if (isLoading && !regData) return (
     <div className="flex flex-col items-center justify-center h-64 gap-4 text-muted-foreground">
@@ -429,50 +476,24 @@ export default function FinanceCashPage() {
             </div>
           )}
 
-          {/* ── فلاتر كشف الحساب ── */}
-          <div className="rounded-2xl border border-border/50 bg-card p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold flex items-center gap-1.5"><Filter className="w-3.5 h-3.5"/> فلاتر البحث</p>
-              {hasActiveFilters && (
-                <button onClick={clearFilters} className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-muted transition-colors">
-                  <X className="w-3 h-3"/> مسح الفلاتر
+          {/* ── أزرار التصدير + فلتر ── */}
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs rounded-xl" onClick={handleExportCSV}><Download className="w-3.5 h-3.5"/> CSV</Button>
+              <Button size="sm" className="gap-1.5 h-8 text-xs rounded-xl text-black font-bold" style={{background:"#DEA821"}} onMouseEnter={e=>(e.currentTarget.style.background="#c8931c")} onMouseLeave={e=>(e.currentTarget.style.background="#DEA821")} onClick={handleExportExcel}><FileSpreadsheet className="w-3.5 h-3.5"/> Excel</Button>
+            </div>
+            <div className="flex gap-2">
+              {colFilterActive && Object.values(colFilters).some(v => v) && (
+                <button onClick={() => setColFilters({})} className="flex items-center gap-1 text-[11px] text-rose-500 hover:text-rose-600 px-2 py-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors border border-rose-300/40">
+                  <X className="w-3 h-3"/> إلغاء الفلتر
                 </button>
               )}
-            </div>
-            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-              <div className="space-y-1">
-                <Label className="text-[10px] text-muted-foreground">من تاريخ</Label>
-                <Input type="date" value={ledgerFrom} onChange={e=>{setLedgerFrom(e.target.value);setLedgerPage(1);}} className="h-8 text-xs rounded-xl"/>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-[10px] text-muted-foreground">إلى تاريخ</Label>
-                <Input type="date" value={ledgerTo} onChange={e=>{setLedgerTo(e.target.value);setLedgerPage(1);}} className="h-8 text-xs rounded-xl"/>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-[10px] text-muted-foreground">اتجاه الحركة</Label>
-                <Select value={ledgerDirection} onValueChange={v=>{setLedgerDirection(v);setLedgerPage(1);}}>
-                  <SelectTrigger className="h-8 text-xs rounded-xl"><SelectValue/></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">الكل</SelectItem>
-                    <SelectItem value="in">دخل فقط</SelectItem>
-                    <SelectItem value="out">خروج فقط</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-[10px] text-muted-foreground">نوع الحركة</Label>
-                <Select value={ledgerType} onValueChange={v=>{setLedgerType(v);setLedgerPage(1);}}>
-                  <SelectTrigger className="h-8 text-xs rounded-xl"><SelectValue/></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">الكل</SelectItem>
-                    {Object.entries(TX_LABELS).map(([k,v])=><SelectItem key={k} value={k}>{v.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="relative">
-              <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground"/>
-              <Input placeholder="بحث في الوصف أو المرجع..." value={ledgerSearch} onChange={e=>setLedgerSearch(e.target.value)} className="h-8 text-xs rounded-xl pr-8"/>
+              <button
+                onClick={() => { setColFilterActive(v => !v); setColFilters({}); }}
+                className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl border transition-all ${colFilterActive ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}>
+                <SlidersHorizontal className="w-3.5 h-3.5"/>
+                {colFilterActive ? "إخفاء الفلتر" : "إنشاء فلتر"}
+              </button>
             </div>
           </div>
 
@@ -495,22 +516,43 @@ export default function FinanceCashPage() {
                 <table className="w-full text-xs">
                   <thead>
                     <tr style={{ background: "hsl(var(--muted)/0.3)", borderBottom: "1px solid hsl(var(--border))" }}>
-                      {["التاريخ","نوع الحركة","الاتجاه","المبلغ","الرصيد بعد","ملاحظة","بواسطة"].map(h => (
-                        <th key={h} className="text-right p-3 text-xs font-semibold tracking-wide"
-                          style={{ color: "hsl(var(--muted-foreground))" }}
-                          {...(["الرصيد بعد"].includes(h) ? { className: "text-left p-3 text-xs font-semibold tracking-wide hidden md:table-cell" } : {})}
-                          {...(["ملاحظة"].includes(h) ? { className: "text-right p-3 text-xs font-semibold tracking-wide hidden md:table-cell" } : {})}
-                          {...(["بواسطة"].includes(h) ? { className: "text-right p-3 text-xs font-semibold tracking-wide hidden lg:table-cell" } : {})}
-                        >{h}</th>
+                      {[
+                        { key: "date",   label: "التاريخ",     filterKey: "date"   },
+                        { key: "type",   label: "نوع الحركة",  filterKey: "type"   },
+                        { key: "dir",    label: "الاتجاه",     filterKey: ""       },
+                        { key: "amount", label: "المبلغ",      filterKey: "amount" },
+                        { key: "after",  label: "الرصيد بعد",  filterKey: ""       },
+                        { key: "desc",   label: "ملاحظة",      filterKey: "desc"   },
+                        { key: "by",     label: "بواسطة",      filterKey: "by"     },
+                        { key: "actions",label: "",             filterKey: ""       },
+                      ].map(col => (
+                        <th key={col.key} className={`text-right p-3 text-xs font-semibold tracking-wide ${["after"].includes(col.key) ? "hidden md:table-cell" : ""} ${["desc"].includes(col.key) ? "hidden md:table-cell" : ""} ${["by"].includes(col.key) ? "hidden lg:table-cell" : ""}`}
+                          style={{ color: "hsl(var(--muted-foreground))" }}>
+                          <div className="flex flex-col gap-1">
+                            <span className="flex items-center gap-1">
+                              {col.label}
+                              {colFilterActive && col.filterKey && <Filter className="w-2.5 h-2.5 text-primary opacity-60"/>}
+                            </span>
+                            {colFilterActive && col.filterKey && (
+                              <input
+                                placeholder={`فلتر...`}
+                                value={colFilters[col.filterKey] ?? ""}
+                                onChange={e => setColFilters(p => ({ ...p, [col.filterKey]: e.target.value }))}
+                                className="w-full h-6 px-2 rounded-lg border border-border bg-background text-[10px] font-normal outline-none focus:border-primary/50"
+                                onClick={e => e.stopPropagation()}
+                              />
+                            )}
+                          </div>
+                        </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredTx.map((tx, i) => {
+                    {colFilteredTx.map((tx, i) => {
                       const isIn = CREDIT_TYPES.includes(tx.type);
                       const lbl = TX_LABELS[tx.type];
                       return (
-                        <tr key={tx.id} className={`border-b border-border/20 transition-colors hover:bg-muted/30 ${i%2===0?"bg-transparent":"bg-muted/10"}`}>
+                        <tr key={tx.id} className={`group border-b border-border/20 transition-colors hover:bg-muted/30 ${i%2===0?"bg-transparent":"bg-muted/10"}`}>
                           <td className="p-3 text-muted-foreground">{new Date(tx.transactionDate).toLocaleDateString("ar-EG")}</td>
                           <td className="p-3"><span className={`font-semibold ${lbl?.color??""}`}>{lbl?.label??tx.type}</span></td>
                           <td className="p-3">
@@ -525,6 +567,20 @@ export default function FinanceCashPage() {
                           <td className="p-3 text-muted-foreground tabular-nums text-left hidden md:table-cell">{fmt(tx.balanceAfter)}</td>
                           <td className="p-3 text-muted-foreground hidden md:table-cell max-w-[180px] truncate">{tx.description??""}{tx.referenceNumber&&<span className="text-[10px] text-muted-foreground/60 mr-1">#{tx.referenceNumber}</span>}</td>
                           <td className="p-3 text-muted-foreground hidden lg:table-cell">{tx.createdByName??""}</td>
+                          <td className="p-3">
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={() => { setSelectedTx(tx); setEditTxForm({ type: tx.type, amount: tx.amount, description: tx.description ?? "", referenceNumber: tx.referenceNumber ?? "", transactionDate: tx.transactionDate.slice(0,10) }); setEditTxOpen(true); }}
+                                className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                                <Pencil className="w-3 h-3"/>
+                              </button>
+                              <button
+                                onClick={() => { if (confirm("حذف هذه الحركة نهائياً؟")) deleteTxMut.mutate(tx.id); }}
+                                className="p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/20 text-muted-foreground hover:text-rose-500 transition-colors">
+                                <Trash2 className="w-3 h-3"/>
+                              </button>
+                            </div>
+                          </td>
                         </tr>
                       );
                     })}
@@ -657,6 +713,26 @@ export default function FinanceCashPage() {
               <Button variant="outline" className="flex-1 text-xs gap-1" onClick={()=>thresholdMut.mutate({lowBalanceThreshold:null})}><BellOff className="w-3.5 h-3.5"/> إلغاء التنبيه</Button>
               <Button className="flex-1 text-black font-bold text-xs" style={{background:"#DEA821"}} disabled={thresholdMut.isPending} onClick={()=>thresholdMut.mutate({lowBalanceThreshold:parseFloat(thresholdVal)||null})}>{thresholdMut.isPending?"...":"حفظ"}</Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── تعديل حركة ── */}
+      <Dialog open={editTxOpen} onOpenChange={setEditTxOpen}>
+        <DialogContent className="max-w-md" dir="rtl">
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><Pencil className="w-4 h-4"/> تعديل الحركة</DialogTitle></DialogHeader>
+          <div className="space-y-3 pt-2">
+            <div className="space-y-1"><Label className="text-xs">نوع الحركة</Label>
+              <Select value={editTxForm.type} onValueChange={v=>setEditTxForm(p=>({...p,type:v}))}>
+                <SelectTrigger className="text-sm"><SelectValue/></SelectTrigger>
+                <SelectContent>{Object.entries(TX_LABELS).map(([k,v])=><SelectItem key={k} value={k}>{v.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1"><Label className="text-xs">المبلغ *</Label><Input type="number" value={editTxForm.amount} onChange={e=>setEditTxForm(p=>({...p,amount:e.target.value}))} className="text-sm"/></div>
+            <div className="space-y-1"><Label className="text-xs">التاريخ</Label><Input type="date" value={editTxForm.transactionDate} onChange={e=>setEditTxForm(p=>({...p,transactionDate:e.target.value}))} className="text-sm"/></div>
+            <div className="space-y-1"><Label className="text-xs">رقم مرجعي</Label><Input placeholder="اختياري" value={editTxForm.referenceNumber} onChange={e=>setEditTxForm(p=>({...p,referenceNumber:e.target.value}))} className="text-sm"/></div>
+            <div className="space-y-1"><Label className="text-xs">ملاحظة</Label><Textarea value={editTxForm.description} onChange={e=>setEditTxForm(p=>({...p,description:e.target.value}))} className="text-sm" rows={2}/></div>
+            <Button className="w-full text-black font-bold" style={{background:"#DEA821"}} disabled={!editTxForm.amount||editTxMut.isPending} onClick={()=>editTxMut.mutate({id:selectedTx!.id,body:editTxForm})}>{editTxMut.isPending?"جارٍ الحفظ...":"حفظ التعديلات"}</Button>
           </div>
         </DialogContent>
       </Dialog>

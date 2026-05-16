@@ -295,3 +295,47 @@ cashRegistersRouter.delete("/:id", async (req, res) => {
     res.json({success:true});
   } catch(err){res.status(500).json({error:"فشل الحذف"});}
 });
+
+// ─── PATCH /api/cash-registers/transactions/:id — تعديل حركة ─────────────────
+cashRegistersRouter.patch("/transactions/:id", async (req, res) => {
+  try {
+    const txId = parseInt(req.params.id);
+    const { type, amount, description, referenceNumber, transactionDate } = req.body as any;
+
+    const [tx] = await db.select().from(cashTransactionsTable).where(eq(cashTransactionsTable.id, txId));
+    if (!tx) return res.status(404).json({ error: "الحركة مش موجودة" });
+
+    const updates: any = { updatedAt: new Date() };
+    if (type)              updates.type = type;
+    if (amount)            updates.amount = String(parseFloat(amount));
+    if (description !== undefined) updates.description = description;
+    if (referenceNumber !== undefined) updates.referenceNumber = referenceNumber;
+    if (transactionDate)   updates.transactionDate = new Date(transactionDate);
+
+    await db.update(cashTransactionsTable).set(updates).where(eq(cashTransactionsTable.id, txId));
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: "فشل تعديل الحركة" }); }
+});
+
+// ─── DELETE /api/cash-registers/transactions/:id — حذف حركة ──────────────────
+cashRegistersRouter.delete("/transactions/:id", async (req, res) => {
+  try {
+    const txId = parseInt(req.params.id);
+    const [tx] = await db.select().from(cashTransactionsTable).where(eq(cashTransactionsTable.id, txId));
+    if (!tx) return res.status(404).json({ error: "الحركة مش موجودة" });
+
+    // نرجع الرصيد للخزنة
+    const [reg] = await db.select().from(cashRegistersTable).where(eq(cashRegistersTable.id, tx.registerId));
+    if (reg) {
+      const currentBalance = parseFloat(reg.balance ?? "0");
+      const txAmount = parseFloat(tx.amount ?? "0");
+      const isCredit = CREDIT_TYPES.includes(tx.type as any);
+      // لو كانت حركة دخل نشيلها من الرصيد، لو خروج نرجعها
+      const newBalance = isCredit ? currentBalance - txAmount : currentBalance + txAmount;
+      await db.update(cashRegistersTable).set({ balance: String(Math.max(0, newBalance)), updatedAt: new Date() }).where(eq(cashRegistersTable.id, tx.registerId));
+    }
+
+    await db.delete(cashTransactionsTable).where(eq(cashTransactionsTable.id, txId));
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: "فشل حذف الحركة" }); }
+});
