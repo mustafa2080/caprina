@@ -66,7 +66,7 @@ export default function SuperAdminPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [showRenew, setShowRenew] = useState<Tenant | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
-  const [form, setForm] = useState({ name: "", slug: "", plan: "starter", contactEmail: "", contactPhone: "", notes: "", durationDays: "30" });
+  const [form, setForm] = useState({ name: "", slug: "", plan: "starter", contactEmail: "", contactPhone: "", notes: "", durationDays: "30", adminUsername: "", adminPassword: "", adminDisplayName: "" });
   const [renewPlan, setRenewPlan] = useState("starter");
   const [renewDays, setRenewDays] = useState("30");
 
@@ -80,7 +80,7 @@ export default function SuperAdminPage() {
 
   const createMut = useMutation({
     mutationFn: (body: any) => apiFetch("/admin/tenants", { method: "POST", body: JSON.stringify(body) }),
-    onSuccess: () => { toast({ title: "✅ تم إنشاء الاشتراك" }); invalidate(); setShowCreate(false); setForm({ name: "", slug: "", plan: "starter", contactEmail: "", contactPhone: "", notes: "", durationDays: "30" }); },
+    onSuccess: () => { toast({ title: "✅ تم إنشاء الاشتراك والمستخدم" }); invalidate(); setShowCreate(false); setForm({ name: "", slug: "", plan: "starter", contactEmail: "", contactPhone: "", notes: "", durationDays: "30", adminUsername: "", adminPassword: "", adminDisplayName: "" }); },
     onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
 
@@ -227,6 +227,8 @@ export default function SuperAdminPage() {
       {showCreate && (
         <Modal title="اشتراك جديد" onClose={() => setShowCreate(false)}>
           <div className="space-y-3">
+            {/* بيانات الشركة */}
+            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">بيانات الشركة</p>
             {[
               { label: "اسم الشركة / العميل *", key: "name",         type: "text",  placeholder: "مثال: شركة النور" },
               { label: "Slug (معرف فريد) *",    key: "slug",         type: "text",  placeholder: "al-noor"          },
@@ -239,6 +241,8 @@ export default function SuperAdminPage() {
                 <input type={f.type} placeholder={f.placeholder} value={(form as any)[f.key]} onChange={e => setForm(v => ({ ...v, [f.key]: e.target.value }))} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-sm text-foreground outline-none focus:border-primary/50" />
               </div>
             ))}
+
+            {/* بيانات الباقة */}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs font-bold text-muted-foreground block mb-1">الباقة *</label>
@@ -253,9 +257,29 @@ export default function SuperAdminPage() {
                 </select>
               </div>
             </div>
-            <div className="flex gap-2 pt-2">
-              <button onClick={() => createMut.mutate({ name: form.name, slug: form.slug.toLowerCase().replace(/\s+/g,"-"), plan: form.plan, contactEmail: form.contactEmail||undefined, contactPhone: form.contactPhone||undefined, notes: form.notes||undefined, durationDays: parseInt(form.durationDays) })} disabled={!form.name||!form.slug||createMut.isPending} className="flex-1 h-9 bg-primary text-primary-foreground rounded-lg text-sm font-bold disabled:opacity-40 hover:bg-primary/90 transition-colors">
-                {createMut.isPending ? "جاري الإنشاء..." : "إنشاء الاشتراك"}
+
+            {/* بيانات دخول الأدمن */}
+            <div className="border-t border-border pt-3">
+              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-2">بيانات دخول العميل</p>
+              <div className="space-y-2">
+                <div>
+                  <label className="text-xs font-bold text-muted-foreground block mb-1">اسم المستخدم (username) *</label>
+                  <input type="text" placeholder="مثال: alnoor_admin" value={form.adminUsername} onChange={e => setForm(v => ({ ...v, adminUsername: e.target.value.replace(/\s/g,"") }))} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-sm text-foreground outline-none focus:border-primary/50" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-muted-foreground block mb-1">كلمة المرور *</label>
+                  <input type="text" placeholder="كلمة مرور قوية" value={form.adminPassword} onChange={e => setForm(v => ({ ...v, adminPassword: e.target.value }))} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-sm text-foreground outline-none focus:border-primary/50" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-muted-foreground block mb-1">الاسم الظاهر</label>
+                  <input type="text" placeholder={form.name || "اسم المدير"} value={form.adminDisplayName} onChange={e => setForm(v => ({ ...v, adminDisplayName: e.target.value }))} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-sm text-foreground outline-none focus:border-primary/50" />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <button onClick={() => createMut.mutate({ name: form.name, slug: form.slug.toLowerCase().replace(/\s+/g,"-"), plan: form.plan, contactEmail: form.contactEmail||undefined, contactPhone: form.contactPhone||undefined, notes: form.notes||undefined, durationDays: parseInt(form.durationDays), adminUsername: form.adminUsername, adminPassword: form.adminPassword, adminDisplayName: form.adminDisplayName||undefined })} disabled={!form.name||!form.slug||!form.adminUsername||!form.adminPassword||createMut.isPending} className="flex-1 h-9 bg-primary text-primary-foreground rounded-lg text-sm font-bold disabled:opacity-40 hover:bg-primary/90 transition-colors">
+                {createMut.isPending ? "جاري الإنشاء..." : "إنشاء الاشتراك والمستخدم"}
               </button>
               <button onClick={() => setShowCreate(false)} className="h-9 px-4 border border-border rounded-lg text-sm text-muted-foreground hover:bg-muted/20 transition-colors">إلغاء</button>
             </div>
