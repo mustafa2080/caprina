@@ -1,7 +1,5 @@
 const { execSync } = require('child_process');
-
 const dir = __dirname;
-
 function run(cmd) {
   try {
     const out = execSync(cmd, { cwd: dir, encoding: 'utf8', stdio: ['pipe','pipe','pipe'] });
@@ -11,21 +9,8 @@ function run(cmd) {
     console.error('ERR:', msg.trim());
   }
 }
-
-console.log('=== git status ===');
-run('git status --short');
-
-console.log('\n=== git add ===');
-run('git add -A');
-
-console.log('\n=== git status after add ===');
-run('git status --short');
-
-console.log('\n=== git commit ===');
-run('git commit -m "fix: isDefault DB schema, purchasesTable import, auto-migration, P&L returnLoss, shipping invoices cache keys"');
-
-console.log('\n=== git push ===');
+console.log('=== status ==='); run('git status --short');
+run('git add artifacts/caprina/src/pages/finance-purchases.tsx');
+run('git commit -m "feat: column filters in purchase orders table header"');
 run('git push');
-
-console.log('\n=== git log last 3 ===');
-run('git log --oneline -3');
+console.log('=== done ==='); run('git log --oneline -2');
