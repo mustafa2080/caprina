@@ -584,31 +584,58 @@ router.get("/analytics/alerts", async (_req, res): Promise<void> => {
 
   const alerts: Alert[] = [];
 
-  // Build product stats for alerts
-  const statsMap = new Map<string, { name: string; totalOrders: number; closedOrders: number; returned: number; revenue: number; profit: number; costMissing: boolean }>();
+  // Build product stats for alerts — نعدّ الفواتير الفريدة مش الصفوف
+  const statsMap = new Map<string, {
+    name: string; totalOrders: number; closedOrders: number; returned: number;
+    revenue: number; profit: number; costMissing: boolean;
+    invoiceSet: Set<string>; returnedInvoiceSet: Set<string>; closedInvoiceSet: Set<string>;
+  }>();
 
   for (const o of allOrders) {
     const key = o.product.trim();
     if (!statsMap.has(key)) {
-      statsMap.set(key, { name: key, totalOrders: 0, closedOrders: 0, returned: 0, revenue: 0, profit: 0, costMissing: false });
+      statsMap.set(key, {
+        name: key, totalOrders: 0, closedOrders: 0, returned: 0,
+        revenue: 0, profit: 0, costMissing: false,
+        invoiceSet: new Set(), returnedInvoiceSet: new Set(), closedInvoiceSet: new Set(),
+      });
     }
     const s = statsMap.get(key)!;
     const rc = resolveCost(o, variantMap, productMap);
     if (rc === 0) s.costMissing = true;
 
-    s.totalOrders++;
+    const invoiceKey = o.invoiceNumber ?? `solo-${o.id}`;
+
+    // كل فاتورة تتعدّ مرة واحدة فقط في totalOrders
+    if (!s.invoiceSet.has(invoiceKey)) {
+      s.invoiceSet.add(invoiceKey);
+      s.totalOrders++;
+    }
+
     if (o.status === "returned") {
-      s.returned++;
-      s.closedOrders++;
-      s.profit -= (o.quantity * rc) + (o.shippingCost ?? 0);
+      // الفاتورة المرتجعة تتعدّ مرة واحدة فقط
+      if (!s.returnedInvoiceSet.has(invoiceKey)) {
+        s.returnedInvoiceSet.add(invoiceKey);
+        s.returned++;
+        s.profit -= o.shippingCost ?? 0; // خسارة الشحن فقط
+      }
+      if (!s.closedInvoiceSet.has(invoiceKey)) {
+        s.closedInvoiceSet.add(invoiceKey);
+        s.closedOrders++;
+      }
     } else if (o.status === "received" || o.status === "partial_received") {
       const qty = o.status === "partial_received" ? (o.partialQuantity ?? o.quantity) : o.quantity;
       const rev = qty * o.unitPrice;
       const cost = qty * rc;
       const sc = o.shippingCost ?? 0;
-      s.closedOrders++;
+      // الإيرادات والتكلفة تُحسب لكل منتج في الفاتورة (صح)
       s.revenue += rev;
       s.profit += rev - cost - sc;
+      // الفاتورة المكتملة تتعدّ مرة واحدة فقط
+      if (!s.closedInvoiceSet.has(invoiceKey)) {
+        s.closedInvoiceSet.add(invoiceKey);
+        s.closedOrders++;
+      }
     }
     // pending / in_shipping / delayed لا تُحسب في نسبة الإرجاع
   }
