@@ -403,11 +403,10 @@ export default function FinanceCashPage() {
                     <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${isMain?"bg-gradient-to-br from-yellow-500/20 to-amber-500/10":"bg-gradient-to-br from-primary/15 to-primary/5"}`}>{isMain?<Star className="w-5 h-5 text-yellow-500"/>:<Building2 className="w-5 h-5 text-primary"/>}</div>
                     <div><p className="font-semibold text-sm leading-tight">{r.name}</p><span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full mt-0.5 inline-block ${isMain?"bg-yellow-500/10 text-yellow-600 dark:text-yellow-400":"bg-muted text-muted-foreground"}`}>{isMain?"رئيسية":"فرعية"}</span></div>
                   </div>
-                  <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex gap-0.5">
                     {hasAlert&&<Bell className="w-3.5 h-3.5 text-rose-500 mx-1"/>}
                     <button className="p-1.5 rounded-lg hover:bg-muted transition-colors" onClick={e=>{e.stopPropagation();setSelectedReg(r);setEditForm({name:r.name,description:r.description??"",isDefault:!!(r as any).isDefault});setEditOpen(true);}}><Pencil className="w-3 h-3 text-muted-foreground"/></button>
                     <button className="p-1.5 rounded-lg hover:bg-muted transition-colors" onClick={e=>{e.stopPropagation();setSelectedReg(r);setThresholdVal(r.lowBalanceThreshold??"");setThresholdOpen(true);}}><Bell className="w-3 h-3 text-muted-foreground"/></button>
-                    {!isMain&&(<button className="p-1.5 rounded-lg hover:bg-muted transition-colors" onClick={e=>{e.stopPropagation();if(confirm(`تعطيل "${r.name}"؟`))delMut.mutate(r.id);}}><Trash2 className="w-3 h-3 text-rose-400"/></button>)}
                   </div>
                 </div>
                 <p className={`text-3xl font-black tabular-nums mb-1 ${hasAlert?"text-rose-600":"text-emerald-600 dark:text-emerald-400"}`}>{fmt(r.balance)}</p>
@@ -422,9 +421,9 @@ export default function FinanceCashPage() {
                   <Button size="sm" variant="ghost" className="flex-1 gap-1 text-[11px] h-8 rounded-xl" onClick={e=>{e.stopPropagation();setActiveTab(r.id);}}><CreditCard className="w-3 h-3"/> كشف</Button>
                   {!isMain && (
                     <Button size="sm" variant="ghost"
-                      className="gap-1 text-[11px] h-8 rounded-xl text-rose-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20"
+                      className="gap-1 text-[11px] h-8 rounded-xl text-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 border border-rose-200 dark:border-rose-800"
                       onClick={e=>{e.stopPropagation();if(confirm(`أرشفة "${r.name}"؟\nسيتم نقلها للأرشيف ويمكنك استعادتها لاحقاً.`))delMut.mutate(r.id);}}>
-                      <Trash2 className="w-3 h-3"/>
+                      <Trash2 className="w-3 h-3"/> حذف
                     </Button>
                   )}
                 </div>
