@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 
 export const productsTable = mysqlTable("products", {
   id: int("id").primaryKey().autoincrement(),
+  tenantId: int("tenant_id"),  // tenant isolation
   name: varchar("name", { length: 255 }).notNull(),
   sku: varchar("sku", { length: 100 }),
   totalQuantity: int("total_quantity").notNull().default(0),

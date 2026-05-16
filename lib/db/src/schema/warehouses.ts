@@ -2,6 +2,7 @@ import { mysqlTable, int, boolean, datetime, text, varchar } from "drizzle-orm/m
 
 export const warehousesTable = mysqlTable("warehouses", {
   id: int("id").primaryKey().autoincrement(),
+  tenantId: int("tenant_id"),  // tenant isolation
   name: varchar("name", { length: 255 }).notNull(),
   address: text("address"),
   notes: text("notes"),

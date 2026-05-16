@@ -10,6 +10,7 @@ export type AdSource = (typeof AD_SOURCES)[number];
 
 export const ordersTable = mysqlTable("orders", {
   id: int("id").primaryKey().autoincrement(),
+  tenantId: int("tenant_id"),  // null = super_admin أو بيانات قديمة قبل migration
   customerName: varchar("customer_name", { length: 255 }).notNull(),
   phone: varchar("phone", { length: 50 }),
   city: varchar("city", { length: 255 }),

@@ -17,6 +17,7 @@ import { processDelivery, reverseDelivery, processReturn, processToShipping, rev
 import { logAudit, diffObjects } from "../lib/audit.js";
 import { requireAuth } from "../middlewares/requireAuth.js";
 import { isAdmin } from "../middlewares/requireRole.js";
+import { getTenantId } from "../middlewares/requireTenant.js";
 
 const router: IRouter = Router();
 router.use(requireAuth);
@@ -36,13 +37,17 @@ function generateInvoiceNumber(): string {
 // ظ¤ظ¤ظ¤ Stats ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
 
 router.get("/orders/stats", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req);
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startOfWeek = new Date(startOfToday);
   startOfWeek.setDate(startOfToday.getDate() - startOfToday.getDay());
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const all = await db.select().from(ordersTable).where(isNull(ordersTable.deletedAt));
+  const baseConditions: any[] = [isNull(ordersTable.deletedAt)];
+  if (tenantId !== null) baseConditions.push(eq(ordersTable.tenantId, tenantId));
+
+  const all = await db.select().from(ordersTable).where(and(...baseConditions));
 
   const groupByInvoice = (records: typeof all) => {
     const aggregated = new Map<string, { totalPrice: number; status: string; createdAt: Date }>();
@@ -80,8 +85,10 @@ router.get("/orders", async (req, res): Promise<void> => {
   const params = ListOrdersQueryParams.safeParse(req.query);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
+  const tenantId = getTenantId(req);
   let query = db.select().from(ordersTable).orderBy(desc(ordersTable.createdAt)).$dynamic();
   const conditions: any[] = [isNull(ordersTable.deletedAt)];
+  if (tenantId !== null) conditions.push(eq(ordersTable.tenantId, tenantId));
   const isDashboard = (req.query as any).source === "dashboard";
 
   if (params.data.status) {
@@ -308,7 +315,7 @@ router.post("/orders", async (req, res): Promise<void> => {
   }
 
   const invoiceNumber = (parsed.data as any).invoiceNumber || generateInvoiceNumber();
-  const result = await db.insert(ordersTable).values({ ...parsed.data, totalPrice, status: "pending", costPrice, invoiceNumber, createdByUserId: req.user?.id ?? null, createdByName: req.user?.displayName ?? null, createdAt: new Date(), updatedAt: new Date() });
+  const result = await db.insert(ordersTable).values({ ...parsed.data, totalPrice, status: "pending", costPrice, invoiceNumber, tenantId: getTenantId(req), createdByUserId: req.user?.id ?? null, createdByName: req.user?.displayName ?? null, createdAt: new Date(), updatedAt: new Date() });
   const insertId = (result as any)[0]?.insertId ?? (result as any).insertId;
   const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, insertId));
 
@@ -345,7 +352,7 @@ router.post("/orders/batch", async (req, res): Promise<void> => {
       const [product] = await db.select().from(productsTable).where(eq(productsTable.id, (parsed.data as any).productId));
       if (product?.costPrice) costPrice = product.costPrice;
     }
-    const result = await db.insert(ordersTable).values({ ...parsed.data, totalPrice, status: "pending", costPrice, invoiceNumber, createdByUserId: req.user?.id ?? null, createdByName: req.user?.displayName ?? null, createdAt: new Date(), updatedAt: new Date() });
+    const result = await db.insert(ordersTable).values({ ...parsed.data, totalPrice, status: "pending", costPrice, invoiceNumber, tenantId: getTenantId(req), createdByUserId: req.user?.id ?? null, createdByName: req.user?.displayName ?? null, createdAt: new Date(), updatedAt: new Date() });
     const insertId = (result as any)[0]?.insertId ?? (result as any).insertId;
     const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, insertId));
     createdOrders.push(order);
@@ -357,8 +364,11 @@ router.post("/orders/batch", async (req, res): Promise<void> => {
 // ظ¤ظ¤ظ¤ Summary ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
 
 router.get("/orders/summary", async (_req, res): Promise<void> => {
+  const tenantId = getTenantId(_req);
+  const summaryConditions: any[] = [isNull(ordersTable.deletedAt)];
+  if (tenantId !== null) summaryConditions.push(eq(ordersTable.tenantId, tenantId));
   // مرتبة desc عشان أول row لكل invoice هو الأحدث — نفس منطق analytics/charts
-  const rows = await db.select().from(ordersTable).where(isNull(ordersTable.deletedAt)).orderBy(desc(ordersTable.createdAt));
+  const rows = await db.select().from(ordersTable).where(and(...summaryConditions)).orderBy(desc(ordersTable.createdAt));
   // نفس منطق analytics/charts تماماً:
   // invoice بتتحسب بحالة X بس لو كل rows فيها بحالة X واحدة
   type InvoiceRaw = { statuses: Set<string>; totalPrice: number };
@@ -403,7 +413,10 @@ router.get("/orders/summary", async (_req, res): Promise<void> => {
 // ظ¤ظ¤ظ¤ Recent orders ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
 
 router.get("/orders/recent", async (_req, res): Promise<void> => {
-  const rows = await db.select().from(ordersTable).where(isNull(ordersTable.deletedAt)).orderBy(desc(ordersTable.createdAt)).limit(80);
+  const tenantId = getTenantId(_req);
+  const recentConds: any[] = [isNull(ordersTable.deletedAt)];
+  if (tenantId !== null) recentConds.push(eq(ordersTable.tenantId, tenantId));
+  const rows = await db.select().from(ordersTable).where(and(...recentConds)).orderBy(desc(ordersTable.createdAt)).limit(80);
   const seen = new Set<string>();
   const unique: typeof rows = [];
   for (const o of rows) {
@@ -416,7 +429,10 @@ router.get("/orders/recent", async (_req, res): Promise<void> => {
 // ظ¤ظ¤ظ¤ Archived orders ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
 
 router.get("/orders/archived", async (_req, res): Promise<void> => {
-  const orders = await db.select().from(ordersTable).where(isNotNull(ordersTable.deletedAt)).orderBy(desc(ordersTable.deletedAt));
+  const tenantId = getTenantId(_req);
+  const archConds: any[] = [isNotNull(ordersTable.deletedAt)];
+  if (tenantId !== null) archConds.push(eq(ordersTable.tenantId, tenantId));
+  const orders = await db.select().from(ordersTable).where(and(...archConds)).orderBy(desc(ordersTable.deletedAt));
   res.json(orders);
 });
 

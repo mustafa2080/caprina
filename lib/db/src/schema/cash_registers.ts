@@ -28,6 +28,7 @@ export const DEBIT_TYPES = [
 // ─── جدول الخزن ──────────────────────────────────────────────────────────────
 export const cashRegistersTable = mysqlTable("cash_registers", {
   id:             int("id").primaryKey().autoincrement(),
+  tenantId:       int("tenant_id"),  // tenant isolation
   name:           varchar("name", { length: 255 }).notNull(),
   type:           varchar("type", { length: 50 }).notNull().default("branch"),
   balance:        decimal("balance", { precision: 14, scale: 2 }).notNull().default("0"),

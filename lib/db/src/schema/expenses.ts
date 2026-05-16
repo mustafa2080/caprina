@@ -18,6 +18,7 @@ export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
 // ─── جدول المصروفات التشغيلية ────────────────────────────────────────────────
 export const expensesTable = mysqlTable("expenses", {
   id: int("id").primaryKey().autoincrement(),
+  tenantId: int("tenant_id"),  // tenant isolation
   title: varchar("title", { length: 255 }).notNull(),
   category: varchar("category", { length: 100 }).notNull().default("other"),
   amount: decimal("amount", { precision: 14, scale: 2 }).notNull(),
