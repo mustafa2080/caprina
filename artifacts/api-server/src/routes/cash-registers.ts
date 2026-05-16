@@ -288,12 +288,44 @@ cashRegistersRouter.patch("/:id/threshold", async (req, res) => {
 
 cashRegistersRouter.delete("/:id", async (req, res) => {
   try {
-    const[reg]=await db.select().from(cashRegistersTable).where(eq(cashRegistersTable.id,parseInt(req.params.id)));
-    if(reg?.type==="main")return res.status(400).json({error:"مش ممكن تحذف الخزنة الرئيسية"});
-    if(parseFloat(reg?.balance??"0")>0)return res.status(400).json({error:"حول الرصيد المتبقي قبل التعطيل"});
-    await db.update(cashRegistersTable).set({isActive:false,updatedAt:new Date()}).where(eq(cashRegistersTable.id,parseInt(req.params.id)));
-    res.json({success:true});
-  } catch(err){res.status(500).json({error:"فشل الحذف"});}
+    const id = parseInt(req.params.id);
+    const [reg] = await db.select().from(cashRegistersTable).where(eq(cashRegistersTable.id, id));
+    if (!reg) return res.status(404).json({ error: "الخزنة مش موجودة" });
+    if (reg.type === "main") return res.status(400).json({ error: "مش ممكن تحذف الخزنة الرئيسية" });
+    if (parseFloat(reg.balance ?? "0") > 0) return res.status(400).json({ error: "حول الرصيد المتبقي قبل الأرشفة" });
+    await db.update(cashRegistersTable).set({
+      isActive: false,
+      archivedAt: new Date(),
+      updatedAt: new Date(),
+    }).where(eq(cashRegistersTable.id, id));
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: "فشل الأرشفة" }); }
+});
+
+// ─── GET /archived — جلب الخزن المؤرشفة ──────────────────────────────────────
+cashRegistersRouter.get("/archived", async (req, res) => {
+  try {
+    const archived = await db.select().from(cashRegistersTable)
+      .where(eq(cashRegistersTable.isActive, false))
+      .orderBy(desc(cashRegistersTable.updatedAt));
+    res.json({ registers: archived });
+  } catch (err) { res.status(500).json({ error: "فشل جلب الأرشيف" }); }
+});
+
+// ─── PATCH /:id/restore — استعادة خزنة من الأرشيف ────────────────────────────
+cashRegistersRouter.patch("/:id/restore", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const [reg] = await db.select().from(cashRegistersTable).where(eq(cashRegistersTable.id, id));
+    if (!reg) return res.status(404).json({ error: "الخزنة مش موجودة" });
+    if (reg.isActive) return res.status(400).json({ error: "الخزنة شغالة بالفعل" });
+    await db.update(cashRegistersTable).set({
+      isActive: true,
+      archivedAt: null,
+      updatedAt: new Date(),
+    }).where(eq(cashRegistersTable.id, id));
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: "فشل الاستعادة" }); }
 });
 
 // ─── PATCH /api/cash-registers/transactions/:id — تعديل حركة ─────────────────

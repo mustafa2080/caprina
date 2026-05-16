@@ -37,6 +37,7 @@ export const cashRegistersTable = mysqlTable("cash_registers", {
   lowBalanceThreshold: decimal("low_balance_threshold", { precision: 14, scale: 2 }), // حد التنبيه
   createdByUserId: int("created_by_user_id"),
   createdByName:  varchar("created_by_name", { length: 255 }),
+  archivedAt:     datetime("archived_at"),   // تاريخ الأرشفة (null = نشطة)
   createdAt:      datetime("created_at").notNull(),
   updatedAt:      datetime("updated_at").notNull(),
 });
