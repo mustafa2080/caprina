@@ -87,9 +87,9 @@ export default function FinanceShippingInvoices() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <button onClick={() => navigate("/")} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mb-2">
+          <button onClick={() => navigate("/finance")} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mb-2">
             <ChevronRight className="w-4 h-4" />
-            لوحة التحكم
+            لوحة الماليات
           </button>
           <h1 className="text-2xl font-bold">فواتير شركات الشحن</h1>
           <p className="text-muted-foreground text-sm">
