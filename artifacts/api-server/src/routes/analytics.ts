@@ -189,13 +189,13 @@ router.get("/analytics/profit", requireAdmin, async (req, res): Promise<void> =>
   const productProfitMap: Record<string, {
     name: string; revenue: number; cost: number; profit: number;
     quantity: number; orderCount: number; closedCount: number; returnCount: number;
-    invoiceSet: Set<string>;
+    invoiceSet: Set<string>; returnedInvoiceSet: Set<string>;
   }> = {};
 
   for (const o of allOrders) {
     const key = o.product;
     if (!productProfitMap[key]) {
-      productProfitMap[key] = { name: o.product, revenue: 0, cost: 0, profit: 0, quantity: 0, orderCount: 0, closedCount: 0, returnCount: 0, invoiceSet: new Set() };
+      productProfitMap[key] = { name: o.product, revenue: 0, cost: 0, profit: 0, quantity: 0, orderCount: 0, closedCount: 0, returnCount: 0, invoiceSet: new Set(), returnedInvoiceSet: new Set() };
     }
     const pm = productProfitMap[key];
     const rc = resolveCost(o, variantMap, productMap);
@@ -209,10 +209,14 @@ router.get("/analytics/profit", requireAdmin, async (req, res): Promise<void> =>
     }
 
     if (o.status === "returned") {
-      pm.returnCount++;
-      pm.closedCount++;
-      // البضاعة رجعت للمخزن → خسارة الشحن فقط
-      pm.profit -= sc;
+      // نعدّ الفاتورة المرتجعة مرة واحدة فقط
+      if (!pm.returnedInvoiceSet.has(invoiceKey)) {
+        pm.returnedInvoiceSet.add(invoiceKey);
+        pm.returnCount++;
+        pm.closedCount++;
+        // البضاعة رجعت للمخزن → خسارة الشحن فقط
+        pm.profit -= sc;
+      }
     } else if (o.status === "received" || o.status === "partial_received") {
       const p = calcOrderProfit({ ...o, shippingCost: sc }, rc);
       const qty = o.status === "partial_received" ? (o.partialQuantity ?? o.quantity) : o.quantity;
@@ -463,7 +467,7 @@ router.get("/analytics/product-performance", requireAdmin, async (_req, res): Pr
     roi: number;
   };
 
-  const statsMap = new Map<string, Omit<ProductStats, "avgSalePrice" | "margin" | "returnRate" | "roi"> & { invoiceSet: Set<string> }>();
+  const statsMap = new Map<string, Omit<ProductStats, "avgSalePrice" | "margin" | "returnRate" | "roi"> & { invoiceSet: Set<string>; returnedInvoiceSet: Set<string> }>();
 
   for (const o of allOrders) {
     const key = o.product.trim();
@@ -475,15 +479,16 @@ router.get("/analytics/product-performance", requireAdmin, async (_req, res): Pr
         totalRevenue: 0, totalCost: 0, totalShipping: 0,
         returnCount: 0, returnCostLoss: 0, netProfit: 0,
         invoiceSet: new Set(),
+        returnedInvoiceSet: new Set(),
       });
     }
 
     const s = statsMap.get(key)!;
     const rc = resolveCost(o, variantMap, productMap);
     const sc = o.shippingCost ?? 0;
-
-    // نعدّ كل فاتورة مرة واحدة بس
     const invoiceKey = o.invoiceNumber ?? `solo-${o.id}`;
+
+    // نعدّ كل فاتورة مرة واحدة بس في totalOrders
     if (!s.invoiceSet.has(invoiceKey)) {
       s.invoiceSet.add(invoiceKey);
       s.totalOrders++;
@@ -510,11 +515,15 @@ router.get("/analytics/product-performance", requireAdmin, async (_req, res): Pr
       s.totalShipping += sc;
       s.netProfit += rev - cost - sc;
     } else if (o.status === "returned") {
-      // البضاعة رجعت للمخزن → الخسارة الحقيقية هي تكلفة الشحن فقط (مش تكلفة البضاعة)
-      s.returnCount++;
-      s.totalShipping += sc;
-      s.returnCostLoss += sc;
-      s.netProfit -= sc;
+      // البضاعة رجعت للمخزن → الخسارة الحقيقية هي تكلفة الشحن فقط
+      // نعدّ الفاتورة المرتجعة مرة واحدة فقط بغض النظر عن عدد المنتجات فيها
+      if (!s.returnedInvoiceSet.has(invoiceKey)) {
+        s.returnedInvoiceSet.add(invoiceKey);
+        s.returnCount++;
+        s.totalShipping += sc;
+        s.returnCostLoss += sc;
+        s.netProfit -= sc;
+      }
     }
   }
 
@@ -882,13 +891,13 @@ router.get("/analytics/smart-insights", async (_req, res): Promise<void> => {
   const productStatsMap: Record<string, {
     name: string; revenue: number; cost: number; profit: number;
     quantity: number; orderCount: number; closedCount: number; returnCount: number;
-    invoiceSet: Set<string>;
+    invoiceSet: Set<string>; returnedInvoiceSet: Set<string>;
   }> = {};
 
   for (const o of allOrders) {
     const key = o.product.trim();
     if (!productStatsMap[key]) {
-      productStatsMap[key] = { name: key, revenue: 0, cost: 0, profit: 0, quantity: 0, orderCount: 0, closedCount: 0, returnCount: 0, invoiceSet: new Set() };
+      productStatsMap[key] = { name: key, revenue: 0, cost: 0, profit: 0, quantity: 0, orderCount: 0, closedCount: 0, returnCount: 0, invoiceSet: new Set(), returnedInvoiceSet: new Set() };
     }
     const pm = productStatsMap[key];
     const rc = resolveCost(o, variantMap, productMap);
@@ -902,10 +911,14 @@ router.get("/analytics/smart-insights", async (_req, res): Promise<void> => {
     }
 
     if (o.status === "returned") {
-      pm.returnCount++;
-      pm.closedCount++;
-      // البضاعة رجعت → خسارة الشحن فقط
-      pm.profit -= sc;
+      // نعدّ الفاتورة المرتجعة مرة واحدة فقط
+      if (!pm.returnedInvoiceSet.has(invoiceKey)) {
+        pm.returnedInvoiceSet.add(invoiceKey);
+        pm.returnCount++;
+        pm.closedCount++;
+        // البضاعة رجعت → خسارة الشحن فقط
+        pm.profit -= sc;
+      }
     } else if (o.status === "received" || o.status === "partial_received") {
       const p = calcOrderProfit({ ...o, shippingCost: sc }, rc);
       const qty = o.status === "partial_received" ? (o.partialQuantity ?? o.quantity) : o.quantity;
