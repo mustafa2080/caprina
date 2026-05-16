@@ -34,13 +34,42 @@ function formatDate(d: string) {
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-card border border-border rounded-xl w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <h3 className="font-bold text-base text-foreground">{title}</h3>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X size={16} /></button>
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className={[
+          "bg-card border border-border w-full flex flex-col",
+          // موبايل: bottom-sheet يأخذ 95% من الشاشة
+          "rounded-t-3xl sm:rounded-2xl",
+          "max-h-[95dvh] sm:max-h-[90vh]",
+          // ديسكتوب: عرض ثابت ومناسب
+          "sm:max-w-xl sm:w-full",
+          "shadow-2xl",
+        ].join(" ")}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* drag handle — موبايل فقط */}
+        <div className="flex justify-center pt-2.5 pb-0 sm:hidden shrink-0">
+          <div className="w-12 h-1.5 rounded-full bg-muted-foreground/30" />
         </div>
-        <div className="p-5">{children}</div>
+
+        {/* header */}
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border shrink-0">
+          <h3 className="font-black text-base text-foreground">{title}</h3>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* scrollable body — padding bottom كبير على موبايل لو فيه safe area */}
+        <div className="overflow-y-auto overscroll-contain flex-1 px-5 pt-5 pb-safe">
+          {children}
+        </div>
       </div>
     </div>
   );
@@ -223,92 +252,273 @@ export default function SuperAdminPage() {
         )}
       </div>
 
-      {/* Modal: Create */}
       {showCreate && (
-        <Modal title="اشتراك جديد" onClose={() => setShowCreate(false)}>
-          <div className="space-y-3">
-            {/* بيانات الشركة */}
-            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">بيانات الشركة</p>
-            {[
-              { label: "اسم الشركة / العميل *", key: "name",         type: "text",  placeholder: "مثال: شركة النور" },
-              { label: "Slug (معرف فريد) *",    key: "slug",         type: "text",  placeholder: "al-noor"          },
-              { label: "إيميل التواصل",          key: "contactEmail", type: "email", placeholder: "client@example.com" },
-              { label: "رقم الهاتف",             key: "contactPhone", type: "tel",   placeholder: "01xxxxxxxxx"      },
-              { label: "ملاحظات",                key: "notes",        type: "text",  placeholder: "أي ملاحظات"       },
-            ].map(f => (
-              <div key={f.key}>
-                <label className="text-xs font-bold text-muted-foreground block mb-1">{f.label}</label>
-                <input type={f.type} placeholder={f.placeholder} value={(form as any)[f.key]} onChange={e => setForm(v => ({ ...v, [f.key]: e.target.value }))} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-sm text-foreground outline-none focus:border-primary/50" />
-              </div>
-            ))}
+        <Modal title="➕ اشتراك جديد" onClose={() => setShowCreate(false)}>
+          {/* wrapper: padding bottom ضخم على الموبايل عشان الـ sticky button ميغطيش المحتوى */}
+          <div className="space-y-6 pb-28 sm:pb-6">
 
-            {/* بيانات الباقة */}
-            <div className="grid grid-cols-2 gap-3">
+            {/* ── Section 1: بيانات الشركة ── */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-6 h-6 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center shrink-0">
+                  <Building2 size={12} className="text-blue-400" />
+                </div>
+                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">بيانات الشركة</p>
+              </div>
+
+              {/* اسم الشركة */}
               <div>
-                <label className="text-xs font-bold text-muted-foreground block mb-1">الباقة *</label>
-                <select value={form.plan} onChange={e => setForm(v => ({ ...v, plan: e.target.value }))} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-sm text-foreground outline-none">
-                  {Object.entries(PLAN_LABELS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-                </select>
+                <label className="text-xs font-bold text-foreground/70 block mb-1.5">
+                  اسم الشركة / العميل <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text" placeholder="مثال: شركة النور للتجارة" value={form.name}
+                  onChange={e => setForm(v => ({ ...v, name: e.target.value }))}
+                  className="w-full h-11 px-3.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/10 transition-all"
+                />
               </div>
+
+              {/* Slug */}
               <div>
-                <label className="text-xs font-bold text-muted-foreground block mb-1">المدة (أيام) *</label>
-                <select value={form.durationDays} onChange={e => setForm(v => ({ ...v, durationDays: e.target.value }))} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-sm text-foreground outline-none">
-                  {[["14","14 يوم (تجريبي)"],["30","30 يوم"],["90","3 أشهر"],["180","6 أشهر"],["365","سنة"]].map(([v,l]) => <option key={v} value={v}>{l}</option>)}
-                </select>
+                <label className="text-xs font-bold text-foreground/70 block mb-1.5">
+                  Slug <span className="text-red-400">*</span>
+                  <span className="text-[10px] text-muted-foreground font-normal mr-2">معرّف فريد بالإنجليزية</span>
+                </label>
+                <input
+                  type="text" placeholder="al-noor" value={form.slug}
+                  onChange={e => setForm(v => ({ ...v, slug: e.target.value.replace(/\s/g, "-").toLowerCase() }))}
+                  className="w-full h-11 px-3.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/10 transition-all"
+                  dir="ltr"
+                />
+              </div>
+
+              {/* إيميل + هاتف — جنب بعض على sm فأكبر */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-foreground/70 block mb-1.5">إيميل التواصل</label>
+                  <input
+                    type="email" placeholder="client@example.com" value={form.contactEmail}
+                    onChange={e => setForm(v => ({ ...v, contactEmail: e.target.value }))}
+                    className="w-full h-11 px-3.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/10 transition-all"
+                    dir="ltr"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-foreground/70 block mb-1.5">رقم الهاتف</label>
+                  <input
+                    type="tel" placeholder="01xxxxxxxxx" value={form.contactPhone}
+                    onChange={e => setForm(v => ({ ...v, contactPhone: e.target.value }))}
+                    className="w-full h-11 px-3.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/10 transition-all"
+                    dir="ltr"
+                  />
+                </div>
+              </div>
+
+              {/* ملاحظات */}
+              <div>
+                <label className="text-xs font-bold text-foreground/70 block mb-1.5">ملاحظات</label>
+                <input
+                  type="text" placeholder="أي ملاحظات إضافية" value={form.notes}
+                  onChange={e => setForm(v => ({ ...v, notes: e.target.value }))}
+                  className="w-full h-11 px-3.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/10 transition-all"
+                />
               </div>
             </div>
 
-            {/* بيانات دخول الأدمن */}
-            <div className="border-t border-border pt-3">
-              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-2">بيانات دخول العميل</p>
-              <div className="space-y-2">
-                <div>
-                  <label className="text-xs font-bold text-muted-foreground block mb-1">اسم المستخدم (username) *</label>
-                  <input type="text" placeholder="مثال: alnoor_admin" value={form.adminUsername} onChange={e => setForm(v => ({ ...v, adminUsername: e.target.value.replace(/\s/g,"") }))} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-sm text-foreground outline-none focus:border-primary/50" />
+            {/* divider */}
+            <div className="border-t border-border/50" />
+
+            {/* ── Section 2: الباقة والمدة ── */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-6 h-6 rounded-full bg-violet-500/20 border border-violet-500/30 flex items-center justify-center shrink-0">
+                  <Crown size={12} className="text-violet-400" />
                 </div>
-                <div>
-                  <label className="text-xs font-bold text-muted-foreground block mb-1">كلمة المرور *</label>
-                  <input type="text" placeholder="كلمة مرور قوية" value={form.adminPassword} onChange={e => setForm(v => ({ ...v, adminPassword: e.target.value }))} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-sm text-foreground outline-none focus:border-primary/50" />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-muted-foreground block mb-1">الاسم الظاهر</label>
-                  <input type="text" placeholder={form.name || "اسم المدير"} value={form.adminDisplayName} onChange={e => setForm(v => ({ ...v, adminDisplayName: e.target.value }))} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-sm text-foreground outline-none focus:border-primary/50" />
+                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">الباقة والمدة</p>
+              </div>
+
+              {/* Plan cards — 2 × 2 */}
+              <div className="grid grid-cols-2 gap-2">
+                {Object.entries(PLAN_LABELS).map(([k, v]) => {
+                  const Icon = v.icon;
+                  const selected = form.plan === k;
+                  return (
+                    <button
+                      key={k} type="button"
+                      onClick={() => setForm(p => ({ ...p, plan: k }))}
+                      className={`flex items-center gap-2.5 p-3 rounded-xl border-2 text-right transition-all active:scale-[.97] ${
+                        selected ? "border-primary bg-primary/5" : "border-border bg-background hover:bg-muted/20"
+                      }`}
+                    >
+                      <div className={`w-8 h-8 rounded-lg border flex items-center justify-center shrink-0 ${v.color}`}>
+                        <Icon size={14} />
+                      </div>
+                      <span className={`text-xs font-bold flex-1 ${selected ? "text-primary" : "text-foreground"}`}>
+                        {v.label}
+                      </span>
+                      {selected && <div className="w-2 h-2 rounded-full bg-primary shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Duration — 3 على موبايل / 5 على ديسكتوب */}
+              <div>
+                <label className="text-xs font-bold text-foreground/70 block mb-1.5">
+                  مدة الاشتراك <span className="text-red-400">*</span>
+                </label>
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                  {[["14","14 يوم"],["30","شهر"],["90","3 أشهر"],["180","6 أشهر"],["365","سنة"]].map(([val, lbl]) => (
+                    <button
+                      key={val} type="button"
+                      onClick={() => setForm(p => ({ ...p, durationDays: val }))}
+                      className={`h-10 rounded-xl border-2 text-xs font-bold transition-all active:scale-[.97] ${
+                        form.durationDays === val
+                          ? "border-primary bg-primary/5 text-primary"
+                          : "border-border bg-background text-muted-foreground hover:bg-muted/20"
+                      }`}
+                    >
+                      {lbl}
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
 
-            <div className="flex gap-2 pt-1">
-              <button onClick={() => createMut.mutate({ name: form.name, slug: form.slug.toLowerCase().replace(/\s+/g,"-"), plan: form.plan, contactEmail: form.contactEmail||undefined, contactPhone: form.contactPhone||undefined, notes: form.notes||undefined, durationDays: parseInt(form.durationDays), adminUsername: form.adminUsername, adminPassword: form.adminPassword, adminDisplayName: form.adminDisplayName||undefined })} disabled={!form.name||!form.slug||!form.adminUsername||!form.adminPassword||createMut.isPending} className="flex-1 h-9 bg-primary text-primary-foreground rounded-lg text-sm font-bold disabled:opacity-40 hover:bg-primary/90 transition-colors">
-                {createMut.isPending ? "جاري الإنشاء..." : "إنشاء الاشتراك والمستخدم"}
-              </button>
-              <button onClick={() => setShowCreate(false)} className="h-9 px-4 border border-border rounded-lg text-sm text-muted-foreground hover:bg-muted/20 transition-colors">إلغاء</button>
+            {/* divider */}
+            <div className="border-t border-border/50" />
+
+            {/* ── Section 3: بيانات دخول العميل ── */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-6 h-6 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                  <Users size={12} className="text-emerald-400" />
+                </div>
+                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">بيانات دخول العميل</p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-foreground/70 block mb-1.5">
+                    اسم المستخدم <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="text" placeholder="alnoor_admin" value={form.adminUsername}
+                    onChange={e => setForm(v => ({ ...v, adminUsername: e.target.value.replace(/\s/g, "") }))}
+                    className="w-full h-11 px-3.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/10 transition-all"
+                    dir="ltr"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-foreground/70 block mb-1.5">
+                    كلمة المرور <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="text" placeholder="كلمة مرور قوية" value={form.adminPassword}
+                    onChange={e => setForm(v => ({ ...v, adminPassword: e.target.value }))}
+                    className="w-full h-11 px-3.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/10 transition-all"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="text-xs font-bold text-foreground/70 block mb-1.5">الاسم الظاهر</label>
+                  <input
+                    type="text" placeholder={form.name || "اسم المدير"} value={form.adminDisplayName}
+                    onChange={e => setForm(v => ({ ...v, adminDisplayName: e.target.value }))}
+                    className="w-full h-11 px-3.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/10 transition-all"
+                  />
+                </div>
+              </div>
             </div>
+          </div>
+
+          {/* ── Sticky action bar — بتثبت في أسفل الـ modal على أي شاشة ── */}
+          <div className="sticky bottom-0 left-0 right-0 bg-card border-t border-border px-5 py-3 flex gap-2 shrink-0">
+            <button
+              onClick={() => createMut.mutate({
+                name: form.name,
+                slug: form.slug.toLowerCase().replace(/\s+/g, "-"),
+                plan: form.plan,
+                contactEmail: form.contactEmail || undefined,
+                contactPhone: form.contactPhone || undefined,
+                notes: form.notes || undefined,
+                durationDays: parseInt(form.durationDays),
+                adminUsername: form.adminUsername,
+                adminPassword: form.adminPassword,
+                adminDisplayName: form.adminDisplayName || undefined,
+              })}
+              disabled={!form.name || !form.slug || !form.adminUsername || !form.adminPassword || createMut.isPending}
+              className="flex-1 h-12 bg-primary text-primary-foreground rounded-xl text-sm font-bold disabled:opacity-40 hover:bg-primary/90 active:scale-[.98] transition-all flex items-center justify-center gap-2"
+            >
+              {createMut.isPending ? (
+                <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> جاري الإنشاء...</>
+              ) : (
+                <><Plus size={15} /> إنشاء الاشتراك والمستخدم</>
+              )}
+            </button>
+            <button
+              onClick={() => setShowCreate(false)}
+              className="h-12 px-5 border border-border rounded-xl text-sm text-muted-foreground hover:bg-muted/20 active:scale-[.98] transition-all"
+            >
+              إلغاء
+            </button>
           </div>
         </Modal>
       )}
 
       {/* Modal: Renew */}
       {showRenew && (
-        <Modal title={`تجديد: ${showRenew.name}`} onClose={() => setShowRenew(null)}>
-          <div className="space-y-4">
+        <Modal title={`🔄 تجديد: ${showRenew.name}`} onClose={() => setShowRenew(null)}>
+          <div className="space-y-5 pb-24 sm:pb-4">
             <div>
-              <label className="text-xs font-bold text-muted-foreground block mb-1">الباقة</label>
-              <select value={renewPlan} onChange={e => setRenewPlan(e.target.value)} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-sm text-foreground outline-none">
-                {Object.entries(PLAN_LABELS).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}
-              </select>
+              <label className="text-xs font-bold text-foreground/70 block mb-2">الباقة</label>
+              <div className="grid grid-cols-2 gap-2">
+                {Object.entries(PLAN_LABELS).map(([k, v]) => {
+                  const Icon = v.icon;
+                  const selected = renewPlan === k;
+                  return (
+                    <button key={k} type="button" onClick={() => setRenewPlan(k)}
+                      className={`flex items-center gap-2.5 p-3 rounded-xl border-2 text-right transition-all active:scale-[.97] ${
+                        selected ? "border-primary bg-primary/5" : "border-border bg-background hover:bg-muted/20"
+                      }`}>
+                      <div className={`w-7 h-7 rounded-lg border flex items-center justify-center shrink-0 ${v.color}`}>
+                        <Icon size={13} />
+                      </div>
+                      <span className={`text-xs font-bold flex-1 ${selected ? "text-primary" : "text-foreground"}`}>{v.label}</span>
+                      {selected && <div className="w-2 h-2 rounded-full bg-primary shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
             <div>
-              <label className="text-xs font-bold text-muted-foreground block mb-1">مدة التجديد</label>
-              <select value={renewDays} onChange={e => setRenewDays(e.target.value)} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-sm text-foreground outline-none">
-                {[["14","14 يوم"],["30","شهر"],["90","3 أشهر"],["180","6 أشهر"],["365","سنة"]].map(([v,l]) => <option key={v} value={v}>{l}</option>)}
-              </select>
+              <label className="text-xs font-bold text-foreground/70 block mb-2">مدة التجديد</label>
+              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                {[["14","14 يوم"],["30","شهر"],["90","3 أشهر"],["180","6 أشهر"],["365","سنة"]].map(([val, lbl]) => (
+                  <button key={val} type="button" onClick={() => setRenewDays(val)}
+                    className={`h-10 rounded-xl border-2 text-xs font-bold transition-all active:scale-[.97] ${
+                      renewDays === val ? "border-primary bg-primary/5 text-primary" : "border-border bg-background text-muted-foreground hover:bg-muted/20"
+                    }`}>
+                    {lbl}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="flex gap-2">
-              <button onClick={() => renewMut.mutate({ id: showRenew.id, body: { plan: renewPlan, durationDays: parseInt(renewDays) } })} disabled={renewMut.isPending} className="flex-1 h-9 bg-emerald-600 text-white rounded-lg text-sm font-bold disabled:opacity-40 hover:bg-emerald-500 transition-colors">
-                {renewMut.isPending ? "جاري التجديد..." : "تجديد الاشتراك"}
-              </button>
-              <button onClick={() => setShowRenew(null)} className="h-9 px-4 border border-border rounded-lg text-sm text-muted-foreground hover:bg-muted/20 transition-colors">إلغاء</button>
-            </div>
+          </div>
+          <div className="sticky bottom-0 bg-card border-t border-border px-5 py-3 flex gap-2">
+            <button
+              onClick={() => renewMut.mutate({ id: showRenew.id, body: { plan: renewPlan, durationDays: parseInt(renewDays) } })}
+              disabled={renewMut.isPending}
+              className="flex-1 h-12 bg-emerald-600 text-white rounded-xl text-sm font-bold disabled:opacity-40 hover:bg-emerald-500 active:scale-[.98] transition-all flex items-center justify-center gap-2">
+              {renewMut.isPending ? (
+                <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> جاري التجديد...</>
+              ) : (
+                <><RefreshCw size={14} /> تجديد الاشتراك</>
+              )}
+            </button>
+            <button onClick={() => setShowRenew(null)}
+              className="h-12 px-5 border border-border rounded-xl text-sm text-muted-foreground hover:bg-muted/20 active:scale-[.98] transition-all">
+              إلغاء
+            </button>
           </div>
         </Modal>
       )}
