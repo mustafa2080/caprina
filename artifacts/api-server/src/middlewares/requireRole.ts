@@ -18,7 +18,7 @@ export function requireRole(...roles: UserRole[]) {
 
 export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
   const user = req.user;
-  if (!user || user.role !== "admin") {
+  if (!user || (user.role !== "admin" && user.role !== "super_admin")) {
     res.status(403).json({ error: "هذه العملية تتطلب صلاحية المدير" });
     return;
   }
@@ -26,5 +26,5 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction): v
 }
 
 export function isAdmin(req: Request): boolean {
-  return req.user?.role === "admin";
+  return req.user?.role === "admin" || req.user?.role === "super_admin";
 }
