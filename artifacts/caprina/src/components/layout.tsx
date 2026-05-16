@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useState, useMemo } from "react";
-import { LayoutDashboard, Package, Plus, Boxes, Truck, FileText, Upload, Activity, BarChart3, Users, Shield, LogOut, ChevronDown, KeyRound, Warehouse, Megaphone, UserCheck, UserCog, Sun, Moon, Brain, Archive, Clock, MessageCircle, Menu, X, Download, DollarSign, ShoppingCart, Receipt, Building2, Wallet, ChevronLeft } from "lucide-react";
+import { LayoutDashboard, Package, Plus, Boxes, Truck, FileText, Upload, Activity, BarChart3, Users, Shield, LogOut, ChevronDown, KeyRound, Warehouse, Megaphone, UserCheck, UserCog, Sun, Moon, Brain, Archive, Clock, MessageCircle, Menu, X, Download, DollarSign, ShoppingCart, Receipt, Building2, Wallet, ChevronLeft, Crown } from "lucide-react";
 import { BrandFull } from "@/components/brand-logo";
 import { BrandSettingsDialog } from "@/components/brand-settings-dialog";
 import { cn } from "@/lib/utils";
@@ -184,6 +184,22 @@ export default function Layout({ children }: LayoutProps) {
                 </div>
               )}
             </div>
+          )}
+
+          {/* ── Super Admin: إدارة الاشتراكات ─────────────────────── */}
+          {user?.role === "super_admin" && (
+            <Link
+              href="/super-admin"
+              className={cn(
+                "flex items-center gap-3 px-3 py-2 rounded-md text-xs font-semibold transition-all mt-2 border",
+                location === "/super-admin"
+                  ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
+                  : "text-amber-500/70 hover:text-amber-400 hover:bg-amber-500/10 border-amber-500/15"
+              )}
+            >
+              <Crown className="w-3.5 h-3.5 shrink-0 text-amber-400" />
+              إدارة الاشتراكات
+            </Link>
           )}
         </nav>
 
