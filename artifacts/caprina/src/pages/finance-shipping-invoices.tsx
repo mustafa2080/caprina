@@ -5,10 +5,10 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Truck, CheckCircle, Clock, AlertCircle, ArrowRight, Package, RotateCcw, Wallet, Link as LinkIcon } from "lucide-react";
+import { Truck, CheckCircle, Clock, AlertCircle, ArrowRight, Package, RotateCcw, Wallet, Link as LinkIcon, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 
 const STATUS_LABELS: Record<string, { label: string; color: string; solid: string; glow: string }> = {
   pending:  { label: "في انتظار التسوية", color: "#F59E0B", glow: "rgba(245,158,11,0.25)",  solid: "rgba(245,158,11,0.15)",  },
@@ -23,6 +23,7 @@ const fmt = (n: string | number) =>
 export default function FinanceShippingInvoices() {
   const qc = useQueryClient();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
   const [statusFilter, setStatusFilter] = useState("all");
 
   // ── جيب الفواتير المالية (المرتبطة تلقائياً ببيانات الشحن المقفولة) ──────
@@ -86,6 +87,10 @@ export default function FinanceShippingInvoices() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
+          <button onClick={() => navigate("/")} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mb-2">
+            <ChevronRight className="w-4 h-4" />
+            لوحة التحكم
+          </button>
           <h1 className="text-2xl font-bold">فواتير شركات الشحن</h1>
           <p className="text-muted-foreground text-sm">
             الفواتير المالية المُنشأة تلقائياً عند إقفال بيانات الشحن

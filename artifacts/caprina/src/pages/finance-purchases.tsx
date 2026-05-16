@@ -8,9 +8,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, ShoppingCart, Trash2, ChevronDown, Search, X, Filter, FileSpreadsheet, SlidersHorizontal } from "lucide-react";
+import { Plus, ShoppingCart, Trash2, ChevronDown, ChevronRight, Search, X, Filter, FileSpreadsheet, SlidersHorizontal } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { useLocation } from "wouter";
 import { apiFetch } from "@/lib/api";
 
 const api = {
@@ -463,6 +464,7 @@ function POForm({
 export default function FinancePurchases() {
   const qc = useQueryClient();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   // ── فلاتر الأعمدة ────────────────────────────────────────────────────────
   const [search, setSearch]               = useState("");
@@ -561,6 +563,10 @@ export default function FinancePurchases() {
       {/* ── Header ── */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
+          <button onClick={() => navigate("/finance")} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mb-2">
+            <ChevronRight className="w-4 h-4" />
+            لوحة الماليات
+          </button>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <ShoppingCart className="w-6 h-6 text-blue-600" />أوامر الشراء
           </h1>

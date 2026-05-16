@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { useLocation } from "wouter";
 import { apiFetch } from "@/lib/api";
 
 const api = {
@@ -52,7 +53,7 @@ const defaultForm = () => ({
 export default function FinanceExpenses() {
   const qc = useQueryClient();
   const { toast } = useToast();
-
+  const [, navigate] = useLocation();
   // ── Dialog state ──
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(defaultForm());
@@ -157,6 +158,10 @@ export default function FinanceExpenses() {
       {/* ── Header ── */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
+          <button onClick={() => navigate("/finance")} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mb-2">
+            <ChevronRight className="w-4 h-4" />
+            لوحة الماليات
+          </button>
           <h1 className="text-2xl font-bold">المصروفات التشغيلية</h1>
           <p className="text-muted-foreground text-sm">تسجيل ومتابعة كل مصروفات الشركة — مع الربط التلقائي بالخزنة</p>
         </div>

@@ -295,6 +295,10 @@ export default function FinanceCashPage() {
       {/* ── Header ── */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
+          <button onClick={() => navigate("/finance")} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mb-2">
+            <ChevronRight className="w-4 h-4" />
+            لوحة الماليات
+          </button>
           <h1 className="text-2xl font-black flex items-center gap-2.5">
             <div className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-sm" style={{background:"#DEA82120"}}>
               <Wallet className="w-5 h-5" style={{color:"#DEA821"}} />
