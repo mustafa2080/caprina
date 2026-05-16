@@ -13,7 +13,7 @@ export interface AuthUser {
   id: number;
   username: string;
   displayName: string;
-  role: "admin" | "employee" | "warehouse";
+  role: "super_admin" | "admin" | "employee" | "warehouse";
   permissions: string[];
   isActive: boolean;
 }
@@ -26,6 +26,7 @@ interface AuthContextValue {
   logout: () => void;
   refreshUser: () => Promise<void>;
   isAdmin: boolean;
+  isSuperAdmin: boolean;
   isEmployee: boolean;
   isWarehouse: boolean;
   can: (permission: string) => boolean;
@@ -279,19 +280,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const can = useCallback(
     (permission: string): boolean => {
       if (!user) return false;
+      // super_admin عنده كل الصلاحيات دايماً
+      if (user.role === "super_admin") return true;
       const rawPerms = flattenPermissions(user.permissions);
 
       // "*" يعني كل الصلاحيات
       if (rawPerms.includes("*")) return true;
 
       // لو permissions فاضية تماماً — استخدم الافتراضية للدور
-      // ده للمستخدمين القدامى اللي اتعملوا قبل نظام الصلاحيات
       if (rawPerms.length === 0) {
         const defaults = ROLE_DEFAULT_PERMISSIONS[user.role] ?? [];
         return defaults.includes(permission);
       }
 
-      // تحقق من الـ permissions المخزنة فعلاً — لكل الأدوار بما فيهم الأدمن
       return rawPerms.includes(permission);
     },
     [user]
@@ -302,7 +303,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider value={{
       user, token, sessionId, login, logout, refreshUser,
-      isAdmin: user?.role === "admin",
+      isSuperAdmin: user?.role === "super_admin",
+      isAdmin: user?.role === "admin" || user?.role === "super_admin",
       isEmployee: user?.role === "employee",
       isWarehouse: user?.role === "warehouse",
       can, canViewFinancials, loading,
