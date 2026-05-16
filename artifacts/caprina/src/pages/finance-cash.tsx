@@ -86,6 +86,14 @@ export default function FinanceCashPage() {
   const [colFilterActive, setColFilterActive] = useState(false);
   const [colFilters, setColFilters] = useState<Record<string, string>>({});
 
+  // unique values لكل عمود من البيانات الموجودة
+  const colOptions = useMemo(() => ({
+    type: [...new Set(transactions.map(tx => tx.type))].map(t => ({ value: t, label: TX_LABELS[t]?.label ?? t })),
+    dir:  [{ value: "in", label: "دخل" }, { value: "out", label: "خروج" }],
+    by:   [...new Set(transactions.map(tx => tx.createdByName ?? "").filter(Boolean))].map(v => ({ value: v, label: v })),
+    date: [...new Set(transactions.map(tx => new Date(tx.transactionDate).toLocaleDateString("ar-EG")))].map(v => ({ value: v, label: v })),
+  }), [transactions]);
+
   // تاسك 2: تعديل/حذف حركة
   const [editTxOpen, setEditTxOpen] = useState(false);
   const [deleteTxId, setDeleteTxId] = useState<number | null>(null);
@@ -257,11 +265,14 @@ export default function FinanceCashPage() {
   const colFilteredTx = useMemo(() => {
     if (!colFilterActive || Object.values(colFilters).every(v => !v)) return filteredTx;
     return filteredTx.filter(tx => {
-      if (colFilters.date && !new Date(tx.transactionDate).toLocaleDateString("ar-EG").includes(colFilters.date)) return false;
-      if (colFilters.type && !(TX_LABELS[tx.type]?.label ?? tx.type).includes(colFilters.type)) return false;
-      if (colFilters.amount && !tx.amount.toString().includes(colFilters.amount)) return false;
-      if (colFilters.desc && !(tx.description ?? "").includes(colFilters.desc) && !(tx.referenceNumber ?? "").includes(colFilters.desc)) return false;
-      if (colFilters.by && !(tx.createdByName ?? "").includes(colFilters.by)) return false;
+      if (colFilters.date && new Date(tx.transactionDate).toLocaleDateString("ar-EG") !== colFilters.date) return false;
+      if (colFilters.type && tx.type !== colFilters.type) return false;
+      if (colFilters.dir) {
+        const isIn = CREDIT_TYPES.includes(tx.type);
+        if (colFilters.dir === "in" && !isIn) return false;
+        if (colFilters.dir === "out" && isIn) return false;
+      }
+      if (colFilters.by && tx.createdByName !== colFilters.by) return false;
       return true;
     });
   }, [filteredTx, colFilters, colFilterActive]);
@@ -517,30 +528,34 @@ export default function FinanceCashPage() {
                   <thead>
                     <tr style={{ background: "hsl(var(--muted)/0.3)", borderBottom: "1px solid hsl(var(--border))" }}>
                       {[
-                        { key: "date",   label: "التاريخ",     filterKey: "date"   },
-                        { key: "type",   label: "نوع الحركة",  filterKey: "type"   },
-                        { key: "dir",    label: "الاتجاه",     filterKey: ""       },
-                        { key: "amount", label: "المبلغ",      filterKey: "amount" },
-                        { key: "after",  label: "الرصيد بعد",  filterKey: ""       },
-                        { key: "desc",   label: "ملاحظة",      filterKey: "desc"   },
-                        { key: "by",     label: "بواسطة",      filterKey: "by"     },
-                        { key: "actions",label: "",             filterKey: ""       },
+                        { key: "date",   label: "التاريخ",    filterKey: "date", options: colOptions.date },
+                        { key: "type",   label: "نوع الحركة", filterKey: "type", options: colOptions.type },
+                        { key: "dir",    label: "الاتجاه",    filterKey: "dir",  options: colOptions.dir  },
+                        { key: "amount", label: "المبلغ",     filterKey: "",     options: []              },
+                        { key: "after",  label: "الرصيد بعد", filterKey: "",     options: []              },
+                        { key: "desc",   label: "ملاحظة",     filterKey: "",     options: []              },
+                        { key: "by",     label: "بواسطة",     filterKey: "by",   options: colOptions.by   },
+                        { key: "actions",label: "",           filterKey: "",     options: []              },
                       ].map(col => (
-                        <th key={col.key} className={`text-right p-3 text-xs font-semibold tracking-wide ${["after"].includes(col.key) ? "hidden md:table-cell" : ""} ${["desc"].includes(col.key) ? "hidden md:table-cell" : ""} ${["by"].includes(col.key) ? "hidden lg:table-cell" : ""}`}
+                        <th key={col.key} className={`text-right p-3 text-xs font-semibold tracking-wide ${col.key === "after" ? "hidden md:table-cell" : ""} ${col.key === "desc" ? "hidden md:table-cell" : ""} ${col.key === "by" ? "hidden lg:table-cell" : ""}`}
                           style={{ color: "hsl(var(--muted-foreground))" }}>
-                          <div className="flex flex-col gap-1">
+                          <div className="flex flex-col gap-1.5">
                             <span className="flex items-center gap-1">
                               {col.label}
                               {colFilterActive && col.filterKey && <Filter className="w-2.5 h-2.5 text-primary opacity-60"/>}
                             </span>
-                            {colFilterActive && col.filterKey && (
-                              <input
-                                placeholder={`فلتر...`}
+                            {colFilterActive && col.filterKey && col.options.length > 0 && (
+                              <select
                                 value={colFilters[col.filterKey] ?? ""}
                                 onChange={e => setColFilters(p => ({ ...p, [col.filterKey]: e.target.value }))}
-                                className="w-full h-6 px-2 rounded-lg border border-border bg-background text-[10px] font-normal outline-none focus:border-primary/50"
                                 onClick={e => e.stopPropagation()}
-                              />
+                                className="w-full h-7 px-2 rounded-lg border border-border bg-background text-[10px] font-normal text-foreground outline-none focus:border-primary/50 cursor-pointer"
+                              >
+                                <option value="">الكل</option>
+                                {col.options.map(opt => (
+                                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                              </select>
                             )}
                           </div>
                         </th>
