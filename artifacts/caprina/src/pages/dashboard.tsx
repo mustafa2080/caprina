@@ -9,7 +9,7 @@ import {
   TrendingUp, TrendingDown, DollarSign, Package, AlertCircle,
   Plus, Activity, Boxes, ArrowUpRight, ArrowDownRight,
   Star, Wallet, BarChart3, ShoppingCart, AlertTriangle, RefreshCw, Bell, Brain, Zap, Archive, Clock,
-  Receipt, Building2, FileText,
+  Receipt, Building2, FileText, X, AlertOctagon,
 } from "lucide-react";
 import {
   analyticsApi, type PeriodProfit, type ProductProfit, type FinancialSummary, type Alert,
@@ -105,7 +105,110 @@ function ProductRow({ product, rank }: { product: ProductProfit; rank: number })
   );
 }
 
-// ─── Financial Row ─────────────────────────────────────────────────────────────
+// ─── Damaged Orders Modal ──────────────────────────────────────────────────────
+function DamagedOrdersModal({ onClose }: { onClose: () => void }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["analytics-damaged-orders"],
+    queryFn: () => apiFetchDashboard<{ orders: any[]; totalDamagedValue: number; totalLoss: number; count: number }>("/analytics/damaged-orders"),
+    staleTime: 30000,
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" dir="rtl">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-card border border-red-200 dark:border-red-900/50 rounded-xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/10">
+          <div className="flex items-center gap-2">
+            <AlertOctagon className="w-4 h-4 text-red-600 dark:text-red-400" />
+            <h2 className="text-sm font-black text-red-700 dark:text-red-400">تفاصيل التوالف</h2>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors">
+            <X className="w-4 h-4 text-red-600 dark:text-red-400" />
+          </button>
+        </div>
+
+        {/* Summary */}
+        {data && (
+          <div className="grid grid-cols-3 gap-2 p-3 border-b border-border bg-muted/20">
+            <div className="text-center">
+              <p className="text-[9px] text-muted-foreground">عدد التوالف</p>
+              <p className="text-base font-black text-red-600 dark:text-red-400">{data.count}</p>
+            </div>
+            <div className="text-center border-x border-border">
+              <p className="text-[9px] text-muted-foreground">قيمة البضاعة</p>
+              <p className="text-sm font-black text-red-600 dark:text-red-400">{fc(data.totalDamagedValue)}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-[9px] text-muted-foreground">الخسارة الكلية</p>
+              <p className="text-sm font-black text-red-700 dark:text-red-300">{fc(data.totalLoss)}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Orders List */}
+        <div className="overflow-y-auto flex-1 p-3 space-y-2">
+          {isLoading ? (
+            <div className="py-8 text-center text-sm text-muted-foreground animate-pulse">جاري التحميل...</div>
+          ) : !data || data.orders.length === 0 ? (
+            <div className="py-10 text-center">
+              <AlertOctagon className="w-8 h-8 mx-auto mb-2 text-muted-foreground opacity-20" />
+              <p className="text-sm text-muted-foreground">لا توجد توالف مسجّلة</p>
+            </div>
+          ) : (
+            data.orders.map((o: any) => (
+              <Link key={o.id} href={`/orders/${o.id}`} onClick={onClose}>
+                <div className="flex items-start justify-between p-3 rounded-lg border border-red-100 dark:border-red-900/30 bg-red-50/50 dark:bg-red-900/5 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors cursor-pointer gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-xs font-black truncate">{o.customerName}</span>
+                      {o.invoiceNumber && (
+                        <span className="text-[9px] font-mono text-primary/70 shrink-0">{o.invoiceNumber}</span>
+                      )}
+                    </div>
+                    <p className="text-[11px] font-semibold text-foreground/80 truncate">
+                      {o.product}{o.color ? ` • ${o.color}` : ""}{o.size ? ` / ${o.size}` : ""}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      {o.quantity} قطعة × {fc(o.costPrice)} تكلفة
+                      {o.phone && <span className="mr-2 opacity-60">{o.phone}</span>}
+                    </p>
+                    {(o.returnReason || o.returnNote) && (
+                      <p className="text-[9px] text-red-500/70 mt-0.5 truncate">
+                        {o.returnReason === "quality" ? "جودة المنتج" :
+                         o.returnReason === "size_mismatch" ? "مقاس غير مناسب" :
+                         o.returnReason === "customer_refused" ? "عميل غير جاد" :
+                         o.returnReason === "customer_requested_return" ? "طلب العميل" :
+                         o.returnReason === "delay" ? "تأخير" :
+                         o.returnNote || o.returnReason || ""}
+                      </p>
+                    )}
+                  </div>
+                  <div className="text-left shrink-0">
+                    <p className="text-xs font-black text-red-600 dark:text-red-400">{fc(o.damagedCost)}</p>
+                    <p className="text-[9px] text-muted-foreground">قيمة البضاعة</p>
+                    <p className="text-[10px] font-bold text-red-700 dark:text-red-300 mt-0.5">{fc(o.totalLoss)}</p>
+                    <p className="text-[9px] text-muted-foreground">إجمالي الخسارة</p>
+                  </div>
+                </div>
+              </Link>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// helper fetch للداشبورد (خارج الـ apiFetch العام)
+function apiFetchDashboard<T>(path: string): Promise<T> {
+  const token = localStorage.getItem("caprina_token");
+  return fetch(`/api${path}`, {
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  }).then(r => r.json());
+}
+
+// ─── Financial Row ──────────────────────────────────────────────────────────────
 function FinRow({ label, value, color = "text-foreground", sub }: { label: string; value: string; color?: string; sub?: string }) {
   return (
     <div className="flex items-center justify-between py-1.5 sm:py-2 border-b border-border/50 last:border-0 gap-2">
@@ -179,6 +282,7 @@ type Period = "today" | "week" | "month";
 export default function Dashboard() {
   const { isAdmin, canViewFinancials } = useAuth();
   const [period, setPeriod] = useState<Period>("today");
+  const [showDamagedModal, setShowDamagedModal] = useState(false);
   const { data: summary } = useGetOrdersSummary({
     query: { queryKey: ["orders-summary"], staleTime: 30000, refetchOnWindowFocus: true, refetchInterval: 60000 },
   });
@@ -785,7 +889,20 @@ export default function Dashboard() {
                 <FinRow label="إيرادات فُقدت" value={fc(fin.returnRevLost)} color="text-red-600 dark:text-red-400" sub="بيع كان مخطط" />
                 <FinRow label="تكلفة محملة" value={fc(fin.returnLoss)} color="text-red-600 dark:text-red-400" sub="شحن + بضاعة" />
                 {fin.returnDamagedValue > 0 && (
-                  <FinRow label="قيمة التوالف" value={fc(fin.returnDamagedValue)} color="text-red-700 dark:text-red-300" sub="بضاعة تالفة غير قابلة للبيع" />
+                  <div
+                    className="flex items-center justify-between py-1.5 sm:py-2 border-b border-border/50 last:border-0 gap-2 cursor-pointer group hover:bg-red-50/50 dark:hover:bg-red-900/10 rounded px-1 -mx-1 transition-colors"
+                    onClick={() => setShowDamagedModal(true)}
+                    title="اضغط لعرض تفاصيل التوالف"
+                  >
+                    <span className="text-[10px] sm:text-xs text-muted-foreground shrink-0 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors flex items-center gap-1">
+                      <AlertOctagon className="w-2.5 h-2.5 opacity-60 group-hover:opacity-100" />
+                      قيمة التوالف
+                    </span>
+                    <div className="text-right min-w-0">
+                      <span className="text-[10px] sm:text-xs font-bold block text-red-700 dark:text-red-300 group-hover:underline">{fc(fin.returnDamagedValue)}</span>
+                      <p className="text-[8px] sm:text-[9px] text-muted-foreground group-hover:text-red-500/70 transition-colors">اضغط لعرض التفاصيل</p>
+                    </div>
+                  </div>
                 )}
                 <div className="mt-1.5 sm:mt-2 text-center">
                   <p className="text-[10px] sm:text-xs font-black text-red-600 dark:text-red-400">{fin.returnRate}% نسبة الإرجاع</p>
@@ -797,5 +914,7 @@ export default function Dashboard() {
         </div>
       </div>
     </div>
+
+    {showDamagedModal && <DamagedOrdersModal onClose={() => setShowDamagedModal(false)} />}
   );
 }

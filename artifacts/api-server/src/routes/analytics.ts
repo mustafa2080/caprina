@@ -466,6 +466,59 @@ router.get("/analytics/financial-summary", requireAdmin, async (req, res): Promi
   });
 });
 
+// ─── GET /api/analytics/damaged-orders ──────────────────────────────────────
+// يجيب تفاصيل الطلبات التالفة (isDamaged=1 + status=returned)
+router.get("/analytics/damaged-orders", requireAdmin, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req);
+  const conditions: any[] = [
+    isNull(ordersTable.deletedAt),
+    eq(ordersTable.status, "returned" as any),
+  ];
+  if (tenantId !== null) conditions.push(eq(ordersTable.tenantId, tenantId));
+
+  const [allOrders, products, variants] = await Promise.all([
+    db.select().from(ordersTable).where(and(...conditions)).orderBy(desc(ordersTable.createdAt)),
+    db.select().from(productsTable),
+    db.select().from(productVariantsTable),
+  ]);
+
+  const variantMap = new Map<number, number | null>(variants.map(v => [v.id, v.costPrice]));
+  const productMap = new Map<number, number | null>(products.map(p => [p.id, p.costPrice]));
+
+  // فلتر التوالف فقط
+  const damagedOrders = allOrders.filter(o => o.isDamaged === 1);
+
+  const result = damagedOrders.map(o => {
+    const rc = resolveCost(o, variantMap, productMap);
+    const damagedCost = o.quantity * rc;
+    const shippingLoss = o.shippingCost ?? 0;
+    return {
+      id: o.id,
+      customerName: o.customerName,
+      phone: o.phone,
+      product: o.product,
+      color: o.color,
+      size: o.size,
+      quantity: o.quantity,
+      unitPrice: o.unitPrice,
+      totalPrice: o.totalPrice,
+      costPrice: rc,
+      damagedCost: Math.round(damagedCost),
+      shippingLoss: Math.round(shippingLoss),
+      totalLoss: Math.round(damagedCost + shippingLoss),
+      invoiceNumber: o.invoiceNumber,
+      returnReason: o.returnReason,
+      returnNote: o.returnNote,
+      createdAt: o.createdAt,
+    };
+  });
+
+  const totalDamagedValue = result.reduce((s, o) => s + o.damagedCost, 0);
+  const totalLoss = result.reduce((s, o) => s + o.totalLoss, 0);
+
+  res.json({ orders: result, totalDamagedValue, totalLoss, count: result.length });
+});
+
 // ─── GET /api/analytics/product-performance ─────────────────────────────────────
 // Full per-product breakdown: revenue, profit, returns, margin, avg price
 router.get("/analytics/product-performance", requireAdmin, async (req, res): Promise<void> => {
