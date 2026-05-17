@@ -526,7 +526,7 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
         {/* قائمة المنتجات — col-span-2 */}
-        <div className="md:col-span-2 space-y-2">
+        <div className="md:col-span-2 order-last md:order-first space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold text-muted-foreground flex items-center gap-1">
               <Package className="w-3.5 h-3.5" />منتجات الفاتورة
@@ -583,7 +583,7 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
         </div>
 
         {/* Sidebar — ملخص مالي + تحليل ربحية */}
-        <div className="space-y-4">
+        <div className="order-first md:order-last space-y-4">
           {/* الملخص المالي */}
           <Card className="border-primary/30 bg-card">
             <CardHeader className="pb-2 pt-4 px-4">
