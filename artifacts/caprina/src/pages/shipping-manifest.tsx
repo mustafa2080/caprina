@@ -253,6 +253,12 @@ function OrderDeliveryRow({
           >
             {opt.label}
           </Badge>
+          {/* سبب التأجيل تحت الـ badge مباشرة */}
+          {order.deliveryStatus === "delayed" && order.deliveryNote && (
+            <p className="text-[10px] text-orange-400 mt-0.5 font-semibold">
+              ⏸ {order.deliveryNote}
+            </p>
+          )}
           {/* sub-status للمرتجع */}
           {order.deliveryStatus === "returned" && (order as any).returnReceived === 1 && (
             <>
@@ -355,6 +361,10 @@ function OrderDeliveryRow({
             {opt.label}
           </Badge>
         </div>
+        {/* سبب التأجيل تحت الـ badge في الموبايل */}
+        {order.deliveryStatus === "delayed" && order.deliveryNote && (
+          <p className="text-[10px] text-orange-400 font-semibold">⏸ {order.deliveryNote}</p>
+        )}
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
             <p className="font-medium truncate">{order.product}</p>
