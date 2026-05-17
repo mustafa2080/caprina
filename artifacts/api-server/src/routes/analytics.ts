@@ -409,8 +409,10 @@ router.get("/analytics/financial-summary", requireAdmin, async (req, res): Promi
       if (o.isDamaged === 1) {
         const damagedCost = o.quantity * rc;
         returnDamagedValue += damagedCost;
-        returnLoss += damagedCost; // فقط تكلفة البضاعة التالفة (الشحن في shippingSpend)
-        costOfGoods += damagedCost;
+        // costOfGoods تشمل تكلفة التوالف — returnLoss للعرض فقط وليس لخصمها من netProfit مرة ثانية
+        returnLoss += damagedCost;
+        // لا نضيف costOfGoods هنا عشان netProfit = cashIn - costOfGoods - shippingSpend - returnLoss
+        // لو أضفنا costOfGoods + returnLoss ستُخصم تكلفة التوالف مرتين
       }
       // returnLoss للمرتجع العادي = 0 (الشحن موجود في shippingSpend)
     } else if (o.status === "pending" || o.status === "in_shipping" || o.status === "delayed") {
