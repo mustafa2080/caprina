@@ -1015,6 +1015,12 @@ function InvoiceGroupDeliveryRow({
                 <Badge variant="outline" className={`text-[9px] font-bold border ${displayOpt.bg} ${displayOpt.color}`}>
                   {displayOpt.label}
                 </Badge>
+                {/* سبب التأجيل تحت الـ badge مباشرة */}
+                {displayStatus === "delayed" && rep.deliveryNote && (
+                  <p className="text-[10px] text-orange-400 mt-0.5 font-semibold">
+                    ⏸ {rep.deliveryNote}
+                  </p>
+                )}
                 {/* sub-status للمرتجع في الـ group row */}
                 {displayStatus === "returned" && (rep as any).returnReceived === 1 && (
                   <>
