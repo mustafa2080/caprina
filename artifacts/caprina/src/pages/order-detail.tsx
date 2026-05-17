@@ -522,146 +522,152 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
         </CardContent>
       </Card>
 
-      {/* قائمة المنتجات */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xs font-bold text-muted-foreground flex items-center gap-1">
-            <Package className="w-3.5 h-3.5" />منتجات الفاتورة
-          </h3>
-          {isAdmin && (
-            <button onClick={() => setShowAddProduct(true)}
-              className="flex items-center gap-1.5 text-xs font-bold text-primary border border-dashed border-primary/40 hover:bg-primary/5 px-3 py-1.5 rounded-md transition-colors">
-              <Plus className="w-3.5 h-3.5" />إضافة منتج
-            </button>
-          )}
+      {/* Layout: منتجات + sidebar */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+        {/* قائمة المنتجات — col-span-2 */}
+        <div className="md:col-span-2 space-y-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold text-muted-foreground flex items-center gap-1">
+              <Package className="w-3.5 h-3.5" />منتجات الفاتورة
+            </h3>
+            {isAdmin && (
+              <button onClick={() => setShowAddProduct(true)}
+                className="flex items-center gap-1.5 text-xs font-bold text-primary border border-dashed border-primary/40 hover:bg-primary/5 px-3 py-1.5 rounded-md transition-colors">
+                <Plus className="w-3.5 h-3.5" />إضافة منتج
+              </button>
+            )}
+          </div>
+
+          {orders.map(o => {
+            const isThis = o.id === currentId;
+            return (
+              <Card key={o.id} className={`border ${isThis ? "border-primary/50 bg-primary/5" : "border-border bg-card"}`}>
+                <CardContent className="p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        {isThis && <span className="text-[9px] text-primary font-black bg-primary/10 px-1.5 py-0.5 rounded">← هذا الطلب</span>}
+                        <Badge variant="outline" className={`text-[9px] font-bold ${statusClasses[o.status] || ""}`}>
+                          {statusLabels[o.status] || o.status}
+                        </Badge>
+                      </div>
+                      <p className="text-sm font-bold truncate">{o.product}</p>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        {o.color && <Badge variant="outline" className="text-[9px] border-border text-muted-foreground">{o.color}</Badge>}
+                        {o.size && <Badge variant="outline" className="text-[9px] border-border text-muted-foreground">{o.size}</Badge>}
+                      </div>
+                      <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
+                        <span>{o.quantity} وحدة × {formatCurrency(o.unitPrice)}</span>
+                        <span className="font-bold text-foreground">{formatCurrency(o.totalPrice)}</span>
+                      </div>
+                      {o.notes && <p className="text-[10px] text-muted-foreground mt-1 italic">{o.notes}</p>}
+                    </div>
+                    {isAdmin && (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Button variant="outline" size="sm" className="h-7 text-xs gap-1 border-border"
+                          onClick={() => setEditingOrder(o)}>
+                          <Pencil className="w-3 h-3" />تعديل
+                        </Button>
+                        <Button variant="outline" size="sm" className="h-7 text-xs gap-1 border-red-800 text-red-400 hover:bg-red-900/20"
+                          onClick={() => setShowDeleteId(o.id)} disabled={deletingId === o.id}>
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
-        {orders.map(o => {
-          const isThis = o.id === currentId;
-          return (
-            <Card key={o.id} className={`border ${isThis ? "border-primary/50 bg-primary/5" : "border-border bg-card"}`}>
-              <CardContent className="p-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      {isThis && <span className="text-[9px] text-primary font-black bg-primary/10 px-1.5 py-0.5 rounded">← هذا الطلب</span>}
-                      <Badge variant="outline" className={`text-[9px] font-bold ${statusClasses[o.status] || ""}`}>
-                        {statusLabels[o.status] || o.status}
-                      </Badge>
-                    </div>
-                    <p className="text-sm font-bold truncate">{o.product}</p>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      {o.color && <Badge variant="outline" className="text-[9px] border-border text-muted-foreground">{o.color}</Badge>}
-                      {o.size && <Badge variant="outline" className="text-[9px] border-border text-muted-foreground">{o.size}</Badge>}
-                    </div>
-                    <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
-                      <span>{o.quantity} وحدة × {formatCurrency(o.unitPrice)}</span>
-                      <span className="font-bold text-foreground">{formatCurrency(o.totalPrice)}</span>
-                    </div>
-                    {o.notes && <p className="text-[10px] text-muted-foreground mt-1 italic">{o.notes}</p>}
-                  </div>
-                  {isAdmin && (
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <Button variant="outline" size="sm" className="h-7 text-xs gap-1 border-border"
-                        onClick={() => setEditingOrder(o)}>
-                        <Pencil className="w-3 h-3" />تعديل
-                      </Button>
-                      <Button variant="outline" size="sm" className="h-7 text-xs gap-1 border-red-800 text-red-400 hover:bg-red-900/20"
-                        onClick={() => setShowDeleteId(o.id)} disabled={deletingId === o.id}>
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
+        {/* Sidebar — ملخص مالي + تحليل ربحية */}
+        <div className="space-y-4">
+          {/* الملخص المالي */}
+          <Card className="border-primary/30 bg-card">
+            <CardHeader className="pb-2 pt-4 px-4">
+              <CardTitle className="text-sm font-bold text-primary">الملخص المالي</CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4 space-y-2 text-sm">
+              {orders.map(o => (
+                <div key={o.id} className="flex justify-between text-xs">
+                  <span className="text-muted-foreground truncate max-w-[55%]">
+                    {o.product}{o.color ? ` — ${o.color}` : ""}{o.size ? ` / ${o.size}` : ""}
+                  </span>
+                  <span className="font-semibold">{formatCurrency(o.totalPrice ?? 0)}</span>
+                </div>
+              ))}
+              <Separator className="border-border" />
+              <div className="flex justify-between">
+                <span className="font-bold text-xs">إجمالي الفاتورة</span>
+                <span className="font-black text-lg text-primary">{formatCurrency(invoiceTotal)}</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* تحليل الربحية — للمدير فقط */}
+          {canViewFinancials && (() => {
+            const hasCost = orders.some(o => (o.costPrice ?? 0) > 0);
+            if (!hasCost) return null;
+
+            let totalRevenue = 0, totalCost = 0, totalShipping = 0;
+            let hasReturn = false, allReturned = true;
+
+            for (const o of orders) {
+              const qty = o.status === "partial_received" && o.partialQuantity ? o.partialQuantity : o.quantity;
+              const cp = o.costPrice ?? 0;
+              const sc = Math.abs(o.shippingCost ?? 0);
+              const isRet = o.status === "returned";
+              const retToStock = isRet && (o.returnReceived === 1 || o.returnReceived === true);
+
+              if (isRet) { hasReturn = true; }
+              else { allReturned = false; }
+
+              if (!isRet) totalRevenue += qty * o.unitPrice;
+              if (!retToStock) totalCost += qty * cp;
+              totalShipping += sc;
+            }
+
+            const netProfit = totalRevenue - totalCost - totalShipping;
+            const margin = totalRevenue > 0 ? Math.round((netProfit / totalRevenue) * 100) : 0;
+            const isPositive = netProfit >= 0;
+
+            return (
+              <Card className={`border ${allReturned ? "border-red-900/50 bg-red-900/5" : isPositive ? "border-emerald-900/50 bg-emerald-900/5" : "border-red-900/50 bg-red-900/5"}`}>
+                <CardHeader className="pb-2 pt-4 px-4 border-b border-border">
+                  <CardTitle className="text-sm font-bold flex items-center gap-2">
+                    {isPositive && !allReturned
+                      ? <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                      : <TrendingDown className="w-3.5 h-3.5 text-red-400" />}
+                    تحليل الربحية
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 pb-4 pt-3 space-y-2 text-xs">
+                  {hasReturn && (
+                    <div className={`p-2 rounded text-[10px] font-semibold border ${allReturned ? "bg-red-900/20 text-red-400 border-red-900/30" : "bg-amber-900/20 text-amber-400 border-amber-900/30"}`}>
+                      {allReturned ? "⚠ الفاتورة مرتجعة بالكامل" : "↩ بعض المنتجات مرتجعة"}
                     </div>
                   )}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      {/* ── الملخص المالي للفاتورة ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {/* ملخص مالي */}
-        <Card className="border-primary/30 bg-card">
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-sm font-bold text-primary">الملخص المالي للفاتورة</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4 space-y-2 text-sm">
-            {orders.map(o => (
-              <div key={o.id} className="flex justify-between text-xs">
-                <span className="text-muted-foreground truncate max-w-[55%]">{o.product}{o.color ? ` — ${o.color}` : ""}{o.size ? ` / ${o.size}` : ""}</span>
-                <span className="font-semibold">{formatCurrency(o.totalPrice ?? 0)}</span>
-              </div>
-            ))}
-            <Separator className="border-border" />
-            <div className="flex justify-between">
-              <span className="font-bold text-xs">إجمالي الفاتورة</span>
-              <span className="font-black text-lg text-primary">{formatCurrency(invoiceTotal)}</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* تحليل الربحية — للمدير فقط */}
-        {canViewFinancials && (() => {
-          const hasCost = orders.some(o => (o.costPrice ?? 0) > 0);
-          if (!hasCost) return null;
-
-          let totalRevenue = 0, totalCost = 0, totalShipping = 0;
-          let hasReturn = false, allReturned = true, hasReturnedToStock = false;
-
-          for (const o of orders) {
-            const qty = o.status === "partial_received" && o.partialQuantity ? o.partialQuantity : o.quantity;
-            const cp = o.costPrice ?? 0;
-            const sc = Math.abs(o.shippingCost ?? 0);
-            const isRet = o.status === "returned";
-            const retToStock = isRet && (o.returnReceived === 1 || o.returnReceived === true);
-
-            if (isRet) { hasReturn = true; if (retToStock) hasReturnedToStock = true; }
-            else { allReturned = false; }
-
-            if (!isRet) totalRevenue += qty * o.unitPrice;
-            if (!retToStock) totalCost += qty * cp;
-            totalShipping += sc;
-          }
-
-          const netProfit = totalRevenue - totalCost - totalShipping;
-          const margin = totalRevenue > 0 ? Math.round((netProfit / totalRevenue) * 100) : 0;
-          const isPositive = netProfit >= 0;
-
-          return (
-            <Card className={`border ${allReturned ? "border-red-900/50 bg-red-900/5" : isPositive ? "border-emerald-900/50 bg-emerald-900/5" : "border-red-900/50 bg-red-900/5"}`}>
-              <CardHeader className="pb-2 pt-4 px-4 border-b border-border">
-                <CardTitle className="text-sm font-bold flex items-center gap-2">
-                  {isPositive && !allReturned
-                    ? <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-                    : <TrendingDown className="w-3.5 h-3.5 text-red-400" />}
-                  تحليل ربحية الفاتورة
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-4 pb-4 pt-3 space-y-2 text-xs">
-                {hasReturn && (
-                  <div className={`p-2 rounded text-[10px] font-semibold border ${allReturned ? "bg-red-900/20 text-red-400 border-red-900/30" : "bg-amber-900/20 text-amber-400 border-amber-900/30"}`}>
-                    {allReturned ? "⚠ الفاتورة مرتجعة بالكامل" : "↩ بعض المنتجات مرتجعة"}
+                  <div className="flex justify-between"><span className="text-muted-foreground">الإيرادات</span><span className="text-primary font-semibold">{formatCurrency(totalRevenue)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">تكلفة البضاعة</span><span className="text-amber-400">-{formatCurrency(totalCost)}</span></div>
+                  {totalShipping > 0 && <div className="flex justify-between"><span className="text-muted-foreground">تكلفة الشحن</span><span className="text-orange-400">-{formatCurrency(totalShipping)}</span></div>}
+                  <Separator />
+                  <div className="flex justify-between items-center pt-1">
+                    <span className="font-bold">الربح الصافي</span>
+                    <span className={`font-black text-base ${isPositive && !allReturned ? "text-emerald-400" : "text-red-400"}`}>{formatCurrency(netProfit)}</span>
                   </div>
-                )}
-                <div className="flex justify-between"><span className="text-muted-foreground">إجمالي الإيرادات</span><span className="text-primary font-semibold">{formatCurrency(totalRevenue)}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">تكلفة البضاعة</span><span className="text-amber-400">-{formatCurrency(totalCost)}</span></div>
-                {totalShipping > 0 && <div className="flex justify-between"><span className="text-muted-foreground">تكلفة الشحن</span><span className="text-orange-400">-{formatCurrency(totalShipping)}</span></div>}
-                <Separator />
-                <div className="flex justify-between items-center pt-1">
-                  <span className="font-bold">الربح الصافي</span>
-                  <span className={`font-black text-base ${isPositive && !allReturned ? "text-emerald-400" : "text-red-400"}`}>{formatCurrency(netProfit)}</span>
-                </div>
-                {totalRevenue > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">هامش الربح</span>
-                    <span className={`font-bold ${margin >= 20 ? "text-emerald-400" : margin >= 10 ? "text-amber-400" : "text-red-400"}`}>{margin}%</span>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })()}
+                  {totalRevenue > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">هامش الربح</span>
+                      <span className={`font-bold ${margin >= 20 ? "text-emerald-400" : margin >= 10 ? "text-amber-400" : "text-red-400"}`}>{margin}%</span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })()}
+        </div>
       </div>
 
       <EditOrderRowDialog
