@@ -3,7 +3,7 @@ import { format } from "date-fns";
 import {
   ArrowRight, AlertCircle, Printer, Trash2, RefreshCw,
   Package, Phone, MapPin, RotateCcw, Lock, MessageCircle,
-  Pencil, Plus, Save, X, Search,
+  Pencil, Plus, Save, X, Search, TrendingUp, TrendingDown,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState, useRef, useEffect, useMemo } from "react";
@@ -472,7 +472,7 @@ export default function InvoiceGroup() {
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { isAdmin } = useAuth();
+  const { isAdmin, canViewFinancials } = useAuth();
   const updateOrder = useUpdateOrder();
 
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
@@ -1053,6 +1053,90 @@ export default function InvoiceGroup() {
           )}
         </CardContent>
       </Card>
+
+      {/* الملخص المالي */}
+      <Card className="border-primary/30 bg-card">
+        <CardHeader className="pb-2 pt-4 px-4">
+          <CardTitle className="text-sm font-bold text-primary">الملخص المالي</CardTitle>
+        </CardHeader>
+        <CardContent className="px-4 pb-4 space-y-2 text-sm">
+          {orders.map((o: any) => (
+            <div key={o.id} className="flex justify-between text-xs">
+              <span className="text-muted-foreground truncate max-w-[55%]">
+                {o.product}{o.color ? ` — ${o.color}` : ""}{o.size ? ` / ${o.size}` : ""}
+              </span>
+              <span className="font-semibold">{formatCurrency(o.totalPrice ?? 0)}</span>
+            </div>
+          ))}
+          <Separator className="border-border" />
+          <div className="flex justify-between">
+            <span className="font-bold text-xs">إجمالي الفاتورة</span>
+            <span className="font-black text-lg text-primary">{formatCurrency(totalPrice)}</span>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* تحليل الربحية — للمدير فقط */}
+      {canViewFinancials && (() => {
+        const hasCost = orders.some((o: any) => (o.costPrice ?? 0) > 0);
+        if (!hasCost) return null;
+
+        let totalRevenue = 0, totalCost = 0, totalShipping = 0;
+        let hasReturn = false, allReturned = true;
+
+        for (const o of orders) {
+          const qty = o.status === "partial_received" && o.partialQuantity ? o.partialQuantity : o.quantity;
+          const cp = o.costPrice ?? 0;
+          const sc = Math.abs(o.shippingCost ?? 0);
+          const isRet = o.status === "returned";
+          const retToStock = isRet && (o.returnReceived === 1 || o.returnReceived === true);
+
+          if (isRet) { hasReturn = true; }
+          else { allReturned = false; }
+
+          if (!isRet) totalRevenue += qty * o.unitPrice;
+          if (!retToStock) totalCost += qty * cp;
+          totalShipping += sc;
+        }
+
+        const netProfit = totalRevenue - totalCost - totalShipping;
+        const margin = totalRevenue > 0 ? Math.round((netProfit / totalRevenue) * 100) : 0;
+        const isPositive = netProfit >= 0;
+
+        return (
+          <Card className={`border ${allReturned ? "border-red-900/50 bg-red-900/5" : isPositive ? "border-emerald-900/50 bg-emerald-900/5" : "border-red-900/50 bg-red-900/5"}`}>
+            <CardHeader className="pb-2 pt-4 px-4 border-b border-border">
+              <CardTitle className="text-sm font-bold flex items-center gap-2">
+                {isPositive && !allReturned
+                  ? <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                  : <TrendingDown className="w-3.5 h-3.5 text-red-400" />}
+                تحليل الربحية
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4 pt-3 space-y-2 text-xs">
+              {hasReturn && (
+                <div className={`p-2 rounded text-[10px] font-semibold border ${allReturned ? "bg-red-900/20 text-red-400 border-red-900/30" : "bg-amber-900/20 text-amber-400 border-amber-900/30"}`}>
+                  {allReturned ? "⚠ الفاتورة مرتجعة بالكامل" : "↩ بعض المنتجات مرتجعة"}
+                </div>
+              )}
+              <div className="flex justify-between"><span className="text-muted-foreground">الإيرادات</span><span className="text-primary font-semibold">{formatCurrency(totalRevenue)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">تكلفة البضاعة</span><span className="text-amber-400">-{formatCurrency(totalCost)}</span></div>
+              {totalShipping > 0 && <div className="flex justify-between"><span className="text-muted-foreground">تكلفة الشحن</span><span className="text-orange-400">-{formatCurrency(totalShipping)}</span></div>}
+              <Separator />
+              <div className="flex justify-between items-center pt-1">
+                <span className="font-bold">الربح الصافي</span>
+                <span className={`font-black text-base ${isPositive && !allReturned ? "text-emerald-400" : "text-red-400"}`}>{formatCurrency(netProfit)}</span>
+              </div>
+              {totalRevenue > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">هامش الربح</span>
+                  <span className={`font-bold ${margin >= 20 ? "text-emerald-400" : margin >= 10 ? "text-amber-400" : "text-red-400"}`}>{margin}%</span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Add Product Dialog */}
       <AddProductDialog
