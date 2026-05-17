@@ -34,7 +34,7 @@ function profitFromOrder(o: typeof ordersTable.$inferSelect): number {
         : o.totalPrice;
     return revenue - cost - shipping;
   }
-  if (o.status === "returned") return -(cost + shipping);
+  if (o.status === "returned") return -shipping; // البضاعة رجعت للمخزن → خسارة الشحن فقط
   return 0;
 }
 
