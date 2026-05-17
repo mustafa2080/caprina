@@ -81,14 +81,14 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
       ...tOrder,
     ));
 
-    // الطلبات المرتجعة: تكلفة البضاعة + تكلفة الشحن المدفوعة = خسارة صافية
+    // خسائر المرتجعات = فقط المرتجعات التالفة (is_damaged=1) — المرتجع العادي لا خسارة
     const [returnsCur] = await db.select({
       returnCogs:     sql<number>`COALESCE(SUM(cost_price * quantity),0)`,
       returnShipping: sql<number>`COALESCE(SUM(shipping_cost),0)`,
       count:          sql<number>`COUNT(*)`,
     }).from(ordersTable).where(and(
       isNull(ordersTable.deletedAt),
-      sql`status = 'returned'`,
+      sql`status = 'returned' AND is_damaged = 1`,
       gte(ordersTable.createdAt, curFrom),
       lte(ordersTable.createdAt, curToEnd),
       ...tOrder,
@@ -106,12 +106,13 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
       ...tOrder,
     ));
 
+
     const [returnsPrev] = await db.select({
       returnCogs:     sql<number>`COALESCE(SUM(cost_price * quantity),0)`,
       returnShipping: sql<number>`COALESCE(SUM(shipping_cost),0)`,
     }).from(ordersTable).where(and(
       isNull(ordersTable.deletedAt),
-      sql`status = 'returned'`,
+      sql`status = 'returned' AND is_damaged = 1`,
       gte(ordersTable.createdAt, prevFrom),
       lte(ordersTable.createdAt, prevToEnd),
       ...tOrder,
