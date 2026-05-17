@@ -119,10 +119,10 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
     ));
 
     const [orderStats] = await db.select({
-      total:     sql<number>`COUNT(*)`,
-      delivered: sql<number>`SUM(CASE WHEN status IN ('received','partial_received') THEN 1 ELSE 0 END)`,
-      returned:  sql<number>`SUM(CASE WHEN status='returned' THEN 1 ELSE 0 END)`,
-      pending:   sql<number>`SUM(CASE WHEN status IN ('pending','in_shipping','warehouse_ready') THEN 1 ELSE 0 END)`,
+      total:     sql<number>`COUNT(DISTINCT COALESCE(invoice_number, CONCAT('solo-', id)))`,
+      delivered: sql<number>`COUNT(DISTINCT CASE WHEN status IN ('received','partial_received') THEN COALESCE(invoice_number, CONCAT('solo-', id)) END)`,
+      returned:  sql<number>`COUNT(DISTINCT CASE WHEN status='returned' THEN COALESCE(invoice_number, CONCAT('solo-', id)) END)`,
+      pending:   sql<number>`COUNT(DISTINCT CASE WHEN status IN ('pending','in_shipping','warehouse_ready') THEN COALESCE(invoice_number, CONCAT('solo-', id)) END)`,
     }).from(ordersTable).where(and(
       isNull(ordersTable.deletedAt),
       gte(ordersTable.createdAt, curFrom),
