@@ -341,15 +341,11 @@ export default function TeamPerformancePage() {
     return list;
   }, [assignedMembers, search, speedFilter, perfFilter, sourceFilter, sortKey, sortDir]);
 
-  /* summary totals from ALL assigned + unassigned */
-  const unassignedTotal = unassigned?.total ?? 0;
-  const unassignedDelivered = unassigned?.delivered ?? 0;
-  const unassignedReturned = unassigned?.returned ?? 0;
-  const unassignedProfit = unassigned?.profit ?? 0;
-  const totalOrders    = assignedMembers.reduce((s, m) => s + m.total, 0)    + unassignedTotal;
-  const totalDelivered = assignedMembers.reduce((s, m) => s + m.delivered, 0) + unassignedDelivered;
-  const totalReturned  = assignedMembers.reduce((s, m) => s + m.returned, 0)  + unassignedReturned;
-  const totalProfit    = assignedMembers.reduce((s, m) => s + m.profit, 0)    + unassignedProfit;
+  /* summary totals from ALL assigned (not filtered) */
+  const totalOrders    = assignedMembers.reduce((s, m) => s + m.total, 0);
+  const totalDelivered = assignedMembers.reduce((s, m) => s + m.delivered, 0);
+  const totalReturned  = assignedMembers.reduce((s, m) => s + m.returned, 0);
+  const totalProfit    = assignedMembers.reduce((s, m) => s + m.profit, 0);
   const avgDelivery = assignedMembers.length > 0
     ? Math.round(assignedMembers.reduce((s, m) => s + m.deliveryRate, 0) / assignedMembers.length) : 0;
 
