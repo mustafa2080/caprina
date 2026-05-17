@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db, cashRegistersTable, cashTransactionsTable, expensesTable, ordersTable, purchaseOrdersTable, shippingFinancialInvoicesTable, CREDIT_TYPES, DEBIT_TYPES } from "@workspace/db";
 import { eq, desc, gte, lte, and, sql, lt, isNull } from "drizzle-orm";
+import { getTenantId } from "../middlewares/requireTenant.js";
 
 const router = Router();
 
@@ -8,10 +9,17 @@ const router = Router();
 router.get("/finance/hub", async (req, res): Promise<void> => {
   try {
     const { from, to } = req.query;
+    const tenantId = getTenantId(req);
     const now = new Date();
     const curFrom = from ? new Date(from as string) : new Date(now.getFullYear(), now.getMonth(), 1);
     const curTo   = to   ? new Date(to   as string) : now;
     const curToEnd = new Date(curTo); curToEnd.setHours(23, 59, 59, 999);
+
+    // tenant conditions
+    const tOrder   = tenantId !== null ? [eq(ordersTable.tenantId, tenantId)]                         : [];
+    const tExp     = tenantId !== null ? [eq(expensesTable.tenantId, tenantId)]                       : [];
+    const tReg     = tenantId !== null ? [eq(cashRegistersTable.tenantId, tenantId)]                  : [];
+    const tShipInv = tenantId !== null ? [eq(shippingFinancialInvoicesTable.tenantId, tenantId)]      : [];
 
     // الفترة السابقة للمقارنة
     const diffMs   = curTo.getTime() - curFrom.getTime();
@@ -24,7 +32,7 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
 
     // ── 1. الخزن ────────────────────────────────────────────────────────────
     const registers = await db.select().from(cashRegistersTable)
-      .where(eq(cashRegistersTable.isActive, true))
+      .where(and(eq(cashRegistersTable.isActive, true), ...tReg))
       .orderBy(cashRegistersTable.type);
 
     const totalCash = registers.reduce((s, r) => s + parseFloat(r.balance ?? "0"), 0);
@@ -70,6 +78,7 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
       sql`status IN ('received','partial_received')`,
       gte(ordersTable.createdAt, curFrom),
       lte(ordersTable.createdAt, curToEnd),
+      ...tOrder,
     ));
 
     // الطلبات المرتجعة: تكلفة البضاعة + تكلفة الشحن المدفوعة = خسارة صافية
@@ -82,6 +91,7 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
       sql`status = 'returned'`,
       gte(ordersTable.createdAt, curFrom),
       lte(ordersTable.createdAt, curToEnd),
+      ...tOrder,
     ));
 
     const [salesPrev] = await db.select({
@@ -93,6 +103,7 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
       sql`status IN ('received','partial_received')`,
       gte(ordersTable.createdAt, prevFrom),
       lte(ordersTable.createdAt, prevToEnd),
+      ...tOrder,
     ));
 
     const [returnsPrev] = await db.select({
@@ -103,6 +114,7 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
       sql`status = 'returned'`,
       gte(ordersTable.createdAt, prevFrom),
       lte(ordersTable.createdAt, prevToEnd),
+      ...tOrder,
     ));
 
     const [orderStats] = await db.select({
@@ -114,6 +126,7 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
       isNull(ordersTable.deletedAt),
       gte(ordersTable.createdAt, curFrom),
       lte(ordersTable.createdAt, curToEnd),
+      ...tOrder,
     ));
 
     // ── 4. المصروفات (الفترة الحالية) ───────────────────────────────────────
@@ -122,6 +135,7 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
     }).from(expensesTable).where(and(
       gte(expensesTable.expenseDate, curFrom),
       lte(expensesTable.expenseDate, curToEnd),
+      ...tExp,
     ));
 
     const [expPrev] = await db.select({
@@ -129,6 +143,7 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
     }).from(expensesTable).where(and(
       gte(expensesTable.expenseDate, prevFrom),
       lte(expensesTable.expenseDate, prevToEnd),
+      ...tExp,
     ));
 
     // توزيع المصروفات بالفئة
@@ -139,6 +154,7 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
     }).from(expensesTable).where(and(
       gte(expensesTable.expenseDate, curFrom),
       lte(expensesTable.expenseDate, curToEnd),
+      ...tExp,
     )).groupBy(expensesTable.category).orderBy(desc(sql`SUM(CAST(amount AS DECIMAL(14,2)))`));
 
     // ── 5. Chart شهري آخر 6 شهور (مبيعات + مصروفات) ────────────────────────
@@ -153,6 +169,7 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
       isNull(ordersTable.deletedAt),
       sql`status IN ('received','partial_received')`,
       gte(ordersTable.createdAt, sixMonthsAgo),
+      ...tOrder,
     )).groupBy(sql`DATE_FORMAT(created_at, '%Y-%m')`).orderBy(sql`DATE_FORMAT(created_at, '%Y-%m')`);
 
     // المرتجعات الشهرية لحساب الخسارة في الـ chart
@@ -164,13 +181,14 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
       isNull(ordersTable.deletedAt),
       sql`status = 'returned'`,
       gte(ordersTable.createdAt, sixMonthsAgo),
+      ...tOrder,
     )).groupBy(sql`DATE_FORMAT(created_at, '%Y-%m')`).orderBy(sql`DATE_FORMAT(created_at, '%Y-%m')`);
 
     const monthlyExpenses = await db.select({
       month: sql<string>`DATE_FORMAT(expense_date, '%Y-%m')`,
       total: sql<number>`COALESCE(SUM(CAST(amount AS DECIMAL(14,2))),0)`,
     }).from(expensesTable)
-      .where(gte(expensesTable.expenseDate, sixMonthsAgo))
+      .where(and(gte(expensesTable.expenseDate, sixMonthsAgo), ...tExp))
       .groupBy(sql`DATE_FORMAT(expense_date, '%Y-%m')`)
       .orderBy(sql`DATE_FORMAT(expense_date, '%Y-%m')`);
 
