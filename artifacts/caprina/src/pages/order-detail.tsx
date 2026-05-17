@@ -1922,32 +1922,132 @@ export default function OrderDetail() {
 
         {/* Financial summary */}
         <div className="space-y-4">
-          {/* Revenue */}
-          <Card className="border-primary/30 bg-card">
-            <CardHeader className="pb-2 pt-4 px-4">
-              <CardTitle className="text-sm font-bold text-primary">الملخص المالي</CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-4">
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">الكمية</span>
-                  <span>{order.quantity}</span>
+
+          {/* Revenue â€” multi-invoice OR single */}
+          {invoiceOrders.length > 1 ? (() => {
+            const allOrders = invoiceOrders as any[];
+            const invoiceTotalPrice = allOrders.reduce((s: number, o: any) => s + (o.totalPrice ?? 0), 0);
+            const totalQty = allOrders.reduce((s: number, o: any) => s + (o.quantity ?? 0), 0);
+            return (
+              <Card className="border-primary/30 bg-card">
+                <CardHeader className="pb-2 pt-4 px-4">
+                  <CardTitle className="text-sm font-bold text-primary flex items-center gap-2">
+                    <Package className="w-3.5 h-3.5" />
+                    الملخص المالي (الفاتورة كاملة)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 pb-4">
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">عدد المنتجات</span>
+                      <span>{allOrders.length} منتج</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">إجمالي الكميات</span>
+                      <span>{totalQty} وحدة</span>
+                    </div>
+                    <div className="mt-1 space-y-1 border-t border-border pt-2">
+                      {allOrders.map((o: any) => (
+                        <div key={o.id} className="flex justify-between text-[10px]">
+                          <span className={`text-muted-foreground truncate max-w-[60%] ${o.id === id ? "text-primary font-bold" : ""}`}>
+                            {o.product}{o.color ? ` - ${o.color}` : ""}{o.size ? ` / ${o.size}` : ""}
+                            {o.id === id ? " ←" : ""}
+                          </span>
+                          <span className={`font-semibold ${o.status === "returned" ? "text-red-400 line-through" : "text-foreground"}`}>
+                            {formatCurrency(o.totalPrice)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <Separator className="border-border" />
+                    <div className="flex justify-between">
+                      <span className="font-bold text-xs">إجمالي البيع</span>
+                      <span className="font-bold text-lg text-primary">{formatCurrency(invoiceTotalPrice)}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })() : (
+            <Card className="border-primary/30 bg-card">
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm font-bold text-primary">الملخص المالي</CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4">
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">الكمية</span>
+                    <span>{order.quantity}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">سعر الوحدة</span>
+                    <span>{formatCurrency(order.unitPrice)}</span>
+                  </div>
+                  <Separator className="border-border" />
+                  <div className="flex justify-between">
+                    <span className="font-bold text-xs">إجمالي البيع</span>
+                    <span className="font-bold text-lg text-primary">{formatCurrency(order.totalPrice)}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">سعر الوحدة</span>
-                  <span>{formatCurrency(order.unitPrice)}</span>
-                </div>
-                <Separator className="border-border" />
-                <div className="flex justify-between">
-                  <span className="font-bold text-xs">إجمالي البيع</span>
-                  <span className="font-bold text-lg text-primary">{formatCurrency(order.totalPrice)}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Profit breakdown — admin only */}
           {canViewFinancials && (() => {
+            if (invoiceOrders.length > 1) {
+              const allOrders = invoiceOrders as any[];
+              let totalRevenue = 0, totalCost = 0, totalShipping = 0;
+              let hasAnyLost = false, hasAnyReturnedToStock = false, hasCostData = false;
+              for (const o of allOrders) {
+                const cp = (o as any).costPrice as number | null;
+                if (!cp) continue;
+                hasCostData = true;
+                const sc = Math.abs((o as any).shippingCost ?? 0);
+                const isRet = o.status === "returned";
+                const retRec = (o as any).returnReceived;
+                const toStock = isRet && (retRec === 1 || retRec === true);
+                const lost = isRet && !toStock;
+                const qty2 = o.status === "partial_received" && o.partialQuantity ? o.partialQuantity : (o.quantity ?? 0);
+                if (lost) hasAnyLost = true;
+                if (toStock) hasAnyReturnedToStock = true;
+                totalRevenue += isRet ? 0 : qty2 * (o.unitPrice ?? 0);
+                totalCost += toStock ? 0 : qty2 * cp;
+                totalShipping += sc;
+              }
+              if (!hasCostData) return null;
+              const np = totalRevenue - totalCost - totalShipping;
+              const mg = totalRevenue > 0 ? Math.round((np / totalRevenue) * 100) : 0;
+              const allRet = allOrders.every((o: any) => o.status === "returned");
+              return (
+                <Card className={`border ${np < 0 || allRet ? "border-red-900/50 bg-red-900/5" : hasAnyReturnedToStock ? "border-amber-900/50 bg-amber-900/5" : "border-emerald-900/50 bg-emerald-900/5"}`}>
+                  <CardHeader className="pb-2 pt-4 px-4 border-b border-border">
+                    <CardTitle className="text-sm font-bold flex items-center gap-2">
+                      {np >= 0 && !allRet ? <TrendingUp className="w-3.5 h-3.5 text-emerald-400" /> : <TrendingDown className="w-3.5 h-3.5 text-red-400" />}
+                      تحليل الربحية (الفاتورة كاملة)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-4 pt-3 space-y-2 text-xs">
+                    {hasAnyLost && <div className="p-2 bg-red-900/20 rounded text-red-400 text-[10px] font-semibold border border-red-900/30">⚠ يوجد مرتجعات بخسارة كاملة</div>}
+                    {hasAnyReturnedToStock && <div className="p-2 bg-amber-900/20 rounded text-amber-400 text-[10px] font-semibold border border-amber-900/30">↩ بعض المرتجعات رجعت للمخزن</div>}
+                    <div className="flex justify-between"><span className="text-muted-foreground">الإيرادات</span><span className="text-primary font-semibold">{formatCurrency(totalRevenue)}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">تكلفة البضاعة</span><span className="text-amber-400">-{formatCurrency(totalCost)}</span></div>
+                    {totalShipping > 0 && <div className="flex justify-between"><span className="text-muted-foreground">تكلفة الشحن</span><span className="text-orange-400">-{formatCurrency(totalShipping)}</span></div>}
+                    <Separator />
+                    <div className="flex justify-between items-center pt-1">
+                      <span className="font-bold">الربح الصافي</span>
+                      <span className={`font-black text-base ${np >= 0 && !allRet ? "text-emerald-400" : "text-red-400"}`}>{formatCurrency(np)}</span>
+                    </div>
+                    {totalRevenue > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">هامش الربح</span>
+                        <span className={`font-bold ${mg >= 20 ? "text-emerald-400" : mg >= 10 ? "text-amber-400" : "text-red-400"}`}>{mg}%</span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            }
             const costPrice = (order as any).costPrice as number | null;
             const shippingCost = (order as any).shippingCost as number | null;
             if (!costPrice) return null;
@@ -1956,11 +2056,9 @@ export default function OrderDetail() {
             const returnRec = (order as any).returnReceived;
             const isReturnedToStock = isReturned && (returnRec === 1 || returnRec === true);
             const isReturnedLost = isReturned && !isReturnedToStock;
-            // لو رجع المخزن: لا خسارة في البضاعة (الكمية اترجعت) — بس في خسارة شحن فقط
-            // لو مازال عند الشحن: خسارة كاملة
             const revenue = isReturned ? 0 : qty * order.unitPrice;
-            const cost = isReturnedToStock ? 0 : qty * costPrice; // رجع المخزن = مفيش خسارة بضاعة
-            const shipping = Math.abs(shippingCost ?? 0); // دايمًا موجب
+            const cost = isReturnedToStock ? 0 : qty * costPrice;
+            const shipping = Math.abs(shippingCost ?? 0);
             const netProfit = revenue - cost - shipping;
             const margin = revenue > 0 ? Math.round((netProfit / revenue) * 100) : 0;
             const isPositive = netProfit >= 0;
@@ -1973,16 +2071,8 @@ export default function OrderDetail() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="px-4 pb-4 pt-3 space-y-2 text-xs">
-                  {isReturnedLost && (
-                    <div className="p-2 bg-red-900/20 rounded text-red-400 text-[10px] font-semibold border border-red-900/30">
-                      مرتجع — خسارة كاملة
-                    </div>
-                  )}
-                  {isReturnedToStock && (
-                    <div className="p-2 bg-amber-900/20 rounded text-amber-400 text-[10px] font-semibold border border-amber-900/30">
-                      ↩ رجع للمخزن — خسارة الشحن فقط
-                    </div>
-                  )}
+                  {isReturnedLost && <div className="p-2 bg-red-900/20 rounded text-red-400 text-[10px] font-semibold border border-red-900/30">مرتجع — خسارة كاملة</div>}
+                  {isReturnedToStock && <div className="p-2 bg-amber-900/20 rounded text-amber-400 text-[10px] font-semibold border border-amber-900/30">↩ رجع للمخزن — خسارة الشحن فقط</div>}
                   <div className="flex justify-between"><span className="text-muted-foreground">الإيرادات</span><span className="text-primary font-semibold">{formatCurrency(revenue)}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">تكلفة البضاعة</span><span className="text-amber-400">-{formatCurrency(cost)}</span></div>
                   {shipping > 0 && <div className="flex justify-between"><span className="text-muted-foreground">تكلفة الشحن</span><span className="text-orange-400">-{formatCurrency(shipping)}</span></div>}
