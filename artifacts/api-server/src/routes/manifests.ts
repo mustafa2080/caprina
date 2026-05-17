@@ -252,7 +252,6 @@ router.get("/shipping-manifests", async (req, res): Promise<void> => {
     .orderBy(desc(shippingManifestsTable.createdAt));
   const manifestIds = manifests.map((m) => m.manifest.id);
   if (manifestIds.length === 0) { res.json([]); return; }
-  // عدّ الطلبيات الفعلية لكل بيان (مش الفواتير الفريدة)
   const allLinks = await db
     .select({
       manifestId: shippingManifestOrdersTable.manifestId,
@@ -261,9 +260,32 @@ router.get("/shipping-manifests", async (req, res): Promise<void> => {
     .from(shippingManifestOrdersTable)
     .where(inArray(shippingManifestOrdersTable.manifestId, manifestIds));
 
-  const countMap: Record<number, number> = {};
+  // عدّ الفواتير الفريدة (invoiceNumber) لكل بيان بدل عدد الصفوف
+  // الطلبات بنفس invoiceNumber تُعدّ فاتورة واحدة فقط
+  const manifestOrderIds: Record<number, number[]> = {};
   for (const link of allLinks) {
-    countMap[link.manifestId] = (countMap[link.manifestId] ?? 0) + 1;
+    if (!manifestOrderIds[link.manifestId]) manifestOrderIds[link.manifestId] = [];
+    manifestOrderIds[link.manifestId].push(link.orderId);
+  }
+
+  // جيب invoiceNumber لكل orderId محتاجينه
+  const allOrderIds = allLinks.map(l => l.orderId);
+  const allOrdersData = allOrderIds.length > 0
+    ? await db.select({ id: ordersTable.id, invoiceNumber: ordersTable.invoiceNumber })
+        .from(ordersTable)
+        .where(inArray(ordersTable.id, allOrderIds))
+    : [];
+  const invoiceMap = new Map(allOrdersData.map(o => [o.id, o.invoiceNumber?.trim() || null]));
+
+  const countMap: Record<number, number> = {};
+  for (const [manifestId, orderIds] of Object.entries(manifestOrderIds)) {
+    const uniqueInvoices = new Set<string>();
+    for (const orderId of orderIds) {
+      const inv = invoiceMap.get(orderId);
+      const key = inv ? inv : `solo-${orderId}`;
+      uniqueInvoices.add(key);
+    }
+    countMap[Number(manifestId)] = uniqueInvoices.size;
   }
 
   res.json(manifests.map((m) => ({
