@@ -885,7 +885,10 @@ export default function InvoiceGroup() {
       )}
 
       {/* Customer info */}
-      <Card className="border-border bg-card">
+      <div className="grid md:grid-cols-3 gap-5 items-start">
+        {/* Main content — يمين */}
+        <div className="md:col-span-2 space-y-4">
+        <Card className="border-border bg-card">
         <CardContent className="px-4 py-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
           <div><p className="text-muted-foreground mb-0.5">العميل</p><p className="font-bold">{rep.customerName}</p></div>
           {rep.phone && <div><p className="text-muted-foreground mb-0.5 flex items-center gap-1"><Phone className="w-3 h-3" />الهاتف</p><p className="font-bold">{rep.phone}</p></div>}
@@ -1053,6 +1056,10 @@ export default function InvoiceGroup() {
           )}
         </CardContent>
       </Card>
+        </div>{/* end md:col-span-2 */}
+
+        {/* Sidebar — يسار */}
+        <div className="space-y-4">
 
       {/* الملخص المالي */}
       <Card className="border-primary/30 bg-card">
@@ -1137,6 +1144,8 @@ export default function InvoiceGroup() {
           </Card>
         );
       })()}
+        </div>{/* end sidebar */}
+      </div>{/* end grid */}
 
       {/* Add Product Dialog */}
       <AddProductDialog
