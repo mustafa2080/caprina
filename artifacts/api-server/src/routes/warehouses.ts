@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, or, desc, count } from "drizzle-orm";
+import { eq, and, or, desc, count, isNull } from "drizzle-orm";
 import {
   db,
   warehousesTable,
@@ -9,6 +9,7 @@ import {
   inventoryMovementsTable,
   ordersTable,
 } from "@workspace/db";
+import { getTenantId } from "../middlewares/requireTenant.js";
 import { z } from "zod";
 import { requireAuth } from "../middlewares/requireAuth";
 import { syncProductQuantityFromWarehouses } from "../lib/inventory.js";
@@ -87,9 +88,14 @@ router.get("/warehouses/stock/by-variant/:variantId", async (req, res): Promise<
 
 // ─── List ──────────────────────────────────────────────────────────────────────
 router.get("/warehouses", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req);
+  const whConditions: any[] = [];
+  if (tenantId !== null) whConditions.push(eq(warehousesTable.tenantId, tenantId));
+
   const warehouses = await db
     .select()
     .from(warehousesTable)
+    .where(whConditions.length > 0 ? and(...whConditions) : undefined)
     .orderBy(desc(warehousesTable.isDefault), warehousesTable.name);
 
   // For each warehouse, get total stock items and order count

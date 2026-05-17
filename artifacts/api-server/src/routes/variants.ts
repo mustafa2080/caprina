@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, and } from "drizzle-orm";
 import { db, productVariantsTable, productsTable, warehousesTable, warehouseStockTable } from "@workspace/db";
+import { getTenantId } from "../middlewares/requireTenant.js";
 import { z } from "zod";
 import { addStock } from "../lib/inventory.js";
 import { logAudit } from "../lib/audit.js";
@@ -35,7 +36,10 @@ const AddStockSchema = z.object({
 });
 
 // List all variants (with product info) — used by order form
-router.get("/variants", async (_req, res): Promise<void> => {
+router.get("/variants", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req);
+  const joinConditions: any[] = [eq(productVariantsTable.productId, productsTable.id)];
+  if (tenantId !== null) joinConditions.push(eq(productsTable.tenantId, tenantId));
   const variants = await db
     .select({
       id: productVariantsTable.id,
@@ -54,7 +58,7 @@ router.get("/variants", async (_req, res): Promise<void> => {
       updatedAt: productVariantsTable.updatedAt,
     })
     .from(productVariantsTable)
-    .innerJoin(productsTable, eq(productVariantsTable.productId, productsTable.id))
+    .innerJoin(productsTable, and(...joinConditions))
     .orderBy(desc(productVariantsTable.createdAt));
   res.json(variants);
 });

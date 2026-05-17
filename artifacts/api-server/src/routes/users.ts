@@ -1,10 +1,11 @@
 import { Router, type IRouter } from "express";
 import { db, usersTable, USER_ROLES } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 import { hashPassword } from "../lib/auth.js";
 import { requireAuth } from "../middlewares/requireAuth.js";
 import { requireAdmin } from "../middlewares/requireRole.js";
 import { logAudit } from "../lib/audit.js";
+import { getTenantId } from "../middlewares/requireTenant.js";
 
 const router: IRouter = Router();
 router.use(requireAuth);
@@ -31,8 +32,18 @@ function parsePermissions(permissions: any): string[] {
 }
 
 // GET /users
-router.get("/", async (_req, res): Promise<void> => {
-  const users = await db.select({
+router.get("/", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req);
+  const isSuperAdmin = (req as any).user?.role === "super_admin";
+  // super_admin يشوف كل اليوزرز اللي مش تابعين لأي tenant (فريقه)
+  // tenant admin يشوف فريقه بس
+  const userConditions: any[] = [];
+  if (tenantId !== null) {
+    userConditions.push(eq(usersTable.tenantId, tenantId));
+  } else if (isSuperAdmin) {
+    userConditions.push(isNull(usersTable.tenantId));
+  }
+  const query = db.select({
     id: usersTable.id,
     username: usersTable.username,
     displayName: usersTable.displayName,
@@ -41,7 +52,10 @@ router.get("/", async (_req, res): Promise<void> => {
     isActive: usersTable.isActive,
     createdAt: usersTable.createdAt,
     updatedAt: usersTable.updatedAt,
-  }).from(usersTable).orderBy(usersTable.createdAt);
+  }).from(usersTable);
+  const users = userConditions.length > 0
+    ? await query.where(and(...userConditions)).orderBy(usersTable.createdAt)
+    : await query.orderBy(usersTable.createdAt);
   res.json(users.map(u => ({ ...u, permissions: parsePermissions(u.permissions) })));
 });
 

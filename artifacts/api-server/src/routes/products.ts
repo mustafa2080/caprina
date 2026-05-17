@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, isNull } from "drizzle-orm";
 import { db, productsTable, warehousesTable, warehouseStockTable } from "@workspace/db";
+import { getTenantId } from "../middlewares/requireTenant.js";
 import { z } from "zod";
 import { addStock } from "../lib/inventory.js";
 import { logAudit } from "../lib/audit.js";
@@ -32,8 +33,13 @@ const AddStockSchema = z.object({
   notes: z.string().nullish(),
 });
 
-router.get("/products", async (_req, res): Promise<void> => {
-  const products = await db.select().from(productsTable).orderBy(desc(productsTable.createdAt));
+router.get("/products", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req);
+  const conditions: any[] = [];
+  if (tenantId !== null) conditions.push(eq(productsTable.tenantId, tenantId));
+  const products = conditions.length > 0
+    ? await db.select().from(productsTable).where(and(...conditions)).orderBy(desc(productsTable.createdAt))
+    : await db.select().from(productsTable).orderBy(desc(productsTable.createdAt));
   res.json(products);
 });
 

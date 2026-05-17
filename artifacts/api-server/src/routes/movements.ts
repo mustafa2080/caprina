@@ -9,6 +9,7 @@ import {
   warehouseStockTable,
   ordersTable,
 } from "@workspace/db";
+import { getTenantId } from "../middlewares/requireTenant.js";
 import {
   adjustWarehouseStock,
   syncProductQuantityFromWarehouses,
@@ -65,7 +66,22 @@ async function buildConditions(query: Record<string, string>) {
 
 // ─── List movements ────────────────────────────────────────────────────────────
 router.get("/inventory/movements", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req);
   const conditions = await buildConditions(req.query as Record<string, string>);
+
+  // لو tenant → نضيف filter على الـ warehouse المرتبط بالـ tenant
+  if (tenantId !== null) {
+    const tenantWarehouses = await db
+      .select({ id: warehousesTable.id })
+      .from(warehousesTable)
+      .where(eq(warehousesTable.tenantId, tenantId));
+    const warehouseIds = tenantWarehouses.map(w => w.id);
+    if (warehouseIds.length > 0) {
+      conditions.push(inArray(inventoryMovementsTable.warehouseId, warehouseIds));
+    } else {
+      res.json([]); return;
+    }
+  }
 
   let query = db
     .select({
