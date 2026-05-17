@@ -197,7 +197,7 @@ function OrderDeliveryRow({
   });
 
   const opt = deliveryOpt(order.deliveryStatus);
-  const needsNote = status === "postponed" || status === "returned";
+  const needsNote = status === "postponed" || status === "returned" || status === "delayed";
   const needsPartial = status === "partial_received";
 
   const hasChanges =
@@ -283,7 +283,12 @@ function OrderDeliveryRow({
           {order.deliveryStatus === "partial_received" && (order as any).returnReceived === 0 && (
             <p className="text-[10px] text-orange-500 mt-0.5 font-semibold">🚚 الباقي عند الشحن</p>
           )}
-          {order.deliveryNote && !editing && (
+          {order.deliveryStatus === "delayed" && order.deliveryNote && !editing && (
+            <p className="text-[10px] text-orange-400 mt-0.5 font-semibold truncate max-w-[110px]">
+              ⏸ {order.deliveryNote}
+            </p>
+          )}
+          {order.deliveryStatus !== "delayed" && order.deliveryNote && !editing && (
             <p className="text-[10px] text-muted-foreground mt-0.5 truncate max-w-[110px]">
               {order.deliveryNote}
             </p>
@@ -391,7 +396,12 @@ function OrderDeliveryRow({
         {order.deliveryStatus === "partial_received" && (order as any).returnReceived === 0 && (
           <p className="text-[10px] text-orange-500 font-semibold">🚚 الباقي عند الشحن</p>
         )}
-        {order.deliveryNote && !editing && (
+        {order.deliveryStatus === "delayed" && order.deliveryNote && !editing && (
+          <p className="text-[10px] text-orange-400 mt-0.5 font-semibold">
+            ⏸ {order.deliveryNote}
+          </p>
+        )}
+        {order.deliveryStatus !== "delayed" && order.deliveryNote && !editing && (
           <p className="text-[10px] text-muted-foreground">{order.deliveryNote}</p>
         )}
         {!locked && !hideAction && (
@@ -566,6 +576,8 @@ function OrderDeliveryRow({
               placeholder={
                 status === "postponed"
                   ? "مثال: العميل طلب التأجيل أسبوعاً..."
+                  : status === "delayed"
+                  ? "مثال: العميل مش راد، العنوان غلط..."
                   : status === "returned"
                   ? "مثال: العميل رفض الاستلام..."
                   : "ملاحظة (اختياري)..."
