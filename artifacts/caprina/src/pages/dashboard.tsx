@@ -340,8 +340,8 @@ export default function Dashboard() {
   const noCostWarning = fin && fin.cashIn > 0 && fin.costOfGoods === 0;
 
   return (
-    <div className="space-y-4 sm:space-y-5 animate-in fade-in duration-500">
-      {/* Header */}
+    <>
+    <div className="space-y-4 sm:space-y-5 animate-in fade-in duration-500">      {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-lg sm:text-xl lg:text-2xl font-bold">لوحة المالية</h1>
@@ -916,5 +916,6 @@ export default function Dashboard() {
     </div>
 
     {showDamagedModal && <DamagedOrdersModal onClose={() => setShowDamagedModal(false)} />}
+    </>
   );
 }
