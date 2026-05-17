@@ -38,6 +38,7 @@ export const ordersTable = mysqlTable("orders", {
   returnReason: text("return_reason"),
   returnNote: text("return_note"),
   returnReceived: int("return_received"), // null = لم يُحدد، 0 = عند شركة الشحن، 1 = تم الاستلام
+  isDamaged: int("is_damaged").default(0), // 1 = منتج تالف/غير صالح للبيع → خسارة كاملة
   trackingNumber: varchar("tracking_number", { length: 255 }),
   invoiceNumber: varchar("invoice_number", { length: 50 }),
   deletedAt: datetime("deleted_at"),

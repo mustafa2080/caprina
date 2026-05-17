@@ -49,7 +49,12 @@ function calcOrderProfit(
     return { revenue, cost, shippingCost: sc, netProfit: revenue - cost - sc };
   }
   if (order.status === "returned") {
-    // البضاعة رجعت للمخزن → لا خسارة في تكلفة البضاعة، الخسارة = الشحن فقط
+    if ((order as any).isDamaged) {
+      // منتج تالف → خسارة تكلفة البضاعة كاملة + الشحن
+      const damagedCost = order.quantity * resolvedCost;
+      return { revenue: 0, cost: damagedCost, shippingCost: sc, netProfit: -(damagedCost + sc) };
+    }
+    // مرتجع عادي → البضاعة رجعت للمخزن، لا ربح ولا خسارة (الشحن فقط)
     return { revenue: 0, cost: 0, shippingCost: sc, netProfit: -sc };
   }
   const revenue = order.quantity * order.unitPrice;
@@ -99,11 +104,20 @@ function periodStats(
   for (const o of returned) {
     const sc = (o.shippingCost ?? 0) + (shippingPerOrder.get(o.id) ?? 0);
     const invKey = o.invoiceNumber ?? `solo-${o.id}`;
-    // المرتجع: خسارة الشحن مرة واحدة فقط لكل فاتورة
     if (!processedShippingInvoices.has(invKey)) {
       processedShippingInvoices.add(invKey);
-      shipping += sc;
-      netProfit -= sc;
+      if ((o as any).isDamaged) {
+        // منتج تالف → خسارة تكلفة البضاعة + الشحن
+        const rc = resolveCost(o, variantMap, productMap);
+        const damagedCost = o.quantity * rc;
+        cost += damagedCost;
+        shipping += sc;
+        netProfit -= (damagedCost + sc);
+      } else {
+        // مرتجع عادي → البضاعة رجعت للمخزن، لا خسارة ولا ربح
+        // الشحن دُفع فعلاً لكن لا يظهر كخسارة في صافي الربح
+        shipping += sc;
+      }
     }
   }
 
