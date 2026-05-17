@@ -532,18 +532,25 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
       const newId = (insertResult as any)[0]?.insertId ?? (insertResult as any).insertId;
       const [newManifest] = await db.select().from(shippingManifestsTable).where(eq(shippingManifestsTable.id, newId));
 
-      // الطلبات في البيان الجديد تبقى pending (حتى الجزئية — الجزء المتبقي رجع المخزن)
+      // الطلبات في البيان الجديد: المؤجل يفضل مؤجل، المرتجع يفضل مرتجع، الباقي pending
       await db.insert(shippingManifestOrdersTable).values(
-        pendingLinks.map((link) => ({
-          manifestId: newManifest.id,
-          orderId: link.orderId,
-          deliveryStatus: "pending" as any, // كلها pending في البيان الجديد
-          deliveryNote: null,
-          deliveredAt: null,
-          partialQuantity: null,
-          returnReceived: null,
-          addedAt: new Date(),
-        }))
+        pendingLinks.map((link) => {
+          const isDelayed   = link.deliveryStatus === "postponed" || link.deliveryStatus === "delayed";
+          const isReturned  = link.deliveryStatus === "returned";
+          const newStatus   = isDelayed ? link.deliveryStatus : isReturned ? "returned" : "pending";
+          const newNote     = isDelayed || isReturned ? link.deliveryNote : null;
+          const newReturnReceived = isReturned ? link.returnReceived : null;
+          return {
+            manifestId: newManifest.id,
+            orderId: link.orderId,
+            deliveryStatus: newStatus as any,
+            deliveryNote: newNote,
+            deliveredAt: null,
+            partialQuantity: null,
+            returnReceived: newReturnReceived,
+            addedAt: new Date(),
+          };
+        })
       );
 
       // ── جيب الطلبات وأضفها للبيان الجديد بدون خصم مخزون إضافي ─────────────
