@@ -48,8 +48,8 @@ function calcOrderProfit(
     return { revenue, cost, shippingCost: sc, netProfit: revenue - cost - sc };
   }
   if (order.status === "returned") {
-    const cost = order.quantity * resolvedCost;
-    return { revenue: 0, cost, shippingCost: sc, netProfit: -(cost + sc) };
+    // البضاعة رجعت للمخزن → لا خسارة في تكلفة البضاعة، الخسارة = الشحن فقط
+    return { revenue: 0, cost: 0, shippingCost: sc, netProfit: -sc };
   }
   const revenue = order.quantity * order.unitPrice;
   const cost = order.quantity * resolvedCost;
@@ -877,24 +877,34 @@ router.get("/analytics/smart-insights", async (_req, res): Promise<void> => {
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
   // ── 1. Ad Attribution ────────────────────────────────────────────────────────
-  const sourceMap: Record<string, { orders: number; revenue: number; cost: number; profit: number; adSpend: number; returned: number }> = {};
+  const sourceMap: Record<string, { orders: number; revenue: number; cost: number; profit: number; adSpend: number; returned: number; invoiceSet: Set<string>; returnedInvoiceSet: Set<string> }> = {};
 
   for (const o of allOrders) {
     const src = o.adSource ?? "organic";
-    if (!sourceMap[src]) sourceMap[src] = { orders: 0, revenue: 0, cost: 0, profit: 0, adSpend: 0, returned: 0 };
+    if (!sourceMap[src]) sourceMap[src] = { orders: 0, revenue: 0, cost: 0, profit: 0, adSpend: 0, returned: 0, invoiceSet: new Set<string>(), returnedInvoiceSet: new Set<string>() };
     const s = sourceMap[src];
     const rc = resolveCost(o, variantMap, productMap);
-    s.orders++;
+    const invoiceKey = o.invoiceNumber ?? `solo-${o.id}`;
+
     if (o.status === "returned") {
-      s.returned++;
-      const p = calcOrderProfit(o, rc);
-      s.cost += p.cost;
-      s.profit += p.netProfit;
+      // نعدّ الفاتورة المرتجعة مرة واحدة فقط
+      if (!s.returnedInvoiceSet.has(invoiceKey)) {
+        s.returnedInvoiceSet.add(invoiceKey);
+        s.returned++;
+        // خسارة الشحن فقط — البضاعة رجعت للمخزن
+        const sc = o.shippingCost ?? 0;
+        s.profit -= sc;
+      }
+      if (!s.invoiceSet.has(invoiceKey)) { s.invoiceSet.add(invoiceKey); s.orders++; }
     } else if (o.status === "received" || o.status === "partial_received") {
       const p = calcOrderProfit(o, rc);
       s.revenue += p.revenue;
       s.cost += p.cost;
       s.profit += p.netProfit;
+      if (!s.invoiceSet.has(invoiceKey)) { s.invoiceSet.add(invoiceKey); s.orders++; }
+    } else {
+      // pending / in_shipping / delayed — نعدّها في الطلبات الكلية فقط
+      if (!s.invoiceSet.has(invoiceKey)) { s.invoiceSet.add(invoiceKey); s.orders++; }
     }
   }
 
