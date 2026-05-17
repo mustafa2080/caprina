@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { eq, desc, and, gte, lte, isNull } from "drizzle-orm";
 import { db, ordersTable, usersTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
+import { getTenantId } from "../middlewares/requireTenant.js";
 
 const router: IRouter = Router();
 router.use(requireAuth);
@@ -115,8 +116,10 @@ function buildPerUserInvoices(rawOrders: (typeof ordersTable.$inferSelect)[]) {
 router.get("/analytics/team-performance", async (req, res): Promise<void> => {
   const dateFrom = req.query.dateFrom as string | undefined;
   const dateTo   = req.query.dateTo   as string | undefined;
+  const tenantId = getTenantId(req);
 
   const conditions: any[] = [isNull(ordersTable.deletedAt)];
+  if (tenantId !== null) conditions.push(eq(ordersTable.tenantId, tenantId));
   if (dateFrom) conditions.push(gte(ordersTable.createdAt, new Date(dateFrom)));
   if (dateTo) {
     const to = new Date(dateTo);
@@ -127,7 +130,11 @@ router.get("/analytics/team-performance", async (req, res): Promise<void> => {
   const rawOrders = await db.select().from(ordersTable).where(and(...conditions));
   const invoiceMap = buildPerUserInvoices(rawOrders);
 
-  const users   = await db.select().from(usersTable);
+  // فلتر المستخدمين بالـ tenant
+  const userConditions: any[] = [];
+  if (tenantId !== null) userConditions.push(eq(usersTable.tenantId, tenantId));
+  else userConditions.push(isNull(usersTable.tenantId));
+  const users = await db.select().from(usersTable).where(and(...userConditions));
   const userMap = new Map(users.map((u) => [u.id, u]));
 
   const stats: Record<number, {

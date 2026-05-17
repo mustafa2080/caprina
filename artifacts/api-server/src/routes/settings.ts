@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, appSettingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireAuth } from "../middlewares/requireAuth.js";
-import { requireAdmin } from "../middlewares/requireRole.js";
+import { requireAdmin, requireSuperAdmin } from "../middlewares/requireRole.js";
 
 const router: IRouter = Router();
 
@@ -14,8 +14,8 @@ function parseValue(val: string | null | undefined): Record<string, any> {
   try { return JSON.parse(val); } catch { return {}; }
 }
 
-// GET /settings — returns app settings (requires auth only)
-router.get("/settings", requireAuth, async (_req, res): Promise<void> => {
+// GET /settings — returns app settings (super_admin only)
+router.get("/settings", requireAuth, requireSuperAdmin, async (_req, res): Promise<void> => {
   try {
     const rows = await db
       .select()

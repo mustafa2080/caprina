@@ -3,6 +3,7 @@ import { db, auditLogsTable } from "@workspace/db";
 import { desc, eq, and, gte, lte, like, or } from "drizzle-orm";
 import { requireAuth } from "../middlewares/requireAuth.js";
 import { requireAdmin } from "../middlewares/requireRole.js";
+import { getTenantId } from "../middlewares/requireTenant.js";
 
 const router: IRouter = Router();
 router.use(requireAuth);
@@ -11,8 +12,10 @@ router.use(requireAdmin);
 // GET /audit-logs
 router.get("/", async (req, res): Promise<void> => {
   const { limit = "100", offset = "0", entityType, action, search, from, to } = req.query as Record<string, string>;
+  const tenantId = getTenantId(req);
 
-  const conditions = [];
+  const conditions: any[] = [];
+  if (tenantId !== null) conditions.push(eq(auditLogsTable.tenantId, tenantId));
   if (entityType) conditions.push(eq(auditLogsTable.entityType, entityType));
   if (action) conditions.push(eq(auditLogsTable.action, action as any));
   if (from) conditions.push(gte(auditLogsTable.createdAt, new Date(from)));

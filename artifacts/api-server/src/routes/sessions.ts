@@ -3,6 +3,7 @@ import { db, sessionLogsTable, usersTable } from "@workspace/db";
 import { eq, desc, gte, and, isNotNull } from "drizzle-orm";
 import { requireAuth } from "../middlewares/requireAuth.js";
 import { requireAdmin } from "../middlewares/requireRole.js";
+import { getTenantId } from "../middlewares/requireTenant.js";
 
 const router: IRouter = Router();
 
@@ -36,6 +37,7 @@ router.patch("/:id/logout", async (req, res): Promise<void> => {
 // GET /sessions/report?period=week|month|year&from=&to= — للمدير فقط
 router.get("/report", requireAdmin, async (req, res): Promise<void> => {
   const { period, from, to } = req.query as Record<string, string>;
+  const tenantId = getTenantId(req);
 
   let since: Date;
   const now = new Date();
@@ -52,6 +54,24 @@ router.get("/report", requireAdmin, async (req, res): Promise<void> => {
 
   const toDate = to ? new Date(to) : now;
 
+  // فلتر بالـ tenant: نجيب فقط الجلسات للمستخدمين التابعين للـ tenant
+  const tenantUserIds: number[] = [];
+  if (tenantId !== null) {
+    const { isNull: isNullFn } = await import("drizzle-orm");
+    const tenantUsers = await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where((await import("drizzle-orm")).eq(usersTable.tenantId, tenantId));
+    tenantUserIds.push(...tenantUsers.map(u => u.id));
+    if (tenantUserIds.length === 0) { res.json({ sessions: [], summary: [], totalCount: 0 }); return; }
+  }
+
+  const sessionConditions: any[] = [gte(sessionLogsTable.loginAt, since)];
+  if (tenantId !== null && tenantUserIds.length > 0) {
+    const { inArray } = await import("drizzle-orm");
+    sessionConditions.push(inArray(sessionLogsTable.userId, tenantUserIds));
+  }
+
   const sessions = await db
     .select({
       id:          sessionLogsTable.id,
@@ -66,7 +86,7 @@ router.get("/report", requireAdmin, async (req, res): Promise<void> => {
     })
     .from(sessionLogsTable)
     .leftJoin(usersTable, eq(sessionLogsTable.userId, usersTable.id))
-    .where(and(gte(sessionLogsTable.loginAt, since)))
+    .where(and(...sessionConditions))
     .orderBy(desc(sessionLogsTable.loginAt))
     .limit(500);
 

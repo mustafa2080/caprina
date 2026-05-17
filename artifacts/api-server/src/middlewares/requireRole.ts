@@ -25,6 +25,15 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction): v
   next();
 }
 
+export function requireSuperAdmin(req: Request, res: Response, next: NextFunction): void {
+  const user = req.user;
+  if (!user || user.role !== "super_admin") {
+    res.status(403).json({ error: "هذه الصفحة متاحة للـ Super Admin فقط" });
+    return;
+  }
+  next();
+}
+
 export function isAdmin(req: Request): boolean {
   return req.user?.role === "admin" || req.user?.role === "super_admin";
 }

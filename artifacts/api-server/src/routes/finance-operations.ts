@@ -3,6 +3,7 @@ import { eq, desc, gte, lte, and, sql, lt, isNull, like, or } from "drizzle-orm"
 import ExcelJS from "exceljs";
 import { db, expensesTable, shippingFinancialInvoicesTable, ordersTable, shippingManifestsTable, shippingManifestOrdersTable, cashRegistersTable, cashTransactionsTable } from "@workspace/db";
 import { z } from "zod";
+import { getTenantId } from "../middlewares/requireTenant.js";
 
 const router: IRouter = Router();
 
@@ -35,7 +36,9 @@ function buildExpenseConditions(query: Record<string, any>) {
 
 router.get("/finance/expenses", async (req, res): Promise<void> => {
   const { page = "1", limit = "25" } = req.query;
+  const tenantId = getTenantId(req);
   const conditions = buildExpenseConditions(req.query);
+  if (tenantId !== null) conditions.push(eq(expensesTable.tenantId, tenantId));
   const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
 
   const [{ total }] = await db.select({ total: sql<number>`COUNT(*)` })
@@ -53,7 +56,9 @@ router.get("/finance/expenses", async (req, res): Promise<void> => {
 
 // ── تصدير Excel للمصروفات ─────────────────────────────────────────────────
 router.get("/finance/expenses/export-excel", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req);
   const conditions = buildExpenseConditions(req.query);
+  if (tenantId !== null) conditions.push(eq(expensesTable.tenantId, tenantId));
   const expenses = await db.select().from(expensesTable)
     .where(conditions.length ? and(...conditions) : undefined)
     .orderBy(desc(expensesTable.expenseDate));
@@ -206,6 +211,7 @@ router.post("/finance/expenses", async (req, res): Promise<void> => {
 router.get("/finance/expenses/monthly-breakdown", async (req, res): Promise<void> => {
   // آخر 6 شهور افتراضياً
   const monthsBack = parseInt((req.query.months as string) ?? "6");
+  const tenantId = getTenantId(req);
   const now = new Date();
   const results: Record<string, Record<string, number>> = {};
   const monthLabels: string[] = [];
@@ -217,13 +223,16 @@ router.get("/finance/expenses/monthly-breakdown", async (req, res): Promise<void
     const label = d.toLocaleDateString("ar-EG", { month: "short", year: "numeric" });
     monthLabels.push(label);
 
+    const monthConditions: any[] = [
+      gte(expensesTable.expenseDate, from),
+      lte(expensesTable.expenseDate, to),
+    ];
+    if (tenantId !== null) monthConditions.push(eq(expensesTable.tenantId, tenantId));
+
     const rows = await db.select({
       category: expensesTable.category,
       total: sql<number>`COALESCE(SUM(CAST(amount AS DECIMAL(14,2))), 0)`,
-    }).from(expensesTable).where(and(
-      gte(expensesTable.expenseDate, from),
-      lte(expensesTable.expenseDate, to),
-    )).groupBy(expensesTable.category);
+    }).from(expensesTable).where(and(...monthConditions)).groupBy(expensesTable.category);
 
     results[label] = {};
     for (const row of rows) {
@@ -306,8 +315,13 @@ const ShipInvSchema = z.object({
   dueDate: z.string().nullish(),
 });
 
-router.get("/finance/shipping-invoices", async (_req, res): Promise<void> => {
-  const invoices = await db.select().from(shippingFinancialInvoicesTable).orderBy(desc(shippingFinancialInvoicesTable.invoiceDate));
+router.get("/finance/shipping-invoices", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req);
+  const conditions: any[] = [];
+  if (tenantId !== null) conditions.push(eq(shippingFinancialInvoicesTable.tenantId, tenantId));
+  const invoices = await db.select().from(shippingFinancialInvoicesTable)
+    .where(conditions.length ? and(...conditions) : undefined)
+    .orderBy(desc(shippingFinancialInvoicesTable.invoiceDate));
   res.json(invoices);
 });
 
@@ -443,6 +457,7 @@ router.patch("/finance/shipping-invoices/:id", async (req, res): Promise<void> =
 // ── Finance Analytics (P&L + Alerts + Trends) ─────────────────────────────
 router.get("/finance/analytics", async (req, res): Promise<void> => {
   const { from, to } = req.query;
+  const tenantId = getTenantId(req);
 
   // ── تحديد الفترة الحالية والسابقة ────────────────────────────────────────
   const now = new Date();
@@ -456,6 +471,9 @@ router.get("/finance/analytics", async (req, res): Promise<void> => {
   async function fetchPeriodData(pFrom: Date, pTo: Date) {
     const pToEnd = new Date(pTo); pToEnd.setHours(23, 59, 59, 999);
 
+    const tenantCond = tenantId !== null ? [eq(ordersTable.tenantId, tenantId)] : [];
+    const tenantExpCond = tenantId !== null ? [eq(expensesTable.tenantId, tenantId)] : [];
+
     // الطلبات المستلمة (received + partial_received)
     const ordersData = await db.select({
       revenue:  sql<number>`COALESCE(SUM(total_price), 0)`,
@@ -467,6 +485,7 @@ router.get("/finance/analytics", async (req, res): Promise<void> => {
       sql`status IN ('received','partial_received')`,
       gte(ordersTable.createdAt, pFrom),
       lte(ordersTable.createdAt, pToEnd),
+      ...tenantCond,
     ));
 
     // الطلبات المرتجعة
@@ -478,6 +497,7 @@ router.get("/finance/analytics", async (req, res): Promise<void> => {
       eq(ordersTable.status as any, "returned"),
       gte(ordersTable.createdAt, pFrom),
       lte(ordersTable.createdAt, pToEnd),
+      ...tenantCond,
     ));
 
     // المصروفات
@@ -486,6 +506,7 @@ router.get("/finance/analytics", async (req, res): Promise<void> => {
     }).from(expensesTable).where(and(
       gte(expensesTable.expenseDate, pFrom),
       lte(expensesTable.expenseDate, pToEnd),
+      ...tenantExpCond,
     ));
 
     // المصروفات حسب فئة
@@ -495,6 +516,7 @@ router.get("/finance/analytics", async (req, res): Promise<void> => {
     }).from(expensesTable).where(and(
       gte(expensesTable.expenseDate, pFrom),
       lte(expensesTable.expenseDate, pToEnd),
+      ...tenantExpCond,
     )).groupBy(expensesTable.category);
 
     // إجمالي الطلبات (كل الحالات) لحساب نسبة التسليم
@@ -506,6 +528,7 @@ router.get("/finance/analytics", async (req, res): Promise<void> => {
       isNull(ordersTable.deletedAt),
       gte(ordersTable.createdAt, pFrom),
       lte(ordersTable.createdAt, pToEnd),
+      ...tenantCond,
     ));
 
     const revenue  = Number(ordersData[0]?.revenue  ?? 0);
@@ -561,6 +584,7 @@ router.get("/finance/analytics", async (req, res): Promise<void> => {
       sql`status IN ('pending','verified')`,
       sql`due_date IS NOT NULL`,
       lt(shippingFinancialInvoicesTable.dueDate as any, now),
+      ...(tenantId !== null ? [eq(shippingFinancialInvoicesTable.tenantId, tenantId)] : []),
     ));
 
   // ── طلبات في الشحن (in_shipping) = كاش متوقع ────────────────────────────
@@ -570,14 +594,17 @@ router.get("/finance/analytics", async (req, res): Promise<void> => {
   }).from(ordersTable).where(and(
     isNull(ordersTable.deletedAt),
     eq(ordersTable.status as any, "in_shipping"),
+    ...(tenantId !== null ? [eq(ordersTable.tenantId, tenantId)] : []),
   ));
 
   // ── فواتير شحن غير مسددة (إجمالي) ───────────────────────────────────────
+  const unpaidConditions: any[] = [sql`status IN ('pending','verified')`];
+  if (tenantId !== null) unpaidConditions.push(eq(shippingFinancialInvoicesTable.tenantId, tenantId));
   const [unpaidShipping] = await db.select({
     total: sql<number>`COALESCE(SUM(CAST(net_due AS DECIMAL(14,2)) - COALESCE(CAST(paid_amount AS DECIMAL(14,2)),0)), 0)`,
     count: sql<number>`COUNT(*)`,
   }).from(shippingFinancialInvoicesTable)
-    .where(sql`status IN ('pending','verified')`);
+    .where(and(...unpaidConditions));
 
   // ── أعلى 5 فئات مصروفات ──────────────────────────────────────────────────
   const topExpenseCategories = [...cur.expByCategory]
