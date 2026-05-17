@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { db, appSettingsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, appSettingsTable, ordersTable } from "@workspace/db";
+import { eq, sql } from "drizzle-orm";
 import { requireAuth } from "../middlewares/requireAuth.js";
 import { requireAdmin, requireSuperAdmin } from "../middlewares/requireRole.js";
 
@@ -76,6 +76,17 @@ router.patch("/settings", requireAuth, requireAdmin, async (req, res): Promise<v
   } catch (err: any) {
     console.error("[settings PATCH] error:", err);
     res.status(500).json({ error: "فشل حفظ الإعدادات", detail: err?.message });
+  }
+});
+
+// ── FIX: تصحيح قيم الشحن السالبة (مؤقت) ─────────────────────────────────────
+router.post("/settings/fix-shipping-cost", requireAuth, requireSuperAdmin, async (_req, res): Promise<void> => {
+  try {
+    const [fix] = await db.execute(sql`UPDATE orders SET shipping_cost = ABS(shipping_cost) WHERE shipping_cost < 0`);
+    const [row] = await db.execute(sql`SELECT id, status, shipping_cost, cost_price, return_received, is_damaged FROM orders WHERE id = 1048`);
+    res.json({ affectedRows: (fix as any).affectedRows, order1048: row });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message });
   }
 });
 
