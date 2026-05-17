@@ -750,7 +750,7 @@ router.post("/shipping-manifests/:id/orders", async (req, res): Promise<void> =>
  */
 
 const DeliveryStatusSchema = z.object({
-  deliveryStatus: z.enum(["pending", "delivered", "postponed", "partial_received", "returned"]),
+  deliveryStatus: z.enum(["pending", "delivered", "postponed", "partial_received", "returned", "delayed"]),
   deliveryNote: z.string().nullish(),
   partialQuantity: z.union([z.number().int().min(0), z.string().transform(v => { const n = parseInt(v); return isNaN(n) ? null : n; })]).nullish(),
   partialReturnReceived: z.boolean().nullish(),
@@ -760,7 +760,7 @@ const DeliveryStatusSchema = z.object({
 
 const STATUS_MAP: Record<string, string> = {
   delivered: "received", postponed: "delayed", partial_received: "partial_received",
-  returned: "returned", pending: "in_shipping",
+  returned: "returned", pending: "in_shipping", delayed: "delayed",
 };
 
 router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promise<void> => {
