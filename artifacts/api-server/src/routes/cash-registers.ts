@@ -1,7 +1,8 @@
 import { Router } from "express";
 import ExcelJS from "exceljs";
 import { db, cashRegistersTable, cashTransactionsTable, shippingFinancialInvoicesTable, shippingCompaniesTable, shippingManifestsTable, CREDIT_TYPES, DEBIT_TYPES } from "@workspace/db";
-import { eq, desc, sql, and, gte, lte, ne, inArray } from "drizzle-orm";
+import { eq, desc, sql, and, gte, lte, ne, inArray, isNull } from "drizzle-orm";
+import { getTenantId } from "../middlewares/requireTenant.js";
 
 const creditSql = sql.raw([...CREDIT_TYPES].map(t => `'${t}'`).join(","));
 const debitSql  = sql.raw([...DEBIT_TYPES].map(t => `'${t}'`).join(","));
@@ -19,7 +20,9 @@ const TX_LABELS_AR: Record<string, string> = {
 // ─── GET /api/cash-registers ─────────────────────────────────────────────────
 cashRegistersRouter.get("/", async (req, res) => {
   try {
-    const registers = await db.select().from(cashRegistersTable).where(eq(cashRegistersTable.isActive, true)).orderBy(cashRegistersTable.type);
+    const tenantId = getTenantId(req);
+    const tReg = tenantId !== null ? and(eq(cashRegistersTable.isActive, true), eq(cashRegistersTable.tenantId, tenantId)) : eq(cashRegistersTable.isActive, true);
+    const registers = await db.select().from(cashRegistersTable).where(tReg).orderBy(cashRegistersTable.type);
     const total = registers.reduce((s, r) => s + parseFloat(r.balance ?? "0"), 0);
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -82,7 +85,9 @@ cashRegistersRouter.post("/", async (req, res) => {
 // ─── GET smart-alerts, analytics, alerts ─────────────────────────────────────
 cashRegistersRouter.get("/smart-alerts", async (req, res) => {
   try {
-    const registers = await db.select().from(cashRegistersTable).where(eq(cashRegistersTable.isActive, true));
+    const tenantId = getTenantId(req);
+    const tReg = tenantId !== null ? and(eq(cashRegistersTable.isActive, true), eq(cashRegistersTable.tenantId, tenantId)) : eq(cashRegistersTable.isActive, true);
+    const registers = await db.select().from(cashRegistersTable).where(tReg);
     const now = new Date(); const dayAgo = new Date(now.getTime()-86400000); const weekAgo = new Date(now.getTime()-604800000);
     const alerts: any[] = [];
     for (const r of registers) {
@@ -104,6 +109,8 @@ cashRegistersRouter.get("/smart-alerts", async (req, res) => {
 
 cashRegistersRouter.get("/analytics", async (req, res) => {
   try {
+    const tenantId = getTenantId(req);
+    const tReg = tenantId !== null ? and(eq(cashRegistersTable.isActive, true), eq(cashRegistersTable.tenantId, tenantId)) : eq(cashRegistersTable.isActive, true);
     const now = new Date(); const thisMonthStart=new Date(now.getFullYear(),now.getMonth(),1); const lastMonthStart=new Date(now.getFullYear(),now.getMonth()-1,1); const lastMonthEnd=new Date(now.getFullYear(),now.getMonth(),0,23,59,59);
     const [thisMo]=await db.select({totalIn:sql<number>`COALESCE(SUM(CASE WHEN type IN (${creditSql}) THEN CAST(amount AS DECIMAL(14,2)) ELSE 0 END),0)`,totalOut:sql<number>`COALESCE(SUM(CASE WHEN type IN (${debitSql}) THEN CAST(amount AS DECIMAL(14,2)) ELSE 0 END),0)`,txCount:sql<number>`COUNT(*)`}).from(cashTransactionsTable).where(gte(cashTransactionsTable.transactionDate,thisMonthStart));
     const [lastMo]=await db.select({totalIn:sql<number>`COALESCE(SUM(CASE WHEN type IN (${creditSql}) THEN CAST(amount AS DECIMAL(14,2)) ELSE 0 END),0)`,totalOut:sql<number>`COALESCE(SUM(CASE WHEN type IN (${debitSql}) THEN CAST(amount AS DECIMAL(14,2)) ELSE 0 END),0)`,txCount:sql<number>`COUNT(*)`}).from(cashTransactionsTable).where(and(gte(cashTransactionsTable.transactionDate,lastMonthStart),lte(cashTransactionsTable.transactionDate,lastMonthEnd)));
@@ -112,7 +119,7 @@ cashRegistersRouter.get("/analytics", async (req, res) => {
     const sixMonthsAgo=new Date(now.getFullYear(),now.getMonth()-5,1);
     const monthlyRows=await db.select({month:sql<string>`DATE_FORMAT(transaction_date,'%Y-%m')`,totalIn:sql<number>`COALESCE(SUM(CASE WHEN type IN (${creditSql}) THEN CAST(amount AS DECIMAL(14,2)) ELSE 0 END),0)`,totalOut:sql<number>`COALESCE(SUM(CASE WHEN type IN (${debitSql}) THEN CAST(amount AS DECIMAL(14,2)) ELSE 0 END),0)`}).from(cashTransactionsTable).where(gte(cashTransactionsTable.transactionDate,sixMonthsAgo)).groupBy(sql`DATE_FORMAT(transaction_date,'%Y-%m')`).orderBy(sql`DATE_FORMAT(transaction_date,'%Y-%m')`);
     const typeRows=await db.select({type:cashTransactionsTable.type,total:sql<number>`COALESCE(SUM(CAST(amount AS DECIMAL(14,2))),0)`,count:sql<number>`COUNT(*)`}).from(cashTransactionsTable).where(gte(cashTransactionsTable.transactionDate,thisMonthStart)).groupBy(cashTransactionsTable.type).orderBy(desc(sql`SUM(CAST(amount AS DECIMAL(14,2)))`));
-    const registers=await db.select().from(cashRegistersTable).where(eq(cashRegistersTable.isActive,true));
+    const registers=await db.select().from(cashRegistersTable).where(tReg);
     const regComparison=await Promise.all(registers.map(async(r)=>{const[s]=await db.select({totalIn:sql<number>`COALESCE(SUM(CASE WHEN type IN (${creditSql}) THEN CAST(amount AS DECIMAL(14,2)) ELSE 0 END),0)`,totalOut:sql<number>`COALESCE(SUM(CASE WHEN type IN (${debitSql}) THEN CAST(amount AS DECIMAL(14,2)) ELSE 0 END),0)`,txCount:sql<number>`COUNT(*)`}).from(cashTransactionsTable).where(and(eq(cashTransactionsTable.registerId,r.id),gte(cashTransactionsTable.transactionDate,thisMonthStart)));return{id:r.id,name:r.name,type:r.type,balance:parseFloat(r.balance??'0'),monthlyIn:Number(s?.totalIn??0),monthlyOut:Number(s?.totalOut??0),txCount:Number(s?.txCount??0)};}));
     const topTx=await db.select().from(cashTransactionsTable).where(gte(cashTransactionsTable.transactionDate,thisMonthStart)).orderBy(desc(sql`CAST(amount AS DECIMAL(14,2))`)).limit(5);
     res.json({currentMonth:{totalIn:thisIn,totalOut:thisOut,net:thisIn-thisOut,txCount:Number(thisMo?.txCount??0)},lastMonth:{totalIn:lastIn,totalOut:lastOut,net:lastIn-lastOut,txCount:Number(lastMo?.txCount??0)},changes:{inPct:pct(thisIn,lastIn),outPct:pct(thisOut,lastOut),netPct:pct(thisIn-thisOut,lastIn-lastOut)},monthlyChart:monthlyRows.map(r=>({month:r.month,in:Number(r.totalIn),out:Number(r.totalOut),net:Number(r.totalIn)-Number(r.totalOut)})),typeBreakdown:typeRows.map(r=>({type:r.type,total:Number(r.total),count:Number(r.count)})),registerComparison:regComparison,topTransactions:topTx});
@@ -121,7 +128,9 @@ cashRegistersRouter.get("/analytics", async (req, res) => {
 
 cashRegistersRouter.get("/alerts", async (req, res) => {
   try {
-    const registers=await db.select().from(cashRegistersTable).where(eq(cashRegistersTable.isActive,true));
+    const tenantId = getTenantId(req);
+    const tReg = tenantId !== null ? and(eq(cashRegistersTable.isActive, true), eq(cashRegistersTable.tenantId, tenantId)) : eq(cashRegistersTable.isActive, true);
+    const registers=await db.select().from(cashRegistersTable).where(tReg);
     const alerts=registers.filter(r=>r.lowBalanceThreshold&&parseFloat(r.balance??"0")<=parseFloat(r.lowBalanceThreshold)).map(r=>({registerId:r.id,name:r.name,balance:parseFloat(r.balance??"0"),threshold:parseFloat(r.lowBalanceThreshold??"0"),type:r.type}));
     res.json({alerts});
   } catch(err){res.status(500).json({error:"فشل جلب التنبيهات"});}
@@ -305,8 +314,12 @@ cashRegistersRouter.delete("/:id", async (req, res) => {
 // ─── GET /archived — جلب الخزن المؤرشفة ──────────────────────────────────────
 cashRegistersRouter.get("/archived", async (req, res) => {
   try {
+    const tenantId = getTenantId(req);
+    const tArchived = tenantId !== null
+      ? and(eq(cashRegistersTable.isActive, false), eq(cashRegistersTable.tenantId, tenantId))
+      : eq(cashRegistersTable.isActive, false);
     const archived = await db.select().from(cashRegistersTable)
-      .where(eq(cashRegistersTable.isActive, false))
+      .where(tArchived)
       .orderBy(desc(cashRegistersTable.updatedAt));
     res.json({ registers: archived });
   } catch (err) { res.status(500).json({ error: "فشل جلب الأرشيف" }); }

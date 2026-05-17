@@ -13,6 +13,7 @@ export type PurchasePaymentStatus = (typeof PURCHASE_PAYMENT_STATUSES)[number];
 // ─── جدول أوامر الشراء (Purchase Orders) ──────────────────────────────────
 export const purchaseOrdersTable = mysqlTable("purchase_orders", {
   id: int("id").primaryKey().autoincrement(),
+  tenantId: int("tenant_id"),
   poNumber: varchar("po_number", { length: 100 }).notNull(), // رقم أمر الشراء
   supplierId: int("supplier_id").references(() => suppliersTable.id),
   supplierName: varchar("supplier_name", { length: 255 }), // اسم المورد (fallback)

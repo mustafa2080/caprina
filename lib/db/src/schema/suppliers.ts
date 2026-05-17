@@ -5,6 +5,7 @@ import { z } from "zod/v4";
 // ─── جدول الموردين ──────────────────────────────────────────────────────────
 export const suppliersTable = mysqlTable("suppliers", {
   id: int("id").primaryKey().autoincrement(),
+  tenantId: int("tenant_id"),
   name: varchar("name", { length: 255 }).notNull(),
   phone: varchar("phone", { length: 50 }),
   email: varchar("email", { length: 255 }),

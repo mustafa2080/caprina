@@ -1,11 +1,12 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, and, sql, or, like } from "drizzle-orm";
+import { eq, desc, and, sql, or, like, isNull } from "drizzle-orm";
 import {
   db, suppliersTable, purchaseOrdersTable, purchaseOrderItemsTable,
   cashRegistersTable, cashTransactionsTable,
 } from "@workspace/db";
 import ExcelJS from "exceljs";
 import { z } from "zod";
+import { getTenantId } from "../middlewares/requireTenant.js";
 
 const router: IRouter = Router();
 
@@ -42,7 +43,8 @@ const CAT_LABEL: Record<string,string> = {
 // ── Suppliers ──────────────────────────────────────────────────────────────
 router.get("/finance/suppliers", async (req, res): Promise<void> => {
   const { search, category } = req.query as Record<string, string>;
-  const conds: any[] = [];
+  const tenantId = getTenantId(req);
+  const conds: any[] = tenantId !== null ? [eq(suppliersTable.tenantId, tenantId)] : [];
   if (search?.trim()) {
     const q = `%${search.trim()}%`;
     conds.push(or(like(suppliersTable.name, q), like(suppliersTable.phone, q), like(suppliersTable.email, q)));
@@ -56,7 +58,8 @@ router.get("/finance/suppliers", async (req, res): Promise<void> => {
 
 router.get("/finance/suppliers/export-excel", async (req, res): Promise<void> => {
   const { search, category } = req.query as Record<string, string>;
-  const conds: any[] = [];
+  const tenantId = getTenantId(req);
+  const conds: any[] = tenantId !== null ? [eq(suppliersTable.tenantId, tenantId)] : [];
   if (search?.trim()) { const q = `%${search.trim()}%`; conds.push(or(like(suppliersTable.name, q), like(suppliersTable.phone, q))); }
   if (category?.trim() && category !== "all") conds.push(eq(suppliersTable.category, category.trim()));
   const rows = await db.select().from(suppliersTable)
@@ -86,7 +89,11 @@ router.post("/finance/suppliers", async (req, res): Promise<void> => {
   const parsed = SupplierSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   const now = new Date();
-  const result = await db.insert(suppliersTable).values({ ...parsed.data, balance:"0", createdAt:now, updatedAt:now });
+  const tenantId = getTenantId(req);
+  const result = await db.insert(suppliersTable).values({
+    ...parsed.data, balance:"0", createdAt:now, updatedAt:now,
+    ...(tenantId !== null ? { tenantId } : {}),
+  });
   const id = (result as any)[0]?.insertId;
   const [s] = await db.select().from(suppliersTable).where(eq(suppliersTable.id, id));
   res.status(201).json(s);
@@ -173,15 +180,24 @@ router.get("/finance/suppliers/:id/statement/export-excel", async (req, res): Pr
 });
 
 // ── Purchase Orders ─────────────────────────────────────────────────────────
-router.get("/finance/purchases", async (_req, res): Promise<void> => {
-  const orders = await db.select().from(purchaseOrdersTable).orderBy(desc(purchaseOrdersTable.createdAt));
+router.get("/finance/purchases", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req);
+  const conds: any[] = tenantId !== null ? [eq(purchaseOrdersTable.tenantId, tenantId)] : [];
+  const orders = await db.select().from(purchaseOrdersTable)
+    .where(conds.length ? and(...conds) : undefined)
+    .orderBy(desc(purchaseOrdersTable.createdAt));
   res.json(orders);
 });
 
 router.get("/finance/purchases/export-excel", async (req, res): Promise<void> => {
   const { search, paymentStatus, status, supplierId, from, to } = req.query as Record<string,string>;
-  let orders = await db.select().from(purchaseOrdersTable).orderBy(desc(purchaseOrdersTable.createdAt));
-  const allSupp = await db.select().from(suppliersTable);
+  const tenantId = getTenantId(req);
+  const conds: any[] = tenantId !== null ? [eq(purchaseOrdersTable.tenantId, tenantId)] : [];
+  let orders = await db.select().from(purchaseOrdersTable)
+    .where(conds.length ? and(...conds) : undefined)
+    .orderBy(desc(purchaseOrdersTable.createdAt));
+  const allSupp = await db.select().from(suppliersTable)
+    .where(tenantId !== null ? eq(suppliersTable.tenantId, tenantId) : undefined);
   const suppMap: Record<number,string> = {};
   allSupp.forEach(s => { suppMap[s.id] = s.name; });
   if (search?.trim()) {
@@ -246,6 +262,7 @@ router.post("/finance/purchases", async (req, res): Promise<void> => {
   const parsed = PurchaseOrderSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   const now = new Date();
+  const tenantId = getTenantId(req);
   const { items, ...orderData } = parsed.data;
   const totalAmount = items.reduce((s,i) => s + i.quantity * i.unitCost, 0)
     + (orderData.shippingCost??0) + (orderData.taxAmount??0) - (orderData.discountAmount??0);
@@ -253,6 +270,7 @@ router.post("/finance/purchases", async (req, res): Promise<void> => {
   const result = await db.insert(purchaseOrdersTable).values({
     ...orderData, poNumber, totalAmount:String(totalAmount),
     paidAmount:"0", paymentStatus:"unpaid", createdAt:now, updatedAt:now,
+    ...(tenantId !== null ? { tenantId } : {}),
   });
   const poId = (result as any)[0]?.insertId;
   for (const item of items) {
