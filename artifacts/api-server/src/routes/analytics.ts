@@ -373,6 +373,7 @@ router.get("/analytics/financial-summary", requireAdmin, async (req, res): Promi
 
   let cashIn = 0, costOfGoods = 0, shippingSpend = 0;
   let returnLoss = 0, returnRevLost = 0, pendingRevenue = 0;
+  let returnDamagedValue = 0; // تكلفة التوالف = المرتجعات التالفة (isDamaged=1) × تكلفة البضاعة
 
   const completedOrders: Array<{ profit: number; value: number; cost: number }> = [];
 
@@ -401,6 +402,13 @@ router.get("/analytics/financial-summary", requireAdmin, async (req, res): Promi
       shippingSpend += sc;
       returnLoss += sc;
       returnRevLost += o.quantity * o.unitPrice;
+      // التوالف: لو المنتج تالف (isDamaged=1) → خسارة إضافية في تكلفة البضاعة نفسها
+      if (o.isDamaged === 1) {
+        const damagedCost = o.quantity * rc;
+        returnDamagedValue += damagedCost;
+        returnLoss += damagedCost; // تضاف للخسارة الكلية
+        costOfGoods += damagedCost; // تُحتسب في تكلفة البضاعة
+      }
     } else if (o.status === "pending" || o.status === "in_shipping" || o.status === "delayed") {
       pendingRevenue += o.quantity * o.unitPrice;
     }
@@ -449,7 +457,7 @@ router.get("/analytics/financial-summary", requireAdmin, async (req, res): Promi
 
   res.json({
     cashIn, costOfGoods, shippingSpend, grossProfit, grossMargin, netProfit, netMargin,
-    returnLoss, returnRevLost, pendingRevenue, returnCount, returnRate,
+    returnLoss, returnRevLost, returnDamagedValue, pendingRevenue, returnCount, returnRate,
     totalOrders: new Set(allOrders.map(o => o.invoiceNumber ?? `solo-${o.id}`)).size,
     completedOrders: new Set(allOrders.filter(o => ["received","partial_received"].includes(o.status)).map(o => o.invoiceNumber ?? `solo-${o.id}`)).size,
     avgProfitPerOrder, avgOrderValue, avgCostPerOrder,

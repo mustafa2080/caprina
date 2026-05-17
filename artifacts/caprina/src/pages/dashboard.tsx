@@ -784,6 +784,9 @@ export default function Dashboard() {
                 </p>
                 <FinRow label="إيرادات فُقدت" value={fc(fin.returnRevLost)} color="text-red-600 dark:text-red-400" sub="بيع كان مخطط" />
                 <FinRow label="تكلفة محملة" value={fc(fin.returnLoss)} color="text-red-600 dark:text-red-400" sub="شحن + بضاعة" />
+                {fin.returnDamagedValue > 0 && (
+                  <FinRow label="قيمة التوالف" value={fc(fin.returnDamagedValue)} color="text-red-700 dark:text-red-300" sub="بضاعة تالفة غير قابلة للبيع" />
+                )}
                 <div className="mt-1.5 sm:mt-2 text-center">
                   <p className="text-[10px] sm:text-xs font-black text-red-600 dark:text-red-400">{fin.returnRate}% نسبة الإرجاع</p>
                   <p className="text-[8px] sm:text-[9px] text-muted-foreground">{fin.returnCount} من {fin.totalOrders} طلب</p>

@@ -325,6 +325,7 @@ export interface FinancialSummary {
   netMargin: number;
   returnLoss: number;
   returnRevLost: number;
+  returnDamagedValue: number;
   pendingRevenue: number;
   returnCount: number;
   returnRate: number;
