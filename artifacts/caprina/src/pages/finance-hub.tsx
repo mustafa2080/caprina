@@ -91,7 +91,7 @@ function KpiCard({label,value,sub,icon:Icon,color,bg,delta,link}:{
       </div>
       <p className="text-xs text-muted-foreground mb-1 font-medium">{label}</p>
       <p className={`text-2xl font-black ${color}`}>
-        <AnimNum value={Math.round(Math.abs(value))}/> <span className="text-xs font-normal text-muted-foreground">ج.م</span>
+        {value < 0 && <span className="text-rose-500">-</span>}<AnimNum value={Math.round(Math.abs(value))}/> <span className="text-xs font-normal text-muted-foreground">ج.م</span>
       </p>
       <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50">
         <p className="text-xs text-muted-foreground">{sub}</p>
