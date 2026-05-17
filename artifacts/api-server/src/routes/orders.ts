@@ -686,17 +686,23 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
 
     if (newStatus === "returned") {
       const returnReceived = data.returnReceived === true || data.returnReceived === 1;
+      const isDamaged = data.isDamaged === true || data.isDamaged === 1;
       const { variantId, productId } = await resolveInventoryTarget(orderRef);
 
       if (existingMovement) {
         const wasDeducted = ["sale", "partial_sale", "to_shipping"].includes(existingMovement.reason ?? "");
         if (returnReceived) {
+          if (isDamaged) {
+            // المنتج تالف → لا يُضاف للمخزون، سجّل كـ damaged (خسارة)
+            await updateMovementReason(existing.id, existingMovement.reason as any, "damaged" as any, "مرتجع تالف — لا يُضاف للمخزون، خسارة").catch(() => {});
+          } else {
           // ╪ز┘à ╪د┘╪د╪│╪ز┘╪د┘à ظْ ╪ث╪▒╪ش╪╣ ╪د┘┘à╪«╪▓┘ê┘ ╪ذ╪د┘┘à┘ê╪ش╪ذ (IN) ┘┘ê ┘â╪د┘╪ز ┘à╪ز╪«╪╡┘ê┘à╪ر
-          if (wasDeducted) {
-            await adjustWarehouseStock(existing.warehouseId, variantId, productId, existing.quantity).catch(() => {});
-            await syncProductQuantityFromWarehouses(variantId, productId).catch(() => {});
-          }
-          await updateMovementReason(existing.id, existingMovement.reason as any, "return", "┘à╪▒╪ز╪ش╪╣ ظ¤ ╪ز┘à ╪د┘╪د╪│╪ز┘╪د┘à ┘ê╪»╪«┘ ╪د┘┘à╪«╪▓┘").catch(() => {});
+            if (wasDeducted) {
+              await adjustWarehouseStock(existing.warehouseId, variantId, productId, existing.quantity).catch(() => {});
+              await syncProductQuantityFromWarehouses(variantId, productId).catch(() => {});
+            }
+            await updateMovementReason(existing.id, existingMovement.reason as any, "return", "┘à╪▒╪ز╪ش╪╣ ظ¤ ╪ز┘à ╪د┘╪د╪│╪ز┘╪د┘à ┘ê╪»╪«┘ ╪د┘┘à╪«╪▓┘").catch(() => {});
+            }
         } else {
           // ┘à╪د╪▓╪د┘ ╪╣┘╪» ╪د┘╪┤╪ص┘ ظْ ┘╪د ╪ز╪▒╪ش╪╣ ╪د┘┘à╪«╪▓┘ê┘╪î ╪│╪ش┘ OUT
           await updateMovementReason(existing.id, existingMovement.reason as any, "return", "┘à╪▒╪ز╪ش╪╣ ظ¤ ┘à╪د╪▓╪د┘ ╪╣┘╪» ╪┤╪▒┘â╪ر ╪د┘╪┤╪ص┘").catch(() => {});
@@ -705,7 +711,7 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
         const wasReceived = oldStatus === "received" || oldStatus === "partial_received";
         if (returnReceived) {
           // ╪ز┘à ╪د┘╪د╪│╪ز┘╪د┘à ظْ IN ┘à┘ê╪ش╪ذ
-          await processReturn({ ...orderRef, quantity: existing.quantity }, wasReceived, false, existing.id).catch(() => {});
+          await processReturn({ ...orderRef, quantity: existing.quantity }, wasReceived, isDamaged, existing.id).catch(() => {});
         } else {
           // ┘à╪د╪▓╪د┘ ╪╣┘╪» ╪د┘╪┤╪ص┘ ظْ OUT ╪│╪د┘╪ذ (┘╪د ┘è╪»╪«┘ ╪د┘┘à╪«╪▓┘)
           if (variantId || productId) {
