@@ -82,42 +82,43 @@ function periodStats(
   const closedInvoices    = new Set([...completedInvoices, ...returnedInvoices]);
 
   let revenue = 0, cost = 0, shipping = 0, netProfit = 0;
-  // نتتبع الفواتير اللي حسبنا شحنها عشان منكررش
-  const processedShippingInvoices = new Set<string>();
+  const processedInvoices = new Set<string>();
+
+  // الطلبات المكتملة — الإيرادات والتكلفة لكل منتج، الشحن مرة واحدة لكل فاتورة
   for (const o of completed) {
     const rc = resolveCost(o, variantMap, productMap);
     const sc = (o.shippingCost ?? 0) + (shippingPerOrder.get(o.id) ?? 0);
-    const p = calcOrderProfit({ ...o, shippingCost: sc }, rc);
-    revenue += p.revenue;
-    cost += p.cost;
-    // الشحن نحسبه مرة واحدة لكل فاتورة
     const invKey = o.invoiceNumber ?? `solo-${o.id}`;
-    if (!processedShippingInvoices.has(invKey)) {
-      processedShippingInvoices.add(invKey);
+    const qty = o.status === "partial_received" ? (o.partialQuantity ?? o.quantity) : o.quantity;
+    const rev = qty * o.unitPrice;
+    const cst = qty * rc;
+    revenue += rev;
+    cost += cst;
+    // الشحن مرة واحدة فقط لكل فاتورة
+    if (!processedInvoices.has(invKey)) {
+      processedInvoices.add(invKey);
       shipping += sc;
     }
-    netProfit += (p.revenue - p.cost - (processedShippingInvoices.has(invKey) ? 0 : sc));
   }
-  // إعادة حساب netProfit بشكل صحيح
+
+  // صافي الربح = إيرادات − تكلفة بضاعة − شحن
   netProfit = revenue - cost - shipping;
 
+  // الطلبات المرتجعة — شحن مرة واحدة لكل فاتورة + تكلفة التوالف
   for (const o of returned) {
     const sc = (o.shippingCost ?? 0) + (shippingPerOrder.get(o.id) ?? 0);
     const invKey = o.invoiceNumber ?? `solo-${o.id}`;
-    if (!processedShippingInvoices.has(invKey)) {
-      processedShippingInvoices.add(invKey);
-      if ((o as any).isDamaged) {
-        // منتج تالف → خسارة تكلفة البضاعة + الشحن
-        const rc = resolveCost(o, variantMap, productMap);
-        const damagedCost = o.quantity * rc;
-        cost += damagedCost;
-        shipping += sc;
-        netProfit -= (damagedCost + sc);
-      } else {
-        // مرتجع عادي → البضاعة رجعت للمخزن، لا خسارة ولا ربح
-        // الشحن دُفع فعلاً لكن لا يظهر كخسارة في صافي الربح
-        shipping += sc;
-      }
+    if (!processedInvoices.has(invKey)) {
+      processedInvoices.add(invKey);
+      shipping += sc;
+      netProfit -= sc;
+    }
+    // إضافة تكلفة التوالف لكل منتج تالف (مش مرة واحدة للفاتورة)
+    if ((o as any).isDamaged === 1) {
+      const rc = resolveCost(o, variantMap, productMap);
+      const damagedCost = o.quantity * rc;
+      cost += damagedCost;
+      netProfit -= damagedCost;
     }
   }
 
@@ -397,18 +398,21 @@ router.get("/analytics/financial-summary", requireAdmin, async (req, res): Promi
       shippingSpend += sc;
       completedOrders.push({ profit: revenue - cost - sc, value: revenue, cost: cost + sc });
     } else if (o.status === "returned") {
-      // المرتجع: البضاعة رجعت للمخزن → مفيش خسارة في تكلفة البضاعة
-      // الخسارة الوحيدة هي تكلفة الشحن فقط
+      // المرتجع: البضاعة رجعت للمخزن → الخسارة الوحيدة هي تكلفة الشحن
+      // returnLoss = الخسارة الصافية من المرتجع (شحن فقط للمرتجع العادي)
+      // shippingSpend تشمل كل الشحن المدفوع فعلاً (بما فيه شحن المرتجع)
       shippingSpend += sc;
-      returnLoss += sc;
       returnRevLost += o.quantity * o.unitPrice;
-      // التوالف: لو المنتج تالف (isDamaged=1) → خسارة إضافية في تكلفة البضاعة نفسها
+      // returnLoss لا تضيف sc هنا لأن sc أُضيفت لـ shippingSpend بالفعل
+      // netProfit = cashIn - costOfGoods - shippingSpend - returnLoss
+      // لو أضفنا sc لـ returnLoss ستُخصم مرتين
       if (o.isDamaged === 1) {
         const damagedCost = o.quantity * rc;
         returnDamagedValue += damagedCost;
-        returnLoss += damagedCost; // تضاف للخسارة الكلية
-        costOfGoods += damagedCost; // تُحتسب في تكلفة البضاعة
+        returnLoss += damagedCost; // فقط تكلفة البضاعة التالفة (الشحن في shippingSpend)
+        costOfGoods += damagedCost;
       }
+      // returnLoss للمرتجع العادي = 0 (الشحن موجود في shippingSpend)
     } else if (o.status === "pending" || o.status === "in_shipping" || o.status === "delayed") {
       pendingRevenue += o.quantity * o.unitPrice;
     }
