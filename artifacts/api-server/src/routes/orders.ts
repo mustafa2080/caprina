@@ -96,10 +96,12 @@ router.get("/orders", async (req, res): Promise<void> => {
       conditions.push(eq(ordersTable.status, params.data.status as any));
     } else {
       // ╪ذ┘╪ش┘è╪ذ ┘┘é╪╖ ╪د┘┘ invoiceNumbers ╪د┘┘┘è ┘â┘ rows ┘┘è┘ç╪د ┘┘╪│ ╪د┘┘ status ╪د┘┘à╪╖┘┘ê╪ذ
+      const allInvBaseConditions: any[] = [isNull(ordersTable.deletedAt)];
+      if (tenantId !== null) allInvBaseConditions.push(eq(ordersTable.tenantId, tenantId));
       const allInvRows = await db
         .select({ invoiceNumber: ordersTable.invoiceNumber, id: ordersTable.id, status: ordersTable.status })
         .from(ordersTable)
-        .where(isNull(ordersTable.deletedAt));
+        .where(and(...allInvBaseConditions));
 
       // ┘╪ش┘à┘ّ╪╣ ┘â┘ ╪د┘╪ص╪د┘╪د╪ز ┘┘â┘ invoiceNumber
       // نفس منطق chart: invoice بتاخد حالة الأنشط (أولوية)

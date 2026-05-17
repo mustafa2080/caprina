@@ -3,6 +3,7 @@ import { db, ordersTable, productsTable, productVariantsTable, shippingCompanies
 import { eq, isNull, and, desc, lte } from "drizzle-orm";
 import { requireAdmin } from "../middlewares/requireRole.js";
 import { requireAuth } from "../middlewares/requireAuth.js";
+import { getTenantId } from "../middlewares/requireTenant.js";
 
 const router: IRouter = Router();
 
@@ -113,6 +114,7 @@ function periodStats(
 
 // ─── GET /api/analytics/profit ──────────────────────────────────────────────────
 router.get("/analytics/profit", requireAdmin, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req);
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startOfWeek = new Date(startOfToday);
@@ -124,8 +126,11 @@ router.get("/analytics/profit", requireAdmin, async (req, res): Promise<void> =>
   const toParam   = req.query.to   as string | undefined;
   const period    = req.query.period as string | undefined;
 
+  const ordersBaseConditions: any[] = [isNull(ordersTable.deletedAt)];
+  if (tenantId !== null) ordersBaseConditions.push(eq(ordersTable.tenantId, tenantId));
+
   const [allOrdersRaw, products, variants, manifests, manifestOrders] = await Promise.all([
-    db.select().from(ordersTable).where(isNull(ordersTable.deletedAt)),
+    db.select().from(ordersTable).where(and(...ordersBaseConditions)),
     db.select().from(productsTable),
     db.select().from(productVariantsTable),
     db.select({ id: shippingManifestsTable.id, manualShippingCost: shippingManifestsTable.manualShippingCost }).from(shippingManifestsTable),
@@ -268,13 +273,17 @@ router.get("/analytics/profit", requireAdmin, async (req, res): Promise<void> =>
 
 // ─── GET /api/analytics/financial-summary ──────────────────────────────────────
 router.get("/analytics/financial-summary", requireAdmin, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req);
   const fromParam = req.query.from as string | undefined;
   const toParam   = req.query.to   as string | undefined;
   const period    = req.query.period as string | undefined;
   const now = new Date();
 
+  const fsBaseConditions: any[] = [isNull(ordersTable.deletedAt)];
+  if (tenantId !== null) fsBaseConditions.push(eq(ordersTable.tenantId, tenantId));
+
   const [allOrdersRaw, products, variants, allManifests, allManifestOrders] = await Promise.all([
-    db.select().from(ordersTable).where(isNull(ordersTable.deletedAt)),
+    db.select().from(ordersTable).where(and(...fsBaseConditions)),
     db.select().from(productsTable),
     db.select().from(productVariantsTable),
     db.select({ id: shippingManifestsTable.id, manualShippingCost: shippingManifestsTable.manualShippingCost, createdAt: shippingManifestsTable.createdAt })
@@ -437,9 +446,12 @@ router.get("/analytics/financial-summary", requireAdmin, async (req, res): Promi
 
 // ─── GET /api/analytics/product-performance ─────────────────────────────────────
 // Full per-product breakdown: revenue, profit, returns, margin, avg price
-router.get("/analytics/product-performance", requireAdmin, async (_req, res): Promise<void> => {
+router.get("/analytics/product-performance", requireAdmin, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req);
+  const ppBaseConditions: any[] = [isNull(ordersTable.deletedAt)];
+  if (tenantId !== null) ppBaseConditions.push(eq(ordersTable.tenantId, tenantId));
   const [allOrders, products, variants] = await Promise.all([
-    db.select().from(ordersTable).where(isNull(ordersTable.deletedAt)),
+    db.select().from(ordersTable).where(and(...ppBaseConditions)),
     db.select().from(productsTable),
     db.select().from(productVariantsTable),
   ]);
@@ -562,9 +574,12 @@ router.get("/analytics/product-performance", requireAdmin, async (_req, res): Pr
 
 // ─── GET /api/analytics/alerts ──────────────────────────────────────────────────
 // Smart automatic alerts: high returns, losing products, low stock, low margin
-router.get("/analytics/alerts", async (_req, res): Promise<void> => {
+router.get("/analytics/alerts", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req);
+  const alertsBaseConditions: any[] = [isNull(ordersTable.deletedAt)];
+  if (tenantId !== null) alertsBaseConditions.push(eq(ordersTable.tenantId, tenantId));
   const [allOrders, products, variants] = await Promise.all([
-    db.select().from(ordersTable).where(isNull(ordersTable.deletedAt)),
+    db.select().from(ordersTable).where(and(...alertsBaseConditions)),
     db.select().from(productsTable),
     db.select().from(productVariantsTable),
   ]);
@@ -745,9 +760,12 @@ router.get("/analytics/alerts", async (_req, res): Promise<void> => {
 
 // ─── GET /api/analytics/stock-intelligence ──────────────────────────────────────
 // Stock velocity (units/day), days until stockout, frozen capital
-router.get("/analytics/stock-intelligence", async (_req, res): Promise<void> => {
+router.get("/analytics/stock-intelligence", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req);
+  const siBaseConditions: any[] = [isNull(ordersTable.deletedAt)];
+  if (tenantId !== null) siBaseConditions.push(eq(ordersTable.tenantId, tenantId));
   const [allOrders, products, variants] = await Promise.all([
-    db.select().from(ordersTable).where(isNull(ordersTable.deletedAt)),
+    db.select().from(ordersTable).where(and(...siBaseConditions)),
     db.select().from(productsTable),
     db.select().from(productVariantsTable),
   ]);
@@ -863,9 +881,12 @@ router.get("/analytics/stock-intelligence", async (_req, res): Promise<void> => 
 // ─── GET /api/analytics/smart-insights ──────────────────────────────────────
 // Comprehensive smart analytics: ad attribution, stars, dead stock,
 // return insights, stock predictor
-router.get("/analytics/smart-insights", async (_req, res): Promise<void> => {
+router.get("/analytics/smart-insights", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req);
+  const smBaseConditions: any[] = [isNull(ordersTable.deletedAt)];
+  if (tenantId !== null) smBaseConditions.push(eq(ordersTable.tenantId, tenantId));
   const [allOrders, products, variants] = await Promise.all([
-    db.select().from(ordersTable).where(isNull(ordersTable.deletedAt)),
+    db.select().from(ordersTable).where(and(...smBaseConditions)),
     db.select().from(productsTable),
     db.select().from(productVariantsTable),
   ]);
@@ -1116,11 +1137,14 @@ router.get("/analytics/smart-insights", async (_req, res): Promise<void> => {
 
 // ─── GET /api/analytics/charts ──────────────────────────────────────────────
 // Returns all data needed for visual charts: status breakdown, weekly sales, ad sources
-router.get("/analytics/charts", async (_req, res): Promise<void> => {
+router.get("/analytics/charts", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req);
+  const chartsBaseConditions: any[] = [isNull(ordersTable.deletedAt)];
+  if (tenantId !== null) chartsBaseConditions.push(eq(ordersTable.tenantId, tenantId));
   const allOrders = await db
     .select()
     .from(ordersTable)
-    .where(isNull(ordersTable.deletedAt));
+    .where(and(...chartsBaseConditions));
 
   // Group by invoiceNumber — multi-product invoices count as ONE order
   type InvoiceGroup = {
@@ -1311,7 +1335,10 @@ router.get("/analytics/monthly-sales", requireAuth, async (req, res): Promise<vo
   const startDate = new Date(year, month, 1);
   const endDate = new Date(year, month + 1, 0, 23, 59, 59);
 
-  const allOrders = await db.select().from(ordersTable).where(isNull(ordersTable.deletedAt));
+  const tenantId = getTenantId(req);
+  const msBaseConditions: any[] = [isNull(ordersTable.deletedAt)];
+  if (tenantId !== null) msBaseConditions.push(eq(ordersTable.tenantId, tenantId));
+  const allOrders = await db.select().from(ordersTable).where(and(...msBaseConditions));
 
   // group by invoice
   const invoiceMap = new Map<string, { status: string; createdAt: Date; revenue: number }>();
@@ -1353,10 +1380,13 @@ router.get("/analytics/orders-by-status", requireAuth, async (req, res): Promise
   const status = req.query.status as string;
   if (!status) { res.status(400).json({ error: "status required" }); return; }
 
+  const tenantId = getTenantId(req);
+  const obsBaseConditions: any[] = [isNull(ordersTable.deletedAt)];
+  if (tenantId !== null) obsBaseConditions.push(eq(ordersTable.tenantId, tenantId));
   const allOrders = await db
     .select()
     .from(ordersTable)
-    .where(isNull(ordersTable.deletedAt))
+    .where(and(...obsBaseConditions))
     .orderBy(desc(ordersTable.createdAt));
 
   // نفس منطق charts بالظبط: أولوية الحالات للـ invoices المختلطة
@@ -1400,19 +1430,21 @@ router.get("/analytics/orders-by-status", requireAuth, async (req, res): Promise
 
 // ─── GET /api/analytics/shipping-followup ───────────────────────────────────
 // Returns in_shipping orders that have been pending for > 3 days
-router.get("/analytics/shipping-followup", requireAuth, async (_req, res): Promise<void> => {
+router.get("/analytics/shipping-followup", requireAuth, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req);
   const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+
+  const sfBaseConditions: any[] = [
+    isNull(ordersTable.deletedAt),
+    eq(ordersTable.status, "in_shipping" as any),
+    lte(ordersTable.updatedAt, threeDaysAgo),
+  ];
+  if (tenantId !== null) sfBaseConditions.push(eq(ordersTable.tenantId, tenantId));
 
   const orders = await db
     .select()
     .from(ordersTable)
-    .where(
-      and(
-        isNull(ordersTable.deletedAt),
-        eq(ordersTable.status, "in_shipping" as any),
-        lte(ordersTable.updatedAt, threeDaysAgo),
-      )
-    )
+    .where(and(...sfBaseConditions))
     .orderBy(desc(ordersTable.updatedAt));
 
   const shippingCompanies = await db.select().from(shippingCompaniesTable);
