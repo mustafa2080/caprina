@@ -1868,7 +1868,7 @@ export default function OrderDetail() {
             // لو مازال عند الشحن: خسارة كاملة
             const revenue = isReturned ? 0 : qty * order.unitPrice;
             const cost = isReturnedToStock ? 0 : qty * costPrice; // رجع المخزن = مفيش خسارة بضاعة
-            const shipping = shippingCost ?? 0;
+            const shipping = Math.abs(shippingCost ?? 0); // دايمًا موجب
             const netProfit = revenue - cost - shipping;
             const margin = revenue > 0 ? Math.round((netProfit / revenue) * 100) : 0;
             const isPositive = netProfit >= 0;

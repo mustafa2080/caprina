@@ -611,6 +611,8 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
   const newQty        = data.quantity  ?? existing.quantity;
   const newUnitPrice  = data.unitPrice ?? existing.unitPrice;
   const newTotalPrice = newQty * newUnitPrice;
+  // ضمان إن shippingCost دايمًا موجب
+  if (data.shippingCost != null) data.shippingCost = Math.abs(data.shippingCost);
 
   const oldStatus = existing.status;
   const newStatus = data.status ?? oldStatus;
