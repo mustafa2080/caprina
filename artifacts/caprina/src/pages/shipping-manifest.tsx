@@ -254,9 +254,9 @@ function OrderDeliveryRow({
             {opt.label}
           </Badge>
           {/* سبب التأجيل تحت الـ badge مباشرة */}
-          {order.deliveryStatus === "delayed" && order.deliveryNote && (
+          {order.deliveryStatus === "delayed" && (
             <p className="text-[10px] text-orange-400 mt-0.5 font-semibold">
-              ⏸ {order.deliveryNote}
+              ⏸ {order.deliveryNote || "لم يحدد السبب"}
             </p>
           )}
           {/* sub-status للمرتجع */}
@@ -289,9 +289,9 @@ function OrderDeliveryRow({
           {order.deliveryStatus === "partial_received" && (order as any).returnReceived === 0 && (
             <p className="text-[10px] text-orange-500 mt-0.5 font-semibold">🚚 الباقي عند الشحن</p>
           )}
-          {order.deliveryStatus === "delayed" && order.deliveryNote && !editing && (
+          {order.deliveryStatus === "delayed" && !editing && (
             <p className="text-[10px] text-orange-400 mt-0.5 font-semibold truncate max-w-[110px]">
-              ⏸ {order.deliveryNote}
+              ⏸ {order.deliveryNote || "لم يحدد السبب"}
             </p>
           )}
           {order.deliveryStatus !== "delayed" && order.deliveryNote && !editing && (
@@ -362,8 +362,8 @@ function OrderDeliveryRow({
           </Badge>
         </div>
         {/* سبب التأجيل تحت الـ badge في الموبايل */}
-        {order.deliveryStatus === "delayed" && order.deliveryNote && (
-          <p className="text-[10px] text-orange-400 font-semibold">⏸ {order.deliveryNote}</p>
+        {order.deliveryStatus === "delayed" && (
+          <p className="text-[10px] text-orange-400 font-semibold">⏸ {order.deliveryNote || "لم يحدد السبب"}</p>
         )}
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
@@ -1016,9 +1016,9 @@ function InvoiceGroupDeliveryRow({
                   {displayOpt.label}
                 </Badge>
                 {/* سبب التأجيل تحت الـ badge مباشرة */}
-                {displayStatus === "delayed" && rep.deliveryNote && (
+                {displayStatus === "delayed" && (
                   <p className="text-[10px] text-orange-400 mt-0.5 font-semibold">
-                    ⏸ {rep.deliveryNote}
+                    ⏸ {rep.deliveryNote || "لم يحدد السبب"}
                   </p>
                 )}
                 {/* sub-status للمرتجع في الـ group row */}
