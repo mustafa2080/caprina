@@ -333,58 +333,35 @@ router.get("/analytics/financial-summary", requireAdmin, async (req, res): Promi
   const variantMap = new Map<number, number | null>(variants.map(v => [v.id, v.costPrice]));
   const productMap = new Map<number, number | null>(products.map(p => [p.id, p.costPrice]));
 
-  // بناء shippingPerOrder: توزيع manualShippingCost على طلبيات كل بيان
-  const manifestOrderCount = new Map<number, number>();
+  // بناء map: orderId → manifestId لربط كل أوردر ببيانه
+  const orderToManifest = new Map<number, number>();
   for (const mo of allManifestOrders) {
-    manifestOrderCount.set(mo.manifestId, (manifestOrderCount.get(mo.manifestId) ?? 0) + 1);
+    orderToManifest.set(mo.orderId, mo.manifestId);
   }
-  const shippingPerOrder = new Map<number, number>();
-  for (const mo of allManifestOrders) {
-    const manifest = allManifests.find(m => m.id === mo.manifestId);
-    const cost = Number(manifest?.manualShippingCost ?? 0);
-    if (cost > 0) {
-      const count = manifestOrderCount.get(mo.manifestId) ?? 1;
-      shippingPerOrder.set(mo.orderId, (shippingPerOrder.get(mo.orderId) ?? 0) + cost / count);
-    }
-  }
-
-  // تكلفة الشحن اليدوية الكلية من البيانات (مفلترة بنفس الفترة)
-  let fromDate2: Date | null = null;
-  let toDate2: Date | null = null;
-  if (period === "today") {
-    fromDate2 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    toDate2 = now;
-  } else if (period === "week") {
-    fromDate2 = new Date(now); fromDate2.setDate(now.getDate() - 7);
-    toDate2 = now;
-  } else if (period === "month") {
-    fromDate2 = new Date(now.getFullYear(), now.getMonth(), 1);
-    toDate2 = now;
-  }
-  const manualShippingTotal = allManifests
-    .filter(m => {
-      if (!m.manualShippingCost) return false;
-      if (!fromDate2 && !toDate2) return true;
-      const d = new Date(m.createdAt);
-      if (fromDate2 && d < fromDate2) return false;
-      if (toDate2 && d > toDate2) return false;
-      return true;
-    })
-    .reduce((sum, m) => sum + Number(m.manualShippingCost ?? 0), 0);
+  const manifestMap = new Map<number, typeof allManifests[0]>(allManifests.map(m => [m.id, m]));
+  // shippingSpend = مجموع manualShippingCost للبيانات التي لها أوردرات مستلمة — يُضاف مرة واحدة لكل بيان
+  const countedManifestsForShipping = new Set<number>();
 
   let cashIn = 0, costOfGoods = 0, shippingSpend = 0;
   let returnLoss = 0, returnRevLost = 0, pendingRevenue = 0;
   let returnDamagedValue = 0; // تكلفة التوالف = المرتجعات التالفة (isDamaged=1) × تكلفة البضاعة
 
   const completedOrders: Array<{ profit: number; value: number; cost: number }> = [];
-  // نحسب الشحن مرة واحدة فقط لكل فاتورة (مثل periodStats) لتفادي التضاعف
+  // نحسب الشحن مرة واحدة فقط لكل فاتورة لتفادي التضاعف
   const processedShippingInvoices = new Set<string>();
 
   for (const o of allOrders) {
     const rc = resolveCost(o, variantMap, productMap);
-    const sc = (o.shippingCost ?? 0) + (shippingPerOrder.get(o.id) ?? 0);
+    // تكلفة الشحن الثابتة على الأوردر فقط (بدون توزيع manualShippingCost — يُضاف من البيان مباشرة)
+    const sc = (o.shippingCost ?? 0);
     const invKey = (o.invoiceNumber ?? `solo-${o.id}`) as string;
     const isNewInvoice = !processedShippingInvoices.has(invKey);
+
+    // تكلفة شحن البيان: تُضاف مرة واحدة عند أول أوردر مستلم/مرتجع ينتمي للبيان
+    const manifestId = orderToManifest.get(o.id);
+    const manifestCost = (manifestId !== undefined && !countedManifestsForShipping.has(manifestId))
+      ? Number(manifestMap.get(manifestId)?.manualShippingCost ?? 0)
+      : 0;
 
     if (o.status === "received") {
       const revenue = o.quantity * o.unitPrice;
@@ -392,7 +369,8 @@ router.get("/analytics/financial-summary", requireAdmin, async (req, res): Promi
       cashIn += revenue;
       costOfGoods += cost;
       if (isNewInvoice) { processedShippingInvoices.add(invKey); shippingSpend += sc; }
-      completedOrders.push({ profit: revenue - cost - (isNewInvoice ? sc : 0), value: revenue, cost: cost + (isNewInvoice ? sc : 0) });
+      if (manifestCost > 0 && manifestId !== undefined) { countedManifestsForShipping.add(manifestId); shippingSpend += manifestCost; }
+      completedOrders.push({ profit: revenue - cost - (isNewInvoice ? sc : 0) - manifestCost, value: revenue, cost: cost + (isNewInvoice ? sc : 0) + manifestCost });
     } else if (o.status === "partial_received") {
       const qty = o.partialQuantity ?? o.quantity;
       const revenue = qty * o.unitPrice;
@@ -400,32 +378,22 @@ router.get("/analytics/financial-summary", requireAdmin, async (req, res): Promi
       cashIn += revenue;
       costOfGoods += cost;
       if (isNewInvoice) { processedShippingInvoices.add(invKey); shippingSpend += sc; }
-      completedOrders.push({ profit: revenue - cost - (isNewInvoice ? sc : 0), value: revenue, cost: cost + (isNewInvoice ? sc : 0) });
+      if (manifestCost > 0 && manifestId !== undefined) { countedManifestsForShipping.add(manifestId); shippingSpend += manifestCost; }
+      completedOrders.push({ profit: revenue - cost - (isNewInvoice ? sc : 0) - manifestCost, value: revenue, cost: cost + (isNewInvoice ? sc : 0) + manifestCost });
     } else if (o.status === "returned") {
-      // المرتجع: البضاعة رجعت للمخزن → الخسارة الوحيدة هي تكلفة الشحن
-      // returnLoss = الخسارة الصافية من المرتجع (شحن فقط للمرتجع العادي)
-      // shippingSpend تشمل كل الشحن المدفوع فعلاً (بما فيه شحن المرتجع)
       if (isNewInvoice) { processedShippingInvoices.add(invKey); shippingSpend += sc; }
+      if (manifestCost > 0 && manifestId !== undefined) { countedManifestsForShipping.add(manifestId); shippingSpend += manifestCost; }
       returnRevLost += o.quantity * o.unitPrice;
-      // returnLoss لا تضيف sc هنا لأن sc أُضيفت لـ shippingSpend بالفعل
-      // netProfit = cashIn - costOfGoods - shippingSpend - returnLoss
-      // لو أضفنا sc لـ returnLoss ستُخصم مرتين
       if (o.isDamaged === 1) {
         const damagedCost = o.quantity * rc;
         returnDamagedValue += damagedCost;
-        // costOfGoods تشمل تكلفة التوالف — returnLoss للعرض فقط وليس لخصمها من netProfit مرة ثانية
         returnLoss += damagedCost;
-        // لا نضيف costOfGoods هنا عشان netProfit = cashIn - costOfGoods - shippingSpend - returnLoss
-        // لو أضفنا costOfGoods + returnLoss ستُخصم تكلفة التوالف مرتين
       }
-      // returnLoss للمرتجع العادي = 0 (الشحن موجود في shippingSpend)
     } else if (o.status === "pending" || o.status === "in_shipping" || o.status === "delayed") {
       pendingRevenue += o.quantity * o.unitPrice;
     }
   }
 
-  // ملاحظة: manualShippingCost تُضاف عبر shippingPerOrder في الحلقة أعلاه (موزّعة على كل أوردر)
-  // لا نضيف manualShippingTotal مرة ثانية لتفادي التكرار المزدوج
 
   // صافي الربح = إجمالي المقبوض − تكلفة البضاعة − تكلفة الشحن − خسائر المرتجعات
   const netProfit = cashIn - costOfGoods - shippingSpend - returnLoss;
