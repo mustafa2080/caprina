@@ -16,6 +16,7 @@ export const suppliersTable = mysqlTable("suppliers", {
   paymentTerms: varchar("payment_terms", { length: 255 }), // شروط الدفع: 30 يوم / نقداً ...
   notes: text("notes"),
   isActive: boolean("is_active").notNull().default(true),
+  isDefault: boolean("is_default").notNull().default(false),
   balance: decimal("balance", { precision: 14, scale: 2 }).notNull().default("0"), // رصيد الحساب
   createdAt: datetime("created_at").notNull(),
   updatedAt: datetime("updated_at").notNull(),

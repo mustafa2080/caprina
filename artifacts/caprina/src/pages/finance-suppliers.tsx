@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Plus, Building2, Phone, Mail, Edit2, Trash2,
   Search, Download, FileSpreadsheet, X, BookOpen,
-  TrendingDown, TrendingUp, AlertCircle, ChevronLeft, ChevronRight,
+  TrendingDown, TrendingUp, AlertCircle, ChevronLeft, ChevronRight, Star,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "@/lib/api";
@@ -26,7 +26,7 @@ const api = {
 type Supplier = {
   id: number; name: string; phone?: string; email?: string;
   address?: string; category?: string; paymentTerms?: string; notes?: string;
-  isActive: boolean; balance: string;
+  isActive: boolean; isDefault: boolean; balance: string;
 };
 
 type PurchaseOrder = {
@@ -124,6 +124,15 @@ export default function FinanceSuppliers() {
   const del = useMutation({
     mutationFn: (id: number) => api.del(`/finance/suppliers/${id}`),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["finance-suppliers"] }); toast({ title: "تم الحذف" }); },
+  });
+
+  const setDefault = useMutation({
+    mutationFn: (id: number) => apiFetch<any>(`/finance/suppliers/${id}/set-default`, { method: "PATCH" }),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["finance-suppliers"] });
+      qc.invalidateQueries({ queryKey: ["finance-suppliers-default"] });
+      toast({ title: `✅ "${data.name}" أصبح المورد الافتراضي` });
+    },
   });
 
   // ── helpers ────────────────────────────────────────────────────────────────
@@ -228,13 +237,28 @@ export default function FinanceSuppliers() {
                       <Building2 className="w-4 h-4" style={{ color: bal < 0 ? "#ef4444" : "#7E57C2" }} />
                     </div>
                     <div>
-                      <p className="font-bold text-sm" style={{ color: "hsl(var(--foreground))" }}>{s.name}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="font-bold text-sm" style={{ color: "hsl(var(--foreground))" }}>{s.name}</p>
+                        {s.isDefault && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold"
+                            style={{ background: "rgba(255,183,77,0.2)", color: "#FFB74D", border: "1px solid rgba(255,183,77,0.4)" }}>
+                            <Star className="w-2.5 h-2.5 fill-current" />افتراضي
+                          </span>
+                        )}
+                      </div>
                       <Badge variant="outline" className="text-[9px] mt-0.5 border-white/20 text-white/60">
                         {CATEGORIES.find(c => c.value === s.category)?.label ?? s.category}
                       </Badge>
                     </div>
                   </div>
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button variant="ghost" size="icon"
+                      className="h-7 w-7 hover:bg-amber-500/10"
+                      title={s.isDefault ? "هو المورد الافتراضي" : "تعيين كمورد افتراضي"}
+                      onClick={() => { if (!s.isDefault) setDefault.mutate(s.id); }}
+                      style={{ color: s.isDefault ? "#FFB74D" : "hsl(var(--muted-foreground))" }}>
+                      <Star className={`w-3.5 h-3.5 ${s.isDefault ? "fill-current" : ""}`} />
+                    </Button>
                     <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-400 hover:bg-white/10" title="كشف حساب"
                       onClick={() => { setStmtSupplier(s); setStmtFrom(""); setStmtTo(""); }}>
                       <BookOpen className="w-3.5 h-3.5" />

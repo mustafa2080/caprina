@@ -56,6 +56,36 @@ router.get("/finance/suppliers", async (req, res): Promise<void> => {
   res.json(rows);
 });
 
+// ── المورد الافتراضي ────────────────────────────────────────────────────────
+router.get("/finance/suppliers/default", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req);
+  const conds: any[] = [eq(suppliersTable.isDefault, true)];
+  if (tenantId !== null) conds.push(eq(suppliersTable.tenantId, tenantId));
+  const [supplier] = await db.select().from(suppliersTable).where(and(...conds)).limit(1);
+  if (!supplier) { res.status(404).json({ message: "لا يوجد مورد افتراضي" }); return; }
+  res.json(supplier);
+});
+
+// ── تعيين مورد كافتراضي (يلغي السابق) ────────────────────────────────────
+router.patch("/finance/suppliers/:id/set-default", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req);
+  const supplierId = parseInt(req.params.id);
+  if (isNaN(supplierId)) { res.status(400).json({ message: "id غير صالح" }); return; }
+
+  // ألغِ الافتراضي القديم
+  const clearConds: any[] = [eq(suppliersTable.isDefault, true)];
+  if (tenantId !== null) clearConds.push(eq(suppliersTable.tenantId, tenantId));
+  await db.update(suppliersTable).set({ isDefault: false, updatedAt: new Date() }).where(and(...clearConds));
+
+  // عيّن الجديد
+  const setConds: any[] = [eq(suppliersTable.id, supplierId)];
+  if (tenantId !== null) setConds.push(eq(suppliersTable.tenantId, tenantId));
+  await db.update(suppliersTable).set({ isDefault: true, updatedAt: new Date() }).where(and(...setConds));
+
+  const [updated] = await db.select().from(suppliersTable).where(and(...setConds)).limit(1);
+  res.json(updated);
+});
+
 router.get("/finance/suppliers/export-excel", async (req, res): Promise<void> => {
   const { search, category } = req.query as Record<string, string>;
   const tenantId = getTenantId(req);
