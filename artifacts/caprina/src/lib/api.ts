@@ -652,6 +652,7 @@ export interface ShippingManifestListItem {
   orderCount: number;
   postponedCount: number;
   returnedCount: number;
+  pendingCount: number;
   createdAt: string;
   closedAt: string | null;
 }

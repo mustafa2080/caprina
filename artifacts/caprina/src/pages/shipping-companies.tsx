@@ -88,6 +88,11 @@ function CompanyStats({ companyId, canViewFinancials }: { companyId: number; can
             <div className="flex flex-col items-center gap-0.5">
               <p className="text-sm font-black text-amber-400">{openManifest.orderCount}</p>
               <div className="flex items-center gap-1 flex-wrap justify-center">
+                {(openManifest.pendingCount ?? 0) > 0 && (
+                  <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-blue-500/15 text-blue-400 rounded px-1 py-0.5 leading-none">
+                    <span>🕐</span>{openManifest.pendingCount} انتظار
+                  </span>
+                )}
                 {(openManifest.postponedCount ?? 0) > 0 && (
                   <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-amber-500/15 text-amber-400 rounded px-1 py-0.5 leading-none">
                     <span>⏸</span>{openManifest.postponedCount} مؤجل
