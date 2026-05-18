@@ -261,23 +261,6 @@ router.get("/shipping-manifests", async (req, res): Promise<void> => {
     .from(shippingManifestOrdersTable)
     .where(inArray(shippingManifestOrdersTable.manifestId, manifestIds));
 
-  // عدّ الفواتير الفريدة (invoiceNumber) لكل بيان بدل عدد الصفوف
-  // الطلبات بنفس invoiceNumber تُعدّ فاتورة واحدة فقط
-  const manifestOrderIds: Record<number, number[]> = {};
-  // عدّ المؤجل والمرتجع لكل بيان
-  const postponedMap: Record<number, number> = {};
-  const returnedMap: Record<number, number> = {};
-  for (const link of allLinks) {
-    if (!manifestOrderIds[link.manifestId]) manifestOrderIds[link.manifestId] = [];
-    manifestOrderIds[link.manifestId].push(link.orderId);
-    if (link.deliveryStatus === "postponed" || link.deliveryStatus === "delayed") {
-      postponedMap[link.manifestId] = (postponedMap[link.manifestId] ?? 0) + 1;
-    }
-    if (link.deliveryStatus === "returned") {
-      returnedMap[link.manifestId] = (returnedMap[link.manifestId] ?? 0) + 1;
-    }
-  }
-
   // جيب invoiceNumber لكل orderId محتاجينه
   const allOrderIds = allLinks.map(l => l.orderId);
   const allOrdersData = allOrderIds.length > 0
@@ -287,15 +270,38 @@ router.get("/shipping-manifests", async (req, res): Promise<void> => {
     : [];
   const invoiceMap = new Map(allOrdersData.map(o => [o.id, o.invoiceNumber?.trim() || null]));
 
+  // بناء map: manifestId → { orderId → deliveryStatus }
+  const manifestLinkMap: Record<number, { orderId: number; deliveryStatus: string }[]> = {};
+  for (const link of allLinks) {
+    if (!manifestLinkMap[link.manifestId]) manifestLinkMap[link.manifestId] = [];
+    manifestLinkMap[link.manifestId].push({ orderId: link.orderId, deliveryStatus: link.deliveryStatus });
+  }
+
+  // عدّ الفواتير الفريدة لكل بيان + عدّ المؤجل والمرتجع على مستوى الفواتير
   const countMap: Record<number, number> = {};
-  for (const [manifestId, orderIds] of Object.entries(manifestOrderIds)) {
-    const uniqueInvoices = new Set<string>();
-    for (const orderId of orderIds) {
-      const inv = invoiceMap.get(orderId);
-      const key = inv ? inv : `solo-${orderId}`;
-      uniqueInvoices.add(key);
+  const postponedMap: Record<number, number> = {};
+  const returnedMap: Record<number, number> = {};
+  for (const [manifestIdStr, links] of Object.entries(manifestLinkMap)) {
+    const manifestId = Number(manifestIdStr);
+    // Map: invoiceKey → worst status (لو فاتورة فيها مؤجل وغيره → مؤجل)
+    const invoiceStatusMap = new Map<string, string>();
+    const statusPriority: Record<string, number> = { returned: 5, postponed: 4, delayed: 4, pending: 3, partial_received: 2, delivered: 1 };
+    for (const link of links) {
+      const inv = invoiceMap.get(link.orderId);
+      const key = inv ? inv : `solo-${link.orderId}`;
+      const existing = invoiceStatusMap.get(key);
+      const existingPriority = existing ? (statusPriority[existing] ?? 0) : 0;
+      const newPriority = statusPriority[link.deliveryStatus] ?? 0;
+      if (newPriority > existingPriority) invoiceStatusMap.set(key, link.deliveryStatus);
     }
-    countMap[Number(manifestId)] = uniqueInvoices.size;
+    countMap[manifestId] = invoiceStatusMap.size;
+    let postponed = 0, returned = 0;
+    for (const status of invoiceStatusMap.values()) {
+      if (status === "postponed" || status === "delayed") postponed++;
+      if (status === "returned") returned++;
+    }
+    postponedMap[manifestId] = postponed;
+    returnedMap[manifestId] = returned;
   }
 
   res.json(manifests.map((m) => ({
