@@ -1,5 +1,5 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo, useEffect, useRef } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -148,6 +148,8 @@ function PORow({
 // ── مكوّن نموذج إضافة/تعديل أمر الشراء ────────────────────────────────────
 type ItemRow = { id?: number; productId: string; productName: string; color: string; size: string; sku: string; quantity: number; receivedQuantity?: number; unitCost: number; totalCost?: string };
 
+type Variant = { id: number; productId: number; color: string; size: string; sku: string | null; totalQuantity: number; reservedQuantity: number; soldQuantity: number; unitPrice: string; costPrice: string | null };
+
 function POForm({
   open, onClose, editOrder, suppliers, products, onSuccess,
 }: {
@@ -158,6 +160,36 @@ function POForm({
 }) {
   const qc = useQueryClient();
   const { toast } = useToast();
+
+  // جلب كل الـ variants
+  const { data: allVariants = [] } = useQuery<Variant[]>({
+    queryKey: ["variants-list"],
+    queryFn: () => apiFetch<any>("/variants"),
+    staleTime: 60_000,
+  });
+
+  // helper: ألوان متاحة للمنتج
+  const getColors = (productId: string) => {
+    if (!productId) return [];
+    const pid = parseInt(productId);
+    const colors = [...new Set(allVariants.filter(v => v.productId === pid).map(v => v.color))];
+    return colors;
+  };
+
+  // helper: مقاسات متاحة للمنتج + اللون
+  const getSizes = (productId: string, color: string) => {
+    if (!productId) return [];
+    const pid = parseInt(productId);
+    return [...new Set(allVariants.filter(v => v.productId === pid && v.color === color).map(v => v.size))];
+  };
+
+  // helper: variant بناءً على المنتج + اللون + المقاس
+  const getVariant = (productId: string, color: string, size: string) => {
+    if (!productId || !color || !size) return null;
+    const pid = parseInt(productId);
+    return allVariants.find(v => v.productId === pid && v.color === color && v.size === size) ?? null;
+  };
+
   const isEdit = !!editOrder;
 
   const [supplierId, setSupplierId]   = useState<string>(String(editOrder?.supplierId ?? ""));
@@ -215,7 +247,42 @@ function POForm({
   }, [editOrder, open]);
 
   const updateItem = (i: number, field: keyof ItemRow, val: any) => {
-    setItems(prev => prev.map((r, idx) => idx === i ? { ...r, [field]: val } : r));
+    setItems(prev => prev.map((r, idx) => {
+      if (idx !== i) return r;
+      const updated = { ...r, [field]: val };
+
+      // لو غير المنتج → امسح اللون والمقاس وUnitCost
+      if (field === "productId") {
+        const p = products.find(x => String(x.id) === val);
+        updated.productName = p?.name ?? "";
+        updated.color = "";
+        updated.size = "";
+        updated.unitCost = 0;
+        updated.sku = "";
+      }
+
+      // لو غير اللون → امسح المقاس
+      if (field === "color") {
+        updated.size = "";
+        updated.unitCost = 0;
+        updated.sku = "";
+      }
+
+      // لو اختار المقاس → عبّي التكلفة والـ SKU تلقائي
+      if (field === "size") {
+        const variant = allVariants.find(v =>
+          v.productId === parseInt(updated.productId) &&
+          v.color === updated.color &&
+          v.size === val
+        );
+        if (variant) {
+          updated.unitCost = parseFloat(variant.costPrice ?? variant.unitPrice ?? "0");
+          updated.sku = variant.sku ?? "";
+        }
+      }
+
+      return updated;
+    }));
   };
 
   const subTotal = items.reduce((s, r) => s + r.quantity * r.unitCost, 0);
@@ -406,39 +473,89 @@ function POForm({
             </div>
             <div className="rounded-lg border overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50">
+                <thead style={{ background: "hsl(var(--muted)/0.4)" }}>
                   <tr>
-                    {["المنتج","اللون","المقاس","الكمية","التكلفة/وحدة","الإجمالي",""].map(h => (
-                      <th key={h} className="px-2 py-2 text-right text-xs text-gray-500 font-medium">{h}</th>
+                    {["المنتج","اللون","المقاس","المتاح","الكمية","التكلفة/وحدة","الإجمالي",""].map(h => (
+                      <th key={h} className="px-2 py-2 text-right text-xs font-semibold text-muted-foreground">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((row, i) => (
-                    <tr key={i} className="border-t">
-                      <td className="px-2 py-1">
-                        <Select value={row.productId} onValueChange={v => {
-                          const p = products.find(x => String(x.id) === v);
-                          updateItem(i, "productId", v);
-                          if (p) { updateItem(i, "productName", p.name); updateItem(i, "unitCost", parseFloat(p.costPrice ?? "0")); }
-                        }}>
-                          <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="اختر أو اكتب" /></SelectTrigger>
+                  {items.map((row, i) => {
+                    const colors = getColors(row.productId);
+                    const sizes  = getSizes(row.productId, row.color);
+                    const variant = getVariant(row.productId, row.color, row.size);
+                    const available = variant ? variant.totalQuantity - variant.reservedQuantity - variant.soldQuantity : null;
+                    return (
+                    <tr key={i} className="border-t" style={{ borderColor: "hsl(var(--border)/0.5)" }}>
+                      {/* المنتج */}
+                      <td className="px-2 py-1.5 min-w-[140px]">
+                        <Select value={row.productId} onValueChange={v => updateItem(i, "productId", v)}>
+                          <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="اختر منتج" /></SelectTrigger>
                           <SelectContent>{products.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}</SelectContent>
                         </Select>
-                        {!row.productId && <Input className="mt-1 h-7 text-xs" placeholder="اسم المنتج" value={row.productName} onChange={e => updateItem(i, "productName", e.target.value)} />}
+                        {!row.productId && (
+                          <Input className="mt-1 h-7 text-xs" placeholder="اسم المنتج يدوياً" value={row.productName}
+                            onChange={e => updateItem(i, "productName", e.target.value)} />
+                        )}
                       </td>
-                      <td className="px-2 py-1"><Input className="h-7 text-xs w-20" placeholder="لون" value={row.color} onChange={e => updateItem(i, "color", e.target.value)} /></td>
-                      <td className="px-2 py-1"><Input className="h-7 text-xs w-16" placeholder="مقاس" value={row.size} onChange={e => updateItem(i, "size", e.target.value)} /></td>
-                      <td className="px-2 py-1"><Input className="h-7 text-xs w-16" type="number" min={1} value={row.quantity} onChange={e => updateItem(i, "quantity", parseInt(e.target.value)||1)} /></td>
-                      <td className="px-2 py-1"><Input className="h-7 text-xs w-24" type="number" min={0} value={row.unitCost} onChange={e => updateItem(i, "unitCost", parseFloat(e.target.value)||0)} /></td>
-                      <td className="px-2 py-1 font-semibold text-xs text-gray-700">{fmt(row.quantity * row.unitCost)}</td>
-                      <td className="px-2 py-1">
-                        <Button type="button" size="icon" variant="ghost" className="h-6 w-6 text-red-400" onClick={() => setItems(p => p.filter((_, idx) => idx !== i))}>
+                      {/* اللون */}
+                      <td className="px-2 py-1.5 min-w-[100px]">
+                        {colors.length > 0 ? (
+                          <Select value={row.color} onValueChange={v => updateItem(i, "color", v)} disabled={!row.productId}>
+                            <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="اللون" /></SelectTrigger>
+                            <SelectContent>{colors.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                          </Select>
+                        ) : (
+                          <Input className="h-7 text-xs w-20" placeholder="لون" value={row.color}
+                            onChange={e => updateItem(i, "color", e.target.value)} />
+                        )}
+                      </td>
+                      {/* المقاس */}
+                      <td className="px-2 py-1.5 min-w-[90px]">
+                        {sizes.length > 0 ? (
+                          <Select value={row.size} onValueChange={v => updateItem(i, "size", v)} disabled={!row.color}>
+                            <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="المقاس" /></SelectTrigger>
+                            <SelectContent>{sizes.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                          </Select>
+                        ) : (
+                          <Input className="h-7 text-xs w-16" placeholder="مقاس" value={row.size}
+                            onChange={e => updateItem(i, "size", e.target.value)} />
+                        )}
+                      </td>
+                      {/* المتاح في المخزن */}
+                      <td className="px-2 py-1.5 text-center">
+                        {available !== null ? (
+                          <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
+                            available > 5 ? "bg-emerald-500/15 text-emerald-400" :
+                            available > 0 ? "bg-amber-500/15 text-amber-400" :
+                            "bg-rose-500/15 text-rose-400"}`}>
+                            {available}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <Input className="h-7 text-xs w-16" type="number" min={1} value={row.quantity}
+                          onChange={e => updateItem(i, "quantity", parseInt(e.target.value)||1)} />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <Input className="h-7 text-xs w-24" type="number" min={0} value={row.unitCost}
+                          onChange={e => updateItem(i, "unitCost", parseFloat(e.target.value)||0)} />
+                      </td>
+                      <td className="px-2 py-1.5 font-semibold text-xs" style={{ color: "#26A69A" }}>
+                        {fmt(row.quantity * row.unitCost)}
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <Button type="button" size="icon" variant="ghost" className="h-6 w-6 text-rose-400"
+                          onClick={() => setItems(p => p.filter((_, idx) => idx !== i))}>
                           <X className="w-3 h-3" />
                         </Button>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
