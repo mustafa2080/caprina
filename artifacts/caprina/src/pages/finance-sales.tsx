@@ -52,6 +52,12 @@ type SaleOrder = {
 };
 type Warehouse = { id: number; name: string };
 type Product   = { id: number; name: string; costPrice?: string };
+type Variant   = {
+  id: number; productId: number; productName: string;
+  color: string; size: string; sku: string | null;
+  totalQuantity: number; reservedQuantity: number; soldQuantity: number;
+  unitPrice: string; costPrice: string | null;
+};
 
 // ── ColFilter ─────────────────────────────────────────────────────────────
 function ColFilter({ label, active, visible, isOpen, onToggle, children }: {
@@ -131,7 +137,13 @@ function SORow({ order, onEdit, onDelete, warehouses }: {
 }
 
 // ── SOForm ────────────────────────────────────────────────────────────────
-type ItemRow = { productId: string; productName: string; color: string; size: string; sku: string; quantity: number; unitPrice: number; deliveredQty?: number };
+type ItemRow = {
+  productId: string; productName: string;
+  color: string; size: string; sku: string;
+  quantity: number; unitPrice: number;
+  availableQty?: number; deliveredQty?: number;
+  variantId?: number;
+};
 
 function SOForm({ open, onClose, editOrder, warehouses, products, onSuccess }: {
   open: boolean; onClose: () => void; editOrder: SaleOrder | null;
@@ -140,6 +152,13 @@ function SOForm({ open, onClose, editOrder, warehouses, products, onSuccess }: {
   const qc = useQueryClient();
   const { toast } = useToast();
   const isEdit = !!editOrder;
+
+  // جلب كل الـ variants من الـ API
+  const { data: allVariants = [] } = useQuery<Variant[]>({
+    queryKey: ["variants"],
+    queryFn: () => apiFetch<any>("/variants"),
+    staleTime: 60_000,
+  });
 
   const [clientName,    setClientName]    = useState(editOrder?.clientName    ?? "");
   const [clientPhone,   setClientPhone]   = useState(editOrder?.clientPhone   ?? "");
@@ -195,6 +214,79 @@ function SOForm({ open, onClose, editOrder, warehouses, products, onSuccess }: {
 
   const upd = (i: number, f: keyof ItemRow, v: any) =>
     setItems(p => p.map((r, idx) => idx === i ? { ...r, [f]: v } : r));
+
+  // ── helpers للـ variants ───────────────────────────────────────────────
+  // الـ variants الخاصة بمنتج معين
+  const variantsForProduct = (productId: string) =>
+    allVariants.filter(v => String(v.productId) === productId);
+
+  // الألوان المتاحة للمنتج
+  const colorsForProduct = (productId: string) =>
+    [...new Set(variantsForProduct(productId).map(v => v.color).filter(Boolean))];
+
+  // المقاسات المتاحة بعد اختيار اللون
+  const sizesForColor = (productId: string, color: string) =>
+    variantsForProduct(productId)
+      .filter(v => v.color === color)
+      .map(v => v.size)
+      .filter(Boolean);
+
+  // الـ variant المطابق للمنتج + اللون + المقاس
+  const matchVariant = (productId: string, color: string, size: string) =>
+    variantsForProduct(productId).find(v => v.color === color && v.size === size);
+
+  // الكمية المتاحة
+  const availQty = (v: Variant) =>
+    Math.max(0, (v.totalQuantity ?? 0) - (v.reservedQuantity ?? 0) - (v.soldQuantity ?? 0));
+
+  // عند اختيار منتج جديد
+  const handleProductChange = (i: number, productId: string) => {
+    const p = products.find(x => String(x.id) === productId);
+    const colors = colorsForProduct(productId);
+    const firstColor = colors[0] ?? "";
+    const sizes = firstColor ? sizesForColor(productId, firstColor) : [];
+    const firstSize = sizes[0] ?? "";
+    const variant = firstColor && firstSize ? matchVariant(productId, firstColor, firstSize) : undefined;
+    setItems(prev => prev.map((r, idx) => idx === i ? {
+      ...r,
+      productId,
+      productName: p?.name ?? "",
+      color: firstColor,
+      size: firstSize,
+      sku: variant?.sku ?? "",
+      variantId: variant?.id,
+      unitPrice: variant ? parseFloat(String(variant.unitPrice)) : 0,
+      availableQty: variant ? availQty(variant) : undefined,
+    } : r));
+  };
+
+  // عند اختيار لون جديد
+  const handleColorChange = (i: number, color: string) => {
+    const r = items[i];
+    const sizes = sizesForColor(r.productId, color);
+    const firstSize = sizes[0] ?? "";
+    const variant = firstSize ? matchVariant(r.productId, color, firstSize) : undefined;
+    setItems(prev => prev.map((row, idx) => idx === i ? {
+      ...row, color, size: firstSize,
+      sku: variant?.sku ?? "",
+      variantId: variant?.id,
+      unitPrice: variant ? parseFloat(String(variant.unitPrice)) : row.unitPrice,
+      availableQty: variant ? availQty(variant) : undefined,
+    } : row));
+  };
+
+  // عند اختيار مقاس جديد
+  const handleSizeChange = (i: number, size: string) => {
+    const r = items[i];
+    const variant = matchVariant(r.productId, r.color, size);
+    setItems(prev => prev.map((row, idx) => idx === i ? {
+      ...row, size,
+      sku: variant?.sku ?? "",
+      variantId: variant?.id,
+      unitPrice: variant ? parseFloat(String(variant.unitPrice)) : row.unitPrice,
+      availableQty: variant ? availQty(variant) : undefined,
+    } : row));
+  };
 
   const subTotal = items.reduce((s, r) => s + r.quantity * r.unitPrice, 0);
   const total = subTotal + Number(shippingCost) + Number(taxAmount) - Number(discount);
@@ -315,32 +407,86 @@ function SOForm({ open, onClose, editOrder, warehouses, products, onSuccess }: {
             <div className="rounded-lg border overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-muted/30">
-                  <tr>{["المنتج","اللون","المقاس","الكمية","السعر/وحدة","الإجمالي",""].map(h => (
-                    <th key={h} className="px-2 py-2 text-right text-xs text-muted-foreground font-medium">{h}</th>
+                  <tr>{["المنتج","اللون","المقاس","المتاح","الكمية","سعر الوحدة","الإجمالي",""].map(h => (
+                    <th key={h} className="px-2 py-2 text-right text-xs text-muted-foreground font-medium whitespace-nowrap">{h}</th>
                   ))}</tr>
                 </thead>
                 <tbody>
-                  {items.map((r, i) => (
-                    <tr key={i} className="border-t">
-                      <td className="px-2 py-1">
-                        <Select value={r.productId} onValueChange={v => {
-                          const p = products.find(x => String(x.id) === v);
-                          upd(i, "productId", v);
-                          if (p) upd(i, "productName", p.name);
-                        }}>
-                          <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="اختر منتج" /></SelectTrigger>
-                          <SelectContent>{products.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}</SelectContent>
-                        </Select>
-                        {!r.productId && <Input className="mt-1 h-7 text-xs" placeholder="اسم المنتج" value={r.productName} onChange={e => upd(i,"productName",e.target.value)} />}
-                      </td>
-                      <td className="px-2 py-1"><Input className="h-7 text-xs w-20" placeholder="لون" value={r.color} onChange={e => upd(i,"color",e.target.value)} /></td>
-                      <td className="px-2 py-1"><Input className="h-7 text-xs w-16" placeholder="مقاس" value={r.size} onChange={e => upd(i,"size",e.target.value)} /></td>
-                      <td className="px-2 py-1"><Input className="h-7 text-xs w-16" type="number" min={1} value={r.quantity} onChange={e => upd(i,"quantity",parseInt(e.target.value)||1)} /></td>
-                      <td className="px-2 py-1"><Input className="h-7 text-xs w-24" type="number" min={0} value={r.unitPrice} onChange={e => upd(i,"unitPrice",parseFloat(e.target.value)||0)} /></td>
-                      <td className="px-2 py-1 font-semibold text-xs" style={{ color: "#4DB6AC" }}>{fmt(r.quantity * r.unitPrice)}</td>
-                      <td className="px-2 py-1"><Button type="button" size="icon" variant="ghost" className="h-6 w-6 text-rose-400" onClick={() => setItems(p => p.filter((_,idx) => idx !== i))}><X className="w-3 h-3" /></Button></td>
-                    </tr>
-                  ))}
+                  {items.map((r, i) => {
+                    const colors  = colorsForProduct(r.productId);
+                    const sizes   = r.color ? sizesForColor(r.productId, r.color) : [];
+                    const avail   = r.availableQty;
+                    const overQty = avail !== undefined && r.quantity > avail;
+                    return (
+                      <tr key={i} className="border-t">
+                        {/* المنتج */}
+                        <td className="px-2 py-1.5 min-w-[160px]">
+                          <Select value={r.productId} onValueChange={v => handleProductChange(i, v)}>
+                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="اختر منتج" /></SelectTrigger>
+                            <SelectContent>{products.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </td>
+                        {/* اللون */}
+                        <td className="px-2 py-1.5 min-w-[110px]">
+                          {colors.length > 0 ? (
+                            <Select value={r.color} onValueChange={v => handleColorChange(i, v)} disabled={!r.productId}>
+                              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="اللون" /></SelectTrigger>
+                              <SelectContent>{colors.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                            </Select>
+                          ) : (
+                            <Input className="h-8 text-xs w-24" placeholder="لون" value={r.color} onChange={e => upd(i,"color",e.target.value)} />
+                          )}
+                        </td>
+                        {/* المقاس */}
+                        <td className="px-2 py-1.5 min-w-[100px]">
+                          {sizes.length > 0 ? (
+                            <Select value={r.size} onValueChange={v => handleSizeChange(i, v)} disabled={!r.color}>
+                              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="المقاس" /></SelectTrigger>
+                              <SelectContent>{sizes.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                            </Select>
+                          ) : (
+                            <Input className="h-8 text-xs w-20" placeholder="مقاس" value={r.size} onChange={e => upd(i,"size",e.target.value)} />
+                          )}
+                        </td>
+                        {/* المتاح */}
+                        <td className="px-2 py-1.5 text-center min-w-[60px]">
+                          {avail !== undefined ? (
+                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${avail === 0 ? "bg-rose-500/15 text-rose-400" : avail < 5 ? "bg-amber-500/15 text-amber-400" : "bg-emerald-500/15 text-emerald-400"}`}>
+                              {avail}
+                            </span>
+                          ) : <span className="text-muted-foreground text-xs">—</span>}
+                        </td>
+                        {/* الكمية */}
+                        <td className="px-2 py-1.5 min-w-[70px]">
+                          <Input
+                            className={`h-8 text-xs w-16 text-center ${overQty ? "border-rose-500 focus-visible:ring-rose-500" : ""}`}
+                            type="number" min={1}
+                            value={r.quantity}
+                            onChange={e => upd(i,"quantity",parseInt(e.target.value)||1)}
+                          />
+                          {overQty && <p className="text-[10px] text-rose-400 mt-0.5">تجاوز المتاح</p>}
+                        </td>
+                        {/* سعر الوحدة */}
+                        <td className="px-2 py-1.5 min-w-[90px]">
+                          <Input className="h-8 text-xs w-24" type="number" min={0}
+                            value={r.unitPrice}
+                            onChange={e => upd(i,"unitPrice",parseFloat(e.target.value)||0)}
+                          />
+                        </td>
+                        {/* الإجمالي */}
+                        <td className="px-2 py-1.5 font-semibold text-xs whitespace-nowrap" style={{ color: "#4DB6AC" }}>
+                          {fmt(r.quantity * r.unitPrice)}
+                        </td>
+                        {/* حذف */}
+                        <td className="px-2 py-1.5">
+                          <Button type="button" size="icon" variant="ghost" className="h-6 w-6 text-rose-400"
+                            onClick={() => setItems(p => p.filter((_,idx) => idx !== i))}>
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
