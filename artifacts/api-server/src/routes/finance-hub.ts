@@ -69,8 +69,20 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
     // ── 3. مؤشرات المبيعات (الفترة الحالية) ─────────────────────────────────
     // الطلبات المُسلَّمة: الإيراد + التكلفة + الشحن
     const [salesCur] = await db.select({
-      revenue:  sql<number>`COALESCE(SUM(total_price),0)`,
-      cogs:     sql<number>`COALESCE(SUM(cost_price * quantity),0)`,
+      revenue:  sql<number>`COALESCE(SUM(
+        CASE
+          WHEN status = 'partial_received' AND partial_quantity IS NOT NULL AND partial_quantity > 0
+            THEN partial_quantity * unit_price
+          ELSE total_price
+        END
+      ),0)`,
+      cogs:     sql<number>`COALESCE(SUM(
+        CASE
+          WHEN status = 'partial_received' AND partial_quantity IS NOT NULL AND partial_quantity > 0
+            THEN cost_price * partial_quantity
+          ELSE cost_price * quantity
+        END
+      ),0)`,
       shipping: sql<number>`COALESCE(SUM(shipping_cost),0)`,
       count:    sql<number>`COUNT(*)`,
     }).from(ordersTable).where(and(
@@ -95,8 +107,20 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
     ));
 
     const [salesPrev] = await db.select({
-      revenue:  sql<number>`COALESCE(SUM(total_price),0)`,
-      cogs:     sql<number>`COALESCE(SUM(cost_price * quantity),0)`,
+      revenue:  sql<number>`COALESCE(SUM(
+        CASE
+          WHEN status = 'partial_received' AND partial_quantity IS NOT NULL AND partial_quantity > 0
+            THEN partial_quantity * unit_price
+          ELSE total_price
+        END
+      ),0)`,
+      cogs:     sql<number>`COALESCE(SUM(
+        CASE
+          WHEN status = 'partial_received' AND partial_quantity IS NOT NULL AND partial_quantity > 0
+            THEN cost_price * partial_quantity
+          ELSE cost_price * quantity
+        END
+      ),0)`,
       shipping: sql<number>`COALESCE(SUM(shipping_cost),0)`,
     }).from(ordersTable).where(and(
       isNull(ordersTable.deletedAt),
@@ -162,8 +186,20 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
     const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
     const monthlyRevenue = await db.select({
       month:   sql<string>`DATE_FORMAT(created_at, '%Y-%m')`,
-      revenue: sql<number>`COALESCE(SUM(total_price),0)`,
-      cogs:    sql<number>`COALESCE(SUM(cost_price * quantity),0)`,
+      revenue: sql<number>`COALESCE(SUM(
+        CASE
+          WHEN status = 'partial_received' AND partial_quantity IS NOT NULL AND partial_quantity > 0
+            THEN partial_quantity * unit_price
+          ELSE total_price
+        END
+      ),0)`,
+      cogs:    sql<number>`COALESCE(SUM(
+        CASE
+          WHEN status = 'partial_received' AND partial_quantity IS NOT NULL AND partial_quantity > 0
+            THEN cost_price * partial_quantity
+          ELSE cost_price * quantity
+        END
+      ),0)`,
       shipping: sql<number>`COALESCE(SUM(shipping_cost),0)`,
       count:   sql<number>`COUNT(*)`,
     }).from(ordersTable).where(and(
