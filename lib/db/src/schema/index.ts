@@ -22,5 +22,8 @@ export * from "./shipping_financial_invoices";
 export * from "./cash_registers";
 export * from "./attendance";
 
+// ─── Sales Module ─────────────────────────────────────────────────────────────
+export * from "./sale_orders";
+
 // ─── Subscription / Multi-Tenant ─────────────────────────────────────────────
 export * from "./tenants";

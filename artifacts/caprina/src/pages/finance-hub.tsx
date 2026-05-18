@@ -5,7 +5,7 @@ import { Link } from "wouter";
 import {
   Wallet, TrendingUp, TrendingDown, ArrowRightLeft, Building2,
   Star, AlertCircle, RefreshCw, Banknote, BarChart3, Receipt,
-  ShoppingCart, Truck, FileText, Activity, CheckCircle2,
+  ShoppingCart, ShoppingBag, Truck, FileText, Activity, CheckCircle2,
   Package, Clock, Info, ArrowLeft, Zap, Eye, ChevronRight,
   DollarSign, ArrowUpCircle, ArrowDownCircle, PiggyBank,
   ShieldAlert, Layers, CircleDot, Flame, Target, TrendingUp as TrendUp,
@@ -946,6 +946,7 @@ export default function FinanceHub() {
           <div className="space-y-2">
             {[
               {href:"/finance/cash",              label:"الخزنة والحركات",    Icon:Wallet,       color:"text-yellow-500"},
+              {href:"/finance/sales",             label:"أوامر البيع (B2B)",  Icon:ShoppingBag,  color:"text-teal-500"},
               {href:"/finance/expenses",          label:"إضافة مصروف",        Icon:Receipt,      color:"text-rose-500"},
               {href:"/finance/suppliers",         label:"الموردون",           Icon:Building2,    color:"text-blue-500"},
               {href:"/finance/cash/analytics",    label:"تحليلات الخزنة",     Icon:BarChart3,    color:"text-emerald-500"},
