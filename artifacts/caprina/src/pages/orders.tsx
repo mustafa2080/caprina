@@ -724,6 +724,11 @@ export default function Orders() {
                           if (rr === 0) return <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-orange-500 dark:text-orange-400">⏳ عند شركة الشحن</span>;
                           return null;
                         })()}
+                        {order.status === "delayed" && (() => {
+                          const dn = (order as any).delayNote as string | null | undefined;
+                          if (!dn) return null;
+                          return <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-blue-600 dark:text-blue-400">⏸ {dn}</span>;
+                        })()}
                         {order.status === "partial_received" && (() => {
                           const rr = (order as any).returnReceived as 0 | 1 | null | undefined;
                           const pq = (order as any).partialQuantity as number | null | undefined;
@@ -875,6 +880,15 @@ export default function Orders() {
                             const rr = (order as any).returnReceived as 0 | 1 | null | undefined;
                             if (rr === 0) return <div className="flex items-center justify-center gap-0.5 mt-1"><span className="text-[9px] font-bold text-orange-500 dark:text-orange-400 leading-none">⏳ عند شركة الشحن</span></div>;
                             return null;
+                          })()}
+                          {order.status === "delayed" && (() => {
+                            const dn = (order as any).delayNote as string | null | undefined;
+                            if (!dn) return null;
+                            return (
+                              <div className="flex items-center justify-center gap-0.5 mt-1">
+                                <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400 leading-none">⏸ {dn}</span>
+                              </div>
+                            );
                           })()}
                           {order.status === "partial_received" && (() => {
                             const rr = (order as any).returnReceived as 0 | 1 | null | undefined;

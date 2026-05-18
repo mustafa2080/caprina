@@ -210,6 +210,26 @@ router.get("/orders", async (req, res): Promise<void> => {
     } catch (_) { /* ╪ز╪ش╪د┘ç┘ */ }
   }
 
+  const delayedIds = rows.filter(o => o.status === "delayed").map(o => o.id);
+  const manifestDelayNoteMap = new Map<number, string | null>();
+  if (delayedIds.length > 0) {
+    try {
+      const manifestLinks = await db
+        .select({ orderId: shippingManifestOrdersTable.orderId, deliveryNote: shippingManifestOrdersTable.deliveryNote })
+        .from(shippingManifestOrdersTable)
+        .where(and(
+          inArray(shippingManifestOrdersTable.orderId, delayedIds),
+          eq(shippingManifestOrdersTable.deliveryStatus, "postponed")
+        ))
+        .orderBy(desc(shippingManifestOrdersTable.id));
+      for (const link of manifestLinks) {
+        if (!manifestDelayNoteMap.has(link.orderId) && link.deliveryNote != null) {
+          manifestDelayNoteMap.set(link.orderId, link.deliveryNote);
+        }
+      }
+    } catch (_) { /* تجاهل */ }
+  }
+
   const partialIds = rows.filter(o => o.status === "partial_received").map(o => o.id);
   const manifestPartialMap = new Map<number, number | null>();
   if (partialIds.length > 0) {
@@ -246,6 +266,10 @@ router.get("/orders", async (req, res): Promise<void> => {
     return manifestReturnMap.get(o.id) ?? null;
   };
 
+  const getDelayNote = (o: (typeof rows)[0]): string | null => {
+    return manifestDelayNoteMap.get(o.id) ?? null;
+  };
+
   const getPartialQuantity = (o: (typeof rows)[0]): number | null => {
     const fromManifest = manifestPartialMap.get(o.id);
     if (fromManifest != null) return fromManifest;
@@ -265,6 +289,7 @@ router.get("/orders", async (req, res): Promise<void> => {
       const rep = { ...grp[0] } as any;
       rep._invoiceOrders = [grp[0]];
       if (rep.status === "returned") rep.returnReceived = getReturnReceived(grp[0]);
+      if (rep.status === "delayed") rep.delayNote = getDelayNote(grp[0]);
       if (rep.status === "partial_received") {
         const pq = getPartialQuantity(grp[0]);
         rep.partialQuantity = pq;
@@ -292,6 +317,12 @@ router.get("/orders", async (req, res): Promise<void> => {
       rep.partialQuantity = grp.reduce((s, o) => s + (getPartialQuantity(o) ?? 0), 0);
       rep._receivedPrice  = grp.reduce((s, o) => s + calcReceivedPrice(o, getPartialQuantity(o)), 0);
       rep._fullPrice      = rep.totalPrice;
+    }
+    const allDelayed = grp.every(o => o.status === "delayed");
+    if (allDelayed) {
+      let dn: string | null = null;
+      for (const o of grp) { const val = getDelayNote(o); if (val !== null) { dn = val; break; } }
+      rep.delayNote = dn;
     }
     return rep;
   });
