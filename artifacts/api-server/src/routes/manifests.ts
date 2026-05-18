@@ -256,6 +256,7 @@ router.get("/shipping-manifests", async (req, res): Promise<void> => {
     .select({
       manifestId: shippingManifestOrdersTable.manifestId,
       orderId: shippingManifestOrdersTable.orderId,
+      deliveryStatus: shippingManifestOrdersTable.deliveryStatus,
     })
     .from(shippingManifestOrdersTable)
     .where(inArray(shippingManifestOrdersTable.manifestId, manifestIds));
@@ -263,9 +264,18 @@ router.get("/shipping-manifests", async (req, res): Promise<void> => {
   // عدّ الفواتير الفريدة (invoiceNumber) لكل بيان بدل عدد الصفوف
   // الطلبات بنفس invoiceNumber تُعدّ فاتورة واحدة فقط
   const manifestOrderIds: Record<number, number[]> = {};
+  // عدّ المؤجل والمرتجع لكل بيان
+  const postponedMap: Record<number, number> = {};
+  const returnedMap: Record<number, number> = {};
   for (const link of allLinks) {
     if (!manifestOrderIds[link.manifestId]) manifestOrderIds[link.manifestId] = [];
     manifestOrderIds[link.manifestId].push(link.orderId);
+    if (link.deliveryStatus === "postponed" || link.deliveryStatus === "delayed") {
+      postponedMap[link.manifestId] = (postponedMap[link.manifestId] ?? 0) + 1;
+    }
+    if (link.deliveryStatus === "returned") {
+      returnedMap[link.manifestId] = (returnedMap[link.manifestId] ?? 0) + 1;
+    }
   }
 
   // جيب invoiceNumber لكل orderId محتاجينه
@@ -291,6 +301,8 @@ router.get("/shipping-manifests", async (req, res): Promise<void> => {
   res.json(manifests.map((m) => ({
     ...m.manifest, invoicePrice: m.manifest.invoicePrice ? Number(m.manifest.invoicePrice) : null,
     companyName: m.company?.name ?? "غير محدد", orderCount: countMap[m.manifest.id] ?? 0,
+    postponedCount: postponedMap[m.manifest.id] ?? 0,
+    returnedCount: returnedMap[m.manifest.id] ?? 0,
   })));
 });
 

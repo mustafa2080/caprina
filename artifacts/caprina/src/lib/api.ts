@@ -650,6 +650,8 @@ export interface ShippingManifestListItem {
   invoicePrice: number | null;
   invoiceNotes: string | null;
   orderCount: number;
+  postponedCount: number;
+  returnedCount: number;
   createdAt: string;
   closedAt: string | null;
 }

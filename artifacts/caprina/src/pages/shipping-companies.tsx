@@ -63,6 +63,12 @@ function CompanyStats({ companyId, canViewFinancials }: { companyId: number; can
     queryFn: () => manifestsApi.companyStats(companyId),
     staleTime: 30000,
   });
+  const { data: manifests } = useQuery({
+    queryKey: ["shipping-manifests", companyId],
+    queryFn: () => manifestsApi.list(companyId),
+    staleTime: 10000,
+  });
+  const openManifest = manifests?.find(m => m.status === "open") ?? null;
   if (!stats) return null;
   return (
     <div className="mt-4 pt-4 border-t border-border space-y-3">
@@ -78,7 +84,25 @@ function CompanyStats({ companyId, canViewFinancials }: { companyId: number; can
         </div>
         <div className="bg-muted/20 rounded p-2">
           <p className="text-[10px] text-muted-foreground">البيان الحالي</p>
-          <p className="text-sm font-black text-amber-400">{stats.postponed}</p>
+          {openManifest ? (
+            <div className="flex flex-col items-center gap-0.5">
+              <p className="text-sm font-black text-amber-400">{openManifest.orderCount}</p>
+              <div className="flex items-center gap-1 flex-wrap justify-center">
+                {(openManifest.postponedCount ?? 0) > 0 && (
+                  <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-amber-500/15 text-amber-400 rounded px-1 py-0.5 leading-none">
+                    <span>⏸</span>{openManifest.postponedCount} مؤجل
+                  </span>
+                )}
+                {(openManifest.returnedCount ?? 0) > 0 && (
+                  <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-red-500/15 text-red-400 rounded px-1 py-0.5 leading-none">
+                    <span>↩</span>{openManifest.returnedCount} مرتجع
+                  </span>
+                )}
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm font-black text-muted-foreground">—</p>
+          )}
         </div>
       </div>
       {canViewFinancials && (
