@@ -341,12 +341,15 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
     // ملاحظة: تكلفة الشحن المدفوعة على المرتجع مُدرجة بالفعل في shipping أعلاه
     const returnLoss = Number(returnsCur?.returnCogs ?? 0); // فقط تكلفة التوالف
 
+    // إجمالي الإيراد بعد خصم رسوم الشحن من البيانات (زي financial-summary)
+    const revenueNet = revenue - manualShippingCur;
+
     // مجمل الربح = الإيرادات − تكلفة البضاعة
-    const grossProfit = revenue - cogs;
+    const grossProfit = revenueNet - cogs;
     // صافي الربح = مجمل الربح − مصاريف الشحن − خسائر المرتجعات − المصروفات التشغيلية
-    const netProfit   = grossProfit - shipping - returnLoss - expenses;
-    const netMargin   = revenue > 0 ? +((netProfit / revenue) * 100).toFixed(1) : 0;
-    const grossMargin = revenue > 0 ? +((grossProfit / revenue) * 100).toFixed(1) : 0;
+    const netProfit   = grossProfit - orderShippingCur - returnLoss - expenses;
+    const netMargin   = revenueNet > 0 ? +((netProfit / revenueNet) * 100).toFixed(1) : 0;
+    const grossMargin = revenueNet > 0 ? +((grossProfit / revenueNet) * 100).toFixed(1) : 0;
 
     const prevRevenue    = Number(salesPrev?.revenue ?? 0);
     const prevCogs       = Number(salesPrev?.cogs    ?? 0);
@@ -384,10 +387,10 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
       cash: { registers: regSummaries, totalBalance: totalCash, lowBalanceAlerts },
       dailyFlow: dailyFlow.map(r=>({ day: r.day, in: Number(r.totalIn), out: Number(r.totalOut), net: Number(r.totalIn)-Number(r.totalOut) })),
       pnl: {
-        revenue, cogs, shipping, expenses, grossProfit, netProfit, netMargin, grossMargin,
+        revenue: revenueNet, cogs, shipping: orderShippingCur, expenses, grossProfit, netProfit, netMargin, grossMargin,
         returnLoss, returnCount: Number(returnsCur?.count ?? 0),
         prevRevenue, prevProfit,
-        changes: { revenue: pct(revenue,prevRevenue), netProfit: pct(netProfit,prevProfit), expenses: pct(expenses,prevExp) },
+        changes: { revenue: pct(revenueNet,prevRevenue), netProfit: pct(netProfit,prevProfit), expenses: pct(expenses,prevExp) },
       },
       orders: {
         total: Number(orderStats?.total??0),
