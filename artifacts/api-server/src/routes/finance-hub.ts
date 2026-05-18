@@ -83,7 +83,13 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
           ELSE cost_price * quantity
         END
       ),0)`,
-      shipping: sql<number>`COALESCE(SUM(shipping_cost),0)`,
+      shipping: sql<number>`COALESCE(SUM(
+        CASE
+          WHEN status = 'partial_received' AND partial_quantity IS NOT NULL AND quantity > 0
+            THEN shipping_cost * partial_quantity / quantity
+          ELSE shipping_cost
+        END
+      ),0)`,
       count:    sql<number>`COUNT(*)`,
     }).from(ordersTable).where(and(
       isNull(ordersTable.deletedAt),
@@ -121,7 +127,13 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
           ELSE cost_price * quantity
         END
       ),0)`,
-      shipping: sql<number>`COALESCE(SUM(shipping_cost),0)`,
+      shipping: sql<number>`COALESCE(SUM(
+        CASE
+          WHEN status = 'partial_received' AND partial_quantity IS NOT NULL AND quantity > 0
+            THEN shipping_cost * partial_quantity / quantity
+          ELSE shipping_cost
+        END
+      ),0)`,
     }).from(ordersTable).where(and(
       isNull(ordersTable.deletedAt),
       sql`status IN ('received','partial_received')`,
@@ -200,7 +212,13 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
           ELSE cost_price * quantity
         END
       ),0)`,
-      shipping: sql<number>`COALESCE(SUM(shipping_cost),0)`,
+      shipping: sql<number>`COALESCE(SUM(
+        CASE
+          WHEN status = 'partial_received' AND partial_quantity IS NOT NULL AND quantity > 0
+            THEN shipping_cost * partial_quantity / quantity
+          ELSE shipping_cost
+        END
+      ),0)`,
       count:   sql<number>`COUNT(*)`,
     }).from(ordersTable).where(and(
       isNull(ordersTable.deletedAt),
