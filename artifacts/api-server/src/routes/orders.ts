@@ -354,11 +354,6 @@ router.get("/orders", async (req, res): Promise<void> => {
       if (rep.status === "in_shipping" && postponedOrderIdsSet.has(grp[0].id)) {
         rep.status = "delayed";
       }
-      // لو الطلب returned لكن لسه في بيان مفتوح → يظهر كـ in_shipping (لسه عند شركة الشحن)
-      if (rep.status === "returned" && returnedInOpenManifestSet.has(grp[0].id)) {
-        rep.status = "in_shipping";
-        rep._returnedInManifest = true;
-      }
       if (rep.status === "returned") rep.returnReceived = getReturnReceived(grp[0]);
       if (rep.status === "delayed") rep.delayNote = getDelayNote(grp[0]);
       if (rep.status === "partial_received") {
@@ -387,16 +382,9 @@ router.get("/orders", async (req, res): Promise<void> => {
     }
     const allReturned = grp.every(o => o.status === "returned");
     if (allReturned) {
-      // لو كل المرتجعات لسه في بيان مفتوح → اظهرها كـ in_shipping
-      const allReturnedInManifest = grp.every(o => returnedInOpenManifestSet.has(o.id));
-      if (allReturnedInManifest) {
-        rep.status = "in_shipping";
-        rep._returnedInManifest = true;
-      } else {
-        let rr: number | null = null;
-        for (const o of grp) { const val = getReturnReceived(o); if (val !== null) { rr = val; break; } }
-        rep.returnReceived = rr;
-      }
+      let rr: number | null = null;
+      for (const o of grp) { const val = getReturnReceived(o); if (val !== null) { rr = val; break; } }
+      rep.returnReceived = rr;
     }
     const allPartial = grp.every(o => o.status === "partial_received");
     if (allPartial) {
