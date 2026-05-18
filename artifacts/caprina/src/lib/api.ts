@@ -1220,5 +1220,5 @@ export type CashRegister = {
 };
 
 export const cashRegistersApi = {
-  list: () => apiFetch<CashRegister[]>("/cash-registers"),
+  list: () => apiFetch<{ registers: CashRegister[]; totalBalance: number }>("/cash-registers"),
 };

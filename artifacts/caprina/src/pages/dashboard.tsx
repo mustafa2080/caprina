@@ -337,7 +337,7 @@ export default function Dashboard() {
     refetchInterval: 120000,
     enabled: canViewFinancials,
   });
-  const totalCash = cashRegisters?.reduce((sum, r) => sum + parseFloat(r.balance ?? "0"), 0) ?? 0;
+  const totalCash = cashRegisters?.totalBalance ?? 0;
 
   const highAlerts = alertsData?.alerts.filter(a => a.severity === "high") ?? [];
   const allAlerts = alertsData?.alerts ?? [];
