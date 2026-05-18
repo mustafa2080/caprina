@@ -424,8 +424,8 @@ router.get("/analytics/financial-summary", requireAdmin, async (req, res): Promi
     }
   }
 
-  // أضف تكلفة الشحن اليدوية غير الموزعة (من البيانات التي طلبياتها خارج نطاق الفلتر)
-  shippingSpend += manualShippingTotal;
+  // ملاحظة: manualShippingCost تُضاف عبر shippingPerOrder في الحلقة أعلاه (موزّعة على كل أوردر)
+  // لا نضيف manualShippingTotal مرة ثانية لتفادي التكرار المزدوج
 
   // صافي الربح = إجمالي المقبوض − تكلفة البضاعة − تكلفة الشحن − خسائر المرتجعات
   const netProfit = cashIn - costOfGoods - shippingSpend - returnLoss;
