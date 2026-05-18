@@ -83,30 +83,27 @@ function CompanyStats({ companyId, canViewFinancials }: { companyId: number; can
           <p className="text-sm font-black text-red-400">{stats.returned}</p>
         </div>
         <div className="bg-muted/20 rounded p-2">
-          <p className="text-[10px] text-muted-foreground">البيان الحالي</p>
+          <p className="text-[10px] text-muted-foreground mb-1">البيان الحالي</p>
           {openManifest ? (
-            <div className="flex flex-col items-center gap-0.5">
-              <p className="text-sm font-black text-amber-400">{openManifest.orderCount}</p>
-              <div className="flex items-center gap-1 flex-wrap justify-center">
-                {(openManifest.pendingCount ?? 0) > 0 && (
-                  <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-blue-500/15 text-blue-400 rounded px-1 py-0.5 leading-none">
-                    <span>🕐</span>{openManifest.pendingCount} انتظار
-                  </span>
-                )}
-                {(openManifest.postponedCount ?? 0) > 0 && (
-                  <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-amber-500/15 text-amber-400 rounded px-1 py-0.5 leading-none">
-                    <span>⏸</span>{openManifest.postponedCount} مؤجل
-                  </span>
-                )}
-                {(openManifest.returnedCount ?? 0) > 0 && (
-                  <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-red-500/15 text-red-400 rounded px-1 py-0.5 leading-none">
-                    <span>↩</span>{openManifest.returnedCount} مرتجع
-                  </span>
-                )}
+            <div className="space-y-1.5">
+              <p className="text-sm font-black text-amber-400 text-center">{openManifest.orderCount}</p>
+              <div className="grid grid-cols-3 gap-1">
+                <div className="flex flex-col items-center bg-blue-500/10 rounded py-1 px-0.5">
+                  <span className="text-[10px] font-black text-blue-400">{openManifest.pendingCount ?? 0}</span>
+                  <span className="text-[8px] text-muted-foreground leading-tight">انتظار</span>
+                </div>
+                <div className="flex flex-col items-center bg-amber-500/10 rounded py-1 px-0.5">
+                  <span className="text-[10px] font-black text-amber-400">{openManifest.postponedCount ?? 0}</span>
+                  <span className="text-[8px] text-muted-foreground leading-tight">مؤجل</span>
+                </div>
+                <div className="flex flex-col items-center bg-red-500/10 rounded py-1 px-0.5">
+                  <span className="text-[10px] font-black text-red-400">{openManifest.returnedCount ?? 0}</span>
+                  <span className="text-[8px] text-muted-foreground leading-tight">مرتجع</span>
+                </div>
               </div>
             </div>
           ) : (
-            <p className="text-sm font-black text-muted-foreground">—</p>
+            <p className="text-sm font-black text-muted-foreground text-center">—</p>
           )}
         </div>
       </div>
