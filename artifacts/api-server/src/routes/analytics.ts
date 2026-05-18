@@ -972,7 +972,8 @@ router.get("/analytics/smart-insights", async (req, res): Promise<void> => {
       if (!s.invoiceSet.has(invoiceKey)) { s.invoiceSet.add(invoiceKey); s.orders++; }
     } else if (o.status === "received" || o.status === "partial_received") {
       const p = calcOrderProfit(o, rc);
-      s.revenue += p.revenue;
+      const sc = o.shippingCost ?? 0;
+      s.revenue += p.revenue - sc;
       s.cost += p.cost;
       s.profit += p.netProfit;
       if (!s.invoiceSet.has(invoiceKey)) { s.invoiceSet.add(invoiceKey); s.orders++; }
