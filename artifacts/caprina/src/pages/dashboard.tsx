@@ -414,39 +414,35 @@ export default function Dashboard() {
 
       {/* === FINANCIAL OVERVIEW BANNER (admin only) === */}
       {canViewFinancials && fin && (
-        <div className={`rounded-xl border overflow-hidden ${fin.netProfit >= 0 ? "border-emerald-300 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-900/5" : "border-red-300 dark:border-red-800/60 bg-red-50 dark:bg-red-900/5"}`}>
+        <div className="rounded-xl border border-emerald-300 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-900/5 overflow-hidden">
           <div className="p-3 sm:p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-3 sm:mb-4">
+              {/* الحاوية الكبيرة: إجمالي الكاش */}
               <div className="min-w-0">
                 <p className="text-[8px] sm:text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-0.5 sm:mb-1">
-                  صافي الربح الحقيقي — {{ today: "اليوم", week: "هذا الأسبوع", month: "هذا الشهر" }[period]}
+                  إجمالي الكاش
                 </p>
                 <div className="flex items-baseline gap-2 sm:gap-3 flex-wrap">
-                  <p className={`text-2xl sm:text-3xl lg:text-4xl font-black ${fin.netProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
-                    {fc(fin.netProfit)}
+                  <p className="text-2xl sm:text-3xl lg:text-4xl font-black text-emerald-600 dark:text-emerald-400">
+                    {fc(totalCash)}
                   </p>
-                  <div className="flex flex-row sm:flex-col gap-1 sm:gap-0.5">
-                    <Badge variant="outline" className={`text-[8px] sm:text-[9px] font-bold border ${
-                      fin.netMargin >= 20 ? "border-emerald-500 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400" : fin.netMargin >= 10 ? "border-amber-500 text-amber-700 dark:border-amber-700 dark:text-amber-400" : "border-red-500 text-red-700 dark:border-red-700 dark:text-red-400"
-                    }`}>{fin.netMargin}% هامش صافي</Badge>
-                    <Badge variant="outline" className="text-[8px] sm:text-[9px] font-bold border border-border text-muted-foreground">
-                      {fin.returnRate}% مرتجع
-                    </Badge>
-                  </div>
+                  <Badge variant="outline" className="text-[8px] sm:text-[9px] font-bold border border-emerald-500 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400">
+                    مجموع كل الخزن
+                  </Badge>
                 </div>
-                <p className="text-[8px] sm:text-[10px] text-muted-foreground mt-0.5 sm:mt-1">بعد خصم التكلفة والشحن والمرتجعات</p>
+                <p className="text-[8px] sm:text-[10px] text-muted-foreground mt-0.5 sm:mt-1">إجمالي أرصدة جميع الخزن النشطة</p>
               </div>
-              {/* حاويتان جمب بعض: في الطريق + إجمالي الكاش */}
+              {/* حاويتان صغيرتان: صافي الربح + في الطريق */}
               <div className="grid grid-cols-2 gap-2 shrink-0 self-start">
+                <div className="text-left bg-background/40 border border-border rounded-lg px-3 py-2 sm:px-4 sm:py-3">
+                  <p className="text-[8px] sm:text-[9px] text-muted-foreground">صافي الربح — {{ today: "اليوم", week: "الأسبوع", month: "الشهر" }[period]}</p>
+                  <p className={`text-sm sm:text-lg font-black ${fin.netProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}>{fc(fin.netProfit)}</p>
+                  <p className="text-[8px] sm:text-[9px] text-muted-foreground">{fin.netMargin}% هامش صافي</p>
+                </div>
                 <div className="text-left bg-primary/5 border border-primary/20 rounded-lg px-3 py-2 sm:px-4 sm:py-3">
                   <p className="text-[8px] sm:text-[9px] text-muted-foreground">في الطريق (قيد التسليم)</p>
                   <p className="text-sm sm:text-lg font-black text-primary">{fc(fin.pendingRevenue)}</p>
                   <p className="text-[8px] sm:text-[9px] text-muted-foreground">إيرادات محتملة</p>
-                </div>
-                <div className="text-left bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2 sm:px-4 sm:py-3">
-                  <p className="text-[8px] sm:text-[9px] text-muted-foreground">إجمالي الكاش</p>
-                  <p className="text-sm sm:text-lg font-black text-emerald-600 dark:text-emerald-400">{fc(totalCash)}</p>
-                  <p className="text-[8px] sm:text-[9px] text-muted-foreground">مجموع كل الخزن</p>
                 </div>
               </div>
             </div>
