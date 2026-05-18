@@ -377,31 +377,35 @@ router.get("/analytics/financial-summary", requireAdmin, async (req, res): Promi
   let returnDamagedValue = 0; // تكلفة التوالف = المرتجعات التالفة (isDamaged=1) × تكلفة البضاعة
 
   const completedOrders: Array<{ profit: number; value: number; cost: number }> = [];
+  // نحسب الشحن مرة واحدة فقط لكل فاتورة (مثل periodStats) لتفادي التضاعف
+  const processedShippingInvoices = new Set<string>();
 
   for (const o of allOrders) {
     const rc = resolveCost(o, variantMap, productMap);
     const sc = (o.shippingCost ?? 0) + (shippingPerOrder.get(o.id) ?? 0);
+    const invKey = (o.invoiceNumber ?? `solo-${o.id}`) as string;
+    const isNewInvoice = !processedShippingInvoices.has(invKey);
 
     if (o.status === "received") {
       const revenue = o.quantity * o.unitPrice;
       const cost = o.quantity * rc;
       cashIn += revenue;
       costOfGoods += cost;
-      shippingSpend += sc;
-      completedOrders.push({ profit: revenue - cost - sc, value: revenue, cost: cost + sc });
+      if (isNewInvoice) { processedShippingInvoices.add(invKey); shippingSpend += sc; }
+      completedOrders.push({ profit: revenue - cost - (isNewInvoice ? sc : 0), value: revenue, cost: cost + (isNewInvoice ? sc : 0) });
     } else if (o.status === "partial_received") {
       const qty = o.partialQuantity ?? o.quantity;
       const revenue = qty * o.unitPrice;
       const cost = qty * rc;
       cashIn += revenue;
       costOfGoods += cost;
-      shippingSpend += sc;
-      completedOrders.push({ profit: revenue - cost - sc, value: revenue, cost: cost + sc });
+      if (isNewInvoice) { processedShippingInvoices.add(invKey); shippingSpend += sc; }
+      completedOrders.push({ profit: revenue - cost - (isNewInvoice ? sc : 0), value: revenue, cost: cost + (isNewInvoice ? sc : 0) });
     } else if (o.status === "returned") {
       // المرتجع: البضاعة رجعت للمخزن → الخسارة الوحيدة هي تكلفة الشحن
       // returnLoss = الخسارة الصافية من المرتجع (شحن فقط للمرتجع العادي)
       // shippingSpend تشمل كل الشحن المدفوع فعلاً (بما فيه شحن المرتجع)
-      shippingSpend += sc;
+      if (isNewInvoice) { processedShippingInvoices.add(invKey); shippingSpend += sc; }
       returnRevLost += o.quantity * o.unitPrice;
       // returnLoss لا تضيف sc هنا لأن sc أُضيفت لـ shippingSpend بالفعل
       // netProfit = cashIn - costOfGoods - shippingSpend - returnLoss
