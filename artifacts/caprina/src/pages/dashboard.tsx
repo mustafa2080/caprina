@@ -801,7 +801,7 @@ export default function Dashboard() {
                 <p className="text-[8px] sm:text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-2 sm:mb-3 flex items-center gap-1 sm:gap-1.5">
                   <BarChart3 className="w-2.5 h-2.5 sm:w-3 sm:h-3" />التدفق النقدي الكلي
                 </p>
-                <FinRow label="إجمالي المقبوض" value={fc(fin.cashIn)} color="text-emerald-600 dark:text-emerald-400" />
+                <FinRow label="إجمالي المقبوض" value={fc(fin.cashIn - fin.shippingSpend)} color="text-emerald-600 dark:text-emerald-400" />
                 <FinRow label="تكلفة البضاعة" value={`(${fc(fin.costOfGoods)})`} color="text-amber-700 dark:text-amber-400" />
                 <FinRow label="تكلفة الشحن" value={`(${fc(fin.shippingSpend)})`} color="text-orange-600 dark:text-orange-400" />
                 <FinRow label="خسائر المرتجعات" value={`(${fc(fin.returnLoss)})`} color="text-red-600 dark:text-red-400" sub={`${fin.returnCount} طلب مرتجع`} />
