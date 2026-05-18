@@ -332,6 +332,7 @@ function POForm({
   });
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" dir="rtl">
         <DialogHeader><DialogTitle>{isEdit ? `تعديل — ${editOrder?.poNumber}` : "أمر شراء جديد"}</DialogTitle></DialogHeader>
@@ -683,6 +684,7 @@ function POForm({
         </DialogContent>
       </Dialog>
     )}
+    </>
   );
 }
 
