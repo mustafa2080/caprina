@@ -938,14 +938,33 @@ router.get("/analytics/smart-insights", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req);
   const smBaseConditions: any[] = [isNull(ordersTable.deletedAt)];
   if (tenantId !== null) smBaseConditions.push(eq(ordersTable.tenantId, tenantId));
-  const [allOrders, products, variants] = await Promise.all([
+  const [allOrders, products, variants, allManifests, allManifestOrders] = await Promise.all([
     db.select().from(ordersTable).where(and(...smBaseConditions)),
     db.select().from(productsTable),
     db.select().from(productVariantsTable),
+    db.select({ id: shippingManifestsTable.id, manualShippingCost: shippingManifestsTable.manualShippingCost })
+      .from(shippingManifestsTable),
+    db.select({ manifestId: shippingManifestOrdersTable.manifestId, orderId: shippingManifestOrdersTable.orderId })
+      .from(shippingManifestOrdersTable),
   ]);
 
   const variantMap = new Map<number, number | null>(variants.map(v => [v.id, v.costPrice]));
   const productMap = new Map<number, number | null>(products.map(p => [p.id, p.costPrice]));
+
+  // بناء map: orderId → shippingCost من البيان (manualShippingCost ÷ عدد الأوردرات في البيان)
+  const manifestOrderCount = new Map<number, number>();
+  for (const mo of allManifestOrders) {
+    manifestOrderCount.set(mo.manifestId, (manifestOrderCount.get(mo.manifestId) ?? 0) + 1);
+  }
+  const manifestShippingPerOrder = new Map<number, number>();
+  for (const mo of allManifestOrders) {
+    const manifest = allManifests.find(m => m.id === mo.manifestId);
+    const cost = Number(manifest?.manualShippingCost ?? 0);
+    if (cost > 0) {
+      const count = manifestOrderCount.get(mo.manifestId) ?? 1;
+      manifestShippingPerOrder.set(mo.orderId, (manifestShippingPerOrder.get(mo.orderId) ?? 0) + cost / count);
+    }
+  }
 
   const now = new Date();
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -965,20 +984,19 @@ router.get("/analytics/smart-insights", async (req, res): Promise<void> => {
       if (!s.returnedInvoiceSet.has(invoiceKey)) {
         s.returnedInvoiceSet.add(invoiceKey);
         s.returned++;
-        // خسارة الشحن فقط — البضاعة رجعت للمخزن
-        const sc = o.shippingCost ?? 0;
+        const sc = (o.shippingCost ?? 0) + (manifestShippingPerOrder.get(o.id) ?? 0);
         s.profit -= sc;
       }
       if (!s.invoiceSet.has(invoiceKey)) { s.invoiceSet.add(invoiceKey); s.orders++; }
     } else if (o.status === "received" || o.status === "partial_received") {
       const p = calcOrderProfit(o, rc);
-      const sc = o.shippingCost ?? 0;
-      s.revenue += p.revenue - sc;
+      const manifestSc = manifestShippingPerOrder.get(o.id) ?? 0;
+      // الإيرادات = مبيعات − رسوم الشحن من البيان (زي financial-summary)
+      s.revenue += p.revenue - manifestSc;
       s.cost += p.cost;
-      s.profit += p.netProfit;
+      s.profit += p.netProfit - manifestSc;
       if (!s.invoiceSet.has(invoiceKey)) { s.invoiceSet.add(invoiceKey); s.orders++; }
     } else {
-      // pending / in_shipping / delayed — نعدّها في الطلبات الكلية فقط
       if (!s.invoiceSet.has(invoiceKey)) { s.invoiceSet.add(invoiceKey); s.orders++; }
     }
   }
