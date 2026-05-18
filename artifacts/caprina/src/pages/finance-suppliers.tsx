@@ -127,12 +127,17 @@ export default function FinanceSuppliers() {
   });
 
   const setDefault = useMutation({
-    mutationFn: (id: number) => apiFetch<any>(`/finance/suppliers/${id}/set-default`, { method: "PATCH" }),
+    mutationFn: (id: number) => apiFetch<any>(`/finance/suppliers/${id}/set-default`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    }),
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["finance-suppliers"] });
       qc.invalidateQueries({ queryKey: ["finance-suppliers-default"] });
       toast({ title: `✅ "${data.name}" أصبح المورد الافتراضي` });
     },
+    onError: () => toast({ title: "خطأ", description: "فشل تعيين المورد الافتراضي", variant: "destructive" }),
   });
 
   // ── helpers ────────────────────────────────────────────────────────────────
@@ -251,14 +256,17 @@ export default function FinanceSuppliers() {
                       </Badge>
                     </div>
                   </div>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex gap-1">
+                    {/* زر ⭐ ظاهر دايماً */}
                     <Button variant="ghost" size="icon"
                       className="h-7 w-7 hover:bg-amber-500/10"
                       title={s.isDefault ? "هو المورد الافتراضي" : "تعيين كمورد افتراضي"}
+                      disabled={setDefault.isPending}
                       onClick={() => { if (!s.isDefault) setDefault.mutate(s.id); }}
-                      style={{ color: s.isDefault ? "#FFB74D" : "hsl(var(--muted-foreground))" }}>
+                      style={{ color: s.isDefault ? "#FFB74D" : "hsl(var(--muted-foreground)/0.4)" }}>
                       <Star className={`w-3.5 h-3.5 ${s.isDefault ? "fill-current" : ""}`} />
                     </Button>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-400 hover:bg-white/10" title="كشف حساب"
                       onClick={() => { setStmtSupplier(s); setStmtFrom(""); setStmtTo(""); }}>
                       <BookOpen className="w-3.5 h-3.5" />
@@ -269,6 +277,7 @@ export default function FinanceSuppliers() {
                     <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-rose-500/10" onClick={() => { if (confirm(`حذف المورد "${s.name}"؟ لا يمكن التراجع عن هذا الإجراء.`)) del.mutate(s.id); }}>
                       <Trash2 className="w-3.5 h-3.5 text-rose-400" />
                     </Button>
+                    </div>
                   </div>
                 </div>
                 <div className="mt-3 space-y-1 text-xs" style={{ color: "hsl(var(--muted-foreground))" }}>
