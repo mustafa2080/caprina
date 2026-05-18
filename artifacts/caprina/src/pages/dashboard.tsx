@@ -452,8 +452,8 @@ export default function Dashboard() {
                   <ArrowUpRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-emerald-600 dark:text-emerald-400" />
                   <p className="text-[7px] sm:text-[9px] font-bold text-muted-foreground">إجمالي المقبوض</p>
                 </div>
-                <p className="font-black text-emerald-600 dark:text-emerald-400 text-[11px] sm:text-sm">{fc(fin.cashIn)}</p>
-                <p className="text-[7px] sm:text-[8px] text-muted-foreground">إجمالي المبيعات المستلمة</p>
+                <p className="font-black text-emerald-600 dark:text-emerald-400 text-[11px] sm:text-sm">{fc(fin.cashIn - fin.shippingSpend)}</p>
+                <p className="text-[7px] sm:text-[8px] text-muted-foreground">إيرادات − رسوم الشحن</p>
               </div>
               <div className="text-center">
                 <div className="flex items-center justify-center gap-0.5 sm:gap-1 mb-0.5 sm:mb-1">
