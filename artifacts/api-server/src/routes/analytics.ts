@@ -970,31 +970,47 @@ router.get("/analytics/smart-insights", async (req, res): Promise<void> => {
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
   // ── 1. Ad Attribution ────────────────────────────────────────────────────────
-  const sourceMap: Record<string, { orders: number; revenue: number; cost: number; profit: number; adSpend: number; returned: number; invoiceSet: Set<string>; returnedInvoiceSet: Set<string> }> = {};
+  const sourceMap: Record<string, { orders: number; revenue: number; cost: number; profit: number; adSpend: number; returned: number; shippingSpend: number; invoiceSet: Set<string>; returnedInvoiceSet: Set<string>; countedManifests: Set<number> }> = {};
+  const processedShippingInvoicesSI = new Set<string>();
+  const countedManifestsSI = new Set<number>();
 
   for (const o of allOrders) {
     const src = o.adSource ?? "organic";
-    if (!sourceMap[src]) sourceMap[src] = { orders: 0, revenue: 0, cost: 0, profit: 0, adSpend: 0, returned: 0, invoiceSet: new Set<string>(), returnedInvoiceSet: new Set<string>() };
+    if (!sourceMap[src]) sourceMap[src] = { orders: 0, revenue: 0, cost: 0, profit: 0, adSpend: 0, returned: 0, shippingSpend: 0, invoiceSet: new Set<string>(), returnedInvoiceSet: new Set<string>(), countedManifests: new Set<number>() };
     const s = sourceMap[src];
     const rc = resolveCost(o, variantMap, productMap);
     const invoiceKey = o.invoiceNumber ?? `solo-${o.id}`;
 
+    // رسوم الشحن من البيان — مرة واحدة فقط لكل بيان عبر كل المنصات
+    const manifestId = allManifestOrders.find(mo => mo.orderId === o.id)?.manifestId;
+    const manifestCost = (manifestId !== undefined && !countedManifestsSI.has(manifestId))
+      ? Number(allManifests.find(m => m.id === manifestId)?.manualShippingCost ?? 0)
+      : 0;
+
     if (o.status === "returned") {
-      // نعدّ الفاتورة المرتجعة مرة واحدة فقط
       if (!s.returnedInvoiceSet.has(invoiceKey)) {
         s.returnedInvoiceSet.add(invoiceKey);
         s.returned++;
-        const sc = (o.shippingCost ?? 0) + (manifestShippingPerOrder.get(o.id) ?? 0);
+        const sc = o.shippingCost ?? 0;
         s.profit -= sc;
+        if (manifestCost > 0 && manifestId !== undefined) {
+          countedManifestsSI.add(manifestId);
+          s.shippingSpend += manifestCost;
+          s.profit -= manifestCost;
+        }
       }
       if (!s.invoiceSet.has(invoiceKey)) { s.invoiceSet.add(invoiceKey); s.orders++; }
     } else if (o.status === "received" || o.status === "partial_received") {
       const p = calcOrderProfit(o, rc);
-      const manifestSc = manifestShippingPerOrder.get(o.id) ?? 0;
-      // الإيرادات = مبيعات − رسوم الشحن من البيان (زي financial-summary)
-      s.revenue += p.revenue - manifestSc;
+      s.revenue += p.revenue;
       s.cost += p.cost;
-      s.profit += p.netProfit - manifestSc;
+      s.profit += p.netProfit;
+      if (manifestCost > 0 && manifestId !== undefined) {
+        countedManifestsSI.add(manifestId);
+        s.shippingSpend += manifestCost;
+        s.revenue -= manifestCost;
+        s.profit -= manifestCost;
+      }
       if (!s.invoiceSet.has(invoiceKey)) { s.invoiceSet.add(invoiceKey); s.orders++; }
     } else {
       if (!s.invoiceSet.has(invoiceKey)) { s.invoiceSet.add(invoiceKey); s.orders++; }
