@@ -9,19 +9,22 @@ import {
   AlertTriangle, Clock, Package, ArrowUpRight, Zap,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { FaFacebook, FaTiktok, FaInstagram, FaWhatsapp } from "react-icons/fa";
+import { PiPlantFill } from "react-icons/pi";
+import { FiMoreHorizontal } from "react-icons/fi";
 
 const fc = (n: number) =>
   new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(n);
 const fn = (n: number) => new Intl.NumberFormat("ar-EG").format(Math.round(n));
 
 // ─── Source meta ─────────────────────────────────────────────────────────────
-const SOURCE_META: Record<string, { label: string; color: string; bg: string; border: string; emoji: string }> = {
-  facebook:  { label: "فيسبوك",   emoji: "📘", color: "text-blue-700 dark:text-blue-400",    bg: "bg-blue-50 dark:bg-blue-900/30",     border: "border-blue-300 dark:border-blue-700" },
-  tiktok:    { label: "تيك توك",  emoji: "🎵", color: "text-pink-700 dark:text-pink-400",    bg: "bg-pink-50 dark:bg-pink-900/30",     border: "border-pink-300 dark:border-pink-700" },
-  instagram: { label: "إنستجرام", emoji: "📷", color: "text-purple-700 dark:text-purple-400",bg: "bg-purple-50 dark:bg-purple-900/30", border: "border-purple-300 dark:border-purple-700" },
-  organic:   { label: "عضوي",     emoji: "🌱", color: "text-emerald-700 dark:text-emerald-400",bg: "bg-emerald-50 dark:bg-emerald-900/20",border: "border-emerald-300 dark:border-emerald-700" },
-  whatsapp:  { label: "واتساب",   emoji: "💬", color: "text-green-700 dark:text-green-400",  bg: "bg-green-50 dark:bg-green-900/20",   border: "border-green-300 dark:border-green-700" },
-  other:     { label: "أخرى",     emoji: "📌", color: "text-zinc-600 dark:text-zinc-400",    bg: "bg-zinc-100 dark:bg-zinc-800/40",    border: "border-zinc-300 dark:border-zinc-700" },
+const SOURCE_META: Record<string, { label: string; color: string; bg: string; border: string; icon: React.ElementType; iconColor: string }> = {
+  facebook:  { label: "فيسبوك",   icon: FaFacebook, iconColor: "#1877F2", color: "text-blue-700 dark:text-blue-400",    bg: "bg-blue-50 dark:bg-blue-900/30",     border: "border-blue-300 dark:border-blue-700" },
+  tiktok:    { label: "تيك توك",  icon: FaTiktok,   iconColor: "#010101", color: "text-zinc-800 dark:text-zinc-200",    bg: "bg-zinc-50 dark:bg-zinc-900/30",     border: "border-zinc-300 dark:border-zinc-700" },
+  instagram: { label: "إنستجرام", icon: FaInstagram,iconColor: "#E1306C", color: "text-pink-700 dark:text-pink-400",    bg: "bg-pink-50 dark:bg-pink-900/30",     border: "border-pink-300 dark:border-pink-700" },
+  organic:   { label: "عضوي",     icon: PiPlantFill,iconColor: "#22c55e", color: "text-emerald-700 dark:text-emerald-400",bg: "bg-emerald-50 dark:bg-emerald-900/20",border: "border-emerald-300 dark:border-emerald-700" },
+  whatsapp:  { label: "واتساب",   icon: FaWhatsapp, iconColor: "#25D366", color: "text-green-700 dark:text-green-400",  bg: "bg-green-50 dark:bg-green-900/20",   border: "border-green-300 dark:border-green-700" },
+  other:     { label: "أخرى",     icon: FiMoreHorizontal, iconColor: "#888",color: "text-zinc-600 dark:text-zinc-400",    bg: "bg-zinc-100 dark:bg-zinc-800/40",    border: "border-zinc-300 dark:border-zinc-700" },
 };
 function getMeta(src: string) { return SOURCE_META[src] ?? SOURCE_META.other; }
 
@@ -59,7 +62,7 @@ function AdAttributionSection({ bestSource, breakdown, showProfit }: { bestSourc
       {bestSource && best && (
         <div className={`mb-4 rounded-xl border-2 ${best.border} ${best.bg} p-4 flex flex-col sm:flex-row sm:items-center gap-4`}>
           <div className="flex items-center gap-3 flex-1">
-            <span className="text-4xl">{best.emoji}</span>
+            <best.icon style={{ color: best.iconColor, fontSize: "2.5rem" }} />
             <div>
               <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider">{showProfit ? "الأعلى ربحاً" : "الأعلى مبيعاً"}</p>
               <p className={`text-2xl font-black ${best.color}`}>{best.label}</p>
@@ -87,7 +90,7 @@ function AdAttributionSection({ bestSource, breakdown, showProfit }: { bestSourc
           const barPct = Math.max(0, Math.round(((showProfit ? Math.abs(s.profit) : s.revenue) / maxVal) * 100));
           return (
             <div key={s.source} className="flex items-center gap-3 py-2.5 px-3 rounded-lg bg-card border border-border">
-              <span className="text-xl shrink-0">{meta.emoji}</span>
+              <meta.icon style={{ color: meta.iconColor, fontSize: "1.4rem", flexShrink: 0 }} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-1">
                   <span className={`text-xs font-bold ${meta.color}`}>{meta.label}</span>
