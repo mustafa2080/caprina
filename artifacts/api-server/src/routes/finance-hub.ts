@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, cashRegistersTable, cashTransactionsTable, expensesTable, ordersTable, purchaseOrdersTable, shippingFinancialInvoicesTable, CREDIT_TYPES, DEBIT_TYPES } from "@workspace/db";
+import { db, cashRegistersTable, cashTransactionsTable, expensesTable, ordersTable, purchaseOrdersTable, shippingFinancialInvoicesTable, shippingManifestsTable, shippingManifestOrdersTable, CREDIT_TYPES, DEBIT_TYPES } from "@workspace/db";
 import { eq, desc, gte, lte, and, sql, lt, isNull } from "drizzle-orm";
 import { getTenantId } from "../middlewares/requireTenant.js";
 
@@ -293,20 +293,68 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
     // ── 8. حساب الأرباح ──────────────────────────────────────────────────────
     const revenue  = Number(salesCur?.revenue ?? 0);
     const cogs     = Number(salesCur?.cogs    ?? 0);
-    const shipping = Number(salesCur?.shipping ?? 0);
     const expenses = Number(expCur?.total ?? 0);
-    // خسارة المرتجعات = تكلفة البضاعة + تكلفة الشحن المدفوعة
-    const returnLoss = Number(returnsCur?.returnCogs ?? 0) + Number(returnsCur?.returnShipping ?? 0);
-    const grossProfit = revenue - cogs - shipping - returnLoss;
-    const netProfit   = grossProfit - expenses;
+
+    // shipping_cost من الأوردرات (كل فاتورة مرة واحدة)
+    const orderShippingCur = Number(salesCur?.shipping ?? 0);
+
+    // manualShippingCost من البيانات — بيانات لها أوردرات مستلمة في الفترة
+    const manifestsInPeriod = await db
+      .select({ id: shippingManifestsTable.id, manualShippingCost: shippingManifestsTable.manualShippingCost })
+      .from(shippingManifestsTable);
+    const manifestOrdersAll = await db
+      .select({ manifestId: shippingManifestOrdersTable.manifestId, orderId: shippingManifestOrdersTable.orderId })
+      .from(shippingManifestOrdersTable);
+
+    // الأوردرات المستلمة في الفترة
+    const receivedOrderIds = await db
+      .select({ id: ordersTable.id })
+      .from(ordersTable)
+      .where(and(
+        isNull(ordersTable.deletedAt),
+        sql`status IN ('received','partial_received')`,
+        gte(ordersTable.createdAt, curFrom),
+        lte(ordersTable.createdAt, curToEnd),
+        ...tOrder,
+      ));
+    const receivedIdSet = new Set(receivedOrderIds.map(o => o.id));
+
+    // البيانات التي لها على الأقل أوردر مستلم في الفترة → نضيف manualShippingCost مرة واحدة
+    const countedManifests = new Set<number>();
+    let manualShippingCur = 0;
+    for (const mo of manifestOrdersAll) {
+      if (receivedIdSet.has(mo.orderId) && !countedManifests.has(mo.manifestId)) {
+        const manifest = manifestsInPeriod.find(m => m.id === mo.manifestId);
+        if (manifest?.manualShippingCost) {
+          manualShippingCur += Number(manifest.manualShippingCost);
+          countedManifests.add(mo.manifestId);
+        }
+      }
+    }
+
+    // إجمالي مصاريف الشحن = من الأوردرات + من البيانات اليدوية
+    const shipping = orderShippingCur + manualShippingCur;
+
+    // خسارة المرتجعات:
+    // - المرتجع التالف (isDamaged=1): الخسارة = تكلفة البضاعة (رجعت تالفة → لا قيمة)
+    // - المرتجع العادي: الخسارة = 0 (البضاعة رجعت سليمة للمخزن)
+    // ملاحظة: تكلفة الشحن المدفوعة على المرتجع مُدرجة بالفعل في shipping أعلاه
+    const returnLoss = Number(returnsCur?.returnCogs ?? 0); // فقط تكلفة التوالف
+
+    // مجمل الربح = الإيرادات − تكلفة البضاعة
+    const grossProfit = revenue - cogs;
+    // صافي الربح = مجمل الربح − مصاريف الشحن − خسائر المرتجعات − المصروفات التشغيلية
+    const netProfit   = grossProfit - shipping - returnLoss - expenses;
     const netMargin   = revenue > 0 ? +((netProfit / revenue) * 100).toFixed(1) : 0;
     const grossMargin = revenue > 0 ? +((grossProfit / revenue) * 100).toFixed(1) : 0;
 
     const prevRevenue    = Number(salesPrev?.revenue ?? 0);
     const prevCogs       = Number(salesPrev?.cogs    ?? 0);
+    const prevShipping   = Number(salesPrev?.shipping ?? 0);
     const prevExp        = Number(expPrev?.total ?? 0);
-    const prevReturnLoss = Number(returnsPrev?.returnCogs ?? 0) + Number(returnsPrev?.returnShipping ?? 0);
-    const prevProfit     = prevRevenue - prevCogs - Number(salesPrev?.shipping ?? 0) - prevReturnLoss - prevExp;
+    const prevReturnLoss = Number(returnsPrev?.returnCogs ?? 0);
+    const prevGrossProfit = prevRevenue - prevCogs;
+    const prevProfit     = prevGrossProfit - prevShipping - prevReturnLoss - prevExp;
 
     const pct = (a:number, b:number) => b === 0 ? null : +((( a - b) / b) * 100).toFixed(1);
 
