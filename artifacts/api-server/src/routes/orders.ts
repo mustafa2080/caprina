@@ -94,6 +94,34 @@ router.get("/orders", async (req, res): Promise<void> => {
   if (params.data.status) {
     if (isDashboard) {
       conditions.push(eq(ordersTable.status, params.data.status as any));
+    } else if (params.data.status === "delayed") {
+      // الطلبات المؤجلة: status بتاعها in_shipping لكن deliveryStatus = postponed في بيان مفتوح
+      // نجيب الـ IDs من البيانات المفتوحة أولاً (نفس الـ postponedOrderIdsSet اللي هيتبنى بعدين)
+      // هنا نبني مؤقتاً عشان نحدد الـ conditions قبل الـ query
+      const openMfForFilter = await db
+        .select({ id: shippingManifestsTable.id })
+        .from(shippingManifestsTable)
+        .where(eq(shippingManifestsTable.status, "open"));
+      const openMfIds = openMfForFilter.map(m => m.id);
+      if (openMfIds.length > 0) {
+        const postponedLinks = await db
+          .select({ orderId: shippingManifestOrdersTable.orderId })
+          .from(shippingManifestOrdersTable)
+          .where(and(
+            inArray(shippingManifestOrdersTable.manifestId, openMfIds),
+            eq(shippingManifestOrdersTable.deliveryStatus, "postponed")
+          ));
+        const postponedIds = postponedLinks.map(l => l.orderId);
+        if (postponedIds.length > 0) {
+          conditions.push(inArray(ordersTable.id, postponedIds));
+        } else {
+          res.json([]);
+          return;
+        }
+      } else {
+        res.json([]);
+        return;
+      }
     } else {
       // ╪ذ┘╪ش┘è╪ذ ┘┘é╪╖ ╪د┘┘ invoiceNumbers ╪د┘┘┘è ┘â┘ rows ┘┘è┘ç╪د ┘┘╪│ ╪د┘┘ status ╪د┘┘à╪╖┘┘ê╪ذ
       const allInvBaseConditions: any[] = [isNull(ordersTable.deletedAt)];
@@ -193,6 +221,31 @@ router.get("/orders", async (req, res): Promise<void> => {
 
   const rows = await query;
 
+  // جيب الطلبات المؤجلة (postponed) من البيانات المفتوحة
+  // الطلب المؤجل في البيان status بتاعه in_shipping لكن deliveryStatus = postponed
+  const openManifestsList = await db
+    .select({ id: shippingManifestsTable.id })
+    .from(shippingManifestsTable)
+    .where(eq(shippingManifestsTable.status, "open"));
+  const openManifestIds = openManifestsList.map(m => m.id);
+  const postponedOrderIdsSet = new Set<number>();
+  const postponedNoteMapFromManifest = new Map<number, string | null>();
+  if (openManifestIds.length > 0) {
+    const postponedLinks = await db
+      .select({ orderId: shippingManifestOrdersTable.orderId, deliveryNote: shippingManifestOrdersTable.deliveryNote })
+      .from(shippingManifestOrdersTable)
+      .where(and(
+        inArray(shippingManifestOrdersTable.manifestId, openManifestIds),
+        eq(shippingManifestOrdersTable.deliveryStatus, "postponed")
+      ));
+    for (const link of postponedLinks) {
+      postponedOrderIdsSet.add(link.orderId);
+      if (!postponedNoteMapFromManifest.has(link.orderId)) {
+        postponedNoteMapFromManifest.set(link.orderId, link.deliveryNote ?? null);
+      }
+    }
+  }
+
   const returnedNullIds = rows.filter(o => o.status === "returned" && (o as any).returnReceived == null).map(o => o.id);
   const manifestReturnMap = new Map<number, number | null>();
   if (returnedNullIds.length > 0) {
@@ -267,7 +320,7 @@ router.get("/orders", async (req, res): Promise<void> => {
   };
 
   const getDelayNote = (o: (typeof rows)[0]): string | null => {
-    return manifestDelayNoteMap.get(o.id) ?? null;
+    return postponedNoteMapFromManifest.get(o.id) ?? manifestDelayNoteMap.get(o.id) ?? null;
   };
 
   const getPartialQuantity = (o: (typeof rows)[0]): number | null => {
@@ -288,6 +341,10 @@ router.get("/orders", async (req, res): Promise<void> => {
     if (grp.length === 1) {
       const rep = { ...grp[0] } as any;
       rep._invoiceOrders = [grp[0]];
+      // لو الطلب in_shipping لكن مؤجل في البيان → حوّل status لـ delayed
+      if (rep.status === "in_shipping" && postponedOrderIdsSet.has(grp[0].id)) {
+        rep.status = "delayed";
+      }
       if (rep.status === "returned") rep.returnReceived = getReturnReceived(grp[0]);
       if (rep.status === "delayed") rep.delayNote = getDelayNote(grp[0]);
       if (rep.status === "partial_received") {
@@ -306,6 +363,14 @@ router.get("/orders", async (req, res): Promise<void> => {
     rep._groupCount    = grp.length;
     rep._groupStatuses = grp.map(o => o.status);
     rep._invoiceOrders = grp;
+    // لو كل الطلبات in_shipping ومؤجلة في البيان → حوّل status الـ group لـ delayed
+    const allInShippingPostponed = grp.every(o => o.status === "in_shipping" && postponedOrderIdsSet.has(o.id));
+    if (allInShippingPostponed) {
+      rep.status = "delayed";
+      let dn: string | null = null;
+      for (const o of grp) { const val = getDelayNote(o); if (val !== null) { dn = val; break; } }
+      rep.delayNote = dn;
+    }
     const allReturned = grp.every(o => o.status === "returned");
     if (allReturned) {
       let rr: number | null = null;
