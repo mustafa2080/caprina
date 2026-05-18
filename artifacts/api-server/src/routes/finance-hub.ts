@@ -344,10 +344,10 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
     // إجمالي الإيراد بعد خصم رسوم الشحن من البيانات (زي financial-summary)
     const revenueNet = revenue - manualShippingCur;
 
-    // مجمل الربح = الإيرادات − تكلفة البضاعة
+    // مجمل الربح = الإيرادات الصافية − تكلفة البضاعة
     const grossProfit = revenueNet - cogs;
-    // صافي الربح = مجمل الربح − مصاريف الشحن − خسائر المرتجعات − المصروفات التشغيلية
-    const netProfit   = grossProfit - orderShippingCur - returnLoss - expenses;
+    // صافي الربح = مجمل الربح − كل مصاريف الشحن − خسائر المرتجعات − المصروفات التشغيلية
+    const netProfit   = grossProfit - shipping - returnLoss - expenses;
     const netMargin   = revenueNet > 0 ? +((netProfit / revenueNet) * 100).toFixed(1) : 0;
     const grossMargin = revenueNet > 0 ? +((grossProfit / revenueNet) * 100).toFixed(1) : 0;
 
@@ -387,7 +387,7 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
       cash: { registers: regSummaries, totalBalance: totalCash, lowBalanceAlerts },
       dailyFlow: dailyFlow.map(r=>({ day: r.day, in: Number(r.totalIn), out: Number(r.totalOut), net: Number(r.totalIn)-Number(r.totalOut) })),
       pnl: {
-        revenue: revenueNet, cogs, shipping: orderShippingCur, expenses, grossProfit, netProfit, netMargin, grossMargin,
+        revenue: revenueNet, cogs, shipping, expenses, grossProfit, netProfit, netMargin, grossMargin,
         returnLoss, returnCount: Number(returnsCur?.count ?? 0),
         prevRevenue, prevProfit,
         changes: { revenue: pct(revenueNet,prevRevenue), netProfit: pct(netProfit,prevProfit), expenses: pct(expenses,prevExp) },
