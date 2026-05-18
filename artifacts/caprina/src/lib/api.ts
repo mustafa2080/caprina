@@ -1209,3 +1209,16 @@ export const attendanceApi = {
   // حذف خصم أو بونص
   deleteAdjustment: (id: number) => apiFetch<void>(`/attendance/adjustments/${id}`, { method: "DELETE" }),
 };
+
+// ─── Cash Registers API ───────────────────────────────────────────────────────
+export type CashRegister = {
+  id: number;
+  name: string;
+  balance: string;
+  type: string;
+  isDefault: boolean;
+};
+
+export const cashRegistersApi = {
+  list: () => apiFetch<CashRegister[]>("/cash-registers"),
+};

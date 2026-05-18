@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import {
   analyticsApi, type PeriodProfit, type ProductProfit, type FinancialSummary, type Alert,
-  productsApi,
+  productsApi, cashRegistersApi,
 } from "@/lib/api";
 import { ChartsSection, WeeklyBars, ChartCard, StatusDonutWithOrders } from "@/components/charts-section";
 import { usePwaInstall } from "@/hooks/usePwaInstall";
@@ -329,6 +329,16 @@ export default function Dashboard() {
     refetchInterval: 60000,
   });
 
+  const { data: cashRegisters } = useQuery({
+    queryKey: ["cash-registers-list"],
+    queryFn: cashRegistersApi.list,
+    staleTime: 60000,
+    refetchOnWindowFocus: true,
+    refetchInterval: 120000,
+    enabled: canViewFinancials,
+  });
+  const totalCash = cashRegisters?.reduce((sum, r) => sum + parseFloat(r.balance ?? "0"), 0) ?? 0;
+
   const highAlerts = alertsData?.alerts.filter(a => a.severity === "high") ?? [];
   const allAlerts = alertsData?.alerts ?? [];
 
@@ -426,13 +436,19 @@ export default function Dashboard() {
                 </div>
                 <p className="text-[8px] sm:text-[10px] text-muted-foreground mt-0.5 sm:mt-1">بعد خصم التكلفة والشحن والمرتجعات</p>
               </div>
-              {fin.pendingRevenue > 0 && (
-                <div className="text-left bg-primary/5 border border-primary/20 rounded-lg px-3 py-2 sm:px-4 sm:py-3 shrink-0 self-start">
+              {/* حاويتان جمب بعض: في الطريق + إجمالي الكاش */}
+              <div className="grid grid-cols-2 gap-2 shrink-0 self-start">
+                <div className="text-left bg-primary/5 border border-primary/20 rounded-lg px-3 py-2 sm:px-4 sm:py-3">
                   <p className="text-[8px] sm:text-[9px] text-muted-foreground">في الطريق (قيد التسليم)</p>
                   <p className="text-sm sm:text-lg font-black text-primary">{fc(fin.pendingRevenue)}</p>
                   <p className="text-[8px] sm:text-[9px] text-muted-foreground">إيرادات محتملة</p>
                 </div>
-              )}
+                <div className="text-left bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2 sm:px-4 sm:py-3">
+                  <p className="text-[8px] sm:text-[9px] text-muted-foreground">إجمالي الكاش</p>
+                  <p className="text-sm sm:text-lg font-black text-emerald-600 dark:text-emerald-400">{fc(totalCash)}</p>
+                  <p className="text-[8px] sm:text-[9px] text-muted-foreground">مجموع كل الخزن</p>
+                </div>
+              </div>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 p-2 sm:p-3 bg-background/30 rounded-lg border border-border/40">
               <div className="text-center">
