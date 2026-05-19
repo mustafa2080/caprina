@@ -111,7 +111,7 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   return (
-    <div className="flex min-h-screen bg-background" dir="rtl">
+    <div className="flex h-screen bg-background" dir="rtl">
       {/* Sidebar */}
       <aside className="w-60 border-l border-sidebar-border bg-sidebar shrink-0 hidden md:flex md:flex-col">
         <div className="p-4 border-b border-sidebar-border">
@@ -291,7 +291,7 @@ export default function Layout({ children }: LayoutProps) {
       </aside>
 
       {/* Main */}
-      <main className="flex-1 flex flex-col min-w-0">
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Mobile header */}
         <header className="border-b border-sidebar-border bg-sidebar md:hidden shrink-0">
           <div className="flex items-center justify-between px-4 h-12">

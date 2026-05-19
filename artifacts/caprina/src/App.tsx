@@ -127,10 +127,20 @@ function PageLoader() {
 // ─── Scroll to top on every route change ─────────────────────────────────────
 function ScrollToTop() {
   const [location] = useLocation();
-  useLayoutEffect(() => {
-    // #main-scroll-area هو الـ div اللي عليه overflow-auto في layout.tsx
-    const el = document.getElementById("main-scroll-area");
-    if (el) el.scrollTop = 0;
+  useEffect(() => {
+    const scrollAll = () => {
+      // اعمل scroll على كل العناصر الممكنة
+      const el = document.getElementById("main-scroll-area");
+      if (el) el.scrollTop = 0;
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    };
+    // مرة فورية
+    scrollAll();
+    // ومرة بعد ما الـ DOM يتحدث
+    const raf = requestAnimationFrame(scrollAll);
+    return () => cancelAnimationFrame(raf);
   }, [location]);
   return null;
 }
