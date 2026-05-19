@@ -583,13 +583,30 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
 
       // ── الطلبات المرحّلة: لما ترجعت للمخزن عبر reverseShipping ──
       // processToShipping هتخصمها تاني وتسجل to_shipping في البيان الجديد
+      // الطلبات المرتجعة (returned) لا تحتاج to_shipping — هي لسه في حالة مرتجعة
+      const returnedIdsForShipping = new Set(pendingLinks.filter((l) => l.deliveryStatus === "returned").map((l) => l.orderId));
       for (const order of pendingOrders) {
-        await processToShipping(buildOrderRef(order), order.quantity, order.id);
+        if (!returnedIdsForShipping.has(order.id)) {
+          await processToShipping(buildOrderRef(order), order.quantity, order.id);
+        }
       }
 
-      await db.update(ordersTable)
-        .set({ status: "in_shipping", shippingCompanyId: updated.shippingCompanyId })
-        .where(inArray(ordersTable.id, allPendingIds));
+      // تحديث الطلبات: المرتجعة تفضل "returned"، الباقي يبقى "in_shipping"
+      const returnedIds = pendingLinks
+        .filter((l) => l.deliveryStatus === "returned")
+        .map((l) => l.orderId);
+      const nonReturnedIds = allPendingIds.filter((id) => !returnedIds.includes(id));
+
+      if (nonReturnedIds.length > 0) {
+        await db.update(ordersTable)
+          .set({ status: "in_shipping", shippingCompanyId: updated.shippingCompanyId })
+          .where(inArray(ordersTable.id, nonReturnedIds));
+      }
+      if (returnedIds.length > 0) {
+        await db.update(ordersTable)
+          .set({ status: "returned", shippingCompanyId: updated.shippingCompanyId })
+          .where(inArray(ordersTable.id, returnedIds));
+      }
 
       rolledOverManifest = {
         ...newManifest, orderCount: pendingLinks.length,
