@@ -124,6 +124,21 @@ function PageLoader() {
   );
 }
 
+// ─── Scroll to top on every route change ─────────────────────────────────────
+function ScrollToTop() {
+  const [location] = useLocation();
+  useEffect(() => {
+    // الـ scroll الفعلي على العنصر #main-scroll-area مش على window
+    const scrollArea = document.getElementById("main-scroll-area");
+    if (scrollArea) {
+      scrollArea.scrollTop = 0;
+    } else {
+      window.scrollTo({ top: 0, behavior: "instant" });
+    }
+  }, [location]);
+  return null;
+}
+
 // ─── Refresh permissions on every route change ───────────────────────────────
 function PermissionRefresher() {
   const { user, refreshUser } = useAuth();
@@ -290,6 +305,7 @@ function App() {
               <AuthProvider>
                 <AuthGuard>
                   <ErrorBoundary onRetry={() => queryClient.clear()}>
+                    <ScrollToTop />
                     <PermissionRefresher />
                     <Router />
                   </ErrorBoundary>
