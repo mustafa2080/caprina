@@ -10,7 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Plus, ShoppingBag, Trash2, ChevronRight, Search, X,
-  SlidersHorizontal, FileSpreadsheet, Package, Wallet, TrendingUp, Clock, UserCheck
+  SlidersHorizontal, FileSpreadsheet, Package, Wallet, TrendingUp, Clock, UserCheck,
+  ShoppingCart, Printer, CheckCircle2, ArrowRightLeft
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -40,6 +41,73 @@ const PAY_LABELS: Record<string, { label: string; color: string }> = {
 
 const fmt = (n: string | number) =>
   new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(Number(n));
+
+// ── فاتورة البيع (طباعة HTML) ─────────────────────────────────────────────
+function printSaleInvoice(order: SaleOrder, items: any[], warehouses: Warehouse[]) {
+  const wName = warehouses.find(w => w.id === order.warehouseId)?.name ?? "—";
+  const total  = parseFloat(order.totalAmount ?? "0");
+  const paid   = parseFloat(order.paidAmount  ?? "0");
+  const due    = total - paid;
+  const rows = items.map(it => `
+    <tr>
+      <td>${it.productName ?? "—"}</td>
+      <td>${it.color ?? "—"}</td>
+      <td>${it.size  ?? "—"}</td>
+      <td style="text-align:center">${it.quantity}</td>
+      <td style="text-align:left">${Number(it.unitPrice).toLocaleString("ar-EG")} ج</td>
+      <td style="text-align:left">${(it.quantity * Number(it.unitPrice)).toLocaleString("ar-EG")} ج</td>
+    </tr>`).join("");
+  const html = `<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"/>
+  <title>فاتورة ${order.soNumber}</title>
+  <style>
+    body{font-family:Arial,sans-serif;margin:0;padding:24px;color:#222;font-size:13px}
+    h1{margin:0;font-size:20px;color:#26A69A}
+    .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #26A69A;padding-bottom:12px;margin-bottom:16px}
+    .badge{background:#26A69A;color:#fff;padding:2px 10px;border-radius:999px;font-size:11px}
+    table{width:100%;border-collapse:collapse;margin-bottom:14px}
+    th{background:#f0fafa;text-align:right;padding:6px 8px;border:1px solid #ddd;font-size:12px}
+    td{padding:5px 8px;border:1px solid #eee;font-size:12px}
+    .totals{text-align:left;margin-top:8px}
+    .totals tr td{border:none;padding:3px 6px}
+    .grand{font-size:16px;font-weight:bold;color:#26A69A}
+    .footer{margin-top:24px;border-top:1px solid #ddd;padding-top:10px;font-size:11px;color:#888;text-align:center}
+    @media print{.no-print{display:none}}
+  </style></head><body>
+  <div class="header">
+    <div>
+      <h1>فاتورة بيع</h1>
+      <p style="margin:4px 0;font-size:12px;color:#666">رقم الأمر: <strong>${order.soNumber}</strong></p>
+      <p style="margin:4px 0;font-size:12px;color:#666">التاريخ: ${order.createdAt ? new Date(order.createdAt).toLocaleDateString("ar-EG") : "—"}</p>
+    </div>
+    <div style="text-align:left">
+      <p style="margin:4px 0"><strong>${order.clientName}</strong></p>
+      ${order.clientPhone ? `<p style="margin:4px 0;font-size:12px">${order.clientPhone}</p>` : ""}
+      ${order.clientAddress ? `<p style="margin:4px 0;font-size:12px">${order.clientAddress}</p>` : ""}
+      <p style="margin:6px 0"><span class="badge">المخزن: ${wName}</span></p>
+    </div>
+  </div>
+  <table>
+    <thead><tr><th>المنتج</th><th>اللون</th><th>المقاس</th><th>الكمية</th><th>سعر الوحدة</th><th>الإجمالي</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <table class="totals">
+    <tr><td>الإجمالي الفرعي:</td><td>${total.toLocaleString("ar-EG")} ج</td></tr>
+    ${Number(order.discountAmount) ? `<tr><td>الخصم:</td><td style="color:#e53">- ${Number(order.discountAmount).toLocaleString("ar-EG")} ج</td></tr>` : ""}
+    ${Number(order.shippingCost)   ? `<tr><td>الشحن:</td><td>${Number(order.shippingCost).toLocaleString("ar-EG")} ج</td></tr>` : ""}
+    ${Number(order.taxAmount)      ? `<tr><td>الضريبة:</td><td>${Number(order.taxAmount).toLocaleString("ar-EG")} ج</td></tr>` : ""}
+    <tr class="grand"><td>الإجمالي الكلي:</td><td>${total.toLocaleString("ar-EG")} ج</td></tr>
+    <tr><td style="color:#26A69A">المدفوع:</td><td style="color:#26A69A">${paid.toLocaleString("ar-EG")} ج</td></tr>
+    ${due > 0 ? `<tr><td style="color:#e53">المتبقي:</td><td style="color:#e53">${due.toLocaleString("ar-EG")} ج</td></tr>` : ""}
+  </table>
+  ${order.notes ? `<p style="font-size:12px;color:#666"><strong>ملاحظات:</strong> ${order.notes}</p>` : ""}
+  <div class="footer">شكراً لتعاملكم معنا — Caprina</div>
+  <div class="no-print" style="text-align:center;margin-top:20px">
+    <button onclick="window.print()" style="padding:8px 24px;background:#26A69A;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px">🖨️ طباعة</button>
+  </div>
+  </body></html>`;
+  const w = window.open("", "_blank");
+  if (w) { w.document.write(html); w.document.close(); }
+}
 
 type SaleOrder = {
   id: number; soNumber: string;
@@ -94,10 +162,158 @@ function ColFilter({ label, active, visible, isOpen, onToggle, children }: {
   );
 }
 
+// ── PurchaseOrderQuickDialog ──────────────────────────────────────────────
+type PODraftItem = { productName: string; color: string; size: string; quantity: number; unitPrice: number };
+
+function PurchaseOrderQuickDialog({ draft, onClose }: {
+  draft: { productName: string; color: string; size: string; needed: number };
+  onClose: () => void;
+}) {
+  const { toast } = useToast();
+  const [supplierName, setSupplierName] = useState("");
+  const [notes,        setNotes]        = useState("");
+  const [items, setItems] = useState<PODraftItem[]>([{
+    productName: draft.productName,
+    color: draft.color,
+    size: draft.size,
+    quantity: draft.needed,
+    unitPrice: 0,
+  }]);
+
+  const upd = (i: number, f: keyof PODraftItem, v: any) =>
+    setItems(p => p.map((r, idx) => idx === i ? { ...r, [f]: v } : r));
+
+  const total = items.reduce((s, r) => s + r.quantity * r.unitPrice, 0);
+
+  const handleSave = async () => {
+    try {
+      await apiFetch<any>("/finance/purchase-orders", {
+        method: "POST",
+        body: JSON.stringify({
+          supplierName: supplierName || "غير محدد",
+          status: "draft",
+          notes: notes || null,
+          items: items.map(r => ({
+            productName: r.productName,
+            color: r.color || null,
+            size: r.size || null,
+            quantity: r.quantity,
+            unitPrice: r.unitPrice,
+          })),
+        }),
+      });
+      toast({ title: "✅ تم إنشاء أمر الشراء", description: "يمكنك تعديله من قسم أوامر الشراء" });
+      onClose();
+    } catch (e: any) {
+      toast({ title: "خطأ", description: e.message, variant: "destructive" });
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <ShoppingCart className="w-5 h-5" style={{ color: "#4DB6AC" }} />
+            إنشاء أمر شراء — تغطية النقص
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 mt-2">
+          {/* المورد */}
+          <div>
+            <Label>اسم المورد (اختياري)</Label>
+            <Input placeholder="اسم المورد أو الشركة" value={supplierName} onChange={e => setSupplierName(e.target.value)} />
+          </div>
+
+          {/* جدول البنود */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <Label>البنود</Label>
+              <Button type="button" size="sm" variant="outline" className="h-7 gap-1 text-xs"
+                onClick={() => setItems(p => [...p, { productName: "", color: "", size: "", quantity: 1, unitPrice: 0 }])}>
+                <Plus className="w-3 h-3" /> إضافة بند
+              </Button>
+            </div>
+            <div className="rounded-lg border overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b" style={{ background: "hsl(var(--muted)/0.4)" }}>
+                    <th className="text-right px-2 py-2 font-medium">المنتج</th>
+                    <th className="text-right px-2 py-2 font-medium">اللون</th>
+                    <th className="text-right px-2 py-2 font-medium">المقاس</th>
+                    <th className="text-center px-2 py-2 font-medium">الكمية</th>
+                    <th className="text-right px-2 py-2 font-medium">سعر الوحدة</th>
+                    <th className="text-right px-2 py-2 font-medium">الإجمالي</th>
+                    <th className="px-2 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((r, i) => (
+                    <tr key={i} className="border-t">
+                      <td className="px-2 py-1.5 min-w-[140px]">
+                        <Input className="h-8 text-xs" value={r.productName} onChange={e => upd(i, "productName", e.target.value)} placeholder="اسم المنتج" />
+                      </td>
+                      <td className="px-2 py-1.5 min-w-[90px]">
+                        <Input className="h-8 text-xs" value={r.color} onChange={e => upd(i, "color", e.target.value)} placeholder="اللون" />
+                      </td>
+                      <td className="px-2 py-1.5 min-w-[80px]">
+                        <Input className="h-8 text-xs" value={r.size} onChange={e => upd(i, "size", e.target.value)} placeholder="المقاس" />
+                      </td>
+                      <td className="px-2 py-1.5 min-w-[70px]">
+                        <Input className="h-8 text-xs w-16 text-center" type="number" min={1}
+                          value={r.quantity} onChange={e => upd(i, "quantity", parseInt(e.target.value) || 1)} />
+                      </td>
+                      <td className="px-2 py-1.5 min-w-[100px]">
+                        <Input className="h-8 text-xs w-24" type="number" min={0}
+                          value={r.unitPrice} onChange={e => upd(i, "unitPrice", parseFloat(e.target.value) || 0)}
+                          placeholder="0" />
+                      </td>
+                      <td className="px-2 py-1.5 text-xs font-semibold whitespace-nowrap" style={{ color: "#4DB6AC" }}>
+                        {fmt(r.quantity * r.unitPrice)}
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <Button type="button" size="icon" variant="ghost" className="h-6 w-6 text-rose-400"
+                          onClick={() => setItems(p => p.filter((_, idx) => idx !== i))}>
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-sm font-bold mt-2 text-left" style={{ color: "#4DB6AC" }}>
+              الإجمالي: {fmt(total)}
+            </p>
+          </div>
+
+          {/* ملاحظات */}
+          <div>
+            <Label>ملاحظات</Label>
+            <Textarea placeholder="ملاحظات إضافية..." value={notes} onChange={e => setNotes(e.target.value)} rows={2} />
+          </div>
+        </div>
+
+        <div className="flex gap-2 justify-end mt-4">
+          <Button variant="outline" onClick={onClose}>إلغاء</Button>
+          <Button onClick={handleSave} className="gap-1.5"
+            style={{ background: "rgba(77,182,172,0.15)", color: "#4DB6AC", border: "1px solid rgba(77,182,172,0.4)" }}>
+            <ShoppingCart className="w-4 h-4" /> حفظ أمر الشراء
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ── SORow ──────────────────────────────────────────────────────────────────
-function SORow({ order, onEdit, onDelete, warehouses }: {
+function SORow({ order, onEdit, onDelete, onPrint, onTransferToTreasury, warehouses }: {
   order: SaleOrder; onEdit: (o: SaleOrder) => void;
-  onDelete: (id: number) => void; warehouses: Warehouse[];
+  onDelete: (id: number) => void;
+  onPrint: (o: SaleOrder) => void;
+  onTransferToTreasury: (o: SaleOrder) => void;
+  warehouses: Warehouse[];
 }) {
   const wName = warehouses.find(w => w.id === order.warehouseId)?.name ?? "—";
   const st  = STATUS_LABELS[order.status] ?? { label: order.status, color: "" };
@@ -124,8 +340,20 @@ function SORow({ order, onEdit, onDelete, warehouses }: {
         {order.createdAt ? format(new Date(order.createdAt), "dd/MM/yyyy") : "—"}
       </td>
       <td className="px-3 py-3">
-        <div className="flex gap-1">
+        <div className="flex gap-1 flex-wrap">
           <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => onEdit(order)}>تعديل</Button>
+          <Button size="sm" variant="ghost" className="h-7 px-2 text-xs"
+            title="طباعة فاتورة"
+            onClick={() => onPrint(order)}>
+            <Printer className="w-3 h-3" />
+          </Button>
+          {order.status === "delivered" && order.paymentStatus === "paid" && (
+            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-emerald-400 hover:bg-emerald-500/10"
+              title="تحويل للخزينة"
+              onClick={() => onTransferToTreasury(order)}>
+              <ArrowRightLeft className="w-3 h-3" />
+            </Button>
+          )}
           {!["delivered","closed"].includes(order.status) && (
             <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-rose-500 hover:bg-rose-500/10"
               onClick={() => onDelete(order.id)}><Trash2 className="w-3 h-3" /></Button>
@@ -221,6 +449,7 @@ function SOForm({ open, onClose, editOrder, warehouses, products, onSuccess }: {
   const [invoiceRef,    setInvoiceRef]    = useState(editOrder?.invoiceRef    ?? "");
   const [itemsLoading,  setItemsLoading]  = useState(false);
   const [stockWarning, setStockWarning] = useState<{ rowIdx: number; productName: string; color: string; size: string; available: number; requested: number } | null>(null);
+  const [poDraft, setPoDraft] = useState<{ productName: string; color: string; size: string; needed: number } | null>(null);
 
   const blank = (): ItemRow => ({ productId: "", productName: "", color: "", size: "", sku: "", quantity: 1, unitPrice: 0 });
   const [items, setItems] = useState<ItemRow[]>([blank()]);
@@ -673,23 +902,44 @@ function SOForm({ open, onClose, editOrder, warehouses, products, onSuccess }: {
               {stockWarning.size && ` / ${stockWarning.size}`}
             </p>
             <p style={{ color: "hsl(var(--muted-foreground))" }}>
-              الكمية المتاحة حالياً في المخزن:{" "}
+              الكمية المتاحة حالياً:{" "}
               <strong className="text-emerald-400">{stockWarning.available}</strong> قطعة
+              &nbsp;|&nbsp; النقص:{" "}
+              <strong className="text-rose-400">{stockWarning.requested - stockWarning.available}</strong> قطعة
             </p>
-            <div className="rounded-lg p-3 text-sm"
-              style={{ background: "rgba(239,68,68,0.10)", border: "1px solid rgba(239,68,68,0.3)" }}>
+            <div className="rounded-lg p-3" style={{ background: "rgba(239,68,68,0.10)", border: "1px solid rgba(239,68,68,0.3)" }}>
               <p className="text-xs" style={{ color: "hsl(var(--muted-foreground))" }}>
-                الكمية المطلوبة تتجاوز المخزون المتاح — يرجى مراجعة الكمية أو إنشاء أمر شراء لتوفير الكمية الناقصة.
+                الكمية المطلوبة تتجاوز المخزون — يمكنك إنشاء أمر شراء فوري بالكمية الناقصة.
               </p>
             </div>
           </div>
-          <div className="flex gap-2 justify-end mt-2">
-            <Button variant="outline" size="sm" onClick={() => setStockWarning(null)}>
-              تجاهل
+          <div className="flex gap-2 justify-end mt-2 flex-wrap">
+            <Button variant="outline" size="sm" onClick={() => setStockWarning(null)}>تجاهل</Button>
+            <Button size="sm"
+              className="gap-1.5"
+              style={{ background: "rgba(77,182,172,0.15)", color: "#4DB6AC", border: "1px solid rgba(77,182,172,0.4)" }}
+              onClick={() => {
+                setPoDraft({
+                  productName: stockWarning.productName,
+                  color: stockWarning.color,
+                  size: stockWarning.size,
+                  needed: stockWarning.requested - stockWarning.available,
+                });
+                setStockWarning(null);
+              }}>
+              <ShoppingCart className="w-3.5 h-3.5" /> إنشاء أمر شراء
             </Button>
           </div>
         </DialogContent>
       </Dialog>
+    )}
+
+    {/* ── dialog أمر الشراء السريع ── */}
+    {poDraft && (
+      <PurchaseOrderQuickDialog
+        draft={poDraft}
+        onClose={() => setPoDraft(null)}
+      />
     )}
     </>
   );
@@ -751,6 +1001,42 @@ export default function FinanceSales() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["finance-sale-orders"] }); toast({ title: "تم الحذف" }); },
     onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
+
+  // طباعة الفاتورة — جيب البنود أول
+  const handlePrint = async (order: SaleOrder) => {
+    try {
+      const data = await apiFetch<any>(`/finance/sale-orders/${order.id}`);
+      printSaleInvoice(order, data?.items ?? [], warehouses);
+    } catch {
+      printSaleInvoice(order, [], warehouses);
+    }
+  };
+
+  // تحويل للخزينة — أمر مكتمل التسليم والدفع
+  const handleTransferToTreasury = async (order: SaleOrder) => {
+    try {
+      await apiFetch<any>("/finance/treasury/transactions", {
+        method: "POST",
+        body: JSON.stringify({
+          type: "income",
+          amount: parseFloat(order.paidAmount ?? "0"),
+          description: `إيراد بيع — ${order.soNumber} — ${order.clientName}`,
+          referenceType: "sale_order",
+          referenceId: order.id,
+          date: new Date().toISOString(),
+        }),
+      });
+      // غيّر حالة الأمر لـ closed
+      await apiFetch<any>(`/finance/sale-orders/${order.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "closed" }),
+      });
+      qc.invalidateQueries({ queryKey: ["finance-sale-orders"] });
+      toast({ title: "✅ تم التحويل للخزينة", description: `${fmt(order.paidAmount)} تم تسجيلها كإيراد` });
+    } catch (e: any) {
+      toast({ title: "خطأ", description: e.message ?? "تعذّر التحويل", variant: "destructive" });
+    }
+  };
 
   const activeFilters = [filterStatus !== "all", filterPay !== "all", !!fromDate, !!toDate].filter(Boolean).length;
 
@@ -893,7 +1179,9 @@ export default function FinanceSales() {
               ) : filtered.map(o => (
                 <SORow key={o.id} order={o} warehouses={warehouses}
                   onEdit={o => { setEditOrder(o); setFormOpen(true); }}
-                  onDelete={id => { if (confirm("هل تريد حذف هذا الأمر؟")) deleteMut.mutate(id); }} />
+                  onDelete={id => { if (confirm("هل تريد حذف هذا الأمر؟")) deleteMut.mutate(id); }}
+                  onPrint={handlePrint}
+                  onTransferToTreasury={handleTransferToTreasury} />
               ))}
             </tbody>
           </table>
