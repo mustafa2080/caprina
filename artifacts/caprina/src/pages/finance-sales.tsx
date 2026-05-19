@@ -171,10 +171,10 @@ function PurchaseOrderQuickDialog({ draft, onClose }: {
 }) {
   const { toast } = useToast();
 
-  // جلب الموردين من السيستم
+  // جلب العملاء التجاريين من السيستم
   const { data: suppliers = [] } = useQuery<{ id: number; name: string; category: string | null }[]>({
-    queryKey: ["suppliers-list"],
-    queryFn: () => apiFetch<any>("/finance/suppliers"),
+    queryKey: ["clients-for-po"],
+    queryFn: () => apiFetch<any>("/finance/clients"),
     staleTime: 60_000,
   });
 
@@ -256,9 +256,9 @@ function PurchaseOrderQuickDialog({ draft, onClose }: {
         </DialogHeader>
 
         <div className="space-y-4 mt-2">
-          {/* المورد — Dropdown */}
+          {/* العميل التجاري — Dropdown */}
           <div className="relative">
-            <Label>المورد</Label>
+            <Label>العميل التجاري</Label>
             <div
               ref={supplierInputRef}
               className="flex items-center w-full rounded-md border px-3 py-2 text-sm cursor-pointer transition-colors mt-1"
@@ -273,14 +273,14 @@ function PurchaseOrderQuickDialog({ draft, onClose }: {
                 <input
                   autoFocus
                   className="flex-1 bg-transparent outline-none text-sm placeholder:text-muted-foreground"
-                  placeholder="ابحث باسم المورد..."
+                  placeholder="ابحث باسم العميل..."
                   value={supplierFilter}
                   onChange={e => setSupplierFilter(e.target.value)}
                   onClick={e => e.stopPropagation()}
                 />
               ) : (
                 <span className={`flex-1 ${supplierName ? "" : "text-muted-foreground"}`}>
-                  {supplierName || "اختر مورد أو اكتب اسم جديد"}
+                  {supplierName || "اختر عميل تجاري أو اكتب اسم جديد"}
                 </span>
               )}
               <ChevronRight
@@ -317,7 +317,7 @@ function PurchaseOrderQuickDialog({ draft, onClose }: {
                 )}
 
                 {filteredSuppliers.length === 0 && !supplierFilter.trim() && (
-                  <div className="px-4 py-5 text-center text-sm text-muted-foreground">لا يوجد موردون مسجلون</div>
+                  <div className="px-4 py-5 text-center text-sm text-muted-foreground">لا يوجد عملاء تجاريون مسجلون</div>
                 )}
 
                 {filteredSuppliers.map(s => (
@@ -330,10 +330,10 @@ function PurchaseOrderQuickDialog({ draft, onClose }: {
                       setSupplierFilter("");
                       setShowSupplierDrop(false);
                     }}>
-                    <ShoppingCart className="w-4 h-4 shrink-0" style={{ color: "#FFB74D" }} />
+                    <UserCheck className="w-4 h-4 shrink-0" style={{ color: "#4DB6AC" }} />
                     <div className="text-right">
                       <p className="text-sm font-medium">{s.name}</p>
-                      {s.category && <p className="text-xs text-muted-foreground">{s.category}</p>}
+                      {(s as any).phone && <p className="text-xs text-muted-foreground">{(s as any).phone}</p>}
                     </div>
                   </button>
                 ))}
