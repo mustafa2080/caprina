@@ -134,8 +134,8 @@ router.get("/orders", async (req, res): Promise<void> => {
       // ┘╪ش┘à┘ّ╪╣ ┘â┘ ╪د┘╪ص╪د┘╪د╪ز ┘┘â┘ invoiceNumber
       // نفس منطق chart: invoice بتاخد حالة الأنشط (أولوية)
       const STATUS_PRIORITY_FILTER: Record<string, number> = {
-        pending: 1, in_shipping: 2, warehouse_ready: 3, delayed: 4,
-        partial_received: 5, received: 6, returned: 7,
+        returned: 1, pending: 2, in_shipping: 3, warehouse_ready: 4, delayed: 5,
+        partial_received: 6, received: 7,
       };
       const invStatusMap = new Map<string, Set<string>>();
       const soloMap = new Map<number, string>();
@@ -381,7 +381,14 @@ router.get("/orders", async (req, res): Promise<void> => {
       rep.delayNote = dn;
     }
     const allReturned = grp.every(o => o.status === "returned");
-    if (allReturned) {
+    // لو فيه أي أوردر مرتجع في الفاتورة → الفاتورة تظهر كـ returned
+    const anyReturned = !allInShippingPostponed && grp.some(o => o.status === "returned");
+    if (anyReturned) {
+      rep.status = "returned";
+      let rr: number | null = null;
+      for (const o of grp) { const val = getReturnReceived(o); if (val !== null) { rr = val; break; } }
+      rep.returnReceived = rr;
+    } else if (allReturned) {
       let rr: number | null = null;
       for (const o of grp) { const val = getReturnReceived(o); if (val !== null) { rr = val; break; } }
       rep.returnReceived = rr;
