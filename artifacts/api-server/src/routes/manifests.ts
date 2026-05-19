@@ -1025,7 +1025,15 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
   }).where(eq(shippingManifestOrdersTable.id, link.id));
 
   // ─── تحديث جدول الطلبات ───────────────────────────────────────────────────
-  const orderUpdate: Record<string, unknown> = { status: STATUS_MAP[deliveryStatus] ?? "in_shipping" };
+  // القاعدة: لو الطلب كان "returned" أو "partial_received" في البيان القديم
+  // ونجي بـ "pending" → نحافظ على الحالة الأصلية في ordersTable
+  // (pending في سياق البيان ≠ إعادة للانتظار، يعني لسه عند شركة الشحن)
+  const protectedStatuses = ["returned", "partial_received"];
+  const isDowngradeToInShipping = protectedStatuses.includes(oldDeliveryStatus) && deliveryStatus === "pending";
+  const newOrderStatus = isDowngradeToInShipping
+    ? (STATUS_MAP[oldDeliveryStatus] ?? "in_shipping")
+    : (STATUS_MAP[deliveryStatus] ?? "in_shipping");
+  const orderUpdate: Record<string, unknown> = { status: newOrderStatus };
   if (deliveryStatus === "partial_received" && parsedPartialQty != null) orderUpdate.partialQuantity = parsedPartialQty;
   if (deliveryStatus === "partial_received") orderUpdate.returnReceived = (partialReturnReceived ?? false) ? 1 : 0;
   if (deliveryStatus === "returned" && returnReceived != null) orderUpdate.returnReceived = returnReceived ? 1 : 0;
