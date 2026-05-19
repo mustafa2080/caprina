@@ -199,9 +199,35 @@ function POForm({
 
   const isEdit = !!editOrder;
 
-  const [supplierId, setSupplierId]   = useState<string>(String(editOrder?.supplierId ?? ""));
-  const [supplierName, setSupplierName] = useState(editOrder?.supplierName ?? "");
-  const [status, setStatus]           = useState(editOrder?.status ?? "draft");
+  // ── Dropdown الموردين ─────────────────────────────────────────────────────
+  const [supplierFilter,    setSupplierFilter]    = useState("");
+  const [showSupplierDrop,  setShowSupplierDrop]  = useState(false);
+  const supplierInputRef = useRef<HTMLDivElement>(null);
+  const supplierDropRef  = useRef<HTMLDivElement>(null);
+
+  const filteredSuppliers = useMemo(() => {
+    if (!supplierFilter.trim()) return suppliers;
+    const q = supplierFilter.toLowerCase();
+    return suppliers.filter(s =>
+      s.name?.toLowerCase().includes(q) ||
+      s.category?.toLowerCase().includes(q)
+    );
+  }, [suppliers, supplierFilter]);
+
+  // إغلاق الـ dropdown عند الضغط خارجه
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (
+        !supplierDropRef.current?.contains(e.target as Node) &&
+        !supplierInputRef.current?.contains(e.target as Node)
+      ) setShowSupplierDrop(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+  const [supplierId,    setSupplierId]    = useState<string>(String(editOrder?.supplierId ?? ""));
+  const [supplierName,  setSupplierName]  = useState(editOrder?.supplierName ?? "");
+  const [status,        setStatus]        = useState(editOrder?.status ?? "draft");
   const [payStatus, setPayStatus]     = useState(editOrder?.paymentStatus ?? "unpaid");
   const [paidAmount, setPaidAmount]   = useState(editOrder?.paidAmount ?? "0");
   const [shippingCost, setShippingCost] = useState(editOrder?.shippingCost ?? "0");
@@ -335,15 +361,101 @@ function POForm({
         <DialogHeader><DialogTitle>{isEdit ? `تعديل — ${editOrder?.poNumber}` : "أمر شراء جديد"}</DialogTitle></DialogHeader>
 
         <div className="grid grid-cols-2 gap-4 mt-2">
-          {/* المورد */}
-          <div className="col-span-2">
+          {/* المورد — Dropdown */}
+          <div className="col-span-2 relative">
             <Label>المورد</Label>
-            <Select value={supplierId} onValueChange={setSupplierId}>
-              <SelectTrigger><SelectValue placeholder="اختر مورد أو اكتب اسماً" /></SelectTrigger>
-              <SelectContent>{suppliers.map(s => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}</SelectContent>
-            </Select>
-            {!supplierId && (
-              <Input className="mt-2" placeholder="أو اكتب اسم المورد يدوياً" value={supplierName} onChange={e => setSupplierName(e.target.value)} />
+            <div
+              ref={supplierInputRef}
+              className="flex items-center w-full rounded-md border px-3 py-2 text-sm cursor-pointer transition-colors"
+              style={{
+                background: "hsl(var(--input,var(--background)))",
+                borderColor: showSupplierDrop ? "#FFB74D" : "hsl(var(--border))",
+                minHeight: 40,
+              }}
+              onClick={() => setShowSupplierDrop(true)}
+            >
+              {showSupplierDrop ? (
+                <input
+                  autoFocus
+                  className="flex-1 bg-transparent outline-none text-sm placeholder:text-muted-foreground"
+                  placeholder="ابحث باسم المورد..."
+                  value={supplierFilter}
+                  onChange={e => setSupplierFilter(e.target.value)}
+                  onClick={e => e.stopPropagation()}
+                />
+              ) : (
+                <span className={`flex-1 ${supplierName || supplierId ? "" : "text-muted-foreground"}`}>
+                  {supplierName ||
+                   suppliers.find(s => String(s.id) === supplierId)?.name ||
+                   "اختر مورد أو اكتب اسم جديد"}
+                </span>
+              )}
+              <ChevronDown
+                className="w-4 h-4 text-muted-foreground shrink-0 transition-transform"
+                style={{ transform: showSupplierDrop ? "rotate(180deg)" : "rotate(0deg)" }}
+              />
+            </div>
+
+            {/* القائمة المنسدلة */}
+            {showSupplierDrop && (
+              <div
+                ref={supplierDropRef}
+                className="absolute z-50 w-full mt-1 rounded-lg border shadow-xl overflow-hidden"
+                style={{
+                  background: "hsl(var(--card))",
+                  borderColor: "hsl(var(--border))",
+                  maxHeight: 260,
+                  overflowY: "auto",
+                }}
+              >
+                {/* خيار اسم جديد لو الكتابة مش موجودة */}
+                {supplierFilter.trim() &&
+                  !filteredSuppliers.find(s => s.name.toLowerCase() === supplierFilter.toLowerCase()) && (
+                  <button
+                    type="button"
+                    className="w-full text-right px-3 py-2.5 flex items-center gap-2 hover:bg-accent transition-colors border-b"
+                    style={{ borderColor: "hsl(var(--border)/0.5)" }}
+                    onClick={() => {
+                      setSupplierName(supplierFilter.trim());
+                      setSupplierId("");
+                      setSupplierFilter("");
+                      setShowSupplierDrop(false);
+                    }}
+                  >
+                    <Plus className="w-4 h-4 shrink-0" style={{ color: "#FFB74D" }} />
+                    <span className="text-sm">استخدم: <strong>{supplierFilter.trim()}</strong></span>
+                  </button>
+                )}
+
+                {filteredSuppliers.length === 0 && !supplierFilter.trim() && (
+                  <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+                    لا يوجد موردون مسجلون بعد
+                  </div>
+                )}
+
+                {filteredSuppliers.map(s => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    className="w-full text-right px-3 py-2.5 flex items-center justify-between gap-3 hover:bg-accent transition-colors border-b last:border-0"
+                    style={{ borderColor: "hsl(var(--border)/0.5)" }}
+                    onClick={() => {
+                      setSupplierId(String(s.id));
+                      setSupplierName(s.name);
+                      setSupplierFilter("");
+                      setShowSupplierDrop(false);
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <ShoppingCart className="w-4 h-4 shrink-0" style={{ color: "#FFB74D" }} />
+                      <div className="text-right">
+                        <p className="text-sm font-medium">{s.name}</p>
+                        {s.category && <p className="text-xs text-muted-foreground">{s.category}</p>}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
             )}
           </div>
 

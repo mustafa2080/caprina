@@ -170,8 +170,43 @@ function PurchaseOrderQuickDialog({ draft, onClose }: {
   onClose: () => void;
 }) {
   const { toast } = useToast();
-  const [supplierName, setSupplierName] = useState("");
-  const [notes,        setNotes]        = useState("");
+
+  // جلب الموردين من السيستم
+  const { data: suppliers = [] } = useQuery<{ id: number; name: string; category: string | null }[]>({
+    queryKey: ["suppliers-list"],
+    queryFn: () => apiFetch<any>("/finance/suppliers"),
+    staleTime: 60_000,
+  });
+
+  // Dropdown الموردين
+  const [supplierId,       setSupplierId]       = useState("");
+  const [supplierName,     setSupplierName]     = useState("");
+  const [supplierFilter,   setSupplierFilter]   = useState("");
+  const [showSupplierDrop, setShowSupplierDrop] = useState(false);
+  const supplierInputRef = useRef<HTMLDivElement>(null);
+  const supplierDropRef  = useRef<HTMLDivElement>(null);
+
+  const filteredSuppliers = useMemo(() => {
+    if (!supplierFilter.trim()) return suppliers;
+    const q = supplierFilter.toLowerCase();
+    return suppliers.filter(s =>
+      s.name?.toLowerCase().includes(q) ||
+      s.category?.toLowerCase().includes(q)
+    );
+  }, [suppliers, supplierFilter]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (
+        !supplierDropRef.current?.contains(e.target as Node) &&
+        !supplierInputRef.current?.contains(e.target as Node)
+      ) setShowSupplierDrop(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const [notes, setNotes] = useState("");
   const [items, setItems] = useState<PODraftItem[]>([{
     productName: draft.productName,
     color: draft.color,
@@ -190,6 +225,7 @@ function PurchaseOrderQuickDialog({ draft, onClose }: {
       await apiFetch<any>("/finance/purchase-orders", {
         method: "POST",
         body: JSON.stringify({
+          supplierId: supplierId ? parseInt(supplierId) : null,
           supplierName: supplierName || "غير محدد",
           status: "draft",
           notes: notes || null,
@@ -220,10 +256,89 @@ function PurchaseOrderQuickDialog({ draft, onClose }: {
         </DialogHeader>
 
         <div className="space-y-4 mt-2">
-          {/* المورد */}
-          <div>
-            <Label>اسم المورد (اختياري)</Label>
-            <Input placeholder="اسم المورد أو الشركة" value={supplierName} onChange={e => setSupplierName(e.target.value)} />
+          {/* المورد — Dropdown */}
+          <div className="relative">
+            <Label>المورد</Label>
+            <div
+              ref={supplierInputRef}
+              className="flex items-center w-full rounded-md border px-3 py-2 text-sm cursor-pointer transition-colors mt-1"
+              style={{
+                background: "hsl(var(--input,var(--background)))",
+                borderColor: showSupplierDrop ? "#FFB74D" : "hsl(var(--border))",
+                minHeight: 40,
+              }}
+              onClick={() => setShowSupplierDrop(true)}
+            >
+              {showSupplierDrop ? (
+                <input
+                  autoFocus
+                  className="flex-1 bg-transparent outline-none text-sm placeholder:text-muted-foreground"
+                  placeholder="ابحث باسم المورد..."
+                  value={supplierFilter}
+                  onChange={e => setSupplierFilter(e.target.value)}
+                  onClick={e => e.stopPropagation()}
+                />
+              ) : (
+                <span className={`flex-1 ${supplierName ? "" : "text-muted-foreground"}`}>
+                  {supplierName || "اختر مورد أو اكتب اسم جديد"}
+                </span>
+              )}
+              <ChevronRight
+                className="w-4 h-4 text-muted-foreground shrink-0 transition-transform"
+                style={{ transform: showSupplierDrop ? "rotate(90deg)" : "rotate(270deg)" }}
+              />
+            </div>
+
+            {showSupplierDrop && (
+              <div
+                ref={supplierDropRef}
+                className="absolute z-50 w-full mt-1 rounded-lg border shadow-xl overflow-hidden"
+                style={{
+                  background: "hsl(var(--card))",
+                  borderColor: "hsl(var(--border))",
+                  maxHeight: 220,
+                  overflowY: "auto",
+                }}
+              >
+                {supplierFilter.trim() &&
+                  !filteredSuppliers.find(s => s.name.toLowerCase() === supplierFilter.toLowerCase()) && (
+                  <button type="button"
+                    className="w-full text-right px-3 py-2.5 flex items-center gap-2 hover:bg-accent transition-colors border-b"
+                    style={{ borderColor: "hsl(var(--border)/0.5)" }}
+                    onClick={() => {
+                      setSupplierName(supplierFilter.trim());
+                      setSupplierId("");
+                      setSupplierFilter("");
+                      setShowSupplierDrop(false);
+                    }}>
+                    <Plus className="w-4 h-4 shrink-0" style={{ color: "#FFB74D" }} />
+                    <span className="text-sm">استخدم: <strong>{supplierFilter.trim()}</strong></span>
+                  </button>
+                )}
+
+                {filteredSuppliers.length === 0 && !supplierFilter.trim() && (
+                  <div className="px-4 py-5 text-center text-sm text-muted-foreground">لا يوجد موردون مسجلون</div>
+                )}
+
+                {filteredSuppliers.map(s => (
+                  <button key={s.id} type="button"
+                    className="w-full text-right px-3 py-2.5 flex items-center gap-2 hover:bg-accent transition-colors border-b last:border-0"
+                    style={{ borderColor: "hsl(var(--border)/0.5)" }}
+                    onClick={() => {
+                      setSupplierId(String(s.id));
+                      setSupplierName(s.name);
+                      setSupplierFilter("");
+                      setShowSupplierDrop(false);
+                    }}>
+                    <ShoppingCart className="w-4 h-4 shrink-0" style={{ color: "#FFB74D" }} />
+                    <div className="text-right">
+                      <p className="text-sm font-medium">{s.name}</p>
+                      {s.category && <p className="text-xs text-muted-foreground">{s.category}</p>}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* جدول البنود */}
