@@ -128,13 +128,13 @@ function PageLoader() {
 function ScrollToTop() {
   const [location] = useLocation();
   useEffect(() => {
-    // الـ scroll الفعلي على العنصر #main-scroll-area مش على window
-    const scrollArea = document.getElementById("main-scroll-area");
-    if (scrollArea) {
-      scrollArea.scrollTop = 0;
-    } else {
-      window.scrollTo({ top: 0, behavior: "instant" });
-    }
+    // نعمل reset لكل العناصر الممكن يكون عليها scroll
+    const targets = [
+      document.getElementById("main-scroll-area"),
+      document.documentElement,
+      document.body,
+    ];
+    targets.forEach((el) => { if (el) el.scrollTop = 0; });
   }, [location]);
   return null;
 }

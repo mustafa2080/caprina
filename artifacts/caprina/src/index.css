@@ -226,7 +226,7 @@ html.light { color-scheme: light; }
 /* ─── Login page: make everything transparent so video shows ─────────────────── */
 /* !important بعد @layer base عشان يكسب Tailwind */
 html.login-active { background: transparent !important; }
-html.login-active body { background: transparent !important; background-color: transparent !important; }
+html.login-active body { background: transparent !important; background-color: transparent !important; overflow: auto !important; }
 html.login-active #root {
   background: transparent !important;
   background-color: transparent !important;
@@ -236,6 +236,12 @@ html.login-active #root {
 
 @layer base {
   * { @apply border-border; }
+
+  html, body, #root {
+    height: 100%;
+    overflow: hidden;
+  }
+
   body {
     @apply font-sans antialiased bg-background text-foreground;
     direction: rtl;
