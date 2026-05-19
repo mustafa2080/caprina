@@ -153,29 +153,41 @@ function SOForm({ open, onClose, editOrder, warehouses, products, onSuccess }: {
   const { toast } = useToast();
   const isEdit = !!editOrder;
 
-  // ── Autocomplete العملاء ──────────────────────────────────────────────────
-  const [clientSuggestions, setClientSuggestions] = useState<any[]>([]);
-  const [showSuggestions,   setShowSuggestions]   = useState(false);
+  // ── Dropdown العملاء ──────────────────────────────────────────────────────
+  const [allClients,      setAllClients]      = useState<any[]>([]);
+  const [clientFilter,    setClientFilter]    = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const clientInputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
 
-  const searchClients = async (q: string) => {
-    if (!q.trim() || q.length < 1) { setClientSuggestions([]); setShowSuggestions(false); return; }
-    try {
-      const results = await apiFetch<any[]>(`/finance/clients/search?q=${encodeURIComponent(q)}`);
-      setClientSuggestions(results ?? []);
-      setShowSuggestions((results ?? []).length > 0);
-    } catch { setClientSuggestions([]); setShowSuggestions(false); }
-  };
+  // جيب كل العملاء مرة واحدة عند فتح الـ form
+  useEffect(() => {
+    if (!open) return;
+    apiFetch<any[]>("/finance/clients")
+      .then(data => setAllClients(Array.isArray(data) ? data : []))
+      .catch(() => setAllClients([]));
+  }, [open]);
+
+  // الفلترة المحلية
+  const clientSuggestions = useMemo(() => {
+    if (!clientFilter.trim()) return allClients;
+    const q = clientFilter.toLowerCase();
+    return allClients.filter(c =>
+      c.name?.toLowerCase().includes(q) ||
+      c.phone?.includes(q) ||
+      c.city?.toLowerCase().includes(q)
+    );
+  }, [allClients, clientFilter]);
 
   const fillClientData = (c: any) => {
     setClientName(c.name ?? "");
     setClientPhone(c.phone ?? "");
     setClientAddress([c.address, c.city, c.region].filter(Boolean).join(" — "));
+    setClientFilter("");
     setShowSuggestions(false);
   };
 
-  // إغلاق الاقتراحات عند النقر خارجها
+  // إغلاق الـ dropdown عند النقر خارجه
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (!suggestionsRef.current?.contains(e.target as Node) &&
@@ -360,27 +372,74 @@ function SOForm({ open, onClose, editOrder, warehouses, products, onSuccess }: {
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" dir="rtl">
         <DialogHeader><DialogTitle>{isEdit ? `تعديل — ${editOrder?.soNumber}` : "أمر بيع جديد"}</DialogTitle></DialogHeader>
         <div className="grid grid-cols-2 gap-4 mt-2">
-          {/* اسم العميل — مع Autocomplete */}
+          {/* اسم العميل — Dropdown كامل */}
           <div className="col-span-2 relative">
             <Label>اسم العميل / الشركة *</Label>
             <div className="relative">
-              <Input
+              {/* حقل الاختيار — يعرض الاسم المختار أو يفتح البحث */}
+              <div
                 ref={clientInputRef}
-                placeholder="ابدأ الكتابة لاختيار عميل أو أدخل اسم جديد"
-                value={clientName}
-                onChange={e => {
-                  setClientName(e.target.value);
-                  searchClients(e.target.value);
+                className="flex items-center w-full rounded-md border px-3 py-2 text-sm cursor-pointer transition-colors"
+                style={{
+                  background: "hsl(var(--input,var(--background)))",
+                  borderColor: showSuggestions ? "#4DB6AC" : "hsl(var(--border))",
+                  minHeight: 40,
                 }}
-                onFocus={() => { if (clientName.length >= 1) searchClients(clientName); }}
-                autoComplete="off"
-              />
-              {showSuggestions && clientSuggestions.length > 0 && (
+                onClick={() => setShowSuggestions(true)}
+              >
+                {showSuggestions ? (
+                  <input
+                    autoFocus
+                    className="flex-1 bg-transparent outline-none text-sm placeholder:text-muted-foreground"
+                    placeholder="ابحث باسم العميل أو رقم الهاتف..."
+                    value={clientFilter}
+                    onChange={e => setClientFilter(e.target.value)}
+                    onClick={e => e.stopPropagation()}
+                  />
+                ) : (
+                  <span className={`flex-1 ${clientName ? "" : "text-muted-foreground"}`}>
+                    {clientName || "اختر عميل أو اكتب اسم جديد"}
+                  </span>
+                )}
+                <ChevronRight
+                  className="w-4 h-4 text-muted-foreground shrink-0 transition-transform"
+                  style={{ transform: showSuggestions ? "rotate(90deg)" : "rotate(270deg)" }}
+                />
+              </div>
+
+              {/* Dropdown */}
+              {showSuggestions && (
                 <div
                   ref={suggestionsRef}
                   className="absolute z-50 w-full mt-1 rounded-lg border shadow-xl overflow-hidden"
-                  style={{ background: "hsl(var(--card))", borderColor: "hsl(var(--border))" }}
+                  style={{
+                    background: "hsl(var(--card))",
+                    borderColor: "hsl(var(--border))",
+                    maxHeight: 280,
+                    overflowY: "auto",
+                  }}
                 >
+                  {/* خيار إدخال اسم جديد لو كاتب حاجة مش موجودة */}
+                  {clientFilter.trim() && !clientSuggestions.find(c => c.name?.toLowerCase() === clientFilter.toLowerCase()) && (
+                    <button
+                      type="button"
+                      className="w-full text-right px-3 py-2.5 flex items-center gap-2 hover:bg-accent transition-colors border-b"
+                      style={{ borderColor: "hsl(var(--border)/0.5)" }}
+                      onClick={() => {
+                        setClientName(clientFilter.trim());
+                        setClientFilter("");
+                        setShowSuggestions(false);
+                      }}
+                    >
+                      <Plus className="w-4 h-4 text-teal-400 shrink-0" />
+                      <span className="text-sm">استخدم: <strong>{clientFilter.trim()}</strong></span>
+                    </button>
+                  )}
+
+                  {clientSuggestions.length === 0 && !clientFilter.trim() && (
+                    <div className="px-4 py-6 text-center text-sm text-muted-foreground">لا يوجد عملاء مسجلون بعد</div>
+                  )}
+
                   {clientSuggestions.map(c => (
                     <button
                       key={c.id}
@@ -393,11 +452,14 @@ function SOForm({ open, onClose, editOrder, warehouses, products, onSuccess }: {
                         <UserCheck className="w-4 h-4 text-teal-400 shrink-0" />
                         <div className="text-right">
                           <p className="text-sm font-medium">{c.name}</p>
-                          {c.phone && <p className="text-xs text-muted-foreground">{c.phone}</p>}
+                          <p className="text-xs text-muted-foreground">
+                            {[c.phone, c.city].filter(Boolean).join(" · ")}
+                          </p>
                         </div>
                       </div>
-                      <div className="text-xs text-muted-foreground text-right shrink-0">
+                      <div className="text-xs text-muted-foreground shrink-0">
                         {c.totalOrders ? `${c.totalOrders} أمر` : ""}
+                        {c.totalSales ? ` · ${fmt(c.totalSales)}` : ""}
                       </div>
                     </button>
                   ))}
