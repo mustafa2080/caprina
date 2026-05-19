@@ -163,7 +163,7 @@ function ColFilter({ label, active, visible, isOpen, onToggle, children }: {
 }
 
 // ── PurchaseOrderQuickDialog ──────────────────────────────────────────────
-type PODraftItem = { productName: string; color: string; size: string; quantity: number; unitPrice: number };
+type PODraftItem = { productId?: string; productName: string; color: string; size: string; quantity: number; unitPrice: number };
 
 function PurchaseOrderQuickDialog({ draft, onClose }: {
   draft: { productName: string; color: string; size: string; needed: number };
@@ -217,6 +217,66 @@ function PurchaseOrderQuickDialog({ draft, onClose }: {
 
   const upd = (i: number, f: keyof PODraftItem, v: any) =>
     setItems(p => p.map((r, idx) => idx === i ? { ...r, [f]: v } : r));
+
+  // ── جلب المنتجات والـ variants ─────────────────────────────────────────
+  const { data: allProducts = [] } = useQuery<{ id: number; name: string }[]>({
+    queryKey: ["products-list"],
+    queryFn:  () => apiFetch<any>("/products"),
+    staleTime: 60_000,
+  });
+  const { data: allVariants = [] } = useQuery<Variant[]>({
+    queryKey: ["variants"],
+    queryFn:  () => apiFetch<any>("/variants"),
+    staleTime: 60_000,
+  });
+
+  // helpers
+  const colorsFor  = (productId: string) =>
+    [...new Set(allVariants.filter(v => String(v.productId) === productId).map(v => v.color).filter(Boolean))];
+  const sizesFor   = (productId: string, color: string) =>
+    allVariants.filter(v => String(v.productId) === productId && v.color === color).map(v => v.size).filter(Boolean);
+  const matchVar   = (productId: string, color: string, size: string) =>
+    allVariants.find(v => String(v.productId) === productId && v.color === color && v.size === size);
+  const availQty   = (v: Variant) => Math.max(0, (v.totalQuantity ?? 0) - (v.reservedQuantity ?? 0) - (v.soldQuantity ?? 0));
+
+  // عند اختيار منتج
+  const handleProduct = (i: number, productId: string) => {
+    const p      = allProducts.find(x => String(x.id) === productId);
+    const colors = colorsFor(productId);
+    const color  = colors[0] ?? "";
+    const sizes  = color ? sizesFor(productId, color) : [];
+    const size   = sizes[0] ?? "";
+    const v      = color && size ? matchVar(productId, color, size) : undefined;
+    setItems(prev => prev.map((r, idx) => idx !== i ? r : {
+      ...r,
+      productId,
+      productName: p?.name ?? "",
+      color, size,
+      unitPrice: v ? parseFloat(String(v.costPrice ?? v.unitPrice)) : r.unitPrice,
+    }));
+  };
+
+  // عند اختيار لون
+  const handleColor = (i: number, color: string) => {
+    const r     = items[i];
+    const sizes = sizesFor(r.productId ?? "", color);
+    const size  = sizes[0] ?? "";
+    const v     = size ? matchVar(r.productId ?? "", color, size) : undefined;
+    setItems(prev => prev.map((row, idx) => idx !== i ? row : {
+      ...row, color, size,
+      unitPrice: v ? parseFloat(String(v.costPrice ?? v.unitPrice)) : row.unitPrice,
+    }));
+  };
+
+  // عند اختيار مقاس
+  const handleSize = (i: number, size: string) => {
+    const r = items[i];
+    const v = matchVar(r.productId ?? "", r.color, size);
+    setItems(prev => prev.map((row, idx) => idx !== i ? row : {
+      ...row, size,
+      unitPrice: v ? parseFloat(String(v.costPrice ?? v.unitPrice)) : row.unitPrice,
+    }));
+  };
 
   const total = items.reduce((s, r) => s + r.quantity * r.unitPrice, 0);
 
@@ -346,7 +406,7 @@ function PurchaseOrderQuickDialog({ draft, onClose }: {
             <div className="flex items-center justify-between mb-2">
               <Label>البنود</Label>
               <Button type="button" size="sm" variant="outline" className="h-7 gap-1 text-xs"
-                onClick={() => setItems(p => [...p, { productName: "", color: "", size: "", quantity: 1, unitPrice: 0 }])}>
+                onClick={() => setItems(p => [...p, { productId: "", productName: "", color: "", size: "", quantity: 1, unitPrice: 0 }])}>
                 <Plus className="w-3 h-3" /> إضافة بند
               </Button>
             </div>
@@ -357,6 +417,7 @@ function PurchaseOrderQuickDialog({ draft, onClose }: {
                     <th className="text-right px-2 py-2 font-medium">المنتج</th>
                     <th className="text-right px-2 py-2 font-medium">اللون</th>
                     <th className="text-right px-2 py-2 font-medium">المقاس</th>
+                    <th className="text-center px-2 py-2 font-medium">المتاح</th>
                     <th className="text-center px-2 py-2 font-medium">الكمية</th>
                     <th className="text-right px-2 py-2 font-medium">سعر الوحدة</th>
                     <th className="text-right px-2 py-2 font-medium">الإجمالي</th>
@@ -364,37 +425,90 @@ function PurchaseOrderQuickDialog({ draft, onClose }: {
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((r, i) => (
-                    <tr key={i} className="border-t">
-                      <td className="px-2 py-1.5 min-w-[140px]">
-                        <Input className="h-8 text-xs" value={r.productName} onChange={e => upd(i, "productName", e.target.value)} placeholder="اسم المنتج" />
-                      </td>
-                      <td className="px-2 py-1.5 min-w-[90px]">
-                        <Input className="h-8 text-xs" value={r.color} onChange={e => upd(i, "color", e.target.value)} placeholder="اللون" />
-                      </td>
-                      <td className="px-2 py-1.5 min-w-[80px]">
-                        <Input className="h-8 text-xs" value={r.size} onChange={e => upd(i, "size", e.target.value)} placeholder="المقاس" />
-                      </td>
-                      <td className="px-2 py-1.5 min-w-[70px]">
-                        <Input className="h-8 text-xs w-16 text-center" type="number" min={1}
-                          value={r.quantity} onChange={e => upd(i, "quantity", parseInt(e.target.value) || 1)} />
-                      </td>
-                      <td className="px-2 py-1.5 min-w-[100px]">
-                        <Input className="h-8 text-xs w-24" type="number" min={0}
-                          value={r.unitPrice} onChange={e => upd(i, "unitPrice", parseFloat(e.target.value) || 0)}
-                          placeholder="0" />
-                      </td>
-                      <td className="px-2 py-1.5 text-xs font-semibold whitespace-nowrap" style={{ color: "#4DB6AC" }}>
-                        {fmt(r.quantity * r.unitPrice)}
-                      </td>
-                      <td className="px-2 py-1.5">
-                        <Button type="button" size="icon" variant="ghost" className="h-6 w-6 text-rose-400"
-                          onClick={() => setItems(p => p.filter((_, idx) => idx !== i))}>
-                          <X className="w-3 h-3" />
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
+                  {items.map((r, i) => {
+                    const colors  = colorsFor(r.productId ?? "");
+                    const sizes   = r.color ? sizesFor(r.productId ?? "", r.color) : [];
+                    const variant = r.productId && r.color && r.size
+                      ? matchVar(r.productId, r.color, r.size) : undefined;
+                    const avail   = variant ? availQty(variant) : undefined;
+                    return (
+                      <tr key={i} className="border-t">
+                        {/* المنتج */}
+                        <td className="px-2 py-1.5 min-w-[160px]">
+                          <Select value={r.productId ?? ""} onValueChange={v => handleProduct(i, v)}>
+                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="اختر منتج" /></SelectTrigger>
+                            <SelectContent>
+                              {allProducts.map(p => (
+                                <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </td>
+                        {/* اللون */}
+                        <td className="px-2 py-1.5 min-w-[110px]">
+                          {colors.length > 0 ? (
+                            <Select value={r.color} onValueChange={v => handleColor(i, v)} disabled={!r.productId}>
+                              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="اللون" /></SelectTrigger>
+                              <SelectContent>
+                                {colors.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <Input className="h-8 text-xs w-24" placeholder="لون" value={r.color}
+                              onChange={e => setItems(p => p.map((row, idx) => idx === i ? { ...row, color: e.target.value } : row))} />
+                          )}
+                        </td>
+                        {/* المقاس */}
+                        <td className="px-2 py-1.5 min-w-[100px]">
+                          {sizes.length > 0 ? (
+                            <Select value={r.size} onValueChange={v => handleSize(i, v)} disabled={!r.color}>
+                              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="المقاس" /></SelectTrigger>
+                              <SelectContent>
+                                {sizes.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <Input className="h-8 text-xs w-20" placeholder="مقاس" value={r.size}
+                              onChange={e => setItems(p => p.map((row, idx) => idx === i ? { ...row, size: e.target.value } : row))} />
+                          )}
+                        </td>
+                        {/* المتاح في المخزن */}
+                        <td className="px-2 py-1.5 text-center min-w-[60px]">
+                          {avail !== undefined ? (
+                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                              avail === 0 ? "bg-rose-500/15 text-rose-400" :
+                              avail < 5  ? "bg-amber-500/15 text-amber-400" :
+                                           "bg-emerald-500/15 text-emerald-400"}`}>
+                              {avail}
+                            </span>
+                          ) : <span className="text-muted-foreground text-xs">—</span>}
+                        </td>
+                        {/* الكمية */}
+                        <td className="px-2 py-1.5 min-w-[70px]">
+                          <Input className="h-8 text-xs w-16 text-center" type="number" min={1}
+                            value={r.quantity}
+                            onChange={e => setItems(p => p.map((row, idx) => idx === i ? { ...row, quantity: parseInt(e.target.value) || 1 } : row))} />
+                        </td>
+                        {/* سعر الوحدة */}
+                        <td className="px-2 py-1.5 min-w-[100px]">
+                          <Input className="h-8 text-xs w-24" type="number" min={0} placeholder="0"
+                            value={r.unitPrice}
+                            onChange={e => setItems(p => p.map((row, idx) => idx === i ? { ...row, unitPrice: parseFloat(e.target.value) || 0 } : row))} />
+                        </td>
+                        {/* الإجمالي */}
+                        <td className="px-2 py-1.5 text-xs font-semibold whitespace-nowrap" style={{ color: "#4DB6AC" }}>
+                          {fmt(r.quantity * r.unitPrice)}
+                        </td>
+                        {/* حذف */}
+                        <td className="px-2 py-1.5">
+                          <Button type="button" size="icon" variant="ghost" className="h-6 w-6 text-rose-400"
+                            onClick={() => setItems(p => p.filter((_, idx) => idx !== i))}>
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
