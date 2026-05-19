@@ -175,9 +175,6 @@ function POForm({
     staleTime: 60_000,
   });
 
-  // تحذير الكمية
-  const [stockWarning, setStockWarning] = useState<{ rowIdx: number; productName: string; color: string; size: string; available: number; requested: number } | null>(null);
-
   // helper: ألوان متاحة للمنتج
   const getColors = (productId: string) => {
     if (!productId) return [];
@@ -553,31 +550,7 @@ function POForm({
                             onChange={e => {
                               const qty = parseInt(e.target.value) || 1;
                               updateItem(i, "quantity", qty);
-                              // تحذير لو الكمية أكبر من المتاح
-                              const v = getVariant(row.productId, row.color, row.size);
-                              if (v) {
-                                const avail = v.totalQuantity - v.reservedQuantity - v.soldQuantity;
-                                if (qty > avail) {
-                                  setStockWarning({
-                                    rowIdx: i,
-                                    productName: row.productName,
-                                    color: row.color,
-                                    size: row.size,
-                                    available: avail,
-                                    requested: qty,
-                                  });
-                                }
-                              }
                             }} />
-                          {(() => {
-                            const v = getVariant(row.productId, row.color, row.size);
-                            if (!v) return null;
-                            const avail = v.totalQuantity - v.reservedQuantity - v.soldQuantity;
-                            if (row.quantity > avail) return (
-                              <span className="text-[10px] font-semibold text-rose-400">⚠ متاح: {avail}</span>
-                            );
-                            return null;
-                          })()}
                         </div>
                       </td>
                       <td className="px-2 py-1.5">
@@ -615,75 +588,6 @@ function POForm({
       </DialogContent>
     </Dialog>
 
-    {/* ── dialog تحذير الكمية ── */}
-    {stockWarning && (
-      <Dialog open={!!stockWarning} onOpenChange={() => setStockWarning(null)}>
-        <DialogContent className="max-w-sm" dir="rtl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-amber-400">
-              <span className="text-2xl">⚠️</span> تجاوز الكمية المتاحة
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 text-sm">
-            <p style={{ color: "hsl(var(--foreground))" }}>
-              طلبت <strong className="text-rose-400">{stockWarning.requested}</strong> قطعة من{" "}
-              <strong>{stockWarning.productName}</strong>
-              {stockWarning.color && ` — ${stockWarning.color}`}
-              {stockWarning.size && ` / ${stockWarning.size}`}
-            </p>
-            <p style={{ color: "hsl(var(--muted-foreground))" }}>
-              الكمية المتاحة حالياً في المخزن:{" "}
-              <strong className="text-emerald-400">{stockWarning.available}</strong> قطعة
-            </p>
-            {defaultSupplier ? (
-              <div className="rounded-lg p-3 text-sm"
-                style={{ background: "rgba(255,183,77,0.10)", border: "1px solid rgba(255,183,77,0.3)" }}>
-                <p className="font-semibold mb-1" style={{ color: "#FFB74D" }}>
-                  ⭐ المورد الافتراضي: {defaultSupplier.name}
-                </p>
-                <p className="text-xs" style={{ color: "hsl(var(--muted-foreground))" }}>
-                  هل تريد إنشاء أمر شراء للكمية الناقصة ({stockWarning.requested - stockWarning.available} قطعة) من المورد الافتراضي؟
-                </p>
-              </div>
-            ) : (
-              <div className="rounded-lg p-3 text-sm"
-                style={{ background: "rgba(239,68,68,0.10)", border: "1px solid rgba(239,68,68,0.3)" }}>
-                <p className="text-xs" style={{ color: "hsl(var(--muted-foreground))" }}>
-                  لا يوجد مورد افتراضي — يمكنك تعيينه من قسم <strong>الموردون</strong>
-                </p>
-              </div>
-            )}
-          </div>
-          <div className="flex gap-2 justify-end mt-2">
-            <Button variant="outline" size="sm" onClick={() => setStockWarning(null)}>
-              تجاهل
-            </Button>
-            {defaultSupplier && (
-              <Button size="sm"
-                style={{ background: "rgba(255,183,77,0.2)", color: "#FFB74D", border: "1px solid rgba(255,183,77,0.4)" }}
-                onClick={() => {
-                  // أضيف بند جديد بالمورد الافتراضي والكمية الناقصة
-                  const missing = stockWarning.requested - stockWarning.available;
-                  setItems(prev => [...prev, {
-                    productId: items[stockWarning.rowIdx]?.productId ?? "",
-                    productName: stockWarning.productName,
-                    color: stockWarning.color,
-                    size: stockWarning.size,
-                    sku: items[stockWarning.rowIdx]?.sku ?? "",
-                    quantity: missing,
-                    unitCost: items[stockWarning.rowIdx]?.unitCost ?? 0,
-                  }]);
-                  setSupplierId(String(defaultSupplier.id));
-                  setStockWarning(null);
-                  toast({ title: `✅ تمت الإضافة — ${missing} قطعة من ${defaultSupplier.name}` });
-                }}>
-                ⭐ أمر شراء من {defaultSupplier.name}
-              </Button>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-    )}
     </>
   );
 }

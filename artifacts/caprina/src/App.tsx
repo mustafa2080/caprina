@@ -93,6 +93,7 @@ const FinanceCash           = lazy(() => import("@/pages/finance-cash"));
 const FinanceCashAnalytics  = lazy(() => import("@/pages/finance-cash-analytics"));
 const FinanceCashArchive    = lazy(() => import("@/pages/finance-cash-archive"));
 const FinanceHub            = lazy(() => import("@/pages/finance-hub"));
+const FinanceClients        = lazy(() => import("@/pages/finance-clients"));
 const SuperAdminPage        = lazy(() => import("@/pages/super-admin"));
 
 // ─── Global QueryClient with smart caching defaults ──────────────────────────
@@ -284,6 +285,7 @@ function Router() {
           <Route path="/finance/dashboard"        component={() => <Redirect to="/finance" />} />
           <Route path="/finance/purchases"        component={() => <ProtectedRoute permission="finance" component={FinancePurchases} />} />
           <Route path="/finance/sales"            component={() => <ProtectedRoute permission="finance" component={FinanceSales} />} />
+          <Route path="/finance/clients"          component={() => <ProtectedRoute permission="finance" component={FinanceClients} />} />
           <Route path="/finance/suppliers"        component={() => <ProtectedRoute permission="finance" component={FinanceSuppliers} />} />
           <Route path="/finance/expenses"         component={() => <ProtectedRoute permission="finance" component={FinanceExpenses} />} />
           <Route path="/finance/shipping-invoices" component={() => <ProtectedRoute permission="finance" component={FinanceShippingInvoices} />} />

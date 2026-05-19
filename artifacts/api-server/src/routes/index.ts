@@ -26,6 +26,7 @@ import { cashRegistersRouter } from "./cash-registers";
 import attendanceRouter from "./attendance";
 import adminTenantsRouter from "./admin-tenants";
 import financeSalesRouter from "./finance-sales";
+import financeClientsRouter from "./finance-clients";
 import { requireAuth } from "../middlewares/requireAuth.js";
 import { checkSubscription } from "../middlewares/checkSubscription.js";
 
@@ -62,6 +63,7 @@ router.use(financeHubRouter);
 router.use("/cash-registers", cashRegistersRouter);
 router.use(attendanceRouter);
 router.use(financeSalesRouter);
+router.use(financeClientsRouter);
 router.use(adminTenantsRouter); // super_admin فقط — محمي داخلياً
 
 export default router;

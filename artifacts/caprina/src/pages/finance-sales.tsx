@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Plus, ShoppingBag, Trash2, ChevronRight, Search, X,
-  SlidersHorizontal, FileSpreadsheet, Package, Wallet, TrendingUp, Clock
+  SlidersHorizontal, FileSpreadsheet, Package, Wallet, TrendingUp, Clock, UserCheck
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -153,6 +153,40 @@ function SOForm({ open, onClose, editOrder, warehouses, products, onSuccess }: {
   const { toast } = useToast();
   const isEdit = !!editOrder;
 
+  // ── Autocomplete العملاء ──────────────────────────────────────────────────
+  const [clientSuggestions, setClientSuggestions] = useState<any[]>([]);
+  const [showSuggestions,   setShowSuggestions]   = useState(false);
+  const clientInputRef = useRef<HTMLInputElement>(null);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
+
+  const searchClients = async (q: string) => {
+    if (!q.trim() || q.length < 1) { setClientSuggestions([]); setShowSuggestions(false); return; }
+    try {
+      const results = await apiFetch<any[]>(`/finance/clients/search?q=${encodeURIComponent(q)}`);
+      setClientSuggestions(results ?? []);
+      setShowSuggestions((results ?? []).length > 0);
+    } catch { setClientSuggestions([]); setShowSuggestions(false); }
+  };
+
+  const fillClientData = (c: any) => {
+    setClientName(c.name ?? "");
+    setClientPhone(c.phone ?? "");
+    setClientAddress([c.address, c.city, c.region].filter(Boolean).join(" — "));
+    setShowSuggestions(false);
+  };
+
+  // إغلاق الاقتراحات عند النقر خارجها
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (!suggestionsRef.current?.contains(e.target as Node) &&
+          !clientInputRef.current?.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
   // جلب كل الـ variants من الـ API
   const { data: allVariants = [] } = useQuery<Variant[]>({
     queryKey: ["variants"],
@@ -174,6 +208,7 @@ function SOForm({ open, onClose, editOrder, warehouses, products, onSuccess }: {
   const [expectedDate,  setExpectedDate]  = useState(editOrder?.expectedDate?.split("T")[0] ?? "");
   const [invoiceRef,    setInvoiceRef]    = useState(editOrder?.invoiceRef    ?? "");
   const [itemsLoading,  setItemsLoading]  = useState(false);
+  const [stockWarning, setStockWarning] = useState<{ rowIdx: number; productName: string; color: string; size: string; available: number; requested: number } | null>(null);
 
   const blank = (): ItemRow => ({ productId: "", productName: "", color: "", size: "", sku: "", quantity: 1, unitPrice: 0 });
   const [items, setItems] = useState<ItemRow[]>([blank()]);
@@ -320,14 +355,55 @@ function SOForm({ open, onClose, editOrder, warehouses, products, onSuccess }: {
   });
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" dir="rtl">
         <DialogHeader><DialogTitle>{isEdit ? `تعديل — ${editOrder?.soNumber}` : "أمر بيع جديد"}</DialogTitle></DialogHeader>
         <div className="grid grid-cols-2 gap-4 mt-2">
-          {/* اسم العميل */}
-          <div className="col-span-2">
+          {/* اسم العميل — مع Autocomplete */}
+          <div className="col-span-2 relative">
             <Label>اسم العميل / الشركة *</Label>
-            <Input placeholder="مثال: شركة النور للتجارة" value={clientName} onChange={e => setClientName(e.target.value)} />
+            <div className="relative">
+              <Input
+                ref={clientInputRef}
+                placeholder="ابدأ الكتابة لاختيار عميل أو أدخل اسم جديد"
+                value={clientName}
+                onChange={e => {
+                  setClientName(e.target.value);
+                  searchClients(e.target.value);
+                }}
+                onFocus={() => { if (clientName.length >= 1) searchClients(clientName); }}
+                autoComplete="off"
+              />
+              {showSuggestions && clientSuggestions.length > 0 && (
+                <div
+                  ref={suggestionsRef}
+                  className="absolute z-50 w-full mt-1 rounded-lg border shadow-xl overflow-hidden"
+                  style={{ background: "hsl(var(--card))", borderColor: "hsl(var(--border))" }}
+                >
+                  {clientSuggestions.map(c => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      className="w-full text-right px-3 py-2.5 flex items-center justify-between gap-3 hover:bg-accent transition-colors border-b last:border-0"
+                      style={{ borderColor: "hsl(var(--border)/0.5)" }}
+                      onClick={() => fillClientData(c)}
+                    >
+                      <div className="flex items-center gap-2">
+                        <UserCheck className="w-4 h-4 text-teal-400 shrink-0" />
+                        <div className="text-right">
+                          <p className="text-sm font-medium">{c.name}</p>
+                          {c.phone && <p className="text-xs text-muted-foreground">{c.phone}</p>}
+                        </div>
+                      </div>
+                      <div className="text-xs text-muted-foreground text-right shrink-0">
+                        {c.totalOrders ? `${c.totalOrders} أمر` : ""}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           <div><Label>رقم الهاتف</Label><Input placeholder="01xxxxxxxxx" value={clientPhone} onChange={e => setClientPhone(e.target.value)} /></div>
           <div>
@@ -462,7 +538,20 @@ function SOForm({ open, onClose, editOrder, warehouses, products, onSuccess }: {
                             className={`h-8 text-xs w-16 text-center ${overQty ? "border-rose-500 focus-visible:ring-rose-500" : ""}`}
                             type="number" min={1}
                             value={r.quantity}
-                            onChange={e => upd(i,"quantity",parseInt(e.target.value)||1)}
+                            onChange={e => {
+                              const qty = parseInt(e.target.value) || 1;
+                              upd(i, "quantity", qty);
+                              if (avail !== undefined && qty > avail) {
+                                setStockWarning({
+                                  rowIdx: i,
+                                  productName: r.productName,
+                                  color: r.color,
+                                  size: r.size,
+                                  available: avail,
+                                  requested: qty,
+                                });
+                              }
+                            }}
                           />
                           {overQty && <p className="text-[10px] text-rose-400 mt-0.5">تجاوز المتاح</p>}
                         </td>
@@ -504,6 +593,43 @@ function SOForm({ open, onClose, editOrder, warehouses, products, onSuccess }: {
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* ── dialog تحذير الكمية ── */}
+    {stockWarning && (
+      <Dialog open={!!stockWarning} onOpenChange={() => setStockWarning(null)}>
+        <DialogContent className="max-w-sm" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-400">
+              <span className="text-2xl">⚠️</span> تجاوز الكمية المتاحة
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm">
+            <p style={{ color: "hsl(var(--foreground))" }}>
+              طلبت <strong className="text-rose-400">{stockWarning.requested}</strong> قطعة من{" "}
+              <strong>{stockWarning.productName}</strong>
+              {stockWarning.color && ` — ${stockWarning.color}`}
+              {stockWarning.size && ` / ${stockWarning.size}`}
+            </p>
+            <p style={{ color: "hsl(var(--muted-foreground))" }}>
+              الكمية المتاحة حالياً في المخزن:{" "}
+              <strong className="text-emerald-400">{stockWarning.available}</strong> قطعة
+            </p>
+            <div className="rounded-lg p-3 text-sm"
+              style={{ background: "rgba(239,68,68,0.10)", border: "1px solid rgba(239,68,68,0.3)" }}>
+              <p className="text-xs" style={{ color: "hsl(var(--muted-foreground))" }}>
+                الكمية المطلوبة تتجاوز المخزون المتاح — يرجى مراجعة الكمية أو إنشاء أمر شراء لتوفير الكمية الناقصة.
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end mt-2">
+            <Button variant="outline" size="sm" onClick={() => setStockWarning(null)}>
+              تجاهل
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    )}
+    </>
   );
 }
 

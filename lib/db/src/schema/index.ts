@@ -25,5 +25,8 @@ export * from "./attendance";
 // ─── Sales Module ─────────────────────────────────────────────────────────────
 export * from "./sale_orders";
 
+// ─── Clients Module ───────────────────────────────────────────────────────────
+export * from "./clients";
+
 // ─── Subscription / Multi-Tenant ─────────────────────────────────────────────
 export * from "./tenants";

@@ -1,0 +1,268 @@
+import { Router } from "express";
+import { db, clientsTable, saleOrdersTable } from "@workspace/db";
+import { eq, desc, and, sql, or, like } from "drizzle-orm";
+import { getTenantId } from "../middlewares/requireTenant.js";
+import { z } from "zod";
+
+const router = Router();
+
+const ClientSchema = z.object({
+  name:          z.string().min(1),
+  phone:         z.string().nullish(),
+  phone2:        z.string().nullish(),
+  email:         z.string().nullish(),
+  address:       z.string().nullish(),
+  city:          z.string().nullish(),
+  region:        z.string().nullish(),
+  taxNumber:     z.string().nullish(),
+  commercialReg: z.string().nullish(),
+  paymentTerms:  z.string().nullish(),
+  creditLimit:   z.number().default(0),
+  notes:         z.string().nullish(),
+  isActive:      z.boolean().default(true),
+});
+
+// ── مساعد: تحديث إحصائيات العميل من أوامر البيع ────────────────────────────
+async function syncClientStats(clientName: string, tenantId: number | null) {
+  const conds: any[] = [eq(saleOrdersTable.clientName, clientName)];
+  if (tenantId !== null) conds.push(eq(saleOrdersTable.tenantId, tenantId));
+
+  const orders = await db.select({
+    totalAmount: saleOrdersTable.totalAmount,
+    paidAmount:  saleOrdersTable.paidAmount,
+  }).from(saleOrdersTable).where(and(...conds));
+
+  const totalOrders = orders.length;
+  const totalSales  = orders.reduce((s, o) => s + parseFloat(o.totalAmount ?? "0"), 0);
+  const totalPaid   = orders.reduce((s, o) => s + parseFloat(o.paidAmount  ?? "0"), 0);
+
+  const clientConds: any[] = [eq(clientsTable.name, clientName)];
+  if (tenantId !== null) clientConds.push(eq(clientsTable.tenantId, tenantId));
+
+  await db.update(clientsTable).set({
+    totalOrders,
+    totalSales:  String(totalSales),
+    totalPaid:   String(totalPaid),
+    updatedAt:   new Date(),
+  }).where(and(...clientConds));
+}
+
+// ── GET /finance/clients ─────────────────────────────────────────────────────
+router.get("/finance/clients", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req);
+    const { search, isActive } = req.query;
+
+    const conds: any[] = [];
+    if (tenantId !== null) conds.push(eq(clientsTable.tenantId, tenantId));
+    if (isActive === "true")  conds.push(eq(clientsTable.isActive, true));
+    if (isActive === "false") conds.push(eq(clientsTable.isActive, false));
+    if (search) {
+      const q = `%${search}%`;
+      conds.push(or(
+        like(clientsTable.name,  q),
+        like(clientsTable.phone, q),
+        like(clientsTable.email, q),
+      ));
+    }
+
+    const clients = await db.select().from(clientsTable)
+      .where(conds.length ? and(...conds) : undefined)
+      .orderBy(desc(clientsTable.createdAt));
+
+    res.json(clients);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── GET /finance/clients/search?q=... (للـ autocomplete في نموذج البيع) ──────
+router.get("/finance/clients/search", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req);
+    const q = `%${req.query.q ?? ""}%`;
+
+    const conds: any[] = [eq(clientsTable.isActive, true)];
+    if (tenantId !== null) conds.push(eq(clientsTable.tenantId, tenantId));
+    conds.push(or(like(clientsTable.name, q), like(clientsTable.phone, q)));
+
+    const clients = await db.select({
+      id: clientsTable.id, name: clientsTable.name,
+      phone: clientsTable.phone, phone2: clientsTable.phone2,
+      address: clientsTable.address, city: clientsTable.city,
+      region: clientsTable.region, paymentTerms: clientsTable.paymentTerms,
+      totalOrders: clientsTable.totalOrders, totalSales: clientsTable.totalSales,
+    }).from(clientsTable)
+      .where(and(...conds))
+      .orderBy(clientsTable.name)
+      .limit(10);
+
+    res.json(clients);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── GET /finance/clients/:id ─────────────────────────────────────────────────
+router.get("/finance/clients/:id", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req);
+    const id = parseInt(req.params.id);
+
+    const conds: any[] = [eq(clientsTable.id, id)];
+    if (tenantId !== null) conds.push(eq(clientsTable.tenantId, tenantId));
+
+    const [client] = await db.select().from(clientsTable).where(and(...conds));
+    if (!client) { res.status(404).json({ error: "العميل غير موجود" }); return; }
+
+    // جلب أوامر البيع المرتبطة
+    const orderConds: any[] = [eq(saleOrdersTable.clientName, client.name)];
+    if (tenantId !== null) orderConds.push(eq(saleOrdersTable.tenantId, tenantId));
+
+    const orders = await db.select({
+      id: saleOrdersTable.id, soNumber: saleOrdersTable.soNumber,
+      status: saleOrdersTable.status, paymentStatus: saleOrdersTable.paymentStatus,
+      totalAmount: saleOrdersTable.totalAmount, paidAmount: saleOrdersTable.paidAmount,
+      createdAt: saleOrdersTable.createdAt, expectedDate: saleOrdersTable.expectedDate,
+    }).from(saleOrdersTable)
+      .where(and(...orderConds))
+      .orderBy(desc(saleOrdersTable.createdAt));
+
+    res.json({ ...client, orders });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── GET /finance/clients/:id/statement ──────────────────────────────────────
+router.get("/finance/clients/:id/statement", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req);
+    const id = parseInt(req.params.id);
+
+    const conds: any[] = [eq(clientsTable.id, id)];
+    if (tenantId !== null) conds.push(eq(clientsTable.tenantId, tenantId));
+
+    const [client] = await db.select().from(clientsTable).where(and(...conds));
+    if (!client) { res.status(404).json({ error: "العميل غير موجود" }); return; }
+
+    const orderConds: any[] = [eq(saleOrdersTable.clientName, client.name)];
+    if (tenantId !== null) orderConds.push(eq(saleOrdersTable.tenantId, tenantId));
+    if (req.query.from) orderConds.push(sql`${saleOrdersTable.createdAt} >= ${new Date(req.query.from as string)}`);
+    if (req.query.to)   orderConds.push(sql`${saleOrdersTable.createdAt} <= ${new Date(req.query.to as string + "T23:59:59")}`);
+
+    const orders = await db.select().from(saleOrdersTable)
+      .where(and(...orderConds))
+      .orderBy(desc(saleOrdersTable.createdAt));
+
+    const totalAmount = orders.reduce((s, o) => s + parseFloat(o.totalAmount ?? "0"), 0);
+    const totalPaid   = orders.reduce((s, o) => s + parseFloat(o.paidAmount  ?? "0"), 0);
+
+    res.json({
+      client,
+      orders,
+      summary: {
+        totalOrders: orders.length,
+        totalAmount,
+        totalPaid,
+        totalUnpaid: totalAmount - totalPaid,
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── POST /finance/clients ─────────────────────────────────────────────────────
+router.post("/finance/clients", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req);
+    const parsed = ClientSchema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+
+    const now = new Date();
+    const [result] = await db.insert(clientsTable).values({
+      ...parsed.data,
+      creditLimit:  String(parsed.data.creditLimit ?? 0),
+      totalOrders:  0,
+      totalSales:   "0",
+      totalPaid:    "0",
+      createdAt: now, updatedAt: now,
+      ...(tenantId !== null ? { tenantId } : {}),
+    });
+
+    const id = (result as any).insertId;
+    const [client] = await db.select().from(clientsTable).where(eq(clientsTable.id, id));
+    res.status(201).json(client);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── PATCH /finance/clients/:id ───────────────────────────────────────────────
+router.patch("/finance/clients/:id", async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id);
+    const parsed = ClientSchema.partial().safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+
+    const updates: any = { ...parsed.data, updatedAt: new Date() };
+    if (parsed.data.creditLimit !== undefined) updates.creditLimit = String(parsed.data.creditLimit);
+
+    await db.update(clientsTable).set(updates).where(eq(clientsTable.id, id));
+    const [client] = await db.select().from(clientsTable).where(eq(clientsTable.id, id));
+    if (!client) { res.status(404).json({ error: "العميل غير موجود" }); return; }
+    res.json(client);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── PATCH /finance/clients/:id/sync ─ تحديث الإحصائيات يدوياً ──────────────
+router.patch("/finance/clients/:id/sync", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req);
+    const id = parseInt(req.params.id);
+    const [client] = await db.select().from(clientsTable).where(eq(clientsTable.id, id));
+    if (!client) { res.status(404).json({ error: "العميل غير موجود" }); return; }
+
+    await syncClientStats(client.name, tenantId);
+    const [updated] = await db.select().from(clientsTable).where(eq(clientsTable.id, id));
+    res.json(updated);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── DELETE /finance/clients/:id ──────────────────────────────────────────────
+router.delete("/finance/clients/:id", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req);
+    const id = parseInt(req.params.id);
+
+    const conds: any[] = [eq(clientsTable.id, id)];
+    if (tenantId !== null) conds.push(eq(clientsTable.tenantId, tenantId));
+
+    const [client] = await db.select().from(clientsTable).where(and(...conds));
+    if (!client) { res.status(404).json({ error: "العميل غير موجود" }); return; }
+
+    // تحقق من وجود أوامر بيع مرتبطة
+    const [hasOrders] = await db.select({ id: saleOrdersTable.id })
+      .from(saleOrdersTable)
+      .where(eq(saleOrdersTable.clientName, client.name))
+      .limit(1);
+
+    if (hasOrders) {
+      res.status(400).json({ error: "لا يمكن حذف العميل — يوجد أوامر بيع مرتبطة به" });
+      return;
+    }
+
+    await db.delete(clientsTable).where(and(...conds));
+    res.status(204).send();
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+export { syncClientStats };
+export default router;
