@@ -1,4 +1,4 @@
-import { lazy, Suspense, Component, type ReactNode, useRef, useEffect } from "react";
+import { lazy, Suspense, Component, type ReactNode, useRef, useEffect, useLayoutEffect } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -127,14 +127,10 @@ function PageLoader() {
 // ─── Scroll to top on every route change ─────────────────────────────────────
 function ScrollToTop() {
   const [location] = useLocation();
-  useEffect(() => {
-    // نعمل reset لكل العناصر الممكن يكون عليها scroll
-    const targets = [
-      document.getElementById("main-scroll-area"),
-      document.documentElement,
-      document.body,
-    ];
-    targets.forEach((el) => { if (el) el.scrollTop = 0; });
+  useLayoutEffect(() => {
+    // #main-scroll-area هو الـ div اللي عليه overflow-auto في layout.tsx
+    const el = document.getElementById("main-scroll-area");
+    if (el) el.scrollTop = 0;
   }, [location]);
   return null;
 }
