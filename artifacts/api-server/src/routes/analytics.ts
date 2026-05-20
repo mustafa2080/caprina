@@ -525,6 +525,7 @@ router.get("/analytics/damaged-orders", requireAdmin, async (req, res): Promise<
 // ─── GET /api/analytics/product-performance ─────────────────────────────────────
 // Full per-product breakdown: revenue, profit, returns, margin, avg price
 router.get("/analytics/product-performance", requireAdmin, async (req, res): Promise<void> => {
+  try {
   const tenantId = getTenantId(req);
   const ppBaseConditions: any[] = [isNull(ordersTable.deletedAt)];
   if (tenantId !== null) ppBaseConditions.push(eq(ordersTable.tenantId, tenantId));
@@ -648,6 +649,10 @@ router.get("/analytics/product-performance", requireAdmin, async (req, res): Pro
       totalRevenue: productList.reduce((s, p) => s + p.totalRevenue, 0),
     },
   });
+  } catch (err) {
+    console.error("[product-performance]", err);
+    res.status(500).json({ error: "فشل تحليل أداء المنتجات", detail: String(err) });
+  }
 });
 
 // ─── GET /api/analytics/alerts ──────────────────────────────────────────────────
