@@ -1,12 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import {
   ArrowRight, Printer, Package, User, Phone, MapPin,
   Calendar, Hash, CreditCard, Truck, FileSpreadsheet,
-  ChevronDown, Check,
+  ChevronDown, Check, Pencil, Trash2, X, Save,
 } from "lucide-react";
 // ── أنواع ──────────────────────────────────────────────────────────────────
 type SaleItem = {
@@ -43,48 +43,125 @@ const fmtNum  = (n: string | number) => Number(n).toLocaleString("ar-EG");
 const fmtDate = (d: string | null)   => d
   ? new Date(d).toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" }) : "—";
 
-// ── تصدير Excel حقيقي (XLSX) ──────────────────────────────────────────────
-function exportToExcel(order: SaleOrder) {
-  const total    = parseFloat(order.totalAmount    ?? "0");
-  const paid     = parseFloat(order.paidAmount     ?? "0");
-  const discount = parseFloat(order.discountAmount ?? "0");
-  const shipping = parseFloat(order.shippingCost   ?? "0");
-  const due      = total - paid;
+// ── تصدير Excel احترافي بـ ExcelJS: RTL + حدود + ألوان ──────────────────
+async function exportToExcel(order: SaleOrder) {
+  const total      = parseFloat(order.totalAmount    ?? "0");
+  const paid       = parseFloat(order.paidAmount     ?? "0");
+  const discount   = parseFloat(order.discountAmount ?? "0");
+  const shipping   = parseFloat(order.shippingCost   ?? "0");
+  const due        = total - paid;
   const totalQtyEx = order.items.reduce((s, i) => s + i.quantity, 0);
 
-  const wb = XLSX.utils.book_new();
+  // ── ألوان ──
+  const C_GOLD    = "FFB8860B";
+  const C_GOLD_BG = "FFFFF8DC";
+  const C_HEAD_BG = "FFE8F5E9";
+  const C_HEAD_DK = "FF1A3A1A";
+  const C_HEAD2   = "FF2C5F2E";
+  const C_WHITE   = "FFFFFFFF";
+  const C_STRIPE  = "FFF9F9F9";
+  const C_RED     = "FFB71C1C";
+  const C_GREEN   = "FF1B5E20";
+  const C_BORDER  = "FFCCCCCC";
 
-  // ── ورقة بيانات الفاتورة ──
-  const infoRows: any[][] = [
-    ["CAPRINA — فاتورة بيع"],
-    [],
-    ["رقم الفاتورة", order.soNumber],
-    ["اسم العميل", order.clientName],
-    ["هاتف العميل", order.clientPhone ?? "—"],
-    ["عنوان العميل", order.clientAddress ?? "—"],
-    ["حالة الأمر", STATUS_MAP[order.status]?.label ?? order.status],
-    ["حالة الدفع", PAY_MAP[order.paymentStatus]?.label ?? order.paymentStatus],
-    ["تاريخ الإنشاء", fmtDate(order.createdAt)],
-    ...(order.expectedDate ? [["تاريخ التسليم المتوقع", fmtDate(order.expectedDate)]] : []),
-    ...(order.notes ? [["ملاحظات", order.notes]] : []),
-    [],
-    ["عدد المنتجات المختلفة", order.items.length + " منتج"],
-    ["إجمالي القطع", totalQtyEx + " قطعة"],
-    [],
-    ["— ملخص المبالغ —"],
-    ...(discount > 0 ? [["الخصم", "- " + discount.toLocaleString() + " ج"]] : []),
-    ...(shipping > 0 ? [["رسوم الشحن", shipping.toLocaleString() + " ج"]] : []),
-    ["الإجمالي الكلي", total.toLocaleString() + " ج"],
-    ["المدفوع", paid.toLocaleString() + " ج"],
+  const thinBorder: Partial<ExcelJS.Border> = { style: "thin", color: { argb: C_BORDER } };
+  const allBorders = { top: thinBorder, bottom: thinBorder, left: thinBorder, right: thinBorder };
+
+  const wb = new ExcelJS.Workbook();
+
+  // ══════════════════════════════════════════
+  //  ورقة 1: بيانات الفاتورة
+  // ══════════════════════════════════════════
+  const ws1 = wb.addWorksheet("بيانات الفاتورة", { views: [{ rightToLeft: true }] });
+  ws1.columns = [{ width: 34 }, { width: 44 }];
+
+  // صف العنوان (merge A1:B1)
+  ws1.addRow(["CAPRINA — فاتورة بيع", ""]);
+  ws1.mergeCells("A1:B1");
+  const titleCell = ws1.getCell("A1");
+  titleCell.value = "CAPRINA — فاتورة بيع";
+  titleCell.font  = { name: "Arial", bold: true, size: 16, color: { argb: C_WHITE } };
+  titleCell.fill  = { type: "pattern", pattern: "solid", fgColor: { argb: C_HEAD_DK } };
+  titleCell.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
+  titleCell.border = allBorders;
+  ws1.getRow(1).height = 32;
+  // الخلية B1 بعد الـ merge تحتاج border أيضاً
+  ws1.getCell("B1").border = allBorders;
+  ws1.getCell("B1").fill = { type: "pattern", pattern: "solid", fgColor: { argb: C_HEAD_DK } };
+
+  ws1.addRow(["", ""]); // فراغ
+
+  // بيانات الفاتورة
+  const infoRows: [string, string, boolean, string, string, string, string][] = [
+    // [label, value, isSection, labelBg, labelColor, valueBg, valueColor]
+    ["رقم الفاتورة",   order.soNumber,                                    false, C_HEAD_BG, C_HEAD_DK, C_WHITE, C_GOLD],
+    ["اسم العميل",     order.clientName,                                   false, C_HEAD_BG, C_HEAD_DK, C_WHITE, C_GOLD],
+    ["هاتف العميل",    order.clientPhone ?? "—",                           false, C_HEAD_BG, C_HEAD_DK, C_WHITE, C_GOLD],
+    ["عنوان العميل",   order.clientAddress ?? "—",                         false, C_HEAD_BG, C_HEAD_DK, C_WHITE, C_GOLD],
+    ["حالة الأمر",     STATUS_MAP[order.status]?.label ?? order.status,    false, C_HEAD_BG, C_HEAD_DK, C_WHITE, C_GOLD],
+    ["حالة الدفع",     PAY_MAP[order.paymentStatus]?.label ?? order.paymentStatus, false, C_HEAD_BG, C_HEAD_DK, C_WHITE, C_GOLD],
+    ["تاريخ الإنشاء",  fmtDate(order.createdAt),                           false, C_HEAD_BG, C_HEAD_DK, C_WHITE, C_GOLD],
+    ...(order.expectedDate ? [["تاريخ التسليم المتوقع", fmtDate(order.expectedDate), false, C_HEAD_BG, C_HEAD_DK, C_WHITE, C_GOLD] as [string,string,boolean,string,string,string,string]] : []),
+    ...(order.notes        ? [["ملاحظات", order.notes, false, C_HEAD_BG, C_HEAD_DK, C_WHITE, C_GOLD] as [string,string,boolean,string,string,string,string]] : []),
+    ["", "", false, C_WHITE, C_WHITE, C_WHITE, C_WHITE],
+    ["عدد المنتجات",   `${order.items.length} منتج`,  false, C_HEAD_BG, C_HEAD_DK, C_WHITE, C_GOLD],
+    ["إجمالي القطع",   `${totalQtyEx} قطعة`,           false, C_HEAD_BG, C_HEAD_DK, C_WHITE, C_GOLD],
+    ["", "", false, C_WHITE, C_WHITE, C_WHITE, C_WHITE],
+    ["— ملخص المبالغ —", "", true, C_HEAD2, C_WHITE, C_HEAD2, C_WHITE],
+    ...(discount > 0 ? [["الخصم", `- ${discount.toLocaleString()} ج`, false, C_HEAD_BG, C_HEAD_DK, C_WHITE, C_RED] as [string,string,boolean,string,string,string,string]] : []),
+    ...(shipping > 0 ? [["رسوم الشحن", `${shipping.toLocaleString()} ج`, false, C_HEAD_BG, C_HEAD_DK, C_WHITE, C_GOLD] as [string,string,boolean,string,string,string,string]] : []),
+    ["الإجمالي الكلي", `${total.toLocaleString()} ج`,  false, C_GOLD, C_WHITE, C_GOLD, C_WHITE],
+    ["المدفوع",         `${paid.toLocaleString()} ج`,  false, C_HEAD_BG, C_HEAD_DK, C_WHITE, C_GREEN],
     due > 0
-      ? ["المتبقي", due.toLocaleString() + " ج"]
-      : ["الحالة", "مسدد بالكامل"],
+      ? ["المتبقي", `${due.toLocaleString()} ج`,       false, C_HEAD_BG, C_HEAD_DK, C_WHITE, C_RED]
+      : ["الحالة",  "مسدد بالكامل ✓",                  false, C_HEAD_BG, C_HEAD_DK, C_WHITE, C_GREEN],
   ];
 
-  // ── ورقة بنود الفاتورة ──
-  const itemsRows: any[][] = [
-    ["#", "المنتج", "اللون", "المقاس", "الكمية", "سعر الوحدة (ج)", "الإجمالي (ج)"],
-    ...order.items.map((it, i) => [
+  for (const [label, value, , labelBg, labelColor, valueBg, valueColor] of infoRows) {
+    const row = ws1.addRow([label, value]);
+    row.height = 22;
+
+    const cellA = row.getCell(1);
+    const cellB = row.getCell(2);
+
+    cellA.font  = { name: "Arial", bold: true, size: 11, color: { argb: labelColor } };
+    cellA.fill  = { type: "pattern", pattern: "solid", fgColor: { argb: labelBg } };
+    cellA.alignment = { horizontal: "right", vertical: "middle", readingOrder: "rtl" };
+    cellA.border = allBorders;
+
+    cellB.font  = { name: "Arial", bold: false, size: 11, color: { argb: valueColor } };
+    cellB.fill  = { type: "pattern", pattern: "solid", fgColor: { argb: valueBg } };
+    cellB.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
+    cellB.border = allBorders;
+  }
+
+  // ══════════════════════════════════════════
+  //  ورقة 2: بنود الفاتورة
+  // ══════════════════════════════════════════
+  const ws2 = wb.addWorksheet("بنود الفاتورة", { views: [{ rightToLeft: true }] });
+  ws2.columns = [
+    { width: 6 },  // #
+    { width: 32 }, // المنتج
+    { width: 15 }, // اللون
+    { width: 11 }, // المقاس
+    { width: 11 }, // الكمية
+    { width: 20 }, // سعر الوحدة
+    { width: 20 }, // الإجمالي
+  ];
+
+  // صف الهيدر
+  const headerRow = ws2.addRow(["#", "المنتج", "اللون", "المقاس", "الكمية", "سعر الوحدة (ج)", "الإجمالي (ج)"]);
+  headerRow.height = 26;
+  headerRow.eachCell((cell, colNum) => {
+    cell.font  = { name: "Arial", bold: true, size: 11, color: { argb: C_WHITE } };
+    cell.fill  = { type: "pattern", pattern: "solid", fgColor: { argb: C_GOLD } };
+    cell.alignment = { horizontal: colNum === 2 ? "right" : "center", vertical: "middle", readingOrder: "rtl" };
+    cell.border = allBorders;
+  });
+
+  // صفوف البنود
+  order.items.forEach((it, i) => {
+    const row = ws2.addRow([
       i + 1,
       it.productName ?? "—",
       it.color ?? "—",
@@ -92,25 +169,38 @@ function exportToExcel(order: SaleOrder) {
       it.quantity,
       Number(it.unitPrice),
       it.quantity * Number(it.unitPrice),
-    ]),
-    [],
-    ["", "", "", "الإجمالي", totalQtyEx, "", total],
-  ];
+    ]);
+    row.height = 20;
+    const bgColor = i % 2 === 0 ? C_WHITE : C_STRIPE;
+    row.eachCell((cell, colNum) => {
+      cell.font  = { name: "Arial", bold: colNum === 7, size: 11, color: { argb: colNum === 7 ? C_GOLD : "FF222222" } };
+      cell.fill  = { type: "pattern", pattern: "solid", fgColor: { argb: bgColor } };
+      cell.alignment = { horizontal: colNum === 2 ? "right" : "center", vertical: "middle", readingOrder: "rtl" };
+      cell.border = allBorders;
+      if (colNum === 6 || colNum === 7) cell.numFmt = "#,##0";
+    });
+  });
 
-  const wsInfo  = XLSX.utils.aoa_to_sheet(infoRows);
-  const wsItems = XLSX.utils.aoa_to_sheet(itemsRows);
+  // صف الإجمالي
+  const totalRow = ws2.addRow(["", "", "", "الإجمالي", totalQtyEx, "", total]);
+  totalRow.height = 24;
+  totalRow.eachCell((cell, colNum) => {
+    cell.font  = { name: "Arial", bold: true, size: 11, color: { argb: colNum === 7 ? C_GOLD : C_HEAD_DK } };
+    cell.fill  = { type: "pattern", pattern: "solid", fgColor: { argb: C_GOLD_BG } };
+    cell.alignment = { horizontal: colNum === 4 ? "right" : "center", vertical: "middle", readingOrder: "rtl" };
+    cell.border = allBorders;
+    if (colNum === 5 || colNum === 7) cell.numFmt = "#,##0";
+  });
 
-  // عرض الأعمدة
-  wsInfo["!cols"]  = [{ wch: 30 }, { wch: 40 }];
-  wsItems["!cols"] = [
-    { wch: 5 }, { wch: 30 }, { wch: 15 }, { wch: 12 },
-    { wch: 10 }, { wch: 18 }, { wch: 18 },
-  ];
-
-  XLSX.utils.book_append_sheet(wb, wsInfo,  "بيانات الفاتورة");
-  XLSX.utils.book_append_sheet(wb, wsItems, "بنود الفاتورة");
-
-  XLSX.writeFile(wb, `فاتورة-${order.soNumber}.xlsx`);
+  // حفظ وتنزيل
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob   = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const url    = URL.createObjectURL(blob);
+  const a      = document.createElement("a");
+  a.href       = url;
+  a.download   = `فاتورة-${order.soNumber}.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ── طباعة PDF ──────────────────────────────────────────────────────────────
@@ -282,6 +372,16 @@ export default function FinanceSaleDetail() {
   const [error, setError]   = useState<string | null>(null);
   const [saving, setSaving]  = useState(false);
 
+  // تعديل/حذف المنتجات
+  const [editingItemId, setEditingItemId]   = useState<number | null>(null);
+  const [editQty,       setEditQty]         = useState<number>(1);
+  const [editPrice,     setEditPrice]       = useState<number>(0);
+  const [editName,      setEditName]        = useState<string>("");
+  const [editColor,     setEditColor]       = useState<string>("");
+  const [editSize,      setEditSize]        = useState<string>("");
+  const [itemSaving,    setItemSaving]      = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+
   // إغلاق الفاتورة
   const [showConfirm, setShowConfirm] = useState(false);
   const [closing, setClosing]  = useState(false);
@@ -316,6 +416,71 @@ export default function FinanceSaleDetail() {
     } catch (e: any) {
       alert("حدث خطأ: " + e.message);
     } finally { setSaving(false); }
+  };
+
+  // بدء تعديل منتج
+  const startEditItem = (it: SaleItem) => {
+    setEditingItemId(it.id);
+    setEditQty(it.quantity);
+    setEditPrice(Number(it.unitPrice));
+    setEditName(it.productName);
+    setEditColor(it.color ?? "");
+    setEditSize(it.size ?? "");
+  };
+
+  // حفظ تعديل المنتج
+  const saveEditItem = async () => {
+    if (!order || editingItemId === null) return;
+    setItemSaving(true);
+    try {
+      await apiFetch(`/finance/sale-orders/${order.id}/items/${editingItemId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          productName: editName,
+          color: editColor || null,
+          size: editSize || null,
+          quantity: editQty,
+          unitPrice: editPrice,
+        }),
+      });
+      // تحديث الـ state محلياً
+      const newTotal = order.items.reduce((sum, it) => {
+        if (it.id === editingItemId) return sum + editQty * editPrice;
+        return sum + it.quantity * Number(it.unitPrice);
+      }, 0);
+      setOrder(prev => prev ? {
+        ...prev,
+        totalAmount: String(newTotal),
+        items: prev.items.map(it => it.id === editingItemId
+          ? { ...it, productName: editName, color: editColor, size: editSize, quantity: editQty, unitPrice: String(editPrice) }
+          : it
+        ),
+      } : prev);
+      setEditingItemId(null);
+    } catch (e: any) {
+      alert("خطأ في التعديل: " + e.message);
+    } finally { setItemSaving(false); }
+  };
+
+  // حذف منتج
+  const deleteItem = async (itemId: number) => {
+    if (!order) return;
+    setItemSaving(true);
+    try {
+      await apiFetch(`/finance/sale-orders/${order.id}/items/${itemId}`, {
+        method: "DELETE",
+      });
+      const remaining = order.items.filter(it => it.id !== itemId);
+      const newTotal  = remaining.reduce((sum, it) => sum + it.quantity * Number(it.unitPrice), 0);
+      setOrder(prev => prev ? {
+        ...prev,
+        totalAmount: String(newTotal),
+        items: remaining,
+      } : prev);
+      setDeleteConfirmId(null);
+    } catch (e: any) {
+      alert("خطأ في الحذف: " + e.message);
+    } finally { setItemSaving(false); }
   };
 
   useEffect(() => {
@@ -535,32 +700,137 @@ export default function FinanceSaleDetail() {
         <table className="w-full text-sm">
           <thead>
             <tr style={{ background: "hsl(43,74%,50%)" }}>
-              {["#","المنتج","اللون","المقاس","الكمية","سعر الوحدة","الإجمالي"].map(h => (
-                <th key={h} className="text-right py-2.5 px-3 text-xs font-bold text-white">{h}</th>
+              {["#","المنتج","اللون","المقاس","الكمية","سعر الوحدة","الإجمالي",""].map((h,idx) => (
+                <th key={idx} className="text-right py-2.5 px-3 text-xs font-bold text-white">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {order.items.map((it, i) => (
-              <tr key={it.id}
-                style={{
-                  background: i % 2 === 0 ? "hsl(var(--card))" : "hsl(var(--muted)/0.3)",
-                  borderBottom: "1px solid hsl(var(--border))",
-                }}>
-                <td className="py-2 px-3 text-muted-foreground text-xs">{i + 1}</td>
-                <td className="py-2 px-3 font-semibold">{it.productName ?? "—"}</td>
-                <td className="py-2 px-3">{it.color ?? "—"}</td>
-                <td className="py-2 px-3">{it.size ?? "—"}</td>
-                <td className="py-2 px-3 text-center font-bold">{it.quantity}</td>
-                <td className="py-2 px-3 text-center">{fmtNum(it.unitPrice)} ج</td>
-                <td className="py-2 px-3 text-center font-bold" style={{ color: "hsl(43,74%,50%)" }}>
-                  {fmtNum(it.quantity * Number(it.unitPrice))} ج
-                </td>
-              </tr>
-            ))}
+            {order.items.map((it, i) => {
+              const isEditing = editingItemId === it.id;
+              return (
+                <tr key={it.id}
+                  style={{
+                    background: i % 2 === 0 ? "hsl(var(--card))" : "hsl(var(--muted)/0.3)",
+                    borderBottom: "1px solid hsl(var(--border))",
+                  }}>
+                  <td className="py-2 px-3 text-muted-foreground text-xs w-8">{i + 1}</td>
+
+                  {/* اسم المنتج */}
+                  <td className="py-2 px-3 font-semibold">
+                    {isEditing
+                      ? <input className="border rounded px-2 py-1 text-xs w-full" style={{ background: "hsl(var(--background))", borderColor: "hsl(var(--border))" }}
+                          value={editName} onChange={e => setEditName(e.target.value)} />
+                      : it.productName ?? "—"}
+                  </td>
+
+                  {/* اللون */}
+                  <td className="py-2 px-3">
+                    {isEditing
+                      ? <input className="border rounded px-2 py-1 text-xs w-20" style={{ background: "hsl(var(--background))", borderColor: "hsl(var(--border))" }}
+                          value={editColor} onChange={e => setEditColor(e.target.value)} />
+                      : it.color ?? "—"}
+                  </td>
+
+                  {/* المقاس */}
+                  <td className="py-2 px-3">
+                    {isEditing
+                      ? <input className="border rounded px-2 py-1 text-xs w-16" style={{ background: "hsl(var(--background))", borderColor: "hsl(var(--border))" }}
+                          value={editSize} onChange={e => setEditSize(e.target.value)} />
+                      : it.size ?? "—"}
+                  </td>
+
+                  {/* الكمية */}
+                  <td className="py-2 px-3 text-center font-bold">
+                    {isEditing
+                      ? <input type="number" min={1} className="border rounded px-2 py-1 text-xs w-16 text-center" style={{ background: "hsl(var(--background))", borderColor: "hsl(var(--border))" }}
+                          value={editQty} onChange={e => setEditQty(Number(e.target.value) || 1)} />
+                      : it.quantity}
+                  </td>
+
+                  {/* السعر */}
+                  <td className="py-2 px-3 text-center">
+                    {isEditing
+                      ? <input type="number" min={0} className="border rounded px-2 py-1 text-xs w-20 text-center" style={{ background: "hsl(var(--background))", borderColor: "hsl(var(--border))" }}
+                          value={editPrice} onChange={e => setEditPrice(Number(e.target.value) || 0)} />
+                      : `${fmtNum(it.unitPrice)} ج`}
+                  </td>
+
+                  {/* الإجمالي */}
+                  <td className="py-2 px-3 text-center font-bold" style={{ color: "hsl(43,74%,50%)" }}>
+                    {isEditing
+                      ? `${fmtNum(editQty * editPrice)} ج`
+                      : `${fmtNum(it.quantity * Number(it.unitPrice))} ج`}
+                  </td>
+
+                  {/* أزرار التعديل/الحذف */}
+                  <td className="py-2 px-2 text-center whitespace-nowrap">
+                    {isEditing ? (
+                      <div className="flex items-center gap-1">
+                        <button onClick={saveEditItem} disabled={itemSaving}
+                          className="flex items-center gap-1 px-2 py-1 rounded text-xs font-bold text-white transition-opacity hover:opacity-85"
+                          style={{ background: "hsl(43,74%,50%)" }}>
+                          <Save className="w-3 h-3" />
+                          {itemSaving ? "…" : "حفظ"}
+                        </button>
+                        <button onClick={() => setEditingItemId(null)} disabled={itemSaving}
+                          className="px-2 py-1 rounded text-xs border hover:bg-muted/40 transition-colors"
+                          style={{ borderColor: "hsl(var(--border))" }}>
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => startEditItem(it)}
+                          title="تعديل"
+                          className="p-1.5 rounded hover:bg-blue-500/10 transition-colors"
+                          style={{ color: "#1565C0" }}>
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => setDeleteConfirmId(it.id)}
+                          title="حذف"
+                          className="p-1.5 rounded hover:bg-rose-500/10 transition-colors"
+                          style={{ color: "#B71C1C" }}>
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
+
+      {/* ── CONFIRM DELETE DIALOG ── */}
+      {deleteConfirmId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.5)" }}>
+          <div className="rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl" style={{ background: "hsl(var(--card))" }}>
+            <div className="text-center mb-4">
+              <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3"
+                style={{ background: "rgba(183,28,28,0.1)" }}>
+                <Trash2 className="w-7 h-7" style={{ color: "#B71C1C" }} />
+              </div>
+              <h3 className="text-base font-bold mb-1">حذف المنتج</h3>
+              <p className="text-sm text-muted-foreground">
+                هل أنت متأكد من حذف <strong>{order.items.find(x => x.id === deleteConfirmId)?.productName}</strong>؟
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">لا يمكن التراجع عن هذا الإجراء.</p>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setDeleteConfirmId(null)} disabled={itemSaving}
+                className="flex-1 py-2 rounded-lg text-sm font-semibold border hover:opacity-70 transition-opacity"
+                style={{ borderColor: "hsl(var(--border))" }}>إلغاء</button>
+              <button onClick={() => deleteItem(deleteConfirmId!)} disabled={itemSaving}
+                className="flex-1 py-2 rounded-lg text-sm font-bold text-white hover:opacity-85 transition-opacity"
+                style={{ background: "#B71C1C" }}>
+                {itemSaving ? "جارٍ…" : "تأكيد الحذف"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── TOTALS ── */}
       <div className="flex justify-start mb-5">
