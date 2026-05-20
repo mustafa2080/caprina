@@ -64,7 +64,7 @@ function printSaleInvoice(order: SaleOrder, items: any[], warehouses: Warehouse[
     body{font-family:Arial,sans-serif;margin:0;padding:24px;color:#222;font-size:13px}
     h1{margin:0;font-size:20px;color:#26A69A}
     .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #26A69A;padding-bottom:12px;margin-bottom:16px}
-    .badge{background:#26A69A;color:#fff;padding:2px 10px;border-radius:999px;font-size:11px}
+    .badge{background:#26A69A;color:#0a0a0a;padding:2px 10px;border-radius:999px;font-size:11px}
     table{width:100%;border-collapse:collapse;margin-bottom:14px}
     th{background:#f0fafa;text-align:right;padding:6px 8px;border:1px solid #ddd;font-size:12px}
     td{padding:5px 8px;border:1px solid #eee;font-size:12px}
@@ -103,7 +103,7 @@ function printSaleInvoice(order: SaleOrder, items: any[], warehouses: Warehouse[
   ${order.notes ? `<p style="font-size:12px;color:#666"><strong>ملاحظات:</strong> ${order.notes}</p>` : ""}
   <div class="footer">شكراً لتعاملكم معنا — Caprina</div>
   <div class="no-print" style="text-align:center;margin-top:20px">
-    <button onclick="window.print()" style="padding:8px 24px;background:#26A69A;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px">🖨️ طباعة</button>
+    <button onclick="window.print()" style="padding:8px 24px;background:#26A69A;color:#0a0a0a;border:none;border-radius:6px;cursor:pointer;font-size:14px">🖨️ طباعة</button>
   </div>
   </body></html>`;
   const w = window.open("", "_blank");
@@ -1440,7 +1440,7 @@ export default function FinanceSales() {
             </Button>
           )}
           <Button size="sm" onClick={() => { setEditOrder(null); setFormOpen(true); }} className="gap-1"
-            style={{ background: "linear-gradient(135deg,#4DB6AC,#26A69A)", color: "#fff" }}>
+            style={{ background: "linear-gradient(135deg,#4DB6AC,#26A69A)", color: "#0a0a0a" }}>
             <Plus className="w-4 h-4" />أمر بيع جديد
           </Button>
         </div>
@@ -1449,15 +1449,15 @@ export default function FinanceSales() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: "إجمالي الأوامر",   value: fmt(stats.total),  color: "#4DB6AC", glow: "rgba(77,182,172,0.32)",   bg: "linear-gradient(135deg,rgba(77,182,172,0.42) 0%,rgba(77,182,172,0.16) 52%,rgba(255,255,255,0.08) 100%)" },
-          { label: "إجمالي المحصّل",   value: fmt(stats.paid),   color: "#26A69A", glow: "rgba(38,166,154,0.28)",   bg: "linear-gradient(135deg,rgba(38,166,154,0.44) 0%,rgba(38,166,154,0.18) 52%,rgba(255,255,255,0.08) 100%)" },
-          { label: "المتبقي للتحصيل",  value: fmt(stats.unpaid), color: "#ef4444", glow: "rgba(239,68,68,0.28)",    bg: "linear-gradient(135deg,rgba(239,68,68,0.42) 0%,rgba(239,68,68,0.16) 52%,rgba(255,255,255,0.08) 100%)" },
-          { label: "قيد التنفيذ / مُسلَّم", value: `${stats.pending} / ${stats.delivered}`, color: "#7E57C2", glow: "rgba(126,87,194,0.32)", bg: "linear-gradient(135deg,rgba(126,87,194,0.42) 0%,rgba(126,87,194,0.16) 52%,rgba(255,255,255,0.08) 100%)" },
+          { label: "إجمالي الأوامر",   value: fmt(stats.total),  color: "#4DB6AC", glow: "rgba(77,182,172,0.32)",   bg: "linear-gradient(135deg,rgba(77,182,172,0.42) 0%,rgba(77,182,172,0.16) 52%,rgba(77,182,172,0.04) 100%)" },
+          { label: "إجمالي المحصّل",   value: fmt(stats.paid),   color: "#26A69A", glow: "rgba(38,166,154,0.28)",   bg: "linear-gradient(135deg,rgba(38,166,154,0.44) 0%,rgba(38,166,154,0.18) 52%,rgba(38,166,154,0.04) 100%)" },
+          { label: "المتبقي للتحصيل",  value: fmt(stats.unpaid), color: "#ef4444", glow: "rgba(239,68,68,0.28)",    bg: "linear-gradient(135deg,rgba(239,68,68,0.42) 0%,rgba(239,68,68,0.16) 52%,rgba(239,68,68,0.04) 100%)" },
+          { label: "قيد التنفيذ / مُسلَّم", value: `${stats.pending} / ${stats.delivered}`, color: "#7E57C2", glow: "rgba(126,87,194,0.32)", bg: "linear-gradient(135deg,rgba(126,87,194,0.42) 0%,rgba(126,87,194,0.16) 52%,rgba(126,87,194,0.04) 100%)" },
         ].map(c => (
           <div key={c.label} className="relative overflow-hidden rounded-[18px] px-4 py-3.5 text-center hover:-translate-y-0.5 transition-transform duration-300"
-            style={{ background: c.bg, border: `1px solid ${c.glow}`, boxShadow: `inset 0 1px 0 rgba(255,255,255,0.18),0 10px 24px ${c.glow}`, backdropFilter: "blur(12px)" }}>
+            style={{ background: c.bg, border: `1px solid ${c.glow}`, boxShadow: `inset 0 1px 0 ${c.glow},0 10px 24px ${c.glow}`, backdropFilter: "blur(12px)" }}>
             <div className="absolute inset-x-6 top-0 h-px opacity-80" style={{ background: `linear-gradient(90deg,transparent,${c.color},transparent)` }} />
-            <p className="text-[11px] font-bold text-white/70">{c.label}</p>
+            <p className="text-[11px] font-bold" style={{ color: "hsl(var(--muted-foreground))" }}>{c.label}</p>
             <p className="mt-1 truncate text-xl font-black sm:text-2xl" style={{ color: c.color, textShadow: `0 0 14px ${c.color}88` }}>{c.value}</p>
           </div>
         ))}
@@ -1465,7 +1465,7 @@ export default function FinanceSales() {
 
       {/* Table */}
       <div className="relative overflow-hidden rounded-[22px]"
-        style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06),0 8px 32px rgba(0,0,0,0.18)" }}>
+        style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", boxShadow: "inset 0 1px 0 rgba(77,182,172,0.08),0 8px 32px rgba(0,0,0,0.18)" }}>
         <div className="absolute inset-x-0 top-0 h-px" style={{ background: "linear-gradient(90deg,transparent,rgba(77,182,172,0.6),rgba(38,166,154,0.6),transparent)" }} />
         <div className="overflow-x-auto">
           <table className="w-full text-sm">

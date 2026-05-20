@@ -138,7 +138,7 @@ function printManifestPDF(order: SaleOrder) {
   .client-label{color:#888;margin-left:4px}
   .client-val{font-weight:600}
   table{width:100%;border-collapse:collapse;margin-bottom:18px}
-  thead th{background:hsl(43,74%,50%);color:#fff;padding:9px 10px;font-size:12px;text-align:right}
+  thead th{background:hsl(43,74%,50%);color:#0a0a0a;padding:9px 10px;font-size:12px;text-align:right}
   tbody tr{border-bottom:1px solid #f0f0f0}
   tbody tr:nth-child(even){background:#FAFFFE}
   tbody td{padding:8px 10px;font-size:12px}
@@ -189,7 +189,7 @@ ${order.notes?`<div style="background:#FFFDE7;border:1px solid #FFF176;border-ra
   <div class="sig-block"><div class="sig-line"></div><div class="sig-lbl">توقيع المسؤول — الاسم: ___________</div></div>
 </div>
 <div class="no-print" style="text-align:center;margin-top:28px">
-  <button onclick="window.print()" style="padding:10px 32px;background:hsl(43,74%,50%);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:15px;font-weight:700">🖨️ طباعة / حفظ PDF</button>
+  <button onclick="window.print()" style="padding:10px 32px;background:hsl(43,74%,50%);color:#0a0a0a;border:none;border-radius:8px;cursor:pointer;font-size:15px;font-weight:700">🖨️ طباعة / حفظ PDF</button>
 </div>
 </body></html>`;
 
@@ -706,7 +706,7 @@ export default function FinanceSaleDetail() {
           <thead>
             <tr style={{ background: "hsl(43,74%,50%)" }}>
               {["#","المنتج","اللون","المقاس","الكمية","سعر الوحدة","الإجمالي",""].map((h,idx) => (
-                <th key={idx} className="text-right py-2.5 px-3 text-xs font-bold text-white">{h}</th>
+                <th key={idx} className="text-right py-2.5 px-3 text-xs font-bold" style={{ color: "#0a0a0a" }}>{h}</th>
               ))}
             </tr>
           </thead>
