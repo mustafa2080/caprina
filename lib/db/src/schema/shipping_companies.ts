@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 
 export const shippingCompaniesTable = mysqlTable("shipping_companies", {
   id: int("id").primaryKey().autoincrement(),
+  tenantId: int("tenant_id"),
   name: varchar("name", { length: 255 }).notNull(),
   phone: varchar("phone", { length: 50 }),
   website: varchar("website", { length: 255 }),

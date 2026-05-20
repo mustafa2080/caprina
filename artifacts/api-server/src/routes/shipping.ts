@@ -20,10 +20,8 @@ const UpdateSchema = CreateSchema.partial();
 
 router.get("/shipping-companies", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req);
-  const conditions: any[] = [];
-  if (tenantId !== null) conditions.push(eq(shippingCompaniesTable.tenantId, tenantId));
-  const companies = conditions.length > 0
-    ? await db.select().from(shippingCompaniesTable).where(and(...conditions)).orderBy(desc(shippingCompaniesTable.createdAt))
+  const companies = tenantId !== null
+    ? await db.select().from(shippingCompaniesTable).where(eq(shippingCompaniesTable.tenantId, tenantId)).orderBy(desc(shippingCompaniesTable.createdAt))
     : await db.select().from(shippingCompaniesTable).orderBy(desc(shippingCompaniesTable.createdAt));
   res.json(companies);
 });
