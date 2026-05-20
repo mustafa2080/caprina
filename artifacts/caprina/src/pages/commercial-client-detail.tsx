@@ -35,7 +35,7 @@ function InvoiceProgressBar({
 
 // ── أنواع البيانات ──────────────────────────────────────────────────────────
 type SaleOrder = {
-  id: number; soNumber: string; status: string;
+  id: number; soNumber: string; status: string; paymentStatus: string;
   totalAmount: string; paidAmount: string;
   createdAt: string; closedAt?: string | null;
   itemCount?: number;
@@ -53,9 +53,9 @@ type ClientDetail = Client & { orders: SaleOrder[] };
 // ── بطاقة الفاتورة — زي ManifestCard بالظبط ────────────────────────────────
 function InvoiceCard({ order, isLatest }: { order: SaleOrder; isLatest: boolean }) {
   const [, navigate] = useLocation();
-  const total  = parseFloat(order.totalAmount  ?? "0");
-  const paid   = parseFloat(order.paidAmount   ?? "0");
-  const unpaid = Math.max(0, total - paid);
+  const total  = parseFloat(order.totalAmount ?? "0");
+  const paid   = order.paymentStatus === "paid" ? total : parseFloat(order.paidAmount ?? "0");
+  const unpaid = order.paymentStatus === "paid" ? 0 : Math.max(0, total - paid);
   const isProcessing = order.status === "processing";
 
   return (
@@ -163,11 +163,16 @@ export default function CommercialClientDetailPage() {
   const creditLimit = parseFloat(client?.creditLimit ?? "0");
   const totalSales  = parseFloat(client?.totalSales  ?? "0");
   const totalPaid   = parseFloat(client?.totalPaid   ?? "0");
-  const unpaid      = Math.max(0, totalSales - totalPaid);
+  const allOrders        = data?.orders ?? [];
+  // حساب المديونية الحقيقية من الفواتير — يراعي paymentStatus
+  const unpaid = allOrders.reduce((sum, o) => {
+    const t = parseFloat(o.totalAmount ?? "0");
+    const p = o.paymentStatus === "paid" ? t : parseFloat(o.paidAmount ?? "0");
+    return sum + Math.max(0, t - p);
+  }, 0);
   const salesPct    = creditLimit > 0 ? Math.min((totalSales / creditLimit) * 100, 100) : 0;
   const remaining   = Math.max(0, creditLimit - totalSales);
 
-  const allOrders        = data?.orders ?? [];
   const processingOrders = allOrders.filter(o => o.status === "processing");
   const deliveredOrders  = allOrders.filter(o => o.status === "delivered");
   const latestProcessingId = processingOrders[0]?.id;
