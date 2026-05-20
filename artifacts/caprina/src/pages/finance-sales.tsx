@@ -872,6 +872,12 @@ function SOForm({ open, onClose, editOrder, warehouses, products, onSuccess }: {
         invoiceRef: invoiceRef || null,
       };
       if (isEdit) {
+        body.items = items.map(r => ({
+          productId: r.productId ? parseInt(r.productId) : null,
+          variantId: r.variantId ?? null,
+          productName: r.productName, color: r.color || null, size: r.size || null,
+          sku: r.sku || null, quantity: r.quantity, unitPrice: r.unitPrice,
+        }));
         return apiFetch<any>(`/finance/sale-orders/${editOrder!.id}`, { method: "PATCH", body: JSON.stringify(body) });
       }
       body.items = items.map(r => ({
@@ -1029,35 +1035,89 @@ function SOForm({ open, onClose, editOrder, warehouses, products, onSuccess }: {
         {/* ── البنود ── */}
         {isEdit ? (
           <div className="mt-4">
-            <Label className="text-base font-semibold">بنود الأمر</Label>
+            <div className="flex items-center justify-between mb-2">
+              <Label className="text-base font-semibold">بنود الأمر</Label>
+              <Button type="button" size="sm" variant="outline" onClick={() => setItems(p => [...p, blank()])}>
+                <Plus className="w-3 h-3 ml-1" />إضافة بند
+              </Button>
+            </div>
             {itemsLoading ? (
               <div className="rounded-lg border p-6 flex items-center justify-center gap-2 text-muted-foreground text-sm">
                 <ShoppingBag className="w-4 h-4 animate-pulse" /><span>جارٍ جلب البنود…</span>
               </div>
             ) : (
-              <div className="mt-2 rounded-lg border overflow-x-auto">
+              <div className="rounded-lg border overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead style={{ background: "hsl(var(--muted)/0.4)" }}>
-                    <tr>{["المنتج","لون/مقاس","الكمية","المُسلَّم","السعر/وحدة","الإجمالي"].map(h => (
-                      <th key={h} className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground">{h}</th>
+                  <thead className="bg-muted/30">
+                    <tr>{["المنتج","اللون","المقاس","المتاح","الكمية","سعر الوحدة","الإجمالي",""].map(h => (
+                      <th key={h} className="px-2 py-2 text-right text-xs text-muted-foreground font-medium whitespace-nowrap">{h}</th>
                     ))}</tr>
                   </thead>
                   <tbody>
-                    {items.map((r, i) => (
-                      <tr key={i} style={{ borderTop: "1px solid hsl(var(--border)/0.5)" }}>
-                        <td className="px-3 py-2.5"><p className="font-medium">{r.productName || "—"}</p></td>
-                        <td className="px-3 py-2.5 text-xs text-muted-foreground">{[r.color,r.size].filter(Boolean).join(" / ") || "—"}</td>
-                        <td className="px-3 py-2.5 text-center font-semibold">{r.quantity}</td>
-                        <td className="px-3 py-2.5 text-center" style={{ color: (r.deliveredQty??0)>=r.quantity ? "#10b981" : "#f59e0b" }}>{r.deliveredQty ?? 0}</td>
-                        <td className="px-3 py-2.5">{fmt(r.unitPrice)}</td>
-                        <td className="px-3 py-2.5 font-semibold" style={{ color: "#4DB6AC" }}>{fmt(r.quantity * r.unitPrice)}</td>
-                      </tr>
-                    ))}
+                    {items.map((r, i) => {
+                      const colors  = colorsForProduct(r.productId);
+                      const sizes   = r.color ? sizesForColor(r.productId, r.color) : [];
+                      const avail   = r.availableQty;
+                      const overQty = avail !== undefined && r.quantity > avail;
+                      return (
+                        <tr key={i} className="border-t">
+                          {/* المنتج */}
+                          <td className="px-2 py-1.5 min-w-[160px]">
+                            <Select value={r.productId} onValueChange={v => handleProductChange(i, v)}>
+                              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="اختر منتج" /></SelectTrigger>
+                              <SelectContent>{products.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </td>
+                          {/* اللون */}
+                          <td className="px-2 py-1.5 min-w-[100px]">
+                            <Select value={r.color} onValueChange={v => handleColorChange(i, v)} disabled={!r.productId}>
+                              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="لون" /></SelectTrigger>
+                              <SelectContent>{colors.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </td>
+                          {/* المقاس */}
+                          <td className="px-2 py-1.5 min-w-[90px]">
+                            <Select value={r.size} onValueChange={v => handleSizeChange(i, v)} disabled={!r.color}>
+                              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="مقاس" /></SelectTrigger>
+                              <SelectContent>{sizes.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </td>
+                          {/* المتاح */}
+                          <td className="px-2 py-1.5 text-center text-xs" style={{ color: overQty ? "#ef4444" : "#10b981" }}>
+                            {avail !== undefined ? avail : "—"}
+                          </td>
+                          {/* الكمية */}
+                          <td className="px-2 py-1.5 min-w-[70px]">
+                            <Input type="number" min={1} className="h-8 text-xs text-center"
+                              style={{ borderColor: overQty ? "#ef4444" : undefined }}
+                              value={r.quantity}
+                              onChange={e => upd(i, "quantity", Math.max(1, parseInt(e.target.value) || 1))} />
+                          </td>
+                          {/* السعر */}
+                          <td className="px-2 py-1.5 min-w-[90px]">
+                            <Input type="number" min={0} className="h-8 text-xs" value={r.unitPrice}
+                              onChange={e => upd(i, "unitPrice", parseFloat(e.target.value) || 0)} />
+                          </td>
+                          {/* الإجمالي */}
+                          <td className="px-2 py-1.5 text-xs font-semibold whitespace-nowrap" style={{ color: "#4DB6AC" }}>
+                            {fmt(r.quantity * r.unitPrice)}
+                          </td>
+                          {/* حذف البند */}
+                          <td className="px-2 py-1.5">
+                            <Button type="button" size="sm" variant="ghost"
+                              className="h-7 w-7 p-0 text-rose-500 hover:bg-rose-500/10"
+                              disabled={items.length === 1}
+                              onClick={() => setItems(p => p.filter((_, idx) => idx !== i))}>
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
             )}
-            <p className="mt-2 text-xs text-muted-foreground">💡 لتعديل البنود أنشئ أمراً جديداً</p>
           </div>
         ) : (
           <div className="mt-4">

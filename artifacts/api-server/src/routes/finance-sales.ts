@@ -168,7 +168,8 @@ router.patch("/finance/sale-orders/:id", async (req, res): Promise<void> => {
     const {
       status, paymentStatus, paidAmount,
       notes, expectedDate, clientName, clientPhone, clientAddress,
-      warehouseId, invoiceRef,
+      warehouseId, invoiceRef, discountAmount, shippingCost, taxAmount,
+      items,
     } = req.body;
 
     // اجلب الأمر الحالي
@@ -186,6 +187,32 @@ router.patch("/finance/sale-orders/:id", async (req, res): Promise<void> => {
     if (clientPhone   !== undefined) updates.clientPhone   = clientPhone;
     if (clientAddress !== undefined) updates.clientAddress = clientAddress;
     if (invoiceRef    !== undefined) updates.invoiceRef    = invoiceRef;
+    if (discountAmount !== undefined) updates.discountAmount = String(discountAmount);
+    if (shippingCost  !== undefined) updates.shippingCost  = String(shippingCost);
+    if (taxAmount     !== undefined) updates.taxAmount     = String(taxAmount);
+
+    // إذا أُرسلت بنود جديدة → احذف القديمة وأدرج الجديدة وأعد حساب الإجمالي
+    if (Array.isArray(items) && items.length > 0) {
+      await db.delete(saleOrderItemsTable).where(eq(saleOrderItemsTable.saleOrderId, id));
+      const newItems = items.map((i: any) => ({
+        saleOrderId: id,
+        productId:   i.productId   ? parseInt(i.productId)   : null,
+        variantId:   i.variantId   ? parseInt(i.variantId)   : null,
+        productName: i.productName ?? "",
+        color:       i.color       ?? null,
+        size:        i.size        ?? null,
+        sku:         i.sku         ?? null,
+        quantity:    Number(i.quantity),
+        unitPrice:   String(i.unitPrice),
+        subtotal:    String(Number(i.quantity) * Number(i.unitPrice)),
+      }));
+      await db.insert(saleOrderItemsTable).values(newItems);
+      const subTotal = newItems.reduce((s, i) => s + Number(i.quantity) * Number(i.unitPrice), 0);
+      const disc = discountAmount !== undefined ? Number(discountAmount) : Number(current.discountAmount ?? 0);
+      const ship = shippingCost   !== undefined ? Number(shippingCost)   : Number(current.shippingCost   ?? 0);
+      const tax  = taxAmount      !== undefined ? Number(taxAmount)      : Number(current.taxAmount      ?? 0);
+      updates.totalAmount = String(subTotal + ship + tax - disc);
+    }
 
     // تسجيل وقت التسليم
     if (status === "delivered" && current.status !== "delivered") {
