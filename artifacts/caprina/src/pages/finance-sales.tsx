@@ -595,10 +595,9 @@ function PurchaseOrderQuickDialog({ draft, onClose }: {
 }
 
 // ── SORow ──────────────────────────────────────────────────────────────────
-function SORow({ order, onEdit, onDelete, onPrint, onTransferToTreasury, onView, warehouses }: {
+function SORow({ order, onEdit, onDelete, onTransferToTreasury, onView, warehouses }: {
   order: SaleOrder; onEdit: (o: SaleOrder) => void;
   onDelete: (id: number) => void;
-  onPrint: (o: SaleOrder) => void;
   onTransferToTreasury: (o: SaleOrder) => void;
   onView: (id: number) => void;
   warehouses: Warehouse[];
@@ -636,11 +635,7 @@ function SORow({ order, onEdit, onDelete, onPrint, onTransferToTreasury, onView,
             onClick={() => onView(order.id)}>
             <ChevronRight className="w-3 h-3" />
           </Button>
-          <Button size="sm" variant="ghost" className="h-7 px-2 text-xs"
-            title="طباعة فاتورة"
-            onClick={() => onPrint(order)}>
-            <Printer className="w-3 h-3" />
-          </Button>
+
           {order.status === "delivered" && order.paymentStatus === "paid" && (
             <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-emerald-400 hover:bg-emerald-500/10"
               title="تحويل للخزينة"
@@ -1602,7 +1597,6 @@ export default function FinanceSales() {
                 <SORow key={o.id} order={o} warehouses={warehouses}
                   onEdit={o => { setEditOrder(o); setFormOpen(true); }}
                   onDelete={id => { if (confirm("هل تريد حذف هذا الأمر؟")) deleteMut.mutate(id); }}
-                  onPrint={handlePrint}
                   onView={id => navigate(`/finance/sales/${id}`)}
                   onTransferToTreasury={handleTransferToTreasury} />
               ))}
