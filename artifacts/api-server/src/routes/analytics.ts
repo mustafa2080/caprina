@@ -14,9 +14,14 @@ async function getProductsForTenant(tenantId: number | null) {
     : db.select().from(productsTable);
 }
 async function getVariantsForTenant(tenantId: number | null) {
-  return tenantId !== null
-    ? db.select().from(productVariantsTable).where(eq(productVariantsTable.tenantId, tenantId))
-    : db.select().from(productVariantsTable);
+  if (tenantId !== null) {
+    // الـ variants مفيهاش tenantId مباشرة — نجيبها عن طريق الـ products التابعة للـ tenant
+    const tenantProducts = await db.select({ id: productsTable.id }).from(productsTable).where(eq(productsTable.tenantId, tenantId));
+    const productIds = tenantProducts.map(p => p.id);
+    if (productIds.length === 0) return [];
+    return db.select().from(productVariantsTable).where(inArray(productVariantsTable.productId, productIds));
+  }
+  return db.select().from(productVariantsTable);
 }
 async function getManifestsForTenant(tenantId: number | null) {
   return tenantId !== null
