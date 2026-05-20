@@ -133,28 +133,74 @@ function ColFilter({ label, active, visible, isOpen, onToggle, children }: {
   isOpen: boolean; onToggle: () => void; children: React.ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onToggle(); };
-    if (isOpen) document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
+    if (!isOpen) return;
+    const h = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onToggle();
+    };
+    // تأخير بسيط عشان ما يتغلقش على طول
+    const timer = setTimeout(() => document.addEventListener("mousedown", h), 100);
+    return () => { clearTimeout(timer); document.removeEventListener("mousedown", h); };
   }, [isOpen]);
+
   return (
-    <div ref={ref} className="relative inline-flex items-center gap-1">
-      <span className="text-xs font-semibold" style={{ color: active ? "#4DB6AC" : "hsl(var(--muted-foreground))" }}>{label}</span>
+    <div ref={ref} className="relative inline-flex items-center gap-1 select-none">
+      <span className="text-xs font-semibold" style={{ color: active ? "#4DB6AC" : "hsl(var(--muted-foreground))" }}>
+        {label}
+      </span>
+
+      {/* أيقونة الفلتر — تظهر فقط لما colFilters = true */}
       {visible && (
-        <button onClick={onToggle}
-          className="inline-flex items-center justify-center rounded transition-colors"
-          style={{ width: 18, height: 18, background: active ? "rgba(77,182,172,0.18)" : isOpen ? "hsl(var(--muted)/0.6)" : "transparent", color: active ? "#4DB6AC" : "hsl(var(--muted-foreground))" }}>
-          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-            <path d="M1 2.5h8M2.5 5h5M4 7.5h2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+        <button
+          onClick={e => { e.stopPropagation(); onToggle(); }}
+          title={`فلتر ${label}`}
+          className="relative inline-flex items-center justify-center rounded transition-all hover:scale-110"
+          style={{
+            width: 20, height: 20,
+            background: active
+              ? "rgba(77,182,172,0.25)"
+              : isOpen
+                ? "hsl(var(--muted)/0.7)"
+                : "hsl(var(--muted)/0.3)",
+            color: active ? "#4DB6AC" : isOpen ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground))",
+            border: active ? "1px solid rgba(77,182,172,0.5)" : "1px solid transparent",
+            borderRadius: 4,
+          }}>
+          {/* أيقونة فلتر الإكسيل */}
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+            <path d="M0.5 2h10M2.5 5.5h6M4.5 9h2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
           </svg>
-          {active && <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-teal-400" />}
+          {/* نقطة حمراء صغيرة لما فيه فلتر نشط */}
+          {active && (
+            <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full"
+              style={{ background: "#4DB6AC", border: "1.5px solid hsl(var(--card))" }} />
+          )}
         </button>
       )}
+
+      {/* Dropdown القائمة */}
       {visible && isOpen && (
-        <div className="absolute z-50 mt-1 rounded-xl border shadow-xl"
-          style={{ top: "100%", right: 0, minWidth: 190, background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", boxShadow: "0 8px 32px rgba(0,0,0,0.28)" }}
-          onClick={e => e.stopPropagation()}>
+        <div
+          className="absolute z-[60] rounded-xl overflow-hidden"
+          style={{
+            top: "calc(100% + 6px)",
+            right: 0,
+            minWidth: 200,
+            background: "hsl(var(--card))",
+            border: "1px solid hsl(var(--border))",
+            boxShadow: "0 12px 40px rgba(0,0,0,0.35)",
+          }}
+          onClick={e => e.stopPropagation()}
+        >
+          {/* شريط علوي */}
+          <div className="flex items-center justify-between px-3 py-2 border-b"
+            style={{ borderColor: "hsl(var(--border))", background: "hsl(var(--muted)/0.4)" }}>
+            <span className="text-xs font-bold" style={{ color: "#4DB6AC" }}>فلتر — {label}</span>
+            <button onClick={onToggle} className="text-muted-foreground hover:text-foreground">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
           {children}
         </div>
       )}
@@ -1183,6 +1229,7 @@ export default function FinanceSales() {
   const [search,        setSearch]        = useState("");
   const [filterStatus,  setFilterStatus]  = useState("all");
   const [filterPay,     setFilterPay]     = useState("all");
+  const [filterWarehouse, setFilterWarehouse] = useState("all");
   const [fromDate,      setFromDate]      = useState("");
   const [toDate,        setToDate]        = useState("");
   const [colFilters,    setColFilters]    = useState(false);
@@ -1208,13 +1255,14 @@ export default function FinanceSales() {
     const q = search.trim().toLowerCase();
     return orders.filter(o => {
       if (q && !o.soNumber?.toLowerCase().includes(q) && !o.clientName?.toLowerCase().includes(q) && !o.clientPhone?.toLowerCase().includes(q)) return false;
-      if (filterStatus !== "all" && o.status !== filterStatus) return false;
-      if (filterPay    !== "all" && o.paymentStatus !== filterPay) return false;
+      if (filterStatus    !== "all" && o.status        !== filterStatus)    return false;
+      if (filterPay       !== "all" && o.paymentStatus !== filterPay)       return false;
+      if (filterWarehouse !== "all" && String(o.warehouseId) !== filterWarehouse) return false;
       if (fromDate && new Date(o.createdAt) < new Date(fromDate)) return false;
       if (toDate && new Date(o.createdAt) > new Date(toDate + "T23:59:59")) return false;
       return true;
     });
-  }, [orders, search, filterStatus, filterPay, fromDate, toDate]);
+  }, [orders, search, filterStatus, filterPay, filterWarehouse, fromDate, toDate]);
 
   const stats = useMemo(() => {
     const total      = filtered.reduce((s,o) => s + parseFloat(o.totalAmount??"0"), 0);
@@ -1267,7 +1315,7 @@ export default function FinanceSales() {
     }
   };
 
-  const activeFilters = [filterStatus !== "all", filterPay !== "all", !!fromDate, !!toDate].filter(Boolean).length;
+  const activeFilters = [filterStatus !== "all", filterPay !== "all", filterWarehouse !== "all", !!fromDate, !!toDate].filter(Boolean).length;
 
   const fi = (label: string, active: boolean, onClick: () => void) => (
     <button key={label} onClick={() => { onClick(); setOpenCol(null); }}
@@ -1307,7 +1355,7 @@ export default function FinanceSales() {
           </Button>
           {activeFilters > 0 && (
             <Button variant="ghost" size="sm" className="gap-1 text-rose-400"
-              onClick={() => { setFilterStatus("all"); setFilterPay("all"); setFromDate(""); setToDate(""); }}>
+              onClick={() => { setFilterStatus("all"); setFilterPay("all"); setFilterWarehouse("all"); setFromDate(""); setToDate(""); }}>
               <X className="w-3.5 h-3.5" />مسح
             </Button>
           )}
@@ -1350,7 +1398,15 @@ export default function FinanceSales() {
                   </ColFilter>
                 </th>
                 <th className="px-3 py-3 text-right text-xs font-semibold text-muted-foreground">العميل</th>
-                <th className="px-3 py-3 text-right text-xs font-semibold text-muted-foreground">المخزن</th>
+                <th className="px-3 py-3 text-right">
+                  <ColFilter label="المخزن" active={filterWarehouse!=="all"} visible={colFilters}
+                    isOpen={openCol==="wh"} onToggle={() => setOpenCol(p => p==="wh" ? null : "wh")}>
+                    <div className="py-1">
+                      {fi("الكل", filterWarehouse==="all", () => setFilterWarehouse("all"))}
+                      {warehouses.map(w => fi(w.name, filterWarehouse===String(w.id), () => setFilterWarehouse(String(w.id))))}
+                    </div>
+                  </ColFilter>
+                </th>
                 <th className="px-3 py-3 text-right">
                   <ColFilter label="الحالة" active={filterStatus!=="all"} visible={colFilters}
                     isOpen={openCol==="status"} onToggle={() => setOpenCol(p => p==="status" ? null : "status")}>
