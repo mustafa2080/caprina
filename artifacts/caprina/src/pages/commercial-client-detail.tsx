@@ -5,11 +5,12 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  ArrowRight, Users, TrendingUp, ChevronDown, ChevronUp,
-  Calendar, ShoppingBag, Phone, MapPin,
-  Clock, CheckCircle2, Target, Package,
+  ArrowRight, Users, ShoppingBag, TrendingUp, TrendingDown,
+  ChevronRight, Calendar, Package, Phone, MapPin,
+  Clock, CheckCircle2, Target,
 } from "lucide-react";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
+import { ar } from "date-fns/locale";
 import { apiFetch } from "@/lib/api";
 
 const fmt = (n: string | number) =>
@@ -17,40 +18,27 @@ const fmt = (n: string | number) =>
     style: "currency", currency: "EGP", maximumFractionDigits: 0,
   }).format(Number(n));
 
-// ── شريط تقدم المبيعات نحو الهدف ───────────────────────────────────────────
-function SalesProgressBar({ sales, target }: { sales: number; target: number }) {
-  if (target <= 0) return null;
-  const pct = Math.min((sales / target) * 100, 100);
+// ── شريط التقدم للفاتورة — زي DeliveryBar ──────────────────────────────────
+function InvoiceProgressBar({
+  paid, total,
+}: { paid: number; total: number }) {
+  if (total === 0) return null;
+  const pct = Math.min((paid / total) * 100, 100);
+  const unpaidPct = 100 - pct;
   return (
-    <div className="w-full bg-muted rounded-full h-2 overflow-hidden mt-2">
-      <div
-        className="h-2 rounded-full transition-all duration-700"
-        style={{
-          width: `${pct}%`,
-          background: pct >= 75 ? "#10b981" : pct >= 40 ? "#f59e0b" : "#26A69A",
-        }}
-      />
+    <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden flex mt-2">
+      <div className="h-1.5 bg-emerald-500" style={{ width: `${pct}%` }} />
+      <div className="h-1.5 bg-red-500/40" style={{ width: `${unpaidPct}%` }} />
     </div>
   );
 }
 
 // ── أنواع البيانات ──────────────────────────────────────────────────────────
-type OrderItem = {
-  id: number;
-  productName: string;
-  color: string | null;
-  size: string | null;
-  quantity: number;
-  unitPrice: string | number;
-  createdAt?: string;
-  updatedAt?: string;
-};
-
 type SaleOrder = {
   id: number; soNumber: string; status: string;
   totalAmount: string; paidAmount: string;
-  createdAt: string; expectedDate: string | null;
-  items?: OrderItem[];
+  createdAt: string; closedAt?: string | null;
+  itemCount?: number;
 };
 
 type Client = {
@@ -62,164 +50,102 @@ type Client = {
 
 type ClientDetail = Client & { orders: SaleOrder[] };
 
-// ── حالات الفواتير ──────────────────────────────────────────────────────────
-const INV_STATUS: Record<string, { label: string; barColor: string; badgeColor: string; icon: React.ReactNode }> = {
-  processing: {
-    label: "قيد التجهيز",
-    barColor: "bg-amber-500",
-    badgeColor: "border-amber-700 bg-amber-900/20 text-amber-400",
-    icon: <Clock className="w-2.5 h-2.5 inline ml-0.5" />,
-  },
-  delivered: {
-    label: "تم التسليم",
-    barColor: "bg-emerald-500",
-    badgeColor: "border-emerald-700 bg-emerald-900/20 text-emerald-400",
-    icon: <CheckCircle2 className="w-2.5 h-2.5 inline ml-0.5" />,
-  },
-};
-
-// ── بطاقة فاتورة البيع مع جدول بنود قابل للعرض ─────────────────────────────
-function InvoiceCard({ order }: { order: SaleOrder }) {
+// ── بطاقة الفاتورة — زي ManifestCard بالظبط ────────────────────────────────
+function InvoiceCard({ order, isLatest }: { order: SaleOrder; isLatest: boolean }) {
   const [, navigate] = useLocation();
-  const [expanded, setExpanded] = useState(false);
-
-  const { data: detail, isLoading: itemsLoading } = useQuery<{ items: OrderItem[] }>({
-    queryKey: ["sale-order-detail", order.id],
-    queryFn: () => apiFetch<any>(`/finance/sale-orders/${order.id}`),
-    enabled: expanded,
-    staleTime: 60_000,
-  });
-
-  const s = INV_STATUS[order.status] ?? {
-    label: order.status, barColor: "bg-muted",
-    badgeColor: "border-border text-muted-foreground", icon: null,
-  };
-  const total  = parseFloat(order.totalAmount ?? "0");
-  const paid   = parseFloat(order.paidAmount  ?? "0");
-  const unpaid = total - paid;
-  const isDelivered = order.status === "delivered";
-  const items  = detail?.items ?? [];
-  const totalQty = items.reduce((s, i) => s + (i.quantity ?? 0), 0);
+  const total  = parseFloat(order.totalAmount  ?? "0");
+  const paid   = parseFloat(order.paidAmount   ?? "0");
+  const unpaid = Math.max(0, total - paid);
+  const isProcessing = order.status === "processing";
 
   return (
-    <div className={`flex items-stretch gap-0 rounded-lg border transition-colors ${
-      isDelivered ? "border-border bg-card/50" : "border-amber-500/30 bg-amber-900/5"
-    }`}>
-      <div className={`w-1 rounded-r-lg shrink-0 ${s.barColor}`} />
-      <div className="flex-1 min-w-0">
+    <div
+      className={`group flex items-stretch gap-0 hover:bg-muted/10 transition-colors cursor-pointer rounded-lg border ${
+        isProcessing ? "border-amber-500/30 bg-amber-900/5" : "border-border bg-card/50"
+      }`}
+      onClick={() => navigate("/finance/sales")}
+    >
+      {/* شريط اللون الجانبي */}
+      <div className={`w-1 rounded-r-lg shrink-0 ${isProcessing ? "bg-amber-500" : "bg-emerald-500"}`} />
+
+      <div className="flex-1 px-4 py-3.5">
         {/* رأس البطاقة */}
-        <div className="flex items-center px-4 py-3.5 gap-3">
-          <div className="flex-1 min-w-0">
-            <p className="font-black text-sm">{order.soNumber}</p>
-            <span className="flex items-center gap-1 mt-0.5 text-[10px] text-muted-foreground">
-              <Calendar className="w-2.5 h-2.5" />
-              {format(new Date(order.createdAt), "yyyy/MM/dd")}
-            </span>
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-black text-sm">{order.soNumber}</span>
+              {isLatest && isProcessing && (
+                <Badge variant="outline" className="text-[9px] border-amber-500/50 bg-amber-900/20 text-amber-400">الأحدث</Badge>
+              )}
+            </div>
+            <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground flex-wrap">
+              <span className="flex items-center gap-1">
+                <Calendar className="w-2.5 h-2.5" />
+                {format(new Date(order.createdAt), "yyyy/MM/dd")}
+              </span>
+              {order.status === "delivered" && order.closedAt ? (
+                <span className="flex items-center gap-1 text-emerald-600">
+                  <CheckCircle2 className="w-2.5 h-2.5" />
+                  سُلِّم {format(new Date(order.closedAt), "yyyy/MM/dd")}
+                </span>
+              ) : (
+                <span className="text-amber-500">
+                  منذ {formatDistanceToNow(new Date(order.createdAt), { locale: ar, addSuffix: false })}
+                </span>
+              )}
+            </div>
           </div>
+
+          {/* Badge الحالة + سهم */}
           <div className="flex items-center gap-2 shrink-0">
-            <Badge variant="outline" className={`text-[9px] font-bold border ${s.badgeColor}`}>
-              {s.icon}{s.label}
+            <Badge
+              variant="outline"
+              className={`text-[9px] font-bold border ${
+                isProcessing
+                  ? "border-amber-700 bg-amber-900/20 text-amber-400"
+                  : "border-emerald-700 bg-emerald-900/20 text-emerald-400"
+              }`}
+            >
+              {isProcessing
+                ? <><Clock className="w-2.5 h-2.5 inline ml-0.5" />قيد التجهيز</>
+                : <><CheckCircle2 className="w-2.5 h-2.5 inline ml-0.5" />تم التسليم</>}
             </Badge>
-            <Button variant="ghost" size="icon"
-              className="h-6 w-6 text-teal-400 hover:bg-teal-500/10"
-              title="عرض في فواتير البيع"
-              onClick={() => navigate("/finance/sales")}>
-              <ShoppingBag className="w-3.5 h-3.5" />
-            </Button>
-            <Button variant="ghost" size="icon"
-              className="h-6 w-6 text-muted-foreground hover:text-foreground"
-              onClick={() => setExpanded(e => !e)}>
-              {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-            </Button>
+            <ChevronRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
           </div>
         </div>
 
-        {/* ملخص الأرقام */}
-        <div className="flex items-center gap-3 px-4 pb-3 text-[11px] flex-wrap">
-          <span className="flex items-center gap-1 font-bold text-primary">
-            <ShoppingBag className="w-3 h-3 text-muted-foreground" />{fmt(total)}
+        {/* أرقام الفاتورة */}
+        <div className="flex items-center gap-3 mt-2 text-[11px] flex-wrap">
+          {order.itemCount != null && (
+            <span className="flex items-center gap-1">
+              <Package className="w-3 h-3 text-muted-foreground" />
+              <span className="font-bold">{order.itemCount}</span>
+              <span className="text-muted-foreground">صنف</span>
+            </span>
+          )}
+          <span className="flex items-center gap-1 text-emerald-400">
+            <CheckCircle2 className="w-3 h-3" />
+            <span className="font-bold">{fmt(paid)}</span> مدفوع
           </span>
-          {paid > 0 && (
-            <span className="text-emerald-400 flex items-center gap-1">
-              <CheckCircle2 className="w-3 h-3" />مدفوع: {fmt(paid)}
+          {unpaid > 0 && (
+            <span className="flex items-center gap-1 text-red-400">
+              <Clock className="w-3 h-3" />
+              <span className="font-bold">{fmt(unpaid)}</span> متبقي
             </span>
           )}
-          {unpaid > 0 && <span className="text-rose-400">متبقي: {fmt(unpaid)}</span>}
-          {expanded && totalQty > 0 && (
-            <span className="flex items-center gap-1 text-muted-foreground mr-auto">
-              <Package className="w-3 h-3" />إجمالي القطع: <strong className="text-foreground">{totalQty}</strong>
-            </span>
-          )}
+          <span className="flex items-center gap-1 text-primary font-bold mr-auto">
+            {fmt(total)}
+          </span>
         </div>
 
-        {/* جدول البنود */}
-        {expanded && (
-          <div className="border-t border-border/50">
-            {itemsLoading ? (
-              <p className="text-xs text-muted-foreground py-4 text-center animate-pulse">جاري تحميل البنود…</p>
-            ) : items.length === 0 ? (
-              <p className="text-xs text-muted-foreground py-4 text-center">لا توجد بنود مسجلة</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr style={{ background: "hsl(var(--muted)/0.4)", borderBottom: "1px solid hsl(var(--border)/0.5)" }}>
-                      <th className="text-right px-3 py-2 font-semibold">المنتج</th>
-                      <th className="text-right px-3 py-2 font-semibold">اللون</th>
-                      <th className="text-right px-3 py-2 font-semibold">المقاس</th>
-                      <th className="text-center px-3 py-2 font-semibold">الكمية</th>
-                      <th className="text-right px-3 py-2 font-semibold">سعر الوحدة</th>
-                      <th className="text-right px-3 py-2 font-semibold">الإجمالي</th>
-                      <th className="text-right px-3 py-2 font-semibold">تاريخ الإضافة</th>
-                      <th className="text-right px-3 py-2 font-semibold">آخر تعديل</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {items.map((item, idx) => {
-                      const lineTotal = (item.quantity ?? 0) * parseFloat(String(item.unitPrice ?? 0));
-                      return (
-                        <tr key={item.id ?? idx} style={{
-                          borderBottom: "1px solid hsl(var(--border)/0.3)",
-                          background: idx % 2 === 0 ? "transparent" : "hsl(var(--muted)/0.1)",
-                        }}>
-                          <td className="px-3 py-2 font-medium">{item.productName || "—"}</td>
-                          <td className="px-3 py-2 text-muted-foreground">{item.color || "—"}</td>
-                          <td className="px-3 py-2 text-muted-foreground">{item.size || "—"}</td>
-                          <td className="px-3 py-2 text-center font-bold text-teal-400">{item.quantity}</td>
-                          <td className="px-3 py-2">{fmt(item.unitPrice ?? 0)}</td>
-                          <td className="px-3 py-2 font-bold text-primary">{fmt(lineTotal)}</td>
-                          <td className="px-3 py-2 text-muted-foreground">
-                            {item.createdAt
-                              ? format(new Date(item.createdAt), "yyyy/MM/dd")
-                              : format(new Date(order.createdAt), "yyyy/MM/dd")}
-                          </td>
-                          <td className="px-3 py-2 text-muted-foreground">
-                            {item.updatedAt ? format(new Date(item.updatedAt), "yyyy/MM/dd") : "—"}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                  <tfoot>
-                    <tr style={{ borderTop: "2px solid hsl(var(--border))", background: "hsl(var(--muted)/0.2)" }}>
-                      <td colSpan={3} className="px-3 py-2 font-bold text-muted-foreground">الإجمالي</td>
-                      <td className="px-3 py-2 text-center font-black text-teal-400">{totalQty}</td>
-                      <td />
-                      <td className="px-3 py-2 font-black text-primary">{fmt(total)}</td>
-                      <td colSpan={2} />
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
+        {/* شريط الدفع */}
+        {total > 0 && <InvoiceProgressBar paid={paid} total={total} />}
       </div>
     </div>
   );
 }
 
-// ── الصفحة الرئيسية ──────────────────────────────────────────────────────────
+// ── الصفحة الرئيسية — نسخة من ShippingCompanyDetailPage بمنطق العملاء ───────
 export default function CommercialClientDetailPage() {
   const params   = useParams();
   const clientId = Number(params.id);
@@ -237,108 +163,97 @@ export default function CommercialClientDetailPage() {
   const creditLimit = parseFloat(client?.creditLimit ?? "0");
   const totalSales  = parseFloat(client?.totalSales  ?? "0");
   const totalPaid   = parseFloat(client?.totalPaid   ?? "0");
-  const remaining   = creditLimit > 0 ? creditLimit - totalSales : 0;
+  const unpaid      = Math.max(0, totalSales - totalPaid);
   const salesPct    = creditLimit > 0 ? Math.min((totalSales / creditLimit) * 100, 100) : 0;
-  const unpaid      = totalSales - totalPaid;
+  const remaining   = Math.max(0, creditLimit - totalSales);
 
   const allOrders        = data?.orders ?? [];
-  const activeOrders     = allOrders.filter(o => o.status === "processing" || o.status === "delivered");
-  const processingOrders = activeOrders.filter(o => o.status === "processing");
-  const deliveredOrders  = activeOrders.filter(o => o.status === "delivered");
+  const processingOrders = allOrders.filter(o => o.status === "processing");
+  const deliveredOrders  = allOrders.filter(o => o.status === "delivered");
+  const latestProcessingId = processingOrders[0]?.id;
 
   return (
     <div className="max-w-3xl mx-auto space-y-5 animate-in fade-in duration-500" dir="rtl">
 
-      {/* ─── Header ─── */}
-      <div className="flex items-center gap-3">
-        <Link href="/finance/clients">
-          <Button variant="outline" size="icon" className="h-8 w-8 rounded-full border-border">
-            <ArrowRight className="h-4 w-4" />
-          </Button>
-        </Link>
-        <div className="w-10 h-10 rounded-full bg-teal-500/15 border border-teal-500/30 flex items-center justify-center shrink-0">
-          <Users className="w-5 h-5 text-teal-400" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-bold truncate">{client?.name ?? "…"}</h1>
-          <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground flex-wrap">
-            {client?.phone && (
-              <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{client.phone}</span>
-            )}
-            {(client?.city || client?.address) && (
-              <span className="flex items-center gap-1">
-                <MapPin className="w-3 h-3" />
-                {[client.address, client.city, client.region].filter(Boolean).join("، ")}
-              </span>
-            )}
-            <Badge variant="outline" className={`text-[9px] font-bold border ${
-              client?.isActive
-                ? "border-emerald-800 bg-emerald-900/30 text-emerald-400"
-                : "border-border text-muted-foreground"
-            }`}>
-              {client?.isActive ? "نشط" : "موقف"}
-            </Badge>
+      {/* ─── Header — زي ShippingCompanyDetailPage ─── */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Link href="/finance/clients">
+            <Button variant="outline" size="icon" className="h-8 w-8 rounded-full border-border">
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </Link>
+          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
+            <Users className="w-5 h-5 text-muted-foreground" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold">{client?.name ?? "…"}</h1>
+            <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground flex-wrap">
+              {client?.phone && (
+                <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{client.phone}</span>
+              )}
+              {(client?.city || client?.address) && (
+                <span className="flex items-center gap-1">
+                  <MapPin className="w-3 h-3" />
+                  {[client.address, client.city, client.region].filter(Boolean).join("، ")}
+                </span>
+              )}
+              <Badge variant="outline" className={`text-[9px] font-bold border ${
+                client?.isActive
+                  ? "border-emerald-800 bg-emerald-900/30 text-emerald-400"
+                  : "border-border text-muted-foreground"
+              }`}>
+                {client?.isActive ? "نشط" : "موقف"}
+              </Badge>
+            </div>
           </div>
         </div>
+        {/* بدون زر "بيان جديد" — مش محتاجينه هنا */}
       </div>
 
-      {/* ─── بطاقات الإحصائيات ─── */}
+      {/* ─── Stats Cards — زي شركات الشحن بس بأرقام العميل ─── */}
       {!isLoading && client && (
-        <>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <Card className="border-teal-900/40 bg-teal-900/10 p-3 text-center">
-              <p className="text-[10px] text-teal-400 mb-0.5">إجمالي المبيعات</p>
-              <p className="text-lg font-black text-teal-400">{fmt(totalSales)}</p>
-              <p className="text-[10px] text-muted-foreground">{activeOrders.length} فاتورة</p>
-            </Card>
-            <Card className="border-blue-900/40 bg-blue-900/10 p-3 text-center">
-              <p className="text-[10px] text-blue-400 mb-0.5">المتبقي للهدف</p>
-              <p className="text-lg font-black text-blue-400">{fmt(remaining > 0 ? remaining : 0)}</p>
-              <p className="text-[10px] text-muted-foreground">من {fmt(creditLimit)}</p>
-            </Card>
-            <Card className="border-rose-900/40 bg-rose-900/10 p-3 text-center">
-              <p className="text-[10px] text-rose-400 mb-0.5">المديونية المتبقية</p>
-              <p className="text-lg font-black text-rose-400">{fmt(unpaid > 0 ? unpaid : 0)}</p>
-              <p className="text-[10px] text-muted-foreground">مدفوع: {fmt(totalPaid)}</p>
-            </Card>
-            <Card className={`p-3 text-center border ${salesPct >= 75 ? "border-emerald-900/40 bg-emerald-900/10" : "border-primary/30 bg-primary/5"}`}>
-              <p className="text-[10px] text-muted-foreground mb-0.5">نسبة التسليم</p>
-              <p className={`text-xl font-black ${salesPct >= 75 ? "text-emerald-400" : "text-primary"}`}>
-                {salesPct.toFixed(1)}%
-              </p>
-              <p className="text-[10px] flex items-center justify-center gap-0.5 text-muted-foreground">
-                <Target className="w-3 h-3" /> من الهدف
-              </p>
-            </Card>
-          </div>
-
-          {/* شريط التقدم */}
-          {creditLimit > 0 && (
-            <Card className="p-4 border-border">
-              <div className="flex items-center justify-between text-xs mb-1">
-                <span className="text-muted-foreground flex items-center gap-1">
-                  <TrendingUp className="w-3.5 h-3.5" /> نسبة إنجاز الهدف
-                </span>
-                <span className="font-bold text-primary">{salesPct.toFixed(1)}%</span>
-              </div>
-              <SalesProgressBar sales={totalSales} target={creditLimit} />
-              <div className="flex justify-between text-[10px] text-muted-foreground mt-1.5">
-                <span>{fmt(totalSales)} تم تحقيقه</span>
-                <span>الهدف: {fmt(creditLimit)}</span>
-              </div>
-            </Card>
-          )}
-        </>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <Card className="border-border bg-card p-3 text-center">
+            <p className="text-[10px] text-muted-foreground mb-0.5">إجمالي الفواتير</p>
+            <p className="text-2xl font-black">{allOrders.filter(o => o.status === "processing" || o.status === "delivered").length}</p>
+            <p className="text-[10px] text-muted-foreground">{client.totalOrders ?? 0} فاتورة كلياً</p>
+          </Card>
+          <Card className="border-teal-900/40 bg-teal-900/10 p-3 text-center">
+            <p className="text-[10px] text-teal-400 mb-0.5">إجمالي المبيعات</p>
+            <p className="text-xl font-black text-teal-400">{fmt(totalSales)}</p>
+            <p className="text-[10px] text-teal-600">{salesPct.toFixed(1)}% من الهدف</p>
+          </Card>
+          <Card className="border-red-900/40 bg-red-900/10 p-3 text-center">
+            <p className="text-[10px] text-red-400 mb-0.5">المديونية</p>
+            <p className="text-xl font-black text-red-400">{fmt(unpaid)}</p>
+            <p className="text-[10px] text-muted-foreground">مدفوع: {fmt(totalPaid)}</p>
+          </Card>
+          <Card className={`p-3 text-center border ${salesPct >= 75 ? "border-emerald-900/40 bg-emerald-900/10" : "border-primary/30 bg-primary/5"}`}>
+            <p className="text-[10px] text-muted-foreground mb-0.5">نسبة التسليم</p>
+            <p className={`text-xl font-black ${salesPct >= 75 ? "text-emerald-400" : "text-primary"}`}>
+              {salesPct.toFixed(1)}%
+            </p>
+            <p className="text-[10px] flex items-center justify-center gap-0.5 text-muted-foreground">
+              {salesPct >= 75
+                ? <TrendingUp className="w-3 h-3 text-emerald-400" />
+                : <Target className="w-3 h-3" />}
+              {creditLimit > 0 ? `هدف ${fmt(creditLimit)}` : "لا يوجد هدف"}
+            </p>
+          </Card>
+        </div>
       )}
 
-      {/* ─── فواتير البيع ─── */}
+      {/* ─── فواتير البيع — زي Manifests Timeline ─── */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-bold text-sm flex items-center gap-2">
             <ShoppingBag className="w-4 h-4 text-muted-foreground" />
             فواتير البيع
-            {activeOrders.length > 0 && (
-              <Badge variant="outline" className="text-[9px]">{activeOrders.length}</Badge>
+            {allOrders.length > 0 && (
+              <Badge variant="outline" className="text-[9px]">
+                {processingOrders.length + deliveredOrders.length}
+              </Badge>
             )}
           </h2>
           <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
@@ -353,22 +268,26 @@ export default function CommercialClientDetailPage() {
 
         {isLoading ? (
           <div className="py-12 text-center text-muted-foreground text-sm animate-pulse">جاري التحميل...</div>
-        ) : activeOrders.length === 0 ? (
+        ) : (processingOrders.length + deliveredOrders.length) === 0 ? (
           <div className="py-16 text-center">
             <ShoppingBag className="w-12 h-12 mx-auto mb-3 text-muted-foreground opacity-20" />
             <p className="text-muted-foreground text-sm">لا توجد فواتير بيع بعد</p>
           </div>
         ) : (
           <div className="space-y-2">
+            {/* قيد التجهيز */}
             {processingOrders.length > 0 && (
               <>
                 <p className="text-[10px] font-semibold text-amber-400 uppercase tracking-wider px-1">
                   قيد التجهيز — تحتاج متابعة
                 </p>
-                {processingOrders.map(o => <InvoiceCard key={o.id} order={o} />)}
+                {processingOrders.map(o => (
+                  <InvoiceCard key={o.id} order={o} isLatest={o.id === latestProcessingId} />
+                ))}
                 {deliveredOrders.length > 0 && <div className="border-t border-border my-3" />}
               </>
             )}
+            {/* تم التسليم */}
             {deliveredOrders.length > 0 && (
               <>
                 {processingOrders.length > 0 && (
@@ -376,7 +295,9 @@ export default function CommercialClientDetailPage() {
                     تم التسليم — مكتمل
                   </p>
                 )}
-                {deliveredOrders.map(o => <InvoiceCard key={o.id} order={o} />)}
+                {deliveredOrders.map(o => (
+                  <InvoiceCard key={o.id} order={o} isLatest={false} />
+                ))}
               </>
             )}
           </div>
