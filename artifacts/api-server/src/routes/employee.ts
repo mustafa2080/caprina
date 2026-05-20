@@ -11,6 +11,7 @@ import {
 import { z } from "zod";
 import { requireAuth } from "../middlewares/requireAuth";
 import { requireAdmin } from "../middlewares/requireRole";
+import { getTenantId } from "../middlewares/requireTenant.js";
 
 const router: IRouter = Router();
 router.use(requireAuth);
@@ -121,13 +122,20 @@ function mergeProfile(profile: typeof employeeProfilesTable.$inferSelect, user: 
 // ────────────────────────────────────────────────────────────────────────────
 
 router.get("/employee-profiles", async (req, res): Promise<void> => {
-  const rows = await db
+  const tenantId = getTenantId(req);
+
+  const query = db
     .select({
       profile: employeeProfilesTable,
       user: usersTable,
     })
     .from(employeeProfilesTable)
     .leftJoin(usersTable, eq(employeeProfilesTable.userId, usersTable.id));
+
+  // فلتر بالـ tenant عن طريق الـ user المرتبط بالبروفايل
+  const rows = tenantId !== null
+    ? await query.where(eq(usersTable.tenantId, tenantId))
+    : await query.where(isNull(usersTable.tenantId));
 
   res.json(rows.map((r) => mergeProfile(r.profile, r.user)));
 });

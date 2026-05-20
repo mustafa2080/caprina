@@ -200,9 +200,8 @@ router.get("/analytics/team-performance-extended", async (req, res): Promise<voi
 
   const userConditions: any[] = [];
   if (tenantId !== null) userConditions.push(eq(usersTable.tenantId, tenantId));
-  const users = userConditions.length > 0
-    ? await db.select().from(usersTable).where(and(...userConditions))
-    : await db.select().from(usersTable);
+  else userConditions.push(isNull(usersTable.tenantId));
+  const users = await db.select().from(usersTable).where(and(...userConditions));
   const userMap = new Map(users.map((u) => [u.id, u]));
 
   type ExtStats = {
