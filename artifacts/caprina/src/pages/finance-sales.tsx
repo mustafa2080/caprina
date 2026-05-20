@@ -1419,9 +1419,35 @@ export default function FinanceSales() {
                   </ColFilter>
                 </th>
                 <th className="px-3 py-3 text-right">
-                  <ColFilter label="العميل" active={!!filterClient.trim()} visible={colFilters}
+                  <ColFilter label="العميل" active={!!filterClient} visible={colFilters}
                     isOpen={openCol==="client"} onToggle={() => setOpenCol(p => p==="client" ? null : "client")}>
-                    <div className="p-2"><Input className="h-7 text-xs" placeholder="ابحث باسم العميل…" value={filterClient} onChange={e => setFilterClient(e.target.value)} autoFocus /></div>
+                    <div className="py-1" style={{ maxHeight: 260, overflowY: "auto" }}>
+                      {filterClient && (
+                        <button
+                          className="w-full text-right px-3 py-2 flex items-center gap-2 hover:bg-accent transition-colors border-b text-xs text-muted-foreground"
+                          style={{ borderColor: "hsl(var(--border)/0.5)" }}
+                          onClick={() => { setFilterClient(""); setOpenCol(null); }}
+                        >
+                          <X className="w-3 h-3" /> إلغاء الفلتر
+                        </button>
+                      )}
+                      {[...new Set(orders.map(o => o.clientName).filter(Boolean))].sort((a,b) => a.localeCompare(b,"ar")).map(name => (
+                        <button
+                          key={name}
+                          className="w-full text-right px-3 py-2 flex items-center gap-2 hover:bg-accent transition-colors border-b last:border-0 text-sm"
+                          style={{
+                            borderColor: "hsl(var(--border)/0.5)",
+                            background: filterClient === name ? "rgba(77,182,172,0.12)" : undefined,
+                            color: filterClient === name ? "#4DB6AC" : undefined,
+                            fontWeight: filterClient === name ? 600 : undefined,
+                          }}
+                          onClick={() => { setFilterClient(name); setOpenCol(null); }}
+                        >
+                          <UserCheck className="w-3.5 h-3.5 shrink-0" style={{ color: filterClient === name ? "#4DB6AC" : "hsl(var(--muted-foreground))" }} />
+                          {name}
+                        </button>
+                      ))}
+                    </div>
                   </ColFilter>
                 </th>
                 <th className="px-3 py-3 text-right">
