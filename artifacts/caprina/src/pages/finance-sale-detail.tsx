@@ -533,7 +533,16 @@ export default function FinanceSaleDetail() {
           className="flex items-center flex-wrap rounded-xl"
           style={{ background: "#111", border: "1px solid #2a2a2a", padding: "5px 8px", gap: "6px" }}
         >
-          {/* 1. زرار التصدير الموحد */}
+          {/* 1. طباعة */}
+          <button
+            onClick={() => printSaleInvoice(order, order.items, [])}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all hover:opacity-80"
+            style={{ background: "transparent", border: "1px solid hsl(43,74%,50%)", color: "hsl(43,74%,50%)" }}
+          >
+            <Printer className="w-3.5 h-3.5" /> طباعة
+          </button>
+
+          {/* 2. تصدير */}
           <button
             onClick={() => setShowExport(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all hover:opacity-80"
@@ -1016,23 +1025,7 @@ export default function FinanceSaleDetail() {
             </div>
 
             {/* Cards */}
-            <div className="grid grid-cols-3 gap-3 px-5 py-4">
-              {/* طباعة */}
-              <button
-                onClick={() => { printSaleInvoice(order, order.items, []); setShowExport(false); }}
-                className="rounded-xl p-4 flex flex-col items-center gap-2 transition-all hover:scale-105 hover:brightness-110"
-                style={{ background: "rgba(230,119,0,0.12)", border: "1px solid rgba(230,119,0,0.35)" }}
-              >
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center"
-                  style={{ background: "rgba(230,119,0,0.2)" }}>
-                  <Printer className="w-6 h-6" style={{ color: "#FFB74D" }} />
-                </div>
-                <p className="font-bold text-sm" style={{ color: "#FFB74D" }}>طباعة</p>
-                <p className="text-[10px] text-center text-muted-foreground">فاتورة للطباعة المباشرة</p>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-                  style={{ background: "rgba(230,119,0,0.2)", color: "#FFB74D" }}>print</span>
-              </button>
-
+            <div className="grid grid-cols-2 gap-3 px-5 py-4">
               {/* PDF */}
               <button
                 onClick={() => { printManifestPDF(order); setShowExport(false); }}
