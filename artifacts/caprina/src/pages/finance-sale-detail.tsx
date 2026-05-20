@@ -199,27 +199,35 @@ ${order.notes?`<div style="background:#FFFDE7;border:1px solid #FFF176;border-ra
 
 // ── Dropdown مشترك للتغيير السريع ─────────────────────────────────────────
 function QuickChangeDropdown({
-  label, options, current, onSelect, disabled,
+  label, options, current, onSelect, disabled, darkMode,
 }: {
   label: string;
   options: { value: string; label: string; color?: string }[];
   current: string;
   onSelect: (v: string) => void;
   disabled?: boolean;
+  darkMode?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const currentOpt = options.find(o => o.value === current);
+
+  const btnBg          = darkMode ? "transparent"   : "hsl(var(--card))";
+  const btnBorder      = darkMode ? (currentOpt?.color ?? "#888") : "hsl(var(--border))";
+  const btnColor       = currentOpt?.color ?? (darkMode ? "#ccc" : "hsl(var(--foreground))");
+  const dropBg         = darkMode ? "#1a1a1a"        : "hsl(var(--card))";
+  const dropBorder     = darkMode ? "#333"           : "hsl(var(--border))";
+  const itemHoverBg    = darkMode ? "#ffffff14"      : undefined;
 
   return (
     <div className="relative">
       <button
         disabled={disabled}
         onClick={() => setOpen(p => !p)}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all hover:opacity-80"
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all hover:opacity-80"
         style={{
-          background: "hsl(var(--card))",
-          borderColor: "hsl(var(--border))",
-          color: currentOpt?.color ?? "hsl(var(--foreground))",
+          background: btnBg,
+          borderColor: btnBorder,
+          color: btnColor,
           opacity: disabled ? 0.5 : 1,
         }}
       >
@@ -232,17 +240,18 @@ function QuickChangeDropdown({
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div
             className="absolute left-0 mt-1 rounded-xl border shadow-xl overflow-hidden z-50"
-            style={{
-              minWidth: 180,
-              background: "hsl(var(--card))",
-              borderColor: "hsl(var(--border))",
-            }}
+            style={{ minWidth: 180, background: dropBg, borderColor: dropBorder }}
           >
             {options.map(opt => (
               <button
                 key={opt.value}
-                className="w-full text-right px-4 py-2.5 text-sm flex items-center justify-between hover:bg-muted/40 transition-colors"
-                style={{ color: opt.color ?? "hsl(var(--foreground))" }}
+                className="w-full text-right px-4 py-2.5 text-sm flex items-center justify-between transition-colors"
+                style={{
+                  color: opt.color ?? (darkMode ? "#ccc" : "hsl(var(--foreground))"),
+                  background: opt.value === current ? (darkMode ? "#ffffff0d" : "hsl(var(--muted))") : "transparent",
+                }}
+                onMouseEnter={e => { if (itemHoverBg) (e.currentTarget as HTMLElement).style.background = itemHoverBg; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = opt.value === current ? (darkMode ? "#ffffff0d" : "hsl(var(--muted))") : "transparent"; }}
                 onClick={() => { onSelect(opt.value); setOpen(false); }}
               >
                 {opt.label}
@@ -454,58 +463,61 @@ export default function FinanceSaleDetail() {
           <ArrowRight className="w-4 h-4" /> العودة لفواتير البيع
         </button>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* ── تغيير حالة الدفع ── */}
-          <QuickChangeDropdown
-            label="الدفع"
-            options={payOptions}
-            current={order.paymentStatus}
-            onSelect={v => handleStatusChange("paymentStatus", v)}
-            disabled={saving || order.status === "closed"}
-          />
-
-          {/* ── تصدير Excel ── */}
+        {/* ── شريط الأزرار — نفس ستايل الصورة ── */}
+        <div
+          className="flex items-center gap-0 flex-wrap rounded-xl overflow-hidden"
+          style={{ background: "#111", border: "1px solid #333", padding: "6px 10px", gap: "8px" }}
+        >
+          {/* طباعة */}
           <button
-            onClick={() => exportToExcel(order)}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all hover:opacity-80"
-            style={{
-              background: "hsl(var(--card))",
-              borderColor: "hsl(var(--border))",
-              color: "#217346",
-            }}
+            onClick={() => printManifestPDF(order)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all hover:opacity-80"
+            style={{ background: "transparent", border: "1px solid #888", color: "#ccc" }}
           >
-            <FileSpreadsheet className="w-4 h-4" /> تصدير Excel
+            <Printer className="w-3.5 h-3.5" /> طباعة
           </button>
 
-          {/* ── إغلاق وتحويل ── */}
+          {/* تصدير */}
+          <button
+            onClick={() => exportToExcel(order)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all hover:opacity-80"
+            style={{ background: "transparent", border: "1px solid hsl(43,74%,50%)", color: "hsl(43,74%,50%)" }}
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5" /> تصدير
+          </button>
+
+          {/* الدفع dropdown */}
+          {order.status !== "closed" && (
+            <QuickChangeDropdown
+              label="الدفع"
+              options={payOptions}
+              current={order.paymentStatus}
+              onSelect={v => handleStatusChange("paymentStatus", v)}
+              disabled={saving}
+              darkMode
+            />
+          )}
+
+          {/* إغلاق البيان */}
           {order.status !== "closed" && order.status !== "cancelled" && (
             <button
               onClick={() => setShowConfirm(true)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all hover:opacity-80"
-              style={{ background: "hsl(var(--card))", borderColor: "hsl(var(--border))" }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all hover:opacity-80"
+              style={{ background: "transparent", border: "1px solid #4CAF50", color: "#4CAF50" }}
             >
-              ✓ إغلاق وتحويل للخزينة
+              <span style={{ fontSize: 13 }}>🔒</span> إغلاق البيان
             </button>
           )}
 
-          {/* ── طباعة PDF ── */}
-          <button
-            onClick={() => printManifestPDF(order)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-white transition-opacity hover:opacity-85"
-            style={{ background: "hsl(43,74%,50%)" }}
-          >
-            <Printer className="w-4 h-4" /> طباعة / PDF
-          </button>
-
-          {/* ── حالة الأمر (badge — آخر عنصر على الشمال) ── */}
+          {/* حالة الأمر badge */}
           {order.status === "closed" ? (
             <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold"
-              style={{ background: "#E8F5E9", color: "#1B5E20", border: "1px solid #A5D6A7" }}>
+              style={{ border: "1px solid #4CAF50", color: "#4CAF50", background: "transparent" }}>
               ✓ تم التسليم
             </span>
           ) : (
             <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold"
-              style={{ background: statusInfo.bg + "33", color: statusInfo.color, border: `1px solid ${statusInfo.color}44` }}>
+              style={{ border: `1px solid ${statusInfo.color}`, color: statusInfo.color, background: "transparent" }}>
               {statusInfo.label}
             </span>
           )}
