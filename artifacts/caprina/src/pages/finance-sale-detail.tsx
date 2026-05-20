@@ -282,6 +282,7 @@ export default function FinanceSaleDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError]   = useState<string | null>(null);
   const [saving, setSaving]  = useState(false);
+  const [showExport, setShowExport] = useState(false);
 
   // ── variants & products من الـ API ──────────────────────────────────────
   const [allVariants,  setAllVariants]  = useState<Variant[]>([]);
@@ -532,25 +533,16 @@ export default function FinanceSaleDetail() {
           className="flex items-center flex-wrap rounded-xl"
           style={{ background: "#111", border: "1px solid #2a2a2a", padding: "5px 8px", gap: "6px" }}
         >
-          {/* 1. طباعة / PDF */}
+          {/* 1. زرار التصدير الموحد */}
           <button
-            onClick={() => printManifestPDF(order)}
+            onClick={() => setShowExport(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all hover:opacity-75"
             style={{ background: "hsl(43,74%,50%)", border: "1px solid hsl(43,74%,50%)", color: "#000" }}
           >
-            <Printer className="w-3.5 h-3.5" /> طباعة / PDF
+            <FileSpreadsheet className="w-3.5 h-3.5" /> تصدير ↓
           </button>
 
-          {/* 2. تصدير Excel */}
-          <button
-            onClick={() => exportToExcel(order)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all hover:opacity-80"
-            style={{ background: "transparent", border: "1px solid hsl(43,74%,50%)", color: "hsl(43,74%,50%)" }}
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5" /> تصدير Excel
-          </button>
-
-          {/* 3. إغلاق البيان */}
+          {/* 2. إغلاق البيان */}
           {order.status !== "closed" && order.status !== "cancelled" && (
             <button
               onClick={() => setShowConfirm(true)}
@@ -980,6 +972,91 @@ export default function FinanceSaleDetail() {
       <div className="text-center text-xs text-muted-foreground mt-8 pb-4">
         CAPRINA · {order.soNumber} · {new Date().getFullYear()}
       </div>
+
+      {/* ── Export Dialog — زي الصورة بالظبط ── */}
+      {showExport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+          onClick={() => setShowExport(false)}>
+          <div className="relative rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden"
+            style={{ background: "#1a1a1a", border: "1px solid #2a2a2a" }}
+            onClick={e => e.stopPropagation()}>
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: "#2a2a2a" }}>
+              <h3 className="font-bold text-base flex items-center gap-2">
+                <FileSpreadsheet className="w-4 h-4" style={{ color: "hsl(43,74%,50%)" }} />
+                تصدير البيان — {order.soNumber}
+              </h3>
+              <button onClick={() => setShowExport(false)} className="text-muted-foreground hover:text-foreground transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Info Row */}
+            <div className="px-5 pt-4 pb-2">
+              <div className="rounded-xl p-3 flex items-center justify-between flex-wrap gap-2"
+                style={{ background: "#111", border: "1px solid #2a2a2a" }}>
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground">الإجمالي</p>
+                  <p className="font-black text-sm" style={{ color: "hsl(43,74%,50%)" }}>{fmtNum(total)} ج</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground">المحصّل</p>
+                  <p className="font-black text-sm" style={{ color: "#4CAF50" }}>{fmtNum(paid)} ج</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground">المتبقي</p>
+                  <p className="font-black text-sm" style={{ color: due > 0 ? "#EF5350" : "#4CAF50" }}>{fmtNum(due)} ج</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground">عدد الأصناف</p>
+                  <p className="font-black text-sm" style={{ color: "#4DB6AC" }}>{totalQty}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Cards */}
+            <div className="grid grid-cols-2 gap-3 px-5 py-4">
+              {/* PDF */}
+              <button
+                onClick={() => { printManifestPDF(order); setShowExport(false); }}
+                className="rounded-xl p-4 flex flex-col items-center gap-2 transition-all hover:scale-105 hover:brightness-110"
+                style={{ background: "rgba(183,28,28,0.12)", border: "1px solid rgba(183,28,28,0.35)" }}
+              >
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center"
+                  style={{ background: "rgba(183,28,28,0.2)" }}>
+                  <Printer className="w-6 h-6" style={{ color: "#EF5350" }} />
+                </div>
+                <p className="font-bold text-sm" style={{ color: "#EF5350" }}>تصدير PDF</p>
+                <p className="text-[10px] text-center text-muted-foreground">بيان رسمي مع الإحصائيات والأرقام</p>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                  style={{ background: "rgba(183,28,28,0.2)", color: "#EF5350" }}>pdf.</span>
+              </button>
+
+              {/* Excel */}
+              <button
+                onClick={() => { exportToExcel(order); setShowExport(false); }}
+                className="rounded-xl p-4 flex flex-col items-center gap-2 transition-all hover:scale-105 hover:brightness-110"
+                style={{ background: "rgba(27,94,32,0.12)", border: "1px solid rgba(27,94,32,0.35)" }}
+              >
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center"
+                  style={{ background: "rgba(27,94,32,0.2)" }}>
+                  <FileSpreadsheet className="w-6 h-6" style={{ color: "#4CAF50" }} />
+                </div>
+                <p className="font-bold text-sm" style={{ color: "#4CAF50" }}>تصدير Excel</p>
+                <p className="text-[10px] text-center text-muted-foreground">بنود الفاتورة · الملخص · حسب الحالة</p>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                  style={{ background: "rgba(27,94,32,0.2)", color: "#4CAF50" }}>xlsx.</span>
+              </button>
+            </div>
+
+            {/* Footer info */}
+            <div className="px-5 pb-4 text-center text-[10px] text-muted-foreground">
+              Excel: {order.items.length} بند · PDF: طباعة الفاتورة الرسمية بصيغة A4
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
