@@ -269,6 +269,7 @@ function Router() {
           <Route path="/movements"                component={() => <ProtectedRoute permission="movements" component={Movements} />} />
           <Route path="/product-performance"      component={() => <ProtectedRoute permission="view_product_performance" component={ProductPerformance} />} />
           <Route path="/users"                    component={() => <ProtectedRoute permission="users" component={UsersPage} />} />
+          <Route path="/users/manage"             component={() => <ProtectedRoute permission="users" component={UsersPage} />} />
           <Route path="/audit-logs"               component={() => <ProtectedRoute permission="audit" component={AuditLogsPage} />} />
           <Route path="/warehouses"               component={() => <ProtectedRoute permission="inventory" component={WarehousesPage} />} />
           <Route path="/team-performance"         component={() => <ProtectedRoute permission="analytics" component={TeamPerformancePage} />} />
