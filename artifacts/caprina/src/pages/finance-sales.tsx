@@ -636,9 +636,9 @@ function SORow({ order, onEdit, onDelete, onTransferToTreasury, onView, warehous
             <ChevronRight className="w-3 h-3" />
           </Button>
 
-          {order.status === "delivered" && order.paymentStatus === "paid" && (
+          {!["closed","cancelled"].includes(order.status) && (
             <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-emerald-400 hover:bg-emerald-500/10"
-              title="تحويل للخزينة"
+              title="إغلاق وتحويل للخزينة"
               onClick={() => onTransferToTreasury(order)}>
               <ArrowRightLeft className="w-3 h-3" />
             </Button>
@@ -1379,29 +1379,18 @@ export default function FinanceSales() {
     }
   };
 
-  // تحويل للخزينة — أمر مكتمل التسليم والدفع
+  // إغلاق الفاتورة وتحويل للخزينة
   const handleTransferToTreasury = async (order: SaleOrder) => {
+    if (!confirm(`إغلاق فاتورة ${order.soNumber} وتحويل ${fmt(order.totalAmount)} للخزينة؟`)) return;
     try {
-      await apiFetch<any>("/finance/treasury/transactions", {
-        method: "POST",
-        body: JSON.stringify({
-          type: "income",
-          amount: parseFloat(order.paidAmount ?? "0"),
-          description: `إيراد بيع — ${order.soNumber} — ${order.clientName}`,
-          referenceType: "sale_order",
-          referenceId: order.id,
-          date: new Date().toISOString(),
-        }),
-      });
-      // غيّر حالة الأمر لـ closed
       await apiFetch<any>(`/finance/sale-orders/${order.id}`, {
         method: "PATCH",
         body: JSON.stringify({ status: "closed" }),
       });
       qc.invalidateQueries({ queryKey: ["finance-sale-orders"] });
-      toast({ title: "✅ تم التحويل للخزينة", description: `${fmt(order.paidAmount)} تم تسجيلها كإيراد` });
+      toast({ title: "✅ تم الإغلاق والتحويل للخزينة", description: `${fmt(order.totalAmount)} تم تسجيلها في الخزينة` });
     } catch (e: any) {
-      toast({ title: "خطأ", description: e.message ?? "تعذّر التحويل", variant: "destructive" });
+      toast({ title: "خطأ", description: e.message ?? "تعذّر الإغلاق", variant: "destructive" });
     }
   };
 
