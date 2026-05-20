@@ -1119,16 +1119,6 @@ function SOForm({ open, onClose, editOrder, warehouses, products, onSuccess }: {
                             onChange={e => {
                               const qty = parseInt(e.target.value) || 1;
                               upd(i, "quantity", qty);
-                              if (avail !== undefined && qty > avail) {
-                                setStockWarning({
-                                  rowIdx: i,
-                                  productName: r.productName,
-                                  color: r.color,
-                                  size: r.size,
-                                  available: avail,
-                                  requested: qty,
-                                });
-                              }
                             }}
                           />
                           {overQty && <p className="text-[10px] text-rose-400 mt-0.5">تجاوز المتاح</p>}
@@ -1165,7 +1155,27 @@ function SOForm({ open, onClose, editOrder, warehouses, products, onSuccess }: {
         )}
         <div className="flex justify-end gap-2 mt-4">
           <Button variant="outline" onClick={onClose}>إلغاء</Button>
-          <Button onClick={() => mutation.mutate()} disabled={mutation.isPending || !clientName.trim()}>
+          <Button onClick={() => {
+            // تحقق من المخزون قبل الإنشاء
+            if (!isEdit) {
+              const overItem = items.find(r => {
+                if (r.availableQty === undefined) return false;
+                return r.quantity > r.availableQty;
+              });
+              if (overItem) {
+                setStockWarning({
+                  rowIdx: items.indexOf(overItem),
+                  productName: overItem.productName,
+                  color: overItem.color,
+                  size: overItem.size,
+                  available: overItem.availableQty!,
+                  requested: overItem.quantity,
+                });
+                return;
+              }
+            }
+            mutation.mutate();
+          }} disabled={mutation.isPending || !clientName.trim()}>
             {mutation.isPending ? "جارٍ الحفظ…" : isEdit ? "حفظ التعديلات" : "إنشاء الأمر"}
           </Button>
         </div>
