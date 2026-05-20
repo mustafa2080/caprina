@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
+import * as XLSX from "xlsx";
 import {
   ArrowRight, Printer, Package, User, Phone, MapPin,
   Calendar, Hash, CreditCard, Truck, FileSpreadsheet,
@@ -42,7 +43,7 @@ const fmtNum  = (n: string | number) => Number(n).toLocaleString("ar-EG");
 const fmtDate = (d: string | null)   => d
   ? new Date(d).toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" }) : "—";
 
-// ── تصدير Excel احترافي (HTML → XLS) ──────────────────────────────────────
+// ── تصدير Excel حقيقي (XLSX) ──────────────────────────────────────────────
 function exportToExcel(order: SaleOrder) {
   const total    = parseFloat(order.totalAmount    ?? "0");
   const paid     = parseFloat(order.paidAmount     ?? "0");
@@ -51,116 +52,65 @@ function exportToExcel(order: SaleOrder) {
   const due      = total - paid;
   const totalQtyEx = order.items.reduce((s, i) => s + i.quantity, 0);
 
-  const GOLD   = "#B8860B";
-  const GOLD_L = "#FFF8DC";
-  const HEAD   = "#1A3A1A";
-  const HEAD2  = "#2C5F2E";
-  const HEAD_L = "#E8F5E9";
-  const STRIPE = "#F9F9F9";
-  const BORDER = "#CCCCCC";
+  const wb = XLSX.utils.book_new();
 
-  const itemRows = order.items.map((it, i) => `
-    <tr style="background:${i % 2 === 0 ? "#FFFFFF" : STRIPE}">
-      <td style="text-align:center;border:1px solid ${BORDER};padding:6px 10px;color:#888">${i + 1}</td>
-      <td style="border:1px solid ${BORDER};padding:6px 12px;font-weight:600;text-align:right">${it.productName ?? "—"}</td>
-      <td style="border:1px solid ${BORDER};padding:6px 10px;text-align:center">${it.color ?? "—"}</td>
-      <td style="border:1px solid ${BORDER};padding:6px 10px;text-align:center">${it.size ?? "—"}</td>
-      <td style="border:1px solid ${BORDER};padding:6px 10px;text-align:center;font-weight:700">${it.quantity}</td>
-      <td style="border:1px solid ${BORDER};padding:6px 12px;text-align:center">${Number(it.unitPrice).toLocaleString("ar-EG")}</td>
-      <td style="border:1px solid ${BORDER};padding:6px 12px;text-align:center;font-weight:700;color:${GOLD}">${(it.quantity * Number(it.unitPrice)).toLocaleString("ar-EG")}</td>
-    </tr>`).join("");
+  // ── ورقة بيانات الفاتورة ──
+  const infoRows: any[][] = [
+    ["CAPRINA — فاتورة بيع"],
+    [],
+    ["رقم الفاتورة", order.soNumber],
+    ["اسم العميل", order.clientName],
+    ["هاتف العميل", order.clientPhone ?? "—"],
+    ["عنوان العميل", order.clientAddress ?? "—"],
+    ["حالة الأمر", STATUS_MAP[order.status]?.label ?? order.status],
+    ["حالة الدفع", PAY_MAP[order.paymentStatus]?.label ?? order.paymentStatus],
+    ["تاريخ الإنشاء", fmtDate(order.createdAt)],
+    ...(order.expectedDate ? [["تاريخ التسليم المتوقع", fmtDate(order.expectedDate)]] : []),
+    ...(order.notes ? [["ملاحظات", order.notes]] : []),
+    [],
+    ["عدد المنتجات المختلفة", order.items.length + " منتج"],
+    ["إجمالي القطع", totalQtyEx + " قطعة"],
+    [],
+    ["— ملخص المبالغ —"],
+    ...(discount > 0 ? [["الخصم", "- " + discount.toLocaleString() + " ج"]] : []),
+    ...(shipping > 0 ? [["رسوم الشحن", shipping.toLocaleString() + " ج"]] : []),
+    ["الإجمالي الكلي", total.toLocaleString() + " ج"],
+    ["المدفوع", paid.toLocaleString() + " ج"],
+    due > 0
+      ? ["المتبقي", due.toLocaleString() + " ج"]
+      : ["الحالة", "مسدد بالكامل"],
+  ];
 
-  const html = `
-<html xmlns:o="urn:schemas-microsoft-com:office:office"
-      xmlns:x="urn:schemas-microsoft-com:office:excel"
-      xmlns="http://www.w3.org/TR/REC-html40">
-<head>
-  <meta charset="UTF-8"/>
-  <!--[if gte mso 9]><xml>
-    <x:ExcelWorkbook><x:ExcelWorksheets>
-      <x:ExcelWorksheet><x:Name>فاتورة بيع</x:Name>
-        <x:WorksheetOptions><x:DisplayRightToLeft/></x:WorksheetOptions>
-      </x:ExcelWorksheet>
-    </x:ExcelWorksheets></x:ExcelWorkbook>
-  </xml><![endif]-->
-  <style>
-    body  { font-family: Arial, sans-serif; direction: rtl; font-size: 10pt; }
-    table { border-collapse: collapse; }
-    .title-row td  { background:${HEAD};  color:#FFF; font-size:16pt; font-weight:bold; padding:12px 16px; letter-spacing:2px; }
-    .sec-row td    { background:${HEAD2}; color:#FFF; font-size:11pt; font-weight:bold; padding:8px 14px; }
-    .field-label   { background:${HEAD_L}; font-weight:bold; color:#333; padding:7px 12px; border:1px solid ${BORDER}; min-width:180px; }
-    .field-value   { background:#FFF; padding:7px 14px; border:1px solid ${BORDER}; }
-    .amt-label     { background:${GOLD_L}; font-weight:bold; color:#555; padding:7px 12px; border:1px solid ${BORDER}; min-width:180px; }
-    .amt-value     { background:#FFF; font-weight:700; color:${GOLD}; padding:7px 14px; border:1px solid ${BORDER}; text-align:center; }
-    .grand-label   { background:${GOLD}; font-weight:bold; color:#FFF; padding:9px 12px; border:1px solid ${GOLD}; font-size:12pt; }
-    .grand-value   { background:${GOLD}; font-weight:bold; color:#FFF; padding:9px 14px; border:1px solid ${GOLD}; text-align:center; font-size:12pt; }
-    .items-hd td   { background:${GOLD}; color:#FFF; font-weight:bold; font-size:11pt; padding:9px 12px; border:1px solid ${GOLD}; text-align:center; }
-    .spacer td     { height:14px; }
-    .total-row td  { background:${GOLD_L}; font-weight:700; border:1px solid ${BORDER}; padding:8px 12px; }
-  </style>
-</head>
-<body>
-<table style="width:680px">
-  <tr class="title-row"><td colspan="2">CAPRINA — فاتورة بيع</td></tr>
-  <tr class="spacer"><td colspan="2"></td></tr>
-  <tr class="sec-row"><td colspan="2">بيانات الفاتورة</td></tr>
-  <tr><td class="field-label">رقم الفاتورة</td><td class="field-value" style="font-weight:700;color:${GOLD}">${order.soNumber}</td></tr>
-  <tr><td class="field-label">اسم العميل</td><td class="field-value">${order.clientName}</td></tr>
-  <tr><td class="field-label">هاتف العميل</td><td class="field-value">${order.clientPhone ?? "—"}</td></tr>
-  <tr><td class="field-label">عنوان العميل</td><td class="field-value">${order.clientAddress ?? "—"}</td></tr>
-  <tr><td class="field-label">حالة الأمر</td><td class="field-value">${STATUS_MAP[order.status]?.label ?? order.status}</td></tr>
-  <tr><td class="field-label">حالة الدفع</td><td class="field-value">${PAY_MAP[order.paymentStatus]?.label ?? order.paymentStatus}</td></tr>
-  <tr><td class="field-label">تاريخ الإنشاء</td><td class="field-value">${fmtDate(order.createdAt)}</td></tr>
-  ${order.expectedDate ? `<tr><td class="field-label">تاريخ التسليم المتوقع</td><td class="field-value">${fmtDate(order.expectedDate)}</td></tr>` : ""}
-  ${order.notes ? `<tr><td class="field-label">ملاحظات</td><td class="field-value">${order.notes}</td></tr>` : ""}
-  <tr class="spacer"><td colspan="2"></td></tr>
-  <tr class="sec-row"><td colspan="2">احصائيات سريعة</td></tr>
-  <tr><td class="field-label">عدد المنتجات المختلفة</td><td class="field-value">${order.items.length} منتج</td></tr>
-  <tr><td class="field-label">اجمالي القطع</td><td class="field-value">${totalQtyEx} قطعة</td></tr>
-  <tr class="spacer"><td colspan="2"></td></tr>
-</table>
-<br/>
-<table style="width:680px">
-  <tr class="sec-row"><td colspan="7">بنود الفاتورة</td></tr>
-  <tr class="items-hd">
-    <td style="width:36px">#</td>
-    <td style="width:200px;text-align:right">المنتج</td>
-    <td style="width:90px">اللون</td>
-    <td style="width:75px">المقاس</td>
-    <td style="width:65px">الكمية</td>
-    <td style="width:115px">سعر الوحدة (ج)</td>
-    <td style="width:115px">الاجمالي (ج)</td>
-  </tr>
-  ${itemRows}
-  <tr class="total-row">
-    <td colspan="4" style="text-align:right">الاجمالي</td>
-    <td style="text-align:center">${totalQtyEx}</td>
-    <td></td>
-    <td style="text-align:center;color:${GOLD}">${total.toLocaleString("ar-EG")}</td>
-  </tr>
-</table>
-<br/>
-<table style="width:380px">
-  <tr class="sec-row"><td colspan="2">ملخص المبالغ</td></tr>
-  ${discount > 0 ? `<tr><td class="amt-label">الخصم</td><td class="amt-value" style="color:#C62828">- ${discount.toLocaleString("ar-EG")} ج</td></tr>` : ""}
-  ${shipping > 0 ? `<tr><td class="amt-label">رسوم الشحن</td><td class="amt-value">${shipping.toLocaleString("ar-EG")} ج</td></tr>` : ""}
-  <tr><td class="grand-label">الاجمالي الكلي</td><td class="grand-value">${total.toLocaleString("ar-EG")} ج</td></tr>
-  <tr><td class="amt-label" style="color:#1B5E20;background:#E8F5E9">المدفوع</td><td class="amt-value" style="color:#1B5E20">${paid.toLocaleString("ar-EG")} ج</td></tr>
-  ${due > 0
-    ? `<tr><td class="amt-label" style="color:#B71C1C;background:#FFEBEE">المتبقي</td><td class="amt-value" style="color:#B71C1C">${due.toLocaleString("ar-EG")} ج</td></tr>`
-    : `<tr><td class="amt-label" style="color:#1B5E20;background:#E8F5E9">الحالة</td><td class="amt-value" style="color:#1B5E20">مسدد بالكامل</td></tr>`}
-</table>
-</body></html>`;
+  // ── ورقة بنود الفاتورة ──
+  const itemsRows: any[][] = [
+    ["#", "المنتج", "اللون", "المقاس", "الكمية", "سعر الوحدة (ج)", "الإجمالي (ج)"],
+    ...order.items.map((it, i) => [
+      i + 1,
+      it.productName ?? "—",
+      it.color ?? "—",
+      it.size ?? "—",
+      it.quantity,
+      Number(it.unitPrice),
+      it.quantity * Number(it.unitPrice),
+    ]),
+    [],
+    ["", "", "", "الإجمالي", totalQtyEx, "", total],
+  ];
 
-  const blob = new Blob(["\uFEFF" + html], {
-    type: "application/vnd.ms-excel;charset=utf-8",
-  });
-  const url = URL.createObjectURL(blob);
-  const a   = document.createElement("a");
-  a.href    = url;
-  a.download = `فاتورة-${order.soNumber}.xls`;
-  a.click();
-  URL.revokeObjectURL(url);
+  const wsInfo  = XLSX.utils.aoa_to_sheet(infoRows);
+  const wsItems = XLSX.utils.aoa_to_sheet(itemsRows);
+
+  // عرض الأعمدة
+  wsInfo["!cols"]  = [{ wch: 30 }, { wch: 40 }];
+  wsItems["!cols"] = [
+    { wch: 5 }, { wch: 30 }, { wch: 15 }, { wch: 12 },
+    { wch: 10 }, { wch: 18 }, { wch: 18 },
+  ];
+
+  XLSX.utils.book_append_sheet(wb, wsInfo,  "بيانات الفاتورة");
+  XLSX.utils.book_append_sheet(wb, wsItems, "بنود الفاتورة");
+
+  XLSX.writeFile(wb, `فاتورة-${order.soNumber}.xlsx`);
 }
 
 // ── طباعة PDF ──────────────────────────────────────────────────────────────
