@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { useParams, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
-import ExcelJS from "exceljs";
+import * as XLSX from "xlsx";
 import {
   ArrowRight, Printer, Package, User, Phone, MapPin,
   Calendar, Hash, CreditCard, Truck, FileSpreadsheet,
@@ -45,162 +45,55 @@ const fmtDate = (d: string | null)   => d
 
 // ── تصدير Excel احترافي بـ ExcelJS: RTL + حدود + ألوان ──────────────────
 async function exportToExcel(order: SaleOrder) {
-  const total      = parseFloat(order.totalAmount    ?? "0");
-  const paid       = parseFloat(order.paidAmount     ?? "0");
-  const discount   = parseFloat(order.discountAmount ?? "0");
-  const shipping   = parseFloat(order.shippingCost   ?? "0");
-  const due        = total - paid;
-  const totalQtyEx = order.items.reduce((s, i) => s + i.quantity, 0);
+  const fmtDate2 = (d: string | null) => d ? new Date(d).toLocaleDateString("ar-EG") : "—";
+  const total    = parseFloat(order.totalAmount    ?? "0");
+  const paid     = parseFloat(order.paidAmount     ?? "0");
+  const discount = parseFloat(order.discountAmount ?? "0");
+  const shipping = parseFloat(order.shippingCost   ?? "0");
+  const due      = total - paid;
 
-  // ── ألوان ──
-  const C_GOLD    = "FFB8860B";
-  const C_GOLD_BG = "FFFFF8DC";
-  const C_HEAD_BG = "FFE8F5E9";
-  const C_HEAD_DK = "FF1A3A1A";
-  const C_HEAD2   = "FF2C5F2E";
-  const C_WHITE   = "FFFFFFFF";
-  const C_STRIPE  = "FFF9F9F9";
-  const C_RED     = "FFB71C1C";
-  const C_GREEN   = "FF1B5E20";
-  const C_BORDER  = "FFCCCCCC";
-
-  const thinBorder: Partial<ExcelJS.Border> = { style: "thin", color: { argb: C_BORDER } };
-  const allBorders = { top: thinBorder, bottom: thinBorder, left: thinBorder, right: thinBorder };
-
-  const wb = new ExcelJS.Workbook();
-
-  // ══════════════════════════════════════════
-  //  ورقة 1: بيانات الفاتورة
-  // ══════════════════════════════════════════
-  const ws1 = wb.addWorksheet("بيانات الفاتورة", { views: [{ rightToLeft: true }] });
-  ws1.columns = [{ width: 34 }, { width: 44 }];
-
-  // صف العنوان (merge A1:B1)
-  ws1.addRow(["CAPRINA — فاتورة بيع", ""]);
-  ws1.mergeCells("A1:B1");
-  const titleCell = ws1.getCell("A1");
-  titleCell.value = "CAPRINA — فاتورة بيع";
-  titleCell.font  = { name: "Arial", bold: true, size: 16, color: { argb: C_WHITE } };
-  titleCell.fill  = { type: "pattern", pattern: "solid", fgColor: { argb: C_HEAD_DK } };
-  titleCell.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
-  titleCell.border = allBorders;
-  ws1.getRow(1).height = 32;
-  // الخلية B1 بعد الـ merge تحتاج border أيضاً
-  ws1.getCell("B1").border = allBorders;
-  ws1.getCell("B1").fill = { type: "pattern", pattern: "solid", fgColor: { argb: C_HEAD_DK } };
-
-  ws1.addRow(["", ""]); // فراغ
-
-  // بيانات الفاتورة
-  const infoRows: [string, string, boolean, string, string, string, string][] = [
-    // [label, value, isSection, labelBg, labelColor, valueBg, valueColor]
-    ["رقم الفاتورة",   order.soNumber,                                    false, C_HEAD_BG, C_HEAD_DK, C_WHITE, C_GOLD],
-    ["اسم العميل",     order.clientName,                                   false, C_HEAD_BG, C_HEAD_DK, C_WHITE, C_GOLD],
-    ["هاتف العميل",    order.clientPhone ?? "—",                           false, C_HEAD_BG, C_HEAD_DK, C_WHITE, C_GOLD],
-    ["عنوان العميل",   order.clientAddress ?? "—",                         false, C_HEAD_BG, C_HEAD_DK, C_WHITE, C_GOLD],
-    ["حالة الأمر",     STATUS_MAP[order.status]?.label ?? order.status,    false, C_HEAD_BG, C_HEAD_DK, C_WHITE, C_GOLD],
-    ["حالة الدفع",     PAY_MAP[order.paymentStatus]?.label ?? order.paymentStatus, false, C_HEAD_BG, C_HEAD_DK, C_WHITE, C_GOLD],
-    ["تاريخ الإنشاء",  fmtDate(order.createdAt),                           false, C_HEAD_BG, C_HEAD_DK, C_WHITE, C_GOLD],
-    ...(order.expectedDate ? [["تاريخ التسليم المتوقع", fmtDate(order.expectedDate), false, C_HEAD_BG, C_HEAD_DK, C_WHITE, C_GOLD] as [string,string,boolean,string,string,string,string]] : []),
-    ...(order.notes        ? [["ملاحظات", order.notes, false, C_HEAD_BG, C_HEAD_DK, C_WHITE, C_GOLD] as [string,string,boolean,string,string,string,string]] : []),
-    ["", "", false, C_WHITE, C_WHITE, C_WHITE, C_WHITE],
-    ["عدد المنتجات",   `${order.items.length} منتج`,  false, C_HEAD_BG, C_HEAD_DK, C_WHITE, C_GOLD],
-    ["إجمالي القطع",   `${totalQtyEx} قطعة`,           false, C_HEAD_BG, C_HEAD_DK, C_WHITE, C_GOLD],
-    ["", "", false, C_WHITE, C_WHITE, C_WHITE, C_WHITE],
-    ["— ملخص المبالغ —", "", true, C_HEAD2, C_WHITE, C_HEAD2, C_WHITE],
-    ...(discount > 0 ? [["الخصم", `- ${discount.toLocaleString()} ج`, false, C_HEAD_BG, C_HEAD_DK, C_WHITE, C_RED] as [string,string,boolean,string,string,string,string]] : []),
-    ...(shipping > 0 ? [["رسوم الشحن", `${shipping.toLocaleString()} ج`, false, C_HEAD_BG, C_HEAD_DK, C_WHITE, C_GOLD] as [string,string,boolean,string,string,string,string]] : []),
-    ["الإجمالي الكلي", `${total.toLocaleString()} ج`,  false, C_GOLD, C_WHITE, C_GOLD, C_WHITE],
-    ["المدفوع",         `${paid.toLocaleString()} ج`,  false, C_HEAD_BG, C_HEAD_DK, C_WHITE, C_GREEN],
-    due > 0
-      ? ["المتبقي", `${due.toLocaleString()} ج`,       false, C_HEAD_BG, C_HEAD_DK, C_WHITE, C_RED]
-      : ["الحالة",  "مسدد بالكامل ✓",                  false, C_HEAD_BG, C_HEAD_DK, C_WHITE, C_GREEN],
+  // ورقة 1: بيانات الفاتورة
+  const info: (string|number)[][] = [
+    ["رقم الفاتورة",   order.soNumber],
+    ["اسم العميل",    order.clientName],
+    ["هاتف العميل",   order.clientPhone ?? "—"],
+    ["عنوان العميل",  order.clientAddress ?? "—"],
+    ["حالة الأمر",    STATUS_MAP[order.status]?.label ?? order.status],
+    ["حالة الدفع",    PAY_MAP[order.paymentStatus]?.label ?? order.paymentStatus],
+    ["تاريخ الإنشاء",  fmtDate2(order.createdAt)],
+    ["عدد المنتجات",  order.items.length],
+    ["إجمالي القطع",  order.items.reduce((s,i)=>s+i.quantity,0)],
+    ["الإجمالي الكلي",   total],
+    ["المدفوع",       paid],
+    ["المتبقي",       due > 0 ? due : "مسدد بالكامل ✓"],
+    ...(discount > 0 ? [["الخصم", discount]] : []),
+    ...(shipping > 0 ? [["رسوم الشحن", shipping]] : []),
+    ...(order.notes  ? [["ملاحظات", order.notes]] : []),
   ];
+  const ws1 = XLSX.utils.aoa_to_sheet([["البيان", "القيمة"], ...info]);
+  ws1["!cols"] = [{ wch: 28 }, { wch: 36 }];
 
-  for (const [label, value, , labelBg, labelColor, valueBg, valueColor] of infoRows) {
-    const row = ws1.addRow([label, value]);
-    row.height = 22;
+  // ورقة 2: بنود الفاتورة
+  const itemRows = order.items.map((it, i) => [
+    i + 1,
+    it.productName ?? "—",
+    it.color ?? "—",
+    it.size  ?? "—",
+    it.quantity,
+    Number(it.unitPrice),
+    it.quantity * Number(it.unitPrice),
+  ]);
+  const ws2 = XLSX.utils.aoa_to_sheet([
+    ["#", "المنتج", "اللون", "المقاس", "الكمية", "سعر الوحدة", "الإجمالي"],
+    ...itemRows,
+    ["", "", "", "الإجمالي", order.items.reduce((s,i)=>s+i.quantity,0), "", total],
+  ]);
+  ws2["!cols"] = [{ wch: 5 }, { wch: 28 }, { wch: 12 }, { wch: 10 }, { wch: 9 }, { wch: 14 }, { wch: 14 }];
 
-    const cellA = row.getCell(1);
-    const cellB = row.getCell(2);
-
-    cellA.font  = { name: "Arial", bold: true, size: 11, color: { argb: labelColor } };
-    cellA.fill  = { type: "pattern", pattern: "solid", fgColor: { argb: labelBg } };
-    cellA.alignment = { horizontal: "right", vertical: "middle", readingOrder: "rtl" };
-    cellA.border = allBorders;
-
-    cellB.font  = { name: "Arial", bold: false, size: 11, color: { argb: valueColor } };
-    cellB.fill  = { type: "pattern", pattern: "solid", fgColor: { argb: valueBg } };
-    cellB.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
-    cellB.border = allBorders;
-  }
-
-  // ══════════════════════════════════════════
-  //  ورقة 2: بنود الفاتورة
-  // ══════════════════════════════════════════
-  const ws2 = wb.addWorksheet("بنود الفاتورة", { views: [{ rightToLeft: true }] });
-  ws2.columns = [
-    { width: 6 },  // #
-    { width: 32 }, // المنتج
-    { width: 15 }, // اللون
-    { width: 11 }, // المقاس
-    { width: 11 }, // الكمية
-    { width: 20 }, // سعر الوحدة
-    { width: 20 }, // الإجمالي
-  ];
-
-  // صف الهيدر
-  const headerRow = ws2.addRow(["#", "المنتج", "اللون", "المقاس", "الكمية", "سعر الوحدة (ج)", "الإجمالي (ج)"]);
-  headerRow.height = 26;
-  headerRow.eachCell((cell, colNum) => {
-    cell.font  = { name: "Arial", bold: true, size: 11, color: { argb: C_WHITE } };
-    cell.fill  = { type: "pattern", pattern: "solid", fgColor: { argb: C_GOLD } };
-    cell.alignment = { horizontal: colNum === 2 ? "right" : "center", vertical: "middle", readingOrder: "rtl" };
-    cell.border = allBorders;
-  });
-
-  // صفوف البنود
-  order.items.forEach((it, i) => {
-    const row = ws2.addRow([
-      i + 1,
-      it.productName ?? "—",
-      it.color ?? "—",
-      it.size ?? "—",
-      it.quantity,
-      Number(it.unitPrice),
-      it.quantity * Number(it.unitPrice),
-    ]);
-    row.height = 20;
-    const bgColor = i % 2 === 0 ? C_WHITE : C_STRIPE;
-    row.eachCell((cell, colNum) => {
-      cell.font  = { name: "Arial", bold: colNum === 7, size: 11, color: { argb: colNum === 7 ? C_GOLD : "FF222222" } };
-      cell.fill  = { type: "pattern", pattern: "solid", fgColor: { argb: bgColor } };
-      cell.alignment = { horizontal: colNum === 2 ? "right" : "center", vertical: "middle", readingOrder: "rtl" };
-      cell.border = allBorders;
-      if (colNum === 6 || colNum === 7) cell.numFmt = "#,##0";
-    });
-  });
-
-  // صف الإجمالي
-  const totalRow = ws2.addRow(["", "", "", "الإجمالي", totalQtyEx, "", total]);
-  totalRow.height = 24;
-  totalRow.eachCell((cell, colNum) => {
-    cell.font  = { name: "Arial", bold: true, size: 11, color: { argb: colNum === 7 ? C_GOLD : C_HEAD_DK } };
-    cell.fill  = { type: "pattern", pattern: "solid", fgColor: { argb: C_GOLD_BG } };
-    cell.alignment = { horizontal: colNum === 4 ? "right" : "center", vertical: "middle", readingOrder: "rtl" };
-    cell.border = allBorders;
-    if (colNum === 5 || colNum === 7) cell.numFmt = "#,##0";
-  });
-
-  // حفظ وتنزيل
-  const buffer = await wb.xlsx.writeBuffer();
-  const blob   = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-  const url    = URL.createObjectURL(blob);
-  const a      = document.createElement("a");
-  a.href       = url;
-  a.download   = `فاتورة-${order.soNumber}.xlsx`;
-  a.click();
-  URL.revokeObjectURL(url);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws1, "بيانات الفاتورة");
+  XLSX.utils.book_append_sheet(wb, ws2, "بنود الفاتورة");
+  XLSX.writeFile(wb, `فاتورة-${order.soNumber}.xlsx`);
 }
 
 // ── طباعة PDF ──────────────────────────────────────────────────────────────
