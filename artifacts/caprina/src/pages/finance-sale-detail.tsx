@@ -468,20 +468,7 @@ export default function FinanceSaleDetail() {
           className="flex items-center flex-wrap rounded-xl"
           style={{ background: "#111", border: "1px solid #2a2a2a", padding: "5px 8px", gap: "6px" }}
         >
-          {/* 1. حالة الأمر — أقصى اليمين */}
-          {order.status === "closed" ? (
-            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold"
-              style={{ border: "1px solid #4CAF50", color: "#4CAF50", background: "transparent" }}>
-              ✓ تم التسليم
-            </span>
-          ) : (
-            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold"
-              style={{ border: `1px solid ${statusInfo.color}`, color: statusInfo.color, background: "transparent" }}>
-              {statusInfo.label}
-            </span>
-          )}
-
-          {/* 2. طباعة / PDF */}
+          {/* 1. طباعة / PDF */}
           <button
             onClick={() => printManifestPDF(order)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all hover:opacity-75"
@@ -490,7 +477,7 @@ export default function FinanceSaleDetail() {
             <Printer className="w-3.5 h-3.5" /> طباعة / PDF
           </button>
 
-          {/* 3. تصدير Excel */}
+          {/* 2. تصدير Excel */}
           <button
             onClick={() => exportToExcel(order)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all hover:opacity-80"
@@ -499,7 +486,7 @@ export default function FinanceSaleDetail() {
             <FileSpreadsheet className="w-3.5 h-3.5" /> تصدير Excel
           </button>
 
-          {/* 4. إغلاق البيان */}
+          {/* 3. إغلاق البيان */}
           {order.status !== "closed" && order.status !== "cancelled" && (
             <button
               onClick={() => setShowConfirm(true)}
@@ -510,7 +497,7 @@ export default function FinanceSaleDetail() {
             </button>
           )}
 
-          {/* 5. الدفع dropdown — أقصى الشمال */}
+          {/* 4. الدفع dropdown */}
           {order.status !== "closed" && (
             <QuickChangeDropdown
               label="الدفع"
@@ -520,6 +507,19 @@ export default function FinanceSaleDetail() {
               disabled={saving}
               darkMode
             />
+          )}
+
+          {/* 5. حالة الأمر — أقصى الشمال */}
+          {order.status === "closed" ? (
+            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold"
+              style={{ border: "1px solid #4CAF50", color: "#4CAF50", background: "transparent" }}>
+              ✓ تم التسليم
+            </span>
+          ) : (
+            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold"
+              style={{ border: `1px solid ${statusInfo.color}`, color: statusInfo.color, background: "transparent" }}>
+              {statusInfo.label}
+            </span>
           )}
         </div>
       </div>
