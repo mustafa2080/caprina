@@ -35,13 +35,18 @@ function parsePermissions(permissions: any): string[] {
 router.get("/", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req);
   const isSuperAdmin = (req as any).user?.role === "super_admin";
-  // super_admin يشوف كل اليوزرز اللي مش تابعين لأي tenant (فريقه)
-  // tenant admin يشوف فريقه بس
+
   const userConditions: any[] = [];
   if (tenantId !== null) {
+    // tenant admin/employee — يشوف فريقه بس
     userConditions.push(eq(usersTable.tenantId, tenantId));
   } else if (isSuperAdmin) {
+    // super_admin — يشوف اليوزرز اللي مش تابعين لأي tenant
     userConditions.push(isNull(usersTable.tenantId));
+  } else {
+    // حماية: لو مفيش tenantId ومش super_admin → لا يرجع شيء
+    res.json([]);
+    return;
   }
   const query = db.select({
     id: usersTable.id,
@@ -86,6 +91,7 @@ router.post("/", async (req, res): Promise<void> => {
   }
 
   const passwordHash = await hashPassword(password);
+  const creatorTenantId = getTenantId(req);
   const insertResult = await db.insert(usersTable).values({
     username: username.trim().toLowerCase(),
     passwordHash,
@@ -93,6 +99,7 @@ router.post("/", async (req, res): Promise<void> => {
     role: role as any,
     permissions: permissions ?? [],
     isActive: true,
+    ...(creatorTenantId !== null ? { tenantId: creatorTenantId } : {}),
   });
   const insertId = (insertResult as any)[0]?.insertId ?? (insertResult as any).insertId;
   const [newUser] = await db.select({
