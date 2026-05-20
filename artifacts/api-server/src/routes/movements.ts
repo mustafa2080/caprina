@@ -125,7 +125,22 @@ router.get("/inventory/movements", async (req, res): Promise<void> => {
 
 // ─── Totals ────────────────────────────────────────────────────────────────────
 router.get("/inventory/movements/totals", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req);
   const conditions = await buildConditions(req.query as Record<string, string>);
+
+  // tenant filter عبر المخازن
+  if (tenantId !== null) {
+    const tenantWarehouses = await db
+      .select({ id: warehousesTable.id })
+      .from(warehousesTable)
+      .where(eq(warehousesTable.tenantId, tenantId));
+    const warehouseIds = tenantWarehouses.map(w => w.id);
+    if (warehouseIds.length > 0) {
+      conditions.push(inArray(inventoryMovementsTable.warehouseId, warehouseIds));
+    } else {
+      res.json({ totalIn: 0, totalOut: 0, balance: 0, currentStock: 0 }); return;
+    }
+  }
 
   let query = db
     .select()
