@@ -609,7 +609,11 @@ function SORow({ order, onEdit, onDelete, onTransferToTreasury, onView, warehous
   const paid  = parseFloat(order.paidAmount  ?? "0");
   const due   = total - paid;
   return (
-    <tr style={{ borderBottom: "1px solid hsl(var(--border)/0.5)" }} className="transition-colors hover:bg-muted/20">
+    <tr
+      style={{ borderBottom: "1px solid hsl(var(--border)/0.5)", cursor: "pointer" }}
+      className="transition-colors hover:bg-muted/30"
+      onClick={() => onView(order.id)}
+    >
       <td className="px-3 py-3 font-mono text-xs font-semibold" style={{ color: "#4DB6AC" }}>{order.soNumber}</td>
       <td className="px-3 py-3">
         <p className="text-sm font-medium">{order.clientName}</p>
@@ -626,15 +630,9 @@ function SORow({ order, onEdit, onDelete, onTransferToTreasury, onView, warehous
       <td className="px-3 py-3 text-xs text-muted-foreground">
         {order.createdAt ? format(new Date(order.createdAt), "dd/MM/yyyy") : "—"}
       </td>
-      <td className="px-3 py-3">
+      <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
         <div className="flex gap-1 flex-wrap">
           <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => onEdit(order)}>تعديل</Button>
-          <Button size="sm" variant="ghost" className="h-7 px-2 text-xs"
-            title="عرض التفاصيل"
-            style={{ color: "#00897B" }}
-            onClick={() => onView(order.id)}>
-            <ChevronRight className="w-3 h-3" />
-          </Button>
 
           {!["closed","cancelled"].includes(order.status) && (
             <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-emerald-400 hover:bg-emerald-500/10"
