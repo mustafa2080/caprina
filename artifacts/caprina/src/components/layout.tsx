@@ -165,14 +165,74 @@ export default function Layout({ children }: LayoutProps) {
     <div className="flex h-screen bg-background" dir="rtl">
       {/* Sidebar */}
       <aside className="w-60 border-l border-sidebar-border bg-sidebar shrink-0 hidden md:flex md:flex-col">
-        <div className="p-4 border-b border-sidebar-border">
-          <BrandFull
-            logoSize="sm"
-            layout="row"
-            nameClass="text-sm text-sidebar-foreground"
-            taglineClass="text-sidebar-foreground/40"
-            onLogoClick={() => setBrandSettingsOpen(true)}
-          />
+
+        {/* ── Header الـ Sidebar ── */}
+        <div className="shrink-0 border-b border-sidebar-border/60">
+          {/* Brand — hero area */}
+          <div
+            className="px-4 pt-5 pb-4 flex flex-col items-center gap-2 relative overflow-hidden"
+            style={{ background: "linear-gradient(160deg, hsl(var(--primary)/0.12) 0%, hsl(var(--primary)/0.04) 100%)" }}
+          >
+            {/* subtle glow behind logo */}
+            <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse 70% 60% at 50% 0%, hsl(var(--primary)/0.18) 0%, transparent 80%)" }} />
+            <div className="relative z-10 cursor-pointer" onClick={() => setBrandSettingsOpen(true)}>
+              <BrandFull
+                logoSize="md"
+                layout="col"
+                nameClass="text-base font-extrabold text-sidebar-foreground tracking-wide"
+                taglineClass="text-[10px] text-sidebar-foreground/45 tracking-widest uppercase"
+              />
+            </div>
+            {/* thin accent line */}
+            <div className="absolute bottom-0 left-6 right-6 h-px" style={{ background: "linear-gradient(90deg, transparent, hsl(var(--primary)/0.4), transparent)" }} />
+          </div>
+
+          {/* User card */}
+          <div className="px-3 py-3">
+            <button
+              type="button"
+              onClick={() => setUserMenuOpen(v => !v)}
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all hover:bg-foreground/5"
+              style={{ background: "hsl(var(--muted)/0.4)", border: "1px solid hsl(var(--border)/0.5)" }}
+            >
+              {/* Avatar */}
+              <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+                style={{ background: "linear-gradient(135deg,hsl(var(--primary)/0.8),hsl(var(--primary)/0.4))", color: "hsl(var(--primary-foreground))", border: "2px solid hsl(var(--primary)/0.3)" }}>
+                {user?.displayName?.charAt(0)?.toUpperCase() ?? "?"}
+              </div>
+              <div className="flex-1 min-w-0 text-right">
+                <p className="text-xs font-bold text-sidebar-foreground truncate">{user?.displayName}</p>
+                <p className="text-[10px] text-sidebar-foreground/45 truncate">{ROLE_LABELS[user?.role ?? ""] ?? user?.role}</p>
+              </div>
+              <ChevronDown className={cn("w-3.5 h-3.5 text-sidebar-foreground/30 shrink-0 transition-transform", userMenuOpen && "rotate-180")} />
+            </button>
+
+            {/* User menu popup */}
+            {userMenuOpen && (
+              <div className="mt-1 rounded-xl border overflow-hidden shadow-xl z-50"
+                style={{ background: "hsl(var(--card))", borderColor: "hsl(var(--border))" }}>
+                <button type="button" onClick={() => { toggleTheme(); setUserMenuOpen(false); }}
+                  className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-xs hover:bg-muted/30 transition-colors">
+                  <div className="flex items-center gap-2">
+                    {theme === "dark" ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-muted-foreground" />}
+                    {theme === "dark" ? "الوضع الفاتح" : "الوضع الداكن"}
+                  </div>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted/40 text-muted-foreground">{theme === "dark" ? "Light" : "Dark"}</span>
+                </button>
+                <button type="button" onClick={() => { setUserMenuOpen(false); setPwDialogOpen(true); }}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-xs hover:bg-muted/30 transition-colors">
+                  <KeyRound className="w-3.5 h-3.5 text-muted-foreground" />
+                  تغيير كلمة المرور
+                </button>
+                <button type="button" onClick={() => { setUserMenuOpen(false); logout(); }}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-red-400 hover:bg-red-900/10 transition-colors border-t"
+                  style={{ borderColor: "hsl(var(--border))" }}>
+                  <LogOut className="w-3.5 h-3.5" />
+                  تسجيل الخروج
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         <nav className="px-2 py-3 flex-1 space-y-0.5 overflow-y-auto">
@@ -194,9 +254,9 @@ export default function Layout({ children }: LayoutProps) {
             </NavGroup>
           )}
 
-          {/* ── المنتجات ── */}
+          {/* ── المنتجات والمخزون ── */}
           {visibleNav.some(i => i.group === "inventory") && (
-            <NavGroup label="المنتجات" icon={Boxes} iconColor="text-violet-400" location={location} prefixes={["/inventory","/warehouses","/movements"]}>
+            <NavGroup label="المنتجات والمخزون" icon={Boxes} iconColor="text-violet-400" location={location} prefixes={["/inventory","/warehouses","/movements"]}>
               {visibleNav.filter(i => i.group === "inventory").map(item => <NavItem key={item.href} item={item} location={location} sub />)}
             </NavGroup>
           )}
