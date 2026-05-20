@@ -7,6 +7,23 @@ import { getTenantId } from "../middlewares/requireTenant.js";
 
 const router: IRouter = Router();
 
+// ── Tenant-safe helpers ────────────────────────────────────────────────────────
+async function getProductsForTenant(tenantId: number | null) {
+  return tenantId !== null
+    ? db.select().from(productsTable).where(eq(productsTable.tenantId, tenantId))
+    : db.select().from(productsTable);
+}
+async function getVariantsForTenant(tenantId: number | null) {
+  return tenantId !== null
+    ? db.select().from(productVariantsTable).where(eq(productVariantsTable.tenantId, tenantId))
+    : db.select().from(productVariantsTable);
+}
+async function getManifestsForTenant(tenantId: number | null) {
+  return tenantId !== null
+    ? db.select({ id: shippingManifestsTable.id, manualShippingCost: shippingManifestsTable.manualShippingCost, createdAt: shippingManifestsTable.createdAt }).from(shippingManifestsTable).where(eq(shippingManifestsTable.tenantId, tenantId))
+    : db.select({ id: shippingManifestsTable.id, manualShippingCost: shippingManifestsTable.manualShippingCost, createdAt: shippingManifestsTable.createdAt }).from(shippingManifestsTable);
+}
+
 // ─── Dynamic cost resolver ──────────────────────────────────────────────────────
 function resolveCost(
   order: { costPrice: number | null; variantId: number | null; productId: number | null },
@@ -144,11 +161,20 @@ router.get("/analytics/profit", requireAdmin, async (req, res): Promise<void> =>
   const ordersBaseConditions: any[] = [isNull(ordersTable.deletedAt)];
   if (tenantId !== null) ordersBaseConditions.push(eq(ordersTable.tenantId, tenantId));
 
+  const productsConditions: any[] = [];
+  if (tenantId !== null) productsConditions.push(eq(productsTable.tenantId, tenantId));
+
+  const variantsConditions: any[] = [];
+  if (tenantId !== null) variantsConditions.push(eq(productVariantsTable.tenantId, tenantId));
+
+  const manifestsConditions: any[] = [];
+  if (tenantId !== null) manifestsConditions.push(eq(shippingManifestsTable.tenantId, tenantId));
+
   const [allOrdersRaw, products, variants, manifests, manifestOrders] = await Promise.all([
     db.select().from(ordersTable).where(and(...ordersBaseConditions)),
-    db.select().from(productsTable),
-    db.select().from(productVariantsTable),
-    db.select({ id: shippingManifestsTable.id, manualShippingCost: shippingManifestsTable.manualShippingCost }).from(shippingManifestsTable),
+    getProductsForTenant(tenantId),
+    getVariantsForTenant(tenantId),
+    getManifestsForTenant(tenantId),
     db.select({ manifestId: shippingManifestOrdersTable.manifestId, orderId: shippingManifestOrdersTable.orderId }).from(shippingManifestOrdersTable),
   ]);
 
@@ -299,10 +325,9 @@ router.get("/analytics/financial-summary", requireAdmin, async (req, res): Promi
 
   const [allOrdersRaw, products, variants, allManifests, allManifestOrders] = await Promise.all([
     db.select().from(ordersTable).where(and(...fsBaseConditions)),
-    db.select().from(productsTable),
-    db.select().from(productVariantsTable),
-    db.select({ id: shippingManifestsTable.id, manualShippingCost: shippingManifestsTable.manualShippingCost, createdAt: shippingManifestsTable.createdAt })
-      .from(shippingManifestsTable),
+    getProductsForTenant(tenantId),
+    getVariantsForTenant(tenantId),
+    getManifestsForTenant(tenantId),
     db.select({ manifestId: shippingManifestOrdersTable.manifestId, orderId: shippingManifestOrdersTable.orderId })
       .from(shippingManifestOrdersTable),
   ]);
@@ -456,8 +481,8 @@ router.get("/analytics/damaged-orders", requireAdmin, async (req, res): Promise<
 
   const [allOrders, products, variants] = await Promise.all([
     db.select().from(ordersTable).where(and(...conditions)).orderBy(desc(ordersTable.createdAt)),
-    db.select().from(productsTable),
-    db.select().from(productVariantsTable),
+    getProductsForTenant(tenantId),
+    getVariantsForTenant(tenantId),
   ]);
 
   const variantMap = new Map<number, number | null>(variants.map(v => [v.id, v.costPrice]));
@@ -505,8 +530,8 @@ router.get("/analytics/product-performance", requireAdmin, async (req, res): Pro
   if (tenantId !== null) ppBaseConditions.push(eq(ordersTable.tenantId, tenantId));
   const [allOrders, products, variants] = await Promise.all([
     db.select().from(ordersTable).where(and(...ppBaseConditions)),
-    db.select().from(productsTable),
-    db.select().from(productVariantsTable),
+    getProductsForTenant(tenantId),
+    getVariantsForTenant(tenantId),
   ]);
 
   const variantMap = new Map<number, number | null>(variants.map(v => [v.id, v.costPrice]));
@@ -633,8 +658,8 @@ router.get("/analytics/alerts", async (req, res): Promise<void> => {
   if (tenantId !== null) alertsBaseConditions.push(eq(ordersTable.tenantId, tenantId));
   const [allOrders, products, variants] = await Promise.all([
     db.select().from(ordersTable).where(and(...alertsBaseConditions)),
-    db.select().from(productsTable),
-    db.select().from(productVariantsTable),
+    getProductsForTenant(tenantId),
+    getVariantsForTenant(tenantId),
   ]);
 
   const variantMap = new Map<number, number | null>(variants.map(v => [v.id, v.costPrice]));
@@ -819,8 +844,8 @@ router.get("/analytics/stock-intelligence", async (req, res): Promise<void> => {
   if (tenantId !== null) siBaseConditions.push(eq(ordersTable.tenantId, tenantId));
   const [allOrders, products, variants] = await Promise.all([
     db.select().from(ordersTable).where(and(...siBaseConditions)),
-    db.select().from(productsTable),
-    db.select().from(productVariantsTable),
+    getProductsForTenant(tenantId),
+    getVariantsForTenant(tenantId),
   ]);
 
   const variantMap = new Map<number, number | null>(variants.map(v => [v.id, v.costPrice]));
@@ -940,10 +965,9 @@ router.get("/analytics/smart-insights", async (req, res): Promise<void> => {
   if (tenantId !== null) smBaseConditions.push(eq(ordersTable.tenantId, tenantId));
   const [allOrders, products, variants, allManifests, allManifestOrders] = await Promise.all([
     db.select().from(ordersTable).where(and(...smBaseConditions)),
-    db.select().from(productsTable),
-    db.select().from(productVariantsTable),
-    db.select({ id: shippingManifestsTable.id, manualShippingCost: shippingManifestsTable.manualShippingCost })
-      .from(shippingManifestsTable),
+    getProductsForTenant(tenantId),
+    getVariantsForTenant(tenantId),
+    getManifestsForTenant(tenantId),
     db.select({ manifestId: shippingManifestOrdersTable.manifestId, orderId: shippingManifestOrdersTable.orderId })
       .from(shippingManifestOrdersTable),
   ]);
