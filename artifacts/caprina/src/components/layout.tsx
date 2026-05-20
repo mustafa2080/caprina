@@ -41,8 +41,8 @@ const ALL_NAV = [
   { href: "/sessions-report",   label: "تقارير الجلسات",      icon: Clock,                       permission: "users",                   section: "section_sessions_report",    iconColor: "text-slate-400",      group: "analytics"    },
   // ── الفريق والإدارة ─────────────────────────────────────────────────────
   { href: "/team",              label: "أداء الفريق",         icon: UserCheck,                   permission: "analytics",               section: "section_team_management",    iconColor: "text-lime-400",       group: "team"         },
-  { href: "/users",             label: "إدارة الفريق",        icon: UserCog,                     permission: "analytics",               section: "section_team_management",    iconColor: "text-lime-300",       group: "team"         },
-  { href: "/users/manage",      label: "إدارة المستخدمين",   icon: Users,                       permission: "users",                   section: "section_users",              iconColor: "text-green-400",      group: "team"         },
+  { href: "/team-performance",  label: "إدارة الفريق",        icon: UserCog,                     permission: "analytics",               section: "section_team_management",    iconColor: "text-lime-300",       group: "team"         },
+  { href: "/users",             label: "إدارة المستخدمين",   icon: Users,                       permission: "users",                   section: "section_users",              iconColor: "text-green-400",      group: "team"         },
   { href: "/audit-logs",        label: "سجل العمليات",        icon: Shield,                      permission: "audit",                   section: "section_audit",              iconColor: "text-red-400",        group: "team"         },
   // ── الأدوات ─────────────────────────────────────────────────────────────
   { href: "/import",            label: "استيراد Excel",       icon: Upload,                      permission: "import",                  section: "section_import",             iconColor: "text-amber-400",      group: "tools"        },
@@ -288,7 +288,7 @@ export default function Layout({ children }: LayoutProps) {
 
           {/* ── الفريق والإدارة ── */}
           {visibleNav.some(i => i.group === "team") && (
-            <NavGroup label="الفريق والإدارة" icon={Users} iconColor="text-green-400" location={location} prefixes={["/team","/users","/audit-logs"]}>
+            <NavGroup label="الفريق والإدارة" icon={Users} iconColor="text-green-400" location={location} prefixes={["/team","/team-performance","/users","/audit-logs"]}>
               {visibleNav.filter(i => i.group === "team").map(item => <NavItem key={item.href+item.label} item={item} location={location} sub />)}
             </NavGroup>
           )}
