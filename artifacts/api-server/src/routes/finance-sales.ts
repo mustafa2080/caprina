@@ -323,6 +323,47 @@ router.patch("/finance/sale-orders/:id", async (req, res): Promise<void> => {
   }
 });
 
+// ── PATCH /finance/sale-orders/:id/items/:itemId ─────────────────────────────
+router.patch("/finance/sale-orders/:id/items/:itemId", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req);
+    const orderId  = parseInt(req.params.id);
+    const itemId   = parseInt(req.params.itemId);
+    const [order] = await db.select().from(saleOrdersTable).where(and(eq(saleOrdersTable.id, orderId), tenantId !== null ? eq(saleOrdersTable.tenantId, tenantId) : sql`1=1`));
+    if (!order) { res.status(404).json({ error: "الأمر غير موجود" }); return; }
+    const { productName, color, size, quantity, unitPrice } = req.body;
+    const [ci] = await db.select().from(saleOrderItemsTable).where(and(eq(saleOrderItemsTable.id, itemId), eq(saleOrderItemsTable.saleOrderId, orderId)));
+    if (!ci) { res.status(404).json({ error: "البند غير موجود" }); return; }
+    const newQty   = quantity  !== undefined ? Number(quantity)  : ci.quantity;
+    const newPrice = unitPrice !== undefined ? Number(unitPrice) : Number(ci.unitPrice);
+    const upd: Record<string, any> = { quantity: newQty, unitPrice: String(newPrice), totalPrice: String(newQty * newPrice) };
+    if (productName !== undefined) upd.productName = productName;
+    if (color !== undefined) upd.color = color || null;
+    if (size  !== undefined) upd.size  = size  || null;
+    await db.update(saleOrderItemsTable).set(upd).where(and(eq(saleOrderItemsTable.id, itemId), eq(saleOrderItemsTable.saleOrderId, orderId)));
+    const allItems = await db.select().from(saleOrderItemsTable).where(eq(saleOrderItemsTable.saleOrderId, orderId));
+    const sub = allItems.reduce((s, it) => s + it.quantity * Number(it.unitPrice), 0);
+    await db.update(saleOrdersTable).set({ totalAmount: String(sub + Number(order.shippingCost??0) + Number(order.taxAmount??0) - Number(order.discountAmount??0)), updatedAt: new Date() }).where(eq(saleOrdersTable.id, orderId));
+    res.json({ success: true });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+// ── DELETE /finance/sale-orders/:id/items/:itemId ────────────────────────────
+router.delete("/finance/sale-orders/:id/items/:itemId", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req);
+    const orderId  = parseInt(req.params.id);
+    const itemId   = parseInt(req.params.itemId);
+    const [order] = await db.select().from(saleOrdersTable).where(and(eq(saleOrdersTable.id, orderId), tenantId !== null ? eq(saleOrdersTable.tenantId, tenantId) : sql`1=1`));
+    if (!order) { res.status(404).json({ error: "الأمر غير موجود" }); return; }
+    await db.delete(saleOrderItemsTable).where(and(eq(saleOrderItemsTable.id, itemId), eq(saleOrderItemsTable.saleOrderId, orderId)));
+    const rem = await db.select().from(saleOrderItemsTable).where(eq(saleOrderItemsTable.saleOrderId, orderId));
+    const sub = rem.reduce((s, it) => s + it.quantity * Number(it.unitPrice), 0);
+    await db.update(saleOrdersTable).set({ totalAmount: String(sub + Number(order.shippingCost??0) + Number(order.taxAmount??0) - Number(order.discountAmount??0)), updatedAt: new Date() }).where(eq(saleOrdersTable.id, orderId));
+    res.json({ success: true });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
 // ── DELETE /finance/sale-orders/:id ──────────────────────────────────────────
 router.delete("/finance/sale-orders/:id", async (req, res): Promise<void> => {
   try {
