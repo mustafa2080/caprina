@@ -16,7 +16,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { apiFetch } from "@/lib/api";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 
 const fmt = (n: string | number) =>
   new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(Number(n));
@@ -422,10 +422,12 @@ export default function FinanceClients() {
                       style={{ borderBottom: "1px solid hsl(var(--border)/0.5)", background: idx % 2 === 0 ? "transparent" : "hsl(var(--muted)/0.15)" }}
                       className="hover:bg-accent/30 transition-colors">
                       <td className="px-4 py-3">
-                        <button className="text-right" onClick={() => setViewClient(c)}>
-                          <p className="font-semibold hover:text-teal-400 transition-colors">{c.name}</p>
-                          {c.email && <p className="text-xs text-muted-foreground">{c.email}</p>}
-                        </button>
+                        <Link href={`/finance/clients/${c.id}`}>
+                          <button className="text-right">
+                            <p className="font-semibold hover:text-teal-400 transition-colors">{c.name}</p>
+                            {c.email && <p className="text-xs text-muted-foreground">{c.email}</p>}
+                          </button>
+                        </Link>
                       </td>
                       <td className="px-3 py-3 text-sm text-muted-foreground">{c.phone ?? "—"}</td>
                       <td className="px-3 py-3 text-center">
@@ -447,10 +449,11 @@ export default function FinanceClients() {
                       </td>
                       <td className="px-3 py-3">
                         <div className="flex items-center gap-1 justify-end">
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-400"
-                            onClick={() => setViewClient(c)}>
-                            <Eye className="w-3.5 h-3.5" />
-                          </Button>
+                          <Link href={`/finance/clients/${c.id}`}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-400">
+                              <Eye className="w-3.5 h-3.5" />
+                            </Button>
+                          </Link>
                           <Button variant="ghost" size="icon" className="h-7 w-7"
                             onClick={() => syncMutation.mutate(c.id)}>
                             <RefreshCw className="w-3.5 h-3.5" />
