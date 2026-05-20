@@ -1,6 +1,6 @@
 ﻿import { Router, type IRouter } from "express";
 import { db, ordersTable, productsTable, productVariantsTable, shippingCompaniesTable, shippingManifestsTable, shippingManifestOrdersTable } from "@workspace/db";
-import { eq, isNull, and, desc, lte } from "drizzle-orm";
+import { eq, isNull, and, desc, lte, gte, sql, inArray } from "drizzle-orm";
 import { requireAdmin } from "../middlewares/requireRole.js";
 import { requireAuth } from "../middlewares/requireAuth.js";
 import { getTenantId } from "../middlewares/requireTenant.js";
