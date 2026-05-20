@@ -279,6 +279,10 @@ export default function FinanceSaleDetail() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [closing, setClosing]  = useState(false);
 
+  // دفع جزئي
+  const [showPartialModal, setShowPartialModal] = useState(false);
+  const [partialAmount, setPartialAmount]       = useState<string>("");
+
   const handleClose = async () => {
     if (!order) return;
     setClosing(true);
@@ -297,8 +301,14 @@ export default function FinanceSaleDetail() {
   // تغيير الحالة أو حالة الدفع
   const handleStatusChange = async (field: "status" | "paymentStatus", value: string) => {
     if (!order) return;
-    // لو status = closed → استخدم confirm dialog بدل مباشر
+    // لو status = closed → استخدم confirm dialog
     if (field === "status" && value === "closed") { setShowConfirm(true); return; }
+    // لو paymentStatus = partial → افتح modal إدخال المبلغ
+    if (field === "paymentStatus" && value === "partial") {
+      setPartialAmount(order.paidAmount && Number(order.paidAmount) > 0 ? order.paidAmount : "");
+      setShowPartialModal(true);
+      return;
+    }
     setSaving(true);
     try {
       await apiFetch(`/finance/sale-orders/${order.id}`, {
@@ -306,6 +316,27 @@ export default function FinanceSaleDetail() {
         body: JSON.stringify({ [field]: value }),
       });
       setOrder(prev => prev ? { ...prev, [field]: value } : prev);
+    } catch (e: any) {
+      alert("حدث خطأ: " + e.message);
+    } finally { setSaving(false); }
+  };
+
+  // حفظ الدفع الجزئي
+  const handleSavePartial = async () => {
+    if (!order) return;
+    const amount = parseFloat(partialAmount);
+    const total  = parseFloat(order.totalAmount);
+    if (isNaN(amount) || amount <= 0) { alert("أدخل مبلغاً صحيحاً"); return; }
+    if (amount >= total) { alert("المبلغ أكبر من أو يساوي الإجمالي، استخدم «مدفوع بالكامل» بدلاً من ذلك"); return; }
+    setSaving(true);
+    try {
+      await apiFetch(`/finance/sale-orders/${order.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ paymentStatus: "partial", paidAmount: String(amount) }),
+      });
+      setOrder(prev => prev ? { ...prev, paymentStatus: "partial", paidAmount: String(amount) } : prev);
+      setShowPartialModal(false);
+      setPartialAmount("");
     } catch (e: any) {
       alert("حدث خطأ: " + e.message);
     } finally { setSaving(false); }
@@ -510,6 +541,77 @@ export default function FinanceSaleDetail() {
           </div>
         </div>
       )}
+
+      {/* ── PARTIAL PAYMENT MODAL ── */}
+      {showPartialModal && order && (() => {
+        const tot   = parseFloat(order.totalAmount);
+        const paid  = parseFloat(partialAmount) || 0;
+        const remaining = tot - paid;
+        const isValid   = paid > 0 && paid < tot;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.5)" }}>
+            <div className="rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl" style={{ background: "hsl(var(--card))" }} dir="rtl">
+              <div className="text-center mb-5">
+                <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3"
+                  style={{ background: "rgba(230,81,0,0.1)" }}>
+                  <span style={{ fontSize: 26 }}>💰</span>
+                </div>
+                <h3 className="text-base font-bold mb-1">دفع جزئي</h3>
+                <p className="text-xs text-muted-foreground">
+                  إجمالي الفاتورة:{" "}
+                  <strong style={{ color: "hsl(43,74%,50%)" }}>{fmtNum(tot)} ج</strong>
+                </p>
+              </div>
+
+              {/* حقل الإدخال */}
+              <div className="mb-4">
+                <label className="block text-xs font-semibold mb-1.5 text-muted-foreground">المبلغ المدفوع (ج)</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={tot - 1}
+                  value={partialAmount}
+                  onChange={e => setPartialAmount(e.target.value)}
+                  placeholder="0"
+                  className="w-full px-4 py-2.5 rounded-xl border text-sm font-bold text-center outline-none focus:ring-2"
+                  style={{
+                    borderColor: isValid ? "hsl(43,74%,50%)" : "hsl(var(--border))",
+                    background: "hsl(var(--background))",
+                    color: "hsl(var(--foreground))",
+                    ringColor: "hsl(43,74%,50%)",
+                  }}
+                  autoFocus
+                  onKeyDown={e => { if (e.key === "Enter" && isValid) handleSavePartial(); }}
+                />
+              </div>
+
+              {/* عرض المتبقي */}
+              <div className="rounded-xl p-3 mb-5 flex justify-between items-center text-sm"
+                style={{ background: remaining > 0 && isValid ? "#FFF8E1" : "hsl(var(--muted))", border: "1px solid", borderColor: remaining > 0 && isValid ? "#FFE082" : "hsl(var(--border))" }}>
+                <span className="text-xs text-muted-foreground font-medium">المتبقي:</span>
+                <span className="font-extrabold text-base" style={{ color: remaining > 0 && isValid ? "#E65100" : "hsl(var(--muted-foreground))" }}>
+                  {isValid ? `${fmtNum(remaining)} ج` : "—"}
+                </span>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setShowPartialModal(false); setPartialAmount(""); }}
+                  disabled={saving}
+                  className="flex-1 py-2 rounded-lg text-sm font-semibold border hover:opacity-70"
+                  style={{ borderColor: "hsl(var(--border))" }}>إلغاء</button>
+                <button
+                  onClick={handleSavePartial}
+                  disabled={saving || !isValid}
+                  className="flex-1 py-2 rounded-lg text-sm font-bold text-white transition-opacity"
+                  style={{ background: isValid ? "hsl(43,74%,50%)" : "#ccc", opacity: saving ? 0.6 : 1 }}>
+                  {saving ? "جارٍ…" : "حفظ"}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── HEADER CARD ── */}
       <div className="rounded-2xl border p-5 mb-5" style={{ borderColor: "#B2DFDB", background: "hsl(var(--card))" }}>
