@@ -463,53 +463,12 @@ export default function FinanceSaleDetail() {
           <ArrowRight className="w-4 h-4" /> العودة لفواتير البيع
         </button>
 
-        {/* ── شريط الأزرار — نفس ستايل الصورة ── */}
+        {/* ── شريط الأزرار الداكن ── */}
         <div
-          className="flex items-center gap-0 flex-wrap rounded-xl overflow-hidden"
-          style={{ background: "#111", border: "1px solid #333", padding: "6px 10px", gap: "8px" }}
+          className="flex items-center flex-wrap rounded-xl"
+          style={{ background: "#111", border: "1px solid #2a2a2a", padding: "5px 8px", gap: "6px" }}
         >
-          {/* طباعة */}
-          <button
-            onClick={() => printManifestPDF(order)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all hover:opacity-80"
-            style={{ background: "transparent", border: "1px solid #888", color: "#ccc" }}
-          >
-            <Printer className="w-3.5 h-3.5" /> طباعة
-          </button>
-
-          {/* تصدير */}
-          <button
-            onClick={() => exportToExcel(order)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all hover:opacity-80"
-            style={{ background: "transparent", border: "1px solid hsl(43,74%,50%)", color: "hsl(43,74%,50%)" }}
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5" /> تصدير
-          </button>
-
-          {/* الدفع dropdown */}
-          {order.status !== "closed" && (
-            <QuickChangeDropdown
-              label="الدفع"
-              options={payOptions}
-              current={order.paymentStatus}
-              onSelect={v => handleStatusChange("paymentStatus", v)}
-              disabled={saving}
-              darkMode
-            />
-          )}
-
-          {/* إغلاق البيان */}
-          {order.status !== "closed" && order.status !== "cancelled" && (
-            <button
-              onClick={() => setShowConfirm(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all hover:opacity-80"
-              style={{ background: "transparent", border: "1px solid #4CAF50", color: "#4CAF50" }}
-            >
-              <span style={{ fontSize: 13 }}>🔒</span> إغلاق البيان
-            </button>
-          )}
-
-          {/* حالة الأمر badge */}
+          {/* 1. حالة الأمر — أقصى اليمين */}
           {order.status === "closed" ? (
             <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold"
               style={{ border: "1px solid #4CAF50", color: "#4CAF50", background: "transparent" }}>
@@ -520,6 +479,47 @@ export default function FinanceSaleDetail() {
               style={{ border: `1px solid ${statusInfo.color}`, color: statusInfo.color, background: "transparent" }}>
               {statusInfo.label}
             </span>
+          )}
+
+          {/* 2. طباعة / PDF */}
+          <button
+            onClick={() => printManifestPDF(order)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all hover:opacity-75"
+            style={{ background: "hsl(43,74%,50%)", border: "1px solid hsl(43,74%,50%)", color: "#000" }}
+          >
+            <Printer className="w-3.5 h-3.5" /> طباعة / PDF
+          </button>
+
+          {/* 3. تصدير Excel */}
+          <button
+            onClick={() => exportToExcel(order)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all hover:opacity-80"
+            style={{ background: "transparent", border: "1px solid hsl(43,74%,50%)", color: "hsl(43,74%,50%)" }}
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5" /> تصدير Excel
+          </button>
+
+          {/* 4. إغلاق البيان */}
+          {order.status !== "closed" && order.status !== "cancelled" && (
+            <button
+              onClick={() => setShowConfirm(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all hover:opacity-80"
+              style={{ background: "transparent", border: "1px solid #4CAF50", color: "#4CAF50" }}
+            >
+              🔒 إغلاق البيان
+            </button>
+          )}
+
+          {/* 5. الدفع dropdown — أقصى الشمال */}
+          {order.status !== "closed" && (
+            <QuickChangeDropdown
+              label="الدفع"
+              options={payOptions}
+              current={order.paymentStatus}
+              onSelect={v => handleStatusChange("paymentStatus", v)}
+              disabled={saving}
+              darkMode
+            />
           )}
         </div>
       </div>
