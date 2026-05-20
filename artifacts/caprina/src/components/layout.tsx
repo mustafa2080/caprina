@@ -86,14 +86,6 @@ function NavItem({ item, location, sub = false }: { item: any; location: string;
       )}>
       <Icon className={cn("w-3.5 h-3.5 shrink-0", isActive ? "text-primary-foreground" : item.iconColor)} />
       <span className="flex-1">{item.label}</span>
-      {sub && (
-        <ChevronLeft className={cn(
-          "w-3 h-3 shrink-0 transition-all",
-          isActive
-            ? "text-primary-foreground opacity-80"
-            : "text-sidebar-foreground/20 group-hover:text-sidebar-foreground/50 -translate-x-1 group-hover:translate-x-0"
-        )} />
-      )}
     </Link>
   );
 }
@@ -288,7 +280,6 @@ export default function Layout({ children }: LayoutProps) {
                       isActive ? "bg-primary text-primary-foreground" : "text-sidebar-foreground/55 hover:text-sidebar-foreground hover:bg-foreground/5")}>
                     <Icon className={cn("w-3.5 h-3.5 shrink-0", isActive ? "text-primary-foreground" : item.iconColor)} />
                     <span className="flex-1">{item.label}</span>
-                    <ChevronLeft className={cn("w-3 h-3 shrink-0 transition-all", isActive ? "text-primary-foreground opacity-80" : "text-sidebar-foreground/20 group-hover:text-sidebar-foreground/50 -translate-x-1 group-hover:translate-x-0")} />
                   </Link>
                 );
               })}
