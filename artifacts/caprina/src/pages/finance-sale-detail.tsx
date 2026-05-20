@@ -536,8 +536,8 @@ export default function FinanceSaleDetail() {
           {/* 1. زرار التصدير الموحد */}
           <button
             onClick={() => setShowExport(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all hover:opacity-75"
-            style={{ background: "hsl(43,74%,50%)", border: "1px solid hsl(43,74%,50%)", color: "#000" }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all hover:opacity-80"
+            style={{ background: "transparent", border: "1px solid hsl(43,74%,50%)", color: "hsl(43,74%,50%)" }}
           >
             <FileSpreadsheet className="w-3.5 h-3.5" /> تصدير ↓
           </button>
