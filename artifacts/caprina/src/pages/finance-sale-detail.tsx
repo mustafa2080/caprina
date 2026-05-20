@@ -221,8 +221,8 @@ function QuickChangeDropdown({
   const currentOpt = options.find(o => o.value === current);
 
   const btnBg          = darkMode ? "transparent"   : "hsl(var(--card))";
-  const btnBorder      = darkMode ? (currentOpt?.color ?? "#888") : "hsl(var(--border))";
-  const btnColor       = currentOpt?.color ?? (darkMode ? "#ccc" : "hsl(var(--foreground))");
+  const btnBorder      = darkMode ? "hsl(43,74%,50%)" : "hsl(var(--border))";
+  const btnColor       = darkMode ? "hsl(43,74%,50%)" : (currentOpt?.color ?? "hsl(var(--foreground))");
   const dropBg         = darkMode ? "#1a1a1a"        : "hsl(var(--card))";
   const dropBorder     = darkMode ? "#333"           : "hsl(var(--border))";
   const itemHoverBg    = darkMode ? "#ffffff14"      : undefined;
@@ -551,14 +551,14 @@ export default function FinanceSaleDetail() {
             <FileSpreadsheet className="w-3.5 h-3.5" /> تصدير ↓
           </button>
 
-          {/* 2. إغلاق البيان */}
+          {/* 3. إغلاق الفاتورة */}
           {order.status !== "closed" && order.status !== "cancelled" && (
             <button
               onClick={() => setShowConfirm(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all hover:opacity-80"
               style={{ background: "transparent", border: "1px solid #4CAF50", color: "#4CAF50" }}
             >
-              🔒 إغلاق البيان
+              🔒 إغلاق الفاتورة
             </button>
           )}
 
