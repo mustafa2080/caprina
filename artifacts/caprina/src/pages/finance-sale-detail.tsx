@@ -74,8 +74,8 @@ function printManifestPDF(order: SaleOrder) {
 
   /* ── Header ── */
   .header { display: flex; justify-content: space-between; align-items: flex-start;
-            border-bottom: 3px solid #00897B; padding-bottom: 16px; margin-bottom: 20px; }
-  .brand  { font-size: 26px; font-weight: 900; color: #00897B; letter-spacing: 3px; }
+            border-bottom: 3px solid hsl(43,74%,50%); padding-bottom: 16px; margin-bottom: 20px; }
+  .brand  { font-size: 26px; font-weight: 900; color: hsl(43,74%,50%); letter-spacing: 3px; }
   .brand-sub { font-size: 11px; color: #888; margin-top: 2px; letter-spacing: 1px; }
   .mnf-info   { text-align: left; }
   .mnf-num    { font-size: 15px; font-weight: 700; color: #222; }
@@ -87,7 +87,7 @@ function printManifestPDF(order: SaleOrder) {
   /* ── Stats row ── */
   .stats { display: flex; gap: 12px; margin-bottom: 20px; }
   .stat-box { flex: 1; border: 1px solid #e0f2f1; border-radius: 10px; padding: 10px 14px; text-align: center; background: #f9fffe; }
-  .stat-val { font-size: 22px; font-weight: 800; color: #00897B; }
+  .stat-val { font-size: 22px; font-weight: 800; color: hsl(43,74%,50%); }
   .stat-lbl { font-size: 10px; color: #888; margin-top: 2px; }
 
   /* ── Client info ── */
@@ -99,7 +99,7 @@ function printManifestPDF(order: SaleOrder) {
 
   /* ── Table ── */
   table       { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
-  thead th    { background: #00897B; color: #fff; padding: 9px 10px; font-size: 12px; text-align: right; }
+  thead th    { background: hsl(43,74%,50%); color: #fff; padding: 9px 10px; font-size: 12px; text-align: right; }
   tbody tr    { border-bottom: 1px solid #f0f0f0; }
   tbody tr:nth-child(even) { background: #FAFFFE; }
   tbody td    { padding: 8px 10px; font-size: 12px; }
@@ -108,8 +108,8 @@ function printManifestPDF(order: SaleOrder) {
   .totals-section { display: flex; justify-content: flex-start; margin-bottom: 20px; }
   .totals-box     { border: 1px solid #B2DFDB; border-radius: 10px; padding: 14px 20px; min-width: 260px; background: #F5FFFE; }
   .totals-row     { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
-  .totals-row.grand { border-top: 2px solid #00897B; margin-top: 6px; padding-top: 8px;
-                      font-weight: 800; font-size: 16px; color: #00897B; }
+  .totals-row.grand { border-top: 2px solid hsl(43,74%,50%); margin-top: 6px; padding-top: 8px;
+                      font-weight: 800; font-size: 16px; color: hsl(43,74%,50%); }
   .totals-row.due   { color: #B71C1C; font-weight: 700; }
   .totals-row.paid-row { color: #1B5E20; }
 
@@ -221,7 +221,7 @@ ${order.notes ? `<div class="notes-box"><strong>ملاحظات:</strong> ${order
 
 <!-- Print Button -->
 <div class="no-print" style="text-align:center;margin-top:28px">
-  <button onclick="window.print()" style="padding:10px 32px;background:#00897B;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:15px;font-weight:700">
+  <button onclick="window.print()" style="padding:10px 32px;background:hsl(43,74%,50%);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:15px;font-weight:700">
     🖨️ طباعة / حفظ PDF
   </button>
 </div>
@@ -277,7 +277,7 @@ export default function FinanceSaleDetail() {
         <button
           onClick={() => navigate("/finance/sales")}
           className="flex items-center gap-2 text-sm font-medium hover:opacity-70 transition-opacity"
-          style={{ color: "#00897B" }}
+          style={{ color: "hsl(43,74%,50%)" }}
         >
           <ArrowRight className="w-4 h-4" />
           العودة لفواتير البيع
@@ -285,7 +285,7 @@ export default function FinanceSaleDetail() {
         <button
           onClick={() => printManifestPDF(order)}
           className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-white transition-opacity hover:opacity-85"
-          style={{ background: "#00897B" }}
+          style={{ background: "hsl(43,74%,50%)" }}
         >
           <Printer className="w-4 h-4" />
           طباعة / PDF
@@ -296,7 +296,7 @@ export default function FinanceSaleDetail() {
       <div className="rounded-2xl border p-5 mb-5" style={{ borderColor: "#B2DFDB", background: "hsl(var(--card))" }}>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <div className="text-2xl font-black tracking-widest mb-1" style={{ color: "#00897B" }}>CAPRINA</div>
+            <div className="text-2xl font-black tracking-widest mb-1" style={{ color: "hsl(43,74%,50%)" }}>CAPRINA</div>
             <div className="text-xs text-muted-foreground mb-3">فاتورة بيع — SALE ORDER</div>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="flex items-center gap-1 text-sm font-bold">
@@ -343,7 +343,7 @@ export default function FinanceSaleDetail() {
           { val: due > 0 ? `${fmtNum(due)} ج` : "✓ مسدد", lbl: "المتبقي", icon: <CreditCard className="w-4 h-4" /> },
         ].map((s, i) => (
           <div key={i} className="rounded-xl border p-3 text-center" style={{ borderColor: "#B2DFDB", background: "hsl(var(--card))" }}>
-            <div className="text-xl font-extrabold mb-0.5" style={{ color: "#00897B" }}>{s.val}</div>
+            <div className="text-xl font-extrabold mb-0.5" style={{ color: "hsl(43,74%,50%)" }}>{s.val}</div>
             <div className="text-xs text-muted-foreground">{s.lbl}</div>
           </div>
         ))}
@@ -377,7 +377,7 @@ export default function FinanceSaleDetail() {
       <div className="rounded-xl border overflow-hidden mb-5" style={{ borderColor: "#B2DFDB" }}>
         <table className="w-full text-sm">
           <thead>
-            <tr style={{ background: "#00897B" }}>
+            <tr style={{ background: "hsl(43,74%,50%)" }}>
               {["#","المنتج","اللون","المقاس","الكمية","سعر الوحدة","الإجمالي"].map(h => (
                 <th key={h} className="text-right py-2.5 px-3 text-xs font-bold text-white">{h}</th>
               ))}
@@ -393,7 +393,7 @@ export default function FinanceSaleDetail() {
                 <td className="py-2 px-3">{it.size ?? "—"}</td>
                 <td className="py-2 px-3 text-center font-bold">{it.quantity}</td>
                 <td className="py-2 px-3 text-center">{fmtNum(it.unitPrice)} ج</td>
-                <td className="py-2 px-3 text-center font-bold" style={{ color: "#00897B" }}>
+                <td className="py-2 px-3 text-center font-bold" style={{ color: "hsl(43,74%,50%)" }}>
                   {fmtNum(it.quantity * Number(it.unitPrice))} ج
                 </td>
               </tr>
@@ -421,7 +421,7 @@ export default function FinanceSaleDetail() {
               <span className="font-semibold">{fmtNum(shipping)} ج</span>
             </div>
           )}
-          <div className="flex justify-between pt-2 mt-2 border-t text-base font-extrabold" style={{ color: "#00897B", borderColor: "#00897B" }}>
+          <div className="flex justify-between pt-2 mt-2 border-t text-base font-extrabold" style={{ color: "hsl(43,74%,50%)", borderColor: "hsl(43,74%,50%)" }}>
             <span>الإجمالي الكلي</span>
             <span>{fmtNum(total)} ج</span>
           </div>
