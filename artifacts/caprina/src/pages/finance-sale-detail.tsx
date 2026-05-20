@@ -121,7 +121,7 @@ function printManifestPDF(order: SaleOrder) {
 <title>فاتورة ${order.soNumber}</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:Arial,sans-serif;padding:28px;color:#222;font-size:13px;background:#fff}
+  body{font-family:Arial,sans-serif;padding:28px;color:#222;font-size:13px;background:#f5f0e8}
   .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid hsl(43,74%,50%);padding-bottom:16px;margin-bottom:20px}
   .brand{font-size:26px;font-weight:900;color:hsl(43,74%,50%);letter-spacing:3px}
   .brand-sub{font-size:11px;color:#888;margin-top:2px}
@@ -545,8 +545,8 @@ export default function FinanceSaleDetail() {
                 className="flex-1 py-2 rounded-lg text-sm font-semibold border hover:opacity-70"
                 style={{ borderColor: "hsl(var(--border))" }}>إلغاء</button>
               <button onClick={handleClose} disabled={closing}
-                className="flex-1 py-2 rounded-lg text-sm font-bold text-white hover:opacity-85"
-                style={{ background: "hsl(43,74%,50%)" }}>
+                className="flex-1 py-2 rounded-lg text-sm font-bold hover:opacity-85"
+                style={{ background: "hsl(43,74%,50%)", color: "#0a0a0a" }}>
                 {closing ? "جارٍ…" : "تأكيد الإغلاق"}
               </button>
             </div>
@@ -615,8 +615,8 @@ export default function FinanceSaleDetail() {
                 <button
                   onClick={handleSavePartial}
                   disabled={saving || !isValid}
-                  className="flex-1 py-2 rounded-lg text-sm font-bold text-white transition-opacity"
-                  style={{ background: isValid ? "hsl(43,74%,50%)" : "#ccc", opacity: saving ? 0.6 : 1 }}>
+                  className="flex-1 py-2 rounded-lg text-sm font-bold transition-opacity"
+                  style={{ background: isValid ? "hsl(43,74%,50%)" : "#ccc", color: "#0a0a0a", opacity: saving ? 0.6 : 1 }}>
                   {saving ? "جارٍ…" : "حفظ"}
                 </button>
               </div>
@@ -773,8 +773,8 @@ export default function FinanceSaleDetail() {
                     {isEditing ? (
                       <div className="flex items-center gap-1">
                         <button onClick={saveEditItem} disabled={itemSaving}
-                          className="flex items-center gap-1 px-2 py-1 rounded text-xs font-bold text-white transition-opacity hover:opacity-85"
-                          style={{ background: "hsl(43,74%,50%)" }}>
+                          className="flex items-center gap-1 px-2 py-1 rounded text-xs font-bold transition-opacity hover:opacity-85"
+                          style={{ background: "hsl(43,74%,50%)", color: "#0a0a0a" }}>
                           <Save className="w-3 h-3" />
                           {itemSaving ? "…" : "حفظ"}
                         </button>
@@ -828,8 +828,8 @@ export default function FinanceSaleDetail() {
                 className="flex-1 py-2 rounded-lg text-sm font-semibold border hover:opacity-70 transition-opacity"
                 style={{ borderColor: "hsl(var(--border))" }}>إلغاء</button>
               <button onClick={() => deleteItem(deleteConfirmId!)} disabled={itemSaving}
-                className="flex-1 py-2 rounded-lg text-sm font-bold text-white hover:opacity-85 transition-opacity"
-                style={{ background: "#B71C1C" }}>
+                className="flex-1 py-2 rounded-lg text-sm font-bold hover:opacity-85 transition-opacity"
+                style={{ background: "#B71C1C", color: "#ffd5d5" }}>
                 {itemSaving ? "جارٍ…" : "تأكيد الحذف"}
               </button>
             </div>
