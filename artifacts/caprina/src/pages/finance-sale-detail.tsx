@@ -8,6 +8,15 @@ import {
   Calendar, Hash, CreditCard, Truck, FileSpreadsheet,
   ChevronDown, Check, Pencil, Trash2, X, Save,
 } from "lucide-react";
+
+// ── نوع الـ Variant ────────────────────────────────────────────────────────
+type Variant = {
+  id: number; productId: number; productName: string;
+  color: string; size: string; sku: string | null;
+  totalQuantity: number; reservedQuantity: number; soldQuantity: number;
+  unitPrice: string; costPrice: string | null;
+};
+type Product = { id: number; name: string };
 // ── أنواع ──────────────────────────────────────────────────────────────────
 type SaleItem = {
   id: number; productName: string; color: string; size: string;
@@ -274,15 +283,63 @@ export default function FinanceSaleDetail() {
   const [error, setError]   = useState<string | null>(null);
   const [saving, setSaving]  = useState(false);
 
+  // ── variants & products من الـ API ──────────────────────────────────────
+  const [allVariants,  setAllVariants]  = useState<Variant[]>([]);
+  const [allProducts,  setAllProducts]  = useState<Product[]>([]);
+
+  useEffect(() => {
+    apiFetch<Variant[]>("/variants").then(d => setAllVariants(Array.isArray(d) ? d : [])).catch(() => {});
+    apiFetch<Product[]>("/products").then(d => setAllProducts(Array.isArray(d) ? d : [])).catch(() => {});
+  }, []);
+
+  // helpers للـ variants
+  const variantsOf   = (pid: string) => allVariants.filter(v => String(v.productId) === pid);
+  const colorsOf     = (pid: string) => [...new Set(variantsOf(pid).map(v => v.color).filter(Boolean))];
+  const sizesOf      = (pid: string, color: string) => variantsOf(pid).filter(v => v.color === color).map(v => v.size).filter(Boolean);
+  const matchVariant = (pid: string, color: string, size: string) => variantsOf(pid).find(v => v.color === color && v.size === size);
+
   // تعديل/حذف المنتجات
-  const [editingItemId, setEditingItemId]   = useState<number | null>(null);
-  const [editQty,       setEditQty]         = useState<number>(1);
-  const [editPrice,     setEditPrice]       = useState<number>(0);
-  const [editName,      setEditName]        = useState<string>("");
-  const [editColor,     setEditColor]       = useState<string>("");
-  const [editSize,      setEditSize]        = useState<string>("");
-  const [itemSaving,    setItemSaving]      = useState(false);
+  const [editingItemId,   setEditingItemId]   = useState<number | null>(null);
+  const [editProductId,   setEditProductId]   = useState<string>("");
+  const [editQty,         setEditQty]         = useState<number>(1);
+  const [editPrice,       setEditPrice]       = useState<number>(0);
+  const [editName,        setEditName]        = useState<string>("");
+  const [editColor,       setEditColor]       = useState<string>("");
+  const [editSize,        setEditSize]        = useState<string>("");
+  const [itemSaving,      setItemSaving]      = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+
+  // عند اختيار منتج جديد في التعديل
+  const handleEditProduct = (pid: string) => {
+    const p      = allProducts.find(x => String(x.id) === pid);
+    const colors = colorsOf(pid);
+    const color  = colors[0] ?? "";
+    const sizes  = color ? sizesOf(pid, color) : [];
+    const size   = sizes[0] ?? "";
+    const v      = color && size ? matchVariant(pid, color, size) : undefined;
+    setEditProductId(pid);
+    setEditName(p?.name ?? "");
+    setEditColor(color);
+    setEditSize(size);
+    if (v) setEditPrice(parseFloat(v.unitPrice));
+  };
+
+  // عند اختيار لون جديد في التعديل
+  const handleEditColor = (color: string) => {
+    const sizes = sizesOf(editProductId, color);
+    const size  = sizes[0] ?? "";
+    const v     = size ? matchVariant(editProductId, color, size) : undefined;
+    setEditColor(color);
+    setEditSize(size);
+    if (v) setEditPrice(parseFloat(v.unitPrice));
+  };
+
+  // عند اختيار مقاس جديد في التعديل
+  const handleEditSize = (size: string) => {
+    const v = matchVariant(editProductId, editColor, size);
+    setEditSize(size);
+    if (v) setEditPrice(parseFloat(v.unitPrice));
+  };
 
   // إغلاق الفاتورة
   const [showConfirm, setShowConfirm] = useState(false);
@@ -353,7 +410,14 @@ export default function FinanceSaleDetail() {
 
   // بدء تعديل منتج
   const startEditItem = (it: SaleItem) => {
+    // ابحث عن productId من الـ variants
+    const v = allVariants.find(x =>
+      x.color === it.color && x.size === it.size &&
+      x.productName?.toLowerCase() === it.productName?.toLowerCase()
+    );
+    const pid = v ? String(v.productId) : "";
     setEditingItemId(it.id);
+    setEditProductId(pid);
     setEditQty(it.quantity);
     setEditPrice(Number(it.unitPrice));
     setEditName(it.productName);
@@ -722,27 +786,56 @@ export default function FinanceSaleDetail() {
                   <td className="py-2 px-3 text-muted-foreground text-xs w-8">{i + 1}</td>
 
                   {/* اسم المنتج */}
-                  <td className="py-2 px-3 font-semibold">
-                    {isEditing
-                      ? <input className="border rounded px-2 py-1 text-xs w-full" style={{ background: "hsl(var(--background))", borderColor: "hsl(var(--border))" }}
-                          value={editName} onChange={e => setEditName(e.target.value)} />
-                      : it.productName ?? "—"}
+                  <td className="py-2 px-3 font-semibold min-w-[160px]">
+                    {isEditing ? (
+                      <select
+                        className="border rounded px-2 py-1 text-xs w-full"
+                        style={{ background: "hsl(var(--background))", borderColor: "hsl(43,74%,50%)", color: "hsl(var(--foreground))" }}
+                        value={editProductId}
+                        onChange={e => handleEditProduct(e.target.value)}
+                      >
+                        <option value="">— اختر منتج —</option>
+                        {allProducts.map(p => (
+                          <option key={p.id} value={String(p.id)}>{p.name}</option>
+                        ))}
+                      </select>
+                    ) : it.productName ?? "—"}
                   </td>
 
                   {/* اللون */}
-                  <td className="py-2 px-3">
-                    {isEditing
-                      ? <input className="border rounded px-2 py-1 text-xs w-20" style={{ background: "hsl(var(--background))", borderColor: "hsl(var(--border))" }}
-                          value={editColor} onChange={e => setEditColor(e.target.value)} />
-                      : it.color ?? "—"}
+                  <td className="py-2 px-3 min-w-[110px]">
+                    {isEditing ? (
+                      <select
+                        className="border rounded px-2 py-1 text-xs w-full"
+                        style={{ background: "hsl(var(--background))", borderColor: "hsl(43,74%,50%)", color: "hsl(var(--foreground))" }}
+                        value={editColor}
+                        disabled={!editProductId}
+                        onChange={e => handleEditColor(e.target.value)}
+                      >
+                        <option value="">— لون —</option>
+                        {colorsOf(editProductId).map(c => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    ) : it.color ?? "—"}
                   </td>
 
                   {/* المقاس */}
-                  <td className="py-2 px-3">
-                    {isEditing
-                      ? <input className="border rounded px-2 py-1 text-xs w-16" style={{ background: "hsl(var(--background))", borderColor: "hsl(var(--border))" }}
-                          value={editSize} onChange={e => setEditSize(e.target.value)} />
-                      : it.size ?? "—"}
+                  <td className="py-2 px-3 min-w-[90px]">
+                    {isEditing ? (
+                      <select
+                        className="border rounded px-2 py-1 text-xs w-full"
+                        style={{ background: "hsl(var(--background))", borderColor: "hsl(43,74%,50%)", color: "hsl(var(--foreground))" }}
+                        value={editSize}
+                        disabled={!editColor}
+                        onChange={e => handleEditSize(e.target.value)}
+                      >
+                        <option value="">— مقاس —</option>
+                        {sizesOf(editProductId, editColor).map(s => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    ) : it.size ?? "—"}
                   </td>
 
                   {/* الكمية */}
