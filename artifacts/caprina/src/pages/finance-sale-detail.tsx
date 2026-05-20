@@ -502,10 +502,10 @@ export default function FinanceSaleDetail() {
   const statusInfo = STATUS_MAP[order.status] ?? { label: order.status, bg: "#eee", color: "#555" };
   const payInfo    = PAY_MAP[order.paymentStatus] ?? { label: order.paymentStatus, color: "#555" };
   const total    = parseFloat(order.totalAmount   ?? "0");
-  const paid     = parseFloat(order.paidAmount    ?? "0");
+  const paid     = order.paymentStatus === "paid" ? total : parseFloat(order.paidAmount ?? "0");
   const discount = parseFloat(order.discountAmount?? "0");
   const shipping = parseFloat(order.shippingCost  ?? "0");
-  const due      = total - paid;
+  const due      = order.paymentStatus === "paid" ? 0 : Math.max(0, total - paid);
   const totalQty = order.items.reduce((s, i) => s + i.quantity, 0);
 
   const statusOptions = Object.entries(STATUS_MAP).map(([k, v]) => ({
