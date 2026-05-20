@@ -26,11 +26,11 @@ type SaleOrder = {
 
 // ── ثوابت الحالات ──────────────────────────────────────────────────────────
 const STATUS_MAP: Record<string, { label: string; bg: string; color: string }> = {
-  draft:      { label: "جاري الإعداد",  bg: "#FFF8E1", color: "#E65100" },
-  confirmed:  { label: "جاري الإعداد",  bg: "#FFF8E1", color: "#E65100" },
-  processing: { label: "جاري الإعداد",  bg: "#FFF8E1", color: "#E65100" },
-  delivered:  { label: "جاري الإعداد",  bg: "#FFF8E1", color: "#E65100" },
-  closed:     { label: "تم ✓",          bg: "#E8F5E9", color: "#1B5E20" },
+  draft:      { label: "قيد التجهيز",   bg: "#FFF8E1", color: "#E65100" },
+  confirmed:  { label: "قيد التجهيز",   bg: "#FFF8E1", color: "#E65100" },
+  processing: { label: "قيد التجهيز",   bg: "#FFF8E1", color: "#E65100" },
+  delivered:  { label: "قيد التجهيز",   bg: "#FFF8E1", color: "#E65100" },
+  closed:     { label: "تم التسليم ✓",  bg: "#E8F5E9", color: "#1B5E20" },
   cancelled:  { label: "ملغي",          bg: "#FFEBEE", color: "#B71C1C" },
 };
 const PAY_MAP: Record<string, { label: string; color: string }> = {
@@ -424,12 +424,6 @@ export default function FinanceSaleDetail() {
         </button>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {/* ── حالة الأمر (badge فقط) ── */}
-          <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold"
-            style={{ background: statusInfo.bg + "33", color: statusInfo.color, border: `1px solid ${statusInfo.color}44` }}>
-            {statusInfo.label}
-          </span>
-
           {/* ── تغيير حالة الدفع ── */}
           <QuickChangeDropdown
             label="الدفع"
@@ -462,12 +456,6 @@ export default function FinanceSaleDetail() {
               ✓ إغلاق وتحويل للخزينة
             </button>
           )}
-          {order.status === "closed" && (
-            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold"
-              style={{ background: "#E8F5E9", color: "#1B5E20", border: "1px solid #A5D6A7" }}>
-              ✓ تم
-            </span>
-          )}
 
           {/* ── طباعة PDF ── */}
           <button
@@ -477,6 +465,19 @@ export default function FinanceSaleDetail() {
           >
             <Printer className="w-4 h-4" /> طباعة / PDF
           </button>
+
+          {/* ── حالة الأمر (badge — آخر عنصر على الشمال) ── */}
+          {order.status === "closed" ? (
+            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold"
+              style={{ background: "#E8F5E9", color: "#1B5E20", border: "1px solid #A5D6A7" }}>
+              ✓ تم التسليم
+            </span>
+          ) : (
+            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold"
+              style={{ background: statusInfo.bg + "33", color: statusInfo.color, border: `1px solid ${statusInfo.color}44` }}>
+              {statusInfo.label}
+            </span>
+          )}
         </div>
       </div>
 
