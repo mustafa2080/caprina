@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -132,46 +133,54 @@ function ColFilter({ label, active, visible, isOpen, onToggle, children }: {
   label: string; active: boolean; visible: boolean;
   isOpen: boolean; onToggle: () => void; children: React.ReactNode;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const dropRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+
+  // احسب موقع الـ dropdown بناءً على موقع الزرار
+  const handleToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isOpen && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setPos({ top: r.bottom + 6, left: r.right - 200 < 0 ? r.left : r.right - 200 });
+    }
+    onToggle();
+  };
 
   useEffect(() => {
     if (!isOpen) return;
     const h = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onToggle();
+      if (
+        dropRef.current && !dropRef.current.contains(e.target as Node) &&
+        btnRef.current  && !btnRef.current.contains(e.target as Node)
+      ) onToggle();
     };
-    // تأخير بسيط عشان ما يتغلقش على طول
     const timer = setTimeout(() => document.addEventListener("mousedown", h), 100);
     return () => { clearTimeout(timer); document.removeEventListener("mousedown", h); };
   }, [isOpen]);
 
   return (
-    <div ref={ref} className="relative inline-flex items-center gap-1 select-none">
+    <div className="inline-flex items-center gap-1 select-none">
       <span className="text-xs font-semibold" style={{ color: active ? "#4DB6AC" : "hsl(var(--muted-foreground))" }}>
         {label}
       </span>
 
-      {/* أيقونة الفلتر — تظهر فقط لما colFilters = true */}
       {visible && (
         <button
-          onClick={e => { e.stopPropagation(); onToggle(); }}
+          ref={btnRef}
+          onClick={handleToggle}
           title={`فلتر ${label}`}
           className="relative inline-flex items-center justify-center rounded transition-all hover:scale-110"
           style={{
             width: 20, height: 20,
-            background: active
-              ? "rgba(77,182,172,0.25)"
-              : isOpen
-                ? "hsl(var(--muted)/0.7)"
-                : "hsl(var(--muted)/0.3)",
+            background: active ? "rgba(77,182,172,0.25)" : isOpen ? "hsl(var(--muted)/0.7)" : "hsl(var(--muted)/0.3)",
             color: active ? "#4DB6AC" : isOpen ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground))",
             border: active ? "1px solid rgba(77,182,172,0.5)" : "1px solid transparent",
             borderRadius: 4,
           }}>
-          {/* أيقونة فلتر الإكسيل */}
           <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
             <path d="M0.5 2h10M2.5 5.5h6M4.5 9h2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
           </svg>
-          {/* نقطة حمراء صغيرة لما فيه فلتر نشط */}
           {active && (
             <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full"
               style={{ background: "#4DB6AC", border: "1.5px solid hsl(var(--card))" }} />
@@ -179,21 +188,23 @@ function ColFilter({ label, active, visible, isOpen, onToggle, children }: {
         </button>
       )}
 
-      {/* Dropdown القائمة */}
-      {visible && isOpen && (
+      {/* Dropdown — position fixed عشان يطلع فوق كل حاجة */}
+      {visible && isOpen && createPortal(
         <div
-          className="absolute z-[60] rounded-xl overflow-hidden"
+          ref={dropRef}
+          className="rounded-xl overflow-hidden"
           style={{
-            top: "calc(100% + 6px)",
-            right: 0,
-            minWidth: 200,
+            position: "fixed",
+            top: pos.top,
+            left: pos.left,
+            minWidth: 210,
+            zIndex: 9999,
             background: "hsl(var(--card))",
             border: "1px solid hsl(var(--border))",
-            boxShadow: "0 12px 40px rgba(0,0,0,0.35)",
+            boxShadow: "0 16px 48px rgba(0,0,0,0.45)",
           }}
           onClick={e => e.stopPropagation()}
         >
-          {/* شريط علوي */}
           <div className="flex items-center justify-between px-3 py-2 border-b"
             style={{ borderColor: "hsl(var(--border))", background: "hsl(var(--muted)/0.4)" }}>
             <span className="text-xs font-bold" style={{ color: "#4DB6AC" }}>فلتر — {label}</span>
@@ -202,7 +213,8 @@ function ColFilter({ label, active, visible, isOpen, onToggle, children }: {
             </button>
           </div>
           {children}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -1227,11 +1239,14 @@ export default function FinanceSales() {
   const [, navigate] = useLocation();
 
   const [search,        setSearch]        = useState("");
-  const [filterStatus,  setFilterStatus]  = useState("all");
-  const [filterPay,     setFilterPay]     = useState("all");
+  const [filterStatus,    setFilterStatus]    = useState("all");
+  const [filterPay,       setFilterPay]       = useState("all");
   const [filterWarehouse, setFilterWarehouse] = useState("all");
-  const [fromDate,      setFromDate]      = useState("");
-  const [toDate,        setToDate]        = useState("");
+  const [filterClient,    setFilterClient]    = useState("");
+  const [filterAmountMin, setFilterAmountMin] = useState("");
+  const [filterAmountMax, setFilterAmountMax] = useState("");
+  const [fromDate,        setFromDate]        = useState("");
+  const [toDate,          setToDate]          = useState("");
   const [colFilters,    setColFilters]    = useState(false);
   const [openCol,       setOpenCol]       = useState<string|null>(null);
   const [formOpen,      setFormOpen]      = useState(false);
@@ -1258,11 +1273,14 @@ export default function FinanceSales() {
       if (filterStatus    !== "all" && o.status        !== filterStatus)    return false;
       if (filterPay       !== "all" && o.paymentStatus !== filterPay)       return false;
       if (filterWarehouse !== "all" && String(o.warehouseId) !== filterWarehouse) return false;
+      if (filterClient.trim() && !o.clientName?.toLowerCase().includes(filterClient.toLowerCase())) return false;
+      if (filterAmountMin && parseFloat(o.totalAmount ?? "0") < parseFloat(filterAmountMin)) return false;
+      if (filterAmountMax && parseFloat(o.totalAmount ?? "0") > parseFloat(filterAmountMax)) return false;
       if (fromDate && new Date(o.createdAt) < new Date(fromDate)) return false;
       if (toDate && new Date(o.createdAt) > new Date(toDate + "T23:59:59")) return false;
       return true;
     });
-  }, [orders, search, filterStatus, filterPay, filterWarehouse, fromDate, toDate]);
+  }, [orders, search, filterStatus, filterPay, filterWarehouse, filterClient, filterAmountMin, filterAmountMax, fromDate, toDate]);
 
   const stats = useMemo(() => {
     const total      = filtered.reduce((s,o) => s + parseFloat(o.totalAmount??"0"), 0);
@@ -1315,7 +1333,10 @@ export default function FinanceSales() {
     }
   };
 
-  const activeFilters = [filterStatus !== "all", filterPay !== "all", filterWarehouse !== "all", !!fromDate, !!toDate].filter(Boolean).length;
+  const activeFilters = [
+    filterStatus !== "all", filterPay !== "all", filterWarehouse !== "all",
+    !!filterClient.trim(), !!filterAmountMin, !!filterAmountMax, !!fromDate, !!toDate
+  ].filter(Boolean).length;
 
   const fi = (label: string, active: boolean, onClick: () => void) => (
     <button key={label} onClick={() => { onClick(); setOpenCol(null); }}
@@ -1355,7 +1376,7 @@ export default function FinanceSales() {
           </Button>
           {activeFilters > 0 && (
             <Button variant="ghost" size="sm" className="gap-1 text-rose-400"
-              onClick={() => { setFilterStatus("all"); setFilterPay("all"); setFilterWarehouse("all"); setFromDate(""); setToDate(""); }}>
+              onClick={() => { setFilterStatus("all"); setFilterPay("all"); setFilterWarehouse("all"); setFilterClient(""); setFilterAmountMin(""); setFilterAmountMax(""); setFromDate(""); setToDate(""); }}>
               <X className="w-3.5 h-3.5" />مسح
             </Button>
           )}
@@ -1394,10 +1415,15 @@ export default function FinanceSales() {
                 <th className="px-3 py-3 text-right">
                   <ColFilter label="رقم الأمر" active={!!search.trim()} visible={colFilters}
                     isOpen={openCol==="so"} onToggle={() => setOpenCol(p => p==="so" ? null : "so")}>
-                    <div className="p-2"><Input className="h-7 text-xs" placeholder="بحث…" value={search} onChange={e => setSearch(e.target.value)} autoFocus /></div>
+                    <div className="p-2"><Input className="h-7 text-xs" placeholder="بحث برقم الأمر…" value={search} onChange={e => setSearch(e.target.value)} autoFocus /></div>
                   </ColFilter>
                 </th>
-                <th className="px-3 py-3 text-right text-xs font-semibold text-muted-foreground">العميل</th>
+                <th className="px-3 py-3 text-right">
+                  <ColFilter label="العميل" active={!!filterClient.trim()} visible={colFilters}
+                    isOpen={openCol==="client"} onToggle={() => setOpenCol(p => p==="client" ? null : "client")}>
+                    <div className="p-2"><Input className="h-7 text-xs" placeholder="ابحث باسم العميل…" value={filterClient} onChange={e => setFilterClient(e.target.value)} autoFocus /></div>
+                  </ColFilter>
+                </th>
                 <th className="px-3 py-3 text-right">
                   <ColFilter label="المخزن" active={filterWarehouse!=="all"} visible={colFilters}
                     isOpen={openCol==="wh"} onToggle={() => setOpenCol(p => p==="wh" ? null : "wh")}>
@@ -1416,9 +1442,17 @@ export default function FinanceSales() {
                     </div>
                   </ColFilter>
                 </th>
-                {["الإجمالي","المحصّل","المتبقي"].map(h => (
-                  <th key={h} className="px-3 py-3 text-right text-xs font-semibold text-muted-foreground">{h}</th>
-                ))}
+                <th className="px-3 py-3 text-right">
+                  <ColFilter label="الإجمالي" active={!!filterAmountMin||!!filterAmountMax} visible={colFilters}
+                    isOpen={openCol==="amount"} onToggle={() => setOpenCol(p => p==="amount" ? null : "amount")}>
+                    <div className="p-2 space-y-2">
+                      <div><p className="text-[10px] text-muted-foreground mb-1">من</p><Input type="number" className="h-7 text-xs" placeholder="0" value={filterAmountMin} onChange={e => setFilterAmountMin(e.target.value)} /></div>
+                      <div><p className="text-[10px] text-muted-foreground mb-1">إلى</p><Input type="number" className="h-7 text-xs" placeholder="∞" value={filterAmountMax} onChange={e => setFilterAmountMax(e.target.value)} /></div>
+                    </div>
+                  </ColFilter>
+                </th>
+                <th className="px-3 py-3 text-right text-xs font-semibold text-muted-foreground">المحصّل</th>
+                <th className="px-3 py-3 text-right text-xs font-semibold text-muted-foreground">المتبقي</th>
                 <th className="px-3 py-3 text-right">
                   <ColFilter label="الدفع" active={filterPay!=="all"} visible={colFilters}
                     isOpen={openCol==="pay"} onToggle={() => setOpenCol(p => p==="pay" ? null : "pay")}>
