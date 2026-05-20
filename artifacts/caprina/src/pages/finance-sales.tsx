@@ -606,8 +606,8 @@ function SORow({ order, onEdit, onDelete, onTransferToTreasury, onView, warehous
   const st  = STATUS_LABELS[order.status] ?? { label: order.status, color: "" };
   const pt  = PAY_LABELS[order.paymentStatus] ?? { label: order.paymentStatus, color: "" };
   const total = parseFloat(order.totalAmount ?? "0");
-  const paid  = parseFloat(order.paidAmount  ?? "0");
-  const due   = total - paid;
+  const paid  = order.paymentStatus === "paid" ? total : parseFloat(order.paidAmount ?? "0");
+  const due   = order.paymentStatus === "paid" ? 0 : Math.max(0, total - paid);
   return (
     <tr
       style={{ borderBottom: "1px solid hsl(var(--border)/0.5)", cursor: "pointer" }}
@@ -1354,8 +1354,11 @@ export default function FinanceSales() {
 
   const stats = useMemo(() => {
     const total      = filtered.reduce((s,o) => s + parseFloat(o.totalAmount??"0"), 0);
-    const paid       = filtered.reduce((s,o) => s + parseFloat(o.paidAmount??"0"),  0);
-    const unpaid     = total - paid;
+    const paid       = filtered.reduce((s,o) => {
+      const t = parseFloat(o.totalAmount ?? "0");
+      return s + (o.paymentStatus === "paid" ? t : parseFloat(o.paidAmount ?? "0"));
+    }, 0);
+    const unpaid     = Math.max(0, total - paid);
     const pending    = filtered.filter(o => ["draft","confirmed","processing"].includes(o.status)).length;
     const delivered  = filtered.filter(o => o.status === "delivered").length;
     return { total, paid, unpaid, pending, delivered };
