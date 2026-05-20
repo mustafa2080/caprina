@@ -272,7 +272,8 @@ export default function Layout({ children }: LayoutProps) {
           {(isAdmin || can("finance")) && (
             <NavGroup label="الماليات" icon={DollarSign} iconColor="text-emerald-400" location={location} prefixes={["/finance"]} defaultOpen={location.startsWith("/finance")}>
               {FINANCE_NAV.map((item) => {
-                const isActive = location === item.href || location.startsWith(item.href + "/");
+                // exact match فقط — بدون startsWith عشان ما يتعلمش أكثر من item
+                const isActive = location === item.href;
                 const Icon = item.icon;
                 return (
                   <Link key={item.href} href={item.href}
