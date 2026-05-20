@@ -80,12 +80,20 @@ function NavItem({ item, location, sub = false }: { item: any; location: string;
   return (
     <Link href={item.href}
       className={cn(
-        "flex items-center gap-3 px-3 py-1.5 rounded-md text-xs font-semibold transition-all",
+        "flex items-center gap-3 px-3 py-1.5 rounded-md text-xs font-semibold transition-all group",
         sub && "mr-2",
         isActive ? "bg-primary text-primary-foreground" : "text-sidebar-foreground/55 hover:text-sidebar-foreground hover:bg-foreground/5"
       )}>
       <Icon className={cn("w-3.5 h-3.5 shrink-0", isActive ? "text-primary-foreground" : item.iconColor)} />
-      {item.label}
+      <span className="flex-1">{item.label}</span>
+      {sub && (
+        <ChevronLeft className={cn(
+          "w-3 h-3 shrink-0 transition-all",
+          isActive
+            ? "text-primary-foreground opacity-80"
+            : "text-sidebar-foreground/20 group-hover:text-sidebar-foreground/50 -translate-x-1 group-hover:translate-x-0"
+        )} />
+      )}
     </Link>
   );
 }
@@ -276,10 +284,11 @@ export default function Layout({ children }: LayoutProps) {
                 const Icon = item.icon;
                 return (
                   <Link key={item.href} href={item.href}
-                    className={cn("flex items-center gap-3 px-3 py-1.5 rounded-md text-xs font-semibold transition-all mr-2",
+                    className={cn("flex items-center gap-3 px-3 py-1.5 rounded-md text-xs font-semibold transition-all mr-2 group",
                       isActive ? "bg-primary text-primary-foreground" : "text-sidebar-foreground/55 hover:text-sidebar-foreground hover:bg-foreground/5")}>
                     <Icon className={cn("w-3.5 h-3.5 shrink-0", isActive ? "text-primary-foreground" : item.iconColor)} />
-                    {item.label}
+                    <span className="flex-1">{item.label}</span>
+                    <ChevronLeft className={cn("w-3 h-3 shrink-0 transition-all", isActive ? "text-primary-foreground opacity-80" : "text-sidebar-foreground/20 group-hover:text-sidebar-foreground/50 -translate-x-1 group-hover:translate-x-0")} />
                   </Link>
                 );
               })}
