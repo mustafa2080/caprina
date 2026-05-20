@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, saleOrdersTable, saleOrderItemsTable, warehousesTable, warehouseStockTable, productVariantsTable } from "@workspace/db";
+import { db, saleOrdersTable, saleOrderItemsTable, warehousesTable, warehouseStockTable, productVariantsTable, cashRegistersTable, cashTransactionsTable } from "@workspace/db";
 import { eq, desc, gte, lte, and, sql, inArray } from "drizzle-orm";
 import { getTenantId } from "../middlewares/requireTenant.js";
 
@@ -27,6 +27,47 @@ async function generateSONumber(tenantId: number | null): Promise<string> {
     seq = (parseInt(parts[parts.length - 1]) || 0) + 1;
   }
   return `${prefix}${String(seq).padStart(4, "0")}`;
+}
+
+// ── مساعد: تحويل مبلغ الفاتورة المغلقة للخزينة ─────────────────────────────
+async function transferToTreasury(
+  order: typeof saleOrdersTable.$inferSelect,
+  tenantId: number | null,
+  userId: number | null,
+  userName: string | null,
+): Promise<void> {
+  const amount = Number(order.totalAmount ?? 0) - Number(order.discountAmount ?? 0) + Number(order.shippingCost ?? 0);
+  if (amount <= 0) return;
+
+  // ابحث عن الخزنة الرئيسية أو الافتراضية للـ tenant
+  const registerConds: any[] = [eq(cashRegistersTable.isActive, true)];
+  if (tenantId !== null) registerConds.push(eq(cashRegistersTable.tenantId, tenantId));
+
+  const registers = await db.select().from(cashRegistersTable).where(and(...registerConds));
+  const mainRegister = registers.find(r => r.type === "main") ?? registers.find(r => r.isDefault) ?? registers[0];
+  if (!mainRegister) return;
+
+  const now           = new Date();
+  const balanceBefore = Number(mainRegister.balance ?? 0);
+  const balanceAfter  = balanceBefore + amount;
+
+  await db.insert(cashTransactionsTable).values({
+    registerId:      mainRegister.id,
+    type:            "cash_sale" as any,
+    amount:          String(amount),
+    balanceBefore:   String(balanceBefore),
+    balanceAfter:    String(balanceAfter),
+    description:     `إغلاق فاتورة بيع ${order.soNumber} - ${order.clientName}`,
+    referenceNumber: order.soNumber,
+    transactionDate: now,
+    createdByUserId: userId,
+    createdByName:   userName,
+    createdAt:       now,
+  });
+
+  await db.update(cashRegistersTable)
+    .set({ balance: String(balanceAfter), updatedAt: now })
+    .where(eq(cashRegistersTable.id, mainRegister.id));
 }
 
 // ── GET /finance/sale-orders ─────────────────────────────────────────────────
@@ -217,6 +258,20 @@ router.patch("/finance/sale-orders/:id", async (req, res): Promise<void> => {
     // تسجيل وقت التسليم
     if (status === "delivered" && current.status !== "delivered") {
       updates.deliveredAt = new Date();
+    }
+
+    // إغلاق الفاتورة → تحويل للخزينة أوتوماتيك
+    if (status === "closed" && current.status !== "closed") {
+      const updatedOrder = { ...current, ...updates, totalAmount: updates.totalAmount ?? current.totalAmount };
+      const authHeader = (req as any).user;
+      const userId   = authHeader?.id   ?? null;
+      const userName = authHeader?.name ?? null;
+      try {
+        await transferToTreasury(updatedOrder as any, tenantId, userId, userName);
+      } catch (cashErr) {
+        console.error("[sale close] treasury transfer error:", cashErr);
+        // لا نوقف العملية لو الخزنة فيها مشكلة
+      }
     }
 
     // لو الحالة تغيرت إلى confirmed → احجز المخزن

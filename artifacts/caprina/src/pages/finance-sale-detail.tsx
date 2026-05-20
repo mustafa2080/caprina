@@ -240,6 +240,25 @@ export default function FinanceSaleDetail() {
   const [order, setOrder] = useState<SaleOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]   = useState<string | null>(null);
+  const [closing, setClosing] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  const handleClose = async () => {
+    if (!order) return;
+    setClosing(true);
+    try {
+      await apiFetch(`/finance/sale-orders/${order.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "closed" }),
+      });
+      setOrder(prev => prev ? { ...prev, status: "closed" } : prev);
+      setShowConfirm(false);
+    } catch (e: any) {
+      alert("حدث خطأ: " + e.message);
+    } finally {
+      setClosing(false);
+    }
+  };
 
   useEffect(() => {
     if (!params.id) return;
@@ -282,15 +301,70 @@ export default function FinanceSaleDetail() {
           <ArrowRight className="w-4 h-4" />
           العودة لفواتير البيع
         </button>
-        <button
-          onClick={() => printManifestPDF(order)}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-white transition-opacity hover:opacity-85"
-          style={{ background: "hsl(43,74%,50%)" }}
-        >
-          <Printer className="w-4 h-4" />
-          طباعة / PDF
-        </button>
+        <div className="flex items-center gap-2">
+          {/* زرار الإغلاق — يظهر فقط لو الفاتورة مش مغلقة */}
+          {order.status !== "closed" && order.status !== "cancelled" && (
+            <button
+              onClick={() => setShowConfirm(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-opacity hover:opacity-85"
+              style={{ background: "hsl(var(--muted))", color: "hsl(var(--foreground))", border: "1px solid hsl(var(--border))" }}
+            >
+              <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M7.5 1C3.91 1 1 3.91 1 7.5S3.91 14 7.5 14 14 11.09 14 7.5 11.09 1 7.5 1zm0 12C4.47 13 2 10.53 2 7.5S4.47 2 7.5 2 13 4.47 13 7.5 10.53 13 7.5 13zm-1-4.5l3.5-3.5.7.7-4.2 4.2-2.2-2.2.7-.7 1.5 1.5z" fill="currentColor"/>
+              </svg>
+              إغلاق وتحويل للخزينة
+            </button>
+          )}
+          {order.status === "closed" && (
+            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold"
+              style={{ background: "#E8F5E9", color: "#2E7D32" }}>
+              ✓ مُغلَقة — تم التحويل للخزينة
+            </span>
+          )}
+          <button
+            onClick={() => printManifestPDF(order)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-white transition-opacity hover:opacity-85"
+            style={{ background: "hsl(43,74%,50%)" }}
+          >
+            <Printer className="w-4 h-4" />
+            طباعة / PDF
+          </button>
+        </div>
       </div>
+
+      {/* ── CONFIRM DIALOG ── */}
+      {showConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.5)" }}>
+          <div className="rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl" style={{ background: "hsl(var(--card))" }}>
+            <div className="text-center mb-4">
+              <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3"
+                style={{ background: "hsl(43,74%,50%,0.15)" }}>
+                <svg width="28" height="28" viewBox="0 0 15 15" fill="none">
+                  <path d="M7.5 1C3.91 1 1 3.91 1 7.5S3.91 14 7.5 14 14 11.09 14 7.5 11.09 1 7.5 1zm-1 5.5l3.5-3.5.7.7-4.2 4.2-2.2-2.2.7-.7 1.5 1.5z" fill="hsl(43,74%,50%)"/>
+                </svg>
+              </div>
+              <h3 className="text-base font-bold mb-1">إغلاق الفاتورة</h3>
+              <p className="text-sm text-muted-foreground">
+                سيتم إغلاق فاتورة <strong>{order.soNumber}</strong> وتحويل
+                مبلغ <strong style={{ color: "hsl(43,74%,50%)" }}>{fmtNum(total)} ج</strong> للخزينة الرئيسية.
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">لا يمكن التراجع عن هذا الإجراء.</p>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setShowConfirm(false)} disabled={closing}
+                className="flex-1 py-2 rounded-lg text-sm font-semibold border transition-opacity hover:opacity-70"
+                style={{ borderColor: "hsl(var(--border))" }}>
+                إلغاء
+              </button>
+              <button onClick={handleClose} disabled={closing}
+                className="flex-1 py-2 rounded-lg text-sm font-bold text-white transition-opacity hover:opacity-85"
+                style={{ background: "hsl(43,74%,50%)" }}>
+                {closing ? "جارٍ الإغلاق…" : "تأكيد الإغلاق"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── HEADER CARD ── */}
       <div className="rounded-2xl border p-5 mb-5" style={{ borderColor: "#B2DFDB", background: "hsl(var(--card))" }}>
