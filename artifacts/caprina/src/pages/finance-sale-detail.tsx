@@ -1016,7 +1016,23 @@ export default function FinanceSaleDetail() {
             </div>
 
             {/* Cards */}
-            <div className="grid grid-cols-2 gap-3 px-5 py-4">
+            <div className="grid grid-cols-3 gap-3 px-5 py-4">
+              {/* طباعة */}
+              <button
+                onClick={() => { printSaleInvoice(order, order.items, []); setShowExport(false); }}
+                className="rounded-xl p-4 flex flex-col items-center gap-2 transition-all hover:scale-105 hover:brightness-110"
+                style={{ background: "rgba(230,119,0,0.12)", border: "1px solid rgba(230,119,0,0.35)" }}
+              >
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center"
+                  style={{ background: "rgba(230,119,0,0.2)" }}>
+                  <Printer className="w-6 h-6" style={{ color: "#FFB74D" }} />
+                </div>
+                <p className="font-bold text-sm" style={{ color: "#FFB74D" }}>طباعة</p>
+                <p className="text-[10px] text-center text-muted-foreground">فاتورة للطباعة المباشرة</p>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                  style={{ background: "rgba(230,119,0,0.2)", color: "#FFB74D" }}>print</span>
+              </button>
+
               {/* PDF */}
               <button
                 onClick={() => { printManifestPDF(order); setShowExport(false); }}
@@ -1025,10 +1041,10 @@ export default function FinanceSaleDetail() {
               >
                 <div className="w-12 h-12 rounded-xl flex items-center justify-center"
                   style={{ background: "rgba(183,28,28,0.2)" }}>
-                  <Printer className="w-6 h-6" style={{ color: "#EF5350" }} />
+                  <FileSpreadsheet className="w-6 h-6" style={{ color: "#EF5350" }} />
                 </div>
                 <p className="font-bold text-sm" style={{ color: "#EF5350" }}>تصدير PDF</p>
-                <p className="text-[10px] text-center text-muted-foreground">بيان رسمي مع الإحصائيات والأرقام</p>
+                <p className="text-[10px] text-center text-muted-foreground">بيان رسمي مع الأرقام</p>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
                   style={{ background: "rgba(183,28,28,0.2)", color: "#EF5350" }}>pdf.</span>
               </button>
