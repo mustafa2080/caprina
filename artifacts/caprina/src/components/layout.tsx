@@ -40,8 +40,8 @@ const ALL_NAV = [
   { href: "/team-performance",  label: "تحليل العمليات الذكي",icon: UserCheck,                  permission: "analytics",               section: "section_team_performance",   iconColor: "text-teal-400",       group: "analytics"    },
   { href: "/sessions-report",   label: "تقارير الجلسات",      icon: Clock,                       permission: "users",                   section: "section_sessions_report",    iconColor: "text-slate-400",      group: "analytics"    },
   // ── الفريق والإدارة ─────────────────────────────────────────────────────
-  { href: "/team",              label: "أداء الفريق",         icon: UserCheck,                   permission: "analytics",               section: "section_team_management",    iconColor: "text-lime-400",       group: "team"         },
-  { href: "/team-performance",  label: "إدارة الفريق",        icon: UserCog,                     permission: "analytics",               section: "section_team_management",    iconColor: "text-lime-300",       group: "team"         },
+  { href: "/team",              label: "إدارة الفريق",        icon: UserCog,                     permission: "analytics",               section: "section_team_management",    iconColor: "text-lime-400",       group: "team",         exact: true },
+  { href: "/team-performance",  label: "أداء الفريق",         icon: UserCheck,                   permission: "analytics",               section: "section_team_management",    iconColor: "text-lime-300",       group: "team"         },
   { href: "/users",             label: "إدارة المستخدمين",   icon: Users,                       permission: "users",                   section: "section_users",              iconColor: "text-green-400",      group: "team"         },
   { href: "/audit-logs",        label: "سجل العمليات",        icon: Shield,                      permission: "audit",                   section: "section_audit",              iconColor: "text-red-400",        group: "team"         },
   // ── الأدوات ─────────────────────────────────────────────────────────────
