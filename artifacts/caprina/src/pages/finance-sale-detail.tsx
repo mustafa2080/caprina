@@ -26,12 +26,12 @@ type SaleOrder = {
 
 // ── ثوابت الحالات ──────────────────────────────────────────────────────────
 const STATUS_MAP: Record<string, { label: string; bg: string; color: string }> = {
-  draft:      { label: "قيد التجهيز",   bg: "#FFF8E1", color: "#E65100" },
-  confirmed:  { label: "قيد التجهيز",   bg: "#FFF8E1", color: "#E65100" },
-  processing: { label: "قيد التجهيز",   bg: "#FFF8E1", color: "#E65100" },
-  delivered:  { label: "قيد التجهيز",   bg: "#FFF8E1", color: "#E65100" },
-  closed:     { label: "تم التسليم ✓",  bg: "#E8F5E9", color: "#1B5E20" },
-  cancelled:  { label: "ملغي",          bg: "#FFEBEE", color: "#B71C1C" },
+  draft:      { label: "قيد التجهيز",   bg: "rgba(230,81,0,0.15)",   color: "#FF8A50" },
+  confirmed:  { label: "قيد التجهيز",   bg: "rgba(230,81,0,0.15)",   color: "#FF8A50" },
+  processing: { label: "قيد التجهيز",   bg: "rgba(230,81,0,0.15)",   color: "#FF8A50" },
+  delivered:  { label: "قيد التجهيز",   bg: "rgba(230,81,0,0.15)",   color: "#FF8A50" },
+  closed:     { label: "تم التسليم ✓",  bg: "rgba(27,94,32,0.18)",   color: "#4CAF50" },
+  cancelled:  { label: "ملغي",          bg: "rgba(183,28,28,0.18)",  color: "#EF5350" },
 };
 const PAY_MAP: Record<string, { label: string; color: string }> = {
   unpaid:  { label: "غير مدفوع",    color: "#B71C1C" },
@@ -183,7 +183,7 @@ function printManifestPDF(order: SaleOrder) {
   <div class="totals-row" style="color:#1B5E20"><span>المدفوع</span><span>${fmtNum(paid)} ج</span></div>
   ${due>0?`<div class="totals-row" style="color:#B71C1C"><span>المتبقي</span><span>${fmtNum(due)} ج</span></div>`:""}
 </div>
-${order.notes?`<div style="background:#FFFDE7;border:1px solid #FFF176;border-radius:8px;padding:10px 14px;font-size:12px;margin-bottom:20px"><strong>ملاحظات:</strong> ${order.notes}</div>`:""}
+${order.notes?`<div style="background:#fdf6e3;border:1px solid #e6c84b;border-radius:8px;padding:10px 14px;font-size:12px;margin-bottom:20px"><strong>ملاحظات:</strong> ${order.notes}</div>`:""}
 <div class="footer">
   <div class="sig-block"><div class="sig-line"></div><div class="sig-lbl">توقيع المندوب — الاسم: ___________</div></div>
   <div class="sig-block"><div class="sig-line"></div><div class="sig-lbl">توقيع المسؤول — الاسم: ___________</div></div>
@@ -599,7 +599,7 @@ export default function FinanceSaleDetail() {
 
               {/* عرض المتبقي */}
               <div className="rounded-xl p-3 mb-5 flex justify-between items-center text-sm"
-                style={{ background: remaining > 0 && isValid ? "#FFF8E1" : "hsl(var(--muted))", border: "1px solid", borderColor: remaining > 0 && isValid ? "#FFE082" : "hsl(var(--border))" }}>
+                style={{ background: remaining > 0 && isValid ? "rgba(230,81,0,0.12)" : "hsl(var(--muted))", border: "1px solid", borderColor: remaining > 0 && isValid ? "#FF8A50" : "hsl(var(--border))" }}>
                 <span className="text-xs text-muted-foreground font-medium">المتبقي:</span>
                 <span className="font-extrabold text-base" style={{ color: remaining > 0 && isValid ? "#E65100" : "hsl(var(--muted-foreground))" }}>
                   {isValid ? `${fmtNum(remaining)} ج` : "—"}
@@ -878,7 +878,7 @@ export default function FinanceSaleDetail() {
       {/* ── NOTES ── */}
       {order.notes && (
         <div className="rounded-xl border p-4 text-sm text-muted-foreground mb-4"
-          style={{ borderColor: "#FFF176", background: "#FFFDE7" }}>
+          style={{ borderColor: "rgba(184,134,11,0.4)", background: "rgba(184,134,11,0.08)" }}>
           <strong className="text-foreground">ملاحظات: </strong>{order.notes}
         </div>
       )}
