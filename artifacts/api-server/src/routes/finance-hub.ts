@@ -362,7 +362,10 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
     const pct = (a:number, b:number) => b === 0 ? null : +((( a - b) / b) * 100).toFixed(1);
 
     // ── 9. أحدث حركات الخزنة ────────────────────────────────────────────────
+    const recentTxConditions: any[] = [];
+    if (tenantId !== null) recentTxConditions.push(eq(cashTransactionsTable.tenantId, tenantId));
     const recentTx = await db.select().from(cashTransactionsTable)
+      .where(recentTxConditions.length > 0 ? and(...recentTxConditions) : undefined)
       .orderBy(desc(cashTransactionsTable.createdAt)).limit(10);
 
     // ── 10. Smart Alerts ─────────────────────────────────────────────────────

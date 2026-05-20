@@ -2,8 +2,11 @@
 import { eq, desc, and, inArray } from "drizzle-orm";
 import { db, shippingCompaniesTable, shippingManifestsTable, shippingManifestOrdersTable, ordersTable } from "@workspace/db";
 import { z } from "zod";
+import { getTenantId } from "../middlewares/requireTenant.js";
+import { requireAuth } from "../middlewares/requireAuth.js";
 
 const router: IRouter = Router();
+router.use(requireAuth);
 
 const CreateSchema = z.object({
   name: z.string().min(1),
@@ -15,16 +18,26 @@ const CreateSchema = z.object({
 
 const UpdateSchema = CreateSchema.partial();
 
-router.get("/shipping-companies", async (_req, res): Promise<void> => {
-  const companies = await db.select().from(shippingCompaniesTable).orderBy(desc(shippingCompaniesTable.createdAt));
+router.get("/shipping-companies", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req);
+  const conditions: any[] = [];
+  if (tenantId !== null) conditions.push(eq(shippingCompaniesTable.tenantId, tenantId));
+  const companies = conditions.length > 0
+    ? await db.select().from(shippingCompaniesTable).where(and(...conditions)).orderBy(desc(shippingCompaniesTable.createdAt))
+    : await db.select().from(shippingCompaniesTable).orderBy(desc(shippingCompaniesTable.createdAt));
   res.json(companies);
 });
 
 router.post("/shipping-companies", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req);
   const parsed = CreateSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
-  const insertResult = await db.insert(shippingCompaniesTable).values({ ...parsed.data, createdAt: new Date() });
+  const insertResult = await db.insert(shippingCompaniesTable).values({
+    ...parsed.data,
+    ...(tenantId !== null ? { tenantId } : {}),
+    createdAt: new Date(),
+  });
   const insertId = (insertResult as any)[0]?.insertId ?? (insertResult as any).insertId;
   const [company] = await db.select().from(shippingCompaniesTable).where(eq(shippingCompaniesTable.id, insertId));
   res.status(201).json(company);

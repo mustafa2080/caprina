@@ -182,10 +182,12 @@ router.get("/analytics/team-performance", async (req, res): Promise<void> => {
 
 // ─── Team Performance Extended ─────────────────────────────────────────────────
 router.get("/analytics/team-performance-extended", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req);
   const dateFrom = req.query.dateFrom as string | undefined;
   const dateTo   = req.query.dateTo   as string | undefined;
 
   const conditions: any[] = [isNull(ordersTable.deletedAt)];
+  if (tenantId !== null) conditions.push(eq(ordersTable.tenantId, tenantId));
   if (dateFrom) conditions.push(gte(ordersTable.createdAt, new Date(dateFrom)));
   if (dateTo) {
     const to = new Date(dateTo);
@@ -196,7 +198,11 @@ router.get("/analytics/team-performance-extended", async (req, res): Promise<voi
   const rawOrders = await db.select().from(ordersTable).where(and(...conditions));
   const invoiceMap = buildPerUserInvoices(rawOrders);
 
-  const users   = await db.select().from(usersTable);
+  const userConditions: any[] = [];
+  if (tenantId !== null) userConditions.push(eq(usersTable.tenantId, tenantId));
+  const users = userConditions.length > 0
+    ? await db.select().from(usersTable).where(and(...userConditions))
+    : await db.select().from(usersTable);
   const userMap = new Map(users.map((u) => [u.id, u]));
 
   type ExtStats = {
@@ -297,10 +303,12 @@ router.get("/analytics/team-performance-extended", async (req, res): Promise<voi
 
 // ─── Campaign / Ads Analytics ──────────────────────────────────────────────────
 router.get("/analytics/campaigns", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req);
   const dateFrom = req.query.dateFrom as string | undefined;
   const dateTo   = req.query.dateTo   as string | undefined;
 
   const conditions: any[] = [isNull(ordersTable.deletedAt)];
+  if (tenantId !== null) conditions.push(eq(ordersTable.tenantId, tenantId));
   if (dateFrom) conditions.push(gte(ordersTable.createdAt, new Date(dateFrom)));
   if (dateTo) {
     const to = new Date(dateTo);

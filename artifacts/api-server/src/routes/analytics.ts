@@ -1559,7 +1559,9 @@ router.get("/analytics/shipping-followup", requireAuth, async (req, res): Promis
     .where(and(...sfBaseConditions))
     .orderBy(desc(ordersTable.updatedAt));
 
-  const shippingCompanies = await db.select().from(shippingCompaniesTable);
+  const shippingCompanies = tenantId !== null
+    ? await db.select().from(shippingCompaniesTable).where(eq(shippingCompaniesTable.tenantId, tenantId))
+    : await db.select().from(shippingCompaniesTable);
   const companyMap = new Map(shippingCompanies.map(c => [c.id, c.name]));
 
   const result = orders.map(o => ({
