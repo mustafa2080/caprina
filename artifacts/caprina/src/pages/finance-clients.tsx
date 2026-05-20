@@ -1,35 +1,29 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link } from "wouter";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import {
-  Plus, Search, X, Users, Phone, MapPin, FileText,
-  TrendingUp, Wallet, RefreshCw, ChevronRight, ShoppingBag,
-  Edit2, Trash2, Eye
+  Plus, Edit2, Trash2, Phone, ToggleLeft, ToggleRight,
+  TrendingUp, TrendingDown, ChevronDown, ChevronUp,
+  ShoppingBag, Search, Users, MapPin, Target,
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { apiFetch } from "@/lib/api";
-import { useLocation, Link } from "wouter";
 
 const fmt = (n: string | number) =>
   new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(Number(n));
 
-const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  draft:      { label: "مسودة",        color: "bg-muted/50 text-muted-foreground border-border" },
-  confirmed:  { label: "مؤكد",         color: "bg-blue-500/15 text-blue-400 border-blue-500/30" },
-  processing: { label: "جاري التجهيز", color: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
-  delivered:  { label: "تم التسليم",   color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
-  closed:     { label: "مُغلَق",        color: "bg-purple-500/15 text-purple-400 border-purple-500/30" },
-  cancelled:  { label: "ملغي",         color: "bg-rose-500/15 text-rose-400 border-rose-500/30" },
-};
-
+// ── أنواع البيانات ─────────────────────────────────────────────────────────
 type Client = {
   id: number; name: string; phone: string | null; phone2: string | null;
   email: string | null; address: string | null; city: string | null; region: string | null;
@@ -38,446 +32,433 @@ type Client = {
   notes: string | null; isActive: boolean; createdAt: string;
 };
 
-type ClientDetail = Client & {
-  orders: {
-    id: number; soNumber: string; status: string; paymentStatus: string;
-    totalAmount: string; paidAmount: string; createdAt: string; expectedDate: string | null;
-  }[];
+type SaleOrder = {
+  id: number; soNumber: string; status: string;
+  totalAmount: string; paidAmount: string;
+  createdAt: string;
 };
 
-// ── نموذج إضافة / تعديل عميل ─────────────────────────────────────────────────
+type ClientDetail = Client & { orders: SaleOrder[] };
+
+const emptyForm = {
+  name: "", phone: "", phone2: "", email: "", address: "", city: "", region: "",
+  taxNumber: "", commercialReg: "", paymentTerms: "فوري",
+  creditLimit: "0", notes: "", isActive: true,
+};
+
+// ── شريط نسبة المبيعات من الهدف — نفس شكل DeliveryBar ──────────────────────
+function SalesBar({ rate }: { rate: number }) {
+  const color     = rate >= 70 ? "bg-emerald-500" : rate >= 40 ? "bg-amber-500" : "bg-red-500";
+  const textColor = rate >= 70 ? "text-emerald-400" : rate >= 40 ? "text-amber-400" : "text-red-400";
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[10px] text-muted-foreground">نسبة التسليم</span>
+        <span className={`text-xs font-black ${textColor}`}>{rate.toFixed(1)}%</span>
+      </div>
+      <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+        <div className={`h-1.5 rounded-full ${color}`} style={{ width: `${rate}%` }} />
+      </div>
+    </div>
+  );
+}
+
+// ── إحصائيات العميل — نفس شكل CompanyStats ────────────────────────────────
+function ClientStats({ client }: { client: Client }) {
+  const sales   = parseFloat(client.totalSales  ?? "0");
+  const paid    = parseFloat(client.totalPaid   ?? "0");
+  const limit   = parseFloat(client.creditLimit ?? "0");
+  const unpaid  = Math.max(0, sales - paid);
+  const rate    = limit > 0 ? Math.min((sales / limit) * 100, 100) : 0;
+
+  return (
+    <div className="mt-4 pt-4 border-t border-border space-y-3">
+      <SalesBar rate={rate} />
+      <div className="grid grid-cols-3 gap-2 text-center">
+        <div className="bg-muted/20 rounded p-2">
+          <p className="text-[10px] text-muted-foreground">إجمالي المبيعات</p>
+          <p className="text-sm font-black text-teal-400">{fmt(sales)}</p>
+        </div>
+        <div className="bg-muted/20 rounded p-2">
+          <p className="text-[10px] text-muted-foreground">المديونية</p>
+          <p className="text-sm font-black text-red-400">{fmt(unpaid)}</p>
+        </div>
+        <div className="bg-muted/20 rounded p-2">
+          <p className="text-[10px] text-muted-foreground">عدد الفواتير</p>
+          <p className="text-sm font-black text-blue-400">{client.totalOrders ?? 0}</p>
+        </div>
+      </div>
+      {limit > 0 && (
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-muted-foreground flex items-center gap-1">
+            <Target className="w-3 h-3" /> الهدف
+          </span>
+          <span className="font-black text-primary">{fmt(limit)}</span>
+        </div>
+      )}
+      {client.paymentTerms && (
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-muted-foreground">شروط الدفع</span>
+          <span className="font-bold">{client.paymentTerms}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── فواتير البيع — نفس شكل CompanyManifests بدون زر "بيان جديد" ─────────────
+function ClientInvoices({ client }: { client: Client }) {
+  const [expanded, setExpanded] = useState(false);
+
+  const { data: detail } = useQuery<ClientDetail>({
+    queryKey: ["client-detail", client.id],
+    queryFn: () => apiFetch<ClientDetail>(`/finance/clients/${client.id}`),
+    enabled: expanded,
+    staleTime: 30_000,
+  });
+
+  const orders = (detail?.orders ?? []).filter(
+    o => o.status === "processing" || o.status === "delivered"
+  );
+
+  const STATUS_LABEL: Record<string, { label: string; color: string }> = {
+    processing: { label: "قيد التجهيز", color: "border-amber-700 bg-amber-900/20 text-amber-400" },
+    delivered:  { label: "تم التسليم",  color: "border-emerald-700 bg-emerald-900/20 text-emerald-400" },
+  };
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border">
+        <Button
+          variant="outline" size="sm"
+          className="flex-1 h-7 text-[11px] gap-1 border-border text-muted-foreground"
+          onClick={() => setExpanded(e => !e)}
+        >
+          <ShoppingBag className="w-3 h-3" />فواتير البيع
+          {expanded ? <ChevronUp className="w-3 h-3 mr-auto" /> : <ChevronDown className="w-3 h-3 mr-auto" />}
+        </Button>
+        <Link href={`/finance/clients/${client.id}`}>
+          <Button size="sm" className="h-7 text-[11px] gap-1 bg-primary text-primary-foreground hover:bg-primary/90 font-bold">
+            <TrendingUp className="w-3 h-3" />التفاصيل
+          </Button>
+        </Link>
+      </div>
+
+      {expanded && (
+        <div className="mt-2 space-y-1.5">
+          {!detail ? (
+            <p className="text-xs text-muted-foreground text-center py-3 animate-pulse">جاري التحميل...</p>
+          ) : orders.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-3">لا توجد فواتير بيع بعد</p>
+          ) : (
+            orders.map(o => {
+              const s = STATUS_LABEL[o.status] ?? { label: o.status, color: "border-border text-muted-foreground" };
+              return (
+                <Link key={o.id} href="/finance/sales">
+                  <div className="flex items-center justify-between p-2.5 rounded-md bg-muted/20 hover:bg-muted/40 cursor-pointer transition-colors">
+                    <div>
+                      <p className="text-xs font-bold">{o.soNumber}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {format(new Date(o.createdAt), "yyyy/MM/dd")} · {fmt(o.totalAmount)}
+                      </p>
+                    </div>
+                    <Badge variant="outline" className={`text-[9px] font-bold border ${s.color}`}>
+                      {s.label}
+                    </Badge>
+                  </div>
+                </Link>
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── نموذج إضافة / تعديل عميل ────────────────────────────────────────────────
 function ClientForm({ open, onClose, editClient, onSuccess }: {
   open: boolean; onClose: () => void;
   editClient: Client | null; onSuccess: () => void;
 }) {
   const { toast } = useToast();
   const isEdit = !!editClient;
-
-  const [name,          setName]          = useState(editClient?.name          ?? "");
-  const [phone,         setPhone]         = useState(editClient?.phone         ?? "");
-  const [phone2,        setPhone2]        = useState(editClient?.phone2        ?? "");
-  const [email,         setEmail]         = useState(editClient?.email         ?? "");
-  const [address,       setAddress]       = useState(editClient?.address       ?? "");
-  const [city,          setCity]          = useState(editClient?.city          ?? "");
-  const [region,        setRegion]        = useState(editClient?.region        ?? "");
-  const [taxNumber,     setTaxNumber]     = useState(editClient?.taxNumber     ?? "");
-  const [commercialReg, setCommercialReg] = useState(editClient?.commercialReg ?? "");
-  const [paymentTerms,  setPaymentTerms]  = useState(editClient?.paymentTerms  ?? "");
-  const [creditLimit,   setCreditLimit]   = useState(String(editClient?.creditLimit ?? "0"));
-  const [notes,         setNotes]         = useState(editClient?.notes         ?? "");
-  const [isActive,      setIsActive]      = useState(editClient?.isActive      ?? true);
+  const [form, setForm] = useState(() => editClient ? {
+    name: editClient.name, phone: editClient.phone ?? "", phone2: editClient.phone2 ?? "",
+    email: editClient.email ?? "", address: editClient.address ?? "",
+    city: editClient.city ?? "", region: editClient.region ?? "",
+    taxNumber: editClient.taxNumber ?? "", commercialReg: editClient.commercialReg ?? "",
+    paymentTerms: editClient.paymentTerms ?? "فوري",
+    creditLimit: String(editClient.creditLimit ?? "0"),
+    notes: editClient.notes ?? "", isActive: editClient.isActive,
+  } : { ...emptyForm });
 
   const mutation = useMutation({
     mutationFn: async () => {
       const body = {
-        name, phone: phone || null, phone2: phone2 || null, email: email || null,
-        address: address || null, city: city || null, region: region || null,
-        taxNumber: taxNumber || null, commercialReg: commercialReg || null,
-        paymentTerms: paymentTerms || null, creditLimit: parseFloat(creditLimit) || 0,
-        notes: notes || null, isActive,
+        name: form.name, phone: form.phone || null, phone2: form.phone2 || null,
+        email: form.email || null, address: form.address || null,
+        city: form.city || null, region: form.region || null,
+        taxNumber: form.taxNumber || null, commercialReg: form.commercialReg || null,
+        paymentTerms: form.paymentTerms || null,
+        creditLimit: parseFloat(form.creditLimit) || 0,
+        notes: form.notes || null, isActive: form.isActive,
       };
-      if (isEdit) {
+      if (isEdit)
         return apiFetch<any>(`/finance/clients/${editClient!.id}`, { method: "PATCH", body: JSON.stringify(body) });
-      }
       return apiFetch<any>("/finance/clients", { method: "POST", body: JSON.stringify(body) });
     },
-    onSuccess: () => {
-      toast({ title: isEdit ? "تم تحديث العميل" : "تمت إضافة العميل" });
-      onSuccess(); onClose();
-    },
+    onSuccess: () => { toast({ title: isEdit ? "تم تحديث العميل" : "تمت إضافة العميل" }); onSuccess(); onClose(); },
     onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
 
+  const f = (k: keyof typeof form, v: any) => setForm(p => ({ ...p, [k]: v }));
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" dir="rtl">
+      <DialogContent className="bg-card border-border max-w-md max-h-[90vh] overflow-y-auto" dir="rtl">
         <DialogHeader>
-          <DialogTitle>{isEdit ? `تعديل — ${editClient?.name}` : "إضافة عميل تجاري جديد"}</DialogTitle>
+          <DialogTitle className="text-right">
+            {isEdit ? `تعديل — ${editClient?.name}` : "إضافة عميل تجاري جديد"}
+          </DialogTitle>
         </DialogHeader>
-        <div className="grid grid-cols-2 gap-4 mt-2">
-          {/* الاسم */}
-          <div className="col-span-2">
-            <Label>الاسم / الشركة *</Label>
-            <Input placeholder="مثال: شركة النور للتجارة" value={name} onChange={e => setName(e.target.value)} />
-          </div>
-          {/* الهواتف */}
+        <div className="space-y-3 mt-2">
           <div>
-            <Label>رقم الهاتف الأساسي</Label>
-            <Input placeholder="01xxxxxxxxx" value={phone} onChange={e => setPhone(e.target.value)} />
+            <Label className="text-xs mb-1.5 block">الاسم / الشركة *</Label>
+            <Input placeholder="شركة النور للتجارة" className="h-9 text-sm bg-background" value={form.name} onChange={e => f("name", e.target.value)} />
           </div>
-          <div>
-            <Label>رقم هاتف إضافي</Label>
-            <Input placeholder="01xxxxxxxxx" value={phone2} onChange={e => setPhone2(e.target.value)} />
-          </div>
-          {/* البريد */}
-          <div className="col-span-2">
-            <Label>البريد الإلكتروني</Label>
-            <Input type="email" placeholder="example@company.com" value={email} onChange={e => setEmail(e.target.value)} />
-          </div>
-          {/* العنوان */}
-          <div className="col-span-2">
-            <Label>العنوان</Label>
-            <Input placeholder="الشارع والحي" value={address} onChange={e => setAddress(e.target.value)} />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs mb-1.5 block flex items-center gap-1"><Phone className="w-3 h-3" />الهاتف</Label>
+              <Input placeholder="01xxxxxxxxx" className="h-9 text-sm bg-background" value={form.phone} onChange={e => f("phone", e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs mb-1.5 block">هاتف إضافي</Label>
+              <Input placeholder="01xxxxxxxxx" className="h-9 text-sm bg-background" value={form.phone2} onChange={e => f("phone2", e.target.value)} />
+            </div>
           </div>
           <div>
-            <Label>المدينة</Label>
-            <Input placeholder="القاهرة" value={city} onChange={e => setCity(e.target.value)} />
+            <Label className="text-xs mb-1.5 block">البريد الإلكتروني</Label>
+            <Input type="email" placeholder="example@company.com" className="h-9 text-sm bg-background" value={form.email} onChange={e => f("email", e.target.value)} />
           </div>
           <div>
-            <Label>المنطقة / المحافظة</Label>
-            <Input placeholder="الجيزة" value={region} onChange={e => setRegion(e.target.value)} />
+            <Label className="text-xs mb-1.5 block flex items-center gap-1"><MapPin className="w-3 h-3" />العنوان</Label>
+            <Input placeholder="الشارع والحي" className="h-9 text-sm bg-background" value={form.address} onChange={e => f("address", e.target.value)} />
           </div>
-          {/* تجاري */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs mb-1.5 block">المدينة</Label>
+              <Input placeholder="القاهرة" className="h-9 text-sm bg-background" value={form.city} onChange={e => f("city", e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs mb-1.5 block">المحافظة</Label>
+              <Input placeholder="الجيزة" className="h-9 text-sm bg-background" value={form.region} onChange={e => f("region", e.target.value)} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs mb-1.5 block">الرقم الضريبي</Label>
+              <Input placeholder="000-000-000" className="h-9 text-sm bg-background" value={form.taxNumber} onChange={e => f("taxNumber", e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs mb-1.5 block">السجل التجاري</Label>
+              <Input placeholder="رقم السجل" className="h-9 text-sm bg-background" value={form.commercialReg} onChange={e => f("commercialReg", e.target.value)} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs mb-1.5 block">شروط الدفع</Label>
+              <Select value={form.paymentTerms} onValueChange={v => f("paymentTerms", v)}>
+                <SelectTrigger className="h-9 text-sm bg-background"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="فوري">فوري</SelectItem>
+                  <SelectItem value="آجل 15 يوم">آجل 15 يوم</SelectItem>
+                  <SelectItem value="آجل 30 يوم">آجل 30 يوم</SelectItem>
+                  <SelectItem value="آجل 60 يوم">آجل 60 يوم</SelectItem>
+                  <SelectItem value="آجل 90 يوم">آجل 90 يوم</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs mb-1.5 block flex items-center gap-1"><Target className="w-3 h-3" />الهدف / حد الائتمان</Label>
+              <Input type="number" min={0} placeholder="0" className="h-9 text-sm bg-background" value={form.creditLimit} onChange={e => f("creditLimit", e.target.value)} />
+            </div>
+          </div>
           <div>
-            <Label>الرقم الضريبي</Label>
-            <Input placeholder="000-000-000" value={taxNumber} onChange={e => setTaxNumber(e.target.value)} />
+            <Label className="text-xs mb-1.5 block">ملاحظات</Label>
+            <Textarea placeholder="أي ملاحظات إضافية..." className="min-h-[60px] text-sm resize-none bg-background" value={form.notes} onChange={e => f("notes", e.target.value)} rows={2} />
           </div>
-          <div>
-            <Label>السجل التجاري</Label>
-            <Input placeholder="رقم السجل" value={commercialReg} onChange={e => setCommercialReg(e.target.value)} />
-          </div>
-          <div>
-            <Label>شروط الدفع</Label>
-            <Select value={paymentTerms} onValueChange={setPaymentTerms}>
-              <SelectTrigger><SelectValue placeholder="اختر" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="فوري">فوري</SelectItem>
-                <SelectItem value="آجل 15 يوم">آجل 15 يوم</SelectItem>
-                <SelectItem value="آجل 30 يوم">آجل 30 يوم</SelectItem>
-                <SelectItem value="آجل 60 يوم">آجل 60 يوم</SelectItem>
-                <SelectItem value="آجل 90 يوم">آجل 90 يوم</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>حد الائتمان (ج.م)</Label>
-            <Input type="number" min={0} value={creditLimit} onChange={e => setCreditLimit(e.target.value)} />
-          </div>
-          <div className="col-span-2">
-            <Label>ملاحظات</Label>
-            <Textarea placeholder="أي ملاحظات إضافية..." value={notes} onChange={e => setNotes(e.target.value)} rows={2} />
-          </div>
-          <div className="flex items-center gap-2">
-            <input type="checkbox" id="isActive" checked={isActive} onChange={e => setIsActive(e.target.checked)} className="w-4 h-4" />
-            <Label htmlFor="isActive">عميل نشط</Label>
-          </div>
-        </div>
-        <div className="flex justify-end gap-2 mt-4">
-          <Button variant="outline" onClick={onClose}>إلغاء</Button>
-          <Button onClick={() => mutation.mutate()} disabled={mutation.isPending || !name.trim()}>
-            {mutation.isPending ? "جارٍ الحفظ…" : isEdit ? "حفظ التعديلات" : "إضافة العميل"}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ── تفاصيل العميل ─────────────────────────────────────────────────────────────
-function ClientDetailDrawer({ client, onClose, onEdit }: {
-  client: Client; onClose: () => void; onEdit: () => void;
-}) {
-  const [, navigate] = useLocation();
-  const { data, isLoading } = useQuery<ClientDetail>({
-    queryKey: ["client-detail", client.id],
-    queryFn: () => apiFetch<ClientDetail>(`/finance/clients/${client.id}`),
-  });
-
-  const totalUnpaid = data
-    ? (parseFloat(data.totalSales) - parseFloat(data.totalPaid))
-    : 0;
-
-  return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" dir="rtl">
-        <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle className="flex items-center gap-2">
-              <Users className="w-5 h-5 text-teal-400" />
-              {client.name}
-            </DialogTitle>
-            <Button variant="outline" size="sm" onClick={onEdit}>
-              <Edit2 className="w-3 h-3 ml-1" /> تعديل
+          <div className="flex items-center gap-3 p-3 bg-muted/20 rounded-md">
+            <span className="text-xs font-medium">حالة العميل</span>
+            <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 mr-auto" onClick={() => f("isActive", !form.isActive)}>
+              {form.isActive ? <><ToggleRight className="w-4 h-4 text-emerald-400" />نشط</> : <><ToggleLeft className="w-4 h-4" />غير نشط</>}
             </Button>
           </div>
-        </DialogHeader>
-
-        {/* بطاقات الإحصائيات */}
-        <div className="grid grid-cols-3 gap-3 mt-2">
-          <div className="rounded-xl p-3 text-center" style={{ background: "hsl(var(--muted)/0.3)" }}>
-            <p className="text-2xl font-black text-blue-400">{data?.totalOrders ?? 0}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">إجمالي الأوامر</p>
+          <div className="flex gap-2 pt-1">
+            <Button className="flex-1 h-9 text-sm font-bold bg-primary text-primary-foreground" onClick={() => mutation.mutate()} disabled={mutation.isPending || !form.name.trim()}>
+              {mutation.isPending ? "جارٍ الحفظ…" : isEdit ? "حفظ التعديلات" : "إضافة العميل"}
+            </Button>
+            <Button variant="outline" className="h-9 text-sm border-border" onClick={onClose}>إلغاء</Button>
           </div>
-          <div className="rounded-xl p-3 text-center" style={{ background: "hsl(var(--muted)/0.3)" }}>
-            <p className="text-lg font-black text-teal-400">{fmt(data?.totalSales ?? 0)}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">إجمالي المشتريات</p>
-          </div>
-          <div className="rounded-xl p-3 text-center" style={{ background: "hsl(var(--muted)/0.3)" }}>
-            <p className="text-lg font-black text-rose-400">{fmt(totalUnpaid)}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">مديونية متبقية</p>
-          </div>
-        </div>
-
-        {/* البيانات */}
-        <div className="grid grid-cols-2 gap-x-6 gap-y-2 mt-3 text-sm">
-          {client.phone && (
-            <div className="flex items-center gap-2">
-              <Phone className="w-3.5 h-3.5 text-muted-foreground" />
-              <span>{client.phone}</span>
-              {client.phone2 && <span className="text-muted-foreground">/ {client.phone2}</span>}
-            </div>
-          )}
-          {(client.address || client.city) && (
-            <div className="flex items-center gap-2">
-              <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
-              <span>{[client.address, client.city, client.region].filter(Boolean).join("، ")}</span>
-            </div>
-          )}
-          {client.paymentTerms && (
-            <div className="flex items-center gap-2">
-              <Wallet className="w-3.5 h-3.5 text-muted-foreground" />
-              <span>شروط الدفع: <strong>{client.paymentTerms}</strong></span>
-            </div>
-          )}
-          {parseFloat(client.creditLimit) > 0 && (
-            <div className="flex items-center gap-2">
-              <TrendingUp className="w-3.5 h-3.5 text-muted-foreground" />
-              <span>حد الائتمان: <strong>{fmt(client.creditLimit)}</strong></span>
-            </div>
-          )}
-          {client.taxNumber && (
-            <div className="text-muted-foreground">ضريبي: <strong className="text-foreground">{client.taxNumber}</strong></div>
-          )}
-          {client.commercialReg && (
-            <div className="text-muted-foreground">سجل تجاري: <strong className="text-foreground">{client.commercialReg}</strong></div>
-          )}
-        </div>
-
-        {/* أوامر البيع */}
-        <div className="mt-4">
-          <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
-            <ShoppingBag className="w-4 h-4 text-teal-400" />
-            أوامر البيع المرتبطة
-          </h4>
-          {isLoading ? (
-            <p className="text-xs text-muted-foreground py-4 text-center">جارٍ التحميل…</p>
-          ) : (data?.orders ?? []).length === 0 ? (
-            <p className="text-xs text-muted-foreground py-4 text-center">لا توجد أوامر بيع بعد</p>
-          ) : (
-            <div className="space-y-1.5 max-h-56 overflow-y-auto">
-              {(data?.orders ?? []).map(o => {
-                const s = STATUS_LABELS[o.status] ?? { label: o.status, color: "" };
-                const unpaid = parseFloat(o.totalAmount) - parseFloat(o.paidAmount);
-                return (
-                  <div key={o.id}
-                    className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer hover:bg-accent transition-colors"
-                    style={{ background: "hsl(var(--muted)/0.3)" }}
-                    onClick={() => { onClose(); navigate(`/finance/sales`); }}
-                  >
-                    <div>
-                      <p className="text-sm font-mono font-semibold">{o.soNumber}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {o.createdAt ? format(new Date(o.createdAt), "dd/MM/yyyy") : ""}
-                      </p>
-                    </div>
-                    <div className="text-center">
-                      <Badge className={`text-xs border ${s.color}`}>{s.label}</Badge>
-                    </div>
-                    <div className="text-left">
-                      <p className="text-sm font-semibold">{fmt(o.totalAmount)}</p>
-                      {unpaid > 0 && <p className="text-xs text-rose-400">متبقي: {fmt(unpaid)}</p>}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
         </div>
       </DialogContent>
     </Dialog>
   );
 }
 
-// ── الصفحة الرئيسية ───────────────────────────────────────────────────────────
+// ── الصفحة الرئيسية — نفس هيكل ShippingCompanies بالظبط ────────────────────
 export default function FinanceClients() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const [search,      setSearch]      = useState("");
-  const [filterActive, setFilterActive] = useState("all");
-  const [formOpen,    setFormOpen]    = useState(false);
-  const [editClient,  setEditClient]  = useState<Client | null>(null);
-  const [viewClient,  setViewClient]  = useState<Client | null>(null);
+  const [search, setSearch] = useState("");
+  const [formOpen, setFormOpen] = useState(false);
+  const [editClient, setEditClient] = useState<Client | null>(null);
+  const [deleteClient, setDeleteClient] = useState<Client | null>(null);
 
   const { data: clients = [], isLoading } = useQuery<Client[]>({
-    queryKey: ["finance-clients", search, filterActive],
+    queryKey: ["finance-clients", search],
     queryFn: () => {
       const params = new URLSearchParams();
       if (search.trim()) params.set("search", search.trim());
-      if (filterActive !== "all") params.set("isActive", filterActive);
       return apiFetch<Client[]>(`/finance/clients?${params}`);
     },
     staleTime: 30_000,
   });
 
-  const syncMutation = useMutation({
-    mutationFn: (id: number) => apiFetch<any>(`/finance/clients/${id}/sync`, { method: "PATCH", body: "{}" }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["finance-clients"] }); toast({ title: "تم تحديث الإحصائيات" }); },
-  });
-
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiFetch<any>(`/finance/clients/${id}`, { method: "DELETE" }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["finance-clients"] }); toast({ title: "تم حذف العميل" }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["finance-clients"] }); setDeleteClient(null); toast({ title: "تم حذف العميل" }); },
     onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
 
-  const totalSales  = clients.reduce((s, c) => s + parseFloat(c.totalSales  ?? "0"), 0);
-  const totalUnpaid = clients.reduce((s, c) => s + (parseFloat(c.totalSales ?? "0") - parseFloat(c.totalPaid ?? "0")), 0);
+  const toggleActive = (c: Client) =>
+    apiFetch<any>(`/finance/clients/${c.id}`, {
+      method: "PATCH", body: JSON.stringify({ isActive: !c.isActive }),
+    }).then(() => qc.invalidateQueries({ queryKey: ["finance-clients"] }));
+
+  const openAdd  = () => { setEditClient(null); setFormOpen(true); };
+  const openEdit = (c: Client) => { setEditClient(c); setFormOpen(true); };
 
   return (
-    <div className="space-y-5 p-4" dir="rtl">
+    <div className="space-y-5 animate-in fade-in duration-500">
 
-      {/* Header */}
+      {/* Header — نفس شكل شركات الشحن */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-black flex items-center gap-2">
-            <Users className="w-6 h-6 text-teal-400" />
-            العملاء التجاريون
-          </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{clients.length} عميل مسجّل</p>
+          <h1 className="text-2xl font-bold">العملاء التجاريون</h1>
+          <p className="text-muted-foreground text-sm mt-0.5">إدارة العملاء التجاريين ومتابعة المبيعات</p>
         </div>
-        <Button onClick={() => { setEditClient(null); setFormOpen(true); }}
-          className="gap-1.5" style={{ background: "#26A69A", color: "#fff" }}>
-          <Plus className="w-4 h-4" /> عميل جديد
+        <Button onClick={openAdd} className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-sm">
+          <Plus className="w-4 h-4" />إضافة عميل
         </Button>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-3 gap-4">
-        <Card className="p-4">
-          <p className="text-xs text-muted-foreground">عدد العملاء النشطين</p>
-          <p className="text-3xl font-black text-teal-400 mt-1">
-            {clients.filter(c => c.isActive).length}
-          </p>
+      {/* KPI Cards — نفس شكل شركات الشحن */}
+      <div className="grid grid-cols-2 gap-3">
+        <Card className="border-border bg-card p-4">
+          <p className="text-xs text-muted-foreground">إجمالي العملاء</p>
+          <p className="text-2xl font-bold mt-1">{clients.length}</p>
         </Card>
-        <Card className="p-4">
-          <p className="text-xs text-muted-foreground">إجمالي المبيعات</p>
-          <p className="text-2xl font-black text-blue-400 mt-1">{fmt(totalSales)}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs text-muted-foreground">إجمالي المديونيات</p>
-          <p className="text-2xl font-black text-rose-400 mt-1">{fmt(totalUnpaid)}</p>
+        <Card className="border-border bg-card p-4">
+          <p className="text-xs text-muted-foreground">نشط</p>
+          <p className="text-2xl font-bold mt-1 text-emerald-400">{clients.filter(c => c.isActive).length}</p>
         </Card>
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-2 flex-wrap">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input className="pr-9 h-9" placeholder="بحث بالاسم أو الهاتف..." value={search}
-            onChange={e => setSearch(e.target.value)} />
-          {search && <button className="absolute left-2 top-1/2 -translate-y-1/2" onClick={() => setSearch("")}><X className="w-3.5 h-3.5 text-muted-foreground" /></button>}
+      {/* Search */}
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute right-2.5 top-2.5 w-3.5 h-3.5 text-muted-foreground" />
+          <Input
+            placeholder="بحث بالاسم أو الهاتف..."
+            className="h-9 text-sm bg-background pr-8"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
         </div>
-        <Select value={filterActive} onValueChange={setFilterActive}>
-          <SelectTrigger className="h-9 w-36"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">الكل</SelectItem>
-            <SelectItem value="true">نشط فقط</SelectItem>
-            <SelectItem value="false">غير نشط</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
 
-      {/* Table */}
-      <Card className="overflow-hidden">
-        {isLoading ? (
-          <div className="py-16 text-center text-muted-foreground">جارٍ التحميل…</div>
-        ) : clients.length === 0 ? (
-          <div className="py-16 text-center">
-            <Users className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-            <p className="text-muted-foreground">لا يوجد عملاء بعد</p>
-            <Button className="mt-3" variant="outline" onClick={() => { setEditClient(null); setFormOpen(true); }}>
-              <Plus className="w-4 h-4 ml-1" /> أضف أول عميل
-            </Button>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr style={{ background: "hsl(var(--muted)/0.5)", borderBottom: "1px solid hsl(var(--border))" }}>
-                  <th className="text-right px-4 py-3 font-semibold">العميل</th>
-                  <th className="text-right px-3 py-3 font-semibold">الهاتف</th>
-                  <th className="text-center px-3 py-3 font-semibold">الأوامر</th>
-                  <th className="text-right px-3 py-3 font-semibold">إجمالي المشتريات</th>
-                  <th className="text-right px-3 py-3 font-semibold">المديونية</th>
-                  <th className="text-right px-3 py-3 font-semibold">شروط الدفع</th>
-                  <th className="text-center px-3 py-3 font-semibold">الحالة</th>
-                  <th className="px-3 py-3"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {clients.map((c, idx) => {
-                  const unpaid = parseFloat(c.totalSales ?? "0") - parseFloat(c.totalPaid ?? "0");
-                  return (
-                    <tr key={c.id}
-                      style={{ borderBottom: "1px solid hsl(var(--border)/0.5)", background: idx % 2 === 0 ? "transparent" : "hsl(var(--muted)/0.15)" }}
-                      className="hover:bg-accent/30 transition-colors">
-                      <td className="px-4 py-3">
-                        <Link href={`/finance/clients/${c.id}`}>
-                          <button className="text-right">
-                            <p className="font-semibold hover:text-teal-400 transition-colors">{c.name}</p>
-                            {c.email && <p className="text-xs text-muted-foreground">{c.email}</p>}
-                          </button>
-                        </Link>
-                      </td>
-                      <td className="px-3 py-3 text-sm text-muted-foreground">{c.phone ?? "—"}</td>
-                      <td className="px-3 py-3 text-center">
-                        <span className="text-sm font-bold text-blue-400">{c.totalOrders ?? 0}</span>
-                      </td>
-                      <td className="px-3 py-3 font-semibold text-sm">{fmt(c.totalSales ?? 0)}</td>
-                      <td className="px-3 py-3 text-sm">
-                        <span className={unpaid > 0 ? "text-rose-400 font-semibold" : "text-emerald-400 font-semibold"}>
-                          {fmt(unpaid)}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 text-xs text-muted-foreground">{c.paymentTerms ?? "—"}</td>
-                      <td className="px-3 py-3 text-center">
-                        <Badge variant="outline" className={c.isActive
-                          ? "text-xs bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-                          : "text-xs bg-muted/50 text-muted-foreground border-border"}>
-                          {c.isActive ? "نشط" : "غير نشط"}
-                        </Badge>
-                      </td>
-                      <td className="px-3 py-3">
-                        <div className="flex items-center gap-1 justify-end">
-                          <Link href={`/finance/clients/${c.id}`}>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-400">
-                              <Eye className="w-3.5 h-3.5" />
-                            </Button>
-                          </Link>
-                          <Button variant="ghost" size="icon" className="h-7 w-7"
-                            onClick={() => syncMutation.mutate(c.id)}>
-                            <RefreshCw className="w-3.5 h-3.5" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7"
-                            onClick={() => { setEditClient(c); setFormOpen(true); }}>
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-rose-400"
-                            onClick={() => {
-                              if (confirm(`حذف العميل "${c.name}"؟`)) deleteMutation.mutate(c.id);
-                            }}>
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+      {/* Cards Grid — نفس هيكل شركات الشحن بالظبط */}
+      {isLoading ? (
+        <div className="p-8 text-center text-muted-foreground text-sm">جاري التحميل...</div>
+      ) : clients.length ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {clients.map(client => (
+            <Card key={client.id} className={`border p-5 ${client.isActive ? "border-border bg-card" : "border-border/40 bg-card/40"}`}>
+
+              {/* رأس البطاقة — نفس شكل شركات الشحن */}
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
+                    <Users className="w-5 h-5 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <Link href={`/finance/clients/${client.id}`}>
+                      <h3 className="font-bold text-sm hover:text-primary hover:underline cursor-pointer transition-colors">
+                        {client.name}
+                      </h3>
+                    </Link>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Badge variant="outline" className={`text-[9px] font-bold border ${
+                        client.isActive
+                          ? "border-emerald-800 bg-emerald-900/30 text-emerald-400"
+                          : "border-border text-muted-foreground"
+                      }`}>
+                        {client.isActive ? "نشط" : "موقف"}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+
+                {/* أزرار التحكم — نفس شكل شركات الشحن */}
+                <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-primary" onClick={() => toggleActive(client)}>
+                    {client.isActive ? <ToggleRight className="w-4 h-4 text-emerald-400" /> : <ToggleLeft className="w-4 h-4" />}
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-primary" onClick={() => openEdit(client)}>
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-destructive" onClick={() => setDeleteClient(client)}>
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* بيانات الاتصال */}
+              <div className="mt-3 space-y-1.5">
+                {client.phone && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-2">
+                    <Phone className="w-3 h-3" />{client.phone}
+                    {client.phone2 && <span className="text-muted-foreground/60">· {client.phone2}</span>}
+                  </p>
+                )}
+                {(client.address || client.city) && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-2">
+                    <MapPin className="w-3 h-3" />
+                    {[client.address, client.city, client.region].filter(Boolean).join("، ")}
+                  </p>
+                )}
+                {client.notes && (
+                  <p className="text-xs text-muted-foreground pt-1 border-t border-border">{client.notes}</p>
+                )}
+              </div>
+
+              {/* الإحصائيات — زي CompanyStats */}
+              <ClientStats client={client} />
+
+              {/* الفواتير — زي CompanyManifests */}
+              <ClientInvoices client={client} />
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <Card className="border-border p-12 text-center">
+          <Users className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-20" />
+          <p className="font-bold">لا يوجد عملاء تجاريون</p>
+          <p className="text-sm text-muted-foreground mt-1">أضف عملاءك التجاريين لمتابعة مبيعاتهم.</p>
+          <Button onClick={openAdd} className="mt-4 gap-2 text-sm"><Plus className="w-4 h-4" />إضافة عميل</Button>
+        </Card>
+      )}
 
       {/* نموذج الإضافة / التعديل */}
       {formOpen && (
@@ -489,14 +470,26 @@ export default function FinanceClients() {
         />
       )}
 
-      {/* درج تفاصيل العميل */}
-      {viewClient && (
-        <ClientDetailDrawer
-          client={viewClient}
-          onClose={() => setViewClient(null)}
-          onEdit={() => { setEditClient(viewClient); setViewClient(null); setFormOpen(true); }}
-        />
-      )}
+      {/* تأكيد الحذف */}
+      <AlertDialog open={!!deleteClient} onOpenChange={() => setDeleteClient(null)}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+            <AlertDialogDescription>
+              هل أنت متأكد من حذف العميل "{deleteClient?.name}"؟ لا يمكن التراجع عن هذا الإجراء.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteClient && deleteMutation.mutate(deleteClient.id)}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              نعم، احذف
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
