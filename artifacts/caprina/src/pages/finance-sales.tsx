@@ -595,11 +595,12 @@ function PurchaseOrderQuickDialog({ draft, onClose }: {
 }
 
 // ── SORow ──────────────────────────────────────────────────────────────────
-function SORow({ order, onEdit, onDelete, onPrint, onTransferToTreasury, warehouses }: {
+function SORow({ order, onEdit, onDelete, onPrint, onTransferToTreasury, onView, warehouses }: {
   order: SaleOrder; onEdit: (o: SaleOrder) => void;
   onDelete: (id: number) => void;
   onPrint: (o: SaleOrder) => void;
   onTransferToTreasury: (o: SaleOrder) => void;
+  onView: (id: number) => void;
   warehouses: Warehouse[];
 }) {
   const wName = warehouses.find(w => w.id === order.warehouseId)?.name ?? "—";
@@ -629,6 +630,12 @@ function SORow({ order, onEdit, onDelete, onPrint, onTransferToTreasury, warehou
       <td className="px-3 py-3">
         <div className="flex gap-1 flex-wrap">
           <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => onEdit(order)}>تعديل</Button>
+          <Button size="sm" variant="ghost" className="h-7 px-2 text-xs"
+            title="عرض التفاصيل"
+            style={{ color: "#00897B" }}
+            onClick={() => onView(order.id)}>
+            <ChevronRight className="w-3 h-3" />
+          </Button>
           <Button size="sm" variant="ghost" className="h-7 px-2 text-xs"
             title="طباعة فاتورة"
             onClick={() => onPrint(order)}>
@@ -1536,6 +1543,7 @@ export default function FinanceSales() {
                   onEdit={o => { setEditOrder(o); setFormOpen(true); }}
                   onDelete={id => { if (confirm("هل تريد حذف هذا الأمر؟")) deleteMut.mutate(id); }}
                   onPrint={handlePrint}
+                  onView={id => navigate(`/finance/sales/${id}`)}
                   onTransferToTreasury={handleTransferToTreasury} />
               ))}
             </tbody>
