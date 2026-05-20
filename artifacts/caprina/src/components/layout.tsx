@@ -20,51 +20,102 @@ interface LayoutProps {
 // permission = صلاحية الوصول للصفحة (هل الرول عنده حق يدخلها)
 // section   = صلاحية ظهور القسم في الـ sidebar (per-user toggle)
 const ALL_NAV = [
-  // ── الأساسيات اليومية ──────────────────────────────────────────────────
-  { href: "/",                  label: "لوحة التحكم",        icon: LayoutDashboard, exact: true, permission: "dashboard",              section: "section_dashboard",         iconColor: "text-blue-400"       },
-  { href: "/orders",            label: "الطلبات",             icon: Package,                     permission: "orders",                  section: "section_orders",            iconColor: "text-orange-400"     },
-  { href: "/orders/new",        label: "طلب جديد",            icon: Plus,                        permission: "orders",                  section: "section_new_order",         iconColor: "text-emerald-400"    },
-  { href: "/invoices",          label: "الفواتير",             icon: FileText,                    permission: "invoices",                section: "section_invoices",          iconColor: "text-yellow-400"     },
-  { href: "/shipping-followup", label: "متابعة الشحن ⏱️",    icon: Clock,                       permission: "orders",                  section: "section_shipping_followup", iconColor: "text-cyan-400"       },
-  { href: "/shipping",          label: "شركات الشحن",         icon: Truck,                       permission: "shipping",                section: "section_shipping",          iconColor: "text-sky-400"        },
-  // ── المخزون ────────────────────────────────────────────────────────────
-  { href: "/inventory",         label: "المخزون",             icon: Boxes,                       permission: "inventory",               section: "section_inventory",         iconColor: "text-violet-400"     },
-  { href: "/movements",         label: "حركات المخزون",       icon: Activity,                    permission: "movements",               section: "section_movements",         iconColor: "text-purple-400"     },
-  { href: "/warehouses",        label: "المخازن",             icon: Warehouse,                   permission: "inventory",               section: "section_warehouses",        iconColor: "text-indigo-400"     },
-  // ── التحليلات والتقارير ─────────────────────────────────────────────────
-  { href: "/product-performance",label: "أداء المنتجات",     icon: BarChart3,                   permission: "view_product_performance",section: "section_product_performance",iconColor: "text-pink-400"      },
-  { href: "/smart",             label: "التحليل الذكي 🧠",   icon: Brain,                       permission: "analytics",               section: "section_smart_analytics",   iconColor: "text-fuchsia-400"    },
-  { href: "/ads-analytics",     label: "تحليل الإعلانات",    icon: Megaphone,                   permission: "analytics",               section: "section_ads_analytics",     iconColor: "text-rose-400"       },
-  { href: "/team-performance",  label: "أداء الفريق",        icon: UserCheck,                   permission: "analytics",               section: "section_team_performance",  iconColor: "text-teal-400"       },
-  // ── الإدارة ─────────────────────────────────────────────────────────────
-  { href: "/team",              label: "إدارة الفريق",       icon: UserCog,                     permission: "analytics",               section: "section_team_management",   iconColor: "text-lime-400"       },
-  { href: "/users",             label: "إدارة المستخدمين",   icon: Users,                       permission: "users",                   section: "section_users",             iconColor: "text-green-400"      },
-  { href: "/archive",           label: "الأرشيف 🗂️",         icon: Archive,                     permission: "orders",                  section: "section_archive",           iconColor: "text-stone-400"      },
-  // ── الأدوات والإعدادات ──────────────────────────────────────────────────
-  { href: "/import",            label: "استيراد Excel",       icon: Upload,                      permission: "import",                  section: "section_import",            iconColor: "text-amber-400"      },
-  { href: "/export",            label: "تصدير البيانات",      icon: Download,                    permission: "import",                  section: "section_export_data",       iconColor: "text-orange-300"     },
-  { href: "/whatsapp",          label: "إعدادات واتساب",     icon: MessageCircle,               permission: "whatsapp",                section: "section_whatsapp",          iconColor: "text-emerald-500"    },
-  { href: "/sessions-report",   label: "تقرير الجلسات",       icon: Clock,                       permission: "users",                   section: "section_sessions_report",   iconColor: "text-slate-400"      },
-  { href: "/audit-logs",        label: "سجل التعديلات",       icon: Shield,                      permission: "audit",                   section: "section_audit",             iconColor: "text-red-400"        },
+  // ── لوحة التحكم ────────────────────────────────────────────────────────
+  { href: "/",                  label: "لوحة التحكم",        icon: LayoutDashboard, exact: true, permission: "dashboard",               section: "section_dashboard",          iconColor: "text-blue-400",       group: "dashboard"    },
+  // ── الطلبات ─────────────────────────────────────────────────────────────
+  { href: "/orders",            label: "الطلبات",             icon: Package,                     permission: "orders",                  section: "section_orders",             iconColor: "text-orange-400",     group: "orders"       },
+  { href: "/orders/new",        label: "طلب جديد",            icon: Plus,                        permission: "orders",                  section: "section_new_order",          iconColor: "text-emerald-400",    group: "orders"       },
+  { href: "/invoices",          label: "الفواتير",             icon: FileText,                    permission: "invoices",                section: "section_invoices",           iconColor: "text-yellow-400",     group: "orders"       },
+  { href: "/shipping-followup", label: "متابعة الشحن",        icon: Clock,                       permission: "orders",                  section: "section_shipping_followup",  iconColor: "text-cyan-400",       group: "orders"       },
+  // ── الشحن والتوصيل ──────────────────────────────────────────────────────
+  { href: "/shipping",          label: "شركات الشحن",         icon: Truck,                       permission: "shipping",                section: "section_shipping",           iconColor: "text-sky-400",        group: "shipping"     },
+  // ── المنتجات (المخزون) ──────────────────────────────────────────────────
+  { href: "/inventory",         label: "المنتجات",            icon: Boxes,                       permission: "inventory",               section: "section_inventory",          iconColor: "text-violet-400",     group: "inventory"    },
+  { href: "/warehouses",        label: "المخازن",             icon: Warehouse,                   permission: "inventory",               section: "section_warehouses",         iconColor: "text-indigo-400",     group: "inventory"    },
+  { href: "/movements",         label: "حركات المخزون",       icon: Activity,                    permission: "movements",               section: "section_movements",          iconColor: "text-purple-400",     group: "inventory"    },
+  // ── التحليلات ───────────────────────────────────────────────────────────
+  { href: "/product-performance",label: "أداء المنتجات",     icon: BarChart3,                   permission: "view_product_performance",section: "section_product_performance", iconColor: "text-pink-400",      group: "analytics"    },
+  { href: "/smart",             label: "التحليل الذكي",       icon: Brain,                       permission: "analytics",               section: "section_smart_analytics",    iconColor: "text-fuchsia-400",    group: "analytics"    },
+  { href: "/ads-analytics",     label: "تحليل الإعلانات",    icon: Megaphone,                   permission: "analytics",               section: "section_ads_analytics",      iconColor: "text-rose-400",       group: "analytics"    },
+  { href: "/team-performance",  label: "تحليل العمليات الذكي",icon: UserCheck,                  permission: "analytics",               section: "section_team_performance",   iconColor: "text-teal-400",       group: "analytics"    },
+  { href: "/sessions-report",   label: "تقارير الجلسات",      icon: Clock,                       permission: "users",                   section: "section_sessions_report",    iconColor: "text-slate-400",      group: "analytics"    },
+  // ── الفريق والإدارة ─────────────────────────────────────────────────────
+  { href: "/team",              label: "أداء الفريق",         icon: UserCheck,                   permission: "analytics",               section: "section_team_management",    iconColor: "text-lime-400",       group: "team"         },
+  { href: "/users",             label: "إدارة الفريق",        icon: UserCog,                     permission: "analytics",               section: "section_team_management",    iconColor: "text-lime-300",       group: "team"         },
+  { href: "/users",             label: "إدارة المستخدمين",   icon: Users,                       permission: "users",                   section: "section_users",              iconColor: "text-green-400",      group: "team"         },
+  { href: "/audit-logs",        label: "سجل العمليات",        icon: Shield,                      permission: "audit",                   section: "section_audit",              iconColor: "text-red-400",        group: "team"         },
+  // ── الأدوات ─────────────────────────────────────────────────────────────
+  { href: "/import",            label: "استيراد Excel",       icon: Upload,                      permission: "import",                  section: "section_import",             iconColor: "text-amber-400",      group: "tools"        },
+  { href: "/export",            label: "تصدير البيانات",      icon: Download,                    permission: "import",                  section: "section_export_data",        iconColor: "text-orange-300",     group: "tools"        },
+  { href: "/archive",           label: "الأرشيف",             icon: Archive,                     permission: "orders",                  section: "section_archive",            iconColor: "text-stone-400",      group: "tools"        },
+  // ── الإعدادات والدعم ────────────────────────────────────────────────────
+  { href: "/whatsapp",          label: "إعدادات واتساب",     icon: MessageCircle,               permission: "whatsapp",                section: "section_whatsapp",           iconColor: "text-emerald-500",    group: "settings"     },
+  { href: "/audit-logs",        label: "سجل التعديلات",       icon: Shield,                      permission: "audit",                   section: "section_audit",              iconColor: "text-red-400",        group: "settings"     },
 ];
 
 // ── الماليات — قسم منفصل في الـ sidebar ──────────────────────────────────────
 const FINANCE_NAV = [
-  { href: "/finance",                   label: "لوحة الماليات",          icon: DollarSign,   iconColor: "text-emerald-400"  },
-  { href: "/finance/cash",              label: "الخزنة",                  icon: Wallet,       iconColor: "text-yellow-400"   },
-  { href: "/finance/cash/archive",      label: "أرشيف الخزن",            icon: Archive,      iconColor: "text-stone-400"    },
-  { href: "/finance/cash/analytics",    label: "تحليل الماليات الذكي 🧠", icon: Brain,        iconColor: "text-fuchsia-400"  },
-  { href: "/finance/purchases",         label: "أوامر الشراء",            icon: ShoppingCart, iconColor: "text-violet-400"   },
-  { href: "/finance/sales",             label: "أوامر البيع",             icon: ShoppingBag,  iconColor: "text-teal-400"     },
-  { href: "/finance/clients",           label: "العملاء التجاريون",        icon: UserCheck,    iconColor: "text-cyan-400"     },
-  { href: "/finance/suppliers",         label: "الموردون",                icon: Building2,    iconColor: "text-blue-400"     },
-  { href: "/finance/expenses",          label: "المصروفات",               icon: Receipt,      iconColor: "text-rose-400"     },
-  { href: "/finance/shipping-invoices", label: "فواتير الشحن",            icon: Truck,        iconColor: "text-sky-400"      },
+  { href: "/finance",                   label: "لوحة الماليات",     icon: DollarSign,   iconColor: "text-emerald-400"  },
+  { href: "/finance/cash",              label: "الخزنة",             icon: Wallet,       iconColor: "text-yellow-400"   },
+  { href: "/finance/cash/archive",      label: "أرشيف الخزن",       icon: Archive,      iconColor: "text-stone-400"    },
+  { href: "/finance/cash/analytics",    label: "تحليل الماليات الذكي", icon: Brain,     iconColor: "text-fuchsia-400"  },
+  { href: "/finance/expenses",          label: "المصروفات",          icon: Receipt,      iconColor: "text-rose-400"     },
+  { href: "/finance/suppliers",         label: "الموردون",           icon: Building2,    iconColor: "text-blue-400"     },
+  { href: "/finance/clients",           label: "العملاء التجاريون",  icon: UserCheck,    iconColor: "text-cyan-400"     },
+  { href: "/finance/purchases",         label: "فواتير الشراء",      icon: ShoppingCart, iconColor: "text-violet-400"   },
+  { href: "/finance/sales",             label: "فواتير البيع",       icon: ShoppingBag,  iconColor: "text-teal-400"     },
+  { href: "/finance/shipping-invoices", label: "فواتير الشحن",       icon: Truck,        iconColor: "text-sky-400"      },
 ];
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "مدير", employee: "موظف مبيعات", warehouse: "مسؤول مخزون",
 };
+
+// ── مكونات مساعدة للـ Sidebar ─────────────────────────────────────────────
+function NavItem({ item, location, sub = false }: { item: any; location: string; sub?: boolean }) {
+  const isActive = item.exact
+    ? location === item.href
+    : location === item.href || location.startsWith(item.href + "/") || (item.href !== "/" && location.startsWith(item.href));
+  const Icon = item.icon;
+  return (
+    <Link href={item.href}
+      className={cn(
+        "flex items-center gap-3 px-3 py-1.5 rounded-md text-xs font-semibold transition-all",
+        sub && "mr-2",
+        isActive ? "bg-primary text-primary-foreground" : "text-sidebar-foreground/55 hover:text-sidebar-foreground hover:bg-foreground/5"
+      )}>
+      <Icon className={cn("w-3.5 h-3.5 shrink-0", isActive ? "text-primary-foreground" : item.iconColor)} />
+      {item.label}
+    </Link>
+  );
+}
+
+function NavGroup({ label, icon: Icon, iconColor, location, prefixes, defaultOpen, children }: {
+  label: string; icon: any; iconColor: string;
+  location: string; prefixes: string[];
+  defaultOpen?: boolean; children: React.ReactNode;
+}) {
+  const isGroupActive = prefixes.some(p => location === p || location.startsWith(p + "/") || location.startsWith(p));
+  const [open, setOpen] = useState(defaultOpen ?? isGroupActive);
+  return (
+    <div className="pt-0.5">
+      <button type="button" onClick={() => setOpen(v => !v)}
+        className={cn(
+          "w-full flex items-center gap-3 px-3 py-2 rounded-md text-xs font-semibold transition-all",
+          isGroupActive ? "text-sidebar-foreground bg-foreground/5" : "text-sidebar-foreground/55 hover:text-sidebar-foreground hover:bg-foreground/5"
+        )}>
+        <Icon className={cn("w-3.5 h-3.5 shrink-0", iconColor)} />
+        <span className="flex-1 text-right">{label}</span>
+        <ChevronLeft className={cn("w-3 h-3 transition-transform text-sidebar-foreground/40", open ? "-rotate-90" : "")} />
+      </button>
+      {open && (
+        <div className="mt-0.5 mr-2 border-r border-sidebar-border/50 pr-1 space-y-0.5 pb-1">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Layout({ children }: LayoutProps) {
   const [location] = useLocation();
@@ -73,7 +124,6 @@ export default function Layout({ children }: LayoutProps) {
   const { toast } = useToast();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [financeOpen, setFinanceOpen] = useState(() => location.startsWith("/finance"));
   const [pwDialogOpen, setPwDialogOpen] = useState(false);
   const [brandSettingsOpen, setBrandSettingsOpen] = useState(false);
   const [currentPw, setCurrentPw] = useState("");
@@ -126,80 +176,82 @@ export default function Layout({ children }: LayoutProps) {
         </div>
 
         <nav className="px-2 py-3 flex-1 space-y-0.5 overflow-y-auto">
-          {visibleNav.map((item) => {
-            const isActive = item.exact ? location === item.href : (location === item.href || location.startsWith(item.href + "/") || (item.href !== "/" && location.startsWith(item.href)));
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-md text-xs font-semibold transition-all",
-                  isActive
-                    ? "bg-primary text-primary-foreground"
-                    : "text-sidebar-foreground/55 hover:text-sidebar-foreground hover:bg-foreground/5"
-                )}
-              >
-                <Icon className={cn("w-3.5 h-3.5 shrink-0", isActive ? "text-primary-foreground" : item.iconColor)} />
-                {item.label}
-              </Link>
-            );
-          })}
 
-          {/* ── قسم الماليات ────────────────────────────────────────── */}
-          {(isAdmin || can("finance")) && (
-            <div className="pt-1">
-              <button
-                type="button"
-                onClick={() => setFinanceOpen(v => !v)}
-                className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2 rounded-md text-xs font-semibold transition-all",
-                  location.startsWith("/finance")
-                    ? "bg-emerald-500/15 text-emerald-400"
-                    : "text-sidebar-foreground/55 hover:text-sidebar-foreground hover:bg-foreground/5"
-                )}
-              >
-                <DollarSign className={cn("w-3.5 h-3.5 shrink-0", location.startsWith("/finance") ? "text-emerald-400" : "text-emerald-400")} />
-                <span className="flex-1 text-right">الماليات</span>
-                <ChevronLeft className={cn("w-3 h-3 transition-transform", financeOpen ? "-rotate-90" : "")} />
-              </button>
-              {financeOpen && (
-                <div className="mt-0.5 mr-2 border-r border-emerald-500/20 pr-1 space-y-0.5">
-                  {FINANCE_NAV.map((item) => {
-                    const isActive = location === item.href || location.startsWith(item.href + "/");
-                    const Icon = item.icon;
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        className={cn(
-                          "flex items-center gap-3 px-3 py-1.5 rounded-md text-xs font-semibold transition-all",
-                          isActive
-                            ? "bg-primary text-primary-foreground"
-                            : "text-sidebar-foreground/55 hover:text-sidebar-foreground hover:bg-foreground/5"
-                        )}
-                      >
-                        <Icon className={cn("w-3.5 h-3.5 shrink-0", isActive ? "text-primary-foreground" : item.iconColor)} />
-                        {item.label}
-                      </Link>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+          {/* ── لوحة التحكم ── */}
+          {visibleNav.filter(i => i.group === "dashboard").map(item => <NavItem key={item.href} item={item} location={location} />)}
+
+          {/* ── الطلبات ── */}
+          {visibleNav.some(i => i.group === "orders") && (
+            <NavGroup label="الطلبات" icon={Package} iconColor="text-orange-400" location={location} prefixes={["/orders","/invoices","/shipping-followup"]}>
+              {visibleNav.filter(i => i.group === "orders").map(item => <NavItem key={item.href+item.label} item={item} location={location} sub />)}
+            </NavGroup>
           )}
 
-          {/* ── Super Admin: إدارة الاشتراكات ─────────────────────── */}
+          {/* ── الشحن والتوصيل ── */}
+          {visibleNav.some(i => i.group === "shipping") && (
+            <NavGroup label="الشحن والتوصيل" icon={Truck} iconColor="text-sky-400" location={location} prefixes={["/shipping"]}>
+              {visibleNav.filter(i => i.group === "shipping").map(item => <NavItem key={item.href} item={item} location={location} sub />)}
+            </NavGroup>
+          )}
+
+          {/* ── المنتجات ── */}
+          {visibleNav.some(i => i.group === "inventory") && (
+            <NavGroup label="المنتجات" icon={Boxes} iconColor="text-violet-400" location={location} prefixes={["/inventory","/warehouses","/movements"]}>
+              {visibleNav.filter(i => i.group === "inventory").map(item => <NavItem key={item.href} item={item} location={location} sub />)}
+            </NavGroup>
+          )}
+
+          {/* ── التحليلات ── */}
+          {visibleNav.some(i => i.group === "analytics") && (
+            <NavGroup label="التحليلات" icon={BarChart3} iconColor="text-pink-400" location={location} prefixes={["/product-performance","/smart","/ads-analytics","/team-performance","/sessions-report"]}>
+              {visibleNav.filter(i => i.group === "analytics").map(item => <NavItem key={item.href+item.label} item={item} location={location} sub />)}
+            </NavGroup>
+          )}
+
+          {/* ── الماليات ── */}
+          {(isAdmin || can("finance")) && (
+            <NavGroup label="الماليات" icon={DollarSign} iconColor="text-emerald-400" location={location} prefixes={["/finance"]} defaultOpen={location.startsWith("/finance")}>
+              {FINANCE_NAV.map((item) => {
+                const isActive = location === item.href || location.startsWith(item.href + "/");
+                const Icon = item.icon;
+                return (
+                  <Link key={item.href} href={item.href}
+                    className={cn("flex items-center gap-3 px-3 py-1.5 rounded-md text-xs font-semibold transition-all mr-2",
+                      isActive ? "bg-primary text-primary-foreground" : "text-sidebar-foreground/55 hover:text-sidebar-foreground hover:bg-foreground/5")}>
+                    <Icon className={cn("w-3.5 h-3.5 shrink-0", isActive ? "text-primary-foreground" : item.iconColor)} />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </NavGroup>
+          )}
+
+          {/* ── الفريق والإدارة ── */}
+          {visibleNav.some(i => i.group === "team") && (
+            <NavGroup label="الفريق والإدارة" icon={Users} iconColor="text-green-400" location={location} prefixes={["/team","/users","/audit-logs"]}>
+              {visibleNav.filter(i => i.group === "team").map(item => <NavItem key={item.href+item.label} item={item} location={location} sub />)}
+            </NavGroup>
+          )}
+
+          {/* ── الأدوات ── */}
+          {visibleNav.some(i => i.group === "tools") && (
+            <NavGroup label="الأدوات" icon={Upload} iconColor="text-amber-400" location={location} prefixes={["/import","/export","/archive"]}>
+              {visibleNav.filter(i => i.group === "tools").map(item => <NavItem key={item.href} item={item} location={location} sub />)}
+            </NavGroup>
+          )}
+
+          {/* ── الإعدادات والدعم ── */}
+          {visibleNav.some(i => i.group === "settings") && (
+            <NavGroup label="الإعدادات والدعم" icon={MessageCircle} iconColor="text-emerald-500" location={location} prefixes={["/whatsapp","/audit-logs"]}>
+              {visibleNav.filter(i => i.group === "settings").map(item => <NavItem key={item.href+item.label} item={item} location={location} sub />)}
+            </NavGroup>
+          )}
+
+          {/* ── Super Admin ── */}
           {user?.role === "super_admin" && (
-            <Link
-              href="/super-admin"
-              className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-md text-xs font-semibold transition-all mt-2 border",
-                location === "/super-admin"
-                  ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
-                  : "text-amber-500/70 hover:text-amber-400 hover:bg-amber-500/10 border-amber-500/15"
-              )}
-            >
+            <Link href="/super-admin"
+              className={cn("flex items-center gap-3 px-3 py-2 rounded-md text-xs font-semibold transition-all mt-2 border",
+                location === "/super-admin" ? "bg-amber-500/20 text-amber-400 border-amber-500/30" : "text-amber-500/70 hover:text-amber-400 hover:bg-amber-500/10 border-amber-500/15")}>
               <Crown className="w-3.5 h-3.5 shrink-0 text-amber-400" />
               إدارة الاشتراكات
             </Link>
