@@ -535,7 +535,7 @@ export default function FinanceSaleDetail() {
         >
           {/* 1. طباعة */}
           <button
-            onClick={() => printSaleInvoice(order, order.items, [])}
+            onClick={() => printManifestPDF(order)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all hover:opacity-80"
             style={{ background: "transparent", border: "1px solid hsl(43,74%,50%)", color: "hsl(43,74%,50%)" }}
           >
