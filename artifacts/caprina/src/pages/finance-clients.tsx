@@ -492,38 +492,40 @@ export default function FinanceClients() {
         {activeTab === "clients" && (
           <>
             <div className="grid grid-cols-6 gap-2 px-4 py-2 border-b border-border bg-muted/5">
+              {/* اسم العميل */}
               <div className="col-span-2 flex items-center gap-1">
-                {showColFilters ? (
-                  <ColumnFilter label="اسم العميل" options={[]} selected={[]} onChange={() => {}} />
-                ) : <span className="text-[10px] font-bold text-muted-foreground">اسم العميل</span>}
+                <span className="text-[10px] font-bold text-muted-foreground">اسم العميل</span>
               </div>
+              {/* الحالة */}
               <div className="flex items-center gap-1">
                 {showColFilters ? (
                   <ColumnFilter label="الحالة" options={statusOptions} selected={filterStatus} onChange={v => { setFilterStatus(v); setPage(1); }} />
-                ) : <span className="text-[10px] font-bold text-muted-foreground">رقم الهاتف</span>}
+                ) : <span className="text-[10px] font-bold text-muted-foreground">الحالة</span>}
               </div>
+              {/* المدينة */}
               <div className="flex items-center gap-1">
                 {showColFilters ? (
                   <ColumnFilter label="المدينة" options={cityOptions} selected={filterCity} onChange={v => { setFilterCity(v); setPage(1); }} />
-                ) : <span className="text-[10px] font-bold text-muted-foreground">الرصيد المتبقي</span>}
+                ) : <span className="text-[10px] font-bold text-muted-foreground">المدينة</span>}
               </div>
+              {/* شروط الدفع */}
               <div className="flex items-center gap-1">
                 {showColFilters ? (
                   <ColumnFilter label="شروط الدفع" options={paymentTermsOptions} selected={filterPaymentTerms} onChange={v => { setFilterPaymentTerms(v); setPage(1); }} />
-                ) : <span className="text-[10px] font-bold text-muted-foreground">إجمالي المشتريات</span>}
+                ) : <span className="text-[10px] font-bold text-muted-foreground">شروط الدفع</span>}
               </div>
+              {/* إجراءات */}
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-muted-foreground">
-                  {showColFilters ? "إجراءات" : "آخر طلب"}
-                </span>
+                <span className="text-[10px] font-bold text-muted-foreground">الرصيد / إجراءات</span>
                 {showColFilters && activeFiltersCount > 0 && (
                   <button onClick={() => { setFilterCity([]); setFilterStatus([]); setFilterPaymentTerms([]); }}
                     className="text-[9px] text-destructive hover:underline flex items-center gap-0.5">
-                    <X className="w-2.5 h-2.5" />مسح الكل
+                    <X className="w-2.5 h-2.5" />مسح
                   </button>
                 )}
               </div>
             </div>
+
             <div>
               {loadingClients ? (
                 <div className="py-10 text-center text-muted-foreground text-sm animate-pulse">جاري التحميل...</div>
@@ -535,22 +537,33 @@ export default function FinanceClients() {
                 const unpaid = Math.max(0, sales - paid);
                 return (
                   <div key={c.id} className="grid grid-cols-6 gap-2 px-4 py-3 border-b border-border/50 hover:bg-muted/10 transition-colors items-center">
+                    {/* اسم العميل */}
                     <div className="col-span-2 flex items-center gap-2">
                       <div className="w-7 h-7 rounded-full bg-muted/30 flex items-center justify-center shrink-0">
                         <Users className="w-3.5 h-3.5 text-muted-foreground" />
                       </div>
                       <div>
                         <p className="text-xs font-bold">{c.name}</p>
-                        {c.city && <p className="text-[10px] text-muted-foreground">{c.city}</p>}
+                        {c.phone && <p className="text-[10px] text-muted-foreground">{c.phone}</p>}
                       </div>
                     </div>
-                    <span className="text-xs">{c.phone ?? "—"}</span>
-                    <span className="text-xs font-bold text-red-400">{fmt(unpaid)}</span>
-                    <span className="text-xs font-bold">{fmt(sales)}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-muted-foreground">{format(new Date(c.createdAt), "yyyy-MM-dd")}</span>
-                      <div className="flex items-center gap-1 mr-auto">
-                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openEdit(c)}>
+                    {/* الحالة */}
+                    <div>
+                      <Badge variant="outline" className={`text-[9px] border ${c.isActive ? "border-emerald-700 bg-emerald-900/20 text-emerald-400" : "border-border text-muted-foreground"}`}>
+                        {c.isActive ? "نشط" : "موقف"}
+                      </Badge>
+                    </div>
+                    {/* المدينة */}
+                    <span className="text-xs text-muted-foreground">{c.city ?? "—"}</span>
+                    {/* شروط الدفع */}
+                    <span className="text-xs">{c.paymentTerms ?? "—"}</span>
+                    {/* الرصيد + إجراءات */}
+                    <div className="flex items-center justify-between gap-1">
+                      <span className={`text-xs font-bold ${unpaid > 0 ? "text-red-400" : "text-emerald-400"}`}>
+                        {unpaid > 0 ? fmt(unpaid) : "✓ مسدد"}
+                      </span>
+                      <div className="flex items-center gap-0.5">
+                        <Button variant="ghost" size="icon" className="h-6 w-6 hover:text-primary" onClick={() => openEdit(c)}>
                           <Edit2 className="w-3 h-3" />
                         </Button>
                         <Button variant="ghost" size="icon" className="h-6 w-6 hover:text-destructive" onClick={() => setDeleteClient(c)}>
