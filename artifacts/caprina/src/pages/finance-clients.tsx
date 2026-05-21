@@ -56,28 +56,41 @@ function ColumnFilter({ label, options, selected, onChange }: {
   onChange: (vals: string[]) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const ref    = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const [pos, setPos] = useState({ top: 0, right: 0 });
   const hasFilter = selected.length > 0;
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node) &&
+          btnRef.current && !btnRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  const handleOpen = () => {
+    if (btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setPos({ top: rect.bottom + 6, right: window.innerWidth - rect.right });
+    }
+    setOpen(o => !o);
+  };
 
   const toggle = (val: string) => {
     onChange(selected.includes(val) ? selected.filter(v => v !== val) : [...selected, val]);
   };
 
   return (
-    <div ref={ref} className="relative flex items-center gap-1">
+    <div className="relative flex items-center gap-1">
       <span className="text-[10px] font-bold text-muted-foreground">{label}</span>
       <button
-        onClick={() => setOpen(o => !o)}
-        className={`p-0.5 rounded transition-colors ${hasFilter ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
-        title="فلتر العمود"
+        ref={btnRef}
+        onClick={handleOpen}
+        className={`relative p-0.5 rounded transition-colors ${hasFilter ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
       >
         <ListFilter className={`w-3 h-3 ${hasFilter ? "text-primary" : ""}`} />
         {hasFilter && (
@@ -86,8 +99,14 @@ function ColumnFilter({ label, options, selected, onChange }: {
           </span>
         )}
       </button>
-      {open && (
-        <div className="absolute top-6 right-0 z-50 min-w-[160px] bg-card border border-border rounded-xl shadow-xl p-2" dir="rtl">
+
+      {open && typeof window !== "undefined" && (
+        <div
+          ref={ref}
+          style={{ position: "fixed", top: pos.top, right: pos.right, zIndex: 9999 }}
+          className="min-w-[170px] bg-card border border-border rounded-xl shadow-2xl p-2"
+          dir="rtl"
+        >
           <div className="flex items-center justify-between mb-1.5 px-1">
             <span className="text-[10px] font-bold text-muted-foreground">فلتر {label}</span>
             {hasFilter && (
@@ -96,19 +115,23 @@ function ColumnFilter({ label, options, selected, onChange }: {
               </button>
             )}
           </div>
-          <div className="space-y-1 max-h-40 overflow-y-auto">
-            {options.map(opt => (
-              <label key={opt.value} className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-muted/30 cursor-pointer text-xs">
-                <input
-                  type="checkbox"
-                  checked={selected.includes(opt.value)}
-                  onChange={() => toggle(opt.value)}
-                  className="accent-primary w-3 h-3"
-                />
-                <span>{opt.label}</span>
-              </label>
-            ))}
-          </div>
+          {options.length === 0 ? (
+            <p className="text-[10px] text-muted-foreground px-2 py-1">لا توجد خيارات</p>
+          ) : (
+            <div className="space-y-1 max-h-48 overflow-y-auto">
+              {options.map(opt => (
+                <label key={opt.value} className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted/30 cursor-pointer text-xs">
+                  <input
+                    type="checkbox"
+                    checked={selected.includes(opt.value)}
+                    onChange={() => toggle(opt.value)}
+                    className="accent-primary w-3 h-3 shrink-0"
+                  />
+                  <span>{opt.label}</span>
+                </label>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
