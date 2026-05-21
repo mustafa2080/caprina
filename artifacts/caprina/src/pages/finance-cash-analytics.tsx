@@ -383,7 +383,7 @@ export default function FinanceCashAnalyticsPage() {
                   labelFormatter={v=>`📅 ${v}`}
                 />
                 <Area
-                  type="monotone" dataKey="in" stroke="#FFD54F" strokeWidth={2.5}
+                  type="natural" dataKey="in" stroke="#FFD54F" strokeWidth={2.5}
                   fill="url(#cashGradIn)"
                   dot={{r:4, fill:"#FFD54F", strokeWidth:2, stroke:"hsl(var(--background))"}}
                   activeDot={{r:6, fill:"#FFD54F", strokeWidth:2, stroke:"hsl(var(--background))", style:{filter:"drop-shadow(0 0 8px #FFD54F99)"}}}
@@ -391,7 +391,7 @@ export default function FinanceCashAnalyticsPage() {
                   style={{filter:"drop-shadow(0 0 6px #FFD54F66)"}}
                 />
                 <Area
-                  type="monotone" dataKey="out" stroke="#f43f5e" strokeWidth={2}
+                  type="natural" dataKey="out" stroke="#f43f5e" strokeWidth={2}
                   fill="url(#cashGradOut)"
                   dot={{r:3, fill:"#f43f5e", strokeWidth:2, stroke:"hsl(var(--background))"}}
                   activeDot={{r:5, fill:"#f43f5e", strokeWidth:2, stroke:"hsl(var(--background))"}}
