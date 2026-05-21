@@ -4,23 +4,153 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
+  AreaChart, Area,
+  PieChart, Pie, Cell, Sector,
+  XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from "recharts";
 import {
   TrendingUp, TrendingDown, Users, ShoppingCart, Receipt,
-  DollarSign, ArrowRight, Calendar, Target, Award,
-  ChevronLeft, BarChart2, Percent, Clock,
+  DollarSign, ArrowRight, Target, Award,
+  ChevronLeft, BarChart2, Percent,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { useState, useMemo } from "react";
 import { format, subDays, startOfMonth, endOfMonth, isWithinInterval, parseISO } from "date-fns";
-import { ar } from "date-fns/locale";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 const fmt = (n: string | number) =>
   new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(Number(n));
 const fmtNum = (n: number) => new Intl.NumberFormat("ar-EG").format(n);
+
+// ── Payment Donut ─────────────────────────────────────────────────────────────
+const PAY_CFG: Record<string, { label: string; color: string; bg: string }> = {
+  paid:    { label: "مدفوع",      color: "#10b981", bg: "#10b98118" },
+  partial: { label: "جزئي",       color: "#f59e0b", bg: "#f59e0b18" },
+  unpaid:  { label: "غير مدفوع", color: "#ef4444", bg: "#ef444418" },
+};
+
+function PayActiveShape(props: any) {
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, percent, value } = props;
+  const cfg = PAY_CFG[payload.key] ?? { label: payload.name, color: fill, bg: "" };
+  return (
+    <g tabIndex={-1} style={{ outline: "none" }}>
+      {/* outer soft glow */}
+      <Sector cx={cx} cy={cy} innerRadius={outerRadius + 7} outerRadius={outerRadius + 13}
+        startAngle={startAngle} endAngle={endAngle} fill={fill} opacity={0.08} cornerRadius={8} />
+      {/* inner glow ring */}
+      <Sector cx={cx} cy={cy} innerRadius={outerRadius + 2} outerRadius={outerRadius + 8}
+        startAngle={startAngle} endAngle={endAngle} fill={fill} opacity={0.22} cornerRadius={7} />
+      {/* main expanded segment */}
+      <Sector cx={cx} cy={cy} innerRadius={innerRadius - 5} outerRadius={outerRadius + 9}
+        startAngle={startAngle} endAngle={endAngle} fill={fill} cornerRadius={7}
+        tabIndex={-1} style={{ outline: "none", filter: `drop-shadow(0 0 10px ${fill}99)` }} />
+      {/* center: count */}
+      <text x={cx} y={cy - 14} textAnchor="middle" fill="hsl(var(--foreground))"
+        fontSize={28} fontWeight={900} fontFamily="inherit"
+        style={{ pointerEvents: "none", userSelect: "none" }}>{value}</text>
+      {/* center: label */}
+      <text x={cx} y={cy + 8} textAnchor="middle" fill="hsl(var(--muted-foreground))"
+        fontSize={11} fontFamily="inherit"
+        style={{ pointerEvents: "none", userSelect: "none" }}>{cfg.label}</text>
+      {/* center: percent */}
+      <text x={cx} y={cy + 27} textAnchor="middle" fill={fill}
+        fontSize={15} fontWeight={900} fontFamily="inherit"
+        style={{ pointerEvents: "none", userSelect: "none" }}>{`${(percent * 100).toFixed(0)}%`}</text>
+    </g>
+  );
+}
+
+function PayPctLabel({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) {
+  if (percent < 0.08) return null;
+  const R = Math.PI / 180;
+  const r = innerRadius + (outerRadius - innerRadius) * 0.55;
+  const x = cx + r * Math.cos(-midAngle * R);
+  const y = cy + r * Math.sin(-midAngle * R);
+  return (
+    <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central"
+      fontSize={12} fontWeight={800}
+      style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.5))" }}>
+      {`${(percent * 100).toFixed(0)}%`}
+    </text>
+  );
+}
+
+function PaymentDonut({ data, total }: {
+  data: { name: string; value: number; color: string; key: string }[];
+  total: number;
+}) {
+  const [activeIdx, setActiveIdx] = useState<number | null>(null);
+  const isActive = activeIdx !== null;
+
+  return (
+    <div className="space-y-4">
+      {/* Donut */}
+      <div className="relative" style={{ height: 220 }}>
+        {/* center total — fade on hover */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10"
+          style={{ opacity: isActive ? 0 : 1, transition: "opacity 200ms ease" }}>
+          <p className="text-4xl font-black text-foreground leading-none">{total}</p>
+          <p className="text-xs text-muted-foreground mt-1">إجمالي الفواتير</p>
+        </div>
+
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart tabIndex={-1} style={{ outline: "none" }}>
+            <Pie
+              data={data} cx="50%" cy="50%"
+              innerRadius="50%" outerRadius="76%"
+              paddingAngle={3} dataKey="value" stroke="none"
+              cornerRadius={6} startAngle={90} endAngle={-270}
+              labelLine={false}
+              label={!isActive ? <PayPctLabel /> : undefined}
+              activeIndex={activeIdx ?? undefined}
+              activeShape={PayActiveShape}
+              animationBegin={0} animationDuration={700} animationEasing="ease-out"
+              onMouseEnter={(_, i) => setActiveIdx(i)}
+              onMouseLeave={() => setActiveIdx(null)}
+              style={{ outline: "none", cursor: "default" }}
+            >
+              {data.map((d, i) => (
+                <Cell key={i} fill={d.color}
+                  opacity={activeIdx !== null && activeIdx !== i ? 0.35 : 1} />
+              ))}
+            </Pie>
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Legend */}
+      <div className="space-y-1.5">
+        {data.map((d, i) => {
+          const cfg = PAY_CFG[d.key] ?? { label: d.name, color: d.color, bg: d.color + "18" };
+          const isHl  = activeIdx === i;
+          const isDim = activeIdx !== null && !isHl;
+          const pct   = total > 0 ? Math.round((d.value / total) * 100) : 0;
+          return (
+            <div key={d.key}
+              className="flex items-center gap-3 rounded-lg px-2 py-1.5"
+              onMouseEnter={() => setActiveIdx(i)}
+              onMouseLeave={() => setActiveIdx(null)}
+              style={{
+                background: isHl ? cfg.bg : "transparent",
+                border: isHl ? `1px solid ${cfg.color}44` : "1px solid transparent",
+                opacity: isDim ? 0.38 : 1,
+                transition: "all 200ms ease",
+                cursor: "default",
+              }}>
+              <span className="w-3 h-3 rounded-full shrink-0"
+                style={{ background: cfg.color, boxShadow: isHl ? `0 0 7px ${cfg.color}` : "none", transition: "box-shadow 200ms ease" }} />
+              <span className="text-xs font-semibold text-foreground flex-1">{cfg.label}</span>
+              <span className="text-xs font-bold px-2 py-0.5 rounded-md shrink-0"
+                style={{ background: cfg.bg, color: cfg.color }}>{d.value}</span>
+              <span className="text-xs font-black w-9 text-right shrink-0"
+                style={{ color: cfg.color }}>{pct}%</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 type SaleOrder = {
   id: number; soNumber: string; clientName: string; status: string;
@@ -97,14 +227,14 @@ export default function SalesReportPage() {
     return Object.entries(map).map(([date, value]) => ({ date, value }));
   }, [filtered, period]);
 
-  // ── payment status pie ───────────────────────────────────────────────────
+  // ── payment status donut ─────────────────────────────────────────────────
   const paidOrders    = filtered.filter(o => o.paymentStatus === "paid").length;
   const partialOrders = filtered.filter(o => o.paymentStatus === "partial").length;
   const unpaidOrders  = filtered.filter(o => o.paymentStatus === "unpaid").length;
-  const pieData = [
-    { name: "مدفوع",     value: paidOrders,    color: "#10b981" },
-    { name: "جزئي",      value: partialOrders, color: "#f59e0b" },
-    { name: "غير مدفوع", value: unpaidOrders,  color: "#ef4444" },
+  const donutData = [
+    { name: "مدفوع",     key: "paid",    value: paidOrders,    color: "#10b981" },
+    { name: "جزئي",      key: "partial", value: partialOrders, color: "#f59e0b" },
+    { name: "غير مدفوع", key: "unpaid",  value: unpaidOrders,  color: "#ef4444" },
   ].filter(d => d.value > 0);
 
   // ── top clients ──────────────────────────────────────────────────────────
@@ -201,33 +331,19 @@ export default function SalesReportPage() {
           </ResponsiveContainer>
         </Card>
 
-        {/* Payment Pie */}
+        {/* Payment Donut — pro animated */}
         <Card className="border-border bg-card p-4">
-          <h2 className="font-bold text-sm mb-4">حالة الدفع</h2>
-          {pieData.length === 0 ? (
-            <div className="flex items-center justify-center h-[180px] text-muted-foreground text-sm">لا توجد بيانات</div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-bold text-sm">حالة الدفع</h2>
+            <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-500">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              مباشر
+            </span>
+          </div>
+          {donutData.length === 0 ? (
+            <div className="flex items-center justify-center h-[220px] text-muted-foreground text-sm">لا توجد بيانات</div>
           ) : (
-            <>
-              <ResponsiveContainer width="100%" height={160}>
-                <PieChart>
-                  <Pie data={pieData} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={3} dataKey="value">
-                    {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                  </Pie>
-                  <Tooltip contentStyle={{ background:"hsl(var(--card))", border:"1px solid hsl(var(--border))", borderRadius:8, fontSize:11 }} formatter={(v:any, name:any) => [v + " فاتورة", name]} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="space-y-2 mt-2">
-                {pieData.map((d, i) => (
-                  <div key={i} className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2.5 h-2.5 rounded-full" style={{ background: d.color }} />
-                      <span className="text-muted-foreground">{d.name}</span>
-                    </div>
-                    <span className="font-bold">{d.value}</span>
-                  </div>
-                ))}
-              </div>
-            </>
+            <PaymentDonut data={donutData} total={totalOrders} />
           )}
         </Card>
       </div>
