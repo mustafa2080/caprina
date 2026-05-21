@@ -201,6 +201,85 @@ router.post("/finance/sale-orders", async (req, res): Promise<void> => {
   }
 });
 
+// ── POST /finance/sale-orders/:id/items ──────────────────────────────────────
+// إضافة صنف واحد لفاتورة موجودة
+router.post("/finance/sale-orders/:id/items", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req);
+    const orderId  = parseInt(req.params.id);
+
+    // تحقق من وجود الفاتورة
+    const [order] = await db.select().from(saleOrdersTable)
+      .where(and(
+        eq(saleOrdersTable.id, orderId),
+        tenantId !== null ? eq(saleOrdersTable.tenantId, tenantId) : sql`1=1`,
+      ));
+    if (!order) { res.status(404).json({ error: "الفاتورة غير موجودة" }); return; }
+
+    const { variantId, quantity, unitPrice } = req.body;
+    if (!quantity || !unitPrice) {
+      res.status(400).json({ error: "الكمية والسعر مطلوبان" }); return;
+    }
+
+    // جلب بيانات الـ variant لو موجود
+    let productName = req.body.productName ?? "";
+    let color       = req.body.color       ?? null;
+    let size        = req.body.size        ?? null;
+    let productId   = req.body.productId   ? parseInt(req.body.productId) : null;
+
+    if (variantId) {
+      const [v] = await db.select().from(productVariantsTable)
+        .where(eq(productVariantsTable.id, parseInt(variantId)));
+      if (v) {
+        productName = v.productName ?? productName;
+        color       = v.color       ?? color;
+        size        = v.size        ?? size;
+        productId   = v.productId   ?? productId;
+      }
+    }
+
+    const qty   = Number(quantity);
+    const price = Number(unitPrice);
+
+    await db.insert(saleOrderItemsTable).values({
+      saleOrderId: orderId,
+      productId,
+      variantId:   variantId ? parseInt(variantId) : null,
+      productName,
+      color,
+      size,
+      sku:         req.body.sku ?? null,
+      quantity:    qty,
+      deliveredQty: 0,
+      unitPrice:   String(price),
+      totalPrice:  String(qty * price),
+      notes:       req.body.notes ?? null,
+    });
+
+    // إعادة حساب إجمالي الفاتورة
+    const allItems = await db.select().from(saleOrderItemsTable)
+      .where(eq(saleOrderItemsTable.saleOrderId, orderId));
+    const sub = allItems.reduce((s, it) => s + it.quantity * Number(it.unitPrice), 0);
+    const newTotal = sub
+      + Number(order.shippingCost  ?? 0)
+      + Number(order.taxAmount     ?? 0)
+      - Number(order.discountAmount ?? 0);
+    await db.update(saleOrdersTable)
+      .set({ totalAmount: String(newTotal), updatedAt: new Date() })
+      .where(eq(saleOrdersTable.id, orderId));
+
+    // إرجاع الفاتورة كاملة مع البنود
+    const updatedItems = await db.select().from(saleOrderItemsTable)
+      .where(eq(saleOrderItemsTable.saleOrderId, orderId));
+    const [updatedOrder] = await db.select().from(saleOrdersTable)
+      .where(eq(saleOrdersTable.id, orderId));
+
+    res.json({ ...updatedOrder, items: updatedItems });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── PATCH /finance/sale-orders/:id ───────────────────────────────────────────
 router.patch("/finance/sale-orders/:id", async (req, res): Promise<void> => {
   try {
