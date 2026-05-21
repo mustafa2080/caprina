@@ -28,13 +28,18 @@ async function syncClientStats(clientName: string, tenantId: number | null) {
   if (tenantId !== null) conds.push(eq(saleOrdersTable.tenantId, tenantId));
 
   const orders = await db.select({
-    totalAmount: saleOrdersTable.totalAmount,
-    paidAmount:  saleOrdersTable.paidAmount,
+    totalAmount:   saleOrdersTable.totalAmount,
+    paidAmount:    saleOrdersTable.paidAmount,
+    paymentStatus: saleOrdersTable.paymentStatus,
   }).from(saleOrdersTable).where(and(...conds));
 
   const totalOrders = orders.length;
   const totalSales  = orders.reduce((s, o) => s + parseFloat(o.totalAmount ?? "0"), 0);
-  const totalPaid   = orders.reduce((s, o) => s + parseFloat(o.paidAmount  ?? "0"), 0);
+  const totalPaid   = orders.reduce((s, o) => {
+    const t = parseFloat(o.totalAmount ?? "0");
+    const p = o.paymentStatus === "paid" ? t : parseFloat(o.paidAmount ?? "0");
+    return s + p;
+  }, 0);
 
   const clientConds: any[] = [eq(clientsTable.name, clientName)];
   if (tenantId !== null) clientConds.push(eq(clientsTable.tenantId, tenantId));
@@ -78,16 +83,17 @@ router.get("/finance/clients", async (req, res): Promise<void> => {
       clientName:    saleOrdersTable.clientName,
       totalAmount:   saleOrdersTable.totalAmount,
       paidAmount:    saleOrdersTable.paidAmount,
+      paymentStatus: saleOrdersTable.paymentStatus,
     }).from(saleOrdersTable)
       .where(orderConds.length ? and(...orderConds) : undefined);
 
-    // تجميع الأرقام لكل عميل باسمه
+    // تجميع الأرقام لكل عميل — يراعي paymentStatus
     const statsMap: Record<string, { totalOrders: number; totalSales: number; totalPaid: number }> = {};
     for (const o of allOrders) {
       const name = o.clientName ?? "";
       if (!statsMap[name]) statsMap[name] = { totalOrders: 0, totalSales: 0, totalPaid: 0 };
       const t = parseFloat(o.totalAmount ?? "0");
-      const p = parseFloat(o.paidAmount  ?? "0");
+      const p = o.paymentStatus === "paid" ? t : parseFloat(o.paidAmount ?? "0");
       statsMap[name].totalOrders++;
       statsMap[name].totalSales += t;
       statsMap[name].totalPaid  += p;
