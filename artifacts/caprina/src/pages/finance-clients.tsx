@@ -39,7 +39,7 @@ type Client = {
 type SaleOrder = {
   id: number; soNumber: string; status: string; paymentStatus: string;
   totalAmount: string; paidAmount: string; clientName: string;
-  createdAt: string; closedAt?: string | null;
+  createdAt: string;
 };
 
 const emptyForm = {
@@ -256,8 +256,8 @@ export default function FinanceClients() {
   });
 
   const { data: allOrders = [] } = useQuery<SaleOrder[]>({
-    queryKey: ["finance-sales-all"],
-    queryFn: () => apiFetch<SaleOrder[]>("/finance/sales"),
+    queryKey: ["finance-sale-orders-all"],
+    queryFn: () => apiFetch<SaleOrder[]>("/finance/sale-orders"),
     staleTime: 30_000,
   });
 
