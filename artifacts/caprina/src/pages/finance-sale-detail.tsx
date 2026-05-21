@@ -309,6 +309,8 @@ export default function FinanceSaleDetail() {
   const [editSize,        setEditSize]        = useState<string>("");
   const [itemSaving,      setItemSaving]      = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const [showDeleteInvoice,  setShowDeleteInvoice]  = useState(false);
+  const [isDeletingInvoice,  setIsDeletingInvoice]  = useState(false);
 
   // عند اختيار منتج جديد في التعديل
   const handleEditProduct = (pid: string) => {
@@ -481,6 +483,21 @@ export default function FinanceSaleDetail() {
     } finally { setItemSaving(false); }
   };
 
+  // ── حذف الفاتورة كاملة ───────────────────────────────────────────────────
+  const handleDeleteInvoice = async () => {
+    if (!order) return;
+    setIsDeletingInvoice(true);
+    try {
+      await apiFetch(`/finance/sale-orders/${order.id}`, { method: "DELETE" });
+      navigate("/finance/sales");
+    } catch (e: any) {
+      alert("خطأ في حذف الفاتورة: " + e.message);
+    } finally {
+      setIsDeletingInvoice(false);
+      setShowDeleteInvoice(false);
+    }
+  };
+
   useEffect(() => {
     if (!params.id) return;
     setLoading(true);
@@ -586,6 +603,18 @@ export default function FinanceSaleDetail() {
               {statusInfo.label}
             </span>
           )}
+
+          {/* ── زرار حذف الفاتورة — شفاف ── */}
+          <button
+            onClick={() => setShowDeleteInvoice(true)}
+            className="flex items-center justify-center w-8 h-8 rounded-full transition-all duration-200"
+            style={{ background: "transparent", color: "rgba(239,83,80,0.45)", border: "none" }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(183,28,28,0.18)"; (e.currentTarget as HTMLButtonElement).style.color = "#EF5350"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; (e.currentTarget as HTMLButtonElement).style.color = "rgba(239,83,80,0.45)"; }}
+            title="حذف الفاتورة"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
 
@@ -613,6 +642,35 @@ export default function FinanceSaleDetail() {
                 className="flex-1 py-2 rounded-lg text-sm font-bold hover:opacity-85"
                 style={{ background: "hsl(43,74%,50%)", color: "#0a0a0a" }}>
                 {closing ? "جارٍ…" : "تأكيد الإغلاق"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── DELETE INVOICE DIALOG ── */}
+      {showDeleteInvoice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.6)" }}>
+          <div className="rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl" style={{ background: "hsl(var(--card))" }}>
+            <div className="text-center mb-5">
+              <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3"
+                style={{ background: "rgba(183,28,28,0.15)" }}>
+                <Trash2 className="w-7 h-7" style={{ color: "#EF5350" }} />
+              </div>
+              <h3 className="text-base font-bold mb-1">حذف الفاتورة</h3>
+              <p className="text-sm text-muted-foreground">
+                هل أنت متأكد من حذف فاتورة <strong>{order.soNumber}</strong>؟
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">لا يمكن التراجع عن هذا الإجراء.</p>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setShowDeleteInvoice(false)} disabled={isDeletingInvoice}
+                className="flex-1 py-2 rounded-lg text-sm font-semibold border hover:opacity-70 transition-opacity"
+                style={{ borderColor: "hsl(var(--border))" }}>إلغاء</button>
+              <button onClick={handleDeleteInvoice} disabled={isDeletingInvoice}
+                className="flex-1 py-2 rounded-lg text-sm font-bold hover:opacity-85 transition-opacity"
+                style={{ background: "#B71C1C", color: "#ffd5d5" }}>
+                {isDeletingInvoice ? "جارٍ الحذف…" : "نعم، احذف"}
               </button>
             </div>
           </div>
