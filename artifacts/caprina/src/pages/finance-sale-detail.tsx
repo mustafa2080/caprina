@@ -1134,7 +1134,7 @@ export default function FinanceSaleDetail() {
                   <td className="py-2 px-3 text-center font-bold">
                     {isEditing
                       ? <input type="number" min={1} className="border rounded px-2 py-1 text-xs w-16 text-center" style={{ background: "hsl(var(--background))", borderColor: "hsl(var(--border))" }}
-                          value={editQty} onChange={e => setEditQty(Number(e.target.value) || 1)} />
+                          value={editQty} onChange={e => setEditQty(Number(e.target.value) || 1)} onFocus={e => e.target.select()} />
                       : it.quantity}
                   </td>
 
@@ -1142,7 +1142,7 @@ export default function FinanceSaleDetail() {
                   <td className="py-2 px-3 text-center">
                     {isEditing
                       ? <input type="number" min={0} className="border rounded px-2 py-1 text-xs w-20 text-center" style={{ background: "hsl(var(--background))", borderColor: "hsl(var(--border))" }}
-                          value={editPrice} onChange={e => setEditPrice(Number(e.target.value) || 0)} />
+                          value={editPrice} onChange={e => setEditPrice(Number(e.target.value) || 0)} onFocus={e => e.target.select()} />
                       : `${fmtNum(it.unitPrice)} ج`}
                   </td>
 
