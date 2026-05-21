@@ -1,17 +1,23 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { analyticsApi, type AdSourceStat, type SmartProduct, type DeadStockItem, type ReturnReasonItem, type HighReturnProduct, type StockPredictorItem } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  Brain, Star, Archive, RotateCcw, TrendingDown,
-  AlertTriangle, Clock, Package, ArrowUpRight, Zap,
+  Brain, Star, Archive, RotateCcw, TrendingDown, TrendingUp,
+  AlertTriangle, Clock, Package, ArrowUpRight, Zap, ChevronDown,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { FaFacebook, FaTiktok, FaInstagram, FaWhatsapp } from "react-icons/fa";
 import { PiPlantFill } from "react-icons/pi";
 import { FiMoreHorizontal } from "react-icons/fi";
+import {
+  AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
+  ResponsiveContainer, Cell,
+} from "recharts";
+import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
 
 const fc = (n: number) =>
   new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(n);
@@ -382,6 +388,162 @@ function StockPredictorSection({ items }: { items: StockPredictorItem[] }) {
   );
 }
 
+// ─── 5. Cash Flow Chart (آخر 6 شهور) ────────────────────────────────────────
+function CashFlowSection() {
+  const [chartView, setChartView] = useState<"area" | "bar">("area");
+  const [dropOpen,  setDropOpen]  = useState(false);
+  const dropRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!dropOpen) return;
+    const h = (e: MouseEvent) => {
+      if (dropRef.current && !dropRef.current.contains(e.target as Node)) setDropOpen(false);
+    };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, [dropOpen]);
+
+  const { data: orders = [] } = useQuery<any[]>({
+    queryKey: ["sale-orders-cashflow"],
+    queryFn: () => apiFetch<any[]>("/finance/sale-orders"),
+    staleTime: 60000,
+  });
+
+  const { chartData, totalSales, bestMonth } = useMemo(() => {
+    // بناء آخر 6 شهور
+    const months: Record<string, number> = {};
+    for (let i = 5; i >= 0; i--) {
+      const d = subMonths(new Date(), i);
+      months[format(d, "MMM yy")] = 0;
+    }
+    orders.forEach(o => {
+      const d = new Date(o.createdAt);
+      const key = format(d, "MMM yy");
+      if (key in months) months[key] += parseFloat(o.totalAmount ?? "0");
+    });
+    const data = Object.entries(months).map(([date, value]) => ({ date, value }));
+    const total = data.reduce((s, r) => s + r.value, 0);
+    const best  = data.reduce((a, b) => b.value > a.value ? b : a, data[0]);
+    return { chartData: data, totalSales: total, bestMonth: best };
+  }, [orders]);
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <SectionHeader icon={TrendingUp} title="التدفق المالي" subtitle="المبيعات — آخر 6 شهور" color="text-primary" />
+        {/* Dropdown نوع الرسم */}
+        <div className="relative" ref={dropRef}>
+          <button
+            onClick={() => setDropOpen(o => !o)}
+            className="flex items-center gap-1.5 h-7 px-2.5 rounded-lg border border-border bg-muted/10 hover:bg-muted/30 transition-colors text-[11px] font-medium text-muted-foreground hover:text-foreground"
+          >
+            {chartView === "area" ? (
+              <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+                <polyline points="1,11 4,7 7,9 10,4 13,2" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                <polygon points="1,11 4,7 7,9 10,4 13,2 13,13 1,13" fill="currentColor" opacity="0.2"/>
+              </svg>
+            ) : (
+              <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+                <rect x="1" y="6" width="3" height="7" rx="1" fill="currentColor" opacity="0.6"/>
+                <rect x="5.5" y="3" width="3" height="10" rx="1" fill="currentColor"/>
+                <rect x="10" y="1" width="3" height="12" rx="1" fill="currentColor" opacity="0.6"/>
+              </svg>
+            )}
+            {chartView === "area" ? "خطي" : "بياني"}
+            <ChevronDown className="w-3 h-3" />
+          </button>
+
+          {dropOpen && (
+            <div className="absolute left-0 top-full mt-1.5 w-36 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden">
+              {[
+                { key: "area", label: "خطي تدرجي", icon: (
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <polyline points="1,11 4,7 7,9 10,4 13,2" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                    <polygon points="1,11 4,7 7,9 10,4 13,2 13,13 1,13" fill="currentColor" opacity="0.2"/>
+                  </svg>
+                )},
+                { key: "bar", label: "أعمدة", icon: (
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <rect x="1" y="6" width="3" height="7" rx="1" fill="currentColor" opacity="0.6"/>
+                    <rect x="5.5" y="3" width="3" height="10" rx="1" fill="currentColor"/>
+                    <rect x="10" y="1" width="3" height="12" rx="1" fill="currentColor" opacity="0.6"/>
+                  </svg>
+                )},
+              ].map(opt => (
+                <button key={opt.key}
+                  onClick={() => { setChartView(opt.key as "area"|"bar"); setDropOpen(false); }}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-[12px] transition-colors
+                    ${chartView === opt.key ? "bg-primary/10 text-primary font-bold" : "text-muted-foreground hover:bg-muted/20 hover:text-foreground"}`}>
+                  {opt.icon}
+                  {opt.label}
+                  {chartView === opt.key && <span className="mr-auto text-primary">✓</span>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* KPI صغير */}
+      <div className="flex items-end gap-4 mb-3">
+        <div>
+          <p className="text-2xl font-black text-primary">{fc(totalSales)}</p>
+          <p className="text-[11px] text-primary">إجمالي آخر 6 شهور</p>
+        </div>
+        {bestMonth && bestMonth.value > 0 && (
+          <div className="mb-0.5">
+            <p className="text-xs text-muted-foreground">أفضل شهر</p>
+            <p className="text-sm font-bold">{bestMonth.date} — {fc(bestMonth.value)}</p>
+          </div>
+        )}
+      </div>
+
+      <ResponsiveContainer width="100%" height={180}>
+        {chartView === "area" ? (
+          <AreaChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+            <defs>
+              <linearGradient id="cfGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%"  stopColor="hsl(43,74%,50%)" stopOpacity={0.35} />
+                <stop offset="95%" stopColor="hsl(43,74%,50%)" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <XAxis dataKey="date" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false}
+              tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}K` : String(v)} />
+            <Tooltip
+              contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11 }}
+              formatter={(v: any) => [fc(v), "المبيعات"]}
+            />
+            <Area type="monotone" dataKey="value" stroke="hsl(43,74%,50%)" strokeWidth={2.5}
+              fill="url(#cfGrad)"
+              dot={{ fill: "hsl(43,74%,50%)", r: 4, strokeWidth: 2, stroke: "hsl(var(--card))" }}
+              activeDot={{ r: 6, strokeWidth: 2, stroke: "hsl(var(--card))" }} />
+          </AreaChart>
+        ) : (
+          <BarChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+            <XAxis dataKey="date" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false}
+              tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}K` : String(v)} />
+            <Tooltip
+              contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11 }}
+              formatter={(v: any) => [fc(v), "المبيعات"]}
+              cursor={{ fill: "hsl(var(--muted))", opacity: 0.2 }}
+            />
+            <Bar dataKey="value" radius={[5, 5, 0, 0]}>
+              {chartData.map((entry, i) => (
+                <Cell key={i}
+                  fill="hsl(43,74%,50%)"
+                  opacity={entry === bestMonth ? 1 : 0.45 + (i / chartData.length) * 0.4}
+                />
+              ))}
+            </Bar>
+          </BarChart>
+        )}
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 // ─── Summary Stats Bar ─────────────────────────────────────────────────────────
 function SummaryBar({ data, showProfit }: { data: {
   adAttribution: { bestSource: AdSourceStat | null; breakdown: AdSourceStat[] };
@@ -539,6 +701,13 @@ export default function SmartAnalytics() {
           <Card className="border-border bg-card">
             <CardContent className="p-5">
               <StockPredictorSection items={data.stockPredictor} />
+            </CardContent>
+          </Card>
+
+          {/* Cash Flow */}
+          <Card className="border-border bg-card">
+            <CardContent className="p-5">
+              <CashFlowSection />
             </CardContent>
           </Card>
         </>
