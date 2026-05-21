@@ -630,7 +630,7 @@ export default function FinanceClients() {
                 const paid   = parseFloat(c.totalPaid  ?? "0");
                 const unpaid = Math.max(0, sales - paid);
                 return (
-                  <div key={c.id} className="grid grid-cols-6 gap-2 px-4 py-3 border-b border-border/50 hover:bg-muted/10 transition-colors items-center">
+                  <div key={c.id} className="grid grid-cols-6 gap-2 px-4 py-3 border-b border-border/50 hover:bg-muted/10 transition-colors items-center cursor-pointer" onClick={() => navigate(`/finance/clients/${c.id}`)}>
                     {/* اسم العميل */}
                     <div className="col-span-2 flex items-center gap-2">
                       <div className="w-7 h-7 rounded-full bg-muted/30 flex items-center justify-center shrink-0">
@@ -657,13 +657,13 @@ export default function FinanceClients() {
                         {unpaid > 0 ? fmt(unpaid) : "✓ مسدد"}
                       </span>
                       <div className="flex items-center gap-0.5">
-                        <Button variant="ghost" size="icon" className="h-6 w-6 hover:text-primary" onClick={() => openEdit(c)}>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 hover:text-primary" onClick={e => { e.stopPropagation(); openEdit(c); }}>
                           <Edit2 className="w-3 h-3" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 hover:text-destructive" onClick={() => setDeleteClient(c)}>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 hover:text-destructive" onClick={e => { e.stopPropagation(); setDeleteClient(c); }}>
                           <Trash2 className="w-3 h-3" />
                         </Button>
-                        <Link href={`/finance/clients/${c.id}`}>
+                        <Link href={`/finance/clients/${c.id}`} onClick={e => e.stopPropagation()}>
                           <Button variant="ghost" size="icon" className="h-6 w-6 hover:text-primary">
                             <Eye className="w-3 h-3" />
                           </Button>
