@@ -70,7 +70,42 @@ router.get("/finance/clients", async (req, res): Promise<void> => {
       .where(conds.length ? and(...conds) : undefined)
       .orderBy(desc(clientsTable.createdAt));
 
-    res.json(clients);
+    // حساب الإحصائيات live من أوامر البيع لكل عميل
+    const orderConds: any[] = [];
+    if (tenantId !== null) orderConds.push(eq(saleOrdersTable.tenantId, tenantId));
+
+    const allOrders = await db.select({
+      clientName:    saleOrdersTable.clientName,
+      totalAmount:   saleOrdersTable.totalAmount,
+      paidAmount:    saleOrdersTable.paidAmount,
+      paymentStatus: saleOrdersTable.paymentStatus,
+      status:        saleOrdersTable.status,
+    }).from(saleOrdersTable)
+      .where(orderConds.length ? and(...orderConds) : undefined);
+
+    // تجميع الأرقام لكل عميل باسمه
+    const statsMap: Record<string, { totalOrders: number; totalSales: number; totalPaid: number }> = {};
+    for (const o of allOrders) {
+      const name = o.clientName ?? "";
+      if (!statsMap[name]) statsMap[name] = { totalOrders: 0, totalSales: 0, totalPaid: 0 };
+      const t = parseFloat(o.totalAmount ?? "0");
+      const p = o.paymentStatus === "paid" ? t : parseFloat(o.paidAmount ?? "0");
+      statsMap[name].totalOrders++;
+      statsMap[name].totalSales += t;
+      statsMap[name].totalPaid  += p;
+    }
+
+    const enriched = clients.map(c => {
+      const s = statsMap[c.name] ?? { totalOrders: 0, totalSales: 0, totalPaid: 0 };
+      return {
+        ...c,
+        totalOrders: s.totalOrders,
+        totalSales:  String(s.totalSales),
+        totalPaid:   String(s.totalPaid),
+      };
+    });
+
+    res.json(enriched);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
