@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, saleOrdersTable, saleOrderItemsTable, warehousesTable, warehouseStockTable, productVariantsTable, cashRegistersTable, cashTransactionsTable } from "@workspace/db";
+import { db, saleOrdersTable, saleOrderItemsTable, warehousesTable, warehouseStockTable, productVariantsTable, productsTable, cashRegistersTable, cashTransactionsTable } from "@workspace/db";
 import { eq, desc, gte, lte, and, sql, inArray } from "drizzle-orm";
 import { getTenantId } from "../middlewares/requireTenant.js";
 
@@ -231,10 +231,16 @@ router.post("/finance/sale-orders/:id/items", async (req, res): Promise<void> =>
       const [v] = await db.select().from(productVariantsTable)
         .where(eq(productVariantsTable.id, parseInt(variantId)));
       if (v) {
-        productName = v.productName ?? productName;
-        color       = v.color       ?? color;
-        size        = v.size        ?? size;
-        productId   = v.productId   ?? productId;
+        color     = v.color    ?? color;
+        size      = v.size     ?? size;
+        productId = v.productId ?? productId;
+        // جلب اسم المنتج من جدول products
+        if (v.productId) {
+          const [prod] = await db.select({ name: productsTable.name })
+            .from(productsTable)
+            .where(eq(productsTable.id, v.productId));
+          if (prod?.name) productName = prod.name;
+        }
       }
     }
 
