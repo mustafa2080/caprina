@@ -1024,14 +1024,27 @@ export default function OrderDetail() {
       {/* ── وضع الفاتورة المتعددة: عرض مختلف تماماً ── */}
       {isInvoiceMode && (
         <>
-          <div className="flex items-center gap-3">
-            <Link href="/orders">
-              <Button variant="outline" size="icon" className="h-8 w-8 rounded-full border-border"><ArrowRight className="h-4 w-4" /></Button>
-            </Link>
-            <div>
-              <h1 className="text-xl font-bold">فاتورة {invoiceNumber}</h1>
-              <p className="text-xs text-muted-foreground mt-0.5">{format(new Date(order.createdAt), "yyyy/MM/dd HH:mm")}</p>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <Link href="/orders">
+                <Button variant="outline" size="icon" className="h-8 w-8 rounded-full border-border"><ArrowRight className="h-4 w-4" /></Button>
+              </Link>
+              <div>
+                <h1 className="text-xl font-bold">فاتورة {invoiceNumber}</h1>
+                <p className="text-xs text-muted-foreground mt-0.5">{format(new Date(order.createdAt), "yyyy/MM/dd HH:mm")}</p>
+              </div>
             </div>
+            {isAdmin && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowDeleteDialog(true)}
+                className="h-8 w-8 p-0 rounded-full text-red-400/60 hover:text-red-400 hover:bg-red-900/20 transition-all duration-200"
+                title="حذف الفاتورة كاملة"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </Button>
+            )}
           </div>
           <InvoiceView
             orders={invoiceOrders}
@@ -1161,9 +1174,12 @@ export default function OrderDetail() {
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>تأكيد حذف الطلب</AlertDialogTitle>
+            <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
             <AlertDialogDescription>
-              هل أنت متأكد من حذف طلب #{order.id.toString().padStart(4,"0")} للعميل {order.customerName}؟ لا يمكن التراجع عن هذا الإجراء.
+              {isInvoiceMode
+                ? `هل أنت متأكد من حذف فاتورة ${invoiceNumber} بالكامل (${invoiceOrders.length} منتجات) للعميل ${order.customerName}؟ لا يمكن التراجع عن هذا الإجراء.`
+                : `هل أنت متأكد من حذف طلب #${order.id.toString().padStart(4,"0")} للعميل ${order.customerName}؟ لا يمكن التراجع عن هذا الإجراء.`
+              }
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
