@@ -238,7 +238,16 @@ export default function FinanceClients() {
   const [search, setSearch] = useState("");
   const [showColFilters, setShowColFilters] = useState(false);
   const [activeTab, setActiveTab] = useState<"clients"|"invoices"|"orders">("clients");
-  const [chartView, setChartView] = useState<"area"|"bar">("area");
+  const [chartView,     setChartView]     = useState<"area"|"bar">("area");
+  const [chartDropOpen, setChartDropOpen] = useState(false);
+
+  // إغلاق dropdown لو ضغط بره
+  useEffect(() => {
+    if (!chartDropOpen) return;
+    const h = () => setChartDropOpen(false);
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, [chartDropOpen]);
   const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
   const [editClient, setEditClient] = useState<Client | null>(null);
@@ -404,27 +413,66 @@ export default function FinanceClients() {
         <Card className="border-border bg-card p-4">
           <div className="flex items-center justify-between mb-1">
             <h2 className="font-bold text-sm">المبيعات</h2>
-            {/* زرارا التبديل */}
-            <div className="flex items-center gap-1 bg-muted/20 rounded-lg p-0.5">
+            {/* Dropdown اختيار نوع الرسم */}
+            <div className="relative">
               <button
-                onClick={() => setChartView("bar")}
-                className={`flex items-center justify-center w-7 h-6 rounded-md transition-all ${chartView === "bar" ? "bg-card shadow text-primary" : "text-muted-foreground hover:text-foreground"}`}
-                title="بياني عمودي">
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                  <rect x="1" y="6" width="3" height="7" rx="1" fill="currentColor" opacity="0.6"/>
-                  <rect x="5.5" y="3" width="3" height="10" rx="1" fill="currentColor"/>
-                  <rect x="10" y="1" width="3" height="12" rx="1" fill="currentColor" opacity="0.6"/>
-                </svg>
+                onClick={() => setChartDropOpen(o => !o)}
+                className="flex items-center gap-1.5 h-7 px-2.5 rounded-lg border border-border bg-muted/10 hover:bg-muted/30 transition-colors text-[11px] font-medium text-muted-foreground hover:text-foreground"
+              >
+                {chartView === "area" ? (
+                  <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+                    <polyline points="1,11 4,7 7,9 10,4 13,2" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                    <polygon points="1,11 4,7 7,9 10,4 13,2 13,13 1,13" fill="currentColor" opacity="0.2"/>
+                  </svg>
+                ) : (
+                  <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+                    <rect x="1" y="6" width="3" height="7" rx="1" fill="currentColor" opacity="0.6"/>
+                    <rect x="5.5" y="3" width="3" height="10" rx="1" fill="currentColor"/>
+                    <rect x="10" y="1" width="3" height="12" rx="1" fill="currentColor" opacity="0.6"/>
+                  </svg>
+                )}
+                {chartView === "area" ? "خطي" : "بياني"}
+                <ChevronDown className="w-3 h-3" />
               </button>
-              <button
-                onClick={() => setChartView("area")}
-                className={`flex items-center justify-center w-7 h-6 rounded-md transition-all ${chartView === "area" ? "bg-card shadow text-primary" : "text-muted-foreground hover:text-foreground"}`}
-                title="بياني خطي">
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                  <polyline points="1,11 4,7 7,9 10,4 13,2" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-                  <polygon points="1,11 4,7 7,9 10,4 13,2 13,13 1,13" fill="currentColor" opacity="0.15"/>
-                </svg>
-              </button>
+
+              {chartDropOpen && (
+                <div className="absolute left-0 top-full mt-1.5 w-36 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden">
+                  {[
+                    {
+                      key: "area", label: "خطي تدرجي",
+                      icon: (
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                          <polyline points="1,11 4,7 7,9 10,4 13,2" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                          <polygon points="1,11 4,7 7,9 10,4 13,2 13,13 1,13" fill="currentColor" opacity="0.2"/>
+                        </svg>
+                      )
+                    },
+                    {
+                      key: "bar", label: "أعمدة",
+                      icon: (
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                          <rect x="1" y="6" width="3" height="7" rx="1" fill="currentColor" opacity="0.6"/>
+                          <rect x="5.5" y="3" width="3" height="10" rx="1" fill="currentColor"/>
+                          <rect x="10" y="1" width="3" height="12" rx="1" fill="currentColor" opacity="0.6"/>
+                        </svg>
+                      )
+                    },
+                  ].map(opt => (
+                    <button
+                      key={opt.key}
+                      onClick={() => { setChartView(opt.key as "area"|"bar"); setChartDropOpen(false); }}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-[12px] transition-colors
+                        ${chartView === opt.key
+                          ? "bg-primary/10 text-primary font-bold"
+                          : "text-muted-foreground hover:bg-muted/20 hover:text-foreground"}`}
+                    >
+                      {opt.icon}
+                      {opt.label}
+                      {chartView === opt.key && <span className="mr-auto text-primary">✓</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
           <p className="text-2xl font-black text-primary mb-0.5">{fmt(totalSales)}</p>
