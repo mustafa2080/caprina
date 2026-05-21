@@ -78,8 +78,6 @@ router.get("/finance/clients", async (req, res): Promise<void> => {
       clientName:    saleOrdersTable.clientName,
       totalAmount:   saleOrdersTable.totalAmount,
       paidAmount:    saleOrdersTable.paidAmount,
-      paymentStatus: saleOrdersTable.paymentStatus,
-      status:        saleOrdersTable.status,
     }).from(saleOrdersTable)
       .where(orderConds.length ? and(...orderConds) : undefined);
 
@@ -89,7 +87,7 @@ router.get("/finance/clients", async (req, res): Promise<void> => {
       const name = o.clientName ?? "";
       if (!statsMap[name]) statsMap[name] = { totalOrders: 0, totalSales: 0, totalPaid: 0 };
       const t = parseFloat(o.totalAmount ?? "0");
-      const p = o.paymentStatus === "paid" ? t : parseFloat(o.paidAmount ?? "0");
+      const p = parseFloat(o.paidAmount  ?? "0");
       statsMap[name].totalOrders++;
       statsMap[name].totalSales += t;
       statsMap[name].totalPaid  += p;
