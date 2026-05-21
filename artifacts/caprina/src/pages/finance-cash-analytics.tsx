@@ -267,20 +267,70 @@ export default function FinanceCashAnalyticsPage() {
 
       {/* Chart شهري */}
       <div className="rounded-xl border border-border bg-card p-4">
-        <p className="text-sm font-bold mb-4 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-emerald-500"/> التدفق المالي — آخر 6 شهور</p>
+        {/* Header */}
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-sm font-bold flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-amber-400"/> التدفق المالي — آخر 6 شهور
+          </p>
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-400"/><span className="hidden sm:inline">مبيعات</span></span>
+            <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-full bg-rose-400"/><span className="hidden sm:inline">مصروفات</span></span>
+          </div>
+        </div>
+        {/* Value */}
+        {chartData.length > 0 && (
+          <div className="mb-3">
+            <p className="text-2xl font-black text-amber-400 leading-none">
+              {fmtFull(chartData.reduce((s, r) => s + r.in, 0))}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">إجمالي الدخل — آخر 6 أيام</p>
+          </div>
+        )}
         {chartData.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground text-sm">لا توجد بيانات كافية</div>
         ) : (
           <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={chartData} margin={{top:4,right:4,left:0,bottom:0}}>
-              <CartesianGrid strokeDasharray="3 3" opacity={0.1}/>
-              <XAxis dataKey="label" tick={{fontSize:11}}/>
-              <YAxis tick={{fontSize:10}} tickFormatter={v=>fmt(v)}/>
-              <Tooltip formatter={(v:any)=>fmtFull(Number(v))} labelFormatter={v=>`${v}`}/>
-              <Legend formatter={(v:any) => v==="in"?"دخل":v==="out"?"خروج":"صافي"}/>
-              <Bar dataKey="in"  fill="#10b981" radius={[3,3,0,0]} name="in"/>
-              <Bar dataKey="out" fill="#f43f5e" radius={[3,3,0,0]} name="out"/>
-            </BarChart>
+            <AreaChart data={chartData} margin={{top:8,right:4,left:0,bottom:0}}>
+              <defs>
+                <linearGradient id="gradIn" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor="#f59e0b" stopOpacity={0.55}/>
+                  <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.02}/>
+                </linearGradient>
+                <linearGradient id="gradOut" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor="#f43f5e" stopOpacity={0.35}/>
+                  <stop offset="95%" stopColor="#f43f5e" stopOpacity={0.02}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" opacity={0.08} vertical={false}/>
+              <XAxis
+                dataKey="label"
+                tick={{fontSize:11, fill:"hsl(var(--muted-foreground))"}}
+                axisLine={false} tickLine={false}
+              />
+              <YAxis
+                tick={{fontSize:10, fill:"hsl(var(--muted-foreground))"}}
+                tickFormatter={v=>fmt(v)}
+                axisLine={false} tickLine={false}
+                tickCount={5}
+              />
+              <Tooltip
+                contentStyle={{background:"hsl(var(--card))",border:"1px solid hsl(var(--border))",borderRadius:"8px",fontSize:"12px"}}
+                formatter={(v:any, name:any) => [fmtFull(Number(v)), name==="in"?"دخل":"مصروفات"]}
+                labelFormatter={v=>`${v}`}
+              />
+              <Area
+                type="monotone" dataKey="in" stroke="#f59e0b" strokeWidth={2.5}
+                fill="url(#gradIn)" dot={{r:4, fill:"#f59e0b", strokeWidth:2, stroke:"hsl(var(--background))"}}
+                activeDot={{r:6, fill:"#f59e0b", strokeWidth:2, stroke:"hsl(var(--background))"}}
+                name="in"
+              />
+              <Area
+                type="monotone" dataKey="out" stroke="#f43f5e" strokeWidth={2}
+                fill="url(#gradOut)" dot={{r:3, fill:"#f43f5e", strokeWidth:2, stroke:"hsl(var(--background))"}}
+                activeDot={{r:5, fill:"#f43f5e", strokeWidth:2, stroke:"hsl(var(--background))"}}
+                name="out"
+              />
+            </AreaChart>
           </ResponsiveContainer>
         )}
       </div>
