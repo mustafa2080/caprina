@@ -20,7 +20,7 @@ import {
 import { format } from "date-fns";
 import { apiFetch } from "@/lib/api";
 import {
-  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Area, AreaChart,
+  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Area, AreaChart, BarChart, Bar, Cell,
 } from "recharts";
 
 // ── helpers ───────────────────────────────────────────────────────────────
@@ -238,6 +238,7 @@ export default function FinanceClients() {
   const [search, setSearch] = useState("");
   const [showColFilters, setShowColFilters] = useState(false);
   const [activeTab, setActiveTab] = useState<"clients"|"invoices"|"orders">("clients");
+  const [chartView, setChartView] = useState<"area"|"bar">("area");
   const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
   const [editClient, setEditClient] = useState<Client | null>(null);
@@ -403,26 +404,64 @@ export default function FinanceClients() {
         <Card className="border-border bg-card p-4">
           <div className="flex items-center justify-between mb-1">
             <h2 className="font-bold text-sm">المبيعات</h2>
-            <span className="text-[10px] text-muted-foreground">هذا الشهر</span>
+            {/* زرارا التبديل */}
+            <div className="flex items-center gap-1 bg-muted/20 rounded-lg p-0.5">
+              <button
+                onClick={() => setChartView("bar")}
+                className={`flex items-center justify-center w-7 h-6 rounded-md transition-all ${chartView === "bar" ? "bg-card shadow text-primary" : "text-muted-foreground hover:text-foreground"}`}
+                title="بياني عمودي">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <rect x="1" y="6" width="3" height="7" rx="1" fill="currentColor" opacity="0.6"/>
+                  <rect x="5.5" y="3" width="3" height="10" rx="1" fill="currentColor"/>
+                  <rect x="10" y="1" width="3" height="12" rx="1" fill="currentColor" opacity="0.6"/>
+                </svg>
+              </button>
+              <button
+                onClick={() => setChartView("area")}
+                className={`flex items-center justify-center w-7 h-6 rounded-md transition-all ${chartView === "area" ? "bg-card shadow text-primary" : "text-muted-foreground hover:text-foreground"}`}
+                title="بياني خطي">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <polyline points="1,11 4,7 7,9 10,4 13,2" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                  <polygon points="1,11 4,7 7,9 10,4 13,2 13,13 1,13" fill="currentColor" opacity="0.15"/>
+                </svg>
+              </button>
+            </div>
           </div>
           <p className="text-2xl font-black text-primary mb-0.5">{fmt(totalSales)}</p>
-          <p className="text-[11px] text-primary mb-3">+15% عن الشهر الماضي</p>
+          <p className="text-[11px] text-primary mb-3">آخر 7 أيام</p>
           <ResponsiveContainer width="100%" height={160}>
-            <AreaChart data={chartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-              <defs>
-                <linearGradient id="salesGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(43,74%,50%)" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="hsl(43,74%,50%)" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="date" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}K` : String(v)} />
-              <Tooltip
-                contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11 }}
-                formatter={(v: any) => [fmt(v), "المبيعات"]}
-              />
-              <Area type="monotone" dataKey="value" stroke="hsl(43,74%,50%)" strokeWidth={2} fill="url(#salesGrad)" dot={{ fill: "hsl(43,74%,50%)", r: 3 }} activeDot={{ r: 5 }} />
-            </AreaChart>
+            {chartView === "area" ? (
+              <AreaChart data={chartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="salesGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(43,74%,50%)" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="hsl(43,74%,50%)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="date" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}K` : String(v)} />
+                <Tooltip
+                  contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11 }}
+                  formatter={(v: any) => [fmt(v), "المبيعات"]}
+                />
+                <Area type="monotone" dataKey="value" stroke="hsl(43,74%,50%)" strokeWidth={2} fill="url(#salesGrad)" dot={{ fill: "hsl(43,74%,50%)", r: 3 }} activeDot={{ r: 5 }} />
+              </AreaChart>
+            ) : (
+              <BarChart data={chartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                <XAxis dataKey="date" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}K` : String(v)} />
+                <Tooltip
+                  contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11 }}
+                  formatter={(v: any) => [fmt(v), "المبيعات"]}
+                  cursor={{ fill: "hsl(var(--muted))", opacity: 0.2 }}
+                />
+                <Bar dataKey="value" radius={[4,4,0,0]}>
+                  {chartData.map((_, i) => (
+                    <Cell key={i} fill={i === chartData.length - 1 ? "hsl(43,74%,50%)" : "hsl(43,74%,50%)"} opacity={0.5 + (i / chartData.length) * 0.5} />
+                  ))}
+                </Bar>
+              </BarChart>
+            )}
           </ResponsiveContainer>
         </Card>
       </div>
