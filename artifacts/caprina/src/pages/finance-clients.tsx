@@ -394,7 +394,7 @@ export default function FinanceClients() {
               </div>
             ))}
           </div>
-          <Button variant="outline" className="w-full mt-4 h-8 text-xs border-primary/30 text-primary hover:bg-primary/10" onClick={() => document.getElementById("clients-table")?.scrollIntoView({ behavior: "smooth" })}>
+          <Button variant="outline" className="w-full mt-4 h-8 text-xs border-primary/30 text-primary hover:bg-primary/10" onClick={() => navigate("/finance/all-clients")}>
             عرض جميع العملاء
           </Button>
         </Card>
@@ -678,7 +678,7 @@ export default function FinanceClients() {
         {/* عرض جميع العملاء */}
         {activeTab === "clients" && clients.length > 0 && (
           <div className="p-4 border-t border-border">
-            <Button variant="outline" className="w-full h-8 text-xs border-primary/30 text-primary hover:bg-primary/10" onClick={() => document.getElementById("clients-table")?.scrollIntoView({ behavior: "smooth" })}>
+            <Button variant="outline" className="w-full h-8 text-xs border-primary/30 text-primary hover:bg-primary/10" onClick={() => navigate("/finance/all-clients")}>
               عرض جميع العملاء ({clients.length})
             </Button>
           </div>
