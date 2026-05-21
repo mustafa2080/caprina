@@ -391,11 +391,9 @@ export default function FinanceClients() {
               </div>
             ))}
           </div>
-          <Link href="/finance/clients">
-            <Button variant="outline" className="w-full mt-4 h-8 text-xs border-primary/30 text-primary hover:bg-primary/10">
-              عرض جميع العملاء
-            </Button>
-          </Link>
+          <Button variant="outline" className="w-full mt-4 h-8 text-xs border-primary/30 text-primary hover:bg-primary/10" onClick={() => navigate("/finance/clients")}>
+            عرض جميع العملاء
+          </Button>
         </Card>
 
         {/* الرسم البياني */}
@@ -632,11 +630,9 @@ export default function FinanceClients() {
         {/* عرض جميع العملاء */}
         {activeTab === "clients" && clients.length > 0 && (
           <div className="p-4 border-t border-border">
-            <Link href="/finance/clients">
-              <Button variant="outline" className="w-full h-8 text-xs border-primary/30 text-primary hover:bg-primary/10">
-                عرض جميع العملاء ({clients.length})
-              </Button>
-            </Link>
+            <Button variant="outline" className="w-full h-8 text-xs border-primary/30 text-primary hover:bg-primary/10" onClick={() => navigate("/finance/clients")}>
+              عرض جميع العملاء ({clients.length})
+            </Button>
           </div>
         )}
       </Card>
