@@ -969,6 +969,7 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+    </div>
 
     {showDamagedModal && <DamagedOrdersModal onClose={() => setShowDamagedModal(false)} />}
     </>
