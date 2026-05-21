@@ -69,7 +69,8 @@ function ClientStats({ client }: { client: Client }) {
   const paid    = parseFloat(client.totalPaid   ?? "0");
   const limit   = parseFloat(client.creditLimit ?? "0");
   const unpaid  = Math.max(0, sales - paid);
-  const rate    = limit > 0 ? Math.min((sales / limit) * 100, 100) : 0;
+  const effectiveLimit = limit > 0 ? limit : 1_000_000;
+  const rate    = Math.min((sales / effectiveLimit) * 100, 100);
 
   return (
     <div className="mt-4 pt-4 border-t border-border space-y-3">
@@ -94,6 +95,14 @@ function ClientStats({ client }: { client: Client }) {
             <Target className="w-3 h-3" /> الهدف
           </span>
           <span className="font-black text-primary">{fmt(limit)}</span>
+        </div>
+      )}
+      {limit === 0 && (
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-muted-foreground flex items-center gap-1">
+            <Target className="w-3 h-3" /> الهدف الافتراضي
+          </span>
+          <span className="font-black text-muted-foreground">{fmt(1_000_000)}</span>
         </div>
       )}
       {client.paymentTerms && (

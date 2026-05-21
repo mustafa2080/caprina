@@ -170,7 +170,7 @@ export default function CommercialClientDetailPage() {
     const p = o.paymentStatus === "paid" ? t : parseFloat(o.paidAmount ?? "0");
     return sum + Math.max(0, t - p);
   }, 0);
-  const salesPct    = creditLimit > 0 ? Math.min((totalSales / creditLimit) * 100, 100) : 0;
+  const salesPct    = Math.min((totalSales / (creditLimit > 0 ? creditLimit : 1_000_000)) * 100, 100);
   const remaining   = Math.max(0, creditLimit - totalSales);
 
   const processingOrders = allOrders.filter(o => o.status === "processing");
@@ -243,7 +243,7 @@ export default function CommercialClientDetailPage() {
               {salesPct >= 75
                 ? <TrendingUp className="w-3 h-3 text-emerald-400" />
                 : <Target className="w-3 h-3" />}
-              {creditLimit > 0 ? `هدف ${fmt(creditLimit)}` : "لا يوجد هدف"}
+              {creditLimit > 0 ? `هدف ${fmt(creditLimit)}` : `من ${fmt(1_000_000)}`}
             </p>
           </Card>
         </div>
