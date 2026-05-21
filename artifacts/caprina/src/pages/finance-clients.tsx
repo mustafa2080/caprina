@@ -33,7 +33,7 @@ type Client = {
   email: string | null; address: string | null; city: string | null; region: string | null;
   taxNumber: string | null; commercialReg: string | null; paymentTerms: string | null;
   creditLimit: string; totalOrders: number; totalSales: string; totalPaid: string;
-  notes: string | null; isActive: boolean; createdAt: string;
+  notes: string | null; isActive: boolean; createdAt: string; avatar: string | null;
 };
 
 type SaleOrder = {
@@ -42,10 +42,16 @@ type SaleOrder = {
   createdAt: string;
 };
 
+const AVATARS = [
+  "👤","🧑‍💼","👩‍💼","🧔","👩","🧑","👴","👵","🧑‍🤝‍🧑",
+  "🏢","🏪","🏬","🏭","🏗️","🏛️","🏦","🏥","🏨",
+  "⭐","🌟","💼","🤝","💰","🛒","📦","🎯","🔑",
+];
+
 const emptyForm = {
   name: "", phone: "", phone2: "", email: "", address: "", city: "", region: "",
   taxNumber: "", commercialReg: "", paymentTerms: "فوري",
-  creditLimit: "0", notes: "", isActive: true,
+  creditLimit: "0", notes: "", isActive: true, avatar: "🧑‍💼",
 };
 
 // ── Column Filter Dropdown ────────────────────────────────────────────────
@@ -152,6 +158,7 @@ function ClientForm({ open, onClose, editClient, onSuccess }: {
     paymentTerms: editClient.paymentTerms ?? "فوري",
     creditLimit: String(editClient.creditLimit ?? "0"),
     notes: editClient.notes ?? "", isActive: editClient.isActive,
+    avatar: editClient.avatar ?? "🧑‍💼",
   } : { ...emptyForm });
 
   const mutation = useMutation({
@@ -163,7 +170,7 @@ function ClientForm({ open, onClose, editClient, onSuccess }: {
         taxNumber: form.taxNumber || null, commercialReg: form.commercialReg || null,
         paymentTerms: form.paymentTerms || null,
         creditLimit: parseFloat(form.creditLimit) || 0,
-        notes: form.notes || null, isActive: form.isActive,
+        notes: form.notes || null, isActive: form.isActive, avatar: form.avatar || "🧑‍💼",
       };
       if (isEdit) return apiFetch<any>(`/finance/clients/${editClient!.id}`, { method: "PATCH", body: JSON.stringify(body) });
       return apiFetch<any>("/finance/clients", { method: "POST", body: JSON.stringify(body) });
@@ -181,6 +188,22 @@ function ClientForm({ open, onClose, editClient, onSuccess }: {
           <DialogTitle className="text-right">{isEdit ? `تعديل — ${editClient?.name}` : "إضافة عميل تجاري جديد"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3 mt-2">
+          {/* Avatar Picker */}
+          <div>
+            <Label className="text-xs mb-2 block">الصورة الرمزية (Avatar)</Label>
+            <div className="flex flex-wrap gap-2">
+              {AVATARS.map(av => (
+                <button key={av} type="button"
+                  onClick={() => f("avatar", av)}
+                  className={`text-2xl w-10 h-10 rounded-xl flex items-center justify-center transition-all border-2
+                    ${form.avatar === av
+                      ? "border-primary bg-primary/10 scale-110 shadow-lg shadow-primary/20"
+                      : "border-transparent bg-muted/20 hover:bg-muted/40 hover:scale-105"}`}>
+                  {av}
+                </button>
+              ))}
+            </div>
+          </div>
           <div><Label className="text-xs mb-1.5 block">الاسم / الشركة *</Label>
             <Input placeholder="شركة النور للتجارة" className="h-9 text-sm bg-background" value={form.name} onChange={e => f("name", e.target.value)} /></div>
           <div className="grid grid-cols-2 gap-3">
@@ -633,8 +656,8 @@ export default function FinanceClients() {
                   <div key={c.id} className="grid grid-cols-6 gap-2 px-4 py-3 border-b border-border/50 hover:bg-muted/10 transition-colors items-center cursor-pointer" onClick={() => navigate(`/finance/clients/${c.id}`)}>
                     {/* اسم العميل */}
                     <div className="col-span-2 flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-full bg-muted/30 flex items-center justify-center shrink-0">
-                        <Users className="w-3.5 h-3.5 text-muted-foreground" />
+                      <div className="w-8 h-8 rounded-full bg-muted/10 border border-border/50 flex items-center justify-center text-lg shrink-0">
+                        {c.avatar || "🧑‍💼"}
                       </div>
                       <div>
                         <p className="text-xs font-bold">{c.name}</p>
@@ -723,7 +746,6 @@ export default function FinanceClients() {
                       </div>
                       <span className="text-xs font-bold">{o.clientName}</span>
                     </div>
-                    <span className="text-xs font-bold">{fmt(o.totalAmount)}</span>
                     <div>
                       {paid ? (
                         <Badge variant="outline" className="text-[9px] border-emerald-700 bg-emerald-900/20 text-emerald-400">مدفوع</Badge>

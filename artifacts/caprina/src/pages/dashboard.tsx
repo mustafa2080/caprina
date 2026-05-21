@@ -320,6 +320,11 @@ export default function Dashboard() {
     refetchOnWindowFocus: true,
     refetchInterval: 180000,
   });
+  const { data: recentClients = [] } = useQuery<any[]>({
+    queryKey: ["recent-clients-dashboard"],
+    queryFn: () => apiFetchDashboard<any[]>("/finance/clients?limit=5"),
+    staleTime: 60000,
+  });
 
   const { data: chartsData } = useQuery({
     queryKey: ["analytics-charts"],
@@ -925,6 +930,52 @@ export default function Dashboard() {
             </Card>
           )}
         </div>
+
+        {/* ── أحدث العملاء ─────────────────────────────────────────── */}
+        {recentClients.length > 0 && (
+          <div className="mt-4">
+            <Card className="border-border bg-card">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-bold">أحدث العملاء</h3>
+                  <Link href="/finance/clients">
+                    <button className="text-[11px] text-muted-foreground hover:text-primary transition-colors border border-border hover:border-primary rounded-lg px-2.5 py-1">
+                      عرض الكل
+                    </button>
+                  </Link>
+                </div>
+                <div className="space-y-1">
+                  {recentClients.slice(0, 5).map((c: any) => (
+                    <Link key={c.id} href={`/finance/clients/${c.id}`}>
+                      <div className="flex items-center gap-3 px-2 py-2.5 rounded-xl hover:bg-muted/10 transition-colors cursor-pointer group">
+                        <div className="w-9 h-9 rounded-full bg-muted/10 border border-border/50 flex items-center justify-center text-xl shrink-0 group-hover:border-primary/40 transition-colors">
+                          {c.avatar || "🧑‍💼"}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold truncate">{c.name}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">{c.email || c.phone || c.city || "—"}</p>
+                        </div>
+                        <div className="text-left shrink-0">
+                          <p className="text-[10px] text-muted-foreground">
+                            {c.createdAt ? (() => {
+                              const diff = Date.now() - new Date(c.createdAt).getTime();
+                              const mins = Math.floor(diff / 60000);
+                              if (mins < 60) return `منذ ${mins} دقيقة`;
+                              const hrs = Math.floor(mins / 60);
+                              if (hrs < 24) return `منذ ${hrs} ساعة`;
+                              return `منذ ${Math.floor(hrs / 24)} يوم`;
+                            })() : "—"}
+                          </p>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
       </div>
     </div>
 
