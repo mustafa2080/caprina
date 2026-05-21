@@ -240,11 +240,15 @@ export default function FinanceClients() {
   const [activeTab, setActiveTab] = useState<"clients"|"invoices"|"orders">("clients");
   const [chartView,     setChartView]     = useState<"area"|"bar">("area");
   const [chartDropOpen, setChartDropOpen] = useState(false);
+  const chartDropRef = useRef<HTMLDivElement>(null);
 
   // إغلاق dropdown لو ضغط بره
   useEffect(() => {
     if (!chartDropOpen) return;
-    const h = () => setChartDropOpen(false);
+    const h = (e: MouseEvent) => {
+      if (chartDropRef.current && chartDropRef.current.contains(e.target as Node)) return;
+      setChartDropOpen(false);
+    };
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
   }, [chartDropOpen]);
@@ -414,7 +418,7 @@ export default function FinanceClients() {
           <div className="flex items-center justify-between mb-1">
             <h2 className="font-bold text-sm">المبيعات</h2>
             {/* Dropdown اختيار نوع الرسم */}
-            <div className="relative">
+            <div className="relative" ref={chartDropRef}>
               <button
                 onClick={() => setChartDropOpen(o => !o)}
                 className="flex items-center gap-1.5 h-7 px-2.5 rounded-lg border border-border bg-muted/10 hover:bg-muted/30 transition-colors text-[11px] font-medium text-muted-foreground hover:text-foreground"
