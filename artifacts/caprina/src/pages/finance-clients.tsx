@@ -651,7 +651,6 @@ export default function FinanceClients() {
               })}
             </div>
           </>
-          </div>
         )}
 
         {/* Pagination */}
