@@ -679,7 +679,7 @@ export default function FinanceClients() {
             </div>
             <div>
               {(pageData as SaleOrder[]).map(o => (
-                <div key={o.id} className="grid grid-cols-5 gap-2 px-4 py-3 border-b border-border/50 hover:bg-muted/10 items-center">
+                <div key={o.id} className="grid grid-cols-5 gap-2 px-4 py-3 border-b border-border/50 hover:bg-muted/10 items-center cursor-pointer" onClick={() => navigate(`/finance/sales/${o.id}`)}>
                   <span className="text-xs font-bold">{o.soNumber}</span>
                   <span className="text-xs">{o.clientName}</span>
                   <span className="text-xs font-bold text-primary">{fmt(o.totalAmount)}</span>
@@ -715,7 +715,7 @@ export default function FinanceClients() {
                 const partial = o.paymentStatus === "partial";
                 const unpaid = Math.max(0, parseFloat(o.totalAmount) - (paid ? parseFloat(o.totalAmount) : parseFloat(o.paidAmount ?? "0")));
                 return (
-                  <div key={o.id} className="grid grid-cols-6 gap-2 px-4 py-3 border-b border-border/50 hover:bg-muted/10 transition-colors items-center">
+                  <div key={o.id} className="grid grid-cols-6 gap-2 px-4 py-3 border-b border-border/50 hover:bg-muted/10 transition-colors items-center cursor-pointer" onClick={() => navigate(`/finance/sales/${o.id}`)}>
                     <span className="text-xs font-bold text-primary">{o.soNumber}</span>
                     <div className="col-span-2 flex items-center gap-2">
                       <div className="w-6 h-6 rounded-full bg-muted/30 flex items-center justify-center shrink-0">
