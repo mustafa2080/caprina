@@ -102,12 +102,27 @@ function printSaleInvoice(order: SaleOrder, items: any[], warehouses: Warehouse[
   </table>
   ${order.notes ? `<p style="font-size:12px;color:#666"><strong>ملاحظات:</strong> ${order.notes}</p>` : ""}
   <div class="footer">شكراً لتعاملكم معنا — Caprina</div>
-  <div class="no-print" style="text-align:center;margin-top:20px">
-    <button onclick="window.print()" style="padding:8px 24px;background:#26A69A;color:#0a0a0a;border:none;border-radius:6px;cursor:pointer;font-size:14px">🖨️ طباعة</button>
-  </div>
   </body></html>`;
-  const w = window.open("", "_blank");
-  if (w) { w.document.write(html); w.document.close(); }
+  // حفظ PDF مباشرة بدون فتح نافذة preview
+  const iframe = document.createElement("iframe");
+  iframe.style.position = "fixed";
+  iframe.style.top = "-9999px";
+  iframe.style.left = "-9999px";
+  iframe.style.width = "210mm";
+  iframe.style.height = "297mm";
+  iframe.style.border = "none";
+  document.body.appendChild(iframe);
+  const iDoc = iframe.contentDocument || iframe.contentWindow?.document;
+  if (iDoc) {
+    iDoc.open();
+    iDoc.write(html);
+    iDoc.close();
+    setTimeout(() => {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+      setTimeout(() => document.body.removeChild(iframe), 1000);
+    }, 400);
+  }
 }
 
 type SaleOrder = {
