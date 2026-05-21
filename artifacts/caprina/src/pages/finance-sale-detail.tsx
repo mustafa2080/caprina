@@ -865,6 +865,85 @@ export default function FinanceSaleDetail() {
         ))}
       </div>
 
+      {/* ── PROFIT CARDS ── */}
+      {(() => {
+        const revenue   = parseFloat(order.totalAmount  ?? "0");
+        const shipping  = parseFloat(order.shippingCost ?? "0");
+        const cogs = order.items.reduce((sum, item) => {
+          const v = allVariants.find(v =>
+            v.productName === item.productName &&
+            v.color       === item.color       &&
+            v.size        === item.size
+          );
+          const cost = v?.costPrice ? parseFloat(v.costPrice) : 0;
+          return sum + cost * item.quantity;
+        }, 0);
+        // خسائر الإرجاع = مجموع (سعر الوحدة × الكمية) للأصناف المُرجَعة
+        const returnLoss = order.items
+          .filter(i => i.status === "returned")
+          .reduce((s, i) => s + parseFloat(i.unitPrice ?? "0") * i.quantity, 0);
+        const netProfit = revenue - cogs - shipping - returnLoss;
+        const profitPct = revenue > 0 ? ((netProfit / revenue) * 100).toFixed(1) : "0";
+        return (
+          <div className="mb-5">
+            <div className="flex items-center gap-2 mb-3">
+              <span style={{ color: "hsl(43,74%,50%)", fontSize: 15 }}>📊</span>
+              <h2 className="font-bold text-sm">تحليل الأرباح</h2>
+            </div>
+            {/* صف 1: 3 مربعات */}
+            <div className="grid grid-cols-3 gap-3 mb-3">
+              {/* إجمالي الإيرادات */}
+              <div className="rounded-xl border p-4" style={{ borderColor: "#B2DFDB", background: "hsl(var(--card))" }}>
+                <p className="text-[10px] text-muted-foreground mb-1 text-right">إجمالي الإيرادات</p>
+                <p className="text-lg font-black text-right" style={{ color: "hsl(43,74%,50%)" }}>{fmtNum(revenue)} ج</p>
+              </div>
+              {/* تكلفة الشحن */}
+              <div className="rounded-xl border p-4" style={{ borderColor: "rgba(180,77,20,0.4)", background: "rgba(180,77,20,0.08)" }}>
+                <p className="text-[10px] text-muted-foreground mb-1 text-right">تكلفة الشحن</p>
+                <p className="text-lg font-black text-right" style={{ color: "#FF8A50" }}>{shipping > 0 ? `${fmtNum(shipping)} ج` : "-- ج"}</p>
+              </div>
+              {/* خسائر الإرجاع */}
+              <div className="rounded-xl border p-4" style={{ borderColor: "hsl(var(--border))", background: "hsl(var(--card))" }}>
+                <p className="text-[10px] text-muted-foreground mb-1 text-right">خسائر الإرجاع</p>
+                <p className="text-lg font-black text-right" style={{ color: returnLoss > 0 ? "#EF5350" : "hsl(var(--muted-foreground))" }}>
+                  {returnLoss > 0 ? `${fmtNum(returnLoss)} ج` : "-- ج"}
+                </p>
+              </div>
+            </div>
+            {/* صف 2: صافي الربح (عريض) + تكلفة البضاعة */}
+            <div className="grid grid-cols-2 gap-3">
+              {/* صافي الربح — أكبر */}
+              <div className="rounded-xl border p-4 flex flex-col justify-between" style={{
+                borderColor: netProfit >= 0 ? "rgba(56,142,60,0.5)" : "rgba(183,28,28,0.5)",
+                background:  netProfit >= 0 ? "rgba(27,94,32,0.14)"  : "rgba(183,28,28,0.1)",
+              }}>
+                <div className="flex items-center justify-between">
+                  <span style={{ fontSize: 20, color: netProfit >= 0 ? "#66BB6A" : "#EF5350" }}>
+                    {netProfit >= 0 ? "↗" : "↘"}
+                  </span>
+                  <p className="text-[10px] text-muted-foreground">صافي الربح</p>
+                </div>
+                <div className="text-right mt-2">
+                  <p className="text-2xl font-black" style={{ color: netProfit >= 0 ? "#66BB6A" : "#EF5350" }}>
+                    {cogs > 0 ? `${fmtNum(Math.abs(netProfit))} ج` : "-- ج"}
+                  </p>
+                  {cogs > 0 && (
+                    <p className="text-[10px] mt-0.5" style={{ color: netProfit >= 0 ? "#66BB6A" : "#EF5350" }}>
+                      {netProfit >= 0 ? "▲" : "▼"} {profitPct}% من الإيرادات
+                    </p>
+                  )}
+                </div>
+              </div>
+              {/* تكلفة البضاعة */}
+              <div className="rounded-xl border p-4" style={{ borderColor: "#B2DFDB", background: "hsl(var(--card))" }}>
+                <p className="text-[10px] text-muted-foreground mb-1 text-right">تكلفة البضاعة</p>
+                <p className="text-lg font-black text-right" style={{ color: "#EF9A9A" }}>{cogs > 0 ? `${fmtNum(cogs)} ج` : "-- ج"}</p>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ── SETTLEMENT CARD — بيان التسوية ── */}
       <div className="rounded-xl border p-5 mb-5" style={{ borderColor: "rgba(184,134,11,0.35)", background: "rgba(184,134,11,0.05)" }}>
         <div className="flex items-center gap-2 mb-4">
