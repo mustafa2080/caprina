@@ -145,30 +145,76 @@ export default function FinanceCashAnalyticsPage() {
       {/* توزيع + مقارنة الخزن */}
       <div className="grid gap-4 lg:grid-cols-2">
 
-        {/* Pie Chart توزيع نوع الحركة */}
+        {/* Donut Chart توزيع نوع الحركة */}
         <div className="rounded-xl border border-border bg-card p-4">
-          <p className="text-sm font-bold mb-3 flex items-center gap-2"><Activity className="w-4 h-4 text-purple-500"/> توزيع الحركات (الشهر الحالي)</p>
+          <p className="text-sm font-bold mb-4 flex items-center gap-2">
+            <Activity className="w-4 h-4 text-purple-500"/> توزيع الحركات (الشهر الحالي)
+          </p>
           {typeBreakdown.length === 0 ? (
             <div className="text-center py-10 text-muted-foreground text-sm">لا توجد حركات هذا الشهر</div>
-          ) : (
-            <div className="flex gap-4 items-start">
-              <PieChart width={140} height={140}>
-                <Pie data={typeBreakdown} dataKey="total" nameKey="type" cx="50%" cy="50%" outerRadius={65} innerRadius={35}>
-                  {typeBreakdown.map((_,i) => <Cell key={i} fill={PIE_COLORS[i%PIE_COLORS.length]}/>)}
-                </Pie>
-                <Tooltip formatter={(v:any)=>fmtFull(Number(v))} labelFormatter={(v:any)=>TX_LABELS[v]??v}/>
-              </PieChart>
-              <div className="flex-1 space-y-1.5 overflow-hidden">
-                {typeBreakdown.map((t,i) => (
-                  <div key={t.type} className="flex items-center gap-2 text-xs">
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{background:PIE_COLORS[i%PIE_COLORS.length]}}/>
-                    <span className="flex-1 truncate text-muted-foreground">{TX_LABELS[t.type]??t.type}</span>
-                    <span className="font-semibold shrink-0">{fmt(t.total)}</span>
+          ) : (() => {
+            const total = typeBreakdown.reduce((s, t) => s + t.count, 0);
+            return (
+              <div className="flex flex-col items-center gap-4">
+                {/* Donut + رقم في المنتصف */}
+                <div className="relative">
+                  <ResponsiveContainer width={200} height={200}>
+                    <PieChart>
+                      <Pie
+                        data={typeBreakdown}
+                        dataKey="count"
+                        nameKey="type"
+                        cx="50%" cy="50%"
+                        outerRadius={90}
+                        innerRadius={58}
+                        paddingAngle={2}
+                        strokeWidth={0}
+                      >
+                        {typeBreakdown.map((_,i) => (
+                          <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]}/>
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{ background:"hsl(var(--card))", border:"1px solid hsl(var(--border))", borderRadius:8, fontSize:11 }}
+                        formatter={(v:any, _:any, props:any) => [
+                          `${v} حركة (${Math.round((v/total)*100)}%)`,
+                          TX_LABELS[props.payload.type] ?? props.payload.type
+                        ]}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  {/* رقم المجموع في المنتصف */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span className="text-3xl font-black text-foreground">{total}</span>
+                    <span className="text-[10px] text-muted-foreground">إجمالي الحركات</span>
                   </div>
-                ))}
+                </div>
+
+                {/* Legend بالنسب */}
+                <div className="w-full space-y-2">
+                  {typeBreakdown.map((t, i) => {
+                    const pct = Math.round((t.count / total) * 100);
+                    return (
+                      <div key={t.type} className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0"
+                          style={{ background: PIE_COLORS[i % PIE_COLORS.length] }}/>
+                        <span className="flex-1 text-xs text-muted-foreground truncate">
+                          {TX_LABELS[t.type] ?? t.type}
+                        </span>
+                        <span className="text-xs font-bold shrink-0"
+                          style={{ color: PIE_COLORS[i % PIE_COLORS.length] }}>
+                          {pct}%
+                        </span>
+                        <span className="text-xs text-muted-foreground shrink-0 w-6 text-left">
+                          {t.count}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
 
         {/* مقارنة الخزن */}
