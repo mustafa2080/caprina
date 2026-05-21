@@ -1322,6 +1322,14 @@ export default function FinanceSales() {
   const [formOpen,      setFormOpen]      = useState(false);
   const [editOrder,     setEditOrder]     = useState<SaleOrder|null>(null);
 
+  // فتح فورم جديد تلقائياً لو جاي من /finance/sales/new أو ?new=1
+  useEffect(() => {
+    if (window.location.search.includes("new=1") || window.location.pathname.endsWith("/new")) {
+      setFormOpen(true);
+      window.history.replaceState({}, "", "/finance/sales");
+    }
+  }, []);
+
   const { data: orders = [], isLoading } = useQuery<SaleOrder[]>({
     queryKey: ["finance-sale-orders"],
     queryFn: () => api.get("/finance/sale-orders"),
