@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -15,7 +15,7 @@ import {
   Plus, Edit2, Trash2, Phone, ToggleLeft, ToggleRight,
   Users, MapPin, Target, ShoppingBag, FileText, TrendingUp,
   Eye, BarChart2, Search, Filter, ChevronLeft, ChevronRight,
-  ShoppingCart, Receipt,
+  ShoppingCart, Receipt, ListFilter, X,
 } from "lucide-react";
 import { format } from "date-fns";
 import { apiFetch } from "@/lib/api";
@@ -47,6 +47,73 @@ const emptyForm = {
   taxNumber: "", commercialReg: "", paymentTerms: "فوري",
   creditLimit: "0", notes: "", isActive: true,
 };
+
+// ── Column Filter Dropdown ────────────────────────────────────────────────
+function ColumnFilter({ label, options, selected, onChange }: {
+  label: string;
+  options: { value: string; label: string }[];
+  selected: string[];
+  onChange: (vals: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const hasFilter = selected.length > 0;
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const toggle = (val: string) => {
+    onChange(selected.includes(val) ? selected.filter(v => v !== val) : [...selected, val]);
+  };
+
+  return (
+    <div ref={ref} className="relative flex items-center gap-1">
+      <span className="text-[10px] font-bold text-muted-foreground">{label}</span>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className={`p-0.5 rounded transition-colors ${hasFilter ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
+        title="فلتر العمود"
+      >
+        <ListFilter className={`w-3 h-3 ${hasFilter ? "text-primary" : ""}`} />
+        {hasFilter && (
+          <span className="absolute -top-1 -left-1 w-3 h-3 bg-primary rounded-full text-[8px] text-primary-foreground flex items-center justify-center font-black">
+            {selected.length}
+          </span>
+        )}
+      </button>
+      {open && (
+        <div className="absolute top-6 right-0 z-50 min-w-[160px] bg-card border border-border rounded-xl shadow-xl p-2" dir="rtl">
+          <div className="flex items-center justify-between mb-1.5 px-1">
+            <span className="text-[10px] font-bold text-muted-foreground">فلتر {label}</span>
+            {hasFilter && (
+              <button onClick={() => onChange([])} className="text-[9px] text-destructive hover:underline flex items-center gap-0.5">
+                <X className="w-2.5 h-2.5" />مسح
+              </button>
+            )}
+          </div>
+          <div className="space-y-1 max-h-40 overflow-y-auto">
+            {options.map(opt => (
+              <label key={opt.value} className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-muted/30 cursor-pointer text-xs">
+                <input
+                  type="checkbox"
+                  checked={selected.includes(opt.value)}
+                  onChange={() => toggle(opt.value)}
+                  className="accent-primary w-3 h-3"
+                />
+                <span>{opt.label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ── Client Form ───────────────────────────────────────────────────────────
 function ClientForm({ open, onClose, editClient, onSuccess }: {
@@ -146,11 +213,17 @@ export default function FinanceClients() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const [search, setSearch] = useState("");
+  const [showColFilters, setShowColFilters] = useState(false);
   const [activeTab, setActiveTab] = useState<"clients"|"invoices"|"orders">("clients");
   const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
   const [editClient, setEditClient] = useState<Client | null>(null);
   const [deleteClient, setDeleteClient] = useState<Client | null>(null);
+
+  // ── فلاتر الأعمدة ────────────────────────────────────────────────────────
+  const [filterCity,         setFilterCity]         = useState<string[]>([]);
+  const [filterStatus,       setFilterStatus]       = useState<string[]>([]);
+  const [filterPaymentTerms, setFilterPaymentTerms] = useState<string[]>([]);
   const PER_PAGE = 10;
 
   const { data: clients = [], isLoading: loadingClients } = useQuery<Client[]>({
@@ -201,11 +274,23 @@ export default function FinanceClients() {
     return Object.entries(days).map(([date, value]) => ({ date, value }));
   }, [allOrders]);
 
-  // ── فلترة الجدول ────────────────────────────────────────────────────────
-  const filteredClients = useMemo(() =>
-    clients.filter(c => !search || c.name.includes(search) || (c.phone ?? "").includes(search)),
-    [clients, search]
-  );
+  // ── خيارات الفلتر — تُستخرج من البيانات الفعلية ────────────────────────
+  const cityOptions         = useMemo(() => [...new Set(clients.map(c => c.city).filter(Boolean))] .map(v => ({ value: v!, label: v! })), [clients]);
+  const statusOptions       = [{ value: "true", label: "نشط" }, { value: "false", label: "موقف" }];
+  const paymentTermsOptions = useMemo(() => [...new Set(clients.map(c => c.paymentTerms).filter(Boolean))].map(v => ({ value: v!, label: v! })), [clients]);
+
+  // ── فلترة العملاء بكل الفلاتر معاً ─────────────────────────────────────
+  const filteredClients = useMemo(() => {
+    return clients.filter(c => {
+      if (search && !c.name.includes(search) && !(c.phone ?? "").includes(search)) return false;
+      if (filterCity.length         && !filterCity.includes(c.city ?? ""))                     return false;
+      if (filterStatus.length       && !filterStatus.includes(String(c.isActive)))             return false;
+      if (filterPaymentTerms.length && !filterPaymentTerms.includes(c.paymentTerms ?? ""))     return false;
+      return true;
+    });
+  }, [clients, search, filterCity, filterStatus, filterPaymentTerms]);
+
+  const activeFiltersCount = filterCity.length + filterStatus.length + filterPaymentTerms.length;
   const filteredOrders = useMemo(() =>
     allOrders.filter(o => !search || o.clientName.includes(search) || o.soNumber.includes(search)),
     [allOrders, search]
@@ -366,8 +451,16 @@ export default function FinanceClients() {
               <Input placeholder="بحث عن عميل..." className="h-8 text-xs bg-background pr-8 w-44"
                 value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
             </div>
-            <Button variant="outline" size="sm" className="h-8 text-xs gap-1 border-border">
+            <Button variant="outline" size="sm"
+              className={`h-8 text-xs gap-1 border-border relative ${showColFilters || activeFiltersCount > 0 ? "border-primary text-primary" : ""}`}
+              onClick={() => setShowColFilters(v => !v)}
+            >
               <Filter className="w-3 h-3" />فلتر
+              {activeFiltersCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-primary rounded-full text-[9px] text-primary-foreground flex items-center justify-center font-black">
+                  {activeFiltersCount}
+                </span>
+              )}
             </Button>
           </div>
         </div>
@@ -375,12 +468,38 @@ export default function FinanceClients() {
         {/* Table Headers */}
         {activeTab === "clients" && (
           <>
-            <div className="grid grid-cols-6 gap-2 px-4 py-2 text-[10px] font-bold text-muted-foreground border-b border-border">
-              <span className="col-span-2">اسم العميل</span>
-              <span>رقم الهاتف</span>
-              <span>الرصيد المتبقي</span>
-              <span>إجمالي المشتريات</span>
-              <span>آخر طلب</span>
+            <div className="grid grid-cols-6 gap-2 px-4 py-2 border-b border-border bg-muted/5">
+              <div className="col-span-2 flex items-center gap-1">
+                {showColFilters ? (
+                  <ColumnFilter label="اسم العميل" options={[]} selected={[]} onChange={() => {}} />
+                ) : <span className="text-[10px] font-bold text-muted-foreground">اسم العميل</span>}
+              </div>
+              <div className="flex items-center gap-1">
+                {showColFilters ? (
+                  <ColumnFilter label="الحالة" options={statusOptions} selected={filterStatus} onChange={v => { setFilterStatus(v); setPage(1); }} />
+                ) : <span className="text-[10px] font-bold text-muted-foreground">رقم الهاتف</span>}
+              </div>
+              <div className="flex items-center gap-1">
+                {showColFilters ? (
+                  <ColumnFilter label="المدينة" options={cityOptions} selected={filterCity} onChange={v => { setFilterCity(v); setPage(1); }} />
+                ) : <span className="text-[10px] font-bold text-muted-foreground">الرصيد المتبقي</span>}
+              </div>
+              <div className="flex items-center gap-1">
+                {showColFilters ? (
+                  <ColumnFilter label="شروط الدفع" options={paymentTermsOptions} selected={filterPaymentTerms} onChange={v => { setFilterPaymentTerms(v); setPage(1); }} />
+                ) : <span className="text-[10px] font-bold text-muted-foreground">إجمالي المشتريات</span>}
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-muted-foreground">
+                  {showColFilters ? "إجراءات" : "آخر طلب"}
+                </span>
+                {showColFilters && activeFiltersCount > 0 && (
+                  <button onClick={() => { setFilterCity([]); setFilterStatus([]); setFilterPaymentTerms([]); }}
+                    className="text-[9px] text-destructive hover:underline flex items-center gap-0.5">
+                    <X className="w-2.5 h-2.5" />مسح الكل
+                  </button>
+                )}
+              </div>
             </div>
             <div>
               {loadingClients ? (
