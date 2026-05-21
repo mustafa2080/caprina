@@ -247,6 +247,7 @@ export default function FinanceClients() {
   const [filterCity,         setFilterCity]         = useState<string[]>([]);
   const [filterStatus,       setFilterStatus]       = useState<string[]>([]);
   const [filterPaymentTerms, setFilterPaymentTerms] = useState<string[]>([]);
+  const [filterName,         setFilterName]         = useState<string[]>([]);
   const PER_PAGE = 10;
 
   const { data: clients = [], isLoading: loadingClients } = useQuery<Client[]>({
@@ -301,11 +302,13 @@ export default function FinanceClients() {
   const cityOptions         = useMemo(() => [...new Set(clients.map(c => c.city).filter(Boolean))] .map(v => ({ value: v!, label: v! })), [clients]);
   const statusOptions       = [{ value: "true", label: "نشط" }, { value: "false", label: "موقف" }];
   const paymentTermsOptions = useMemo(() => [...new Set(clients.map(c => c.paymentTerms).filter(Boolean))].map(v => ({ value: v!, label: v! })), [clients]);
+  const nameOptions         = useMemo(() => clients.map(c => ({ value: c.name, label: c.name })), [clients]);
 
   // ── فلترة العملاء بكل الفلاتر معاً ─────────────────────────────────────
   const filteredClients = useMemo(() => {
     return clients.filter(c => {
       if (search && !c.name.includes(search) && !(c.phone ?? "").includes(search)) return false;
+      if (filterName.length         && !filterName.includes(c.name))                             return false;
       if (filterCity.length         && !filterCity.includes(c.city ?? ""))                     return false;
       if (filterStatus.length       && !filterStatus.includes(String(c.isActive)))             return false;
       if (filterPaymentTerms.length && !filterPaymentTerms.includes(c.paymentTerms ?? ""))     return false;
@@ -313,7 +316,7 @@ export default function FinanceClients() {
     });
   }, [clients, search, filterCity, filterStatus, filterPaymentTerms]);
 
-  const activeFiltersCount = filterCity.length + filterStatus.length + filterPaymentTerms.length;
+  const activeFiltersCount = filterCity.length + filterStatus.length + filterPaymentTerms.length + filterName.length;
   const filteredOrders = useMemo(() =>
     allOrders.filter(o => !search || o.clientName.includes(search) || o.soNumber.includes(search)),
     [allOrders, search]
@@ -492,7 +495,9 @@ export default function FinanceClients() {
             <div className="grid grid-cols-6 gap-2 px-4 py-2 border-b border-border bg-muted/5">
               {/* اسم العميل */}
               <div className="col-span-2 flex items-center gap-1">
-                <span className="text-[10px] font-bold text-muted-foreground">اسم العميل</span>
+                {showColFilters ? (
+                  <ColumnFilter label="اسم العميل" options={nameOptions} selected={filterName} onChange={v => { setFilterName(v); setPage(1); }} />
+                ) : <span className="text-[10px] font-bold text-muted-foreground">اسم العميل</span>}
               </div>
               {/* الحالة */}
               <div className="flex items-center gap-1">
@@ -516,7 +521,7 @@ export default function FinanceClients() {
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold text-muted-foreground">الرصيد / إجراءات</span>
                 {showColFilters && activeFiltersCount > 0 && (
-                  <button onClick={() => { setFilterCity([]); setFilterStatus([]); setFilterPaymentTerms([]); }}
+                  <button onClick={() => { setFilterCity([]); setFilterStatus([]); setFilterPaymentTerms([]); setFilterName([]); }}
                     className="text-[9px] text-destructive hover:underline flex items-center gap-0.5">
                     <X className="w-2.5 h-2.5" />مسح
                   </button>
