@@ -6,7 +6,7 @@ import * as XLSX from "xlsx";
 import {
   ArrowRight, Printer, Package, User, Phone, MapPin,
   Calendar, Hash, CreditCard, Truck, FileSpreadsheet,
-  ChevronDown, Check, Pencil, Trash2, X, Save,
+  ChevronDown, Check, Pencil, Trash2, X, Save, Receipt,
 } from "lucide-react";
 
 // ── نوع الـ Variant ────────────────────────────────────────────────────────
@@ -741,6 +741,63 @@ export default function FinanceSaleDetail() {
         ))}
       </div>
 
+      {/* ── SETTLEMENT CARD — بيان التسوية ── */}
+      <div className="rounded-xl border p-5 mb-5" style={{ borderColor: "rgba(184,134,11,0.35)", background: "rgba(184,134,11,0.05)" }}>
+        <div className="flex items-center gap-2 mb-4">
+          <Receipt className="w-4 h-4" style={{ color: "hsl(43,74%,50%)" }} />
+          <h2 className="font-bold text-sm">بيان التسوية — ملخص الفاتورة المالي</h2>
+          {order.status === "closed" && (
+            <span className="mr-auto text-[10px] font-bold px-2 py-0.5 rounded-full border"
+              style={{ borderColor: "#4CAF50", color: "#4CAF50", background: "rgba(76,175,80,0.1)" }}>مُغلق ✓</span>
+          )}
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {/* إجمالي المسلَّم */}
+          <div className="rounded-lg border p-3" style={{ borderColor: "hsl(var(--border))", background: "hsl(var(--card))" }}>
+            <p className="text-[10px] text-muted-foreground mb-1">إجمالي الفاتورة</p>
+            <p className="text-base font-black" style={{ color: "hsl(43,74%,50%)" }}>{fmtNum(total)} ج</p>
+            <p className="text-[10px] text-muted-foreground">{order.items.length} صنف · {totalQty} قطعة</p>
+          </div>
+          {/* المدفوع */}
+          <div className="rounded-lg border p-3" style={{ borderColor: "hsl(var(--border))", background: "hsl(var(--card))" }}>
+            <p className="text-[10px] text-muted-foreground mb-1">المحصَّل</p>
+            <p className="text-base font-black" style={{ color: "#4CAF50" }}>{fmtNum(paid)} ج</p>
+            <p className="text-[10px]" style={{ color: PAY_MAP[order.paymentStatus]?.color ?? "#888" }}>
+              {PAY_MAP[order.paymentStatus]?.label ?? order.paymentStatus}
+            </p>
+          </div>
+          {/* المتبقي */}
+          <div className="rounded-lg border p-3" style={{ borderColor: "hsl(var(--border))", background: "hsl(var(--card))" }}>
+            <p className="text-[10px] text-muted-foreground mb-1">باقي التسوية</p>
+            <p className="text-base font-black" style={{ color: due > 0 ? "#EF5350" : "#4CAF50" }}>
+              {due > 0 ? `${fmtNum(due)} ج` : "✓ مسدد"}
+            </p>
+            <p className="text-[10px] text-muted-foreground">إجمالي − محصَّل</p>
+          </div>
+          {/* موعد التسليم */}
+          <div className="rounded-lg border p-3" style={{ borderColor: "hsl(var(--border))", background: "hsl(var(--card))" }}>
+            <p className="text-[10px] text-muted-foreground mb-1">موعد التسليم</p>
+            <p className="text-sm font-bold">{fmtDate(order.expectedDate)}</p>
+            <p className="text-[10px] text-muted-foreground">
+              {order.deliveredAt ? `سُلِّم ${fmtDate(order.deliveredAt)}` : "لم يُسلَّم بعد"}
+            </p>
+          </div>
+        </div>
+        {/* صافي الربح */}
+        <div className="mt-3 rounded-lg border p-3 flex items-center justify-between"
+          style={{ borderColor: discount > 0 ? "rgba(239,83,80,0.3)" : "rgba(76,175,80,0.3)", background: discount > 0 ? "rgba(239,83,80,0.05)" : "rgba(76,175,80,0.05)" }}>
+          <div>
+            <p className="text-xs text-muted-foreground">صافي الإجمالي الفعلي</p>
+            <p className="text-[10px] text-muted-foreground">
+              ج {fmtNum(total)} إجمالي
+              {discount > 0 ? ` − ${fmtNum(discount)} ج خصم` : ""}
+              {shipping > 0 ? ` + ${fmtNum(shipping)} ج شحن` : ""}
+            </p>
+          </div>
+          <p className="text-lg font-black" style={{ color: "hsl(43,74%,50%)" }}>{fmtNum(total)} ج</p>
+        </div>
+      </div>
+
       {/* ── CLIENT INFO ── */}
       <div className="rounded-xl border p-4 mb-5 flex flex-wrap gap-4"
         style={{ borderColor: "#B2DFDB", background: "hsl(var(--card))" }}>
@@ -766,6 +823,16 @@ export default function FinanceSaleDetail() {
       </div>
 
       {/* ── ITEMS TABLE ── */}
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="font-bold text-sm flex items-center gap-2">
+          <Package className="w-4 h-4 text-muted-foreground" />
+          الطلبيات في الفاتورة
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border"
+            style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--muted-foreground))" }}>
+            {order.items.length} صنف · {totalQty} قطعة
+          </span>
+        </h2>
+      </div>
       <div className="rounded-xl border overflow-hidden mb-5" style={{ borderColor: "#B2DFDB" }}>
         <table className="w-full text-sm">
           <thead>
