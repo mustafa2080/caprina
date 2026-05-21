@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Plus, ShoppingBag, Trash2, ChevronRight, Search, X,
   SlidersHorizontal, FileSpreadsheet, Package, Wallet, TrendingUp, Clock, UserCheck,
-  ShoppingCart, Printer, CheckCircle2, ArrowRightLeft
+  ShoppingCart, Printer, CheckCircle2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -26,11 +26,11 @@ const api = {
 
 // ── ألوان الحالات ──────────────────────────────────────────────────────────
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  draft:      { label: "مسودة",         color: "bg-muted/50 text-muted-foreground border-border" },
-  confirmed:  { label: "مؤكد",          color: "bg-blue-500/15 text-blue-400 border-blue-500/30" },
-  processing: { label: "جاري التجهيز",  color: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
-  delivered:  { label: "تم التسليم",    color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
-  closed:     { label: "مُغلَق",         color: "bg-purple-500/15 text-purple-400 border-purple-500/30" },
+  draft:      { label: "قيد التجهيز",   color: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
+  confirmed:  { label: "قيد التجهيز",   color: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
+  processing: { label: "قيد التجهيز",   color: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
+  delivered:  { label: "قيد التجهيز",   color: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
+  closed:     { label: "تم التسليم ✓",  color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
   cancelled:  { label: "ملغي",          color: "bg-rose-500/15 text-rose-400 border-rose-500/30" },
 };
 
@@ -632,15 +632,6 @@ function SORow({ order, onEdit, onDelete, onTransferToTreasury, onView, warehous
       </td>
       <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
         <div className="flex gap-1 flex-wrap">
-          <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => onEdit(order)}>تعديل</Button>
-
-          {!["closed","cancelled"].includes(order.status) && (
-            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-emerald-400 hover:bg-emerald-500/10"
-              title="إغلاق وتحويل للخزينة"
-              onClick={() => onTransferToTreasury(order)}>
-              <ArrowRightLeft className="w-3 h-3" />
-            </Button>
-          )}
           {!["delivered","closed"].includes(order.status) && (
             <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-rose-500 hover:bg-rose-500/10"
               onClick={() => onDelete(order.id)}><Trash2 className="w-3 h-3" /></Button>
