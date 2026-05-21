@@ -77,13 +77,16 @@ function ActiveTxShape(props: any) {
   const label = TX_LABELS[payload.type] ?? payload.type;
   return (
     <g tabIndex={-1} style={{ outline: "none" }}>
-      {/* Glow ring */}
-      <Sector cx={cx} cy={cy} innerRadius={outerRadius + 5} outerRadius={outerRadius + 9}
-        startAngle={startAngle} endAngle={endAngle} fill={fill} opacity={0.2} cornerRadius={6} />
-      {/* Main segment */}
-      <Sector cx={cx} cy={cy} innerRadius={innerRadius - 4} outerRadius={outerRadius + 7}
-        startAngle={startAngle} endAngle={endAngle} fill={fill} cornerRadius={6}
-        tabIndex={-1} style={{ outline: "none" }} />
+      {/* Glow ring — أكبر وأنعم */}
+      <Sector cx={cx} cy={cy} innerRadius={outerRadius + 4} outerRadius={outerRadius + 10}
+        startAngle={startAngle} endAngle={endAngle} fill={fill} opacity={0.18} cornerRadius={8} />
+      {/* Outer glow soft ring */}
+      <Sector cx={cx} cy={cy} innerRadius={outerRadius + 10} outerRadius={outerRadius + 16}
+        startAngle={startAngle} endAngle={endAngle} fill={fill} opacity={0.07} cornerRadius={8} />
+      {/* Main segment — expanded */}
+      <Sector cx={cx} cy={cy} innerRadius={innerRadius - 5} outerRadius={outerRadius + 8}
+        startAngle={startAngle} endAngle={endAngle} fill={fill} cornerRadius={7}
+        tabIndex={-1} style={{ outline: "none", filter: `drop-shadow(0 0 8px ${fill}88)` }} />
       {/* Center texts */}
       <text x={cx} y={cy - 14} textAnchor="middle" fill="hsl(var(--foreground))"
         fontSize={26} fontWeight={900} fontFamily="inherit" style={{ pointerEvents: "none", userSelect: "none" }}>
@@ -94,7 +97,7 @@ function ActiveTxShape(props: any) {
         {label}
       </text>
       <text x={cx} y={cy + 26} textAnchor="middle" fill={fill}
-        fontSize={13} fontWeight={800} fontFamily="inherit" style={{ pointerEvents: "none", userSelect: "none" }}>
+        fontSize={14} fontWeight={900} fontFamily="inherit" style={{ pointerEvents: "none", userSelect: "none" }}>
         {`${(percent * 100).toFixed(0)}%`}
       </text>
     </g>
@@ -120,17 +123,23 @@ function TxPctLabel({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any
 function TxDonut({ data }: { data: { type: string; total: number; count: number }[] }) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const total = data.reduce((s, t) => s + t.count, 0);
+  const isActive = activeIndex !== null;
 
   return (
     <div className="space-y-4">
       {/* Donut */}
       <div className="relative" style={{ height: 230 }}>
-        {activeIndex === null && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
-            <p className="text-4xl font-black text-foreground leading-none">{total}</p>
-            <p className="text-xs text-muted-foreground mt-1">إجمالي الحركات</p>
-          </div>
-        )}
+        {/* Center overlay — fade بدل snap */}
+        <div
+          className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10"
+          style={{
+            opacity: isActive ? 0 : 1,
+            transition: "opacity 200ms ease",
+          }}
+        >
+          <p className="text-4xl font-black text-foreground leading-none">{total}</p>
+          <p className="text-xs text-muted-foreground mt-1">إجمالي الحركات</p>
+        </div>
         <ResponsiveContainer width="100%" height="100%">
           <PieChart tabIndex={-1} style={{ outline: "none" }}>
             <Pie
@@ -144,7 +153,7 @@ function TxDonut({ data }: { data: { type: string; total: number; count: number 
               startAngle={90}
               endAngle={-270}
               labelLine={false}
-              label={activeIndex === null ? <TxPctLabel /> : undefined}
+              label={!isActive ? <TxPctLabel /> : undefined}
               activeIndex={activeIndex ?? undefined}
               activeShape={ActiveTxShape}
               animationBegin={0}
@@ -152,7 +161,7 @@ function TxDonut({ data }: { data: { type: string; total: number; count: number 
               animationEasing="ease-out"
               onMouseEnter={(_, index) => setActiveIndex(index)}
               onMouseLeave={() => setActiveIndex(null)}
-              style={{ outline: "none" }}
+              style={{ outline: "none", cursor: "pointer" }}
             >
               {data.map((_, i) => (
                 <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
@@ -168,10 +177,24 @@ function TxDonut({ data }: { data: { type: string; total: number; count: number 
           const color = PIE_COLORS[i % PIE_COLORS.length];
           const pct = Math.round((t.count / total) * 100);
           const bg = color + "18";
+          const isHighlighted = activeIndex === i;
+          const isDimmed = activeIndex !== null && !isHighlighted;
           return (
-            <div key={t.type} className="flex items-center gap-3 rounded-lg px-2 py-1"
-              style={{ background: "transparent", border: "1px solid transparent" }}>
-              <span className="w-3 h-3 rounded-full shrink-0" style={{ background: color }} />
+            <div
+              key={t.type}
+              className="flex items-center gap-3 rounded-lg px-2 py-1"
+              onMouseEnter={() => setActiveIndex(i)}
+              onMouseLeave={() => setActiveIndex(null)}
+              style={{
+                background: isHighlighted ? bg : "transparent",
+                border: isHighlighted ? `1px solid ${color}44` : "1px solid transparent",
+                opacity: isDimmed ? 0.4 : 1,
+                transition: "all 200ms ease",
+                cursor: "pointer",
+              }}
+            >
+              <span className="w-3 h-3 rounded-full shrink-0"
+                style={{ background: color, boxShadow: isHighlighted ? `0 0 6px ${color}` : "none", transition: "box-shadow 200ms ease" }} />
               <span className="text-xs font-semibold text-foreground flex-1 truncate">
                 {TX_LABELS[t.type] ?? t.type}
               </span>
