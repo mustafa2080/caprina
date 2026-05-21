@@ -765,6 +765,44 @@ export default function Dashboard() {
               </div>
             )}
           </Card>
+
+          {/* أحدث العملاء */}
+          {recentClients.length > 0 && (
+            <Card className="border-border overflow-hidden">
+              <CardHeader className="py-2.5 sm:py-3 px-3 sm:px-4 border-b border-border">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2">
+                    <Users className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-muted-foreground" />أحدث العملاء
+                  </CardTitle>
+                  <Link href="/finance/clients" className="text-[10px] sm:text-xs text-primary hover:underline">عرض الكل ←</Link>
+                </div>
+              </CardHeader>
+              <div className="divide-y divide-border">
+                {recentClients.slice(0, 5).map((c: any) => (
+                  <Link key={c.id} href={`/finance/clients/${c.id}`}
+                    className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 hover:bg-muted/20 transition-colors">
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-muted/20 border border-border/50 flex items-center justify-center text-lg sm:text-xl shrink-0">
+                      {c.avatar || "🧑‍💼"}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs sm:text-sm font-semibold truncate">{c.name}</p>
+                      <p className="text-[10px] sm:text-[11px] text-muted-foreground truncate">{c.email || c.phone || c.city || "—"}</p>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground shrink-0">
+                      {c.createdAt ? (() => {
+                        const mins = Math.floor((Date.now() - new Date(c.createdAt).getTime()) / 60000);
+                        if (mins < 60) return `منذ ${mins} د`;
+                        const hrs = Math.floor(mins / 60);
+                        if (hrs < 24) return `منذ ${hrs} س`;
+                        return `منذ ${Math.floor(hrs / 24)} ي`;
+                      })() : "—"}
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            </Card>
+          )}
+
         </div>
 
         {/* RIGHT SIDEBAR */}
@@ -930,54 +968,7 @@ export default function Dashboard() {
             </Card>
           )}
         </div>
-
-        {/* ── أحدث العملاء ─────────────────────────────────────────── */}
-        {recentClients.length > 0 && (
-          <div className="mt-4">
-            <Card className="border-border bg-card">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-bold">أحدث العملاء</h3>
-                  <Link href="/finance/clients">
-                    <button className="text-[11px] text-muted-foreground hover:text-primary transition-colors border border-border hover:border-primary rounded-lg px-2.5 py-1">
-                      عرض الكل
-                    </button>
-                  </Link>
-                </div>
-                <div className="space-y-1">
-                  {recentClients.slice(0, 5).map((c: any) => (
-                    <Link key={c.id} href={`/finance/clients/${c.id}`}>
-                      <div className="flex items-center gap-3 px-2 py-2.5 rounded-xl hover:bg-muted/10 transition-colors cursor-pointer group">
-                        <div className="w-9 h-9 rounded-full bg-muted/10 border border-border/50 flex items-center justify-center text-xl shrink-0 group-hover:border-primary/40 transition-colors">
-                          {c.avatar || "🧑‍💼"}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-bold truncate">{c.name}</p>
-                          <p className="text-[10px] text-muted-foreground truncate">{c.email || c.phone || c.city || "—"}</p>
-                        </div>
-                        <div className="text-left shrink-0">
-                          <p className="text-[10px] text-muted-foreground">
-                            {c.createdAt ? (() => {
-                              const diff = Date.now() - new Date(c.createdAt).getTime();
-                              const mins = Math.floor(diff / 60000);
-                              if (mins < 60) return `منذ ${mins} دقيقة`;
-                              const hrs = Math.floor(mins / 60);
-                              if (hrs < 24) return `منذ ${hrs} ساعة`;
-                              return `منذ ${Math.floor(hrs / 24)} يوم`;
-                            })() : "—"}
-                          </p>
-                        </div>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
       </div>
-    </div>
 
     {showDamagedModal && <DamagedOrdersModal onClose={() => setShowDamagedModal(false)} />}
     </>
