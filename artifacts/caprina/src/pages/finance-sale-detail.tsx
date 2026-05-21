@@ -604,16 +604,35 @@ export default function FinanceSaleDetail() {
             </span>
           )}
 
-          {/* ── زرار حذف الفاتورة — شفاف ── */}
+          {/* ── فاصل + زرار حذف الفاتورة ── */}
+          <div style={{ width: "1px", height: "20px", background: "#333", margin: "0 2px", flexShrink: 0 }} />
           <button
             onClick={() => setShowDeleteInvoice(true)}
-            className="flex items-center justify-center w-8 h-8 rounded-full transition-all duration-200"
-            style={{ background: "transparent", color: "rgba(239,83,80,0.45)", border: "none" }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(183,28,28,0.18)"; (e.currentTarget as HTMLButtonElement).style.color = "#EF5350"; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; (e.currentTarget as HTMLButtonElement).style.color = "rgba(239,83,80,0.45)"; }}
+            className="flex items-center gap-1.5 rounded-lg text-xs font-bold transition-all duration-200"
+            style={{
+              background: "transparent",
+              border: "1px solid rgba(239,83,80,0.25)",
+              color: "rgba(239,83,80,0.5)",
+              padding: "6px 10px",
+            }}
+            onMouseEnter={e => {
+              const b = e.currentTarget as HTMLButtonElement;
+              b.style.background = "rgba(183,28,28,0.2)";
+              b.style.borderColor = "#EF5350";
+              b.style.color = "#EF5350";
+              b.style.boxShadow = "0 0 8px rgba(239,83,80,0.25)";
+            }}
+            onMouseLeave={e => {
+              const b = e.currentTarget as HTMLButtonElement;
+              b.style.background = "transparent";
+              b.style.borderColor = "rgba(239,83,80,0.25)";
+              b.style.color = "rgba(239,83,80,0.5)";
+              b.style.boxShadow = "none";
+            }}
             title="حذف الفاتورة"
           >
             <Trash2 className="w-3.5 h-3.5" />
+            حذف
           </button>
         </div>
       </div>
