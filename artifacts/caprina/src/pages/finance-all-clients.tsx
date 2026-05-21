@@ -294,7 +294,9 @@ export default function AllClientsPage() {
           const pct    = sales > 0 ? Math.round((paid / sales) * 100) : 0;
           return (
             <div key={c.id}
-              className="grid grid-cols-12 gap-2 px-4 py-3 border-b border-border/50 hover:bg-muted/10 transition-colors items-center group">
+              className="grid grid-cols-12 gap-2 px-4 py-3 border-b border-border/50 hover:bg-muted/10 transition-colors items-center group cursor-pointer"
+              onClick={() => navigate(`/finance/clients/${c.id}`)}>
+
 
               {/* اسم + تليفون */}
               <div className="col-span-3 flex items-center gap-2 min-w-0">
@@ -355,11 +357,7 @@ export default function AllClientsPage() {
 
               {/* إجراءات */}
               <div className="col-span-1 flex justify-end">
-                <Button variant="ghost" size="sm"
-                  className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                  onClick={() => navigate(`/finance/clients/${c.id}`)}>
-                  <Eye className="w-3.5 h-3.5" />
-                </Button>
+                <Eye className="w-3.5 h-3.5 text-muted-foreground/40 opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
             </div>
           );
