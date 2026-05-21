@@ -947,7 +947,7 @@ export default function FinanceSaleDetail() {
       </div>
 
       {/* ── ITEMS TABLE ── */}
-      <div className="mb-2 flex items-center justify-between">
+      <div className="mb-2 flex items-center justify-between flex-wrap gap-2">
         <h2 className="font-bold text-sm flex items-center gap-2">
           <Package className="w-4 h-4 text-muted-foreground" />
           الطلبيات في الفاتورة
@@ -956,17 +956,27 @@ export default function FinanceSaleDetail() {
             {order.items.length} صنف · {totalQty} قطعة
           </span>
         </h2>
-        {order.status !== "closed" && order.status !== "cancelled" && (
-          <button
-            onClick={() => { setShowAddItem(true); setAddProductId(""); setAddColor(""); setAddSize(""); setAddQty(1); setAddPrice(0); }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200"
-            style={{ background: "transparent", border: "1px solid hsl(43,74%,50%)", color: "hsl(43,74%,50%)" }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(184,134,11,0.12)"; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-          >
-            <span style={{ fontSize: 14, lineHeight: 1 }}>＋</span> إضافة صنف
-          </button>
-        )}
+        <button
+          onClick={() => { setShowAddItem(true); setAddProductId(""); setAddColor(""); setAddSize(""); setAddQty(1); setAddPrice(0); }}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200"
+          style={{
+            background: "rgba(184,134,11,0.12)",
+            border: "1px solid hsl(43,74%,50%)",
+            color: "hsl(43,74%,50%)",
+            boxShadow: "0 0 0 0 transparent",
+          }}
+          onMouseEnter={e => {
+            (e.currentTarget as HTMLElement).style.background = "rgba(184,134,11,0.22)";
+            (e.currentTarget as HTMLElement).style.boxShadow = "0 0 10px rgba(184,134,11,0.2)";
+          }}
+          onMouseLeave={e => {
+            (e.currentTarget as HTMLElement).style.background = "rgba(184,134,11,0.12)";
+            (e.currentTarget as HTMLElement).style.boxShadow = "none";
+          }}
+        >
+          <span style={{ fontSize: 16, fontWeight: 900, lineHeight: 1 }}>+</span>
+          إضافة صنف
+        </button>
       </div>
       <div className="rounded-xl border overflow-hidden mb-5" style={{ borderColor: "#B2DFDB" }}>
         <table className="w-full text-sm">
