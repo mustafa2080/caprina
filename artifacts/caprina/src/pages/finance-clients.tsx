@@ -319,7 +319,7 @@ export default function FinanceClients() {
     [allOrders, search]
   );
 
-  const tableData = activeTab === "clients" ? filteredClients : activeTab === "orders" ? filteredOrders : [];
+  const tableData = activeTab === "clients" ? filteredClients : activeTab === "invoices" ? allOrders : filteredOrders;
   const totalPages = Math.ceil(tableData.length / PER_PAGE);
   const pageData   = tableData.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
@@ -604,9 +604,53 @@ export default function FinanceClients() {
         )}
 
         {activeTab === "invoices" && (
-          <div className="py-10 text-center text-muted-foreground text-sm">
-            <Receipt className="w-10 h-10 mx-auto mb-2 opacity-20" />
-            <p>سيتم عرض الفواتير هنا</p>
+          <>
+            {/* headers */}
+            <div className="grid grid-cols-6 gap-2 px-4 py-2 text-[10px] font-bold text-muted-foreground border-b border-border bg-muted/5">
+              <span>رقم الفاتورة</span>
+              <span className="col-span-2">العميل</span>
+              <span>الإجمالي</span>
+              <span>حالة الدفع</span>
+              <span>التاريخ</span>
+            </div>
+            <div>
+              {(pageData as SaleOrder[]).length === 0 ? (
+                <div className="py-10 text-center text-muted-foreground text-sm">
+                  <Receipt className="w-10 h-10 mx-auto mb-2 opacity-20" />
+                  <p>لا توجد فواتير</p>
+                </div>
+              ) : (pageData as SaleOrder[]).map(o => {
+                const paid = o.paymentStatus === "paid";
+                const partial = o.paymentStatus === "partial";
+                const unpaid = Math.max(0, parseFloat(o.totalAmount) - (paid ? parseFloat(o.totalAmount) : parseFloat(o.paidAmount ?? "0")));
+                return (
+                  <div key={o.id} className="grid grid-cols-6 gap-2 px-4 py-3 border-b border-border/50 hover:bg-muted/10 transition-colors items-center">
+                    <span className="text-xs font-bold text-primary">{o.soNumber}</span>
+                    <div className="col-span-2 flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-muted/30 flex items-center justify-center shrink-0">
+                        <Users className="w-3 h-3 text-muted-foreground" />
+                      </div>
+                      <span className="text-xs font-bold">{o.clientName}</span>
+                    </div>
+                    <span className="text-xs font-bold">{fmt(o.totalAmount)}</span>
+                    <div>
+                      {paid ? (
+                        <Badge variant="outline" className="text-[9px] border-emerald-700 bg-emerald-900/20 text-emerald-400">مدفوع</Badge>
+                      ) : partial ? (
+                        <div>
+                          <Badge variant="outline" className="text-[9px] border-amber-700 bg-amber-900/20 text-amber-400 mb-0.5">جزئي</Badge>
+                          <p className="text-[9px] text-red-400">{fmt(unpaid)} متبقي</p>
+                        </div>
+                      ) : (
+                        <Badge variant="outline" className="text-[9px] border-red-700 bg-red-900/20 text-red-400">غير مدفوع</Badge>
+                      )}
+                    </div>
+                    <span className="text-[10px] text-muted-foreground">{o.createdAt ? new Date(o.createdAt).toLocaleDateString("ar-EG") : "—"}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </>
           </div>
         )}
 
