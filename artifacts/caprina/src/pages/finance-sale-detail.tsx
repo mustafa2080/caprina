@@ -197,13 +197,21 @@ ${order.notes?`<div style="background:#fdf6e3;border:1px solid #e6c84b;border-ra
   <div class="sig-block"><div class="sig-line"></div><div class="sig-lbl">توقيع المندوب — الاسم: ___________</div></div>
   <div class="sig-block"><div class="sig-line"></div><div class="sig-lbl">توقيع المسؤول — الاسم: ___________</div></div>
 </div>
-<div class="no-print" style="text-align:center;margin-top:28px">
-  <button onclick="window.print()" style="padding:10px 32px;background:hsl(43,74%,50%);color:#0a0a0a;border:none;border-radius:8px;cursor:pointer;font-size:15px;font-weight:700">🖨️ طباعة / حفظ PDF</button>
-</div>
 </body></html>`;
 
-  const w = window.open("", "_blank");
-  if (w) { w.document.write(html); w.document.close(); }
+  // حفظ PDF مباشرة بدون فتح preview — iframe مخفي
+  const iframe = document.createElement("iframe");
+  iframe.style.cssText = "position:fixed;top:-9999px;left:-9999px;width:210mm;height:297mm;border:none";
+  document.body.appendChild(iframe);
+  const iDoc = iframe.contentDocument || iframe.contentWindow?.document;
+  if (iDoc) {
+    iDoc.open(); iDoc.write(html); iDoc.close();
+    setTimeout(() => {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+      setTimeout(() => document.body.removeChild(iframe), 1500);
+    }, 500);
+  }
 }
 
 // ── Dropdown مشترك للتغيير السريع ─────────────────────────────────────────
