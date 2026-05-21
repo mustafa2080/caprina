@@ -1558,6 +1558,14 @@ export default function FinanceSales() {
                       {(fromDate||toDate) && <button className="w-full text-xs text-rose-400 py-1" onClick={() => { setFromDate(""); setToDate(""); setOpenCol(null); }}>مسح</button>}
                     </div>
                   </ColFilter>
+                <th className="px-3 py-3 text-right">
+                  <ColFilter label="الحالة" active={filterStatus!=="all"} visible={colFilters}
+                    isOpen={openCol==="status"} onToggle={() => setOpenCol(p => p==="status" ? null : "status")}>
+                    <div className="py-1">
+                      {fi("الكل", filterStatus==="all", () => setFilterStatus("all"))}
+                      {Object.entries(STATUS_LABELS).map(([k,v]) => fi(v.label, filterStatus===k, () => setFilterStatus(k)))}
+                    </div>
+                  </ColFilter>
                 </th>
                 <th className="px-3 py-3 text-right text-xs font-semibold text-muted-foreground">إجراءات</th>
               </tr>

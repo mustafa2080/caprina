@@ -312,6 +312,53 @@ export default function FinanceSaleDetail() {
   const [showDeleteInvoice,  setShowDeleteInvoice]  = useState(false);
   const [isDeletingInvoice,  setIsDeletingInvoice]  = useState(false);
 
+  // ── إضافة صنف جديد للفاتورة ──────────────────────────────────────────────
+  const [showAddItem,  setShowAddItem]  = useState(false);
+  const [addProductId, setAddProductId] = useState<string>("");
+  const [addColor,     setAddColor]     = useState<string>("");
+  const [addSize,      setAddSize]      = useState<string>("");
+  const [addQty,       setAddQty]       = useState<number>(1);
+  const [addPrice,     setAddPrice]     = useState<number>(0);
+  const [addSaving,    setAddSaving]    = useState(false);
+
+  const handleAddProduct = (pid: string) => {
+    const colors = colorsOf(pid);
+    const color  = colors[0] ?? "";
+    const sizes  = color ? sizesOf(pid, color) : [];
+    const size   = sizes[0] ?? "";
+    const v      = color && size ? matchVariant(pid, color, size) : undefined;
+    setAddProductId(pid); setAddColor(color); setAddSize(size);
+    if (v) setAddPrice(parseFloat(v.unitPrice)); else setAddPrice(0);
+  };
+  const handleAddColor = (color: string) => {
+    const sizes = sizesOf(addProductId, color);
+    const size  = sizes[0] ?? "";
+    const v     = size ? matchVariant(addProductId, color, size) : undefined;
+    setAddColor(color); setAddSize(size);
+    if (v) setAddPrice(parseFloat(v.unitPrice));
+  };
+  const handleAddSize = (size: string) => {
+    const v = matchVariant(addProductId, addColor, size);
+    setAddSize(size);
+    if (v) setAddPrice(parseFloat(v.unitPrice));
+  };
+  const handleSaveAddItem = async () => {
+    if (!order || !addProductId || !addColor || !addSize || addQty < 1) return;
+    const v = matchVariant(addProductId, addColor, addSize);
+    if (!v) return;
+    setAddSaving(true);
+    try {
+      const updated = await apiFetch<SaleOrder>(`/finance/sale-orders/${order.id}/items`, {
+        method: "POST",
+        body: JSON.stringify({ variantId: v.id, quantity: addQty, unitPrice: addPrice }),
+      });
+      setOrder(updated);
+      setShowAddItem(false);
+      setAddProductId(""); setAddColor(""); setAddSize(""); setAddQty(1); setAddPrice(0);
+    } catch (e: any) { alert("خطأ: " + e.message); }
+    finally { setAddSaving(false); }
+  };
+
   // عند اختيار منتج جديد في التعديل
   const handleEditProduct = (pid: string) => {
     const p      = allProducts.find(x => String(x.id) === pid);
@@ -909,6 +956,17 @@ export default function FinanceSaleDetail() {
             {order.items.length} صنف · {totalQty} قطعة
           </span>
         </h2>
+        {order.status !== "closed" && order.status !== "cancelled" && (
+          <button
+            onClick={() => { setShowAddItem(true); setAddProductId(""); setAddColor(""); setAddSize(""); setAddQty(1); setAddPrice(0); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200"
+            style={{ background: "transparent", border: "1px solid hsl(43,74%,50%)", color: "hsl(43,74%,50%)" }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(184,134,11,0.12)"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+          >
+            <span style={{ fontSize: 14, lineHeight: 1 }}>＋</span> إضافة صنف
+          </button>
+        )}
       </div>
       <div className="rounded-xl border overflow-hidden mb-5" style={{ borderColor: "#B2DFDB" }}>
         <table className="w-full text-sm">
@@ -1069,6 +1127,127 @@ export default function FinanceSaleDetail() {
                 className="flex-1 py-2 rounded-lg text-sm font-bold hover:opacity-85 transition-opacity"
                 style={{ background: "#B71C1C", color: "#ffd5d5" }}>
                 {itemSaving ? "جارٍ…" : "تأكيد الحذف"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL إضافة صنف ── */}
+      {showAddItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.6)" }}>
+          <div className="rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl" style={{ background: "hsl(var(--card))" }} dir="rtl">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-full flex items-center justify-center"
+                  style={{ background: "rgba(184,134,11,0.12)" }}>
+                  <Package className="w-4 h-4" style={{ color: "hsl(43,74%,50%)" }} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold">إضافة صنف جديد</h3>
+                  <p className="text-[10px] text-muted-foreground">إضافة منتج للفاتورة {order.soNumber}</p>
+                </div>
+              </div>
+              <button onClick={() => setShowAddItem(false)}
+                className="p-1.5 rounded-lg hover:bg-muted/40 transition-colors"
+                style={{ color: "hsl(var(--muted-foreground))" }}>
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* المنتج */}
+            <div className="mb-3">
+              <label className="block text-xs font-semibold mb-1 text-muted-foreground">المنتج</label>
+              <select
+                className="w-full px-3 py-2 rounded-xl border text-sm outline-none"
+                style={{ background: "hsl(var(--background))", borderColor: addProductId ? "hsl(43,74%,50%)" : "hsl(var(--border))", color: "hsl(var(--foreground))" }}
+                value={addProductId}
+                onChange={e => handleAddProduct(e.target.value)}
+              >
+                <option value="">— اختر منتج —</option>
+                {allProducts.map(p => <option key={p.id} value={String(p.id)}>{p.name}</option>)}
+              </select>
+            </div>
+
+            {/* اللون والمقاس */}
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div>
+                <label className="block text-xs font-semibold mb-1 text-muted-foreground">اللون</label>
+                <select
+                  className="w-full px-3 py-2 rounded-xl border text-sm outline-none"
+                  style={{ background: "hsl(var(--background))", borderColor: "hsl(var(--border))", color: "hsl(var(--foreground))", opacity: !addProductId ? 0.5 : 1 }}
+                  value={addColor}
+                  disabled={!addProductId}
+                  onChange={e => handleAddColor(e.target.value)}
+                >
+                  <option value="">— لون —</option>
+                  {colorsOf(addProductId).map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold mb-1 text-muted-foreground">المقاس</label>
+                <select
+                  className="w-full px-3 py-2 rounded-xl border text-sm outline-none"
+                  style={{ background: "hsl(var(--background))", borderColor: "hsl(var(--border))", color: "hsl(var(--foreground))", opacity: !addColor ? 0.5 : 1 }}
+                  value={addSize}
+                  disabled={!addColor}
+                  onChange={e => handleAddSize(e.target.value)}
+                >
+                  <option value="">— مقاس —</option>
+                  {sizesOf(addProductId, addColor).map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* الكمية والسعر */}
+            <div className="grid grid-cols-2 gap-3 mb-5">
+              <div>
+                <label className="block text-xs font-semibold mb-1 text-muted-foreground">الكمية</label>
+                <input
+                  type="number" min={1}
+                  className="w-full px-3 py-2 rounded-xl border text-sm text-center font-bold outline-none"
+                  style={{ background: "hsl(var(--background))", borderColor: "hsl(var(--border))", color: "hsl(var(--foreground))" }}
+                  value={addQty}
+                  onChange={e => setAddQty(Math.max(1, Number(e.target.value) || 1))}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold mb-1 text-muted-foreground">السعر (ج)</label>
+                <input
+                  type="number" min={0}
+                  className="w-full px-3 py-2 rounded-xl border text-sm text-center font-bold outline-none"
+                  style={{ background: "hsl(var(--background))", borderColor: "hsl(var(--border))", color: "hsl(var(--foreground))" }}
+                  value={addPrice}
+                  onChange={e => setAddPrice(Number(e.target.value) || 0)}
+                />
+              </div>
+            </div>
+
+            {/* الإجمالي */}
+            {addQty > 0 && addPrice > 0 && (
+              <div className="rounded-xl p-3 mb-4 flex justify-between items-center"
+                style={{ background: "rgba(184,134,11,0.08)", border: "1px solid rgba(184,134,11,0.3)" }}>
+                <span className="text-xs text-muted-foreground">الإجمالي:</span>
+                <span className="text-base font-black" style={{ color: "hsl(43,74%,50%)" }}>{fmtNum(addQty * addPrice)} ج</span>
+              </div>
+            )}
+
+            {/* أزرار */}
+            <div className="flex gap-2">
+              <button onClick={() => setShowAddItem(false)} disabled={addSaving}
+                className="flex-1 py-2 rounded-lg text-sm font-semibold border hover:opacity-70 transition-opacity"
+                style={{ borderColor: "hsl(var(--border))" }}>إلغاء</button>
+              <button
+                onClick={handleSaveAddItem}
+                disabled={addSaving || !addProductId || !addColor || !addSize || addQty < 1}
+                className="flex-1 py-2 rounded-lg text-sm font-bold transition-opacity"
+                style={{
+                  background: (!addProductId || !addColor || !addSize) ? "#555" : "hsl(43,74%,50%)",
+                  color: "#0a0a0a",
+                  opacity: addSaving ? 0.6 : 1,
+                }}>
+                {addSaving ? "جارٍ الإضافة…" : "✓ إضافة الصنف"}
               </button>
             </div>
           </div>
