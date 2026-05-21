@@ -265,73 +265,141 @@ export default function FinanceCashAnalyticsPage() {
         </div>
       </div>
 
-      {/* Chart شهري */}
-      <div className="rounded-xl border border-border bg-card p-4">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-1">
-          <p className="text-sm font-bold flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-amber-400"/> التدفق المالي — آخر 6 شهور
-          </p>
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-400"/><span className="hidden sm:inline">مبيعات</span></span>
-            <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-full bg-rose-400"/><span className="hidden sm:inline">مصروفات</span></span>
-          </div>
+      {/* Chart شهري — Glass Style */}
+      <div
+        className="rounded-[26px] p-4 sm:p-5"
+        dir="rtl"
+        style={{
+          background: "hsl(var(--card))",
+          border: "1px solid hsl(var(--border))",
+          boxShadow: "0 4px 24px rgba(0,0,0,0.10)",
+        }}
+      >
+        {/* Stat Cards */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 mb-4">
+          {[
+            {
+              label: "إجمالي الدخل",
+              value: chartData.length > 0 ? fmtFull(chartData.reduce((s,r)=>s+r.in,0)) : "0 ج.م",
+              color: "#FFD54F",
+              glow: "rgba(255,213,79,0.32)",
+              background: "linear-gradient(135deg, rgba(255,213,79,0.42) 0%, rgba(255,213,79,0.16) 52%, rgba(255,255,255,0.08) 100%)",
+            },
+            {
+              label: "إجمالي المصروفات",
+              value: chartData.length > 0 ? fmtFull(chartData.reduce((s,r)=>s+r.out,0)) : "0 ج.م",
+              color: "#f43f5e",
+              glow: "rgba(244,63,94,0.28)",
+              background: "linear-gradient(135deg, rgba(244,63,94,0.40) 0%, rgba(244,63,94,0.16) 52%, rgba(255,255,255,0.08) 100%)",
+            },
+            {
+              label: "صافي التدفق",
+              value: chartData.length > 0 ? fmtFull(chartData.reduce((s,r)=>s+(r.in-r.out),0)) : "0 ج.م",
+              color: "#26A69A",
+              glow: "rgba(38,166,154,0.28)",
+              background: "linear-gradient(135deg, rgba(38,166,154,0.44) 0%, rgba(38,166,154,0.18) 52%, rgba(255,255,255,0.08) 100%)",
+            },
+          ].map((card) => (
+            <div
+              key={card.label}
+              className="relative overflow-hidden rounded-[18px] px-4 py-3.5 text-center"
+              style={{
+                background: card.background,
+                border: `1px solid ${card.glow}`,
+                boxShadow: `inset 0 1px 0 rgba(255,255,255,0.18), 0 10px 24px ${card.glow}`,
+                backdropFilter: "blur(12px)",
+              }}
+            >
+              <div
+                className="absolute inset-x-6 top-0 h-px opacity-80"
+                style={{ background: `linear-gradient(90deg, transparent, ${card.color}, transparent)` }}
+              />
+              <p className="text-[11px] font-bold tracking-tight text-foreground/80">{card.label}</p>
+              <p className="mt-1 truncate text-lg font-black sm:text-xl" style={{ color: card.color, textShadow: `0 0 14px ${card.color}88` }}>
+                {card.value}
+              </p>
+            </div>
+          ))}
         </div>
-        {/* Value */}
-        {chartData.length > 0 && (
-          <div className="mb-3">
-            <p className="text-2xl font-black text-amber-400 leading-none">
-              {fmtFull(chartData.reduce((s, r) => s + r.in, 0))}
-            </p>
-            <p className="text-xs text-muted-foreground mt-0.5">إجمالي الدخل — آخر 6 أيام</p>
-          </div>
-        )}
+
+        {/* Chart Area */}
         {chartData.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground text-sm">لا توجد بيانات كافية</div>
+          <div className="flex h-56 flex-col items-center justify-center gap-2 rounded-[22px] border border-border" style={{ background: "hsl(var(--muted)/0.3)" }}>
+            <span className="text-4xl opacity-20">📊</span>
+            <p className="text-xs text-muted-foreground">لا توجد بيانات كافية</p>
+          </div>
         ) : (
-          <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={chartData} margin={{top:8,right:4,left:0,bottom:0}}>
-              <defs>
-                <linearGradient id="gradIn" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#f59e0b" stopOpacity={0.55}/>
-                  <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.02}/>
-                </linearGradient>
-                <linearGradient id="gradOut" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#f43f5e" stopOpacity={0.35}/>
-                  <stop offset="95%" stopColor="#f43f5e" stopOpacity={0.02}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" opacity={0.08} vertical={false}/>
-              <XAxis
-                dataKey="label"
-                tick={{fontSize:11, fill:"hsl(var(--muted-foreground))"}}
-                axisLine={false} tickLine={false}
-              />
-              <YAxis
-                tick={{fontSize:10, fill:"hsl(var(--muted-foreground))"}}
-                tickFormatter={v=>fmt(v)}
-                axisLine={false} tickLine={false}
-                tickCount={5}
-              />
-              <Tooltip
-                contentStyle={{background:"hsl(var(--card))",border:"1px solid hsl(var(--border))",borderRadius:"8px",fontSize:"12px"}}
-                formatter={(v:any, name:any) => [fmtFull(Number(v)), name==="in"?"دخل":"مصروفات"]}
-                labelFormatter={v=>`${v}`}
-              />
-              <Area
-                type="monotone" dataKey="in" stroke="#f59e0b" strokeWidth={2.5}
-                fill="url(#gradIn)" dot={{r:4, fill:"#f59e0b", strokeWidth:2, stroke:"hsl(var(--background))"}}
-                activeDot={{r:6, fill:"#f59e0b", strokeWidth:2, stroke:"hsl(var(--background))"}}
-                name="in"
-              />
-              <Area
-                type="monotone" dataKey="out" stroke="#f43f5e" strokeWidth={2}
-                fill="url(#gradOut)" dot={{r:3, fill:"#f43f5e", strokeWidth:2, stroke:"hsl(var(--background))"}}
-                activeDot={{r:5, fill:"#f43f5e", strokeWidth:2, stroke:"hsl(var(--background))"}}
-                name="out"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+          <div
+            className="rounded-[22px] px-2 py-3 sm:px-3"
+            style={{ background: "hsl(var(--muted)/0.3)", border: "1px solid hsl(var(--border))" }}
+          >
+            <div className="mb-3 px-2 flex items-center justify-between">
+              <div>
+                <p className="text-[11px] font-bold text-foreground/80">التدفق المالي — آخر 6 شهور</p>
+                <p className="text-[10px] text-muted-foreground">مقارنة الدخل بالمصروفات شهرياً</p>
+              </div>
+              <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <span className="inline-block w-2.5 h-2.5 rounded-full" style={{background:"#FFD54F"}}/>دخل
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-rose-400"/>مصروفات
+                </span>
+              </div>
+            </div>
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={chartData} margin={{top:8,right:8,left:-22,bottom:0}}>
+                <defs>
+                  <linearGradient id="cashGradIn" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor="#FFD54F" stopOpacity={0.55}/>
+                    <stop offset="95%" stopColor="#FFD54F" stopOpacity={0.02}/>
+                  </linearGradient>
+                  <linearGradient id="cashGradOut" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor="#f43f5e" stopOpacity={0.40}/>
+                    <stop offset="95%" stopColor="#f43f5e" stopOpacity={0.02}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="2 5" stroke="hsl(var(--border))" vertical={false}/>
+                <XAxis
+                  dataKey="label"
+                  tick={{fontSize:11, fill:"hsl(var(--muted-foreground))", fontWeight:600}}
+                  axisLine={false} tickLine={false}
+                />
+                <YAxis
+                  tick={{fontSize:10, fill:"hsl(var(--muted-foreground))"}}
+                  tickFormatter={v=>fmt(v)}
+                  axisLine={false} tickLine={false}
+                  tickCount={5}
+                />
+                <Tooltip
+                  contentStyle={{
+                    background:"hsl(var(--card))",
+                    border:"1px solid rgba(255,213,79,0.4)",
+                    borderRadius:"12px",
+                    fontSize:"12px",
+                    direction:"rtl",
+                  }}
+                  formatter={(v:any, name:any) => [fmtFull(Number(v)), name==="in"?"💰 دخل":"💸 مصروفات"]}
+                  labelFormatter={v=>`📅 ${v}`}
+                />
+                <Area
+                  type="monotone" dataKey="in" stroke="#FFD54F" strokeWidth={2.5}
+                  fill="url(#cashGradIn)"
+                  dot={{r:4, fill:"#FFD54F", strokeWidth:2, stroke:"hsl(var(--background))"}}
+                  activeDot={{r:6, fill:"#FFD54F", strokeWidth:2, stroke:"hsl(var(--background))", style:{filter:"drop-shadow(0 0 8px #FFD54F99)"}}}
+                  name="in"
+                  style={{filter:"drop-shadow(0 0 6px #FFD54F66)"}}
+                />
+                <Area
+                  type="monotone" dataKey="out" stroke="#f43f5e" strokeWidth={2}
+                  fill="url(#cashGradOut)"
+                  dot={{r:3, fill:"#f43f5e", strokeWidth:2, stroke:"hsl(var(--background))"}}
+                  activeDot={{r:5, fill:"#f43f5e", strokeWidth:2, stroke:"hsl(var(--background))"}}
+                  name="out"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
         )}
       </div>
 
