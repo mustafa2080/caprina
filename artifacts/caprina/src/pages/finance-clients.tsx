@@ -663,11 +663,6 @@ export default function FinanceClients() {
                         <Button variant="ghost" size="icon" className="h-6 w-6 hover:text-destructive" onClick={e => { e.stopPropagation(); setDeleteClient(c); }}>
                           <Trash2 className="w-3 h-3" />
                         </Button>
-                        <Link href={`/finance/clients/${c.id}`} onClick={e => e.stopPropagation()}>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 hover:text-primary">
-                            <Eye className="w-3 h-3" />
-                          </Button>
-                        </Link>
                       </div>
                     </div>
                   </div>
