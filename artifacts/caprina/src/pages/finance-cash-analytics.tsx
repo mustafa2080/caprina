@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import {
   TrendingUp, TrendingDown, Minus, BarChart3,
   Wallet, RefreshCw, ArrowUpCircle, ArrowDownCircle,
@@ -6,7 +7,7 @@ import {
 } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
-  ResponsiveContainer, CartesianGrid, Legend, PieChart, Pie, Cell,
+  ResponsiveContainer, CartesianGrid, Legend, PieChart, Pie, Cell, Sector,
 } from "recharts";
 import { apiFetch as _apiFetch } from "@/lib/api";
 
@@ -65,6 +66,125 @@ function StatCard({ label, value, sub, pct, color = "emerald" }: { label:string;
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">{sub}</p>
         <PctBadge pct={pct}/>
+      </div>
+    </div>
+  );
+}
+
+// ─── Active Donut Shape (hover expand + glow) ─────────────────────────────────
+function ActiveTxShape(props: any) {
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, percent, value } = props;
+  const label = TX_LABELS[payload.type] ?? payload.type;
+  return (
+    <g tabIndex={-1} style={{ outline: "none" }}>
+      {/* Glow ring */}
+      <Sector cx={cx} cy={cy} innerRadius={outerRadius + 5} outerRadius={outerRadius + 9}
+        startAngle={startAngle} endAngle={endAngle} fill={fill} opacity={0.2} cornerRadius={6} />
+      {/* Main segment */}
+      <Sector cx={cx} cy={cy} innerRadius={innerRadius - 4} outerRadius={outerRadius + 7}
+        startAngle={startAngle} endAngle={endAngle} fill={fill} cornerRadius={6}
+        tabIndex={-1} style={{ outline: "none" }} />
+      {/* Center texts */}
+      <text x={cx} y={cy - 14} textAnchor="middle" fill="hsl(var(--foreground))"
+        fontSize={26} fontWeight={900} fontFamily="inherit" style={{ pointerEvents: "none", userSelect: "none" }}>
+        {value}
+      </text>
+      <text x={cx} y={cy + 8} textAnchor="middle" fill="hsl(var(--muted-foreground))"
+        fontSize={10} fontFamily="inherit" style={{ pointerEvents: "none", userSelect: "none" }}>
+        {label}
+      </text>
+      <text x={cx} y={cy + 26} textAnchor="middle" fill={fill}
+        fontSize={13} fontWeight={800} fontFamily="inherit" style={{ pointerEvents: "none", userSelect: "none" }}>
+        {`${(percent * 100).toFixed(0)}%`}
+      </text>
+    </g>
+  );
+}
+
+// ─── Percent label inside each slice ─────────────────────────────────────────
+function TxPctLabel({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) {
+  if (percent < 0.07) return null;
+  const RADIAN = Math.PI / 180;
+  const r = innerRadius + (outerRadius - innerRadius) * 0.55;
+  const x = cx + r * Math.cos(-midAngle * RADIAN);
+  const y = cy + r * Math.sin(-midAngle * RADIAN);
+  return (
+    <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central"
+      fontSize={11} fontWeight={700} style={{ filter: "drop-shadow(0 1px 1px rgba(0,0,0,0.4))" }}>
+      {`${(percent * 100).toFixed(0)}%`}
+    </text>
+  );
+}
+
+// ─── TxDonut — مكوّن الدائرة الكاملة ─────────────────────────────────────────
+function TxDonut({ data }: { data: { type: string; total: number; count: number }[] }) {
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const total = data.reduce((s, t) => s + t.count, 0);
+
+  return (
+    <div className="space-y-4">
+      {/* Donut */}
+      <div className="relative" style={{ height: 230 }}>
+        {activeIndex === null && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
+            <p className="text-4xl font-black text-foreground leading-none">{total}</p>
+            <p className="text-xs text-muted-foreground mt-1">إجمالي الحركات</p>
+          </div>
+        )}
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart tabIndex={-1} style={{ outline: "none" }}>
+            <Pie
+              data={data}
+              cx="50%" cy="50%"
+              innerRadius="50%" outerRadius="76%"
+              paddingAngle={3}
+              dataKey="count"
+              stroke="none"
+              cornerRadius={5}
+              startAngle={90}
+              endAngle={-270}
+              labelLine={false}
+              label={activeIndex === null ? <TxPctLabel /> : undefined}
+              activeIndex={activeIndex ?? undefined}
+              activeShape={ActiveTxShape}
+              animationBegin={0}
+              animationDuration={700}
+              animationEasing="ease-out"
+              onMouseEnter={(_, index) => setActiveIndex(index)}
+              onMouseLeave={() => setActiveIndex(null)}
+              style={{ outline: "none" }}
+            >
+              {data.map((_, i) => (
+                <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+              ))}
+            </Pie>
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Legend */}
+      <div className="space-y-1.5">
+        {data.map((t, i) => {
+          const color = PIE_COLORS[i % PIE_COLORS.length];
+          const pct = Math.round((t.count / total) * 100);
+          const bg = color + "18";
+          return (
+            <div key={t.type} className="flex items-center gap-3 rounded-lg px-2 py-1"
+              style={{ background: "transparent", border: "1px solid transparent" }}>
+              <span className="w-3 h-3 rounded-full shrink-0" style={{ background: color }} />
+              <span className="text-xs font-semibold text-foreground flex-1 truncate">
+                {TX_LABELS[t.type] ?? t.type}
+              </span>
+              <span className="text-xs font-bold px-2 py-0.5 rounded-md shrink-0"
+                style={{ background: bg, color }}>
+                {t.count}
+              </span>
+              <span className="text-xs font-black w-8 text-right shrink-0" style={{ color }}>
+                {pct}%
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -145,76 +265,16 @@ export default function FinanceCashAnalyticsPage() {
       {/* توزيع + مقارنة الخزن */}
       <div className="grid gap-4 lg:grid-cols-2">
 
-        {/* Donut Chart توزيع نوع الحركة */}
+        {/* Donut Chart توزيع نوع الحركة — احترافي */}
         <div className="rounded-xl border border-border bg-card p-4">
           <p className="text-sm font-bold mb-4 flex items-center gap-2">
             <Activity className="w-4 h-4 text-purple-500"/> توزيع الحركات (الشهر الحالي)
           </p>
           {typeBreakdown.length === 0 ? (
             <div className="text-center py-10 text-muted-foreground text-sm">لا توجد حركات هذا الشهر</div>
-          ) : (() => {
-            const total = typeBreakdown.reduce((s, t) => s + t.count, 0);
-            return (
-              <div className="flex flex-col items-center gap-4">
-                {/* Donut + رقم في المنتصف */}
-                <div className="relative">
-                  <ResponsiveContainer width={200} height={200}>
-                    <PieChart>
-                      <Pie
-                        data={typeBreakdown}
-                        dataKey="count"
-                        nameKey="type"
-                        cx="50%" cy="50%"
-                        outerRadius={90}
-                        innerRadius={58}
-                        paddingAngle={2}
-                        strokeWidth={0}
-                      >
-                        {typeBreakdown.map((_,i) => (
-                          <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]}/>
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{ background:"hsl(var(--card))", border:"1px solid hsl(var(--border))", borderRadius:8, fontSize:11 }}
-                        formatter={(v:any, _:any, props:any) => [
-                          `${v} حركة (${Math.round((v/total)*100)}%)`,
-                          TX_LABELS[props.payload.type] ?? props.payload.type
-                        ]}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  {/* رقم المجموع في المنتصف */}
-                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <span className="text-3xl font-black text-foreground">{total}</span>
-                    <span className="text-[10px] text-muted-foreground">إجمالي الحركات</span>
-                  </div>
-                </div>
-
-                {/* Legend بالنسب */}
-                <div className="w-full space-y-2">
-                  {typeBreakdown.map((t, i) => {
-                    const pct = Math.round((t.count / total) * 100);
-                    return (
-                      <div key={t.type} className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full shrink-0"
-                          style={{ background: PIE_COLORS[i % PIE_COLORS.length] }}/>
-                        <span className="flex-1 text-xs text-muted-foreground truncate">
-                          {TX_LABELS[t.type] ?? t.type}
-                        </span>
-                        <span className="text-xs font-bold shrink-0"
-                          style={{ color: PIE_COLORS[i % PIE_COLORS.length] }}>
-                          {pct}%
-                        </span>
-                        <span className="text-xs text-muted-foreground shrink-0 w-6 text-left">
-                          {t.count}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })()}
+          ) : (
+            <TxDonut data={typeBreakdown} />
+          )}
         </div>
 
         {/* مقارنة الخزن */}
