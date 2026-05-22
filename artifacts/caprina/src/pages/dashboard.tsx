@@ -882,16 +882,16 @@ export default function Dashboard() {
                           {fc(chartsData.weeklySales.reduce((s, d) => s + d.revenue, 0))}
                         </p>
                       </div>
-                      <ResponsiveContainer width="100%" height={90}>
+                      <ResponsiveContainer width="100%" height={100}>
                         <AreaChart data={chartsData.weeklySales} margin={{ top: 8, right: 4, left: 4, bottom: 0 }}>
                           <defs>
                             <linearGradient id="salesGradientTop" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.4} />
+                              <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.5} />
                               <stop offset="100%" stopColor="#f59e0b" stopOpacity={0.02} />
                             </linearGradient>
                           </defs>
-                          <XAxis dataKey="label" hide />
-                          <YAxis hide domain={['auto', 'auto']} />
+                          <XAxis dataKey="label" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
+                          <YAxis hide domain={[0, 'auto']} />
                           <Tooltip
                             contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 10, padding: "4px 8px" }}
                             formatter={(v: number) => [fc(v), "المبيعات"]}
