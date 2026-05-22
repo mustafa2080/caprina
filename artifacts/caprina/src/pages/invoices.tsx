@@ -176,13 +176,12 @@ export default function Invoices() {
     }));
 
     let logoB64 = "";
-    if (brand.logoUrl) {
-      try {
-        const r = await fetch(brand.logoUrl);
-        const blob = await r.blob();
-        logoB64 = await new Promise<string>(res => { const reader = new FileReader(); reader.onload = () => res(reader.result as string); reader.readAsDataURL(blob); });
-      } catch {}
-    }
+    const logoSrc = brand.logoUrl || "/logo.jpg";
+    try {
+      const r = await fetch(logoSrc);
+      const blob = await r.blob();
+      logoB64 = await new Promise<string>(res => { const reader = new FileReader(); reader.onload = () => res(reader.result as string); reader.readAsDataURL(blob); });
+    } catch {}
     const brandName = brand.name || "CAPRINA";
     const brandTagline = brand.tagline || "WIN OR DIE";
 
