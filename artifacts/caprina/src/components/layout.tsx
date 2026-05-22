@@ -582,7 +582,7 @@ export default function Layout({ children }: LayoutProps) {
         )}
 
         <div id="main-scroll-area" className="flex-1 overflow-auto">
-          <div className="mx-auto max-w-6xl p-4 md:p-6">
+          <div className="w-full max-w-[1600px] mx-auto p-4 md:p-5 xl:p-6">
             {children}
           </div>
         </div>
