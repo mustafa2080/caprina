@@ -7,7 +7,7 @@ import { Link } from "wouter";
 import { format } from "date-fns";
 import {
   PieChart, Pie, Cell, Sector, ResponsiveContainer,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
 } from "recharts";
 
 // ─── Month Picker Helper ────────────────────────────────────────────────────
@@ -721,11 +721,10 @@ const WeeklyBars = memo(function WeeklyBars({
           </div>
           <div style={{ height: salesView === "monthly" ? 200 : 220 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={activeData} margin={{ top: 10, right: 8, left: -22, bottom: salesView === "monthly" ? 36 : 48 }}>
+              <LineChart data={activeData} margin={{ top: 10, right: 8, left: -22, bottom: salesView === "monthly" ? 36 : 48 }}>
                 <defs>
-                  <linearGradient id="activeBarsGlow" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0%" stopColor="#FFF59D" />
-                    <stop offset="55%" stopColor={salesView === "monthly" ? GLASS_GREEN : salesView === "prev" ? GLASS_PURPLE : GLASS_BAR_COLOR} />
+                  <linearGradient id="lineGradient" x1="0" x2="1" y1="0" y2="0">
+                    <stop offset="0%" stopColor={salesView === "monthly" ? GLASS_GREEN : salesView === "prev" ? GLASS_PURPLE : GLASS_BAR_COLOR} />
                     <stop offset="100%" stopColor={salesView === "monthly" ? "#0F766E" : salesView === "prev" ? "#4527A0" : "#E0A800"} />
                   </linearGradient>
                 </defs>
@@ -738,18 +737,29 @@ const WeeklyBars = memo(function WeeklyBars({
                   interval={salesView === "monthly" ? (monthlyEnriched.length > 24 ? 3 : monthlyEnriched.length > 16 ? 2 : monthlyEnriched.length > 10 ? 1 : 0) : 0}
                 />
                 <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} allowDecimals={false} domain={[0, yMax]} />
-                <Tooltip content={<GlassBarTip />} cursor={{ fill: salesView === "monthly" ? "rgba(38,166,154,0.10)" : "rgba(255,213,79,0.08)", radius: 10 }} />
-                <Bar dataKey="orders" radius={[10, 10, 3, 3]} maxBarSize={salesView === "monthly" ? 22 : 38}>
-                  {activeData.map((d: any, i: number) => (
-                    <Cell
-                      key={i}
-                      fill={d.orders > 0 ? "url(#activeBarsGlow)" : "hsl(var(--border))"}
-                      style={d.orders > 0 ? { filter: `drop-shadow(0 0 10px ${salesView === "monthly" ? GLASS_GREEN : salesView === "prev" ? GLASS_PURPLE : GLASS_BAR_COLOR}99)` } : {}}
-                      opacity={d.orders > 0 ? 1 : 0.28}
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
+                <Tooltip content={<GlassBarTip />} cursor={{ stroke: salesView === "monthly" ? GLASS_GREEN : salesView === "prev" ? GLASS_PURPLE : GLASS_BAR_COLOR, strokeWidth: 1, strokeDasharray: "4 4" }} />
+                <Line
+                  type="monotone"
+                  dataKey="orders"
+                  stroke={`url(#lineGradient)`}
+                  strokeWidth={3}
+                  dot={(props: any) => {
+                    const { cx, cy, payload } = props;
+                    const color = salesView === "monthly" ? GLASS_GREEN : salesView === "prev" ? GLASS_PURPLE : GLASS_BAR_COLOR;
+                    return (
+                      <circle
+                        key={payload.date}
+                        cx={cx} cy={cy} r={payload.isToday ? 6 : 4}
+                        fill={payload.orders > 0 ? color : "hsl(var(--border))"}
+                        stroke={payload.isToday ? "#fff" : color}
+                        strokeWidth={payload.isToday ? 2 : 1}
+                        style={payload.orders > 0 ? { filter: `drop-shadow(0 0 6px ${color}99)` } : {}}
+                      />
+                    );
+                  }}
+                  activeDot={{ r: 7, strokeWidth: 2 }}
+                />
+              </LineChart>
             </ResponsiveContainer>
           </div>
 
@@ -1156,7 +1166,7 @@ export function ChartsSection() {
 
         {/* 2 — Weekly Bar */}
         <ChartCard
-          title="المبيعات الأسبوعية"
+          title="الطلبيات الأسبوعية"
           subtitle="الأسبوع الحالي والأسبوع الماضي والشهر الحالي"
           dot="#f59e0b"
         >
