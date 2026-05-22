@@ -863,6 +863,7 @@ export default function FinanceSaleDetail() {
         <div className="rounded-xl p-3 text-center" style={{
           background: "linear-gradient(135deg, rgba(234,179,8,0.18) 0%, rgba(202,138,4,0.28) 100%)",
           border: "1px solid rgba(234,179,8,0.4)",
+          boxShadow: "0 4px 24px rgba(234,179,8,0.25), 0 1px 4px rgba(234,179,8,0.15)",
         }}>
           <div className="text-xl font-extrabold mb-0.5" style={{ color: "#FACC15" }}>{order.items.length}</div>
           <div className="text-xs font-semibold" style={{ color: "rgba(250,204,21,0.7)" }}>عدد المنتجات</div>
@@ -871,6 +872,7 @@ export default function FinanceSaleDetail() {
         <div className="rounded-xl p-3 text-center" style={{
           background: "linear-gradient(135deg, rgba(20,184,166,0.15) 0%, rgba(13,148,136,0.28) 100%)",
           border: "1px solid rgba(20,184,166,0.4)",
+          boxShadow: "0 4px 24px rgba(20,184,166,0.25), 0 1px 4px rgba(20,184,166,0.15)",
         }}>
           <div className="text-xl font-extrabold mb-0.5" style={{ color: "#2DD4BF" }}>{totalQty}</div>
           <div className="text-xs font-semibold" style={{ color: "rgba(45,212,191,0.7)" }}>إجمالي القطع</div>
@@ -879,16 +881,20 @@ export default function FinanceSaleDetail() {
         <div className="rounded-xl p-3 text-center" style={{
           background: "linear-gradient(135deg, rgba(168,85,247,0.15) 0%, rgba(139,92,246,0.28) 100%)",
           border: "1px solid rgba(168,85,247,0.4)",
+          boxShadow: "0 4px 24px rgba(168,85,247,0.25), 0 1px 4px rgba(168,85,247,0.15)",
         }}>
           <div className="text-xl font-extrabold mb-0.5" style={{ color: "#C084FC" }}>{fmtNum(total)} ج</div>
           <div className="text-xs font-semibold" style={{ color: "rgba(192,132,252,0.7)" }}>إجمالي الفاتورة</div>
         </div>
-        {/* المتبقي — أخضر لو مسدد / أحمر لو فيه متبقي */}
+        {/* المتبقي */}
         <div className="rounded-xl p-3 text-center" style={{
           background: due > 0
             ? "linear-gradient(135deg, rgba(239,68,68,0.15) 0%, rgba(220,38,38,0.25) 100%)"
             : "linear-gradient(135deg, rgba(34,197,94,0.15) 0%, rgba(22,163,74,0.25) 100%)",
           border: due > 0 ? "1px solid rgba(239,68,68,0.4)" : "1px solid rgba(34,197,94,0.4)",
+          boxShadow: due > 0
+            ? "0 4px 24px rgba(239,68,68,0.25), 0 1px 4px rgba(239,68,68,0.15)"
+            : "0 4px 24px rgba(34,197,94,0.25), 0 1px 4px rgba(34,197,94,0.15)",
         }}>
           <div className="text-xl font-extrabold mb-0.5" style={{ color: due > 0 ? "#F87171" : "#4ADE80" }}>
             {due > 0 ? `${fmtNum(due)} ج` : "✓ مسدد"}
