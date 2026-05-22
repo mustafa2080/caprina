@@ -110,13 +110,20 @@ function PeriodCard({ label, data, accent }: { label: string; data: PeriodProfit
 }
 
 // ─── Product Row ───────────────────────────────────────────────────────────────
-function ProductRow({ product, rank }: { product: ProductProfit; rank: number }) {
+function ProductRow({ product, rank, image }: { product: ProductProfit; rank: number; image?: string | null }) {
   const isPositive = product.profit >= 0;
   return (
     <div className="flex items-center gap-2 sm:gap-3 py-2 sm:py-2.5 border-b border-border last:border-0">
       <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[9px] sm:text-[10px] font-black shrink-0 ${
         rank === 1 ? "bg-amber-500 text-black" : rank === 2 ? "bg-zinc-400 text-black" : rank === 3 ? "bg-amber-700 text-white" : "bg-muted text-muted-foreground"
       }`}>{rank}</div>
+      {image ? (
+        <img src={image} alt={product.name} className="w-8 h-8 rounded-lg object-cover border border-border shrink-0" />
+      ) : (
+        <div className="w-8 h-8 rounded-lg bg-muted border border-border flex items-center justify-center shrink-0">
+          <Package className="w-4 h-4 text-muted-foreground" />
+        </div>
+      )}
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-[11px] sm:text-xs truncate">{product.name}</p>
         <p className="text-[8px] sm:text-[9px] text-muted-foreground">{fn(product.quantity)} وحدة • {product.returnRate}% مرتجع</p>
@@ -714,7 +721,14 @@ export default function Dashboard() {
                 {isAnalyticsLoading ? (
                   <div className="py-4 text-center text-xs text-muted-foreground">جاري التحميل...</div>
                 ) : analytics?.topProducts?.length ? (
-                  analytics.topProducts.map((p, i) => <ProductRow key={p.name} product={p} rank={i + 1} />)
+                  analytics.topProducts.map((p, i) => (
+                    <ProductRow
+                      key={p.name}
+                      product={p}
+                      rank={i + 1}
+                      image={products?.find(pr => pr.name === p.name)?.image ?? null}
+                    />
+                  ))
                 ) : (
                   <div className="py-6 text-center text-muted-foreground text-xs">
                     <Star className="w-6 h-6 mx-auto mb-2 opacity-20" />
