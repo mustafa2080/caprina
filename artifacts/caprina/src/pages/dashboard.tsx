@@ -407,7 +407,7 @@ export default function Dashboard() {
   });
   const totalCash = cashRegisters?.totalBalance ?? 0;
 
-  const highAlerts = alertsData?.alerts.filter(a => a.severity === "high") ?? [];
+  const highAlerts = alertsData?.alerts.filter(a => a.severity === "high" && a.type !== "HIGH_RETURN") ?? [];
   const allAlerts = alertsData?.alerts ?? [];
 
   const lowStockProducts = products?.filter(p =>
