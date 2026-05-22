@@ -18,6 +18,9 @@ import {
   productsApi, cashRegistersApi, shippingApi, manifestsApi,
 } from "@/lib/api";
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { FaFacebook, FaTiktok, FaInstagram, FaWhatsapp } from "react-icons/fa";
+import { PiPlantFill } from "react-icons/pi";
+import { FiMoreHorizontal } from "react-icons/fi";
 
 // ── Avatar helpers ──────────────────────────────────────────────────────────
 const AVATAR_COLORS_DB = [
@@ -313,6 +316,74 @@ function LiveClock() {
       <Clock className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" style={{ color: "hsl(43 74% 50%)" }} />
       <span className="font-black text-lg sm:text-xl tabular-nums" style={{ color: "hsl(43 74% 50%)" }}>{h12}:{mm}:{ss}</span>
       <span className="text-xs sm:text-sm font-bold" style={{ color: "hsl(43 74% 50%)" }}>{ampm}</span>
+    </div>
+  );
+}
+
+// ─── Ad Sources meta ─────────────────────────────────────────────────────────
+const AD_SOURCE_META: Record<string, { label: string; iconColor: string; gradFrom: string; gradTo: string; icon: React.ElementType }> = {
+  facebook:  { label: "فيسبوك",   icon: FaFacebook,       iconColor: "#1877F2", gradFrom: "#1877F2", gradTo: "#0d4fa8" },
+  tiktok:    { label: "تيك توك",  icon: FaTiktok,         iconColor: "#ffffff", gradFrom: "#010101", gradTo: "#333333" },
+  instagram: { label: "إنستجرام", icon: FaInstagram,      iconColor: "#ffffff", gradFrom: "#833ab4", gradTo: "#fd1d1d" },
+  organic:   { label: "عضوي",     icon: PiPlantFill,      iconColor: "#ffffff", gradFrom: "#16a34a", gradTo: "#059669" },
+  whatsapp:  { label: "واتساب",   icon: FaWhatsapp,       iconColor: "#ffffff", gradFrom: "#25D366", gradTo: "#128C7E" },
+  other:     { label: "أخرى",     icon: FiMoreHorizontal, iconColor: "#ffffff", gradFrom: "#6b7280", gradTo: "#374151" },
+};
+function getAdMeta(src: string) { return AD_SOURCE_META[src] ?? AD_SOURCE_META.other; }
+
+/** Card للمنصة الإعلانية في الداشبورد */
+function DashAdSourceCard({ source, orders, revenue, profit, returnRate, maxRevenue, canViewFinancials, isBest }: {
+  source: string; orders: number; revenue: number; profit: number; returnRate: number;
+  maxRevenue: number; canViewFinancials: boolean; isBest: boolean;
+}) {
+  const meta = getAdMeta(source);
+  const Icon = meta.icon;
+  const barPct = Math.max(4, Math.round((revenue / maxRevenue) * 100));
+
+  return (
+    <div className={`relative rounded-xl border bg-card p-3 sm:p-4 space-y-2.5 transition-all ${isBest ? "border-primary/40 ring-1 ring-primary/20" : "border-border"}`}>
+      {isBest && (
+        <span className="absolute top-2 left-2 text-[8px] font-black bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full">
+          الأفضل
+        </span>
+      )}
+
+      {/* أيقونة + اسم */}
+      <div className="flex items-center gap-2.5">
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+          style={{ background: `linear-gradient(135deg, ${meta.gradFrom}, ${meta.gradTo})` }}>
+          <Icon style={{ color: meta.iconColor, fontSize: "1.1rem" }} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-bold text-xs sm:text-sm truncate">{meta.label}</p>
+          <p className="text-[9px] text-muted-foreground">{new Intl.NumberFormat("ar-EG").format(orders)} طلب</p>
+        </div>
+        <Badge variant="outline" className={`text-[8px] h-4 shrink-0 ${returnRate > 30 ? "border-red-400 text-red-500" : returnRate > 15 ? "border-amber-400 text-amber-500" : "border-emerald-400 text-emerald-500"}`}>
+          {returnRate}% رجوع
+        </Badge>
+      </div>
+
+      {/* progress bar الإيرادات */}
+      <div className="space-y-0.5">
+        <div className="flex justify-between text-[9px] text-muted-foreground">
+          <span>الإيرادات</span>
+          <span className="font-bold text-foreground">{new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(revenue)}</span>
+        </div>
+        <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+          <div className="h-1.5 rounded-full transition-all duration-700"
+            style={{ width: `${barPct}%`, background: `linear-gradient(90deg, ${meta.gradFrom}, ${meta.gradTo})` }} />
+        </div>
+      </div>
+
+      {/* صافي الربح */}
+      {canViewFinancials && (
+        <div className="flex items-center justify-between pt-1 border-t border-border/50">
+          <span className="text-[9px] text-muted-foreground">صافي الربح</span>
+          <span className={`text-[10px] sm:text-xs font-black ${profit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}`}>
+            {profit >= 0 ? "▲" : "▼"} {new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(Math.abs(profit))}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -1214,6 +1285,96 @@ export default function Dashboard() {
               </Card>
             );
           })()}
+
+          {/* ── المنصات الإعلانية النشطة ── */}
+          {smartData?.adAttribution?.breakdown?.length > 0 && (
+            <Card className="border-border overflow-hidden">
+              <CardHeader className="py-2.5 sm:py-3 px-3 sm:px-4 border-b border-border">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2">
+                    <Zap className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-500" />
+                    المنصات الإعلانية النشطة
+                    <Badge variant="outline" className="text-[9px] h-4 border-amber-400/40 text-amber-600 dark:text-amber-400">
+                      {smartData.adAttribution.breakdown.length} منصة
+                    </Badge>
+                  </CardTitle>
+                  <Link href="/smart" className="text-[10px] sm:text-xs text-primary hover:underline">تحليل مفصل ←</Link>
+                </div>
+
+                {/* Best source summary strip */}
+                {smartData.adAttribution.bestSource && (() => {
+                  const best = getAdMeta(smartData.adAttribution.bestSource.source);
+                  const BestIcon = best.icon;
+                  return (
+                    <div className="mt-2 flex items-center gap-2 px-2.5 py-1.5 rounded-lg"
+                      style={{ background: `linear-gradient(135deg, ${best.gradFrom}18, ${best.gradTo}10)`, border: `1px solid ${best.gradFrom}30` }}>
+                      <div className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0"
+                        style={{ background: `linear-gradient(135deg, ${best.gradFrom}, ${best.gradTo})` }}>
+                        <BestIcon style={{ color: best.iconColor, fontSize: "0.75rem" }} />
+                      </div>
+                      <span className="text-[10px] text-muted-foreground">الأعلى أداءً:</span>
+                      <span className="text-[10px] font-black">{best.label}</span>
+                      <span className="text-[10px] text-muted-foreground mr-auto">
+                        {new Intl.NumberFormat("ar-EG").format(smartData.adAttribution.bestSource.orders)} طلب
+                      </span>
+                      {canViewFinancials && (
+                        <span className={`text-[10px] font-black ${smartData.adAttribution.bestSource.profit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}>
+                          {new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(smartData.adAttribution.bestSource.profit)}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
+              </CardHeader>
+
+              <div className="p-2.5 sm:p-3 grid grid-cols-1 gap-2.5">
+                {(() => {
+                  const breakdown = smartData.adAttribution.breakdown;
+                  const maxRevenue = Math.max(...breakdown.map((s: any) => s.revenue), 1);
+                  const bestSrc = smartData.adAttribution.bestSource?.source;
+                  return breakdown.map((s: any) => (
+                    <DashAdSourceCard
+                      key={s.source}
+                      source={s.source}
+                      orders={s.orders}
+                      revenue={s.revenue}
+                      profit={s.profit}
+                      returnRate={s.returnRate}
+                      maxRevenue={maxRevenue}
+                      canViewFinancials={canViewFinancials}
+                      isBest={s.source === bestSrc}
+                    />
+                  ));
+                })()}
+              </div>
+
+              {/* إحصائية إجمالية في الأسفل */}
+              {canViewFinancials && (() => {
+                const breakdown = smartData.adAttribution.breakdown;
+                const totalOrders  = breakdown.reduce((s: number, x: any) => s + x.orders, 0);
+                const totalRevenue = breakdown.reduce((s: number, x: any) => s + x.revenue, 0);
+                const totalProfit  = breakdown.reduce((s: number, x: any) => s + x.profit, 0);
+                return (
+                  <div className="mx-2.5 sm:mx-3 mb-2.5 sm:mb-3 grid grid-cols-3 gap-2 rounded-xl border border-border bg-muted/20 p-2.5 text-center">
+                    <div>
+                      <p className="text-sm font-black">{new Intl.NumberFormat("ar-EG").format(totalOrders)}</p>
+                      <p className="text-[9px] text-muted-foreground">إجمالي الطلبات</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-black text-primary">{new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(totalRevenue)}</p>
+                      <p className="text-[9px] text-muted-foreground">إجمالي الإيرادات</p>
+                    </div>
+                    <div>
+                      <p className={`text-sm font-black ${totalProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}>
+                        {new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(totalProfit)}
+                      </p>
+                      <p className="text-[9px] text-muted-foreground">صافي الربح الكلي</p>
+                    </div>
+                  </div>
+                );
+              })()}
+            </Card>
+          )}
 
           {/* أحدث العملاء */}
           {recentClients.length > 0 && (
