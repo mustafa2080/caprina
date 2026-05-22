@@ -165,7 +165,7 @@ export default function Layout({ children }: LayoutProps) {
   return (
     <div className="flex h-screen bg-background" dir="rtl">
       {/* Sidebar */}
-      <aside className="w-60 border-l border-sidebar-border bg-sidebar shrink-0 hidden md:flex md:flex-col">
+      <aside className="w-60 xl:w-64 2xl:w-72 border-l border-sidebar-border bg-sidebar shrink-0 hidden md:flex md:flex-col">
 
         {/* ── Header الـ Sidebar ── */}
         <div className="shrink-0 border-b border-sidebar-border/60">
