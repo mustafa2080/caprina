@@ -15,7 +15,7 @@ import {
   Plus, Edit2, Trash2, Phone, ToggleLeft, ToggleRight,
   Users, MapPin, Target, ShoppingBag, FileText, TrendingUp,
   Eye, BarChart2, Search, Filter, ChevronLeft, ChevronRight, ChevronDown,
-  ShoppingCart, Receipt, ListFilter, X,
+  ShoppingCart, Receipt, ListFilter, X, Camera,
 } from "lucide-react";
 import { format } from "date-fns";
 import { apiFetch } from "@/lib/api";
@@ -42,16 +42,39 @@ type SaleOrder = {
   createdAt: string;
 };
 
-const AVATARS = [
-  "👤","🧑‍💼","👩‍💼","🧔","👩","🧑","👴","👵","🧑‍🤝‍🧑",
-  "🏢","🏪","🏬","🏭","🏗️","🏛️","🏦","🏥","🏨",
-  "⭐","🌟","💼","🤝","💰","🛒","📦","🎯","🔑",
+// ── Avatar helpers ──────────────────────────────────────────────────────────
+const AVATAR_COLORS = [
+  ["#f59e0b","#78350f"],["#10b981","#064e3b"],["#3b82f6","#1e3a8a"],
+  ["#8b5cf6","#4c1d95"],["#ef4444","#7f1d1d"],["#ec4899","#831843"],
+  ["#06b6d4","#164e63"],["#f97316","#7c2d12"],
 ];
+function getAvatarColor(name: string) {
+  let h = 0; for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
+}
+function getInitials(name: string) {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
+function ClientAvatar({ avatar, name, size = "md" }: { avatar?: string|null; name: string; size?: "sm"|"md"|"lg" }) {
+  const sz = size === "sm" ? "w-7 h-7 text-xs" : size === "lg" ? "w-14 h-14 text-2xl" : "w-9 h-9 text-sm";
+  if (avatar && avatar.startsWith("data:")) {
+    return <img src={avatar} className={`${sz} rounded-full object-cover border border-border/50 shrink-0`} />;
+  }
+  const [bg, fg] = getAvatarColor(name || "?");
+  return (
+    <div className={`${sz} rounded-full flex items-center justify-center font-bold shrink-0 border border-border/20`}
+      style={{ background: bg, color: fg }}>
+      {name ? getInitials(name) : "؟"}
+    </div>
+  );
+}
 
 const emptyForm = {
   name: "", phone: "", phone2: "", email: "", address: "", city: "", region: "",
   taxNumber: "", commercialReg: "", paymentTerms: "فوري",
-  creditLimit: "0", notes: "", isActive: true, avatar: "🧑‍💼",
+  creditLimit: "0", notes: "", isActive: true, avatar: "",
 };
 
 // ── Column Filter Dropdown ────────────────────────────────────────────────
@@ -188,20 +211,38 @@ function ClientForm({ open, onClose, editClient, onSuccess }: {
           <DialogTitle className="text-right">{isEdit ? `تعديل — ${editClient?.name}` : "إضافة عميل تجاري جديد"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3 mt-2">
-          {/* Avatar Picker */}
+          {/* Avatar Upload */}
           <div>
-            <Label className="text-xs mb-2 block">الصورة الرمزية (Avatar)</Label>
-            <div className="flex flex-wrap gap-2">
-              {AVATARS.map(av => (
-                <button key={av} type="button"
-                  onClick={() => f("avatar", av)}
-                  className={`text-2xl w-10 h-10 rounded-xl flex items-center justify-center transition-all border-2
-                    ${form.avatar === av
-                      ? "border-primary bg-primary/10 scale-110 shadow-lg shadow-primary/20"
-                      : "border-transparent bg-muted/20 hover:bg-muted/40 hover:scale-105"}`}>
-                  {av}
-                </button>
-              ))}
+            <Label className="text-xs mb-2 block">صورة العميل</Label>
+            <div className="flex items-center gap-3">
+              {/* Preview */}
+              <div className="shrink-0">
+                <ClientAvatar avatar={form.avatar} name={form.name || "؟"} size="lg" />
+              </div>
+              {/* Buttons */}
+              <div className="flex flex-col gap-1.5 flex-1">
+                <label className="flex items-center gap-2 cursor-pointer bg-muted/20 hover:bg-muted/40 border border-border hover:border-primary/50 transition-all rounded-lg px-3 py-2 text-xs font-medium">
+                  <Camera className="w-3.5 h-3.5 text-primary" />
+                  {form.avatar ? "تغيير الصورة" : "رفع صورة"}
+                  <input type="file" accept="image/*" className="hidden"
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      if (file.size > 2 * 1024 * 1024) { alert("الصورة كبيرة جداً — الحد الأقصى 2MB"); return; }
+                      const reader = new FileReader();
+                      reader.onload = ev => f("avatar", ev.target?.result as string);
+                      reader.readAsDataURL(file);
+                    }}
+                  />
+                </label>
+                {form.avatar && (
+                  <button type="button" onClick={() => f("avatar", "")}
+                    className="flex items-center gap-2 text-xs text-muted-foreground hover:text-destructive transition-colors px-3 py-1.5 rounded-lg hover:bg-destructive/10 border border-transparent hover:border-destructive/20">
+                    <X className="w-3 h-3" /> حذف الصورة
+                  </button>
+                )}
+                <p className="text-[10px] text-muted-foreground px-1">PNG أو JPG — بحد أقصى 2MB</p>
+              </div>
             </div>
           </div>
           <div><Label className="text-xs mb-1.5 block">الاسم / الشركة *</Label>
@@ -656,9 +697,7 @@ export default function FinanceClients() {
                   <div key={c.id} className="grid grid-cols-6 gap-2 px-4 py-3 border-b border-border/50 hover:bg-muted/10 transition-colors items-center cursor-pointer" onClick={() => navigate(`/finance/clients/${c.id}`)}>
                     {/* اسم العميل */}
                     <div className="col-span-2 flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-muted/10 border border-border/50 flex items-center justify-center text-lg shrink-0">
-                        {c.avatar || "🧑‍💼"}
-                      </div>
+                      <ClientAvatar avatar={c.avatar} name={c.name} size="sm" />
                       <div>
                         <p className="text-xs font-bold">{c.name}</p>
                         {c.phone && <p className="text-[10px] text-muted-foreground">{c.phone}</p>}

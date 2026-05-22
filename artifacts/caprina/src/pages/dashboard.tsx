@@ -4,6 +4,8 @@ import { useGetOrdersSummary, useGetRecentOrders } from "@workspace/api-client-r
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
+import { ChartsSection, WeeklyBars, ChartCard, StatusDonutWithOrders } from "@/components/charts-section";
+import { usePwaInstall } from "@/hooks/usePwaInstall";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   TrendingUp, TrendingDown, DollarSign, Package, AlertCircle,
@@ -15,8 +17,34 @@ import {
   analyticsApi, type PeriodProfit, type ProductProfit, type FinancialSummary, type Alert,
   productsApi, cashRegistersApi,
 } from "@/lib/api";
-import { ChartsSection, WeeklyBars, ChartCard, StatusDonutWithOrders } from "@/components/charts-section";
-import { usePwaInstall } from "@/hooks/usePwaInstall";
+
+// ── Avatar helpers ──────────────────────────────────────────────────────────
+const AVATAR_COLORS_DB = [
+  ["#f59e0b","#78350f"],["#10b981","#064e3b"],["#3b82f6","#1e3a8a"],
+  ["#8b5cf6","#4c1d95"],["#ef4444","#7f1d1d"],["#ec4899","#831843"],
+  ["#06b6d4","#164e63"],["#f97316","#7c2d12"],
+];
+function dbAvatarColor(name: string) {
+  let h = 0; for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+  return AVATAR_COLORS_DB[Math.abs(h) % AVATAR_COLORS_DB.length];
+}
+function dbInitials(name: string) {
+  const p = name.trim().split(/\s+/);
+  return p.length >= 2 ? (p[0][0]+p[1][0]).toUpperCase() : name.slice(0,2).toUpperCase();
+}
+function DashClientAvatar({ avatar, name }: { avatar?: string|null; name: string }) {
+  if (avatar && avatar.startsWith("data:"))
+    return <img src={avatar} className="w-9 h-9 rounded-full object-cover border border-border/50 shrink-0" />;
+  const [bg, fg] = dbAvatarColor(name || "?");
+  return (
+    <div className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm shrink-0 border border-border/20"
+      style={{ background: bg, color: fg }}>
+      {name ? dbInitials(name) : "؟"}
+    </div>
+  );
+}
+
+
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fc = (n: number) =>
@@ -781,9 +809,7 @@ export default function Dashboard() {
                 {recentClients.slice(0, 5).map((c: any) => (
                   <Link key={c.id} href={`/finance/clients/${c.id}`}
                     className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 hover:bg-muted/20 transition-colors">
-                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-muted/20 border border-border/50 flex items-center justify-center text-lg sm:text-xl shrink-0">
-                      {c.avatar || "🧑‍💼"}
-                    </div>
+                    <DashClientAvatar avatar={c.avatar} name={c.name} />
                     <div className="flex-1 min-w-0">
                       <p className="text-xs sm:text-sm font-semibold truncate">{c.name}</p>
                       <p className="text-[10px] sm:text-[11px] text-muted-foreground truncate">{c.email || c.phone || c.city || "—"}</p>
