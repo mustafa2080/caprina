@@ -124,6 +124,7 @@ export default function Layout({ children }: LayoutProps) {
   const { toast } = useToast();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [financeOpen, setFinanceOpen] = useState(false);
   const [pwDialogOpen, setPwDialogOpen] = useState(false);
   const [brandSettingsOpen, setBrandSettingsOpen] = useState(false);
   const [currentPw, setCurrentPw] = useState("");
