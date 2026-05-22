@@ -381,6 +381,14 @@ export default function Dashboard() {
     refetchInterval: 60000,
   });
 
+  const { data: productPerf, isLoading: isPerfLoading } = useQuery({
+    queryKey: ["analytics-product-performance"],
+    queryFn: analyticsApi.productPerformance,
+    staleTime: 60000,
+    refetchOnWindowFocus: true,
+    enabled: canViewFinancials,
+  });
+
   const { data: cashRegisters } = useQuery({
     queryKey: ["cash-registers-list"],
     queryFn: cashRegistersApi.list,
@@ -821,34 +829,167 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 sm:gap-5">
         <div className="lg:col-span-1 xl:col-span-2 2xl:col-span-3 space-y-3 sm:space-y-4">
           {canViewFinancials && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+
+              {/* ── أفضل المنتجات ربحاً ───────────────────────────────── */}
+              <Card className="border-border">
+                <CardHeader className="py-2.5 sm:py-3 px-3 sm:px-4 border-b border-border">
+                  <CardTitle className="text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2">
+                    <TrendingUp className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    أفضل المنتجات ربحاً
+                    <span className="text-[9px] sm:text-[10px] text-muted-foreground font-normal mr-auto">مرتبة بصافي الربح</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-2 sm:p-3 px-3 sm:px-4">
+                  {isAnalyticsLoading ? (
+                    <div className="py-4 text-center text-xs text-muted-foreground">جاري التحميل...</div>
+                  ) : analytics?.topProducts?.length ? (
+                    <div className="flex flex-col gap-2">
+                      {analytics.topProducts.map((p, i) => (
+                        <ProductRow
+                          key={p.name}
+                          product={p}
+                          rank={i + 1}
+                          image={products?.find(pr => pr.name === p.name)?.image ?? null}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="py-6 text-center text-muted-foreground text-xs">
+                      <Star className="w-6 h-6 mx-auto mb-2 opacity-20" />
+                      أضف بيانات التكلفة للمنتجات لتفعيل هذا القسم
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* ── أفضل المنتجات مبيعاً ─────────────────────────────── */}
+              <Card className="border-border">
+                <CardHeader className="py-2.5 sm:py-3 px-3 sm:px-4 border-b border-border">
+                  <CardTitle className="text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2">
+                    <ShoppingCart className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-500" />
+                    أفضل المنتجات مبيعاً
+                    <span className="text-[9px] sm:text-[10px] text-muted-foreground font-normal mr-auto">مرتبة بعدد الطلبات</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-2 sm:p-3 px-3 sm:px-4">
+                  {/* رسم بياني منحني صغير */}
+                  {chartsData?.weeklySales && chartsData.weeklySales.length > 0 && (
+                    <div className="mb-3 rounded-xl overflow-hidden border border-border bg-card/60 p-2">
+                      <div className="flex items-center justify-between mb-1.5 px-1">
+                        <p className="text-[9px] text-muted-foreground font-medium">مبيعات آخر 7 أيام</p>
+                        <p className="text-[10px] font-black text-amber-500">
+                          {fc(chartsData.weeklySales.reduce((s, d) => s + d.revenue, 0))}
+                        </p>
+                      </div>
+                      <ResponsiveContainer width="100%" height={70}>
+                        <AreaChart data={chartsData.weeklySales} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
+                          <defs>
+                            <linearGradient id="salesGradientTop" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.35} />
+                              <stop offset="100%" stopColor="#f59e0b" stopOpacity={0.02} />
+                            </linearGradient>
+                          </defs>
+                          <XAxis dataKey="label" hide />
+                          <YAxis hide />
+                          <Tooltip
+                            contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 10, padding: "4px 8px" }}
+                            formatter={(v: number) => [fc(v), "المبيعات"]}
+                            labelStyle={{ color: "hsl(var(--muted-foreground))", fontSize: 9 }}
+                          />
+                          <Area type="monotone" dataKey="revenue" stroke="#f59e0b" strokeWidth={2} fill="url(#salesGradientTop)" dot={{ fill: "#f59e0b", r: 2.5, strokeWidth: 0 }} activeDot={{ r: 4, fill: "#f59e0b" }} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                  {/* قائمة المنتجات */}
+                  {isPerfLoading ? (
+                    <div className="py-4 text-center text-xs text-muted-foreground">جاري التحميل...</div>
+                  ) : productPerf?.products?.length ? (
+                    <div className="flex flex-col gap-2">
+                      {[...productPerf.products]
+                        .sort((a, b) => b.totalOrders - a.totalOrders)
+                        .slice(0, 5)
+                        .map((p, i) => (
+                          <div key={p.name} className="flex items-center gap-3 p-2.5 rounded-xl border border-border bg-muted/20 hover:bg-muted/40 transition-colors">
+                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black shrink-0 ${
+                              i === 0 ? "bg-amber-500 text-black" : i === 1 ? "bg-zinc-400 text-black" : i === 2 ? "bg-amber-700 text-white" : "bg-muted text-muted-foreground"
+                            }`}>{i + 1}</div>
+                            <div className="w-9 h-9 rounded-full bg-muted border-2 border-border flex items-center justify-center shrink-0 overflow-hidden">
+                              {products?.find(pr => pr.name === p.name)?.image
+                                ? <img src={products.find(pr => pr.name === p.name)!.image!} alt={p.name} className="w-full h-full object-cover" />
+                                : <Package className="w-4 h-4 text-muted-foreground" />
+                              }
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-[11px] sm:text-xs truncate">{p.name}</p>
+                              <p className="text-[9px] text-muted-foreground">{fn(p.totalOrders)} طلب • {fn(p.totalSalesQty)} وحدة</p>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <p className="text-[11px] font-black text-amber-600 dark:text-amber-400">{fc(p.totalRevenue)}</p>
+                              <ArrowUpRight className="w-3 h-3 text-amber-500" />
+                            </div>
+                          </div>
+                        ))
+                      }
+                    </div>
+                  ) : (
+                    <div className="py-6 text-center text-muted-foreground text-xs">
+                      <Package className="w-6 h-6 mx-auto mb-2 opacity-20" />
+                      لا توجد بيانات
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* ── أداء المنتجات ───────────────────────────────────────────── */}
+          {canViewFinancials && productPerf?.products && productPerf.products.length > 0 && (
             <Card className="border-border">
               <CardHeader className="py-2.5 sm:py-3 px-3 sm:px-4 border-b border-border">
                 <CardTitle className="text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2">
-                  <TrendingUp className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-600 dark:text-emerald-400" />
-                  أفضل المنتجات ربحاً
-                  <span className="text-[9px] sm:text-[10px] text-muted-foreground font-normal mr-auto">مرتبة بصافي الربح</span>
+                  <BarChart3 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-primary" />
+                  أداء المنتجات
+                  <span className="text-[9px] sm:text-[10px] text-muted-foreground font-normal mr-auto">{productPerf.summary.totalProducts} منتج</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-2 sm:p-3 px-3 sm:px-4">
-                {isAnalyticsLoading ? (
-                  <div className="py-4 text-center text-xs text-muted-foreground">جاري التحميل...</div>
-                ) : analytics?.topProducts?.length ? (
-                  <div className="flex flex-col gap-2">
-                    {analytics.topProducts.map((p, i) => (
-                      <ProductRow
-                        key={p.name}
-                        product={p}
-                        rank={i + 1}
-                        image={products?.find(pr => pr.name === p.name)?.image ?? null}
-                      />
-                    ))}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
+                  <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-center">
+                    <p className="text-[9px] text-emerald-700 dark:text-emerald-400 font-bold">رابحة</p>
+                    <p className="text-lg font-black text-emerald-600 dark:text-emerald-400">{productPerf.summary.profitableCount}</p>
                   </div>
-                ) : (
-                  <div className="py-6 text-center text-muted-foreground text-xs">
-                    <Star className="w-6 h-6 mx-auto mb-2 opacity-20" />
-                    أضف بيانات التكلفة للمنتجات لتفعيل هذا القسم
+                  <div className="p-2 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-center">
+                    <p className="text-[9px] text-red-700 dark:text-red-400 font-bold">خاسرة</p>
+                    <p className="text-lg font-black text-red-600 dark:text-red-400">{productPerf.summary.losingCount}</p>
                   </div>
-                )}
+                  <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-center col-span-2 sm:col-span-1">
+                    <p className="text-[9px] text-amber-700 dark:text-amber-400 font-bold">إجمالي الإيراد</p>
+                    <p className="text-sm font-black text-amber-600 dark:text-amber-400">{fc(productPerf.summary.totalRevenue)}</p>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  {productPerf.products.slice(0, 8).map((p) => {
+                    const maxRev = Math.max(...productPerf.products.map(x => x.totalRevenue), 1);
+                    const pct = Math.round((p.totalRevenue / maxRev) * 100);
+                    const isPos = p.netProfit >= 0;
+                    return (
+                      <div key={p.name} className="flex items-center gap-2">
+                        <p className="text-[10px] font-semibold truncate w-24 sm:w-32 shrink-0">{p.name}</p>
+                        <div className="flex-1 h-4 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${isPos ? "bg-emerald-500" : "bg-red-400"}`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <p className={`text-[10px] font-black w-16 text-left shrink-0 ${isPos ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                          {fc(p.netProfit)}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
               </CardContent>
             </Card>
           )}
