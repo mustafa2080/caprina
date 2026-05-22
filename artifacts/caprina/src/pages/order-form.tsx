@@ -210,7 +210,11 @@ function ProductSearchCombobox({ products, allVariants, onSelect }: {
               className="w-full text-right flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-muted/50 transition-colors text-sm border-b border-border/20 last:border-0"
               onClick={() => { onSelect(p); setQuery(""); setOpen(false); }}>
               <div className="flex items-center gap-2 min-w-0">
-                <Package className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                {(p as any).image ? (
+                  <img src={(p as any).image} alt={p.name} className="w-7 h-7 rounded object-cover border border-border shrink-0" />
+                ) : (
+                  <Package className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                )}
                 <span className="font-medium truncate">{p.name}</span>
               </div>
               <Badge variant="outline" className={`text-[9px] font-bold shrink-0 ${stock > 0 ? "border-emerald-400 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400" : "border-red-400 text-red-600"}`}>
@@ -382,7 +386,11 @@ function ProductItem({
             {productId && selectedProduct ? (
               <div className="flex items-center justify-between gap-2 px-3 py-2 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800 rounded-md">
                 <div className="flex items-center gap-2 min-w-0">
-                  <Package className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  {(selectedProduct as any).image ? (
+                    <img src={(selectedProduct as any).image} alt={selectedProduct.name} className="w-8 h-8 rounded object-cover border border-emerald-300 shrink-0" />
+                  ) : (
+                    <Package className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  )}
                   <span className="text-sm font-bold truncate">{selectedProduct.name}</span>
                 </div>
                 <button type="button" onClick={handleClearProduct}

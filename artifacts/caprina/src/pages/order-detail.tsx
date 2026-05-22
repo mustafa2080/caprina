@@ -234,7 +234,11 @@ function AddProductDialog({ open, onOpenChange, order, onSuccess }: {
             {selectedProduct ? (
               <div className="flex items-center justify-between gap-2 px-3 py-2 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800 rounded-md">
                 <div className="flex items-center gap-2">
-                  <Package className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  {(selectedProduct as any).image ? (
+                    <img src={(selectedProduct as any).image} alt={selectedProduct.name} className="w-8 h-8 rounded object-cover border border-emerald-300 shrink-0" />
+                  ) : (
+                    <Package className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  )}
                   <span className="text-sm font-bold">{selectedProduct.name}</span>
                 </div>
                 <button type="button" onClick={() => { setSelectedProduct(null); setVariantRows([{ color: "", size: "", quantity: 1 }]); }}
@@ -541,27 +545,38 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
 
           {orders.map(o => {
             const isThis = o.id === currentId;
+            const productImg = products.find((p: any) => p.name === o.product)?.image ?? null;
             return (
               <Card key={o.id} className={`border ${isThis ? "border-primary/50 bg-primary/5" : "border-border bg-card"}`}>
                 <CardContent className="p-3">
                   <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        {isThis && <span className="text-[9px] text-primary font-black bg-primary/10 px-1.5 py-0.5 rounded">← هذا الطلب</span>}
-                        <Badge variant="outline" className={`text-[9px] font-bold ${statusClasses[o.status] || ""}`}>
-                          {statusLabels[o.status] || o.status}
-                        </Badge>
+                    <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                      {/* صورة المنتج */}
+                      {productImg ? (
+                        <img src={productImg} alt={o.product} className="w-10 h-10 rounded-lg object-cover border border-border shrink-0 mt-0.5" />
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-muted border border-border flex items-center justify-center shrink-0 mt-0.5">
+                          <Package className="w-4 h-4 text-muted-foreground" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          {isThis && <span className="text-[9px] text-primary font-black bg-primary/10 px-1.5 py-0.5 rounded">← هذا الطلب</span>}
+                          <Badge variant="outline" className={`text-[9px] font-bold ${statusClasses[o.status] || ""}`}>
+                            {statusLabels[o.status] || o.status}
+                          </Badge>
+                        </div>
+                        <p className="text-sm font-bold truncate">{o.product}</p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          {o.color && <Badge variant="outline" className="text-[9px] border-border text-muted-foreground">{o.color}</Badge>}
+                          {o.size && <Badge variant="outline" className="text-[9px] border-border text-muted-foreground">{o.size}</Badge>}
+                        </div>
+                        <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
+                          <span>{o.quantity} وحدة × {formatCurrency(o.unitPrice)}</span>
+                          <span className="font-bold text-foreground">{formatCurrency(o.totalPrice)}</span>
+                        </div>
+                        {o.notes && <p className="text-[10px] text-muted-foreground mt-1 italic">{o.notes}</p>}
                       </div>
-                      <p className="text-sm font-bold truncate">{o.product}</p>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        {o.color && <Badge variant="outline" className="text-[9px] border-border text-muted-foreground">{o.color}</Badge>}
-                        {o.size && <Badge variant="outline" className="text-[9px] border-border text-muted-foreground">{o.size}</Badge>}
-                      </div>
-                      <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
-                        <span>{o.quantity} وحدة × {formatCurrency(o.unitPrice)}</span>
-                        <span className="font-bold text-foreground">{formatCurrency(o.totalPrice)}</span>
-                      </div>
-                      {o.notes && <p className="text-[10px] text-muted-foreground mt-1 italic">{o.notes}</p>}
                     </div>
                     {isAdmin && (
                       <div className="flex items-center gap-1.5 shrink-0">
