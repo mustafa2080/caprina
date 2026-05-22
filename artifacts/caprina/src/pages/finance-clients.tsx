@@ -480,7 +480,7 @@ export default function FinanceClients() {
         {/* الرسم البياني */}
         <Card className="border-border bg-card p-4">
           <div className="flex items-center justify-between mb-1">
-            <h2 className="font-bold text-sm">المبيعات</h2>
+            <h2 className="font-bold text-sm">مبيعات العملاء التجاريين</h2>
             {/* Dropdown اختيار نوع الرسم */}
             <div className="relative" ref={chartDropRef}>
               <button
