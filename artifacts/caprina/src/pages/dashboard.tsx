@@ -114,34 +114,39 @@ function PeriodCard({ label, data, accent }: { label: string; data: PeriodProfit
 function ProductRow({ product, rank, image }: { product: ProductProfit; rank: number; image?: string | null }) {
   const isPositive = product.profit >= 0;
   return (
-    <div className="flex items-center gap-2 sm:gap-3 py-2 sm:py-2.5 border-b border-border last:border-0">
-      <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[9px] sm:text-[10px] font-black shrink-0 ${
+    <div className="flex items-center gap-3 p-2.5 sm:p-3 rounded-xl border border-border bg-muted/20 hover:bg-muted/40 transition-colors">
+      {/* رقم الترتيب */}
+      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black shrink-0 ${
         rank === 1 ? "bg-amber-500 text-black" : rank === 2 ? "bg-zinc-400 text-black" : rank === 3 ? "bg-amber-700 text-white" : "bg-muted text-muted-foreground"
       }`}>{rank}</div>
+      {/* صورة المنتج */}
       {image ? (
-        <img src={image} alt={product.name} className="w-8 h-8 rounded-full object-cover border border-border shrink-0" />
+        <img src={image} alt={product.name} className="w-10 h-10 rounded-full object-cover border-2 border-border shrink-0" />
       ) : (
-        <div className="w-8 h-8 rounded-full bg-muted border border-border flex items-center justify-center shrink-0">
+        <div className="w-10 h-10 rounded-full bg-muted border-2 border-border flex items-center justify-center shrink-0">
           <Package className="w-4 h-4 text-muted-foreground" />
         </div>
       )}
+      {/* اسم المنتج والتفاصيل */}
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-[11px] sm:text-xs truncate">{product.name}</p>
-        <p className="text-[8px] sm:text-[9px] text-muted-foreground">{fn(product.quantity)} وحدة • {product.returnRate}% مرتجع</p>
+        <p className="text-[9px] sm:text-[10px] text-muted-foreground">{fn(product.quantity)} وحدة • {product.margin}% هامش</p>
       </div>
-      <div className="text-left shrink-0">
-        <p className={`text-[10px] sm:text-xs font-bold ${isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>{fc(product.profit)}</p>
-        <p className="text-[8px] sm:text-[9px] text-muted-foreground">{product.margin}% هامش</p>
+      {/* الربح والسهم */}
+      <div className="flex items-center gap-1.5 shrink-0">
+        <p className={`text-[11px] sm:text-xs font-black ${isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+          {fc(product.profit)}
+        </p>
+        {isPositive
+          ? <ArrowUpRight className="w-3.5 h-3.5 text-emerald-500" />
+          : <ArrowDownRight className="w-3.5 h-3.5 text-red-500" />
+        }
       </div>
-      {isPositive
-        ? <ArrowUpRight className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-        : <ArrowDownRight className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-red-600 dark:text-red-400 shrink-0" />
-      }
     </div>
   );
 }
 
-// ─── Damaged Orders Modal ──────────────────────────────────────────────────────
+// ─── Damaged Orders Modal ───────────────────────────────────────────────────
 function DamagedOrdersModal({ onClose }: { onClose: () => void }) {
   const { data, isLoading } = useQuery({
     queryKey: ["analytics-damaged-orders"],
@@ -828,14 +833,16 @@ export default function Dashboard() {
                 {isAnalyticsLoading ? (
                   <div className="py-4 text-center text-xs text-muted-foreground">جاري التحميل...</div>
                 ) : analytics?.topProducts?.length ? (
-                  analytics.topProducts.map((p, i) => (
-                    <ProductRow
-                      key={p.name}
-                      product={p}
-                      rank={i + 1}
-                      image={products?.find(pr => pr.name === p.name)?.image ?? null}
-                    />
-                  ))
+                  <div className="flex flex-col gap-2">
+                    {analytics.topProducts.map((p, i) => (
+                      <ProductRow
+                        key={p.name}
+                        product={p}
+                        rank={i + 1}
+                        image={products?.find(pr => pr.name === p.name)?.image ?? null}
+                      />
+                    ))}
+                  </div>
                 ) : (
                   <div className="py-6 text-center text-muted-foreground text-xs">
                     <Star className="w-6 h-6 mx-auto mb-2 opacity-20" />
