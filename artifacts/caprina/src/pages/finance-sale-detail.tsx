@@ -588,22 +588,22 @@ export default function FinanceSaleDetail() {
   }));
 
   return (
-    <div className="min-h-screen p-4 md:p-8" style={{ background: "hsl(var(--background))" }} dir="rtl">
+    <div className="min-h-screen p-3 sm:p-4 md:p-8" style={{ background: "hsl(var(--background))" }} dir="rtl">
 
       {/* ── TOP BAR ── */}
-      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+      <div className="flex items-center justify-between mb-4 sm:mb-6 flex-wrap gap-2 sm:gap-3">
         <button
           onClick={() => navigate("/finance/sales")}
-          className="flex items-center gap-2 text-sm font-medium hover:opacity-70 transition-opacity"
+          className="flex items-center gap-1.5 text-xs sm:text-sm font-medium hover:opacity-70 transition-opacity"
           style={{ color: "hsl(43,74%,50%)" }}
         >
-          <ArrowRight className="w-4 h-4" /> العودة لفواتير البيع
+          <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> العودة لفواتير البيع
         </button>
 
         {/* ── شريط الأزرار الداكن ── */}
         <div
           className="flex items-center flex-wrap rounded-xl"
-          style={{ background: "#111", border: "1px solid #2a2a2a", padding: "5px 8px", gap: "6px" }}
+          style={{ background: "#111", border: "1px solid #2a2a2a", padding: "4px 6px", gap: "4px" }}
         >
           {/* 1. طباعة */}
           <button
@@ -694,8 +694,8 @@ export default function FinanceSaleDetail() {
 
       {/* ── CONFIRM CLOSE DIALOG ── */}
       {showConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.5)" }}>
-          <div className="rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl" style={{ background: "hsl(var(--card))" }}>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ background: "rgba(0,0,0,0.5)" }}>
+          <div className="rounded-t-2xl sm:rounded-2xl p-5 sm:p-6 w-full sm:max-w-sm shadow-2xl" style={{ background: "hsl(var(--card))" }}>
             <div className="text-center mb-4">
               <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3"
                 style={{ background: "rgba(184,134,11,0.12)" }}>
@@ -724,8 +724,8 @@ export default function FinanceSaleDetail() {
 
       {/* ── DELETE INVOICE DIALOG ── */}
       {showDeleteInvoice && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.6)" }}>
-          <div className="rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl" style={{ background: "hsl(var(--card))" }}>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ background: "rgba(0,0,0,0.6)" }}>
+          <div className="rounded-t-2xl sm:rounded-2xl p-5 sm:p-6 w-full sm:max-w-sm shadow-2xl" style={{ background: "hsl(var(--card))" }}>
             <div className="text-center mb-5">
               <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3"
                 style={{ background: "rgba(183,28,28,0.15)" }}>
@@ -758,8 +758,8 @@ export default function FinanceSaleDetail() {
         const remaining = tot - paid;
         const isValid   = paid > 0 && paid < tot;
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.5)" }}>
-            <div className="rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl" style={{ background: "hsl(var(--card))" }} dir="rtl">
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ background: "rgba(0,0,0,0.5)" }}>
+            <div className="rounded-t-2xl sm:rounded-2xl p-5 sm:p-6 w-full sm:max-w-sm shadow-2xl" style={{ background: "hsl(var(--card))" }} dir="rtl">
               <div className="text-center mb-5">
                 <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3"
                   style={{ background: "rgba(230,81,0,0.1)" }}>
@@ -823,11 +823,11 @@ export default function FinanceSaleDetail() {
       })()}
 
       {/* ── HEADER CARD ── */}
-      <div className="rounded-2xl border p-5 mb-5" style={{ borderColor: "#B2DFDB", background: "hsl(var(--card))" }}>
-        <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="rounded-2xl border p-4 sm:p-5 mb-4 sm:mb-5" style={{ borderColor: "#B2DFDB", background: "hsl(var(--card))" }}>
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
           <div>
-            <div className="text-2xl font-black tracking-widest mb-1" style={{ color: "hsl(43,74%,50%)" }}>CAPRINA</div>
-            <div className="text-xs text-muted-foreground mb-3">فاتورة بيع — SALE ORDER</div>
+            <div className="text-xl sm:text-2xl font-black tracking-widest mb-1" style={{ color: "hsl(43,74%,50%)" }}>CAPRINA</div>
+            <div className="text-xs text-muted-foreground mb-2 sm:mb-3">فاتورة بيع — SALE ORDER</div>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="flex items-center gap-1 text-sm font-bold">
                 <Hash className="w-4 h-4 text-muted-foreground" /> {order.soNumber}
@@ -839,17 +839,17 @@ export default function FinanceSaleDetail() {
               <span className="text-xs font-bold" style={{ color: payInfo.color }}>{payInfo.label}</span>
             </div>
           </div>
-          <div className="text-left text-xs text-muted-foreground space-y-1">
-            <div className="flex items-center gap-1 justify-end">
+          <div className="text-right sm:text-left text-xs text-muted-foreground space-y-1">
+            <div className="flex items-center gap-1 sm:justify-end">
               <Calendar className="w-3 h-3" /> تاريخ الإنشاء: {fmtDate(order.createdAt)}
             </div>
             {order.expectedDate && (
-              <div className="flex items-center gap-1 justify-end">
+              <div className="flex items-center gap-1 sm:justify-end">
                 <Truck className="w-3 h-3" /> تاريخ التسليم المتوقع: {fmtDate(order.expectedDate)}
               </div>
             )}
             {order.deliveredAt && (
-              <div className="flex items-center gap-1 justify-end">
+              <div className="flex items-center gap-1 sm:justify-end">
                 <Package className="w-3 h-3" /> تسليم فعلي: {fmtDate(order.deliveredAt)}
               </div>
             )}
@@ -923,13 +923,13 @@ export default function FinanceSaleDetail() {
         const netProfit = revenue - cogs - shipping - returnLoss;
         const profitPct = revenue > 0 ? ((netProfit / revenue) * 100).toFixed(1) : "0";
         return (
-          <div className="mb-5">
+          <div className="mb-4 sm:mb-5">
             <div className="flex items-center gap-2 mb-3">
               <span style={{ color: "hsl(43,74%,50%)", fontSize: 15 }}>📊</span>
               <h2 className="font-bold text-sm">تحليل الأرباح</h2>
             </div>
             {/* صف 1: 3 مربعات */}
-            <div className="grid grid-cols-3 gap-3 mb-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mb-2 sm:mb-3">
               {/* إجمالي الإيرادات — أصفر */}
               <div className="rounded-xl p-4" style={{
                 background: "linear-gradient(135deg, rgba(234,179,8,0.15) 0%, rgba(202,138,4,0.25) 100%)",
@@ -965,7 +965,7 @@ export default function FinanceSaleDetail() {
               </div>
             </div>
             {/* صف 2: صافي الربح + تكلفة البضاعة */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
               {/* صافي الربح — أخضر/أحمر */}
               <div className="rounded-xl p-4 flex flex-col justify-between" style={{
                 background: netProfit >= 0
@@ -1008,10 +1008,10 @@ export default function FinanceSaleDetail() {
       })()}
 
       {/* ── SETTLEMENT CARD — بيان التسوية ── */}
-      <div className="rounded-xl border p-5 mb-5" style={{ borderColor: "rgba(184,134,11,0.35)", background: "rgba(184,134,11,0.05)" }}>
-        <div className="flex items-center gap-2 mb-4">
+      <div className="rounded-xl border p-4 sm:p-5 mb-4 sm:mb-5" style={{ borderColor: "rgba(184,134,11,0.35)", background: "rgba(184,134,11,0.05)" }}>
+        <div className="flex items-center gap-2 mb-3 sm:mb-4">
           <Receipt className="w-4 h-4" style={{ color: "hsl(43,74%,50%)" }} />
-          <h2 className="font-bold text-sm">بيان التسوية — ملخص الفاتورة المالي</h2>
+          <h2 className="font-bold text-xs sm:text-sm">بيان التسوية — ملخص الفاتورة المالي</h2>
           {order.status === "closed" && (
             <span className="mr-auto text-[10px] font-bold px-2 py-0.5 rounded-full border"
               style={{ borderColor: "#4CAF50", color: "#4CAF50", background: "rgba(76,175,80,0.1)" }}>مُغلق ✓</span>
@@ -1085,23 +1085,23 @@ export default function FinanceSaleDetail() {
       </div>
 
       {/* ── CLIENT INFO ── */}
-      <div className="rounded-xl border p-4 mb-5 flex flex-wrap gap-4"
+      <div className="rounded-xl border p-3 sm:p-4 mb-4 sm:mb-5 flex flex-wrap gap-2 sm:gap-4"
         style={{ borderColor: "#B2DFDB", background: "hsl(var(--card))" }}>
-        <div className="flex items-center gap-2 text-sm">
-          <User className="w-4 h-4 text-muted-foreground" />
+        <div className="flex items-center gap-2 text-sm w-full sm:w-auto">
+          <User className="w-4 h-4 text-muted-foreground shrink-0" />
           <span className="text-muted-foreground text-xs">العميل:</span>
-          <span className="font-bold">{order.clientName}</span>
+          <span className="font-bold truncate">{order.clientName}</span>
         </div>
         {order.clientPhone && (
-          <div className="flex items-center gap-2 text-sm">
-            <Phone className="w-4 h-4 text-muted-foreground" />
+          <div className="flex items-center gap-2 text-sm w-full sm:w-auto">
+            <Phone className="w-4 h-4 text-muted-foreground shrink-0" />
             <span className="text-muted-foreground text-xs">الهاتف:</span>
             <span className="font-semibold" dir="ltr">{order.clientPhone}</span>
           </div>
         )}
         {order.clientAddress && (
-          <div className="flex items-center gap-2 text-sm">
-            <MapPin className="w-4 h-4 text-muted-foreground" />
+          <div className="flex items-center gap-2 text-sm w-full sm:w-auto">
+            <MapPin className="w-4 h-4 text-muted-foreground shrink-0" />
             <span className="text-muted-foreground text-xs">العنوان:</span>
             <span className="font-semibold">{order.clientAddress}</span>
           </div>
@@ -1140,11 +1140,11 @@ export default function FinanceSaleDetail() {
           إضافة صنف
         </button>
       </div>
-      <div className="rounded-xl border overflow-hidden mb-5" style={{
+      <div className="rounded-xl border overflow-x-auto mb-5" style={{
         borderColor: "rgba(234,179,8,0.35)",
         boxShadow: "0 4px 24px rgba(234,179,8,0.12), 0 1px 4px rgba(234,179,8,0.08)",
       }}>
-        <table className="w-full text-sm">
+        <table className="w-full text-sm min-w-[540px]">
           <thead>
             <tr style={{ background: "hsl(43,74%,50%)" }}>
               {["#","المنتج","اللون","المقاس","الكمية","سعر الوحدة","الإجمالي",""].map((h,idx) => (
@@ -1281,8 +1281,8 @@ export default function FinanceSaleDetail() {
 
       {/* ── CONFIRM DELETE DIALOG ── */}
       {deleteConfirmId !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.5)" }}>
-          <div className="rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl" style={{ background: "hsl(var(--card))" }}>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ background: "rgba(0,0,0,0.5)" }}>
+          <div className="rounded-t-2xl sm:rounded-2xl p-5 sm:p-6 w-full sm:max-w-sm shadow-2xl" style={{ background: "hsl(var(--card))" }}>
             <div className="text-center mb-4">
               <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3"
                 style={{ background: "rgba(183,28,28,0.1)" }}>
@@ -1310,8 +1310,8 @@ export default function FinanceSaleDetail() {
 
       {/* ── MODAL إضافة صنف ── */}
       {showAddItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.6)" }}>
-          <div className="rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl" style={{ background: "hsl(var(--card))" }} dir="rtl">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ background: "rgba(0,0,0,0.6)" }}>
+          <div className="rounded-t-2xl sm:rounded-2xl p-5 sm:p-6 w-full sm:max-w-sm shadow-2xl" style={{ background: "hsl(var(--card))" }} dir="rtl">
             {/* Header */}
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2">
