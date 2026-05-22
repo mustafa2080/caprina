@@ -1044,55 +1044,7 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* ── أداء المنتجات ───────────────────────────────────────────── */}
-          {canViewFinancials && productPerf?.products && productPerf.products.length > 0 && (
-            <Card className="border-border">
-              <CardHeader className="py-2.5 sm:py-3 px-3 sm:px-4 border-b border-border">
-                <CardTitle className="text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2">
-                  <BarChart3 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-primary" />
-                  أداء المنتجات
-                  <span className="text-[9px] sm:text-[10px] text-muted-foreground font-normal mr-auto">{productPerf.summary.totalProducts} منتج</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-2 sm:p-3 px-3 sm:px-4">
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
-                  <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-center">
-                    <p className="text-[9px] text-emerald-700 dark:text-emerald-400 font-bold">رابحة</p>
-                    <p className="text-lg font-black text-emerald-600 dark:text-emerald-400">{productPerf.summary.profitableCount}</p>
-                  </div>
-                  <div className="p-2 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-center">
-                    <p className="text-[9px] text-red-700 dark:text-red-400 font-bold">خاسرة</p>
-                    <p className="text-lg font-black text-red-600 dark:text-red-400">{productPerf.summary.losingCount}</p>
-                  </div>
-                  <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-center col-span-2 sm:col-span-1">
-                    <p className="text-[9px] text-amber-700 dark:text-amber-400 font-bold">إجمالي الإيراد</p>
-                    <p className="text-sm font-black text-amber-600 dark:text-amber-400">{fc(productPerf.summary.totalRevenue)}</p>
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  {productPerf.products.slice(0, 8).map((p) => {
-                    const maxRev = Math.max(...productPerf.products.map(x => x.totalRevenue), 1);
-                    const pct = Math.round((p.totalRevenue / maxRev) * 100);
-                    const isPos = p.netProfit >= 0;
-                    return (
-                      <div key={p.name} className="flex items-center gap-2">
-                        <p className="text-[10px] font-semibold truncate w-24 sm:w-32 shrink-0">{p.name}</p>
-                        <div className="flex-1 h-4 bg-muted rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all ${isPos ? "bg-emerald-500" : "bg-red-400"}`}
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                        <p className={`text-[10px] font-black w-16 text-left shrink-0 ${isPos ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
-                          {fc(p.netProfit)}
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+
 
 
 
