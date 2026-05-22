@@ -320,7 +320,7 @@ function LiveClock() {
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 type Period = "today" | "week" | "month";
 
-/** Row لشركة شحن في الداشبورد مع إحصائياتها */
+/** Card لشركة شحن في الداشبورد مع إحصائياتها */
 function DashShippingCompanyRow({ company, canViewFinancials }: { company: any; canViewFinancials: boolean }) {
   const { data: stats } = useQuery({
     queryKey: ["company-stats", company.id],
@@ -335,55 +335,85 @@ function DashShippingCompanyRow({ company, canViewFinancials }: { company: any; 
   const openManifest = manifests?.find((m: any) => m.status === "open") ?? null;
   const deliveryRate = stats?.deliveryRate ?? 0;
   const rateColor = deliveryRate >= 70 ? "text-emerald-500 dark:text-emerald-400" : deliveryRate >= 40 ? "text-amber-500 dark:text-amber-400" : "text-red-500 dark:text-red-400";
-  const barColor = deliveryRate >= 70 ? "bg-emerald-500" : deliveryRate >= 40 ? "bg-amber-500" : "bg-red-500";
+  const barColor   = deliveryRate >= 70 ? "bg-emerald-500" : deliveryRate >= 40 ? "bg-amber-500" : "bg-red-500";
+  const borderColor = deliveryRate >= 70 ? "border-emerald-200 dark:border-emerald-900/40" : deliveryRate >= 40 ? "border-amber-200 dark:border-amber-900/40" : "border-border";
 
   return (
     <Link href={`/shipping/company/${company.id}`}>
-      <div className="flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3 hover:bg-muted/20 transition-colors cursor-pointer">
-        {/* أيقونة / لوجو */}
-        {company.logo && company.logo.startsWith("data:") ? (
-          <img src={company.logo} className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border border-border/50 shrink-0" alt={company.name} />
-        ) : (
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center shrink-0">
-            <Truck className="w-4 h-4 sm:w-5 sm:h-5 text-primary/60" />
+      <div className={`rounded-xl border ${borderColor} bg-card hover:bg-muted/20 transition-colors cursor-pointer p-3 sm:p-4 space-y-3`}>
+
+        {/* ── Header: لوجو + اسم + نسبة ── */}
+        <div className="flex items-center gap-2.5">
+          {company.logo && company.logo.startsWith("data:") ? (
+            <img src={company.logo} className="w-10 h-10 rounded-full object-cover border-2 border-border/50 shrink-0" alt={company.name} />
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center shrink-0">
+              <Truck className="w-5 h-5 text-primary/60" />
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-xs sm:text-sm truncate">{company.name}</p>
+            {company.phone && (
+              <p className="text-[9px] sm:text-[10px] text-muted-foreground truncate">{company.phone}</p>
+            )}
+          </div>
+          {stats && (
+            <span className={`text-sm font-black shrink-0 ${rateColor}`}>{deliveryRate}%</span>
+          )}
+        </div>
+
+        {/* ── Progress bar ── */}
+        {stats && (
+          <div className="space-y-1">
+            <div className="flex justify-between text-[9px] text-muted-foreground">
+              <span>نسبة التسليم</span>
+              <span className={`font-bold ${rateColor}`}>{deliveryRate}%</span>
+            </div>
+            <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+              <div className={`h-1.5 rounded-full ${barColor} transition-all duration-500`} style={{ width: `${deliveryRate}%` }} />
+            </div>
           </div>
         )}
 
-        {/* المعلومات */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-1 mb-1">
-            <p className="font-semibold text-[11px] sm:text-sm truncate">{company.name}</p>
-            {stats && (
-              <span className={`text-[10px] sm:text-xs font-black shrink-0 ${rateColor}`}>{deliveryRate}%</span>
-            )}
-          </div>
-          {/* progress bar نسبة التسليم */}
-          {stats && (
-            <div className="w-full bg-muted rounded-full h-1 mb-1.5 overflow-hidden">
-              <div className={`h-1 rounded-full ${barColor} transition-all`} style={{ width: `${deliveryRate}%` }} />
+        {/* ── Stats grid ── */}
+        {stats ? (
+          <div className="grid grid-cols-3 gap-1.5 text-center">
+            <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-900/30 py-1.5 px-1">
+              <p className="text-sm font-black text-emerald-600 dark:text-emerald-400">{stats.delivered}</p>
+              <p className="text-[8px] sm:text-[9px] text-muted-foreground">مُسلَّم</p>
             </div>
-          )}
-          {/* الإحصائيات */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {stats && (
-              <>
-                <span className="text-[9px] sm:text-[10px] text-emerald-500 dark:text-emerald-400 font-bold">✓ {stats.delivered}</span>
-                <span className="text-[9px] sm:text-[10px] text-red-500 dark:text-red-400 font-bold">✗ {stats.returned}</span>
-                {stats.pending > 0 && <span className="text-[9px] sm:text-[10px] text-amber-500 dark:text-amber-400 font-bold">⏳ {stats.pending}</span>}
-              </>
-            )}
-            {openManifest && (
-              <Badge variant="outline" className="text-[7px] sm:text-[9px] border-blue-700 bg-blue-900/20 text-blue-400 h-4">
-                بيان مفتوح · {openManifest.orderCount} طلب
-              </Badge>
-            )}
-            {canViewFinancials && stats && stats.netProfit !== undefined && (
-              <span className={`text-[9px] sm:text-[10px] font-bold mr-auto ${stats.netProfit >= 0 ? "text-emerald-500 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}`}>
-                {stats.netProfit >= 0 ? "+" : ""}{new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(stats.netProfit)}
-              </span>
-            )}
+            <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/30 py-1.5 px-1">
+              <p className="text-sm font-black text-red-500 dark:text-red-400">{stats.returned}</p>
+              <p className="text-[8px] sm:text-[9px] text-muted-foreground">مرتجع</p>
+            </div>
+            <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/30 py-1.5 px-1">
+              <p className="text-sm font-black text-amber-600 dark:text-amber-400">{stats.pending + (stats.postponed ?? 0)}</p>
+              <p className="text-[8px] sm:text-[9px] text-muted-foreground">قيد الشحن</p>
+            </div>
           </div>
+        ) : (
+          <div className="h-10 flex items-center justify-center">
+            <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+          </div>
+        )}
+
+        {/* ── Footer: بيان مفتوح + صافي الربح ── */}
+        <div className="flex items-center gap-2 pt-1 border-t border-border/50 flex-wrap">
+          {openManifest ? (
+            <Badge variant="outline" className="text-[8px] sm:text-[9px] border-blue-600 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 h-5 gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse inline-block" />
+              بيان مفتوح · {openManifest.orderCount} طلب
+            </Badge>
+          ) : (
+            <span className="text-[8px] sm:text-[9px] text-muted-foreground/60">لا يوجد بيان مفتوح</span>
+          )}
+          {canViewFinancials && stats && stats.netProfit !== undefined && (
+            <span className={`text-[9px] sm:text-[10px] font-black mr-auto ${stats.netProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}`}>
+              {stats.netProfit >= 0 ? "▲" : "▼"} {new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(Math.abs(stats.netProfit))}
+            </span>
+          )}
         </div>
+
       </div>
     </Link>
   );
@@ -1161,6 +1191,9 @@ export default function Dashboard() {
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2">
                       <Truck className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-primary" />شركات الشحن النشطة
+                      {activeCompanies.length > 0 && (
+                        <Badge variant="outline" className="text-[9px] h-4 border-primary/30 text-primary/70">{activeCompanies.length}</Badge>
+                      )}
                     </CardTitle>
                     <Link href="/shipping/companies" className="text-[10px] sm:text-xs text-primary hover:underline">إدارة الكل ←</Link>
                   </div>
@@ -1172,7 +1205,7 @@ export default function Dashboard() {
                     <Link href="/shipping/companies" className="text-primary text-[10px] sm:text-xs mt-1 inline-block">إضافة شركة ←</Link>
                   </div>
                 ) : (
-                  <div className="divide-y divide-border">
+                  <div className="p-2.5 sm:p-3 grid grid-cols-1 gap-2.5">
                     {activeCompanies.map((company: any) => (
                       <DashShippingCompanyRow key={company.id} company={company} canViewFinancials={canViewFinancials} />
                     ))}
