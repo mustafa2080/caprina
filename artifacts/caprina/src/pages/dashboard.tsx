@@ -803,6 +803,133 @@ export default function Dashboard() {
             </Card>
           )}
 
+          {/* ── مركز التحكم ─────────────────────────────────────────── */}
+          {(() => {
+            // ── حساب المهام والتنبيهات ──
+            const pendingShip   = recentOrders?.filter((o:any) => o.status === "confirmed" || o.status === "processing") ?? [];
+            const unpaidOld     = (() => {
+              try {
+                return (summary as any)?.unpaidOld ?? 0;
+              } catch { return 0; }
+            })();
+            const highAlertList = highAlerts ?? [];
+            const lowStock      = lowStockProducts ?? [];
+
+            const tasks: { id:string; icon:any; color:string; bg:string; label:string; count:number; href:string; priority:"high"|"med"|"low" }[] = [
+              pendingShip.length > 0 && {
+                id:"ship", icon: Package, color:"text-amber-400", bg:"bg-amber-400/10",
+                label:`${pendingShip.length} طلب في انتظار الشحن`, count:pendingShip.length,
+                href:"/orders", priority:"high" as const,
+              },
+              lowStock.length > 0 && {
+                id:"stock", icon: Archive, color:"text-orange-400", bg:"bg-orange-400/10",
+                label:`${lowStock.length} منتج وصل للحد الأدنى`, count:lowStock.length,
+                href:"/products", priority:"high" as const,
+              },
+              highAlertList.length > 0 && {
+                id:"alert", icon: AlertTriangle, color:"text-red-400", bg:"bg-red-400/10",
+                label:`${highAlertList.length} تنبيه يحتاج تدخل فوري`, count:highAlertList.length,
+                href:"/analytics", priority:"high" as const,
+              },
+              unpaidOld > 0 && {
+                id:"unpaid", icon: Receipt, color:"text-rose-400", bg:"bg-rose-400/10",
+                label:`فواتير متأخرة السداد`, count:unpaidOld,
+                href:"/finance/sales", priority:"med" as const,
+              },
+              recentClients.length > 0 && {
+                id:"newclient", icon: Users, color:"text-sky-400", bg:"bg-sky-400/10",
+                label:`${recentClients.length} عميل جديد هذا الشهر`, count:recentClients.length,
+                href:"/finance/clients", priority:"low" as const,
+              },
+            ].filter(Boolean) as any[];
+
+            // ── مقارنة الأداء اليوم بالأمس ──
+            const todaySales  = (analytics as any)?.today?.totalSales  ?? 0;
+            const yestSales   = (analytics as any)?.yesterday?.totalSales ?? 0;
+            const salesDiff   = yestSales > 0 ? Math.round(((todaySales - yestSales) / yestSales) * 100) : null;
+
+            const todayOrders = (summary as any)?.todayOrders ?? 0;
+            const yestOrders  = (summary as any)?.yesterdayOrders ?? 0;
+            const ordersDiff  = yestOrders > 0 ? Math.round(((todayOrders - yestOrders) / yestOrders) * 100) : null;
+
+            if (tasks.length === 0 && salesDiff === null) return null;
+
+            return (
+              <Card className="border-border overflow-hidden">
+                <CardHeader className="py-2.5 px-3 sm:px-4 border-b border-border">
+                  <CardTitle className="text-xs sm:text-sm font-bold flex items-center gap-1.5">
+                    <Brain className="w-3.5 h-3.5 text-primary" />
+                    مركز التحكم
+                    {tasks.filter(t=>t.priority==="high").length > 0 && (
+                      <span className="mr-auto text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded-full font-bold">
+                        {tasks.filter(t=>t.priority==="high").length} يحتاج تدخل
+                      </span>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+
+                  {/* ── مقارنة اليوم بالأمس ── */}
+                  {(salesDiff !== null || ordersDiff !== null) && (
+                    <div className="grid grid-cols-2 gap-0 border-b border-border">
+                      {[
+                        { label:"المبيعات اليوم", diff:salesDiff, icon:TrendingUp },
+                        { label:"الطلبات اليوم",  diff:ordersDiff, icon:ShoppingCart },
+                      ].map((item,i) => (
+                        <div key={i} className={`p-3 ${i===0?"border-l border-border":""} flex items-center gap-2`}>
+                          <item.icon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                          <div>
+                            <p className="text-[10px] text-muted-foreground">{item.label}</p>
+                            {item.diff !== null ? (
+                              <p className={`text-xs font-black ${item.diff >= 0 ? "text-emerald-400":"text-red-400"}`}>
+                                {item.diff >= 0 ? "▲":"▼"} {Math.abs(item.diff)}% عن أمس
+                              </p>
+                            ) : (
+                              <p className="text-xs text-muted-foreground">لا توجد بيانات أمس</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* ── المهام ── */}
+                  {tasks.length > 0 && (
+                    <div className="divide-y divide-border/50">
+                      {tasks.map(task => (
+                        <Link key={task.id} href={task.href}
+                          className="flex items-center gap-3 px-3 py-2.5 hover:bg-muted/10 transition-colors group">
+                          <div className={`w-7 h-7 rounded-lg ${task.bg} flex items-center justify-center shrink-0`}>
+                            <task.icon className={`w-3.5 h-3.5 ${task.color}`} />
+                          </div>
+                          <p className="flex-1 text-xs text-foreground/80 group-hover:text-foreground transition-colors">
+                            {task.label}
+                          </p>
+                          {task.priority === "high" && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0 animate-pulse" />
+                          )}
+                          {task.priority === "med" && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                          )}
+                          <ArrowUpRight className="w-3 h-3 text-muted-foreground/40 group-hover:text-primary transition-colors shrink-0" />
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* ── كل حاجة تمام ── */}
+                  {tasks.length === 0 && (
+                    <div className="flex items-center gap-2 px-3 py-4 text-emerald-400">
+                      <Zap className="w-4 h-4" />
+                      <p className="text-xs font-semibold">كل حاجة تمام — مفيش مهام معلقة 🎉</p>
+                    </div>
+                  )}
+
+                </CardContent>
+              </Card>
+            );
+          })()}
+
         </div>
 
         {/* RIGHT SIDEBAR */}
