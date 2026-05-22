@@ -175,6 +175,32 @@ export default function Layout({ children }: LayoutProps) {
           >
             {/* subtle glow behind logo */}
             <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse 70% 60% at 50% 0%, hsl(var(--primary)/0.18) 0%, transparent 80%)" }} />
+
+            {/* ── Theme Toggle — أعلى اليمين ── */}
+            <button
+              type="button"
+              onClick={toggleTheme}
+              title={theme === "dark" ? "التبديل للوضع النهاري" : "التبديل للوضع الليلي"}
+              className="absolute top-3 left-3 z-20 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95"
+              style={{
+                background: theme === "dark"
+                  ? "linear-gradient(135deg,#1e293b,#0f172a)"
+                  : "linear-gradient(135deg,#fef3c7,#fde68a)",
+                border: theme === "dark"
+                  ? "1px solid rgba(148,163,184,0.2)"
+                  : "1px solid rgba(251,191,36,0.5)",
+                boxShadow: theme === "dark"
+                  ? "0 0 12px rgba(148,163,184,0.15), inset 0 1px 0 rgba(255,255,255,0.05)"
+                  : "0 0 14px rgba(251,191,36,0.4), inset 0 1px 0 rgba(255,255,255,0.6)",
+              }}
+            >
+              {theme === "dark" ? (
+                <Sun className="w-4 h-4 text-amber-300" style={{ filter: "drop-shadow(0 0 4px rgba(251,191,36,0.8))" }} />
+              ) : (
+                <Moon className="w-4 h-4 text-indigo-600" style={{ filter: "drop-shadow(0 0 3px rgba(99,102,241,0.5))" }} />
+              )}
+            </button>
+
             <div className="relative z-10 cursor-pointer" onClick={() => setBrandSettingsOpen(true)}>
               <BrandFull
                 logoSize="md"
@@ -322,36 +348,6 @@ export default function Layout({ children }: LayoutProps) {
             </Link>
           )}
         </nav>
-
-        {/* Theme Toggle */}
-        <div className="px-3 pb-2">
-          <div className="flex items-center rounded-lg bg-muted/50 border border-sidebar-border p-0.5 gap-0.5">
-            <button
-              type="button"
-              onClick={() => setTheme("dark")}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-[10px] font-bold transition-all ${
-                theme === "dark"
-                  ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
-                  : "text-sidebar-foreground/50 hover:text-sidebar-foreground/80"
-              }`}
-            >
-              <Moon className="w-3 h-3" />
-              داكن
-            </button>
-            <button
-              type="button"
-              onClick={() => setTheme("light")}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-[10px] font-bold transition-all ${
-                theme === "light"
-                  ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
-                  : "text-sidebar-foreground/50 hover:text-sidebar-foreground/80"
-              }`}
-            >
-              <Sun className="w-3 h-3" />
-              فاتح
-            </button>
-          </div>
-        </div>
 
         {/* User info */}
         <div className="border-t border-sidebar-border">
@@ -532,15 +528,30 @@ export default function Layout({ children }: LayoutProps) {
               </nav>
 
               {/* Theme toggle */}
-              <div className="px-3 pb-2">
-                <div className="flex items-center rounded-lg bg-muted/50 border border-sidebar-border p-0.5 gap-0.5">
-                  <button type="button" onClick={() => setTheme("dark")} className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-[11px] font-bold transition-all ${theme === "dark" ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm" : "text-sidebar-foreground/50 hover:text-sidebar-foreground/80"}`}>
-                    <Moon className="w-3 h-3" />داكن
-                  </button>
-                  <button type="button" onClick={() => setTheme("light")} className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-[11px] font-bold transition-all ${theme === "light" ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm" : "text-sidebar-foreground/50 hover:text-sidebar-foreground/80"}`}>
-                    <Sun className="w-3 h-3" />فاتح
-                  </button>
-                </div>
+              <div className="px-3 pb-2 flex justify-center">
+                <button
+                  type="button"
+                  onClick={toggleTheme}
+                  title={theme === "dark" ? "التبديل للوضع النهاري" : "التبديل للوضع الليلي"}
+                  className="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95"
+                  style={{
+                    background: theme === "dark"
+                      ? "linear-gradient(135deg,#1e293b,#0f172a)"
+                      : "linear-gradient(135deg,#fef3c7,#fde68a)",
+                    border: theme === "dark"
+                      ? "1px solid rgba(148,163,184,0.2)"
+                      : "1px solid rgba(251,191,36,0.5)",
+                    boxShadow: theme === "dark"
+                      ? "0 0 12px rgba(148,163,184,0.15)"
+                      : "0 0 14px rgba(251,191,36,0.4)",
+                  }}
+                >
+                  {theme === "dark" ? (
+                    <Sun className="w-5 h-5 text-amber-300" style={{ filter: "drop-shadow(0 0 4px rgba(251,191,36,0.8))" }} />
+                  ) : (
+                    <Moon className="w-5 h-5 text-indigo-600" style={{ filter: "drop-shadow(0 0 3px rgba(99,102,241,0.5))" }} />
+                  )}
+                </button>
               </div>
 
               {/* User + logout */}
