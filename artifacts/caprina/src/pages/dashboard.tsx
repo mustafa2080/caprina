@@ -824,12 +824,12 @@ export default function Dashboard() {
               lowStock.length > 0 && {
                 id:"stock", icon: Archive, color:"text-orange-400", bg:"bg-orange-400/10",
                 label:`${lowStock.length} منتج وصل للحد الأدنى`, count:lowStock.length,
-                href:"/products", priority:"high" as const,
+                href:"/inventory", priority:"high" as const,
               },
               highAlertList.length > 0 && {
                 id:"alert", icon: AlertTriangle, color:"text-red-400", bg:"bg-red-400/10",
                 label:`${highAlertList.length} تنبيه يحتاج تدخل فوري`, count:highAlertList.length,
-                href:"/analytics", priority:"high" as const,
+                href:"/smart", priority:"high" as const,
               },
               unpaidOld > 0 && {
                 id:"unpaid", icon: Receipt, color:"text-rose-400", bg:"bg-rose-400/10",
