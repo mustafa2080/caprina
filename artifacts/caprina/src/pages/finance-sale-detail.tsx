@@ -1140,7 +1140,10 @@ export default function FinanceSaleDetail() {
           إضافة صنف
         </button>
       </div>
-      <div className="rounded-xl border overflow-hidden mb-5" style={{ borderColor: "#B2DFDB" }}>
+      <div className="rounded-xl border overflow-hidden mb-5" style={{
+        borderColor: "rgba(234,179,8,0.35)",
+        boxShadow: "0 4px 24px rgba(234,179,8,0.12), 0 1px 4px rgba(234,179,8,0.08)",
+      }}>
         <table className="w-full text-sm">
           <thead>
             <tr style={{ background: "hsl(43,74%,50%)" }}>
