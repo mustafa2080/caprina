@@ -868,40 +868,50 @@ export default function Dashboard() {
                 <CardHeader className="py-2.5 sm:py-3 px-3 sm:px-4 border-b border-border">
                   <CardTitle className="text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2">
                     <ShoppingCart className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-500" />
-                    أفضل المنتجات مبيعاً
+                    أكثر المنتجات مبيعاً
                     <span className="text-[9px] sm:text-[10px] text-muted-foreground font-normal mr-auto">مرتبة بعدد الطلبات</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-2 sm:p-3 px-3 sm:px-4">
-                  {/* رسم بياني منحني صغير */}
-                  {chartsData?.weeklySales && chartsData.weeklySales.length > 0 && (
-                    <div className="mb-3 rounded-xl overflow-hidden border border-border bg-card/60 p-2">
-                      <div className="flex items-center justify-between mb-1.5 px-1">
-                        <p className="text-[9px] text-muted-foreground font-medium">مبيعات آخر 7 أيام</p>
-                        <p className="text-[10px] font-black text-amber-500">
-                          {fc(chartsData.weeklySales.reduce((s, d) => s + d.revenue, 0))}
-                        </p>
+                  {/* رسم بياني منحني - مبيعات المنتجات */}
+                  {productPerf?.products && productPerf.products.length > 0 && (() => {
+                    const chartData = [...productPerf.products]
+                      .sort((a, b) => b.totalOrders - a.totalOrders)
+                      .slice(0, 7)
+                      .map(p => ({
+                        name: p.name.length > 8 ? p.name.slice(0, 8) + "…" : p.name,
+                        qty: p.totalSalesQty,
+                        orders: p.totalOrders,
+                      }));
+                    return (
+                      <div className="mb-3 rounded-xl overflow-hidden border border-border bg-card/60 p-2">
+                        <div className="flex items-center justify-between mb-1.5 px-1">
+                          <p className="text-[9px] text-muted-foreground font-medium">الوحدات المباعة لكل منتج</p>
+                          <p className="text-[10px] font-black text-amber-500">
+                            {fn(productPerf.products.reduce((s, p) => s + p.totalSalesQty, 0))} وحدة
+                          </p>
+                        </div>
+                        <ResponsiveContainer width="100%" height={100}>
+                          <AreaChart data={chartData} margin={{ top: 8, right: 4, left: 4, bottom: 0 }}>
+                            <defs>
+                              <linearGradient id="salesGradientTop" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.5} />
+                                <stop offset="100%" stopColor="#f59e0b" stopOpacity={0.02} />
+                              </linearGradient>
+                            </defs>
+                            <XAxis dataKey="name" tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
+                            <YAxis hide domain={[0, 'auto']} />
+                            <Tooltip
+                              contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 10, padding: "4px 8px" }}
+                              formatter={(v: number, name: string) => [fn(v), name === "qty" ? "وحدة" : "طلب"]}
+                              labelStyle={{ color: "hsl(var(--muted-foreground))", fontSize: 9 }}
+                            />
+                            <Area type="monotone" dataKey="qty" stroke="#f59e0b" strokeWidth={2.5} fill="url(#salesGradientTop)" dot={{ fill: "#f59e0b", r: 3, strokeWidth: 0 }} activeDot={{ r: 5, fill: "#f59e0b" }} />
+                          </AreaChart>
+                        </ResponsiveContainer>
                       </div>
-                      <ResponsiveContainer width="100%" height={100}>
-                        <AreaChart data={chartsData.weeklySales} margin={{ top: 8, right: 4, left: 4, bottom: 0 }}>
-                          <defs>
-                            <linearGradient id="salesGradientTop" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.5} />
-                              <stop offset="100%" stopColor="#f59e0b" stopOpacity={0.02} />
-                            </linearGradient>
-                          </defs>
-                          <XAxis dataKey="label" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
-                          <YAxis hide domain={[0, 'auto']} />
-                          <Tooltip
-                            contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 10, padding: "4px 8px" }}
-                            formatter={(v: number) => [fc(v), "المبيعات"]}
-                            labelStyle={{ color: "hsl(var(--muted-foreground))", fontSize: 9 }}
-                          />
-                          <Area type="monotone" dataKey="revenue" stroke="#f59e0b" strokeWidth={2.5} fill="url(#salesGradientTop)" dot={{ fill: "#f59e0b", r: 3, strokeWidth: 0 }} activeDot={{ r: 5, fill: "#f59e0b" }} />
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    </div>
-                  )}
+                    );
+                  })()}
                   {/* قائمة المنتجات */}
                   {isPerfLoading ? (
                     <div className="py-4 text-center text-xs text-muted-foreground">جاري التحميل...</div>
