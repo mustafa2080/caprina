@@ -627,7 +627,7 @@ const WeeklyBars = memo(function WeeklyBars({
       background: "linear-gradient(135deg, rgba(38,166,154,0.44) 0%, rgba(38,166,154,0.18) 52%, rgba(255,255,255,0.08) 100%)",
     },
     {
-      label: salesView === "monthly" ? "طلبات الشهر" : salesView === "prev" ? "طلبات الأسبوع الماضي" : "طلبات الأسبوع",
+      label: salesView === "monthly" ? "طلبيات الشهر" : salesView === "prev" ? "طلبيات الأسبوع الماضي" : "طلبيات الأسبوع",
       value: String(total),
       color: GLASS_ORANGE,
       glow: "rgba(255,183,77,0.28)",
@@ -713,7 +713,7 @@ const WeeklyBars = memo(function WeeklyBars({
         >
           <div className="mb-3 px-2">
             <p className="text-[11px] font-bold text-foreground/80">
-              {salesView === "current" ? "مبيعات الأسبوع الحالي" : salesView === "prev" ? "مبيعات الأسبوع الماضي" : "مبيعات الشهر الحالي"}
+              {salesView === "current" ? "طلبيات الأسبوع الحالي" : salesView === "prev" ? "طلبيات الأسبوع الماضي" : "طلبيات الشهر الحالي"}
             </p>
             <p className="text-[10px] text-muted-foreground">
               {salesView === "current" ? "من بداية الأسبوع حتى اليوم" : salesView === "prev" ? "بيانات الأسبوع السابق" : "من أول الشهر حتى اليوم"}
