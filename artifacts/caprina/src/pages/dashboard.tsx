@@ -389,6 +389,14 @@ export default function Dashboard() {
     enabled: canViewFinancials,
   });
 
+  const { data: shippingFollowup = [] } = useQuery<any[]>({
+    queryKey: ["shipping-followup-dashboard"],
+    queryFn: analyticsApi.shippingFollowup,
+    staleTime: 60000,
+    refetchOnWindowFocus: true,
+    refetchInterval: 120000,
+  });
+
   const { data: cashRegisters } = useQuery({
     queryKey: ["cash-registers-list"],
     queryFn: cashRegistersApi.list,
@@ -457,6 +465,88 @@ export default function Dashboard() {
           </Link>
         </div>
       </div>
+
+      {/* === تحذير متابعة الشحن === */}
+      {shippingFollowup.length > 0 && (() => {
+        const urgent   = shippingFollowup.filter((o: any) => o.daysPending >= 7);
+        const delayed  = shippingFollowup.filter((o: any) => o.daysPending >= 3 && o.daysPending < 7);
+        const isUrgent = urgent.length > 0;
+        return (
+          <div className={`flex items-start gap-2.5 sm:gap-3 rounded-xl border p-3 sm:p-4 ${
+            isUrgent
+              ? "bg-red-50 dark:bg-red-950/30 border-red-300 dark:border-red-800"
+              : "bg-amber-50 dark:bg-amber-950/20 border-amber-300 dark:border-amber-800/60"
+          }`}>
+            {/* أيقونة */}
+            <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center shrink-0 ${
+              isUrgent ? "bg-red-100 dark:bg-red-900/40" : "bg-amber-100 dark:bg-amber-900/30"
+            }`}>
+              {isUrgent
+                ? <AlertOctagon className="w-4 h-4 sm:w-5 sm:h-5 text-red-600 dark:text-red-400" />
+                : <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600 dark:text-amber-400" />
+              }
+            </div>
+            {/* المحتوى */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className={`text-xs sm:text-sm font-black ${
+                  isUrgent ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-400"
+                }`}>
+                  {isUrgent ? "🚨 عاجل — شحنات تجاوزت 7 أيام!" : "⚠️ تنبيه — شحنات تحتاج متابعة"}
+                </p>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {urgent.length > 0 && (
+                    <span className="text-[9px] font-black bg-red-600 text-white px-2 py-0.5 rounded-full">
+                      {urgent.length} عاجل ≥7 أيام
+                    </span>
+                  )}
+                  {delayed.length > 0 && (
+                    <span className="text-[9px] font-black bg-amber-500 text-white px-2 py-0.5 rounded-full">
+                      {delayed.length} متأخر 3-7 أيام
+                    </span>
+                  )}
+                </div>
+              </div>
+              <p className={`text-[10px] sm:text-xs mt-1 ${
+                isUrgent ? "text-red-600/80 dark:text-red-400/80" : "text-amber-600/80 dark:text-amber-400/80"
+              }`}>
+                تأكد من متابعة هذه الشحنات مع شركات الشحن وتحديث أرقام التتبع في الطلبات.
+              </p>
+              {/* أبرز الطلبات */}
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {shippingFollowup.slice(0, 4).map((o: any) => (
+                  <Link key={o.id} href={`/orders/${o.id}`}>
+                    <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full border cursor-pointer hover:opacity-80 transition-opacity ${
+                      o.daysPending >= 7
+                        ? "bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700 text-red-700 dark:text-red-400"
+                        : "bg-amber-100 dark:bg-amber-900/30 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400"
+                    }`}>
+                      <span>{o.customerName}</span>
+                      <span className="opacity-60">•</span>
+                      <span>{o.daysPending}ي</span>
+                    </span>
+                  </Link>
+                ))}
+                {shippingFollowup.length > 4 && (
+                  <span className="text-[9px] text-muted-foreground self-center">
+                    +{shippingFollowup.length - 4} أخرى
+                  </span>
+                )}
+              </div>
+            </div>
+            {/* زر متابعة */}
+            <Link href="/orders?status=in_shipping" className="shrink-0">
+              <button className={`text-[10px] sm:text-xs font-black px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap ${
+                isUrgent
+                  ? "bg-red-600 hover:bg-red-500 text-white"
+                  : "bg-amber-500 hover:bg-amber-400 text-white"
+              }`}>
+                متابعة الشحنات ←
+              </button>
+            </Link>
+          </div>
+        );
+      })()}
 
       {/* === NO COST DATA WARNING (admin only) === */}
       {canViewFinancials && noCostWarning && (
