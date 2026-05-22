@@ -9,7 +9,76 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
-import { UserPlus, Edit2, Trash2, Shield, Users, Eye, EyeOff, TrendingUp, Package, BarChart3, LayoutGrid, Lock, User, Settings2, ChevronDown, ChevronUp, ToggleLeft } from "lucide-react";
+import { UserPlus, Edit2, Trash2, Shield, Users, Eye, EyeOff, TrendingUp, Package, BarChart3, LayoutGrid, Lock, User, Settings2, ChevronDown, ChevronUp, ToggleLeft, RefreshCw } from "lucide-react";
+import { createAvatar } from "@dicebear/core";
+import { avataaarsNeutral, lorelei, thumbs, bigSmile, funEmoji, bottts } from "@dicebear/collection";
+
+// ── DiceBear Avatar ─────────────────────────────────────────────────────────
+const AVATAR_STYLES = [
+  { id: "avataaarsNeutral", label: "بشري",     fn: avataaarsNeutral },
+  { id: "lorelei",          label: "كيوت",      fn: lorelei },
+  { id: "thumbs",           label: "مميز",      fn: thumbs },
+  { id: "bigSmile",         label: "مبتسم",     fn: bigSmile },
+  { id: "funEmoji",         label: "ايموجي",    fn: funEmoji },
+  { id: "bottts",           label: "روبوت",     fn: bottts },
+];
+
+function genAvatar(style: string, seed: string): string {
+  const found = AVATAR_STYLES.find(s => s.id === style) ?? AVATAR_STYLES[0];
+  return createAvatar(found.fn, { seed, size: 80 }).toDataUri();
+}
+
+function TeamAvatar({ avatarStyle, avatarSeed, name, size = "md" }: {
+  avatarStyle?: string | null; avatarSeed?: string | null; name: string; size?: "sm" | "md" | "lg";
+}) {
+  const sz = size === "sm" ? "w-8 h-8" : size === "lg" ? "w-16 h-16" : "w-10 h-10";
+  const style = avatarStyle ?? "avataaarsNeutral";
+  const seed  = avatarSeed  ?? name ?? "default";
+  const uri   = genAvatar(style, seed);
+  return (
+    <img src={uri} className={`${sz} rounded-full border-2 border-primary/20 bg-muted/20 shrink-0`} alt={name} />
+  );
+}
+
+function AvatarPicker({ style, seed, name, onChange }: {
+  style: string; seed: string; name: string;
+  onChange: (style: string, seed: string) => void;
+}) {
+  const [localSeed, setLocalSeed] = useState(seed || name || "seed");
+  const randomize = () => {
+    const s = Math.random().toString(36).slice(2, 10);
+    setLocalSeed(s);
+    onChange(style, s);
+  };
+  return (
+    <div className="space-y-3">
+      <Label className="text-xs">الصورة الرمزية</Label>
+      {/* Preview */}
+      <div className="flex items-center gap-4">
+        <img src={genAvatar(style, localSeed || name)} className="w-20 h-20 rounded-2xl border-2 border-primary/30 bg-muted/20" />
+        <div className="flex-1 space-y-2">
+          <p className="text-[11px] text-muted-foreground">اختر ستايل واضغط عشوائي لتغيير الشكل</p>
+          <button type="button" onClick={randomize}
+            className="flex items-center gap-1.5 text-xs bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-lg px-3 py-1.5 transition-all">
+            <RefreshCw className="w-3 h-3" /> عشوائي
+          </button>
+        </div>
+      </div>
+      {/* Style selector */}
+      <div className="grid grid-cols-3 gap-2">
+        {AVATAR_STYLES.map(s => (
+          <button key={s.id} type="button"
+            onClick={() => onChange(s.id, localSeed || name)}
+            className={`flex flex-col items-center gap-1.5 p-2 rounded-xl border-2 transition-all
+              ${style === s.id ? "border-primary bg-primary/10 scale-105 shadow-md shadow-primary/20" : "border-border bg-muted/10 hover:border-primary/40 hover:bg-muted/20"}`}>
+            <img src={genAvatar(s.id, localSeed || name)} className="w-10 h-10 rounded-full" />
+            <span className="text-[10px] font-medium">{s.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "مدير",
@@ -101,11 +170,15 @@ interface UserForm {
   displayName: string;
   role: string;
   permissions: string[];
+  avatarStyle: string;
+  avatarSeed: string;
 }
 
 const emptyForm = (): UserForm => ({
   username: "", password: "", displayName: "",
   role: "employee", permissions: DEFAULT_PERMISSIONS["employee"]?.() ?? [],
+  avatarStyle: "avataaarsNeutral",
+  avatarSeed: Math.random().toString(36).slice(2, 10),
 });
 
 export default function UsersPage() {
@@ -178,7 +251,10 @@ export default function UsersPage() {
   const openEdit = (u: AppUser) => {
     setEditingUser(u);
     const rawPerms = Array.isArray(u.permissions) ? u.permissions : [];
-    setForm({ username: u.username, password: "", displayName: u.displayName, role: u.role, permissions: expandPermissions(rawPerms, u.role) });
+    setForm({ username: u.username, password: "", displayName: u.displayName, role: u.role, permissions: expandPermissions(rawPerms, u.role),
+      avatarStyle: (u as any).avatarStyle ?? "avataaarsNeutral",
+      avatarSeed:  (u as any).avatarSeed  ?? u.username,
+    });
     setShowPassword(false);
     setDialogOpen(true);
   };
@@ -198,13 +274,17 @@ export default function UsersPage() {
         displayName: form.displayName,
         role: form.role,
         permissions: form.permissions,
+        avatarStyle: form.avatarStyle,
+        avatarSeed:  form.avatarSeed,
       };
       if (form.password) data.password = form.password;
       updateMutation.mutate({ id: editingUser.id, data });
     } else {
       if (!form.username.trim()) { toast({ title: "خطأ", description: "اسم المستخدم مطلوب", variant: "destructive" }); return; }
       if (form.password.length < 6) { toast({ title: "خطأ", description: "كلمة المرور 6 أحرف على الأقل", variant: "destructive" }); return; }
-      createMutation.mutate({ username: form.username.trim(), password: form.password, displayName: form.displayName.trim(), role: form.role, permissions: form.permissions });
+      createMutation.mutate({ username: form.username.trim(), password: form.password, displayName: form.displayName.trim(), role: form.role, permissions: form.permissions,
+        avatarStyle: form.avatarStyle, avatarSeed: form.avatarSeed,
+      });
     }
   };
 
@@ -239,9 +319,7 @@ export default function UsersPage() {
         <div className="space-y-3">
           {users.map(u => (
             <div key={u.id} className={`flex items-start gap-2 sm:gap-4 p-3 sm:p-4 rounded-xl border ${u.isActive ? "border-border bg-card" : "border-border/40 bg-muted/20 opacity-60"}`}>
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-muted/30 flex items-center justify-center text-sm sm:text-base font-bold border border-border shrink-0 mt-0.5">
-                {u.displayName.charAt(0)}
-              </div>
+              <TeamAvatar avatarStyle={(u as any).avatarStyle} avatarSeed={(u as any).avatarSeed} name={u.displayName} size="md" />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="font-bold text-sm">{u.displayName}</span>
@@ -307,6 +385,18 @@ export default function UsersPage() {
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto space-y-5 py-4 px-1">
+
+            {/* ── Avatar Picker ── */}
+            <section>
+              <AvatarPicker
+                style={form.avatarStyle}
+                seed={form.avatarSeed}
+                name={form.displayName || form.username || "user"}
+                onChange={(style, seed) => setForm(f => ({ ...f, avatarStyle: style, avatarSeed: seed }))}
+              />
+            </section>
+
+            <Separator />
 
             {/* ── القسم 1: بيانات الحساب ── */}
             <section>
