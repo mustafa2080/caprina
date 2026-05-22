@@ -1551,15 +1551,15 @@ router.get("/analytics/orders-by-status", requireAuth, async (req, res): Promise
 });
 
 // ─── GET /api/analytics/shipping-followup ───────────────────────────────────
-// Returns in_shipping orders that have been pending for > 3 days
+// Returns in_shipping orders (grouped by invoice) pending > 3 days
+// daysPending = based on createdAt (oldest date) to avoid reset on edits
 router.get("/analytics/shipping-followup", requireAuth, async (req, res): Promise<void> => {
   const tenantId = getTenantId(req);
-  const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
 
+  // جيب كل الطلبات اللي ستاتوسها in_shipping ومش محذوفة
   const sfBaseConditions: any[] = [
     isNull(ordersTable.deletedAt),
     eq(ordersTable.status, "in_shipping" as any),
-    lte(ordersTable.updatedAt, threeDaysAgo),
   ];
   if (tenantId !== null) sfBaseConditions.push(eq(ordersTable.tenantId, tenantId));
 
@@ -1567,26 +1567,77 @@ router.get("/analytics/shipping-followup", requireAuth, async (req, res): Promis
     .select()
     .from(ordersTable)
     .where(and(...sfBaseConditions))
-    .orderBy(desc(ordersTable.updatedAt));
+    .orderBy(desc(ordersTable.createdAt));
 
   const shippingCompanies = tenantId !== null
     ? await db.select().from(shippingCompaniesTable).where(eq(shippingCompaniesTable.tenantId, tenantId))
     : await db.select().from(shippingCompaniesTable);
   const companyMap = new Map(shippingCompanies.map(c => [c.id, c.name]));
 
-  const result = orders.map(o => ({
-    id: o.id,
-    customerName: o.customerName,
-    phone: o.phone,
-    product: o.product,
-    city: o.city,
-    trackingNumber: o.trackingNumber,
-    shippingCompany: o.shippingCompanyId ? companyMap.get(o.shippingCompanyId) ?? null : null,
-    daysPending: Math.floor((Date.now() - new Date(o.updatedAt).getTime()) / (1000 * 60 * 60 * 24)),
-    totalPrice: o.totalPrice,
-    createdAt: o.createdAt,
-    updatedAt: o.updatedAt,
-  }));
+  // ── Group by invoiceNumber (فاتورة واحدة = صف واحد) ──────────────────────
+  const invoiceMap = new Map<string, {
+    id: number;
+    customerName: string;
+    phone: string | null;
+    city: string | null;
+    product: string;
+    trackingNumber: string | null;
+    shippingCompanyId: number | null;
+    totalPrice: number;
+    createdAt: Date;
+    quantity: number;
+  }>();
+
+  for (const o of orders) {
+    const key = o.invoiceNumber?.trim() || `solo-${o.id}`;
+    if (!invoiceMap.has(key)) {
+      invoiceMap.set(key, {
+        id: o.id,
+        customerName: o.customerName,
+        phone: o.phone ?? null,
+        city: o.city ?? null,
+        // اسم المنتج: سيُجمّع لو نفس الفاتورة فيها أكتر من منتج
+        product: `${o.product}×${o.quantity}`,
+        trackingNumber: o.trackingNumber ?? null,
+        shippingCompanyId: o.shippingCompanyId ?? null,
+        totalPrice: o.totalPrice,
+        createdAt: new Date(o.createdAt),
+        quantity: o.quantity,
+      });
+    } else {
+      const grp = invoiceMap.get(key)!;
+      grp.totalPrice += o.totalPrice;
+      grp.quantity   += o.quantity;
+      grp.product    += `، ${o.product}×${o.quantity}`;
+      // تتبع وشركة الشحن من أي صف متاح
+      if (!grp.trackingNumber && o.trackingNumber) grp.trackingNumber = o.trackingNumber;
+      if (!grp.shippingCompanyId && o.shippingCompanyId) grp.shippingCompanyId = o.shippingCompanyId;
+      // الأقدم = أساس الحساب
+      const oDate = new Date(o.createdAt);
+      if (oDate < grp.createdAt) grp.createdAt = oDate;
+    }
+  }
+
+  const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+  const now = Date.now();
+
+  const result = Array.from(invoiceMap.values())
+    .map(grp => ({
+      id: grp.id,
+      customerName: grp.customerName,
+      phone: grp.phone,
+      product: grp.product,
+      city: grp.city,
+      trackingNumber: grp.trackingNumber,
+      shippingCompany: grp.shippingCompanyId ? companyMap.get(grp.shippingCompanyId) ?? null : null,
+      // ✅ الإصلاح: daysPending من createdAt مش updatedAt
+      daysPending: Math.floor((now - grp.createdAt.getTime()) / (1000 * 60 * 60 * 24)),
+      totalPrice: grp.totalPrice,
+      createdAt: grp.createdAt,
+    }))
+    // ✅ الإصلاح: فلتر هنا بعد الـ grouping بدل ما يكون في الـ query
+    .filter(r => (now - new Date(r.createdAt).getTime()) >= THREE_DAYS_MS)
+    .sort((a, b) => b.daysPending - a.daysPending);
 
   res.json(result);
 });
