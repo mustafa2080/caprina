@@ -882,22 +882,22 @@ export default function Dashboard() {
                           {fc(chartsData.weeklySales.reduce((s, d) => s + d.revenue, 0))}
                         </p>
                       </div>
-                      <ResponsiveContainer width="100%" height={70}>
-                        <AreaChart data={chartsData.weeklySales} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
+                      <ResponsiveContainer width="100%" height={90}>
+                        <AreaChart data={chartsData.weeklySales} margin={{ top: 8, right: 4, left: 4, bottom: 0 }}>
                           <defs>
                             <linearGradient id="salesGradientTop" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.35} />
+                              <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.4} />
                               <stop offset="100%" stopColor="#f59e0b" stopOpacity={0.02} />
                             </linearGradient>
                           </defs>
                           <XAxis dataKey="label" hide />
-                          <YAxis hide />
+                          <YAxis hide domain={['auto', 'auto']} />
                           <Tooltip
                             contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 10, padding: "4px 8px" }}
                             formatter={(v: number) => [fc(v), "المبيعات"]}
                             labelStyle={{ color: "hsl(var(--muted-foreground))", fontSize: 9 }}
                           />
-                          <Area type="monotone" dataKey="revenue" stroke="#f59e0b" strokeWidth={2} fill="url(#salesGradientTop)" dot={{ fill: "#f59e0b", r: 2.5, strokeWidth: 0 }} activeDot={{ r: 4, fill: "#f59e0b" }} />
+                          <Area type="monotone" dataKey="revenue" stroke="#f59e0b" strokeWidth={2.5} fill="url(#salesGradientTop)" dot={{ fill: "#f59e0b", r: 3, strokeWidth: 0 }} activeDot={{ r: 5, fill: "#f59e0b" }} />
                         </AreaChart>
                       </ResponsiveContainer>
                     </div>
