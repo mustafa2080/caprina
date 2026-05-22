@@ -196,10 +196,14 @@ export default function Layout({ children }: LayoutProps) {
               style={{ background: "hsl(var(--muted)/0.4)", border: "1px solid hsl(var(--border)/0.5)" }}
             >
               {/* Avatar */}
-              <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
-                style={{ background: "linear-gradient(135deg,hsl(var(--primary)/0.8),hsl(var(--primary)/0.4))", color: "hsl(var(--primary-foreground))", border: "2px solid hsl(var(--primary)/0.3)" }}>
-                {user?.displayName?.charAt(0)?.toUpperCase() ?? "?"}
-              </div>
+              {(user as any)?.avatar ? (
+                <img src={(user as any).avatar} className="w-8 h-8 rounded-full object-cover shrink-0 border-2 border-primary/30" alt={user?.displayName} />
+              ) : (
+                <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+                  style={{ background: "linear-gradient(135deg,hsl(var(--primary)/0.8),hsl(var(--primary)/0.4))", color: "hsl(var(--primary-foreground))", border: "2px solid hsl(var(--primary)/0.3)" }}>
+                  {user?.displayName?.charAt(0)?.toUpperCase() ?? "?"}
+                </div>
+              )}
               <div className="flex-1 min-w-0 text-right">
                 <p className="text-xs font-bold text-sidebar-foreground truncate">{user?.displayName}</p>
                 <p className="text-[10px] text-sidebar-foreground/45 truncate">{ROLE_LABELS[user?.role ?? ""] ?? user?.role}</p>
@@ -357,9 +361,13 @@ export default function Layout({ children }: LayoutProps) {
               onClick={() => setUserMenuOpen(v => !v)}
               className="w-full flex items-center gap-2 p-3 hover:bg-foreground/5 transition-colors text-right"
             >
-              <div className="w-7 h-7 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-xs font-bold text-primary shrink-0">
-                {user?.displayName?.charAt(0) ?? "?"}
-              </div>
+              {(user as any)?.avatar ? (
+                <img src={(user as any).avatar} className="w-7 h-7 rounded-full object-cover shrink-0 border-2 border-primary/30" alt={user?.displayName} />
+              ) : (
+                <div className="w-7 h-7 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-xs font-bold text-primary shrink-0">
+                  {user?.displayName?.charAt(0) ?? "?"}
+                </div>
+              )}
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-bold text-sidebar-foreground truncate">{user?.displayName}</p>
                 <p className="text-[9px] text-sidebar-foreground/40">{ROLE_LABELS[user?.role ?? ""] ?? user?.role}</p>
@@ -538,9 +546,13 @@ export default function Layout({ children }: LayoutProps) {
               {/* User + logout */}
               <div className="border-t border-sidebar-border p-3 space-y-1">
                 <div className="flex items-center gap-2 px-1 py-1">
-                  <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-xs font-bold text-primary shrink-0">
-                    {user?.displayName?.charAt(0) ?? "?"}
-                  </div>
+                  {(user as any)?.avatar ? (
+                    <img src={(user as any).avatar} className="w-8 h-8 rounded-full object-cover shrink-0 border-2 border-primary/30" alt={user?.displayName} />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-xs font-bold text-primary shrink-0">
+                      {user?.displayName?.charAt(0) ?? "?"}
+                    </div>
+                  )}
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-bold text-sidebar-foreground truncate">{user?.displayName}</p>
                     <p className="text-[10px] text-sidebar-foreground/40">{ROLE_LABELS[user?.role ?? ""] ?? user?.role}</p>

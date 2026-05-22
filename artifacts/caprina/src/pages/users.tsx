@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usersApi, type AppUser } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -9,73 +9,102 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
-import { UserPlus, Edit2, Trash2, Shield, Users, Eye, EyeOff, TrendingUp, Package, BarChart3, LayoutGrid, Lock, User, Settings2, ChevronDown, ChevronUp, ToggleLeft, RefreshCw } from "lucide-react";
-import { createAvatar } from "@dicebear/core";
-import { avataaarsNeutral, lorelei, thumbs, bigSmile, funEmoji, bottts } from "@dicebear/collection";
+import { UserPlus, Edit2, Trash2, Shield, Users, Eye, EyeOff, TrendingUp, Package, BarChart3, LayoutGrid, Lock, User, Settings2, ChevronDown, ChevronUp, ToggleLeft, Camera, X } from "lucide-react";
 
-// ── DiceBear Avatar ─────────────────────────────────────────────────────────
-const AVATAR_STYLES = [
-  { id: "avataaarsNeutral", label: "بشري",     fn: avataaarsNeutral },
-  { id: "lorelei",          label: "كيوت",      fn: lorelei },
-  { id: "thumbs",           label: "مميز",      fn: thumbs },
-  { id: "bigSmile",         label: "مبتسم",     fn: bigSmile },
-  { id: "funEmoji",         label: "ايموجي",    fn: funEmoji },
-  { id: "bottts",           label: "روبوت",     fn: bottts },
-];
-
-function genAvatar(style: string, seed: string): string {
-  const found = AVATAR_STYLES.find(s => s.id === style) ?? AVATAR_STYLES[0];
-  return createAvatar(found.fn, { seed, size: 80 }).toDataUri();
+// ── User Avatar Component ────────────────────────────────────────────────────
+function getInitialsColor(name: string): string {
+  const colors = [
+    "from-violet-500 to-purple-600",
+    "from-blue-500 to-cyan-600",
+    "from-emerald-500 to-teal-600",
+    "from-orange-500 to-amber-600",
+    "from-rose-500 to-pink-600",
+    "from-indigo-500 to-blue-600",
+    "from-teal-500 to-emerald-600",
+    "from-fuchsia-500 to-violet-600",
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return colors[Math.abs(hash) % colors.length];
 }
 
-function TeamAvatar({ avatarStyle, avatarSeed, name, size = "md" }: {
-  avatarStyle?: string | null; avatarSeed?: string | null; name: string; size?: "sm" | "md" | "lg";
+function UserAvatar({ avatar, name, size = "md" }: {
+  avatar?: string | null; name: string; size?: "sm" | "md" | "lg";
 }) {
-  const sz = size === "sm" ? "w-8 h-8" : size === "lg" ? "w-16 h-16" : "w-10 h-10";
-  const style = avatarStyle ?? "avataaarsNeutral";
-  const seed  = avatarSeed  ?? name ?? "default";
-  const uri   = genAvatar(style, seed);
+  const sz    = size === "sm" ? "w-8 h-8 text-xs"    : size === "lg" ? "w-16 h-16 text-xl" : "w-10 h-10 text-sm";
+  const initials = (name || "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+  if (avatar) {
+    return <img src={avatar} className={`${sz} rounded-full object-cover border-2 border-primary/20 shrink-0`} alt={name} />;
+  }
   return (
-    <img src={uri} className={`${sz} rounded-full border-2 border-primary/20 bg-muted/20 shrink-0`} alt={name} />
+    <div className={`${sz} rounded-full bg-gradient-to-br ${getInitialsColor(name)} flex items-center justify-center font-bold text-white border-2 border-white/10 shrink-0`}>
+      {initials}
+    </div>
   );
 }
 
-function AvatarPicker({ style, seed, name, onChange }: {
-  style: string; seed: string; name: string;
-  onChange: (style: string, seed: string) => void;
+// ── Avatar Upload Picker ─────────────────────────────────────────────────────
+function AvatarUpload({ avatar, name, onChange }: {
+  avatar: string; name: string; onChange: (val: string) => void;
 }) {
-  const [localSeed, setLocalSeed] = useState(seed || name || "seed");
-  const randomize = () => {
-    const s = Math.random().toString(36).slice(2, 10);
-    setLocalSeed(s);
-    onChange(style, s);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState("");
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { setError("الصورة أكبر من 2MB، اختار صورة أصغر"); return; }
+    if (!file.type.startsWith("image/")) { setError("الملف ده مش صورة"); return; }
+    setError("");
+    const reader = new FileReader();
+    reader.onload = () => onChange(reader.result as string);
+    reader.readAsDataURL(file);
   };
+
   return (
     <div className="space-y-3">
-      <Label className="text-xs">الصورة الرمزية</Label>
-      {/* Preview */}
+      <Label className="text-xs text-muted-foreground">صورة المستخدم</Label>
       <div className="flex items-center gap-4">
-        <img src={genAvatar(style, localSeed || name)} className="w-20 h-20 rounded-2xl border-2 border-primary/30 bg-muted/20" />
-        <div className="flex-1 space-y-2">
-          <p className="text-[11px] text-muted-foreground">اختر ستايل واضغط عشوائي لتغيير الشكل</p>
-          <button type="button" onClick={randomize}
-            className="flex items-center gap-1.5 text-xs bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-lg px-3 py-1.5 transition-all">
-            <RefreshCw className="w-3 h-3" /> عشوائي
+        {/* Preview */}
+        <div className="relative group">
+          <UserAvatar avatar={avatar || null} name={name || "U"} size="lg" />
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+          >
+            <Camera className="w-5 h-5 text-white" />
           </button>
         </div>
+
+        <div className="flex-1 space-y-2">
+          <p className="text-[11px] text-muted-foreground">
+            اضغط على الصورة أو على زر الرفع لتغييرها
+            <br />
+            <span className="text-muted-foreground/60">الحد الأقصى 2MB — JPG أو PNG أو WebP</span>
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              className="flex items-center gap-1.5 text-xs bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-lg px-3 py-1.5 transition-all"
+            >
+              <Camera className="w-3 h-3" /> رفع صورة
+            </button>
+            {avatar && (
+              <button
+                type="button"
+                onClick={() => { onChange(""); setError(""); }}
+                className="flex items-center gap-1.5 text-xs bg-destructive/10 hover:bg-destructive/20 text-destructive border border-destructive/30 rounded-lg px-3 py-1.5 transition-all"
+              >
+                <X className="w-3 h-3" /> حذف
+              </button>
+            )}
+          </div>
+          {error && <p className="text-[11px] text-destructive">{error}</p>}
+        </div>
       </div>
-      {/* Style selector */}
-      <div className="grid grid-cols-3 gap-2">
-        {AVATAR_STYLES.map(s => (
-          <button key={s.id} type="button"
-            onClick={() => onChange(s.id, localSeed || name)}
-            className={`flex flex-col items-center gap-1.5 p-2 rounded-xl border-2 transition-all
-              ${style === s.id ? "border-primary bg-primary/10 scale-105 shadow-md shadow-primary/20" : "border-border bg-muted/10 hover:border-primary/40 hover:bg-muted/20"}`}>
-            <img src={genAvatar(s.id, localSeed || name)} className="w-10 h-10 rounded-full" />
-            <span className="text-[10px] font-medium">{s.label}</span>
-          </button>
-        ))}
-      </div>
+      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
     </div>
   );
 }
@@ -115,36 +144,28 @@ const VIEW_PRODUCT_PERF_PERMISSION = { key: "view_product_performance", label: "
 const ADD_TEAM_MEMBER_PERMISSION = { key: "add_team_member", label: "إضافة موظف جديد", desc: "يظهر زرار إضافة موظف جديد في إدارة الفريق" };
 const EDIT_BRAND_PERMISSION = { key: "edit_brand", label: "تعديل هوية الشركة", desc: "يقدر يغير اسم الشركة والشعار والـ Tagline من أيقونة البروفايل" };
 
-// صلاحيات ظهور الأقسام في الـ Sidebar — per-user
 const SIDEBAR_SECTION_PERMISSIONS = [
-  // ── عام ──
   { key: "section_dashboard",        label: "لوحة التحكم",       desc: "الصفحة الرئيسية ولوحة التحكم"                              },
   { key: "section_product_performance", label: "أداء المنتجات",      desc: "قسم تحليل أداء وأرباح كل منتج"                              },
   { key: "section_team_performance",    label: "أداء الفريق",        desc: "قسم عرض تقارير وإحصائيات أداء الفريق"                      },
   { key: "section_team_management",     label: "إدارة الفريق",       desc: "قسم إدارة أعضاء الفريق وبياناتهم"                          },
   { key: "section_smart_analytics",     label: "التحليل الذكي 🧠",   desc: "قسم التحليلات الذكية المدعومة بالذكاء الاصطناعي"           },
   { key: "section_ads_analytics",       label: "تحليل الإعلانات",    desc: "قسم تحليل أداء الحملات الإعلانية"                          },
-  // ── الطلبات ──
   { key: "section_orders",              label: "الطلبات",             desc: "قسم عرض وإدارة الطلبات"                                    },
   { key: "section_new_order",           label: "طلب جديد",            desc: "زر وصفحة إضافة طلب جديد"                                   },
   { key: "section_archive",             label: "الأرشيف 🗂️",          desc: "قسم أرشيف الطلبات القديمة والمنتهية"                       },
   { key: "section_shipping_followup",   label: "متابعة الشحن ⏱️",     desc: "قسم متابعة حالة شحن الطلبات"                               },
   { key: "section_whatsapp",            label: "إعدادات واتساب",      desc: "قسم إعدادات وتكامل واتساب"                                 },
-  // ── المخزون ──
   { key: "section_inventory",           label: "المخزون",             desc: "قسم عرض وإدارة المنتجات والمخزون"                          },
   { key: "section_warehouses",          label: "المخازن",             desc: "قسم إدارة المخازن المختلفة"                                },
   { key: "section_movements",           label: "حركات المخزون",       desc: "قسم تتبع حركات الدخول والخروج في المخزون"                  },
-  // ── الشحن والفواتير ──
   { key: "section_shipping",            label: "شركات الشحن",         desc: "قسم إدارة شركات الشحن وتفاصيلها"                           },
   { key: "section_invoices",            label: "الفواتير",             desc: "قسم عرض وإدارة الفواتير"                                   },
-  // ── البيانات ──
   { key: "section_import",              label: "استيراد Excel",        desc: "قسم استيراد البيانات من ملفات Excel"                        },
   { key: "section_export_data",         label: "تصدير البيانات",       desc: "قسم تصدير البيانات إلى ملفات Excel والنسخ الاحتياطية"     },
-  // ── الإدارة ──
   { key: "section_users",               label: "إدارة المستخدمين",    desc: "قسم إدارة المستخدمين والصلاحيات"                           },
   { key: "section_sessions_report",     label: "تقرير الجلسات",        desc: "قسم عرض سجل دخول وخروج الموظفين"                           },
   { key: "section_audit",               label: "سجل التعديلات",        desc: "قسم تتبع كل التعديلات والعمليات في النظام"                 },
-  // ── الماليات ──
   { key: "section_finance",             label: "قسم الماليات",         desc: "عرض جميع صفحات الماليات: لوحة، أوامر شراء، موردين، مصروفات، فواتير شحن" },
 ];
 
@@ -170,15 +191,13 @@ interface UserForm {
   displayName: string;
   role: string;
   permissions: string[];
-  avatarStyle: string;
-  avatarSeed: string;
+  avatar: string;
 }
 
 const emptyForm = (): UserForm => ({
   username: "", password: "", displayName: "",
   role: "employee", permissions: DEFAULT_PERMISSIONS["employee"]?.() ?? [],
-  avatarStyle: "avataaarsNeutral",
-  avatarSeed: Math.random().toString(36).slice(2, 10),
+  avatar: "",
 });
 
 export default function UsersPage() {
@@ -212,16 +231,11 @@ export default function UsersPage() {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: any }) => usersApi.update(id, data),
     onSuccess: (_result, variables) => {
-      // دايماً نعمل invalidate عشان القايمة تتحدث
       qc.invalidateQueries({ queryKey: ["users"] });
       setDialogOpen(false);
       setResetPasswordOpen(false);
       toast({ title: "تم تحديث المستخدم بنجاح" });
-      // لو الأدمن عدّل نفسه — نعمل refreshUser عشان الـ sidebar يتحدث فوراً
-      // لو عدّل حد تاني — الـ polling بتاعه هيجيب البيانات الجديدة في 3 ثواني
-      if (variables.id === currentUser?.id) {
-        refreshUser();
-      }
+      if (variables.id === currentUser?.id) refreshUser();
     },
     onError: (e: any) => toast({ title: "خطأ في الحفظ", description: e.message, variant: "destructive" }),
   });
@@ -234,26 +248,25 @@ export default function UsersPage() {
 
   const openCreate = () => { setEditingUser(null); setForm(emptyForm()); setShowPassword(false); setDialogOpen(true); };
 
-  // لو اليوزر عنده "*" في الـ DB (الأدمن القديم)، نفرد كل الصلاحيات الحقيقية
   const expandPermissions = (perms: string[], role: string): string[] => {
     const clean = perms
       .map(p => (typeof p === "string" ? p : null))
       .filter((p): p is string => p !== null && p.trim() !== "");
-
-    // لو "*" أو فاضية تماماً — استخدم الـ defaults (فقط للمستخدمين القدامى)
     if (clean.includes("*")) return DEFAULT_PERMISSIONS[role]?.() ?? DEFAULT_PERMISSIONS["admin"]!();
     if (clean.length === 0)  return DEFAULT_PERMISSIONS[role]?.() ?? [];
-
-    // لو فيه permissions فعلية — استخدمها كما هي بدون إضافة أي شيء قسراً
     return clean;
   };
 
   const openEdit = (u: AppUser) => {
     setEditingUser(u);
     const rawPerms = Array.isArray(u.permissions) ? u.permissions : [];
-    setForm({ username: u.username, password: "", displayName: u.displayName, role: u.role, permissions: expandPermissions(rawPerms, u.role),
-      avatarStyle: (u as any).avatarStyle ?? "avataaarsNeutral",
-      avatarSeed:  (u as any).avatarSeed  ?? u.username,
+    setForm({
+      username: u.username,
+      password: "",
+      displayName: u.displayName,
+      role: u.role,
+      permissions: expandPermissions(rawPerms, u.role),
+      avatar: (u as any).avatar ?? "",
     });
     setShowPassword(false);
     setDialogOpen(true);
@@ -269,21 +282,24 @@ export default function UsersPage() {
   const handleSubmit = () => {
     if (!form.displayName.trim()) { toast({ title: "خطأ", description: "الاسم مطلوب", variant: "destructive" }); return; }
     if (editingUser) {
-      // نحفظ الـ permissions كما اختارها المستخدم بدون إضافة أي شيء قسراً
       const data: any = {
         displayName: form.displayName,
         role: form.role,
         permissions: form.permissions,
-        avatarStyle: form.avatarStyle,
-        avatarSeed:  form.avatarSeed,
+        avatar: form.avatar || null,
       };
       if (form.password) data.password = form.password;
       updateMutation.mutate({ id: editingUser.id, data });
     } else {
       if (!form.username.trim()) { toast({ title: "خطأ", description: "اسم المستخدم مطلوب", variant: "destructive" }); return; }
       if (form.password.length < 6) { toast({ title: "خطأ", description: "كلمة المرور 6 أحرف على الأقل", variant: "destructive" }); return; }
-      createMutation.mutate({ username: form.username.trim(), password: form.password, displayName: form.displayName.trim(), role: form.role, permissions: form.permissions,
-        avatarStyle: form.avatarStyle, avatarSeed: form.avatarSeed,
+      createMutation.mutate({
+        username: form.username.trim(),
+        password: form.password,
+        displayName: form.displayName.trim(),
+        role: form.role,
+        permissions: form.permissions,
+        avatar: form.avatar || undefined,
       });
     }
   };
@@ -319,7 +335,7 @@ export default function UsersPage() {
         <div className="space-y-3">
           {users.map(u => (
             <div key={u.id} className={`flex items-start gap-2 sm:gap-4 p-3 sm:p-4 rounded-xl border ${u.isActive ? "border-border bg-card" : "border-border/40 bg-muted/20 opacity-60"}`}>
-              <TeamAvatar avatarStyle={(u as any).avatarStyle} avatarSeed={(u as any).avatarSeed} name={u.displayName} size="md" />
+              <UserAvatar avatar={(u as any).avatar} name={u.displayName} size="md" />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="font-bold text-sm">{u.displayName}</span>
@@ -375,7 +391,6 @@ export default function UsersPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="bg-card border-border w-[95vw] max-w-lg flex flex-col max-h-[92dvh]" dir="rtl">
 
-          {/* ── Header ── */}
           <DialogHeader className="shrink-0 pb-3 border-b border-border">
             <DialogTitle className="flex items-center gap-2 text-base font-black">
               {editingUser
@@ -386,19 +401,18 @@ export default function UsersPage() {
 
           <div className="flex-1 overflow-y-auto space-y-5 py-4 px-1">
 
-            {/* ── Avatar Picker ── */}
+            {/* ── Avatar Upload ── */}
             <section>
-              <AvatarPicker
-                style={form.avatarStyle}
-                seed={form.avatarSeed}
-                name={form.displayName || form.username || "user"}
-                onChange={(style, seed) => setForm(f => ({ ...f, avatarStyle: style, avatarSeed: seed }))}
+              <AvatarUpload
+                avatar={form.avatar}
+                name={form.displayName || form.username || "U"}
+                onChange={(val) => setForm(f => ({ ...f, avatar: val }))}
               />
             </section>
 
             <Separator />
 
-            {/* ── القسم 1: بيانات الحساب ── */}
+            {/* ── بيانات الحساب ── */}
             <section>
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
@@ -438,7 +452,7 @@ export default function UsersPage() {
 
             <Separator />
 
-            {/* ── القسم 2: الدور الوظيفي ── */}
+            {/* ── الدور الوظيفي ── */}
             <section>
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
@@ -462,7 +476,7 @@ export default function UsersPage() {
 
             <Separator />
 
-            {/* ── القسم 3: الصلاحيات الخاصة ── */}
+            {/* ── الصلاحيات الخاصة ── */}
             <section>
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
@@ -498,7 +512,7 @@ export default function UsersPage() {
                         <div className="flex items-center gap-2">
                           {icon}
                           <span className="text-xs font-bold">{perm.label}</span>
-                          {badge && <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-600 dark:text-amber-400`}>{badge}</span>}
+                          {badge && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-600 dark:text-amber-400">{badge}</span>}
                         </div>
                         <p className="text-[10px] text-muted-foreground mt-0.5">{perm.desc}</p>
                       </div>
@@ -511,7 +525,7 @@ export default function UsersPage() {
 
             <Separator />
 
-            {/* ── القسم 4: صلاحيات الصفحات + الـ Sidebar مدمجين ── */}
+            {/* ── الصفحات والأقسام ── */}
             <section>
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
@@ -521,65 +535,41 @@ export default function UsersPage() {
                 <span className="text-[10px] text-muted-foreground mr-auto">الوصول + الظهور في القائمة</span>
               </div>
 
-              {/* كل group فيه: صلاحية الصفحة + صلاحية الظهور مدمجين */}
               {[
-                {
-                  group: "🏠 عام",
-                  items: [
-                    { label: "لوحة التحكم", pageKey: "dashboard", sectionKey: "section_dashboard" },
-                  ]
-                },
-                {
-                  group: "📊 التحليلات",
-                  items: [
-                    { label: "التحليلات والتقارير",  pageKey: "analytics",               sectionKey: null },
-                    { label: "أداء المنتجات",         pageKey: "view_product_performance", sectionKey: "section_product_performance" },
-                    { label: "أداء الفريق",            pageKey: null,                       sectionKey: "section_team_performance" },
-                    { label: "إدارة الفريق",           pageKey: null,                       sectionKey: "section_team_management" },
-                    { label: "التحليل الذكي 🧠",      pageKey: null,                       sectionKey: "section_smart_analytics" },
-                    { label: "تحليل الإعلانات",        pageKey: null,                       sectionKey: "section_ads_analytics" },
-                  ]
-                },
-                {
-                  group: "📦 الطلبات",
-                  items: [
-                    { label: "الطلبات",        pageKey: "orders", sectionKey: "section_orders" },
-                    { label: "طلب جديد",       pageKey: null,     sectionKey: "section_new_order" },
-                    { label: "الأرشيف 🗂️",    pageKey: null,     sectionKey: "section_archive" },
-                    { label: "متابعة الشحن ⏱️",pageKey: null,     sectionKey: "section_shipping_followup" },
-                    { label: "إعدادات واتساب", pageKey: "whatsapp",sectionKey: "section_whatsapp" },
-                  ]
-                },
-                {
-                  group: "🏪 المخزون",
-                  items: [
-                    { label: "المخزون",        pageKey: "inventory", sectionKey: "section_inventory" },
-                    { label: "المخازن",         pageKey: null,        sectionKey: "section_warehouses" },
-                    { label: "حركات المخزون",   pageKey: "movements", sectionKey: "section_movements" },
-                  ]
-                },
-                {
-                  group: "🚚 الشحن والفواتير",
-                  items: [
-                    { label: "شركات الشحن", pageKey: "shipping",  sectionKey: "section_shipping" },
-                    { label: "الفواتير",     pageKey: "invoices",  sectionKey: "section_invoices" },
-                  ]
-                },
-                {
-                  group: "📁 البيانات",
-                  items: [
-                    { label: "استيراد Excel",  pageKey: "import", sectionKey: "section_import" },
-                    { label: "تصدير البيانات", pageKey: null,     sectionKey: "section_export_data" },
-                  ]
-                },
-                {
-                  group: "⚙️ الإدارة",
-                  items: [
-                    { label: "إدارة المستخدمين", pageKey: "users", sectionKey: "section_users" },
-                    { label: "تقرير الجلسات",     pageKey: null,    sectionKey: "section_sessions_report" },
-                    { label: "سجل التعديلات",     pageKey: "audit", sectionKey: "section_audit" },
-                  ]
-                },
+                { group: "🏠 عام", items: [{ label: "لوحة التحكم", pageKey: "dashboard", sectionKey: "section_dashboard" }] },
+                { group: "📊 التحليلات", items: [
+                  { label: "التحليلات والتقارير",  pageKey: "analytics",               sectionKey: null },
+                  { label: "أداء المنتجات",         pageKey: "view_product_performance", sectionKey: "section_product_performance" },
+                  { label: "أداء الفريق",            pageKey: null,                       sectionKey: "section_team_performance" },
+                  { label: "إدارة الفريق",           pageKey: null,                       sectionKey: "section_team_management" },
+                  { label: "التحليل الذكي 🧠",      pageKey: null,                       sectionKey: "section_smart_analytics" },
+                  { label: "تحليل الإعلانات",        pageKey: null,                       sectionKey: "section_ads_analytics" },
+                ]},
+                { group: "📦 الطلبات", items: [
+                  { label: "الطلبات",        pageKey: "orders", sectionKey: "section_orders" },
+                  { label: "طلب جديد",       pageKey: null,     sectionKey: "section_new_order" },
+                  { label: "الأرشيف 🗂️",    pageKey: null,     sectionKey: "section_archive" },
+                  { label: "متابعة الشحن ⏱️",pageKey: null,     sectionKey: "section_shipping_followup" },
+                  { label: "إعدادات واتساب", pageKey: "whatsapp",sectionKey: "section_whatsapp" },
+                ]},
+                { group: "🏪 المخزون", items: [
+                  { label: "المخزون",        pageKey: "inventory", sectionKey: "section_inventory" },
+                  { label: "المخازن",         pageKey: null,        sectionKey: "section_warehouses" },
+                  { label: "حركات المخزون",   pageKey: "movements", sectionKey: "section_movements" },
+                ]},
+                { group: "🚚 الشحن والفواتير", items: [
+                  { label: "شركات الشحن", pageKey: "shipping",  sectionKey: "section_shipping" },
+                  { label: "الفواتير",     pageKey: "invoices",  sectionKey: "section_invoices" },
+                ]},
+                { group: "📁 البيانات", items: [
+                  { label: "استيراد Excel",  pageKey: "import", sectionKey: "section_import" },
+                  { label: "تصدير البيانات", pageKey: null,     sectionKey: "section_export_data" },
+                ]},
+                { group: "⚙️ الإدارة", items: [
+                  { label: "إدارة المستخدمين", pageKey: "users", sectionKey: "section_users" },
+                  { label: "تقرير الجلسات",     pageKey: null,    sectionKey: "section_sessions_report" },
+                  { label: "سجل التعديلات",     pageKey: "audit", sectionKey: "section_audit" },
+                ]},
               ].map(({ group, items }) => {
                 const allKeys = items.flatMap(i => [i.pageKey, i.sectionKey].filter(Boolean) as string[]);
                 const allOn  = allKeys.every(k => form.permissions.includes(k));
@@ -591,7 +581,6 @@ export default function UsersPage() {
                 };
                 return (
                   <div key={group} className="rounded-xl border border-border overflow-hidden mb-2">
-                    {/* Group Header */}
                     <div className="flex items-center gap-2 px-3 py-2 bg-muted/20">
                       <button type="button" onClick={() => setOpenGroups(g => ({ ...g, [group]: !open }))} className="flex items-center gap-2 flex-1 text-right">
                         {open ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />}
@@ -605,7 +594,6 @@ export default function UsersPage() {
                         {allOn ? "✓ الكل" : someOn ? "جزئي" : "× لا شيء"}
                       </button>
                     </div>
-                    {/* Group Items */}
                     {open && (
                       <div className="divide-y divide-border/50">
                         {items.map(({ label, pageKey, sectionKey }) => {
@@ -614,30 +602,18 @@ export default function UsersPage() {
                           return (
                             <div key={label} className="flex items-center gap-3 px-3 py-2.5 hover:bg-muted/10 transition-colors">
                               <span className="text-xs text-foreground flex-1 font-medium">{label}</span>
-                              {/* صلاحية الصفحة */}
                               {pageKey ? (
                                 <label className="flex items-center gap-1.5 cursor-pointer">
-                                  <input type="checkbox" checked={!!pageActive} onChange={() => togglePermission(pageKey)}
-                                    className="w-3.5 h-3.5 rounded accent-primary" />
-                                  <span className={`text-[9px] font-bold w-10 text-center ${pageActive ? "text-primary" : "text-muted-foreground/50"}`}>
-                                    وصول
-                                  </span>
+                                  <input type="checkbox" checked={!!pageActive} onChange={() => togglePermission(pageKey)} className="w-3.5 h-3.5 rounded accent-primary" />
+                                  <span className={`text-[9px] font-bold w-10 text-center ${pageActive ? "text-primary" : "text-muted-foreground/50"}`}>وصول</span>
                                 </label>
-                              ) : (
-                                <div className="w-[74px]" />
-                              )}
-                              {/* صلاحية الظهور في Sidebar */}
+                              ) : <div className="w-[74px]" />}
                               {sectionKey ? (
                                 <label className="flex items-center gap-1.5 cursor-pointer">
-                                  <input type="checkbox" checked={!!sectionActive} onChange={() => togglePermission(sectionKey)}
-                                    className="w-3.5 h-3.5 rounded accent-emerald-500" />
-                                  <span className={`text-[9px] font-bold w-10 text-center ${sectionActive ? "text-emerald-500" : "text-muted-foreground/50"}`}>
-                                    قائمة
-                                  </span>
+                                  <input type="checkbox" checked={!!sectionActive} onChange={() => togglePermission(sectionKey)} className="w-3.5 h-3.5 rounded accent-emerald-500" />
+                                  <span className={`text-[9px] font-bold w-10 text-center ${sectionActive ? "text-emerald-500" : "text-muted-foreground/50"}`}>قائمة</span>
                                 </label>
-                              ) : (
-                                <div className="w-[74px]" />
-                              )}
+                              ) : <div className="w-[74px]" />}
                             </div>
                           );
                         })}
@@ -647,7 +623,6 @@ export default function UsersPage() {
                 );
               })}
 
-              {/* Legend */}
               <div className="flex items-center gap-4 mt-2 px-1">
                 <div className="flex items-center gap-1.5">
                   <div className="w-3 h-3 rounded border-2 border-primary bg-primary/20" />
@@ -662,7 +637,6 @@ export default function UsersPage() {
 
           </div>
 
-          {/* ── Footer ── */}
           <div className="shrink-0 flex gap-2 pt-3 border-t border-border">
             <Button variant="outline" className="h-10 text-sm border-border px-5" onClick={() => setDialogOpen(false)}>إلغاء</Button>
             <Button className="flex-1 h-10 text-sm font-bold" onClick={handleSubmit}

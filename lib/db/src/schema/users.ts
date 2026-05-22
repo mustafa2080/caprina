@@ -1,4 +1,4 @@
-import { mysqlTable, text, int, boolean, datetime, json, varchar } from "drizzle-orm/mysql-core";
+import { mysqlTable, text, int, boolean, datetime, json, varchar, mediumtext } from "drizzle-orm/mysql-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -21,6 +21,7 @@ export const usersTable = mysqlTable("users", {
   tenantId: int("tenant_id"),   // null = super_admin بيدخل على كل tenant
   permissions: json("permissions").$type<string[]>().default([]),
   isActive: boolean("is_active").notNull().default(true),
+  avatar: mediumtext("avatar"),  // base64 صورة المستخدم
   createdAt: datetime("created_at").notNull().default(new Date()),
   updatedAt: datetime("updated_at").notNull().default(new Date()),
 });

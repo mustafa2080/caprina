@@ -55,6 +55,7 @@ router.get("/", async (req, res): Promise<void> => {
     role: usersTable.role,
     permissions: usersTable.permissions,
     isActive: usersTable.isActive,
+    avatar: usersTable.avatar,
     createdAt: usersTable.createdAt,
     updatedAt: usersTable.updatedAt,
   }).from(usersTable);
@@ -92,6 +93,7 @@ router.post("/", async (req, res): Promise<void> => {
 
   const passwordHash = await hashPassword(password);
   const creatorTenantId = getTenantId(req);
+  const { avatar: avatarData } = req.body as { avatar?: string };
   const insertResult = await db.insert(usersTable).values({
     username: username.trim().toLowerCase(),
     passwordHash,
@@ -99,12 +101,14 @@ router.post("/", async (req, res): Promise<void> => {
     role: role as any,
     permissions: permissions ?? [],
     isActive: true,
+    avatar: avatarData ?? null,
     ...(creatorTenantId !== null ? { tenantId: creatorTenantId } : {}),
   });
   const insertId = (insertResult as any)[0]?.insertId ?? (insertResult as any).insertId;
   const [newUser] = await db.select({
     id: usersTable.id, username: usersTable.username, displayName: usersTable.displayName,
     role: usersTable.role, permissions: usersTable.permissions, isActive: usersTable.isActive,
+    avatar: usersTable.avatar,
     createdAt: usersTable.createdAt, updatedAt: usersTable.updatedAt,
   }).from(usersTable).where(eq(usersTable.id, insertId));
 
@@ -124,9 +128,9 @@ router.post("/", async (req, res): Promise<void> => {
 // PATCH /users/:id
 router.patch("/:id", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
-  const { displayName, role, permissions, isActive, password } = req.body as {
+  const { displayName, role, permissions, isActive, password, avatar } = req.body as {
     displayName?: string; role?: string; permissions?: string[];
-    isActive?: boolean; password?: string;
+    isActive?: boolean; password?: string; avatar?: string | null;
   };
 
   const [existing] = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
@@ -151,6 +155,7 @@ router.patch("/:id", async (req, res): Promise<void> => {
     updates.permissions = Array.isArray(permissions) ? permissions : [];
     console.log(`[PATCH /users/${id}] saving permissions:`, JSON.stringify(updates.permissions));
   }
+  if (avatar !== undefined) updates.avatar = avatar ?? null;
   if (isActive !== undefined) updates.isActive = isActive;
   if (password) {
     if (password.length < 6) { res.status(400).json({ error: "كلمة المرور يجب أن تكون 6 أحرف على الأقل" }); return; }
