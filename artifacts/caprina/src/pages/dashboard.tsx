@@ -119,9 +119,9 @@ function ProductRow({ product, rank, image }: { product: ProductProfit; rank: nu
         rank === 1 ? "bg-amber-500 text-black" : rank === 2 ? "bg-zinc-400 text-black" : rank === 3 ? "bg-amber-700 text-white" : "bg-muted text-muted-foreground"
       }`}>{rank}</div>
       {image ? (
-        <img src={image} alt={product.name} className="w-8 h-8 rounded-lg object-cover border border-border shrink-0" />
+        <img src={image} alt={product.name} className="w-8 h-8 rounded-full object-cover border border-border shrink-0" />
       ) : (
-        <div className="w-8 h-8 rounded-lg bg-muted border border-border flex items-center justify-center shrink-0">
+        <div className="w-8 h-8 rounded-full bg-muted border border-border flex items-center justify-center shrink-0">
           <Package className="w-4 h-4 text-muted-foreground" />
         </div>
       )}
