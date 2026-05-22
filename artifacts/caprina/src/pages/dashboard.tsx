@@ -17,6 +17,7 @@ import {
   analyticsApi, type PeriodProfit, type ProductProfit, type FinancialSummary, type Alert,
   productsApi, cashRegistersApi,
 } from "@/lib/api";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
 // ── Avatar helpers ──────────────────────────────────────────────────────────
 const AVATAR_COLORS_DB = [
@@ -610,6 +611,47 @@ export default function Dashboard() {
                 monthlySales={chartsData.monthlySales}
                 weekComparison={chartsData.weekComparison}
               />
+
+              {/* مبيعات العملاء التجاريين */}
+              {recentClients.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-border/40">
+                  <p className="text-[11px] font-semibold text-muted-foreground mb-3 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                    مبيعات العملاء التجاريين
+                  </p>
+                  <ResponsiveContainer width="100%" height={120}>
+                    <LineChart
+                      data={recentClients.slice(0, 7).map((c: any) => ({
+                        name: c.name?.split(" ").slice(0, 2).join(" ") ?? "—",
+                        sales: parseFloat(c.totalSales ?? "0"),
+                      }))}
+                      margin={{ top: 4, right: 8, left: -20, bottom: 0 }}
+                    >
+                      <defs>
+                        <linearGradient id="clientsLineGrad" x1="0" x2="1" y1="0" y2="0">
+                          <stop offset="0%" stopColor="#10b981" />
+                          <stop offset="100%" stopColor="#059669" />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="2 4" stroke="hsl(var(--border))" vertical={false} />
+                      <XAxis dataKey="name" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                      <Tooltip
+                        contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11 }}
+                        formatter={(v: any) => [`${Number(v).toLocaleString("ar-EG")} ج.م`, "المبيعات"]}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="sales"
+                        stroke="url(#clientsLineGrad)"
+                        strokeWidth={2.5}
+                        dot={{ r: 4, fill: "#10b981", strokeWidth: 0 }}
+                        activeDot={{ r: 6, strokeWidth: 2, stroke: "#fff" }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </ChartCard>
           </div>
         </div>
