@@ -846,7 +846,7 @@ export default function FinanceHub() {
 
       {/* ── Smart Alerts ────────────────────────────────────────────────────── */}
       {alts.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 gap-2">
           {alts.map((a:any, i:number) => {
             const s = ALERT_STYLE[a.type] ?? ALERT_STYLE.info;
             return (
@@ -887,8 +887,7 @@ export default function FinanceHub() {
       {/* ── Chart المبيعات والأرباح (آخر 6 شهور) ───────────────────────────── */}
       <MonthlyFlowChart data={monthlyChartData} isLoading={isLoading} />
 
-      {/* ── Grid: تدفق يومي + خريطة الخزن ─────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4">
 
         {/* التدفق النقدي اليومي */}
         <Card className="border-border p-5">
@@ -933,10 +932,10 @@ export default function FinanceHub() {
 
 
       {/* ── Grid: P&L + مؤشرات الطلبات ─────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
 
         {/* P&L Statement */}
-        <Card className="border-border overflow-hidden lg:col-span-2">
+        <Card className="border-border overflow-hidden lg:col-span-2 2xl:col-span-2">
           <div className="px-5 py-4 border-b border-border bg-muted/30 flex items-center justify-between">
             <SectionHeader icon={FileText} title="قائمة الأرباح والخسائر" sub="مقارنة بالفترة السابقة"/>
           </div>
@@ -1005,7 +1004,7 @@ export default function FinanceHub() {
 
 
       {/* ── Grid: توزيع المصروفات + آخر الحركات ────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4">
 
         {/* Pie: توزيع المصروفات */}
         <Card className="border-border p-5">
@@ -1088,7 +1087,7 @@ export default function FinanceHub() {
       <MoMExpenseReport />
 
       {/* ── مستحقات + أوامر الشراء ──────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">
         {/* مستحقات الشحن */}
         <Link href="/finance/shipping-invoices">
           <div className="rounded-2xl border border-sky-500/20 bg-sky-500/5 p-4 hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer group">
