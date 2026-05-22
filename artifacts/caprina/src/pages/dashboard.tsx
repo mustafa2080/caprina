@@ -535,7 +535,7 @@ export default function Dashboard() {
               </div>
             </div>
             {/* زر متابعة */}
-            <Link href="/orders?status=in_shipping" className="shrink-0">
+            <Link href="/shipping-followup" className="shrink-0">
               <button className={`text-[10px] sm:text-xs font-black px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap ${
                 isUrgent
                   ? "bg-red-600 hover:bg-red-500 text-white"
