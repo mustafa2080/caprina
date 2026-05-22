@@ -1044,6 +1044,34 @@ export default function Dashboard() {
             </div>
           )}
 
+          {/* ── منتجات ذات نسبة إرجاع مرتفعة ─────────────────────────── */}
+          {canViewFinancials && analytics?.losingProducts && analytics.losingProducts.length > 0 && (
+            <Card className="border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/5">
+              <CardHeader className="py-2.5 sm:py-3 px-3 sm:px-4 border-b border-red-200 dark:border-red-900/30">
+                <CardTitle className="text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2">
+                  <TrendingDown className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-red-600 dark:text-red-400" />
+                  منتجات ذات نسبة إرجاع مرتفعة
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-2 sm:p-3 px-3 sm:px-4">
+                {analytics.losingProducts.map((p) => (
+                  <div key={p.name} className="flex items-center justify-between py-1.5 sm:py-2 border-b border-red-100 dark:border-red-900/20 last:border-0 text-[10px] sm:text-xs gap-2">
+                    <div className="min-w-0">
+                      <p className="font-semibold truncate">{p.name}</p>
+                      <p className="text-muted-foreground text-[9px] sm:text-[11px]">{p.orderCount} طلب • {p.returnCount} مرتجع</p>
+                    </div>
+                    <div className="text-right flex items-center gap-1.5 sm:gap-2 shrink-0">
+                      <div>
+                        <Badge variant="outline" className="border-red-400 text-red-600 dark:border-red-800 dark:text-red-400 text-[8px] sm:text-[10px] block mb-0.5 sm:mb-1">{p.returnRate}% مرتجع</Badge>
+                        <p className="text-red-600 dark:text-red-400 font-bold text-[9px] sm:text-[10px]">{fc(p.profit)}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
 
 
 
