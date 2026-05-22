@@ -457,10 +457,10 @@ export default function Dashboard() {
         <div className="rounded-xl border border-emerald-300 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-900/5 overflow-hidden">
           <div className="p-3 sm:p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-3 sm:mb-4">
-              {/* الحاوية الكبيرة: إجمالي الكاش */}
+              {/* الحاوية الكبيرة: إجمالي أرصدة جميع الخزن النشطة */}
               <div className="min-w-0">
                 <p className="text-[8px] sm:text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-0.5 sm:mb-1">
-                  إجمالي الكاش
+                  إجمالي أرصدة جميع الخزن النشطة
                 </p>
                 <div className="flex items-baseline gap-2 sm:gap-3 flex-wrap">
                   <p className="text-2xl sm:text-3xl lg:text-4xl font-black text-emerald-600 dark:text-emerald-400">
@@ -470,7 +470,6 @@ export default function Dashboard() {
                     مجموع كل الخزن
                   </Badge>
                 </div>
-                <p className="text-[8px] sm:text-[10px] text-muted-foreground mt-0.5 sm:mt-1">إجمالي أرصدة جميع الخزن النشطة</p>
               </div>
               {/* حاويتان صغيرتان: صافي الربح + في الطريق */}
               <div className="grid grid-cols-2 gap-2 shrink-0 self-start">
