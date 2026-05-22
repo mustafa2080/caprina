@@ -11,12 +11,52 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Plus, Package, AlertTriangle, Edit2, Trash2, ChevronDown, ChevronRight,
   Layers, Tag, TrendingUp, DollarSign, Boxes, BarChart3, Search, PackagePlus, Archive,
-  Filter, X, SortAsc, SortDesc, ChevronDown as ChevronDownIcon, Warehouse as WarehouseIcon, MapPin, Printer
+  Filter, X, SortAsc, SortDesc, ChevronDown as ChevronDownIcon, Warehouse as WarehouseIcon, MapPin, Printer, ImagePlus, Trash
 } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+// ─── Product Image Upload ──────────────────────────────────────────────────────
+function ProductImageUpload({ value, onChange }: { value: string | null; onChange: (v: string | null) => void }) {
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 3 * 1024 * 1024) { alert("الحجم الأقصى 3MB"); return; }
+    const reader = new FileReader();
+    reader.onload = () => onChange(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+  return (
+    <div className="flex flex-col items-center gap-2">
+      {value ? (
+        <div className="relative group">
+          <img src={value} alt="صورة المنتج" className="w-24 h-24 object-cover rounded-xl border-2 border-primary/30 shadow" />
+          <button
+            type="button"
+            onClick={() => onChange(null)}
+            className="absolute -top-2 -left-2 bg-destructive text-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow"
+          >
+            <Trash className="w-3 h-3" />
+          </button>
+        </div>
+      ) : (
+        <label className="w-24 h-24 flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border hover:border-primary/50 bg-muted/20 cursor-pointer transition-colors">
+          <ImagePlus className="w-7 h-7 text-muted-foreground mb-1" />
+          <span className="text-[10px] text-muted-foreground text-center">رفع صورة</span>
+          <input type="file" accept="image/*" className="hidden" onChange={handleFile} />
+        </label>
+      )}
+      {value && (
+        <label className="text-[11px] text-primary cursor-pointer hover:underline flex items-center gap-1">
+          <ImagePlus className="w-3 h-3" />تغيير الصورة
+          <input type="file" accept="image/*" className="hidden" onChange={handleFile} />
+        </label>
+      )}
+    </div>
+  );
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fc = (n: number) =>
@@ -41,7 +81,7 @@ const calcMargin = (unitPrice: number, costPrice: number | null) => {
 const COMMON_COLORS = ["أسود", "أبيض", "بيج", "رمادي", "كحلي", "بني", "زيتي", "بردقاني", "أزرق", "أحمر", "وردي", "بنفسجي"];
 const COMMON_SIZES = ["XS", "S", "M", "L", "XL", "XXL", "3XL", "28", "30", "32", "34", "36", "38", "40"];
 
-const emptyProductForm = { name: "", sku: "", lowStockThreshold: 5, unitPrice: 0, costPrice: null as number | null };
+const emptyProductForm = { name: "", sku: "", lowStockThreshold: 5, unitPrice: 0, costPrice: null as number | null, image: null as string | null };
 const emptyVariantForm = { color: "", size: "", sku: "", totalQuantity: 0, lowStockThreshold: 5, unitPrice: 0, costPrice: null as number | null };
 
 // Warehouse distribution entry
@@ -144,8 +184,13 @@ function printProductInventory(product: Product, variants: ProductVariant[], war
     <div class="brand">🧺 كابرينا</div>
     <div class="meta"><div>تقرير جرد المخزون</div><div>${now}</div></div>
   </div>
-  <div class="product-title">${product.name}${product.sku ? ` <span style="font-size:12px;color:#999;font-weight:400">(${product.sku})</span>` : ""}</div>
-  <div class="product-sub">إدارة المنتجات • الألوان • المقاسات • التكاليف</div>
+  <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;">
+    ${product.image ? `<img src="${product.image}" style="width:64px;height:64px;object-fit:cover;border-radius:10px;border:1px solid #ddd;" />` : ""}
+    <div>
+      <div class="product-title">${product.name}${product.sku ? ` <span style="font-size:12px;color:#999;font-weight:400">(${product.sku})</span>` : ""}</div>
+      <div class="product-sub">إدارة المنتجات • الألوان • المقاسات • التكاليف</div>
+    </div>
+  </div>
   <div class="kpi">
     <div class="kpi-box"><div class="val">${variants.length}</div><div class="lbl">إجمالي SKU</div></div>
     <div class="kpi-box"><div class="val" style="color:#16a34a">${totalStock}</div><div class="lbl">وحدة متاحة</div></div>
@@ -265,7 +310,7 @@ export default function Inventory() {
   const openAddProduct = () => { setEditingProduct(null); setProductForm(emptyProductForm); setProductDialogOpen(true); };
   const openEditProduct = (p: Product) => {
     setEditingProduct(p);
-    setProductForm({ name: p.name, sku: p.sku ?? "", lowStockThreshold: p.lowStockThreshold, unitPrice: p.unitPrice, costPrice: p.costPrice });
+    setProductForm({ name: p.name, sku: p.sku ?? "", lowStockThreshold: p.lowStockThreshold, unitPrice: p.unitPrice, costPrice: p.costPrice, image: p.image ?? null });
     setProductDialogOpen(true);
   };
   const openAddVariant = (productId: number) => {
@@ -716,6 +761,14 @@ export default function Inventory() {
                   className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors"
                   onClick={() => setExpandedProductId(isExpanded ? null : product.id)}
                 >
+                  {/* صورة المنتج */}
+                  {product.image ? (
+                    <img src={product.image} alt={product.name} className="w-10 h-10 rounded-lg object-cover border border-border shrink-0" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-lg bg-muted border border-border flex items-center justify-center shrink-0">
+                      <Package className="w-5 h-5 text-muted-foreground" />
+                    </div>
+                  )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="font-bold text-sm">{product.name}</span>
@@ -852,13 +905,19 @@ export default function Inventory() {
             <DialogTitle>{editingProduct ? "تعديل المنتج" : "منتج جديد"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 pt-2">
-            <div>
-              <Label className="text-xs font-semibold mb-1.5 block">اسم المنتج *</Label>
-              <Input value={productForm.name} onChange={e => setProductForm(f => ({ ...f, name: e.target.value }))} placeholder="مثال: تيشيرت قطن" className="h-9 text-sm" />
-            </div>
-            <div>
-              <Label className="text-xs font-semibold mb-1.5 block">SKU (اختياري)</Label>
-              <Input value={productForm.sku} onChange={e => setProductForm(f => ({ ...f, sku: e.target.value }))} placeholder="مثال: TS-001" className="h-9 text-sm font-mono" />
+            {/* صورة المنتج */}
+            <div className="flex items-center gap-4">
+              <ProductImageUpload value={productForm.image} onChange={v => setProductForm(f => ({ ...f, image: v }))} />
+              <div className="flex-1 space-y-3">
+                <div>
+                  <Label className="text-xs font-semibold mb-1.5 block">اسم المنتج *</Label>
+                  <Input value={productForm.name} onChange={e => setProductForm(f => ({ ...f, name: e.target.value }))} placeholder="مثال: تيشيرت قطن" className="h-9 text-sm" />
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold mb-1.5 block">SKU (اختياري)</Label>
+                  <Input value={productForm.sku} onChange={e => setProductForm(f => ({ ...f, sku: e.target.value }))} placeholder="مثال: TS-001" className="h-9 text-sm font-mono" />
+                </div>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>

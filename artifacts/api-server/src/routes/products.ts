@@ -16,6 +16,7 @@ const CreateProductSchema = z.object({
   lowStockThreshold: z.number().int().min(0).default(5),
   unitPrice: z.number().min(0),
   costPrice: z.number().min(0).nullish(),
+  image: z.string().nullish(),
 });
 
 // Update schema: totalQuantity excluded — use /add-stock instead
@@ -25,6 +26,8 @@ const UpdateProductSchema = z.object({
   lowStockThreshold: z.number().int().min(0).optional(),
   unitPrice: z.number().min(0).optional(),
   costPrice: z.number().min(0).nullish().optional(),
+  image: z.string().nullish().optional(),
+  isArchived: z.boolean().optional(),
 });
 
 const AddStockSchema = z.object({

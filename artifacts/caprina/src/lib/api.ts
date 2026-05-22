@@ -104,6 +104,7 @@ export interface Product {
   lowStockThreshold: number;
   unitPrice: number;
   costPrice: number | null;
+  image: string | null;
   createdAt: string;
   updatedAt: string;
 }
