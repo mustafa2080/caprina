@@ -17,7 +17,7 @@ import {
   analyticsApi, type PeriodProfit, type ProductProfit, type FinancialSummary, type Alert,
   productsApi, cashRegistersApi,
 } from "@/lib/api";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { LineChart, Line, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
 // ── Avatar helpers ──────────────────────────────────────────────────────────
 const AVATAR_COLORS_DB = [
@@ -362,6 +362,12 @@ export default function Dashboard() {
     staleTime: 60000,
   });
 
+  const { data: saleOrders = [] } = useQuery<any[]>({
+    queryKey: ["sale-orders-dashboard-chart"],
+    queryFn: () => apiFetchDashboard<any[]>("/finance/sale-orders?limit=200"),
+    staleTime: 60000,
+  });
+
   const { data: chartsData } = useQuery({
     queryKey: ["analytics-charts"],
     queryFn: analyticsApi.charts,
@@ -614,47 +620,52 @@ export default function Dashboard() {
 
               {/* مبيعات العملاء التجاريين */}
               {(() => {
-                const clientChartData = recentClients
-                  .map((c: any) => ({
-                    name: c.name?.split(" ").slice(0, 2).join(" ") ?? "—",
-                    sales: parseFloat(c.totalSales ?? "0"),
-                  }))
-                  .filter((d: any) => d.sales > 0)
-                  .sort((a: any, b: any) => b.sales - a.sales)
-                  .slice(0, 7);
-
-                if (clientChartData.length === 0) return null;
+                // بناء بيانات آخر 7 أيام من saleOrders
+                const days: Record<string, number> = {};
+                for (let i = 6; i >= 0; i--) {
+                  const d = new Date(); d.setDate(d.getDate() - i);
+                  const key = `${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")}`;
+                  days[key] = 0;
+                }
+                saleOrders.forEach((o: any) => {
+                  try {
+                    const d = new Date(o.createdAt);
+                    const key = `${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")}`;
+                    if (key in days) days[key] += parseFloat(o.totalAmount ?? "0");
+                  } catch {}
+                });
+                const clientChartData = Object.entries(days).map(([date, value]) => ({ date, value }));
+                const totalSales = clientChartData.reduce((s, d) => s + d.value, 0);
+                if (totalSales === 0) return null;
 
                 return (
                   <div className="mt-4 pt-4 border-t border-border/40">
-                    <p className="text-[11px] font-semibold text-muted-foreground mb-3 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
-                      مبيعات العملاء التجاريين
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-primary inline-block" />
+                        مبيعات العملاء التجاريين
+                      </p>
+                    </div>
+                    <p className="text-xl font-black text-primary mb-0.5">
+                      {new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(totalSales)}
                     </p>
+                    <p className="text-[10px] text-primary mb-2">آخر 7 أيام</p>
                     <ResponsiveContainer width="100%" height={130}>
-                      <LineChart data={clientChartData} margin={{ top: 6, right: 10, left: -18, bottom: 0 }}>
+                      <AreaChart data={clientChartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                         <defs>
-                          <linearGradient id="clientsLineGrad" x1="0" x2="1" y1="0" y2="0">
-                            <stop offset="0%" stopColor="#10b981" />
-                            <stop offset="100%" stopColor="#34d399" />
+                          <linearGradient id="dashSalesGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="hsl(43,74%,50%)" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="hsl(43,74%,50%)" stopOpacity={0} />
                           </linearGradient>
                         </defs>
-                        <CartesianGrid strokeDasharray="2 4" stroke="hsl(var(--border))" vertical={false} />
-                        <XAxis dataKey="name" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
-                        <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                        <XAxis dataKey="date" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={(v: number) => v >= 1000 ? `${(v/1000).toFixed(0)}K` : String(v)} />
                         <Tooltip
                           contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11 }}
-                          formatter={(v: any) => [`${Number(v).toLocaleString("ar-EG")} ج.م`, "المبيعات"]}
+                          formatter={(v: any) => [new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(v), "المبيعات"]}
                         />
-                        <Line
-                          type="monotone"
-                          dataKey="sales"
-                          stroke="url(#clientsLineGrad)"
-                          strokeWidth={2.5}
-                          dot={{ r: 4, fill: "#10b981", stroke: "#fff", strokeWidth: 1.5 }}
-                          activeDot={{ r: 6, strokeWidth: 2, stroke: "#fff" }}
-                        />
-                      </LineChart>
+                        <Area type="monotone" dataKey="value" stroke="hsl(43,74%,50%)" strokeWidth={2} fill="url(#dashSalesGrad)" dot={{ fill: "hsl(43,74%,50%)", r: 3 }} activeDot={{ r: 5 }} />
+                      </AreaChart>
                     </ResponsiveContainer>
                   </div>
                 );
