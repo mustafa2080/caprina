@@ -46,7 +46,7 @@ router.get("/products", async (req, res): Promise<void> => {
   res.json(products);
 });
 
-router.post("/products", requireRole("admin", "warehouse"), async (req, res): Promise<void> => {
+router.post("/products", requireRole("admin", "warehouse", "super_admin"), async (req, res): Promise<void> => {
   const parsed = CreateProductSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
@@ -77,7 +77,7 @@ router.get("/products/:id", async (req, res): Promise<void> => {
   res.json(product);
 });
 
-router.patch("/products/:id", requireRole("admin", "warehouse"), async (req, res): Promise<void> => {
+router.patch("/products/:id", requireRole("admin", "warehouse", "super_admin"), async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
@@ -110,7 +110,7 @@ router.delete("/products/:id", requireRole("admin"), async (req, res): Promise<v
 
 // ─── Add Stock ────────────────────────────────────────────────────────────────
 
-router.post("/products/:id/add-stock", requireRole("admin", "warehouse"), async (req, res): Promise<void> => {
+router.post("/products/:id/add-stock", requireRole("admin", "warehouse", "super_admin"), async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
