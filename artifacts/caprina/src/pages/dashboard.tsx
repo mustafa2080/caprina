@@ -680,21 +680,57 @@ export default function Dashboard() {
       {/* === SMART QUICK INSIGHTS === */}
       {smartData && (
         <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-4 gap-1.5 sm:gap-2">
+
+          {/* أفضل منصة */}
           <Link href="/smart">
             <div className="flex items-center gap-2 sm:gap-2.5 p-2 sm:p-3 rounded-xl border border-border bg-card hover:bg-primary/5 hover:border-primary/30 transition-colors cursor-pointer">
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
-                <Zap className="w-3 h-3 sm:w-4 sm:h-4 text-amber-600 dark:text-amber-400" />
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shrink-0 overflow-hidden bg-white">
+                {!smartData.adAttribution.bestSource || smartData.adAttribution.bestSource.source === "facebook" ? (
+                  <svg viewBox="0 0 36 36" className="w-5 h-5" fill="none">
+                    <rect width="36" height="36" rx="8" fill="#1877F2"/>
+                    <path d="M25 18c0-3.866-3.134-7-7-7s-7 3.134-7 7c0 3.493 2.559 6.39 5.906 6.917V20.28h-1.777V18h1.777v-1.541c0-1.754 1.045-2.722 2.643-2.722.765 0 1.566.137 1.566.137v1.722h-.882c-.869 0-1.139.54-1.139 1.094V18h1.938l-.31 2.28h-1.628v4.637C22.441 24.39 25 21.493 25 18z" fill="white"/>
+                  </svg>
+                ) : smartData.adAttribution.bestSource.source === "tiktok" ? (
+                  <svg viewBox="0 0 36 36" className="w-5 h-5" fill="none">
+                    <rect width="36" height="36" rx="8" fill="#010101"/>
+                    <path d="M22.5 9h-2.8v12.2a2.9 2.9 0 01-2.9 2.7 2.9 2.9 0 01-2.9-2.9 2.9 2.9 0 012.9-2.9c.28 0 .55.04.8.11V15.3a6.1 6.1 0 00-.8-.05 5.95 5.95 0 00-5.95 5.95A5.95 5.95 0 0016.8 27a5.95 5.95 0 005.95-5.95V15.1a8.6 8.6 0 005.05 1.63v-2.8a5.8 5.8 0 01-5.3-4.93z" fill="white"/>
+                  </svg>
+                ) : smartData.adAttribution.bestSource.source === "instagram" ? (
+                  <svg viewBox="0 0 36 36" className="w-5 h-5" fill="none">
+                    <defs>
+                      <linearGradient id="igGrad" x1="0" y1="36" x2="36" y2="0" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stopColor="#F58529"/>
+                        <stop offset="40%" stopColor="#DD2A7B"/>
+                        <stop offset="100%" stopColor="#8134AF"/>
+                      </linearGradient>
+                    </defs>
+                    <rect width="36" height="36" rx="8" fill="url(#igGrad)"/>
+                    <rect x="10" y="10" width="16" height="16" rx="5" stroke="white" strokeWidth="1.8" fill="none"/>
+                    <circle cx="18" cy="18" r="4" stroke="white" strokeWidth="1.8" fill="none"/>
+                    <circle cx="23.5" cy="12.5" r="1.1" fill="white"/>
+                  </svg>
+                ) : smartData.adAttribution.bestSource.source === "whatsapp" ? (
+                  <svg viewBox="0 0 36 36" className="w-5 h-5" fill="none">
+                    <rect width="36" height="36" rx="8" fill="#25D366"/>
+                    <path d="M18 9a9 9 0 00-7.8 13.5L9 27l4.7-1.2A9 9 0 1018 9zm0 16.4a7.4 7.4 0 01-3.8-1l-.27-.16-2.8.73.75-2.72-.18-.28A7.4 7.4 0 1118 25.4zm4.07-5.54c-.22-.11-1.32-.65-1.52-.72-.2-.07-.35-.11-.5.11-.15.22-.58.72-.71.87-.13.15-.26.17-.48.06-.22-.11-.93-.34-1.77-1.09-.65-.58-1.09-1.3-1.22-1.52-.13-.22-.01-.34.1-.45.1-.1.22-.26.33-.39.11-.13.15-.22.22-.37.07-.15.04-.28-.02-.39-.06-.11-.5-1.2-.68-1.64-.18-.43-.36-.37-.5-.38h-.43c-.15 0-.39.06-.59.28-.2.22-.78.76-.78 1.86s.8 2.16.91 2.31c.11.15 1.57 2.4 3.8 3.36.53.23.95.37 1.27.47.53.17 1.02.14 1.4.09.43-.06 1.32-.54 1.51-1.06.19-.52.19-.97.13-1.06-.06-.09-.2-.15-.42-.26z" fill="white"/>
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 36 36" className="w-5 h-5" fill="none">
+                    <rect width="36" height="36" rx="8" fill="#16a34a"/>
+                    <path d="M18 10c-4.42 0-8 3.58-8 8s3.58 8 8 8 8-3.58 8-8-3.58-8-8-8zm0 3c1.2 0 2.32.35 3.26.95L13.95 21.26A4.96 4.96 0 0113 18c0-2.76 2.24-5 5-5zm0 10c-1.2 0-2.32-.35-3.26-.95l7.31-7.31c.6.94.95 2.06.95 3.26 0 2.76-2.24 5-5 5z" fill="white"/>
+                  </svg>
+                )}
               </div>
               <div className="min-w-0">
                 <p className="text-[8px] sm:text-[10px] text-muted-foreground font-bold">أفضل منصة</p>
                 {smartData.adAttribution.bestSource ? (
                   <>
                     <p className="text-[10px] sm:text-xs font-black truncate">
-                      {smartData.adAttribution.bestSource.source === "facebook" ? "📘 فيسبوك" :
-                       smartData.adAttribution.bestSource.source === "tiktok" ? "🎵 تيك توك" :
-                       smartData.adAttribution.bestSource.source === "instagram" ? "📷 إنستجرام" :
-                       smartData.adAttribution.bestSource.source === "whatsapp" ? "💬 واتساب" :
-                       smartData.adAttribution.bestSource.source === "organic" ? "🌱 عضوي" : "📌 أخرى"}
+                      {smartData.adAttribution.bestSource.source === "facebook" ? "فيسبوك" :
+                       smartData.adAttribution.bestSource.source === "tiktok" ? "تيك توك" :
+                       smartData.adAttribution.bestSource.source === "instagram" ? "إنستجرام" :
+                       smartData.adAttribution.bestSource.source === "whatsapp" ? "واتساب" :
+                       smartData.adAttribution.bestSource.source === "organic" ? "عضوي" : "أخرى"}
                     </p>
                     {canViewFinancials && (
                       <p className="text-[8px] sm:text-[10px] text-emerald-600 dark:text-emerald-400 font-bold truncate">
@@ -707,10 +743,13 @@ export default function Dashboard() {
             </div>
           </Link>
 
+          {/* نجوم / راكد */}
           <Link href="/smart">
             <div className="flex items-center gap-2 sm:gap-2.5 p-2 sm:p-3 rounded-xl border border-border bg-card hover:bg-primary/5 hover:border-primary/30 transition-colors cursor-pointer">
               <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
-                <Star className="w-3 h-3 sm:w-4 sm:h-4 text-amber-600 dark:text-amber-400" />
+                <svg viewBox="0 0 24 24" className="w-4 h-4 text-amber-500" fill="currentColor">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
               </div>
               <div className="min-w-0">
                 <p className="text-[8px] sm:text-[10px] text-muted-foreground font-bold">نجوم / راكد</p>
@@ -720,6 +759,7 @@ export default function Dashboard() {
             </div>
           </Link>
 
+          {/* المرتجعات */}
           <Link href="/smart">
             <div className={`flex items-center gap-2 sm:gap-2.5 p-2 sm:p-3 rounded-xl border bg-card hover:bg-primary/5 transition-colors cursor-pointer ${
               smartData.returnInsights.highReturnProducts.length > 0 ? "border-red-300 dark:border-red-800" : "border-border"
@@ -727,13 +767,16 @@ export default function Dashboard() {
               <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shrink-0 ${
                 smartData.returnInsights.highReturnProducts.length > 0 ? "bg-red-100 dark:bg-red-900/30" : "bg-muted"
               }`}>
-                <Archive className={`w-3 h-3 sm:w-4 sm:h-4 ${smartData.returnInsights.highReturnProducts.length > 0 ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}`} />
+                <svg viewBox="0 0 24 24" className={`w-4 h-4 ${smartData.returnInsights.highReturnProducts.length > 0 ? "text-red-500" : "text-muted-foreground"}`} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="1 4 1 10 7 10"/>
+                  <path d="M3.51 15a9 9 0 1 0 .49-3.86"/>
+                </svg>
               </div>
               <div className="min-w-0">
                 <p className="text-[8px] sm:text-[10px] text-muted-foreground font-bold">المرتجعات</p>
                 <p className="text-[10px] sm:text-xs font-black">{smartData.returnInsights.totalReturnRate}% معدل</p>
                 {smartData.returnInsights.highReturnProducts.length > 0 ? (
-                  <p className="text-[8px] sm:text-[10px] text-red-600 dark:text-red-400 font-bold truncate">⚠️ {smartData.returnInsights.highReturnProducts.length} تجاوز 50%</p>
+                  <p className="text-[8px] sm:text-[10px] text-red-600 dark:text-red-400 font-bold truncate">{smartData.returnInsights.highReturnProducts.length} تجاوز 50%</p>
                 ) : (
                   <p className="text-[8px] sm:text-[10px] text-emerald-600 dark:text-emerald-400">تحت السيطرة</p>
                 )}
@@ -741,6 +784,7 @@ export default function Dashboard() {
             </div>
           </Link>
 
+          {/* سينفد قريباً */}
           <Link href="/smart">
             <div className={`flex items-center gap-2 sm:gap-2.5 p-2 sm:p-3 rounded-xl border bg-card hover:bg-primary/5 transition-colors cursor-pointer ${
               smartData.stockPredictor.some(i => (i.daysUntilStockout ?? 99) <= 3) ? "border-red-300 dark:border-red-800" : "border-border"
@@ -748,19 +792,23 @@ export default function Dashboard() {
               <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shrink-0 ${
                 smartData.stockPredictor.some(i => (i.daysUntilStockout ?? 99) <= 3) ? "bg-red-100 dark:bg-red-900/30" : "bg-sky-100 dark:bg-sky-900/20"
               }`}>
-                <Clock className={`w-3 h-3 sm:w-4 sm:h-4 ${smartData.stockPredictor.some(i => (i.daysUntilStockout ?? 99) <= 3) ? "text-red-600 dark:text-red-400" : "text-sky-600 dark:text-sky-400"}`} />
+                <svg viewBox="0 0 24 24" className={`w-4 h-4 ${smartData.stockPredictor.some(i => (i.daysUntilStockout ?? 99) <= 3) ? "text-red-500" : "text-sky-500"}`} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2v6M12 22v-2M4.93 4.93l4.24 4.24M16.24 16.24l1.42 1.42M2 12h2M22 12h-2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.42 1.42"/>
+                  <circle cx="12" cy="12" r="4"/>
+                </svg>
               </div>
               <div className="min-w-0">
                 <p className="text-[8px] sm:text-[10px] text-muted-foreground font-bold">سينفد قريباً</p>
                 <p className="text-[10px] sm:text-xs font-black">{smartData.stockPredictor.length} منتج</p>
                 {smartData.stockPredictor.length > 0 && (
                   <p className={`text-[8px] sm:text-[10px] font-bold truncate ${smartData.stockPredictor.some(i => (i.daysUntilStockout ?? 99) <= 3) ? "text-red-600 dark:text-red-400" : "text-sky-600 dark:text-sky-400"}`}>
-                    🚨 خلال 14 يوم
+                    خلال 14 يوم
                   </p>
                 )}
               </div>
             </div>
           </Link>
+
         </div>
       )}
 
