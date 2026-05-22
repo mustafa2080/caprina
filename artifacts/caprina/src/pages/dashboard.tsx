@@ -600,7 +600,7 @@ export default function Dashboard() {
             </ChartCard>
 
             <ChartCard
-              title="المبيعات الأسبوعية"
+              title="الطلبيات الأسبوعية"
               subtitle="الأسبوع الحالي والأسبوع الماضي والشهر الحالي"
               dot="#f59e0b"
               glassStyle
