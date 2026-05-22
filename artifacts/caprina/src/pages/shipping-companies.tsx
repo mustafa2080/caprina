@@ -657,11 +657,17 @@ export default function ShippingCompanies() {
   });
 
   const openAdd = () => { setEditingCompany(null); setForm(emptyForm); setDialogOpen(true); };
-  const openEdit = (c: ShippingCompany) => { setEditingCompany(c); setForm({ name: c.name, phone: c.phone ?? "", website: c.website ?? "", notes: c.notes ?? "", logo: (c as any).logo ?? "", isActive: c.isActive }); setDialogOpen(true); };
+  const openEdit = (c: ShippingCompany) => { setEditingCompany(c); setForm({ name: c.name, phone: c.phone ?? "", website: c.website ?? "", notes: c.notes ?? "", logo: c.logo ?? "", isActive: c.isActive }); setDialogOpen(true); };
 
   const handleSubmit = () => {
     if (!form.name.trim()) { toast({ title: "خطأ", description: "اسم الشركة مطلوب.", variant: "destructive" }); return; }
-    const data = { ...form, phone: form.phone || null, website: form.website || null, notes: form.notes || null };
+    const data = {
+      ...form,
+      phone: form.phone || null,
+      website: form.website || null,
+      notes: form.notes || null,
+      logo: form.logo || null,
+    };
     if (editingCompany) updateMutation.mutate({ id: editingCompany.id, data });
     else createMutation.mutate(data as any);
   };

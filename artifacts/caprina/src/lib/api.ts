@@ -132,6 +132,7 @@ export interface ShippingCompany {
   phone: string | null;
   website: string | null;
   notes: string | null;
+  logo: string | null;
   isActive: boolean;
   createdAt: string;
 }

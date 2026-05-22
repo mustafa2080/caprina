@@ -212,6 +212,21 @@ async function ensureShippingManifestColumns() {
 }
 ensureShippingManifestColumns();
 
+// ─── Ensure shipping_companies.logo column exists ─────────────────────────────
+async function ensureShippingCompanyLogo() {
+  try {
+    await db.execute(sql`
+      ALTER TABLE shipping_companies ADD COLUMN IF NOT EXISTS logo LONGTEXT NULL
+    `);
+    logger.info("shipping_companies.logo column ensured");
+  } catch (err: any) {
+    if (err?.message && !err.message.includes("Duplicate column")) {
+      logger.error({ err }, "Failed to ensure shipping_companies.logo column");
+    }
+  }
+}
+ensureShippingCompanyLogo();
+
 // ─── Ensure cash_registers.is_default column exists ──────────────────────────
 async function ensureCashRegisterIsDefault() {
   try {
