@@ -13,6 +13,7 @@ const CreateSchema = z.object({
   phone: z.string().nullish(),
   website: z.string().nullish(),
   notes: z.string().nullish(),
+  logo: z.string().nullish(),
   isActive: z.boolean().default(true),
 });
 

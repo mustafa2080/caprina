@@ -11,11 +11,11 @@ import {
   TrendingUp, TrendingDown, DollarSign, Package, AlertCircle,
   Plus, Activity, Boxes, ArrowUpRight, ArrowDownRight,
   Star, Wallet, BarChart3, ShoppingCart, AlertTriangle, RefreshCw, Bell, Brain, Zap, Archive, Clock,
-  Receipt, Building2, FileText, X, AlertOctagon, Users,
+  Receipt, Building2, FileText, X, AlertOctagon, Users, Truck,
 } from "lucide-react";
 import {
   analyticsApi, type PeriodProfit, type ProductProfit, type FinancialSummary, type Alert,
-  productsApi, cashRegistersApi,
+  productsApi, cashRegistersApi, shippingApi, manifestsApi,
 } from "@/lib/api";
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
@@ -320,6 +320,75 @@ function LiveClock() {
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 type Period = "today" | "week" | "month";
 
+/** Row لشركة شحن في الداشبورد مع إحصائياتها */
+function DashShippingCompanyRow({ company, canViewFinancials }: { company: any; canViewFinancials: boolean }) {
+  const { data: stats } = useQuery({
+    queryKey: ["company-stats", company.id],
+    queryFn: () => manifestsApi.companyStats(company.id),
+    staleTime: 60000,
+  });
+  const { data: manifests } = useQuery({
+    queryKey: ["shipping-manifests", company.id],
+    queryFn: () => manifestsApi.list(company.id),
+    staleTime: 30000,
+  });
+  const openManifest = manifests?.find((m: any) => m.status === "open") ?? null;
+  const deliveryRate = stats?.deliveryRate ?? 0;
+  const rateColor = deliveryRate >= 70 ? "text-emerald-500 dark:text-emerald-400" : deliveryRate >= 40 ? "text-amber-500 dark:text-amber-400" : "text-red-500 dark:text-red-400";
+  const barColor = deliveryRate >= 70 ? "bg-emerald-500" : deliveryRate >= 40 ? "bg-amber-500" : "bg-red-500";
+
+  return (
+    <Link href={`/shipping/company/${company.id}`}>
+      <div className="flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3 hover:bg-muted/20 transition-colors cursor-pointer">
+        {/* أيقونة / لوجو */}
+        {company.logo && company.logo.startsWith("data:") ? (
+          <img src={company.logo} className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border border-border/50 shrink-0" alt={company.name} />
+        ) : (
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center shrink-0">
+            <Truck className="w-4 h-4 sm:w-5 sm:h-5 text-primary/60" />
+          </div>
+        )}
+
+        {/* المعلومات */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-1 mb-1">
+            <p className="font-semibold text-[11px] sm:text-sm truncate">{company.name}</p>
+            {stats && (
+              <span className={`text-[10px] sm:text-xs font-black shrink-0 ${rateColor}`}>{deliveryRate}%</span>
+            )}
+          </div>
+          {/* progress bar نسبة التسليم */}
+          {stats && (
+            <div className="w-full bg-muted rounded-full h-1 mb-1.5 overflow-hidden">
+              <div className={`h-1 rounded-full ${barColor} transition-all`} style={{ width: `${deliveryRate}%` }} />
+            </div>
+          )}
+          {/* الإحصائيات */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {stats && (
+              <>
+                <span className="text-[9px] sm:text-[10px] text-emerald-500 dark:text-emerald-400 font-bold">✓ {stats.delivered}</span>
+                <span className="text-[9px] sm:text-[10px] text-red-500 dark:text-red-400 font-bold">✗ {stats.returned}</span>
+                {stats.pending > 0 && <span className="text-[9px] sm:text-[10px] text-amber-500 dark:text-amber-400 font-bold">⏳ {stats.pending}</span>}
+              </>
+            )}
+            {openManifest && (
+              <Badge variant="outline" className="text-[7px] sm:text-[9px] border-blue-700 bg-blue-900/20 text-blue-400 h-4">
+                بيان مفتوح · {openManifest.orderCount} طلب
+              </Badge>
+            )}
+            {canViewFinancials && stats && stats.netProfit !== undefined && (
+              <span className={`text-[9px] sm:text-[10px] font-bold mr-auto ${stats.netProfit >= 0 ? "text-emerald-500 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}`}>
+                {stats.netProfit >= 0 ? "+" : ""}{new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(stats.netProfit)}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 export default function Dashboard() {
   const { isAdmin, canViewFinancials } = useAuth();
   const [period, setPeriod] = useState<Period>("today");
@@ -395,6 +464,13 @@ export default function Dashboard() {
     staleTime: 60000,
     refetchOnWindowFocus: true,
     refetchInterval: 120000,
+  });
+
+  const { data: shippingCompanies = [] } = useQuery<any[]>({
+    queryKey: ["shipping"],
+    queryFn: shippingApi.list,
+    staleTime: 60000,
+    refetchOnWindowFocus: true,
   });
 
   const { data: cashRegisters } = useQuery({
@@ -1076,47 +1152,35 @@ export default function Dashboard() {
 
 
 
-          <Card className="border-border overflow-hidden">
-            <CardHeader className="py-2.5 sm:py-3 px-3 sm:px-4 border-b border-border">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2">
-                  <Activity className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-muted-foreground" />آخر الطلبات
-                </CardTitle>
-                <Link href="/orders" className="text-[10px] sm:text-xs text-primary hover:underline">عرض الكل ←</Link>
-              </div>
-            </CardHeader>
-            {isRecentLoading ? (
-              <div className="p-6 text-center text-muted-foreground text-sm">جاري التحميل...</div>
-            ) : recentOrders?.length ? (
-              <div className="divide-y divide-border">
-                {recentOrders.map((order) => (
-                  <Link key={order.id} href={`/orders/${order.id}`} className="flex items-center justify-between p-2.5 sm:p-3 hover:bg-muted/20 transition-colors gap-2">
-                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                      <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-muted flex items-center justify-center text-foreground font-bold text-[10px] sm:text-xs shrink-0">
-                        {order.customerName.charAt(0)}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-semibold text-[11px] sm:text-sm truncate">{order.customerName}</p>
-                        <p className="text-[9px] sm:text-xs text-muted-foreground truncate">#{order.id.toString().padStart(4,"0")} • {order.product}</p>
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end gap-0.5 sm:gap-1 shrink-0">
-                      <span className="font-bold text-[10px] sm:text-xs text-primary">{fc(order.totalPrice)}</span>
-                      <Badge variant="outline" className={`text-[7px] sm:text-[9px] font-bold border whitespace-nowrap ${STATUS_CLASSES[order.status] || ""}`}>
-                        {STATUS_LABELS[order.status] || order.status}
-                      </Badge>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            ) : (
-              <div className="p-6 sm:p-8 text-center">
-                <Package className="w-7 h-7 sm:w-8 sm:h-8 mx-auto mb-2 text-muted-foreground opacity-30" />
-                <p className="text-muted-foreground text-xs sm:text-sm">لا توجد طلبات</p>
-                <Link href="/orders/new" className="text-primary text-[10px] sm:text-xs mt-1 inline-block">أنشئ أول طلب</Link>
-              </div>
-            )}
-          </Card>
+          {/* شركات الشحن النشطة */}
+          {(() => {
+            const activeCompanies = shippingCompanies.filter((c: any) => c.isActive);
+            return (
+              <Card className="border-border overflow-hidden">
+                <CardHeader className="py-2.5 sm:py-3 px-3 sm:px-4 border-b border-border">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2">
+                      <Truck className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-primary" />شركات الشحن النشطة
+                    </CardTitle>
+                    <Link href="/shipping/companies" className="text-[10px] sm:text-xs text-primary hover:underline">إدارة الكل ←</Link>
+                  </div>
+                </CardHeader>
+                {activeCompanies.length === 0 ? (
+                  <div className="p-6 sm:p-8 text-center">
+                    <Truck className="w-7 h-7 sm:w-8 sm:h-8 mx-auto mb-2 text-muted-foreground opacity-30" />
+                    <p className="text-muted-foreground text-xs sm:text-sm">لا توجد شركات شحن نشطة</p>
+                    <Link href="/shipping/companies" className="text-primary text-[10px] sm:text-xs mt-1 inline-block">إضافة شركة ←</Link>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {activeCompanies.map((company: any) => (
+                      <DashShippingCompanyRow key={company.id} company={company} canViewFinancials={canViewFinancials} />
+                    ))}
+                  </div>
+                )}
+              </Card>
+            );
+          })()}
 
           {/* أحدث العملاء */}
           {recentClients.length > 0 && (

@@ -9,6 +9,7 @@ export const shippingCompaniesTable = mysqlTable("shipping_companies", {
   phone: varchar("phone", { length: 50 }),
   website: varchar("website", { length: 255 }),
   notes: text("notes"),
+  logo: text("logo"), // base64 data URL للوجو الشركة
   isActive: boolean("is_active").notNull().default(true),
   createdAt: datetime("created_at").notNull(),
 });

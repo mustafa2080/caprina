@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { shippingApi, manifestsApi, type ShippingCompany, type ShippingManifestListItem, type ManifestCompanyStats } from "@/lib/api";
@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Truck, Edit2, Trash2, Phone, Globe, ToggleLeft, ToggleRight, FileText, TrendingUp, TrendingDown, PackagePlus, ChevronDown, ChevronUp, Clock, CheckCircle2, RotateCcw, Search } from "lucide-react";
+import { Plus, Truck, Edit2, Trash2, Phone, Globe, ToggleLeft, ToggleRight, FileText, TrendingUp, TrendingDown, PackagePlus, ChevronDown, ChevronUp, Clock, CheckCircle2, RotateCcw, Search, ImagePlus, X as XIcon } from "lucide-react";
 import { format } from "date-fns";
 
 const BASE = "/api";
@@ -38,8 +38,67 @@ type OrderRow = {
   _groupCount?: number;
 };
 
-const emptyForm = { name: "", phone: "", website: "", notes: "", isActive: true };
+const emptyForm = { name: "", phone: "", website: "", notes: "", logo: "", isActive: true };
 const formatCurrency = (n: number) => new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(n);
+
+/** أيقونة شركة الشحن — صورة دائرية أو Truck fallback */
+function CompanyAvatar({ logo, name, size = "md" }: { logo?: string | null; name: string; size?: "sm" | "md" | "lg" }) {
+  const dims = size === "lg" ? "w-14 h-14" : size === "sm" ? "w-7 h-7" : "w-10 h-10";
+  const iconSize = size === "lg" ? "w-7 h-7" : size === "sm" ? "w-3.5 h-3.5" : "w-5 h-5";
+  if (logo && logo.startsWith("data:"))
+    return <img src={logo} className={`${dims} rounded-full object-cover border-2 border-border/50 shrink-0`} alt={name} />;
+  return (
+    <div className={`${dims} rounded-full bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center shrink-0`}>
+      <Truck className={`${iconSize} text-primary/60`} />
+    </div>
+  );
+}
+
+/** حقل رفع اللوجو */
+function LogoUploader({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => onChange(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+  return (
+    <div>
+      <Label className="text-xs mb-1.5 block flex items-center gap-1"><ImagePlus className="w-3 h-3" />لوجو الشركة</Label>
+      <div className="flex items-center gap-3">
+        {value ? (
+          <div className="relative shrink-0">
+            <img src={value} className="w-14 h-14 rounded-full object-cover border-2 border-border" alt="logo" />
+            <button
+              type="button"
+              className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-destructive text-white flex items-center justify-center hover:bg-destructive/80 transition-colors"
+              onClick={() => onChange("")}
+            >
+              <XIcon className="w-3 h-3" />
+            </button>
+          </div>
+        ) : (
+          <div
+            className="w-14 h-14 rounded-full bg-muted/30 border-2 border-dashed border-border flex items-center justify-center cursor-pointer hover:bg-muted/60 transition-colors"
+            onClick={() => inputRef.current?.click()}
+          >
+            <ImagePlus className="w-5 h-5 text-muted-foreground" />
+          </div>
+        )}
+        <div className="flex-1">
+          <Button type="button" variant="outline" size="sm" className="h-8 text-xs gap-1.5 w-full" onClick={() => inputRef.current?.click()}>
+            <ImagePlus className="w-3.5 h-3.5" />
+            {value ? "تغيير الصورة" : "رفع صورة"}
+          </Button>
+          <p className="text-[10px] text-muted-foreground mt-1">PNG, JPG, WEBP — الصورة ستظهر دائرية</p>
+        </div>
+      </div>
+      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+    </div>
+  );
+}
 
 function DeliveryBar({ rate }: { rate: number }) {
   const color = rate >= 70 ? "bg-emerald-500" : rate >= 40 ? "bg-amber-500" : "bg-red-500";
@@ -598,7 +657,7 @@ export default function ShippingCompanies() {
   });
 
   const openAdd = () => { setEditingCompany(null); setForm(emptyForm); setDialogOpen(true); };
-  const openEdit = (c: ShippingCompany) => { setEditingCompany(c); setForm({ name: c.name, phone: c.phone ?? "", website: c.website ?? "", notes: c.notes ?? "", isActive: c.isActive }); setDialogOpen(true); };
+  const openEdit = (c: ShippingCompany) => { setEditingCompany(c); setForm({ name: c.name, phone: c.phone ?? "", website: c.website ?? "", notes: c.notes ?? "", logo: (c as any).logo ?? "", isActive: c.isActive }); setDialogOpen(true); };
 
   const handleSubmit = () => {
     if (!form.name.trim()) { toast({ title: "خطأ", description: "اسم الشركة مطلوب.", variant: "destructive" }); return; }
@@ -643,9 +702,7 @@ export default function ShippingCompanies() {
             <Card key={company.id} className={`border p-5 ${company.isActive ? "border-border bg-card" : "border-border/40 bg-card/40"}`}>
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
-                    <Truck className="w-5 h-5 text-muted-foreground" />
-                  </div>
+                  <CompanyAvatar logo={company.logo} name={company.name} size="md" />
                   <div>
                     <Link href={`/shipping/company/${company.id}`}>
                       <h3 className="font-bold text-sm hover:text-primary hover:underline cursor-pointer transition-colors">{company.name}</h3>
@@ -705,6 +762,7 @@ export default function ShippingCompanies() {
             <DialogTitle className="text-right">{editingCompany ? "تعديل شركة الشحن" : "إضافة شركة شحن"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 mt-2">
+            <LogoUploader value={form.logo} onChange={v => setForm(f => ({ ...f, logo: v }))} />
             <div>
               <Label className="text-xs mb-1.5 block">اسم الشركة *</Label>
               <Input placeholder="مثال: أرامكس، DHL" className="h-9 text-sm bg-background" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
