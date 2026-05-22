@@ -930,52 +930,77 @@ export default function FinanceSaleDetail() {
             </div>
             {/* صف 1: 3 مربعات */}
             <div className="grid grid-cols-3 gap-3 mb-3">
-              {/* إجمالي الإيرادات */}
-              <div className="rounded-xl border p-4" style={{ borderColor: "#B2DFDB", background: "hsl(var(--card))" }}>
-                <p className="text-[10px] text-muted-foreground mb-1 text-right">إجمالي الإيرادات</p>
-                <p className="text-lg font-black text-right" style={{ color: "hsl(43,74%,50%)" }}>{fmtNum(revenue)} ج</p>
+              {/* إجمالي الإيرادات — أصفر */}
+              <div className="rounded-xl p-4" style={{
+                background: "linear-gradient(135deg, rgba(234,179,8,0.15) 0%, rgba(202,138,4,0.25) 100%)",
+                border: "1px solid rgba(234,179,8,0.4)",
+                boxShadow: "0 4px 20px rgba(234,179,8,0.2), 0 1px 4px rgba(234,179,8,0.1)",
+              }}>
+                <p className="text-[10px] mb-1 text-right" style={{ color: "rgba(250,204,21,0.6)" }}>إجمالي الإيرادات</p>
+                <p className="text-lg font-black text-right" style={{ color: "#FACC15" }}>{fmtNum(revenue)} ج</p>
               </div>
-              {/* تكلفة الشحن */}
-              <div className="rounded-xl border p-4" style={{ borderColor: "rgba(180,77,20,0.4)", background: "rgba(180,77,20,0.08)" }}>
-                <p className="text-[10px] text-muted-foreground mb-1 text-right">تكلفة الشحن</p>
-                <p className="text-lg font-black text-right" style={{ color: "#FF8A50" }}>{shipping > 0 ? `${fmtNum(shipping)} ج` : "-- ج"}</p>
+              {/* تكلفة الشحن — برتقالي */}
+              <div className="rounded-xl p-4" style={{
+                background: "linear-gradient(135deg, rgba(251,146,60,0.15) 0%, rgba(234,88,12,0.22) 100%)",
+                border: "1px solid rgba(251,146,60,0.4)",
+                boxShadow: "0 4px 20px rgba(251,146,60,0.2), 0 1px 4px rgba(251,146,60,0.1)",
+              }}>
+                <p className="text-[10px] mb-1 text-right" style={{ color: "rgba(251,146,60,0.6)" }}>تكلفة الشحن</p>
+                <p className="text-lg font-black text-right" style={{ color: "#FB923C" }}>{shipping > 0 ? `${fmtNum(shipping)} ج` : "-- ج"}</p>
               </div>
-              {/* خسائر الإرجاع */}
-              <div className="rounded-xl border p-4" style={{ borderColor: "hsl(var(--border))", background: "hsl(var(--card))" }}>
-                <p className="text-[10px] text-muted-foreground mb-1 text-right">خسائر الإرجاع</p>
-                <p className="text-lg font-black text-right" style={{ color: returnLoss > 0 ? "#EF5350" : "hsl(var(--muted-foreground))" }}>
+              {/* خسائر الإرجاع — أحمر */}
+              <div className="rounded-xl p-4" style={{
+                background: returnLoss > 0
+                  ? "linear-gradient(135deg, rgba(239,68,68,0.15) 0%, rgba(220,38,38,0.22) 100%)"
+                  : "linear-gradient(135deg, rgba(100,116,139,0.1) 0%, rgba(71,85,105,0.18) 100%)",
+                border: returnLoss > 0 ? "1px solid rgba(239,68,68,0.4)" : "1px solid rgba(100,116,139,0.25)",
+                boxShadow: returnLoss > 0
+                  ? "0 4px 20px rgba(239,68,68,0.2), 0 1px 4px rgba(239,68,68,0.1)"
+                  : "0 4px 20px rgba(100,116,139,0.1)",
+              }}>
+                <p className="text-[10px] mb-1 text-right" style={{ color: returnLoss > 0 ? "rgba(248,113,113,0.6)" : "rgba(148,163,184,0.6)" }}>خسائر الإرجاع</p>
+                <p className="text-lg font-black text-right" style={{ color: returnLoss > 0 ? "#F87171" : "#94A3B8" }}>
                   {returnLoss > 0 ? `${fmtNum(returnLoss)} ج` : "-- ج"}
                 </p>
               </div>
             </div>
-            {/* صف 2: صافي الربح (عريض) + تكلفة البضاعة */}
+            {/* صف 2: صافي الربح + تكلفة البضاعة */}
             <div className="grid grid-cols-2 gap-3">
-              {/* صافي الربح — أكبر */}
-              <div className="rounded-xl border p-4 flex flex-col justify-between" style={{
-                borderColor: netProfit >= 0 ? "rgba(56,142,60,0.5)" : "rgba(183,28,28,0.5)",
-                background:  netProfit >= 0 ? "rgba(27,94,32,0.14)"  : "rgba(183,28,28,0.1)",
+              {/* صافي الربح — أخضر/أحمر */}
+              <div className="rounded-xl p-4 flex flex-col justify-between" style={{
+                background: netProfit >= 0
+                  ? "linear-gradient(135deg, rgba(34,197,94,0.15) 0%, rgba(22,163,74,0.25) 100%)"
+                  : "linear-gradient(135deg, rgba(239,68,68,0.15) 0%, rgba(220,38,38,0.25) 100%)",
+                border: netProfit >= 0 ? "1px solid rgba(34,197,94,0.4)" : "1px solid rgba(239,68,68,0.4)",
+                boxShadow: netProfit >= 0
+                  ? "0 4px 24px rgba(34,197,94,0.25), 0 1px 4px rgba(34,197,94,0.15)"
+                  : "0 4px 24px rgba(239,68,68,0.25), 0 1px 4px rgba(239,68,68,0.15)",
               }}>
                 <div className="flex items-center justify-between">
-                  <span style={{ fontSize: 20, color: netProfit >= 0 ? "#66BB6A" : "#EF5350" }}>
+                  <span style={{ fontSize: 20, color: netProfit >= 0 ? "#4ADE80" : "#F87171" }}>
                     {netProfit >= 0 ? "↗" : "↘"}
                   </span>
-                  <p className="text-[10px] text-muted-foreground">صافي الربح</p>
+                  <p className="text-[10px]" style={{ color: netProfit >= 0 ? "rgba(74,222,128,0.6)" : "rgba(248,113,113,0.6)" }}>صافي الربح</p>
                 </div>
                 <div className="text-right mt-2">
-                  <p className="text-2xl font-black" style={{ color: netProfit >= 0 ? "#66BB6A" : "#EF5350" }}>
+                  <p className="text-2xl font-black" style={{ color: netProfit >= 0 ? "#4ADE80" : "#F87171" }}>
                     {cogs > 0 ? `${fmtNum(Math.abs(netProfit))} ج` : "-- ج"}
                   </p>
                   {cogs > 0 && (
-                    <p className="text-[10px] mt-0.5" style={{ color: netProfit >= 0 ? "#66BB6A" : "#EF5350" }}>
+                    <p className="text-[10px] mt-0.5" style={{ color: netProfit >= 0 ? "rgba(74,222,128,0.7)" : "rgba(248,113,113,0.7)" }}>
                       {netProfit >= 0 ? "▲" : "▼"} {profitPct}% من الإيرادات
                     </p>
                   )}
                 </div>
               </div>
-              {/* تكلفة البضاعة */}
-              <div className="rounded-xl border p-4" style={{ borderColor: "#B2DFDB", background: "hsl(var(--card))" }}>
-                <p className="text-[10px] text-muted-foreground mb-1 text-right">تكلفة البضاعة</p>
-                <p className="text-lg font-black text-right" style={{ color: "#EF9A9A" }}>{cogs > 0 ? `${fmtNum(cogs)} ج` : "-- ج"}</p>
+              {/* تكلفة البضاعة — وردي/موف */}
+              <div className="rounded-xl p-4" style={{
+                background: "linear-gradient(135deg, rgba(236,72,153,0.12) 0%, rgba(168,85,247,0.18) 100%)",
+                border: "1px solid rgba(236,72,153,0.35)",
+                boxShadow: "0 4px 20px rgba(236,72,153,0.18), 0 1px 4px rgba(168,85,247,0.12)",
+              }}>
+                <p className="text-[10px] mb-1 text-right" style={{ color: "rgba(244,114,182,0.6)" }}>تكلفة البضاعة</p>
+                <p className="text-lg font-black text-right" style={{ color: "#F472B6" }}>{cogs > 0 ? `${fmtNum(cogs)} ج` : "-- ج"}</p>
               </div>
             </div>
           </div>
@@ -993,33 +1018,53 @@ export default function FinanceSaleDetail() {
           )}
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {/* إجمالي المسلَّم */}
-          <div className="rounded-lg border p-3" style={{ borderColor: "hsl(var(--border))", background: "hsl(var(--card))" }}>
-            <p className="text-[10px] text-muted-foreground mb-1">إجمالي الفاتورة</p>
-            <p className="text-base font-black" style={{ color: "hsl(43,74%,50%)" }}>{fmtNum(total)} ج</p>
-            <p className="text-[10px] text-muted-foreground">{order.items.length} صنف · {totalQty} قطعة</p>
+          {/* إجمالي الفاتورة — أصفر */}
+          <div className="rounded-lg p-3" style={{
+            background: "linear-gradient(135deg, rgba(234,179,8,0.15) 0%, rgba(202,138,4,0.25) 100%)",
+            border: "1px solid rgba(234,179,8,0.4)",
+            boxShadow: "0 4px 18px rgba(234,179,8,0.2), 0 1px 4px rgba(234,179,8,0.1)",
+          }}>
+            <p className="text-[10px] mb-1" style={{ color: "rgba(250,204,21,0.6)" }}>إجمالي الفاتورة</p>
+            <p className="text-base font-black" style={{ color: "#FACC15" }}>{fmtNum(total)} ج</p>
+            <p className="text-[10px]" style={{ color: "rgba(250,204,21,0.5)" }}>{order.items.length} صنف · {totalQty} قطعة</p>
           </div>
-          {/* المدفوع */}
-          <div className="rounded-lg border p-3" style={{ borderColor: "hsl(var(--border))", background: "hsl(var(--card))" }}>
-            <p className="text-[10px] text-muted-foreground mb-1">المحصَّل</p>
-            <p className="text-base font-black" style={{ color: "#4CAF50" }}>{fmtNum(paid)} ج</p>
+          {/* المحصَّل — أخضر */}
+          <div className="rounded-lg p-3" style={{
+            background: "linear-gradient(135deg, rgba(34,197,94,0.15) 0%, rgba(22,163,74,0.25) 100%)",
+            border: "1px solid rgba(34,197,94,0.4)",
+            boxShadow: "0 4px 18px rgba(34,197,94,0.2), 0 1px 4px rgba(34,197,94,0.1)",
+          }}>
+            <p className="text-[10px] mb-1" style={{ color: "rgba(74,222,128,0.6)" }}>المحصَّل</p>
+            <p className="text-base font-black" style={{ color: "#4ADE80" }}>{fmtNum(paid)} ج</p>
             <p className="text-[10px]" style={{ color: PAY_MAP[order.paymentStatus]?.color ?? "#888" }}>
               {PAY_MAP[order.paymentStatus]?.label ?? order.paymentStatus}
             </p>
           </div>
-          {/* المتبقي */}
-          <div className="rounded-lg border p-3" style={{ borderColor: "hsl(var(--border))", background: "hsl(var(--card))" }}>
-            <p className="text-[10px] text-muted-foreground mb-1">باقي التسوية</p>
-            <p className="text-base font-black" style={{ color: due > 0 ? "#EF5350" : "#4CAF50" }}>
+          {/* باقي التسوية — أحمر/أخضر */}
+          <div className="rounded-lg p-3" style={{
+            background: due > 0
+              ? "linear-gradient(135deg, rgba(239,68,68,0.15) 0%, rgba(220,38,38,0.25) 100%)"
+              : "linear-gradient(135deg, rgba(34,197,94,0.12) 0%, rgba(22,163,74,0.2) 100%)",
+            border: due > 0 ? "1px solid rgba(239,68,68,0.4)" : "1px solid rgba(34,197,94,0.35)",
+            boxShadow: due > 0
+              ? "0 4px 18px rgba(239,68,68,0.2), 0 1px 4px rgba(239,68,68,0.1)"
+              : "0 4px 18px rgba(34,197,94,0.15), 0 1px 4px rgba(34,197,94,0.08)",
+          }}>
+            <p className="text-[10px] mb-1" style={{ color: due > 0 ? "rgba(248,113,113,0.6)" : "rgba(74,222,128,0.6)" }}>باقي التسوية</p>
+            <p className="text-base font-black" style={{ color: due > 0 ? "#F87171" : "#4ADE80" }}>
               {due > 0 ? `${fmtNum(due)} ج` : "✓ مسدد"}
             </p>
-            <p className="text-[10px] text-muted-foreground">إجمالي − محصَّل</p>
+            <p className="text-[10px]" style={{ color: due > 0 ? "rgba(248,113,113,0.5)" : "rgba(74,222,128,0.5)" }}>إجمالي − محصَّل</p>
           </div>
-          {/* موعد التسليم */}
-          <div className="rounded-lg border p-3" style={{ borderColor: "hsl(var(--border))", background: "hsl(var(--card))" }}>
-            <p className="text-[10px] text-muted-foreground mb-1">موعد التسليم</p>
-            <p className="text-sm font-bold">{fmtDate(order.expectedDate)}</p>
-            <p className="text-[10px] text-muted-foreground">
+          {/* موعد التسليم — تيل */}
+          <div className="rounded-lg p-3" style={{
+            background: "linear-gradient(135deg, rgba(20,184,166,0.12) 0%, rgba(13,148,136,0.22) 100%)",
+            border: "1px solid rgba(20,184,166,0.35)",
+            boxShadow: "0 4px 18px rgba(20,184,166,0.18), 0 1px 4px rgba(20,184,166,0.1)",
+          }}>
+            <p className="text-[10px] mb-1" style={{ color: "rgba(45,212,191,0.6)" }}>موعد التسليم</p>
+            <p className="text-sm font-bold" style={{ color: "#2DD4BF" }}>{fmtDate(order.expectedDate)}</p>
+            <p className="text-[10px]" style={{ color: "rgba(45,212,191,0.5)" }}>
               {order.deliveredAt ? `سُلِّم ${fmtDate(order.deliveredAt)}` : "لم يُسلَّم بعد"}
             </p>
           </div>
