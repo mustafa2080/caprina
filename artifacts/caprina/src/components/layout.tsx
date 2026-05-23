@@ -172,28 +172,34 @@ export default function Layout({ children }: LayoutProps) {
         <div className="shrink-0 border-b border-sidebar-border/60">
 
           {/* ── First Logo — أول حاجة فوق الـ sidebar ── */}
-          <div className="flex items-center justify-center px-4 pt-4 pb-3">
+          <div
+            className="relative w-full overflow-hidden"
+            style={{ height: "100px" }}
+          >
+            {/* الصورة تملا الكارت كامل */}
+            <img
+              src={firstLogoBase64}
+              alt="Caprina Logo"
+              className="absolute inset-0 w-full h-full"
+              style={{ objectFit: "cover", objectPosition: "center" }}
+            />
+            {/* overlay gradient من الأسفل عشان يندمج مع الـ sidebar */}
             <div
-              className="relative rounded-2xl overflow-hidden w-full"
+              className="absolute inset-0 pointer-events-none"
               style={{
-                boxShadow: "0 0 0 1px hsl(var(--primary)/0.15), 0 4px 16px hsl(var(--primary)/0.25), 0 8px 32px rgba(0,0,0,0.18), 0 0 60px hsl(var(--primary)/0.12)",
-                filter: "drop-shadow(0 2px 12px hsl(var(--primary)/0.3))",
+                background: "linear-gradient(to bottom, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.32) 100%)",
               }}
-            >
-              <div
-                className="absolute inset-0 rounded-2xl pointer-events-none z-10"
-                style={{
-                  background: "linear-gradient(135deg, hsl(var(--primary)/0.18) 0%, transparent 60%)",
-                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.15), inset 0 -1px 0 rgba(0,0,0,0.1)",
-                }}
-              />
-              <img
-                src={firstLogoBase64}
-                alt="Caprina Logo"
-                className="w-full h-auto block"
-                style={{ maxHeight: "88px", objectFit: "contain", objectPosition: "center" }}
-              />
-            </div>
+            />
+            {/* glow border أسفل الصورة */}
+            <div
+              className="absolute bottom-0 left-0 right-0 h-px"
+              style={{ background: "linear-gradient(90deg, transparent, hsl(var(--primary)/0.6), transparent)" }}
+            />
+            {/* inner shadow على الجوانب */}
+            <div
+              className="absolute inset-0 pointer-events-none rounded-none"
+              style={{ boxShadow: "inset 0 0 20px rgba(0,0,0,0.3), inset 0 -4px 16px hsl(var(--primary)/0.15)" }}
+            />
           </div>
 
           {/* Brand — hero area */}
