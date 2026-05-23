@@ -201,7 +201,14 @@ router.get("/analytics/profit", requireAdmin, async (req, res): Promise<void> =>
 
   const variantMap = new Map<number, number | null>(variants.map(v => [v.id, v.costPrice]));
   const productMap = new Map<number, number | null>(products.map(p => [p.id, p.costPrice]));
-  const productImageMap = new Map<string, string | null>(products.filter(p => p.name).map(p => [p.name.trim(), p.image ?? null]));
+  let productImageMap = new Map<string, string | null>();
+  try {
+    productImageMap = new Map<string, string | null>(
+      products.filter(p => p && p.name).map(p => [String(p.name).trim(), (p as any).image ?? null])
+    );
+  } catch(imgErr) {
+    console.error('[smart-insights] productImageMap error:', imgErr);
+  }
 
   // تحديد نطاق الفلتر
   let filteredOrders = allOrdersRaw;
@@ -1201,6 +1208,7 @@ router.get("/analytics/smart-insights", async (req, res): Promise<void> => {
     revenue: Math.round(p.revenue),
     cost: Math.round(p.cost),
     profit: Math.round(p.profit),
+    image: productImageMap.get(p.name) ?? null,
   }));
 
   const stars = productList
@@ -1219,7 +1227,7 @@ router.get("/analytics/smart-insights", async (req, res): Promise<void> => {
         ? Math.floor((now.getTime() - last.getTime()) / (1000 * 60 * 60 * 24))
         : null;
       const frozenCapital = avail * (p.costPrice ?? 0);
-      return { name: key, availableQty: avail, frozenCapital: Math.round(frozenCapital), last30DaysSales: s30, daysSinceLastSale, image: productImageMap.get(key) ?? null };
+      return { name: key, availableQty: avail, frozenCapital: Math.round(frozenCapital), last30DaysSales: s30, daysSinceLastSale, image: (() => { try { return productImageMap.get(key) ?? null; } catch { return null; } })() };
     })
     .filter(p => p.availableQty > 0 && p.last30DaysSales < 5)
     .sort((a, b) => b.frozenCapital - a.frozenCapital)
