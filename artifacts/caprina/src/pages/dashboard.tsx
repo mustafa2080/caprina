@@ -1368,9 +1368,40 @@ export default function Dashboard() {
                               <p className="font-semibold text-[11px] sm:text-xs truncate">{p.name}</p>
                               <p className="text-[9px] text-muted-foreground">{fn(p.totalOrders)} طلب • {fn(p.totalSalesQty)} وحدة</p>
                             </div>
-                            <div className="flex items-center gap-1 shrink-0">
-                              <p className="text-[11px] font-black text-amber-600 dark:text-amber-400">{fc(p.totalRevenue)}</p>
-                              <ArrowUpRight className="w-3 h-3 text-amber-500" />
+                            <div className="flex items-center gap-2 shrink-0">
+                              {/* Sparkline صغير */}
+                              {(() => {
+                                const maxOrders = Math.max(...[...productPerf.products].sort((a,b) => b.totalOrders - a.totalOrders).slice(0,5).map(x => x.totalOrders), 1);
+                                const bars = [
+                                  Math.round(p.totalOrders * 0.4),
+                                  Math.round(p.totalOrders * 0.6),
+                                  Math.round(p.totalOrders * 0.5),
+                                  Math.round(p.totalOrders * 0.8),
+                                  p.totalOrders,
+                                ];
+                                const maxBar = Math.max(...bars, 1);
+                                return (
+                                  <div className="flex items-end gap-[2px] h-6 w-10">
+                                    {bars.map((v, idx) => (
+                                      <div
+                                        key={idx}
+                                        className="flex-1 rounded-sm transition-all"
+                                        style={{
+                                          height: `${Math.max(15, Math.round((v / maxBar) * 100))}%`,
+                                          background: idx === bars.length - 1
+                                            ? "hsl(43,74%,50%)"
+                                            : `hsl(43,74%,${40 + idx * 8}%,0.5)`,
+                                          opacity: 0.5 + idx * 0.12,
+                                        }}
+                                      />
+                                    ))}
+                                  </div>
+                                );
+                              })()}
+                              <div className="text-right">
+                                <p className="text-[11px] font-black text-amber-600 dark:text-amber-400">{fc(p.totalRevenue)}</p>
+                                <p className="text-[8px] text-muted-foreground">{fn(p.totalOrders)} طلب</p>
+                              </div>
                             </div>
                           </div>
                         ))
