@@ -690,31 +690,82 @@ export default function ShippingCompanies() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3">
-        <Card className="border-border bg-card p-4">
+        <div className="relative overflow-hidden rounded-2xl p-4"
+          style={{
+            background: "linear-gradient(135deg, rgba(96,165,250,0.18) 0%, rgba(59,130,246,0.08) 100%)",
+            border: "1px solid rgba(96,165,250,0.3)",
+            boxShadow: "0 0 24px rgba(96,165,250,0.15), 0 4px 12px rgba(96,165,250,0.1), inset 0 1px 0 rgba(255,255,255,0.06)",
+          }}>
+          <span className="absolute -top-4 -right-4 w-20 h-20 rounded-full opacity-10" style={{ background: "radial-gradient(circle, rgba(96,165,250,1) 0%, transparent 70%)" }} />
           <p className="text-xs text-muted-foreground">إجمالي الشركات</p>
-          <p className="text-2xl font-bold mt-1">{companies?.length ?? 0}</p>
-        </Card>
-        <Card className="border-border bg-card p-4">
+          <p className="text-2xl font-bold mt-1" style={{ color: "rgba(96,165,250,1)" }}>{companies?.length ?? 0}</p>
+        </div>
+        <div className="relative overflow-hidden rounded-2xl p-4"
+          style={{
+            background: "linear-gradient(135deg, rgba(52,211,153,0.18) 0%, rgba(16,185,129,0.08) 100%)",
+            border: "1px solid rgba(52,211,153,0.3)",
+            boxShadow: "0 0 24px rgba(52,211,153,0.15), 0 4px 12px rgba(52,211,153,0.1), inset 0 1px 0 rgba(255,255,255,0.06)",
+          }}>
+          <span className="absolute -top-4 -right-4 w-20 h-20 rounded-full opacity-10" style={{ background: "radial-gradient(circle, rgba(52,211,153,1) 0%, transparent 70%)" }} />
           <p className="text-xs text-muted-foreground">نشط</p>
-          <p className="text-2xl font-bold mt-1 text-emerald-400">{companies?.filter(c => c.isActive).length ?? 0}</p>
-        </Card>
+          <p className="text-2xl font-bold mt-1" style={{ color: "rgba(52,211,153,1)" }}>{companies?.filter(c => c.isActive).length ?? 0}</p>
+        </div>
       </div>
 
       {isLoading ? (
         <div className="p-8 text-center text-muted-foreground text-sm">جاري التحميل...</div>
       ) : companies?.length ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {companies.map((company) => (
-            <Card key={company.id} className={`border p-5 ${company.isActive ? "border-border bg-card" : "border-border/40 bg-card/40"}`}>
-              <div className="flex items-start justify-between">
+          {companies.map((company, idx) => {
+            // ألوان متنوعة لكل شركة
+            const palettes = [
+              { rgb: "251,146,60",  rgb2: "251,191,36"  }, // برتقالي/ذهبي
+              { rgb: "56,189,248",  rgb2: "96,165,250"  }, // سماوي/أزرق
+              { rgb: "167,139,250", rgb2: "192,132,252" }, // بنفسجي
+              { rgb: "52,211,153",  rgb2: "45,212,191"  }, // أخضر/تيل
+              { rgb: "244,114,182", rgb2: "232,121,249" }, // وردي/فوشيا
+              { rgb: "251,191,36",  rgb2: "250,204,21"  }, // ذهبي/أصفر
+            ];
+            const p = palettes[idx % palettes.length];
+            const isActive = company.isActive;
+            return (
+            <div key={company.id} className="relative overflow-hidden rounded-2xl p-5 transition-all duration-300"
+              style={{
+                background: isActive
+                  ? `linear-gradient(145deg, rgba(${p.rgb},0.13) 0%, rgba(${p.rgb2},0.06) 50%, rgba(0,0,0,0.15) 100%)`
+                  : "rgba(255,255,255,0.02)",
+                border: isActive
+                  ? `1px solid rgba(${p.rgb},0.35)`
+                  : "1px solid rgba(255,255,255,0.06)",
+                boxShadow: isActive
+                  ? `0 0 32px rgba(${p.rgb},0.12), 0 8px 24px rgba(${p.rgb},0.08), inset 0 1px 0 rgba(255,255,255,0.06)`
+                  : "0 2px 8px rgba(0,0,0,0.15)",
+              }}>
+              {/* زخرفة دائرية خلفية */}
+              {isActive && (
+                <span className="absolute -top-8 -left-8 w-32 h-32 rounded-full pointer-events-none"
+                  style={{ background: `radial-gradient(circle, rgba(${p.rgb},0.12) 0%, transparent 70%)` }} />
+              )}
+              <div className="flex items-start justify-between relative">
                 <div className="flex items-center gap-3">
-                  <CompanyAvatar logo={company.logo} name={company.name} size="md" />
+                  <div className="shrink-0" style={isActive ? {
+                    filter: `drop-shadow(0 0 8px rgba(${p.rgb},0.5))`,
+                  } : {}}>
+                    <CompanyAvatar logo={company.logo} name={company.name} size="md" />
+                  </div>
                   <div>
                     <Link href={`/shipping/company/${company.id}`}>
-                      <h3 className="font-bold text-sm hover:text-primary hover:underline cursor-pointer transition-colors">{company.name}</h3>
+                      <h3 className="font-bold text-sm hover:underline cursor-pointer transition-colors"
+                        style={isActive ? { color: `rgba(${p.rgb},1)` } : {}}>
+                        {company.name}
+                      </h3>
                     </Link>
                     <div className="flex items-center gap-2 mt-1">
-                      <Badge variant="outline" className={`text-[9px] font-bold border ${company.isActive ? "border-emerald-800 bg-emerald-900/30 text-emerald-400" : "border-border text-muted-foreground"}`}>
+                      <Badge variant="outline" className="text-[9px] font-bold border" style={isActive ? {
+                        borderColor: `rgba(${p.rgb},0.5)`,
+                        background: `rgba(${p.rgb},0.1)`,
+                        color: `rgba(${p.rgb},1)`,
+                      } : { borderColor: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.3)" }}>
                         {company.isActive ? "نشط" : "موقف"}
                       </Badge>
                     </div>
@@ -724,7 +775,7 @@ export default function ShippingCompanies() {
                   {can("shipping") && (
                     <>
                       <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-primary" onClick={() => toggleActive(company)}>
-                        {company.isActive ? <ToggleRight className="w-4 h-4 text-emerald-400" /> : <ToggleLeft className="w-4 h-4" />}
+                        {company.isActive ? <ToggleRight className="w-4 h-4" style={{ color: `rgba(${p.rgb},1)` }} /> : <ToggleLeft className="w-4 h-4" />}
                       </Button>
                       <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-primary" onClick={() => openEdit(company)}>
                         <Edit2 className="w-3.5 h-3.5" />
@@ -737,20 +788,21 @@ export default function ShippingCompanies() {
                 </div>
               </div>
 
-              <div className="mt-3 space-y-1.5">
+              <div className="mt-3 space-y-1.5 relative">
                 {company.phone && <p className="text-xs text-muted-foreground flex items-center gap-2"><Phone className="w-3 h-3" />{company.phone}</p>}
                 {company.website && (
                   <p className="text-xs text-muted-foreground flex items-center gap-2"><Globe className="w-3 h-3" />
-                    <a href={company.website} target="_blank" rel="noreferrer" className="text-primary hover:underline">{company.website}</a>
+                    <a href={company.website} target="_blank" rel="noreferrer" className="hover:underline" style={{ color: `rgba(${p.rgb},0.85)` }}>{company.website}</a>
                   </p>
                 )}
-                {company.notes && <p className="text-xs text-muted-foreground pt-1 border-t border-border">{company.notes}</p>}
+                {company.notes && <p className="text-xs text-muted-foreground pt-1 border-t" style={{ borderColor: `rgba(${p.rgb},0.15)` }}>{company.notes}</p>}
               </div>
 
               <CompanyStats companyId={company.id} canViewFinancials={canViewFinancials} />
               <CompanyManifests company={company} allCompanies={companies ?? []} canShipping={can("shipping")} />
-            </Card>
-          ))}
+            </div>
+            );
+          })}
         </div>
       ) : (
         <Card className="border-border p-12 text-center">
