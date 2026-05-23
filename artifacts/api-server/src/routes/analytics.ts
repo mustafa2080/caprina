@@ -998,6 +998,9 @@ router.get("/analytics/smart-insights", async (req, res): Promise<void> => {
 
   const variantMap = new Map<number, number | null>(variants.map(v => [v.id, v.costPrice]));
   const productMap = new Map<number, number | null>(products.map(p => [p.id, p.costPrice]));
+  const productImageMap = new Map<string, string | null>(
+    products.filter(p => p && p.name).map(p => [String(p.name).trim(), (p as any).image ?? null])
+  );
 
   // بناء map: orderId → shippingCost من البيان (manualShippingCost ÷ عدد الأوردرات في البيان)
   const manifestOrderCount = new Map<number, number>();
