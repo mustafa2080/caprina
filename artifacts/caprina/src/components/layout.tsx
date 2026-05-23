@@ -181,7 +181,7 @@ export default function Layout({ children }: LayoutProps) {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              padding: "10px 8px",
+              padding: "0px",
             }}
           >
             {/* glow bg */}
@@ -200,7 +200,7 @@ export default function Layout({ children }: LayoutProps) {
               alt="Caprina Logo"
               style={{
                 display: "block",
-                width: "85%",
+                width: "100%",
                 height: "auto",
                 maxHeight: "120px",
                 objectFit: "contain",
