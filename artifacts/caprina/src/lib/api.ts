@@ -442,6 +442,7 @@ export interface SmartProduct {
   returnCount: number;
   returnRate: number;
   margin: number;
+  image?: string | null;
 }
 
 export interface DeadStockItem {
@@ -450,6 +451,7 @@ export interface DeadStockItem {
   frozenCapital: number;
   last30DaysSales: number;
   daysSinceLastSale: number | null;
+  image?: string | null;
 }
 
 export interface ReturnReasonItem {

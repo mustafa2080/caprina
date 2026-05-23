@@ -139,9 +139,18 @@ function StarsSection({ stars, deadStock, showProfit }: { stars: SmartProduct[];
         <div className="space-y-2">
           {stars.map((p, i) => (
             <div key={p.name} className="flex items-center gap-3 p-3 rounded-lg bg-card border border-border">
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black shrink-0 ${
-                i === 0 ? "bg-amber-500 text-black" : i === 1 ? "bg-zinc-400 text-black" : i === 2 ? "bg-amber-700 text-white" : "bg-muted text-muted-foreground"
-              }`}>{i + 1}</div>
+              <div className="relative shrink-0">
+                {p.image ? (
+                  <img src={p.image} alt={p.name} className="w-9 h-9 rounded-full object-cover border-2 border-amber-400/60" />
+                ) : (
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-black bg-gradient-to-br from-amber-400 to-orange-500 text-black`}>
+                    {p.name.charAt(0)}
+                  </div>
+                )}
+                <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-black border border-background ${
+                  i === 0 ? "bg-amber-500 text-black" : i === 1 ? "bg-zinc-400 text-black" : i === 2 ? "bg-amber-700 text-white" : "bg-muted text-muted-foreground"
+                }`}>{i + 1}</div>
+              </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-xs truncate">{p.name}</p>
                 <p className="text-[10px] text-muted-foreground">
@@ -173,8 +182,14 @@ function StarsSection({ stars, deadStock, showProfit }: { stars: SmartProduct[];
         <div className="space-y-2">
           {deadStock.map((p) => (
             <div key={p.name} className="flex items-center gap-3 p-3 rounded-lg bg-card border border-amber-200 dark:border-amber-900/40">
-              <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 bg-amber-100 dark:bg-amber-900/30">
-                <Archive className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              <div className="relative shrink-0">
+                {p.image ? (
+                  <img src={p.image} alt={p.name} className="w-9 h-9 rounded-full object-cover border-2 border-amber-500/60" />
+                ) : (
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center bg-amber-100 dark:bg-amber-900/30">
+                    <Archive className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  </div>
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-xs truncate">{p.name}</p>

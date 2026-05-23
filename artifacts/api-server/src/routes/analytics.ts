@@ -201,6 +201,7 @@ router.get("/analytics/profit", requireAdmin, async (req, res): Promise<void> =>
 
   const variantMap = new Map<number, number | null>(variants.map(v => [v.id, v.costPrice]));
   const productMap = new Map<number, number | null>(products.map(p => [p.id, p.costPrice]));
+  const productImageMap = new Map<string, string | null>(products.map(p => [p.name.trim(), p.image ?? null]));
 
   // تحديد نطاق الفلتر
   let filteredOrders = allOrdersRaw;
@@ -1218,7 +1219,7 @@ router.get("/analytics/smart-insights", async (req, res): Promise<void> => {
         ? Math.floor((now.getTime() - last.getTime()) / (1000 * 60 * 60 * 24))
         : null;
       const frozenCapital = avail * (p.costPrice ?? 0);
-      return { name: key, availableQty: avail, frozenCapital: Math.round(frozenCapital), last30DaysSales: s30, daysSinceLastSale };
+      return { name: key, availableQty: avail, frozenCapital: Math.round(frozenCapital), last30DaysSales: s30, daysSinceLastSale, image: productImageMap.get(key) ?? null };
     })
     .filter(p => p.availableQty > 0 && p.last30DaysSales < 5)
     .sort((a, b) => b.frozenCapital - a.frozenCapital)
