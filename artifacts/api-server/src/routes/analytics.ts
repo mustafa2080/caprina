@@ -370,6 +370,9 @@ router.get("/analytics/financial-summary", requireAdmin, async (req, res): Promi
 
   const variantMap = new Map<number, number | null>(variants.map(v => [v.id, v.costPrice]));
   const productMap = new Map<number, number | null>(products.map(p => [p.id, p.costPrice]));
+  const productImageMap = new Map<string, string | null>(
+    products.filter(p => p && p.name).map(p => [String(p.name).trim(), (p as any).image ?? null])
+  );
 
   // بناء map: orderId → manifestId لربط كل أوردر ببيانه
   const orderToManifest = new Map<number, number>();
