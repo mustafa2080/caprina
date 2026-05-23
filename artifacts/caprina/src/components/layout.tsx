@@ -223,13 +223,18 @@ export default function Layout({ children }: LayoutProps) {
 
             {/* اللوجو + الاسم على اليمين */}
             <div className="relative z-10 cursor-pointer" onClick={() => setBrandSettingsOpen(true)}>
-              <div className="brand-name-glow">
+              <div className="brand-name-glow flex flex-col items-start gap-0">
                 <BrandFull
                   logoSize="md"
                   layout="row"
                   nameClass="text-base font-black tracking-[0.2em] uppercase brand-name-text"
                   taglineClass="text-[0px] opacity-0 h-0 overflow-hidden"
                 />
+                {/* خط ذهبي تحت الاسم */}
+                <span className="block h-[2px] w-full rounded-full mt-0.5" style={{
+                  background: "linear-gradient(90deg, transparent 0%, hsl(var(--primary)) 30%, #fff 50%, hsl(var(--primary)) 70%, transparent 100%)",
+                  boxShadow: "0 0 6px hsl(var(--primary)/0.8), 0 0 12px hsl(var(--primary)/0.4)",
+                }} />
                 <style>{".brand-name-text{background:linear-gradient(135deg,hsl(var(--primary)) 0%,#fff 50%,hsl(var(--primary)) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 0 8px hsl(var(--primary)/0.8))}"}</style>
               </div>
             </div>
