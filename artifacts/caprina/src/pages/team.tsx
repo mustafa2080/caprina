@@ -63,17 +63,34 @@ function ProfileFormDialog({
   const [hireDate, setHireDate] = useState(existing?.hireDate ?? "");
   const [notes, setNotes] = useState(existing?.notes ?? "");
   const [avatar, setAvatar] = useState<string | null>(existing?.avatar ?? null);
+  const [avatarChanged, setAvatarChanged] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      toast({ title: "الصورة كبيرة جداً", description: "الحد الأقصى 2MB", variant: "destructive" });
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "الصورة كبيرة جداً", description: "الحد الأقصى 5MB", variant: "destructive" });
       return;
     }
     const reader = new FileReader();
-    reader.onload = (ev) => setAvatar(ev.target?.result as string);
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const MAX = 300;
+        let w = img.width, h = img.height;
+        if (w > h) { if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; } }
+        else { if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; } }
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(img, 0, 0, w, h);
+        const compressed = canvas.toDataURL("image/jpeg", 0.8);
+        setAvatar(compressed);
+        setAvatarChanged(true);
+      };
+      img.src = ev.target?.result as string;
+    };
     reader.readAsDataURL(file);
   };
 
@@ -87,7 +104,7 @@ function ProfileFormDialog({
         monthlySalary: parseFloat(monthlySalary) || 0,
         hireDate: hireDate || null,
         notes: notes || null,
-        avatar: avatar ?? null,
+        ...(avatarChanged ? { avatar: avatar } : {}),
       });
       qc.invalidateQueries({ queryKey: ["employee-profiles"] });
       toast({ title: "تم حفظ بيانات العضو" });
@@ -116,7 +133,7 @@ function ProfileFormDialog({
               )}
               {avatar && (
                 <button
-                  onClick={() => setAvatar(null)}
+                  onClick={() => { setAvatar(null); setAvatarChanged(true); }}
                   className="absolute -top-1 -left-1 w-4 h-4 bg-red-500 text-white rounded-full text-[10px] flex items-center justify-center hover:bg-red-600"
                 >✕</button>
               )}
