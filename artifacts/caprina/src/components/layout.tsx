@@ -173,24 +173,22 @@ export default function Layout({ children }: LayoutProps) {
 
           {/* ── First Logo ── */}
           <div
-            className="flex items-center justify-center py-3 px-4"
+            className="flex items-center justify-center py-2"
             style={{
               background: "linear-gradient(180deg, hsl(var(--primary)/0.06) 0%, transparent 100%)",
               borderBottom: "1px solid hsl(var(--primary)/0.2)",
             }}
           >
-            <div
-              className="relative"
+            <img
+              src={firstLogoBase64}
+              alt="Caprina Logo"
               style={{
-                filter: "drop-shadow(0 0 10px hsl(var(--primary)/0.5)) drop-shadow(0 4px 20px rgba(0,0,0,0.4))",
+                width: "80px",
+                height: "80px",
+                objectFit: "contain",
+                filter: "drop-shadow(0 0 8px hsl(var(--primary)/0.6)) drop-shadow(0 2px 12px rgba(0,0,0,0.5))",
               }}
-            >
-              <img
-                src={firstLogoBase64}
-                alt="Caprina Logo"
-                style={{ width: "140px", height: "140px", objectFit: "contain" }}
-              />
-            </div>
+            />
           </div>
 
           {/* Brand — hero area */}
