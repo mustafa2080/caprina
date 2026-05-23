@@ -1770,9 +1770,13 @@ export default function TeamPage() {
               <CardContent className="px-4 py-4 space-y-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-3">
-                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-black shrink-0 ${isSystemUser ? "bg-primary/10 text-primary" : "bg-amber-900/20 text-amber-400"}`}>
-                      {name.charAt(0)}
-                    </div>
+                    {profile.avatar ? (
+                      <img src={profile.avatar} alt={name} className="w-10 h-10 rounded-full object-cover shrink-0 border border-border/50" />
+                    ) : (
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-black shrink-0 ${isSystemUser ? "bg-primary/10 text-primary" : "bg-amber-900/20 text-amber-400"}`}>
+                        {name.charAt(0)}
+                      </div>
+                    )}
                     <div className="min-w-0">
                       <p className="text-sm font-bold truncate">{name}</p>
                       <p className="text-[10px] text-muted-foreground truncate">
