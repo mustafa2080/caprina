@@ -550,6 +550,7 @@ export default function Dashboard() {
   const { isAdmin, canViewFinancials } = useAuth();
   const [period, setPeriod] = useState<Period>("today");
   const [showDamagedModal, setShowDamagedModal] = useState(false);
+  const [clientPeriod, setClientPeriod] = useState<"thisWeek" | "lastWeek" | "thisMonth">("thisWeek");
   const { data: summary } = useGetOrdersSummary({
     query: { queryKey: ["orders-summary"], staleTime: 30000, refetchOnWindowFocus: true, refetchInterval: 60000 },
   });
@@ -963,36 +964,96 @@ export default function Dashboard() {
 
               {/* مبيعات العملاء التجاريين */}
               {(() => {
-                // بناء بيانات آخر 7 أيام من saleOrders
+                // حساب نطاق التاريخ بناءً على الفترة المختارة
+                const now = new Date();
+                let startDate: Date;
+                let endDate: Date;
+                let labelText: string;
+                let daysCount: number;
+
+                if (clientPeriod === "thisWeek") {
+                  // الأسبوع الحالي: من الأحد (أو الاثنين) لليوم
+                  const day = now.getDay(); // 0=sun
+                  startDate = new Date(now); startDate.setDate(now.getDate() - day); startDate.setHours(0,0,0,0);
+                  endDate = new Date(now); endDate.setHours(23,59,59,999);
+                  daysCount = day + 1;
+                  labelText = "الأسبوع الحالي";
+                } else if (clientPeriod === "lastWeek") {
+                  // الأسبوع الماضي: 7 أيام قبل بداية الأسبوع الحالي
+                  const day = now.getDay();
+                  endDate = new Date(now); endDate.setDate(now.getDate() - day - 1); endDate.setHours(23,59,59,999);
+                  startDate = new Date(endDate); startDate.setDate(endDate.getDate() - 6); startDate.setHours(0,0,0,0);
+                  daysCount = 7;
+                  labelText = "الأسبوع الماضي";
+                } else {
+                  // الشهر الحالي
+                  startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0,0,0,0);
+                  endDate = new Date(now); endDate.setHours(23,59,59,999);
+                  daysCount = now.getDate();
+                  labelText = "الشهر الحالي";
+                }
+
+                // بناء slots بعدد أيام الفترة
                 const days: Record<string, number> = {};
-                for (let i = 6; i >= 0; i--) {
-                  const d = new Date(); d.setDate(d.getDate() - i);
+                for (let i = daysCount - 1; i >= 0; i--) {
+                  const d = new Date(endDate); d.setDate(endDate.getDate() - i);
                   const key = `${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")}`;
                   days[key] = 0;
                 }
+
+                // فلترة الطلبات بناءً على الفترة
                 saleOrders.forEach((o: any) => {
                   try {
                     const d = new Date(o.createdAt);
-                    const key = `${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")}`;
-                    if (key in days) days[key] += parseFloat(o.totalAmount ?? "0");
+                    if (d >= startDate && d <= endDate) {
+                      const key = `${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")}`;
+                      if (key in days) days[key] += parseFloat(o.totalAmount ?? "0");
+                    }
                   } catch {}
                 });
+
                 const clientChartData = Object.entries(days).map(([date, value]) => ({ date, value }));
                 const totalSales = clientChartData.reduce((s, d) => s + d.value, 0);
-                if (totalSales === 0) return null;
+                if (saleOrders.length === 0) return null;
+
+                const periodBtns: { key: "thisWeek" | "lastWeek" | "thisMonth"; label: string }[] = [
+                  { key: "thisWeek",  label: "الأسبوع الحالي" },
+                  { key: "lastWeek",  label: "الماضي" },
+                  { key: "thisMonth", label: "الشهر الحالي" },
+                ];
 
                 return (
                   <div className="mt-4 pt-4 border-t border-border/40">
-                    <div className="flex items-center justify-between mb-1">
+                    {/* Header + أزرار الفترة */}
+                    <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
                       <p className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1.5">
                         <span className="w-2 h-2 rounded-full bg-primary inline-block" />
                         مبيعات العملاء التجاريين
                       </p>
+                      <div className="flex gap-1">
+                        {periodBtns.map(btn => (
+                          <button
+                            key={btn.key}
+                            onClick={() => setClientPeriod(btn.key)}
+                            className={`text-[9px] font-bold px-2 py-0.5 rounded-full transition-all border ${
+                              clientPeriod === btn.key
+                                ? "bg-primary text-primary-foreground border-primary"
+                                : "border-border text-muted-foreground hover:border-primary/50 hover:text-primary"
+                            }`}
+                          >
+                            {btn.label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    <p className="text-xl font-black text-primary mb-0.5">
+
+                    {/* الرقم الإجمالي */}
+                    <p className="text-xl font-black text-primary mb-0">
                       {new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(totalSales)}
                     </p>
-                    <p className="text-[10px] text-primary mb-2">آخر 7 أيام</p>
+                    <p className="text-[10px] text-muted-foreground mb-2">{labelText}</p>
+
+                    {/* الرسم البياني */}
                     <ResponsiveContainer width="100%" height={130}>
                       <AreaChart data={clientChartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                         <defs>
@@ -1001,7 +1062,7 @@ export default function Dashboard() {
                             <stop offset="95%" stopColor="hsl(43,74%,50%)" stopOpacity={0} />
                           </linearGradient>
                         </defs>
-                        <XAxis dataKey="date" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                        <XAxis dataKey="date" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
                         <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={(v: number) => v >= 1000 ? `${(v/1000).toFixed(0)}K` : String(v)} />
                         <Tooltip
                           contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11 }}
