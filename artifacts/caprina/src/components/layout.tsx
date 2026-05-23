@@ -173,11 +173,12 @@ export default function Layout({ children }: LayoutProps) {
 
           {/* ── First Logo ── */}
           <div
-            className="w-full flex items-center justify-center"
+            className="w-full flex items-center justify-center overflow-hidden"
             style={{
               background: "#0a0a0a",
               borderBottom: "2px solid hsl(var(--primary)/0.5)",
               boxShadow: "0 4px 24px hsl(var(--primary)/0.2)",
+              maxHeight: "120px",
             }}
           >
             <img
@@ -187,6 +188,8 @@ export default function Layout({ children }: LayoutProps) {
                 width: "100%",
                 height: "auto",
                 display: "block",
+                maxHeight: "120px",
+                objectFit: "contain",
                 filter: "drop-shadow(0 0 12px hsl(var(--primary)/0.4))",
               }}
             />
