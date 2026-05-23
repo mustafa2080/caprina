@@ -1,5 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useState, useMemo } from "react";
+import firstLogo from "/first_logo.jpg";
 import { LayoutDashboard, Package, Plus, Boxes, Truck, FileText, Upload, Activity, BarChart3, Users, Shield, LogOut, ChevronDown, KeyRound, Warehouse, Megaphone, UserCheck, UserCog, Sun, Moon, Brain, Archive, Clock, MessageCircle, Menu, X, Download, DollarSign, ShoppingCart, ShoppingBag, Receipt, Building2, Wallet, ChevronLeft, Crown } from "lucide-react";import { BrandFull } from "@/components/brand-logo";
 import { BrandSettingsDialog } from "@/components/brand-settings-dialog";
 import { cn } from "@/lib/utils";
@@ -187,7 +188,7 @@ export default function Layout({ children }: LayoutProps) {
                 }}
               />
               <img
-                src="/first_logo.jpg"
+                src={firstLogo}
                 alt="Caprina Logo"
                 className="w-full h-auto block"
                 style={{ maxHeight: "88px", objectFit: "contain", objectPosition: "center" }}
