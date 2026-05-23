@@ -231,6 +231,24 @@ export default function Layout({ children }: LayoutProps) {
               />
             </div>
 
+            {/* ── Company Name — في النص ── */}
+            <div className="relative z-10 flex flex-col items-center justify-center select-none">
+              <span
+                className="text-sm font-black tracking-[0.25em] uppercase"
+                style={{
+                  background: "linear-gradient(135deg, hsl(var(--primary)) 0%, #fff 50%, hsl(var(--primary)) 100%)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  backgroundClip: "text",
+                  filter: "drop-shadow(0 0 8px hsl(var(--primary)/0.8))",
+                  letterSpacing: "0.25em",
+                }}
+              >
+                STARK
+              </span>
+              <span className="block h-px w-full mt-0.5" style={{background:"linear-gradient(90deg,transparent,hsl(var(--primary)/0.8),transparent)"}} />
+            </div>
+
             {/* ── Theme Toggle — في النص محاذي مع اللوجو ── */}
             <button
               type="button"
