@@ -948,6 +948,48 @@ export default function Dashboard() {
                 data={chartsData.statusBreakdown}
                 total={chartsData.total}
               />
+
+              {/* ── أحدث العملاء ── */}
+              {recentClients.length > 0 && (
+                <div className="mt-3 border-t border-border pt-3">
+                  <div className="flex items-center justify-between mb-2 px-1">
+                    <p className="text-[11px] font-bold text-muted-foreground flex items-center gap-1">
+                      <Users className="w-3 h-3" /> أحدث العملاء
+                    </p>
+                    <Link href="/finance/clients" className="text-[10px] text-primary hover:underline">
+                      عرض الكل ←
+                    </Link>
+                  </div>
+                  <div className="space-y-0.5">
+                    {recentClients.slice(0, 5).map((c: any) => (
+                      <Link
+                        key={c.id}
+                        href={`/finance/clients/${c.id}`}
+                        className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-muted/30 transition-colors group"
+                      >
+                        <DashClientAvatar avatar={c.avatar} name={c.name} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold truncate group-hover:text-primary transition-colors">
+                            {c.name}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground truncate">
+                            {c.email || c.phone || c.city || "—"}
+                          </p>
+                        </div>
+                        <span className="text-[9px] text-muted-foreground shrink-0 bg-muted/40 px-1.5 py-0.5 rounded-full">
+                          {c.createdAt ? (() => {
+                            const mins = Math.floor((Date.now() - new Date(c.createdAt).getTime()) / 60000);
+                            if (mins < 60) return `${mins}د`;
+                            const hrs = Math.floor(mins / 60);
+                            if (hrs < 24) return `${hrs}س`;
+                            return `${Math.floor(hrs / 24)}ي`;
+                          })() : "—"}
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
             </ChartCard>
 
             <ChartCard
@@ -1598,40 +1640,6 @@ export default function Dashboard() {
               })()}
             </Card>
           )}
-          {recentClients.length > 0 && (
-            <Card className="border-border overflow-hidden">
-              <CardHeader className="py-2.5 sm:py-3 px-3 sm:px-4 border-b border-border">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2">
-                    <Users className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-muted-foreground" />أحدث العملاء
-                  </CardTitle>
-                  <Link href="/finance/clients" className="text-[10px] sm:text-xs text-primary hover:underline">عرض الكل ←</Link>
-                </div>
-              </CardHeader>
-              <div className="divide-y divide-border">
-                {recentClients.slice(0, 5).map((c: any) => (
-                  <Link key={c.id} href={`/finance/clients/${c.id}`}
-                    className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 hover:bg-muted/20 transition-colors">
-                    <DashClientAvatar avatar={c.avatar} name={c.name} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs sm:text-sm font-semibold truncate">{c.name}</p>
-                      <p className="text-[10px] sm:text-[11px] text-muted-foreground truncate">{c.email || c.phone || c.city || "—"}</p>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground shrink-0">
-                      {c.createdAt ? (() => {
-                        const mins = Math.floor((Date.now() - new Date(c.createdAt).getTime()) / 60000);
-                        if (mins < 60) return `منذ ${mins} د`;
-                        const hrs = Math.floor(mins / 60);
-                        if (hrs < 24) return `منذ ${hrs} س`;
-                        return `منذ ${Math.floor(hrs / 24)} ي`;
-                      })() : "—"}
-                    </p>
-                  </Link>
-                ))}
-              </div>
-            </Card>
-          )}
-
           {/* ── مركز التحكم ─────────────────────────────────────────── */}
           {(() => {
             // ── حساب المهام والتنبيهات ──
