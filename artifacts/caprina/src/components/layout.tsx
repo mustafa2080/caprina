@@ -177,6 +177,16 @@ export default function Layout({ children }: LayoutProps) {
             {/* subtle glow behind logo */}
             <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse 70% 60% at 50% 0%, hsl(var(--primary)/0.18) 0%, transparent 80%)" }} />
 
+            {/* اللوجو + الاسم على اليمين */}
+            <div className="relative z-10 cursor-pointer" onClick={() => setBrandSettingsOpen(true)}>
+              <BrandFull
+                logoSize="md"
+                layout="row"
+                nameClass="text-base font-extrabold text-sidebar-foreground tracking-wide"
+                taglineClass="text-[0px] opacity-0 h-0 overflow-hidden"
+              />
+            </div>
+
             {/* ── Theme Toggle — في النص محاذي مع اللوجو ── */}
             <button
               type="button"
@@ -201,16 +211,6 @@ export default function Layout({ children }: LayoutProps) {
                 <Moon className="w-4 h-4 text-indigo-600" style={{ filter: "drop-shadow(0 0 3px rgba(99,102,241,0.5))" }} />
               )}
             </button>
-
-            {/* اللوجو + الاسم على اليمين */}
-            <div className="relative z-10 cursor-pointer" onClick={() => setBrandSettingsOpen(true)}>
-              <BrandFull
-                logoSize="md"
-                layout="row"
-                nameClass="text-base font-extrabold text-sidebar-foreground tracking-wide"
-                taglineClass="text-[0px] opacity-0 h-0 overflow-hidden"
-              />
-            </div>
 
             {/* thin accent line */}
             <div className="absolute bottom-0 left-6 right-6 h-px" style={{ background: "linear-gradient(90deg, transparent, hsl(var(--primary)/0.4), transparent)" }} />
