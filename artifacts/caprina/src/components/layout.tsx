@@ -173,24 +173,44 @@ export default function Layout({ children }: LayoutProps) {
 
           {/* ── First Logo ── */}
           <div
-            className="w-full flex items-center justify-center overflow-hidden"
+            className="w-full flex items-center justify-center"
             style={{
-              background: "#0a0a0a",
-              borderBottom: "2px solid hsl(var(--primary)/0.5)",
-              boxShadow: "0 4px 24px hsl(var(--primary)/0.2)",
-              maxHeight: "130px",
+              background: "linear-gradient(180deg, #0a0a0a 0%, #141414 100%)",
+              padding: "16px 12px",
+              position: "relative",
+              borderBottom: "1px solid hsl(var(--primary)/0.3)",
             }}
           >
+            {/* Ambient glow */}
+            <div style={{
+              position: "absolute",
+              inset: 0,
+              background: "radial-gradient(ellipse 90% 80% at 50% 50%, hsl(var(--primary)/0.08) 0%, transparent 65%)",
+              pointerEvents: "none",
+            }} />
+            {/* Bottom accent line */}
+            <div style={{
+              position: "absolute",
+              bottom: 0,
+              left: "15%",
+              right: "15%",
+              height: "1px",
+              background: "linear-gradient(90deg, transparent, hsl(var(--primary)/0.6), transparent)",
+              pointerEvents: "none",
+            }} />
             <img
               src={firstLogoBase64}
               alt="Caprina Logo"
               style={{
-                width: "100%",
-                height: "auto",
                 display: "block",
-                maxHeight: "130px",
+                width: "auto",
+                height: "auto",
+                maxWidth: "140px",
+                maxHeight: "100px",
                 objectFit: "contain",
-                filter: "drop-shadow(0 0 12px hsl(var(--primary)/0.4))",
+                position: "relative",
+                zIndex: 1,
+                filter: "drop-shadow(0 0 14px hsl(var(--primary)/0.6)) drop-shadow(0 0 4px hsl(var(--primary)/0.3))",
               }}
             />
           </div>
