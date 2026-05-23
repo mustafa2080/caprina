@@ -173,8 +173,9 @@ export default function Layout({ children }: LayoutProps) {
 
           {/* ── First Logo ── */}
           <div
-            className="flex items-center justify-center py-2"
+            className="w-full flex items-center justify-center"
             style={{
+              height: "90px",
               background: "linear-gradient(180deg, hsl(var(--primary)/0.06) 0%, transparent 100%)",
               borderBottom: "1px solid hsl(var(--primary)/0.2)",
             }}
@@ -183,9 +184,10 @@ export default function Layout({ children }: LayoutProps) {
               src={firstLogoBase64}
               alt="Caprina Logo"
               style={{
-                width: "80px",
-                height: "80px",
+                width: "100%",
+                height: "100%",
                 objectFit: "contain",
+                padding: "8px 16px",
                 filter: "drop-shadow(0 0 8px hsl(var(--primary)/0.6)) drop-shadow(0 2px 12px rgba(0,0,0,0.5))",
               }}
             />
