@@ -124,71 +124,72 @@ function NavGroup({ label, icon: Icon, iconColor, location, prefixes, children, 
   const rgb = resolveRgb(iconColor);
 
   return (
-    <div className="pt-px">
+    <div className="pt-1">
       <button
         type="button"
         onClick={onToggle}
         className={cn(
-          "w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md text-xs font-medium transition-all duration-150 group",
-          isActive ? "text-white" : "text-sidebar-foreground/45 hover:text-sidebar-foreground/80 hover:bg-white/[0.04]"
+          "w-full flex items-center gap-3 px-2.5 py-2 rounded-xl text-xs font-semibold transition-all duration-200 group",
+          isActive ? "text-white" : "text-sidebar-foreground/50 hover:text-sidebar-foreground/80 hover:bg-white/[0.03]"
         )}
         style={isActive ? {
-          background: "rgba(255,255,255,0.06)",
-          border: "1px solid rgba(255,255,255,0.08)",
+          background: `linear-gradient(135deg, rgba(${rgb},0.1) 0%, rgba(${rgb},0.04) 100%)`,
+          border: `1px solid rgba(${rgb},0.2)`,
+          boxShadow: `0 1px 6px rgba(${rgb},0.12)`,
         } : { border: "1px solid transparent" }}
       >
-        {/* أيقونة — مربع صغير نظيف — Figma/VS Code style */}
+        {/* أيقونة كبيرة بتدرج ألوان وshadow */}
         <div
-          className="shrink-0 flex items-center justify-center transition-all duration-150"
+          className="shrink-0 flex items-center justify-center transition-all duration-200"
           style={{
-            width: "28px",
-            height: "28px",
-            borderRadius: "7px",
+            width: "38px",
+            height: "38px",
+            borderRadius: "11px",
             background: isActive
-              ? `rgba(${rgb},0.15)`
-              : "rgba(255,255,255,0.04)",
+              ? `linear-gradient(145deg, rgba(${rgb},0.9) 0%, rgba(${rgb},0.55) 60%, rgba(${rgb},0.3) 100%)`
+              : `linear-gradient(145deg, rgba(${rgb},0.18) 0%, rgba(${rgb},0.08) 100%)`,
             border: isActive
-              ? `1px solid rgba(${rgb},0.35)`
-              : "1px solid rgba(255,255,255,0.07)",
+              ? `1px solid rgba(${rgb},0.6)`
+              : `1px solid rgba(${rgb},0.15)`,
+            boxShadow: isActive
+              ? `0 4px 14px rgba(${rgb},0.45), 0 1px 4px rgba(${rgb},0.3), inset 0 1px 0 rgba(255,255,255,0.2)`
+              : `0 2px 6px rgba(${rgb},0.12), inset 0 1px 0 rgba(255,255,255,0.06)`,
           }}
         >
           <Icon
             style={{
-              width: "14px",
-              height: "14px",
-              color: isActive ? `rgba(${rgb},1)` : "rgba(148,163,184,0.55)",
-              transition: "color 0.15s ease",
+              width: isActive ? "19px" : "17px",
+              height: isActive ? "19px" : "17px",
+              color: isActive ? "rgba(255,255,255,0.95)" : `rgba(${rgb},0.7)`,
+              filter: isActive ? "drop-shadow(0 1px 3px rgba(0,0,0,0.3))" : "none",
+              transition: "all 0.2s ease",
             }}
           />
         </div>
 
         {/* الاسم */}
         <span
-          className="flex-1 text-right font-medium transition-colors duration-150"
-          style={{
-            fontSize: "11.5px",
-            letterSpacing: "0.01em",
-            color: isActive ? `rgba(${rgb},0.95)` : undefined,
-          }}
+          className="flex-1 text-right font-semibold transition-colors duration-200"
+          style={{ fontSize: "12px", letterSpacing: "0.01em" }}
         >
           {label}
         </span>
 
         {/* سهم */}
         <ChevronLeft
-          className={cn("shrink-0 transition-transform duration-150", isOpen ? "-rotate-90" : "")}
+          className={cn("shrink-0 transition-transform duration-200", isOpen ? "-rotate-90" : "")}
           style={{
-            width: "12px",
-            height: "12px",
-            color: isActive ? `rgba(${rgb},0.5)` : "rgba(100,116,139,0.4)",
+            width: "13px",
+            height: "13px",
+            color: isActive ? `rgba(${rgb},0.6)` : "rgba(100,116,139,0.35)",
           }}
         />
       </button>
 
       {isOpen && (
         <div
-          className="mt-0.5 mr-3 pr-1.5 space-y-px pb-1"
-          style={{ borderRight: `1.5px solid rgba(${rgb},0.2)` }}
+          className="mt-1 mr-3 pr-1.5 space-y-px pb-1"
+          style={{ borderRight: `2px solid rgba(${rgb},0.2)` }}
         >
           {children}
         </div>
