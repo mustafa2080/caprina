@@ -86,15 +86,34 @@ function NavItem({ item, location, sub = false }: { item: any; location: string;
     ? location === item.href
     : location === item.href || location.startsWith(item.href + "/") || (item.href !== "/" && location.startsWith(item.href));
   const Icon = item.icon;
+  const rgb = resolveRgb(item.iconColor ?? "text-blue-400");
   return (
     <Link href={item.href}
       className={cn(
-        "flex items-center gap-3 px-3 py-1.5 rounded-md text-xs font-semibold transition-all group",
+        "flex items-center gap-3 px-3 py-2 rounded-lg text-[11.5px] font-semibold transition-all duration-200 group",
         sub && "mr-2",
-        isActive ? "bg-primary text-primary-foreground" : "text-sidebar-foreground/55 hover:text-sidebar-foreground hover:bg-foreground/5"
-      )}>
-      <Icon className={cn("w-3.5 h-3.5 shrink-0", isActive ? "text-primary-foreground" : item.iconColor)} />
-      <span className="flex-1">{item.label}</span>
+        isActive ? "text-white" : "text-sidebar-foreground/60 hover:text-sidebar-foreground/90 hover:bg-white/[0.04]"
+      )}
+      style={isActive ? {
+        background: `linear-gradient(135deg, rgba(${rgb},0.18) 0%, rgba(${rgb},0.07) 100%)`,
+        border: `1px solid rgba(${rgb},0.25)`,
+        boxShadow: `0 1px 8px rgba(${rgb},0.15), inset 0 1px 0 rgba(255,255,255,0.06)`,
+      } : { border: "1px solid transparent" }}
+    >
+      <div
+        className="shrink-0 flex items-center justify-center"
+        style={{
+          width: "28px", height: "28px", borderRadius: "8px",
+          background: isActive
+            ? `linear-gradient(145deg, rgba(${rgb},0.85) 0%, rgba(${rgb},0.45) 100%)`
+            : `linear-gradient(145deg, rgba(${rgb},0.15) 0%, rgba(${rgb},0.06) 100%)`,
+          border: isActive ? `1px solid rgba(${rgb},0.5)` : `1px solid rgba(${rgb},0.12)`,
+          boxShadow: isActive ? `0 3px 10px rgba(${rgb},0.35), inset 0 1px 0 rgba(255,255,255,0.15)` : `0 1px 4px rgba(${rgb},0.1)`,
+        }}
+      >
+        <Icon style={{ width: "13px", height: "13px", color: isActive ? "rgba(255,255,255,0.95)" : `rgba(${rgb},0.75)` }} />
+      </div>
+      <span className="flex-1 text-right">{item.label}</span>
     </Link>
   );
 }
@@ -137,7 +156,7 @@ function NavGroup({ label, icon: Icon, iconColor, location, prefixes, children, 
         type="button"
         onClick={onToggle}
         className={cn(
-          "w-full flex items-center gap-3 px-2.5 py-2 rounded-xl text-xs font-semibold transition-all duration-200 group",
+          "w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-[13px] font-bold transition-all duration-200 group",
           isActive ? "text-white" : "text-sidebar-foreground/50 hover:text-sidebar-foreground/80 hover:bg-white/[0.03]"
         )}
         style={isActive ? {
@@ -150,9 +169,9 @@ function NavGroup({ label, icon: Icon, iconColor, location, prefixes, children, 
         <div
           className="shrink-0 flex items-center justify-center transition-all duration-200"
           style={{
-            width: "38px",
-            height: "38px",
-            borderRadius: "11px",
+            width: "42px",
+            height: "42px",
+            borderRadius: "13px",
             background: isActive
               ? `linear-gradient(145deg, rgba(${rgb},0.9) 0%, rgba(${rgb},0.55) 60%, rgba(${rgb},0.3) 100%)`
               : `linear-gradient(145deg, rgba(${rgb},0.18) 0%, rgba(${rgb},0.08) 100%)`,
@@ -166,8 +185,8 @@ function NavGroup({ label, icon: Icon, iconColor, location, prefixes, children, 
         >
           <Icon
             style={{
-              width: isActive ? "19px" : "17px",
-              height: isActive ? "19px" : "17px",
+              width: isActive ? "22px" : "20px",
+              height: isActive ? "22px" : "20px",
               color: isActive ? "rgba(255,255,255,0.95)" : `rgba(${rgb},0.7)`,
               filter: isActive ? "drop-shadow(0 1px 3px rgba(0,0,0,0.3))" : "none",
               transition: "all 0.2s ease",
@@ -178,7 +197,7 @@ function NavGroup({ label, icon: Icon, iconColor, location, prefixes, children, 
         {/* الاسم */}
         <span
           className="flex-1 text-right font-semibold transition-colors duration-200"
-          style={{ fontSize: "12px", letterSpacing: "0.01em" }}
+          style={{ fontSize: "13.5px", letterSpacing: "0.01em" }}
         >
           {label}
         </span>
@@ -462,12 +481,26 @@ export default function Layout({ children }: LayoutProps) {
               {FINANCE_NAV.map((item) => {
                 const isActive = location === item.href;
                 const Icon = item.icon;
+                const rgb2 = resolveRgb(item.iconColor ?? "text-blue-400");
                 return (
                   <Link key={item.href} href={item.href}
-                    className={cn("flex items-center gap-3 px-3 py-1.5 rounded-md text-xs font-semibold transition-all mr-2 group",
-                      isActive ? "bg-primary text-primary-foreground" : "text-sidebar-foreground/55 hover:text-sidebar-foreground hover:bg-foreground/5")}>
-                    <Icon className={cn("w-3.5 h-3.5 shrink-0", isActive ? "text-primary-foreground" : item.iconColor)} />
-                    <span className="flex-1">{item.label}</span>
+                    className={cn("flex items-center gap-3 px-3 py-2 rounded-lg text-[11.5px] font-semibold transition-all duration-200 mr-2 group",
+                      isActive ? "text-white" : "text-sidebar-foreground/60 hover:text-sidebar-foreground/90 hover:bg-white/[0.04]")}
+                    style={isActive ? {
+                      background: `linear-gradient(135deg, rgba(${rgb2},0.18) 0%, rgba(${rgb2},0.07) 100%)`,
+                      border: `1px solid rgba(${rgb2},0.25)`,
+                      boxShadow: `0 1px 8px rgba(${rgb2},0.15), inset 0 1px 0 rgba(255,255,255,0.06)`,
+                    } : { border: "1px solid transparent" }}
+                  >
+                    <div className="shrink-0 flex items-center justify-center" style={{
+                      width: "28px", height: "28px", borderRadius: "8px",
+                      background: isActive ? `linear-gradient(145deg, rgba(${rgb2},0.85) 0%, rgba(${rgb2},0.45) 100%)` : `linear-gradient(145deg, rgba(${rgb2},0.15) 0%, rgba(${rgb2},0.06) 100%)`,
+                      border: isActive ? `1px solid rgba(${rgb2},0.5)` : `1px solid rgba(${rgb2},0.12)`,
+                      boxShadow: isActive ? `0 3px 10px rgba(${rgb2},0.35), inset 0 1px 0 rgba(255,255,255,0.15)` : `0 1px 4px rgba(${rgb2},0.1)`,
+                    }}>
+                      <Icon style={{ width: "13px", height: "13px", color: isActive ? "rgba(255,255,255,0.95)" : `rgba(${rgb2},0.75)` }} />
+                    </div>
+                    <span className="flex-1 text-right">{item.label}</span>
                   </Link>
                 );
               })}
