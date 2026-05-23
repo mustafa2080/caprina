@@ -91,27 +91,27 @@ function NavItem({ item, location, sub = false }: { item: any; location: string;
   );
 }
 
-function resolveNeon(iconColor: string): { rgb: string; hex: string } {
-  if (iconColor.includes("orange"))  return { rgb: "251,146,60",  hex: "#fb923c" };
-  if (iconColor.includes("sky"))     return { rgb: "56,189,248",  hex: "#38bdf8" };
-  if (iconColor.includes("violet"))  return { rgb: "167,139,250", hex: "#a78bfa" };
-  if (iconColor.includes("pink"))    return { rgb: "244,114,182", hex: "#f472b6" };
-  if (iconColor.includes("fuchsia")) return { rgb: "232,121,249", hex: "#e879f9" };
-  if (iconColor.includes("emerald")) return { rgb: "52,211,153",  hex: "#34d399" };
-  if (iconColor.includes("teal"))    return { rgb: "45,212,191",  hex: "#2dd4bf" };
-  if (iconColor.includes("cyan"))    return { rgb: "34,211,238",  hex: "#22d3ee" };
-  if (iconColor.includes("lime"))    return { rgb: "163,230,53",  hex: "#a3e635" };
-  if (iconColor.includes("green"))   return { rgb: "74,222,128",  hex: "#4ade80" };
-  if (iconColor.includes("amber"))   return { rgb: "251,191,36",  hex: "#fbbf24" };
-  if (iconColor.includes("yellow"))  return { rgb: "250,204,21",  hex: "#facc15" };
-  if (iconColor.includes("red"))     return { rgb: "248,113,113", hex: "#f87171" };
-  if (iconColor.includes("rose"))    return { rgb: "251,113,133", hex: "#fb7185" };
-  if (iconColor.includes("blue"))    return { rgb: "96,165,250",  hex: "#60a5fa" };
-  if (iconColor.includes("indigo"))  return { rgb: "129,140,248", hex: "#818cf8" };
-  if (iconColor.includes("purple"))  return { rgb: "192,132,252", hex: "#c084fc" };
-  if (iconColor.includes("slate"))   return { rgb: "148,163,184", hex: "#94a3b8" };
-  if (iconColor.includes("stone"))   return { rgb: "168,162,158", hex: "#a8a29e" };
-  return { rgb: "251,191,36", hex: "#fbbf24" };
+function resolveRgb(iconColor: string): string {
+  if (iconColor.includes("orange"))  return "251,146,60";
+  if (iconColor.includes("sky"))     return "56,189,248";
+  if (iconColor.includes("violet"))  return "167,139,250";
+  if (iconColor.includes("pink"))    return "244,114,182";
+  if (iconColor.includes("fuchsia")) return "232,121,249";
+  if (iconColor.includes("emerald")) return "52,211,153";
+  if (iconColor.includes("teal"))    return "45,212,191";
+  if (iconColor.includes("cyan"))    return "34,211,238";
+  if (iconColor.includes("lime"))    return "163,230,53";
+  if (iconColor.includes("green"))   return "74,222,128";
+  if (iconColor.includes("amber"))   return "251,191,36";
+  if (iconColor.includes("yellow"))  return "250,204,21";
+  if (iconColor.includes("red"))     return "248,113,113";
+  if (iconColor.includes("rose"))    return "251,113,133";
+  if (iconColor.includes("blue"))    return "96,165,250";
+  if (iconColor.includes("indigo"))  return "129,140,248";
+  if (iconColor.includes("purple"))  return "192,132,252";
+  if (iconColor.includes("slate"))   return "148,163,184";
+  if (iconColor.includes("stone"))   return "168,162,158";
+  return "251,191,36";
 }
 
 function NavGroup({ label, icon: Icon, iconColor, location, prefixes, children, isOpen, onToggle }: {
@@ -120,79 +120,55 @@ function NavGroup({ label, icon: Icon, iconColor, location, prefixes, children, 
   children: React.ReactNode;
   isOpen: boolean; onToggle: () => void;
 }) {
-  const isGroupActive = prefixes.some(p => location === p || location.startsWith(p + "/") || location.startsWith(p));
-  const neon = resolveNeon(iconColor);
-  const r = neon.rgb;
+  const isActive = prefixes.some(p => location === p || location.startsWith(p + "/") || location.startsWith(p));
+  const rgb = resolveRgb(iconColor);
 
   return (
-    <div className="pt-0.5">
+    <div className="pt-px">
       <button
         type="button"
         onClick={onToggle}
         className={cn(
-          "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-semibold transition-all duration-200 group",
-          isGroupActive
-            ? "text-white"
-            : "text-sidebar-foreground/50 hover:text-sidebar-foreground/90"
+          "w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md text-xs font-medium transition-all duration-150 group",
+          isActive ? "text-white" : "text-sidebar-foreground/45 hover:text-sidebar-foreground/80 hover:bg-white/[0.04]"
         )}
-        style={isGroupActive ? {
-          background: `linear-gradient(135deg, rgba(${r},0.08) 0%, rgba(${r},0.03) 100%)`,
-          borderTop:    `1px solid rgba(${r},0.25)`,
-          borderLeft:   `1px solid rgba(${r},0.15)`,
-          borderRight:  `1px solid rgba(${r},0.1)`,
-          borderBottom: `1px solid rgba(${r},0.1)`,
-          boxShadow:    `inset 0 1px 0 rgba(${r},0.15)`,
-        } : {
-          border: "1px solid transparent",
-        }}
+        style={isActive ? {
+          background: "rgba(255,255,255,0.06)",
+          border: "1px solid rgba(255,255,255,0.08)",
+        } : { border: "1px solid transparent" }}
       >
-        {/* أيقونة Neon */}
+        {/* أيقونة — مربع صغير نظيف — Figma/VS Code style */}
         <div
-          className="relative flex items-center justify-center shrink-0 transition-all duration-200"
+          className="shrink-0 flex items-center justify-center transition-all duration-150"
           style={{
-            width: "34px",
-            height: "34px",
-            borderRadius: "10px",
-            background: isGroupActive
-              ? `rgba(${r},0.12)`
-              : `rgba(${r},0.06)`,
-            border: isGroupActive
-              ? `1px solid rgba(${r},0.5)`
-              : `1px solid rgba(${r},0.18)`,
-            boxShadow: isGroupActive
-              ? `0 0 12px rgba(${r},0.7), 0 0 24px rgba(${r},0.35), 0 0 40px rgba(${r},0.15), inset 0 1px 0 rgba(${r},0.3)`
-              : `0 0 0 rgba(${r},0)`,
+            width: "28px",
+            height: "28px",
+            borderRadius: "7px",
+            background: isActive
+              ? `rgba(${rgb},0.15)`
+              : "rgba(255,255,255,0.04)",
+            border: isActive
+              ? `1px solid rgba(${rgb},0.35)`
+              : "1px solid rgba(255,255,255,0.07)",
           }}
         >
-          {/* Neon core dot عند active */}
-          {isGroupActive && (
-            <span
-              className="absolute inset-0 rounded-[10px]"
-              style={{
-                background: `radial-gradient(ellipse at 50% 0%, rgba(${r},0.25) 0%, transparent 70%)`,
-              }}
-            />
-          )}
           <Icon
             style={{
-              width: isGroupActive ? "17px" : "15px",
-              height: isGroupActive ? "17px" : "15px",
-              color: `rgba(${r},${isGroupActive ? "1" : "0.65"})`,
-              filter: isGroupActive
-                ? `drop-shadow(0 0 6px rgba(${r},0.9)) drop-shadow(0 0 12px rgba(${r},0.5))`
-                : "none",
-              transition: "all 0.2s ease",
+              width: "14px",
+              height: "14px",
+              color: isActive ? `rgba(${rgb},1)` : "rgba(148,163,184,0.55)",
+              transition: "color 0.15s ease",
             }}
           />
         </div>
 
-        {/* اسم القسم */}
+        {/* الاسم */}
         <span
-          className="flex-1 text-right font-bold tracking-wide transition-all duration-200"
+          className="flex-1 text-right font-medium transition-colors duration-150"
           style={{
             fontSize: "11.5px",
-            color: isGroupActive ? `rgba(${r},1)` : undefined,
-            textShadow: isGroupActive ? `0 0 10px rgba(${r},0.6)` : "none",
+            letterSpacing: "0.01em",
+            color: isActive ? `rgba(${rgb},0.95)` : undefined,
           }}
         >
           {label}
@@ -200,19 +176,19 @@ function NavGroup({ label, icon: Icon, iconColor, location, prefixes, children, 
 
         {/* سهم */}
         <ChevronLeft
-          className={cn("shrink-0 transition-transform duration-200", isOpen ? "-rotate-90" : "")}
+          className={cn("shrink-0 transition-transform duration-150", isOpen ? "-rotate-90" : "")}
           style={{
-            width: "13px",
-            height: "13px",
-            color: isGroupActive ? `rgba(${r},0.7)` : "rgba(148,163,184,0.4)",
+            width: "12px",
+            height: "12px",
+            color: isActive ? `rgba(${rgb},0.5)` : "rgba(100,116,139,0.4)",
           }}
         />
       </button>
 
       {isOpen && (
         <div
-          className="mt-0.5 mr-3 pr-1 space-y-0.5 pb-1"
-          style={{ borderRight: `2px solid rgba(${r},0.25)` }}
+          className="mt-0.5 mr-3 pr-1.5 space-y-px pb-1"
+          style={{ borderRight: `1.5px solid rgba(${rgb},0.2)` }}
         >
           {children}
         </div>
