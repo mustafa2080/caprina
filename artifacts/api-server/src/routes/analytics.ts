@@ -201,7 +201,7 @@ router.get("/analytics/profit", requireAdmin, async (req, res): Promise<void> =>
 
   const variantMap = new Map<number, number | null>(variants.map(v => [v.id, v.costPrice]));
   const productMap = new Map<number, number | null>(products.map(p => [p.id, p.costPrice]));
-  const productImageMap = new Map<string, string | null>(products.map(p => [p.name.trim(), p.image ?? null]));
+  const productImageMap = new Map<string, string | null>(products.filter(p => p.name).map(p => [p.name.trim(), p.image ?? null]));
 
   // تحديد نطاق الفلتر
   let filteredOrders = allOrdersRaw;
