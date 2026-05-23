@@ -169,9 +169,35 @@ export default function Layout({ children }: LayoutProps) {
 
         {/* ── Header الـ Sidebar ── */}
         <div className="shrink-0 border-b border-sidebar-border/60">
+
+          {/* ── First Logo — أول حاجة فوق الـ sidebar ── */}
+          <div className="flex items-center justify-center px-4 pt-4 pb-3">
+            <div
+              className="relative rounded-2xl overflow-hidden w-full"
+              style={{
+                boxShadow: "0 0 0 1px hsl(var(--primary)/0.15), 0 4px 16px hsl(var(--primary)/0.25), 0 8px 32px rgba(0,0,0,0.18), 0 0 60px hsl(var(--primary)/0.12)",
+                filter: "drop-shadow(0 2px 12px hsl(var(--primary)/0.3))",
+              }}
+            >
+              <div
+                className="absolute inset-0 rounded-2xl pointer-events-none z-10"
+                style={{
+                  background: "linear-gradient(135deg, hsl(var(--primary)/0.18) 0%, transparent 60%)",
+                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.15), inset 0 -1px 0 rgba(0,0,0,0.1)",
+                }}
+              />
+              <img
+                src="/first_logo.jpg"
+                alt="Caprina Logo"
+                className="w-full h-auto block"
+                style={{ maxHeight: "88px", objectFit: "contain", objectPosition: "center" }}
+              />
+            </div>
+          </div>
+
           {/* Brand — hero area */}
           <div
-            className="px-4 pt-4 pb-4 flex flex-row items-center justify-between relative overflow-hidden"
+            className="px-4 pt-2 pb-4 flex flex-row items-center justify-between relative overflow-hidden"
             style={{ background: "linear-gradient(160deg, hsl(var(--primary)/0.12) 0%, hsl(var(--primary)/0.04) 100%)" }}
           >
             {/* subtle glow behind logo */}
