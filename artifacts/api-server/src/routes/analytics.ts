@@ -1004,60 +1004,109 @@ router.get("/analytics/smart-insights", async (req, res): Promise<void> => {
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
   // ── 1. Ad Attribution ────────────────────────────────────────────────────────
-  const sourceMap: Record<string, { orders: number; revenue: number; cost: number; profit: number; adSpend: number; returned: number; shippingSpend: number; invoiceSet: Set<string>; returnedInvoiceSet: Set<string>; countedManifests: Set<number> }> = {};
-  const processedShippingInvoicesSI = new Set<string>();
+  // كل منصة عندها invoiceSet و processedShippingInvoices خاصة بيها
+  // الـ manifestCost بيتوزع على كل منصة موجودة في البيان بشكل متناسب
+  const sourceMap: Record<string, {
+    orders: number; revenue: number; cost: number; profit: number;
+    adSpend: number; returned: number; shippingSpend: number;
+    invoiceSet: Set<string>; returnedInvoiceSet: Set<string>; processedShippingInvoices: Set<string>;
+  }> = {};
+
+  // نبني map: manifestId → { totalOrders, sourceBreakdown } عشان نوزّع تكلفة البيان بالتساوي
+  const manifestSourceMap = new Map<number, Map<string, Set<string>>>();
+  for (const o of allOrders) {
+    const src = o.adSource ?? "organic";
+    const manifestId = allManifestOrders.find(mo => mo.orderId === o.id)?.manifestId;
+    if (manifestId !== undefined) {
+      if (!manifestSourceMap.has(manifestId)) manifestSourceMap.set(manifestId, new Map());
+      const srcMap2 = manifestSourceMap.get(manifestId)!;
+      if (!srcMap2.has(src)) srcMap2.set(src, new Set());
+      srcMap2.get(src)!.add(o.invoiceNumber ?? `solo-${o.id}`);
+    }
+  }
+
   const countedManifestsSI = new Set<number>();
 
   for (const o of allOrders) {
     const src = o.adSource ?? "organic";
-    if (!sourceMap[src]) sourceMap[src] = { orders: 0, revenue: 0, cost: 0, profit: 0, adSpend: 0, returned: 0, shippingSpend: 0, invoiceSet: new Set<string>(), returnedInvoiceSet: new Set<string>(), countedManifests: new Set<number>() };
+    if (!sourceMap[src]) sourceMap[src] = {
+      orders: 0, revenue: 0, cost: 0, profit: 0, adSpend: 0, returned: 0, shippingSpend: 0,
+      invoiceSet: new Set<string>(), returnedInvoiceSet: new Set<string>(), processedShippingInvoices: new Set<string>(),
+    };
     const s = sourceMap[src];
-    const rc = resolveCost(o, variantMap, productMap);
     const invoiceKey = o.invoiceNumber ?? `solo-${o.id}`;
-
-    // رسوم الشحن من البيان — مرة واحدة فقط لكل بيان عبر كل المنصات
     const manifestId = allManifestOrders.find(mo => mo.orderId === o.id)?.manifestId;
-    const manifestCost = (manifestId !== undefined && !countedManifestsSI.has(manifestId))
-      ? Number(allManifests.find(m => m.id === manifestId)?.manualShippingCost ?? 0)
-      : 0;
 
     if (o.status === "returned") {
       if (!s.returnedInvoiceSet.has(invoiceKey)) {
         s.returnedInvoiceSet.add(invoiceKey);
         s.returned++;
+        // طرح شحن الطلب مرة واحدة لكل فاتورة مرتجعة
         const sc = o.shippingCost ?? 0;
-        s.profit -= sc;
-        if (manifestCost > 0 && manifestId !== undefined) {
-          countedManifestsSI.add(manifestId);
-          s.shippingSpend += manifestCost;
-          s.profit -= manifestCost;
+        if (sc > 0) { s.shippingSpend += sc; s.profit -= sc; }
+      }
+      // طرح حصة المنصة من تكلفة البيان (مرة واحدة لكل منصة لكل بيان)
+      if (manifestId !== undefined) {
+        const mKey = `${manifestId}_${src}`;
+        if (!countedManifestsSI.has(Number(mKey.replace(/[^0-9]/g, '')))) {
+          const manifest = allManifests.find(m => m.id === manifestId);
+          const totalManifestCost = Number(manifest?.manualShippingCost ?? 0);
+          if (totalManifestCost > 0) {
+            const srcMapForManifest = manifestSourceMap.get(manifestId);
+            const totalOrdersInManifest = srcMapForManifest
+              ? Array.from(srcMapForManifest.values()).reduce((sum, set) => sum + set.size, 0)
+              : 1;
+            const srcOrdersInManifest = srcMapForManifest?.get(src)?.size ?? 1;
+            const srcShare = (srcOrdersInManifest / totalOrdersInManifest) * totalManifestCost;
+            // تأكد ما تحسبش نفس المنصة في نفس البيان أكتر من مرة
+            const manifestSrcKey = manifestId * 10000 + Object.keys(sourceMap).indexOf(src);
+            if (!countedManifestsSI.has(manifestSrcKey)) {
+              countedManifestsSI.add(manifestSrcKey);
+              s.shippingSpend += srcShare;
+              s.profit -= srcShare;
+            }
+          }
         }
       }
       if (!s.invoiceSet.has(invoiceKey)) { s.invoiceSet.add(invoiceKey); s.orders++; }
+
     } else if (o.status === "received" || o.status === "partial_received") {
-      // حساب الإيرادات والتكلفة بدون شحن (الشحن سيُحسب منفصلاً لكل فاتورة مرة واحدة)
       const qty = o.status === "partial_received" ? (o.partialQuantity ?? o.quantity) : o.quantity;
-      const rc2 = resolveCost(o, variantMap, productMap);
+      const rc = resolveCost(o, variantMap, productMap);
       const rev = qty * o.unitPrice;
-      const cst = qty * rc2;
+      const cst = qty * rc;
       s.revenue += rev;
       s.cost += cst;
-      // طرح تكلفة البضاعة من الربح
       s.profit += rev - cst;
-      // طرح شحن الطلب (shippingCost على الأوردر) مرة واحدة لكل فاتورة
-      if (!processedShippingInvoicesSI.has(invoiceKey)) {
-        processedShippingInvoicesSI.add(invoiceKey);
+
+      // طرح shippingCost للطلب مرة واحدة لكل فاتورة لكل منصة
+      if (!s.processedShippingInvoices.has(invoiceKey)) {
+        s.processedShippingInvoices.add(invoiceKey);
         const sc = o.shippingCost ?? 0;
-        s.shippingSpend += sc;
-        s.profit -= sc;
+        if (sc > 0) { s.shippingSpend += sc; s.profit -= sc; }
       }
-      // طرح تكلفة البيان (manualShippingCost) مرة واحدة لكل بيان
-      if (manifestCost > 0 && manifestId !== undefined && !countedManifestsSI.has(manifestId)) {
-        countedManifestsSI.add(manifestId);
-        s.shippingSpend += manifestCost;
-        s.profit -= manifestCost;
+
+      // طرح حصة المنصة من تكلفة البيان (موزّعة بالتساوي بين المنصات)
+      if (manifestId !== undefined) {
+        const manifest = allManifests.find(m => m.id === manifestId);
+        const totalManifestCost = Number(manifest?.manualShippingCost ?? 0);
+        if (totalManifestCost > 0) {
+          const srcMapForManifest = manifestSourceMap.get(manifestId);
+          const totalOrdersInManifest = srcMapForManifest
+            ? Array.from(srcMapForManifest.values()).reduce((sum, set) => sum + set.size, 0)
+            : 1;
+          const srcOrdersInManifest = srcMapForManifest?.get(src)?.size ?? 1;
+          const srcShare = (srcOrdersInManifest / totalOrdersInManifest) * totalManifestCost;
+          const manifestSrcKey = manifestId * 10000 + Object.keys(sourceMap).indexOf(src);
+          if (!countedManifestsSI.has(manifestSrcKey)) {
+            countedManifestsSI.add(manifestSrcKey);
+            s.shippingSpend += srcShare;
+            s.profit -= srcShare;
+          }
+        }
       }
       if (!s.invoiceSet.has(invoiceKey)) { s.invoiceSet.add(invoiceKey); s.orders++; }
+
     } else {
       if (!s.invoiceSet.has(invoiceKey)) { s.invoiceSet.add(invoiceKey); s.orders++; }
     }
