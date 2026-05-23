@@ -344,6 +344,7 @@ export interface FinancialSummary {
 export interface ProductPerformance {
   name: string;
   productId: number | null;
+  image: string | null;
   totalOrders: number;
   completedOrders: number;
   totalSalesQty: number;

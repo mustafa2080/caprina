@@ -44,7 +44,27 @@ function ProductRow({ p, maxProfit, maxLoss, sort }: {
   return (
     <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 py-3 border-b border-border last:border-0">
       <div className="min-w-0">
-        <div className="flex items-center gap-2 mb-1">
+        <div className="flex items-center gap-2.5 mb-1">
+          {/* صورة المنتج الدائرية */}
+          {p.image ? (
+            <img
+              src={p.image}
+              alt={p.name}
+              className="w-8 h-8 rounded-full object-cover border-2 shrink-0"
+              style={{ borderColor: isLosing ? "rgba(248,113,113,0.4)" : "rgba(var(--primary),0.4)" }}
+            />
+          ) : (
+            <div className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-[11px] font-black"
+              style={{
+                background: isLosing
+                  ? "linear-gradient(135deg, rgba(248,113,113,0.2), rgba(239,68,68,0.1))"
+                  : "linear-gradient(135deg, rgba(var(--primary),0.2), rgba(var(--primary),0.05))",
+                border: isLosing ? "1.5px solid rgba(248,113,113,0.35)" : "1.5px solid rgba(var(--primary),0.3)",
+                color: isLosing ? "rgba(248,113,113,0.9)" : "rgba(var(--primary),0.9)",
+              }}>
+              {p.name.charAt(0).toUpperCase()}
+            </div>
+          )}
           <span className="text-sm font-bold text-foreground truncate">{p.name}</span>
           {p.returnRate >= 30 && (
             <Badge variant="outline" className="text-[9px] border-red-400 text-red-700 dark:border-red-800 dark:text-red-400 shrink-0">

@@ -542,12 +542,14 @@ router.get("/analytics/product-performance", requireAdmin, async (req, res): Pro
 
   const variantMap = new Map<number, number | null>(variants.map(v => [v.id, v.costPrice]));
   const productMap = new Map<number, number | null>(products.map(p => [p.id, p.costPrice]));
+  const productImageMap = new Map<number, string | null>(products.map(p => [p.id, (p as any).image ?? null]));
   // productId lookup by name
   const productIdByName = new Map<string, number>(products.map(p => [p.name.trim().toLowerCase(), p.id]));
 
   type ProductStats = {
     name: string;
     productId: number | null;
+    image: string | null;
     totalOrders: number;      // عدد الفواتير الفريدة (مش عدد الصفوف)
     completedOrders: number;
     totalSalesQty: number;
@@ -571,6 +573,7 @@ router.get("/analytics/product-performance", requireAdmin, async (req, res): Pro
       const pid = o.productId ?? productIdByName.get(key.toLowerCase()) ?? null;
       statsMap.set(key, {
         name: key, productId: pid,
+        image: pid ? (productImageMap.get(pid) ?? null) : null,
         totalOrders: 0, completedOrders: 0, totalSalesQty: 0,
         totalRevenue: 0, totalCost: 0, totalShipping: 0,
         returnCount: 0, returnCostLoss: 0, netProfit: 0,
