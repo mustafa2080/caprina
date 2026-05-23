@@ -1585,173 +1585,147 @@ export default function Dashboard() {
             </Card>
           )}
 
-          {/* ── تتبع أداء فريق المبيعات ──────────────────────────────── */}
+          {/* ── تتبع أداء فريق المبيعات + إدارة الفريق — جنب بعض ── */}
+          {(teamPerf.length > 0 || (isAdmin && employeeProfiles.length > 0)) && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+          {/* تتبع أداء فريق المبيعات */}
           {teamPerf.length > 0 && (
             <Card className="border-border overflow-hidden">
-              <CardHeader className="py-2.5 sm:py-3 px-3 sm:px-4 border-b border-border">
+              <CardHeader className="py-2 px-3 border-b border-border">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2">
-                    <TrendingUp className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-500" />
-                    تتبع أداء فريق المبيعات
+                  <CardTitle className="text-[11px] font-bold flex items-center gap-1.5">
+                    <TrendingUp className="w-3 h-3 text-emerald-500" />
+                    أداء المبيعات
                     <Badge variant="outline" className="text-[9px] h-4 border-emerald-400/40 text-emerald-600 dark:text-emerald-400">
                       {teamPerf.length} عضو
                     </Badge>
                   </CardTitle>
-                  <Link href="/team-performance" className="text-[10px] sm:text-xs text-primary hover:underline">تفاصيل ←</Link>
+                  <Link href="/team-performance" className="text-[9px] text-primary hover:underline">تفاصيل ←</Link>
                 </div>
               </CardHeader>
 
-              {/* منحنى أداء */}
+              {/* منحنى أداء مصغر */}
               {(() => {
-                const chartData = teamPerf.slice(0, 6).map(m => ({
+                const chartData = teamPerf.slice(0, 5).map(m => ({
                   name: m.displayName.split(" ")[0],
                   تسليم: m.deliveryRate,
                   مرتجع: m.returnRate,
                 }));
                 return (
-                  <div className="px-2 pt-2 pb-1">
-                    <ResponsiveContainer width="100%" height={80}>
-                      <AreaChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: -28 }}>
+                  <div className="px-2 pt-1.5 pb-0.5">
+                    <ResponsiveContainer width="100%" height={60}>
+                      <AreaChart data={chartData} margin={{ top: 2, right: 2, bottom: 0, left: -28 }}>
                         <defs>
-                          <linearGradient id="teamDelivery" x1="0" y1="0" x2="0" y2="1">
+                          <linearGradient id="teamDelivery2" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
                             <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                           </linearGradient>
-                          <linearGradient id="teamReturn" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#ef4444" stopOpacity={0.2} />
-                            <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                          </linearGradient>
                         </defs>
-                        <XAxis dataKey="name" tick={{ fontSize: 9, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
-                        <YAxis tick={{ fontSize: 8, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} domain={[0, 100]} />
-                        <Tooltip contentStyle={{ fontSize: 10, padding: "4px 8px", borderRadius: 6 }} formatter={(v: any, name: string) => [`${v}%`, name]} />
-                        <Area type="monotone" dataKey="تسليم" stroke="#10b981" strokeWidth={2} fill="url(#teamDelivery)" dot={{ r: 2.5, fill: "#10b981" }} />
-                        <Area type="monotone" dataKey="مرتجع" stroke="#ef4444" strokeWidth={1.5} fill="url(#teamReturn)" dot={{ r: 2, fill: "#ef4444" }} />
+                        <XAxis dataKey="name" tick={{ fontSize: 8, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 7, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} domain={[0, 100]} />
+                        <Tooltip contentStyle={{ fontSize: 9, padding: "2px 6px", borderRadius: 4 }} formatter={(v: any, n: string) => [`${v}%`, n]} />
+                        <Area type="monotone" dataKey="تسليم" stroke="#10b981" strokeWidth={1.5} fill="url(#teamDelivery2)" dot={{ r: 2, fill: "#10b981" }} />
+                        <Area type="monotone" dataKey="مرتجع" stroke="#ef4444" strokeWidth={1} fill="none" dot={{ r: 1.5, fill: "#ef4444" }} />
                       </AreaChart>
                     </ResponsiveContainer>
-                    <div className="flex gap-3 justify-center mt-0.5 mb-1">
-                      <span className="flex items-center gap-1 text-[9px] text-emerald-600 dark:text-emerald-400"><span className="w-2 h-0.5 bg-emerald-500 rounded-full inline-block" />نسبة تسليم</span>
-                      <span className="flex items-center gap-1 text-[9px] text-red-500"><span className="w-2 h-0.5 bg-red-400 rounded-full inline-block" />نسبة مرتجع</span>
-                    </div>
                   </div>
                 );
               })()}
 
-              {/* قائمة الأعضاء */}
+              {/* قائمة مصغرة */}
               <div className="divide-y divide-border/60">
-                {(() => {
-                  const maxScore = Math.max(...teamPerf.map(m => m.score), 1);
-                  return teamPerf.slice(0, 5).map((m, i) => (
-                    <DashTeamMemberRow key={m.userId} member={m} rank={i + 1} maxScore={maxScore} showProfit={canViewFinancials} />
-                  ));
-                })()}
+                {teamPerf.slice(0, 4).map((m, i) => (
+                  <div key={m.userId} className="flex items-center gap-2 px-3 py-1.5">
+                    <span className="text-[9px] font-black text-muted-foreground w-3">{i + 1}</span>
+                    {m.avatar ? (
+                      <img src={m.avatar} className="w-5 h-5 rounded-full object-cover shrink-0" />
+                    ) : (
+                      <div className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center text-[8px] font-bold text-emerald-600 shrink-0">
+                        {m.displayName.charAt(0)}
+                      </div>
+                    )}
+                    <span className="text-[10px] font-bold truncate flex-1">{m.displayName.split(" ")[0]}</span>
+                    <span className={`text-[10px] font-black ${m.deliveryRate >= 70 ? "text-emerald-500" : "text-amber-500"}`}>{m.deliveryRate}%</span>
+                  </div>
+                ))}
               </div>
 
-              {/* footer */}
+              {/* footer مصغر */}
               {(() => {
-                const totalDelivered = teamPerf.reduce((s, m) => s + m.delivered, 0);
-                const totalReturned  = teamPerf.reduce((s, m) => s + m.returned, 0);
-                const totalOrders    = teamPerf.reduce((s, m) => s + m.total, 0);
-                const avgDelivery    = totalOrders > 0 ? Math.round((totalDelivered / totalOrders) * 100) : 0;
+                const totalOrders = teamPerf.reduce((s, m) => s + m.total, 0);
+                const avgDelivery = teamPerf.length > 0 ? Math.round(teamPerf.reduce((s, m) => s + m.deliveryRate, 0) / teamPerf.length) : 0;
                 return (
-                  <div className="mx-2.5 sm:mx-3 mb-2.5 sm:mb-3 mt-1 grid grid-cols-3 gap-2 rounded-xl border border-border bg-muted/20 p-2 text-center">
-                    <div>
-                      <p className="text-sm font-black">{new Intl.NumberFormat("ar-EG").format(totalOrders)}</p>
-                      <p className="text-[9px] text-muted-foreground">إجمالي الطلبات</p>
-                    </div>
-                    <div>
-                      <p className={`text-sm font-black ${avgDelivery >= 70 ? "text-emerald-600 dark:text-emerald-400" : avgDelivery >= 50 ? "text-amber-500" : "text-red-500"}`}>{avgDelivery}%</p>
-                      <p className="text-[9px] text-muted-foreground">متوسط التسليم</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-black text-red-500">{new Intl.NumberFormat("ar-EG").format(totalReturned)}</p>
-                      <p className="text-[9px] text-muted-foreground">إجمالي المرتجع</p>
-                    </div>
+                  <div className="mx-2 mb-2 mt-1 grid grid-cols-2 gap-1.5 rounded-lg border border-border bg-muted/20 p-1.5 text-center">
+                    <div><p className="text-xs font-black">{new Intl.NumberFormat("ar-EG").format(totalOrders)}</p><p className="text-[8px] text-muted-foreground">الطلبات</p></div>
+                    <div><p className={`text-xs font-black ${avgDelivery >= 70 ? "text-emerald-500" : "text-amber-500"}`}>{avgDelivery}%</p><p className="text-[8px] text-muted-foreground">متوسط التسليم</p></div>
                   </div>
                 );
               })()}
             </Card>
           )}
 
-          {/* ── إدارة الفريق ──────────────────────────────────────────── */}
+          {/* إدارة الفريق */}
           {isAdmin && employeeProfiles.length > 0 && (
             <Card className="border-border overflow-hidden">
-              <CardHeader className="py-2.5 sm:py-3 px-3 sm:px-4 border-b border-border">
+              <CardHeader className="py-2 px-3 border-b border-border">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2">
-                    <Users className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-violet-500" />
+                  <CardTitle className="text-[11px] font-bold flex items-center gap-1.5">
+                    <Users className="w-3 h-3 text-violet-500" />
                     إدارة الفريق
                     <Badge variant="outline" className="text-[9px] h-4 border-violet-400/40 text-violet-600 dark:text-violet-400">
                       {employeeProfiles.length} موظف
                     </Badge>
                   </CardTitle>
-                  <Link href="/team" className="text-[10px] sm:text-xs text-primary hover:underline">إدارة ←</Link>
+                  <Link href="/team" className="text-[9px] text-primary hover:underline">إدارة ←</Link>
                 </div>
               </CardHeader>
 
               <div className="divide-y divide-border/60">
-                {employeeProfiles.slice(0, 5).map((emp: any) => {
+                {employeeProfiles.slice(0, 4).map((emp: any) => {
                   const [bg, fg] = dbAvatarColor(emp.displayName || "?");
                   return (
                     <Link key={emp.id} href="/team">
-                      <div className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-muted/20 transition-colors cursor-pointer">
-                        {/* أفاتار */}
+                      <div className="flex items-center gap-2 px-3 py-1.5 hover:bg-muted/20 transition-colors cursor-pointer">
                         {emp.avatar && emp.avatar.startsWith("data:") ? (
-                          <img src={emp.avatar} className="w-8 h-8 rounded-full object-cover border border-border/50 shrink-0" alt={emp.displayName} />
+                          <img src={emp.avatar} className="w-6 h-6 rounded-full object-cover border border-border/50 shrink-0" alt={emp.displayName} />
                         ) : (
-                          <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-[11px] shrink-0 border border-border/30"
+                          <div className="w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0"
                             style={{ background: bg, color: fg }}>
                             {dbInitials(emp.displayName || "?")}
                           </div>
                         )}
-                        {/* info */}
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-bold truncate">{emp.displayName}</p>
-                          <p className="text-[9px] text-muted-foreground truncate">
-                            {emp.jobTitle || "—"}{emp.department ? ` • ${emp.department}` : ""}
+                          <p className="text-[10px] font-bold truncate">{emp.displayName}</p>
+                          <p className="text-[8px] text-muted-foreground truncate">{emp.jobTitle || "—"}</p>
+                        </div>
+                        {emp.monthlySalary > 0 && (
+                          <p className="text-[9px] font-black text-primary shrink-0">
+                            {new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(emp.monthlySalary)}
                           </p>
-                        </div>
-                        {/* راتب + تاريخ التعيين */}
-                        <div className="text-left shrink-0">
-                          {emp.monthlySalary > 0 && (
-                            <p className="text-[10px] font-black text-primary">
-                              {new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(emp.monthlySalary)}
-                            </p>
-                          )}
-                          {emp.hireDate && (
-                            <p className="text-[8px] text-muted-foreground">
-                              منذ {new Date(emp.hireDate).getFullYear()}
-                            </p>
-                          )}
-                        </div>
+                        )}
                       </div>
                     </Link>
                   );
                 })}
               </div>
 
-              {/* footer إجماليات */}
-              <div className="mx-2.5 sm:mx-3 mb-2.5 sm:mb-3 mt-1 grid grid-cols-3 gap-2 rounded-xl border border-border bg-muted/20 p-2 text-center">
+              {/* footer مصغر */}
+              <div className="mx-2 mb-2 mt-1 grid grid-cols-2 gap-1.5 rounded-lg border border-border bg-muted/20 p-1.5 text-center">
+                <div><p className="text-xs font-black">{employeeProfiles.length}</p><p className="text-[8px] text-muted-foreground">الموظفين</p></div>
                 <div>
-                  <p className="text-sm font-black">{employeeProfiles.length}</p>
-                  <p className="text-[9px] text-muted-foreground">إجمالي الموظفين</p>
-                </div>
-                <div>
-                  <p className="text-sm font-black text-primary">
+                  <p className="text-xs font-black text-primary">
                     {new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(
                       employeeProfiles.reduce((s: number, e: any) => s + (e.monthlySalary || 0), 0)
                     )}
                   </p>
-                  <p className="text-[9px] text-muted-foreground">إجمالي الرواتب</p>
-                </div>
-                <div>
-                  <p className="text-sm font-black text-violet-500">
-                    {employeeProfiles.filter((e: any) => e.department).length}
-                  </p>
-                  <p className="text-[9px] text-muted-foreground">لديهم أقسام</p>
+                  <p className="text-[8px] text-muted-foreground">الرواتب</p>
                 </div>
               </div>
             </Card>
+          )}
+
+            </div>
           )}
           {/* ── مركز التحكم — منقول بعد تأثير المرتجعات ── */}
 
