@@ -38,6 +38,7 @@ const ALL_NAV = [
   { href: "/product-performance",label: "أداء المنتجات",     icon: BarChart3,                   permission: "view_product_performance",section: "section_product_performance", iconColor: "text-pink-400",      group: "analytics"    },
   { href: "/smart",             label: "التحليل الذكي",       icon: Brain,                       permission: "analytics",               section: "section_smart_analytics",    iconColor: "text-fuchsia-400",    group: "analytics"    },
   { href: "/ads-analytics",     label: "تحليل الإعلانات",    icon: Megaphone,                   permission: "analytics",               section: "section_ads_analytics",      iconColor: "text-rose-400",       group: "analytics"    },
+  { href: "/finance/cash/analytics", label: "تحليل الماليات الذكي", icon: Brain,                  permission: "analytics",               section: "section_finance_analytics",  iconColor: "text-teal-400",       group: "analytics"    },
   { href: "/sessions-report",   label: "تقارير الجلسات",      icon: Clock,                       permission: "users",                   section: "section_sessions_report",    iconColor: "text-slate-400",      group: "analytics"    },
   // ── الفريق والإدارة ─────────────────────────────────────────────────────
   { href: "/team",              label: "إدارة الفريق",        icon: UserCog,                     permission: "analytics",               section: "section_team_management",    iconColor: "text-lime-400",       group: "team",         exact: true },
@@ -57,8 +58,6 @@ const ALL_NAV = [
 const FINANCE_NAV = [
   { href: "/finance",                   label: "لوحة الماليات",     icon: DollarSign,   iconColor: "text-emerald-400"  },
   { href: "/finance/cash",              label: "الخزنة",             icon: Wallet,       iconColor: "text-yellow-400"   },
-  { href: "/finance/cash/archive",      label: "أرشيف الخزن",       icon: Archive,      iconColor: "text-stone-400"    },
-  { href: "/finance/cash/analytics",    label: "تحليل الماليات الذكي", icon: Brain,     iconColor: "text-fuchsia-400"  },
   { href: "/finance/expenses",          label: "المصروفات",          icon: Receipt,      iconColor: "text-rose-400"     },
   { href: "/finance/suppliers",         label: "الموردون",           icon: Building2,    iconColor: "text-blue-400"     },
   { href: "/finance/clients",           label: "العملاء التجاريون",  icon: UserCheck,    iconColor: "text-cyan-400"     },
