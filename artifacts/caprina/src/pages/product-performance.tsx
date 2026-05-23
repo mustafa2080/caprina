@@ -394,7 +394,22 @@ export default function ProductPerformancePage() {
                 return (
                   <tr key={p.name} className="border-b border-border/50 hover:bg-muted/10 transition-colors">
                     <td className="px-4 py-2.5">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-2">
+                        {/* صورة دائرية */}
+                        {p.image ? (
+                          <img src={p.image} alt={p.name}
+                            className="w-7 h-7 rounded-full object-cover shrink-0 border"
+                            style={{ borderColor: isLosing ? "rgba(248,113,113,0.35)" : "rgba(var(--primary),0.35)" }} />
+                        ) : (
+                          <div className="w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-[10px] font-black"
+                            style={{
+                              background: isLosing ? "rgba(248,113,113,0.15)" : "rgba(var(--primary),0.12)",
+                              border: isLosing ? "1px solid rgba(248,113,113,0.3)" : "1px solid rgba(var(--primary),0.25)",
+                              color: isLosing ? "rgba(248,113,113,0.9)" : "rgba(var(--primary),0.9)",
+                            }}>
+                            {p.name.charAt(0).toUpperCase()}
+                          </div>
+                        )}
                         {isLosing
                           ? <TrendingDown className="w-3 h-3 text-red-600 dark:text-red-400 shrink-0" />
                           : <TrendingUp className="w-3 h-3 text-primary shrink-0" />
