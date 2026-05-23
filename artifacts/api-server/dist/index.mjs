@@ -149360,7 +149360,14 @@ router8.get("/analytics/profit", requireAdmin, async (req, res) => {
   }
   const variantMap = new Map(variants.map((v) => [v.id, v.costPrice]));
   const productMap = new Map(products.map((p) => [p.id, p.costPrice]));
-  const productImageMap2 = new Map(products.filter((p) => p.name).map((p) => [p.name.trim(), p.image ?? null]));
+  let productImageMap = /* @__PURE__ */ new Map();
+  try {
+    productImageMap = new Map(
+      products.filter((p) => p && p.name).map((p) => [String(p.name).trim(), p.image ?? null])
+    );
+  } catch (imgErr) {
+    console.error("[smart-insights] productImageMap error:", imgErr);
+  }
   let filteredOrders = allOrdersRaw;
   if (fromParam || toParam || period) {
     let fromDate = null;
@@ -149485,6 +149492,9 @@ router8.get("/analytics/financial-summary", requireAdmin, async (req, res) => {
   }
   const variantMap = new Map(variants.map((v) => [v.id, v.costPrice]));
   const productMap = new Map(products.map((p) => [p.id, p.costPrice]));
+  const productImageMap = new Map(
+    products.filter((p) => p && p.name).map((p) => [String(p.name).trim(), p.image ?? null])
+  );
   const orderToManifest = /* @__PURE__ */ new Map();
   for (const mo of allManifestOrders) {
     orderToManifest.set(mo.orderId, mo.manifestId);
@@ -149654,7 +149664,7 @@ router8.get("/analytics/product-performance", requireAdmin, async (req, res) => 
     ]);
     const variantMap = new Map(variants.map((v) => [v.id, v.costPrice]));
     const productMap = new Map(products.map((p) => [p.id, p.costPrice]));
-    const productImageMap2 = new Map(products.map((p) => [p.id, p.image ?? null]));
+    const productImageMap = new Map(products.map((p) => [p.id, p.image ?? null]));
     const productIdByName = new Map(products.map((p) => [p.name.trim().toLowerCase(), p.id]));
     const statsMap = /* @__PURE__ */ new Map();
     for (const o of allOrders) {
@@ -149664,7 +149674,7 @@ router8.get("/analytics/product-performance", requireAdmin, async (req, res) => 
         statsMap.set(key, {
           name: key,
           productId: pid,
-          image: pid ? productImageMap2.get(pid) ?? null : null,
+          image: pid ? productImageMap.get(pid) ?? null : null,
           totalOrders: 0,
           completedOrders: 0,
           totalSalesQty: 0,
@@ -149988,6 +149998,9 @@ router8.get("/analytics/smart-insights", async (req, res) => {
   ]);
   const variantMap = new Map(variants.map((v) => [v.id, v.costPrice]));
   const productMap = new Map(products.map((p) => [p.id, p.costPrice]));
+  const productImageMap = new Map(
+    products.filter((p) => p && p.name).map((p) => [String(p.name).trim(), p.image ?? null])
+  );
   const manifestOrderCount = /* @__PURE__ */ new Map();
   for (const mo of allManifestOrders) {
     manifestOrderCount.set(mo.manifestId, (manifestOrderCount.get(mo.manifestId) ?? 0) + 1);
@@ -150172,7 +150185,8 @@ router8.get("/analytics/smart-insights", async (req, res) => {
     margin: p.revenue > 0 ? Math.round(p.profit / p.revenue * 100) : 0,
     revenue: Math.round(p.revenue),
     cost: Math.round(p.cost),
-    profit: Math.round(p.profit)
+    profit: Math.round(p.profit),
+    image: productImageMap.get(p.name) ?? null
   }));
   const stars = productList.filter((p) => p.profit > 0).sort((a, b) => b.profit - a.profit).slice(0, 5);
   const deadStock = products.map((p) => {
@@ -150182,7 +150196,13 @@ router8.get("/analytics/smart-insights", async (req, res) => {
     const last = lastSaleDate.get(key);
     const daysSinceLastSale = last ? Math.floor((now.getTime() - last.getTime()) / (1e3 * 60 * 60 * 24)) : null;
     const frozenCapital = avail * (p.costPrice ?? 0);
-    return { name: key, availableQty: avail, frozenCapital: Math.round(frozenCapital), last30DaysSales: s30, daysSinceLastSale, image: productImageMap.get(key) ?? null };
+    return { name: key, availableQty: avail, frozenCapital: Math.round(frozenCapital), last30DaysSales: s30, daysSinceLastSale, image: (() => {
+      try {
+        return productImageMap.get(key) ?? null;
+      } catch {
+        return null;
+      }
+    })() };
   }).filter((p) => p.availableQty > 0 && p.last30DaysSales < 5).sort((a, b) => b.frozenCapital - a.frozenCapital).slice(0, 8);
   const returnedOrders = allOrders.filter((o) => o.status === "returned");
   const seenInvoices = /* @__PURE__ */ new Set();
