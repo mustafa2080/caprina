@@ -233,11 +233,14 @@ router.patch("/employee-profiles/:profileId", requireAdmin, async (req, res): Pr
   const parsed = Schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
-  const patchResult = await db
+  // تحقق من وجود الملف أولاً
+  const [existing] = await db.select({ id: employeeProfilesTable.id }).from(employeeProfilesTable).where(eq(employeeProfilesTable.id, profileId));
+  if (!existing) { res.status(404).json({ error: "الملف الشخصي غير موجود" }); return; }
+
+  await db
     .update(employeeProfilesTable)
-    .set(parsed.data as any)
+    .set({ ...parsed.data as any, updatedAt: new Date() })
     .where(eq(employeeProfilesTable.id, profileId));
-  if (!(patchResult as any)[0]?.affectedRows) { res.status(404).json({ error: "الملف الشخصي غير موجود" }); return; }
   const [updated] = await db.select().from(employeeProfilesTable).where(eq(employeeProfilesTable.id, profileId));
   res.json(updated);
 });
