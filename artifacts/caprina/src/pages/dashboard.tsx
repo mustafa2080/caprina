@@ -1369,33 +1369,37 @@ export default function Dashboard() {
                               <p className="text-[9px] text-muted-foreground">{fn(p.totalOrders)} طلب • {fn(p.totalSalesQty)} وحدة</p>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
-                              {/* Sparkline صغير */}
+                              {/* Sparkline منحنى */}
                               {(() => {
-                                const maxOrders = Math.max(...[...productPerf.products].sort((a,b) => b.totalOrders - a.totalOrders).slice(0,5).map(x => x.totalOrders), 1);
-                                const bars = [
-                                  Math.round(p.totalOrders * 0.4),
-                                  Math.round(p.totalOrders * 0.6),
-                                  Math.round(p.totalOrders * 0.5),
-                                  Math.round(p.totalOrders * 0.8),
-                                  p.totalOrders,
-                                ];
-                                const maxBar = Math.max(...bars, 1);
+                                const pts = [0.3, 0.5, 0.4, 0.7, 0.6, 0.85, 1].map(r => Math.round(p.totalOrders * r));
+                                const max = Math.max(...pts, 1);
+                                const W = 40, H = 24;
+                                const coords = pts.map((v, i) => [
+                                  (i / (pts.length - 1)) * W,
+                                  H - (v / max) * (H - 3) - 1,
+                                ]);
+                                const d = coords.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x},${y}`).join(" ");
                                 return (
-                                  <div className="flex items-end gap-[2px] h-6 w-10">
-                                    {bars.map((v, idx) => (
-                                      <div
-                                        key={idx}
-                                        className="flex-1 rounded-sm transition-all"
-                                        style={{
-                                          height: `${Math.max(15, Math.round((v / maxBar) * 100))}%`,
-                                          background: idx === bars.length - 1
-                                            ? "hsl(43,74%,50%)"
-                                            : `hsl(43,74%,${40 + idx * 8}%,0.5)`,
-                                          opacity: 0.5 + idx * 0.12,
-                                        }}
-                                      />
-                                    ))}
-                                  </div>
+                                  <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} fill="none">
+                                    <defs>
+                                      <linearGradient id={`sg-${i}`} x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="hsl(43,74%,50%)" stopOpacity="0.3"/>
+                                        <stop offset="100%" stopColor="hsl(43,74%,50%)" stopOpacity="0"/>
+                                      </linearGradient>
+                                    </defs>
+                                    <path
+                                      d={`${d} L${W},${H} L0,${H} Z`}
+                                      fill={`url(#sg-${i})`}
+                                    />
+                                    <path
+                                      d={d}
+                                      stroke="hsl(43,74%,50%)"
+                                      strokeWidth="1.8"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                    />
+                                    <circle cx={coords[coords.length-1][0]} cy={coords[coords.length-1][1]} r="2" fill="hsl(43,74%,50%)"/>
+                                  </svg>
                                 );
                               })()}
                               <div className="text-right">
