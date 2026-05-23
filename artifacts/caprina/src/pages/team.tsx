@@ -25,6 +25,11 @@ const fmt = (n: number) =>
   new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(n);
 const fmtNum = (n: number) => new Intl.NumberFormat("ar-EG").format(n);
 
+function dbInitials(name: string) {
+  const p = (name || "?").trim().split(/\s+/);
+  return p.length >= 2 ? (p[0][0] + p[1][0]).toUpperCase() : (name || "?").slice(0, 2).toUpperCase();
+}
+
 const METRIC_OPTIONS = [
   { value: "delivery_rate", label: "نسبة التسليم", unit: "%", direction: "higher_is_better", defaultTarget: 80 },
   { value: "return_rate", label: "نسبة المرتجعات", unit: "%", direction: "lower_is_better", defaultTarget: 20 },
@@ -57,7 +62,20 @@ function ProfileFormDialog({
   const [monthlySalary, setMonthlySalary] = useState(existing?.monthlySalary?.toString() ?? "0");
   const [hireDate, setHireDate] = useState(existing?.hireDate ?? "");
   const [notes, setNotes] = useState(existing?.notes ?? "");
+  const [avatar, setAvatar] = useState<string | null>(existing?.avatar ?? null);
   const [saving, setSaving] = useState(false);
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: "الصورة كبيرة جداً", description: "الحد الأقصى 2MB", variant: "destructive" });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => setAvatar(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -69,6 +87,7 @@ function ProfileFormDialog({
         monthlySalary: parseFloat(monthlySalary) || 0,
         hireDate: hireDate || null,
         notes: notes || null,
+        avatar: avatar ?? null,
       });
       qc.invalidateQueries({ queryKey: ["employee-profiles"] });
       toast({ title: "تم حفظ بيانات العضو" });
@@ -85,6 +104,34 @@ function ProfileFormDialog({
       <DialogContent className="max-w-md" dir="rtl">
         <DialogHeader><DialogTitle>بيانات العضو: {displayName}</DialogTitle></DialogHeader>
         <div className="space-y-3 py-2">
+          {/* ── صورة الموظف ── */}
+          <div className="flex items-center gap-3">
+            <div className="relative shrink-0">
+              {avatar ? (
+                <img src={avatar} alt="صورة الموظف" className="w-16 h-16 rounded-full object-cover border-2 border-border" />
+              ) : (
+                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center text-2xl font-bold text-muted-foreground border-2 border-border border-dashed">
+                  {dbInitials(memberName || displayName || "؟")}
+                </div>
+              )}
+              {avatar && (
+                <button
+                  onClick={() => setAvatar(null)}
+                  className="absolute -top-1 -left-1 w-4 h-4 bg-red-500 text-white rounded-full text-[10px] flex items-center justify-center hover:bg-red-600"
+                >✕</button>
+              )}
+            </div>
+            <div className="flex-1 space-y-1">
+              <Label className="text-xs font-bold">صورة الموظف</Label>
+              <label className="flex items-center gap-1.5 cursor-pointer bg-muted/40 hover:bg-muted/70 transition-colors rounded-md px-3 py-1.5 text-xs text-muted-foreground border border-border w-fit">
+                <span>📷</span>
+                <span>{avatar ? "تغيير الصورة" : "رفع صورة"}</span>
+                <input type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
+              </label>
+              <p className="text-[9px] text-muted-foreground">JPG / PNG / WebP — حد أقصى 2MB</p>
+            </div>
+          </div>
+
           {!isSystemUser && (
             <div className="space-y-1">
               <Label className="text-xs font-bold">الاسم الكامل</Label>

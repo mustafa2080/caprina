@@ -864,6 +864,7 @@ export interface EmployeeProfile {
   monthlySalary: number | null;
   hireDate: string | null;
   notes: string | null;
+  avatar: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -974,6 +975,7 @@ export const employeeApi = {
     monthlySalary: number | null;
     hireDate: string | null;
     notes: string | null;
+    avatar: string | null;
   }>) => apiFetch<EmployeeProfile>(`/employee-profiles/${profileId}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteProfile: (profileId: number) => apiFetch<void>(`/employee-profiles/${profileId}`, { method: "DELETE" }),
   listKpis: (profileId: number) => apiFetch<EmployeeKpi[]>(`/employee-kpis/${profileId}`),

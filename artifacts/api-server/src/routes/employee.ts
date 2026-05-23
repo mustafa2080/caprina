@@ -173,6 +173,7 @@ const ProfileSchema = z.object({
   monthlySalary: z.number().min(0).optional(),
   hireDate: z.string().nullish(),
   notes: z.string().nullish(),
+  avatar: z.string().nullish(),
 });
 
 // POST — create or upsert profile
@@ -197,6 +198,7 @@ router.post("/employee-profiles", requireAdmin, async (req, res): Promise<void> 
           monthlySalary: data.monthlySalary ?? 0,
           hireDate: data.hireDate ?? null,
           notes: data.notes ?? null,
+          avatar: data.avatar !== undefined ? (data.avatar ?? null) : undefined,
         })
         .where(eq(employeeProfilesTable.userId, data.userId));
       const [updated] = await db.select().from(employeeProfilesTable).where(eq(employeeProfilesTable.userId, data.userId!));
@@ -216,6 +218,7 @@ router.post("/employee-profiles", requireAdmin, async (req, res): Promise<void> 
       monthlySalary: data.monthlySalary ?? 0,
       hireDate: data.hireDate ?? null,
       notes: data.notes ?? null,
+      avatar: data.avatar ?? null,
     });
   const insertId = (insertResult as any)[0]?.insertId ?? (insertResult as any).insertId;
   const [created] = await db.select().from(employeeProfilesTable).where(eq(employeeProfilesTable.id, insertId));

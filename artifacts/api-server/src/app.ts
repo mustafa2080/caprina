@@ -227,6 +227,21 @@ async function ensureShippingCompanyLogo() {
 }
 ensureShippingCompanyLogo();
 
+// ─── Ensure employee_profiles.avatar column exists ────────────────────────────
+async function ensureEmployeeProfileAvatar() {
+  try {
+    await db.execute(sql`
+      ALTER TABLE employee_profiles ADD COLUMN IF NOT EXISTS avatar LONGTEXT NULL
+    `);
+    logger.info("employee_profiles.avatar column ensured");
+  } catch (err: any) {
+    if (err?.message && !err.message.includes("Duplicate column")) {
+      logger.error({ err }, "Failed to ensure employee_profiles.avatar column");
+    }
+  }
+}
+ensureEmployeeProfileAvatar();
+
 // ─── Ensure cash_registers.is_default column exists ──────────────────────────
 async function ensureCashRegisterIsDefault() {
   try {
