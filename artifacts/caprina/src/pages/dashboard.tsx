@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import {
   analyticsApi, type PeriodProfit, type ProductProfit, type FinancialSummary, type Alert,
-  productsApi, cashRegistersApi, shippingApi, manifestsApi,
+  productsApi, cashRegistersApi, shippingApi, manifestsApi, teamAnalyticsApi, type TeamMemberExtStats,
 } from "@/lib/api";
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { FaFacebook, FaTiktok, FaInstagram, FaWhatsapp } from "react-icons/fa";
@@ -388,6 +388,62 @@ function DashAdSourceCard({ source, orders, revenue, profit, returnRate, maxReve
   );
 }
 
+// ─── Team member row for dashboard ────────────────────────────────────────────
+function DashTeamMemberRow({ member, rank, maxScore, showProfit }: {
+  member: TeamMemberExtStats; rank: number; maxScore: number; showProfit: boolean;
+}) {
+  const scorePct = maxScore > 0 ? Math.round((member.score / maxScore) * 100) : 0;
+  const rankColors = [
+    "bg-yellow-400/20 text-yellow-600 dark:text-yellow-400 ring-1 ring-yellow-400/40",
+    "bg-slate-300/20 text-slate-500 dark:text-slate-300 ring-1 ring-slate-400/30",
+    "bg-orange-400/20 text-orange-600 dark:text-orange-400 ring-1 ring-orange-400/30",
+  ];
+  const rankCls = rank <= 3 ? rankColors[rank - 1] : "bg-muted/20 text-muted-foreground";
+
+  return (
+    <div className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-muted/20 transition-colors">
+      {/* rank + avatar */}
+      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${rankCls}`}>
+        {rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : rank}
+      </div>
+      {member.avatar && member.avatar.startsWith("data:") ? (
+        <img src={member.avatar} className="w-8 h-8 rounded-full object-cover border border-border/50 shrink-0" alt={member.displayName} />
+      ) : (
+        <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-[11px] shrink-0 border border-border/30"
+          style={{ background: dbAvatarColor(member.displayName)[0], color: dbAvatarColor(member.displayName)[1] }}>
+          {dbInitials(member.displayName)}
+        </div>
+      )}
+      {/* info */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-xs font-bold truncate">{member.displayName}</p>
+          <span className={`text-[10px] font-black shrink-0 ${
+            member.deliveryRate >= 70 ? "text-emerald-500" : member.deliveryRate >= 50 ? "text-amber-500" : "text-red-500"
+          }`}>{member.deliveryRate}%</span>
+        </div>
+        {/* mini progress bar */}
+        <div className="h-1 bg-muted/40 rounded-full overflow-hidden">
+          <div className={`h-full rounded-full transition-all duration-700 ${
+            scorePct >= 70 ? "bg-emerald-500" : scorePct >= 40 ? "bg-amber-400" : "bg-rose-400"
+          }`} style={{ width: `${scorePct}%` }} />
+        </div>
+        {/* stats row */}
+        <div className="flex gap-2.5 mt-1">
+          <span className="text-[9px] text-emerald-600 dark:text-emerald-400">✓ {member.delivered}</span>
+          <span className="text-[9px] text-red-500">↩ {member.returned}</span>
+          <span className="text-[9px] text-muted-foreground">{member.returnRate}% مرتجع</span>
+          {showProfit && (
+            <span className={`text-[9px] font-semibold ms-auto shrink-0 ${member.profit >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+              {new Intl.NumberFormat("ar-EG",{style:"currency",currency:"EGP",maximumFractionDigits:0}).format(member.profit)}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 type Period = "today" | "week" | "month";
 
@@ -535,6 +591,13 @@ export default function Dashboard() {
     queryKey: ["recent-clients-dashboard"],
     queryFn: () => apiFetchDashboard<any[]>("/finance/clients?limit=5"),
     staleTime: 60000,
+  });
+
+  const { data: teamPerf = [] } = useQuery<TeamMemberExtStats[]>({
+    queryKey: ["team-perf-dashboard"],
+    queryFn: () => teamAnalyticsApi.teamPerformanceExtended(),
+    staleTime: 120000,
+    refetchInterval: 180000,
   });
 
   const { data: saleOrders = [] } = useQuery<any[]>({
@@ -1376,7 +1439,104 @@ export default function Dashboard() {
             </Card>
           )}
 
-          {/* أحدث العملاء */}
+          {/* ── تتبع أداء الفريق ──────────────────────────────── */}
+          {teamPerf.length > 0 && (
+            <Card className="border-border overflow-hidden">
+              <CardHeader className="py-2.5 sm:py-3 px-3 sm:px-4 border-b border-border">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2">
+                    <Users className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-violet-500" />
+                    تتبع أداء الفريق
+                    <Badge variant="outline" className="text-[9px] h-4 border-violet-400/40 text-violet-600 dark:text-violet-400">
+                      {teamPerf.length} عضو
+                    </Badge>
+                  </CardTitle>
+                  <Link href="/team-performance" className="text-[10px] sm:text-xs text-primary hover:underline">تفاصيل ←</Link>
+                </div>
+              </CardHeader>
+
+              {/* منحنى أداء الفريق */}
+              {(() => {
+                const chartData = teamPerf.slice(0, 6).map(m => ({
+                  name: m.displayName.split(" ")[0],
+                  تسليم: m.deliveryRate,
+                  مرتجع: m.returnRate,
+                  score: m.score,
+                }));
+                return (
+                  <div className="px-2 pt-2 pb-1">
+                    <ResponsiveContainer width="100%" height={80}>
+                      <AreaChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: -28 }}>
+                        <defs>
+                          <linearGradient id="teamDelivery" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                          </linearGradient>
+                          <linearGradient id="teamReturn" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#ef4444" stopOpacity={0.2} />
+                            <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <XAxis dataKey="name" tick={{ fontSize: 9, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 8, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} domain={[0, 100]} />
+                        <Tooltip
+                          contentStyle={{ fontSize: 10, padding: "4px 8px", borderRadius: 6 }}
+                          formatter={(v: any, name: string) => [`${v}%`, name]}
+                        />
+                        <Area type="monotone" dataKey="تسليم" stroke="#10b981" strokeWidth={2} fill="url(#teamDelivery)" dot={{ r: 2.5, fill: "#10b981" }} />
+                        <Area type="monotone" dataKey="مرتجع" stroke="#ef4444" strokeWidth={1.5} fill="url(#teamReturn)" dot={{ r: 2, fill: "#ef4444" }} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                    {/* legend */}
+                    <div className="flex gap-3 justify-center mt-0.5 mb-1">
+                      <span className="flex items-center gap-1 text-[9px] text-emerald-600 dark:text-emerald-400"><span className="w-2 h-0.5 bg-emerald-500 rounded-full inline-block" />نسبة تسليم</span>
+                      <span className="flex items-center gap-1 text-[9px] text-red-500"><span className="w-2 h-0.5 bg-red-400 rounded-full inline-block" />نسبة مرتجع</span>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* قائمة الأعضاء */}
+              <div className="divide-y divide-border/60">
+                {(() => {
+                  const maxScore = Math.max(...teamPerf.map(m => m.score), 1);
+                  return teamPerf.slice(0, 5).map((m, i) => (
+                    <DashTeamMemberRow
+                      key={m.userId}
+                      member={m}
+                      rank={i + 1}
+                      maxScore={maxScore}
+                      showProfit={canViewFinancials}
+                    />
+                  ));
+                })()}
+              </div>
+
+              {/* footer إجماليات */}
+              {(() => {
+                const totalDelivered = teamPerf.reduce((s, m) => s + m.delivered, 0);
+                const totalReturned  = teamPerf.reduce((s, m) => s + m.returned, 0);
+                const totalOrders    = teamPerf.reduce((s, m) => s + m.total, 0);
+                const avgDelivery    = totalOrders > 0 ? Math.round((totalDelivered / totalOrders) * 100) : 0;
+                return (
+                  <div className="mx-2.5 sm:mx-3 mb-2.5 sm:mb-3 mt-1 grid grid-cols-3 gap-2 rounded-xl border border-border bg-muted/20 p-2 text-center">
+                    <div>
+                      <p className="text-sm font-black">{new Intl.NumberFormat("ar-EG").format(totalOrders)}</p>
+                      <p className="text-[9px] text-muted-foreground">إجمالي الطلبات</p>
+                    </div>
+                    <div>
+                      <p className={`text-sm font-black ${avgDelivery >= 70 ? "text-emerald-600 dark:text-emerald-400" : avgDelivery >= 50 ? "text-amber-500" : "text-red-500"}`}>{avgDelivery}%</p>
+                      <p className="text-[9px] text-muted-foreground">متوسط التسليم</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-black text-red-500">{new Intl.NumberFormat("ar-EG").format(totalReturned)}</p>
+                      <p className="text-[9px] text-muted-foreground">إجمالي المرتجع</p>
+                    </div>
+                  </div>
+                );
+              })()}
+            </Card>
+          )}
           {recentClients.length > 0 && (
             <Card className="border-border overflow-hidden">
               <CardHeader className="py-2.5 sm:py-3 px-3 sm:px-4 border-b border-border">

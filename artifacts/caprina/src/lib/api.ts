@@ -818,6 +818,7 @@ export interface TeamMemberStats {
   userId: number;
   userName: string;
   displayName: string;
+  avatar: string | null;
   total: number;
   delivered: number;
   returned: number;

@@ -138,7 +138,7 @@ router.get("/analytics/team-performance", async (req, res): Promise<void> => {
   const userMap = new Map(users.map((u) => [u.id, u]));
 
   const stats: Record<number, {
-    userId: number; userName: string; displayName: string;
+    userId: number; userName: string; displayName: string; avatar: string | null;
     total: number; delivered: number; returned: number;
     delayed: number; inProgress: number;
     profit: number; deliveryRate: number; returnRate: number;
@@ -152,6 +152,7 @@ router.get("/analytics/team-performance", async (req, res): Promise<void> => {
           userId: uid,
           userName:    user?.username    ?? "غير محدد",
           displayName: user?.displayName ?? "غير محدد",
+          avatar:      user?.avatar      ?? null,
           total: 0, delivered: 0, returned: 0, delayed: 0, inProgress: 0,
           profit: 0, deliveryRate: 0, returnRate: 0,
         };
@@ -205,7 +206,7 @@ router.get("/analytics/team-performance-extended", async (req, res): Promise<voi
   const userMap = new Map(users.map((u) => [u.id, u]));
 
   type ExtStats = {
-    userId: number; userName: string; displayName: string;
+    userId: number; userName: string; displayName: string; avatar: string | null;
     total: number; delivered: number; returned: number;
     delayed: number; inProgress: number;
     profit: number; deliveryRate: number; returnRate: number;
@@ -227,6 +228,7 @@ router.get("/analytics/team-performance-extended", async (req, res): Promise<voi
           userId: uid,
           userName:    user?.username    ?? "غير محدد",
           displayName: user?.displayName ?? "غير محدد",
+          avatar:      user?.avatar      ?? null,
           total: 0, delivered: 0, returned: 0, delayed: 0, inProgress: 0,
           profit: 0, deliveryRate: 0, returnRate: 0,
           avgProcessingHours: null, sourceCounts: {}, topSource: null,
@@ -281,7 +283,7 @@ router.get("/analytics/team-performance-extended", async (req, res): Promise<voi
       - (s.returned * 1);
 
     return {
-      userId: s.userId, userName: s.userName, displayName: s.displayName,
+      userId: s.userId, userName: s.userName, displayName: s.displayName, avatar: s.avatar,
       total: s.total,
       delivered:  s.delivered,
       returned:   s.returned,
