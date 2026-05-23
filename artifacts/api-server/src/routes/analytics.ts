@@ -1035,14 +1035,26 @@ router.get("/analytics/smart-insights", async (req, res): Promise<void> => {
       }
       if (!s.invoiceSet.has(invoiceKey)) { s.invoiceSet.add(invoiceKey); s.orders++; }
     } else if (o.status === "received" || o.status === "partial_received") {
-      const p = calcOrderProfit(o, rc);
-      s.revenue += p.revenue;
-      s.cost += p.cost;
-      s.profit += p.netProfit;
-      if (manifestCost > 0 && manifestId !== undefined) {
+      // حساب الإيرادات والتكلفة بدون شحن (الشحن سيُحسب منفصلاً لكل فاتورة مرة واحدة)
+      const qty = o.status === "partial_received" ? (o.partialQuantity ?? o.quantity) : o.quantity;
+      const rc2 = resolveCost(o, variantMap, productMap);
+      const rev = qty * o.unitPrice;
+      const cst = qty * rc2;
+      s.revenue += rev;
+      s.cost += cst;
+      // طرح تكلفة البضاعة من الربح
+      s.profit += rev - cst;
+      // طرح شحن الطلب (shippingCost على الأوردر) مرة واحدة لكل فاتورة
+      if (!processedShippingInvoicesSI.has(invoiceKey)) {
+        processedShippingInvoicesSI.add(invoiceKey);
+        const sc = o.shippingCost ?? 0;
+        s.shippingSpend += sc;
+        s.profit -= sc;
+      }
+      // طرح تكلفة البيان (manualShippingCost) مرة واحدة لكل بيان
+      if (manifestCost > 0 && manifestId !== undefined && !countedManifestsSI.has(manifestId)) {
         countedManifestsSI.add(manifestId);
         s.shippingSpend += manifestCost;
-        s.revenue -= manifestCost;
         s.profit -= manifestCost;
       }
       if (!s.invoiceSet.has(invoiceKey)) { s.invoiceSet.add(invoiceKey); s.orders++; }
