@@ -171,18 +171,18 @@ export default function Layout({ children }: LayoutProps) {
         <div className="shrink-0 border-b border-sidebar-border/60">
           {/* Brand — hero area */}
           <div
-            className="px-4 pt-5 pb-4 flex flex-col items-center gap-2 relative overflow-hidden"
+            className="px-4 pt-4 pb-4 flex flex-row items-center justify-between relative overflow-hidden"
             style={{ background: "linear-gradient(160deg, hsl(var(--primary)/0.12) 0%, hsl(var(--primary)/0.04) 100%)" }}
           >
             {/* subtle glow behind logo */}
             <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse 70% 60% at 50% 0%, hsl(var(--primary)/0.18) 0%, transparent 80%)" }} />
 
-            {/* ── Theme Toggle — أعلى اليمين ── */}
+            {/* ── Theme Toggle — في النص محاذي مع اللوجو ── */}
             <button
               type="button"
               onClick={toggleTheme}
               title={theme === "dark" ? "التبديل للوضع النهاري" : "التبديل للوضع الليلي"}
-              className="absolute top-3 left-3 z-20 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95"
+              className="relative z-20 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 shrink-0"
               style={{
                 background: theme === "dark"
                   ? "linear-gradient(135deg,#1e293b,#0f172a)"
@@ -202,14 +202,16 @@ export default function Layout({ children }: LayoutProps) {
               )}
             </button>
 
+            {/* اللوجو + الاسم على اليمين */}
             <div className="relative z-10 cursor-pointer" onClick={() => setBrandSettingsOpen(true)}>
               <BrandFull
                 logoSize="md"
-                layout="col"
+                layout="row"
                 nameClass="text-base font-extrabold text-sidebar-foreground tracking-wide"
-                taglineClass="text-[10px] text-sidebar-foreground/45 tracking-widest uppercase"
+                taglineClass="text-[0px] opacity-0 h-0 overflow-hidden"
               />
             </div>
+
             {/* thin accent line */}
             <div className="absolute bottom-0 left-6 right-6 h-px" style={{ background: "linear-gradient(90deg, transparent, hsl(var(--primary)/0.4), transparent)" }} />
           </div>
