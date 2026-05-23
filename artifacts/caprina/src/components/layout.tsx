@@ -171,30 +171,26 @@ export default function Layout({ children }: LayoutProps) {
         {/* ── Header الـ Sidebar ── */}
         <div className="shrink-0 border-b border-sidebar-border/60">
 
-          {/* ── First Logo — أول حاجة فوق الـ sidebar ── */}
+          {/* ── First Logo ── */}
           <div
-            className="relative w-full overflow-hidden flex items-center justify-center"
+            className="flex items-center justify-center py-3 px-4"
             style={{
-              height: "72px",
-              background: "linear-gradient(160deg, hsl(var(--primary)/0.08) 0%, rgba(0,0,0,0.6) 100%)",
-              boxShadow: "0 2px 16px hsl(var(--primary)/0.2), inset 0 -1px 0 hsl(var(--primary)/0.3)",
+              background: "linear-gradient(180deg, hsl(var(--primary)/0.06) 0%, transparent 100%)",
+              borderBottom: "1px solid hsl(var(--primary)/0.2)",
             }}
           >
-            <img
-              src={firstLogoBase64}
-              alt="Caprina Logo"
-              style={{
-                height: "56px",
-                width: "auto",
-                objectFit: "contain",
-                filter: "drop-shadow(0 2px 8px hsl(var(--primary)/0.5))",
-              }}
-            />
-            {/* glow line أسفل */}
             <div
-              className="absolute bottom-0 left-0 right-0 h-px"
-              style={{ background: "linear-gradient(90deg, transparent, hsl(var(--primary)/0.7), transparent)" }}
-            />
+              className="relative"
+              style={{
+                filter: "drop-shadow(0 0 10px hsl(var(--primary)/0.5)) drop-shadow(0 4px 20px rgba(0,0,0,0.4))",
+              }}
+            >
+              <img
+                src={firstLogoBase64}
+                alt="Caprina Logo"
+                style={{ width: "140px", height: "140px", objectFit: "contain" }}
+              />
+            </div>
           </div>
 
           {/* Brand — hero area */}
