@@ -322,7 +322,7 @@ function LiveClock() {
 
 // ─── Ad Sources meta ─────────────────────────────────────────────────────────
 const AD_SOURCE_META: Record<string, { label: string; iconColor: string; gradFrom: string; gradTo: string; icon: React.ElementType }> = {
-  facebook:  { label: "فيسبوك",   icon: FaFacebook,       iconColor: "#1877F2", gradFrom: "#1877F2", gradTo: "#0d4fa8" },
+  facebook:  { label: "فيسبوك",   icon: FaFacebook,       iconColor: "#ffffff", gradFrom: "#1877F2", gradTo: "#0d4fa8" },
   tiktok:    { label: "تيك توك",  icon: FaTiktok,         iconColor: "#ffffff", gradFrom: "#010101", gradTo: "#333333" },
   instagram: { label: "إنستجرام", icon: FaInstagram,      iconColor: "#ffffff", gradFrom: "#833ab4", gradTo: "#fd1d1d" },
   organic:   { label: "عضوي",     icon: PiPlantFill,      iconColor: "#ffffff", gradFrom: "#16a34a", gradTo: "#059669" },
@@ -352,7 +352,7 @@ function DashAdSourceCard({ source, orders, revenue, profit, returnRate, maxReve
       <div className="flex items-center gap-2.5">
         <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
           style={{ background: `linear-gradient(135deg, ${meta.gradFrom}, ${meta.gradTo})` }}>
-          <Icon style={{ color: meta.iconColor, fontSize: "1.1rem" }} />
+          <Icon style={{ color: meta.iconColor }} className="w-5 h-5" />
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-bold text-xs sm:text-sm truncate">{meta.label}</p>
@@ -1027,14 +1027,14 @@ export default function Dashboard() {
           {/* أفضل منصة */}
           <Link href="/smart">
             <div className="flex items-center gap-2 sm:gap-2.5 p-2 sm:p-3 rounded-xl border border-border bg-card hover:bg-primary/5 hover:border-primary/30 transition-colors cursor-pointer">
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shrink-0 overflow-hidden bg-white">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg shrink-0 overflow-hidden">
                 {!smartData.adAttribution.bestSource || smartData.adAttribution.bestSource.source === "facebook" ? (
-                  <svg viewBox="0 0 36 36" className="w-5 h-5" fill="none">
+                  <svg viewBox="0 0 36 36" className="w-full h-full" fill="none">
                     <rect width="36" height="36" rx="8" fill="#1877F2"/>
                     <path d="M25 18c0-3.866-3.134-7-7-7s-7 3.134-7 7c0 3.493 2.559 6.39 5.906 6.917V20.28h-1.777V18h1.777v-1.541c0-1.754 1.045-2.722 2.643-2.722.765 0 1.566.137 1.566.137v1.722h-.882c-.869 0-1.139.54-1.139 1.094V18h1.938l-.31 2.28h-1.628v4.637C22.441 24.39 25 21.493 25 18z" fill="white"/>
                   </svg>
                 ) : smartData.adAttribution.bestSource.source === "tiktok" ? (
-                  <svg viewBox="0 0 36 36" className="w-5 h-5" fill="none">
+                  <svg viewBox="0 0 36 36" className="w-full h-full" fill="none">
                     <rect width="36" height="36" rx="8" fill="#010101"/>
                     <path d="M22.5 9h-2.8v12.2a2.9 2.9 0 01-2.9 2.7 2.9 2.9 0 01-2.9-2.9 2.9 2.9 0 012.9-2.9c.28 0 .55.04.8.11V15.3a6.1 6.1 0 00-.8-.05 5.95 5.95 0 00-5.95 5.95A5.95 5.95 0 0016.8 27a5.95 5.95 0 005.95-5.95V15.1a8.6 8.6 0 005.05 1.63v-2.8a5.8 5.8 0 01-5.3-4.93z" fill="white"/>
                   </svg>
