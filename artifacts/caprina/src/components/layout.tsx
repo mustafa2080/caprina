@@ -173,24 +173,27 @@ export default function Layout({ children }: LayoutProps) {
 
           {/* ── First Logo ── */}
           <div
-            className="w-full flex items-center justify-center"
+            className="w-full relative overflow-hidden"
             style={{
-              height: "90px",
-              background: "linear-gradient(180deg, hsl(var(--primary)/0.06) 0%, transparent 100%)",
-              borderBottom: "1px solid hsl(var(--primary)/0.2)",
+              height: "110px",
+              borderBottom: "1px solid hsl(var(--primary)/0.3)",
+              boxShadow: "0 4px 20px hsl(var(--primary)/0.15)",
             }}
           >
             <img
               src={firstLogoBase64}
               alt="Caprina Logo"
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "contain",
-                padding: "8px 16px",
-                filter: "drop-shadow(0 0 8px hsl(var(--primary)/0.6)) drop-shadow(0 2px 12px rgba(0,0,0,0.5))",
-              }}
+              className="absolute inset-0 w-full h-full"
+              style={{ objectFit: "cover", objectPosition: "center top" }}
             />
+            {/* gradient overlay أسفل للدمج */}
+            <div className="absolute inset-0" style={{
+              background: "linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.4) 100%)"
+            }} />
+            {/* glow line أسفل */}
+            <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{
+              background: "linear-gradient(90deg, transparent, hsl(var(--primary)/0.8), transparent)"
+            }} />
           </div>
 
           {/* Brand — hero area */}
