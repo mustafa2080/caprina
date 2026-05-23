@@ -126,6 +126,8 @@ export default function Layout({ children }: LayoutProps) {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [financeOpen, setFinanceOpen] = useState(false);
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
+  const handleGroupToggle = (key: string) => setOpenGroup(key || null);
   const [pwDialogOpen, setPwDialogOpen] = useState(false);
   const [brandSettingsOpen, setBrandSettingsOpen] = useState(false);
   const [currentPw, setCurrentPw] = useState("");
@@ -317,35 +319,35 @@ export default function Layout({ children }: LayoutProps) {
 
           {/* ── الطلبات ── */}
           {visibleNav.some(i => i.group === "orders") && (
-            <NavGroup label="الطلبات" icon={Package} iconColor="text-orange-400" location={location} prefixes={["/orders","/invoices","/shipping-followup"]}>
+            <NavGroup label="الطلبات" icon={Package} iconColor="text-orange-400" location={location} prefixes={["/orders","/invoices","/shipping-followup"]} groupKey="orders" openGroup={openGroup} onToggle={handleGroupToggle}>
               {visibleNav.filter(i => i.group === "orders").map(item => <NavItem key={item.href+item.label} item={item} location={location} sub />)}
             </NavGroup>
           )}
 
           {/* ── الشحن والتوصيل ── */}
           {visibleNav.some(i => i.group === "shipping") && (
-            <NavGroup label="الشحن والتوصيل" icon={Truck} iconColor="text-sky-400" location={location} prefixes={["/shipping"]}>
+            <NavGroup label="الشحن والتوصيل" icon={Truck} iconColor="text-sky-400" location={location} prefixes={["/shipping"]} groupKey="shipping" openGroup={openGroup} onToggle={handleGroupToggle}>
               {visibleNav.filter(i => i.group === "shipping").map(item => <NavItem key={item.href} item={item} location={location} sub />)}
             </NavGroup>
           )}
 
           {/* ── المنتجات والمخزون ── */}
           {visibleNav.some(i => i.group === "inventory") && (
-            <NavGroup label="المنتجات والمخزون" icon={Boxes} iconColor="text-violet-400" location={location} prefixes={["/inventory","/warehouses","/movements"]}>
+            <NavGroup label="المنتجات والمخزون" icon={Boxes} iconColor="text-violet-400" location={location} prefixes={["/inventory","/warehouses","/movements"]} groupKey="inventory" openGroup={openGroup} onToggle={handleGroupToggle}>
               {visibleNav.filter(i => i.group === "inventory").map(item => <NavItem key={item.href} item={item} location={location} sub />)}
             </NavGroup>
           )}
 
           {/* ── التحليلات ── */}
           {visibleNav.some(i => i.group === "analytics") && (
-            <NavGroup label="التحليلات" icon={BarChart3} iconColor="text-pink-400" location={location} prefixes={["/product-performance","/smart","/ads-analytics","/team-performance","/sessions-report"]}>
+            <NavGroup label="التحليلات" icon={BarChart3} iconColor="text-pink-400" location={location} prefixes={["/product-performance","/smart","/ads-analytics","/team-performance","/sessions-report"]} groupKey="analytics" openGroup={openGroup} onToggle={handleGroupToggle}>
               {visibleNav.filter(i => i.group === "analytics").map(item => <NavItem key={item.href+item.label} item={item} location={location} sub />)}
             </NavGroup>
           )}
 
           {/* ── الماليات ── */}
           {(isAdmin || can("finance")) && (
-            <NavGroup label="الماليات" icon={DollarSign} iconColor="text-emerald-400" location={location} prefixes={["/finance"]} defaultOpen={location.startsWith("/finance")}>
+            <NavGroup label="الماليات" icon={DollarSign} iconColor="text-emerald-400" location={location} prefixes={["/finance"]} defaultOpen={location.startsWith("/finance")} groupKey="finance" openGroup={openGroup} onToggle={handleGroupToggle}>
               {FINANCE_NAV.map((item) => {
                 // exact match فقط — بدون startsWith عشان ما يتعلمش أكثر من item
                 const isActive = location === item.href;
@@ -364,21 +366,21 @@ export default function Layout({ children }: LayoutProps) {
 
           {/* ── الفريق والإدارة ── */}
           {visibleNav.some(i => i.group === "team") && (
-            <NavGroup label="الفريق والإدارة" icon={Users} iconColor="text-green-400" location={location} prefixes={["/team","/team-performance","/users","/audit-logs"]}>
+            <NavGroup label="الفريق والإدارة" icon={Users} iconColor="text-green-400" location={location} prefixes={["/team","/team-performance","/users","/audit-logs"]} groupKey="team" openGroup={openGroup} onToggle={handleGroupToggle}>
               {visibleNav.filter(i => i.group === "team").map(item => <NavItem key={item.href+item.label} item={item} location={location} sub />)}
             </NavGroup>
           )}
 
           {/* ── الأدوات ── */}
           {visibleNav.some(i => i.group === "tools") && (
-            <NavGroup label="الأدوات" icon={Upload} iconColor="text-amber-400" location={location} prefixes={["/import","/export","/archive"]}>
+            <NavGroup label="الأدوات" icon={Upload} iconColor="text-amber-400" location={location} prefixes={["/import","/export","/archive"]} groupKey="tools" openGroup={openGroup} onToggle={handleGroupToggle}>
               {visibleNav.filter(i => i.group === "tools").map(item => <NavItem key={item.href} item={item} location={location} sub />)}
             </NavGroup>
           )}
 
           {/* ── الإعدادات والدعم ── */}
           {visibleNav.some(i => i.group === "settings") && (
-            <NavGroup label="الإعدادات والدعم" icon={MessageCircle} iconColor="text-emerald-500" location={location} prefixes={["/whatsapp","/audit-logs"]}>
+            <NavGroup label="الإعدادات والدعم" icon={MessageCircle} iconColor="text-emerald-500" location={location} prefixes={["/whatsapp","/audit-logs"]} groupKey="settings" openGroup={openGroup} onToggle={handleGroupToggle}>
               {visibleNav.filter(i => i.group === "settings").map(item => <NavItem key={item.href+item.label} item={item} location={location} sub />)}
             </NavGroup>
           )}
