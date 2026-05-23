@@ -62,8 +62,7 @@ function ProfileFormDialog({
   const [monthlySalary, setMonthlySalary] = useState(existing?.monthlySalary?.toString() ?? "0");
   const [hireDate, setHireDate] = useState(existing?.hireDate ?? "");
   const [notes, setNotes] = useState(existing?.notes ?? "");
-  const [avatar, setAvatar] = useState<string | null>(existing?.avatar ?? null);
-  const [avatarChanged, setAvatarChanged] = useState(false);
+  const [avatar, setAvatar] = useState<string | null | undefined>(existing?.avatar ?? null);
   const [saving, setSaving] = useState(false);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -87,7 +86,6 @@ function ProfileFormDialog({
         ctx.drawImage(img, 0, 0, w, h);
         const compressed = canvas.toDataURL("image/jpeg", 0.8);
         setAvatar(compressed);
-        setAvatarChanged(true);
       };
       img.src = ev.target?.result as string;
     };
@@ -104,7 +102,7 @@ function ProfileFormDialog({
         monthlySalary: parseFloat(monthlySalary) || 0,
         hireDate: hireDate || null,
         notes: notes || null,
-        ...(avatarChanged ? { avatar: avatar } : {}),
+        avatar: avatar ?? null,
       });
       qc.invalidateQueries({ queryKey: ["employee-profiles"] });
       toast({ title: "تم حفظ بيانات العضو" });
@@ -133,7 +131,7 @@ function ProfileFormDialog({
               )}
               {avatar && (
                 <button
-                  onClick={() => { setAvatar(null); setAvatarChanged(true); }}
+                  onClick={() => { setAvatar(null); }}
                   className="absolute -top-1 -left-1 w-4 h-4 bg-red-500 text-white rounded-full text-[10px] flex items-center justify-center hover:bg-red-600"
                 >✕</button>
               )}
