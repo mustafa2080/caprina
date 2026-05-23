@@ -143,6 +143,29 @@ function MemberCard({
               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${rankCls}`}>
                 {rank === 1 ? <Trophy className="w-4 h-4" /> : rank === 2 ? "②" : rank === 3 ? "③" : `${rank}`}
               </div>
+              {/* avatar */}
+              {(member as any).avatar && (member as any).avatar.startsWith("data:") ? (
+                <img
+                  src={(member as any).avatar}
+                  className="w-10 h-10 rounded-full object-cover border-2 border-border/60 shrink-0 shadow-sm"
+                  alt={member.displayName}
+                />
+              ) : (
+                <div
+                  className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 border-2 border-border/40 shadow-sm"
+                  style={(() => {
+                    const colors = [
+                      ["#f59e0b","#78350f"],["#10b981","#064e3b"],["#3b82f6","#1e3a8a"],
+                      ["#8b5cf6","#4c1d95"],["#ef4444","#7f1d1d"],["#ec4899","#831843"],
+                      ["#06b6d4","#164e63"],["#f97316","#7c2d12"],
+                    ];
+                    const idx = member.displayName.split("").reduce((a, c) => a + c.charCodeAt(0), 0) % colors.length;
+                    return { background: colors[idx][0], color: colors[idx][1] };
+                  })()}
+                >
+                  {member.displayName.trim().split(/\s+/).slice(0,2).map(w => w[0]).join("").toUpperCase() || "?"}
+                </div>
+              )}
               <div className="min-w-0">
                 <p className="text-sm font-bold truncate">{member.displayName}</p>
                 {member.userName !== member.displayName && (
