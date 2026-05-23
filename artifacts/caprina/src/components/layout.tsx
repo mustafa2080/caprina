@@ -173,44 +173,40 @@ export default function Layout({ children }: LayoutProps) {
 
           {/* ── First Logo ── */}
           <div
-            className="w-full flex items-center justify-center"
             style={{
-              background: "linear-gradient(180deg, #0a0a0a 0%, #141414 100%)",
-              padding: "16px 12px",
               position: "relative",
-              borderBottom: "1px solid hsl(var(--primary)/0.3)",
+              width: "100%",
+              background: "linear-gradient(180deg, #0a0a0a 0%, #111 100%)",
+              borderBottom: "1px solid hsl(var(--primary)/0.4)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "10px 8px",
             }}
           >
-            {/* Ambient glow */}
+            {/* glow bg */}
             <div style={{
-              position: "absolute",
-              inset: 0,
-              background: "radial-gradient(ellipse 90% 80% at 50% 50%, hsl(var(--primary)/0.08) 0%, transparent 65%)",
-              pointerEvents: "none",
+              position: "absolute", inset: 0, pointerEvents: "none",
+              background: "radial-gradient(ellipse 100% 100% at 50% 50%, hsl(var(--primary)/0.1) 0%, transparent 70%)",
             }} />
-            {/* Bottom accent line */}
+            {/* bottom line */}
             <div style={{
-              position: "absolute",
-              bottom: 0,
-              left: "15%",
-              right: "15%",
-              height: "1px",
-              background: "linear-gradient(90deg, transparent, hsl(var(--primary)/0.6), transparent)",
-              pointerEvents: "none",
+              position: "absolute", bottom: 0, left: "10%", right: "10%",
+              height: "1px", pointerEvents: "none",
+              background: "linear-gradient(90deg, transparent, hsl(var(--primary)/0.7), transparent)",
             }} />
             <img
               src={firstLogoBase64}
               alt="Caprina Logo"
               style={{
                 display: "block",
-                width: "auto",
+                width: "85%",
                 height: "auto",
-                maxWidth: "140px",
-                maxHeight: "100px",
+                maxHeight: "120px",
                 objectFit: "contain",
                 position: "relative",
                 zIndex: 1,
-                filter: "drop-shadow(0 0 14px hsl(var(--primary)/0.6)) drop-shadow(0 0 4px hsl(var(--primary)/0.3))",
+                filter: "drop-shadow(0 0 18px hsl(var(--primary)/0.7)) drop-shadow(0 2px 6px rgba(0,0,0,0.9))",
               }}
             />
           </div>
