@@ -317,9 +317,16 @@ router.get("/orders", async (req, res): Promise<void> => {
   }
 
   const filteredGroups = Array.from(groupMap.values()).filter(grp => {
-    if (manifestOrderIdsSet.size === 0) return true;
-    const allInManifest = grp.every(o => manifestOrderIdsSet.has(o.id));
-    return !allInManifest;
+    // لما الفلتر = in_shipping → نجيب بس الطلبات اللي في بيان مفتوح فعلاً
+    if (params.data.status === "in_shipping" && manifestOrderIdsSet.size > 0) {
+      return grp.some(o => manifestOrderIdsSet.has(o.id));
+    }
+    // في الحالات التانية (بدون فلتر status) → نشيل الطلبات اللي كلها في بيان مفتوح
+    if (!params.data.status && manifestOrderIdsSet.size > 0) {
+      const allInManifest = grp.every(o => manifestOrderIdsSet.has(o.id));
+      return !allInManifest;
+    }
+    return true;
   });
 
   const getReturnReceived = (o: (typeof rows)[0]): number | null => {
