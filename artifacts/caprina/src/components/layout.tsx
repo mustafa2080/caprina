@@ -593,13 +593,18 @@ export default function Layout({ children }: LayoutProps) {
               {/* User + logout */}
               <div className="border-t border-sidebar-border p-3 space-y-1">
                 <div className="flex items-center gap-2 px-1 py-1">
-                  {(user as any)?.avatar ? (
-                    <img src={(user as any).avatar} className="w-8 h-8 rounded-full object-cover shrink-0 border-2 border-primary/30" alt={user?.displayName} />
-                  ) : (
-                    <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-xs font-bold text-primary shrink-0">
-                      {user?.displayName?.charAt(0) ?? "?"}
-                    </div>
-                  )}
+                  <div className="relative shrink-0">
+                    {(user as any)?.avatar ? (
+                      <img src={(user as any).avatar} className="w-8 h-8 rounded-full object-cover border-2 border-primary/30" alt={user?.displayName} />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-xs font-bold text-primary">
+                        {user?.displayName?.charAt(0) ?? "?"}
+                      </div>
+                    )}
+                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-sidebar">
+                      <span className="absolute inset-0 rounded-full bg-emerald-400 animate-ping opacity-75" />
+                    </span>
+                  </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-bold text-sidebar-foreground truncate">{user?.displayName}</p>
                     <p className="text-[10px] text-sidebar-foreground/40">{ROLE_LABELS[user?.role ?? ""] ?? user?.role}</p>
