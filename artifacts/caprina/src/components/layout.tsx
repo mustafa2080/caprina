@@ -223,30 +223,18 @@ export default function Layout({ children }: LayoutProps) {
 
             {/* اللوجو + الاسم على اليمين */}
             <div className="relative z-10 cursor-pointer" onClick={() => setBrandSettingsOpen(true)}>
-              <BrandFull
-                logoSize="md"
-                layout="row"
-                nameClass="text-base font-extrabold text-sidebar-foreground tracking-wide"
-                taglineClass="text-[0px] opacity-0 h-0 overflow-hidden"
-              />
+              <div className="brand-name-glow">
+                <BrandFull
+                  logoSize="md"
+                  layout="row"
+                  nameClass="text-base font-black tracking-[0.2em] uppercase brand-name-text"
+                  taglineClass="text-[0px] opacity-0 h-0 overflow-hidden"
+                />
+                <style>{".brand-name-text{background:linear-gradient(135deg,hsl(var(--primary)) 0%,#fff 50%,hsl(var(--primary)) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 0 8px hsl(var(--primary)/0.8))}"}</style>
+              </div>
             </div>
 
-            {/* ── Company Name — في النص ── */}
-            <div className="relative z-10 flex flex-col items-center justify-center select-none">
-              <span
-                className="text-sm font-black tracking-[0.25em] uppercase leading-none"
-                style={{
-                  background: "linear-gradient(135deg, hsl(var(--primary)) 0%, #fff 50%, hsl(var(--primary)) 100%)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  backgroundClip: "text",
-                  filter: "drop-shadow(0 0 8px hsl(var(--primary)/0.8))",
-                }}
-              >
-                CAPRINA
-              </span>
-              <span className="block h-px w-full mt-0.5" style={{background:"linear-gradient(90deg,transparent,hsl(var(--primary)/0.8),transparent)"}} />
-            </div>
+
 
             {/* ── Theme Toggle — في النص محاذي مع اللوجو ── */}
             <button
