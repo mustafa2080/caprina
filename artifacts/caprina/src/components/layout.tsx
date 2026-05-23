@@ -91,25 +91,25 @@ function NavItem({ item, location, sub = false }: { item: any; location: string;
   );
 }
 
-function NavGroup({ label, icon: Icon, iconColor, location, prefixes, defaultOpen, children }: {
+function NavGroup({ label, icon: Icon, iconColor, location, prefixes, children, isOpen, onToggle }: {
   label: string; icon: any; iconColor: string;
   location: string; prefixes: string[];
-  defaultOpen?: boolean; children: React.ReactNode;
+  children: React.ReactNode;
+  isOpen: boolean; onToggle: () => void;
 }) {
   const isGroupActive = prefixes.some(p => location === p || location.startsWith(p + "/") || location.startsWith(p));
-  const [open, setOpen] = useState(defaultOpen ?? isGroupActive);
   return (
     <div className="pt-0.5">
-      <button type="button" onClick={() => setOpen(v => !v)}
+      <button type="button" onClick={onToggle}
         className={cn(
           "w-full flex items-center gap-3 px-3 py-2 rounded-md text-xs font-semibold transition-all",
           isGroupActive ? "text-sidebar-foreground bg-foreground/5" : "text-sidebar-foreground/55 hover:text-sidebar-foreground hover:bg-foreground/5"
         )}>
         <Icon className={cn("w-3.5 h-3.5 shrink-0", iconColor)} />
         <span className="flex-1 text-right">{label}</span>
-        <ChevronLeft className={cn("w-3 h-3 transition-transform text-sidebar-foreground/40", open ? "-rotate-90" : "")} />
+        <ChevronLeft className={cn("w-3 h-3 transition-transform text-sidebar-foreground/40", isOpen ? "-rotate-90" : "")} />
       </button>
-      {open && (
+      {isOpen && (
         <div className="mt-0.5 mr-2 border-r border-sidebar-border/50 pr-1 space-y-0.5 pb-1">
           {children}
         </div>
@@ -349,7 +349,6 @@ export default function Layout({ children }: LayoutProps) {
           {(isAdmin || can("finance")) && (
             <NavGroup label="الماليات" icon={DollarSign} iconColor="text-emerald-400" location={location} prefixes={["/finance"]} isOpen={openGroup === "finance"} onToggle={() => toggleGroup("finance")}>
               {FINANCE_NAV.map((item) => {
-                // exact match فقط — بدون startsWith عشان ما يتعلمش أكثر من item
                 const isActive = location === item.href;
                 const Icon = item.icon;
                 return (
@@ -383,16 +382,6 @@ export default function Layout({ children }: LayoutProps) {
             <NavGroup label="الإعدادات والدعم" icon={MessageCircle} iconColor="text-emerald-500" location={location} prefixes={["/whatsapp","/audit-logs"]} isOpen={openGroup === "settings"} onToggle={() => toggleGroup("settings")}>
               {visibleNav.filter(i => i.group === "settings").map(item => <NavItem key={item.href+item.label} item={item} location={location} sub />)}
             </NavGroup>
-          )}
-
-          {/* ── Super Admin ── */}
-          {user?.role === "super_admin" && (
-            <Link href="/super-admin"
-              className={cn("flex items-center gap-3 px-3 py-2 rounded-md text-xs font-semibold transition-all mt-2 border",
-                location === "/super-admin" ? "bg-amber-500/20 text-amber-400 border-amber-500/30" : "text-amber-500/70 hover:text-amber-400 hover:bg-amber-500/10 border-amber-500/15")}>
-              <Crown className="w-3.5 h-3.5 shrink-0 text-amber-400" />
-              إدارة الاشتراكات
-            </Link>
           )}
         </nav>
 
