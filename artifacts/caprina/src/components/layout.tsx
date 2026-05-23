@@ -173,32 +173,27 @@ export default function Layout({ children }: LayoutProps) {
 
           {/* ── First Logo — أول حاجة فوق الـ sidebar ── */}
           <div
-            className="relative w-full overflow-hidden"
-            style={{ height: "100px" }}
+            className="relative w-full overflow-hidden flex items-center justify-center"
+            style={{
+              height: "72px",
+              background: "linear-gradient(160deg, hsl(var(--primary)/0.08) 0%, rgba(0,0,0,0.6) 100%)",
+              boxShadow: "0 2px 16px hsl(var(--primary)/0.2), inset 0 -1px 0 hsl(var(--primary)/0.3)",
+            }}
           >
-            {/* الصورة تملا الكارت كامل */}
             <img
               src={firstLogoBase64}
               alt="Caprina Logo"
-              className="absolute inset-0 w-full h-full"
-              style={{ objectFit: "cover", objectPosition: "center" }}
-            />
-            {/* overlay gradient من الأسفل عشان يندمج مع الـ sidebar */}
-            <div
-              className="absolute inset-0 pointer-events-none"
               style={{
-                background: "linear-gradient(to bottom, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.32) 100%)",
+                height: "56px",
+                width: "auto",
+                objectFit: "contain",
+                filter: "drop-shadow(0 2px 8px hsl(var(--primary)/0.5))",
               }}
             />
-            {/* glow border أسفل الصورة */}
+            {/* glow line أسفل */}
             <div
               className="absolute bottom-0 left-0 right-0 h-px"
-              style={{ background: "linear-gradient(90deg, transparent, hsl(var(--primary)/0.6), transparent)" }}
-            />
-            {/* inner shadow على الجوانب */}
-            <div
-              className="absolute inset-0 pointer-events-none rounded-none"
-              style={{ boxShadow: "inset 0 0 20px rgba(0,0,0,0.3), inset 0 -4px 16px hsl(var(--primary)/0.15)" }}
+              style={{ background: "linear-gradient(90deg, transparent, hsl(var(--primary)/0.7), transparent)" }}
             />
           </div>
 
