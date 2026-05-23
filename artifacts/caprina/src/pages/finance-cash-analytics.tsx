@@ -232,10 +232,24 @@ export default function FinanceCashAnalyticsPage() {
   const creditBreakdown = typeBreakdown.filter(t => CREDIT_TYPES.includes(t.type));
   const debitBreakdown  = typeBreakdown.filter(t => !CREDIT_TYPES.includes(t.type));
 
-  const chartData = monthlyChart.map(r => ({
-    ...r,
-    label: MONTH_NAMES[r.month?.split("-")[1]] ?? r.month,
-  }));
+  // كمّل الـ 6 شهور الفاضية بأصفار عشان الـ chart يظهر صح دايماً
+  const chartData = (() => {
+    const now = new Date();
+    const months: { month: string; label: string; in: number; out: number; net: number }[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const found = monthlyChart.find((r: any) => r.month === key);
+      months.push({
+        month: key,
+        label: MONTH_NAMES[String(d.getMonth() + 1).padStart(2, "0")] ?? key,
+        in:  found ? Number(found.in)  : 0,
+        out: found ? Number(found.out) : 0,
+        net: found ? Number(found.net) : 0,
+      });
+    }
+    return months;
+  })();
 
   const maxReg = registerComparison.reduce((m, r) => r.txCount > (m?.txCount??0) ? r : m, registerComparison[0]);
 
@@ -347,27 +361,27 @@ export default function FinanceCashAnalyticsPage() {
                 </span>
               </div>
             </div>
-            <ResponsiveContainer width="100%" height={220}>
-              <AreaChart data={chartData} margin={{top:8,right:8,left:-22,bottom:0}}>
+            <ResponsiveContainer width="100%" height={260}>
+              <AreaChart data={chartData} margin={{top:12,right:12,left:-18,bottom:0}}>
                 <defs>
                   <linearGradient id="cashGradIn" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#FFD54F" stopOpacity={0.55}/>
-                    <stop offset="95%" stopColor="#FFD54F" stopOpacity={0.02}/>
+                    <stop offset="5%"  stopColor="#FFD54F" stopOpacity={0.6}/>
+                    <stop offset="95%" stopColor="#FFD54F" stopOpacity={0.03}/>
                   </linearGradient>
                   <linearGradient id="cashGradOut" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#f43f5e" stopOpacity={0.40}/>
-                    <stop offset="95%" stopColor="#f43f5e" stopOpacity={0.02}/>
+                    <stop offset="5%"  stopColor="#f43f5e" stopOpacity={0.45}/>
+                    <stop offset="95%" stopColor="#f43f5e" stopOpacity={0.03}/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="2 5" stroke="hsl(var(--border))" vertical={false}/>
+                <CartesianGrid strokeDasharray="3 6" stroke="hsl(var(--border))" vertical={false}/>
                 <XAxis
                   dataKey="label"
-                  tick={{fontSize:11, fill:"hsl(var(--muted-foreground))", fontWeight:600}}
+                  tick={{fontSize:12, fill:"hsl(var(--muted-foreground))", fontWeight:600}}
                   axisLine={false} tickLine={false}
                 />
                 <YAxis
                   tick={{fontSize:10, fill:"hsl(var(--muted-foreground))"}}
-                  tickFormatter={v=>fmt(v)}
+                  tickFormatter={v => v === 0 ? "0" : fmt(v)}
                   axisLine={false} tickLine={false}
                   tickCount={5}
                 />
@@ -383,18 +397,17 @@ export default function FinanceCashAnalyticsPage() {
                   labelFormatter={v=>`📅 ${v}`}
                 />
                 <Area
-                  type="natural" dataKey="in" stroke="#FFD54F" strokeWidth={2.5}
+                  type="monotone" dataKey="in" stroke="#FFD54F" strokeWidth={2.5}
                   fill="url(#cashGradIn)"
                   dot={{r:4, fill:"#FFD54F", strokeWidth:2, stroke:"hsl(var(--background))"}}
                   activeDot={{r:6, fill:"#FFD54F", strokeWidth:2, stroke:"hsl(var(--background))", style:{filter:"drop-shadow(0 0 8px #FFD54F99)"}}}
                   name="in"
-                  style={{filter:"drop-shadow(0 0 6px #FFD54F66)"}}
                 />
                 <Area
-                  type="natural" dataKey="out" stroke="#f43f5e" strokeWidth={2}
+                  type="monotone" dataKey="out" stroke="#f43f5e" strokeWidth={2}
                   fill="url(#cashGradOut)"
-                  dot={{r:3, fill:"#f43f5e", strokeWidth:2, stroke:"hsl(var(--background))"}}
-                  activeDot={{r:5, fill:"#f43f5e", strokeWidth:2, stroke:"hsl(var(--background))"}}
+                  dot={{r:4, fill:"#f43f5e", strokeWidth:2, stroke:"hsl(var(--background))"}}
+                  activeDot={{r:6, fill:"#f43f5e", strokeWidth:2, stroke:"hsl(var(--background))", style:{filter:"drop-shadow(0 0 8px #f43f5e99)"}}}
                   name="out"
                 />
               </AreaChart>
