@@ -252,7 +252,12 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden" dir="rtl">
+    <div
+      className="flex h-screen bg-background overflow-hidden"
+      dir="rtl"
+      onClick={() => { if (sidebarCollapsed) setSidebarCollapsed(false); }}
+      style={{ cursor: sidebarCollapsed ? "pointer" : undefined }}
+    >
 
       {/* ── Sidebar wrapper (desktop) ── */}
       <div
@@ -676,8 +681,6 @@ export default function Layout({ children }: LayoutProps) {
         <div
           id="main-scroll-area"
           className="flex-1 overflow-y-auto overflow-x-hidden"
-          onClick={() => { if (sidebarCollapsed) setSidebarCollapsed(false); }}
-          style={{ cursor: sidebarCollapsed ? "pointer" : undefined }}
         >
           <div className="w-full p-3 sm:p-4 md:p-5 xl:p-6 2xl:p-8">
             {children}
