@@ -5,6 +5,18 @@ import { requireAdmin } from "../middlewares/requireRole.js";
 import { requireAuth } from "../middlewares/requireAuth.js";
 import { getTenantId } from "../middlewares/requireTenant.js";
 
+// ── In-memory cache for heavy analytics endpoints ─────────────────────────────
+const analyticsCache = new Map<string, { data: any; expiresAt: number }>();
+function getCached<T>(key: string): T | null {
+  const entry = analyticsCache.get(key);
+  if (entry && Date.now() < entry.expiresAt) return entry.data as T;
+  analyticsCache.delete(key);
+  return null;
+}
+function setCached(key: string, data: any, ttlMs = 5 * 60 * 1000) {
+  analyticsCache.set(key, { data, expiresAt: Date.now() + ttlMs });
+}
+
 const router: IRouter = Router();
 
 // ── Tenant-safe helpers ────────────────────────────────────────────────────────
@@ -543,6 +555,10 @@ router.get("/analytics/damaged-orders", requireAdmin, async (req, res): Promise<
 router.get("/analytics/product-performance", requireAdmin, async (req, res): Promise<void> => {
   try {
   const tenantId = getTenantId(req);
+  const cacheKey = `product-performance:${tenantId ?? "global"}`;
+  const cached = getCached<any>(cacheKey);
+  if (cached) { res.json(cached); return; }
+
   const ppBaseConditions: any[] = [isNull(ordersTable.deletedAt)];
   if (tenantId !== null) ppBaseConditions.push(eq(ordersTable.tenantId, tenantId));
   const [allOrders, products, variants] = await Promise.all([
@@ -654,7 +670,7 @@ router.get("/analytics/product-performance", requireAdmin, async (req, res): Pro
     .filter(p => p.returnCount > 0)
     .sort((a, b) => b.returnRate - a.returnRate || b.returnCount - a.returnCount);
 
-  res.json({
+  const responseData = {
     products: byProfit,
     byProfit,
     byLoss,
@@ -667,7 +683,9 @@ router.get("/analytics/product-performance", requireAdmin, async (req, res): Pro
       totalNetProfit: productList.reduce((s, p) => s + p.netProfit, 0),
       totalRevenue: productList.reduce((s, p) => s + p.totalRevenue, 0),
     },
-  });
+  };
+  setCached(cacheKey, responseData, 5 * 60 * 1000); // cache 5 دقائق
+  res.json(responseData);
   } catch (err) {
     console.error("[product-performance]", err);
     res.status(500).json({ error: "فشل تحليل أداء المنتجات", detail: String(err) });
