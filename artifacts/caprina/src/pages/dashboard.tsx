@@ -1702,7 +1702,9 @@ export default function Dashboard() {
                         )}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-bold truncate">{emp.displayName}</p>
-                          <p className="text-[11px] text-foreground/70 truncate mt-0.5 font-medium">{emp.jobTitle || "—"}</p>
+                          <p className="text-[11px] text-foreground/70 truncate mt-0.5 font-medium">
+                            {emp.jobTitle || (emp.role === "admin" ? "مدير" : emp.role === "manager" ? "مشرف" : "موظف")}
+                          </p>
                         </div>
                         {emp.monthlySalary > 0 && (
                           <p className="text-sm font-black text-primary shrink-0">
