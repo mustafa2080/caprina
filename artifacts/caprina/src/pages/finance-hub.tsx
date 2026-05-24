@@ -665,13 +665,23 @@ export default function FinanceHub() {
   const dailyFlow: any[] = data?.dailyFlow ?? [];
   const recentTx: any[] = data?.recentTransactions ?? [];
 
-  const monthlyChartData = monthly.map(m => ({
-    ...m,
-    label: (() => {
-      const [, mon] = m.month.split("-");
-      return MONTH_AR[mon] ?? m.month;
-    })(),
-  }));
+  const monthlyChartData = (() => {
+    // نبني قائمة آخر 6 شهور دائماً
+    const months: { month: string; label: string }[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(1);
+      d.setMonth(d.getMonth() - i);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const mon = String(d.getMonth() + 1).padStart(2, "0");
+      months.push({ month: key, label: MONTH_AR[mon] ?? key });
+    }
+    // دمج مع البيانات الحقيقية
+    return months.map(({ month, label }) => {
+      const found = monthly.find((m: any) => m.month === month);
+      return { month, label, revenue: found?.revenue ?? 0, expenses: found?.expenses ?? 0, profit: found?.profit ?? 0, orders: found?.orders ?? 0 };
+    });
+  })();
 
   const dailyChartData = dailyFlow.map(d => ({
     ...d,
