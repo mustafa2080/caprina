@@ -741,7 +741,7 @@ export default function Dashboard() {
                 <p className={`text-xs sm:text-sm font-black ${
                   isUrgent ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-400"
                 }`}>
-                  {isUrgent ? "🚨 عاجل — شحنات تجاوزت 7 أيام!" : "⚠️ تنبيه — شحنات تحتاج متابعة"}
+                  {isUrgent ? <><span className="animate-pulse" style={{filter:"drop-shadow(0 0 6px #ef4444) drop-shadow(0 0 12px #ef4444)"}}>🚨</span>{" عاجل — شحنات تجاوزت 7 أيام!"}</> : "⚠️ تنبيه — شحنات تحتاج متابعة"}
                 </p>
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {urgent.length > 0 && (
