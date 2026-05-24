@@ -350,8 +350,17 @@ export default function Layout({ children }: LayoutProps) {
         {/* الـ Sidebar الفعلي */}
         <aside
           className="border-l border-sidebar-border bg-sidebar flex flex-col h-full w-full overflow-hidden"
-          style={{ transition: "opacity 0.3s ease, box-shadow 0.4s ease",
-            boxShadow: sidebarCollapsed ? "none" : "4px 0 24px rgba(0,0,0,0.18)" }}
+          style={{
+            transition: "opacity 0.3s ease, box-shadow 0.4s ease",
+            boxShadow: sidebarCollapsed ? "none" : "4px 0 24px rgba(0,0,0,0.18)",
+            cursor: sidebarCollapsed ? "pointer" : "default",
+          }}
+          onClick={(e) => {
+            if (sidebarCollapsed) {
+              e.stopPropagation();
+              setSidebarCollapsed(false);
+            }
+          }}
         >
 
           {/* Header */}
