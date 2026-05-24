@@ -361,15 +361,7 @@ export default function Layout({ children }: LayoutProps) {
                     <style>{".brand-name-text{background:linear-gradient(135deg,hsl(var(--primary)) 0%,#fff 50%,hsl(var(--primary)) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 0 8px hsl(var(--primary)/0.8))}"}</style>
                   </div>
                 </div>
-                <button type="button" onClick={toggleTheme} title={theme === "dark" ? "الوضع النهاري" : "الوضع الليلي"}
-                  className="relative z-20 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 shrink-0"
-                  style={{
-                    background: theme === "dark" ? "linear-gradient(135deg,#1e293b,#0f172a)" : "linear-gradient(135deg,#fef3c7,#fde68a)",
-                    border: theme === "dark" ? "1px solid rgba(148,163,184,0.2)" : "1px solid rgba(251,191,36,0.5)",
-                    boxShadow: theme === "dark" ? "0 0 12px rgba(148,163,184,0.15)" : "0 0 14px rgba(251,191,36,0.4)",
-                  }}>
-                  {theme === "dark" ? <Sun className="w-4 h-4 text-amber-300" /> : <Moon className="w-4 h-4 text-indigo-600" />}
-                </button>
+
                 <div className="absolute bottom-0 left-6 right-6 h-px" style={{ background: "linear-gradient(90deg, transparent, hsl(var(--primary)/0.4), transparent)" }} />
               </div>
 
