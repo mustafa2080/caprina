@@ -138,7 +138,7 @@ function NavGroup({ label, icon: Icon, iconColor, location, prefixes, children, 
   groupKey?: string;
 }) {
   const [, navigate] = useLocation();
-  const isActive = prefixes.some(p => location === p || location.startsWith(p + "/") || location.startsWith(p));
+  const isActive = prefixes.some(p => location === p || location.startsWith(p + "/"));
   const rgb = resolveRgb(iconColor);
 
   if (collapsed) {
