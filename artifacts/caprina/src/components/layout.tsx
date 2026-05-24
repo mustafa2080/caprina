@@ -300,6 +300,35 @@ export default function Layout({ children }: LayoutProps) {
 
           {/* Header */}
           <div className="shrink-0 border-b border-sidebar-border/60">
+            {sidebarCollapsed && (
+              <div className="flex flex-col items-center gap-2 py-3 px-1">
+                {/* First Logo مصغّر */}
+                <div style={{
+                  width: "44px", height: "44px", borderRadius: "12px", overflow: "hidden",
+                  background: "linear-gradient(180deg, #0a0a0a 0%, #111 100%)",
+                  border: "1px solid hsl(var(--primary)/0.4)",
+                  boxShadow: "0 0 10px hsl(var(--primary)/0.3)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <img src={firstLogoBase64} alt="Logo" style={{
+                    width: "100%", height: "100%", objectFit: "contain",
+                    filter: "drop-shadow(0 0 6px hsl(var(--primary)/0.6))",
+                  }} />
+                </div>
+                {/* Brand Logo */}
+                <BrandLogoMark size="sm" onClick={() => setBrandSettingsOpen(true)} />
+                {/* Theme toggle */}
+                <button type="button" onClick={toggleTheme} title={theme === "dark" ? "الوضع النهاري" : "الوضع الليلي"}
+                  className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95"
+                  style={{
+                    background: theme === "dark" ? "linear-gradient(135deg,#1e293b,#0f172a)" : "linear-gradient(135deg,#fef3c7,#fde68a)",
+                    border: theme === "dark" ? "1px solid rgba(148,163,184,0.2)" : "1px solid rgba(251,191,36,0.5)",
+                    boxShadow: theme === "dark" ? "0 0 8px rgba(148,163,184,0.15)" : "0 0 10px rgba(251,191,36,0.4)",
+                  }}>
+                  {theme === "dark" ? <Sun className="w-3.5 h-3.5 text-amber-300" /> : <Moon className="w-3.5 h-3.5 text-indigo-600" />}
+                </button>
+              </div>
+            )}
             {!sidebarCollapsed && (<>
               {/* First Logo */}
               <div style={{
