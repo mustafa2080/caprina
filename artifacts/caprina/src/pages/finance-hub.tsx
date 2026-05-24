@@ -419,21 +419,21 @@ function MoMExpenseReport() {
   return (
     <div className="relative overflow-hidden rounded-[22px] p-5"
       style={{
-        background: "linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(255,255,255,0.01) 100%)",
-        border: "1px solid rgba(99,102,241,0.25)",
-        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.10), 0 8px 32px rgba(99,102,241,0.15)",
+        background: "linear-gradient(135deg, rgba(245,158,11,0.08) 0%, rgba(255,255,255,0.01) 100%)",
+        border: "1px solid rgba(245,158,11,0.25)",
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.10), 0 8px 32px rgba(245,158,11,0.12)",
         backdropFilter: "blur(12px)",
       }}>
       {/* خط الضوء العلوي */}
       <div className="absolute inset-x-10 top-0 h-px pointer-events-none"
-        style={{ background: "linear-gradient(90deg, transparent, #6366F1, transparent)" }} />
+        style={{ background: "linear-gradient(90deg, transparent, #f59e0b, transparent)" }} />
 
       {/* Header */}
       <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-            style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.30)" }}>
-            <BarChart3 className="w-4 h-4 text-indigo-400" />
+            style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.35)" }}>
+            <BarChart3 className="w-4 h-4" style={{ color: "#f59e0b" }} />
           </div>
           <div>
             <h3 className="text-sm font-black">مقارنة المصروفات شهر بشهر</h3>
@@ -443,7 +443,8 @@ function MoMExpenseReport() {
         <div className="flex gap-1">
           {(["chart","table"] as const).map(v => (
             <button key={v} onClick={() => setView(v)}
-              className={`text-xs px-3 py-1 rounded-lg font-bold transition-all ${view===v ? "bg-indigo-500 text-white" : "bg-white/5 text-muted-foreground hover:bg-white/10"}`}>
+              className={`text-xs px-3 py-1 rounded-lg font-bold transition-all ${view===v ? "text-white" : "bg-white/5 text-muted-foreground hover:bg-white/10"}`}
+              style={view===v ? { background: "#f59e0b" } : {}}>
               {v === "chart" ? "📊 رسم بياني" : "📋 جدول"}
             </button>
           ))}
@@ -523,7 +524,7 @@ function MoMExpenseReport() {
                 {months.map(m => (
                   <th key={m} className="text-center pb-2 px-2 text-muted-foreground font-bold whitespace-nowrap">{m}</th>
                 ))}
-                <th className="text-center pb-2 px-2 font-bold text-indigo-400">المجموع</th>
+                <th className="text-center pb-2 px-2 font-bold" style={{ color: "#f59e0b" }}>المجموع</th>
               </tr>
             </thead>
             <tbody>
@@ -554,19 +555,19 @@ function MoMExpenseReport() {
                         </td>
                       );
                     })}
-                    <td className="text-center px-2 py-2 font-black text-indigo-400">{fmtS(catTotal)}</td>
+                    <td className="text-center px-2 py-2 font-black" style={{ color: "#f59e0b" }}>{fmtS(catTotal)}</td>
                   </tr>
                 );
               })}
               {/* صف الإجمالي */}
-              <tr className="border-t-2 border-indigo-500/30 bg-indigo-500/5">
-                <td className="py-2.5 pr-1 font-black text-indigo-400">الإجمالي</td>
+              <tr style={{ borderTop: "2px solid rgba(245,158,11,0.30)", background: "rgba(245,158,11,0.05)" }}>
+                <td className="py-2.5 pr-1 font-black" style={{ color: "#f59e0b" }}>الإجمالي</td>
                 {months.map(m => (
-                  <td key={m} className="text-center px-2 py-2.5 font-black text-indigo-400">
+                  <td key={m} className="text-center px-2 py-2.5 font-black" style={{ color: "#f59e0b" }}>
                     {fmtS(chartData.find(d => d.month === m)?._total ?? 0)}
                   </td>
                 ))}
-                <td className="text-center px-2 py-2.5 font-black text-indigo-500">
+                <td className="text-center px-2 py-2.5 font-black" style={{ color: "#f59e0b" }}>
                   {fmtS(chartData.reduce((s, d) => s + d._total, 0))}
                 </td>
               </tr>
