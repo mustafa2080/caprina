@@ -197,15 +197,26 @@ function NavGroup({ label, icon: Icon, iconColor, location, prefixes, children, 
           {label}
         </span>
         <ChevronLeft
-          className={cn("shrink-0 transition-transform duration-200", isOpen ? "-rotate-90" : "")}
-          style={{ width: "13px", height: "13px", color: isActive ? `rgba(${rgb},0.6)` : "rgba(100,116,139,0.35)" }}
+          className="shrink-0"
+          style={{
+            width: "13px", height: "13px",
+            color: isActive ? `rgba(${rgb},0.6)` : "rgba(100,116,139,0.35)",
+            transform: isOpen ? "rotate(-90deg)" : "rotate(0deg)",
+            transition: "transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)",
+          }}
         />
       </button>
-      {isOpen && (
+      <div
+        style={{
+          maxHeight: isOpen ? "600px" : "0px",
+          overflow: "hidden",
+          transition: "max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+        }}
+      >
         <div className="mt-1 mr-3 pr-1.5 space-y-px pb-1" style={{ borderRight: `2px solid rgba(${rgb},0.2)` }}>
           {children}
         </div>
-      )}
+      </div>
     </div>
   );
 }
