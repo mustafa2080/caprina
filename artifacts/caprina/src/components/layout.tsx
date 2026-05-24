@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { useState, useMemo } from "react";
 import { firstLogoBase64 } from "@/lib/first-logo";
+import { secondLogoBase64 } from "@/lib/second-logo";
 import { LayoutDashboard, Package, Plus, Boxes, Truck, FileText, Upload, Activity, BarChart3, Users, Shield, LogOut, ChevronDown, KeyRound, Warehouse, Megaphone, UserCheck, UserCog, Sun, Moon, Brain, Archive, Clock, MessageCircle, Menu, X, Download, DollarSign, ShoppingCart, ShoppingBag, Receipt, Building2, Wallet, ChevronLeft, Crown, Settings, PanelRightClose, PanelRightOpen } from "lucide-react";
 import { BrandFull, BrandLogoMark } from "@/components/brand-logo";
 import { BrandSettingsDialog } from "@/components/brand-settings-dialog";
@@ -302,7 +303,7 @@ export default function Layout({ children }: LayoutProps) {
           <div className="shrink-0 border-b border-sidebar-border/60">
             {sidebarCollapsed && (
               <div className="flex flex-col items-center gap-2 py-3 px-1">
-                {/* First Logo مصغّر */}
+                {/* Second Logo في وضع الـ collapsed */}
                 <div style={{
                   width: "44px", height: "44px", borderRadius: "12px", overflow: "hidden",
                   background: "linear-gradient(180deg, #0a0a0a 0%, #111 100%)",
@@ -310,7 +311,7 @@ export default function Layout({ children }: LayoutProps) {
                   boxShadow: "0 0 10px hsl(var(--primary)/0.3)",
                   display: "flex", alignItems: "center", justifyContent: "center",
                 }}>
-                  <img src={firstLogoBase64} alt="Logo" style={{
+                  <img src={secondLogoBase64} alt="Logo" style={{
                     width: "100%", height: "100%", objectFit: "contain",
                     filter: "drop-shadow(0 0 6px hsl(var(--primary)/0.6))",
                   }} />
