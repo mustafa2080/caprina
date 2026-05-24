@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { useState, useMemo } from "react";
 import { firstLogoBase64 } from "@/lib/first-logo";
-import { LayoutDashboard, Package, Plus, Boxes, Truck, FileText, Upload, Activity, BarChart3, Users, Shield, LogOut, ChevronDown, KeyRound, Warehouse, Megaphone, UserCheck, UserCog, Sun, Moon, Brain, Archive, Clock, MessageCircle, Menu, X, Download, DollarSign, ShoppingCart, ShoppingBag, Receipt, Building2, Wallet, ChevronLeft, Crown, Settings } from "lucide-react";
+import { LayoutDashboard, Package, Plus, Boxes, Truck, FileText, Upload, Activity, BarChart3, Users, Shield, LogOut, ChevronDown, KeyRound, Warehouse, Megaphone, UserCheck, UserCog, Sun, Moon, Brain, Archive, Clock, MessageCircle, Menu, X, Download, DollarSign, ShoppingCart, ShoppingBag, Receipt, Building2, Wallet, ChevronLeft, Crown, Settings, PanelRightClose, PanelRightOpen } from "lucide-react";
 import { BrandFull } from "@/components/brand-logo";
 import { BrandSettingsDialog } from "@/components/brand-settings-dialog";
 import { cn } from "@/lib/utils";
@@ -81,7 +81,7 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 // ── مكونات مساعدة للـ Sidebar ─────────────────────────────────────────────
-function NavItem({ item, location, sub = false }: { item: any; location: string; sub?: boolean }) {
+function NavItem({ item, location, sub = false, collapsed = false }: { item: any; location: string; sub?: boolean; collapsed?: boolean }) {
   const isActive = item.exact
     ? location === item.href
     : location === item.href || location.startsWith(item.href + "/") || (item.href !== "/" && location.startsWith(item.href));
@@ -89,13 +89,15 @@ function NavItem({ item, location, sub = false }: { item: any; location: string;
   const rgb = resolveRgb(item.iconColor ?? "text-blue-400");
   return (
     <Link href={item.href}
+      title={collapsed ? item.label : undefined}
       className={cn(
-        "flex items-center gap-3 px-3 py-2 rounded-lg text-[11.5px] font-semibold transition-all duration-200 group",
-        sub && "mr-2",
+        "flex items-center gap-3 rounded-lg text-[11.5px] font-semibold transition-all duration-300 group",
+        collapsed ? "px-0 py-2 justify-center" : "px-3 py-2",
+        sub && !collapsed && "mr-2",
         isActive ? "text-white" : "text-sidebar-foreground/60 hover:text-sidebar-foreground/90 hover:bg-white/[0.04]"
       )}
       style={isActive ? {
-        background: `linear-gradient(135deg, rgba(${rgb},0.18) 0%, rgba(${rgb},0.07) 100%)`,
+        background: collapsed ? `rgba(${rgb},0.15)` : `linear-gradient(135deg, rgba(${rgb},0.18) 0%, rgba(${rgb},0.07) 100%)`,
         border: `1px solid rgba(${rgb},0.25)`,
         boxShadow: `0 1px 8px rgba(${rgb},0.15), inset 0 1px 0 rgba(255,255,255,0.06)`,
       } : { border: "1px solid transparent" }}
@@ -113,7 +115,7 @@ function NavItem({ item, location, sub = false }: { item: any; location: string;
       >
         <Icon style={{ width: "13px", height: "13px", color: isActive ? "rgba(255,255,255,0.95)" : `rgba(${rgb},0.75)` }} />
       </div>
-      <span className="flex-1 text-right">{item.label}</span>
+      {!collapsed && <span className="flex-1 text-right overflow-hidden whitespace-nowrap">{item.label}</span>}
     </Link>
   );
 }
@@ -141,15 +143,48 @@ function resolveRgb(iconColor: string): string {
   return "251,191,36";
 }
 
-function NavGroup({ label, icon: Icon, iconColor, location, prefixes, children, isOpen, onToggle }: {
+function NavGroup({ label, icon: Icon, iconColor, location, prefixes, children, isOpen, onToggle, collapsed = false }: {
   label: string; icon: any; iconColor: string;
   location: string; prefixes: string[];
   children: React.ReactNode;
   isOpen: boolean; onToggle: () => void;
+  collapsed?: boolean;
 }) {
   const isActive = prefixes.some(p => location === p || location.startsWith(p + "/") || location.startsWith(p));
   const rgb = resolveRgb(iconColor);
 
+  // ── وضع مقفول: أيقونة بس مع tooltip ──────────────────────────────────
+  if (collapsed) {
+    return (
+      <div className="pt-1 flex justify-center">
+        <Link
+          href={prefixes[0]}
+          title={label}
+          className={cn(
+            "flex items-center justify-center rounded-xl transition-all duration-200",
+          )}
+          style={{
+            width: "42px", height: "42px",
+            background: isActive
+              ? `linear-gradient(145deg, rgba(${rgb},0.9) 0%, rgba(${rgb},0.55) 60%, rgba(${rgb},0.3) 100%)`
+              : `linear-gradient(145deg, rgba(${rgb},0.18) 0%, rgba(${rgb},0.08) 100%)`,
+            border: isActive ? `1px solid rgba(${rgb},0.6)` : `1px solid rgba(${rgb},0.15)`,
+            boxShadow: isActive
+              ? `0 4px 14px rgba(${rgb},0.45), 0 1px 4px rgba(${rgb},0.3), inset 0 1px 0 rgba(255,255,255,0.2)`
+              : `0 2px 6px rgba(${rgb},0.12), inset 0 1px 0 rgba(255,255,255,0.06)`,
+          }}
+        >
+          <Icon style={{
+            width: "20px", height: "20px",
+            color: isActive ? "rgba(255,255,255,0.95)" : `rgba(${rgb},0.7)`,
+            filter: isActive ? "drop-shadow(0 1px 3px rgba(0,0,0,0.3))" : "none",
+          }} />
+        </Link>
+      </div>
+    );
+  }
+
+  // ── وضع مفتوح: كامل ───────────────────────────────────────────────────
   return (
     <div className="pt-1">
       <button
@@ -165,59 +200,37 @@ function NavGroup({ label, icon: Icon, iconColor, location, prefixes, children, 
           boxShadow: `0 1px 6px rgba(${rgb},0.12)`,
         } : { border: "1px solid transparent" }}
       >
-        {/* أيقونة كبيرة بتدرج ألوان وshadow */}
         <div
           className="shrink-0 flex items-center justify-center transition-all duration-200"
           style={{
-            width: "42px",
-            height: "42px",
-            borderRadius: "13px",
+            width: "42px", height: "42px", borderRadius: "13px",
             background: isActive
               ? `linear-gradient(145deg, rgba(${rgb},0.9) 0%, rgba(${rgb},0.55) 60%, rgba(${rgb},0.3) 100%)`
               : `linear-gradient(145deg, rgba(${rgb},0.18) 0%, rgba(${rgb},0.08) 100%)`,
-            border: isActive
-              ? `1px solid rgba(${rgb},0.6)`
-              : `1px solid rgba(${rgb},0.15)`,
+            border: isActive ? `1px solid rgba(${rgb},0.6)` : `1px solid rgba(${rgb},0.15)`,
             boxShadow: isActive
               ? `0 4px 14px rgba(${rgb},0.45), 0 1px 4px rgba(${rgb},0.3), inset 0 1px 0 rgba(255,255,255,0.2)`
               : `0 2px 6px rgba(${rgb},0.12), inset 0 1px 0 rgba(255,255,255,0.06)`,
           }}
         >
-          <Icon
-            style={{
-              width: isActive ? "22px" : "20px",
-              height: isActive ? "22px" : "20px",
-              color: isActive ? "rgba(255,255,255,0.95)" : `rgba(${rgb},0.7)`,
-              filter: isActive ? "drop-shadow(0 1px 3px rgba(0,0,0,0.3))" : "none",
-              transition: "all 0.2s ease",
-            }}
-          />
+          <Icon style={{
+            width: isActive ? "22px" : "20px", height: isActive ? "22px" : "20px",
+            color: isActive ? "rgba(255,255,255,0.95)" : `rgba(${rgb},0.7)`,
+            filter: isActive ? "drop-shadow(0 1px 3px rgba(0,0,0,0.3))" : "none",
+            transition: "all 0.2s ease",
+          }} />
         </div>
-
-        {/* الاسم */}
-        <span
-          className="flex-1 text-right font-semibold transition-colors duration-200"
-          style={{ fontSize: "13.5px", letterSpacing: "0.01em" }}
-        >
+        <span className="flex-1 text-right font-semibold transition-colors duration-200 overflow-hidden whitespace-nowrap" style={{ fontSize: "13.5px", letterSpacing: "0.01em" }}>
           {label}
         </span>
-
-        {/* سهم */}
         <ChevronLeft
           className={cn("shrink-0 transition-transform duration-200", isOpen ? "-rotate-90" : "")}
-          style={{
-            width: "13px",
-            height: "13px",
-            color: isActive ? `rgba(${rgb},0.6)` : "rgba(100,116,139,0.35)",
-          }}
+          style={{ width: "13px", height: "13px", color: isActive ? `rgba(${rgb},0.6)` : "rgba(100,116,139,0.35)" }}
         />
       </button>
 
       {isOpen && (
-        <div
-          className="mt-1 mr-3 pr-1.5 space-y-px pb-1"
-          style={{ borderRight: `2px solid rgba(${rgb},0.2)` }}
-        >
+        <div className="mt-1 mr-3 pr-1.5 space-y-px pb-1" style={{ borderRight: `2px solid rgba(${rgb},0.2)` }}>
           {children}
         </div>
       )}
@@ -234,6 +247,7 @@ export default function Layout({ children }: LayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [financeOpen, setFinanceOpen] = useState(false);
   const [openGroup, setOpenGroup] = useState<string | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const toggleGroup = (key: string) => setOpenGroup(prev => prev === key ? null : key);
   const [pwDialogOpen, setPwDialogOpen] = useState(false);
   const [brandSettingsOpen, setBrandSettingsOpen] = useState(false);
@@ -275,12 +289,39 @@ export default function Layout({ children }: LayoutProps) {
   return (
     <div className="flex h-screen bg-background" dir="rtl">
       {/* Sidebar */}
-      <aside className="w-60 xl:w-64 2xl:w-72 border-l border-sidebar-border bg-sidebar shrink-0 hidden md:flex md:flex-col">
+      <aside
+        className="border-l border-sidebar-border bg-sidebar shrink-0 hidden md:flex md:flex-col relative"
+        style={{
+          width: sidebarCollapsed ? "68px" : "240px",
+          transition: "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+          overflow: "hidden",
+        }}
+      >
+        {/* ── زر Toggle الـ Sidebar ── */}
+        <button
+          type="button"
+          onClick={() => setSidebarCollapsed(v => !v)}
+          title={sidebarCollapsed ? "توسيع القائمة" : "تصغير القائمة"}
+          className="absolute top-3 left-2 z-50 flex items-center justify-center rounded-lg transition-all duration-200 hover:scale-110 active:scale-95"
+          style={{
+            width: "28px", height: "28px",
+            background: "linear-gradient(135deg, rgba(96,165,250,0.15), rgba(96,165,250,0.06))",
+            border: "1px solid rgba(96,165,250,0.2)",
+            boxShadow: "0 2px 8px rgba(96,165,250,0.1)",
+          }}
+        >
+          {sidebarCollapsed ? (
+            <PanelRightClose style={{ width: "14px", height: "14px", color: "rgba(96,165,250,0.8)" }} />
+          ) : (
+            <PanelRightOpen style={{ width: "14px", height: "14px", color: "rgba(96,165,250,0.8)" }} />
+          )}
+        </button>
 
         {/* ── Header الـ Sidebar ── */}
         <div className="shrink-0 border-b border-sidebar-border/60">
 
-          {/* ── First Logo ── */}
+          {/* ── First Logo + Brand + User Card — hidden when collapsed ── */}
+          {!sidebarCollapsed && (<>
           <div
             style={{
               position: "relative",
@@ -339,16 +380,12 @@ export default function Layout({ children }: LayoutProps) {
                 />
                 {/* خط ذهبي تحت الاسم بنفس عرض الكلمة */}
                 <span className="block h-[2px] rounded-full" style={{
-                  width: "fit-content",
-                  minWidth: "5rem",
-                  maxWidth: "100%",
+                  width: "5.5rem",
                   alignSelf: "center",
                   marginTop: "2px",
                   marginRight: "2.5rem",
                   background: "linear-gradient(90deg, transparent 0%, hsl(var(--primary)) 20%, #fff 50%, hsl(var(--primary)) 80%, transparent 100%)",
                   boxShadow: "0 0 6px hsl(var(--primary)/0.9), 0 0 14px hsl(var(--primary)/0.5)",
-                  display: "block",
-                  width: "5.5rem",
                 }} />
                 <style>{".brand-name-text{background:linear-gradient(135deg,hsl(var(--primary)) 0%,#fff 50%,hsl(var(--primary)) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 0 8px hsl(var(--primary)/0.8))}"}</style>
               </div>
@@ -440,44 +477,45 @@ export default function Layout({ children }: LayoutProps) {
               </div>
             )}
           </div>
+          </> )}
         </div>
 
-        <nav className="px-2 py-3 flex-1 space-y-0.5 overflow-y-auto">
+        <nav className={cn("py-3 flex-1 space-y-0.5 overflow-y-auto", sidebarCollapsed ? "px-1" : "px-2")}>
 
           {/* ── لوحة التحكم ── */}
-          {visibleNav.filter(i => i.group === "dashboard").map(item => <NavItem key={item.href} item={item} location={location} />)}
+          {visibleNav.filter(i => i.group === "dashboard").map(item => <NavItem key={item.href} item={item} location={location} collapsed={sidebarCollapsed} />)}
 
           {/* ── الطلبات ── */}
           {visibleNav.some(i => i.group === "orders") && (
-            <NavGroup label="الطلبات" icon={Package} iconColor="text-orange-400" location={location} prefixes={["/orders","/invoices","/shipping-followup"]} isOpen={openGroup === "orders"} onToggle={() => toggleGroup("orders")}>
+            <NavGroup label="الطلبات" icon={Package} iconColor="text-orange-400" location={location} prefixes={["/orders","/invoices","/shipping-followup"]} isOpen={openGroup === "orders"} onToggle={() => toggleGroup("orders")} collapsed={sidebarCollapsed}>
               {visibleNav.filter(i => i.group === "orders").map(item => <NavItem key={item.href+item.label} item={item} location={location} sub />)}
             </NavGroup>
           )}
 
           {/* ── الشحن والتوصيل ── */}
           {visibleNav.some(i => i.group === "shipping") && (
-            <NavGroup label="الشحن والتوصيل" icon={Truck} iconColor="text-sky-400" location={location} prefixes={["/shipping"]} isOpen={openGroup === "shipping"} onToggle={() => toggleGroup("shipping")}>
+            <NavGroup label="الشحن والتوصيل" icon={Truck} iconColor="text-sky-400" location={location} prefixes={["/shipping"]} isOpen={openGroup === "shipping"} onToggle={() => toggleGroup("shipping")} collapsed={sidebarCollapsed}>
               {visibleNav.filter(i => i.group === "shipping").map(item => <NavItem key={item.href} item={item} location={location} sub />)}
             </NavGroup>
           )}
 
           {/* ── المنتجات والمخزون ── */}
           {visibleNav.some(i => i.group === "inventory") && (
-            <NavGroup label="المنتجات والمخزون" icon={Boxes} iconColor="text-violet-400" location={location} prefixes={["/inventory","/warehouses","/movements"]} isOpen={openGroup === "inventory"} onToggle={() => toggleGroup("inventory")}>
+            <NavGroup label="المنتجات والمخزون" icon={Boxes} iconColor="text-violet-400" location={location} prefixes={["/inventory","/warehouses","/movements"]} isOpen={openGroup === "inventory"} onToggle={() => toggleGroup("inventory")} collapsed={sidebarCollapsed}>
               {visibleNav.filter(i => i.group === "inventory").map(item => <NavItem key={item.href} item={item} location={location} sub />)}
             </NavGroup>
           )}
 
           {/* ── التحليلات ── */}
           {visibleNav.some(i => i.group === "analytics") && (
-            <NavGroup label="التحليلات" icon={BarChart3} iconColor="text-pink-400" location={location} prefixes={["/product-performance","/smart","/ads-analytics","/team-performance","/sessions-report"]} isOpen={openGroup === "analytics"} onToggle={() => toggleGroup("analytics")}>
+            <NavGroup label="التحليلات" icon={BarChart3} iconColor="text-pink-400" location={location} prefixes={["/product-performance","/smart","/ads-analytics","/team-performance","/sessions-report"]} isOpen={openGroup === "analytics"} onToggle={() => toggleGroup("analytics")} collapsed={sidebarCollapsed}>
               {visibleNav.filter(i => i.group === "analytics").map(item => <NavItem key={item.href+item.label} item={item} location={location} sub />)}
             </NavGroup>
           )}
 
           {/* ── الماليات ── */}
           {(isAdmin || can("finance")) && (
-            <NavGroup label="الماليات" icon={DollarSign} iconColor="text-emerald-400" location={location} prefixes={["/finance"]} isOpen={openGroup === "finance"} onToggle={() => toggleGroup("finance")}>
+            <NavGroup label="الماليات" icon={DollarSign} iconColor="text-emerald-400" location={location} prefixes={["/finance"]} isOpen={openGroup === "finance"} onToggle={() => toggleGroup("finance")} collapsed={sidebarCollapsed}>
               {FINANCE_NAV.map((item) => {
                 const isActive = location === item.href;
                 const Icon = item.icon;
@@ -509,27 +547,28 @@ export default function Layout({ children }: LayoutProps) {
 
           {/* ── الفريق والإدارة ── */}
           {visibleNav.some(i => i.group === "team") && (
-            <NavGroup label="الفريق والإدارة" icon={Users} iconColor="text-green-400" location={location} prefixes={["/team","/team-performance","/users","/audit-logs"]} isOpen={openGroup === "team"} onToggle={() => toggleGroup("team")}>
+            <NavGroup label="الفريق والإدارة" icon={Users} iconColor="text-green-400" location={location} prefixes={["/team","/team-performance","/users","/audit-logs"]} isOpen={openGroup === "team"} onToggle={() => toggleGroup("team")} collapsed={sidebarCollapsed}>
               {visibleNav.filter(i => i.group === "team").map(item => <NavItem key={item.href+item.label} item={item} location={location} sub />)}
             </NavGroup>
           )}
 
           {/* ── الأدوات ── */}
           {visibleNav.some(i => i.group === "tools") && (
-            <NavGroup label="الأدوات" icon={Upload} iconColor="text-amber-400" location={location} prefixes={["/import","/export","/archive"]} isOpen={openGroup === "tools"} onToggle={() => toggleGroup("tools")}>
+            <NavGroup label="الأدوات" icon={Upload} iconColor="text-amber-400" location={location} prefixes={["/import","/export","/archive"]} isOpen={openGroup === "tools"} onToggle={() => toggleGroup("tools")} collapsed={sidebarCollapsed}>
               {visibleNav.filter(i => i.group === "tools").map(item => <NavItem key={item.href} item={item} location={location} sub />)}
             </NavGroup>
           )}
 
           {/* ── الإعدادات والدعم ── */}
           {visibleNav.some(i => i.group === "settings") && (
-            <NavGroup label="الإعدادات والدعم" icon={Settings} iconColor="text-emerald-500" location={location} prefixes={["/whatsapp","/audit-logs"]} isOpen={openGroup === "settings"} onToggle={() => toggleGroup("settings")}>
+            <NavGroup label="الإعدادات والدعم" icon={Settings} iconColor="text-emerald-500" location={location} prefixes={["/whatsapp","/audit-logs"]} isOpen={openGroup === "settings"} onToggle={() => toggleGroup("settings")} collapsed={sidebarCollapsed}>
               {visibleNav.filter(i => i.group === "settings").map(item => <NavItem key={item.href+item.label} item={item} location={location} sub />)}
             </NavGroup>
           )}
         </nav>
 
-        {/* User info */}
+        {/* User info — hidden when collapsed */}
+        {!sidebarCollapsed && (
         <div className="border-t border-sidebar-border">
           <div className="relative">
             <button
@@ -591,6 +630,7 @@ export default function Layout({ children }: LayoutProps) {
             )}
           </div>
         </div>
+        )}
       </aside>
 
       {/* Main */}
