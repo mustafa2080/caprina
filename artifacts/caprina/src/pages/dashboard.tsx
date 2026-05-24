@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useGetOrdersSummary, useGetRecentOrders } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -655,6 +655,33 @@ export default function Dashboard() {
     enabled: canViewFinancials,
   });
   const totalCash = cashRegisters?.totalBalance ?? 0;
+
+  // ── حساب trend ديناميكي لكل منتج من آخر 7 أسابيع ──
+  const productTrendMap = useMemo(() => {
+    if (!saleOrders?.length) return {} as Record<string, number[]>;
+    const now = new Date();
+    const weeks = 7;
+    const map: Record<string, number[]> = {};
+    for (let w = 0; w < weeks; w++) {
+      const from = new Date(now);
+      from.setDate(now.getDate() - (weeks - w) * 7);
+      const to = new Date(from);
+      to.setDate(from.getDate() + 7);
+      saleOrders.forEach((order: any) => {
+        const d = new Date(order.createdAt || order.date || 0);
+        if (d >= from && d < to) {
+          const items: any[] = order.items || order.orderItems || [];
+          items.forEach((item: any) => {
+            const name = item.productName || item.name || "";
+            if (!name) return;
+            if (!map[name]) map[name] = Array(weeks).fill(0);
+            map[name][w] += item.quantity || 1;
+          });
+        }
+      });
+    }
+    return map;
+  }, [saleOrders]);
 
   const highAlerts = alertsData?.alerts.filter(a => a.severity === "high" && a.type !== "HIGH_RETURN") ?? [];
   const allAlerts = alertsData?.alerts ?? [];
@@ -1363,13 +1390,15 @@ export default function Dashboard() {
                         .slice(0, 5)
                         .map((p, i) => (
                           <div key={p.name} className="flex items-center gap-3 p-2.5 rounded-xl border border-border bg-muted/20 hover:bg-muted/40 transition-colors">
+                            {/* رقم الترتيب */}
                             <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black shrink-0 ${
                               i === 0 ? "bg-amber-500 text-black" : i === 1 ? "bg-zinc-400 text-black" : i === 2 ? "bg-amber-700 text-white" : "bg-muted text-muted-foreground"
                             }`}>{i + 1}</div>
-                            <div className="w-9 h-9 rounded-full bg-muted border-2 border-border flex items-center justify-center shrink-0 overflow-hidden">
-                              {products?.find(pr => pr.name === p.name)?.image
-                                ? <img src={products.find(pr => pr.name === p.name)!.image!} alt={p.name} className="w-full h-full object-cover" />
-                                : <Package className="w-4 h-4 text-muted-foreground" />
+                            {/* صورة المنتج */}
+                            <div className="w-10 h-10 rounded-xl bg-muted border-2 border-border flex items-center justify-center shrink-0 overflow-hidden">
+                              {p.image
+                                ? <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
+                                : <Package className="w-5 h-5 text-muted-foreground" />
                               }
                             </div>
                             <div className="flex-1 min-w-0">
@@ -1377,36 +1406,33 @@ export default function Dashboard() {
                               <p className="text-[9px] text-muted-foreground">{fn(p.totalOrders)} طلب • {fn(p.totalSalesQty)} وحدة</p>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
-                              {/* Sparkline منحنى */}
+                              {/* Sparkline ديناميكي */}
                               {(() => {
-                                const pts = [0.3, 0.5, 0.4, 0.7, 0.6, 0.85, 1].map(r => Math.round(p.totalOrders * r));
+                                const raw = productTrendMap[p.name] ?? [];
+                                // لو مافيش بيانات كافية نبني من totalOrders بشكل تصاعدي
+                                const pts = raw.some(v => v > 0)
+                                  ? raw
+                                  : [0.15, 0.3, 0.45, 0.55, 0.65, 0.8, 1].map(r => Math.round(p.totalOrders * r));
                                 const max = Math.max(...pts, 1);
-                                const W = 40, H = 24;
+                                const W = 44, H = 26;
                                 const coords = pts.map((v, i) => [
                                   (i / (pts.length - 1)) * W,
-                                  H - (v / max) * (H - 3) - 1,
+                                  H - (v / max) * (H - 4) - 1,
                                 ]);
-                                const d = coords.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x},${y}`).join(" ");
+                                const d = coords.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+                                const isGrowing = pts[pts.length - 1] >= pts[Math.floor(pts.length / 2)];
+                                const color = isGrowing ? "#10b981" : "#ef4444";
                                 return (
                                   <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} fill="none">
                                     <defs>
                                       <linearGradient id={`sg-${i}`} x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stopColor="hsl(43,74%,50%)" stopOpacity="0.3"/>
-                                        <stop offset="100%" stopColor="hsl(43,74%,50%)" stopOpacity="0"/>
+                                        <stop offset="0%" stopColor={color} stopOpacity="0.3"/>
+                                        <stop offset="100%" stopColor={color} stopOpacity="0"/>
                                       </linearGradient>
                                     </defs>
-                                    <path
-                                      d={`${d} L${W},${H} L0,${H} Z`}
-                                      fill={`url(#sg-${i})`}
-                                    />
-                                    <path
-                                      d={d}
-                                      stroke="hsl(43,74%,50%)"
-                                      strokeWidth="1.8"
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                    />
-                                    <circle cx={coords[coords.length-1][0]} cy={coords[coords.length-1][1]} r="2" fill="hsl(43,74%,50%)"/>
+                                    <path d={`${d} L${W},${H} L0,${H} Z`} fill={`url(#sg-${i})`} />
+                                    <path d={d} stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                    <circle cx={coords[coords.length-1][0]} cy={coords[coords.length-1][1]} r="2.5" fill={color}/>
                                   </svg>
                                 );
                               })()}
