@@ -491,6 +491,19 @@ export default function Layout({ children }: LayoutProps) {
             )}
           </nav>
 
+          {/* Theme toggle footer */}
+          <div className="shrink-0 border-t border-sidebar-border py-3 flex justify-center">
+            <button type="button" onClick={toggleTheme} title={theme === "dark" ? "الوضع النهاري" : "الوضع الليلي"}
+              className="w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95"
+              style={{
+                background: theme === "dark" ? "linear-gradient(135deg,#1e293b,#0f172a)" : "linear-gradient(135deg,#fef3c7,#fde68a)",
+                border: theme === "dark" ? "1px solid rgba(148,163,184,0.25)" : "1px solid rgba(251,191,36,0.6)",
+                boxShadow: theme === "dark" ? "0 0 8px rgba(148,163,184,0.2)" : "0 0 10px rgba(251,191,36,0.4)",
+              }}>
+              {theme === "dark" ? <Sun className="w-4 h-4 text-amber-300" /> : <Moon className="w-4 h-4 text-indigo-600" />}
+            </button>
+          </div>
+
         </aside>
       </div>
 
