@@ -863,7 +863,7 @@ export default function FinanceHub() {
       )}
 
       {/* ── KPI Cards ───────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
         <KpiCard label="إجمالي الكاش" value={totalCash} sub={`${cash?.registers?.length ?? 0} خزنة نشطة`}
           icon={Banknote} color="text-yellow-500" bg="bg-yellow-500/10"
           link="/finance/cash"
@@ -887,7 +887,8 @@ export default function FinanceHub() {
       {/* ── Chart المبيعات والأرباح (آخر 6 شهور) ───────────────────────────── */}
       <MonthlyFlowChart data={monthlyChartData} isLoading={isLoading} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4">
+      {/* ── التدفق النقدي + الخزنة (always 2 cols on md+) ───────────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
         {/* التدفق النقدي اليومي */}
         <Card className="border-border p-5">
@@ -932,10 +933,10 @@ export default function FinanceHub() {
 
 
       {/* ── Grid: P&L + مؤشرات الطلبات ─────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
 
         {/* P&L Statement */}
-        <Card className="border-border overflow-hidden lg:col-span-2 2xl:col-span-2">
+        <Card className="border-border overflow-hidden lg:col-span-3">
           <div className="px-5 py-4 border-b border-border bg-muted/30 flex items-center justify-between">
             <SectionHeader icon={FileText} title="قائمة الأرباح والخسائر" sub="مقارنة بالفترة السابقة"/>
           </div>
@@ -980,7 +981,7 @@ export default function FinanceHub() {
         </Card>
 
         {/* مؤشرات الطلبات */}
-        <div className="space-y-3">
+        <div className="lg:col-span-2 space-y-3">
           <SectionHeader icon={Package} title="مؤشرات الطلبات"/>
           {[
             {label:"إجمالي الطلبات", val:fmt(ords?.total??0), sub:"في الفترة المحددة", color:"text-foreground", bg:"bg-muted/50", Icon:Package},
@@ -1004,7 +1005,7 @@ export default function FinanceHub() {
 
 
       {/* ── Grid: توزيع المصروفات + آخر الحركات ────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
         {/* Pie: توزيع المصروفات */}
         <Card className="border-border p-5">
@@ -1087,7 +1088,7 @@ export default function FinanceHub() {
       <MoMExpenseReport />
 
       {/* ── مستحقات + أوامر الشراء ──────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {/* مستحقات الشحن */}
         <Link href="/finance/shipping-invoices">
           <div className="rounded-2xl border border-sky-500/20 bg-sky-500/5 p-4 hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer group">
