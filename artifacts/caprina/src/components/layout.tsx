@@ -247,11 +247,15 @@ export default function Layout({ children }: LayoutProps) {
       if (opening && firstHref) navigate(firstHref);
       if (opening) {
         setTimeout(() => {
-          const groupEl = navRef.current?.querySelector(`[data-group="${key}"]`) as HTMLElement | null;
-          if (groupEl) {
-            groupEl.scrollIntoView({ behavior: "smooth", block: "start" });
+          const nav = navRef.current;
+          const groupEl = nav?.querySelector(`[data-group="${key}"]`) as HTMLElement | null;
+          if (nav && groupEl) {
+            const navTop = nav.getBoundingClientRect().top;
+            const groupTop = groupEl.getBoundingClientRect().top;
+            const offset = groupTop - navTop + nav.scrollTop - 8;
+            nav.scrollTo({ top: offset, behavior: "smooth" });
           }
-        }, 50);
+        }, 450);
       }
       return opening ? key : null;
     });
