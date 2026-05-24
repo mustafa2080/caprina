@@ -492,11 +492,11 @@ export default function Layout({ children }: LayoutProps) {
             )}
           </nav>
 
-          {/* Theme toggle footer */}
+          {/* Footer */}
           <div className="shrink-0 border-t border-sidebar-border">
             {sidebarCollapsed ? (
-              /* Collapsed: زر وسط */
-              <div className="py-3 flex justify-center">
+              /* Collapsed */
+              <div className="py-3 flex flex-col items-center gap-2">
                 <button type="button" onClick={toggleTheme} title={theme === "dark" ? "الوضع النهاري" : "الوضع الليلي"}
                   className="w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95"
                   style={{
@@ -506,9 +506,20 @@ export default function Layout({ children }: LayoutProps) {
                   }}>
                   {theme === "dark" ? <Sun className="w-4 h-4 text-amber-300" /> : <Moon className="w-4 h-4 text-indigo-600" />}
                 </button>
+                <button type="button" onClick={logout} title="تسجيل الخروج"
+                  className="w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 group"
+                  style={{
+                    background: "linear-gradient(135deg,rgba(239,68,68,0.15),rgba(185,28,28,0.1))",
+                    border: "1px solid rgba(239,68,68,0.25)",
+                    boxShadow: "0 0 8px rgba(239,68,68,0.1)",
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "linear-gradient(135deg,rgba(239,68,68,0.35),rgba(185,28,28,0.25))"; e.currentTarget.style.boxShadow = "0 0 14px rgba(239,68,68,0.4)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "linear-gradient(135deg,rgba(239,68,68,0.15),rgba(185,28,28,0.1))"; e.currentTarget.style.boxShadow = "0 0 8px rgba(239,68,68,0.1)"; }}>
+                  <LogOut className="w-4 h-4 text-red-400" />
+                </button>
               </div>
             ) : (
-              /* Expanded: صف فيه اسم المدير + زر الليل/النهار */
+              /* Expanded */
               <div className="px-3 py-2.5 flex items-center gap-2">
                 <button type="button" onClick={toggleTheme} title={theme === "dark" ? "الوضع النهاري" : "الوضع الليلي"}
                   className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95"
@@ -534,6 +545,18 @@ export default function Layout({ children }: LayoutProps) {
                     <span className="absolute inset-0 rounded-full bg-emerald-400 animate-ping" style={{opacity:0.7}} />
                   </span>
                 </div>
+                {/* زر تسجيل الخروج */}
+                <button type="button" onClick={logout} title="تسجيل الخروج"
+                  className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95"
+                  style={{
+                    background: "linear-gradient(135deg,rgba(239,68,68,0.15),rgba(185,28,28,0.1))",
+                    border: "1px solid rgba(239,68,68,0.25)",
+                    boxShadow: "0 0 6px rgba(239,68,68,0.1)",
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "linear-gradient(135deg,rgba(239,68,68,0.35),rgba(185,28,28,0.25))"; e.currentTarget.style.boxShadow = "0 0 14px rgba(239,68,68,0.5)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "linear-gradient(135deg,rgba(239,68,68,0.15),rgba(185,28,28,0.1))"; e.currentTarget.style.boxShadow = "0 0 6px rgba(239,68,68,0.1)"; }}>
+                  <LogOut className="w-3.5 h-3.5 text-red-400" />
+                </button>
               </div>
             )}
           </div>
