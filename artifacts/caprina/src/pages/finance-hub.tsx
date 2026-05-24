@@ -549,228 +549,98 @@ function MoMExpenseReport() {
   );
 }
 
-// ─── Monthly Flow Chart — Glass Dark احترافي ──────────────────────────────────
-type FlowView = "area" | "bar";
-
-const FLOW_COLORS = {
-  revenue:  { stroke: "#10b981", glow: "rgba(16,185,129,0.30)", gradId: "mfRev",  label: "الإيراد",       dark: "#0a9e6a" },
-  expenses: { stroke: "#f43f5e", glow: "rgba(244,63,94,0.22)",  gradId: "mfExp",  label: "المصروفات",     dark: "#c4193e" },
-  profit:   { stroke: "#6366f1", glow: "rgba(99,102,241,0.28)", gradId: "mfProf", label: "صافي الربح",    dark: "#4547d0" },
-};
-
-function FlowTooltip({ active, payload, label }: any) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div dir="rtl" className="rounded-2xl px-4 py-3 shadow-2xl text-xs space-y-2 min-w-[160px]"
-      style={{ background: "hsl(var(--card))", border: "1px solid rgba(99,102,241,0.35)" }}>
-      <p className="font-black text-sm" style={{ color: "#6366f1" }}>{label}</p>
-      {payload.map((p: any) => {
-        const cfg = Object.values(FLOW_COLORS).find(c => c.label === p.name) ?? { stroke: p.color, glow: "" };
-        return (
-          <div key={p.name} className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full shrink-0" style={{ background: cfg.stroke }} />
-              <span className="text-muted-foreground">{p.name}</span>
-            </div>
-            <span className="font-black tabular-nums" style={{ color: cfg.stroke }}>
-              {fmtS(p.value)} ج.م
-            </span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
+// ─── Monthly Flow Chart — منحنى دهبي ──────────────────────────────────────────
 
 function MonthlyFlowChart({ data, isLoading }: { data: any[]; isLoading: boolean }) {
-  const [view, setView] = useState<FlowView>("area");
-  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const GOLD = "#f59e0b";
+  const GOLD_GLOW = "rgba(245,158,11,0.35)";
 
-  const toggle = (key: string) =>
-    setHidden(prev => { const s = new Set(prev); s.has(key) ? s.delete(key) : s.add(key); return s; });
-
-  // stat cards
-  const totals = data.reduce(
-    (acc, m) => ({ revenue: acc.revenue + m.revenue, expenses: acc.expenses + m.expenses, profit: acc.profit + m.profit }),
-    { revenue: 0, expenses: 0, profit: 0 }
-  );
-  const bestMonth = data.reduce((a, b) => (b.profit > a.profit ? b : a), data[0] ?? { label: "—", profit: 0 });
-
-  const VIEW_TABS: { id: FlowView; emoji: string; label: string; color: string }[] = [
-    { id: "area", emoji: "〰️", label: "خطي تدرجي", color: "#6366f1" },
-    { id: "bar",  emoji: "▐▌", label: "أعمدة",     color: "#10b981" },
-  ];
-
-  const statCards = [
-    { label: "إجمالي الإيراد",    value: totals.revenue,  color: FLOW_COLORS.revenue.stroke,  glow: FLOW_COLORS.revenue.glow,  bg: "linear-gradient(135deg,rgba(16,185,129,0.38) 0%,rgba(16,185,129,0.14) 55%,rgba(255,255,255,0.06) 100%)" },
-    { label: "إجمالي المصروفات",  value: totals.expenses, color: FLOW_COLORS.expenses.stroke, glow: FLOW_COLORS.expenses.glow, bg: "linear-gradient(135deg,rgba(244,63,94,0.38) 0%,rgba(244,63,94,0.14) 55%,rgba(255,255,255,0.06) 100%)" },
-    { label: "صافي الربح الكلي",  value: totals.profit,   color: totals.profit >= 0 ? FLOW_COLORS.profit.stroke : "#f43f5e", glow: FLOW_COLORS.profit.glow, bg: "linear-gradient(135deg,rgba(99,102,241,0.38) 0%,rgba(99,102,241,0.14) 55%,rgba(255,255,255,0.06) 100%)" },
-    { label: "أفضل شهر ربحاً",    value: bestMonth.profit, color: "#f59e0b", glow: "rgba(245,158,11,0.28)", bg: "linear-gradient(135deg,rgba(245,158,11,0.38) 0%,rgba(245,158,11,0.14) 55%,rgba(255,255,255,0.06) 100%)", sub: bestMonth.label },
-  ];
+  const total = data.reduce((s, m) => s + (m.revenue ?? 0), 0);
+  const best  = data.reduce((a, b) => (b.revenue > a.revenue ? b : a), data[0] ?? { label: "—", revenue: 0 });
 
   return (
     <div className="relative overflow-hidden rounded-[26px] p-5"
       style={{
-        background: "linear-gradient(135deg, rgba(99,102,241,0.07) 0%, rgba(255,255,255,0.01) 100%)",
-        border: "1px solid rgba(99,102,241,0.22)",
-        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.10), 0 8px 32px rgba(99,102,241,0.12)",
+        background: "linear-gradient(135deg, rgba(245,158,11,0.07) 0%, rgba(255,255,255,0.01) 100%)",
+        border: "1px solid rgba(245,158,11,0.25)",
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.10), 0 8px 32px rgba(245,158,11,0.10)",
       }}>
       {/* خط ضوء علوي */}
       <div className="absolute inset-x-12 top-0 h-px pointer-events-none"
-        style={{ background: "linear-gradient(90deg, transparent, #6366f1, transparent)" }} />
+        style={{ background: "linear-gradient(90deg, transparent, #f59e0b, transparent)" }} />
 
-      {/* Header + toggle */}
-      <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-            style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.30)" }}>
-            <BarChart3 className="w-4 h-4 text-indigo-400" />
-          </div>
-          <div>
-            <h3 className="text-sm font-black">التدفق المالي — آخر 6 شهور</h3>
-            <p className="text-[11px] text-muted-foreground">الإيراد والمصروفات وصافي الربح شهرياً</p>
-          </div>
+      {/* Header */}
+      <div className="flex items-center gap-2.5 mb-5">
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+          style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.35)" }}>
+          <BarChart3 className="w-4 h-4" style={{ color: GOLD }} />
         </div>
-
-        {/* View toggle */}
-        <div className="flex gap-1.5">
-          {VIEW_TABS.map(tab => {
-            const isActive = view === tab.id;
-            return (
-              <button key={tab.id} onClick={() => setView(tab.id)}
-                style={{
-                  display: "flex", alignItems: "center", gap: 5,
-                  padding: "5px 13px", borderRadius: 20,
-                  border: `1.5px solid ${isActive ? tab.color : "hsl(var(--border))"}`,
-                  background: isActive ? `${tab.color}22` : "hsl(var(--muted)/0.5)",
-                  color: isActive ? tab.color : "hsl(var(--muted-foreground))",
-                  fontSize: 11, fontWeight: isActive ? 800 : 500,
-                  cursor: "pointer",
-                  boxShadow: isActive ? `0 0 12px ${tab.color}44` : "none",
-                  transition: "all 0.2s ease",
-                }}>
-                <span>{tab.emoji}</span>{tab.label}
-              </button>
-            );
-          })}
+        <div>
+          <h3 className="text-sm font-black">التدفق المالي — آخر 6 شهور</h3>
+          <p className="text-[11px] text-muted-foreground">إجمالي الإيراد الشهري</p>
+        </div>
+        {/* stat صغير */}
+        <div className="mr-auto flex items-center gap-3">
+          <div className="text-end">
+            <p className="text-[10px] text-muted-foreground">الإجمالي</p>
+            <p className="text-sm font-black" style={{ color: GOLD }}>{fmtS(total)} ج.م</p>
+          </div>
+          <div className="text-end">
+            <p className="text-[10px] text-muted-foreground">أفضل شهر</p>
+            <p className="text-sm font-black" style={{ color: GOLD }}>{best.label}</p>
+          </div>
         </div>
       </div>
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-5">
-        {statCards.map(c => (
-          <div key={c.label} className="relative overflow-hidden rounded-[18px] px-3 py-3 text-center"
-            style={{ background: c.bg, border: `1px solid ${c.glow}`, boxShadow: `inset 0 1px 0 rgba(255,255,255,0.14), 0 6px 20px ${c.glow}`, backdropFilter: "blur(10px)" }}>
-            <div className="absolute inset-x-6 top-0 h-px" style={{ background: `linear-gradient(90deg,transparent,${c.color},transparent)` }} />
-            <p className="text-[10px] font-bold text-foreground/70 mb-1">{c.label}</p>
-            {(c as any).sub
-              ? <p className="font-black text-base leading-tight" style={{ color: c.color, textShadow: `0 0 14px ${c.color}88` }}>{(c as any).sub}</p>
-              : <p className="font-black text-base leading-tight" style={{ color: c.color, textShadow: `0 0 14px ${c.color}88` }}>{fmtS(c.value)} ج.م</p>
-            }
-          </div>
-        ))}
-      </div>
-
-      {/* Legend toggles */}
-      <div className="flex gap-2 mb-4 flex-wrap">
-        {(Object.entries(FLOW_COLORS) as [string, typeof FLOW_COLORS[keyof typeof FLOW_COLORS]][]).map(([key, cfg]) => {
-          const isHidden = hidden.has(key);
-          return (
-            <button key={key} onClick={() => toggle(key)}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all duration-200"
-              style={{
-                background: isHidden ? "hsl(var(--muted)/0.4)" : `${cfg.stroke}22`,
-                border: `1.5px solid ${isHidden ? "hsl(var(--border))" : cfg.stroke + "55"}`,
-                color: isHidden ? "hsl(var(--muted-foreground))" : cfg.stroke,
-                opacity: isHidden ? 0.5 : 1,
-              }}>
-              <span className="w-2 h-2 rounded-full" style={{ background: isHidden ? "hsl(var(--muted-foreground))" : cfg.stroke }} />
-              {cfg.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Chart area */}
+      {/* Chart */}
       {isLoading ? (
         <div className="h-56 flex items-center justify-center text-muted-foreground text-sm">جاري التحميل...</div>
       ) : data.length === 0 ? (
         <div className="h-56 flex flex-col items-center justify-center text-muted-foreground">
           <BarChart3 className="w-10 h-10 mb-2 opacity-20" />
-          <p className="text-sm">لا توجد بيانات بعد — ستظهر هنا بمجرد تسجيل أول طلب أو مصروف</p>
+          <p className="text-sm">لا توجد بيانات بعد</p>
         </div>
       ) : (
         <div className="rounded-[18px] px-2 py-3"
           style={{ background: "hsl(var(--muted)/0.25)", border: "1px solid hsl(var(--border)/0.5)" }}>
           <ResponsiveContainer width="100%" height={230}>
-            {view === "area" ? (
-              <ComposedChart data={data} margin={{ top: 10, right: 8, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="mfRev" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#10b981" stopOpacity={0.35} />
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="mfExp" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#f43f5e" stopOpacity={0.28} />
-                    <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="mfProf" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#6366f1" stopOpacity={0.22} />
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="2 5" stroke="hsl(var(--border))" vertical={false} opacity={0.5} />
-                <XAxis dataKey="label" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={v => fmtS(v)} width={44} />
-                <Tooltip content={<FlowTooltip />} />
-                {!hidden.has("revenue") && (
-                  <Area type="monotone" dataKey="revenue" name={FLOW_COLORS.revenue.label}
-                    stroke="#10b981" strokeWidth={2.5} fill="url(#mfRev)"
-                    dot={{ r: 4, fill: "#10b981", stroke: "#fff", strokeWidth: 2 }}
-                    activeDot={{ r: 6, fill: "#10b981", stroke: "#fff", strokeWidth: 2, style: { filter: "drop-shadow(0 0 6px #10b98188)" } }} />
-                )}
-                {!hidden.has("expenses") && (
-                  <Area type="monotone" dataKey="expenses" name={FLOW_COLORS.expenses.label}
-                    stroke="#f43f5e" strokeWidth={2} fill="url(#mfExp)"
-                    dot={{ r: 4, fill: "#f43f5e", stroke: "#fff", strokeWidth: 2 }}
-                    activeDot={{ r: 6, fill: "#f43f5e", stroke: "#fff", strokeWidth: 2, style: { filter: "drop-shadow(0 0 6px #f43f5e88)" } }} />
-                )}
-                {!hidden.has("profit") && (
-                  <Line type="monotone" dataKey="profit" name={FLOW_COLORS.profit.label}
-                    stroke="#6366f1" strokeWidth={2.5} strokeDasharray="5 3"
-                    dot={{ r: 4, fill: "#6366f1", stroke: "#fff", strokeWidth: 2 }}
-                    activeDot={{ r: 6, fill: "#6366f1", stroke: "#fff", strokeWidth: 2, style: { filter: "drop-shadow(0 0 6px #6366f188)" } }} />
-                )}
-              </ComposedChart>
-            ) : (
-              <BarChart data={data} margin={{ top: 10, right: 8, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="bRev" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#34d399" /><stop offset="100%" stopColor="#10b981" />
-                  </linearGradient>
-                  <linearGradient id="bExp" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#fb7185" /><stop offset="100%" stopColor="#f43f5e" />
-                  </linearGradient>
-                  <linearGradient id="bProf" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#818cf8" /><stop offset="100%" stopColor="#6366f1" />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="2 5" stroke="hsl(var(--border))" vertical={false} opacity={0.5} />
-                <XAxis dataKey="label" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={v => fmtS(v)} width={44} />
-                <Tooltip content={<FlowTooltip />} cursor={{ fill: "rgba(99,102,241,0.07)", radius: 8 }} />
-                {!hidden.has("revenue")  && <Bar dataKey="revenue"  name={FLOW_COLORS.revenue.label}  fill="url(#bRev)"  radius={[6,6,0,0]} maxBarSize={28} style={{ filter: "drop-shadow(0 0 6px #10b98166)" }} />}
-                {!hidden.has("expenses") && <Bar dataKey="expenses" name={FLOW_COLORS.expenses.label} fill="url(#bExp)"  radius={[6,6,0,0]} maxBarSize={28} style={{ filter: "drop-shadow(0 0 6px #f43f5e66)" }} />}
-                {!hidden.has("profit")   && <Bar dataKey="profit"   name={FLOW_COLORS.profit.label}   fill="url(#bProf)" radius={[6,6,0,0]} maxBarSize={28} style={{ filter: "drop-shadow(0 0 6px #6366f166)" }} />}
-              </BarChart>
-            )}
+            <ComposedChart data={data} margin={{ top: 10, right: 8, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="goldGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor={GOLD} stopOpacity={0.40} />
+                  <stop offset="95%" stopColor={GOLD} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="2 5" stroke="hsl(var(--border))" vertical={false} opacity={0.5} />
+              <XAxis dataKey="label" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={v => fmtS(v)} width={44} />
+              <Tooltip
+                content={({ active, payload, label }) => {
+                  if (!active || !payload?.length) return null;
+                  return (
+                    <div dir="rtl" className="rounded-2xl px-4 py-3 shadow-2xl text-xs space-y-1 min-w-[140px]"
+                      style={{ background: "hsl(var(--card))", border: `1px solid ${GOLD}55` }}>
+                      <p className="font-black text-sm" style={{ color: GOLD }}>{label}</p>
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-muted-foreground">الإيراد</span>
+                        <span className="font-black" style={{ color: GOLD }}>{fmtS(payload[0]?.value as number)} ج.م</span>
+                      </div>
+                    </div>
+                  );
+                }}
+              />
+              <Area type="monotone" dataKey="revenue" name="الإيراد"
+                stroke={GOLD} strokeWidth={3} fill="url(#goldGrad)"
+                dot={{ r: 5, fill: GOLD, stroke: "#000", strokeWidth: 1.5 }}
+                activeDot={{ r: 7, fill: GOLD, stroke: "#fff", strokeWidth: 2, style: { filter: `drop-shadow(0 0 8px ${GOLD})` } }}
+              />
+            </ComposedChart>
           </ResponsiveContainer>
         </div>
       )}
     </div>
   );
 }
-
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function FinanceHub() {
   const { user } = useAuth();
