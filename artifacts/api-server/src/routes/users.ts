@@ -11,15 +11,12 @@ const router: IRouter = Router();
 router.use(requireAuth);
 router.use(requireAdmin);
 
-// Helper: parse permissions from DB (MariaDB returns JSON as string, sometimes nested)
 function parsePermissions(permissions: any): string[] {
   let parsed = permissions;
-  // لو string — نعمل parse
   if (typeof parsed === "string") {
     try { parsed = JSON.parse(parsed); } catch { return []; }
   }
   if (!Array.isArray(parsed)) return [];
-  // نعمل flatten لأي nested arrays (نتيجة JSON_ARRAY_APPEND خاطئة)
   const flat: string[] = [];
   for (const item of parsed) {
     if (typeof item === "string") flat.push(item);
@@ -27,27 +24,13 @@ function parsePermissions(permissions: any): string[] {
       for (const sub of item) { if (typeof sub === "string") flat.push(sub); }
     }
   }
-  // نشيل الـ duplicates
   return [...new Set(flat)];
 }
 
 // GET /users
 router.get("/", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req);
-  const isSuperAdmin = (req as any).user?.role === "super_admin";
 
-  const userConditions: any[] = [];
-  if (tenantId !== null) {
-    // tenant admin/employee — يشوف فريقه بس
-    userConditions.push(eq(usersTable.tenantId, tenantId));
-  } else if (isSuperAdmin) {
-    // super_admin — يشوف اليوزرز اللي مش تابعين لأي tenant
-    userConditions.push(isNull(usersTable.tenantId));
-  } else {
-    // حماية: لو مفيش tenantId ومش super_admin → لا يرجع شيء
-    res.json([]);
-    return;
-  }
   const query = db.select({
     id: usersTable.id,
     username: usersTable.username,
@@ -59,9 +42,12 @@ router.get("/", async (req, res): Promise<void> => {
     createdAt: usersTable.createdAt,
     updatedAt: usersTable.updatedAt,
   }).from(usersTable);
-  const users = userConditions.length > 0
-    ? await query.where(and(...userConditions)).orderBy(usersTable.createdAt)
-    : await query.orderBy(usersTable.createdAt);
+
+  // لو عنده tenantId → فلتر بيه، لو مفيش → يشوف اللي tenantId IS NULL
+  const users = tenantId !== null
+    ? await query.where(eq(usersTable.tenantId, tenantId)).orderBy(usersTable.createdAt)
+    : await query.where(isNull(usersTable.tenantId)).orderBy(usersTable.createdAt);
+
   res.json(users.map(u => ({ ...u, permissions: parsePermissions(u.permissions) })));
 });
 
@@ -85,7 +71,8 @@ router.post("/", async (req, res): Promise<void> => {
     return;
   }
 
-  const existing = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.username, username.trim().toLowerCase())).limit(1);
+  const existing = await db.select({ id: usersTable.id }).from(usersTable)
+    .where(eq(usersTable.username, username.trim().toLowerCase())).limit(1);
   if (existing.length) {
     res.status(409).json({ error: "اسم المستخدم موجود مسبقاً" });
     return;
@@ -108,18 +95,13 @@ router.post("/", async (req, res): Promise<void> => {
   const [newUser] = await db.select({
     id: usersTable.id, username: usersTable.username, displayName: usersTable.displayName,
     role: usersTable.role, permissions: usersTable.permissions, isActive: usersTable.isActive,
-    avatar: usersTable.avatar,
-    createdAt: usersTable.createdAt, updatedAt: usersTable.updatedAt,
+    avatar: usersTable.avatar, createdAt: usersTable.createdAt, updatedAt: usersTable.updatedAt,
   }).from(usersTable).where(eq(usersTable.id, insertId));
 
   await logAudit({
-    action: "create",
-    entityType: "user",
-    entityId: newUser.id,
-    entityName: newUser.displayName,
+    action: "create", entityType: "user", entityId: newUser.id, entityName: newUser.displayName,
     after: { username: newUser.username, role: newUser.role },
-    userId: req.user!.id,
-    userName: req.user!.displayName,
+    userId: req.user!.id, userName: req.user!.displayName,
   });
 
   res.status(201).json({ ...newUser, permissions: parsePermissions(newUser.permissions) });
@@ -136,10 +118,8 @@ router.patch("/:id", async (req, res): Promise<void> => {
   const [existing] = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
   if (!existing) { res.status(404).json({ error: "المستخدم غير موجود" }); return; }
 
-  // Prevent deactivating the only admin
   if (isActive === false && existing.role === "admin") {
-    const adminCount = await db.select({ id: usersTable.id }).from(usersTable)
-      .where(eq(usersTable.role, "admin"));
+    const adminCount = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.role, "admin"));
     const activeAdmins = adminCount.filter(a => a.id !== id);
     if (activeAdmins.length === 0) {
       res.status(400).json({ error: "لا يمكن تعطيل المدير الوحيد في النظام" });
@@ -151,7 +131,6 @@ router.patch("/:id", async (req, res): Promise<void> => {
   if (displayName !== undefined) updates.displayName = displayName.trim();
   if (role !== undefined && USER_ROLES.includes(role as any)) updates.role = role as any;
   if (permissions !== undefined) {
-    // تأكد إن الـ permissions array وليست string
     updates.permissions = Array.isArray(permissions) ? permissions : [];
     console.log(`[PATCH /users/${id}] saving permissions:`, JSON.stringify(updates.permissions));
   }
@@ -170,14 +149,10 @@ router.patch("/:id", async (req, res): Promise<void> => {
   }).from(usersTable).where(eq(usersTable.id, id));
 
   await logAudit({
-    action: "update",
-    entityType: "user",
-    entityId: id,
-    entityName: updated.displayName,
+    action: "update", entityType: "user", entityId: id, entityName: updated.displayName,
     before: { role: existing.role, isActive: existing.isActive, displayName: existing.displayName },
     after: { role: updated.role, isActive: updated.isActive, displayName: updated.displayName },
-    userId: req.user!.id,
-    userName: req.user!.displayName,
+    userId: req.user!.id, userName: req.user!.displayName,
   });
 
   res.json({ ...updated, permissions: parsePermissions(updated.permissions) });
@@ -196,13 +171,9 @@ router.delete("/:id", async (req, res): Promise<void> => {
   await db.delete(usersTable).where(eq(usersTable.id, id));
 
   await logAudit({
-    action: "delete",
-    entityType: "user",
-    entityId: id,
-    entityName: existing.displayName,
+    action: "delete", entityType: "user", entityId: id, entityName: existing.displayName,
     before: { username: existing.username, role: existing.role },
-    userId: req.user!.id,
-    userName: req.user!.displayName,
+    userId: req.user!.id, userName: req.user!.displayName,
   });
 
   res.status(204).send();
