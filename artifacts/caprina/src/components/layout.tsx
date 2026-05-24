@@ -498,26 +498,39 @@ export default function Layout({ children }: LayoutProps) {
 
           {/* User info footer */}
           {!sidebarCollapsed && (
-            <div className="border-t border-sidebar-border">
+            <div className="shrink-0 border-t border-sidebar-border">
               <div className="relative">
-                <button type="button" onClick={() => setUserMenuOpen(v => !v)}
-                  className="w-full flex items-center gap-2 p-3 hover:bg-foreground/5 transition-colors text-right">
-                  <div className="relative shrink-0">
-                    {(user as any)?.avatar
-                      ? <img src={(user as any).avatar} className="w-7 h-7 rounded-full object-cover border-2 border-primary/30" alt={user?.displayName} />
-                      : <div className="w-7 h-7 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-xs font-bold text-primary">
-                          {user?.displayName?.charAt(0) ?? "?"}
-                        </div>}
-                    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-[#111] z-10" style={{boxShadow:"0 0 8px rgba(52,211,153,0.9)"}}>
-                      <span className="absolute inset-0 rounded-full bg-emerald-400 animate-ping" style={{opacity:0.75}} />
-                    </span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-sidebar-foreground truncate">{user?.displayName}</p>
-                    <p className="text-[9px] text-sidebar-foreground/40">{ROLE_LABELS[user?.role ?? ""] ?? user?.role}</p>
-                  </div>
-                  <ChevronDown className={`w-3 h-3 text-sidebar-foreground/40 transition-transform ${userMenuOpen ? "rotate-180" : ""}`} />
-                </button>
+                <div className="flex items-center gap-1 px-2 py-2">
+                  {/* زر theme */}
+                  <button type="button" onClick={toggleTheme} title={theme === "dark" ? "الوضع النهاري" : "الوضع الليلي"}
+                    className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95"
+                    style={{
+                      background: theme === "dark" ? "linear-gradient(135deg,#1e293b,#0f172a)" : "linear-gradient(135deg,#fef3c7,#fde68a)",
+                      border: theme === "dark" ? "1px solid rgba(148,163,184,0.25)" : "1px solid rgba(251,191,36,0.6)",
+                      boxShadow: theme === "dark" ? "0 0 8px rgba(148,163,184,0.15)" : "0 0 10px rgba(251,191,36,0.4)",
+                    }}>
+                    {theme === "dark" ? <Sun className="w-3.5 h-3.5 text-amber-300" /> : <Moon className="w-3.5 h-3.5 text-indigo-600" />}
+                  </button>
+                  {/* بيانات المدير */}
+                  <button type="button" onClick={() => setUserMenuOpen(v => !v)}
+                    className="flex-1 flex items-center gap-2 px-2 py-1 rounded-xl hover:bg-foreground/5 transition-colors text-right min-w-0">
+                    <div className="relative shrink-0">
+                      {(user as any)?.avatar
+                        ? <img src={(user as any).avatar} className="w-7 h-7 rounded-full object-cover border-2 border-primary/30" alt={user?.displayName} />
+                        : <div className="w-7 h-7 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-xs font-bold text-primary">
+                            {user?.displayName?.charAt(0) ?? "?"}
+                          </div>}
+                      <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-[#111] z-10" style={{boxShadow:"0 0 8px rgba(52,211,153,0.9)"}}>
+                        <span className="absolute inset-0 rounded-full bg-emerald-400 animate-ping" style={{opacity:0.75}} />
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0 text-right">
+                      <p className="text-xs font-bold text-sidebar-foreground truncate">{user?.displayName}</p>
+                      <p className="text-[9px] text-sidebar-foreground/40">{ROLE_LABELS[user?.role ?? ""] ?? user?.role}</p>
+                    </div>
+                    <ChevronDown className={`w-3 h-3 text-sidebar-foreground/40 transition-transform shrink-0 ${userMenuOpen ? "rotate-180" : ""}`} />
+                  </button>
+                </div>
                 {userMenuOpen && (
                   <div className="absolute bottom-full right-0 left-0 bg-card border border-border rounded-t-lg shadow-lg overflow-hidden z-50">
                     <button type="button" onClick={() => { toggleTheme(); setUserMenuOpen(false); }}
