@@ -317,6 +317,19 @@ export default function Layout({ children }: LayoutProps) {
                 </div>
                 {/* Brand Logo */}
                 <BrandLogoMark size="sm" onClick={() => setBrandSettingsOpen(true)} />
+                {/* User avatar */}
+                <button type="button" onClick={() => setUserMenuOpen(v => !v)} title={user?.displayName}
+                  className="relative w-10 h-10 rounded-full flex items-center justify-center hover:ring-2 hover:ring-primary/40 transition-all mt-1">
+                  {(user as any)?.avatar
+                    ? <img src={(user as any).avatar} className="w-10 h-10 rounded-full object-cover border-2 border-primary/30" alt={user?.displayName} />
+                    : <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold"
+                        style={{ background: "linear-gradient(135deg,hsl(var(--primary)/0.8),hsl(var(--primary)/0.4))", color: "hsl(var(--primary-foreground))", border: "2px solid hsl(var(--primary)/0.3)" }}>
+                        {user?.displayName?.charAt(0)?.toUpperCase() ?? "?"}
+                      </div>}
+                  <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-sidebar z-10" style={{boxShadow:"0 0 6px rgba(52,211,153,0.9)"}}>
+                    <span className="absolute inset-0 rounded-full bg-emerald-400 animate-ping" style={{opacity:0.7}} />
+                  </span>
+                </button>
               </div>
             )}
             {!sidebarCollapsed && (<>
