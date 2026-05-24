@@ -266,7 +266,7 @@ export default function Layout({ children }: LayoutProps) {
         onClick={(e) => { e.stopPropagation(); if (sidebarCollapsed) setSidebarCollapsed(false); }}
         style={{
           width: sidebarCollapsed ? "68px" : "240px",
-          transition: "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+          transition: "width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)",
           cursor: sidebarCollapsed ? "pointer" : undefined,
         }}
       >
@@ -300,12 +300,15 @@ export default function Layout({ children }: LayoutProps) {
             width: "13px", height: "13px",
             color: "hsl(var(--sidebar-foreground))",
             transform: sidebarCollapsed ? "rotate(180deg)" : "rotate(0deg)",
-            transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+            transition: "transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)",
           }} />
         </button>
 
         {/* الـ Sidebar الفعلي */}
-        <aside className="border-l border-sidebar-border bg-sidebar flex flex-col h-full w-full overflow-hidden">
+        <aside className="border-l border-sidebar-border bg-sidebar flex flex-col h-full w-full overflow-hidden"
+          style={{ transition: "opacity 0.3s ease, box-shadow 0.4s ease",
+            boxShadow: sidebarCollapsed ? "none" : "4px 0 24px rgba(0,0,0,0.18)" }}
+        >
 
           {/* Header */}
           <div className="shrink-0 border-b border-sidebar-border/60">
