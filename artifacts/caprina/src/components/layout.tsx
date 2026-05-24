@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import { useState, useMemo } from "react";
 import { firstLogoBase64 } from "@/lib/first-logo";
 import { LayoutDashboard, Package, Plus, Boxes, Truck, FileText, Upload, Activity, BarChart3, Users, Shield, LogOut, ChevronDown, KeyRound, Warehouse, Megaphone, UserCheck, UserCog, Sun, Moon, Brain, Archive, Clock, MessageCircle, Menu, X, Download, DollarSign, ShoppingCart, ShoppingBag, Receipt, Building2, Wallet, ChevronLeft, Crown, Settings, PanelRightClose, PanelRightOpen } from "lucide-react";
-import { BrandFull } from "@/components/brand-logo";
+import { BrandFull, BrandLogoMark } from "@/components/brand-logo";
 import { BrandSettingsDialog } from "@/components/brand-settings-dialog";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
