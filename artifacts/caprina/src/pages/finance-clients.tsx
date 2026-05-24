@@ -462,9 +462,7 @@ export default function FinanceClients() {
                   i === 2 ? "bg-amber-900/30 text-amber-400" :
                   "bg-muted/20 text-muted-foreground"
                 }`}>{i + 1}</div>
-                <div className="w-8 h-8 rounded-full bg-muted/30 flex items-center justify-center shrink-0">
-                  <Users className="w-4 h-4 text-muted-foreground" />
-                </div>
+                <ClientAvatar avatar={c.avatar} name={c.name} size="md" />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-bold truncate">{c.name}</p>
                 </div>
