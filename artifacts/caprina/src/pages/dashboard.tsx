@@ -1496,23 +1496,28 @@ export default function Dashboard() {
           })()}
 
           {/* ── المنصات الإعلانية النشطة ── */}
-          {smartData?.adAttribution?.breakdown?.length > 0 && (
+          {smartData != null && (smartData.adAttribution?.breakdown?.length ?? 0) > 0 && (
             <Card className="border-border overflow-hidden">
               <CardHeader className="py-2.5 sm:py-3 px-3 sm:px-4 border-b border-border">
+                {(() => {
+                  const ad = smartData!.adAttribution!;
+                  return (
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2">
                     <Zap className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-500" />
                     المنصات الإعلانية النشطة
                     <Badge variant="outline" className="text-[9px] h-4 border-amber-400/40 text-amber-600 dark:text-amber-400">
-                      {smartData.adAttribution.breakdown.length} منصة
+                      {ad.breakdown.length} منصة
                     </Badge>
                   </CardTitle>
                   <Link href="/smart" className="text-[10px] sm:text-xs text-primary hover:underline">تحليل مفصل ←</Link>
                 </div>
+                  );
+                })()}
 
                 {/* Best source summary strip */}
-                {smartData.adAttribution.bestSource && (() => {
-                  const best = getAdMeta(smartData.adAttribution.bestSource.source);
+                {smartData!.adAttribution?.bestSource && (() => {
+                  const best = getAdMeta(smartData!.adAttribution!.bestSource!.source);
                   const BestIcon = best.icon;
                   return (
                     <div className="mt-2 flex items-center gap-2 px-2.5 py-1.5 rounded-lg"
@@ -1524,11 +1529,11 @@ export default function Dashboard() {
                       <span className="text-[10px] text-muted-foreground">الأعلى أداءً:</span>
                       <span className="text-[10px] font-black">{best.label}</span>
                       <span className="text-[10px] text-muted-foreground mr-auto">
-                        {new Intl.NumberFormat("ar-EG").format(smartData.adAttribution.bestSource.orders)} طلب
+                        {new Intl.NumberFormat("ar-EG").format(smartData!.adAttribution!.bestSource!.orders)} طلب
                       </span>
                       {canViewFinancials && (
-                        <span className={`text-[10px] font-black ${smartData.adAttribution.bestSource.profit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}>
-                          {new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(smartData.adAttribution.bestSource.profit)}
+                        <span className={`text-[10px] font-black ${smartData!.adAttribution!.bestSource!.profit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}>
+                          {new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(smartData!.adAttribution!.bestSource!.profit)}
                         </span>
                       )}
                     </div>
@@ -1538,9 +1543,9 @@ export default function Dashboard() {
 
               <div className="p-2.5 sm:p-3 grid grid-cols-1 gap-2.5">
                 {(() => {
-                  const breakdown = smartData.adAttribution.breakdown;
+                  const breakdown = smartData!.adAttribution!.breakdown!;
                   const maxRevenue = Math.max(...breakdown.map((s: any) => s.revenue), 1);
-                  const bestSrc = smartData.adAttribution.bestSource?.source;
+                  const bestSrc = smartData!.adAttribution?.bestSource?.source;
                   return breakdown.map((s: any) => (
                     <DashAdSourceCard
                       key={s.source}
@@ -1559,7 +1564,7 @@ export default function Dashboard() {
 
               {/* إحصائية إجمالية في الأسفل */}
               {canViewFinancials && (() => {
-                const breakdown = smartData.adAttribution.breakdown;
+                const breakdown = smartData!.adAttribution!.breakdown!;
                 const totalOrders  = breakdown.reduce((s: number, x: any) => s + x.orders, 0);
                 const totalRevenue = breakdown.reduce((s: number, x: any) => s + x.revenue, 0);
                 const totalProfit  = breakdown.reduce((s: number, x: any) => s + x.profit, 0);
