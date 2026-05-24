@@ -288,34 +288,56 @@ export default function Layout({ children }: LayoutProps) {
 
   return (
     <div className="flex h-screen bg-background" dir="rtl">
-      {/* Sidebar */}
-      <aside
-        className="border-l border-sidebar-border bg-sidebar shrink-0 hidden md:flex md:flex-col relative"
+      {/* Sidebar wrapper — يحتوي على الـ aside والزر على حافتها */}
+      <div
+        className="hidden md:block shrink-0 relative"
         style={{
           width: sidebarCollapsed ? "68px" : "240px",
           transition: "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-          overflow: "hidden",
         }}
       >
-        {/* ── زر Toggle الـ Sidebar ── */}
+        {/* ── زر Toggle — على حافة يسار الـ sidebar ── */}
         <button
           type="button"
           onClick={() => setSidebarCollapsed(v => !v)}
           title={sidebarCollapsed ? "توسيع القائمة" : "تصغير القائمة"}
-          className="absolute top-3 left-2 z-50 flex items-center justify-center rounded-lg transition-all duration-200 hover:scale-110 active:scale-95"
           style={{
-            width: "28px", height: "28px",
-            background: "linear-gradient(135deg, rgba(96,165,250,0.15), rgba(96,165,250,0.06))",
-            border: "1px solid rgba(96,165,250,0.2)",
-            boxShadow: "0 2px 8px rgba(96,165,250,0.1)",
+            position: "absolute",
+            top: "50%",
+            left: "-13px",
+            transform: "translateY(-50%)",
+            zIndex: 50,
+            width: "26px",
+            height: "26px",
+            borderRadius: "50%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "hsl(var(--sidebar))",
+            border: "2px solid hsl(var(--sidebar-border))",
+            boxShadow: "-2px 0 8px rgba(0,0,0,0.25)",
+            cursor: "pointer",
+            transition: "background 0.2s ease",
           }}
+          onMouseEnter={e => (e.currentTarget.style.background = "hsl(var(--primary))")}
+          onMouseLeave={e => (e.currentTarget.style.background = "hsl(var(--sidebar))")}
         >
-          {sidebarCollapsed ? (
-            <PanelRightClose style={{ width: "14px", height: "14px", color: "rgba(96,165,250,0.8)" }} />
-          ) : (
-            <PanelRightOpen style={{ width: "14px", height: "14px", color: "rgba(96,165,250,0.8)" }} />
-          )}
+          <ChevronLeft
+            style={{
+              width: "13px",
+              height: "13px",
+              color: "hsl(var(--sidebar-foreground))",
+              transform: sidebarCollapsed ? "rotate(180deg)" : "rotate(0deg)",
+              transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+            }}
+          />
         </button>
+
+        {/* ── الـ Sidebar الفعلي ── */}
+        <aside
+          className="border-l border-sidebar-border bg-sidebar flex flex-col h-full"
+          style={{ overflow: "hidden", width: "100%" }}
+        >
 
         {/* ── Header الـ Sidebar ── */}
         <div className="shrink-0 border-b border-sidebar-border/60">
@@ -632,6 +654,7 @@ export default function Layout({ children }: LayoutProps) {
         </div>
         )}
       </aside>
+      </div>
 
       {/* Main */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
