@@ -478,19 +478,9 @@ export default function Layout({ children }: LayoutProps) {
             )}
           </nav>
 
-          {/* User info footer */}
+          {/* User info footer - collapsed */}
           {sidebarCollapsed && (
-            <div className="shrink-0 border-t border-sidebar-border py-3 flex flex-col items-center gap-2 px-1">
-              {/* Theme toggle */}
-              <button type="button" onClick={toggleTheme} title={theme === "dark" ? "الوضع النهاري" : "الوضع الليلي"}
-                className="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95"
-                style={{
-                  background: theme === "dark" ? "linear-gradient(135deg,#1e293b,#0f172a)" : "linear-gradient(135deg,#fef3c7,#fde68a)",
-                  border: theme === "dark" ? "1px solid rgba(148,163,184,0.25)" : "1px solid rgba(251,191,36,0.6)",
-                  boxShadow: theme === "dark" ? "0 0 8px rgba(148,163,184,0.2)" : "0 0 10px rgba(251,191,36,0.4)",
-                }}>
-                {theme === "dark" ? <Sun className="w-4 h-4 text-amber-300" /> : <Moon className="w-4 h-4 text-indigo-600" />}
-              </button>
+            <div className="shrink-0 border-t border-sidebar-border py-3 flex flex-col items-center gap-3 px-1">
               {/* User avatar */}
               <button type="button" onClick={() => setUserMenuOpen(v => !v)} title={user?.displayName}
                 className="relative w-10 h-10 rounded-full flex items-center justify-center hover:ring-2 hover:ring-primary/40 transition-all">
@@ -503,6 +493,16 @@ export default function Layout({ children }: LayoutProps) {
                 <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-sidebar z-10" style={{boxShadow:"0 0 6px rgba(52,211,153,0.9)"}}>
                   <span className="absolute inset-0 rounded-full bg-emerald-400 animate-ping" style={{opacity:0.7}} />
                 </span>
+              </button>
+              {/* Theme toggle */}
+              <button type="button" onClick={toggleTheme} title={theme === "dark" ? "الوضع النهاري" : "الوضع الليلي"}
+                className="w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95"
+                style={{
+                  background: theme === "dark" ? "linear-gradient(135deg,#1e293b,#0f172a)" : "linear-gradient(135deg,#fef3c7,#fde68a)",
+                  border: theme === "dark" ? "1px solid rgba(148,163,184,0.25)" : "1px solid rgba(251,191,36,0.6)",
+                  boxShadow: theme === "dark" ? "0 0 8px rgba(148,163,184,0.2)" : "0 0 10px rgba(251,191,36,0.4)",
+                }}>
+                {theme === "dark" ? <Sun className="w-4 h-4 text-amber-300" /> : <Moon className="w-4 h-4 text-indigo-600" />}
               </button>
               {userMenuOpen && (
                 <div className="absolute bottom-16 right-1 left-1 bg-card border border-border rounded-xl shadow-xl overflow-hidden z-50">
