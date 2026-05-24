@@ -459,27 +459,56 @@ function MoMExpenseReport() {
         </div>
       ) : view === "chart" ? (
         <>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.07)" vertical={false} />
-              <XAxis dataKey="month" tick={{ fontSize: 10, fill: "rgba(255,255,255,0.45)" }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 10, fill: "rgba(255,255,255,0.45)" }} axisLine={false} tickLine={false} tickFormatter={v => fmtS(v)} width={42} />
-              <Tooltip content={<ChartTooltip />} />
-              <Legend formatter={(v) => CAT_LABELS[v] ?? v} wrapperStyle={{ fontSize: 10 }} />
-              {tableCategories.map((cat, i) => (
-                <Bar key={cat} dataKey={cat} name={CAT_LABELS[cat] ?? cat}
-                  stackId="a" fill={CAT_COLORS[cat] ?? PIE_COLORS[i % PIE_COLORS.length]}
-                  radius={i === tableCategories.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]} />
-              ))}
-            </BarChart>
-          </ResponsiveContainer>
+          <div className="rounded-[18px] px-2 py-3"
+            style={{ background: "rgba(245,158,11,0.04)", border: "1px solid rgba(245,158,11,0.15)" }}>
+            <ResponsiveContainer width="100%" height={220}>
+              <ComposedChart data={chartData} margin={{ top: 10, right: 8, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="goldTotalGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor="#f59e0b" stopOpacity={0.45} />
+                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="2 5" stroke="rgba(255,255,255,0.07)" vertical={false} />
+                <XAxis dataKey="month" tick={{ fontSize: 10, fill: "rgba(255,255,255,0.45)" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: "rgba(255,255,255,0.45)" }} axisLine={false} tickLine={false} tickFormatter={v => fmtS(v)} width={42} />
+                <Tooltip
+                  content={({ active, payload, label }: any) => {
+                    if (!active || !payload?.length) return null;
+                    return (
+                      <div dir="rtl" className="rounded-2xl px-4 py-3 shadow-2xl text-xs space-y-1.5 min-w-[160px]"
+                        style={{ background: "hsl(var(--card))", border: "1px solid rgba(245,158,11,0.35)" }}>
+                        <p className="font-black text-sm" style={{ color: "#f59e0b" }}>{label}</p>
+                        {payload.map((p: any, i: number) => (
+                          <div key={i} className="flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-2 h-2 rounded-full" style={{ background: p.color }} />
+                              <span className="text-muted-foreground">{p.name}</span>
+                            </div>
+                            <span className="font-black" style={{ color: p.color }}>{fmtS(p.value)} ج.م</span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  }}
+                />
+                <Area
+                  type="monotone" dataKey="_total" name="الإجمالي"
+                  stroke="#f59e0b" strokeWidth={3} fill="url(#goldTotalGrad)"
+                  dot={{ r: 5, fill: "#f59e0b", stroke: "#000", strokeWidth: 1.5 }}
+                  activeDot={{ r: 7, fill: "#f59e0b", stroke: "#fff", strokeWidth: 2,
+                    style: { filter: "drop-shadow(0 0 8px #f59e0b)" } }}
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
           {/* Totals row */}
           <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
             {chartData.map(d => (
               <div key={d.month} className="shrink-0 text-center px-3 py-1.5 rounded-lg"
-                style={{ background: "rgba(99,102,241,0.10)", border: "1px solid rgba(99,102,241,0.15)" }}>
+                style={{ background: "rgba(245,158,11,0.10)", border: "1px solid rgba(245,158,11,0.20)" }}>
                 <p className="text-[10px] text-muted-foreground">{d.month}</p>
-                <p className="text-xs font-black text-indigo-400">{fmtS(d._total)}</p>
+                <p className="text-xs font-black" style={{ color: "#f59e0b" }}>{fmtS(d._total)}</p>
               </div>
             ))}
           </div>
