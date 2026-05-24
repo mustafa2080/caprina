@@ -151,7 +151,7 @@ function NavGroup({ label, icon: Icon, iconColor, location, prefixes, children, 
             onToggle();
             if (firstHref) navigate(firstHref);
           }}
-          className={cn("flex items-center justify-center rounded-xl transition-all duration-200")}
+          className={cn("flex items-center justify-center rounded-xl transition-all duration-200 cursor-pointer")}
           style={{
             width: "42px", height: "42px",
             background: isActive
@@ -306,7 +306,6 @@ export default function Layout({ children }: LayoutProps) {
         style={{
           width: sidebarCollapsed ? "68px" : "240px",
           transition: "width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)",
-          cursor: sidebarCollapsed ? "pointer" : undefined,
         }}
       >
         {/* زر Toggle على الحافة اليسرى للـ sidebar (في RTL يكون على يسار الصفحة = الحافة الخارجية للـ main) */}
@@ -466,7 +465,7 @@ export default function Layout({ children }: LayoutProps) {
           </div>
 
           {/* Nav */}
-          <nav ref={navRef} className={cn("py-3 flex-1 space-y-0.5 overflow-y-auto", sidebarCollapsed ? "px-1" : "px-2")}>
+          <nav ref={navRef} className={cn("py-3 flex-1 space-y-0.5 overflow-y-auto", sidebarCollapsed ? "px-1" : "px-2")} style={sidebarCollapsed ? { cursor: "default" } : undefined}>
             {visibleNav.filter(i => i.group === "dashboard").map(item => <NavItem key={item.href} item={item} location={location} collapsed={sidebarCollapsed} />)}
 
             {visibleNav.some(i => i.group === "orders") && (
