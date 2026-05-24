@@ -80,24 +80,110 @@ function AnimNum({ value, prefix="", suffix="" }:{value:number;prefix?:string;su
 }
 
 // ─── KPI Card ─────────────────────────────────────────────────────────────────
-function KpiCard({label,value,sub,icon:Icon,color,bg,delta,link}:{
-  label:string;value:number;sub:string;icon:any;color:string;bg:string;delta?:number|null;link?:string
+const KPI_THEMES: Record<string, {
+  grad: string; border: string; shadow: string; glow: string;
+  iconBg: string; iconBorder: string; topLine: string; orb: string;
+}> = {
+  yellow: {
+    grad:       "linear-gradient(135deg, rgba(245,158,11,0.13) 0%, rgba(251,191,36,0.05) 60%, rgba(0,0,0,0) 100%)",
+    border:     "rgba(245,158,11,0.35)",
+    shadow:     "0 0 0 1px rgba(245,158,11,0.15), 0 8px 40px rgba(245,158,11,0.22), 0 2px 8px rgba(245,158,11,0.10)",
+    glow:       "0 0 60px rgba(245,158,11,0.18)",
+    iconBg:     "linear-gradient(135deg,rgba(245,158,11,0.28),rgba(251,191,36,0.12))",
+    iconBorder: "rgba(245,158,11,0.45)",
+    topLine:    "linear-gradient(90deg,transparent,#f59e0b,transparent)",
+    orb:        "rgba(245,158,11,0.12)",
+  },
+  emerald: {
+    grad:       "linear-gradient(135deg, rgba(16,185,129,0.13) 0%, rgba(52,211,153,0.05) 60%, rgba(0,0,0,0) 100%)",
+    border:     "rgba(16,185,129,0.35)",
+    shadow:     "0 0 0 1px rgba(16,185,129,0.15), 0 8px 40px rgba(16,185,129,0.22), 0 2px 8px rgba(16,185,129,0.10)",
+    glow:       "0 0 60px rgba(16,185,129,0.18)",
+    iconBg:     "linear-gradient(135deg,rgba(16,185,129,0.28),rgba(52,211,153,0.12))",
+    iconBorder: "rgba(16,185,129,0.45)",
+    topLine:    "linear-gradient(90deg,transparent,#10b981,transparent)",
+    orb:        "rgba(16,185,129,0.12)",
+  },
+  blue: {
+    grad:       "linear-gradient(135deg, rgba(59,130,246,0.13) 0%, rgba(96,165,250,0.05) 60%, rgba(0,0,0,0) 100%)",
+    border:     "rgba(59,130,246,0.35)",
+    shadow:     "0 0 0 1px rgba(59,130,246,0.15), 0 8px 40px rgba(59,130,246,0.22), 0 2px 8px rgba(59,130,246,0.10)",
+    glow:       "0 0 60px rgba(59,130,246,0.18)",
+    iconBg:     "linear-gradient(135deg,rgba(59,130,246,0.28),rgba(96,165,250,0.12))",
+    iconBorder: "rgba(59,130,246,0.45)",
+    topLine:    "linear-gradient(90deg,transparent,#3b82f6,transparent)",
+    orb:        "rgba(59,130,246,0.12)",
+  },
+  rose: {
+    grad:       "linear-gradient(135deg, rgba(244,63,94,0.13) 0%, rgba(251,113,133,0.05) 60%, rgba(0,0,0,0) 100%)",
+    border:     "rgba(244,63,94,0.35)",
+    shadow:     "0 0 0 1px rgba(244,63,94,0.15), 0 8px 40px rgba(244,63,94,0.22), 0 2px 8px rgba(244,63,94,0.10)",
+    glow:       "0 0 60px rgba(244,63,94,0.18)",
+    iconBg:     "linear-gradient(135deg,rgba(244,63,94,0.28),rgba(251,113,133,0.12))",
+    iconBorder: "rgba(244,63,94,0.45)",
+    topLine:    "linear-gradient(90deg,transparent,#f43f5e,transparent)",
+    orb:        "rgba(244,63,94,0.12)",
+  },
+};
+
+function KpiCard({label,value,sub,icon:Icon,hexColor,theme,delta,link}:{
+  label:string; value:number; sub:string; icon:any;
+  hexColor:string; theme:keyof typeof KPI_THEMES;
+  delta?:number|null; link?:string;
 }) {
+  const t = KPI_THEMES[theme] ?? KPI_THEMES.emerald;
   const inner = (
-    <div className={`rounded-2xl border border-border bg-card p-5 relative overflow-hidden group hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-default ${link?"cursor-pointer":""}`}>
-      <div className={`absolute top-0 right-0 w-28 h-28 ${bg} rounded-full -translate-y-10 translate-x-10 opacity-25 group-hover:opacity-40 transition-opacity duration-300`}/>
-      <div className={`w-11 h-11 ${bg} rounded-xl flex items-center justify-center mb-4 shadow-sm`}>
-        <Icon className={`w-5 h-5 ${color}`}/>
+    <div
+      className={`rounded-[22px] p-5 relative overflow-hidden group transition-all duration-300 hover:-translate-y-1.5 ${link?"cursor-pointer":""}`}
+      style={{
+        background: t.grad,
+        border: `1px solid ${t.border}`,
+        boxShadow: t.shadow,
+        backdropFilter: "blur(14px)",
+      }}
+    >
+      {/* خط ضوء علوي */}
+      <div className="absolute inset-x-8 top-0 h-px pointer-events-none"
+        style={{ background: t.topLine }} />
+
+      {/* كرة الضوء الخلفية */}
+      <div className="absolute -bottom-6 -left-6 w-32 h-32 rounded-full pointer-events-none transition-opacity duration-300 group-hover:opacity-100 opacity-70"
+        style={{ background: `radial-gradient(circle, ${t.orb} 0%, transparent 70%)` }} />
+
+      {/* أيقونة */}
+      <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-4 relative z-10"
+        style={{
+          background: t.iconBg,
+          border: `1px solid ${t.iconBorder}`,
+          boxShadow: `0 4px 14px ${t.orb}, inset 0 1px 0 rgba(255,255,255,0.15)`,
+        }}>
+        <Icon className="w-5 h-5" style={{ color: hexColor, filter: `drop-shadow(0 0 6px ${hexColor}88)` }} />
       </div>
-      <p className="text-xs text-muted-foreground mb-1 font-medium">{label}</p>
-      <p className={`text-2xl font-black ${color}`}>
-        {value < 0 && <span className="text-rose-500">-</span>}<AnimNum value={Math.round(Math.abs(value))}/> <span className="text-xs font-normal text-muted-foreground">ج.م</span>
+
+      {/* Label */}
+      <p className="text-xs text-muted-foreground mb-1 font-semibold relative z-10 tracking-wide">{label}</p>
+
+      {/* Value */}
+      <p className="text-2xl font-black relative z-10 leading-tight"
+        style={{ color: hexColor, textShadow: `0 0 20px ${hexColor}55` }}>
+        {value < 0 && <span style={{ color: "#f43f5e" }}>-</span>}
+        <AnimNum value={Math.round(Math.abs(value))} />
+        <span className="text-xs font-normal text-muted-foreground mr-1">ج.م</span>
       </p>
-      <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50">
+
+      {/* Footer */}
+      <div className="flex items-center justify-between mt-3 pt-2.5 relative z-10"
+        style={{ borderTop: `1px solid ${t.border}` }}>
         <p className="text-xs text-muted-foreground">{sub}</p>
-        {delta!=null && (
-          <span className={`text-xs font-bold flex items-center gap-0.5 px-1.5 py-0.5 rounded-full ${delta>=0?"bg-emerald-500/10 text-emerald-600":"bg-rose-500/10 text-rose-500"}`}>
-            {delta>=0?<TrendingUp className="w-3 h-3"/>:<TrendingDown className="w-3 h-3"/>}
+        {delta != null && (
+          <span
+            className="text-xs font-black flex items-center gap-0.5 px-2 py-0.5 rounded-full"
+            style={{
+              background: delta >= 0 ? "rgba(16,185,129,0.12)" : "rgba(244,63,94,0.12)",
+              color: delta >= 0 ? "#10b981" : "#f43f5e",
+              border: `1px solid ${delta >= 0 ? "rgba(16,185,129,0.25)" : "rgba(244,63,94,0.25)"}`,
+            }}>
+            {delta >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
             {Math.abs(delta)}%
           </span>
         )}
@@ -775,20 +861,21 @@ export default function FinanceHub() {
       {/* ── KPI Cards ───────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
         <KpiCard label="إجمالي الكاش" value={totalCash} sub={`${cash?.registers?.length ?? 0} خزنة نشطة`}
-          icon={Banknote} color="text-yellow-500" bg="bg-yellow-500/10"
+          icon={Banknote} hexColor="#f59e0b" theme="yellow"
           link="/finance/cash"
         />
         <KpiCard label="الإيراد" value={pnl?.revenue ?? 0} sub={`${fmt(ords?.delivered ?? 0)} طلب مسلّم`}
-          icon={TrendingUp} color="text-emerald-500" bg="bg-emerald-500/10"
+          icon={TrendingUp} hexColor="#10b981" theme="emerald"
           delta={pnl?.changes?.revenue}
         />
         <KpiCard label="صافي الربح" value={pnl?.netProfit ?? 0} sub={`هامش ${pnl?.netMargin ?? 0}%`}
-          icon={PiggyBank} color={pnl?.netProfit >= 0 ? "text-blue-500" : "text-rose-500"}
-          bg={pnl?.netProfit >= 0 ? "bg-blue-500/10" : "bg-rose-500/10"}
+          icon={PiggyBank}
+          hexColor={(pnl?.netProfit ?? 0) >= 0 ? "#3b82f6" : "#f43f5e"}
+          theme={(pnl?.netProfit ?? 0) >= 0 ? "blue" : "rose"}
           delta={pnl?.changes?.netProfit}
         />
         <KpiCard label="المصروفات" value={pnl?.expenses ?? 0} sub={`${expCat.length} فئة مصروفات`}
-          icon={Receipt} color="text-rose-500" bg="bg-rose-500/10"
+          icon={Receipt} hexColor="#f43f5e" theme="rose"
           delta={pnl?.changes?.expenses} link="/finance/expenses"
         />
       </div>
