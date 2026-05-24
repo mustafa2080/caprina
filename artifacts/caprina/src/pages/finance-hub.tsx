@@ -1011,34 +1011,79 @@ export default function FinanceHub() {
         <Card className="border-border p-5">
           <SectionHeader icon={Receipt} title="توزيع المصروفات" sub="بالفئة للفترة المحددة" link="/finance/expenses"/>
           {isLoading ? (
-            <div className="h-52 flex items-center justify-center text-muted-foreground text-sm">جاري التحميل...</div>
+            <div className="h-72 flex items-center justify-center text-muted-foreground text-sm">جاري التحميل...</div>
           ) : pieData.length === 0 ? (
-            <div className="h-52 flex flex-col items-center justify-center text-muted-foreground">
+            <div className="h-72 flex flex-col items-center justify-center text-muted-foreground">
               <Receipt className="w-8 h-8 mb-2 opacity-20"/>
               <p className="text-xs text-center">لا توجد مصروفات بعد<br/>أضف أول مصروف من قسم المصروفات</p>
             </div>
-          ) : (
-            <div className="flex items-center gap-4">
-              <ResponsiveContainer width="55%" height={180}>
-                <PieChart>
-                  <Pie data={pieData} cx="50%" cy="50%" innerRadius={45} outerRadius={80}
-                    paddingAngle={3} dataKey="value" isAnimationActive animationDuration={800}>
-                    {pieData.map((_:any, i:number) => <Cell key={i} fill={PIE_COLORS[i%PIE_COLORS.length]}/>)}
-                  </Pie>
-                  <Tooltip formatter={(v:number)=>[fmtF(v),"المبلغ"]}/>
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="flex-1 space-y-1.5 overflow-hidden">
-                {pieData.slice(0,6).map((e:any, i:number) => (
-                  <div key={i} className="flex items-center gap-1.5">
-                    <div className="w-2 h-2 rounded-full shrink-0" style={{background:PIE_COLORS[i%PIE_COLORS.length]}}/>
-                    <span className="text-xs truncate flex-1">{e.name}</span>
-                    <span className="text-xs font-bold shrink-0">{fmtS(e.value)}</span>
+          ) : (() => {
+            const totalExp = pieData.reduce((s:number, e:any) => s + e.value, 0);
+            return (
+              <div className="space-y-4">
+                {/* Donut Chart */}
+                <div className="relative flex items-center justify-center">
+                  <ResponsiveContainer width="100%" height={220}>
+                    <PieChart>
+                      <Pie
+                        data={pieData} cx="50%" cy="50%"
+                        innerRadius={70} outerRadius={100}
+                        paddingAngle={3} dataKey="value"
+                        isAnimationActive animationDuration={900}
+                        label={({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+                          if (percent < 0.04) return null;
+                          const RADIAN = Math.PI / 180;
+                          const r = innerRadius + (outerRadius - innerRadius) * 0.5;
+                          const x = cx + r * Math.cos(-midAngle * RADIAN);
+                          const y = cy + r * Math.sin(-midAngle * RADIAN);
+                          return (
+                            <text x={x} y={y} fill="#fff" textAnchor="middle" dominantBaseline="central"
+                              style={{ fontSize: 11, fontWeight: 700 }}>
+                              {`${Math.round(percent * 100)}%`}
+                            </text>
+                          );
+                        }}
+                        labelLine={false}
+                      >
+                        {pieData.map((_:any, i:number) => (
+                          <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]}
+                            style={{ filter: `drop-shadow(0 0 4px ${PIE_COLORS[i % PIE_COLORS.length]}66)` }}/>
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(v:number) => [fmtF(v), "المبلغ"]}/>
+                    </PieChart>
+                  </ResponsiveContainer>
+                  {/* النص في المنتصف */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <p className="text-3xl font-black text-foreground">{pieData.length}</p>
+                    <p className="text-xs text-muted-foreground">فئة مصروفات</p>
                   </div>
-                ))}
+                </div>
+                {/* Legend */}
+                <div className="space-y-2">
+                  {pieData.map((e:any, i:number) => {
+                    const pct = totalExp > 0 ? Math.round((e.value / totalExp) * 100) : 0;
+                    const color = PIE_COLORS[i % PIE_COLORS.length];
+                    return (
+                      <div key={i} className="flex items-center gap-2">
+                        {/* النقطة الملونة */}
+                        <div className="w-3 h-3 rounded-full shrink-0" style={{ background: color }}/>
+                        {/* الاسم */}
+                        <span className="text-xs flex-1 truncate text-foreground/80">{e.name}</span>
+                        {/* النسبة */}
+                        <span className="text-xs font-bold shrink-0" style={{ color }}>{pct}%</span>
+                        {/* المبلغ في badge */}
+                        <span className="text-xs font-black shrink-0 min-w-[36px] text-center rounded-md px-1.5 py-0.5"
+                          style={{ background: `${color}22`, color }}>
+                          {fmtS(e.value)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </Card>
 
         {/* آخر حركات الخزنة */}
