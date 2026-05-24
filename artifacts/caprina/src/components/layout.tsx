@@ -240,6 +240,7 @@ export default function Layout({ children }: LayoutProps) {
   const [financeOpen, setFinanceOpen] = useState(false);
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+  const sidebarRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLElement>(null);
   const toggleGroup = (key: string, firstHref?: string) => {
     setOpenGroup(prev => {
@@ -296,13 +297,17 @@ export default function Layout({ children }: LayoutProps) {
     <div
       className="flex h-screen bg-background overflow-hidden"
       dir="rtl"
-      onClick={() => { if (!sidebarCollapsed) setSidebarCollapsed(true); }}
+      onClick={(e) => {
+        if (!sidebarCollapsed && sidebarRef.current && !sidebarRef.current.contains(e.target as Node)) {
+          setSidebarCollapsed(true);
+        }
+      }}
     >
 
       {/* ── Sidebar wrapper (desktop) ── */}
       <div
+        ref={sidebarRef}
         className="hidden md:flex shrink-0 relative"
-        onClick={(e) => { e.stopPropagation(); if (sidebarCollapsed) setSidebarCollapsed(false); }}
         style={{
           width: sidebarCollapsed ? "68px" : "240px",
           transition: "width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)",
@@ -343,7 +348,8 @@ export default function Layout({ children }: LayoutProps) {
         </button>
 
         {/* الـ Sidebar الفعلي */}
-        <aside className="border-l border-sidebar-border bg-sidebar flex flex-col h-full w-full overflow-hidden"
+        <aside
+          className="border-l border-sidebar-border bg-sidebar flex flex-col h-full w-full overflow-hidden"
           style={{ transition: "opacity 0.3s ease, box-shadow 0.4s ease",
             boxShadow: sidebarCollapsed ? "none" : "4px 0 24px rgba(0,0,0,0.18)" }}
         >
