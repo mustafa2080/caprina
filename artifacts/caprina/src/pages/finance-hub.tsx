@@ -1005,8 +1005,37 @@ export default function FinanceHub() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
         {/* Pie: توزيع المصروفات */}
-        <Card className="border-border p-5">
-          <SectionHeader icon={Receipt} title="توزيع المصروفات" sub="بالفئة للفترة المحددة" link="/finance/expenses"/>
+        <div className="relative overflow-hidden rounded-[22px] p-5"
+          style={{
+            background: "linear-gradient(135deg, rgba(244,63,94,0.10) 0%, rgba(251,113,133,0.04) 60%, rgba(0,0,0,0) 100%)",
+            border: "1px solid rgba(244,63,94,0.28)",
+            boxShadow: "0 0 0 1px rgba(244,63,94,0.10), 0 8px 40px rgba(244,63,94,0.18), 0 2px 8px rgba(244,63,94,0.08)",
+            backdropFilter: "blur(14px)",
+          }}>
+          {/* خط ضوء علوي */}
+          <div className="absolute inset-x-10 top-0 h-px pointer-events-none"
+            style={{ background: "linear-gradient(90deg,transparent,#f43f5e,transparent)" }}/>
+          {/* كرة ضوء */}
+          <div className="absolute -top-10 -right-10 w-44 h-44 rounded-full pointer-events-none opacity-30"
+            style={{ background: "radial-gradient(circle,rgba(244,63,94,0.18) 0%,transparent 70%)" }}/>
+          <div className="relative z-10">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center"
+                style={{ background: "rgba(244,63,94,0.18)", border: "1px solid rgba(244,63,94,0.35)" }}>
+                <Receipt className="w-4 h-4" style={{ color: "#f43f5e", filter: "drop-shadow(0 0 6px #f43f5e88)" }}/>
+              </div>
+              <div>
+                <h2 className="text-sm font-bold">توزيع المصروفات</h2>
+                <p className="text-xs text-muted-foreground">بالفئة للفترة المحددة</p>
+              </div>
+            </div>
+            <Link href="/finance/expenses">
+              <Button variant="ghost" size="sm" className="text-xs gap-1 h-7">
+                عرض الكل <ChevronRight className="w-3 h-3"/>
+              </Button>
+            </Link>
+          </div>
           {isLoading ? (
             <div className="h-72 flex items-center justify-center text-muted-foreground text-sm">جاري التحميل...</div>
           ) : pieData.length === 0 ? (
@@ -1081,10 +1110,24 @@ export default function FinanceHub() {
               </div>
             );
           })()}
-        </Card>
+          </div>
+        </div>
 
         {/* آخر حركات الخزنة */}
-        <Card className="border-border p-5">
+        <div className="relative overflow-hidden rounded-[22px] p-5"
+          style={{
+            background: "linear-gradient(135deg, rgba(16,185,129,0.10) 0%, rgba(52,211,153,0.04) 60%, rgba(0,0,0,0) 100%)",
+            border: "1px solid rgba(16,185,129,0.28)",
+            boxShadow: "0 0 0 1px rgba(16,185,129,0.10), 0 8px 40px rgba(16,185,129,0.18), 0 2px 8px rgba(16,185,129,0.08)",
+            backdropFilter: "blur(14px)",
+          }}>
+          {/* خط ضوء علوي */}
+          <div className="absolute inset-x-10 top-0 h-px pointer-events-none"
+            style={{ background: "linear-gradient(90deg,transparent,#10b981,transparent)" }}/>
+          {/* كرة ضوء */}
+          <div className="absolute -top-10 -left-10 w-44 h-44 rounded-full pointer-events-none opacity-25"
+            style={{ background: "radial-gradient(circle,rgba(16,185,129,0.18) 0%,transparent 70%)" }}/>
+          <div className="relative z-10">
           <SectionHeader icon={Clock} title="آخر الحركات النقدية" link="/finance/cash"/>
           {isLoading ? (
             <div className="h-52 flex items-center justify-center text-muted-foreground text-sm">جاري التحميل...</div>
@@ -1119,7 +1162,8 @@ export default function FinanceHub() {
               })}
             </div>
           )}
-        </Card>
+          </div>
+        </div>
       </div>
 
 
@@ -1129,68 +1173,117 @@ export default function FinanceHub() {
       {/* ── MoM Expense Comparison ──────────────────────────────────────────── */}
       <MoMExpenseReport />
 
-      {/* ── مستحقات + أوامر الشراء ──────────────────────────────────────────── */}
+      {/* ── مستحقات + أوامر الشراء + وصول سريع ────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {/* مستحقات الشحن */}
+
+        {/* مستحقات الشحن — sky glow */}
         <Link href="/finance/shipping-invoices">
-          <div className="rounded-2xl border border-sky-500/20 bg-sky-500/5 p-4 hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer group">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-9 h-9 rounded-xl bg-sky-500/10 flex items-center justify-center">
-                <Truck className="w-4 h-4 text-sky-500"/>
-              </div>
-              <div>
-                <p className="text-sm font-bold">مستحقات الشحن</p>
-                <p className="text-[11px] text-muted-foreground">فواتير غير مسددة</p>
-              </div>
-            </div>
-            <p className="text-2xl font-black text-sky-500">{isLoading?"...":fmtF(data?.unpaidShipping?.total??0)}</p>
-            <div className="flex items-center justify-between mt-1">
-              <p className="text-xs text-muted-foreground">{data?.unpaidShipping?.count??0} فاتورة</p>
-              {(data?.unpaidShipping?.overdueCount??0) > 0 && (
-                <span className="text-[11px] bg-rose-500/10 text-rose-500 px-1.5 py-0.5 rounded-full font-bold">
-                  {data?.unpaidShipping?.overdueCount} متأخرة!
-                </span>
-              )}
-            </div>
-          </div>
-        </Link>
-
-        {/* أوامر الشراء المعلقة */}
-        <Link href="/finance/purchases">
-          <div className="rounded-2xl border border-violet-500/20 bg-violet-500/5 p-4 hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer group">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-9 h-9 rounded-xl bg-violet-500/10 flex items-center justify-center">
-                <ShoppingCart className="w-4 h-4 text-violet-500"/>
-              </div>
-              <div>
-                <p className="text-sm font-bold">أوامر الشراء</p>
-                <p className="text-[11px] text-muted-foreground">معلقة وجارية</p>
-              </div>
-            </div>
-            <p className="text-2xl font-black text-violet-500">{isLoading?"...":fmtF(data?.pendingPurchases?.total??0)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{data?.pendingPurchases?.count??0} أمر شراء</p>
-          </div>
-        </Link>
-
-        {/* روابط سريعة */}
-        <div className="rounded-2xl border border-border bg-card p-4">
-          <p className="text-xs font-bold text-muted-foreground mb-3">وصول سريع</p>
-          <div className="space-y-2">
-            {[
-              {href:"/finance/cash",              label:"الخزنة والحركات",    Icon:Wallet,       color:"text-yellow-500"},
-              {href:"/finance/sales",             label:"أوامر البيع (B2B)",  Icon:ShoppingBag,  color:"text-teal-500"},
-              {href:"/finance/expenses",          label:"إضافة مصروف",        Icon:Receipt,      color:"text-rose-500"},
-              {href:"/finance/suppliers",         label:"الموردون",           Icon:Building2,    color:"text-blue-500"},
-              {href:"/finance/cash/analytics",    label:"تحليلات الخزنة",     Icon:BarChart3,    color:"text-emerald-500"},
-            ].map(item => (
-              <Link key={item.href} href={item.href}>
-                <div className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer">
-                  <item.Icon className={`w-3.5 h-3.5 ${item.color}`}/>
-                  <span className="text-xs">{item.label}</span>
-                  <ArrowLeft className="w-3 h-3 text-muted-foreground/40 mr-auto"/>
+          <div className="relative overflow-hidden rounded-[22px] p-5 group transition-all duration-300 hover:-translate-y-1.5 cursor-pointer"
+            style={{
+              background: "linear-gradient(135deg, rgba(14,165,233,0.12) 0%, rgba(56,189,248,0.04) 60%, rgba(0,0,0,0) 100%)",
+              border: "1px solid rgba(14,165,233,0.30)",
+              boxShadow: "0 0 0 1px rgba(14,165,233,0.10), 0 8px 40px rgba(14,165,233,0.18), 0 2px 8px rgba(14,165,233,0.08)",
+              backdropFilter: "blur(14px)",
+            }}>
+            <div className="absolute inset-x-8 top-0 h-px pointer-events-none"
+              style={{ background: "linear-gradient(90deg,transparent,#0ea5e9,transparent)" }}/>
+            <div className="absolute -bottom-6 -left-6 w-28 h-28 rounded-full pointer-events-none opacity-60"
+              style={{ background: "radial-gradient(circle,rgba(14,165,233,0.15) 0%,transparent 70%)" }}/>
+            <div className="relative z-10">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+                  style={{ background: "linear-gradient(135deg,rgba(14,165,233,0.28),rgba(56,189,248,0.12))", border: "1px solid rgba(14,165,233,0.40)", boxShadow: "0 4px 14px rgba(14,165,233,0.15), inset 0 1px 0 rgba(255,255,255,0.15)" }}>
+                  <Truck className="w-4 h-4" style={{ color: "#0ea5e9", filter: "drop-shadow(0 0 6px #0ea5e988)" }}/>
                 </div>
-              </Link>
-            ))}
+                <div>
+                  <p className="text-sm font-bold">مستحقات الشحن</p>
+                  <p className="text-[11px] text-muted-foreground">فواتير غير مسددة</p>
+                </div>
+              </div>
+              <p className="text-2xl font-black" style={{ color: "#0ea5e9", textShadow: "0 0 20px #0ea5e955" }}>
+                {isLoading ? "..." : fmtF(data?.unpaidShipping?.total ?? 0)}
+              </p>
+              <div className="flex items-center justify-between mt-2 pt-2" style={{ borderTop: "1px solid rgba(14,165,233,0.20)" }}>
+                <p className="text-xs text-muted-foreground">{data?.unpaidShipping?.count ?? 0} فاتورة</p>
+                {(data?.unpaidShipping?.overdueCount ?? 0) > 0 && (
+                  <span className="text-[11px] px-2 py-0.5 rounded-full font-bold"
+                    style={{ background: "rgba(244,63,94,0.12)", color: "#f43f5e", border: "1px solid rgba(244,63,94,0.25)" }}>
+                    {data?.unpaidShipping?.overdueCount} متأخرة!
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </Link>
+
+        {/* أوامر الشراء — violet glow */}
+        <Link href="/finance/purchases">
+          <div className="relative overflow-hidden rounded-[22px] p-5 group transition-all duration-300 hover:-translate-y-1.5 cursor-pointer"
+            style={{
+              background: "linear-gradient(135deg, rgba(139,92,246,0.12) 0%, rgba(167,139,250,0.04) 60%, rgba(0,0,0,0) 100%)",
+              border: "1px solid rgba(139,92,246,0.30)",
+              boxShadow: "0 0 0 1px rgba(139,92,246,0.10), 0 8px 40px rgba(139,92,246,0.18), 0 2px 8px rgba(139,92,246,0.08)",
+              backdropFilter: "blur(14px)",
+            }}>
+            <div className="absolute inset-x-8 top-0 h-px pointer-events-none"
+              style={{ background: "linear-gradient(90deg,transparent,#8b5cf6,transparent)" }}/>
+            <div className="absolute -bottom-6 -left-6 w-28 h-28 rounded-full pointer-events-none opacity-60"
+              style={{ background: "radial-gradient(circle,rgba(139,92,246,0.15) 0%,transparent 70%)" }}/>
+            <div className="relative z-10">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+                  style={{ background: "linear-gradient(135deg,rgba(139,92,246,0.28),rgba(167,139,250,0.12))", border: "1px solid rgba(139,92,246,0.40)", boxShadow: "0 4px 14px rgba(139,92,246,0.15), inset 0 1px 0 rgba(255,255,255,0.15)" }}>
+                  <ShoppingCart className="w-4 h-4" style={{ color: "#8b5cf6", filter: "drop-shadow(0 0 6px #8b5cf688)" }}/>
+                </div>
+                <div>
+                  <p className="text-sm font-bold">أوامر الشراء</p>
+                  <p className="text-[11px] text-muted-foreground">معلقة وجارية</p>
+                </div>
+              </div>
+              <p className="text-2xl font-black" style={{ color: "#8b5cf6", textShadow: "0 0 20px #8b5cf655" }}>
+                {isLoading ? "..." : fmtF(data?.pendingPurchases?.total ?? 0)}
+              </p>
+              <div className="mt-2 pt-2" style={{ borderTop: "1px solid rgba(139,92,246,0.20)" }}>
+                <p className="text-xs text-muted-foreground">{data?.pendingPurchases?.count ?? 0} أمر شراء</p>
+              </div>
+            </div>
+          </div>
+        </Link>
+
+        {/* وصول سريع — multi-color subtle glow */}
+        <div className="relative overflow-hidden rounded-[22px] p-5"
+          style={{
+            background: "linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(139,92,246,0.03) 50%, rgba(0,0,0,0) 100%)",
+            border: "1px solid rgba(99,102,241,0.22)",
+            boxShadow: "0 0 0 1px rgba(99,102,241,0.08), 0 8px 32px rgba(99,102,241,0.12)",
+            backdropFilter: "blur(14px)",
+          }}>
+          <div className="absolute inset-x-8 top-0 h-px pointer-events-none"
+            style={{ background: "linear-gradient(90deg,transparent,#818cf8,transparent)" }}/>
+          <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full pointer-events-none opacity-20"
+            style={{ background: "radial-gradient(circle,rgba(99,102,241,0.25) 0%,transparent 70%)" }}/>
+          <div className="relative z-10">
+            <p className="text-xs font-bold mb-3" style={{ color: "#818cf8" }}>⚡ وصول سريع</p>
+            <div className="space-y-1.5">
+              {[
+                {href:"/finance/cash",           label:"الخزنة والحركات",   Icon:Wallet,      color:"#f59e0b"},
+                {href:"/finance/sales",          label:"أوامر البيع (B2B)", Icon:ShoppingBag, color:"#14b8a6"},
+                {href:"/finance/expenses",       label:"إضافة مصروف",       Icon:Receipt,     color:"#f43f5e"},
+                {href:"/finance/suppliers",      label:"الموردون",          Icon:Building2,   color:"#3b82f6"},
+                {href:"/finance/cash/analytics", label:"تحليلات الخزنة",    Icon:BarChart3,   color:"#10b981"},
+              ].map(item => (
+                <Link key={item.href} href={item.href}>
+                  <div className="flex items-center gap-2 py-1.5 px-2.5 rounded-xl hover:bg-white/5 transition-colors cursor-pointer group/item">
+                    <div className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0"
+                      style={{ background: `${item.color}18`, border: `1px solid ${item.color}30` }}>
+                      <item.Icon className="w-3 h-3" style={{ color: item.color }}/>
+                    </div>
+                    <span className="text-xs flex-1">{item.label}</span>
+                    <ArrowLeft className="w-3 h-3 opacity-30 group-hover/item:opacity-70 transition-opacity" style={{ color: item.color }}/>
+                  </div>
+                </Link>
+              ))}
+            </div>
           </div>
         </div>
       </div>
