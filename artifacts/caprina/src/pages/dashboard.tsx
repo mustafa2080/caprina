@@ -1597,20 +1597,20 @@ export default function Dashboard() {
           {/* تتبع أداء فريق المبيعات */}
           {teamPerf.length > 0 && (
             <Card className="border-border overflow-hidden">
-              <CardHeader className="py-2 px-3 border-b border-border">
+              <CardHeader className="py-3 px-4 border-b border-border">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-[11px] font-bold flex items-center gap-1.5">
-                    <TrendingUp className="w-3 h-3 text-emerald-500" />
+                  <CardTitle className="text-sm font-bold flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-emerald-500" />
                     أداء المبيعات
-                    <Badge variant="outline" className="text-[9px] h-4 border-emerald-400/40 text-emerald-600 dark:text-emerald-400">
+                    <Badge variant="outline" className="text-[11px] h-5 px-2 border-emerald-400/40 text-emerald-600 dark:text-emerald-400">
                       {teamPerf.length} عضو
                     </Badge>
                   </CardTitle>
-                  <Link href="/team-performance" className="text-[9px] text-primary hover:underline">تفاصيل ←</Link>
+                  <Link href="/team-performance" className="text-xs text-primary hover:underline font-medium">تفاصيل ←</Link>
                 </div>
               </CardHeader>
 
-              {/* منحنى أداء مصغر */}
+              {/* منحنى أداء */}
               {(() => {
                 const chartData = teamPerf.slice(0, 5).map(m => ({
                   name: m.displayName.split(" ")[0],
@@ -1618,52 +1618,52 @@ export default function Dashboard() {
                   مرتجع: m.returnRate,
                 }));
                 return (
-                  <div className="px-2 pt-1.5 pb-0.5">
-                    <ResponsiveContainer width="100%" height={60}>
-                      <AreaChart data={chartData} margin={{ top: 2, right: 2, bottom: 0, left: -28 }}>
+                  <div className="px-3 pt-2 pb-1">
+                    <ResponsiveContainer width="100%" height={80}>
+                      <AreaChart data={chartData} margin={{ top: 2, right: 2, bottom: 0, left: -24 }}>
                         <defs>
                           <linearGradient id="teamDelivery2" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
                             <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                           </linearGradient>
                         </defs>
-                        <XAxis dataKey="name" tick={{ fontSize: 8, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
-                        <YAxis tick={{ fontSize: 7, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} domain={[0, 100]} />
-                        <Tooltip contentStyle={{ fontSize: 9, padding: "2px 6px", borderRadius: 4 }} formatter={(v: any, n: string) => [`${v}%`, n]} />
-                        <Area type="monotone" dataKey="تسليم" stroke="#10b981" strokeWidth={1.5} fill="url(#teamDelivery2)" dot={{ r: 2, fill: "#10b981" }} />
-                        <Area type="monotone" dataKey="مرتجع" stroke="#ef4444" strokeWidth={1} fill="none" dot={{ r: 1.5, fill: "#ef4444" }} />
+                        <XAxis dataKey="name" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 9, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} domain={[0, 100]} />
+                        <Tooltip contentStyle={{ fontSize: 11, padding: "4px 8px", borderRadius: 6 }} formatter={(v: any, n: string) => [`${v}%`, n]} />
+                        <Area type="monotone" dataKey="تسليم" stroke="#10b981" strokeWidth={2} fill="url(#teamDelivery2)" dot={{ r: 3, fill: "#10b981" }} />
+                        <Area type="monotone" dataKey="مرتجع" stroke="#ef4444" strokeWidth={1.5} fill="none" dot={{ r: 2, fill: "#ef4444" }} />
                       </AreaChart>
                     </ResponsiveContainer>
                   </div>
                 );
               })()}
 
-              {/* قائمة مصغرة */}
+              {/* قائمة الأعضاء */}
               <div className="divide-y divide-border/60">
                 {teamPerf.slice(0, 4).map((m, i) => (
-                  <div key={m.userId} className="flex items-center gap-2 px-3 py-1.5">
-                    <span className="text-[9px] font-black text-muted-foreground w-3">{i + 1}</span>
+                  <div key={m.userId} className="flex items-center gap-3 px-4 py-2.5">
+                    <span className="text-xs font-black text-muted-foreground w-4">{i + 1}</span>
                     {m.avatar ? (
-                      <img src={m.avatar} className="w-5 h-5 rounded-full object-cover shrink-0" />
+                      <img src={m.avatar} className="w-8 h-8 rounded-full object-cover shrink-0 ring-2 ring-border" />
                     ) : (
-                      <div className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center text-[8px] font-bold text-emerald-600 shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-xs font-bold text-emerald-600 shrink-0">
                         {m.displayName.charAt(0)}
                       </div>
                     )}
-                    <span className="text-[10px] font-bold truncate flex-1">{m.displayName.split(" ")[0]}</span>
-                    <span className={`text-[10px] font-black ${m.deliveryRate >= 70 ? "text-emerald-500" : "text-amber-500"}`}>{m.deliveryRate}%</span>
+                    <span className="text-sm font-bold truncate flex-1">{m.displayName.split(" ")[0]}</span>
+                    <span className={`text-sm font-black ${m.deliveryRate >= 70 ? "text-emerald-500" : "text-amber-500"}`}>{m.deliveryRate}%</span>
                   </div>
                 ))}
               </div>
 
-              {/* footer مصغر */}
+              {/* footer */}
               {(() => {
                 const totalOrders = teamPerf.reduce((s, m) => s + m.total, 0);
                 const avgDelivery = teamPerf.length > 0 ? Math.round(teamPerf.reduce((s, m) => s + m.deliveryRate, 0) / teamPerf.length) : 0;
                 return (
-                  <div className="mx-2 mb-2 mt-1 grid grid-cols-2 gap-1.5 rounded-lg border border-border bg-muted/20 p-1.5 text-center">
-                    <div><p className="text-xs font-black">{new Intl.NumberFormat("ar-EG").format(totalOrders)}</p><p className="text-[8px] text-muted-foreground">الطلبات</p></div>
-                    <div><p className={`text-xs font-black ${avgDelivery >= 70 ? "text-emerald-500" : "text-amber-500"}`}>{avgDelivery}%</p><p className="text-[8px] text-muted-foreground">متوسط التسليم</p></div>
+                  <div className="mx-3 mb-3 mt-2 grid grid-cols-2 gap-2 rounded-xl border border-border bg-muted/20 p-2.5 text-center">
+                    <div><p className="text-base font-black">{new Intl.NumberFormat("ar-EG").format(totalOrders)}</p><p className="text-[10px] text-muted-foreground mt-0.5">إجمالي الطلبات</p></div>
+                    <div><p className={`text-base font-black ${avgDelivery >= 70 ? "text-emerald-500" : "text-amber-500"}`}>{avgDelivery}%</p><p className="text-[10px] text-muted-foreground mt-0.5">متوسط التسليم</p></div>
                   </div>
                 );
               })()}
@@ -1673,16 +1673,16 @@ export default function Dashboard() {
           {/* إدارة الفريق */}
           {isAdmin && employeeProfiles.length > 0 && (
             <Card className="border-border overflow-hidden">
-              <CardHeader className="py-2 px-3 border-b border-border">
+              <CardHeader className="py-3 px-4 border-b border-border">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-[11px] font-bold flex items-center gap-1.5">
-                    <Users className="w-3 h-3 text-violet-500" />
+                  <CardTitle className="text-sm font-bold flex items-center gap-2">
+                    <Users className="w-4 h-4 text-violet-500" />
                     إدارة الفريق
-                    <Badge variant="outline" className="text-[9px] h-4 border-violet-400/40 text-violet-600 dark:text-violet-400">
+                    <Badge variant="outline" className="text-[11px] h-5 px-2 border-violet-400/40 text-violet-600 dark:text-violet-400">
                       {employeeProfiles.length} موظف
                     </Badge>
                   </CardTitle>
-                  <Link href="/team" className="text-[9px] text-primary hover:underline">إدارة ←</Link>
+                  <Link href="/team" className="text-xs text-primary hover:underline font-medium">إدارة ←</Link>
                 </div>
               </CardHeader>
 
@@ -1691,21 +1691,21 @@ export default function Dashboard() {
                   const [bg, fg] = dbAvatarColor(emp.displayName || "?");
                   return (
                     <Link key={emp.id} href="/team">
-                      <div className="flex items-center gap-2 px-3 py-1.5 hover:bg-muted/20 transition-colors cursor-pointer">
+                      <div className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/20 transition-colors cursor-pointer">
                         {emp.avatar && emp.avatar.startsWith("data:") ? (
-                          <img src={emp.avatar} className="w-6 h-6 rounded-full object-cover border border-border/50 shrink-0" alt={emp.displayName} />
+                          <img src={emp.avatar} className="w-9 h-9 rounded-full object-cover border-2 border-border/50 shrink-0" alt={emp.displayName} />
                         ) : (
-                          <div className="w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0"
+                          <div className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm shrink-0"
                             style={{ background: bg, color: fg }}>
                             {dbInitials(emp.displayName || "?")}
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <p className="text-[10px] font-bold truncate">{emp.displayName}</p>
-                          <p className="text-[8px] text-muted-foreground truncate">{emp.jobTitle || "—"}</p>
+                          <p className="text-sm font-bold truncate">{emp.displayName}</p>
+                          <p className="text-[11px] text-muted-foreground truncate mt-0.5">{emp.jobTitle || "—"}</p>
                         </div>
                         {emp.monthlySalary > 0 && (
-                          <p className="text-[9px] font-black text-primary shrink-0">
+                          <p className="text-sm font-black text-primary shrink-0">
                             {new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(emp.monthlySalary)}
                           </p>
                         )}
@@ -1715,16 +1715,16 @@ export default function Dashboard() {
                 })}
               </div>
 
-              {/* footer مصغر */}
-              <div className="mx-2 mb-2 mt-1 grid grid-cols-2 gap-1.5 rounded-lg border border-border bg-muted/20 p-1.5 text-center">
-                <div><p className="text-xs font-black">{employeeProfiles.length}</p><p className="text-[8px] text-muted-foreground">الموظفين</p></div>
+              {/* footer */}
+              <div className="mx-3 mb-3 mt-2 grid grid-cols-2 gap-2 rounded-xl border border-border bg-muted/20 p-2.5 text-center">
+                <div><p className="text-base font-black">{employeeProfiles.length}</p><p className="text-[10px] text-muted-foreground mt-0.5">الموظفين</p></div>
                 <div>
-                  <p className="text-xs font-black text-primary">
+                  <p className="text-base font-black text-primary">
                     {new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(
                       employeeProfiles.reduce((s: number, e: any) => s + (e.monthlySalary || 0), 0)
                     )}
                   </p>
-                  <p className="text-[8px] text-muted-foreground">الرواتب</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">إجمالي الرواتب</p>
                 </div>
               </div>
             </Card>
