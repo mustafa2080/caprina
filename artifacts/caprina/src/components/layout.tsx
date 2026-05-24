@@ -257,12 +257,13 @@ export default function Layout({ children }: LayoutProps) {
     <div
       className="flex h-screen bg-background overflow-hidden"
       dir="rtl"
+      onClick={() => { if (!sidebarCollapsed) setSidebarCollapsed(true); }}
     >
 
       {/* ── Sidebar wrapper (desktop) ── */}
       <div
         className="hidden md:flex shrink-0 relative"
-        onClick={() => { if (sidebarCollapsed) setSidebarCollapsed(false); }}
+        onClick={(e) => { e.stopPropagation(); if (sidebarCollapsed) setSidebarCollapsed(false); }}
         style={{
           width: sidebarCollapsed ? "68px" : "240px",
           transition: "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
