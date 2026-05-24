@@ -127,9 +127,9 @@ function resolveRgb(iconColor: string): string {
   return "251,191,36";
 }
 
-function NavGroup({ label, icon: Icon, iconColor, location, prefixes, children, isOpen, onToggle, collapsed = false, onExpandSidebar, groupKey }: {
+function NavGroup({ label, icon: Icon, iconColor, location, prefixes, excludePrefixes = [], children, isOpen, onToggle, collapsed = false, onExpandSidebar, groupKey }: {
   label: string; icon: any; iconColor: string;
-  location: string; prefixes: string[];
+  location: string; prefixes: string[]; excludePrefixes?: string[];
   children: React.ReactNode;
   isOpen: boolean; onToggle: () => void;
   collapsed?: boolean;
@@ -138,7 +138,8 @@ function NavGroup({ label, icon: Icon, iconColor, location, prefixes, children, 
   groupKey?: string;
 }) {
   const [, navigate] = useLocation();
-  const isActive = prefixes.some(p => location === p || location.startsWith(p + "/"));
+  const isExcluded = excludePrefixes.some(p => location === p || location.startsWith(p + "/"));
+  const isActive = !isExcluded && prefixes.some(p => location === p || location.startsWith(p + "/"));
   const rgb = resolveRgb(iconColor);
 
   if (collapsed) {
@@ -508,7 +509,7 @@ export default function Layout({ children }: LayoutProps) {
             )}
 
             {(isAdmin || can("finance")) && (
-              <NavGroup label="الماليات" icon={DollarSign} iconColor="text-emerald-400" location={location} prefixes={["/finance/cash/archive","/finance/cash","/finance/expenses","/finance/suppliers","/finance/clients","/finance/purchases","/finance/sales","/finance/shipping-invoices","/finance"]} isOpen={openGroup === "finance"} onToggle={() => toggleGroup("finance", FINANCE_NAV[0]?.href)} collapsed={sidebarCollapsed} onExpandSidebar={() => setSidebarCollapsed(false)} firstHref={FINANCE_NAV[0]?.href} groupKey="finance">
+              <NavGroup label="الماليات" icon={DollarSign} iconColor="text-emerald-400" location={location} prefixes={["/finance"]} excludePrefixes={["/finance/cash/analytics"]} isOpen={openGroup === "finance"} onToggle={() => toggleGroup("finance", FINANCE_NAV[0]?.href)} collapsed={sidebarCollapsed} onExpandSidebar={() => setSidebarCollapsed(false)} firstHref={FINANCE_NAV[0]?.href} groupKey="finance">
                 {FINANCE_NAV.map((item) => {
                   const isActive = location === item.href;
                   const Icon = item.icon;
