@@ -561,8 +561,22 @@ router.get("/analytics/product-performance", requireAdmin, async (req, res): Pro
 
   const ppBaseConditions: any[] = [isNull(ordersTable.deletedAt)];
   if (tenantId !== null) ppBaseConditions.push(eq(ordersTable.tenantId, tenantId));
+
+  // نجيب الـ columns المطلوبة بس — مش كل الجدول
   const [allOrders, products, variants] = await Promise.all([
-    db.select().from(ordersTable).where(and(...ppBaseConditions)),
+    db.select({
+      id:              ordersTable.id,
+      product:         ordersTable.product,
+      productId:       ordersTable.productId,
+      variantId:       ordersTable.variantId,
+      quantity:        ordersTable.quantity,
+      partialQuantity: ordersTable.partialQuantity,
+      unitPrice:       ordersTable.unitPrice,
+      costPrice:       ordersTable.costPrice,
+      shippingCost:    ordersTable.shippingCost,
+      status:          ordersTable.status,
+      invoiceNumber:   ordersTable.invoiceNumber,
+    }).from(ordersTable).where(and(...ppBaseConditions)),
     getProductsForTenant(tenantId),
     getVariantsForTenant(tenantId),
   ]);
