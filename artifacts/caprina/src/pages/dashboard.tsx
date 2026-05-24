@@ -1383,7 +1383,23 @@ export default function Dashboard() {
                   })()}
                   {/* قائمة المنتجات */}
                   {isPerfLoading ? (
-                    <div className="py-4 text-center text-xs text-muted-foreground">جاري التحميل...</div>
+                    <div className="flex flex-col gap-2">
+                      {[...Array(4)].map((_, i) => (
+                        <div key={i} className="flex items-center gap-3 p-2.5 rounded-xl border border-border bg-muted/20 animate-pulse">
+                          <div className="w-6 h-6 rounded-full bg-muted shrink-0" />
+                          <div className="w-10 h-10 rounded-xl bg-muted shrink-0" />
+                          <div className="flex-1 space-y-1.5">
+                            <div className="h-3 bg-muted rounded w-3/4" />
+                            <div className="h-2 bg-muted rounded w-1/2" />
+                          </div>
+                          <div className="w-10 h-6 bg-muted rounded shrink-0" />
+                          <div className="space-y-1 text-right shrink-0">
+                            <div className="h-3 bg-muted rounded w-14" />
+                            <div className="h-2 bg-muted rounded w-10" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   ) : productPerf?.products?.length ? (
                     <div className="flex flex-col gap-2">
                       {[...productPerf.products]
@@ -1410,24 +1426,22 @@ export default function Dashboard() {
                               {/* Sparkline ديناميكي */}
                               {(() => {
                                 const raw = productTrendMap[p.name] ?? [];
-                                // لو مافيش بيانات كافية نبني من totalOrders بشكل تصاعدي
                                 const pts = raw.some(v => v > 0)
                                   ? raw
                                   : [0.15, 0.3, 0.45, 0.55, 0.65, 0.8, 1].map(r => Math.round(p.totalOrders * r));
                                 const max = Math.max(...pts, 1);
                                 const W = 44, H = 26;
-                                const coords = pts.map((v, i) => [
-                                  (i / (pts.length - 1)) * W,
+                                const coords = pts.map((v, idx) => [
+                                  (idx / (pts.length - 1)) * W,
                                   H - (v / max) * (H - 4) - 1,
                                 ]);
-                                const d = coords.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
-                                const isGrowing = pts[pts.length - 1] >= pts[Math.floor(pts.length / 2)];
-                                const color = isGrowing ? "#10b981" : "#ef4444";
+                                const d = coords.map(([x, y], idx) => `${idx === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+                                const color = "#f59e0b"; // دهبي دايماً
                                 return (
                                   <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} fill="none">
                                     <defs>
                                       <linearGradient id={`sg-${i}`} x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stopColor={color} stopOpacity="0.3"/>
+                                        <stop offset="0%" stopColor={color} stopOpacity="0.35"/>
                                         <stop offset="100%" stopColor={color} stopOpacity="0"/>
                                       </linearGradient>
                                     </defs>
