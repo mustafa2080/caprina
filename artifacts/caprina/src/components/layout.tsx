@@ -148,7 +148,7 @@ function NavGroup({ label, icon: Icon, iconColor, location, prefixes, children, 
             e.stopPropagation();
             onExpandSidebar?.();
             onToggle();
-            if (firstHref) setTimeout(() => navigate(firstHref), 50);
+            if (firstHref) navigate(firstHref);
           }}
           className={cn("flex items-center justify-center rounded-xl transition-all duration-200")}
           style={{
@@ -234,11 +234,18 @@ export default function Layout({ children }: LayoutProps) {
   const { theme, toggleTheme, setTheme } = useTheme();
   const { toast } = useToast();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [, navigate] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [financeOpen, setFinanceOpen] = useState(false);
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
-  const toggleGroup = (key: string) => setOpenGroup(prev => prev === key ? null : key);
+  const toggleGroup = (key: string, firstHref?: string) => {
+    setOpenGroup(prev => {
+      const opening = prev !== key;
+      if (opening && firstHref) navigate(firstHref);
+      return opening ? key : null;
+    });
+  };
   const [pwDialogOpen, setPwDialogOpen] = useState(false);
   const [brandSettingsOpen, setBrandSettingsOpen] = useState(false);
   const [currentPw, setCurrentPw] = useState("");
@@ -449,31 +456,31 @@ export default function Layout({ children }: LayoutProps) {
             {visibleNav.filter(i => i.group === "dashboard").map(item => <NavItem key={item.href} item={item} location={location} collapsed={sidebarCollapsed} />)}
 
             {visibleNav.some(i => i.group === "orders") && (
-              <NavGroup label="الطلبات" icon={Package} iconColor="text-orange-400" location={location} prefixes={["/orders","/invoices","/shipping-followup"]} isOpen={openGroup === "orders"} onToggle={() => toggleGroup("orders")} collapsed={sidebarCollapsed} onExpandSidebar={() => setSidebarCollapsed(false)} firstHref={visibleNav.find(i => i.group === "orders")?.href}>
+              <NavGroup label="الطلبات" icon={Package} iconColor="text-orange-400" location={location} prefixes={["/orders","/invoices","/shipping-followup"]} isOpen={openGroup === "orders"} onToggle={() => toggleGroup("orders", visibleNav.find(i => i.group === "orders")?.href)} collapsed={sidebarCollapsed} onExpandSidebar={() => setSidebarCollapsed(false)} firstHref={visibleNav.find(i => i.group === "orders")?.href}>
                 {visibleNav.filter(i => i.group === "orders").map(item => <NavItem key={item.href+item.label} item={item} location={location} sub />)}
               </NavGroup>
             )}
 
             {visibleNav.some(i => i.group === "shipping") && (
-              <NavGroup label="الشحن والتوصيل" icon={Truck} iconColor="text-sky-400" location={location} prefixes={["/shipping"]} isOpen={openGroup === "shipping"} onToggle={() => toggleGroup("shipping")} collapsed={sidebarCollapsed} onExpandSidebar={() => setSidebarCollapsed(false)} firstHref={visibleNav.find(i => i.group === "shipping")?.href}>
+              <NavGroup label="الشحن والتوصيل" icon={Truck} iconColor="text-sky-400" location={location} prefixes={["/shipping"]} isOpen={openGroup === "shipping"} onToggle={() => toggleGroup("shipping", visibleNav.find(i => i.group === "shipping")?.href)} collapsed={sidebarCollapsed} onExpandSidebar={() => setSidebarCollapsed(false)} firstHref={visibleNav.find(i => i.group === "shipping")?.href}>
                 {visibleNav.filter(i => i.group === "shipping").map(item => <NavItem key={item.href} item={item} location={location} sub />)}
               </NavGroup>
             )}
 
             {visibleNav.some(i => i.group === "inventory") && (
-              <NavGroup label="المنتجات والمخزون" icon={Boxes} iconColor="text-violet-400" location={location} prefixes={["/inventory","/warehouses","/movements"]} isOpen={openGroup === "inventory"} onToggle={() => toggleGroup("inventory")} collapsed={sidebarCollapsed} onExpandSidebar={() => setSidebarCollapsed(false)} firstHref={visibleNav.find(i => i.group === "inventory")?.href}>
+              <NavGroup label="المنتجات والمخزون" icon={Boxes} iconColor="text-violet-400" location={location} prefixes={["/inventory","/warehouses","/movements"]} isOpen={openGroup === "inventory"} onToggle={() => toggleGroup("inventory", visibleNav.find(i => i.group === "inventory")?.href)} collapsed={sidebarCollapsed} onExpandSidebar={() => setSidebarCollapsed(false)} firstHref={visibleNav.find(i => i.group === "inventory")?.href}>
                 {visibleNav.filter(i => i.group === "inventory").map(item => <NavItem key={item.href} item={item} location={location} sub />)}
               </NavGroup>
             )}
 
             {visibleNav.some(i => i.group === "analytics") && (
-              <NavGroup label="التحليلات" icon={BarChart3} iconColor="text-pink-400" location={location} prefixes={["/product-performance","/smart","/ads-analytics","/team-performance","/sessions-report"]} isOpen={openGroup === "analytics"} onToggle={() => toggleGroup("analytics")} collapsed={sidebarCollapsed} onExpandSidebar={() => setSidebarCollapsed(false)} firstHref={visibleNav.find(i => i.group === "analytics")?.href}>
+              <NavGroup label="التحليلات" icon={BarChart3} iconColor="text-pink-400" location={location} prefixes={["/product-performance","/smart","/ads-analytics","/team-performance","/sessions-report"]} isOpen={openGroup === "analytics"} onToggle={() => toggleGroup("analytics", visibleNav.find(i => i.group === "analytics")?.href)} collapsed={sidebarCollapsed} onExpandSidebar={() => setSidebarCollapsed(false)} firstHref={visibleNav.find(i => i.group === "analytics")?.href}>
                 {visibleNav.filter(i => i.group === "analytics").map(item => <NavItem key={item.href+item.label} item={item} location={location} sub />)}
               </NavGroup>
             )}
 
             {(isAdmin || can("finance")) && (
-              <NavGroup label="الماليات" icon={DollarSign} iconColor="text-emerald-400" location={location} prefixes={["/finance"]} isOpen={openGroup === "finance"} onToggle={() => toggleGroup("finance")} collapsed={sidebarCollapsed} onExpandSidebar={() => setSidebarCollapsed(false)} firstHref={FINANCE_NAV[0]?.href}>
+              <NavGroup label="الماليات" icon={DollarSign} iconColor="text-emerald-400" location={location} prefixes={["/finance"]} isOpen={openGroup === "finance"} onToggle={() => toggleGroup("finance", FINANCE_NAV[0]?.href)} collapsed={sidebarCollapsed} onExpandSidebar={() => setSidebarCollapsed(false)} firstHref={FINANCE_NAV[0]?.href}>
                 {FINANCE_NAV.map((item) => {
                   const isActive = location === item.href;
                   const Icon = item.icon;
@@ -503,19 +510,19 @@ export default function Layout({ children }: LayoutProps) {
             )}
 
             {visibleNav.some(i => i.group === "team") && (
-              <NavGroup label="الفريق والإدارة" icon={Users} iconColor="text-green-400" location={location} prefixes={["/team","/team-performance","/users","/audit-logs"]} isOpen={openGroup === "team"} onToggle={() => toggleGroup("team")} collapsed={sidebarCollapsed} onExpandSidebar={() => setSidebarCollapsed(false)} firstHref={visibleNav.find(i => i.group === "team")?.href}>
+              <NavGroup label="الفريق والإدارة" icon={Users} iconColor="text-green-400" location={location} prefixes={["/team","/team-performance","/users","/audit-logs"]} isOpen={openGroup === "team"} onToggle={() => toggleGroup("team", visibleNav.find(i => i.group === "team")?.href)} collapsed={sidebarCollapsed} onExpandSidebar={() => setSidebarCollapsed(false)} firstHref={visibleNav.find(i => i.group === "team")?.href}>
                 {visibleNav.filter(i => i.group === "team").map(item => <NavItem key={item.href+item.label} item={item} location={location} sub />)}
               </NavGroup>
             )}
 
             {visibleNav.some(i => i.group === "tools") && (
-              <NavGroup label="الأدوات" icon={Upload} iconColor="text-amber-400" location={location} prefixes={["/import","/export","/archive"]} isOpen={openGroup === "tools"} onToggle={() => toggleGroup("tools")} collapsed={sidebarCollapsed} onExpandSidebar={() => setSidebarCollapsed(false)} firstHref={visibleNav.find(i => i.group === "tools")?.href}>
+              <NavGroup label="الأدوات" icon={Upload} iconColor="text-amber-400" location={location} prefixes={["/import","/export","/archive"]} isOpen={openGroup === "tools"} onToggle={() => toggleGroup("tools", visibleNav.find(i => i.group === "tools")?.href)} collapsed={sidebarCollapsed} onExpandSidebar={() => setSidebarCollapsed(false)} firstHref={visibleNav.find(i => i.group === "tools")?.href}>
                 {visibleNav.filter(i => i.group === "tools").map(item => <NavItem key={item.href} item={item} location={location} sub />)}
               </NavGroup>
             )}
 
             {visibleNav.some(i => i.group === "settings") && (
-              <NavGroup label="الإعدادات والدعم" icon={Settings} iconColor="text-emerald-500" location={location} prefixes={["/whatsapp","/audit-logs"]} isOpen={openGroup === "settings"} onToggle={() => toggleGroup("settings")} collapsed={sidebarCollapsed} onExpandSidebar={() => setSidebarCollapsed(false)} firstHref={visibleNav.find(i => i.group === "settings")?.href}>
+              <NavGroup label="الإعدادات والدعم" icon={Settings} iconColor="text-emerald-500" location={location} prefixes={["/whatsapp","/audit-logs"]} isOpen={openGroup === "settings"} onToggle={() => toggleGroup("settings", visibleNav.find(i => i.group === "settings")?.href)} collapsed={sidebarCollapsed} onExpandSidebar={() => setSidebarCollapsed(false)} firstHref={visibleNav.find(i => i.group === "settings")?.href}>
                 {visibleNav.filter(i => i.group === "settings").map(item => <NavItem key={item.href+item.label} item={item} location={location} sub />)}
               </NavGroup>
             )}
