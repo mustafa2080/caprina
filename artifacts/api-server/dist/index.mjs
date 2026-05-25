@@ -37376,7 +37376,7 @@ var require_umd = __commonJS({
           return this.low ? ctz32(this.low) : ctz32(this.high) + 32;
         };
         LongPrototype.ctz = LongPrototype.countTrailingZeros;
-        LongPrototype.and = function and4(other) {
+        LongPrototype.and = function and5(other) {
           if (!isLong(other)) other = fromValue(other);
           return fromBits(
             this.low & other.low,
@@ -64191,6 +64191,7 @@ var init_clients = __esm({
       // ── ميتا ──────────────────────────────────────────────────────────────
       notes: text("notes"),
       isActive: boolean("is_active").default(true),
+      avatar: text("avatar"),
       createdAt: datetime("created_at").notNull(),
       updatedAt: datetime("updated_at").notNull()
     });
@@ -149223,6 +149224,16 @@ var movements_default = router7;
 var import_express8 = __toESM(require_express2(), 1);
 init_src();
 init_drizzle_orm();
+var analyticsCache = /* @__PURE__ */ new Map();
+function getCached(key) {
+  const entry = analyticsCache.get(key);
+  if (entry && Date.now() < entry.expiresAt) return entry.data;
+  analyticsCache.delete(key);
+  return null;
+}
+function setCached(key, data, ttlMs = 5 * 60 * 1e3) {
+  analyticsCache.set(key, { data, expiresAt: Date.now() + ttlMs });
+}
 var router8 = (0, import_express8.Router)();
 async function getProductsForTenant(tenantId) {
   return tenantId !== null ? db.select().from(productsTable).where(eq(productsTable.tenantId, tenantId)) : db.select().from(productsTable);
@@ -149655,10 +149666,28 @@ router8.get("/analytics/damaged-orders", requireAdmin, async (req, res) => {
 router8.get("/analytics/product-performance", requireAdmin, async (req, res) => {
   try {
     const tenantId = getTenantId(req);
+    const cacheKey = `product-performance:${tenantId ?? "global"}`;
+    const cached2 = getCached(cacheKey);
+    if (cached2) {
+      res.json(cached2);
+      return;
+    }
     const ppBaseConditions = [isNull(ordersTable.deletedAt)];
     if (tenantId !== null) ppBaseConditions.push(eq(ordersTable.tenantId, tenantId));
     const [allOrders, products, variants] = await Promise.all([
-      db.select().from(ordersTable).where(and(...ppBaseConditions)),
+      db.select({
+        id: ordersTable.id,
+        product: ordersTable.product,
+        productId: ordersTable.productId,
+        variantId: ordersTable.variantId,
+        quantity: ordersTable.quantity,
+        partialQuantity: ordersTable.partialQuantity,
+        unitPrice: ordersTable.unitPrice,
+        costPrice: ordersTable.costPrice,
+        shippingCost: ordersTable.shippingCost,
+        status: ordersTable.status,
+        invoiceNumber: ordersTable.invoiceNumber
+      }).from(ordersTable).where(and(...ppBaseConditions)),
       getProductsForTenant(tenantId),
       getVariantsForTenant(tenantId)
     ]);
@@ -149737,7 +149766,7 @@ router8.get("/analytics/product-performance", requireAdmin, async (req, res) => 
     const byProfit = [...productList].sort((a, b) => b.netProfit - a.netProfit);
     const byLoss = [...productList].filter((p) => p.netProfit < 0).sort((a, b) => a.netProfit - b.netProfit);
     const byReturns = [...productList].filter((p) => p.returnCount > 0).sort((a, b) => b.returnRate - a.returnRate || b.returnCount - a.returnCount);
-    res.json({
+    const responseData = {
       products: byProfit,
       byProfit,
       byLoss,
@@ -149750,7 +149779,9 @@ router8.get("/analytics/product-performance", requireAdmin, async (req, res) => 
         totalNetProfit: productList.reduce((s, p) => s + p.netProfit, 0),
         totalRevenue: productList.reduce((s, p) => s + p.totalRevenue, 0)
       }
-    });
+    };
+    setCached(cacheKey, responseData, 5 * 60 * 1e3);
+    res.json(responseData);
   } catch (err) {
     console.error("[product-performance]", err);
     res.status(500).json({ error: "\u0641\u0634\u0644 \u062A\u062D\u0644\u064A\u0644 \u0623\u062F\u0627\u0621 \u0627\u0644\u0645\u0646\u062A\u062C\u0627\u062A", detail: String(err) });
@@ -150707,16 +150738,6 @@ function parsePermissions2(permissions) {
 }
 router10.get("/", async (req, res) => {
   const tenantId = getTenantId(req);
-  const isSuperAdmin = req.user?.role === "super_admin";
-  const userConditions = [];
-  if (tenantId !== null) {
-    userConditions.push(eq(usersTable.tenantId, tenantId));
-  } else if (isSuperAdmin) {
-    userConditions.push(isNull(usersTable.tenantId));
-  } else {
-    res.json([]);
-    return;
-  }
   const query = db.select({
     id: usersTable.id,
     username: usersTable.username,
@@ -150728,7 +150749,7 @@ router10.get("/", async (req, res) => {
     createdAt: usersTable.createdAt,
     updatedAt: usersTable.updatedAt
   }).from(usersTable);
-  const users = userConditions.length > 0 ? await query.where(and(...userConditions)).orderBy(usersTable.createdAt) : await query.orderBy(usersTable.createdAt);
+  const users = tenantId !== null ? await query.where(eq(usersTable.tenantId, tenantId)).orderBy(usersTable.createdAt) : await query.where(isNull(usersTable.tenantId)).orderBy(usersTable.createdAt);
   res.json(users.map((u) => ({ ...u, permissions: parsePermissions2(u.permissions) })));
 });
 router10.post("/", async (req, res) => {
@@ -156679,7 +156700,8 @@ var ClientSchema = external_exports.object({
   paymentTerms: external_exports.string().nullish(),
   creditLimit: external_exports.number().default(0),
   notes: external_exports.string().nullish(),
-  isActive: external_exports.boolean().default(true)
+  isActive: external_exports.boolean().default(true),
+  avatar: external_exports.string().nullish()
 });
 async function syncClientStats(clientName, tenantId) {
   const conds = [eq(saleOrdersTable.clientName, clientName)];

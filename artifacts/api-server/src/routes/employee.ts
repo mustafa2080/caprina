@@ -125,17 +125,16 @@ function mergeProfile(profile: typeof employeeProfilesTable.$inferSelect, user: 
 router.get("/employee-profiles", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req);
 
-  const query = db
-    .select({
-      profile: employeeProfilesTable,
-      user: usersTable,
-    })
+  // جلب كل الـ profiles مع الـ users بـ leftJoin
+  const rows = await db
+    .select({ profile: employeeProfilesTable, user: usersTable })
     .from(employeeProfilesTable)
     .leftJoin(usersTable, eq(employeeProfilesTable.userId, usersTable.id));
 
-  const rows = tenantId !== null
-    ? await query.where(eq(usersTable.tenantId, tenantId))
-    : await query.where(isNull(usersTable.tenantId));
+  // فلترة بالـ tenant: profiles مرتبطة بـ user في نفس الـ tenant، أو profiles بدون user (team_only)
+  const filtered = tenantId !== null
+    ? rows.filter(r => r.user === null || r.user.tenantId === tenantId)
+    : rows.filter(r => r.user === null || r.user.tenantId === null);
 
   // جلب kpiCount لكل profile دفعة واحدة
   const allKpis = await db.select({ profileId: employeeKpisTable.profileId }).from(employeeKpisTable);
@@ -153,13 +152,13 @@ router.get("/employee-profiles", async (req, res): Promise<void> => {
   const attMap: Record<number, { workedDays: number; absentDays: number; lateDays: number }> = {};
   for (const r of attRecords) {
     if (!attMap[r.profileId]) attMap[r.profileId] = { workedDays: 0, absentDays: 0, lateDays: 0 };
-    if (r.status === "present" || r.status === "late") attMap[r.profileId].workedDays++;
-    if (r.status === "absent") attMap[r.profileId].absentDays++;
-    if (r.status === "late") attMap[r.profileId].lateDays++;
+    if (r.status === "present") attMap[r.profileId].workedDays++;
+    if (r.status === "late")    { attMap[r.profileId].workedDays++; attMap[r.profileId].lateDays++; }
+    if (r.status === "absent")  attMap[r.profileId].absentDays++;
     if (r.status === "half_day") attMap[r.profileId].workedDays += 0.5;
   }
 
-  res.json(rows.map((r) => ({
+  res.json(filtered.map((r) => ({
     ...mergeProfile(r.profile, r.user),
     kpiCount: kpiCountMap[r.profile.id] ?? 0,
     attendanceSummary: attMap[r.profile.id] ?? { workedDays: 0, absentDays: 0, lateDays: 0 },

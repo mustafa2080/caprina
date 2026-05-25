@@ -1761,54 +1761,160 @@ export default function TeamPage() {
           const isSystemUser = !!(profile as any).isSystemUser;
           const roleLabel = (profile as any).role === "admin" ? "مدير" : (profile as any).role === "warehouse" ? "مخزن" : isSystemUser ? "موظف" : "فريق فقط";
           const name = profile.displayName ?? "—";
+          const att = (profile as any).attendanceSummary ?? { workedDays: 0, absentDays: 0, lateDays: 0 };
+          const kpiCount = (profile as any).kpiCount ?? 0;
+          const totalDaysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
+          const attPct = Math.min(100, Math.round((att.workedDays / Math.max(totalDaysInMonth, 1)) * 100));
+
+          // لون بناءً على نسبة الحضور
+          const attColor = att.workedDays === 0
+            ? { text: "text-muted-foreground", bar: "#6B7280", glow: "rgba(107,114,128,0.3)" }
+            : attPct >= 80
+            ? { text: "text-emerald-400", bar: "#10B981", glow: "rgba(16,185,129,0.35)" }
+            : attPct >= 50
+            ? { text: "text-amber-400", bar: "#F59E0B", glow: "rgba(245,158,11,0.35)" }
+            : { text: "text-red-400", bar: "#EF4444", glow: "rgba(239,68,68,0.35)" };
+
           return (
-            <Card
+            <div
               key={profile.id}
-              className="border-border bg-card hover:border-primary/40 transition-colors cursor-pointer"
+              className="group relative overflow-hidden rounded-[22px] cursor-pointer transition-all duration-200 hover:-translate-y-1"
+              style={{
+                background: "hsl(var(--card))",
+                border: "1px solid rgba(255,255,255,0.08)",
+                boxShadow: "0 4px 24px rgba(0,0,0,0.25)",
+              }}
               onClick={() => setSelectedProfileId(profile.id)}
             >
-              <CardContent className="px-4 py-4 space-y-3">
-                <div className="flex items-start justify-between gap-2">
+              {/* خط ضوء علوي */}
+              <div className="absolute inset-x-0 top-0 h-px"
+                style={{ background: isSystemUser
+                  ? "linear-gradient(90deg, transparent, rgba(201,162,39,0.6), transparent)"
+                  : "linear-gradient(90deg, transparent, rgba(245,158,11,0.4), transparent)" }} />
+
+              {/* كرة ضوء خلفية */}
+              <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full pointer-events-none"
+                style={{ background: isSystemUser ? "rgba(201,162,39,0.06)" : "rgba(245,158,11,0.04)", filter: "blur(20px)" }} />
+
+              <div className="p-5">
+                {/* ── الهيدر ── */}
+                <div className="flex items-start justify-between gap-3 mb-4">
                   <div className="flex items-center gap-3">
+                    {/* الأفاتار */}
                     {profile.avatar ? (
-                      <img src={profile.avatar} alt={name} className="w-10 h-10 rounded-full object-cover shrink-0 border border-border/50" />
+                      <img src={profile.avatar} alt={name}
+                        className="w-12 h-12 rounded-2xl object-cover shrink-0"
+                        style={{ border: "2px solid rgba(255,255,255,0.12)" }} />
                     ) : (
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-black shrink-0 ${isSystemUser ? "bg-primary/10 text-primary" : "bg-amber-900/20 text-amber-400"}`}>
+                      <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-lg font-black shrink-0"
+                        style={{
+                          background: isSystemUser ? "rgba(201,162,39,0.15)" : "rgba(245,158,11,0.10)",
+                          border: `2px solid ${isSystemUser ? "rgba(201,162,39,0.35)" : "rgba(245,158,11,0.25)"}`,
+                          color: isSystemUser ? "#c9a227" : "#F59E0B",
+                        }}>
                         {name.charAt(0)}
                       </div>
                     )}
+
                     <div className="min-w-0">
-                      <p className="text-sm font-bold truncate">{name}</p>
-                      <p className="text-[10px] text-muted-foreground truncate">
-                        {profile.jobTitle || (!isSystemUser ? "عضو فريق" : "موظف")}
-                        {profile.department && ` · ${profile.department}`}
+                      <p className="text-sm font-bold truncate" style={{ color: "hsl(var(--foreground))" }}>{name}</p>
+                      <p className="text-[11px] truncate mt-0.5" style={{ color: "hsl(var(--muted-foreground))" }}>
+                        {profile.jobTitle || (isSystemUser ? "موظف" : "عضو فريق")}
+                        {profile.department && (
+                          <span style={{ color: "rgba(255,255,255,0.35)" }}> · {profile.department}</span>
+                        )}
                       </p>
                     </div>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 mt-1" />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="bg-muted/20 rounded-md p-2 text-center">
-                    <p className="text-sm font-bold text-emerald-400">
-                      {(profile as any).attendanceSummary?.workedDays ?? "—"}
-                    </p>
-                    <p className="text-[9px] text-muted-foreground">أيام الحضور</p>
-                  </div>
-                  <div className="bg-muted/20 rounded-md p-2 text-center">
-                    <p className="text-sm font-bold text-primary">
-                      {(profile as any).kpiCount ?? 0}
-                    </p>
-                    <p className="text-[9px] text-muted-foreground">مؤشر أداء</p>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1 border-t border-border/30">
-                  <span className="flex items-center gap-1"><Target className="w-3 h-3" />عرض المؤشرات والتقرير</span>
-                  <Badge variant="outline" className={`text-[9px] h-4 ${!isSystemUser ? "border-amber-700 text-amber-400" : ""}`}>
+
+                  {/* Badge الدور */}
+                  <span className="shrink-0 text-[9px] font-bold px-2 py-0.5 rounded-full"
+                    style={{
+                      background: isSystemUser ? "rgba(201,162,39,0.15)" : "rgba(245,158,11,0.10)",
+                      color: isSystemUser ? "#c9a227" : "#F59E0B",
+                      border: `1px solid ${isSystemUser ? "rgba(201,162,39,0.30)" : "rgba(245,158,11,0.20)"}`,
+                    }}>
                     {roleLabel}
-                  </Badge>
+                  </span>
                 </div>
-              </CardContent>
-            </Card>
+
+                {/* ── الإحصائيات ── */}
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  {/* الحضور */}
+                  <div className="rounded-xl p-3"
+                    style={{
+                      background: "rgba(255,255,255,0.04)",
+                      border: "1px solid rgba(255,255,255,0.07)",
+                    }}>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-[10px] font-bold" style={{ color: "rgba(255,255,255,0.45)" }}>الحضور</p>
+                      <span className={`text-sm font-black ${attColor.text}`}>
+                        {att.workedDays > 0 ? att.workedDays : "—"}
+                      </span>
+                    </div>
+                    {/* شريط الحضور */}
+                    <div className="w-full h-1.5 rounded-full" style={{ background: "rgba(255,255,255,0.08)" }}>
+                      <div className="h-1.5 rounded-full transition-all duration-500"
+                        style={{
+                          width: `${attPct}%`,
+                          background: attColor.bar,
+                          boxShadow: att.workedDays > 0 ? `0 0 6px ${attColor.glow}` : "none",
+                        }} />
+                    </div>
+                    <p className="text-[9px] mt-1" style={{ color: "rgba(255,255,255,0.30)" }}>
+                      {att.workedDays > 0 ? `${attPct}% من الشهر` : "لا يوجد سجل"}
+                    </p>
+                  </div>
+
+                  {/* مؤشرات الأداء */}
+                  <div className="rounded-xl p-3"
+                    style={{
+                      background: "rgba(255,255,255,0.04)",
+                      border: "1px solid rgba(255,255,255,0.07)",
+                    }}>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-[10px] font-bold" style={{ color: "rgba(255,255,255,0.45)" }}>مؤشرات الأداء</p>
+                      <span className="text-sm font-black" style={{ color: kpiCount > 0 ? "#6366F1" : "rgba(255,255,255,0.3)" }}>
+                        {kpiCount > 0 ? kpiCount : "—"}
+                      </span>
+                    </div>
+                    {/* نقاط المؤشرات */}
+                    <div className="flex gap-1 flex-wrap">
+                      {kpiCount > 0
+                        ? Array.from({ length: Math.min(kpiCount, 6) }).map((_, i) => (
+                            <div key={i} className="w-2 h-2 rounded-full"
+                              style={{ background: "#6366F1", boxShadow: "0 0 4px rgba(99,102,241,0.5)" }} />
+                          ))
+                        : <p className="text-[9px]" style={{ color: "rgba(255,255,255,0.25)" }}>لم تُضف بعد</p>
+                      }
+                      {kpiCount > 6 && (
+                        <span className="text-[9px]" style={{ color: "rgba(99,102,241,0.7)" }}>+{kpiCount - 6}</span>
+                      )}
+                    </div>
+                    <p className="text-[9px] mt-1" style={{ color: "rgba(255,255,255,0.30)" }}>
+                      {kpiCount > 0 ? `${kpiCount} مؤشر نشط` : "أضف مؤشرات أداء"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* ── الفوتر ── */}
+                <div className="flex items-center justify-between pt-3"
+                  style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+                  <div className="flex items-center gap-1.5 text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>
+                    <Target className="w-3 h-3" />
+                    <span>عرض المؤشرات والتقرير</span>
+                  </div>
+                  {/* غياب لو فيه */}
+                  {att.absentDays > 0 && (
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                      style={{ background: "rgba(239,68,68,0.15)", color: "#EF4444", border: "1px solid rgba(239,68,68,0.25)" }}>
+                      غياب: {att.absentDays}
+                    </span>
+                  )}
+                  <ChevronRight className="w-3.5 h-3.5" style={{ color: "rgba(255,255,255,0.25)" }} />
+                </div>
+              </div>
+            </div>
           );
         })}
       </div>

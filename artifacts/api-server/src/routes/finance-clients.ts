@@ -20,6 +20,7 @@ const ClientSchema = z.object({
   creditLimit:   z.number().default(0),
   notes:         z.string().nullish(),
   isActive:      z.boolean().default(true),
+  avatar:        z.string().nullish(),
 });
 
 // ── مساعد: تحديث إحصائيات العميل من أوامر البيع ────────────────────────────
