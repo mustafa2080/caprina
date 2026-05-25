@@ -43,16 +43,21 @@ router.get("/", async (req, res): Promise<void> => {
     updatedAt: usersTable.updatedAt,
   }).from(usersTable);
 
-  // لو admin عنده tenantId → يجيب users بنفس tenantId + super_admins (tenantId IS NULL)
-  // لو super_admin (tenantId IS NULL) → يجيب كل اللي tenantId IS NULL
-  const users = tenantId !== null
-    ? await query.where(
-        or(
-          eq(usersTable.tenantId, tenantId),
-          isNull(usersTable.tenantId)
-        )
-      ).orderBy(usersTable.createdAt)
-    : await query.where(isNull(usersTable.tenantId)).orderBy(usersTable.createdAt);
+  const currentUser = (req as any).user;
+  const isSuperAdmin = currentUser?.role === "super_admin";
+
+  // super_admin → يجيب كل المستخدمين بدون فلتر
+  // admin عنده tenantId → يجيب users بنفس tenantId + super_admins (tenantId IS NULL)
+  const users = isSuperAdmin
+    ? await query.orderBy(usersTable.createdAt)
+    : tenantId !== null
+      ? await query.where(
+          or(
+            eq(usersTable.tenantId, tenantId),
+            isNull(usersTable.tenantId)
+          )
+        ).orderBy(usersTable.createdAt)
+      : await query.where(isNull(usersTable.tenantId)).orderBy(usersTable.createdAt);
 
   res.json(users.map(u => ({ ...u, permissions: parsePermissions(u.permissions) })));
 });
