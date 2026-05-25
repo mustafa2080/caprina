@@ -1642,7 +1642,7 @@ export default function Dashboard() {
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-bold flex items-center gap-2">
                     <TrendingUp className="w-4 h-4 text-emerald-500" />
-                    أداء المبيعات
+                    أداء فريق المبيعات
                     <Badge variant="outline" className="text-[11px] h-5 px-2 border-emerald-400/40 text-emerald-600 dark:text-emerald-400">
                       {teamPerf.length} عضو
                     </Badge>
@@ -1718,7 +1718,7 @@ export default function Dashboard() {
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-bold flex items-center gap-2">
                     <Users className="w-4 h-4 text-violet-500" />
-                    إدارة الفريق
+                    أداء فريق العمل
                     <Badge variant="outline" className="text-[11px] h-5 px-2 border-violet-400/40 text-violet-600 dark:text-violet-400">
                       {employeeProfiles.length} موظف
                     </Badge>
