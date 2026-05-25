@@ -611,305 +611,409 @@ export default function UsersPage() {
 
       {/* ── Create / Edit Dialog ── */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="bg-card border-border w-[95vw] max-w-lg flex flex-col max-h-[92dvh]" dir="rtl">
+        <DialogContent
+          className="bg-[#0f0f11] border border-white/[0.07] w-[96vw] max-w-2xl p-0 overflow-hidden flex flex-col gap-0 rounded-2xl shadow-2xl"
+          dir="rtl"
+          style={{ maxHeight: "92dvh" }}
+        >
+          {/* ── Hero Header ── */}
+          <div className="relative shrink-0 overflow-hidden">
+            {/* gradient bg */}
+            <div className="absolute inset-0 bg-gradient-to-bl from-primary/20 via-primary/5 to-transparent pointer-events-none" />
+            <div className="absolute top-0 left-0 w-40 h-40 rounded-full bg-primary/10 blur-3xl pointer-events-none -translate-x-1/2 -translate-y-1/2" />
 
-          <DialogHeader className="shrink-0 pb-3 border-b border-border">
-            <DialogTitle className="flex items-center gap-2 text-base font-black">
-              {editingUser
-                ? <><Edit2 className="w-4 h-4 text-primary" /> تعديل: {editingUser.displayName}</>
-                : <><UserPlus className="w-4 h-4 text-primary" /> إضافة مستخدم جديد</>}
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="flex-1 overflow-y-auto space-y-5 py-4 px-1">
-
-            {/* ── Avatar Upload ── */}
-            <section>
-              <AvatarUpload
-                avatar={form.avatar}
-                name={form.displayName || form.username || "U"}
-                onChange={(val) => setForm(f => ({ ...f, avatar: val }))}
-              />
-            </section>
-
-            <Separator />
-
-            {/* ── بيانات الحساب ── */}
-            <section>
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <User className="w-3.5 h-3.5 text-primary" />
+            <div className="relative flex items-center gap-4 px-6 py-5">
+              {/* Avatar */}
+              <div className="relative shrink-0">
+                <div className="w-14 h-14 rounded-2xl overflow-hidden border-2 border-primary/30 shadow-lg shadow-primary/20">
+                  <UserAvatar avatar={form.avatar || null} name={form.displayName || form.username || "U"} size="lg" />
                 </div>
-                <span className="text-xs font-black text-foreground uppercase tracking-wide">بيانات الحساب</span>
+                <button
+                  type="button"
+                  onClick={() => (document.getElementById("modal-avatar-input") as HTMLInputElement)?.click()}
+                  className="absolute -bottom-1 -left-1 w-5 h-5 rounded-full bg-primary flex items-center justify-center shadow-md hover:bg-primary/80 transition-colors"
+                >
+                  <Camera className="w-2.5 h-2.5 text-primary-foreground" />
+                </button>
+                <input
+                  id="modal-avatar-input" type="file" accept="image/*" className="hidden"
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (!file || file.size > 2 * 1024 * 1024) return;
+                    const reader = new FileReader();
+                    reader.onload = () => setForm(f => ({ ...f, avatar: reader.result as string }));
+                    reader.readAsDataURL(file);
+                  }}
+                />
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs text-muted-foreground mb-1.5 block">الاسم الكامل *</Label>
-                  <Input className="h-9 text-sm bg-background" value={form.displayName}
-                    onChange={e => setForm(f => ({ ...f, displayName: e.target.value }))} placeholder="مثال: أحمد محمد" />
+
+              {/* Title */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-0.5">
+                  {editingUser
+                    ? <><Edit2 className="w-3.5 h-3.5 text-primary" /><span className="text-[10px] font-bold text-primary uppercase tracking-widest">تعديل مستخدم</span></>
+                    : <><UserPlus className="w-3.5 h-3.5 text-primary" /><span className="text-[10px] font-bold text-primary uppercase tracking-widest">مستخدم جديد</span></>
+                  }
                 </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground mb-1.5 block">اسم المستخدم *</Label>
-                  <Input className="h-9 text-sm bg-background font-mono" value={form.username}
-                    onChange={e => setForm(f => ({ ...f, username: e.target.value.toLowerCase() }))}
-                    placeholder="ahmed" disabled={!!editingUser} />
-                </div>
-              </div>
-              <div className="mt-3">
-                <Label className="text-xs text-muted-foreground mb-1.5 block">
-                  <Lock className="w-3 h-3 inline ml-1" />
-                  {editingUser ? "كلمة مرور جديدة (اتركها فارغة إن لم تريد تغييرها)" : "كلمة المرور *"}
-                </Label>
-                <div className="relative">
-                  <Input type={showPassword ? "text" : "password"} className="h-9 text-sm bg-background pl-9"
-                    value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-                    placeholder={editingUser ? "••••••••" : "6 أحرف على الأقل"} />
-                  <button type="button" onClick={() => setShowPassword(v => !v)}
-                    className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
+                <h2 className="text-base font-black text-white truncate">
+                  {form.displayName || form.username || "بدون اسم"}
+                </h2>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border ${ROLE_COLORS[form.role] || "border-border text-muted-foreground"}`}>
+                    {ROLE_LABELS[form.role] || form.role}
+                  </span>
+                  {form.permissions.length > 0 && form.role !== "super_admin" && (
+                    <span className="text-[9px] text-muted-foreground">{form.permissions.length} صلاحية</span>
+                  )}
                 </div>
               </div>
-            </section>
 
-            <Separator />
+              {/* Close */}
+              <button
+                onClick={() => setDialogOpen(false)}
+                className="shrink-0 w-8 h-8 rounded-xl border border-white/10 flex items-center justify-center text-muted-foreground hover:text-white hover:border-white/30 transition-all"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
 
-            {/* ── الدور الوظيفي ── */}
-            <section>
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <Shield className="w-3.5 h-3.5 text-primary" />
-                </div>
-                <span className="text-xs font-black text-foreground uppercase tracking-wide">الدور الوظيفي</span>
-              </div>
-              <div className={`grid gap-2 ${currentUser?.role === "super_admin" ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}>
-                {(currentUser?.role === "super_admin"
-                  ? ["super_admin", "admin", "employee", "warehouse"]
-                  : ["admin", "employee", "warehouse"]
-                ).map(role => (
-                  <button key={role} type="button" onClick={() => handleRoleChange(role)}
-                    className={`py-3 rounded-xl border-2 text-xs font-bold transition-all flex flex-col items-center gap-1
-                      ${form.role === role ? ROLE_COLORS[role] + " scale-[1.03]" : "border-border text-muted-foreground hover:border-muted-foreground bg-muted/10"}`}>
-                    {role === "super_admin" && <Crown className="w-4 h-4" />}
-                    {role === "admin" && <Shield className="w-4 h-4" />}
-                    {role === "employee" && <User className="w-4 h-4" />}
-                    {role === "warehouse" && <Package className="w-4 h-4" />}
-                    {ROLE_LABELS[role]}
-                  </button>
-                ))}
-              </div>
-              {form.role === "super_admin" && (
-                <div className="mt-2 flex items-center gap-2 p-2.5 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
-                  <AlertTriangle className="w-3.5 h-3.5 text-yellow-500 shrink-0" />
-                  <p className="text-[10px] text-yellow-600 dark:text-yellow-400">Super Admin له كل الصلاحيات تلقائياً ولا يمكن تقييدها</p>
-                </div>
-              )}
-            </section>
-
-            {form.role !== "super_admin" && <Separator />}
-
-            {/* ── Templates ── */}
-            {form.role !== "super_admin" && <section>
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <KeyRound className="w-3.5 h-3.5 text-primary" />
-                </div>
-                <span className="text-xs font-black text-foreground uppercase tracking-wide">قالب الصلاحيات</span>
-                <span className="text-[10px] text-muted-foreground mr-auto">اختر قالب جاهز أو خصص يدوياً</span>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                {PERMISSION_TEMPLATES.map(tmpl => {
-                  const isSelected = selectedTemplate === tmpl.key;
-                  return (
+            {/* ── Tab Bar ── */}
+            {(() => {
+              const tabs = [
+                { id: "account", icon: <User className="w-3.5 h-3.5" />, label: "الحساب" },
+                { id: "role",    icon: <Shield className="w-3.5 h-3.5" />, label: "الدور" },
+                ...( form.role !== "super_admin" ? [{ id: "perms", icon: <KeyRound className="w-3.5 h-3.5" />, label: "الصلاحيات" }] : [] ),
+              ];
+              const active = (window as any).__modalTab || "account";
+              return (
+                <div className="flex border-t border-white/[0.06] bg-white/[0.02]">
+                  {tabs.map(tab => (
                     <button
-                      key={tmpl.key}
+                      key={tab.id}
                       type="button"
-                      onClick={() => applyTemplate(tmpl.key)}
-                      className={`flex flex-col items-start gap-1 p-3 rounded-xl border-2 text-right transition-all
-                        ${isSelected ? tmpl.color + " scale-[1.02] shadow-sm" : "border-border bg-muted/10 hover:border-muted-foreground/40 text-muted-foreground"}`}
+                      onClick={() => { (window as any).__modalTab = tab.id; setForm(f => ({ ...f })); }}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[11px] font-bold transition-all border-b-2
+                        ${active === tab.id
+                          ? "border-primary text-primary bg-primary/5"
+                          : "border-transparent text-muted-foreground hover:text-white hover:bg-white/[0.03]"}`}
                     >
-                      <div className="flex items-center gap-1.5 w-full">
-                        <span className="text-base leading-none">{tmpl.icon}</span>
-                        <span className="text-xs font-black">{tmpl.label}</span>
-                        {isSelected && <span className="mr-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-current/10">✓ محدد</span>}
-                      </div>
-                      <p className="text-[10px] opacity-70 leading-relaxed">{tmpl.desc}</p>
+                      {tab.icon}{tab.label}
                     </button>
-                  );
-                })}
-              </div>
-            </section>}
-
-            {form.role !== "super_admin" && <Separator />}
-
-            {/* ── الصلاحيات الخاصة ── */}
-            {form.role !== "super_admin" && <section>
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <Settings2 className="w-3.5 h-3.5 text-primary" />
+                  ))}
                 </div>
-                <span className="text-xs font-black text-foreground uppercase tracking-wide">الصلاحيات الخاصة</span>
-              </div>
-              <div className="space-y-2">
-                {[
-                  { perm: ORDERS_WRITE_PERMISSION,          color: "indigo",  icon: <Package     className="w-3.5 h-3.5 text-indigo-400" />,  badge: null    },
-                  { perm: FINANCIAL_PERMISSION,              color: "amber",   icon: <TrendingUp  className="w-3.5 h-3.5 text-amber-500" />,   badge: "حساسة" },
-                  { perm: EDIT_INVENTORY_PERMISSION,         color: "emerald", icon: <Package     className="w-3.5 h-3.5 text-emerald-500" />, badge: null    },
-                  { perm: EDIT_DELETE_INVENTORY_PERMISSION,  color: "rose",    icon: <ToggleLeft  className="w-3.5 h-3.5 text-rose-500" />,    badge: null    },
-                  { perm: VIEW_PRODUCT_PERF_PERMISSION,      color: "blue",    icon: <BarChart3   className="w-3.5 h-3.5 text-blue-500" />,    badge: null    },
-                  { perm: ADD_TEAM_MEMBER_PERMISSION,        color: "violet",  icon: <Users       className="w-3.5 h-3.5 text-violet-500" />,  badge: null    },
-                  { perm: EDIT_BRAND_PERMISSION,             color: "orange",  icon: <Settings2   className="w-3.5 h-3.5 text-orange-500" />,  badge: null    },
-                ].map(({ perm, color, icon, badge }) => {
-                  const active = form.permissions.includes(perm.key);
-                  return (
-                    <label key={perm.key} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all
-                      ${active
-                        ? color === "amber"   ? "border-amber-500/50 bg-amber-500/5"
-                        : color === "emerald" ? "border-emerald-500/50 bg-emerald-500/5"
-                        : color === "rose"    ? "border-rose-500/50 bg-rose-500/5"
-                        : color === "violet"  ? "border-violet-500/50 bg-violet-500/5"
-                        : color === "orange"  ? "border-orange-500/50 bg-orange-500/5"
-                        : color === "indigo"  ? "border-indigo-500/50 bg-indigo-500/5"
-                                             : "border-blue-500/50 bg-blue-500/5"
-                        : "border-border bg-muted/10 hover:border-muted-foreground/40"}`}>
-                      <input type="checkbox" checked={active} onChange={() => togglePermission(perm.key)}
-                        className={`w-4 h-4 rounded shrink-0 ${color === "amber" ? "accent-amber-500" : color === "emerald" ? "accent-emerald-500" : color === "rose" ? "accent-rose-500" : color === "violet" ? "accent-violet-500" : color === "orange" ? "accent-orange-500" : color === "indigo" ? "accent-indigo-500" : "accent-blue-500"}`} />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          {icon}
-                          <span className="text-xs font-bold">{perm.label}</span>
-                          {badge && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-600 dark:text-amber-400">{badge}</span>}
-                        </div>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">{perm.desc}</p>
-                      </div>
-                      <div className={`w-2 h-2 rounded-full shrink-0 ${active ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
-                    </label>
-                  );
-                })}
-              </div>
-            </section>}
+              );
+            })()}
+          </div>
 
-            {form.role !== "super_admin" && <Separator />}
+          {/* ── Tab Content ── */}
+          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+            {(() => {
+              const tab = (window as any).__modalTab || "account";
 
-            {/* ── الصفحات والأقسام ── */}
-            {form.role !== "super_admin" && <section>
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <LayoutGrid className="w-3.5 h-3.5 text-primary" />
-                </div>
-                <span className="text-xs font-black text-foreground uppercase tracking-wide">الصفحات والأقسام</span>
-                <span className="text-[10px] text-muted-foreground mr-auto">الوصول + الظهور في القائمة</span>
-              </div>
+              /* ────── TAB: الحساب ────── */
+              if (tab === "account") return (
+                <div className="space-y-5">
+                  {/* Name + Username */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-[11px] text-muted-foreground font-semibold">الاسم الكامل *</Label>
+                      <Input
+                        className="h-10 text-sm bg-white/[0.04] border-white/[0.08] focus:border-primary/50 rounded-xl"
+                        value={form.displayName}
+                        onChange={e => setForm(f => ({ ...f, displayName: e.target.value }))}
+                        placeholder="أحمد محمد"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[11px] text-muted-foreground font-semibold">اسم المستخدم *</Label>
+                      <Input
+                        className="h-10 text-sm bg-white/[0.04] border-white/[0.08] focus:border-primary/50 rounded-xl font-mono"
+                        value={form.username}
+                        onChange={e => setForm(f => ({ ...f, username: e.target.value.toLowerCase() }))}
+                        placeholder="ahmed123"
+                        disabled={!!editingUser}
+                      />
+                    </div>
+                  </div>
 
-              {[
-                { group: "🏠 عام", items: [{ label: "لوحة التحكم", pageKey: "dashboard", sectionKey: "section_dashboard" }] },
-                { group: "📊 التحليلات", items: [
-                  { label: "التحليلات والتقارير",  pageKey: "analytics",               sectionKey: null },
-                  { label: "أداء المنتجات",         pageKey: "view_product_performance", sectionKey: "section_product_performance" },
-                  { label: "أداء الفريق",            pageKey: null,                       sectionKey: "section_team_performance" },
-                  { label: "إدارة الفريق",           pageKey: null,                       sectionKey: "section_team_management" },
-                  { label: "التحليل الذكي 🧠",      pageKey: null,                       sectionKey: "section_smart_analytics" },
-                  { label: "تحليل الإعلانات",        pageKey: null,                       sectionKey: "section_ads_analytics" },
-                ]},
-                { group: "📦 الطلبات", items: [
-                  { label: "الطلبات",        pageKey: "orders", sectionKey: "section_orders" },
-                  { label: "طلب جديد",       pageKey: null,     sectionKey: "section_new_order" },
-                  { label: "الأرشيف 🗂️",    pageKey: null,     sectionKey: "section_archive" },
-                  { label: "متابعة الشحن ⏱️",pageKey: null,     sectionKey: "section_shipping_followup" },
-                  { label: "إعدادات واتساب", pageKey: "whatsapp",sectionKey: "section_whatsapp" },
-                ]},
-                { group: "🏪 المخزون", items: [
-                  { label: "المخزون",        pageKey: "inventory", sectionKey: "section_inventory" },
-                  { label: "المخازن",         pageKey: null,        sectionKey: "section_warehouses" },
-                  { label: "حركات المخزون",   pageKey: "movements", sectionKey: "section_movements" },
-                ]},
-                { group: "🚚 الشحن والفواتير", items: [
-                  { label: "شركات الشحن", pageKey: "shipping",  sectionKey: "section_shipping" },
-                  { label: "الفواتير",     pageKey: "invoices",  sectionKey: "section_invoices" },
-                ]},
-                { group: "📁 البيانات", items: [
-                  { label: "استيراد Excel",  pageKey: "import", sectionKey: "section_import" },
-                  { label: "تصدير البيانات", pageKey: null,     sectionKey: "section_export_data" },
-                ]},
-                { group: "⚙️ الإدارة", items: [
-                  { label: "إدارة المستخدمين", pageKey: "users", sectionKey: "section_users" },
-                  { label: "تقرير الجلسات",     pageKey: null,    sectionKey: "section_sessions_report" },
-                  { label: "سجل التعديلات",     pageKey: "audit", sectionKey: "section_audit" },
-                ]},
-              ].map(({ group, items }) => {
-                const allKeys = items.flatMap(i => [i.pageKey, i.sectionKey].filter(Boolean) as string[]);
-                const allOn  = allKeys.every(k => form.permissions.includes(k));
-                const someOn = allKeys.some(k => form.permissions.includes(k));
-                const open = openGroups[group] ?? true;
-                const toggleGroup = () => {
-                  if (allOn) setForm(f => ({ ...f, permissions: f.permissions.filter(k => !allKeys.includes(k)) }));
-                  else       setForm(f => ({ ...f, permissions: [...new Set([...f.permissions, ...allKeys])] }));
-                };
-                return (
-                  <div key={group} className="rounded-xl border border-border overflow-hidden mb-2">
-                    <div className="flex items-center gap-2 px-3 py-2 bg-muted/20">
-                      <button type="button" onClick={() => setOpenGroups(g => ({ ...g, [group]: !open }))} className="flex items-center gap-2 flex-1 text-right">
-                        {open ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />}
-                        <span className="text-[11px] font-black text-foreground">{group}</span>
-                      </button>
-                      <button type="button" onClick={toggleGroup}
-                        className={`text-[9px] px-2 py-0.5 rounded-full font-bold transition-colors
-                          ${allOn  ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/30"
-                          : someOn ? "bg-amber-500/20 text-amber-600 dark:text-amber-400 hover:bg-amber-500/30"
-                                   : "bg-red-500/15 text-red-500 hover:bg-red-500/25"}`}>
-                        {allOn ? "✓ الكل" : someOn ? "جزئي" : "× لا شيء"}
+                  {/* Password */}
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px] text-muted-foreground font-semibold flex items-center gap-1">
+                      <Lock className="w-3 h-3" />
+                      {editingUser ? "كلمة مرور جديدة (اتركها فارغة للإبقاء على القديمة)" : "كلمة المرور *"}
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        type={showPassword ? "text" : "password"}
+                        className="h-10 text-sm bg-white/[0.04] border-white/[0.08] focus:border-primary/50 rounded-xl pl-10"
+                        value={form.password}
+                        onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                        placeholder={editingUser ? "••••••••" : "6 أحرف على الأقل"}
+                      />
+                      <button type="button" onClick={() => setShowPassword(v => !v)}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white transition-colors">
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
-                    {open && (
-                      <div className="divide-y divide-border/50">
-                        {items.map(({ label, pageKey, sectionKey }) => {
-                          const pageActive    = pageKey    ? form.permissions.includes(pageKey)    : null;
-                          const sectionActive = sectionKey ? form.permissions.includes(sectionKey) : null;
-                          return (
-                            <div key={label} className="flex items-center gap-3 px-3 py-2.5 hover:bg-muted/10 transition-colors">
-                              <span className="text-xs text-foreground flex-1 font-medium">{label}</span>
-                              {pageKey ? (
-                                <label className="flex items-center gap-1.5 cursor-pointer">
-                                  <input type="checkbox" checked={!!pageActive} onChange={() => togglePermission(pageKey)} className="w-3.5 h-3.5 rounded accent-primary" />
-                                  <span className={`text-[9px] font-bold w-10 text-center ${pageActive ? "text-primary" : "text-muted-foreground/50"}`}>وصول</span>
-                                </label>
-                              ) : <div className="w-[74px]" />}
-                              {sectionKey ? (
-                                <label className="flex items-center gap-1.5 cursor-pointer">
-                                  <input type="checkbox" checked={!!sectionActive} onChange={() => togglePermission(sectionKey)} className="w-3.5 h-3.5 rounded accent-emerald-500" />
-                                  <span className={`text-[9px] font-bold w-10 text-center ${sectionActive ? "text-emerald-500" : "text-muted-foreground/50"}`}>قائمة</span>
-                                </label>
-                              ) : <div className="w-[74px]" />}
-                            </div>
-                          );
-                        })}
+                  </div>
+
+                  {/* Avatar hint */}
+                  <div className="flex items-center gap-3 p-3.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                    <Camera className="w-4 h-4 text-primary/70 shrink-0" />
+                    <div>
+                      <p className="text-xs font-semibold text-white/80">صورة الملف الشخصي</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">اضغط على الأيقونة في الأعلى لتغيير الصورة — PNG أو JPG بحد أقصى 2MB</p>
+                    </div>
+                  </div>
+                </div>
+              );
+
+              /* ────── TAB: الدور ────── */
+              if (tab === "role") return (
+                <div className="space-y-5">
+                  {/* Role cards */}
+                  <div>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3">اختر الدور الوظيفي</p>
+                    <div className={`grid gap-3 ${currentUser?.role === "super_admin" ? "grid-cols-2" : "grid-cols-3"}`}>
+                      {(currentUser?.role === "super_admin"
+                        ? ["super_admin", "admin", "employee", "warehouse"]
+                        : ["admin", "employee", "warehouse"]
+                      ).map(role => (
+                        <button key={role} type="button" onClick={() => handleRoleChange(role)}
+                          className={`flex flex-col items-center gap-2 py-4 rounded-2xl border-2 text-xs font-bold transition-all
+                            ${form.role === role
+                              ? ROLE_COLORS[role] + " scale-[1.04] shadow-lg"
+                              : "border-white/[0.07] text-muted-foreground hover:border-white/20 bg-white/[0.02]"}`}>
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${form.role === role ? "bg-current/10" : "bg-white/[0.05]"}`}>
+                            {role === "super_admin" && <Crown className="w-4.5 h-4.5" />}
+                            {role === "admin"       && <Shield className="w-4.5 h-4.5" />}
+                            {role === "employee"    && <User className="w-4.5 h-4.5" />}
+                            {role === "warehouse"   && <Package className="w-4.5 h-4.5" />}
+                          </div>
+                          {ROLE_LABELS[role]}
+                        </button>
+                      ))}
+                    </div>
+                    {form.role === "super_admin" && (
+                      <div className="mt-3 flex items-center gap-2.5 p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
+                        <AlertTriangle className="w-4 h-4 text-yellow-500 shrink-0" />
+                        <p className="text-[10px] text-yellow-500/90">Super Admin له كل الصلاحيات تلقائياً ولا يمكن تقييدها</p>
                       </div>
                     )}
                   </div>
-                );
-              })}
 
-              <div className="flex items-center gap-4 mt-2 px-1">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 rounded border-2 border-primary bg-primary/20" />
-                  <span className="text-[10px] text-muted-foreground">وصول = يقدر يفتح الصفحة</span>
+                  {/* Templates */}
+                  {form.role !== "super_admin" && (
+                    <div>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3">قوالب الصلاحيات السريعة</p>
+                      <div className="grid grid-cols-2 gap-2.5">
+                        {PERMISSION_TEMPLATES.map(tmpl => {
+                          const isSelected = selectedTemplate === tmpl.key;
+                          return (
+                            <button
+                              key={tmpl.key}
+                              type="button"
+                              onClick={() => applyTemplate(tmpl.key)}
+                              className={`flex flex-col items-start gap-1.5 p-3.5 rounded-xl border-2 text-right transition-all
+                                ${isSelected
+                                  ? tmpl.color + " scale-[1.02] shadow-md"
+                                  : "border-white/[0.07] bg-white/[0.02] hover:border-white/20 text-muted-foreground"}`}
+                            >
+                              <div className="flex items-center gap-2 w-full">
+                                <span className="text-lg leading-none">{tmpl.icon}</span>
+                                <span className="text-xs font-black">{tmpl.label}</span>
+                                {isSelected && (
+                                  <span className="mr-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-current/20">✓</span>
+                                )}
+                              </div>
+                              <p className="text-[10px] opacity-70 leading-relaxed">{tmpl.desc}</p>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 rounded border-2 border-emerald-500 bg-emerald-500/20" />
-                  <span className="text-[10px] text-muted-foreground">قائمة = يظهر في الـ Sidebar</span>
-                </div>
-              </div>
-            </section>}
+              );
 
+              /* ────── TAB: الصلاحيات ────── */
+              if (tab === "perms") return (
+                <div className="space-y-5">
+                  {/* Special permissions */}
+                  <div>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3">صلاحيات خاصة</p>
+                    <div className="space-y-2">
+                      {[
+                        { perm: ORDERS_WRITE_PERMISSION,         color: "indigo",  icon: <Package    className="w-3.5 h-3.5 text-indigo-400" />, badge: null },
+                        { perm: FINANCIAL_PERMISSION,             color: "amber",   icon: <TrendingUp className="w-3.5 h-3.5 text-amber-500" />,  badge: "حساسة" },
+                        { perm: EDIT_INVENTORY_PERMISSION,        color: "emerald", icon: <Package    className="w-3.5 h-3.5 text-emerald-500" />,badge: null },
+                        { perm: EDIT_DELETE_INVENTORY_PERMISSION, color: "rose",    icon: <ToggleLeft className="w-3.5 h-3.5 text-rose-500" />,   badge: null },
+                        { perm: VIEW_PRODUCT_PERF_PERMISSION,     color: "blue",    icon: <BarChart3  className="w-3.5 h-3.5 text-blue-500" />,   badge: null },
+                        { perm: ADD_TEAM_MEMBER_PERMISSION,       color: "violet",  icon: <Users      className="w-3.5 h-3.5 text-violet-500" />, badge: null },
+                        { perm: EDIT_BRAND_PERMISSION,            color: "orange",  icon: <Settings2  className="w-3.5 h-3.5 text-orange-500" />, badge: null },
+                      ].map(({ perm, color, icon, badge }) => {
+                        const active = form.permissions.includes(perm.key);
+                        const borderMap: Record<string,string> = {
+                          amber:"border-amber-500/40 bg-amber-500/5", emerald:"border-emerald-500/40 bg-emerald-500/5",
+                          rose:"border-rose-500/40 bg-rose-500/5",    violet:"border-violet-500/40 bg-violet-500/5",
+                          orange:"border-orange-500/40 bg-orange-500/5", indigo:"border-indigo-500/40 bg-indigo-500/5",
+                          blue:"border-blue-500/40 bg-blue-500/5",
+                        };
+                        return (
+                          <label key={perm.key}
+                            className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all
+                              ${active ? borderMap[color] : "border-white/[0.06] bg-white/[0.02] hover:border-white/15"}`}>
+                            <input type="checkbox" checked={active} onChange={() => togglePermission(perm.key)}
+                              className="w-4 h-4 rounded shrink-0 accent-primary" />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                {icon}
+                                <span className="text-xs font-bold text-white/90">{perm.label}</span>
+                                {badge && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-400">{badge}</span>}
+                              </div>
+                              <p className="text-[10px] text-muted-foreground mt-0.5">{perm.desc}</p>
+                            </div>
+                            <div className={`w-2 h-2 rounded-full shrink-0 transition-colors ${active ? "bg-emerald-500" : "bg-white/10"}`} />
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <Separator className="bg-white/[0.06]" />
+
+                  {/* Pages & Sections */}
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">الصفحات والأقسام</p>
+                      <div className="flex items-center gap-3">
+                        <span className="flex items-center gap-1 text-[9px] text-muted-foreground">
+                          <div className="w-2.5 h-2.5 rounded border border-primary bg-primary/20" />وصول
+                        </span>
+                        <span className="flex items-center gap-1 text-[9px] text-muted-foreground">
+                          <div className="w-2.5 h-2.5 rounded border border-emerald-500 bg-emerald-500/20" />قائمة
+                        </span>
+                      </div>
+                    </div>
+                    {[
+                      { group: "🏠 عام",          items: [{ label: "لوحة التحكم",       pageKey: "dashboard",              sectionKey: "section_dashboard" }] },
+                      { group: "📊 التحليلات",     items: [
+                        { label: "التحليلات",        pageKey: "analytics",               sectionKey: null },
+                        { label: "أداء المنتجات",    pageKey: "view_product_performance", sectionKey: "section_product_performance" },
+                        { label: "أداء الفريق",      pageKey: null,                       sectionKey: "section_team_performance" },
+                        { label: "إدارة الفريق",     pageKey: null,                       sectionKey: "section_team_management" },
+                        { label: "التحليل الذكي 🧠", pageKey: null,                       sectionKey: "section_smart_analytics" },
+                        { label: "تحليل الإعلانات",  pageKey: null,                       sectionKey: "section_ads_analytics" },
+                      ]},
+                      { group: "📦 الطلبات",       items: [
+                        { label: "الطلبات",         pageKey: "orders",    sectionKey: "section_orders" },
+                        { label: "طلب جديد",        pageKey: null,        sectionKey: "section_new_order" },
+                        { label: "الأرشيف",          pageKey: null,        sectionKey: "section_archive" },
+                        { label: "متابعة الشحن",    pageKey: null,        sectionKey: "section_shipping_followup" },
+                        { label: "إعدادات واتساب",  pageKey: "whatsapp",  sectionKey: "section_whatsapp" },
+                      ]},
+                      { group: "🏪 المخزون",       items: [
+                        { label: "المخزون",          pageKey: "inventory", sectionKey: "section_inventory" },
+                        { label: "المخازن",           pageKey: null,        sectionKey: "section_warehouses" },
+                        { label: "حركات المخزون",    pageKey: "movements", sectionKey: "section_movements" },
+                      ]},
+                      { group: "🚚 الشحن والفواتير", items: [
+                        { label: "شركات الشحن",     pageKey: "shipping",  sectionKey: "section_shipping" },
+                        { label: "الفواتير",          pageKey: "invoices",  sectionKey: "section_invoices" },
+                      ]},
+                      { group: "📁 البيانات",      items: [
+                        { label: "استيراد Excel",   pageKey: "import",    sectionKey: "section_import" },
+                        { label: "تصدير البيانات",  pageKey: null,        sectionKey: "section_export_data" },
+                      ]},
+                      { group: "⚙️ الإدارة",       items: [
+                        { label: "إدارة المستخدمين", pageKey: "users",    sectionKey: "section_users" },
+                        { label: "تقرير الجلسات",    pageKey: null,       sectionKey: "section_sessions_report" },
+                        { label: "سجل التعديلات",    pageKey: "audit",    sectionKey: "section_audit" },
+                      ]},
+                    ].map(({ group, items }) => {
+                      const allKeys = items.flatMap(i => [i.pageKey, i.sectionKey].filter(Boolean) as string[]);
+                      const allOn   = allKeys.every(k => form.permissions.includes(k));
+                      const someOn  = allKeys.some(k => form.permissions.includes(k));
+                      const open    = openGroups[group] ?? true;
+                      const toggleGroup = () => {
+                        if (allOn) setForm(f => ({ ...f, permissions: f.permissions.filter(k => !allKeys.includes(k)) }));
+                        else       setForm(f => ({ ...f, permissions: [...new Set([...f.permissions, ...allKeys])] }));
+                      };
+                      return (
+                        <div key={group} className="rounded-xl border border-white/[0.07] overflow-hidden mb-2 bg-white/[0.01]">
+                          <div className="flex items-center gap-2 px-3 py-2.5 bg-white/[0.03] border-b border-white/[0.05]">
+                            <button type="button" onClick={() => setOpenGroups(g => ({ ...g, [group]: !open }))}
+                              className="flex items-center gap-2 flex-1 text-right">
+                              {open ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />}
+                              <span className="text-[11px] font-black text-white/90">{group}</span>
+                            </button>
+                            <button type="button" onClick={toggleGroup}
+                              className={`text-[9px] px-2.5 py-0.5 rounded-full font-bold transition-colors
+                                ${allOn  ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
+                                : someOn ? "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30"
+                                         : "bg-white/[0.06] text-muted-foreground hover:bg-white/10"}`}>
+                              {allOn ? "✓ الكل" : someOn ? "جزئي" : "لا شيء"}
+                            </button>
+                          </div>
+                          {open && (
+                            <div className="divide-y divide-white/[0.04]">
+                              {items.map(({ label, pageKey, sectionKey }) => {
+                                const pageActive    = pageKey    ? form.permissions.includes(pageKey)    : null;
+                                const sectionActive = sectionKey ? form.permissions.includes(sectionKey) : null;
+                                return (
+                                  <div key={label} className="flex items-center gap-3 px-3 py-2.5 hover:bg-white/[0.03] transition-colors">
+                                    <span className="text-xs text-white/80 flex-1 font-medium">{label}</span>
+                                    {pageKey ? (
+                                      <label className="flex items-center gap-1.5 cursor-pointer">
+                                        <input type="checkbox" checked={!!pageActive} onChange={() => togglePermission(pageKey)} className="w-3.5 h-3.5 rounded accent-primary" />
+                                        <span className={`text-[9px] font-bold w-10 text-center ${pageActive ? "text-primary" : "text-muted-foreground/40"}`}>وصول</span>
+                                      </label>
+                                    ) : <div className="w-[74px]" />}
+                                    {sectionKey ? (
+                                      <label className="flex items-center gap-1.5 cursor-pointer">
+                                        <input type="checkbox" checked={!!sectionActive} onChange={() => togglePermission(sectionKey)} className="w-3.5 h-3.5 rounded accent-emerald-500" />
+                                        <span className={`text-[9px] font-bold w-10 text-center ${sectionActive ? "text-emerald-500" : "text-muted-foreground/40"}`}>قائمة</span>
+                                      </label>
+                                    ) : <div className="w-[74px]" />}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+
+              return null;
+            })()}
           </div>
 
-          <div className="shrink-0 flex gap-2 pt-3 border-t border-border">
-            <Button variant="outline" className="h-10 text-sm border-border px-5" onClick={() => setDialogOpen(false)}>إلغاء</Button>
-            <Button className="flex-1 h-10 text-sm font-bold" onClick={handleSubmit}
-              disabled={createMutation.isPending || updateMutation.isPending}>
+          {/* ── Footer ── */}
+          <div className="shrink-0 flex items-center gap-3 px-6 py-4 border-t border-white/[0.07] bg-white/[0.02]">
+            <Button
+              variant="outline"
+              className="h-10 px-5 text-sm border-white/[0.1] bg-transparent hover:bg-white/[0.05] text-muted-foreground hover:text-white rounded-xl"
+              onClick={() => setDialogOpen(false)}
+            >
+              إلغاء
+            </Button>
+            <Button
+              className="flex-1 h-10 text-sm font-bold rounded-xl bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20"
+              onClick={handleSubmit}
+              disabled={createMutation.isPending || updateMutation.isPending}
+            >
               {createMutation.isPending || updateMutation.isPending
-                ? <span className="flex items-center gap-2"><span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />جاري الحفظ...</span>
-                : editingUser ? "💾 حفظ التعديلات" : "✚ إضافة المستخدم"}
+                ? <span className="flex items-center gap-2">
+                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    جاري الحفظ...
+                  </span>
+                : editingUser
+                  ? <span className="flex items-center gap-2"><Shield className="w-4 h-4" />حفظ التعديلات</span>
+                  : <span className="flex items-center gap-2"><UserPlus className="w-4 h-4" />إضافة المستخدم</span>
+              }
             </Button>
           </div>
 
