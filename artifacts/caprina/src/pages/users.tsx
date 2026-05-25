@@ -382,6 +382,7 @@ export default function UsersPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
   const [form, setForm] = useState<UserForm>(emptyForm());
+  const [modalTab, setModalTab] = useState<string>("account");
   const [showPassword, setShowPassword] = useState(false);
   const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
   const [resetTarget, setResetTarget] = useState<AppUser | null>(null);
