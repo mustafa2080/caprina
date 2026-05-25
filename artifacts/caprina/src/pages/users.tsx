@@ -788,9 +788,10 @@ export default function UsersPage() {
             {/* ── Tab Bar ── */}
             {(() => {
               const tabs = [
-                { id: "account", icon: <User className="w-3.5 h-3.5" />, label: "الحساب" },
-                { id: "role",    icon: <Shield className="w-3.5 h-3.5" />, label: "الدور" },
-                ...( form.role !== "super_admin" ? [{ id: "perms", icon: <KeyRound className="w-3.5 h-3.5" />, label: "الصلاحيات" }] : [] ),
+                { id: "account",  icon: <User className="w-3.5 h-3.5" />,       label: "الحساب" },
+                { id: "role",     icon: <Shield className="w-3.5 h-3.5" />,      label: "الدور" },
+                ...( form.role !== "super_admin" ? [{ id: "sections", icon: <LayoutGrid className="w-3.5 h-3.5" />, label: "الأقسام" }] : [] ),
+                ...( form.role !== "super_admin" ? [{ id: "perms",    icon: <KeyRound className="w-3.5 h-3.5" />,   label: "الصلاحيات" }] : [] ),
               ];
               const active = (window as any).__modalTab || "account";
               return (
@@ -943,6 +944,73 @@ export default function UsersPage() {
                   )}
                 </div>
               );
+
+              /* ────── TAB: الأقسام المرئية ────── */
+              if (tab === "sections") {
+                const SECTIONS = [
+                  { key: "section_dashboard",           label: "لوحة التحكم",         icon: "🏠", color: "text-blue-400",    bg: "bg-blue-500/10 border-blue-500/30" },
+                  { key: "section_orders",              label: "الطلبات",              icon: "📦", color: "text-orange-400",  bg: "bg-orange-500/10 border-orange-500/30" },
+                  { key: "section_new_order",           label: "طلب جديد",             icon: "➕", color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/30" },
+                  { key: "section_archive",             label: "الأرشيف",              icon: "🗂️", color: "text-stone-400",   bg: "bg-stone-500/10 border-stone-500/30" },
+                  { key: "section_shipping_followup",   label: "متابعة الشحن",         icon: "⏱️", color: "text-cyan-400",    bg: "bg-cyan-500/10 border-cyan-500/30" },
+                  { key: "section_shipping",            label: "شركات الشحن",          icon: "🚚", color: "text-sky-400",     bg: "bg-sky-500/10 border-sky-500/30" },
+                  { key: "section_inventory",           label: "المنتجات والمخزون",    icon: "🏪", color: "text-violet-400",  bg: "bg-violet-500/10 border-violet-500/30" },
+                  { key: "section_warehouses",          label: "المخازن",              icon: "🏭", color: "text-indigo-400",  bg: "bg-indigo-500/10 border-indigo-500/30" },
+                  { key: "section_movements",           label: "حركات المخزون",        icon: "🔄", color: "text-purple-400",  bg: "bg-purple-500/10 border-purple-500/30" },
+                  { key: "section_product_performance", label: "أداء المنتجات",        icon: "📊", color: "text-pink-400",    bg: "bg-pink-500/10 border-pink-500/30" },
+                  { key: "section_smart_analytics",     label: "التحليل الذكي",        icon: "🧠", color: "text-fuchsia-400", bg: "bg-fuchsia-500/10 border-fuchsia-500/30" },
+                  { key: "section_ads_analytics",       label: "تحليل الإعلانات",      icon: "📣", color: "text-rose-400",    bg: "bg-rose-500/10 border-rose-500/30" },
+                  { key: "section_team_management",     label: "إدارة الفريق",         icon: "👥", color: "text-lime-400",    bg: "bg-lime-500/10 border-lime-500/30" },
+                  { key: "section_team_performance",    label: "أداء الفريق",          icon: "🏆", color: "text-lime-300",    bg: "bg-lime-400/10 border-lime-400/30" },
+                  { key: "section_finance",             label: "الماليات",             icon: "💰", color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/30" },
+                  { key: "section_invoices",            label: "الفواتير",             icon: "🧾", color: "text-yellow-400",  bg: "bg-yellow-500/10 border-yellow-500/30" },
+                  { key: "section_import",              label: "استيراد Excel",        icon: "📤", color: "text-amber-400",   bg: "bg-amber-500/10 border-amber-500/30" },
+                  { key: "section_export_data",         label: "تصدير البيانات",       icon: "📥", color: "text-orange-300",  bg: "bg-orange-400/10 border-orange-400/30" },
+                  { key: "section_users",               label: "إدارة المستخدمين",     icon: "🔐", color: "text-green-400",   bg: "bg-green-500/10 border-green-500/30" },
+                  { key: "section_sessions_report",     label: "تقرير الجلسات",        icon: "🕐", color: "text-slate-400",   bg: "bg-slate-500/10 border-slate-500/30" },
+                  { key: "section_audit",               label: "سجل العمليات",         icon: "🛡️", color: "text-red-400",     bg: "bg-red-500/10 border-red-500/30" },
+                  { key: "section_whatsapp",            label: "إعدادات واتساب",       icon: "💬", color: "text-[#25D366]",   bg: "bg-green-500/10 border-green-500/30" },
+                ];
+                const allOn = SECTIONS.every(s => form.permissions.includes(s.key));
+                return (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">الأقسام المرئية في القائمة الجانبية</p>
+                      <button type="button"
+                        onClick={() => {
+                          const keys = SECTIONS.map(s => s.key);
+                          if (allOn) setForm(f => ({ ...f, permissions: f.permissions.filter(k => !keys.includes(k)) }));
+                          else       setForm(f => ({ ...f, permissions: [...new Set([...f.permissions, ...keys])] }));
+                        }}
+                        className="text-[9px] px-2 py-0.5 rounded-full border border-white/10 text-muted-foreground hover:border-white/30 hover:text-white transition-all"
+                      >{allOn ? "إخفاء الكل" : "إظهار الكل"}</button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {SECTIONS.map(sec => {
+                        const isOn = form.permissions.includes(sec.key);
+                        return (
+                          <button key={sec.key} type="button"
+                            onClick={() => setForm(f => ({
+                              ...f,
+                              permissions: isOn
+                                ? f.permissions.filter(k => k !== sec.key)
+                                : [...f.permissions, sec.key]
+                            }))}
+                            className={`flex items-center gap-2.5 p-3 rounded-xl border text-right transition-all ${isOn ? sec.bg : "border-white/[0.07] bg-white/[0.02] hover:border-white/20"}`}
+                          >
+                            <span className="text-base leading-none shrink-0">{sec.icon}</span>
+                            <span className={`text-[11px] font-bold flex-1 ${isOn ? sec.color : "text-muted-foreground"}`}>{sec.label}</span>
+                            <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center transition-all ${isOn ? "border-current bg-current/20" : "border-white/20"}`}>
+                              {isOn && <div className="w-2 h-2 rounded-full bg-current" />}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground text-center">القسم المُفعَّل يظهر في القائمة الجانبية للمستخدم — المُعطَّل يختفي تلقائياً</p>
+                  </div>
+                );
+              }
 
               /* ────── TAB: الصلاحيات — 9 أقسام ────── */
               if (tab === "perms") return (
