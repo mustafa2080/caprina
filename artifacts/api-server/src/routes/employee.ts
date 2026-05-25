@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, gte, lte, desc, isNotNull, isNull } from "drizzle-orm";
+import { eq, and, gte, lte, desc, isNotNull, isNull, like } from "drizzle-orm";
 import {
   db,
   usersTable,
@@ -7,6 +7,7 @@ import {
   employeeProfilesTable,
   employeeKpisTable,
   employeeDailyLogsTable,
+  attendanceTable,
 } from "@workspace/db";
 import { z } from "zod";
 import { requireAuth } from "../middlewares/requireAuth";
@@ -132,12 +133,37 @@ router.get("/employee-profiles", async (req, res): Promise<void> => {
     .from(employeeProfilesTable)
     .leftJoin(usersTable, eq(employeeProfilesTable.userId, usersTable.id));
 
-  // فلتر بالـ tenant عن طريق الـ user المرتبط بالبروفايل
   const rows = tenantId !== null
     ? await query.where(eq(usersTable.tenantId, tenantId))
     : await query.where(isNull(usersTable.tenantId));
 
-  res.json(rows.map((r) => mergeProfile(r.profile, r.user)));
+  // جلب kpiCount لكل profile دفعة واحدة
+  const allKpis = await db.select({ profileId: employeeKpisTable.profileId }).from(employeeKpisTable);
+  const kpiCountMap: Record<number, number> = {};
+  for (const k of allKpis) kpiCountMap[k.profileId] = (kpiCountMap[k.profileId] ?? 0) + 1;
+
+  // جلب الحضور للشهر الحالي لكل profile
+  const now = new Date();
+  const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const attRecords = await db.select({
+    profileId: attendanceTable.profileId,
+    status: attendanceTable.status,
+  }).from(attendanceTable).where(like(attendanceTable.date, `${monthStr}-%`));
+
+  const attMap: Record<number, { workedDays: number; absentDays: number; lateDays: number }> = {};
+  for (const r of attRecords) {
+    if (!attMap[r.profileId]) attMap[r.profileId] = { workedDays: 0, absentDays: 0, lateDays: 0 };
+    if (r.status === "present" || r.status === "late") attMap[r.profileId].workedDays++;
+    if (r.status === "absent") attMap[r.profileId].absentDays++;
+    if (r.status === "late") attMap[r.profileId].lateDays++;
+    if (r.status === "half_day") attMap[r.profileId].workedDays += 0.5;
+  }
+
+  res.json(rows.map((r) => ({
+    ...mergeProfile(r.profile, r.user),
+    kpiCount: kpiCountMap[r.profile.id] ?? 0,
+    attendanceSummary: attMap[r.profile.id] ?? { workedDays: 0, absentDays: 0, lateDays: 0 },
+  })));
 });
 
 // GET by profile ID

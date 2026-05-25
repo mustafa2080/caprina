@@ -1789,14 +1789,16 @@ export default function TeamPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="bg-muted/20 rounded-md p-2 text-center">
-                    <p className="text-sm font-bold text-emerald-400">{fmt(profile.monthlySalary ?? 0)}</p>
-                    <p className="text-[9px] text-muted-foreground">الراتب الشهري</p>
+                    <p className="text-sm font-bold text-emerald-400">
+                      {(profile as any).attendanceSummary?.workedDays ?? "—"}
+                    </p>
+                    <p className="text-[9px] text-muted-foreground">أيام الحضور</p>
                   </div>
                   <div className="bg-muted/20 rounded-md p-2 text-center">
-                    <p className="text-sm font-bold">
-                      {profile.hireDate ? Math.floor((Date.now() - new Date(profile.hireDate).getTime()) / (1000 * 60 * 60 * 24 * 30)) : "—"}
+                    <p className="text-sm font-bold text-primary">
+                      {(profile as any).kpiCount ?? 0}
                     </p>
-                    <p className="text-[9px] text-muted-foreground">شهر في العمل</p>
+                    <p className="text-[9px] text-muted-foreground">مؤشر أداء</p>
                   </div>
                 </div>
                 <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1 border-t border-border/30">
