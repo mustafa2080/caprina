@@ -1767,11 +1767,12 @@ export default function Dashboard() {
                             {emp.jobTitle || (emp.role === "admin" ? "مدير" : emp.role === "manager" ? "مشرف" : "موظف")}
                           </p>
                         </div>
-                        {emp.monthlySalary > 0 && (
-                          <p className="text-sm font-black text-primary shrink-0">
-                            {new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(emp.monthlySalary)}
-                          </p>
-                        )}
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className={`text-sm font-black ${(emp as any).kpiCount > 0 ? "text-emerald-500" : "text-muted-foreground"}`}>
+                            {(emp as any).kpiCount ?? 0}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">KPI</span>
+                        </div>
                       </div>
                     </Link>
                   );
@@ -1782,12 +1783,10 @@ export default function Dashboard() {
               <div className="mx-3 mb-3 mt-2 grid grid-cols-2 gap-2 rounded-xl border border-border bg-muted/20 p-2.5 text-center">
                 <div><p className="text-base font-black">{employeeProfiles.length}</p><p className="text-[10px] text-muted-foreground mt-0.5">الموظفين</p></div>
                 <div>
-                  <p className="text-base font-black text-primary">
-                    {new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(
-                      employeeProfiles.reduce((s: number, e: any) => s + (e.monthlySalary || 0), 0)
-                    )}
+                  <p className="text-base font-black text-emerald-500">
+                    {employeeProfiles.reduce((s: number, e: any) => s + ((e as any).kpiCount || 0), 0)}
                   </p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">إجمالي الرواتب</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">إجمالي KPI</p>
                 </div>
               </div>
             </Card>
