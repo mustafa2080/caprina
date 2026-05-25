@@ -333,12 +333,13 @@ const AD_SOURCE_META: Record<string, { label: string; iconColor: string; gradFro
 function getAdMeta(src: string) { return AD_SOURCE_META[src] ?? AD_SOURCE_META.other; }
 
 /** Card للمنصة الإعلانية في الداشبورد */
-function DashAdSourceCard({ source, orders, revenue, profit, returnRate, maxRevenue, canViewFinancials, isBest }: {
+function DashAdSourceCard({ source, orders, revenue, profit, returnRate, maxRevenue, canViewFinancials, isBest, shippingShare = 0 }: {
   source: string; orders: number; revenue: number; profit: number; returnRate: number;
-  maxRevenue: number; canViewFinancials: boolean; isBest: boolean;
+  maxRevenue: number; canViewFinancials: boolean; isBest: boolean; shippingShare?: number;
 }) {
   const meta = getAdMeta(source);
   const Icon = meta.icon;
+  const revenueAfterShipping = revenue - shippingShare;
   const barPct = Math.max(4, Math.round((revenue / maxRevenue) * 100));
 
   return (
@@ -368,7 +369,9 @@ function DashAdSourceCard({ source, orders, revenue, profit, returnRate, maxReve
       <div className="space-y-0.5">
         <div className="flex justify-between text-[9px] text-muted-foreground">
           <span>الإيرادات</span>
-          <span className="font-bold text-foreground">{new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(revenue)}</span>
+          <span className={`font-bold ${revenueAfterShipping >= 0 ? "text-foreground" : "text-red-500"}`}>
+            {new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(revenueAfterShipping)}
+          </span>
         </div>
         <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
           <div className="h-1.5 rounded-full transition-all duration-700"
@@ -1587,19 +1590,25 @@ export default function Dashboard() {
                   const breakdown = smartData!.adAttribution!.breakdown!;
                   const maxRevenue = Math.max(...breakdown.map((s: any) => s.revenue), 1);
                   const bestSrc = smartData!.adAttribution?.bestSource?.source;
-                  return breakdown.map((s: any) => (
-                    <DashAdSourceCard
-                      key={s.source}
-                      source={s.source}
-                      orders={s.orders}
-                      revenue={s.revenue}
-                      profit={s.profit}
-                      returnRate={s.returnRate}
-                      maxRevenue={maxRevenue}
-                      canViewFinancials={canViewFinancials}
-                      isBest={s.source === bestSrc}
-                    />
-                  ));
+                  const totalOrders = breakdown.reduce((s: number, x: any) => s + x.orders, 0);
+                  const totalShipping = fin?.shippingSpend ?? 0;
+                  return breakdown.map((s: any) => {
+                    const shippingShare = totalOrders > 0 ? (s.orders / totalOrders) * totalShipping : 0;
+                    return (
+                      <DashAdSourceCard
+                        key={s.source}
+                        source={s.source}
+                        orders={s.orders}
+                        revenue={s.revenue}
+                        profit={s.profit}
+                        returnRate={s.returnRate}
+                        maxRevenue={maxRevenue}
+                        canViewFinancials={canViewFinancials}
+                        isBest={s.source === bestSrc}
+                        shippingShare={shippingShare}
+                      />
+                    );
+                  });
                 })()}
               </div>
 
