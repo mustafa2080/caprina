@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usersApi, type AppUser } from "@/lib/api";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, ALL_PERMISSIONS } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
-import { UserPlus, Edit2, Trash2, Shield, Users, Eye, EyeOff, TrendingUp, Package, BarChart3, LayoutGrid, Lock, User, Settings2, ChevronDown, ChevronUp, ToggleLeft, Camera, X, Crown, AlertTriangle, Search, KeyRound, Power } from "lucide-react";
+import { UserPlus, Edit2, Trash2, Shield, Users, Eye, EyeOff, TrendingUp, Package, BarChart3, LayoutGrid, Lock, User, Settings2, ChevronDown, ChevronUp, ToggleLeft, Camera, X, Crown, AlertTriangle, Search, KeyRound, Power, Home, ShoppingCart, Truck, BarChart2, Wallet, Wrench, Cog, MonitorCheck } from "lucide-react";
 
 // ── User Avatar Component ────────────────────────────────────────────────────
 function getInitialsColor(name: string): string {
@@ -169,6 +169,114 @@ const SIDEBAR_SECTION_PERMISSIONS = [
   { key: "section_sessions_report",     label: "تقرير الجلسات",        desc: "قسم عرض سجل دخول وخروج الموظفين"                           },
   { key: "section_audit",               label: "سجل التعديلات",        desc: "قسم تتبع كل التعديلات والعمليات في النظام"                 },
   { key: "section_finance",             label: "قسم الماليات",         desc: "عرض جميع صفحات الماليات: لوحة، أوامر شراء، موردين، مصروفات، فواتير شحن" },
+];
+
+// ── Section Groups للـ Modal الجديد — 9 أقسام ────────────────────────────────
+const SECTION_GROUPS: Array<{
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+  color: string;
+  bgColor: string;
+  permissions: Array<{ key: string; label: string; desc: string; sensitive?: boolean }>;
+}> = [
+  {
+    id: "dashboard", label: "لوحة التحكم", color: "text-sky-400", bgColor: "bg-sky-500/10 border-sky-500/30",
+    icon: <Home className="w-4 h-4" />,
+    permissions: [
+      { key: "dashboard.view",           label: "دخول لوحة التحكم",            desc: "يشوف الصفحة الرئيسية" },
+      { key: "dashboard.financials",     label: "بطاقات الأرباح والخسائر",     desc: "إخفاء إذا لم يُمنح", sensitive: true },
+      { key: "dashboard.shipping_stats", label: "إحصائيات شركات الشحن",       desc: "إخفاء إذا لم يُمنح" },
+      { key: "dashboard.returns",        label: "بطاقة المرتجعات",             desc: "إخفاء إذا لم يُمنح" },
+      { key: "dashboard.team",           label: "قسم أداء الفريق",             desc: "إخفاء إذا لم يُمنح" },
+    ],
+  },
+  {
+    id: "orders", label: "الطلبات", color: "text-amber-400", bgColor: "bg-amber-500/10 border-amber-500/30",
+    icon: <ShoppingCart className="w-4 h-4" />,
+    permissions: [
+      { key: "orders.view",       label: "رؤية الطلبات",           desc: "دخول صفحة الطلبات" },
+      { key: "orders.create",     label: "إضافة طلب",              desc: "زر إضافة طلب جديد" },
+      { key: "orders.edit",       label: "تعديل طلب",              desc: "تعديل بيانات طلب موجود" },
+      { key: "orders.delete",     label: "حذف طلب",                desc: "حذف طلب بشكل نهائي" },
+      { key: "orders.financials", label: "الأسعار داخل الطلب",     desc: "إخفاء التكلفة والربح في الطلب", sensitive: true },
+      { key: "orders.export",     label: "تصدير الطلبات",          desc: "تصدير Excel / PDF" },
+    ],
+  },
+  {
+    id: "inventory", label: "المنتجات والمخزون", color: "text-emerald-400", bgColor: "bg-emerald-500/10 border-emerald-500/30",
+    icon: <Package className="w-4 h-4" />,
+    permissions: [
+      { key: "inventory.view",       label: "رؤية المخزون",         desc: "دخول صفحة المخزون" },
+      { key: "inventory.edit",       label: "تعديل الكميات",        desc: "تعديل وإضافة منتجات" },
+      { key: "inventory.delete",     label: "حذف منتج",             desc: "حذف منتج من المخزون" },
+      { key: "inventory.cost",       label: "تكلفة المنتجات",       desc: "إخفاء سعر التكلفة إذا لم يُمنح", sensitive: true },
+      { key: "inventory.movements",  label: "حركات المخزون",        desc: "رؤية وإدارة الحركات" },
+      { key: "inventory.warehouses", label: "إدارة المخازن",        desc: "إضافة وتعديل المخازن" },
+    ],
+  },
+  {
+    id: "shipping", label: "الشحن والتوصيل", color: "text-purple-400", bgColor: "bg-purple-500/10 border-purple-500/30",
+    icon: <Truck className="w-4 h-4" />,
+    permissions: [
+      { key: "shipping.view",       label: "رؤية شركات الشحن",     desc: "دخول صفحة الشحن" },
+      { key: "shipping.edit",       label: "تعديل شركات الشحن",    desc: "تعديل الأسعار والبيانات" },
+      { key: "shipping.financials", label: "تكاليف الشحن المالية",  desc: "إخفاء أرباح/تكاليف الشحن", sensitive: true },
+      { key: "shipping.manifests",  label: "بوليصات الشحن",         desc: "إنشاء وتصدير البوليصات" },
+    ],
+  },
+  {
+    id: "analytics", label: "التحليلات", color: "text-blue-400", bgColor: "bg-blue-500/10 border-blue-500/30",
+    icon: <BarChart2 className="w-4 h-4" />,
+    permissions: [
+      { key: "analytics.view",      label: "دخول التحليلات",        desc: "صفحة التحليلات العامة" },
+      { key: "analytics.financial", label: "التحليلات المالية",      desc: "إخفاء أرقام الأرباح في التحليلات", sensitive: true },
+      { key: "analytics.products",  label: "أداء المنتجات",          desc: "تحليل أداء المنتجات" },
+      { key: "analytics.ads",       label: "تحليل الإعلانات",        desc: "ربط مصادر الإعلانات بالطلبات" },
+      { key: "analytics.smart",     label: "التحليل الذكي",          desc: "التوصيات الذكية والتنبيهات" },
+    ],
+  },
+  {
+    id: "finance", label: "الماليات", color: "text-rose-400", bgColor: "bg-rose-500/10 border-rose-500/30",
+    icon: <Wallet className="w-4 h-4" />,
+    permissions: [
+      { key: "finance.view",      label: "دخول الماليات",           desc: "الصفحة الرئيسية للماليات", sensitive: true },
+      { key: "finance.sales",     label: "المبيعات والفواتير",       desc: "تقارير وفواتير المبيعات", sensitive: true },
+      { key: "finance.expenses",  label: "المصروفات",                desc: "عرض وإدارة المصروفات", sensitive: true },
+      { key: "finance.cash",      label: "الخزينة والصندوق",        desc: "إدارة الصندوق النقدي", sensitive: true },
+      { key: "finance.suppliers", label: "الموردين والمشتريات",      desc: "حسابات الموردين", sensitive: true },
+      { key: "finance.reports",   label: "تقارير الأرباح والخسائر",  desc: "التقارير المالية الشاملة", sensitive: true },
+    ],
+  },
+  {
+    id: "team", label: "الفريق والإدارة", color: "text-teal-400", bgColor: "bg-teal-500/10 border-teal-500/30",
+    icon: <Users className="w-4 h-4" />,
+    permissions: [
+      { key: "team.view",        label: "رؤية أعضاء الفريق",        desc: "قائمة الموظفين" },
+      { key: "team.performance", label: "أداء الفريق",              desc: "إحصائيات وتقارير الأداء" },
+      { key: "team.manage",      label: "إدارة الفريق",             desc: "إضافة / تعديل / حذف أعضاء" },
+      { key: "team.salaries",    label: "الرواتب والمدفوعات",        desc: "إخفاء الأرقام المالية للفريق", sensitive: true },
+    ],
+  },
+  {
+    id: "tools", label: "الأدوات", color: "text-orange-400", bgColor: "bg-orange-500/10 border-orange-500/30",
+    icon: <Wrench className="w-4 h-4" />,
+    permissions: [
+      { key: "tools.import", label: "استيراد Excel",    desc: "رفع وقراءة ملفات البيانات" },
+      { key: "tools.export", label: "تصدير البيانات",   desc: "تحميل البيانات بصيغ مختلفة" },
+    ],
+  },
+  {
+    id: "settings", label: "الإعدادات والدعم", color: "text-slate-400", bgColor: "bg-slate-500/10 border-slate-500/30",
+    icon: <Cog className="w-4 h-4" />,
+    permissions: [
+      { key: "settings.brand",    label: "تعديل البراند والشعار",    desc: "اسم النظام والشعار والألوان" },
+      { key: "settings.users",    label: "إدارة المستخدمين",         desc: "إضافة وتعديل وحذف المستخدمين" },
+      { key: "settings.audit",    label: "سجل التعديلات",            desc: "عرض تاريخ التعديلات" },
+      { key: "settings.sessions", label: "تقرير الجلسات",            desc: "عرض جلسات تسجيل الدخول" },
+      { key: "settings.whatsapp", label: "إعدادات واتساب",           desc: "ربط وتهيئة واتساب" },
+    ],
+  },
 ];
 
 // ── Permission Templates ─────────────────────────────────────────────────────
@@ -836,19 +944,123 @@ export default function UsersPage() {
                 </div>
               );
 
-              /* ────── TAB: الصلاحيات ────── */
+              /* ────── TAB: الصلاحيات — 9 أقسام ────── */
               if (tab === "perms") return (
-                <div className="space-y-5">
-                  {/* Special permissions */}
-                  <div>
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3">صلاحيات خاصة</p>
-                    <div className="space-y-2">
-                      {[
-                        { perm: ORDERS_WRITE_PERMISSION,         color: "indigo",  icon: <Package    className="w-3.5 h-3.5 text-indigo-400" />, badge: null },
-                        { perm: FINANCIAL_PERMISSION,             color: "amber",   icon: <TrendingUp className="w-3.5 h-3.5 text-amber-500" />,  badge: "حساسة" },
-                        { perm: EDIT_INVENTORY_PERMISSION,        color: "emerald", icon: <Package    className="w-3.5 h-3.5 text-emerald-500" />,badge: null },
-                        { perm: EDIT_DELETE_INVENTORY_PERMISSION, color: "rose",    icon: <ToggleLeft className="w-3.5 h-3.5 text-rose-500" />,   badge: null },
-                        { perm: VIEW_PRODUCT_PERF_PERMISSION,     color: "blue",    icon: <BarChart3  className="w-3.5 h-3.5 text-blue-500" />,   badge: null },
+                <div className="space-y-3">
+                  {/* Header summary */}
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                      الصلاحيات التفصيلية
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[9px] text-muted-foreground">
+                        {form.permissions.filter(p => p.includes(".")).length} صلاحية محددة
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const allKeys = SECTION_GROUPS.flatMap(g => g.permissions.map(p => p.key));
+                          const allOn = allKeys.every(k => form.permissions.includes(k));
+                          if (allOn) setForm(f => ({ ...f, permissions: f.permissions.filter(k => !allKeys.includes(k)) }));
+                          else       setForm(f => ({ ...f, permissions: [...new Set([...f.permissions, ...allKeys])] }));
+                        }}
+                        className="text-[9px] px-2 py-0.5 rounded-full border border-white/10 text-muted-foreground hover:border-white/30 hover:text-white transition-all"
+                      >
+                        {SECTION_GROUPS.flatMap(g => g.permissions.map(p => p.key)).every(k => form.permissions.includes(k)) ? "إلغاء الكل" : "تحديد الكل"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 9 Section Groups */}
+                  {SECTION_GROUPS.map(group => {
+                    const groupKeys = group.permissions.map(p => p.key);
+                    const allOn  = groupKeys.every(k => form.permissions.includes(k));
+                    const someOn = groupKeys.some(k => form.permissions.includes(k));
+                    const [open, setOpen] = [
+                      openGroups[group.id] ?? true,
+                      (v: boolean) => setOpenGroups(g => ({ ...g, [group.id]: v })),
+                    ];
+                    const toggleAll = () => {
+                      if (allOn) setForm(f => ({ ...f, permissions: f.permissions.filter(k => !groupKeys.includes(k)) }));
+                      else       setForm(f => ({ ...f, permissions: [...new Set([...f.permissions, ...groupKeys])] }));
+                    };
+                    return (
+                      <div key={group.id} className="rounded-2xl border border-white/[0.07] overflow-hidden">
+                        {/* Group Header */}
+                        <div
+                          className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors
+                            ${open ? "bg-white/[0.04] border-b border-white/[0.06]" : "bg-white/[0.02] hover:bg-white/[0.04]"}`}
+                          onClick={() => setOpen(!open)}
+                        >
+                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border ${group.bgColor} ${group.color}`}>
+                            {group.icon}
+                          </div>
+                          <span className={`text-xs font-black flex-1 ${group.color}`}>{group.label}</span>
+                          {/* status pill */}
+                          <button
+                            type="button"
+                            onClick={e => { e.stopPropagation(); toggleAll(); }}
+                            className={`text-[9px] px-2.5 py-0.5 rounded-full font-bold transition-colors shrink-0
+                              ${allOn  ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
+                              : someOn ? "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30"
+                                       : "bg-white/[0.06] text-muted-foreground hover:bg-white/10"}`}
+                          >
+                            {allOn ? "✓ الكل" : someOn ? "جزئي" : "لا شيء"}
+                          </button>
+                          {open
+                            ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                            : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" />}
+                        </div>
+
+                        {/* Permissions list */}
+                        {open && (
+                          <div className="divide-y divide-white/[0.04]">
+                            {group.permissions.map(perm => {
+                              const active = form.permissions.includes(perm.key);
+                              return (
+                                <label
+                                  key={perm.key}
+                                  className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors
+                                    ${active ? "bg-white/[0.03]" : "hover:bg-white/[0.02]"}`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={active}
+                                    onChange={() => {
+                                      setForm(f => ({
+                                        ...f,
+                                        permissions: active
+                                          ? f.permissions.filter(k => k !== perm.key)
+                                          : [...f.permissions, perm.key],
+                                      }));
+                                    }}
+                                    className="w-4 h-4 rounded shrink-0 accent-primary"
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs font-semibold text-white/90">{perm.label}</span>
+                                      {perm.sensitive && (
+                                        <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-rose-500/20 text-rose-400 shrink-0">
+                                          حساسة
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground mt-0.5">{perm.desc}</p>
+                                  </div>
+                                  <div className={`w-1.5 h-1.5 rounded-full shrink-0 transition-colors ${active ? "bg-emerald-500" : "bg-white/10"}`} />
+                                </label>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+
+              return null;
+            })()}
                         { perm: ADD_TEAM_MEMBER_PERMISSION,       color: "violet",  icon: <Users      className="w-3.5 h-3.5 text-violet-500" />, badge: null },
                         { perm: EDIT_BRAND_PERMISSION,            color: "orange",  icon: <Settings2  className="w-3.5 h-3.5 text-orange-500" />, badge: null },
                       ].map(({ perm, color, icon, badge }) => {

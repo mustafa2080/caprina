@@ -551,7 +551,12 @@ function DashShippingCompanyRow({ company, canViewFinancials }: { company: any; 
 }
 
 export default function Dashboard() {
-  const { isAdmin, canViewFinancials } = useAuth();
+  const { isAdmin, canViewFinancials, can } = useAuth();
+  // ── Dashboard permission shortcuts ───────────────────────────────────
+  const canSeeFinancials    = can("dashboard.financials");
+  const canSeeShippingStats = can("dashboard.shipping_stats");
+  const canSeeReturns       = can("dashboard.returns");
+  const canSeeTeam          = can("dashboard.team");
   const [period, setPeriod] = useState<Period>("today");
   const [showDamagedModal, setShowDamagedModal] = useState(false);
   const [clientPeriod, setClientPeriod] = useState<"thisWeek" | "lastWeek" | "thisMonth">("thisWeek");
@@ -842,8 +847,8 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* === FINANCIAL OVERVIEW BANNER (admin only) === */}
-      {canViewFinancials && fin && (
+      {/* === FINANCIAL OVERVIEW BANNER — يظهر فقط لو canSeeFinancials === */}
+      {canViewFinancials && canSeeFinancials && fin && (
         <div className="rounded-xl border border-emerald-300 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-900/5 overflow-hidden">
           <div className="p-3 sm:p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-3 sm:mb-4">
@@ -1244,7 +1249,8 @@ export default function Dashboard() {
             </div>
           </Link>
 
-          {/* المرتجعات */}
+          {/* المرتجعات — مخفية لو ماعندوش dashboard.returns */}
+          {canSeeReturns && (
           <Link href="/smart">
             <div className={`flex items-center gap-2 sm:gap-2.5 p-2 sm:p-3 rounded-xl border bg-card hover:bg-primary/5 transition-colors cursor-pointer ${
               smartData.returnInsights.highReturnProducts.length > 0 ? "border-red-300 dark:border-red-800" : "border-border"
@@ -1268,6 +1274,7 @@ export default function Dashboard() {
               </div>
             </div>
           </Link>
+          )}
 
           {/* سينفد قريباً */}
           <Link href="/smart">
@@ -1506,8 +1513,8 @@ export default function Dashboard() {
 
 
 
-          {/* شركات الشحن النشطة */}
-          {(() => {
+          {/* شركات الشحن النشطة — مخفية لو ماعندوش dashboard.shipping_stats */}
+          {canSeeShippingStats && (() => {
             const activeCompanies = shippingCompanies.filter((c: any) => c.isActive);
             return (
               <Card className="border-border overflow-hidden">
@@ -1644,8 +1651,8 @@ export default function Dashboard() {
             </Card>
           )}
 
-          {/* ── تتبع أداء فريق المبيعات + إدارة الفريق — جنب بعض ── */}
-          {(teamPerf.length > 0 || (isAdmin && employeeProfiles.length > 0)) && (
+          {/* ── تتبع أداء فريق المبيعات — مخفي لو ماعندوش dashboard.team ── */}
+          {canSeeTeam && (teamPerf.length > 0 || (isAdmin && employeeProfiles.length > 0)) && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 
           {/* تتبع أداء فريق المبيعات */}

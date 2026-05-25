@@ -46,10 +46,91 @@ const POLL_INTERVAL_MS = 30_000;
 // عدد المرات المتتالية اللي ممكن يفشل فيها الـ polling قبل الـ logout
 const MAX_POLL_FAILURES = 3;
 
+// ══════════════════════════════════════════════════════════════════════
+//  جميع مفاتيح الصلاحيات المتاحة في النظام
+//  مقسّمة على 9 أقسام — يُستخدم هذا الكائن في users.tsx لعرضها
+// ══════════════════════════════════════════════════════════════════════
+export const ALL_PERMISSIONS = {
+  // 1. لوحة التحكم
+  dashboard: [
+    { key: "dashboard.view",           label: "دخول لوحة التحكم",               desc: "يشوف الصفحة الرئيسية" },
+    { key: "dashboard.financials",     label: "بطاقات الأرباح والخسائر",        desc: "إخفاء إذا لم يُمنح" },
+    { key: "dashboard.shipping_stats", label: "إحصائيات شركات الشحن",          desc: "إخفاء إذا لم يُمنح" },
+    { key: "dashboard.returns",        label: "بطاقة المرتجعات",                desc: "إخفاء إذا لم يُمنح" },
+    { key: "dashboard.team",           label: "قسم أداء الفريق",                desc: "إخفاء إذا لم يُمنح" },
+  ],
+  // 2. الطلبات
+  orders: [
+    { key: "orders.view",       label: "رؤية الطلبات",            desc: "دخول صفحة الطلبات" },
+    { key: "orders.create",     label: "إضافة طلب",               desc: "زر إضافة طلب جديد" },
+    { key: "orders.edit",       label: "تعديل طلب",               desc: "تعديل بيانات طلب موجود" },
+    { key: "orders.delete",     label: "حذف طلب",                 desc: "حذف طلب بشكل نهائي" },
+    { key: "orders.financials", label: "الأسعار داخل الطلب",      desc: "إخفاء التكلفة والربح في الطلب" },
+    { key: "orders.export",     label: "تصدير الطلبات",           desc: "تصدير Excel / PDF" },
+  ],
+  // 3. المنتجات والمخزون
+  inventory: [
+    { key: "inventory.view",       label: "رؤية المخزون",          desc: "دخول صفحة المخزون" },
+    { key: "inventory.edit",       label: "تعديل الكميات",         desc: "تعديل وإضافة منتجات" },
+    { key: "inventory.delete",     label: "حذف منتج",              desc: "حذف منتج من المخزون" },
+    { key: "inventory.cost",       label: "تكلفة المنتجات",        desc: "إخفاء سعر التكلفة إذا لم يُمنح" },
+    { key: "inventory.movements",  label: "حركات المخزون",         desc: "رؤية وإدارة الحركات" },
+    { key: "inventory.warehouses", label: "إدارة المخازن",         desc: "إضافة وتعديل المخازن" },
+  ],
+  // 4. الشحن والتوصيل
+  shipping: [
+    { key: "shipping.view",       label: "رؤية شركات الشحن",      desc: "دخول صفحة الشحن" },
+    { key: "shipping.edit",       label: "تعديل شركات الشحن",     desc: "تعديل الأسعار والبيانات" },
+    { key: "shipping.financials", label: "تكاليف الشحن المالية",   desc: "إخفاء أرباح/تكاليف الشحن" },
+    { key: "shipping.manifests",  label: "بوليصات الشحن",          desc: "إنشاء وتصدير البوليصات" },
+  ],
+  // 5. التحليلات
+  analytics: [
+    { key: "analytics.view",      label: "دخول التحليلات",         desc: "صفحة التحليلات العامة" },
+    { key: "analytics.financial", label: "التحليلات المالية",       desc: "إخفاء أرقام الأرباح في التحليلات" },
+    { key: "analytics.products",  label: "أداء المنتجات",           desc: "تحليل أداء المنتجات" },
+    { key: "analytics.ads",       label: "تحليل الإعلانات",         desc: "ربط مصادر الإعلانات بالطلبات" },
+    { key: "analytics.smart",     label: "التحليل الذكي",           desc: "التوصيات الذكية والتنبيهات" },
+  ],
+  // 6. الماليات
+  finance: [
+    { key: "finance.view",      label: "دخول الماليات",            desc: "الصفحة الرئيسية للماليات" },
+    { key: "finance.sales",     label: "المبيعات والفواتير",        desc: "تقارير وفواتير المبيعات" },
+    { key: "finance.expenses",  label: "المصروفات",                 desc: "عرض وإدارة المصروفات" },
+    { key: "finance.cash",      label: "الخزينة والصندوق",         desc: "إدارة الصندوق النقدي" },
+    { key: "finance.suppliers", label: "الموردين والمشتريات",       desc: "حسابات الموردين" },
+    { key: "finance.reports",   label: "تقارير الأرباح والخسائر",   desc: "التقارير المالية الشاملة" },
+  ],
+  // 7. الفريق والإدارة
+  team: [
+    { key: "team.view",        label: "رؤية أعضاء الفريق",         desc: "قائمة الموظفين" },
+    { key: "team.performance", label: "أداء الفريق",               desc: "إحصائيات وتقارير الأداء" },
+    { key: "team.manage",      label: "إدارة الفريق",              desc: "إضافة / تعديل / حذف أعضاء" },
+    { key: "team.salaries",    label: "الرواتب والمدفوعات",         desc: "إخفاء الأرقام المالية للفريق" },
+  ],
+  // 8. الأدوات
+  tools: [
+    { key: "tools.import", label: "استيراد Excel",     desc: "رفع وقراءة ملفات البيانات" },
+    { key: "tools.export", label: "تصدير البيانات",    desc: "تحميل البيانات بصيغ مختلفة" },
+  ],
+  // 9. الإعدادات والدعم
+  settings: [
+    { key: "settings.brand",    label: "تعديل البراند والشعار",     desc: "اسم النظام والشعار والألوان" },
+    { key: "settings.users",    label: "إدارة المستخدمين",          desc: "إضافة وتعديل وحذف المستخدمين" },
+    { key: "settings.audit",    label: "سجل التعديلات",             desc: "عرض تاريخ التعديلات" },
+    { key: "settings.sessions", label: "تقرير الجلسات",             desc: "عرض جلسات تسجيل الدخول" },
+    { key: "settings.whatsapp", label: "إعدادات واتساب",            desc: "ربط وتهيئة واتساب" },
+  ],
+} as const;
+
+// مجموعة كل الـ keys في مصفوفة واحدة (مفيدة في can checks)
+export type PermissionKey = typeof ALL_PERMISSIONS[keyof typeof ALL_PERMISSIONS][number]["key"];
+
 // الصلاحيات الافتراضية لكل دور — تُستخدم فقط لو permissions فاضية تماماً
 // (للمستخدمين القدامى اللي اتعملوا قبل نظام الصلاحيات)
 const ROLE_DEFAULT_PERMISSIONS: Record<string, string[]> = {
   admin: [
+    // القديمة (للتوافق)
     "dashboard", "orders", "inventory", "movements", "shipping", "invoices",
     "import", "analytics", "users", "audit", "whatsapp", "finance",
     "view_financials", "edit_inventory", "edit_delete_inventory",
@@ -60,16 +141,34 @@ const ROLE_DEFAULT_PERMISSIONS: Record<string, string[]> = {
     "section_whatsapp", "section_inventory", "section_warehouses", "section_movements",
     "section_shipping", "section_invoices", "section_import", "section_export_data",
     "section_users", "section_sessions_report", "section_audit", "section_finance",
+    // الجديدة
+    "dashboard.view","dashboard.financials","dashboard.shipping_stats","dashboard.returns","dashboard.team",
+    "orders.view","orders.create","orders.edit","orders.delete","orders.financials","orders.export",
+    "inventory.view","inventory.edit","inventory.delete","inventory.cost","inventory.movements","inventory.warehouses",
+    "shipping.view","shipping.edit","shipping.financials","shipping.manifests",
+    "analytics.view","analytics.financial","analytics.products","analytics.ads","analytics.smart",
+    "finance.view","finance.sales","finance.expenses","finance.cash","finance.suppliers","finance.reports",
+    "team.view","team.performance","team.manage","team.salaries",
+    "tools.import","tools.export",
+    "settings.brand","settings.users","settings.audit","settings.sessions","settings.whatsapp",
   ],
   employee: [
+    // القديمة
     "dashboard", "orders",
     "section_dashboard", "section_orders", "section_new_order",
     "section_archive", "section_shipping_followup",
+    // الجديدة
+    "dashboard.view",
+    "orders.view","orders.create","orders.edit",
   ],
   warehouse: [
+    // القديمة
     "dashboard", "inventory", "movements",
     "edit_inventory", "edit_delete_inventory",
     "section_dashboard", "section_inventory", "section_warehouses", "section_movements",
+    // الجديدة
+    "dashboard.view",
+    "inventory.view","inventory.edit","inventory.movements","inventory.warehouses",
   ],
 };
 
