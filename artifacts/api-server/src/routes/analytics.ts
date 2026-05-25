@@ -165,15 +165,19 @@ function periodStats(
 router.get("/analytics/profit", requireAdmin, async (req, res): Promise<void> => {
   const tenantId = getTenantId(req);
   const now = new Date();
+
+  // ── Cache key يشمل tenant + period/from/to ──
+  const fromParam = req.query.from as string | undefined;
+  const toParam   = req.query.to   as string | undefined;
+  const period    = req.query.period as string | undefined;
+  const cacheKey = `analytics-profit:${tenantId ?? "global"}:${period ?? ""}:${fromParam ?? ""}:${toParam ?? ""}`;
+  const cached = getCached<any>(cacheKey);
+  if (cached) { res.json(cached); return; }
+
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startOfWeek = new Date(startOfToday);
   startOfWeek.setDate(startOfToday.getDate() - startOfToday.getDay());
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-  // ── فلتر من/إلى ──
-  const fromParam = req.query.from as string | undefined;
-  const toParam   = req.query.to   as string | undefined;
-  const period    = req.query.period as string | undefined;
 
   const ordersBaseConditions: any[] = [isNull(ordersTable.deletedAt)];
   if (tenantId !== null) ordersBaseConditions.push(eq(ordersTable.tenantId, tenantId));
@@ -335,6 +339,7 @@ router.get("/analytics/profit", requireAdmin, async (req, res): Promise<void> =>
   };
 
   res.json({ today, week, month, allTime, topProducts, losingProducts, inventoryValue });
+  setCached(cacheKey, { today, week, month, allTime, topProducts, losingProducts, inventoryValue }, 2 * 60 * 1000);
 });
 
 // ─── GET /api/analytics/financial-summary ──────────────────────────────────────
@@ -344,6 +349,10 @@ router.get("/analytics/financial-summary", requireAdmin, async (req, res): Promi
   const toParam   = req.query.to   as string | undefined;
   const period    = req.query.period as string | undefined;
   const now = new Date();
+
+  const fsCacheKey = `analytics-financial:${tenantId ?? "global"}:${period ?? ""}:${fromParam ?? ""}:${toParam ?? ""}`;
+  const fsCached = getCached<any>(fsCacheKey);
+  if (fsCached) { res.json(fsCached); return; }
 
   const fsBaseConditions: any[] = [isNull(ordersTable.deletedAt)];
   if (tenantId !== null) fsBaseConditions.push(eq(ordersTable.tenantId, tenantId));
@@ -486,7 +495,7 @@ router.get("/analytics/financial-summary", requireAdmin, async (req, res): Promi
   const closedInvoices = new Set(allOrders.filter(o => ["received", "partial_received", "returned"].includes(o.status)).map(o => o.invoiceNumber ?? `solo-${o.id}`)).size;
   const returnRate = closedInvoices > 0 ? Math.round((returnCount / closedInvoices) * 100) : 0;
 
-  res.json({
+  const fsResponse = {
     cashIn, costOfGoods, shippingSpend, grossProfit, grossMargin, netProfit, netMargin,
     returnLoss, returnRevLost, returnDamagedValue, pendingRevenue, returnCount, returnRate,
     totalOrders: new Set(allOrders.map(o => o.invoiceNumber ?? `solo-${o.id}`)).size,
@@ -494,7 +503,9 @@ router.get("/analytics/financial-summary", requireAdmin, async (req, res): Promi
     avgProfitPerOrder, avgOrderValue, avgCostPerOrder,
     inventoryAtCost, inventoryAtSell,
     potentialInventoryProfit: inventoryAtSell - inventoryAtCost,
-  });
+  };
+  setCached(fsCacheKey, fsResponse, 2 * 60 * 1000);
+  res.json(fsResponse);
 });
 
 // ─── GET /api/analytics/damaged-orders ──────────────────────────────────────
