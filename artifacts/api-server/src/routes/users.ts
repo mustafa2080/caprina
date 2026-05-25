@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, usersTable, USER_ROLES } from "@workspace/db";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, or } from "drizzle-orm";
 import { hashPassword } from "../lib/auth.js";
 import { requireAuth } from "../middlewares/requireAuth.js";
 import { requireAdmin } from "../middlewares/requireRole.js";
@@ -43,9 +43,15 @@ router.get("/", async (req, res): Promise<void> => {
     updatedAt: usersTable.updatedAt,
   }).from(usersTable);
 
-  // لو عنده tenantId → فلتر بيه، لو مفيش → يشوف اللي tenantId IS NULL
+  // لو admin عنده tenantId → يجيب users بنفس tenantId + super_admins (tenantId IS NULL)
+  // لو super_admin (tenantId IS NULL) → يجيب كل اللي tenantId IS NULL
   const users = tenantId !== null
-    ? await query.where(eq(usersTable.tenantId, tenantId)).orderBy(usersTable.createdAt)
+    ? await query.where(
+        or(
+          eq(usersTable.tenantId, tenantId),
+          isNull(usersTable.tenantId)
+        )
+      ).orderBy(usersTable.createdAt)
     : await query.where(isNull(usersTable.tenantId)).orderBy(usersTable.createdAt);
 
   res.json(users.map(u => ({ ...u, permissions: parsePermissions(u.permissions) })));
