@@ -1,18 +1,22 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useState, useMemo, useRef, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
 import {
   Users, Search, Filter, ChevronLeft, ChevronRight,
   ArrowRight, TrendingUp, ShoppingCart, Receipt,
   MapPin, Phone, CheckCircle2, XCircle, X,
-  ArrowUpDown, Eye,
+  ArrowUpDown, Eye, Edit2, Camera, ToggleLeft, ToggleRight, Target,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
-import { format } from "date-fns";
 
 // ── helpers ────────────────────────────────────────────────────────────────
 const fmt = (n: string | number) =>
@@ -24,8 +28,212 @@ type Client = {
   email: string | null; address: string | null; city: string | null; region: string | null;
   taxNumber: string | null; commercialReg: string | null; paymentTerms: string | null;
   creditLimit: string; totalOrders: number; totalSales: string; totalPaid: string;
-  notes: string | null; isActive: boolean; createdAt: string;
+  notes: string | null; isActive: boolean; createdAt: string; avatar: string | null;
 };
+
+// ── Avatar helpers ──────────────────────────────────────────────────────────
+const AVATAR_COLORS = [
+  ["#f59e0b","#78350f"],["#10b981","#064e3b"],["#3b82f6","#1e3a8a"],
+  ["#8b5cf6","#4c1d95"],["#ef4444","#7f1d1d"],["#ec4899","#831843"],
+  ["#06b6d4","#164e63"],["#f97316","#7c2d12"],
+];
+function getAvatarColor(name: string) {
+  let h = 0; for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
+}
+function getInitials(name: string) {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
+function ClientAvatar({ avatar, name, size = "md" }: { avatar?: string|null; name: string; size?: "sm"|"md"|"lg" }) {
+  const sz = size === "sm" ? "w-7 h-7 text-xs" : size === "lg" ? "w-14 h-14 text-2xl" : "w-9 h-9 text-sm";
+  if (avatar && avatar.startsWith("data:")) {
+    return <img src={avatar} className={`${sz} rounded-full object-cover border border-border/50 shrink-0`} />;
+  }
+  const [bg, fg] = getAvatarColor(name || "?");
+  return (
+    <div className={`${sz} rounded-full flex items-center justify-center font-bold shrink-0 border border-border/20`}
+      style={{ background: bg, color: fg }}>
+      {name ? getInitials(name) : "؟"}
+    </div>
+  );
+}
+
+// ── Edit Dialog ────────────────────────────────────────────────────────────
+const emptyForm = {
+  name: "", phone: "", phone2: "", email: "", address: "", city: "", region: "",
+  taxNumber: "", commercialReg: "", paymentTerms: "فوري",
+  creditLimit: "0", notes: "", isActive: true, avatar: "",
+};
+
+function EditClientDialog({ client, open, onClose, onSuccess }: {
+  client: Client; open: boolean; onClose: () => void; onSuccess: () => void;
+}) {
+  const { toast } = useToast();
+  const [form, setForm] = useState({ ...emptyForm });
+
+  useEffect(() => {
+    if (open) setForm({
+      name: client.name,
+      phone: client.phone ?? "",
+      phone2: client.phone2 ?? "",
+      email: client.email ?? "",
+      address: client.address ?? "",
+      city: client.city ?? "",
+      region: client.region ?? "",
+      taxNumber: client.taxNumber ?? "",
+      commercialReg: client.commercialReg ?? "",
+      paymentTerms: client.paymentTerms ?? "فوري",
+      creditLimit: String(client.creditLimit ?? "0"),
+      notes: client.notes ?? "",
+      isActive: client.isActive,
+      avatar: client.avatar ?? "",
+    });
+  }, [open, client]);
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const body = {
+        name: form.name, phone: form.phone || null, phone2: form.phone2 || null,
+        email: form.email || null, address: form.address || null,
+        city: form.city || null, region: form.region || null,
+        taxNumber: form.taxNumber || null, commercialReg: form.commercialReg || null,
+        paymentTerms: form.paymentTerms || null,
+        creditLimit: parseFloat(form.creditLimit) || 0,
+        notes: form.notes || null, isActive: form.isActive,
+        avatar: form.avatar || null,
+      };
+      return apiFetch<any>(`/finance/clients/${client.id}`, { method: "PATCH", body: JSON.stringify(body) });
+    },
+    onSuccess: () => {
+      toast({ title: "تم تحديث بيانات العميل ✅" });
+      onSuccess();
+      onClose();
+    },
+    onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
+  });
+
+  const f = (k: keyof typeof form, v: any) => setForm(p => ({ ...p, [k]: v }));
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="bg-card border-border max-w-md max-h-[90vh] overflow-y-auto" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="text-right">تعديل — {client.name}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 mt-2">
+
+          {/* Avatar Upload */}
+          <div>
+            <Label className="text-xs mb-2 block">صورة العميل</Label>
+            <div className="flex items-center gap-3">
+              <div className="shrink-0">
+                <ClientAvatar avatar={form.avatar} name={form.name || "؟"} size="lg" />
+              </div>
+              <div className="flex flex-col gap-1.5 flex-1">
+                <label className="flex items-center gap-2 cursor-pointer bg-muted/20 hover:bg-muted/40 border border-border hover:border-primary/50 transition-all rounded-lg px-3 py-2 text-xs font-medium">
+                  <Camera className="w-3.5 h-3.5 text-primary" />
+                  {form.avatar ? "تغيير الصورة" : "رفع صورة"}
+                  <input type="file" accept="image/*" className="hidden"
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      if (file.size > 2 * 1024 * 1024) { alert("الصورة كبيرة جداً — الحد الأقصى 2MB"); return; }
+                      const reader = new FileReader();
+                      reader.onload = ev => f("avatar", ev.target?.result as string);
+                      reader.readAsDataURL(file);
+                    }}
+                  />
+                </label>
+                {form.avatar && (
+                  <button type="button" onClick={() => f("avatar", "")}
+                    className="flex items-center gap-2 text-xs text-muted-foreground hover:text-destructive transition-colors px-3 py-1.5 rounded-lg hover:bg-destructive/10 border border-transparent hover:border-destructive/20">
+                    <X className="w-3 h-3" /> حذف الصورة
+                  </button>
+                )}
+                <p className="text-[10px] text-muted-foreground px-1">PNG أو JPG — بحد أقصى 2MB</p>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-xs mb-1.5 block">الاسم / الشركة *</Label>
+            <Input placeholder="شركة النور للتجارة" className="h-9 text-sm bg-background" value={form.name} onChange={e => f("name", e.target.value)} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs mb-1.5 block">الهاتف</Label>
+              <Input placeholder="01xxxxxxxxx" className="h-9 text-sm bg-background" value={form.phone} onChange={e => f("phone", e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs mb-1.5 block">هاتف إضافي</Label>
+              <Input placeholder="01xxxxxxxxx" className="h-9 text-sm bg-background" value={form.phone2} onChange={e => f("phone2", e.target.value)} />
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-xs mb-1.5 block">العنوان</Label>
+            <Input placeholder="الشارع والحي" className="h-9 text-sm bg-background" value={form.address} onChange={e => f("address", e.target.value)} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs mb-1.5 block">المدينة</Label>
+              <Input placeholder="القاهرة" className="h-9 text-sm bg-background" value={form.city} onChange={e => f("city", e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs mb-1.5 block">المحافظة</Label>
+              <Input placeholder="الجيزة" className="h-9 text-sm bg-background" value={form.region} onChange={e => f("region", e.target.value)} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs mb-1.5 block">شروط الدفع</Label>
+              <Select value={form.paymentTerms} onValueChange={v => f("paymentTerms", v)}>
+                <SelectTrigger className="h-9 text-sm bg-background"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {["فوري","آجل 15 يوم","آجل 30 يوم","آجل 60 يوم","آجل 90 يوم"].map(t => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs mb-1.5 block flex items-center gap-1"><Target className="w-3 h-3" />الهدف</Label>
+              <Input type="number" min={0} placeholder="1000000" className="h-9 text-sm bg-background" value={form.creditLimit} onChange={e => f("creditLimit", e.target.value)} />
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-xs mb-1.5 block">ملاحظات</Label>
+            <Textarea placeholder="أي ملاحظات..." className="min-h-[60px] text-sm resize-none bg-background" value={form.notes} onChange={e => f("notes", e.target.value)} rows={2} />
+          </div>
+
+          <div className="flex items-center gap-3 p-3 bg-muted/20 rounded-md">
+            <span className="text-xs font-medium">حالة العميل</span>
+            <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 mr-auto" onClick={() => f("isActive", !form.isActive)}>
+              {form.isActive
+                ? <><ToggleRight className="w-4 h-4 text-emerald-400" />نشط</>
+                : <><ToggleLeft className="w-4 h-4" />غير نشط</>}
+            </Button>
+          </div>
+
+          <div className="flex gap-2 pt-1">
+            <Button className="flex-1 h-9 text-sm font-bold bg-primary text-primary-foreground"
+              onClick={() => mutation.mutate()}
+              disabled={mutation.isPending || !form.name.trim()}>
+              {mutation.isPending ? "جارٍ الحفظ…" : "حفظ التعديلات"}
+            </Button>
+            <Button variant="outline" className="h-9 text-sm border-border" onClick={onClose}>إلغاء</Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 // ── ColumnFilter ───────────────────────────────────────────────────────────
 function ColumnFilter({ label, options, selected, onChange }: {
@@ -103,6 +311,7 @@ const PER_PAGE = 15;
 
 export default function AllClientsPage() {
   const [, navigate] = useLocation();
+  const qc = useQueryClient();
   const [search,      setSearch]      = useState("");
   const [page,        setPage]        = useState(1);
   const [sortBy,      setSortBy]      = useState<"name"|"totalSales"|"totalOrders"|"createdAt">("totalSales");
@@ -111,6 +320,7 @@ export default function AllClientsPage() {
   const [filterCity,         setFilterCity]         = useState<string[]>([]);
   const [filterStatus,       setFilterStatus]       = useState<string[]>([]);
   const [filterPaymentTerms, setFilterPaymentTerms] = useState<string[]>([]);
+  const [editClient,  setEditClient]  = useState<Client | null>(null);
 
   const { data: clients = [], isLoading } = useQuery<Client[]>({
     queryKey: ["finance-clients"],
@@ -118,18 +328,15 @@ export default function AllClientsPage() {
     staleTime: 30_000,
   });
 
-  // ── options ──────────────────────────────────────────────────────────────
   const cityOptions         = useMemo(() => [...new Set(clients.map(c => c.city).filter(Boolean))].map(v => ({ value: v!, label: v! })), [clients]);
   const paymentTermsOptions = useMemo(() => [...new Set(clients.map(c => c.paymentTerms).filter(Boolean))].map(v => ({ value: v!, label: v! })), [clients]);
   const statusOptions       = [{ value: "true", label: "نشط" }, { value: "false", label: "موقف" }];
 
-  // ── KPIs ──────────────────────────────────────────────────────────────────
   const totalSales   = useMemo(() => clients.reduce((s, c) => s + parseFloat(c.totalSales ?? "0"), 0), [clients]);
   const totalPaid    = useMemo(() => clients.reduce((s, c) => s + parseFloat(c.totalPaid  ?? "0"), 0), [clients]);
   const totalOrders  = useMemo(() => clients.reduce((s, c) => s + (c.totalOrders ?? 0), 0), [clients]);
   const activeCount  = useMemo(() => clients.filter(c => c.isActive).length, [clients]);
 
-  // ── filter + sort ─────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
     let r = clients.filter(c => {
       if (search && !c.name.includes(search) && !(c.phone ?? "").includes(search) && !(c.city ?? "").includes(search)) return false;
@@ -140,10 +347,10 @@ export default function AllClientsPage() {
     });
     r = [...r].sort((a, b) => {
       let va: any, vb: any;
-      if (sortBy === "name")        { va = a.name;                            vb = b.name; }
-      else if (sortBy === "totalSales")   { va = parseFloat(a.totalSales ?? "0"); vb = parseFloat(b.totalSales ?? "0"); }
-      else if (sortBy === "totalOrders")  { va = a.totalOrders ?? 0;             vb = b.totalOrders ?? 0; }
-      else                                { va = a.createdAt;                    vb = b.createdAt; }
+      if (sortBy === "name")              { va = a.name;                            vb = b.name; }
+      else if (sortBy === "totalSales")   { va = parseFloat(a.totalSales ?? "0");   vb = parseFloat(b.totalSales ?? "0"); }
+      else if (sortBy === "totalOrders")  { va = a.totalOrders ?? 0;               vb = b.totalOrders ?? 0; }
+      else                               { va = a.createdAt;                       vb = b.createdAt; }
       if (va < vb) return sortDir === "asc" ? -1 : 1;
       if (va > vb) return sortDir === "asc" ?  1 : -1;
       return 0;
@@ -153,7 +360,6 @@ export default function AllClientsPage() {
 
   const totalPages = Math.ceil(filtered.length / PER_PAGE);
   const pageData   = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
-
   const activeFiltersCount = filterCity.length + filterStatus.length + filterPaymentTerms.length;
 
   const toggleSort = (col: typeof sortBy) => {
@@ -287,22 +493,18 @@ export default function AllClientsPage() {
             <Users className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
             <p className="text-sm text-muted-foreground">لا يوجد عملاء مطابقون</p>
           </div>
-        ) : pageData.map((c, idx) => {
+        ) : pageData.map((c) => {
           const sales  = parseFloat(c.totalSales ?? "0");
           const paid   = parseFloat(c.totalPaid  ?? "0");
-          const unpaid = Math.max(0, sales - paid);
           const pct    = sales > 0 ? Math.round((paid / sales) * 100) : 0;
           return (
             <div key={c.id}
-              className="grid grid-cols-12 gap-2 px-4 py-3 border-b border-border/50 hover:bg-muted/10 transition-colors items-center group cursor-pointer"
-              onClick={() => navigate(`/finance/clients/${c.id}`)}>
+              className="grid grid-cols-12 gap-2 px-4 py-3 border-b border-border/50 hover:bg-muted/10 transition-colors items-center group">
 
-
-              {/* اسم + تليفون */}
-              <div className="col-span-3 flex items-center gap-2 min-w-0">
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-primary font-black text-xs">
-                  {c.name.charAt(0)}
-                </div>
+              {/* اسم + أفاتار + تليفون */}
+              <div className="col-span-3 flex items-center gap-2 min-w-0 cursor-pointer"
+                onClick={() => navigate(`/finance/clients/${c.id}`)}>
+                <ClientAvatar avatar={c.avatar} name={c.name} size="md" />
                 <div className="min-w-0">
                   <p className="text-xs font-bold truncate">{c.name}</p>
                   {c.phone && (
@@ -356,8 +558,17 @@ export default function AllClientsPage() {
               </div>
 
               {/* إجراءات */}
-              <div className="col-span-1 flex justify-end">
-                <Eye className="w-3.5 h-3.5 text-muted-foreground/40 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="col-span-1 flex justify-end items-center gap-1">
+                <button
+                  onClick={e => { e.stopPropagation(); setEditClient(c); }}
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors opacity-0 group-hover:opacity-100">
+                  <Edit2 className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => navigate(`/finance/clients/${c.id}`)}
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors opacity-0 group-hover:opacity-100">
+                  <Eye className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
           );
@@ -391,6 +602,16 @@ export default function AllClientsPage() {
           </div>
         )}
       </Card>
+
+      {/* Edit Dialog */}
+      {editClient && (
+        <EditClientDialog
+          client={editClient}
+          open={!!editClient}
+          onClose={() => setEditClient(null)}
+          onSuccess={() => qc.invalidateQueries({ queryKey: ["finance-clients"] })}
+        />
+      )}
     </div>
   );
 }
