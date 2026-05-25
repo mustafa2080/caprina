@@ -171,6 +171,69 @@ const SIDEBAR_SECTION_PERMISSIONS = [
   { key: "section_finance",             label: "قسم الماليات",         desc: "عرض جميع صفحات الماليات: لوحة، أوامر شراء، موردين، مصروفات، فواتير شحن" },
 ];
 
+// ── Permission Templates ─────────────────────────────────────────────────────
+const PERMISSION_TEMPLATES: Array<{
+  key: string;
+  label: string;
+  icon: string;
+  desc: string;
+  color: string;
+  permissions: string[];
+}> = [
+  {
+    key: "sales_rep",
+    label: "موظف مبيعات",
+    icon: "🛒",
+    desc: "يشوف الطلبات ويضيف ويعدل — بدون تقارير مالية",
+    color: "border-blue-500/40 bg-blue-500/5 text-blue-400",
+    permissions: [
+      "dashboard", "orders", "orders_write",
+      "section_dashboard", "section_orders", "section_new_order",
+      "section_archive", "section_shipping_followup",
+    ],
+  },
+  {
+    key: "warehouse_mgr",
+    label: "مسؤول مخزون",
+    icon: "📦",
+    desc: "يتحكم في المخزون والحركات بالكامل",
+    color: "border-emerald-500/40 bg-emerald-500/5 text-emerald-400",
+    permissions: [
+      "dashboard", "inventory", "movements",
+      "edit_inventory", "edit_delete_inventory",
+      "section_dashboard", "section_inventory",
+      "section_warehouses", "section_movements",
+    ],
+  },
+  {
+    key: "manager",
+    label: "مدير",
+    icon: "👔",
+    desc: "صلاحيات واسعة بما فيها التقارير والماليات",
+    color: "border-amber-500/40 bg-amber-500/5 text-amber-400",
+    permissions: [
+      "dashboard", "orders", "orders_write", "inventory", "movements",
+      "shipping", "invoices", "analytics", "audit", "finance",
+      "view_financials", "edit_inventory", "edit_delete_inventory",
+      "view_product_performance", "add_team_member",
+      "section_dashboard", "section_orders", "section_new_order",
+      "section_archive", "section_shipping_followup", "section_inventory",
+      "section_warehouses", "section_movements", "section_shipping",
+      "section_invoices", "section_product_performance",
+      "section_team_performance", "section_team_management",
+      "section_ads_analytics", "section_export_data", "section_finance",
+    ],
+  },
+  {
+    key: "custom",
+    label: "مخصص",
+    icon: "⚙️",
+    desc: "ابدأ من صفر وحدد الصلاحيات يدوياً",
+    color: "border-muted text-muted-foreground",
+    permissions: [],
+  },
+];
+
 const DEFAULT_PERMISSIONS: Record<string, () => string[]> = {
   super_admin: () => ["*"],
   admin: () => [
@@ -217,6 +280,7 @@ export default function UsersPage() {
   const [newPassword, setNewPassword] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterRole, setFilterRole] = useState<string>("all");
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
     "🏠 عام": true, "📊 التحليلات": true, "📦 الطلبات": true,
     "🏪 المخزون": true, "🚚 الشحن والفواتير": true, "📁 البيانات": true, "⚙️ الإدارة": true,
@@ -278,6 +342,17 @@ export default function UsersPage() {
   };
 
   const handleRoleChange = (role: string) => setForm(f => ({ ...f, role, permissions: DEFAULT_PERMISSIONS[role]?.() ?? [] }));
+
+  const applyTemplate = (templateKey: string) => {
+    const tmpl = PERMISSION_TEMPLATES.find(t => t.key === templateKey);
+    if (!tmpl) return;
+    setSelectedTemplate(templateKey);
+    if (tmpl.key === "custom") {
+      setForm(f => ({ ...f, permissions: [] }));
+    } else {
+      setForm(f => ({ ...f, permissions: tmpl.permissions }));
+    }
+  };
 
   const togglePermission = (key: string) => setForm(f => {
     const has = f.permissions.includes(key);
@@ -630,6 +705,40 @@ export default function UsersPage() {
                 </div>
               )}
             </section>
+
+            {form.role !== "super_admin" && <Separator />}
+
+            {/* ── Templates ── */}
+            {form.role !== "super_admin" && <section>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <KeyRound className="w-3.5 h-3.5 text-primary" />
+                </div>
+                <span className="text-xs font-black text-foreground uppercase tracking-wide">قالب الصلاحيات</span>
+                <span className="text-[10px] text-muted-foreground mr-auto">اختر قالب جاهز أو خصص يدوياً</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {PERMISSION_TEMPLATES.map(tmpl => {
+                  const isSelected = selectedTemplate === tmpl.key;
+                  return (
+                    <button
+                      key={tmpl.key}
+                      type="button"
+                      onClick={() => applyTemplate(tmpl.key)}
+                      className={`flex flex-col items-start gap-1 p-3 rounded-xl border-2 text-right transition-all
+                        ${isSelected ? tmpl.color + " scale-[1.02] shadow-sm" : "border-border bg-muted/10 hover:border-muted-foreground/40 text-muted-foreground"}`}
+                    >
+                      <div className="flex items-center gap-1.5 w-full">
+                        <span className="text-base leading-none">{tmpl.icon}</span>
+                        <span className="text-xs font-black">{tmpl.label}</span>
+                        {isSelected && <span className="mr-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-current/10">✓ محدد</span>}
+                      </div>
+                      <p className="text-[10px] opacity-70 leading-relaxed">{tmpl.desc}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>}
 
             {form.role !== "super_admin" && <Separator />}
 
