@@ -1,4 +1,4 @@
-import { mysqlTable, text, int, datetime, varchar, decimal, boolean } from "drizzle-orm/mysql-core";
+import { mysqlTable, text, longtext, int, datetime, varchar, decimal, boolean } from "drizzle-orm/mysql-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -30,6 +30,7 @@ export const clientsTable = mysqlTable("clients", {
   // ── ميتا ──────────────────────────────────────────────────────────────
   notes:          text("notes"),
   isActive:       boolean("is_active").default(true),
+  avatar:         longtext("avatar"),   // LONGTEXT عشان base64 الصور الكبيرة
   createdAt:      datetime("created_at").notNull(),
   updatedAt:      datetime("updated_at").notNull(),
 });
