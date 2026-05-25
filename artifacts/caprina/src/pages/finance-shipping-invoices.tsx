@@ -364,7 +364,7 @@ export default function FinanceShippingInvoices() {
                     )}
                     {/* زر الحذف */}
                     <button
-                      className="h-7 w-7 rounded-lg flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
+                      className="h-7 w-7 rounded-lg flex items-center justify-center transition-all"
                       style={{
                         background: "rgba(239,68,68,0.10)",
                         border: "1px solid rgba(239,68,68,0.30)",
