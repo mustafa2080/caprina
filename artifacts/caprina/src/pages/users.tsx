@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
-import { UserPlus, Edit2, Trash2, Shield, Users, Eye, EyeOff, TrendingUp, Package, BarChart3, LayoutGrid, Lock, User, Settings2, ChevronDown, ChevronUp, ToggleLeft, Camera, X, Crown, AlertTriangle } from "lucide-react";
+import { UserPlus, Edit2, Trash2, Shield, Users, Eye, EyeOff, TrendingUp, Package, BarChart3, LayoutGrid, Lock, User, Settings2, ChevronDown, ChevronUp, ToggleLeft, Camera, X, Crown, AlertTriangle, Search, KeyRound, Power } from "lucide-react";
 
 // ── User Avatar Component ────────────────────────────────────────────────────
 function getInitialsColor(name: string): string {
@@ -215,6 +215,8 @@ export default function UsersPage() {
   const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
   const [resetTarget, setResetTarget] = useState<AppUser | null>(null);
   const [newPassword, setNewPassword] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterRole, setFilterRole] = useState<string>("all");
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
     "🏠 عام": true, "📊 التحليلات": true, "📦 الطلبات": true,
     "🏪 المخزون": true, "🚚 الشحن والفواتير": true, "📁 البيانات": true, "⚙️ الإدارة": true,
@@ -314,94 +316,221 @@ export default function UsersPage() {
 
   const handleToggleActive = (u: AppUser) => updateMutation.mutate({ id: u.id, data: { isActive: !u.isActive } });
 
+  const filteredUsers = users.filter(u => {
+    const matchSearch = searchQuery === "" ||
+      u.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      u.username.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchRole = filterRole === "all" || u.role === filterRole;
+    return matchSearch && matchRole;
+  });
+
+  const roleCounts = {
+    all: users.length,
+    super_admin: users.filter(u => u.role === "super_admin").length,
+    admin: users.filter(u => u.role === "admin").length,
+    employee: users.filter(u => u.role === "employee").length,
+    warehouse: users.filter(u => u.role === "warehouse").length,
+  };
+
   return (
-    <div className="p-3 sm:p-6 max-w-4xl mx-auto" dir="rtl">
-      <div className="flex items-center justify-between mb-4 sm:mb-6 gap-2">
+    <div className="p-3 sm:p-6 max-w-5xl mx-auto" dir="rtl">
+
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between mb-5 gap-3">
         <div className="min-w-0">
           <h1 className="text-xl sm:text-2xl font-black flex items-center gap-2">
-            <Users className="w-5 h-5 sm:w-6 sm:h-6 text-primary shrink-0" /> إدارة المستخدمين
+            <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+              <Users className="w-4 h-4 text-primary" />
+            </div>
+            إدارة المستخدمين
           </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">تحكم في الأدوار والصلاحيات</p>
+          <p className="text-xs text-muted-foreground mt-0.5 mr-10">{users.length} مستخدم — تحكم في الأدوار والصلاحيات</p>
         </div>
         {isAdmin && (
           <Button onClick={openCreate} className="h-9 text-xs sm:text-sm font-bold gap-1.5 shrink-0">
             <UserPlus className="w-4 h-4" />
-            <span className="hidden sm:inline">إضافة مستخدم جديد</span>
+            <span className="hidden sm:inline">إضافة مستخدم</span>
             <span className="sm:hidden">إضافة</span>
           </Button>
         )}
       </div>
 
+      {/* ── Search + Filter ── */}
+      <div className="mb-4 space-y-3">
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="ابحث بالاسم أو اسم المستخدم..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="pr-9 h-9 text-sm bg-muted/30 border-border/60"
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery("")} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Role filter tabs */}
+        <div className="flex gap-1.5 flex-wrap">
+          {[
+            { key: "all", label: "الكل" },
+            { key: "super_admin", label: "👑 Super Admin" },
+            { key: "admin", label: "مدير" },
+            { key: "employee", label: "موظف" },
+            { key: "warehouse", label: "مخزون" },
+          ].map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setFilterRole(tab.key)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                filterRole === tab.key
+                  ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                  : "bg-muted/30 text-muted-foreground border-border/50 hover:bg-muted/60"
+              }`}
+            >
+              {tab.label}
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${
+                filterRole === tab.key ? "bg-white/20" : "bg-muted"
+              }`}>
+                {roleCounts[tab.key as keyof typeof roleCounts] ?? 0}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       {isLoading ? (
-        <p className="text-muted-foreground text-sm">جاري التحميل...</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="h-44 rounded-2xl border border-border/40 bg-muted/20 animate-pulse" />
+          ))}
+        </div>
+      ) : filteredUsers.length === 0 ? (
+        <div className="text-center py-16 text-muted-foreground">
+          <Users className="w-10 h-10 mx-auto mb-3 opacity-30" />
+          <p className="text-sm">لا يوجد مستخدمون مطابقون</p>
+        </div>
       ) : (
-        <div className="space-y-3">
-          {users.map(u => (
-            <div key={u.id} className={`flex items-start gap-2 sm:gap-4 p-3 sm:p-4 rounded-xl border ${u.isActive ? "border-border bg-card" : "border-border/40 bg-muted/20 opacity-60"}`}>
-              <UserAvatar avatar={(u as any).avatar} name={u.displayName} size="md" />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="font-bold text-sm">{u.displayName}</span>
-                  {u.id === currentUser?.id && <Badge variant="outline" className="text-[9px] border-primary/50 text-primary">أنت</Badge>}
-                  <Badge variant="outline" className={`text-[10px] font-bold ${ROLE_COLORS[u.role]}`}>
-                    <Shield className="w-2.5 h-2.5 mr-1" />{ROLE_LABELS[u.role]}
-                  </Badge>
-                  {!u.isActive && <Badge variant="outline" className="text-[9px] border-red-800 text-red-400">معطل</Badge>}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {filteredUsers.map(u => {
+            const isSuperAdmin = u.role === "super_admin";
+            const canManage = !isSuperAdmin || currentUser?.role === "super_admin";
+            const isMe = u.id === currentUser?.id;
+
+            return (
+              <div
+                key={u.id}
+                className={`relative rounded-2xl border p-4 flex flex-col gap-3 transition-all group ${
+                  u.isActive
+                    ? "border-border bg-card hover:border-primary/40 hover:shadow-md hover:shadow-primary/5"
+                    : "border-border/30 bg-muted/10 opacity-55"
+                } ${isSuperAdmin ? "border-yellow-500/30 bg-yellow-500/5" : ""}`}
+              >
+                {/* ── Status dot ── */}
+                <div className={`absolute top-3 left-3 w-2 h-2 rounded-full ${u.isActive ? "bg-emerald-500" : "bg-red-500"}`} title={u.isActive ? "نشط" : "معطل"} />
+
+                {/* ── Top row: avatar + badges ── */}
+                <div className="flex items-start gap-3">
+                  <div className="relative shrink-0">
+                    <UserAvatar avatar={(u as any).avatar} name={u.displayName} size="lg" />
+                    {isSuperAdmin && (
+                      <span className="absolute -top-1 -right-1 text-sm">👑</span>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-black text-sm truncate">{u.displayName}</span>
+                      {isMe && <Badge variant="outline" className="text-[9px] border-primary/50 text-primary px-1.5">أنت</Badge>}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground font-mono truncate mt-0.5">@{u.username}</p>
+                    <Badge variant="outline" className={`mt-1.5 text-[10px] font-bold ${ROLE_COLORS[u.role]}`}>
+                      {ROLE_LABELS[u.role]}
+                    </Badge>
+                  </div>
                 </div>
-                <p className="text-[11px] text-muted-foreground mt-0.5 font-mono truncate">{u.username}</p>
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {(u.permissions?.includes(FINANCIAL_PERMISSION.key) || u.role === "admin") && (
-                    <Badge variant="outline" className="text-[9px] font-bold border-amber-600/50 bg-amber-500/10 text-amber-600 dark:text-amber-400 gap-1"><TrendingUp className="w-2.5 h-2.5" />يرى الأرباح</Badge>
-                  )}
-                  {(u.permissions?.includes(EDIT_INVENTORY_PERMISSION.key) || u.role === "admin") && (
-                    <Badge variant="outline" className="text-[9px] font-bold border-emerald-600/50 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 gap-1"><Package className="w-2.5 h-2.5" />يعدل المخزون</Badge>
-                  )}
-                  {(u.permissions?.includes(VIEW_PRODUCT_PERF_PERMISSION.key) || u.role === "admin") && (
-                    <Badge variant="outline" className="text-[9px] font-bold border-blue-600/50 bg-blue-500/10 text-blue-600 dark:text-blue-400 gap-1"><BarChart3 className="w-2.5 h-2.5" />أداء المنتجات</Badge>
+
+                {/* ── Permission chips ── */}
+                <div className="flex flex-wrap gap-1 min-h-[20px]">
+                  {isSuperAdmin ? (
+                    <span className="text-[10px] text-yellow-400 font-bold">كل الصلاحيات ✦</span>
+                  ) : (
+                    <>
+                      {(u.permissions?.includes(FINANCIAL_PERMISSION.key) || u.role === "admin") && (
+                        <Badge variant="outline" className="text-[9px] font-bold border-amber-600/40 bg-amber-500/10 text-amber-500 gap-1 px-1.5"><TrendingUp className="w-2.5 h-2.5" />الأرباح</Badge>
+                      )}
+                      {(u.permissions?.includes(EDIT_INVENTORY_PERMISSION.key) || u.role === "admin") && (
+                        <Badge variant="outline" className="text-[9px] font-bold border-emerald-600/40 bg-emerald-500/10 text-emerald-500 gap-1 px-1.5"><Package className="w-2.5 h-2.5" />المخزون</Badge>
+                      )}
+                      {(u.permissions?.includes(VIEW_PRODUCT_PERF_PERMISSION.key) || u.role === "admin") && (
+                        <Badge variant="outline" className="text-[9px] font-bold border-blue-600/40 bg-blue-500/10 text-blue-500 gap-1 px-1.5"><BarChart3 className="w-2.5 h-2.5" />الأداء</Badge>
+                      )}
+                      {u.permissions?.includes("orders_write") && (
+                        <Badge variant="outline" className="text-[9px] font-bold border-violet-600/40 bg-violet-500/10 text-violet-500 gap-1 px-1.5"><Edit2 className="w-2.5 h-2.5" />تعديل الطلبات</Badge>
+                      )}
+                    </>
                   )}
                 </div>
-                <p className="hidden sm:block text-[10px] text-muted-foreground/70 mt-0.5 line-clamp-1">
-                  الصلاحيات: {(u.permissions?.filter(p => p !== FINANCIAL_PERMISSION.key && p !== EDIT_INVENTORY_PERMISSION.key && p !== VIEW_PRODUCT_PERF_PERMISSION.key) ?? []).join("، ") || "—"}
-                </p>
-              </div>
-              <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 shrink-0">
-                {/* تعطيل/تفعيل — مخفي لـ super_admin إلا لو المستخدم الحالي super_admin */}
-                {(u.role !== "super_admin" || currentUser?.role === "super_admin") && (
-                  <label
-                    className={`flex flex-col items-center gap-1 cursor-pointer group ${u.id === currentUser?.id ? "opacity-40 pointer-events-none" : ""}`}
-                    title={u.isActive ? "تعطيل الحساب" : "تفعيل الحساب"}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={u.isActive}
-                      onChange={() => handleToggleActive(u)}
-                      disabled={u.id === currentUser?.id}
-                      className="w-4 h-4 rounded accent-primary cursor-pointer"
-                    />
-                    <span className={`text-[9px] font-bold ${u.isActive ? "text-emerald-500" : "text-red-500"}`}>
-                      {u.isActive ? "نشط" : "معطل"}
-                    </span>
-                  </label>
-                )}
-                <div className="flex items-center gap-1">
-                  {/* تعديل — مخفي على super_admin إلا لو أنت super_admin */}
-                  {(u.role !== "super_admin" || currentUser?.role === "super_admin") && (
-                    <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-primary" onClick={() => openEdit(u)}><Edit2 className="w-3.5 h-3.5" /></Button>
-                  )}
-                  {/* حذف — مخفي على super_admin إلا لو أنت super_admin، ومنعه من حذف نفسه */}
-                  {(u.role !== "super_admin" || currentUser?.role === "super_admin") && (
-                    <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" onClick={() => handleDelete(u)} disabled={u.id === currentUser?.id}><Trash2 className="w-3.5 h-3.5" /></Button>
-                  )}
-                  {/* أيقونة قفل لـ super_admin لو المستخدم الحالي مش super_admin */}
-                  {u.role === "super_admin" && currentUser?.role !== "super_admin" && (
-                    <div className="h-8 w-8 flex items-center justify-center opacity-40" title="محمي — Super Admin فقط">
-                      <Lock className="w-3.5 h-3.5 text-yellow-500" />
+
+                {/* ── Divider ── */}
+                <div className="border-t border-border/40" />
+
+                {/* ── Action buttons ── */}
+                <div className="flex items-center gap-1.5">
+                  {canManage ? (
+                    <>
+                      {/* تفعيل/تعطيل */}
+                      <button
+                        onClick={() => !isMe && handleToggleActive(u)}
+                        disabled={isMe}
+                        title={u.isActive ? "تعطيل الحساب" : "تفعيل الحساب"}
+                        className={`flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-lg border transition-all ${
+                          isMe ? "opacity-30 cursor-not-allowed" : "cursor-pointer hover:opacity-80"
+                        } ${u.isActive
+                          ? "border-emerald-600/40 bg-emerald-500/10 text-emerald-500"
+                          : "border-red-600/40 bg-red-500/10 text-red-500"
+                        }`}
+                      >
+                        <Power className="w-2.5 h-2.5" />
+                        {u.isActive ? "نشط" : "معطل"}
+                      </button>
+
+                      <div className="flex-1" />
+
+                      {/* تعديل */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 hover:bg-primary/10 hover:text-primary"
+                        onClick={() => openEdit(u)}
+                        title="تعديل"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </Button>
+
+                      {/* حذف */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => handleDelete(u)}
+                        disabled={isMe}
+                        title="حذف"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </>
+                  ) : (
+                    <div className="flex items-center gap-1.5 text-[10px] text-yellow-500/60 font-bold">
+                      <Lock className="w-3 h-3" /> محمي — Super Admin فقط
                     </div>
                   )}
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
