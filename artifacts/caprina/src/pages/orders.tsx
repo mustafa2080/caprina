@@ -224,7 +224,7 @@ export default function Orders() {
     queryFn: () => apiFetch<WaSettings>("/whatsapp/settings"),
     staleTime: 5 * 60 * 1000,
     retry: false,
-    throwOnError: false,
+    enabled: isAdmin,
   });
 
   const { data: orders, isLoading } = useQuery({
