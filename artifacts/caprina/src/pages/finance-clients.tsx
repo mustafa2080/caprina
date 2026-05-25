@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+﻿import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -296,6 +296,20 @@ function ClientForm({ open, onClose, editClient, onSuccess }: {
 
 // ── Main Dashboard ────────────────────────────────────────────────────────
 export default function FinanceClients() {
+
+  // ── Finance access guard ───────────────────────────────────────────────────
+  const { user: _fUser, can: _fCan } = useAuth();
+  if (_fUser?.role !== "admin" && !_fCan("finance.view")) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center px-4">
+        <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center">
+          <span className="text-3xl">🔒</span>
+        </div>
+        <h2 className="text-xl font-bold">غير مصرح بالوصول</h2>
+        <p className="text-muted-foreground text-sm max-w-xs">ليس لديك صلاحية لعرض صفحة الماليات. تواصل مع المدير.</p>
+      </div>
+    );
+  }
   const qc = useQueryClient();
   const { toast } = useToast();
   const [, navigate] = useLocation();

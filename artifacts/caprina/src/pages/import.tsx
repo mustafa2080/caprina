@@ -6,6 +6,7 @@ import {
   ArrowRight, ArrowLeft, Settings2, Eye, Loader2,
   RotateCcw, Info, Link2, ShoppingCart, Package, Undo2, AlertTriangle, GitMerge, List,
 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import { importApi, type ParsedImport, type ColumnMapping } from "@/lib/api";
 import { getListOrdersQueryKey, getGetOrdersSummaryQueryKey, getGetRecentOrdersQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -161,6 +162,19 @@ const MODES: { id: ImportMode; label: string; desc: string; icon: any; color: st
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function Import() {
+  const { user, can } = useAuth();
+  // ── Import access guard ────────────────────────────────────────────────────
+  if (user?.role !== "admin" && !can("tools.import")) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center px-4">
+        <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center">
+          <span className="text-3xl">🔒</span>
+        </div>
+        <h2 className="text-xl font-bold">غير مصرح بالوصول</h2>
+        <p className="text-muted-foreground text-sm max-w-xs">ليس لديك صلاحية للاستيراد. تواصل مع المدير.</p>
+      </div>
+    );
+  }
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);

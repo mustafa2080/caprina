@@ -1674,7 +1674,24 @@ function EmployeeDetail({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function TeamPage() {
   const { isAdmin, can } = useAuth();
-  const canAddMember = isAdmin || can("add_team_member");
+  // ── Team permission shortcuts ──────────────────────────────────────────────
+  const canManage     = isAdmin || can("team.manage");
+  const canSalaries   = isAdmin || can("team.salaries");
+  const canPerformance = isAdmin || can("team.performance");
+  const canAddMember  = isAdmin || can("add_team_member");
+
+  // ── Access guard — لازم يكون عنده على الأقل واحدة ──────────────────────────
+  if (!isAdmin && !can("team.manage") && !can("team.salaries") && !can("team.performance")) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center px-4">
+        <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center">
+          <span className="text-3xl">🔒</span>
+        </div>
+        <h2 className="text-xl font-bold">غير مصرح بالوصول</h2>
+        <p className="text-muted-foreground text-sm max-w-xs">ليس لديك صلاحية لعرض صفحة الفريق. تواصل مع المدير.</p>
+      </div>
+    );
+  }
   const { toast } = useToast();
   const qc = useQueryClient();
   const [selectedProfileId, setSelectedProfileId] = useState<number | null>(null);

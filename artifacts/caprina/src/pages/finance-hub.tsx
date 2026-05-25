@@ -759,8 +759,21 @@ function MonthlyFlowChart({ data, isLoading }: { data: any[]; isLoading: boolean
 }
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function FinanceHub() {
-  const { user } = useAuth();
+  const { user, can } = useAuth();
   const isAdmin = user?.role === "admin";
+
+  // ── Finance access guard ───────────────────────────────────────────────────
+  if (!isAdmin && !can("finance.view")) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center px-4">
+        <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center">
+          <span className="text-3xl">🔒</span>
+        </div>
+        <h2 className="text-xl font-bold">غير مصرح بالوصول</h2>
+        <p className="text-muted-foreground text-sm max-w-xs">ليس لديك صلاحية لعرض صفحة الماليات. تواصل مع المدير.</p>
+      </div>
+    );
+  }
 
   const [from, setFrom] = useState(format(startOfMonth(new Date()), "yyyy-MM-dd"));
   const [to,   setTo]   = useState(format(new Date(), "yyyy-MM-dd"));

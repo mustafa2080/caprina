@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -68,6 +68,20 @@ const fmt = (n: number) =>
 const PAGE_SIZE = 12;
 
 export default function FinanceSuppliers() {
+
+  // ── Finance access guard ───────────────────────────────────────────────────
+  const { user: _fUser, can: _fCan } = useAuth();
+  if (_fUser?.role !== "admin" && !_fCan("finance.view")) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center px-4">
+        <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center">
+          <span className="text-3xl">🔒</span>
+        </div>
+        <h2 className="text-xl font-bold">غير مصرح بالوصول</h2>
+        <p className="text-muted-foreground text-sm max-w-xs">ليس لديك صلاحية لعرض صفحة الماليات. تواصل مع المدير.</p>
+      </div>
+    );
+  }
   const qc = useQueryClient();
   const { toast } = useToast();
 

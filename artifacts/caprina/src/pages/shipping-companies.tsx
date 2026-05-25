@@ -630,6 +630,10 @@ export function CreateManifestDialog({
 export default function ShippingCompanies() {
   const { toast } = useToast();
   const { can, canViewFinancials } = useAuth();
+  // ── Shipping permission shortcuts ──────────────────────────────────────────
+  const canEdit      = can("shipping.edit");
+  const canFinancials = can("shipping.financials");
+  const canManifests  = can("shipping.manifests");
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<ShippingCompany | null>(null);
@@ -681,7 +685,7 @@ export default function ShippingCompanies() {
           <h1 className="text-2xl font-bold">شركات الشحن</h1>
           <p className="text-muted-foreground text-sm mt-0.5">إدارة شركاء الشحن وبيانات التسليم</p>
         </div>
-        {can("shipping") && (
+        {can("shipping.edit") && (
           <Button onClick={openAdd} className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-sm">
             <Plus className="w-4 h-4" />إضافة شركة
           </Button>
@@ -772,7 +776,7 @@ export default function ShippingCompanies() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
-                  {can("shipping") && (
+                  {canEdit && (
                     <>
                       <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-primary" onClick={() => toggleActive(company)}>
                         {company.isActive ? <ToggleRight className="w-4 h-4" style={{ color: `rgba(${p.rgb},1)` }} /> : <ToggleLeft className="w-4 h-4" />}
@@ -798,8 +802,8 @@ export default function ShippingCompanies() {
                 {company.notes && <p className="text-xs text-muted-foreground pt-1 border-t" style={{ borderColor: `rgba(${p.rgb},0.15)` }}>{company.notes}</p>}
               </div>
 
-              <CompanyStats companyId={company.id} canViewFinancials={canViewFinancials} />
-              <CompanyManifests company={company} allCompanies={companies ?? []} canShipping={can("shipping")} />
+              <CompanyStats companyId={company.id} canViewFinancials={canViewFinancials && canFinancials} />
+              <CompanyManifests company={company} allCompanies={companies ?? []} canShipping={canManifests} />
             </div>
             );
           })}
@@ -809,7 +813,7 @@ export default function ShippingCompanies() {
           <Truck className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-20" />
           <p className="font-bold">لا توجد شركات شحن</p>
           <p className="text-sm text-muted-foreground mt-1">أضف شركات الشحن التي تتعامل معها.</p>
-          {can("shipping") && <Button onClick={openAdd} className="mt-4 gap-2 text-sm"><Plus className="w-4 h-4" />إضافة شركة</Button>}
+          {canEdit && <Button onClick={openAdd} className="mt-4 gap-2 text-sm"><Plus className="w-4 h-4" />إضافة شركة</Button>}
         </Card>
       )}
 

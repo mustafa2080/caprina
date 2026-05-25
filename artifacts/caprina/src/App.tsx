@@ -188,15 +188,22 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 }
 
 // ─── Permission-protected route ───────────────────────────────────────────────
-// لو الصلاحية اتشالت (realtime) → redirect للـ أول صفحة مسموح بيها — بدون loop
 function ProtectedRoute({ permission, component: Comp }: { permission: string; component: React.ComponentType }) {
   const { can, user, isAdmin } = useAuth();
-  if (!can(permission) && !(isAdmin && permission === "finance")) {
-    // لو كان الـ permission نفسه dashboard نبعد عن الـ loop
+
+  // helper — يقبل الـ new keys مباشرة أو legacy keys
+  const hasAccess = (() => {
+    if (isAdmin) return true;
+    // الـ new keys (تحتوي على نقطة)
+    if (permission.includes(".")) return can(permission);
+    // legacy keys — نفس المنطق القديم
+    return can(permission);
+  })();
+
+  if (!hasAccess) {
     if (permission === "dashboard") {
       if (can("orders"))    return <Redirect to="/orders" />;
       if (can("inventory")) return <Redirect to="/inventory" />;
-      // مفيش صلاحيات خالص — اعرض رسالة
       return (
         <div className="flex items-center justify-center min-h-[60vh]" dir="rtl">
           <div className="text-center space-y-3 p-6">
@@ -278,7 +285,7 @@ function Router() {
           <Route path="/warehouses"               component={() => <ProtectedRoute permission="inventory" component={WarehousesPage} />} />
           <Route path="/team-performance"         component={() => <ProtectedRoute permission="analytics" component={TeamPerformancePage} />} />
           <Route path="/ads-analytics"            component={() => <ProtectedRoute permission="analytics" component={AdsAnalyticsPage} />} />
-          <Route path="/team"                     component={() => <ProtectedRoute permission="analytics" component={TeamPage} />} />
+          <Route path="/team"                     component={() => <ProtectedRoute permission="team.manage" component={TeamPage} />} />
           <Route path="/smart"                    component={() => <ProtectedRoute permission="analytics" component={SmartAnalyticsPage} />} />
           <Route path="/archive"                  component={() => <ProtectedRoute permission="orders" component={ArchivePage} />} />
           <Route path="/shipping-followup"        component={() => <ProtectedRoute permission="orders" component={ShippingFollowupPage} />} />
