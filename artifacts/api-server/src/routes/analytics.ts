@@ -1257,7 +1257,7 @@ router.get("/analytics/smart-insights", async (req, res): Promise<void> => {
     revenue: Math.round(p.revenue),
     cost: Math.round(p.cost),
     profit: Math.round(p.profit),
-    image: productImageMap.get(p.name) ?? null,
+    image: (typeof productImageMap !== 'undefined' ? productImageMap.get(p.name) : null) ?? null,
   }));
 
   const stars = productList
