@@ -223,7 +223,12 @@ function printProductInventory(product: Product, variants: ProductVariant[], war
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function Inventory() {
   const { can, canViewFinancials } = useAuth();
-  const canEdit = can("edit_inventory");
+  // ── Inventory permission shortcuts ────────────────────────────────────────
+  const canEdit        = can("inventory.edit");
+  const canDelete      = can("inventory.delete");
+  const canSeeCost     = can("inventory.cost");
+  const canMovements   = can("inventory.movements");
+  const canWarehouses  = can("inventory.warehouses");
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [expandedProductId, setExpandedProductId] = useState<number | null>(null);
@@ -790,14 +795,14 @@ export default function Inventory() {
                       <Printer className="w-3.5 h-3.5" />
                     </Button>
                     {canEdit && (
-                      <>
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={e => { e.stopPropagation(); openEditProduct(product); }}>
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive hidden sm:flex" onClick={e => { e.stopPropagation(); if (confirm("أرشفة هذا المنتج؟")) deleteProductMutation.mutate(product.id); }}>
-                          <Archive className="w-3.5 h-3.5" />
-                        </Button>
-                      </>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={e => { e.stopPropagation(); openEditProduct(product); }}>
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
+                    {canDelete && (
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive hidden sm:flex" onClick={e => { e.stopPropagation(); if (confirm("أرشفة هذا المنتج؟")) deleteProductMutation.mutate(product.id); }}>
+                        <Archive className="w-3.5 h-3.5" />
+                      </Button>
                     )}
                     {isExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
                   </div>
@@ -840,17 +845,23 @@ export default function Inventory() {
                               </div>
                               {canViewFinancials && <div className="text-center w-20 text-xs text-muted-foreground">{fc(v.unitPrice)}</div>}
                               {canViewFinancials && <div className="text-center w-12"><MarginBadge margin={vMargin} /></div>}
-                              {canEdit && (
+                              {(canEdit || canDelete) && (
                                 <div className="flex items-center gap-1 w-20 justify-end">
+                                  {canEdit && (
                                   <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50" title="إضافة مخزون" onClick={() => openAddVariantStock(v)}>
                                     <PackagePlus className="w-3.5 h-3.5" />
                                   </Button>
+                                  )}
+                                  {canEdit && (
                                   <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => openEditVariant(v)}>
                                     <Edit2 className="w-3 h-3" />
                                   </Button>
+                                  )}
+                                  {canDelete && (
                                   <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive hover:text-destructive" onClick={() => { if (confirm("حذف هذا SKU؟")) deleteVariantMutation.mutate({ productId: v.productId, id: v.id }); }}>
                                     <Trash2 className="w-3 h-3" />
                                   </Button>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -867,14 +878,23 @@ export default function Inventory() {
                                 {v.sku && <span className="text-[9px] text-muted-foreground font-mono">{v.sku}</span>}
                                 <VariantWarehouseBreakdown variantId={v.id} />
                               </div>
-                              {canEdit && (
+                              {(canEdit || canDelete) && (
                                 <div className="flex items-center gap-0.5 shrink-0">
+                                  {canEdit && (
                                   <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-emerald-600" onClick={() => openAddVariantStock(v)}>
                                     <PackagePlus className="w-3.5 h-3.5" />
                                   </Button>
+                                  )}
+                                  {canEdit && (
                                   <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => openEditVariant(v)}>
                                     <Edit2 className="w-3.5 h-3.5" />
                                   </Button>
+                                  )}
+                                  {canDelete && (
+                                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={() => { if (confirm("حذف هذا SKU؟")) deleteVariantMutation.mutate({ productId: v.productId, id: v.id }); }}>
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </Button>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -919,15 +939,17 @@ export default function Inventory() {
                 </div>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className={`grid gap-3 ${canSeeCost ? "grid-cols-2" : "grid-cols-1"}`}>
               <div>
                 <Label className="text-xs font-semibold mb-1.5 block">سعر البيع (ج.م)</Label>
                 <Input type="number" value={productForm.unitPrice || ""} onChange={e => setProductForm(f => ({ ...f, unitPrice: parseFloat(e.target.value) || 0 }))} placeholder="0" className="h-9 text-sm" />
               </div>
+              {canSeeCost && (
               <div>
                 <Label className="text-xs font-semibold mb-1.5 block">سعر التكلفة (ج.م)</Label>
                 <Input type="number" value={productForm.costPrice ?? ""} onChange={e => setProductForm(f => ({ ...f, costPrice: e.target.value ? parseFloat(e.target.value) : null }))} placeholder="اختياري" className="h-9 text-sm" />
               </div>
+              )}
             </div>
             <div>
               <Label className="text-xs font-semibold mb-1.5 block">حد المخزون المنخفض</Label>
@@ -979,7 +1001,7 @@ export default function Inventory() {
               <Input value={variantForm.size} onChange={e => setVariantForm(f => ({ ...f, size: e.target.value }))} placeholder="أو اكتب مقاساً آخر..." className="h-8 text-sm" />
             </div>
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className={`grid gap-2 ${canSeeCost ? "grid-cols-3" : "grid-cols-2"}`}>
               <div>
                 <Label className="text-[11px] font-bold mb-1.5 block text-muted-foreground">كود SKU</Label>
                 <Input value={variantForm.sku} onChange={e => setVariantForm(f => ({ ...f, sku: e.target.value }))} placeholder="اختياري" className="h-8 text-xs font-mono" />
@@ -988,10 +1010,12 @@ export default function Inventory() {
                 <Label className="text-[11px] font-bold mb-1.5 block text-muted-foreground">سعر البيع</Label>
                 <Input type="number" value={variantForm.unitPrice || ""} onChange={e => setVariantForm(f => ({ ...f, unitPrice: parseFloat(e.target.value) || 0 }))} className="h-8 text-xs" />
               </div>
+              {canSeeCost && (
               <div>
                 <Label className="text-[11px] font-bold mb-1.5 block text-muted-foreground">سعر التكلفة</Label>
                 <Input type="number" value={variantForm.costPrice ?? ""} onChange={e => setVariantForm(f => ({ ...f, costPrice: e.target.value ? parseFloat(e.target.value) : null }))} placeholder="اختياري" className="h-8 text-xs" />
               </div>
+              )}
             </div>
 
             <>

@@ -201,9 +201,15 @@ export default function Orders() {
   const debouncedSearch = useDebounce(search, 300);
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { user, isAdmin } = useAuth();
-  // canWriteOrders: أدمن أو عنده صلاحية orders_write
-  const canWriteOrders = isAdmin || (user?.permissions?.includes("orders_write") ?? false);
+  const { user, isAdmin, can } = useAuth();
+  // ── Orders permission shortcuts ──────────────────────────────────────
+  const canCreate     = can("orders.create");
+  const canEdit       = can("orders.edit");
+  const canDelete     = can("orders.delete");
+  const canFinancials = can("orders.financials");
+  const canExport     = can("orders.export");
+  // canWriteOrders: للـ bulk select والواتساب (أي صلاحية تعديل)
+  const canWriteOrders = isAdmin || canEdit || (user?.permissions?.includes("orders_write") ?? false);
   const updateOrder = useUpdateOrder();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkSelectMode, setBulkSelectMode] = useState(false);
@@ -519,7 +525,8 @@ export default function Orders() {
                 <X className="w-3.5 h-3.5" />إلغاء
               </Button>
 
-              {/* تغيير الحالة بالجملة */}
+              {/* تغيير الحالة بالجملة — يظهر لو عنده canEdit */}
+              {canEdit && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -545,9 +552,10 @@ export default function Orders() {
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
+              )}
 
-              {/* حذف بالجملة */}
-              {(() => {
+              {/* حذف بالجملة — يظهر لو عنده canDelete */}
+              {canDelete && (() => {
                 const lockedCount = Array.from(selectedIds).filter(id => inManifestSet.has(id)).length;
                 return (
                   <Button
@@ -566,14 +574,20 @@ export default function Orders() {
             </>
           ) : (
             <>
+              {/* زر تحديد — فقط لو عنده edit أو delete */}
+              {(canEdit || canDelete) && (
               <Button variant="outline" size="sm" className="gap-1 text-xs h-9" onClick={() => setBulkSelectMode(true)}>
                 <CheckSquare className="w-3.5 h-3.5" />تحديد
               </Button>
+              )}
+              {/* زر طلب جديد — فقط لو عنده canCreate */}
+              {canCreate && (
               <Link href="/orders/new">
                 <Button className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-sm">
                   <Plus className="w-4 h-4" />طلب جديد
                 </Button>
               </Link>
+              )}
             </>
           ))}
         </div>
@@ -792,11 +806,13 @@ export default function Orders() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
                         <p className="font-bold text-sm truncate">{order.customerName}</p>
+                        {canFinancials && (
                         <span className="font-bold text-xs text-primary shrink-0">
                           {order.status === "partial_received" && (order as any)._receivedPrice != null
                             ? <>{formatCurrency((order as any)._receivedPrice)}<span className="line-through text-muted-foreground font-normal mr-1 text-[9px]">{formatCurrency(order.totalPrice)}</span></>
                             : formatCurrency(order.totalPrice)}
                         </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-[10px] text-muted-foreground font-mono">#{order.id.toString().padStart(4,"0")}</span>
@@ -886,6 +902,7 @@ export default function Orders() {
                     <TableHead className="text-right text-xs">
                       <div className="flex items-center gap-1">المنتج{showColFilters && <ColFilterBtn col="product" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />}</div>
                     </TableHead>
+                    {canFinancials && (
                     <TableHead className="text-right text-xs">
                       <div className="flex items-center gap-1">
                         {!showColFilters
@@ -900,6 +917,7 @@ export default function Orders() {
                         {showColFilters && <ColFilterBtn col="total" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />}
                       </div>
                     </TableHead>
+                    )}
                     <TableHead className="text-right text-xs">
                       <div className="flex items-center gap-1">المنشئ{showColFilters && <ColFilterBtn col="creator" colFilters={colFilters} getColOptions={getColOptions} toggleColFilter={toggleColFilter} clearColFilter={clearColFilter} sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />}</div>
                     </TableHead>
@@ -950,11 +968,13 @@ export default function Orders() {
                           <span className="truncate block">{order.product}</span>
                           {!isGroup && <span className="text-muted-foreground">×{order.quantity}</span>}
                         </TableCell>
+                        {canFinancials && (
                         <TableCell className="text-xs font-bold text-primary">
                           {order.status === "partial_received" && (order as any)._receivedPrice != null
                             ? <div><span>{formatCurrency((order as any)._receivedPrice)}</span><div className="line-through text-muted-foreground font-normal text-[9px]">{formatCurrency(order.totalPrice)}</div></div>
                             : formatCurrency(order.totalPrice)}
                         </TableCell>
+                        )}
                         <TableCell className="text-xs text-muted-foreground">
                           {(order as any).createdByName
                             ? <span className="inline-flex items-center gap-1 bg-muted px-1.5 py-0.5 rounded-full text-[10px] font-medium"><span>👤</span>{(order as any).createdByName}</span>
