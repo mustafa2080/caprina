@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
-import { UserPlus, Edit2, Trash2, Shield, Users, Eye, EyeOff, TrendingUp, Package, BarChart3, LayoutGrid, Lock, User, Settings2, ChevronDown, ChevronUp, ToggleLeft, Camera, X } from "lucide-react";
+import { UserPlus, Edit2, Trash2, Shield, Users, Eye, EyeOff, TrendingUp, Package, BarChart3, LayoutGrid, Lock, User, Settings2, ChevronDown, ChevronUp, ToggleLeft, Camera, X, Crown, AlertTriangle } from "lucide-react";
 
 // ── User Avatar Component ────────────────────────────────────────────────────
 function getInitialsColor(name: string): string {
@@ -110,12 +110,14 @@ function AvatarUpload({ avatar, name, onChange }: {
 }
 
 const ROLE_LABELS: Record<string, string> = {
+  super_admin: "Super Admin 👑",
   admin: "مدير",
   employee: "موظف مبيعات",
   warehouse: "مسؤول مخزون",
 };
 
 const ROLE_COLORS: Record<string, string> = {
+  super_admin: "border-yellow-500 bg-yellow-900/30 text-yellow-300",
   admin: "border-yellow-700 bg-yellow-900/20 text-yellow-400",
   employee: "border-blue-700 bg-blue-900/20 text-blue-400",
   warehouse: "border-emerald-700 bg-emerald-900/20 text-emerald-400",
@@ -170,6 +172,7 @@ const SIDEBAR_SECTION_PERMISSIONS = [
 ];
 
 const DEFAULT_PERMISSIONS: Record<string, () => string[]> = {
+  super_admin: () => ["*"],
   admin: () => [
     ...ALL_PERMISSIONS.map(p => p.key),
     FINANCIAL_PERMISSION.key,
@@ -362,24 +365,39 @@ export default function UsersPage() {
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 shrink-0">
-                <label
-                  className={`flex flex-col items-center gap-1 cursor-pointer group ${u.id === currentUser?.id ? "opacity-40 pointer-events-none" : ""}`}
-                  title={u.isActive ? "تعطيل الحساب" : "تفعيل الحساب"}
-                >
-                  <input
-                    type="checkbox"
-                    checked={u.isActive}
-                    onChange={() => handleToggleActive(u)}
-                    disabled={u.id === currentUser?.id}
-                    className="w-4 h-4 rounded accent-primary cursor-pointer"
-                  />
-                  <span className={`text-[9px] font-bold ${u.isActive ? "text-emerald-500" : "text-red-500"}`}>
-                    {u.isActive ? "نشط" : "معطل"}
-                  </span>
-                </label>
+                {/* تعطيل/تفعيل — مخفي لـ super_admin إلا لو المستخدم الحالي super_admin */}
+                {(u.role !== "super_admin" || currentUser?.role === "super_admin") && (
+                  <label
+                    className={`flex flex-col items-center gap-1 cursor-pointer group ${u.id === currentUser?.id ? "opacity-40 pointer-events-none" : ""}`}
+                    title={u.isActive ? "تعطيل الحساب" : "تفعيل الحساب"}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={u.isActive}
+                      onChange={() => handleToggleActive(u)}
+                      disabled={u.id === currentUser?.id}
+                      className="w-4 h-4 rounded accent-primary cursor-pointer"
+                    />
+                    <span className={`text-[9px] font-bold ${u.isActive ? "text-emerald-500" : "text-red-500"}`}>
+                      {u.isActive ? "نشط" : "معطل"}
+                    </span>
+                  </label>
+                )}
                 <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-primary" onClick={() => openEdit(u)}><Edit2 className="w-3.5 h-3.5" /></Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" onClick={() => handleDelete(u)} disabled={u.id === currentUser?.id}><Trash2 className="w-3.5 h-3.5" /></Button>
+                  {/* تعديل — مخفي على super_admin إلا لو أنت super_admin */}
+                  {(u.role !== "super_admin" || currentUser?.role === "super_admin") && (
+                    <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-primary" onClick={() => openEdit(u)}><Edit2 className="w-3.5 h-3.5" /></Button>
+                  )}
+                  {/* حذف — مخفي على super_admin إلا لو أنت super_admin، ومنعه من حذف نفسه */}
+                  {(u.role !== "super_admin" || currentUser?.role === "super_admin") && (
+                    <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" onClick={() => handleDelete(u)} disabled={u.id === currentUser?.id}><Trash2 className="w-3.5 h-3.5" /></Button>
+                  )}
+                  {/* أيقونة قفل لـ super_admin لو المستخدم الحالي مش super_admin */}
+                  {u.role === "super_admin" && currentUser?.role !== "super_admin" && (
+                    <div className="h-8 w-8 flex items-center justify-center opacity-40" title="محمي — Super Admin فقط">
+                      <Lock className="w-3.5 h-3.5 text-yellow-500" />
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -460,11 +478,15 @@ export default function UsersPage() {
                 </div>
                 <span className="text-xs font-black text-foreground uppercase tracking-wide">الدور الوظيفي</span>
               </div>
-              <div className="grid grid-cols-3 gap-2">
-                {(["admin", "employee", "warehouse"] as const).map(role => (
+              <div className={`grid gap-2 ${currentUser?.role === "super_admin" ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}>
+                {(currentUser?.role === "super_admin"
+                  ? ["super_admin", "admin", "employee", "warehouse"]
+                  : ["admin", "employee", "warehouse"]
+                ).map(role => (
                   <button key={role} type="button" onClick={() => handleRoleChange(role)}
                     className={`py-3 rounded-xl border-2 text-xs font-bold transition-all flex flex-col items-center gap-1
                       ${form.role === role ? ROLE_COLORS[role] + " scale-[1.03]" : "border-border text-muted-foreground hover:border-muted-foreground bg-muted/10"}`}>
+                    {role === "super_admin" && <Crown className="w-4 h-4" />}
                     {role === "admin" && <Shield className="w-4 h-4" />}
                     {role === "employee" && <User className="w-4 h-4" />}
                     {role === "warehouse" && <Package className="w-4 h-4" />}
@@ -472,12 +494,18 @@ export default function UsersPage() {
                   </button>
                 ))}
               </div>
+              {form.role === "super_admin" && (
+                <div className="mt-2 flex items-center gap-2 p-2.5 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+                  <AlertTriangle className="w-3.5 h-3.5 text-yellow-500 shrink-0" />
+                  <p className="text-[10px] text-yellow-600 dark:text-yellow-400">Super Admin له كل الصلاحيات تلقائياً ولا يمكن تقييدها</p>
+                </div>
+              )}
             </section>
 
-            <Separator />
+            {form.role !== "super_admin" && <Separator />}
 
             {/* ── الصلاحيات الخاصة ── */}
-            <section>
+            {form.role !== "super_admin" && <section>
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                   <Settings2 className="w-3.5 h-3.5 text-primary" />
@@ -521,12 +549,12 @@ export default function UsersPage() {
                   );
                 })}
               </div>
-            </section>
+            </section>}
 
-            <Separator />
+            {form.role !== "super_admin" && <Separator />}
 
             {/* ── الصفحات والأقسام ── */}
-            <section>
+            {form.role !== "super_admin" && <section>
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                   <LayoutGrid className="w-3.5 h-3.5 text-primary" />
@@ -633,7 +661,7 @@ export default function UsersPage() {
                   <span className="text-[10px] text-muted-foreground">قائمة = يظهر في الـ Sidebar</span>
                 </div>
               </div>
-            </section>
+            </section>}
 
           </div>
 
