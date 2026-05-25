@@ -40,8 +40,8 @@ const TOKEN_KEY = "caprina_token";
 const USER_KEY = "caprina_user";
 const EDIT_BRAND_KEY = "edit_brand";
 
-// polling كل 30 ثانية — تغييرات الصلاحيات تنعكس بسرعة كافية
-const POLL_INTERVAL_MS = 30_000;
+// polling كل 5 ثواني — تغييرات الصلاحيات تنعكس فوراً
+const POLL_INTERVAL_MS = 5_000;
 
 // عدد المرات المتتالية اللي ممكن يفشل فيها الـ polling قبل الـ logout
 const MAX_POLL_FAILURES = 3;
