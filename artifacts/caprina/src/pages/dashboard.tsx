@@ -1609,6 +1609,8 @@ export default function Dashboard() {
                 const totalOrders  = breakdown.reduce((s: number, x: any) => s + x.orders, 0);
                 const totalRevenue = breakdown.reduce((s: number, x: any) => s + x.revenue, 0);
                 const totalProfit  = breakdown.reduce((s: number, x: any) => s + x.profit, 0);
+                const shippingCost = fin?.shippingSpend ?? 0;
+                const revenueAfterShipping = totalRevenue - shippingCost;
                 return (
                   <div className="mx-2.5 sm:mx-3 mb-2.5 sm:mb-3 grid grid-cols-3 gap-2 rounded-xl border border-border bg-muted/20 p-2.5 text-center">
                     <div>
@@ -1616,8 +1618,10 @@ export default function Dashboard() {
                       <p className="text-[9px] text-muted-foreground">إجمالي الطلبات</p>
                     </div>
                     <div>
-                      <p className="text-sm font-black text-primary">{new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(totalRevenue)}</p>
-                      <p className="text-[9px] text-muted-foreground">إجمالي الإيرادات</p>
+                      <p className={`text-sm font-black ${revenueAfterShipping >= 0 ? "text-primary" : "text-red-500"}`}>
+                        {new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(revenueAfterShipping)}
+                      </p>
+                      <p className="text-[9px] text-muted-foreground">إيرادات بعد الشحن</p>
                     </div>
                     <div>
                       <p className={`text-sm font-black ${totalProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}>
