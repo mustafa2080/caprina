@@ -702,8 +702,8 @@ export default function Dashboard() {
     <div className="space-y-4 sm:space-y-5 animate-in fade-in duration-500">      {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-lg sm:text-xl lg:text-2xl font-bold">لوحة المالية</h1>
-          <p className="text-muted-foreground text-[10px] sm:text-xs lg:text-sm mt-0.5">CAPRINA — Financial Engine Dashboard</p>
+          <h1 className="text-lg sm:text-xl lg:text-2xl font-bold">لوحة إدارة العمليات</h1>
+          <p className="text-muted-foreground text-[10px] sm:text-xs lg:text-sm mt-0.5">CAPRINA OS.Dashboard</p>
           <div className="mt-1 sm:mt-1.5">
             <LiveClock />
           </div>
