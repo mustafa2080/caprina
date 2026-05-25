@@ -3,9 +3,8 @@ import { useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Truck, CheckCircle, Clock, AlertCircle, ArrowRight, Package, RotateCcw, Wallet, Link as LinkIcon, ChevronRight } from "lucide-react";
+import { Truck, CheckCircle, Clock, AlertCircle, ArrowRight, Package, RotateCcw, Wallet, Link as LinkIcon, ChevronRight, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Link, useLocation } from "wouter";
@@ -25,8 +24,9 @@ export default function FinanceShippingInvoices() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const [statusFilter, setStatusFilter] = useState("all");
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
 
-  // ── جيب الفواتير المالية (المرتبطة تلقائياً ببيانات الشحن المقفولة) ──────
+  // ── جيب الفواتير المالية ──────────────────────────────────────────────────
   const { data: invoices = [], isLoading } = useQuery<any[]>({
     queryKey: ["finance-shipping-invoices"],
     queryFn: () => apiFetch<any[]>("/finance/shipping-invoices"),
@@ -63,12 +63,28 @@ export default function FinanceShippingInvoices() {
     onError: (e: any) => toast({ title: "❌ خطأ", description: e.message, variant: "destructive" }),
   });
 
+  // ── حذف الفاتورة ─────────────────────────────────────────────────────────
+  const deleteInvoice = useMutation({
+    mutationFn: (id: number) =>
+      apiFetch<any>(`/finance/shipping-invoices/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["finance-shipping-invoices"] });
+      qc.invalidateQueries({ queryKey: ["/api/cash-registers"] });
+      qc.invalidateQueries({ queryKey: ["finance-hub"] });
+      setDeleteConfirmId(null);
+      toast({ title: "✅ تم حذف الفاتورة بنجاح" });
+    },
+    onError: (e: any) => {
+      setDeleteConfirmId(null);
+      toast({ title: "❌ فشل الحذف", description: e.message, variant: "destructive" });
+    },
+  });
+
   // ── فلترة ────────────────────────────────────────────────────────────────
   const filtered = statusFilter === "all"
     ? invoices
     : invoices.filter(inv => inv.status === statusFilter);
 
-  // helper: تحويل آمن لأي قيمة لرقم — يتعامل مع null/undefined/"null"/NaN
   const safeNum = (v: any): number => {
     const n = parseFloat(String(v ?? 0));
     return isNaN(n) ? 0 : n;
@@ -82,8 +98,75 @@ export default function FinanceShippingInvoices() {
     .filter(i => i.status === "paid")
     .reduce((s, i) => s + safeNum(i.netDue), 0);
 
+  // الفاتورة المراد حذفها (للعرض في الـ dialog)
+  const invoiceToDelete = invoices.find(i => i.id === deleteConfirmId);
+
   return (
     <div className="space-y-5 animate-in fade-in duration-500" dir="rtl">
+
+      {/* ── Confirm Delete Dialog ─────────────────────────────────────────── */}
+      {deleteConfirmId !== null && invoiceToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)" }}>
+          <div className="relative w-full max-w-sm rounded-[24px] p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            style={{
+              background: "hsl(var(--card))",
+              border: "1.5px solid rgba(239,68,68,0.40)",
+              boxShadow: "0 24px 60px rgba(239,68,68,0.20)",
+            }}>
+            {/* خط ضوء أعلى */}
+            <div className="absolute inset-x-12 top-0 h-px"
+              style={{ background: "linear-gradient(90deg, transparent, #EF4444, transparent)" }} />
+
+            {/* أيقونة */}
+            <div className="w-14 h-14 rounded-2xl mx-auto mb-4 flex items-center justify-center"
+              style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.35)" }}>
+              <Trash2 className="w-7 h-7" style={{ color: "#EF4444" }} />
+            </div>
+
+            <h3 className="text-lg font-black text-center mb-1">حذف الفاتورة</h3>
+            <p className="text-sm text-center text-muted-foreground mb-1">
+              هل أنت متأكد من حذف الفاتورة
+            </p>
+            <p className="text-center font-bold mb-1" style={{ color: "#EF4444" }}>
+              {invoiceToDelete.invoiceNumber}
+            </p>
+            {invoiceToDelete.status === "paid" && (
+              <div className="mt-2 mb-3 rounded-xl px-3 py-2 text-xs text-center"
+                style={{ background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.30)", color: "#F59E0B" }}>
+                ⚠️ هذه الفاتورة مدفوعة — سيتم خصم {fmt(invoiceToDelete.paidAmount)} من الخزنة تلقائياً
+              </div>
+            )}
+            <p className="text-xs text-center text-muted-foreground mb-5">
+              هذا الإجراء لا يمكن التراجع عنه
+            </p>
+
+            <div className="flex gap-3">
+              <Button
+                className="flex-1 h-10 font-bold"
+                variant="outline"
+                onClick={() => setDeleteConfirmId(null)}
+                disabled={deleteInvoice.isPending}>
+                إلغاء
+              </Button>
+              <button
+                className="flex-1 h-10 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all"
+                style={{
+                  background: "rgba(239,68,68,0.20)",
+                  border: "1.5px solid rgba(239,68,68,0.50)",
+                  color: "#EF4444",
+                  opacity: deleteInvoice.isPending ? 0.6 : 1,
+                }}
+                onClick={() => deleteInvoice.mutate(deleteConfirmId)}
+                disabled={deleteInvoice.isPending}>
+                <Trash2 className="w-4 h-4" />
+                {deleteInvoice.isPending ? "جاري الحذف..." : "تأكيد الحذف"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
@@ -177,9 +260,7 @@ export default function FinanceShippingInvoices() {
         <Card className="p-4 border-amber-500/30 bg-amber-500/5 flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-bold text-amber-700 dark:text-amber-400">
-              لا توجد خزنة رئيسية
-            </p>
+            <p className="text-sm font-bold text-amber-700 dark:text-amber-400">لا توجد خزنة رئيسية</p>
             <p className="text-xs text-muted-foreground mt-0.5">
               يوجد {fmt(totalPending)} في انتظار التحويل. أنشئ خزنة رئيسية من قسم الخزنة وسيتم تحويل المبالغ إليها تلقائياً.
             </p>
@@ -265,6 +346,8 @@ export default function FinanceShippingInvoices() {
                       </p>
                     </div>
                   </div>
+
+                  {/* الأزرار */}
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
                       style={{ background: st.solid, color: st.color, border: `1px solid ${st.glow}` }}>
@@ -279,6 +362,18 @@ export default function FinanceShippingInvoices() {
                         <CheckCircle className="w-3 h-3 mr-1" />تحقق
                       </Button>
                     )}
+                    {/* زر الحذف */}
+                    <button
+                      className="h-7 w-7 rounded-lg flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
+                      style={{
+                        background: "rgba(239,68,68,0.10)",
+                        border: "1px solid rgba(239,68,68,0.30)",
+                        color: "#EF4444",
+                      }}
+                      title="حذف الفاتورة"
+                      onClick={() => setDeleteConfirmId(inv.id)}>
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
 

@@ -140,7 +140,6 @@ router.post("/finance/expenses", async (req, res): Promise<void> => {
   let resolvedRegisterId: number | null = data.cashRegisterId ?? null;
 
   if (resolvedRegisterId) {
-    // خزنة محددة من المستخدم - تحقق منها
     const [found] = await db.select().from(cashRegistersTable)
       .where(and(eq(cashRegistersTable.id, resolvedRegisterId), eq(cashRegistersTable.isActive, true)));
     if (!found) { res.status(404).json({ error: "الخزنة المحددة غير موجودة أو غير نشطة" }); return; }
@@ -152,7 +151,6 @@ router.post("/finance/expenses", async (req, res): Promise<void> => {
     }
     reg = found;
   } else {
-    // مفيش خزنة محددة → جيب الافتراضية أو أول خزنة نشطة
     const registers = await db.select().from(cashRegistersTable)
       .where(eq(cashRegistersTable.isActive, true))
       .orderBy(cashRegistersTable.id);
@@ -167,10 +165,8 @@ router.post("/finance/expenses", async (req, res): Promise<void> => {
       reg = defaultReg;
       resolvedRegisterId = defaultReg.id;
     }
-    // لو مفيش أي خزنة نشطة → نكمل بدون خصم (edge case نادر)
   }
 
-  // ── إنشاء المصروف أولاً عشان ناخد الـ id ────────────────────────────────
   const result = await db.insert(expensesTable).values({
     ...data,
     cashRegisterId: resolvedRegisterId,
@@ -181,7 +177,6 @@ router.post("/finance/expenses", async (req, res): Promise<void> => {
   });
   const expenseId = (result as any)[0]?.insertId;
 
-  // ── بعد ما عرفنا الـ id: خصم من الخزنة وسجّل الحركة ────────────────────
   if (reg && resolvedRegisterId) {
     await db.update(cashRegistersTable)
       .set({ balance: String(balAfter), updatedAt: now })
@@ -195,7 +190,7 @@ router.post("/finance/expenses", async (req, res): Promise<void> => {
       balanceAfter: String(balAfter),
       description: data.title,
       referenceNumber: data.referenceId ?? undefined,
-      expenseId,                          // ✅ الـ id الحقيقي دلوقتي
+      expenseId,
       transactionDate: new Date(data.expenseDate),
       createdByUserId: user?.id ?? null,
       createdByName: user?.displayName ?? null,
@@ -209,7 +204,6 @@ router.post("/finance/expenses", async (req, res): Promise<void> => {
 
 // ── تقرير المصروفات شهر بشهر (MoM) ─────────────────────────────────────────
 router.get("/finance/expenses/monthly-breakdown", async (req, res): Promise<void> => {
-  // آخر 6 شهور افتراضياً
   const monthsBack = parseInt((req.query.months as string) ?? "6");
   const tenantId = getTenantId(req);
   const now = new Date();
@@ -240,7 +234,6 @@ router.get("/finance/expenses/monthly-breakdown", async (req, res): Promise<void
     }
   }
 
-  // كل التصنيفات الموجودة عبر الشهور
   const allCategories = Array.from(
     new Set(Object.values(results).flatMap(m => Object.keys(m)))
   );
@@ -250,49 +243,44 @@ router.get("/finance/expenses/monthly-breakdown", async (req, res): Promise<void
 
 router.delete("/finance/expenses/:id", async (req, res): Promise<void> => {
   try {
-  const id = parseInt(req.params.id);
-  const now = new Date();
-  const user = (req as any).user;
+    const id = parseInt(req.params.id);
+    const now = new Date();
+    const user = (req as any).user;
 
-  // 1. جيب المصروف قبل الحذف
-  const [expense] = await db.select().from(expensesTable).where(eq(expensesTable.id, id));
-  if (!expense) { res.status(404).json({ error: "المصروف غير موجود" }); return; }
+    const [expense] = await db.select().from(expensesTable).where(eq(expensesTable.id, id));
+    if (!expense) { res.status(404).json({ error: "المصروف غير موجود" }); return; }
 
-  // 2. لو كان مرتبط بخزنة → ارجع الفلوس
-  if (expense.cashRegisterId) {
-    const [reg] = await db.select().from(cashRegistersTable)
-      .where(eq(cashRegistersTable.id, expense.cashRegisterId));
+    if (expense.cashRegisterId) {
+      const [reg] = await db.select().from(cashRegistersTable)
+        .where(eq(cashRegistersTable.id, expense.cashRegisterId));
 
-    if (reg) {
-      const balBefore = parseFloat(reg.balance ?? "0");
-      const amt       = parseFloat(expense.amount ?? "0");
-      const balAfter  = balBefore + amt;                  // رجوع المبلغ للخزنة
+      if (reg) {
+        const balBefore = parseFloat(reg.balance ?? "0");
+        const amt       = parseFloat(expense.amount ?? "0");
+        const balAfter  = balBefore + amt;
 
-      // حدّث رصيد الخزنة
-      await db.update(cashRegistersTable)
-        .set({ balance: String(balAfter), updatedAt: now })
-        .where(eq(cashRegistersTable.id, reg.id));
+        await db.update(cashRegistersTable)
+          .set({ balance: String(balAfter), updatedAt: now })
+          .where(eq(cashRegistersTable.id, reg.id));
 
-      // سجّل حركة عكسية (deposit كـ reversal)
-      await db.insert(cashTransactionsTable).values({
-        registerId:    reg.id,
-        type:          "deposit",
-        amount:        String(amt),
-        balanceBefore: String(balBefore),
-        balanceAfter:  String(balAfter),
-        description:   `إلغاء مصروف: ${expense.title}`,
-        referenceNumber: String(id),
-        transactionDate: now,
-        createdByUserId: user?.id   ?? null,
-        createdByName:   user?.displayName ?? null,
-        createdAt:     now,
-      });
+        await db.insert(cashTransactionsTable).values({
+          registerId:    reg.id,
+          type:          "deposit",
+          amount:        String(amt),
+          balanceBefore: String(balBefore),
+          balanceAfter:  String(balAfter),
+          description:   `إلغاء مصروف: ${expense.title}`,
+          referenceNumber: String(id),
+          transactionDate: now,
+          createdByUserId: user?.id   ?? null,
+          createdByName:   user?.displayName ?? null,
+          createdAt:     now,
+        });
+      }
     }
-  }
 
-  // 3. احذف المصروف
-  await db.delete(expensesTable).where(eq(expensesTable.id, id));
-  res.status(204).send();
+    await db.delete(expensesTable).where(eq(expensesTable.id, id));
+    res.status(204).send();
   } catch (err) { console.error("[DELETE expense]", err); res.status(500).json({ error: "فشل حذف المصروف" }); }
 });
 
@@ -359,7 +347,6 @@ router.patch("/finance/shipping-invoices/:id", async (req, res): Promise<void> =
   const now = new Date();
   const user = (req as any).user;
 
-  // جيب الفاتورة الحالية
   const [inv] = await db.select().from(shippingFinancialInvoicesTable).where(eq(shippingFinancialInvoicesTable.id, id));
   if (!inv) { res.status(404).json({ error: "الفاتورة غير موجودة" }); return; }
 
@@ -375,11 +362,9 @@ router.patch("/finance/shipping-invoices/:id", async (req, res): Promise<void> =
   if (newPaid > 0 && prevPaid === 0)        updates.paidAt    = now;
 
   // ── ربط بالخزنة: لما الفاتورة تتحول لـ paid أضف المبلغ للخزنة ────────────
-  // هنا الشركة بتحوّل لك (إيداع وارد)
   if (newStatus === "paid" && prevStatus !== "paid") {
     try {
       const amountToCredit = newPaid > 0 ? newPaid : netDue;
-      // جيب الخزنة الرئيسية أو الافتراضية
       const regs = await db.select().from(cashRegistersTable)
         .where(eq(cashRegistersTable.isActive, true))
         .orderBy(cashRegistersTable.id);
@@ -454,12 +439,68 @@ router.patch("/finance/shipping-invoices/:id", async (req, res): Promise<void> =
   res.json(updated);
 });
 
+// ── DELETE /finance/shipping-invoices/:id ────────────────────────────────────
+router.delete("/finance/shipping-invoices/:id", async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id);
+    const now = new Date();
+    const user = (req as any).user;
+    const tenantId = getTenantId(req);
+
+    const conds: any[] = [eq(shippingFinancialInvoicesTable.id, id)];
+    if (tenantId !== null) conds.push(eq(shippingFinancialInvoicesTable.tenantId, tenantId));
+
+    const [inv] = await db.select().from(shippingFinancialInvoicesTable).where(and(...conds));
+    if (!inv) { res.status(404).json({ error: "الفاتورة غير موجودة" }); return; }
+
+    // لو الفاتورة كانت مدفوعة → ارجع المبلغ من الخزنة
+    if (inv.status === "paid" && parseFloat(inv.paidAmount ?? "0") > 0) {
+      try {
+        const regs = await db.select().from(cashRegistersTable)
+          .where(eq(cashRegistersTable.isActive, true))
+          .orderBy(cashRegistersTable.id);
+        const reg = regs.find((r: any) => r.isDefault)
+                 ?? regs.find((r: any) => r.type === "main")
+                 ?? regs[0]
+                 ?? null;
+
+        if (reg) {
+          const paidAmt = parseFloat(inv.paidAmount ?? "0");
+          const bb = parseFloat(reg.balance ?? "0");
+          const ba = Math.max(0, bb - paidAmt);
+          await db.update(cashRegistersTable)
+            .set({ balance: String(ba), updatedAt: now })
+            .where(eq(cashRegistersTable.id, reg.id));
+          await db.insert(cashTransactionsTable).values({
+            registerId:      reg.id,
+            type:            "withdrawal",
+            amount:          String(paidAmt),
+            balanceBefore:   String(bb),
+            balanceAfter:    String(ba),
+            description:     `حذف فاتورة شحن ${inv.invoiceNumber}`,
+            referenceNumber: inv.invoiceNumber,
+            transactionDate: now,
+            createdByUserId: user?.id ?? null,
+            createdByName:   user?.displayName ?? null,
+            createdAt:       now,
+          });
+        }
+      } catch (e) { console.error("[delete shipping-invoice cash rollback]", e); }
+    }
+
+    await db.delete(shippingFinancialInvoicesTable).where(and(...conds));
+    res.status(204).send();
+  } catch (err: any) {
+    console.error("[DELETE shipping-invoice]", err);
+    res.status(500).json({ error: "فشل حذف الفاتورة" });
+  }
+});
+
 // ── Finance Analytics (P&L + Alerts + Trends) ─────────────────────────────
 router.get("/finance/analytics", async (req, res): Promise<void> => {
   const { from, to } = req.query;
   const tenantId = getTenantId(req);
 
-  // ── تحديد الفترة الحالية والسابقة ────────────────────────────────────────
   const now = new Date();
   const curFrom  = from ? new Date(from as string) : new Date(now.getFullYear(), now.getMonth(), 1);
   const curTo    = to   ? new Date(to   as string) : now;
@@ -467,14 +508,12 @@ router.get("/finance/analytics", async (req, res): Promise<void> => {
   const prevTo   = new Date(curFrom.getTime() - 1);
   const prevFrom = new Date(prevTo.getTime() - diffMs);
 
-  // ── helper: جلب بيانات مالية لفترة معينة ─────────────────────────────────
   async function fetchPeriodData(pFrom: Date, pTo: Date) {
     const pToEnd = new Date(pTo); pToEnd.setHours(23, 59, 59, 999);
 
     const tenantCond = tenantId !== null ? [eq(ordersTable.tenantId, tenantId)] : [];
     const tenantExpCond = tenantId !== null ? [eq(expensesTable.tenantId, tenantId)] : [];
 
-    // الطلبات المستلمة (received + partial_received)
     const ordersData = await db.select({
       revenue:  sql<number>`COALESCE(SUM(total_price), 0)`,
       cogs:     sql<number>`COALESCE(SUM(cost_price * quantity), 0)`,
@@ -488,7 +527,6 @@ router.get("/finance/analytics", async (req, res): Promise<void> => {
       ...tenantCond,
     ));
 
-    // الطلبات المرتجعة
     const [returnedData] = await db.select({
       count: sql<number>`COUNT(*)`,
       loss:  sql<number>`COALESCE(SUM(total_price), 0)`,
@@ -500,7 +538,6 @@ router.get("/finance/analytics", async (req, res): Promise<void> => {
       ...tenantCond,
     ));
 
-    // المصروفات
     const [expData] = await db.select({
       total: sql<number>`COALESCE(SUM(CAST(amount AS DECIMAL(14,2))), 0)`,
     }).from(expensesTable).where(and(
@@ -509,7 +546,6 @@ router.get("/finance/analytics", async (req, res): Promise<void> => {
       ...tenantExpCond,
     ));
 
-    // المصروفات حسب فئة
     const expByCategory = await db.select({
       category: expensesTable.category,
       total: sql<number>`COALESCE(SUM(CAST(amount AS DECIMAL(14,2))), 0)`,
@@ -519,7 +555,6 @@ router.get("/finance/analytics", async (req, res): Promise<void> => {
       ...tenantExpCond,
     )).groupBy(expensesTable.category);
 
-    // إجمالي الطلبات (كل الحالات) لحساب نسبة التسليم
     const [allOrdersData] = await db.select({
       total:     sql<number>`COUNT(*)`,
       delivered: sql<number>`SUM(CASE WHEN status IN ('received','partial_received') THEN 1 ELSE 0 END)`,
@@ -562,7 +597,6 @@ router.get("/finance/analytics", async (req, res): Promise<void> => {
     fetchPeriodData(prevFrom, prevTo),
   ]);
 
-  // ── مقارنة الفترتين ───────────────────────────────────────────────────────
   const pct = (a: number, b: number) => b === 0 ? null : +((( a - b) / b) * 100).toFixed(1);
   const comparison = {
     revenue:    pct(cur.revenue,    prev.revenue),
@@ -572,7 +606,6 @@ router.get("/finance/analytics", async (req, res): Promise<void> => {
     deliveryRate: pct(cur.deliveryRate, prev.deliveryRate),
   };
 
-  // ── فواتير الشحن المستحقة (متأخرة) ───────────────────────────────────────
   const overdueInvoices = await db.select({
     id: shippingFinancialInvoicesTable.id,
     invoiceNumber: shippingFinancialInvoicesTable.invoiceNumber,
@@ -587,7 +620,6 @@ router.get("/finance/analytics", async (req, res): Promise<void> => {
       ...(tenantId !== null ? [eq(shippingFinancialInvoicesTable.tenantId, tenantId)] : []),
     ));
 
-  // ── طلبات في الشحن (in_shipping) = كاش متوقع ────────────────────────────
   const [inShipping] = await db.select({
     count:           sql<number>`COUNT(*)`,
     expectedRevenue: sql<number>`COALESCE(SUM(total_price), 0)`,
@@ -597,7 +629,6 @@ router.get("/finance/analytics", async (req, res): Promise<void> => {
     ...(tenantId !== null ? [eq(ordersTable.tenantId, tenantId)] : []),
   ));
 
-  // ── فواتير شحن غير مسددة (إجمالي) ───────────────────────────────────────
   const unpaidConditions: any[] = [sql`status IN ('pending','verified')`];
   if (tenantId !== null) unpaidConditions.push(eq(shippingFinancialInvoicesTable.tenantId, tenantId));
   const [unpaidShipping] = await db.select({
@@ -606,48 +637,33 @@ router.get("/finance/analytics", async (req, res): Promise<void> => {
   }).from(shippingFinancialInvoicesTable)
     .where(and(...unpaidConditions));
 
-  // ── أعلى 5 فئات مصروفات ──────────────────────────────────────────────────
   const topExpenseCategories = [...cur.expByCategory]
     .sort((a, b) => Number(b.total) - Number(a.total))
     .slice(0, 5)
     .map(e => ({ category: e.category, total: Number(e.total) }));
 
-  // ── Smart Alerts ──────────────────────────────────────────────────────────
   const alerts: { type: "danger" | "warning" | "info" | "success"; message: string; detail?: string }[] = [];
 
-  // خسارة صافية
   if (cur.netProfit < 0) {
     alerts.push({ type: "danger", message: "الشهر الحالي بخسارة صافية", detail: `الخسارة: ${Math.abs(cur.netProfit).toLocaleString("ar-EG")} ج.م` });
-  }
-  // هامش ربح منخفض
-  else if (cur.netMargin < 10 && cur.revenue > 0) {
+  } else if (cur.netMargin < 10 && cur.revenue > 0) {
     alerts.push({ type: "warning", message: "هامش الربح الصافي منخفض", detail: `الهامش الحالي ${cur.netMargin}% — المثالي فوق 20%` });
   }
-
-  // نسبة مرتجعات مرتفعة
   if (cur.returnRate > 25) {
     alerts.push({ type: "danger", message: "نسبة المرتجعات مرتفعة جداً", detail: `${cur.returnRate}% من الطلبات — المعدل الطبيعي أقل من 20%` });
   } else if (cur.returnRate > 18) {
     alerts.push({ type: "warning", message: "نسبة المرتجعات فوق المعدل", detail: `${cur.returnRate}% — راجع أسباب الرجوع` });
   }
-
-  // فواتير شحن متأخرة
   if (overdueInvoices.length > 0) {
     const totalOverdue = overdueInvoices.reduce((s, i) => s + Number(i.netDue) - Number(i.paidAmount), 0);
     alerts.push({ type: "danger", message: `${overdueInvoices.length} فاتورة شحن متأخر سدادها`, detail: `إجمالي المتأخر: ${totalOverdue.toLocaleString("ar-EG")} ج.م` });
   }
-
-  // مصروفات ارتفعت كثيراً
   if (comparison.expenses !== null && comparison.expenses > 30) {
     alerts.push({ type: "warning", message: "المصروفات ارتفعت بشكل ملحوظ", detail: `+${comparison.expenses}% مقارنة بالفترة السابقة` });
   }
-
-  // إيراد انخفض
   if (comparison.revenue !== null && comparison.revenue < -15) {
     alerts.push({ type: "warning", message: "انخفاض في الإيرادات", detail: `${comparison.revenue}% مقارنة بالفترة السابقة` });
   }
-
-  // إيجابي: ربح ارتفع
   if (comparison.netProfit !== null && comparison.netProfit > 20 && cur.netProfit > 0) {
     alerts.push({ type: "success", message: "أداء ممتاز — الربح ارتفع", detail: `+${comparison.netProfit}% مقارنة بالفترة السابقة` });
   }
