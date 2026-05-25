@@ -1694,20 +1694,29 @@ export default function Dashboard() {
 
               {/* قائمة الأعضاء */}
               <div className="divide-y divide-border/60">
-                {teamPerf.slice(0, 4).map((m, i) => (
+                {teamPerf.slice(0, 4).map((m, i) => {
+                  // نجيب صورة الموظف من employeeProfiles لو موجودة
+                  const empProfile = employeeProfiles.find((e: any) =>
+                    e.displayName === m.displayName || e.userId === m.userId
+                  );
+                  const avatarSrc = empProfile?.avatar && empProfile.avatar.startsWith("data:") ? empProfile.avatar : null;
+                  const [bg, fg] = dbAvatarColor(m.displayName);
+                  return (
                   <div key={m.userId} className="flex items-center gap-3 px-4 py-2.5">
                     <span className="text-xs font-black text-muted-foreground w-4">{i + 1}</span>
-                    {m.avatar ? (
-                      <img src={m.avatar} className="w-8 h-8 rounded-full object-cover shrink-0 ring-2 ring-border" />
+                    {avatarSrc ? (
+                      <img src={avatarSrc} className="w-8 h-8 rounded-full object-cover shrink-0 ring-2 ring-border" alt={m.displayName} />
                     ) : (
-                      <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-xs font-bold text-emerald-600 shrink-0">
-                        {m.displayName.charAt(0)}
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                        style={{ background: bg, color: fg }}>
+                        {dbInitials(m.displayName)}
                       </div>
                     )}
                     <span className="text-sm font-bold truncate flex-1">{m.displayName.split(" ")[0]}</span>
                     <span className={`text-sm font-black ${m.deliveryRate >= 70 ? "text-emerald-500" : "text-amber-500"}`}>{m.deliveryRate}%</span>
                   </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* footer */}
