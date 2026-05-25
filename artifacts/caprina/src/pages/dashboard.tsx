@@ -1695,17 +1695,12 @@ export default function Dashboard() {
               {/* قائمة الأعضاء */}
               <div className="divide-y divide-border/60">
                 {teamPerf.slice(0, 4).map((m, i) => {
-                  // نجيب صورة الموظف من employeeProfiles لو موجودة
-                  const empProfile = employeeProfiles.find((e: any) =>
-                    e.displayName === m.displayName || e.userId === m.userId
-                  );
-                  const avatarSrc = empProfile?.avatar && empProfile.avatar.startsWith("data:") ? empProfile.avatar : null;
                   const [bg, fg] = dbAvatarColor(m.displayName);
                   return (
                   <div key={m.userId} className="flex items-center gap-3 px-4 py-2.5">
                     <span className="text-xs font-black text-muted-foreground w-4">{i + 1}</span>
-                    {avatarSrc ? (
-                      <img src={avatarSrc} className="w-8 h-8 rounded-full object-cover shrink-0 ring-2 ring-border" alt={m.displayName} />
+                    {m.avatar ? (
+                      <img src={m.avatar} className="w-8 h-8 rounded-full object-cover shrink-0 ring-2 ring-border" alt={m.displayName} />
                     ) : (
                       <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
                         style={{ background: bg, color: fg }}>
@@ -1752,11 +1747,14 @@ export default function Dashboard() {
               <div className="divide-y divide-border/60">
                 {employeeProfiles.slice(0, 4).map((emp: any) => {
                   const [bg, fg] = dbAvatarColor(emp.displayName || "?");
+                  // نجيب صورة الموظف من teamPerf لو موجودة
+                  const perfMatch = teamPerf.find(m => m.displayName === emp.displayName || m.userId === emp.userId);
+                  const avatarSrc = perfMatch?.avatar ?? null;
                   return (
                     <Link key={emp.id} href="/team">
                       <div className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/20 transition-colors cursor-pointer">
-                        {emp.avatar && emp.avatar.startsWith("data:") ? (
-                          <img src={emp.avatar} className="w-9 h-9 rounded-full object-cover border-2 border-border/50 shrink-0" alt={emp.displayName} />
+                        {avatarSrc ? (
+                          <img src={avatarSrc} className="w-9 h-9 rounded-full object-cover border-2 border-border/50 shrink-0" alt={emp.displayName} />
                         ) : (
                           <div className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm shrink-0"
                             style={{ background: bg, color: fg }}>
