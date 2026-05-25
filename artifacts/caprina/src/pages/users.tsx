@@ -447,6 +447,7 @@ export default function UsersPage() {
       avatar: (u as any).avatar ?? "",
     });
     setShowPassword(false);
+    setModalTab("account");
     setDialogOpen(true);
   };
 
@@ -794,14 +795,14 @@ export default function UsersPage() {
                 ...( form.role !== "super_admin" ? [{ id: "sections", icon: <LayoutGrid className="w-3.5 h-3.5" />, label: "الأقسام" }] : [] ),
                 ...( form.role !== "super_admin" ? [{ id: "perms",    icon: <KeyRound className="w-3.5 h-3.5" />,   label: "الصلاحيات" }] : [] ),
               ];
-              const active = (window as any).__modalTab || "account";
+              const active = modalTab || "account";
               return (
                 <div className="flex border-t border-white/[0.06] bg-white/[0.02]">
                   {tabs.map(tab => (
                     <button
                       key={tab.id}
                       type="button"
-                      onClick={() => { (window as any).__modalTab = tab.id; setForm(f => ({ ...f })); }}
+                      onClick={() => setModalTab(tab.id)}
                       className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[11px] font-bold transition-all border-b-2
                         ${active === tab.id
                           ? "border-primary text-primary bg-primary/5"
