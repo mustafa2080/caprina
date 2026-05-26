@@ -199,7 +199,7 @@ const SECTION_GROUPS: Array<{
       { key: "orders.create",     label: "إضافة طلب",              desc: "زر إضافة طلب جديد" },
       { key: "orders.edit",       label: "تعديل طلب",              desc: "تعديل بيانات طلب موجود" },
       { key: "orders.delete",     label: "حذف طلب",                desc: "حذف طلب بشكل نهائي" },
-      { key: "orders.financials", label: "الأسعار داخل الطلب",     desc: "إخفاء التكلفة والربح في الطلب", sensitive: true },
+      { key: "orders.financials", label: "إظهار التكلفة والربح في الطلب", desc: "إظهار التكلفة والربح داخل الطلب", sensitive: true },
       { key: "orders.export",     label: "تصدير الطلبات",          desc: "تصدير Excel / PDF" },
     ],
   },
