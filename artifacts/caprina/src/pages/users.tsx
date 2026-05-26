@@ -210,9 +210,10 @@ const SECTION_GROUPS: Array<{
       { key: "orders.create",     label: "إضافة طلب",              desc: "زر إضافة طلب جديد" },
       { key: "orders.edit",       label: "تعديل طلب",              desc: "تعديل بيانات طلب موجود" },
       { key: "orders.delete",     label: "حذف طلب",                desc: "حذف طلب بشكل نهائي" },
-      { key: "orders.financials", label: "إظهار التكلفة والربح في الطلب", desc: "إظهار التكلفة والربح داخل الطلب", sensitive: true },
-      { key: "orders.export",     label: "تصدير الطلبات",          desc: "تصدير Excel / PDF" },
-      { key: "invoices.view",     label: "رؤية الفواتير",           desc: "دخول صفحة الفواتير" },
+      { key: "orders.financials",    label: "إظهار التكلفة والربح في الطلب", desc: "إظهار التكلفة والربح داخل الطلب", sensitive: true },
+      { key: "orders.export",        label: "تصدير الطلبات",          desc: "تصدير Excel / PDF" },
+      { key: "orders.profitability", label: "تحليل الربحية",           desc: "إظهار قسم تحليل الربحية في تفاصيل الطلب", sensitive: true },
+      { key: "invoices.view",        label: "رؤية الفواتير",           desc: "دخول صفحة الفواتير" },
     ],
   },
   {
@@ -316,7 +317,7 @@ const DEFAULT_PERMISSIONS: Record<string, () => string[]> = {
     // صلاحيات لوحة التحكم
     "dashboard.view", "dashboard.financials", "dashboard.shipping_stats", "dashboard.returns", "dashboard.team",
     // صلاحيات الطلبات
-    "orders.view", "orders.create", "orders.edit", "orders.delete", "orders.financials", "orders.export",
+    "orders.view", "orders.create", "orders.edit", "orders.delete", "orders.financials", "orders.export", "orders.profitability",
     // صلاحيات المخزون
     "inventory.view", "inventory.edit", "inventory.delete", "inventory.cost", "inventory.movements", "inventory.warehouses",
     // صلاحيات الشحن
