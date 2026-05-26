@@ -210,7 +210,7 @@ const SECTION_GROUPS: Array<{
       { key: "inventory.view",       label: "رؤية المخزون",         desc: "دخول صفحة المخزون" },
       { key: "inventory.edit",       label: "تعديل الكميات",        desc: "تعديل وإضافة منتجات" },
       { key: "inventory.delete",     label: "حذف منتج",             desc: "حذف منتج من المخزون" },
-      { key: "inventory.cost",       label: "تكلفة المنتجات",       desc: "إخفاء سعر التكلفة إذا لم يُمنح", sensitive: true },
+      { key: "inventory.cost", label: "إظهار سعر التكلفة", desc: "إظهار سعر التكلفة في المنتجات والمخزون", sensitive: true },
       { key: "inventory.movements",  label: "حركات المخزون",        desc: "رؤية وإدارة الحركات" },
       { key: "inventory.warehouses", label: "إدارة المخازن",        desc: "إضافة وتعديل المخازن" },
     ],

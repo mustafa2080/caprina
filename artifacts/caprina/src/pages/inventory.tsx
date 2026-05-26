@@ -222,11 +222,11 @@ function printProductInventory(product: Product, variants: ProductVariant[], war
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function Inventory() {
-  const { can, canViewFinancials } = useAuth();
+  const { can, canViewFinancials, isAdmin } = useAuth();
   // ── Inventory permission shortcuts ────────────────────────────────────────
   const canEdit        = can("inventory.edit");
   const canDelete      = can("inventory.delete");
-  const canSeeCost     = can("inventory.cost");
+  const canSeeCost     = isAdmin || can("inventory.cost");
   const canMovements   = can("inventory.movements");
   const canWarehouses  = can("inventory.warehouses");
   const { toast } = useToast();
