@@ -470,7 +470,11 @@ export default function UsersPage() {
     setDialogOpen(true);
   };
 
-  const handleRoleChange = (role: string) => setForm(f => ({ ...f, role, permissions: DEFAULT_PERMISSIONS[role]?.() ?? [] }));
+  const handleRoleChange = (role: string) => {
+    setForm(f => ({ ...f, role, permissions: DEFAULT_PERMISSIONS[role]?.() ?? [] }));
+    setSelectedTemplate(null);
+    setCustomRoleName("");
+  };
 
   const applyTemplate = (templateKey: string) => {
     const tmpl = PERMISSION_TEMPLATES.find(t => t.key === templateKey);
