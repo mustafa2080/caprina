@@ -501,7 +501,7 @@ export default function UsersPage() {
     if (!tmpl) return;
     setSelectedTemplate(templateKey);
     if (tmpl.key === "custom") {
-      setForm(f => ({ ...f, permissions: [] }));
+      // مخصص = ابدأ من الصلاحيات الحالية وعدل — مش مسح كل حاجة
     } else {
       setForm(f => ({ ...f, permissions: tmpl.permissions }));
     }
@@ -527,6 +527,25 @@ export default function UsersPage() {
     }
 
     return { ...f, permissions: perms };
+  });
+
+  // لما section يتشال → اشيل كل الصلاحيات المرتبطة بيه تلقائياً
+  // لما section يتضاف → ضيفه بس (الصلاحيات اختيارية)
+  const toggleSection = (sectionKey: string) => setForm(f => {
+    const isOn = f.permissions.includes(sectionKey);
+    if (isOn) {
+      // شيل الـ section + كل الصلاحيات المرتبطة بيه
+      const linkedPerms = Object.entries(PERM_TO_SECTION)
+        .filter(([, v]) => v === sectionKey)
+        .map(([k]) => k);
+      return {
+        ...f,
+        permissions: f.permissions.filter(p => p !== sectionKey && !linkedPerms.includes(p)),
+      };
+    } else {
+      // ضيف الـ section بس
+      return { ...f, permissions: [...f.permissions, sectionKey] };
+    }
   });
 
   const handleSubmit = () => {
@@ -1036,8 +1055,15 @@ export default function UsersPage() {
                       <button type="button"
                         onClick={() => {
                           const keys = ALL_SECTIONS.map(s => s.key);
-                          if (allOn) setForm(f => ({ ...f, permissions: f.permissions.filter(k => !keys.includes(k)) }));
-                          else       setForm(f => ({ ...f, permissions: [...new Set([...f.permissions, ...keys])] }));
+                          if (allOn) {
+                            // شيل كل الـ sections + صلاحياتهم
+                            const allLinked = Object.entries(PERM_TO_SECTION)
+                              .filter(([, v]) => keys.includes(v))
+                              .map(([k]) => k);
+                            setForm(f => ({ ...f, permissions: f.permissions.filter(k => !keys.includes(k) && !allLinked.includes(k)) }));
+                          } else {
+                            setForm(f => ({ ...f, permissions: [...new Set([...f.permissions, ...keys])] }));
+                          }
                         }}
                         className="text-[9px] px-2 py-0.5 rounded-full border border-white/10 text-muted-foreground hover:border-white/30 hover:text-white transition-all"
                       >{allOn ? "إخفاء الكل" : "إظهار الكل"}</button>
@@ -1047,12 +1073,7 @@ export default function UsersPage() {
                         const isOn = form.permissions.includes(sec.key);
                         return (
                           <button key={sec.key} type="button"
-                            onClick={() => setForm(f => ({
-                              ...f,
-                              permissions: isOn
-                                ? f.permissions.filter(k => k !== sec.key)
-                                : [...f.permissions, sec.key]
-                            }))}
+                            onClick={() => toggleSection(sec.key)}
                             className={`flex items-center gap-2.5 p-3 rounded-xl border text-right transition-all ${isOn ? sec.bg : "border-white/[0.07] bg-white/[0.02] hover:border-white/20"}`}
                           >
                             <span className="text-base leading-none shrink-0">{sec.icon}</span>
