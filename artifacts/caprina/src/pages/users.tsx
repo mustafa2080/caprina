@@ -230,7 +230,7 @@ const SECTION_GROUPS: Array<{
     icon: <BarChart2 className="w-4 h-4" />,
     permissions: [
       { key: "analytics.view",      label: "دخول التحليلات",        desc: "صفحة التحليلات العامة" },
-      { key: "analytics.financial", label: "التحليلات المالية",      desc: "إخفاء أرقام الأرباح في التحليلات", sensitive: true },
+      { key: "analytics.financial", label: "التحليلات المالية",      desc: "إظهار إذا مُنح", sensitive: true },
       { key: "analytics.products",  label: "أداء المنتجات",          desc: "تحليل أداء المنتجات" },
       { key: "analytics.ads",       label: "تحليل الإعلانات",        desc: "ربط مصادر الإعلانات بالطلبات" },
       { key: "analytics.smart",     label: "التحليل الذكي",          desc: "التوصيات الذكية والتنبيهات" },
