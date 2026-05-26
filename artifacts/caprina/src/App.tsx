@@ -271,46 +271,46 @@ function Router() {
           <Route path="/"                         component={() => <ProtectedRoute permission="dashboard.view" component={Dashboard} />} />
           <Route path="/orders"                   component={() => <ProtectedRoute permission="orders.view" component={Orders} />} />
           <Route path="/orders/new"               component={() => <ProtectedRoute permission="orders.create" component={OrderForm} />} />
-          <Route path="/invoices/:invoiceNumber"  component={() => <ProtectedRoute permission="invoices" component={InvoiceGroupPage} />} />
+          <Route path="/invoices/:invoiceNumber"  component={() => <ProtectedRoute permission="invoices.view" component={InvoiceGroupPage} />} />
           <Route path="/orders/:id"               component={() => <ProtectedRoute permission="orders.view" component={OrderDetail} />} />
-          <Route path="/inventory"                component={() => <ProtectedRoute permission="inventory" component={Inventory} />} />
-          <Route path="/shipping"                 component={() => <ProtectedRoute permission="shipping" component={ShippingCompanies} />} />
-          <Route path="/shipping/manifests/:id"   component={() => <ProtectedRoute permission="shipping" component={ShippingManifestPage} />} />
-          <Route path="/shipping/company/:id"     component={() => <ProtectedRoute permission="shipping" component={ShippingCompanyDetail} />} />
-          <Route path="/invoices"                 component={() => <ProtectedRoute permission="invoices" component={Invoices} />} />
-          <Route path="/import"                   component={() => <ProtectedRoute permission="import" component={Import} />} />
-          <Route path="/movements"                component={() => <ProtectedRoute permission="movements" component={Movements} />} />
-          <Route path="/product-performance"      component={() => <ProtectedRoute permission="view_product_performance" component={ProductPerformance} />} />
-          <Route path="/users"                    component={() => <ProtectedRoute permission="users" component={UsersPage} />} />
-          <Route path="/users/manage"             component={() => <ProtectedRoute permission="users" component={UsersPage} />} />
-          <Route path="/audit-logs"               component={() => <ProtectedRoute permission="audit" component={AuditLogsPage} />} />
-          <Route path="/warehouses"               component={() => <ProtectedRoute permission="inventory" component={WarehousesPage} />} />
-          <Route path="/team-performance"         component={() => <ProtectedRoute permission="analytics" component={TeamPerformancePage} />} />
-          <Route path="/ads-analytics"            component={() => <ProtectedRoute permission="analytics" component={AdsAnalyticsPage} />} />
+          <Route path="/inventory"                component={() => <ProtectedRoute permission="inventory.view" component={Inventory} />} />
+          <Route path="/shipping"                 component={() => <ProtectedRoute permission="shipping.view" component={ShippingCompanies} />} />
+          <Route path="/shipping/manifests/:id"   component={() => <ProtectedRoute permission="shipping.view" component={ShippingManifestPage} />} />
+          <Route path="/shipping/company/:id"     component={() => <ProtectedRoute permission="shipping.view" component={ShippingCompanyDetail} />} />
+          <Route path="/invoices"                 component={() => <ProtectedRoute permission="invoices.view" component={Invoices} />} />
+          <Route path="/import"                   component={() => <ProtectedRoute permission="import.view" component={Import} />} />
+          <Route path="/movements"                component={() => <ProtectedRoute permission="inventory.movements" component={Movements} />} />
+          <Route path="/product-performance"      component={() => <ProtectedRoute permission="analytics.products" component={ProductPerformance} />} />
+          <Route path="/users"                    component={() => <ProtectedRoute permission="settings.users" component={UsersPage} />} />
+          <Route path="/users/manage"             component={() => <ProtectedRoute permission="settings.users" component={UsersPage} />} />
+          <Route path="/audit-logs"               component={() => <ProtectedRoute permission="settings.audit" component={AuditLogsPage} />} />
+          <Route path="/warehouses"               component={() => <ProtectedRoute permission="inventory.view" component={WarehousesPage} />} />
+          <Route path="/team-performance"         component={() => <ProtectedRoute permission="analytics.team" component={TeamPerformancePage} />} />
+          <Route path="/ads-analytics"            component={() => <ProtectedRoute permission="analytics.ads" component={AdsAnalyticsPage} />} />
           <Route path="/team"                     component={() => <ProtectedRoute permission="team.manage" component={TeamPage} />} />
-          <Route path="/smart"                    component={() => <ProtectedRoute permission="analytics" component={SmartAnalyticsPage} />} />
+          <Route path="/smart"                    component={() => <ProtectedRoute permission="analytics.smart" component={SmartAnalyticsPage} />} />
           <Route path="/archive"                  component={() => <ProtectedRoute permission="orders.view" component={ArchivePage} />} />
           <Route path="/shipping-followup"        component={() => <ProtectedRoute permission="orders.view" component={ShippingFollowupPage} />} />
-          <Route path="/whatsapp"                 component={() => <ProtectedRoute permission="whatsapp" component={WhatsAppSettingsPage} />} />
-          <Route path="/sessions-report"          component={() => <ProtectedRoute permission="users" component={SessionsReportPage} />} />
-          <Route path="/export"                   component={() => <ProtectedRoute permission="import" component={ExportPage} />} />
+          <Route path="/whatsapp"                 component={() => <ProtectedRoute permission="settings.whatsapp" component={WhatsAppSettingsPage} />} />
+          <Route path="/sessions-report"          component={() => <ProtectedRoute permission="settings.users" component={SessionsReportPage} />} />
+          <Route path="/export"                   component={() => <ProtectedRoute permission="import.view" component={ExportPage} />} />
           {/* Finance */}
-          <Route path="/finance"                  component={() => <ProtectedRoute permission="finance" component={FinanceHub} />} />
+          <Route path="/finance"                  component={() => <ProtectedRoute permission="finance.view" component={FinanceHub} />} />
           <Route path="/finance/dashboard"        component={() => <Redirect to="/finance" />} />
-          <Route path="/finance/purchases"        component={() => <ProtectedRoute permission="finance" component={FinancePurchases} />} />
-          <Route path="/finance/sales"            component={() => <ProtectedRoute permission="finance" component={FinanceSales} />} />
-          <Route path="/finance/sales/new"        component={() => <ProtectedRoute permission="finance" component={FinanceSales} />} />
-          <Route path="/finance/sales/:id"        component={() => <ProtectedRoute permission="finance" component={FinanceSaleDetail} />} />
-          <Route path="/finance/clients"          component={() => <ProtectedRoute permission="finance" component={FinanceClients} />} />
-          <Route path="/finance/all-clients"      component={() => <ProtectedRoute permission="finance" component={AllClientsPage} />} />
-          <Route path="/finance/clients/:id"      component={() => <ProtectedRoute permission="finance" component={CommercialClientDetail} />} />
-          <Route path="/finance/sales-report"     component={() => <ProtectedRoute permission="finance" component={SalesReportPage} />} />
-          <Route path="/finance/suppliers"        component={() => <ProtectedRoute permission="finance" component={FinanceSuppliers} />} />
-          <Route path="/finance/expenses"         component={() => <ProtectedRoute permission="finance" component={FinanceExpenses} />} />
-          <Route path="/finance/shipping-invoices" component={() => <ProtectedRoute permission="finance" component={FinanceShippingInvoices} />} />
-          <Route path="/finance/cash"              component={() => <ProtectedRoute permission="finance" component={FinanceCash} />} />
-          <Route path="/finance/cash/analytics"  component={() => <ProtectedRoute permission="finance" component={FinanceCashAnalytics} />} />
-          <Route path="/finance/cash/archive"    component={() => <ProtectedRoute permission="finance" component={FinanceCashArchive} />} />
+          <Route path="/finance/purchases"        component={() => <ProtectedRoute permission="finance.view" component={FinancePurchases} />} />
+          <Route path="/finance/sales"            component={() => <ProtectedRoute permission="finance.view" component={FinanceSales} />} />
+          <Route path="/finance/sales/new"        component={() => <ProtectedRoute permission="finance.view" component={FinanceSales} />} />
+          <Route path="/finance/sales/:id"        component={() => <ProtectedRoute permission="finance.view" component={FinanceSaleDetail} />} />
+          <Route path="/finance/clients"          component={() => <ProtectedRoute permission="finance.view" component={FinanceClients} />} />
+          <Route path="/finance/all-clients"      component={() => <ProtectedRoute permission="finance.view" component={AllClientsPage} />} />
+          <Route path="/finance/clients/:id"      component={() => <ProtectedRoute permission="finance.view" component={CommercialClientDetail} />} />
+          <Route path="/finance/sales-report"     component={() => <ProtectedRoute permission="finance.view" component={SalesReportPage} />} />
+          <Route path="/finance/suppliers"        component={() => <ProtectedRoute permission="finance.view" component={FinanceSuppliers} />} />
+          <Route path="/finance/expenses"         component={() => <ProtectedRoute permission="finance.view" component={FinanceExpenses} />} />
+          <Route path="/finance/shipping-invoices" component={() => <ProtectedRoute permission="finance.view" component={FinanceShippingInvoices} />} />
+          <Route path="/finance/cash"              component={() => <ProtectedRoute permission="finance.view" component={FinanceCash} />} />
+          <Route path="/finance/cash/analytics"  component={() => <ProtectedRoute permission="finance.view" component={FinanceCashAnalytics} />} />
+          <Route path="/finance/cash/archive"    component={() => <ProtectedRoute permission="finance.view" component={FinanceCashArchive} />} />
           {/* Super Admin */}
           <Route path="/super-admin" component={() => user?.role === "super_admin" ? <SuperAdminPage /> : <Redirect to="/" />} />
           <Route                                  component={NotFound} />

@@ -1,4 +1,4 @@
-import { Link, useLocation } from "wouter";
+﻿import { Link, useLocation } from "wouter";
 import { useState, useMemo, useRef, useEffect } from "react";
 import { firstLogoBase64 } from "@/lib/first-logo";
 import { secondLogoBase64 } from "@/lib/second-logo";
@@ -33,26 +33,26 @@ const ALL_NAV = [
   { href: "/",                  label: "لوحة التحكم",        icon: LayoutDashboard, exact: true, permission: "section_dashboard",       section: "section_dashboard",          iconColor: "text-blue-400",       group: "dashboard"    },
   { href: "/orders",            label: "الطلبات",             icon: Package,                     permission: "orders.view",             section: "section_orders",             iconColor: "text-orange-400",     group: "orders"       },
   { href: "/orders/new",        label: "طلب جديد",            icon: Plus,                        permission: "orders.create",           section: "section_new_order",          iconColor: "text-emerald-400",    group: "orders"       },
-  { href: "/invoices",          label: "الفواتير",             icon: FileText,                    permission: "invoices",                section: "section_invoices",           iconColor: "text-yellow-400",     group: "orders"       },
+  { href: "/invoices",          label: "الفواتير",             icon: FileText,                    permission: "invoices.view",           section: "section_invoices",           iconColor: "text-yellow-400",     group: "orders"       },
   { href: "/shipping-followup", label: "متابعة الشحن",        icon: Clock,                       permission: "section_shipping_followup", section: "section_shipping_followup",  iconColor: "text-cyan-400",       group: "orders"       },
-  { href: "/shipping",          label: "شركات الشحن",         icon: Truck,                       permission: "shipping",                section: "section_shipping",           iconColor: "text-sky-400",        group: "shipping"     },
-  { href: "/inventory",         label: "المنتجات",            icon: Boxes,                       permission: "inventory",               section: "section_inventory",          iconColor: "text-violet-400",     group: "inventory"    },
-  { href: "/warehouses",        label: "المخازن",             icon: Warehouse,                   permission: "inventory",               section: "section_warehouses",         iconColor: "text-indigo-400",     group: "inventory"    },
-  { href: "/movements",         label: "حركات المخزون",       icon: Activity,                    permission: "movements",               section: "section_movements",          iconColor: "text-purple-400",     group: "inventory"    },
-  { href: "/product-performance",label: "أداء المنتجات",     icon: BarChart3,                   permission: "view_product_performance",section: "section_product_performance", iconColor: "text-pink-400",      group: "analytics"    },
-  { href: "/smart",             label: "التحليل الذكي",       icon: Brain,                       permission: "analytics",               section: "section_smart_analytics",    iconColor: "text-fuchsia-400",    group: "analytics"    },
-  { href: "/ads-analytics",     label: "تحليل الإعلانات",    icon: Megaphone,                   permission: "analytics",               section: "section_ads_analytics",      iconColor: "text-rose-400",       group: "analytics"    },
-  { href: "/finance/cash/analytics", label: "تحليل الماليات الذكي", icon: Brain,                  permission: "analytics",               section: "section_smart_analytics",    iconColor: "text-teal-400",       group: "analytics"    },
-  { href: "/sessions-report",   label: "تقارير الجلسات",      icon: Clock,                       permission: "users",                   section: "section_sessions_report",    iconColor: "text-slate-400",      group: "analytics"    },
-  { href: "/team",              label: "إدارة الفريق",        icon: UserCog,                     permission: "analytics",               section: "section_team_management",    iconColor: "text-lime-400",       group: "team",         exact: true },
-  { href: "/team-performance",  label: "أداء الفريق",         icon: UserCheck,                   permission: "analytics",               section: "section_team_management",    iconColor: "text-lime-300",       group: "team"         },
-  { href: "/users",             label: "إدارة المستخدمين",   icon: Users,                       permission: "users",                   section: "section_users",              iconColor: "text-green-400",      group: "team"         },
-  { href: "/audit-logs",        label: "سجل العمليات",        icon: Shield,                      permission: "audit",                   section: "section_audit",              iconColor: "text-red-400",        group: "team"         },
-  { href: "/import",            label: "استيراد Excel",       icon: Upload,                      permission: "import",                  section: "section_import",             iconColor: "text-amber-400",      group: "tools"        },
-  { href: "/export",            label: "تصدير البيانات",      icon: Download,                    permission: "import",                  section: "section_export_data",        iconColor: "text-orange-300",     group: "tools"        },
+  { href: "/shipping",          label: "شركات الشحن",         icon: Truck,                       permission: "shipping.view",           section: "section_shipping",           iconColor: "text-sky-400",        group: "shipping"     },
+  { href: "/inventory",         label: "المنتجات",            icon: Boxes,                       permission: "inventory.view",          section: "section_inventory",          iconColor: "text-violet-400",     group: "inventory"    },
+  { href: "/warehouses",        label: "المخازن",             icon: Warehouse,                   permission: "inventory.view",          section: "section_warehouses",         iconColor: "text-indigo-400",     group: "inventory"    },
+  { href: "/movements",         label: "حركات المخزون",       icon: Activity,                    permission: "inventory.movements",     section: "section_movements",          iconColor: "text-purple-400",     group: "inventory"    },
+  { href: "/product-performance",label: "أداء المنتجات",     icon: BarChart3,                   permission: "analytics.products",      section: "section_product_performance", iconColor: "text-pink-400",      group: "analytics"    },
+  { href: "/smart",             label: "التحليل الذكي",       icon: Brain,                       permission: "analytics.smart",         section: "section_smart_analytics",    iconColor: "text-fuchsia-400",    group: "analytics"    },
+  { href: "/ads-analytics",     label: "تحليل الإعلانات",    icon: Megaphone,                   permission: "analytics.ads",           section: "section_ads_analytics",      iconColor: "text-rose-400",       group: "analytics"    },
+  { href: "/finance/cash/analytics", label: "تحليل الماليات الذكي", icon: Brain,                  permission: "analytics.smart",         section: "section_smart_analytics",    iconColor: "text-teal-400",       group: "analytics"    },
+  { href: "/sessions-report",   label: "تقارير الجلسات",      icon: Clock,                       permission: "settings.users",          section: "section_sessions_report",    iconColor: "text-slate-400",      group: "analytics"    },
+  { href: "/team",              label: "إدارة الفريق",        icon: UserCog,                     permission: "team.manage",             section: "section_team_management",    iconColor: "text-lime-400",       group: "team",         exact: true },
+  { href: "/team-performance",  label: "أداء الفريق",         icon: UserCheck,                   permission: "analytics.team",          section: "section_team_management",    iconColor: "text-lime-300",       group: "team"         },
+  { href: "/users",             label: "إدارة المستخدمين",   icon: Users,                       permission: "settings.users",          section: "section_users",              iconColor: "text-green-400",      group: "team"         },
+  { href: "/audit-logs",        label: "سجل العمليات",        icon: Shield,                      permission: "settings.audit",          section: "section_audit",              iconColor: "text-red-400",        group: "team"         },
+  { href: "/import",            label: "استيراد Excel",       icon: Upload,                      permission: "import.view",             section: "section_import",             iconColor: "text-amber-400",      group: "tools"        },
+  { href: "/export",            label: "تصدير البيانات",      icon: Download,                    permission: "import.view",             section: "section_export_data",        iconColor: "text-orange-300",     group: "tools"        },
   { href: "/archive",           label: "الأرشيف",             icon: Archive,                     permission: "section_archive",         section: "section_archive",            iconColor: "text-stone-400",      group: "tools"        },
-  { href: "/whatsapp",          label: "إعدادات واتساب",     icon: WhatsAppIcon,                permission: "whatsapp",                section: "section_whatsapp",           iconColor: "text-[#25D366]",      group: "settings"     },
-  { href: "/audit-logs",        label: "سجل التعديلات",       icon: Shield,                      permission: "audit",                   section: "section_audit",              iconColor: "text-red-400",        group: "settings"     },
+  { href: "/whatsapp",          label: "إعدادات واتساب",     icon: WhatsAppIcon,                permission: "settings.whatsapp",       section: "section_whatsapp",           iconColor: "text-[#25D366]",      group: "settings"     },
+  { href: "/audit-logs",        label: "سجل التعديلات",       icon: Shield,                      permission: "settings.audit",          section: "section_audit",              iconColor: "text-red-400",        group: "settings"     },
 ];
 
 const FINANCE_NAV = [
@@ -521,7 +521,7 @@ export default function Layout({ children }: LayoutProps) {
               </NavGroup>
             )}
 
-            {(isAdmin || can("finance")) && (
+            {(isAdmin || can("finance.view")) && (
               <NavGroup label="الماليات" icon={DollarSign} iconColor="text-emerald-400" location={location} prefixes={["/finance"]} excludePrefixes={["/finance/cash/analytics"]} isOpen={openGroup === "finance"} onToggle={() => toggleGroup("finance", FINANCE_NAV[0]?.href)} collapsed={sidebarCollapsed} onExpandSidebar={() => setSidebarCollapsed(false)} firstHref={FINANCE_NAV[0]?.href} groupKey="finance">
                 {FINANCE_NAV.map((item) => {
                   const isActive = location === item.href;
@@ -652,7 +652,7 @@ export default function Layout({ children }: LayoutProps) {
               <button type="button" onClick={toggleTheme} className="text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors p-1">
                 {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
               </button>
-              {can("orders") && (
+              {can("orders.create") && (
                 <Link href="/orders/new">
                   <span className="flex items-center gap-1 bg-primary text-primary-foreground px-2.5 py-1 rounded-md text-[11px] font-bold">
                     <Plus className="w-3 h-3" />جديد
@@ -690,7 +690,7 @@ export default function Layout({ children }: LayoutProps) {
                     </Link>
                   );
                 })}
-                {(isAdmin || can("finance")) && (
+                {(isAdmin || can("finance.view")) && (
                   <div className="pt-1">
                     <button type="button" onClick={() => setFinanceOpen(v => !v)}
                       className={cn("w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-semibold transition-all",
