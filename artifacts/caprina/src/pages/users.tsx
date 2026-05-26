@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { UserPlus, Edit2, Trash2, Shield, Users, Eye, EyeOff, TrendingUp, Package, BarChart3, LayoutGrid, Lock, User, Settings2, ChevronDown, ChevronUp, ToggleLeft, Camera, X, Crown, AlertTriangle, Search, KeyRound, Power, Home, ShoppingCart, Truck, BarChart2, Wallet, Wrench, Cog, MonitorCheck } from "lucide-react";
 
@@ -772,6 +772,8 @@ export default function UsersPage() {
           dir="rtl"
           style={{ maxHeight: "92dvh" }}
         >
+          <DialogTitle className="sr-only">{editingUser ? "تعديل مستخدم" : "إضافة مستخدم جديد"}</DialogTitle>
+          <DialogDescription className="sr-only">نموذج إدارة بيانات وصلاحيات المستخدم</DialogDescription>
           {/* ── Hero Header ── */}
           <div className="relative shrink-0 overflow-hidden">
             {/* gradient bg */}
