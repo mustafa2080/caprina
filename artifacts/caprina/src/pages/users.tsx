@@ -404,6 +404,8 @@ export default function UsersPage() {
       avatar: (u as any).avatar ?? "",
     });
     setShowPassword(false);
+    setSelectedTemplate(null);
+    setCustomRoleName("");
     setModalTab("account");
     setDialogOpen(true);
   };
