@@ -203,6 +203,7 @@ export default function Orders() {
   const { toast } = useToast();
   const { user, isAdmin, can } = useAuth();
   // ── Orders permission shortcuts ──────────────────────────────────────
+  const canView       = isAdmin || can("orders.view") || can("orders");
   const canCreate     = can("orders.create");
   const canEdit       = can("orders.edit");
   const canDelete     = can("orders.delete");
@@ -512,6 +513,15 @@ export default function Orders() {
       toast({ title: "تم فتح واتساب ✅", description: statusMsg[status] ?? "الرسالة جاهزة للإرسال" });
     }
   };
+
+  if (!canView) return (
+    <div className="flex items-center justify-center min-h-[60vh] text-muted-foreground" dir="rtl">
+      <div className="text-center space-y-2">
+        <p className="text-4xl">🔒</p>
+        <p className="font-bold">ليس لديك صلاحية لعرض الطلبات</p>
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-5 animate-in fade-in duration-500">

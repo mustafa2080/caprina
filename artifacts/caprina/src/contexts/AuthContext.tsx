@@ -392,6 +392,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return defaults.includes(permission);
       }
 
+      // لو الـ permission مش بيحتوي نقطة (مثلاً "orders") →
+      // يكفي إن "orders" موجود بدون "orders.view" منع الوصول
+      // بس لو في صلاحيات تفصيلية (orders.view) موجودة → نتحقق منها
+      if (!permission.includes(".")) {
+        // لو في أي صلاحية تفصيلية للـ module ده → اعتبر الـ module مسموح بيه
+        // (الـ page نفسها هتتحكم في التفاصيل)
+        if (rawPerms.includes(permission)) return true;
+        // لو مفيش "orders" بس في "orders.view" → كمان مسموح
+        return rawPerms.some(p => p.startsWith(permission + "."));
+      }
+
       return rawPerms.includes(permission);
     },
     [user]

@@ -270,8 +270,9 @@ export default function Layout({ children }: LayoutProps) {
 
   const visibleNav = useMemo(() => {
     return ALL_NAV.filter((item) => {
-      if (item.section) return can(item.section);
-      return can(item.permission);
+      const sectionOk = item.section ? can(item.section) : true;
+      const permOk    = can(item.permission);
+      return sectionOk && permOk;
     });
   }, [can]);
 
