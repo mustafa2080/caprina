@@ -289,55 +289,11 @@ const PERMISSION_TEMPLATES: Array<{
   permissions: string[];
 }> = [
   {
-    key: "sales_rep",
-    label: "موظف مبيعات",
-    icon: "🛒",
-    desc: "يشوف الطلبات ويضيف ويعدل — بدون تقارير مالية",
-    color: "border-blue-500/40 bg-blue-500/5 text-blue-400",
-    permissions: [
-      "dashboard", "orders", "orders_write",
-      "section_dashboard", "section_orders", "section_new_order",
-      "section_archive", "section_shipping_followup",
-    ],
-  },
-  {
-    key: "warehouse_mgr",
-    label: "مسؤول مخزون",
-    icon: "📦",
-    desc: "يتحكم في المخزون والحركات بالكامل",
-    color: "border-emerald-500/40 bg-emerald-500/5 text-emerald-400",
-    permissions: [
-      "dashboard", "inventory", "movements",
-      "edit_inventory", "edit_delete_inventory",
-      "section_dashboard", "section_inventory",
-      "section_warehouses", "section_movements",
-    ],
-  },
-  {
-    key: "manager",
-    label: "مدير",
-    icon: "👔",
-    desc: "صلاحيات واسعة بما فيها التقارير والماليات",
-    color: "border-amber-500/40 bg-amber-500/5 text-amber-400",
-    permissions: [
-      "dashboard", "orders", "orders_write", "inventory", "movements",
-      "shipping", "invoices", "analytics", "audit", "finance",
-      "view_financials", "edit_inventory", "edit_delete_inventory",
-      "view_product_performance", "add_team_member",
-      "section_dashboard", "section_orders", "section_new_order",
-      "section_archive", "section_shipping_followup", "section_inventory",
-      "section_warehouses", "section_movements", "section_shipping",
-      "section_invoices", "section_product_performance",
-      "section_team_performance", "section_team_management",
-      "section_ads_analytics", "section_export_data", "section_finance",
-    ],
-  },
-  {
     key: "custom",
     label: "مخصص",
     icon: "⚙️",
     desc: "ابدأ من صفر وحدد الصلاحيات يدوياً",
-    color: "border-muted text-muted-foreground",
+    color: "border-primary/40 bg-primary/5 text-primary",
     permissions: [],
   },
 ];
@@ -390,6 +346,7 @@ export default function UsersPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterRole, setFilterRole] = useState<string>("all");
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  const [customRoleName, setCustomRoleName] = useState("");
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
     "🏠 عام": true, "📊 التحليلات": true, "📦 الطلبات": true,
     "🏪 المخزون": true, "🚚 الشحن والفواتير": true, "📁 البيانات": true, "⚙️ الإدارة": true,
@@ -958,31 +915,40 @@ export default function UsersPage() {
                   {/* Templates */}
                   {form.role !== "super_admin" && (
                     <div>
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3">قوالب الصلاحيات السريعة</p>
-                      <div className="grid grid-cols-2 gap-2.5">
-                        {PERMISSION_TEMPLATES.map(tmpl => {
-                          const isSelected = selectedTemplate === tmpl.key;
-                          return (
-                            <button
-                              key={tmpl.key}
-                              type="button"
-                              onClick={() => applyTemplate(tmpl.key)}
-                              className={`flex flex-col items-start gap-1.5 p-3.5 rounded-xl border-2 text-right transition-all
-                                ${isSelected
-                                  ? tmpl.color + " scale-[1.02] shadow-md"
-                                  : "border-white/[0.07] bg-white/[0.02] hover:border-white/20 text-muted-foreground"}`}
-                            >
-                              <div className="flex items-center gap-2 w-full">
-                                <span className="text-lg leading-none">{tmpl.icon}</span>
-                                <span className="text-xs font-black">{tmpl.label}</span>
-                                {isSelected && (
-                                  <span className="mr-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-current/20">✓</span>
-                                )}
-                              </div>
-                              <p className="text-[10px] opacity-70 leading-relaxed">{tmpl.desc}</p>
-                            </button>
-                          );
-                        })}
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3">نوع الدور</p>
+                      <div className="space-y-2">
+                        {/* زرار مخصص */}
+                        <button
+                          type="button"
+                          onClick={() => applyTemplate("custom")}
+                          className={`w-full flex items-center gap-3 p-3.5 rounded-xl border-2 text-right transition-all
+                            ${selectedTemplate === "custom"
+                              ? "border-primary/40 bg-primary/5 text-primary scale-[1.01] shadow-md"
+                              : "border-white/[0.07] bg-white/[0.02] hover:border-white/20 text-muted-foreground"}`}
+                        >
+                          <span className="text-lg leading-none">⚙️</span>
+                          <div className="flex-1 text-right">
+                            <span className="text-xs font-black block">مخصص</span>
+                            <span className="text-[10px] opacity-70">ابدأ من صفر وحدد الصلاحيات يدوياً</span>
+                          </div>
+                          {selectedTemplate === "custom" && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-primary/20 text-primary">✓</span>
+                          )}
+                        </button>
+
+                        {/* input اسم الدور المخصص */}
+                        {selectedTemplate === "custom" && (
+                          <div className="mt-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                            <label className="text-[10px] font-bold text-muted-foreground block mb-1.5">اسم الدور المخصص</label>
+                            <input
+                              type="text"
+                              value={customRoleName}
+                              onChange={e => setCustomRoleName(e.target.value)}
+                              placeholder="مثال: مشرف مبيعات، محاسب، ..."
+                              className="w-full h-9 px-3 text-sm rounded-xl border border-white/10 bg-white/[0.04] text-white placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 focus:bg-white/[0.06] transition-all"
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
