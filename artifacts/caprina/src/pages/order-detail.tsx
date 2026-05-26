@@ -751,7 +751,7 @@ export default function OrderDetail() {
 
   // جيب كل أوردرات الفاتورة (لو فيه invoiceNumber)
   const invoiceNumber = (order as any)?.invoiceNumber as string | null | undefined;
-  const { data: invoiceOrders = [], refetch: refetchInvoiceOrders } = useQuery({
+  const { data: invoiceOrders = [], refetch: refetchInvoiceOrders, isLoading: isInvoiceLoading } = useQuery({
     queryKey: ["invoice-orders", invoiceNumber],
     queryFn: () => ordersApi.byInvoice(invoiceNumber!),
     enabled: !!invoiceNumber,
@@ -1025,13 +1025,16 @@ export default function OrderDetail() {
       <Link href="/orders"><Button variant="outline" className="mt-3">العودة للطلبات</Button></Link>
     </div>
   );
+  // لو invoiceNumber موجود ولسه بنجيب الطلبات → نستنى عشان isInvoiceMode تتحدد صح
+  if (invoiceNumber && isInvoiceLoading) return <div className="p-12 text-center text-muted-foreground animate-pulse">جاري التحميل...</div>;
 
   const shippingCompany = shippingCompanies?.find(c => c.id === order.shippingCompanyId);
   const orderReturnReason = (order as any).returnReason as string | null;
   const orderReturnNote = (order as any).returnNote as string | null;
   const isOrderLocked = (order.status === "received" || order.status === "partial_received") && !isAdmin;
   const isManifestLocked = !!invoiceManifestStatus;
-  const isInvoiceMode = invoiceOrders.length > 1;
+  // لو invoiceNumber موجود ولسه loading → ننتظر قبل ما نحدد الوضع
+  const isInvoiceMode = !!invoiceNumber && !isInvoiceLoading && invoiceOrders.length > 1;
 
   return (
     <div className="max-w-4xl mx-auto space-y-5 animate-in fade-in duration-500">

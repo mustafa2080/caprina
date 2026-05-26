@@ -138,7 +138,7 @@ const PERM_TO_SECTION: Record<string, string> = {
   "orders.delete":             "section_orders",
   "orders.financials":         "section_orders",
   "orders.export":             "section_orders",
-  "invoices.view":             "section_orders",
+  "invoices.view":             "section_invoices",
   // المخزون
   "inventory.view":            "section_inventory",
   "inventory.edit":            "section_inventory",
@@ -501,7 +501,8 @@ export default function UsersPage() {
     if (!tmpl) return;
     setSelectedTemplate(templateKey);
     if (tmpl.key === "custom") {
-      // مخصص = ابدأ من الصلاحيات الحالية وعدل — مش مسح كل حاجة
+      // مخصص = امسح كل الصلاحيات وابدأ من صفر
+      setForm(f => ({ ...f, permissions: [] }));
     } else {
       setForm(f => ({ ...f, permissions: tmpl.permissions }));
     }
