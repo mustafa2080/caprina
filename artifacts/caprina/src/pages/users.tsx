@@ -819,7 +819,7 @@ export default function UsersPage() {
           {/* ── Tab Content ── */}
           <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
             {(() => {
-              const tab = (window as any).__modalTab || "account";
+              const tab = modalTab || "account";
 
               /* ────── TAB: الحساب ────── */
               if (tab === "account") return (
