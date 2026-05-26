@@ -301,18 +301,29 @@ const PERMISSION_TEMPLATES: Array<{
 const DEFAULT_PERMISSIONS: Record<string, () => string[]> = {
   super_admin: () => ["*"],
   admin: () => [
-    ...ALL_PERMISSIONS.map(p => p.key),
-    FINANCIAL_PERMISSION.key,
-    ORDERS_WRITE_PERMISSION.key,
-    EDIT_INVENTORY_PERMISSION.key,
-    EDIT_DELETE_INVENTORY_PERMISSION.key,
-    VIEW_PRODUCT_PERF_PERMISSION.key,
-    ADD_TEAM_MEMBER_PERMISSION.key,
-    EDIT_BRAND_PERMISSION.key,
+    // صلاحيات لوحة التحكم
+    "dashboard.view", "dashboard.financials", "dashboard.shipping_stats", "dashboard.returns", "dashboard.team",
+    // صلاحيات الطلبات
+    "orders.view", "orders.create", "orders.edit", "orders.delete", "orders.financials", "orders.export",
+    // صلاحيات المخزون
+    "inventory.view", "inventory.edit", "inventory.delete", "inventory.cost", "inventory.movements", "inventory.warehouses",
+    // صلاحيات الشحن
+    "shipping.view", "shipping.edit", "shipping.financials", "shipping.manifests",
+    // صلاحيات التحليلات
+    "analytics.view", "analytics.financial", "analytics.products", "analytics.ads", "analytics.smart",
+    // صلاحيات الماليات
+    "finance.view", "finance.sales", "finance.expenses", "finance.cash", "finance.suppliers", "finance.reports",
+    // صلاحيات الفريق
+    "team.view", "team.performance", "team.manage", "team.salaries",
+    // صلاحيات الأدوات
+    "tools.import", "tools.export",
+    // صلاحيات الإعدادات
+    "settings.brand", "settings.users", "settings.audit", "settings.sessions", "settings.whatsapp",
+    // الأقسام المرئية
     ...SIDEBAR_SECTION_PERMISSIONS.map(p => p.key),
   ],
-  employee: () => ["dashboard", "orders", "section_orders", "section_new_order", "section_archive", "section_shipping_followup"],
-  warehouse: () => ["dashboard", "inventory", "movements", EDIT_INVENTORY_PERMISSION.key, EDIT_DELETE_INVENTORY_PERMISSION.key, "section_inventory", "section_warehouses", "section_movements"],
+  employee: () => ["dashboard.view", "orders.view", "section_dashboard", "section_orders", "section_new_order", "section_archive", "section_shipping_followup"],
+  warehouse: () => ["dashboard.view", "inventory.view", "inventory.edit", "inventory.movements", "inventory.warehouses", "section_dashboard", "section_inventory", "section_warehouses", "section_movements"],
 };
 
 interface UserForm {
@@ -383,13 +394,45 @@ export default function UsersPage() {
 
   const openCreate = () => { setEditingUser(null); setForm(emptyForm()); setShowPassword(false); setDialogOpen(true); };
 
+  // تحويل الصلاحيات القديمة للجديدة تلقائياً
+  const migrateOldPermissions = (perms: string[]): string[] => {
+    const legacyMap: Record<string, string[]> = {
+      "dashboard":              ["dashboard.view"],
+      "orders":                 ["orders.view"],
+      "inventory":              ["inventory.view"],
+      "movements":              ["inventory.movements", "section_movements"],
+      "shipping":               ["shipping.view"],
+      "invoices":               ["finance.sales", "section_invoices"],
+      "import":                 ["tools.import", "section_import"],
+      "analytics":              ["analytics.view"],
+      "users":                  ["settings.users", "section_users"],
+      "audit":                  ["settings.audit", "section_audit"],
+      "whatsapp":               ["settings.whatsapp", "section_whatsapp"],
+      "finance":                ["finance.view", "section_finance"],
+      "orders_write":           ["orders.create", "orders.edit", "orders.delete"],
+      "view_financials":        ["dashboard.financials", "orders.financials", "analytics.financial"],
+      "edit_inventory":         ["inventory.edit"],
+      "edit_delete_inventory":  ["inventory.delete"],
+      "view_product_performance":["analytics.products", "section_product_performance"],
+      "add_team_member":        ["team.manage"],
+      "edit_brand":             ["settings.brand"],
+    };
+    const result = new Set<string>();
+    perms.forEach(p => {
+      if (legacyMap[p]) legacyMap[p].forEach(np => result.add(np));
+      else result.add(p);
+    });
+    return Array.from(result);
+  };
+
   const expandPermissions = (perms: string[], role: string): string[] => {
     const clean = perms
       .map(p => (typeof p === "string" ? p : null))
       .filter((p): p is string => p !== null && p.trim() !== "");
     if (clean.includes("*")) return DEFAULT_PERMISSIONS[role]?.() ?? DEFAULT_PERMISSIONS["admin"]!();
     if (clean.length === 0)  return DEFAULT_PERMISSIONS[role]?.() ?? [];
-    return clean;
+    // migrate قديمة → جديدة
+    return migrateOldPermissions(clean);
   };
 
   const openEdit = (u: AppUser) => {
@@ -425,19 +468,27 @@ export default function UsersPage() {
 
   // ربط الصلاحيات التفصيلية بالـ section keys تلقائياً
   const PERM_TO_SECTION: Record<string, string> = {
-    "dashboard.view":    "section_dashboard",
-    "orders.view":       "section_orders",
-    "orders.create":     "section_new_order",
-    "inventory.view":    "section_inventory",
-    "shipping.view":     "section_shipping",
-    "shipping.manifests":"section_shipping_manifests",
-    "analytics.view":    "section_analytics",
-    "analytics.products":"section_analytics",
-    "finance.view":      "section_finance",
-    "team.view":         "section_team",
-    "import":            "section_import",
-    "audit":             "section_audit",
-    "whatsapp":          "section_whatsapp",
+    "dashboard.view":        "section_dashboard",
+    "orders.view":           "section_orders",
+    "orders.create":         "section_new_order",
+    "inventory.view":        "section_inventory",
+    "inventory.movements":   "section_movements",
+    "inventory.warehouses":  "section_warehouses",
+    "shipping.view":         "section_shipping",
+    "shipping.manifests":    "section_shipping",
+    "analytics.view":        "section_product_performance",
+    "analytics.products":    "section_product_performance",
+    "analytics.ads":         "section_ads_analytics",
+    "analytics.smart":       "section_smart_analytics",
+    "finance.view":          "section_finance",
+    "team.view":             "section_team_management",
+    "team.performance":      "section_team_performance",
+    "tools.import":          "section_import",
+    "tools.export":          "section_export_data",
+    "settings.audit":        "section_audit",
+    "settings.whatsapp":     "section_whatsapp",
+    "settings.users":        "section_users",
+    "settings.sessions":     "section_sessions_report",
   };
 
   const togglePermission = (key: string) => setForm(f => {
