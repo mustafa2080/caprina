@@ -1,7 +1,7 @@
 ﻿import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usersApi, type AppUser } from "@/lib/api";
-import { useAuth, ALL_PERMISSIONS } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -122,29 +122,6 @@ const ROLE_COLORS: Record<string, string> = {
   employee: "border-blue-700 bg-blue-900/20 text-blue-400",
   warehouse: "border-emerald-700 bg-emerald-900/20 text-emerald-400",
 };
-
-const ALL_PERMISSIONS = [
-  { key: "dashboard", label: "لوحة التحكم" },
-  { key: "orders", label: "الطلبات" },
-  { key: "inventory", label: "المخزون" },
-  { key: "movements", label: "حركات المخزون" },
-  { key: "shipping", label: "شركات الشحن" },
-  { key: "invoices", label: "الفواتير" },
-  { key: "import", label: "استيراد Excel" },
-  { key: "analytics", label: "التحليلات والتقارير" },
-  { key: "users", label: "إدارة المستخدمين" },
-  { key: "audit", label: "سجل التعديلات" },
-  { key: "whatsapp", label: "إعدادات واتساب" },
-  { key: "finance", label: "الماليات" },
-];
-
-const ORDERS_WRITE_PERMISSION = { key: "orders_write", label: "تعديل الطلبات", desc: "يقدر يضيف ويعدل ويحذف الطلبات ويشوف أيقونة واتساب — بدون هذه الصلاحية يكون الوصول للطلبات للعرض فقط" };
-const FINANCIAL_PERMISSION = { key: "view_financials", label: "عرض الأرباح والتكاليف", desc: "يرى الأرباح والخسائر والتكاليف في كل التقارير" };
-const EDIT_INVENTORY_PERMISSION = { key: "edit_inventory", label: "تعديل المخزون", desc: "يقدر يضيف ويعدل ويحذف المنتجات والمقاسات" };
-const EDIT_DELETE_INVENTORY_PERMISSION = { key: "edit_delete_inventory", label: "إظهار أزرار التعديل والحذف في المخزون", desc: "يظهر أزرار تعديل وحذف المنتجات والـ SKU في صفحة المخزون" };
-const VIEW_PRODUCT_PERF_PERMISSION = { key: "view_product_performance", label: "عرض أداء المنتجات", desc: "يرى تحليل أداء وأرباح كل منتج" };
-const ADD_TEAM_MEMBER_PERMISSION = { key: "add_team_member", label: "إضافة موظف جديد", desc: "يظهر زرار إضافة موظف جديد في إدارة الفريق" };
-const EDIT_BRAND_PERMISSION = { key: "edit_brand", label: "تعديل هوية الشركة", desc: "يقدر يغير اسم الشركة والشعار والـ Tagline من أيقونة البروفايل" };
 
 const SIDEBAR_SECTION_PERMISSIONS = [
   { key: "section_dashboard",        label: "لوحة التحكم",       desc: "الصفحة الرئيسية ولوحة التحكم"                              },
@@ -468,31 +445,52 @@ export default function UsersPage() {
 
   // ربط الصلاحيات التفصيلية بالـ section keys تلقائياً
   const PERM_TO_SECTION: Record<string, string> = {
-    "dashboard.view":        "section_dashboard",
-    "orders.view":           "section_orders",
-    "orders.create":         "section_new_order",
-    "invoices.view":         "section_invoices",
-    "inventory.view":        "section_inventory",
-    "inventory.movements":   "section_movements",
-    "inventory.warehouses":  "section_warehouses",
-    "shipping.view":         "section_shipping",
-    "shipping.manifests":    "section_shipping",
-    "analytics.view":        "section_product_performance",
-    "analytics.products":    "section_product_performance",
-    "analytics.ads":         "section_ads_analytics",
-    "analytics.smart":       "section_smart_analytics",
-    "analytics.team":        "section_team_management",
-    "finance.view":          "section_finance",
-    "team.view":             "section_team_management",
-    "team.manage":           "section_team_management",
-    "team.performance":      "section_team_performance",
-    "import.view":           "section_import",
-    "tools.import":          "section_import",
-    "tools.export":          "section_export_data",
-    "settings.audit":        "section_audit",
-    "settings.whatsapp":     "section_whatsapp",
-    "settings.users":        "section_users",
-    "settings.sessions":     "section_sessions_report",
+    // لوحة التحكم
+    "dashboard.view":            "section_dashboard",
+    // الطلبات
+    "orders.view":               "section_orders",
+    "orders.create":             "section_new_order",
+    "orders.edit":               "section_orders",
+    "orders.delete":             "section_orders",
+    "orders.export":             "section_orders",
+    // الفواتير
+    "invoices.view":             "section_invoices",
+    // المخزون
+    "inventory.view":            "section_inventory",
+    "inventory.edit":            "section_inventory",
+    "inventory.delete":          "section_inventory",
+    "inventory.movements":       "section_movements",
+    "inventory.warehouses":      "section_warehouses",
+    // الشحن
+    "shipping.view":             "section_shipping",
+    "shipping.edit":             "section_shipping",
+    "shipping.manifests":        "section_shipping",
+    // التحليلات
+    "analytics.view":            "section_smart_analytics",
+    "analytics.products":        "section_product_performance",
+    "analytics.ads":             "section_ads_analytics",
+    "analytics.smart":           "section_smart_analytics",
+    "analytics.team":            "section_team_management",
+    // الماليات
+    "finance.view":              "section_finance",
+    "finance.sales":             "section_finance",
+    "finance.expenses":          "section_finance",
+    "finance.cash":              "section_finance",
+    "finance.suppliers":         "section_finance",
+    "finance.reports":           "section_finance",
+    // الفريق
+    "team.view":                 "section_team_management",
+    "team.manage":               "section_team_management",
+    "team.performance":          "section_team_management",
+    // الأدوات
+    "import.view":               "section_import",
+    "tools.import":              "section_import",
+    "tools.export":              "section_export_data",
+    // الإعدادات
+    "settings.audit":            "section_audit",
+    "settings.whatsapp":         "section_whatsapp",
+    "settings.users":            "section_users",
+    "settings.sessions":         "section_sessions_report",
   };
 
   const togglePermission = (key: string) => setForm(f => {
@@ -691,16 +689,16 @@ export default function UsersPage() {
                     <span className="text-[10px] text-yellow-400 font-bold">كل الصلاحيات ✦</span>
                   ) : (
                     <>
-                      {(u.permissions?.includes(FINANCIAL_PERMISSION.key) || u.role === "admin") && (
+                      {(u.permissions?.includes("orders.financials") || u.permissions?.includes("finance.view") || u.role === "admin") && (
                         <Badge variant="outline" className="text-[9px] font-bold border-amber-600/40 bg-amber-500/10 text-amber-500 gap-1 px-1.5"><TrendingUp className="w-2.5 h-2.5" />الأرباح</Badge>
                       )}
-                      {(u.permissions?.includes(EDIT_INVENTORY_PERMISSION.key) || u.role === "admin") && (
+                      {(u.permissions?.includes("inventory.edit") || u.role === "admin") && (
                         <Badge variant="outline" className="text-[9px] font-bold border-emerald-600/40 bg-emerald-500/10 text-emerald-500 gap-1 px-1.5"><Package className="w-2.5 h-2.5" />المخزون</Badge>
                       )}
-                      {(u.permissions?.includes(VIEW_PRODUCT_PERF_PERMISSION.key) || u.role === "admin") && (
+                      {(u.permissions?.includes("analytics.products") || u.role === "admin") && (
                         <Badge variant="outline" className="text-[9px] font-bold border-blue-600/40 bg-blue-500/10 text-blue-500 gap-1 px-1.5"><BarChart3 className="w-2.5 h-2.5" />الأداء</Badge>
                       )}
-                      {u.permissions?.includes("orders_write") && (
+                      {u.permissions?.includes("orders.edit") && (
                         <Badge variant="outline" className="text-[9px] font-bold border-violet-600/40 bg-violet-500/10 text-violet-500 gap-1 px-1.5"><Edit2 className="w-2.5 h-2.5" />تعديل الطلبات</Badge>
                       )}
                     </>
