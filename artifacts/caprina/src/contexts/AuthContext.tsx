@@ -405,6 +405,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [user]
   );
 
+  const isAdmin = user?.role === "admin" || user?.role === "super_admin";
+
   const canViewFinancials = useMemo(() =>
     isAdmin || can("orders.financials") || can("view_financials"),
   [can, isAdmin]);
@@ -413,7 +415,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider value={{
       user, token, sessionId, login, logout, refreshUser,
       isSuperAdmin: user?.role === "super_admin",
-      isAdmin: user?.role === "admin" || user?.role === "super_admin",
+      isAdmin,
       isEmployee: user?.role === "employee",
       isWarehouse: user?.role === "warehouse",
       can, canViewFinancials, loading,
