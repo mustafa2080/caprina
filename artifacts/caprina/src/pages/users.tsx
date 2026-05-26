@@ -830,19 +830,27 @@ export default function UsersPage() {
                 ...( form.role !== "super_admin" ? [{ id: "perms",    icon: <KeyRound className="w-3.5 h-3.5" />,   label: "الصلاحيات" }] : [] ),
               ];
               const active = modalTab || "account";
+              const activeIdx = tabs.findIndex(t => t.id === active);
               return (
                 <div className="flex border-t border-white/[0.06] bg-white/[0.02]">
-                  {tabs.map(tab => (
+                  {tabs.map((tab, idx) => (
                     <button
                       key={tab.id}
                       type="button"
-                      onClick={() => setModalTab(tab.id)}
+                      onClick={() => editingUser && setModalTab(tab.id)}
                       className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[11px] font-bold transition-all border-b-2
                         ${active === tab.id
                           ? "border-primary text-primary bg-primary/5"
-                          : "border-transparent text-muted-foreground hover:text-white hover:bg-white/[0.03]"}`}
+                          : editingUser
+                            ? "border-transparent text-muted-foreground hover:text-white hover:bg-white/[0.03]"
+                            : idx < activeIdx
+                              ? "border-emerald-500/50 text-emerald-400 bg-emerald-500/5 cursor-pointer"
+                              : "border-transparent text-muted-foreground opacity-40 cursor-default"}`}
                     >
-                      {tab.icon}{tab.label}
+                      {idx < activeIdx && !editingUser
+                        ? <span className="text-emerald-400">✓</span>
+                        : tab.icon}
+                      {tab.label}
                     </button>
                   ))}
                 </div>
@@ -1168,30 +1176,70 @@ export default function UsersPage() {
           </div>
 
           {/* ── Footer ── */}
-          <div className="shrink-0 flex items-center gap-3 px-6 py-4 border-t border-white/[0.07] bg-white/[0.02]">
-            <Button
-              variant="outline"
-              className="h-10 px-5 text-sm border-white/[0.1] bg-transparent hover:bg-white/[0.05] text-muted-foreground hover:text-white rounded-xl"
-              onClick={() => setDialogOpen(false)}
-            >
-              إلغاء
-            </Button>
-            <Button
-              className="flex-1 h-10 text-sm font-bold rounded-xl bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20"
-              onClick={handleSubmit}
-              disabled={createMutation.isPending || updateMutation.isPending}
-            >
-              {createMutation.isPending || updateMutation.isPending
-                ? <span className="flex items-center gap-2">
-                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    جاري الحفظ...
-                  </span>
-                : editingUser
-                  ? <span className="flex items-center gap-2"><Shield className="w-4 h-4" />حفظ التعديلات</span>
-                  : <span className="flex items-center gap-2"><UserPlus className="w-4 h-4" />إضافة المستخدم</span>
-              }
-            </Button>
-          </div>
+          {(() => {
+            const tabs = [
+              { id: "account" },
+              { id: "role" },
+              ...( form.role !== "super_admin" ? [{ id: "sections" }] : [] ),
+              ...( form.role !== "super_admin" ? [{ id: "perms" }] : [] ),
+            ];
+            const active = modalTab || "account";
+            const activeIdx = tabs.findIndex(t => t.id === active);
+            const isLast = activeIdx === tabs.length - 1;
+            const isFirst = activeIdx === 0;
+
+            return (
+              <div className="shrink-0 flex items-center gap-3 px-6 py-4 border-t border-white/[0.07] bg-white/[0.02]">
+                <Button
+                  variant="outline"
+                  className="h-10 px-5 text-sm border-white/[0.1] bg-transparent hover:bg-white/[0.05] text-muted-foreground hover:text-white rounded-xl"
+                  onClick={() => {
+                    if (!editingUser && !isFirst) {
+                      setModalTab(tabs[activeIdx - 1].id);
+                    } else {
+                      setDialogOpen(false);
+                    }
+                  }}
+                >
+                  {!editingUser && !isFirst ? "← السابق" : "إلغاء"}
+                </Button>
+
+                {/* في وضع التعديل: زرار حفظ واحد فقط */}
+                {editingUser ? (
+                  <Button
+                    className="flex-1 h-10 text-sm font-bold rounded-xl bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20"
+                    onClick={handleSubmit}
+                    disabled={updateMutation.isPending}
+                  >
+                    {updateMutation.isPending
+                      ? <span className="flex items-center gap-2"><span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />جاري الحفظ...</span>
+                      : <span className="flex items-center gap-2"><Shield className="w-4 h-4" />حفظ التعديلات</span>
+                    }
+                  </Button>
+                ) : isLast ? (
+                  /* آخر تاب → زرار إنشاء مستخدم */
+                  <Button
+                    className="flex-1 h-10 text-sm font-bold rounded-xl bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20"
+                    onClick={handleSubmit}
+                    disabled={createMutation.isPending}
+                  >
+                    {createMutation.isPending
+                      ? <span className="flex items-center gap-2"><span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />جاري الإنشاء...</span>
+                      : <span className="flex items-center gap-2"><UserPlus className="w-4 h-4" />إنشاء المستخدم</span>
+                    }
+                  </Button>
+                ) : (
+                  /* مش آخر تاب → زرار التالي */
+                  <Button
+                    className="flex-1 h-10 text-sm font-bold rounded-xl bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20"
+                    onClick={() => setModalTab(tabs[activeIdx + 1].id)}
+                  >
+                    <span className="flex items-center gap-2">التالي →</span>
+                  </Button>
+                )}
+              </div>
+            );
+          })()}
 
         </DialogContent>
       </Dialog>
