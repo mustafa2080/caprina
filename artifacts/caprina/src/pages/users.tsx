@@ -138,8 +138,7 @@ const PERM_TO_SECTION: Record<string, string> = {
   "orders.delete":             "section_orders",
   "orders.financials":         "section_orders",
   "orders.export":             "section_orders",
-  // الفواتير
-  "invoices.view":             "section_invoices",
+  "invoices.view":             "section_orders",
   // المخزون
   "inventory.view":            "section_inventory",
   "inventory.edit":            "section_inventory",
@@ -212,7 +211,6 @@ const SECTION_GROUPS: Array<{
       { key: "orders.delete",     label: "حذف طلب",                desc: "حذف طلب بشكل نهائي" },
       { key: "orders.financials",    label: "إظهار التكلفة والربح في الطلب", desc: "إظهار التكلفة والربح داخل الطلب", sensitive: true },
       { key: "orders.export",        label: "تصدير الطلبات",          desc: "تصدير Excel / PDF" },
-      { key: "orders.profitability", label: "تحليل الربحية",           desc: "إظهار قسم تحليل الربحية في تفاصيل الطلب", sensitive: true },
       { key: "invoices.view",        label: "رؤية الفواتير",           desc: "دخول صفحة الفواتير" },
     ],
   },
@@ -317,7 +315,7 @@ const DEFAULT_PERMISSIONS: Record<string, () => string[]> = {
     // صلاحيات لوحة التحكم
     "dashboard.view", "dashboard.financials", "dashboard.shipping_stats", "dashboard.returns", "dashboard.team",
     // صلاحيات الطلبات
-    "orders.view", "orders.create", "orders.edit", "orders.delete", "orders.financials", "orders.export", "orders.profitability",
+    "orders.view", "orders.create", "orders.edit", "orders.delete", "orders.financials", "orders.export", "invoices.view",
     // صلاحيات المخزون
     "inventory.view", "inventory.edit", "inventory.delete", "inventory.cost", "inventory.movements", "inventory.warehouses",
     // صلاحيات الشحن
@@ -1156,14 +1154,7 @@ export default function UsersPage() {
                                   <input
                                     type="checkbox"
                                     checked={active}
-                                    onChange={() => {
-                                      setForm(f => ({
-                                        ...f,
-                                        permissions: active
-                                          ? f.permissions.filter(k => k !== perm.key)
-                                          : [...f.permissions, perm.key],
-                                      }));
-                                    }}
+                                    onChange={() => togglePermission(perm.key)}
                                     className="w-4 h-4 rounded shrink-0 accent-primary"
                                   />
                                   <div className="flex-1 min-w-0">
