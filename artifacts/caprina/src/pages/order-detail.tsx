@@ -599,8 +599,7 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
 
         {/* Sidebar — ملخص مالي + تحليل ربحية */}
         <div className="order-first md:order-last space-y-4">
-          {/* الملخص المالي */}
-          {canViewFinancials && (
+          {/* الملخص المالي — يظهر دائماً */}
           <Card className="border-primary/30 bg-card">
             <CardHeader className="pb-2 pt-4 px-4">
               <CardTitle className="text-sm font-bold text-primary">الملخص المالي</CardTitle>
@@ -621,7 +620,6 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
               </div>
             </CardContent>
           </Card>
-          )}
 
           {/* تحليل الربحية — للمدير فقط */}
           {canViewProfitability && (() => {
@@ -1954,8 +1952,8 @@ export default function OrderDetail() {
           )}
         </div>
 
-        {/* Financial summary */}
-        {canViewFinancials && <div className="space-y-4">
+        {/* Financial summary — يظهر دائماً */}
+        <div className="space-y-4">
 
           {/* Revenue â€” multi-invoice OR single */}
           {invoiceOrders.length > 1 ? (() => {
@@ -2028,7 +2026,7 @@ export default function OrderDetail() {
           )}
 
           {/* Profit breakdown — admin only */}
-          {canViewFinancials && (() => {
+          {canViewProfitability && (() => {
             if (invoiceOrders.length > 1) {
               const allOrders = invoiceOrders as any[];
               let totalRevenue = 0, totalCost = 0, totalShipping = 0;
@@ -2129,7 +2127,7 @@ export default function OrderDetail() {
           <p className="text-[10px] text-center text-muted-foreground">
             آخر تحديث: {format(new Date(order.updatedAt), "yyyy/MM/dd HH:mm")}
           </p>
-        </div>}
+        </div>
       </div>
 
       {/* ── Add Product Dialog ── */}
