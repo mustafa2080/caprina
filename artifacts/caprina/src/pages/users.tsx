@@ -255,7 +255,7 @@ const SECTION_GROUPS: Array<{
       { key: "team.view",        label: "رؤية أعضاء الفريق",        desc: "قائمة الموظفين" },
       { key: "team.performance", label: "أداء الفريق",              desc: "إحصائيات وتقارير الأداء" },
       { key: "team.manage",      label: "إدارة الفريق",             desc: "إضافة / تعديل / حذف أعضاء" },
-      { key: "team.salaries",    label: "الرواتب والمدفوعات",        desc: "إخفاء الأرقام المالية للفريق", sensitive: true },
+      { key: "team.salaries",    label: "الرواتب والمدفوعات",        desc: "إظهار إذا مُنح", sensitive: true },
     ],
   },
   {
