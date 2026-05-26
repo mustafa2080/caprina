@@ -207,7 +207,7 @@ export default function Orders() {
   const canCreate     = can("orders.create");
   const canEdit       = can("orders.edit");
   const canDelete     = can("orders.delete");
-  const canFinancials = isAdmin || can("orders.financials");
+  const canFinancials = true; // الملخص المالي متاح لكل المستخدمين
   const canExport     = can("orders.export");
   // canWriteOrders: للـ bulk select والواتساب (أي صلاحية تعديل)
   const canWriteOrders = isAdmin || canEdit || (user?.permissions?.includes("orders_write") ?? false);
