@@ -331,10 +331,13 @@ const DEFAULT_PERMISSIONS: Record<string, () => string[]> = {
     "tools.import", "tools.export",
     // صلاحيات الإعدادات
     "settings.brand", "settings.users", "settings.audit", "settings.sessions", "settings.whatsapp",
-    // الأقسام المرئية — مستخرجة تلقائياً من PERM_TO_SECTION (بدون تكرار)
-    // section_archive و section_shipping_followup مش مرتبطين بصلاحية محددة فنضيفهم يدوياً
-    ...([...new Set(Object.values(PERM_TO_SECTION))]),
-    "section_archive", "section_shipping_followup",
+    // الأقسام المرئية — كل الـ sections
+    "section_dashboard", "section_orders", "section_new_order", "section_archive", "section_shipping_followup",
+    "section_invoices", "section_inventory", "section_warehouses", "section_movements",
+    "section_shipping", "section_finance", "section_users", "section_audit", "section_whatsapp",
+    "section_import", "section_export_data", "section_sessions_report",
+    "section_product_performance", "section_team_performance", "section_team_management",
+    "section_smart_analytics", "section_ads_analytics",
   ],
   employee: () => ["dashboard.view", "orders.view", "section_dashboard", "section_orders", "section_new_order", "section_archive", "section_shipping_followup"],
   warehouse: () => ["dashboard.view", "inventory.view", "inventory.edit", "inventory.movements", "inventory.warehouses", "section_dashboard", "section_inventory", "section_warehouses", "section_movements"],
