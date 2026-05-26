@@ -43,10 +43,15 @@ app.use(cors({
 // ─── Security: Global rate limiter ──────────────────────────────────────────
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 500,
+  max: 2000,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "طلبات كثيرة جداً، يرجى المحاولة بعد قليل" },
+  skip: (req) => {
+    // مش بنحسب polling endpoints في الـ rate limit
+    const url = req.url || "";
+    return url.includes("/auth/me") || url.includes("/brand");
+  },
 });
 app.use(globalLimiter);
 
