@@ -127,7 +127,7 @@ function resolveRgb(iconColor: string): string {
   return "251,191,36";
 }
 
-function NavGroup({ label, icon: Icon, iconColor, location, prefixes, excludePrefixes = [], children, isOpen, onToggle, collapsed = false, onExpandSidebar, groupKey }: {
+function NavGroup({ label, icon: Icon, iconColor, location, prefixes, excludePrefixes = [], children, isOpen, onToggle, collapsed = false, onExpandSidebar, firstHref, groupKey }: {
   label: string; icon: any; iconColor: string;
   location: string; prefixes: string[]; excludePrefixes?: string[];
   children: React.ReactNode;
