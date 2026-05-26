@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+﻿import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usersApi, type AppUser } from "@/lib/api";
 import { useAuth, ALL_PERMISSIONS } from "@/contexts/AuthContext";
@@ -185,7 +185,7 @@ const SECTION_GROUPS: Array<{
     icon: <Home className="w-4 h-4" />,
     permissions: [
       { key: "dashboard.view",           label: "دخول لوحة التحكم",            desc: "يشوف الصفحة الرئيسية" },
-      { key: "dashboard.financials",     label: "بطاقات الأرباح والخسائر",     desc: "إخفاء إذا لم يُمنح", sensitive: true },
+      { key: "dashboard.financials",     label: "بطاقات الأرباح والخسائر",     desc: "إظهار إذا مُنح", sensitive: true },
       { key: "dashboard.shipping_stats", label: "إحصائيات شركات الشحن",       desc: "إخفاء إذا لم يُمنح" },
       { key: "dashboard.returns",        label: "بطاقة المرتجعات",             desc: "إخفاء إذا لم يُمنح" },
       { key: "dashboard.team",           label: "قسم أداء الفريق",             desc: "إخفاء إذا لم يُمنح" },
