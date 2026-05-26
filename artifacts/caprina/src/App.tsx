@@ -201,9 +201,11 @@ function ProtectedRoute({ permission, component: Comp }: { permission: string; c
   })();
 
   if (!hasAccess) {
-    if (permission === "dashboard") {
-      if (can("orders"))    return <Redirect to="/orders" />;
-      if (can("inventory")) return <Redirect to="/inventory" />;
+    if (permission === "dashboard.view") {
+      if (can("orders.view"))    return <Redirect to="/orders" />;
+      if (can("inventory.view")) return <Redirect to="/inventory" />;
+      if (can("analytics.view")) return <Redirect to="/product-performance" />;
+      if (can("finance.view"))   return <Redirect to="/finance" />;
       return (
         <div className="flex items-center justify-center min-h-[60vh]" dir="rtl">
           <div className="text-center space-y-3 p-6">
@@ -266,7 +268,7 @@ function Router() {
       <Layout>
       <Suspense fallback={<PageLoader />}>
         <Switch>
-          <Route path="/"                         component={() => <ProtectedRoute permission="dashboard" component={Dashboard} />} />
+          <Route path="/"                         component={() => <ProtectedRoute permission="dashboard.view" component={Dashboard} />} />
           <Route path="/orders"                   component={() => <ProtectedRoute permission="orders.view" component={Orders} />} />
           <Route path="/orders/new"               component={() => <ProtectedRoute permission="orders.create" component={OrderForm} />} />
           <Route path="/invoices/:invoiceNumber"  component={() => <ProtectedRoute permission="invoices" component={InvoiceGroupPage} />} />
