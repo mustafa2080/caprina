@@ -405,7 +405,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [user]
   );
 
-  const canViewFinancials = useMemo(() => can("view_financials"), [can]);
+  const canViewFinancials = useMemo(() =>
+    isAdmin || can("orders.financials") || can("view_financials"),
+  [can, isAdmin]);
 
   return (
     <AuthContext.Provider value={{
