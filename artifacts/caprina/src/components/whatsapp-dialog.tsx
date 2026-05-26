@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { apiFetch } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 import { type WaSettings, type WaTemplate, type WhatsAppOrderData, applyTemplate, buildWhatsAppLink, formatEgyptianPhone } from "@/lib/whatsapp";
 
 interface Props {
@@ -33,11 +34,14 @@ export function WhatsAppDialog({ open, onOpenChange, order, onSent }: Props) {
   const [preview, setPreview] = useState("");
   const [editingBody, setEditingBody] = useState("");
   const [showPreview, setShowPreview] = useState(false);
+  const { isAdmin } = useAuth();
 
   const { data: settings } = useQuery<WaSettings>({
     queryKey: ["whatsapp-settings"],
     queryFn: () => apiFetch<WaSettings>("/whatsapp/settings"),
     staleTime: 60_000,
+    enabled: isAdmin,
+    retry: false,
   });
 
   const templates = settings?.templates ?? [];
