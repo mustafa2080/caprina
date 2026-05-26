@@ -278,17 +278,29 @@ export default function Layout({ children }: LayoutProps) {
 
   // لو اليوزر واقف على صفحة اتشالت صلاحيتها → ننقله لأول صفحة متاحة
   const redirectingRef = useRef(false);
+  const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (isAdmin) return;
     if (redirectingRef.current) return;
     const allowed = visibleNav.map(i => i.href);
+    // مش نعمل redirect لو visibleNav فاضية — ده بيحصل أثناء تحديث الـ permissions
+    if (allowed.length === 0) return;
     const onAllowedPage = allowed.some(href =>
       href === "/" ? location === "/" : location === href || location.startsWith(href + "/")
     );
-    if (!onAllowedPage && allowed.length > 0) {
-      redirectingRef.current = true;
-      navigate(allowed[0]);
-      setTimeout(() => { redirectingRef.current = false; }, 2000);
+    if (!onAllowedPage) {
+      // نستنى 500ms قبل الـ redirect عشان نتأكد إن الـ permissions اتحدثت كلها
+      if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
+      redirectTimerRef.current = setTimeout(() => {
+        // نعيد التحقق بعد الـ delay
+        if (redirectingRef.current) return;
+        redirectingRef.current = true;
+        navigate(allowed[0]);
+        setTimeout(() => { redirectingRef.current = false; }, 2000);
+      }, 500);
+    } else {
+      // الصفحة متاحة → امسح أي redirect معلق
+      if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
     }
   }, [visibleNav, location, isAdmin]);
 
