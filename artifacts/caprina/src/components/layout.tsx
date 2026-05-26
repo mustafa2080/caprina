@@ -276,6 +276,18 @@ export default function Layout({ children }: LayoutProps) {
     });
   }, [can]);
 
+  // لو اليوزر واقف على صفحة اتشالت صلاحيتها → ننقله لأول صفحة متاحة
+  useEffect(() => {
+    if (isAdmin) return;
+    const allowed = visibleNav.map(i => i.href);
+    const onAllowedPage = allowed.some(href =>
+      href === "/" ? location === "/" : location === href || location.startsWith(href + "/")
+    );
+    if (!onAllowedPage && allowed.length > 0) {
+      navigate(allowed[0]);
+    }
+  }, [visibleNav, location, isAdmin]);
+
   const handleChangePassword = async () => {
     if (!currentPw || newPw.length < 6) {
       toast({ title: "خطأ", description: "أدخل كلمة المرور الحالية وكلمة مرور جديدة (6 أحرف على الأقل)", variant: "destructive" });
