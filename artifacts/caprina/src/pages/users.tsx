@@ -221,7 +221,7 @@ const SECTION_GROUPS: Array<{
     permissions: [
       { key: "shipping.view",       label: "رؤية شركات الشحن",     desc: "دخول صفحة الشحن" },
       { key: "shipping.edit",       label: "تعديل شركات الشحن",    desc: "تعديل الأسعار والبيانات" },
-      { key: "shipping.financials", label: "تكاليف الشحن المالية",  desc: "إخفاء أرباح/تكاليف الشحن", sensitive: true },
+      { key: "shipping.financials", label: "تكاليف الشحن المالية",  desc: "إظهار إذا مُنح", sensitive: true },
       { key: "shipping.manifests",  label: "بوليصات الشحن",         desc: "إنشاء وتصدير البوليصات" },
     ],
   },
