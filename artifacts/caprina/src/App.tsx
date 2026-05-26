@@ -155,14 +155,20 @@ function PermissionRefresher() {
   const { user, refreshUser } = useAuth();
   const [location] = useLocation();
   const prevLocation = useRef<string | null>(null);
+  const refreshingRef = useRef(false);
 
   useEffect(() => {
-    // نعمل refresh لما يتغير الـ route — عشان التغييرات في الصلاحيات تنعكس فوراً
-    if (user && prevLocation.current !== null && prevLocation.current !== location) {
-      refreshUser();
+    // نعمل refresh لما يتغير الـ route فقط — مش لما يتغير الـ user
+    if (!user) return;
+    if (refreshingRef.current) return;
+    if (prevLocation.current !== null && prevLocation.current !== location) {
+      refreshingRef.current = true;
+      refreshUser().finally(() => {
+        refreshingRef.current = false;
+      });
     }
     prevLocation.current = location;
-  }, [location, user]);
+  }, [location]); // عمداً أزلنا user من الـ dependencies عشان نمنع الـ loop
 
   return null;
 }
