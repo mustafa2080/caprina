@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { productsApi, variantsApi, analyticsApi, warehousesApi, type Product, type ProductVariant, type StockIntelligenceItem, type Warehouse, type VariantWarehouseStock } from "@/lib/api";
@@ -128,7 +128,7 @@ function MarginBadge({ margin }: { margin: number | null }) {
 }
 
 // ─── Print Inventory for a single product ─────────────────────────────────────
-function printProductInventory(product: Product, variants: ProductVariant[], warehouses: Warehouse[] | undefined, canViewFinancials: boolean) {
+function printProductInventory(product: Product, variants: ProductVariant[], warehouses: Warehouse[] | undefined, canSeeCost: boolean) {
   const fc = (n: number) =>
     new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(n);
 
@@ -140,7 +140,7 @@ function printProductInventory(product: Product, variants: ProductVariant[], war
     const isLow = v.totalQuantity > 0 && v.totalQuantity <= v.lowStockThreshold;
     const status = isOut ? "نفد" : isLow ? "منخفض" : "متاح";
     const statusColor = isOut ? "#dc2626" : isLow ? "#d97706" : "#16a34a";
-    const margin = canViewFinancials && v.costPrice ? Math.round(((v.unitPrice - v.costPrice) / v.unitPrice) * 100) : null;
+    const margin = canSeeCost && v.costPrice ? Math.round(((v.unitPrice - v.costPrice) / v.unitPrice) * 100) : null;
     return `
       <tr>
         <td>${v.color}</td>
@@ -148,8 +148,8 @@ function printProductInventory(product: Product, variants: ProductVariant[], war
         <td>${v.sku ?? "—"}</td>
         <td style="text-align:center;font-weight:bold;color:${statusColor}">${v.totalQuantity}</td>
         <td style="text-align:center;color:${statusColor};font-weight:bold">${status}</td>
-        ${canViewFinancials ? `<td style="text-align:center">${fc(v.unitPrice)}</td>` : ""}
-        ${canViewFinancials ? `<td style="text-align:center">${margin !== null ? margin + "%" : "—"}</td>` : ""}
+        ${canSeeCost ? `<td style="text-align:center">${fc(v.unitPrice)}</td>` : ""}
+        ${canSeeCost ? `<td style="text-align:center">${margin !== null ? margin + "%" : "—"}</td>` : ""}
       </tr>`;
   }).join("");
 
@@ -203,8 +203,8 @@ function printProductInventory(product: Product, variants: ProductVariant[], war
         <th>اللون</th><th>المقاس</th><th>SKU</th>
         <th style="text-align:center">الكمية</th>
         <th style="text-align:center">الحالة</th>
-        ${canViewFinancials ? "<th style='text-align:center'>سعر البيع</th>" : ""}
-        ${canViewFinancials ? "<th style='text-align:center'>هامش الربح</th>" : ""}
+        ${canSeeCost ? "<th style='text-align:center'>سعر البيع</th>" : ""}
+        ${canSeeCost ? "<th style='text-align:center'>هامش الربح</th>" : ""}
       </tr>
     </thead>
     <tbody>${rows}</tbody>
@@ -222,7 +222,7 @@ function printProductInventory(product: Product, variants: ProductVariant[], war
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function Inventory() {
-  const { can, canViewFinancials, isAdmin } = useAuth();
+  const { can, isAdmin } = useAuth();
   // ── Inventory permission shortcuts ────────────────────────────────────────
   const canEdit        = can("inventory.edit");
   const canDelete      = can("inventory.delete");
@@ -584,7 +584,7 @@ export default function Inventory() {
           <p className={`text-xl sm:text-2xl font-black ${lowStockVariants > 0 ? "text-red-600 dark:text-red-400" : ""}`}>{lowStockVariants}</p>
           <p className="text-[10px] text-muted-foreground mt-1">SKU يحتاج تجديد</p>
         </Card>
-        {canViewFinancials && (
+        {canSeeCost && (
           <Card className="border-primary/30 bg-primary/5 p-3 sm:p-4">
             <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
               <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
@@ -597,7 +597,7 @@ export default function Inventory() {
       </div>
 
       {/* Stock Intelligence */}
-      {stockIntel && canViewFinancials && (stockIntel.summary.fastMovers > 0 || stockIntel.summary.slowMovers > 0 || stockIntel.summary.totalFrozenCapital > 0) && (
+      {stockIntel && canSeeCost && (stockIntel.summary.fastMovers > 0 || stockIntel.summary.slowMovers > 0 || stockIntel.summary.totalFrozenCapital > 0) && (
         <div className="flex items-center gap-3 rounded-lg border border-border bg-card/50 px-3 sm:px-4 py-2.5 text-xs flex-wrap">
           <span className="text-muted-foreground font-semibold">ذكاء المخزون:</span>
           {stockIntel.summary.fastMovers > 0 && <span className="flex items-center gap-1 text-red-600 dark:text-red-400 font-bold"><span className="w-1.5 h-1.5 rounded-full bg-red-500" />{stockIntel.summary.fastMovers} سريع النفاد</span>}
@@ -786,12 +786,12 @@ export default function Inventory() {
                     <div className="flex items-center gap-2 sm:gap-3 mt-0.5 text-[11px] text-muted-foreground flex-wrap">
                       <span>{variants.length} SKU</span>
                       <span className="font-semibold text-foreground">{totalStock} وحدة</span>
-                      {canViewFinancials && <span className="hidden sm:inline">{fc(product.unitPrice)}</span>}
-                      {canViewFinancials && <span className="hidden sm:inline"><MarginBadge margin={margin} /></span>}
+                      {canSeeCost && <span className="hidden sm:inline">{fc(product.unitPrice)}</span>}
+                      {canSeeCost && <span className="hidden sm:inline"><MarginBadge margin={margin} /></span>}
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-primary hidden sm:flex" title="طباعة الجرد" onClick={e => { e.stopPropagation(); printProductInventory(product, variants, warehouses, canViewFinancials); }}>
+                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-primary hidden sm:flex" title="طباعة الجرد" onClick={e => { e.stopPropagation(); printProductInventory(product, variants, warehouses, canSeeCost); }}>
                       <Printer className="w-3.5 h-3.5" />
                     </Button>
                     {canEdit && (
@@ -815,8 +815,8 @@ export default function Inventory() {
                     <div className="hidden sm:grid sm:grid-cols-[1fr_auto_auto_auto_auto] gap-2 px-4 py-1.5 bg-muted/20 text-[10px] text-muted-foreground font-semibold">
                       <span>اللون / المقاس</span>
                       <span className="text-center w-16">المخزون</span>
-                      {canViewFinancials && <span className="text-center w-20">السعر</span>}
-                      {canViewFinancials && <span className="text-center w-12">هامش</span>}
+                      {canSeeCost && <span className="text-center w-20">السعر</span>}
+                      {canSeeCost && <span className="text-center w-12">هامش</span>}
                       {canEdit && <span className="w-20" />}
                     </div>
                     {filteredVariants.length === 0 ? (
@@ -843,8 +843,8 @@ export default function Inventory() {
                               <div className={`text-center w-16 text-xs font-bold ${isOut ? "text-red-600 dark:text-red-400" : isLow ? "text-amber-600" : "text-emerald-600 dark:text-emerald-400"}`}>
                                 {v.totalQuantity}
                               </div>
-                              {canViewFinancials && <div className="text-center w-20 text-xs text-muted-foreground">{fc(v.unitPrice)}</div>}
-                              {canViewFinancials && <div className="text-center w-12"><MarginBadge margin={vMargin} /></div>}
+                              {canSeeCost && <div className="text-center w-20 text-xs text-muted-foreground">{fc(v.unitPrice)}</div>}
+                              {canSeeCost && <div className="text-center w-12"><MarginBadge margin={vMargin} /></div>}
                               {(canEdit || canDelete) && (
                                 <div className="flex items-center gap-1 w-20 justify-end">
                                   {canEdit && (
