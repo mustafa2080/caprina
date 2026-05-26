@@ -123,30 +123,64 @@ const ROLE_COLORS: Record<string, string> = {
   warehouse: "border-emerald-700 bg-emerald-900/20 text-emerald-400",
 };
 
-const SIDEBAR_SECTION_PERMISSIONS = [
-  { key: "section_dashboard",        label: "لوحة التحكم",       desc: "الصفحة الرئيسية ولوحة التحكم"                              },
-  { key: "section_product_performance", label: "أداء المنتجات",      desc: "قسم تحليل أداء وأرباح كل منتج"                              },
-  { key: "section_team_performance",    label: "أداء الفريق",        desc: "قسم عرض تقارير وإحصائيات أداء الفريق"                      },
-  { key: "section_team_management",     label: "إدارة الفريق",       desc: "قسم إدارة أعضاء الفريق وبياناتهم"                          },
-  { key: "section_smart_analytics",     label: "التحليل الذكي 🧠",   desc: "قسم التحليلات الذكية المدعومة بالذكاء الاصطناعي"           },
-  { key: "section_ads_analytics",       label: "تحليل الإعلانات",    desc: "قسم تحليل أداء الحملات الإعلانية"                          },
-  { key: "section_orders",              label: "الطلبات",             desc: "قسم عرض وإدارة الطلبات"                                    },
-  { key: "section_new_order",           label: "طلب جديد",            desc: "زر وصفحة إضافة طلب جديد"                                   },
-  { key: "section_archive",             label: "الأرشيف 🗂️",          desc: "قسم أرشيف الطلبات القديمة والمنتهية"                       },
-  { key: "section_shipping_followup",   label: "متابعة الشحن ⏱️",     desc: "قسم متابعة حالة شحن الطلبات"                               },
-  { key: "section_whatsapp",            label: "إعدادات واتساب",      desc: "قسم إعدادات وتكامل واتساب"                                 },
-  { key: "section_inventory",           label: "المخزون",             desc: "قسم عرض وإدارة المنتجات والمخزون"                          },
-  { key: "section_warehouses",          label: "المخازن",             desc: "قسم إدارة المخازن المختلفة"                                },
-  { key: "section_movements",           label: "حركات المخزون",       desc: "قسم تتبع حركات الدخول والخروج في المخزون"                  },
-  { key: "section_shipping",            label: "شركات الشحن",         desc: "قسم إدارة شركات الشحن وتفاصيلها"                           },
-  { key: "section_invoices",            label: "الفواتير",             desc: "قسم عرض وإدارة الفواتير"                                   },
-  { key: "section_import",              label: "استيراد Excel",        desc: "قسم استيراد البيانات من ملفات Excel"                        },
-  { key: "section_export_data",         label: "تصدير البيانات",       desc: "قسم تصدير البيانات إلى ملفات Excel والنسخ الاحتياطية"     },
-  { key: "section_users",               label: "إدارة المستخدمين",    desc: "قسم إدارة المستخدمين والصلاحيات"                           },
-  { key: "section_sessions_report",     label: "تقرير الجلسات",        desc: "قسم عرض سجل دخول وخروج الموظفين"                           },
-  { key: "section_audit",               label: "سجل التعديلات",        desc: "قسم تتبع كل التعديلات والعمليات في النظام"                 },
-  { key: "section_finance",             label: "قسم الماليات",         desc: "عرض جميع صفحات الماليات: لوحة، أوامر شراء، موردين، مصروفات، فواتير شحن" },
-];
+// ── ربط الصلاحيات بالـ section keys (module-level) ───────────────────────────
+const PERM_TO_SECTION: Record<string, string> = {
+  // لوحة التحكم
+  "dashboard.view":            "section_dashboard",
+  "dashboard.financials":      "section_dashboard",
+  "dashboard.shipping_stats":  "section_dashboard",
+  "dashboard.returns":         "section_dashboard",
+  "dashboard.team":            "section_dashboard",
+  // الطلبات
+  "orders.view":               "section_orders",
+  "orders.create":             "section_new_order",
+  "orders.edit":               "section_orders",
+  "orders.delete":             "section_orders",
+  "orders.financials":         "section_orders",
+  "orders.export":             "section_orders",
+  // الفواتير
+  "invoices.view":             "section_invoices",
+  // المخزون
+  "inventory.view":            "section_inventory",
+  "inventory.edit":            "section_inventory",
+  "inventory.delete":          "section_inventory",
+  "inventory.cost":            "section_inventory",
+  "inventory.movements":       "section_movements",
+  "inventory.warehouses":      "section_warehouses",
+  // الشحن
+  "shipping.view":             "section_shipping",
+  "shipping.edit":             "section_shipping",
+  "shipping.financials":       "section_shipping",
+  "shipping.manifests":        "section_shipping",
+  // التحليلات
+  "analytics.view":            "section_smart_analytics",
+  "analytics.financial":       "section_smart_analytics",
+  "analytics.products":        "section_product_performance",
+  "analytics.ads":             "section_ads_analytics",
+  "analytics.smart":           "section_smart_analytics",
+  "analytics.team":            "section_team_management",
+  // الماليات
+  "finance.view":              "section_finance",
+  "finance.sales":             "section_finance",
+  "finance.expenses":          "section_finance",
+  "finance.cash":              "section_finance",
+  "finance.suppliers":         "section_finance",
+  "finance.reports":           "section_finance",
+  // الفريق
+  "team.view":                 "section_team_management",
+  "team.manage":               "section_team_management",
+  "team.performance":          "section_team_performance",
+  "team.salaries":             "section_team_management",
+  // الأدوات
+  "tools.import":              "section_import",
+  "tools.export":              "section_export_data",
+  // الإعدادات
+  "settings.brand":            "section_dashboard",
+  "settings.audit":            "section_audit",
+  "settings.whatsapp":         "section_whatsapp",
+  "settings.users":            "section_users",
+  "settings.sessions":         "section_sessions_report",
+};
 
 // ── Section Groups للـ Modal الجديد — 9 أقسام ────────────────────────────────
 const SECTION_GROUPS: Array<{
@@ -178,6 +212,7 @@ const SECTION_GROUPS: Array<{
       { key: "orders.delete",     label: "حذف طلب",                desc: "حذف طلب بشكل نهائي" },
       { key: "orders.financials", label: "إظهار التكلفة والربح في الطلب", desc: "إظهار التكلفة والربح داخل الطلب", sensitive: true },
       { key: "orders.export",     label: "تصدير الطلبات",          desc: "تصدير Excel / PDF" },
+      { key: "invoices.view",     label: "رؤية الفواتير",           desc: "دخول صفحة الفواتير" },
     ],
   },
   {
@@ -296,8 +331,10 @@ const DEFAULT_PERMISSIONS: Record<string, () => string[]> = {
     "tools.import", "tools.export",
     // صلاحيات الإعدادات
     "settings.brand", "settings.users", "settings.audit", "settings.sessions", "settings.whatsapp",
-    // الأقسام المرئية
-    ...SIDEBAR_SECTION_PERMISSIONS.map(p => p.key),
+    // الأقسام المرئية — مستخرجة تلقائياً من PERM_TO_SECTION (بدون تكرار)
+    // section_archive و section_shipping_followup مش مرتبطين بصلاحية محددة فنضيفهم يدوياً
+    ...([...new Set(Object.values(PERM_TO_SECTION))]),
+    "section_archive", "section_shipping_followup",
   ],
   employee: () => ["dashboard.view", "orders.view", "section_dashboard", "section_orders", "section_new_order", "section_archive", "section_shipping_followup"],
   warehouse: () => ["dashboard.view", "inventory.view", "inventory.edit", "inventory.movements", "inventory.warehouses", "section_dashboard", "section_inventory", "section_warehouses", "section_movements"],
@@ -441,56 +478,6 @@ export default function UsersPage() {
     } else {
       setForm(f => ({ ...f, permissions: tmpl.permissions }));
     }
-  };
-
-  // ربط الصلاحيات التفصيلية بالـ section keys تلقائياً
-  const PERM_TO_SECTION: Record<string, string> = {
-    // لوحة التحكم
-    "dashboard.view":            "section_dashboard",
-    // الطلبات
-    "orders.view":               "section_orders",
-    "orders.create":             "section_new_order",
-    "orders.edit":               "section_orders",
-    "orders.delete":             "section_orders",
-    "orders.export":             "section_orders",
-    // الفواتير
-    "invoices.view":             "section_invoices",
-    // المخزون
-    "inventory.view":            "section_inventory",
-    "inventory.edit":            "section_inventory",
-    "inventory.delete":          "section_inventory",
-    "inventory.movements":       "section_movements",
-    "inventory.warehouses":      "section_warehouses",
-    // الشحن
-    "shipping.view":             "section_shipping",
-    "shipping.edit":             "section_shipping",
-    "shipping.manifests":        "section_shipping",
-    // التحليلات
-    "analytics.view":            "section_smart_analytics",
-    "analytics.products":        "section_product_performance",
-    "analytics.ads":             "section_ads_analytics",
-    "analytics.smart":           "section_smart_analytics",
-    "analytics.team":            "section_team_management",
-    // الماليات
-    "finance.view":              "section_finance",
-    "finance.sales":             "section_finance",
-    "finance.expenses":          "section_finance",
-    "finance.cash":              "section_finance",
-    "finance.suppliers":         "section_finance",
-    "finance.reports":           "section_finance",
-    // الفريق
-    "team.view":                 "section_team_management",
-    "team.manage":               "section_team_management",
-    "team.performance":          "section_team_management",
-    // الأدوات
-    "import.view":               "section_import",
-    "tools.import":              "section_import",
-    "tools.export":              "section_export_data",
-    // الإعدادات
-    "settings.audit":            "section_audit",
-    "settings.whatsapp":         "section_whatsapp",
-    "settings.users":            "section_users",
-    "settings.sessions":         "section_sessions_report",
   };
 
   const togglePermission = (key: string) => setForm(f => {
