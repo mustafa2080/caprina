@@ -203,7 +203,7 @@ export default function Orders() {
   const { toast } = useToast();
   const { user, isAdmin, can } = useAuth();
   // ── Orders permission shortcuts ──────────────────────────────────────
-  const canView       = isAdmin || can("orders.view") || can("orders");
+  const canView       = isAdmin || can("orders.view");
   const canCreate     = can("orders.create");
   const canEdit       = can("orders.edit");
   const canDelete     = can("orders.delete");

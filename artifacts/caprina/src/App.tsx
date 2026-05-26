@@ -267,10 +267,10 @@ function Router() {
       <Suspense fallback={<PageLoader />}>
         <Switch>
           <Route path="/"                         component={() => <ProtectedRoute permission="dashboard" component={Dashboard} />} />
-          <Route path="/orders"                   component={() => <ProtectedRoute permission="orders" component={Orders} />} />
-          <Route path="/orders/new"               component={() => <ProtectedRoute permission="orders" component={OrderForm} />} />
+          <Route path="/orders"                   component={() => <ProtectedRoute permission="orders.view" component={Orders} />} />
+          <Route path="/orders/new"               component={() => <ProtectedRoute permission="orders.create" component={OrderForm} />} />
           <Route path="/invoices/:invoiceNumber"  component={() => <ProtectedRoute permission="invoices" component={InvoiceGroupPage} />} />
-          <Route path="/orders/:id"               component={() => <ProtectedRoute permission="orders" component={OrderDetail} />} />
+          <Route path="/orders/:id"               component={() => <ProtectedRoute permission="orders.view" component={OrderDetail} />} />
           <Route path="/inventory"                component={() => <ProtectedRoute permission="inventory" component={Inventory} />} />
           <Route path="/shipping"                 component={() => <ProtectedRoute permission="shipping" component={ShippingCompanies} />} />
           <Route path="/shipping/manifests/:id"   component={() => <ProtectedRoute permission="shipping" component={ShippingManifestPage} />} />
@@ -287,8 +287,8 @@ function Router() {
           <Route path="/ads-analytics"            component={() => <ProtectedRoute permission="analytics" component={AdsAnalyticsPage} />} />
           <Route path="/team"                     component={() => <ProtectedRoute permission="team.manage" component={TeamPage} />} />
           <Route path="/smart"                    component={() => <ProtectedRoute permission="analytics" component={SmartAnalyticsPage} />} />
-          <Route path="/archive"                  component={() => <ProtectedRoute permission="orders" component={ArchivePage} />} />
-          <Route path="/shipping-followup"        component={() => <ProtectedRoute permission="orders" component={ShippingFollowupPage} />} />
+          <Route path="/archive"                  component={() => <ProtectedRoute permission="orders.view" component={ArchivePage} />} />
+          <Route path="/shipping-followup"        component={() => <ProtectedRoute permission="orders.view" component={ShippingFollowupPage} />} />
           <Route path="/whatsapp"                 component={() => <ProtectedRoute permission="whatsapp" component={WhatsAppSettingsPage} />} />
           <Route path="/sessions-report"          component={() => <ProtectedRoute permission="users" component={SessionsReportPage} />} />
           <Route path="/export"                   component={() => <ProtectedRoute permission="import" component={ExportPage} />} />
