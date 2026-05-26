@@ -407,9 +407,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isAdmin = user?.role === "admin" || user?.role === "super_admin";
 
-  const canViewFinancials = useMemo(() =>
-    isAdmin || can("orders.financials") || can("view_financials"),
-  [can, isAdmin]);
+  const canViewFinancials = true; // الملخص المالي متاح لكل المستخدمين
 
   return (
     <AuthContext.Provider value={{
