@@ -464,9 +464,43 @@ export default function UsersPage() {
     }
   };
 
+  // ربط الصلاحيات التفصيلية بالـ section keys تلقائياً
+  const PERM_TO_SECTION: Record<string, string> = {
+    "dashboard.view":    "section_dashboard",
+    "orders.view":       "section_orders",
+    "orders.create":     "section_new_order",
+    "inventory.view":    "section_inventory",
+    "shipping.view":     "section_shipping",
+    "shipping.manifests":"section_shipping_manifests",
+    "analytics.view":    "section_analytics",
+    "analytics.products":"section_analytics",
+    "finance.view":      "section_finance",
+    "team.view":         "section_team",
+    "import":            "section_import",
+    "audit":             "section_audit",
+    "whatsapp":          "section_whatsapp",
+  };
+
   const togglePermission = (key: string) => setForm(f => {
     const has = f.permissions.includes(key);
-    return { ...f, permissions: has ? f.permissions.filter(p => p !== key) : [...f.permissions, key] };
+    let perms = has ? f.permissions.filter(p => p !== key) : [...f.permissions, key];
+
+    // لو الصلاحية مرتبطة بـ section → نضيف/نشيل الـ section تلقائياً
+    const section = PERM_TO_SECTION[key];
+    if (section) {
+      if (!has) {
+        // أضفنا الصلاحية → نضيف الـ section لو مش موجود
+        if (!perms.includes(section)) perms = [...perms, section];
+      } else {
+        // شلنا الصلاحية → نشيل الـ section لو مفيش صلاحية تانية تحتاجه
+        const otherPermsNeedSection = Object.entries(PERM_TO_SECTION)
+          .filter(([k, v]) => v === section && k !== key)
+          .some(([k]) => perms.includes(k));
+        if (!otherPermsNeedSection) perms = perms.filter(p => p !== section);
+      }
+    }
+
+    return { ...f, permissions: perms };
   });
 
   const handleSubmit = () => {
