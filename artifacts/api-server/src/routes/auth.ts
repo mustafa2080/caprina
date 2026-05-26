@@ -27,7 +27,7 @@ function parsePermissions(permissions: any): string[] {
 // ─── Brute-force protection: max 10 login attempts per 15 min per IP ────────
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 50,
+  max: 200,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "محاولات تسجيل دخول كثيرة، يرجى الانتظار 15 دقيقة" },
