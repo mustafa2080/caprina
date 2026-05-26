@@ -134,7 +134,7 @@ function SourceSummary({ campaigns }: { campaigns: CampaignStats[] }) {
         return (
           <Card key={src} className="border-border bg-card text-center">
             <CardContent className="px-3 py-3 space-y-1.5">
-              <span className="text-2xl">{meta.emoji}</span>
+              <span className="text-2xl flex justify-center">{meta.icon}</span>
               <p className={`text-xs font-bold ${meta.color}`}>{meta.label}</p>
               <p className="text-sm font-bold">{fmtNum(stats.total)}</p>
               <p className="text-[10px] text-muted-foreground">طلب</p>
@@ -220,7 +220,7 @@ export default function AdsAnalyticsPage() {
             >
               <option value="">الكل</option>
               {Object.entries(SOURCE_META).map(([k, v]) => (
-                <option key={k} value={k}>{v.emoji} {v.label}</option>
+                <option key={k} value={k}>{v.label}</option>
               ))}
             </select>
           </div>
