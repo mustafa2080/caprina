@@ -30,11 +30,11 @@ interface LayoutProps {
 }
 
 const ALL_NAV = [
-  { href: "/",                  label: "لوحة التحكم",        icon: LayoutDashboard, exact: true, permission: "dashboard",               section: "section_dashboard",          iconColor: "text-blue-400",       group: "dashboard"    },
+  { href: "/",                  label: "لوحة التحكم",        icon: LayoutDashboard, exact: true, permission: "section_dashboard",       section: "section_dashboard",          iconColor: "text-blue-400",       group: "dashboard"    },
   { href: "/orders",            label: "الطلبات",             icon: Package,                     permission: "orders.view",             section: "section_orders",             iconColor: "text-orange-400",     group: "orders"       },
   { href: "/orders/new",        label: "طلب جديد",            icon: Plus,                        permission: "orders.create",           section: "section_new_order",          iconColor: "text-emerald-400",    group: "orders"       },
   { href: "/invoices",          label: "الفواتير",             icon: FileText,                    permission: "invoices",                section: "section_invoices",           iconColor: "text-yellow-400",     group: "orders"       },
-  { href: "/shipping-followup", label: "متابعة الشحن",        icon: Clock,                       permission: "orders.view",             section: "section_shipping_followup",  iconColor: "text-cyan-400",       group: "orders"       },
+  { href: "/shipping-followup", label: "متابعة الشحن",        icon: Clock,                       permission: "section_shipping_followup", section: "section_shipping_followup",  iconColor: "text-cyan-400",       group: "orders"       },
   { href: "/shipping",          label: "شركات الشحن",         icon: Truck,                       permission: "shipping",                section: "section_shipping",           iconColor: "text-sky-400",        group: "shipping"     },
   { href: "/inventory",         label: "المنتجات",            icon: Boxes,                       permission: "inventory",               section: "section_inventory",          iconColor: "text-violet-400",     group: "inventory"    },
   { href: "/warehouses",        label: "المخازن",             icon: Warehouse,                   permission: "inventory",               section: "section_warehouses",         iconColor: "text-indigo-400",     group: "inventory"    },
@@ -50,7 +50,7 @@ const ALL_NAV = [
   { href: "/audit-logs",        label: "سجل العمليات",        icon: Shield,                      permission: "audit",                   section: "section_audit",              iconColor: "text-red-400",        group: "team"         },
   { href: "/import",            label: "استيراد Excel",       icon: Upload,                      permission: "import",                  section: "section_import",             iconColor: "text-amber-400",      group: "tools"        },
   { href: "/export",            label: "تصدير البيانات",      icon: Download,                    permission: "import",                  section: "section_export_data",        iconColor: "text-orange-300",     group: "tools"        },
-  { href: "/archive",           label: "الأرشيف",             icon: Archive,                     permission: "orders.view",             section: "section_archive",            iconColor: "text-stone-400",      group: "tools"        },
+  { href: "/archive",           label: "الأرشيف",             icon: Archive,                     permission: "section_archive",         section: "section_archive",            iconColor: "text-stone-400",      group: "tools"        },
   { href: "/whatsapp",          label: "إعدادات واتساب",     icon: WhatsAppIcon,                permission: "whatsapp",                section: "section_whatsapp",           iconColor: "text-[#25D366]",      group: "settings"     },
   { href: "/audit-logs",        label: "سجل التعديلات",       icon: Shield,                      permission: "audit",                   section: "section_audit",              iconColor: "text-red-400",        group: "settings"     },
 ];
@@ -271,7 +271,7 @@ export default function Layout({ children }: LayoutProps) {
   const visibleNav = useMemo(() => {
     return ALL_NAV.filter((item) => {
       const sectionOk = item.section ? can(item.section) : true;
-      const permOk    = can(item.permission);
+      const permOk    = item.permission === item.section ? true : can(item.permission);
       return sectionOk && permOk;
     });
   }, [can]);
