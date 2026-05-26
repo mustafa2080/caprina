@@ -31,6 +31,7 @@ interface AuthContextValue {
   isWarehouse: boolean;
   can: (permission: string) => boolean;
   canViewFinancials: boolean;
+  canViewProfitability: boolean;
   loading: boolean;
 }
 
@@ -65,7 +66,7 @@ export const ALL_PERMISSIONS = {
     { key: "orders.create",     label: "إضافة طلب",               desc: "زر إضافة طلب جديد" },
     { key: "orders.edit",       label: "تعديل طلب",               desc: "تعديل بيانات طلب موجود" },
     { key: "orders.delete",     label: "حذف طلب",                 desc: "حذف طلب بشكل نهائي" },
-    { key: "orders.financials",    label: "الأسعار داخل الطلب",      desc: "إخفاء التكلفة والربح في الطلب" },
+    { key: "orders.financials",    label: "الأسعار داخل الطلب",      desc: "إظهار التكلفة والربح في الطلب" },
     { key: "orders.export",        label: "تصدير الطلبات",           desc: "تصدير Excel / PDF" },
     { key: "orders.profitability", label: "تحليل الربحية",           desc: "إظهار قسم تحليل الربحية في تفاصيل الطلب" },
   ],
@@ -408,7 +409,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isAdmin = user?.role === "admin" || user?.role === "super_admin";
 
-  const canViewFinancials = can("orders.profitability");
+  const canViewFinancials = can("orders.financials");
+  const canViewProfitability = can("orders.profitability");
 
   return (
     <AuthContext.Provider value={{
@@ -417,7 +419,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAdmin,
       isEmployee: user?.role === "employee",
       isWarehouse: user?.role === "warehouse",
-      can, canViewFinancials, loading,
+      can, canViewFinancials, canViewProfitability, loading,
     }}>
       {children}
     </AuthContext.Provider>

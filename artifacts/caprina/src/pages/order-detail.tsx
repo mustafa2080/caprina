@@ -465,9 +465,9 @@ function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, p
 }
 
 // ── Invoice View (multi-product) ─────────────────────────────────────────────
-function InvoiceView({ orders, currentId, shippingCompanies, products, allVariants, onRefresh, isAdmin, canViewFinancials, formatCurrency }: {
+function InvoiceView({ orders, currentId, shippingCompanies, products, allVariants, onRefresh, isAdmin, canViewFinancials, canViewProfitability, formatCurrency }: {
   orders: any[]; currentId: number; shippingCompanies: any[]; products: any[]; allVariants: any[];
-  onRefresh: () => void; isAdmin: boolean; canViewFinancials: boolean; formatCurrency: (n: number) => string;
+  onRefresh: () => void; isAdmin: boolean; canViewFinancials: boolean; canViewProfitability: boolean; formatCurrency: (n: number) => string;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -624,7 +624,7 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
           )}
 
           {/* تحليل الربحية — للمدير فقط */}
-          {canViewFinancials && (() => {
+          {canViewProfitability && (() => {
             const hasCost = orders.some(o => (o.costPrice ?? 0) > 0);
             if (!hasCost) return null;
 
@@ -721,7 +721,7 @@ export default function OrderDetail() {
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { isAdmin, canViewFinancials, user } = useAuth();
+  const { isAdmin, canViewFinancials, canViewProfitability, user } = useAuth();
   const canWriteOrders = isAdmin || (user?.permissions?.includes("orders_write") ?? false);
   const [isEditing, setIsEditing] = useState(false);
   const [showPartialInput, setShowPartialInput] = useState(false);
@@ -1071,6 +1071,7 @@ export default function OrderDetail() {
             allVariants={allVariants ?? []}
             isAdmin={isAdmin}
             canViewFinancials={canViewFinancials}
+            canViewProfitability={canViewProfitability}
             formatCurrency={formatCurrency}
             onRefresh={() => {
               refetchInvoiceOrders();
