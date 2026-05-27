@@ -285,19 +285,36 @@ export default function Layout({ children }: LayoutProps) {
     const allowed = visibleNav.map(i => i.href);
     // مش نعمل redirect لو visibleNav فاضية — ده بيحصل أثناء تحديث الـ permissions
     if (allowed.length === 0) return;
-    const onAllowedPage = allowed.some(href =>
-      href === "/" ? location === "/" : location === href || location.startsWith(href + "/")
+    const onAllowedPage = allowed.some(href => {
+      if (href === "/") return location === "/";
+      // exact match أو sub-path مباشر
+      if (location === href) return true;
+      // sub-route: /orders/5 → يكفي إن /orders موجود في allowed
+      if (location.startsWith(href + "/")) return true;
+      return false;
+    });
+    // تأكد إضافي: لو الـ location بيبدأ بـ أي href في allowed (بدون trailing slash)
+    // مثلاً /orders/5 و /orders موجود → allowed
+    const alsoAllowed = allowed.some(href =>
+      href !== "/" && location.startsWith(href)
     );
-    if (!onAllowedPage) {
-      // نستنى 500ms قبل الـ redirect عشان نتأكد إن الـ permissions اتحدثت كلها
+    if (!onAllowedPage && !alsoAllowed) {
+      // نستنى 800ms بدل 500 عشان الـ permissions تتحدث كلها
       if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
       redirectTimerRef.current = setTimeout(() => {
         // نعيد التحقق بعد الـ delay
         if (redirectingRef.current) return;
-        redirectingRef.current = true;
-        navigate(allowed[0]);
-        setTimeout(() => { redirectingRef.current = false; }, 2000);
-      }, 500);
+        // تحقق نهائي قبل الـ redirect
+        const currentAllowed = visibleNav.map(i => i.href);
+        const stillNotAllowed = !currentAllowed.some(href =>
+          href === "/" ? location === "/" : location === href || location.startsWith(href)
+        );
+        if (stillNotAllowed) {
+          redirectingRef.current = true;
+          navigate(currentAllowed[0] ?? "/");
+          setTimeout(() => { redirectingRef.current = false; }, 2000);
+        }
+      }, 800);
     } else {
       // الصفحة متاحة → امسح أي redirect معلق
       if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
