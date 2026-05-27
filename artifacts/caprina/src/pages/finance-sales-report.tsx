@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { useState, useMemo } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { format, subDays, startOfMonth, endOfMonth, isWithinInterval, parseISO } from "date-fns";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -169,6 +170,20 @@ const PERIOD_OPTIONS = [
 export default function SalesReportPage() {
   const [, navigate] = useLocation();
   const [period, setPeriod] = useState("30");
+
+  // ── Finance access guard ───────────────────────────────────────────────────
+  const { isAdmin: _fAdmin, can: _fCan } = useAuth();
+  if (!_fAdmin && !_fCan("finance.reports")) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center px-4">
+        <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center">
+          <span className="text-3xl">🔒</span>
+        </div>
+        <h2 className="text-xl font-bold">غير مصرح بالوصول</h2>
+        <p className="text-muted-foreground text-sm max-w-xs">ليس لديك صلاحية لعرض تقارير الأرباح والخسائر. تواصل مع المدير.</p>
+      </div>
+    );
+  }
 
   const { data: orders = [], isLoading: loadingOrders } = useQuery<SaleOrder[]>({
     queryKey: ["finance-sale-orders-report"],

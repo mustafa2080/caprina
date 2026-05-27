@@ -759,8 +759,7 @@ function MonthlyFlowChart({ data, isLoading }: { data: any[]; isLoading: boolean
 }
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function FinanceHub() {
-  const { user, can } = useAuth();
-  const isAdmin = user?.role === "admin";
+  const { user, can, isAdmin } = useAuth();
 
   // ── Finance access guard ───────────────────────────────────────────────────
   if (!isAdmin && !can("finance.view")) {
