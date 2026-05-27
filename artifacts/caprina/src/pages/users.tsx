@@ -620,8 +620,8 @@ export default function UsersPage() {
     // لو مخصص، نحفظ اسم الوظيفة جوا الـ permissions كـ marker
     // أولاً: نشيل أي __rolename__ قديم
     permsWithMarker = permsWithMarker.filter(p => !p.startsWith("__rolename__"));
-    // لو فيه customRoleName نضيفه
-    if (selectedTemplate === "custom" && customRoleName.trim()) {
+    // لو فيه customRoleName نضيفه (بغض النظر عن الـ template)
+    if (customRoleName.trim()) {
       permsWithMarker = [...permsWithMarker, `__rolename__${customRoleName.trim()}`];
     }
 
