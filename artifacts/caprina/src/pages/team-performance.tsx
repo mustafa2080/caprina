@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from "react";
+import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import {
   UserCheck, TrendingUp, TrendingDown, Package,
@@ -270,7 +271,8 @@ function MemberCard({
 
 /* ─── main page ───────────────────────────────────────────────────────────── */
 export default function TeamPerformancePage() {
-  const { canViewFinancials } = useAuth();
+  const { canViewFinancials, can, isAdmin } = useAuth();
+  const [, navigate] = useLocation();
 
   /* date filters */
   const [dateFrom, setDateFrom] = useState("");
@@ -371,6 +373,16 @@ export default function TeamPerformancePage() {
   const totalProfit    = assignedMembers.reduce((s, m) => s + m.profit, 0);
   const avgDelivery = assignedMembers.length > 0
     ? Math.round(assignedMembers.reduce((s, m) => s + m.deliveryRate, 0) / assignedMembers.length) : 0;
+
+  if (!isAdmin && !can("analytics.team")) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground">
+        <UserCheck className="w-10 h-10 opacity-20" />
+        <p className="text-sm font-bold">ليس لديك صلاحية لعرض هذه الصفحة</p>
+        <button onClick={() => navigate("/")} className="text-xs text-primary hover:underline">العودة للرئيسية</button>
+      </div>
+    );
+  }
 
   const resetFilters = () => {
     setSearch(""); setSortKey("score"); setSortDir("desc");

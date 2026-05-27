@@ -154,7 +154,7 @@ function SourceSummary({ campaigns }: { campaigns: CampaignStats[] }) {
 }
 
 export default function AdsAnalyticsPage() {
-  const { can } = useAuth();
+  const { can, isAdmin } = useAuth();
   const [, navigate] = useLocation();
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -163,10 +163,10 @@ export default function AdsAnalyticsPage() {
   const { data: campaigns = [], isLoading } = useQuery({
     queryKey: ["campaigns", dateFrom, dateTo],
     queryFn: () => teamAnalyticsApi.campaigns(dateFrom || undefined, dateTo || undefined),
-    enabled: can("analytics"),
+    enabled: isAdmin || can("analytics.ads"),
   });
 
-  if (!can("analytics")) {
+  if (!isAdmin && !can("analytics.ads")) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground">
         <Megaphone className="w-10 h-10 opacity-20" />

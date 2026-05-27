@@ -105,7 +105,7 @@ function ProductRow({ p, maxProfit, maxLoss, sort }: {
 }
 
 export default function ProductPerformancePage() {
-  const { can } = useAuth();
+  const { can, isAdmin } = useAuth();
   const [, navigate] = useLocation();
   const [sort, setSort] = useState<SortMode>("profit");
 
@@ -118,7 +118,7 @@ export default function ProductPerformancePage() {
   const [filterRevenueMin, setFilterRevenueMin] = useState("");
   const debouncedSearch = useDebounce(search, 250);
 
-  if (!can("view_product_performance")) {
+  if (!isAdmin && !can("analytics.products")) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground">
         <BarChart3 className="w-10 h-10 opacity-20" />

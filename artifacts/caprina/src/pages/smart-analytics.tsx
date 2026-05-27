@@ -641,7 +641,7 @@ export default function SmartAnalytics() {
     staleTime: 60000,
   });
 
-  if (!can("analytics")) {
+  if (!isAdmin && !can("analytics.smart")) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground">
         <Brain className="w-10 h-10 opacity-20" />
