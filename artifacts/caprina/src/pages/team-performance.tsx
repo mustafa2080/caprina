@@ -374,7 +374,7 @@ export default function TeamPerformancePage() {
   const avgDelivery = assignedMembers.length > 0
     ? Math.round(assignedMembers.reduce((s, m) => s + m.deliveryRate, 0) / assignedMembers.length) : 0;
 
-  if (!isAdmin && !can("analytics.team")) {
+  if (!isAdmin && !can("team.performance")) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground">
         <UserCheck className="w-10 h-10 opacity-20" />

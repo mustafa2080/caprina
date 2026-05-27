@@ -1358,7 +1358,10 @@ function EmployeeDetail({
 }: {
   profileId: number; displayName: string; isSystemUser: boolean; username?: string | null; onBack: () => void;
 }) {
-  const { isAdmin } = useAuth();
+  const { isAdmin, can } = useAuth();
+  const canSalaries   = isAdmin || can("team.salaries");
+  const canPerformance = isAdmin || can("team.performance");
+  const canManage     = isAdmin || can("team.manage");
   const { toast } = useToast();
   const qc = useQueryClient();
   const [profileOpen, setProfileOpen] = useState(false);
@@ -1427,16 +1430,17 @@ function EmployeeDetail({
         </div>
       </div>
 
-      <Tabs defaultValue="attendance">
+      <Tabs defaultValue={canSalaries ? "attendance" : canPerformance ? "kpis" : "profile"}>
         <TabsList className="h-8 text-xs">
-          <TabsTrigger value="attendance" className="text-xs">الحضور والمرتب</TabsTrigger>
-          <TabsTrigger value="daily" className="text-xs">متابعة يومية</TabsTrigger>
-          <TabsTrigger value="kpis" className="text-xs">مؤشرات الأداء</TabsTrigger>
-          <TabsTrigger value="report" className="text-xs">التقرير الشهري</TabsTrigger>
+          {canSalaries && <TabsTrigger value="attendance" className="text-xs">الحضور والمرتب</TabsTrigger>}
+          {canManage && <TabsTrigger value="daily" className="text-xs">متابعة يومية</TabsTrigger>}
+          {canPerformance && <TabsTrigger value="kpis" className="text-xs">مؤشرات الأداء</TabsTrigger>}
+          {canPerformance && <TabsTrigger value="report" className="text-xs">التقرير الشهري</TabsTrigger>}
           <TabsTrigger value="profile" className="text-xs">الملف الشخصي</TabsTrigger>
         </TabsList>
 
         {/* ─── Attendance Tab ─── */}
+        {canSalaries && (
         <TabsContent value="attendance" className="space-y-3 mt-3">
           <AttendanceTab
             profileId={profileId}
@@ -1444,13 +1448,17 @@ function EmployeeDetail({
             isAdmin={isAdmin}
           />
         </TabsContent>
+        )}
 
         {/* ─── Daily Tracker Tab ─── */}
+        {canManage && (
         <TabsContent value="daily" className="space-y-3 mt-3">
           <DailyTrackerTab profileId={profileId} />
         </TabsContent>
+        )}
 
         {/* ─── KPIs Tab ─── */}
+        {canPerformance && (
         <TabsContent value="kpis" className="space-y-3 mt-3">
           <div className="flex items-center justify-between">
             <p className="text-xs text-muted-foreground">حدد المؤشرات التي سيُقيَّم عليها هذا الموظف</p>
@@ -1505,8 +1513,10 @@ function EmployeeDetail({
             ))}
           </div>
         </TabsContent>
+        )}
 
         {/* ─── Monthly Report Tab ─── */}
+        {canPerformance && (
         <TabsContent value="report" className="space-y-3 mt-3">
           <div className="flex items-center gap-3">
             <div className="space-y-0.5">
@@ -1617,7 +1627,7 @@ function EmployeeDetail({
             </>
           )}
         </TabsContent>
-
+        )}
         {/* ─── Profile Tab ─── */}
         <TabsContent value="profile" className="mt-3">
           <Card className="border-border bg-card">
@@ -1681,7 +1691,7 @@ export default function TeamPage() {
   const canAddMember  = isAdmin || can("add_team_member");
 
   // ── Access guard — لازم يكون عنده على الأقل واحدة ──────────────────────────
-  if (!isAdmin && !can("team.manage") && !can("team.salaries") && !can("team.performance")) {
+  if (!isAdmin && !can("team.view") && !can("team.manage") && !can("team.salaries") && !can("team.performance")) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center px-4">
         <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center">
