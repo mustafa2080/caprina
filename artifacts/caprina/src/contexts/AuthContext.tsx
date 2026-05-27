@@ -409,8 +409,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isAdmin = user?.role === "admin" || user?.role === "super_admin";
 
-  const canViewFinancials = can("orders.financials");
-  const canViewProfitability = can("orders.financials");
+  const canViewFinancials = isAdmin || can("orders.financials");
+  const canViewProfitability = isAdmin || can("orders.financials");
 
   return (
     <AuthContext.Provider value={{

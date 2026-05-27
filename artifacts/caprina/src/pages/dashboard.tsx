@@ -553,10 +553,10 @@ function DashShippingCompanyRow({ company, canViewFinancials }: { company: any; 
 export default function Dashboard() {
   const { isAdmin, canViewFinancials, can } = useAuth();
   // ── Dashboard permission shortcuts ───────────────────────────────────
-  const canSeeFinancials    = can("dashboard.financials");
-  const canSeeShippingStats = can("dashboard.shipping_stats");
-  const canSeeReturns       = can("dashboard.returns");
-  const canSeeTeam          = can("dashboard.team");
+  const canSeeFinancials    = isAdmin || can("dashboard.financials");
+  const canSeeShippingStats = isAdmin || can("dashboard.shipping_stats");
+  const canSeeReturns       = isAdmin || can("dashboard.returns");
+  const canSeeTeam          = isAdmin || can("dashboard.team");
   const [period, setPeriod] = useState<Period>("today");
   const [showDamagedModal, setShowDamagedModal] = useState(false);
   const [clientPeriod, setClientPeriod] = useState<"thisWeek" | "lastWeek" | "thisMonth">("thisWeek");
