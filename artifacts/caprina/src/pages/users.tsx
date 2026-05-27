@@ -11,6 +11,24 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Separator } from "@/components/ui/separator";
 import { UserPlus, Edit2, Trash2, Shield, Users, Eye, EyeOff, TrendingUp, Package, BarChart3, LayoutGrid, Lock, User, Settings2, ChevronDown, ChevronUp, ToggleLeft, Camera, X, Crown, AlertTriangle, Search, KeyRound, Power, Home, ShoppingCart, Truck, BarChart2, Wallet, Wrench, Cog, MonitorCheck } from "lucide-react";
 
+// helper محلي — نفس المنطق الموجود في AuthContext
+function flattenPermissions(raw: any): string[] {
+  if (!Array.isArray(raw)) {
+    if (typeof raw === "string") {
+      try { raw = JSON.parse(raw); } catch { return []; }
+      if (!Array.isArray(raw)) return [];
+    } else return [];
+  }
+  const flat: string[] = [];
+  for (const item of raw) {
+    if (typeof item === "string") flat.push(item);
+    else if (Array.isArray(item)) {
+      for (const sub of item) { if (typeof sub === "string") flat.push(sub); }
+    }
+  }
+  return [...new Set(flat)];
+}
+
 // ── User Avatar Component ────────────────────────────────────────────────────
 function getInitialsColor(name: string): string {
   const colors = [
