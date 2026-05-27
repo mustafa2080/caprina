@@ -132,6 +132,7 @@ const ROLE_LABELS: Record<string, string> = {
   admin: "مدير",
   employee: "موظف مبيعات",
   warehouse: "مسؤول مخزون",
+  custom: "مخصص ⚙️",
 };
 
 const ROLE_COLORS: Record<string, string> = {
@@ -139,6 +140,7 @@ const ROLE_COLORS: Record<string, string> = {
   admin: "border-yellow-700 bg-yellow-900/20 text-yellow-400",
   employee: "border-blue-700 bg-blue-900/20 text-blue-400",
   warehouse: "border-emerald-700 bg-emerald-900/20 text-emerald-400",
+  custom: "border-primary/40 bg-primary/10 text-primary",
 };
 
 // ── ربط الصلاحيات بالـ section keys (module-level) ───────────────────────────
@@ -554,8 +556,8 @@ export default function UsersPage() {
     if (!tmpl) return;
     setSelectedTemplate(templateKey);
     if (tmpl.key === "custom") {
-      // مخصص = امسح كل الصلاحيات وابدأ من صفر
-      setForm(f => ({ ...f, permissions: [] }));
+      // مخصص = role يبقى "custom" في الـ DB + ابدأ من صفر في الصلاحيات
+      setForm(f => ({ ...f, role: "custom", permissions: [] }));
     } else {
       setForm(f => ({ ...f, permissions: tmpl.permissions }));
     }
@@ -667,6 +669,7 @@ export default function UsersPage() {
     admin: users.filter(u => u.role === "admin").length,
     employee: users.filter(u => u.role === "employee").length,
     warehouse: users.filter(u => u.role === "warehouse").length,
+    custom: users.filter(u => u.role === "custom").length,
   };
 
   return (
@@ -718,6 +721,7 @@ export default function UsersPage() {
             { key: "admin", label: "مدير" },
             { key: "employee", label: "موظف" },
             { key: "warehouse", label: "مخزون" },
+            { key: "custom", label: "⚙️ مخصص" },
           ].map(tab => (
             <button
               key={tab.key}
