@@ -1398,20 +1398,7 @@ router.get("/analytics/charts", async (req, res): Promise<void> => {
       .from(shippingManifestOrdersTable),
   ]);
 
-  // بناء chartsShippingPerOrder map لطرح تكلفة بيانات الشحن من الإيرادات
-  const chartsManifestOrderCount = new Map<number, number>();
-  for (const mo of chartsManifestOrders) {
-    chartsManifestOrderCount.set(mo.manifestId, (chartsManifestOrderCount.get(mo.manifestId) ?? 0) + 1);
-  }
-  const chartsShippingPerOrder = new Map<number, number>();
-  for (const mo of chartsManifestOrders) {
-    const manifest = chartsManifests.find(m => m.id === mo.manifestId);
-    const cost = Number(manifest?.manualShippingCost ?? 0);
-    if (cost > 0) {
-      const count = chartsManifestOrderCount.get(mo.manifestId) ?? 1;
-      chartsShippingPerOrder.set(mo.orderId, (chartsShippingPerOrder.get(mo.orderId) ?? 0) + cost / count);
-    }
-  }
+  // بناء chartsManifestOrders و chartsManifests لاستخدامها لاحقاً في حساب الإيرادات
 
   // Group by invoiceNumber — multi-product invoices count as ONE order
   type InvoiceGroup = {
@@ -1432,6 +1419,13 @@ router.get("/analytics/charts", async (req, res): Promise<void> => {
     revenue: number;
   };
   const invoiceMapRaw = new Map<string, InvoiceRaw>();
+  // نفس منطق financial-summary: شحن الأوردر مرة/فاتورة، شحن البيان مرة/بيان
+  const chartsProcessedShippingInvoices = new Set<string>();
+  const chartsCountedManifests = new Set<number>();
+  const chartsOrderToManifest = new Map<number, number>();
+  for (const mo of chartsManifestOrders) chartsOrderToManifest.set(mo.orderId, mo.manifestId);
+  const chartsManifestMap = new Map(chartsManifests.map(m => [m.id, m]));
+
   for (const o of allOrders) {
     const key = o.invoiceNumber ?? `solo-${o.id}`;
     if (!invoiceMapRaw.has(key)) {
@@ -1448,12 +1442,16 @@ router.get("/analytics/charts", async (req, res): Promise<void> => {
     if (o.status === "received" || o.status === "partial_received") {
       const qty = o.status === "partial_received" ? (o.partialQuantity ?? o.quantity) : o.quantity;
       grp.revenue += qty * o.unitPrice;
-      // طرح تكلفة الشحن مرة واحدة لكل فاتورة
-      if (!(grp as any).__shippingDeducted) {
-        (grp as any).__shippingDeducted = true;
-        // طرح تكلفة الشحن: من الأوردر مباشرة + من بيان الشحن (manifest)
-        const totalShipping = (o.shippingCost ?? 0) + (chartsShippingPerOrder.get(o.id) ?? 0);
-        grp.revenue -= totalShipping;
+      // طرح شحن الأوردر مرة واحدة لكل فاتورة
+      if (!chartsProcessedShippingInvoices.has(key)) {
+        chartsProcessedShippingInvoices.add(key);
+        grp.revenue -= (o.shippingCost ?? 0);
+      }
+      // طرح تكلفة البيان مرة واحدة للبيان كله (نفس منطق financial-summary)
+      const manifestId = chartsOrderToManifest.get(o.id);
+      if (manifestId !== undefined && !chartsCountedManifests.has(manifestId)) {
+        chartsCountedManifests.add(manifestId);
+        grp.revenue -= Number(chartsManifestMap.get(manifestId)?.manualShippingCost ?? 0);
       }
     }
   }
