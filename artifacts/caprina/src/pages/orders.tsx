@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "wouter";
 import { format } from "date-fns";
-import { Search, Filter, Plus, Package, CalendarDays, X, RotateCcw, MessageCircle, Trash2, CheckSquare, RefreshCw, ChevronUp, ChevronDown } from "lucide-react";
+import { Search, Filter, Plus, Package, CalendarDays, X, RotateCcw, MessageCircle, Trash2, CheckSquare, RefreshCw, ChevronUp, ChevronDown, Download, FileText } from "lucide-react";
 import { useUpdateOrder } from "@workspace/api-client-react";
 import type { UpdateOrderBodyStatus } from "@workspace/api-zod";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
@@ -203,14 +203,15 @@ export default function Orders() {
   const { toast } = useToast();
   const { user, isAdmin, can } = useAuth();
   // ── Orders permission shortcuts ──────────────────────────────────────
-  const canView       = isAdmin || can("orders.view");
-  const canCreate     = can("orders.create");
-  const canEdit       = can("orders.edit");
-  const canDelete     = can("orders.delete");
-  const canFinancials = true; // الملخص المالي متاح لكل المستخدمين
-  const canExport     = can("orders.export");
+  const canView        = isAdmin || can("orders.view");
+  const canCreate      = isAdmin || can("orders.create");
+  const canEdit        = isAdmin || can("orders.edit");
+  const canDelete      = isAdmin || can("orders.delete");
+  const canFinancials  = isAdmin || can("orders.financials");
+  const canExport      = isAdmin || can("orders.export");
+  const canInvoices    = isAdmin || can("invoices.view");
   // canWriteOrders: للـ bulk select والواتساب (أي صلاحية تعديل)
-  const canWriteOrders = isAdmin || canEdit || (user?.permissions?.includes("orders_write") ?? false);
+  const canWriteOrders = isAdmin || canEdit || canCreate;
   const updateOrder = useUpdateOrder();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkSelectMode, setBulkSelectMode] = useState(false);
@@ -590,6 +591,40 @@ export default function Orders() {
               {(canEdit || canDelete) && (
               <Button variant="outline" size="sm" className="gap-1 text-xs h-9" onClick={() => setBulkSelectMode(true)}>
                 <CheckSquare className="w-3.5 h-3.5" />تحديد
+              </Button>
+              )}
+              {/* زر الفواتير — فقط لو عنده invoices.view */}
+              {canInvoices && (
+              <Link href="/invoices">
+                <Button variant="outline" size="sm" className="gap-1 text-xs h-9">
+                  <FileText className="w-3.5 h-3.5" />الفواتير
+                </Button>
+              </Link>
+              )}
+              {/* زر تصدير — فقط لو عنده orders.export */}
+              {canExport && (
+              <Button variant="outline" size="sm" className="gap-1 text-xs h-9" onClick={() => {
+                if (!orders?.length) return;
+                const rows = filtered.map(o => ({
+                  "#": o.id,
+                  "العميل": o.customerName,
+                  "الهاتف": o.phone ?? "",
+                  "المنتج": o.product,
+                  "الكمية": o.quantity,
+                  "السعر": o.unitPrice,
+                  "الإجمالي": o.totalPrice,
+                  "الحالة": o.status,
+                  "التاريخ": new Date(o.createdAt).toLocaleDateString("ar-EG"),
+                }));
+                const header = Object.keys(rows[0]).join(",");
+                const csv = [header, ...rows.map(r => Object.values(r).map(v => `"${v}"`).join(","))].join("\n");
+                const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url; a.download = `orders-${new Date().toISOString().slice(0,10)}.csv`; a.click();
+                URL.revokeObjectURL(url);
+              }}>
+                <Download className="w-3.5 h-3.5" />تصدير
               </Button>
               )}
               {/* زر طلب جديد — فقط لو عنده canCreate */}
