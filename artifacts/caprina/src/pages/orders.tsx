@@ -800,9 +800,7 @@ export default function Orders() {
                 const retNote   = (order as any).returnNote   as string | null;
                 const isSelected = isGroupSelected(order);
                 const groupCount = (order as any)._groupCount as number | undefined;
-                const navTarget = isGroup && order.invoiceNumber
-                  ? `/invoices/${encodeURIComponent(order.invoiceNumber)}`
-                  : `/orders/${order.id}`;
+                const navTarget = `/orders/${order.id}`;
                 return (
                   <div
                     key={order.id}
@@ -949,9 +947,7 @@ export default function Orders() {
                     const canWhatsApp = canWriteOrders && !bulkSelectMode && groupStatuses.some(s => waStatuses.has(s));
                     const isSelected  = isGroupSelected(order);
                     const groupCount = (order as any)._groupCount as number | undefined;
-                    const navTarget = isGroup && order.invoiceNumber
-                      ? `/invoices/${encodeURIComponent(order.invoiceNumber)}`
-                      : `/orders/${order.id}`;
+                    const navTarget = `/orders/${order.id}`;
                     return (
                       <TableRow
                         key={order.id}
