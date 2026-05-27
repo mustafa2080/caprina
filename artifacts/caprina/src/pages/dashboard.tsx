@@ -665,6 +665,20 @@ export default function Dashboard() {
   });
   const totalCash = cashRegisters?.totalBalance ?? 0;
 
+  // ── خريطة موحدة للصور: تجمع teamPerf + employeeProfiles (userId → avatar) ──
+  const avatarMap = useMemo(() => {
+    const map = new Map<number, string>();
+    // أولاً: من employeeProfiles (الأحدث عند رفع من صفحة team)
+    for (const emp of employeeProfiles) {
+      if (emp.userId && emp.avatar) map.set(emp.userId, emp.avatar);
+    }
+    // ثانياً: من teamPerf — يكمل اللي ماعندوش في employeeProfiles
+    for (const m of (teamPerf as any[])) {
+      if (m.userId && m.avatar && !map.has(m.userId)) map.set(m.userId, m.avatar);
+    }
+    return map;
+  }, [employeeProfiles, teamPerf]);
+
   // ── حساب trend ديناميكي لكل منتج من آخر 7 أسابيع ──
   const productTrendMap = useMemo(() => {
     if (!saleOrders?.length) return {} as Record<string, number[]>;
@@ -1704,11 +1718,12 @@ export default function Dashboard() {
               <div className="divide-y divide-border/60">
                 {teamPerf.slice(0, 4).map((m, i) => {
                   const [bg, fg] = dbAvatarColor(m.displayName);
+                  const unifiedAvatar = avatarMap.get(m.userId) ?? null;
                   return (
                   <div key={m.userId} className="flex items-center gap-3 px-4 py-2.5">
                     <span className="text-xs font-black text-muted-foreground w-4">{i + 1}</span>
-                    {m.avatar ? (
-                      <img src={m.avatar} className="w-8 h-8 rounded-full object-cover shrink-0 ring-2 ring-border" alt={m.displayName} />
+                    {unifiedAvatar ? (
+                      <img src={unifiedAvatar} className="w-8 h-8 rounded-full object-cover shrink-0 ring-2 ring-border" alt={m.displayName} />
                     ) : (
                       <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
                         style={{ background: bg, color: fg }}>
@@ -1755,9 +1770,8 @@ export default function Dashboard() {
               <div className="divide-y divide-border/60">
                 {employeeProfiles.slice(0, 4).map((emp: any) => {
                   const [bg, fg] = dbAvatarColor(emp.displayName || "?");
-                  // نجيب صورة الموظف من teamPerf لو موجودة
-                  const perfMatch = teamPerf.find(m => m.displayName === emp.displayName || m.userId === emp.userId);
-                  const avatarSrc = perfMatch?.avatar ?? null;
+                  // نستخدم avatarMap الموحد بدل البحث في teamPerf مباشرة
+                  const avatarSrc = avatarMap.get(emp.userId) ?? emp.avatar ?? null;
                   return (
                     <Link key={emp.id} href="/team">
                       <div className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/20 transition-colors cursor-pointer">
