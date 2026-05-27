@@ -97,8 +97,8 @@ function PeriodCard({ label, data, accent }: { label: string; data: PeriodProfit
             <p className="text-[10px] sm:text-xs font-bold text-primary">{fc(data.revenue - data.shippingCost)}</p>
           </div>
           <div>
-            <p className="text-[8px] sm:text-[9px] text-muted-foreground">التكاليف</p>
-            <p className="text-[10px] sm:text-xs font-bold text-amber-700 dark:text-amber-400">{fc(data.cost + data.shippingCost)}</p>
+            <p className="text-[8px] sm:text-[9px] text-muted-foreground">تكلفة البضاعة</p>
+            <p className="text-[10px] sm:text-xs font-bold text-amber-700 dark:text-amber-400">{fc(data.cost)}</p>
           </div>
           <div>
             <p className="text-[8px] sm:text-[9px] text-muted-foreground">الطلبات</p>
