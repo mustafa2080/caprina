@@ -612,7 +612,7 @@ const WeeklyBars = memo(function WeeklyBars({
 
   const statCards = [
     {
-      label: "الإيرادات",
+      label: "الإيرادات (بعد الشحن)",
       value: revenue > 0 ? fc(revenue) : "0 ج.م",
       color: GLASS_PURPLE,
       glow: "rgba(126,87,194,0.32)",
