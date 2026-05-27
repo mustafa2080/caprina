@@ -1419,7 +1419,9 @@ router.get("/analytics/charts", async (req, res): Promise<void> => {
     revenue: number;
   };
   const invoiceMapRaw = new Map<string, InvoiceRaw>();
-  // نفس منطق financial-summary: شحن الأوردر مرة/فاتورة، شحن البيان مرة/بيان
+  // نفس منطق financial-summary بالضبط:
+  // شحن الأوردر (o.shippingCost) → يُطرح مرة واحدة لكل فاتورة
+  // شحن البيان (manualShippingCost) → يُطرح مرة واحدة للبيان كله من أول أوردر مكتمل ينتمي له
   const chartsProcessedShippingInvoices = new Set<string>();
   const chartsCountedManifests = new Set<number>();
   const chartsOrderToManifest = new Map<number, number>();
@@ -1447,7 +1449,7 @@ router.get("/analytics/charts", async (req, res): Promise<void> => {
         chartsProcessedShippingInvoices.add(key);
         grp.revenue -= (o.shippingCost ?? 0);
       }
-      // طرح تكلفة البيان مرة واحدة للبيان كله (نفس منطق financial-summary)
+      // طرح تكلفة البيان مرة واحدة للبيان كله
       const manifestId = chartsOrderToManifest.get(o.id);
       if (manifestId !== undefined && !chartsCountedManifests.has(manifestId)) {
         chartsCountedManifests.add(manifestId);
@@ -1573,7 +1575,9 @@ router.get("/analytics/charts", async (req, res): Promise<void> => {
     }))
     .sort((a, b) => b.count - a.count);
 
-  res.json({ statusBreakdown, weeklySales: days, monthlySales: monthDays, adSourceBreakdown, total, weekComparison });
+  res.json({ statusBreakdown, weeklySales: days, monthlySales: monthDays, adSourceBreakdown, total, weekComparison,
+    _debug: { shippingFromOrders: [...chartsProcessedShippingInvoices].length, shippingFromManifests: chartsCountedManifests.size, totalRevenue: invoices.reduce((s,i)=>s+i.revenue,0) }
+  });
 });
 
 // ─── GET /api/analytics/monthly-sales ─────────────────────────────────────────
