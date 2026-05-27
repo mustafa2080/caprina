@@ -1385,10 +1385,33 @@ router.get("/analytics/charts", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req);
   const chartsBaseConditions: any[] = [isNull(ordersTable.deletedAt)];
   if (tenantId !== null) chartsBaseConditions.push(eq(ordersTable.tenantId, tenantId));
-  const allOrders = await db
-    .select()
-    .from(ordersTable)
-    .where(and(...chartsBaseConditions));
+
+  const manifestsChartConditions: any[] = [];
+  if (tenantId !== null) manifestsChartConditions.push(eq(shippingManifestsTable.tenantId, tenantId));
+
+  const [allOrders, chartsManifests, chartsManifestOrders] = await Promise.all([
+    db.select().from(ordersTable).where(and(...chartsBaseConditions)),
+    db.select({ id: shippingManifestsTable.id, manualShippingCost: shippingManifestsTable.manualShippingCost })
+      .from(shippingManifestsTable)
+      .where(manifestsChartConditions.length ? and(...manifestsChartConditions) : undefined),
+    db.select({ manifestId: shippingManifestOrdersTable.manifestId, orderId: shippingManifestOrdersTable.orderId })
+      .from(shippingManifestOrdersTable),
+  ]);
+
+  // بناء chartsShippingPerOrder map لطرح تكلفة بيانات الشحن من الإيرادات
+  const chartsManifestOrderCount = new Map<number, number>();
+  for (const mo of chartsManifestOrders) {
+    chartsManifestOrderCount.set(mo.manifestId, (chartsManifestOrderCount.get(mo.manifestId) ?? 0) + 1);
+  }
+  const chartsShippingPerOrder = new Map<number, number>();
+  for (const mo of chartsManifestOrders) {
+    const manifest = chartsManifests.find(m => m.id === mo.manifestId);
+    const cost = Number(manifest?.manualShippingCost ?? 0);
+    if (cost > 0) {
+      const count = chartsManifestOrderCount.get(mo.manifestId) ?? 1;
+      chartsShippingPerOrder.set(mo.orderId, (chartsShippingPerOrder.get(mo.orderId) ?? 0) + cost / count);
+    }
+  }
 
   // Group by invoiceNumber — multi-product invoices count as ONE order
   type InvoiceGroup = {
@@ -1428,7 +1451,9 @@ router.get("/analytics/charts", async (req, res): Promise<void> => {
       // طرح تكلفة الشحن مرة واحدة لكل فاتورة
       if (!(grp as any).__shippingDeducted) {
         (grp as any).__shippingDeducted = true;
-        grp.revenue -= o.shippingCost ?? 0;
+        // طرح تكلفة الشحن: من الأوردر مباشرة + من بيان الشحن (manifest)
+        const totalShipping = (o.shippingCost ?? 0) + (chartsShippingPerOrder.get(o.id) ?? 0);
+        grp.revenue -= totalShipping;
       }
     }
   }
