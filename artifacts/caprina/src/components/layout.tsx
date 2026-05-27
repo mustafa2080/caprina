@@ -270,12 +270,11 @@ export default function Layout({ children }: LayoutProps) {
 
   const visibleNav = useMemo(() => {
     return ALL_NAV.filter((item) => {
-      // Admin يشوف كل حاجة
       if (isAdmin) return true;
-      // يكفي أي واحد منهم: section_key أو permission_key
-      const sectionOk  = item.section    ? can(item.section)    : false;
-      const permOk     = item.permission ? can(item.permission) : false;
-      return sectionOk || permOk;
+      // لازم الـ section يكون مفعّل (section_xxx) والـ permission موجودة
+      const sectionOk = item.section ? can(item.section) : true;
+      const permOk    = item.permission ? can(item.permission) : true;
+      return sectionOk && permOk;
     });
   }, [can, isAdmin]);
 
