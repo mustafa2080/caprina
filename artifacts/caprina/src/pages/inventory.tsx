@@ -224,11 +224,11 @@ function printProductInventory(product: Product, variants: ProductVariant[], war
 export default function Inventory() {
   const { can, isAdmin } = useAuth();
   // ── Inventory permission shortcuts ────────────────────────────────────────
-  const canEdit        = can("inventory.edit");
-  const canDelete      = can("inventory.delete");
+  const canEdit        = isAdmin || can("inventory.edit");
+  const canDelete      = isAdmin || can("inventory.delete");
   const canSeeCost     = isAdmin || can("inventory.cost");
-  const canMovements   = can("inventory.movements");
-  const canWarehouses  = can("inventory.warehouses");
+  const canMovements   = isAdmin || can("inventory.movements");
+  const canWarehouses  = isAdmin || can("inventory.warehouses");
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [expandedProductId, setExpandedProductId] = useState<number | null>(null);

@@ -503,8 +503,8 @@ function StockEditor({ warehouseId, onClose, canEdit }: { warehouseId: number; o
 }
 
 export default function WarehousesPage() {
-  const { can } = useAuth();
-  const canEdit = can("edit_inventory");
+  const { can, isAdmin } = useAuth();
+  const canEdit = isAdmin || can("inventory.warehouses");
   const { toast } = useToast();
   const qc = useQueryClient();
   const [formOpen, setFormOpen] = useState(false);
