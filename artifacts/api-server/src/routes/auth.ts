@@ -56,7 +56,8 @@ router.post("/login", loginLimiter, async (req, res): Promise<void> => {
     return;
   }
 
-  const token = signToken(user);
+  const finalPerms = parsePermissions(user.permissions);
+  const token = signToken({ ...user, permissions: finalPerms } as any);
 
   await logAudit({
     action: "login",
@@ -67,7 +68,6 @@ router.post("/login", loginLimiter, async (req, res): Promise<void> => {
     userName: user.displayName,
   });
 
-  const finalPerms = parsePermissions(user.permissions);
   const { passwordHash: _, ...safeUser } = user;
   res.json({ token, user: { ...safeUser, permissions: finalPerms } });
 });
