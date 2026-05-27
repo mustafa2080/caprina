@@ -391,7 +391,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // "__customized__" marker = الـ permissions اتعدلت عمداً → مش نرجع للـ defaults أبداً
       // لو فاضية بدون marker = مستخدم قديم → نرجع للـ defaults
       const isCustomized = rawPerms.includes("__customized__");
-      const realPerms = rawPerms.filter(p => p !== "__customized__");
+      const realPerms = rawPerms.filter(p => p !== "__customized__" && !p.startsWith("__rolename__"));
 
       if (!isCustomized && realPerms.length === 0) {
         // مستخدم قديم مفيش عنده permissions — نرجع للـ defaults

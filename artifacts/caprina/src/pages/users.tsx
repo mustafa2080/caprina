@@ -510,7 +510,10 @@ export default function UsersPage() {
       avatar: (u as any).avatar ?? "",
     });
     setShowPassword(false);
-    const savedCustomName = (u as any).customRoleName ?? "";
+    // استخرج الـ customRoleName من الـ permissions markers
+    const rawPermsForEdit = flattenPermissions((u as any).permissions ?? []);
+    const roleNameMarker = rawPermsForEdit.find(p => p.startsWith("__rolename__"));
+    const savedCustomName = roleNameMarker ? roleNameMarker.replace("__rolename__", "") : ((u as any).customRoleName ?? "");
     setSelectedTemplate(savedCustomName ? "custom" : null);
     setCustomRoleName(savedCustomName);
     setModalTab("account");
@@ -583,11 +586,25 @@ export default function UsersPage() {
 
   const handleSubmit = () => {
     if (!form.displayName.trim()) { toast({ title: "خطأ", description: "الاسم مطلوب", variant: "destructive" }); return; }
+
+    // نضيف marker عشان نعرف إن الـ permissions اتعدلت عمداً (مش fallback للـ defaults)
+    let permsWithMarker = form.permissions.includes("__customized__")
+      ? form.permissions
+      : ["__customized__", ...form.permissions];
+
+    // لو مخصص، نحفظ اسم الوظيفة جوا الـ permissions كـ marker
+    // أولاً: نشيل أي __rolename__ قديم
+    permsWithMarker = permsWithMarker.filter(p => !p.startsWith("__rolename__"));
+    // لو فيه customRoleName نضيفه
+    if (selectedTemplate === "custom" && customRoleName.trim()) {
+      permsWithMarker = [...permsWithMarker, `__rolename__${customRoleName.trim()}`];
+    }
+
     if (editingUser) {
       const data: any = {
         displayName: form.displayName,
         role: form.role,
-        permissions: form.permissions,
+        permissions: permsWithMarker,
         avatar: form.avatar || null,
       };
       if (form.password) data.password = form.password;
@@ -600,7 +617,7 @@ export default function UsersPage() {
         password: form.password,
         displayName: form.displayName.trim(),
         role: form.role,
-        permissions: form.permissions,
+        permissions: permsWithMarker,
         avatar: form.avatar || undefined,
       });
     }
@@ -744,7 +761,11 @@ export default function UsersPage() {
                     </div>
                     <p className="text-[11px] text-muted-foreground font-mono truncate mt-0.5">@{u.username}</p>
                     <Badge variant="outline" className={`mt-1.5 text-[10px] font-bold ${ROLE_COLORS[u.role]}`}>
-                      {ROLE_LABELS[u.role]}
+                      {(() => {
+                        const perms = flattenPermissions((u as any).permissions ?? []);
+                        const marker = perms.find(p => p.startsWith("__rolename__"));
+                        return marker ? marker.replace("__rolename__", "") : ROLE_LABELS[u.role];
+                      })()}
                     </Badge>
                   </div>
                 </div>
