@@ -484,8 +484,9 @@ export default function UsersPage() {
       avatar: (u as any).avatar ?? "",
     });
     setShowPassword(false);
-    setSelectedTemplate(null);
-    setCustomRoleName("");
+    const savedCustomName = (u as any).customRoleName ?? "";
+    setSelectedTemplate(savedCustomName ? "custom" : null);
+    setCustomRoleName(savedCustomName);
     setModalTab("account");
     setDialogOpen(true);
   };

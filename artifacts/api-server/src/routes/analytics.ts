@@ -1,7 +1,7 @@
 ﻿import { Router, type IRouter } from "express";
 import { db, ordersTable, productsTable, productVariantsTable, shippingCompaniesTable, shippingManifestsTable, shippingManifestOrdersTable } from "@workspace/db";
 import { eq, isNull, and, desc, lte, gte, sql, inArray } from "drizzle-orm";
-import { requireAdmin } from "../middlewares/requireRole.js";
+import { requireAdmin, requirePermission } from "../middlewares/requireRole.js";
 import { requireAuth } from "../middlewares/requireAuth.js";
 import { getTenantId } from "../middlewares/requireTenant.js";
 
@@ -162,7 +162,7 @@ function periodStats(
 }
 
 // ─── GET /api/analytics/profit ──────────────────────────────────────────────────
-router.get("/analytics/profit", requireAdmin, async (req, res): Promise<void> => {
+router.get("/analytics/profit", requirePermission("orders.financials"), async (req, res): Promise<void> => {
   const tenantId = getTenantId(req);
   const now = new Date();
 
@@ -343,7 +343,7 @@ router.get("/analytics/profit", requireAdmin, async (req, res): Promise<void> =>
 });
 
 // ─── GET /api/analytics/financial-summary ──────────────────────────────────────
-router.get("/analytics/financial-summary", requireAdmin, async (req, res): Promise<void> => {
+router.get("/analytics/financial-summary", requirePermission("orders.financials"), async (req, res): Promise<void> => {
   const tenantId = getTenantId(req);
   const fromParam = req.query.from as string | undefined;
   const toParam   = req.query.to   as string | undefined;
@@ -563,7 +563,7 @@ router.get("/analytics/damaged-orders", requireAdmin, async (req, res): Promise<
 
 // ─── GET /api/analytics/product-performance ─────────────────────────────────────
 // Full per-product breakdown: revenue, profit, returns, margin, avg price
-router.get("/analytics/product-performance", requireAdmin, async (req, res): Promise<void> => {
+router.get("/analytics/product-performance", requirePermission("orders.financials"), async (req, res): Promise<void> => {
   try {
   const tenantId = getTenantId(req);
   const cacheKey = `product-performance:${tenantId ?? "global"}`;
