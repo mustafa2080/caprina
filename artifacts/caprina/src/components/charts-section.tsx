@@ -771,7 +771,7 @@ const WeeklyBars = memo(function WeeklyBars({
                 <p className="text-base font-black" style={{ color: GLASS_ORANGE }}>{weekComparison.prevWeek.orders}</p>
               </div>
               <div className="flex flex-col items-center gap-1">
-                <p className="text-[10px] text-muted-foreground">الإيرادات</p>
+                <p className="text-[10px] text-muted-foreground">الإيرادات (بعد الشحن)</p>
                 <p className="text-base font-black" style={{ color: GLASS_PURPLE }}>{fc(weekComparison.prevWeek.revenue)}</p>
               </div>
               <div className="flex flex-col items-center gap-1">
@@ -787,7 +787,7 @@ const WeeklyBars = memo(function WeeklyBars({
                 <p className="text-base font-black" style={{ color: GLASS_ORANGE }}>{monthlyTotalOrders}</p>
               </div>
               <div className="flex flex-col items-center gap-1 rounded-2xl px-2 py-2" style={{ background: "rgba(126,87,194,0.08)" }}>
-                <p className="text-[10px] text-muted-foreground">الإيرادات</p>
+                <p className="text-[10px] text-muted-foreground">الإيرادات (بعد الشحن)</p>
                 <p className="text-base font-black" style={{ color: GLASS_PURPLE }}>{fc(monthlyRevenue)}</p>
               </div>
               <div className="flex flex-col items-center gap-1 rounded-2xl px-2 py-2" style={{ background: "rgba(38,166,154,0.08)" }}>

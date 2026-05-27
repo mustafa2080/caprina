@@ -1425,6 +1425,11 @@ router.get("/analytics/charts", async (req, res): Promise<void> => {
     if (o.status === "received" || o.status === "partial_received") {
       const qty = o.status === "partial_received" ? (o.partialQuantity ?? o.quantity) : o.quantity;
       grp.revenue += qty * o.unitPrice;
+      // طرح تكلفة الشحن مرة واحدة لكل فاتورة
+      if (!(grp as any).__shippingDeducted) {
+        (grp as any).__shippingDeducted = true;
+        grp.revenue -= o.shippingCost ?? 0;
+      }
     }
   }
   // حوّل لـ invoiceMap: نفس منطق صفحة الطلبات — أولوية الحالات
