@@ -67,8 +67,16 @@ const FINANCE_NAV = [
 ];
 
 const ROLE_LABELS: Record<string, string> = {
-  admin: "مدير", employee: "موظف مبيعات", warehouse: "مسؤول مخزون",
+  admin: "مدير", employee: "موظف مبيعات", warehouse: "مسؤول مخزون", custom: "مخصص",
 };
+
+function getRoleLabel(user: any): string {
+  if (!user) return "";
+  const perms: string[] = Array.isArray(user.permissions) ? user.permissions : [];
+  const marker = perms.find((p: string) => p.startsWith("__rolename__"));
+  if (marker) return marker.replace("__rolename__", "");
+  return ROLE_LABELS[user.role ?? ""] ?? user.role ?? "";
+}
 
 function NavItem({ item, location, sub = false, collapsed = false }: { item: any; location: string; sub?: boolean; collapsed?: boolean }) {
   const isActive = item.exact
@@ -500,7 +508,7 @@ export default function Layout({ children }: LayoutProps) {
                   </div>
                   <div className="flex-1 min-w-0 text-right">
                     <p className="text-xs font-bold text-sidebar-foreground truncate">{user?.displayName}</p>
-                    <p className="text-[10px] text-sidebar-foreground/45 truncate">{ROLE_LABELS[user?.role ?? ""] ?? user?.role}</p>
+                    <p className="text-[10px] text-sidebar-foreground/45 truncate">{getRoleLabel(user)}</p>
                   </div>
                   <ChevronDown className={cn("w-3.5 h-3.5 text-sidebar-foreground/30 shrink-0 transition-transform", userMenuOpen && "rotate-180")} />
                 </button>
@@ -645,7 +653,7 @@ export default function Layout({ children }: LayoutProps) {
                 </button>
                 <div className="flex-1 min-w-0 text-right">
                   <p className="text-xs font-bold text-sidebar-foreground truncate">{user?.displayName}</p>
-                  <p className="text-[10px] text-sidebar-foreground/40">{ROLE_LABELS[user?.role ?? ""] ?? user?.role}</p>
+                  <p className="text-[10px] text-sidebar-foreground/40">{getRoleLabel(user)}</p>
                 </div>
                 <div className="relative shrink-0">
                   {(user as any)?.avatar
@@ -771,7 +779,7 @@ export default function Layout({ children }: LayoutProps) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-bold text-sidebar-foreground truncate">{user?.displayName}</p>
-                    <p className="text-[10px] text-sidebar-foreground/40">{ROLE_LABELS[user?.role ?? ""] ?? user?.role}</p>
+                    <p className="text-[10px] text-sidebar-foreground/40">{getRoleLabel(user)}</p>
                   </div>
                 </div>
                 <button type="button" onClick={() => { setMobileMenuOpen(false); setPwDialogOpen(true); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs rounded-md hover:bg-foreground/5 transition-colors text-sidebar-foreground/70">
