@@ -2,7 +2,7 @@ import { mysqlTable, text, int, boolean, datetime, json, varchar, mediumtext } f
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
-export const USER_ROLES = ["super_admin", "admin", "employee", "warehouse"] as const;
+export const USER_ROLES = ["super_admin", "admin", "employee", "warehouse", "custom"] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
 export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
@@ -10,6 +10,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   admin: ["*"],
   employee: ["orders", "dashboard"],
   warehouse: ["inventory", "movements", "dashboard"],
+  custom: [],
 };
 
 export const usersTable = mysqlTable("users", {
