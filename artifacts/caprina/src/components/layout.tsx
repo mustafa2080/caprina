@@ -270,11 +270,14 @@ export default function Layout({ children }: LayoutProps) {
 
   const visibleNav = useMemo(() => {
     return ALL_NAV.filter((item) => {
-      const sectionOk = item.section ? can(item.section) : true;
-      const permOk    = item.permission === item.section ? true : can(item.permission);
-      return sectionOk && permOk;
+      // Admin يشوف كل حاجة
+      if (isAdmin) return true;
+      // يكفي أي واحد منهم: section_key أو permission_key
+      const sectionOk  = item.section    ? can(item.section)    : false;
+      const permOk     = item.permission ? can(item.permission) : false;
+      return sectionOk || permOk;
     });
-  }, [can]);
+  }, [can, isAdmin]);
 
   // لو اليوزر واقف على صفحة اتشالت صلاحيتها → ننقله لأول صفحة متاحة
   const redirectingRef = useRef(false);

@@ -181,6 +181,32 @@ const PERM_TO_SECTION: Record<string, string> = {
   "settings.sessions":         "section_sessions_report",
 };
 
+// ── الصلاحية الأساسية لكل section — تُضاف تلقائياً لما الـ section يتفعّل ──
+const SECTION_TO_PRIMARY_PERM: Record<string, string> = {
+  "section_dashboard":           "dashboard.view",
+  "section_orders":              "orders.view",
+  "section_new_order":           "orders.create",
+  "section_archive":             "orders.view",
+  "section_shipping_followup":   "section_shipping_followup",
+  "section_shipping":            "shipping.view",
+  "section_inventory":           "inventory.view",
+  "section_warehouses":          "inventory.warehouses",
+  "section_movements":           "inventory.movements",
+  "section_product_performance": "analytics.products",
+  "section_smart_analytics":     "analytics.smart",
+  "section_ads_analytics":       "analytics.ads",
+  "section_team_management":     "team.view",
+  "section_team_performance":    "team.performance",
+  "section_finance":             "finance.view",
+  "section_invoices":            "invoices.view",
+  "section_import":              "tools.import",
+  "section_export_data":         "tools.export",
+  "section_users":               "settings.users",
+  "section_sessions_report":     "settings.sessions",
+  "section_audit":               "settings.audit",
+  "section_whatsapp":            "settings.whatsapp",
+};
+
 // ── تعريف موحد لكل الأقسام المرئية — يُستخدم في تاب الأقسام و DEFAULT_PERMISSIONS ──
 const ALL_SECTIONS: Array<{ key: string; label: string; icon: string; color: string; bg: string }> = [
   { key: "section_dashboard",           label: "لوحة التحكم",         icon: "🏠", color: "text-blue-400",    bg: "bg-blue-500/10 border-blue-500/30" },
@@ -532,7 +558,7 @@ export default function UsersPage() {
   });
 
   // لما section يتشال → اشيل كل الصلاحيات المرتبطة بيه تلقائياً
-  // لما section يتضاف → ضيفه بس (الصلاحيات اختيارية)
+  // لما section يتضاف → ضيفه + الـ primary permission تلقائياً
   const toggleSection = (sectionKey: string) => setForm(f => {
     const isOn = f.permissions.includes(sectionKey);
     if (isOn) {
@@ -545,8 +571,13 @@ export default function UsersPage() {
         permissions: f.permissions.filter(p => p !== sectionKey && !linkedPerms.includes(p)),
       };
     } else {
-      // ضيف الـ section بس
-      return { ...f, permissions: [...f.permissions, sectionKey] };
+      // ضيف الـ section + الـ primary permission المقابلة تلقائياً
+      const primaryPerm = SECTION_TO_PRIMARY_PERM[sectionKey];
+      const toAdd = [sectionKey];
+      if (primaryPerm && primaryPerm !== sectionKey && !f.permissions.includes(primaryPerm)) {
+        toAdd.push(primaryPerm);
+      }
+      return { ...f, permissions: [...f.permissions, ...toAdd] };
     }
   });
 
