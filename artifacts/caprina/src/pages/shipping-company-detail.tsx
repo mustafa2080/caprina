@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useParams, Link, useLocation } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { shippingApi, manifestsApi, type ShippingManifestListItem } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -135,6 +136,9 @@ export default function ShippingCompanyDetailPage() {
   const qc = useQueryClient();
   const [, navigate] = useLocation();
   const [showNewManifest, setShowNewManifest] = useState(false);
+  const { can, isAdmin } = useAuth();
+  const canFinancials = isAdmin || can("shipping.financials");
+  const canManifests  = isAdmin || can("shipping.manifests");
 
   const { data: companies } = useQuery({ queryKey: ["shipping"], queryFn: shippingApi.list });
   const company = companies?.find((c) => c.id === companyId);
@@ -189,13 +193,15 @@ export default function ShippingCompanyDetailPage() {
             </div>
           </div>
         </div>
-        <Button
-          size="sm"
-          className="h-8 text-xs gap-1 bg-primary text-primary-foreground hover:bg-primary/90 font-bold shrink-0"
-          onClick={() => setShowNewManifest(true)}
-        >
-          <PackagePlus className="w-3.5 h-3.5" />بيان جديد
-        </Button>
+        {canManifests && (
+          <Button
+            size="sm"
+            className="h-8 text-xs gap-1 bg-primary text-primary-foreground hover:bg-primary/90 font-bold shrink-0"
+            onClick={() => setShowNewManifest(true)}
+          >
+            <PackagePlus className="w-3.5 h-3.5" />بيان جديد
+          </Button>
+        )}
       </div>
 
       {/* ─── Stats Cards ─── */}
@@ -217,16 +223,26 @@ export default function ShippingCompanyDetailPage() {
             <p className="text-[10px] text-amber-600">{(stats as any).postponed ?? stats.pending} مؤجَّل</p>
           </Card>
           <Card className={`p-3 text-center border ${stats.netProfit >= 0 ? "border-primary/30 bg-primary/5" : "border-red-900/40 bg-red-900/10"}`}>
-            <p className="text-[10px] text-muted-foreground mb-0.5">صافي الربح</p>
-            <p className={`text-xl font-black ${stats.netProfit >= 0 ? "text-primary" : "text-red-400"}`}>
-              {formatCurrency(Math.abs(stats.netProfit))}
-            </p>
-            <p className="text-[10px] flex items-center justify-center gap-0.5 text-muted-foreground">
-              {stats.netProfit >= 0
-                ? <TrendingUp className="w-3 h-3 text-emerald-400" />
-                : <TrendingDown className="w-3 h-3 text-red-400" />}
-              {stats.netProfit >= 0 ? "ربح" : "خسارة"}
-            </p>
+            {canFinancials ? (
+              <>
+                <p className="text-[10px] text-muted-foreground mb-0.5">صافي الربح</p>
+                <p className={`text-xl font-black ${stats.netProfit >= 0 ? "text-primary" : "text-red-400"}`}>
+                  {formatCurrency(Math.abs(stats.netProfit))}
+                </p>
+                <p className="text-[10px] flex items-center justify-center gap-0.5 text-muted-foreground">
+                  {stats.netProfit >= 0
+                    ? <TrendingUp className="w-3 h-3 text-emerald-400" />
+                    : <TrendingDown className="w-3 h-3 text-red-400" />}
+                  {stats.netProfit >= 0 ? "ربح" : "خسارة"}
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-[10px] text-muted-foreground mb-0.5">البيانات</p>
+                <p className="text-xl font-black text-muted-foreground">—</p>
+                <p className="text-[10px] text-muted-foreground/50">غير مصرّح</p>
+              </>
+            )}
           </Card>
         </div>
       )}

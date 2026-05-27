@@ -629,11 +629,11 @@ export function CreateManifestDialog({
 
 export default function ShippingCompanies() {
   const { toast } = useToast();
-  const { can, canViewFinancials } = useAuth();
+  const { can, isAdmin, canViewFinancials } = useAuth();
   // ── Shipping permission shortcuts ──────────────────────────────────────────
-  const canEdit      = can("shipping.edit");
-  const canFinancials = can("shipping.financials");
-  const canManifests  = can("shipping.manifests");
+  const canEdit       = isAdmin || can("shipping.edit");
+  const canFinancials = isAdmin || can("shipping.financials");
+  const canManifests  = isAdmin || can("shipping.manifests");
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<ShippingCompany | null>(null);
