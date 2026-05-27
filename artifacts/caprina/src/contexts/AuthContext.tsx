@@ -388,21 +388,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // "*" يعني كل الصلاحيات
       if (rawPerms.includes("*")) return true;
 
-      // لو permissions فاضية تماماً — استخدم الافتراضية للدور
-      if (rawPerms.length === 0) {
+      // "__customized__" marker = الـ permissions اتعدلت عمداً → مش نرجع للـ defaults أبداً
+      // لو فاضية بدون marker = مستخدم قديم → نرجع للـ defaults
+      const isCustomized = rawPerms.includes("__customized__");
+      const realPerms = rawPerms.filter(p => p !== "__customized__");
+
+      if (!isCustomized && realPerms.length === 0) {
+        // مستخدم قديم مفيش عنده permissions — نرجع للـ defaults
         const defaults = ROLE_DEFAULT_PERMISSIONS[user.role] ?? [];
         return defaults.includes(permission);
       }
 
-      // لو الـ permission مش بيحتوي نقطة (مثلاً "orders") →
+      if (isCustomized && realPerms.length === 0) {
+        // اتعدل عمداً وشال كل حاجة → مفيش صلاحيات خالص
+        return false;
+      }
+
+      // لو الـ permission مش بيحتوي نقطة (مثلاً "orders" أو "section_orders") →
       // يكفي وجود "orders" أو أي صلاحية تفصيلية تبدأ بـ "orders."
       if (!permission.includes(".")) {
-        if (rawPerms.includes(permission)) return true;
-        return rawPerms.some(p => p.startsWith(permission + "."));
+        if (realPerms.includes(permission)) return true;
+        return realPerms.some(p => p.startsWith(permission + "."));
       }
 
       // صلاحية تفصيلية (مثلاً "orders.view") — لازم تكون موجودة بالضبط
-      return rawPerms.includes(permission);
+      return realPerms.includes(permission);
     },
     [user]
   );
