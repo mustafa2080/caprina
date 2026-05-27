@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { auditApi, type AuditLogEntry } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -90,10 +91,23 @@ function ChangeDetails({ before, after }: { before: Record<string, unknown> | nu
 }
 
 export default function AuditLogsPage() {
+  const { isAdmin, can } = useAuth();
   const [search, setSearch] = useState("");
   const [entityType, setEntityType] = useState("");
   const [action, setAction] = useState("");
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
+
+  if (!isAdmin && !can("settings.audit")) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center px-4">
+        <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center">
+          <span className="text-3xl">🔒</span>
+        </div>
+        <h2 className="text-xl font-bold">غير مصرح بالوصول</h2>
+        <p className="text-muted-foreground text-sm max-w-xs">ليس لديك صلاحية لعرض سجل العمليات. تواصل مع المدير.</p>
+      </div>
+    );
+  }
 
   const { data: logs = [], isLoading, refetch, isFetching } = useQuery({
     queryKey: ["audit-logs", search, entityType, action],

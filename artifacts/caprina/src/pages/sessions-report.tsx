@@ -50,7 +50,8 @@ function Avatar({ name }: { name: string }) {
 }
 
 export default function SessionsReportPage() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, can } = useAuth();
+  const canSessions = isAdmin || can("settings.sessions");
   const [period, setPeriod] = useState<Period>("week");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -63,10 +64,10 @@ export default function SessionsReportPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["sessions-report", period, from, to],
     queryFn: () => sessionsApi.report(params),
-    enabled: isAdmin && (period !== "custom" || (!!from && !!to)),
+    enabled: canSessions && (period !== "custom" || (!!from && !!to)),
   });
 
-  if (!isAdmin) {
+  if (!canSessions) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]" dir="rtl">
         <div className="text-center space-y-3">

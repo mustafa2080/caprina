@@ -162,9 +162,9 @@ const MODES: { id: ImportMode; label: string; desc: string; icon: any; color: st
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function Import() {
-  const { user, can } = useAuth();
+  const { isAdmin, can } = useAuth();
   // ── Import access guard ────────────────────────────────────────────────────
-  if (user?.role !== "admin" && !can("tools.import")) {
+  if (!isAdmin && !can("tools.import")) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center px-4">
         <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center">
