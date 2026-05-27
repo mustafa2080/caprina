@@ -539,9 +539,14 @@ export default function UsersPage() {
   };
 
   const handleRoleChange = (role: string) => {
-    setForm(f => ({ ...f, role, permissions: DEFAULT_PERMISSIONS[role]?.() ?? [] }));
-    setSelectedTemplate(null);
-    setCustomRoleName("");
+    // لو مخصص محدد، نحافظ على الصلاحيات المخصصة ونغير الـ role بس
+    if (selectedTemplate === "custom") {
+      setForm(f => ({ ...f, role }));
+    } else {
+      setForm(f => ({ ...f, role, permissions: DEFAULT_PERMISSIONS[role]?.() ?? [] }));
+      setSelectedTemplate(null);
+      setCustomRoleName("");
+    }
   };
 
   const applyTemplate = (templateKey: string) => {
