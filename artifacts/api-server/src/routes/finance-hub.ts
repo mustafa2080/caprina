@@ -19,7 +19,7 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
     const tOrder   = tenantId !== null ? [eq(ordersTable.tenantId, tenantId)]                         : [];
     const tExp     = tenantId !== null ? [eq(expensesTable.tenantId, tenantId)]                       : [];
     const tReg     = tenantId !== null ? [eq(cashRegistersTable.tenantId, tenantId)]                  : [];
-    const tShipInv = tenantId !== null ? [eq(shippingFinancialInvoicesTable.tenantId, tenantId)]      : [];
+    const tShipInv: any[] = []; // shippingFinancialInvoicesTable has no tenantId column
 
     // الفترة السابقة للمقارنة
     const diffMs   = curTo.getTime() - curFrom.getTime();

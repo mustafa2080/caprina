@@ -306,7 +306,7 @@ const ShipInvSchema = z.object({
 router.get("/finance/shipping-invoices", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req);
   const conditions: any[] = [];
-  if (tenantId !== null) conditions.push(eq(shippingFinancialInvoicesTable.tenantId, tenantId));
+  // shippingFinancialInvoicesTable has no tenantId column — no tenant filter needed
   const invoices = await db.select().from(shippingFinancialInvoicesTable)
     .where(conditions.length ? and(...conditions) : undefined)
     .orderBy(desc(shippingFinancialInvoicesTable.invoiceDate));
@@ -448,7 +448,7 @@ router.delete("/finance/shipping-invoices/:id", async (req, res): Promise<void> 
     const tenantId = getTenantId(req);
 
     const conds: any[] = [eq(shippingFinancialInvoicesTable.id, id)];
-    if (tenantId !== null) conds.push(eq(shippingFinancialInvoicesTable.tenantId, tenantId));
+    // no tenantId column on shippingFinancialInvoicesTable
 
     const [inv] = await db.select().from(shippingFinancialInvoicesTable).where(and(...conds));
     if (!inv) { res.status(404).json({ error: "الفاتورة غير موجودة" }); return; }
@@ -617,7 +617,7 @@ router.get("/finance/analytics", async (req, res): Promise<void> => {
       sql`status IN ('pending','verified')`,
       sql`due_date IS NOT NULL`,
       lt(shippingFinancialInvoicesTable.dueDate as any, now),
-      ...(tenantId !== null ? [eq(shippingFinancialInvoicesTable.tenantId, tenantId)] : []),
+      // no tenantId column on shippingFinancialInvoicesTable
     ));
 
   const [inShipping] = await db.select({
@@ -630,7 +630,7 @@ router.get("/finance/analytics", async (req, res): Promise<void> => {
   ));
 
   const unpaidConditions: any[] = [sql`status IN ('pending','verified')`];
-  if (tenantId !== null) unpaidConditions.push(eq(shippingFinancialInvoicesTable.tenantId, tenantId));
+  // no tenantId column on shippingFinancialInvoicesTable
   const [unpaidShipping] = await db.select({
     total: sql<number>`COALESCE(SUM(CAST(net_due AS DECIMAL(14,2)) - COALESCE(CAST(paid_amount AS DECIMAL(14,2)),0)), 0)`,
     count: sql<number>`COUNT(*)`,
