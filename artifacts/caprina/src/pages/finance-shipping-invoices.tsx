@@ -1,4 +1,5 @@
-﻿import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+﻿import { useAuth } from "@/contexts/AuthContext";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { Card } from "@/components/ui/card";

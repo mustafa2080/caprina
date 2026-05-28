@@ -1,4 +1,5 @@
-﻿import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+﻿import { useAuth } from "@/contexts/AuthContext";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Card } from "@/components/ui/card";

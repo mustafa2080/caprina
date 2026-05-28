@@ -1,4 +1,5 @@
-﻿import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+﻿import { useAuth } from "@/contexts/AuthContext";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Archive, RotateCcw, Star, RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
