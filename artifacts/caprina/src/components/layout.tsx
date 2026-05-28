@@ -240,7 +240,7 @@ function NavGroup({ label, icon: Icon, iconColor, location, prefixes, excludePre
 
 export default function Layout({ children }: LayoutProps) {
   const [location] = useLocation();
-  const { user, logout, can, isAdmin } = useAuth();
+  const { user, logout, can, isAdmin, isSuperAdmin } = useAuth();
   const { theme, toggleTheme, setTheme } = useTheme();
   const { toast } = useToast();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -609,6 +609,14 @@ export default function Layout({ children }: LayoutProps) {
             {visibleNav.some(i => i.group === "settings") && (
               <NavGroup label="الإعدادات والدعم" icon={Settings} iconColor="text-emerald-500" location={location} prefixes={["/whatsapp","/audit-logs"]} isOpen={openGroup === "settings"} onToggle={() => toggleGroup("settings", visibleNav.find(i => i.group === "settings")?.href)} collapsed={sidebarCollapsed} onExpandSidebar={() => setSidebarCollapsed(false)} firstHref={visibleNav.find(i => i.group === "settings")?.href} groupKey="settings">
                 {visibleNav.filter(i => i.group === "settings").map(item => <NavItem key={item.href+item.label} item={item} location={location} sub />)}
+              </NavGroup>
+            )}
+
+            {/* ── قسم السوبر ادمن ── */}
+            {isSuperAdmin && (
+              <NavGroup label="إدارة النظام" icon={Crown} iconColor="text-yellow-400" location={location} prefixes={["/super-admin"]} isOpen={openGroup === "superadmin"} onToggle={() => toggleGroup("superadmin", "/super-admin")} collapsed={sidebarCollapsed} onExpandSidebar={() => setSidebarCollapsed(false)} firstHref="/super-admin" groupKey="superadmin">
+                <NavItem item={{ href: "/super-admin", label: "لوحة السوبر أدمن", icon: Crown, iconColor: "text-yellow-400", exact: true }} location={location} sub />
+                <NavItem item={{ href: "/super-admin?tab=subscriptions", label: "الاشتراكات", icon: Receipt, iconColor: "text-amber-400" }} location={location} sub />
               </NavGroup>
             )}
           </nav>
