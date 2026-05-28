@@ -16,6 +16,7 @@ export interface AuthUser {
   role: "super_admin" | "admin" | "employee" | "warehouse";
   permissions: string[];
   isActive: boolean;
+  planStatus?: "active" | "expired" | "suspended" | "grace";
 }
 
 interface AuthContextValue {

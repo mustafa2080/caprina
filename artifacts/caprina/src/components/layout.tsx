@@ -616,7 +616,7 @@ export default function Layout({ children }: LayoutProps) {
             {isSuperAdmin && (
               <NavGroup label="إدارة النظام" icon={Crown} iconColor="text-yellow-400" location={location} prefixes={["/super-admin"]} isOpen={openGroup === "superadmin"} onToggle={() => toggleGroup("superadmin", "/super-admin")} collapsed={sidebarCollapsed} onExpandSidebar={() => setSidebarCollapsed(false)} firstHref="/super-admin" groupKey="superadmin">
                 <NavItem item={{ href: "/super-admin", label: "لوحة السوبر أدمن", icon: Crown, iconColor: "text-yellow-400", exact: true }} location={location} sub />
-                <NavItem item={{ href: "/super-admin?tab=subscriptions", label: "الاشتراكات", icon: Receipt, iconColor: "text-amber-400" }} location={location} sub />
+                <NavItem item={{ href: "/super-admin", label: "الاشتراكات", icon: Receipt, iconColor: "text-amber-400" }} location={location} sub />
               </NavGroup>
             )}
           </nav>

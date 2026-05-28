@@ -99,6 +99,7 @@ const CommercialClientDetail      = lazy(() => import("@/pages/commercial-client
 const SalesReportPage              = lazy(() => import("@/pages/finance-sales-report"));
 const AllClientsPage              = lazy(() => import("@/pages/finance-all-clients"));
 const SuperAdminPage        = lazy(() => import("@/pages/super-admin"));
+const SubscriptionExpired   = lazy(() => import("@/pages/subscription-expired"));
 
 // ─── Global QueryClient with smart caching defaults ──────────────────────────
 const queryClient = new QueryClient({
@@ -190,6 +191,21 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   if (!user && location !== "/login") return <Redirect to="/login" />;
+
+  // ── Subscription expired check ──
+  if (user && user.role !== "super_admin" && location !== "/subscription-expired") {
+    const subStatus = user.planStatus;
+    if (subStatus === "expired" || subStatus === "suspended") {
+      return <Redirect to="/subscription-expired" />;
+    }
+  }
+  if (user && user.role !== "super_admin" && location === "/subscription-expired") {
+    const subStatus = user.planStatus;
+    if (subStatus !== "expired" && subStatus !== "suspended") {
+      return <Redirect to="/" />;
+    }
+  }
+
   return <>{children}</>;
 }
 
@@ -319,6 +335,8 @@ function Router() {
           <Route path="/finance/cash/archive"    component={() => <ProtectedRoute permission="finance.view" component={FinanceCashArchive} />} />
           {/* Super Admin */}
           <Route path="/super-admin" component={() => user?.role === "super_admin" ? <SuperAdminPage /> : <Redirect to="/" />} />
+          {/* Subscription Expired */}
+          <Route path="/subscription-expired" component={SubscriptionExpired} />
           <Route                                  component={NotFound} />
         </Switch>
       </Suspense>

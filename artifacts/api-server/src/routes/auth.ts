@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import rateLimit from "express-rate-limit";
-import { db, usersTable } from "@workspace/db";
+import { db, usersTable, tenantsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { signToken, comparePassword, hashPassword } from "../lib/auth.js";
 import { requireAuth } from "../middlewares/requireAuth.js";
@@ -69,7 +69,12 @@ router.post("/login", loginLimiter, async (req, res): Promise<void> => {
   });
 
   const { passwordHash: _, ...safeUser } = user;
-  res.json({ token, user: { ...safeUser, permissions: finalPerms } });
+  let loginPlanStatus: string | null = null;
+  if (user.tenantId) {
+    const [tenant] = await db.select({ planStatus: tenantsTable.planStatus }).from(tenantsTable).where(eq(tenantsTable.id, user.tenantId)).limit(1);
+    loginPlanStatus = tenant?.planStatus ?? null;
+  }
+  res.json({ token, user: { ...safeUser, permissions: finalPerms, planStatus: loginPlanStatus } });
 });
 
 // GET /auth/me
@@ -81,7 +86,13 @@ router.get("/me", requireAuth, async (req, res): Promise<void> => {
   if (!user) { res.status(404).json({ error: "المستخدم غير موجود" }); return; }
   const finalPerms = parsePermissions(user.permissions);
   const { passwordHash: _, ...safeUser } = user;
-  res.json({ ...safeUser, permissions: finalPerms });
+  // أضف planStatus من الـ tenant
+  let planStatus: string | null = null;
+  if (user.tenantId) {
+    const [tenant] = await db.select({ planStatus: tenantsTable.planStatus }).from(tenantsTable).where(eq(tenantsTable.id, user.tenantId)).limit(1);
+    planStatus = tenant?.planStatus ?? null;
+  }
+  res.json({ ...safeUser, permissions: finalPerms, planStatus });
 });
 
 // POST /auth/change-password
