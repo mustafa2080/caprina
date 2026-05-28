@@ -5,6 +5,7 @@ export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
 export const auditLogsTable = mysqlTable("audit_logs", {
   id: int("id").primaryKey().autoincrement(),
+  tenantId: int("tenant_id"),
   action: varchar("action", { length: 50 }).notNull(),
   entityType: varchar("entity_type", { length: 100 }).notNull(),
   entityId: int("entity_id"),

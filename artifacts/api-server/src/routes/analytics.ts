@@ -37,7 +37,7 @@ async function getVariantsForTenant(tenantId: number | null) {
 }
 async function getManifestsForTenant(tenantId: number | null) {
   return tenantId !== null
-    ? db.select({ id: shippingManifestsTable.id, manualShippingCost: shippingManifestsTable.manualShippingCost, createdAt: shippingManifestsTable.createdAt }).from(shippingManifestsTable).where(eq(shippingManifestsTable.tenantId, tenantId))
+    ? db.select({ id: shippingManifestsTable.id, manualShippingCost: shippingManifestsTable.manualShippingCost, createdAt: shippingManifestsTable.createdAt }).from(shippingManifestsTable).where(sql`shipping_manifests.tenant_id = ${tenantId}`)
     : db.select({ id: shippingManifestsTable.id, manualShippingCost: shippingManifestsTable.manualShippingCost, createdAt: shippingManifestsTable.createdAt }).from(shippingManifestsTable);
 }
 
@@ -189,7 +189,7 @@ router.get("/analytics/profit", requirePermission("orders.financials"), async (r
   if (tenantId !== null) variantsConditions.push(eq(productVariantsTable.tenantId, tenantId));
 
   const manifestsConditions: any[] = [];
-  if (tenantId !== null) manifestsConditions.push(eq(shippingManifestsTable.tenantId, tenantId));
+  if (tenantId !== null) manifestsConditions.push(sql`${shippingManifestsTable}.tenant_id = ${tenantId}`);
 
   const [allOrdersRaw, products, variants, manifests, manifestOrders] = await Promise.all([
     db.select().from(ordersTable).where(and(...ordersBaseConditions)),
@@ -1388,7 +1388,7 @@ router.get("/analytics/charts", async (req, res): Promise<void> => {
   if (tenantId !== null) chartsBaseConditions.push(eq(ordersTable.tenantId, tenantId));
 
   const manifestsChartConditions: any[] = [];
-  if (tenantId !== null) manifestsChartConditions.push(eq(shippingManifestsTable.tenantId, tenantId));
+  if (tenantId !== null) manifestsChartConditions.push(sql`${shippingManifestsTable}.tenant_id = ${tenantId}`);
 
   const [allOrders, chartsManifests, chartsManifestOrders] = await Promise.all([
     db.select().from(ordersTable).where(and(...chartsBaseConditions)),

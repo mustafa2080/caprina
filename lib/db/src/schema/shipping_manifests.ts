@@ -4,6 +4,7 @@ import { ordersTable } from "./orders";
 
 export const shippingManifestsTable = mysqlTable("shipping_manifests", {
   id: int("id").primaryKey().autoincrement(),
+  tenantId: int("tenant_id"),
   manifestNumber: varchar("manifest_number", { length: 100 }).notNull(),
   shippingCompanyId: int("shipping_company_id").notNull().references(() => shippingCompaniesTable.id),
   status: varchar("status", { length: 50 }).notNull().default("open"),
