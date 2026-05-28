@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format, startOfMonth } from "date-fns";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { apiFetch as _apiFetch } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 const apiFetch = async (url: string, options?: RequestInit) => {
   return _apiFetch<any>(url.replace(/^\/api/, ""), options);
