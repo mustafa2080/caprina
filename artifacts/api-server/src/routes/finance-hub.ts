@@ -363,7 +363,7 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
 
     // ── 9. أحدث حركات الخزنة ────────────────────────────────────────────────
     const recentTxConditions: any[] = [];
-    if (tenantId !== null) recentTxConditions.push(eq(cashTransactionsTable.tenantId, tenantId));
+    if (tenantId !== null) recentTxConditions.push(sql.raw(`cash_transactions.tenant_id = ${tenantId}`));
     const recentTx = await db.select().from(cashTransactionsTable)
       .where(recentTxConditions.length > 0 ? and(...recentTxConditions) : undefined)
       .orderBy(desc(cashTransactionsTable.createdAt)).limit(10);
