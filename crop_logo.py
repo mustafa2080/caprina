@@ -2,15 +2,15 @@ from PIL import Image
 import base64, io
 
 img = Image.open(r'C:\Users\musta\Desktop\pro\Caprina-Orders الاصداؤ الاخير_2\Caprina-Orders\artifacts\caprina\public\first_logo.jpg')
-w, h = img.size
-print('original:', w, h)
 
-# crop مربع من اليمين (اللوجو على اليمين)
-square = img.crop((w - h, 0, w, h))
-square = square.resize((300, 300), Image.LANCZOS)
+# resize بنسبة ثابتة — ارتفاع 64px مع الحفاظ على النسبة
+w, h = img.size
+new_h = 64
+new_w = int(w * new_h / h)
+img = img.resize((new_w, new_h), Image.LANCZOS)
 
 buf = io.BytesIO()
-square.save(buf, format='JPEG', quality=85)
+img.save(buf, format='JPEG', quality=90)
 b64 = base64.b64encode(buf.getvalue()).decode()
 
 data = 'export const firstLogoBase64 = "data:image/jpeg;base64,' + b64 + '";\n'
@@ -19,4 +19,4 @@ out_path = r'C:\Users\musta\Desktop\pro\Caprina-Orders الاصداؤ الاخي
 with open(out_path, 'w', encoding='utf-8') as f:
     f.write(data)
 
-print('done! b64 length:', len(b64))
+print('done! size:', new_w, 'x', new_h, '| b64 length:', len(b64))
