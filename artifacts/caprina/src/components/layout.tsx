@@ -695,25 +695,13 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* ── Main content ── */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Mobile header */}
-        <header className="border-b border-sidebar-border bg-sidebar md:hidden shrink-0">
-          <div className="flex items-center justify-between px-4 h-12">
+        {/* Mobile header — شريط علوي خفيف للوجو فقط */}
+        <header className="border-b border-sidebar-border/40 bg-sidebar md:hidden shrink-0">
+          <div className="flex items-center justify-between px-4 h-10">
             <BrandFull logoSize="sm" layout="row" nameClass="text-sm text-sidebar-foreground" />
-            <div className="flex items-center gap-2">
-              <button type="button" onClick={toggleTheme} className="text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors p-1">
-                {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-              </button>
-              {can("orders.create") && (
-                <Link href="/orders/new">
-                  <span className="flex items-center gap-1 bg-primary text-primary-foreground px-2.5 py-1 rounded-md text-[11px] font-bold">
-                    <Plus className="w-3 h-3" />جديد
-                  </span>
-                </Link>
-              )}
-              <button type="button" onClick={() => setMobileMenuOpen(true)} className="text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors p-1">
-                <Menu className="w-5 h-5" />
-              </button>
-            </div>
+            <button type="button" onClick={toggleTheme} className="text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors p-1">
+              {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
           </div>
         </header>
 
@@ -839,15 +827,100 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         )}
 
-        {/* Page content — flex-1 + overflow-auto هنا هو الـ scroll container الوحيد */}
+        {/* Page content */}
         <div
           id="main-scroll-area"
           className="flex-1 overflow-y-auto overflow-x-hidden min-w-0"
         >
-          <div className="w-full max-w-screen-2xl mx-auto p-3 sm:p-4 md:p-5 xl:p-6 2xl:p-8 min-w-0 overflow-x-hidden">
+          <div className="w-full max-w-screen-2xl mx-auto p-3 sm:p-4 md:p-5 xl:p-6 2xl:p-8 min-w-0 overflow-x-hidden pb-20 md:pb-8">
             {children}
           </div>
         </div>
+
+        {/* ── Bottom Navigation Bar (mobile only) ── */}
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around px-2 py-2"
+          style={{
+            background: "linear-gradient(180deg, rgba(10,10,10,0.97) 0%, rgba(5,5,5,1) 100%)",
+            borderTop: "1px solid rgba(255,255,255,0.06)",
+            boxShadow: "0 -4px 24px rgba(0,0,0,0.6)",
+            backdropFilter: "blur(12px)",
+          }}
+        >
+          {[
+            { href: "/",                 icon: LayoutDashboard, rgb: "96,165,250",   label: "الرئيسية",  exact: true },
+            { href: "/orders",           icon: Package,         rgb: "251,146,60",   label: "الطلبات"              },
+            { href: "/orders/new",       icon: Plus,            rgb: "52,211,153",   label: "جديد"                 },
+            { href: "/inventory",        icon: Boxes,           rgb: "167,139,250",  label: "المنتجات"             },
+            { href: "/finance",          icon: DollarSign,      rgb: "52,211,153",   label: "الماليات"             },
+            { href: "/smart",            icon: Brain,           rgb: "232,121,249",  label: "ذكاء"                 },
+          ].map(({ href, icon: Icon, rgb, label, exact }) => {
+            const isActive = exact ? location === href : (location === href || location.startsWith(href + "/"));
+            return (
+              <Link key={href} href={href} onClick={() => setMobileMenuOpen(false)}>
+                <div className="flex flex-col items-center gap-0.5 relative">
+                  <div
+                    className="w-11 h-11 rounded-2xl flex items-center justify-center transition-all duration-200 active:scale-90"
+                    style={{
+                      background: isActive
+                        ? `linear-gradient(145deg, rgba(${rgb},0.9) 0%, rgba(${rgb},0.55) 60%, rgba(${rgb},0.3) 100%)`
+                        : `linear-gradient(145deg, rgba(${rgb},0.15) 0%, rgba(${rgb},0.07) 100%)`,
+                      border: isActive
+                        ? `1px solid rgba(${rgb},0.6)`
+                        : `1px solid rgba(${rgb},0.12)`,
+                      boxShadow: isActive
+                        ? `0 4px 16px rgba(${rgb},0.5), 0 0 8px rgba(${rgb},0.3), inset 0 1px 0 rgba(255,255,255,0.2)`
+                        : `0 2px 6px rgba(${rgb},0.1)`,
+                    }}
+                  >
+                    <Icon style={{
+                      width: "20px", height: "20px",
+                      color: isActive ? "rgba(255,255,255,0.95)" : `rgba(${rgb},0.65)`,
+                      filter: isActive ? "drop-shadow(0 1px 3px rgba(0,0,0,0.4))" : "none",
+                    }} />
+                  </div>
+                  <span style={{
+                    fontSize: "9px",
+                    fontWeight: isActive ? "700" : "500",
+                    color: isActive ? `rgba(${rgb},0.9)` : "rgba(255,255,255,0.35)",
+                    letterSpacing: "0.02em",
+                  }}>{label}</span>
+                  {isActive && (
+                    <span className="absolute -top-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
+                      style={{ background: `rgba(${rgb},0.8)`, boxShadow: `0 0 6px rgba(${rgb},1)` }} />
+                  )}
+                </div>
+              </Link>
+            );
+          })}
+          {/* زر المزيد */}
+          <button type="button" onClick={() => setMobileMenuOpen(true)}>
+            <div className="flex flex-col items-center gap-0.5">
+              <div
+                className="w-11 h-11 rounded-2xl flex items-center justify-center transition-all duration-200 active:scale-90"
+                style={{
+                  background: mobileMenuOpen
+                    ? "linear-gradient(145deg, rgba(251,191,36,0.9) 0%, rgba(251,191,36,0.5) 100%)"
+                    : "linear-gradient(145deg, rgba(251,191,36,0.15) 0%, rgba(251,191,36,0.07) 100%)",
+                  border: mobileMenuOpen
+                    ? "1px solid rgba(251,191,36,0.6)"
+                    : "1px solid rgba(251,191,36,0.12)",
+                  boxShadow: mobileMenuOpen
+                    ? "0 4px 16px rgba(251,191,36,0.5), inset 0 1px 0 rgba(255,255,255,0.2)"
+                    : "0 2px 6px rgba(251,191,36,0.1)",
+                }}
+              >
+                <Menu style={{
+                  width: "20px", height: "20px",
+                  color: mobileMenuOpen ? "rgba(255,255,255,0.95)" : "rgba(251,191,36,0.65)",
+                }} />
+              </div>
+              <span style={{
+                fontSize: "9px", fontWeight: "500",
+                color: mobileMenuOpen ? "rgba(251,191,36,0.9)" : "rgba(255,255,255,0.35)",
+              }}>المزيد</span>
+            </div>
+          </button>
+        </nav>
       </main>
 
       <BrandSettingsDialog open={brandSettingsOpen} onClose={() => setBrandSettingsOpen(false)} />
