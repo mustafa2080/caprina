@@ -964,8 +964,8 @@ export default function Dashboard() {
                   onClick={() => setPeriod(key)}
                   className={`rounded-xl cursor-pointer transition-all duration-200 ${
                     period === key
-                      ? "ring-2 ring-primary shadow-lg"
-                      : "opacity-70 hover:opacity-90 hover:shadow-sm"
+                      ? "border-2 border-primary shadow-lg"
+                      : "border-2 border-transparent opacity-70 hover:opacity-90 hover:shadow-sm"
                   }`}
                 >
                   <PeriodCard label={label} data={data} accent={period === key ? accent : "text-muted-foreground"} />
