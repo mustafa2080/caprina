@@ -80,33 +80,33 @@ function PeriodCard({ label, data, accent }: { label: string; data: PeriodProfit
   const isProfit = data.netProfit >= 0;
   return (
     <Card className="border-border bg-card overflow-hidden">
-      <CardContent className="p-3 sm:p-4 space-y-2 sm:space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">{label}</p>
-          <Badge variant="outline" className={`text-[8px] sm:text-[9px] font-bold border shrink-0 ${
+      <CardContent className="p-2 sm:p-4 space-y-1.5 sm:space-y-3">
+        <div className="flex items-center justify-between gap-1">
+          <p className="text-[9px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider truncate">{label}</p>
+          <Badge variant="outline" className={`text-[7px] sm:text-[9px] font-bold border shrink-0 px-1 sm:px-2 ${
             data.returnRate > 20 ? "border-red-400 text-red-600 dark:border-red-800 dark:text-red-400" : "border-border text-muted-foreground"
-          }`}>{data.returnRate}% مرتجع</Badge>
+          }`}>{data.returnRate}%↩</Badge>
         </div>
         <div>
-          <p className={`text-xl sm:text-2xl font-black ${isProfit ? accent : "text-red-600 dark:text-red-400"}`}>{fc(data.netProfit)}</p>
-          <p className="text-[9px] sm:text-[10px] text-muted-foreground">صافي الربح</p>
+          <p className={`text-base sm:text-2xl font-black leading-tight ${isProfit ? accent : "text-red-600 dark:text-red-400"}`}>{fc(data.netProfit)}</p>
+          <p className="text-[8px] sm:text-[10px] text-muted-foreground">صافي الربح</p>
         </div>
-        <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 sm:gap-2 pt-1.5 sm:pt-2 border-t border-border">
+        <div className="grid grid-cols-2 gap-x-2 gap-y-1 sm:gap-x-3 sm:gap-y-1.5 pt-1 sm:pt-2 border-t border-border">
           <div>
-            <p className="text-[8px] sm:text-[9px] text-muted-foreground">الإيرادات (بعد الشحن)</p>
-            <p className="text-[10px] sm:text-xs font-bold text-primary">{fc(data.revenue - data.shippingCost)}</p>
+            <p className="text-[7px] sm:text-[9px] text-muted-foreground leading-tight">إيرادات</p>
+            <p className="text-[9px] sm:text-xs font-bold text-primary">{fc(data.revenue - data.shippingCost)}</p>
           </div>
           <div>
-            <p className="text-[8px] sm:text-[9px] text-muted-foreground">تكلفة البضاعة</p>
-            <p className="text-[10px] sm:text-xs font-bold text-amber-700 dark:text-amber-400">{fc(data.cost)}</p>
+            <p className="text-[7px] sm:text-[9px] text-muted-foreground leading-tight">التكلفة</p>
+            <p className="text-[9px] sm:text-xs font-bold text-amber-700 dark:text-amber-400">{fc(data.cost)}</p>
           </div>
           <div>
-            <p className="text-[8px] sm:text-[9px] text-muted-foreground">الطلبات</p>
-            <p className="text-[10px] sm:text-xs font-bold">{fn(data.orders)}</p>
+            <p className="text-[7px] sm:text-[9px] text-muted-foreground leading-tight">الطلبات</p>
+            <p className="text-[9px] sm:text-xs font-bold">{fn(data.orders)}</p>
           </div>
           <div>
-            <p className="text-[8px] sm:text-[9px] text-muted-foreground">المرتجعات</p>
-            <p className="text-[10px] sm:text-xs font-bold text-red-600 dark:text-red-400">{fn(data.returnCount)}</p>
+            <p className="text-[7px] sm:text-[9px] text-muted-foreground leading-tight">مرتجع</p>
+            <p className="text-[9px] sm:text-xs font-bold text-red-600 dark:text-red-400">{fn(data.returnCount)}</p>
           </div>
         </div>
       </CardContent>
@@ -718,16 +718,16 @@ export default function Dashboard() {
 
   return (
     <>
-    <div className="space-y-4 sm:space-y-5 animate-in fade-in duration-500">      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-lg sm:text-xl lg:text-2xl font-bold">لوحة إدارة العمليات</h1>
-          <p className="text-muted-foreground text-[10px] sm:text-xs lg:text-sm mt-0.5">CAPRINA OS.Dashboard</p>
-          <div className="mt-1 sm:mt-1.5">
+    <div className="space-y-3 sm:space-y-4 lg:space-y-5 pb-4 sm:pb-0 animate-in fade-in duration-500">      {/* Header */}
+      <div className="flex items-center justify-between gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-base sm:text-xl lg:text-2xl font-bold truncate">لوحة إدارة العمليات</h1>
+          <p className="text-muted-foreground text-[10px] sm:text-xs lg:text-sm mt-0.5 hidden sm:block">CAPRINA OS.Dashboard</p>
+          <div className="mt-0.5 sm:mt-1.5">
             <LiveClock />
           </div>
         </div>
-        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {/* Period Filter */}
           {canViewFinancials && (
             <div className="flex items-center gap-0.5 sm:gap-1 border border-border rounded-md p-0.5 bg-muted/30">
@@ -864,37 +864,32 @@ export default function Dashboard() {
       {/* === FINANCIAL OVERVIEW BANNER — يظهر فقط لو canSeeFinancials === */}
       {canViewFinancials && canSeeFinancials && fin && (
         <div className="rounded-xl border border-emerald-300 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-900/5 overflow-hidden">
-          <div className="p-3 sm:p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-3 sm:mb-4">
-              {/* الحاوية الكبيرة: إجمالي أرصدة جميع الخزن النشطة */}
+          <div className="p-2.5 sm:p-4">
+            {/* الرقم الكبير + بطاقتان صغيرتان */}
+            <div className="flex items-start justify-between gap-2 mb-2.5 sm:mb-4">
               <div className="min-w-0">
-                <p className="text-[8px] sm:text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-0.5 sm:mb-1">
-                  إجمالي أرصدة جميع الخزن النشطة
+                <p className="text-[8px] sm:text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-0.5">
+                  إجمالي أرصدة الخزن
                 </p>
-                <div className="flex items-baseline gap-2 sm:gap-3 flex-wrap">
-                  <p className="text-2xl sm:text-3xl lg:text-4xl font-black text-emerald-600 dark:text-emerald-400">
-                    {fc(totalCash)}
-                  </p>
-                  <Badge variant="outline" className="text-[8px] sm:text-[9px] font-bold border border-emerald-500 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400">
-                    مجموع كل الخزن
-                  </Badge>
-                </div>
+                <p className="text-xl sm:text-3xl lg:text-4xl font-black text-emerald-600 dark:text-emerald-400 leading-tight">
+                  {fc(totalCash)}
+                </p>
               </div>
-              {/* حاويتان صغيرتان: صافي الربح + في الطريق */}
-              <div className="grid grid-cols-2 gap-2 shrink-0 self-start">
-                <div className="text-left bg-background/40 border border-border rounded-lg px-3 py-2 sm:px-4 sm:py-3">
-                  <p className="text-[8px] sm:text-[9px] text-muted-foreground">صافي الربح — {{ today: "اليوم", week: "الأسبوع", month: "الشهر" }[period]}</p>
-                  <p className={`text-sm sm:text-lg font-black ${fin.netProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}>{fc(fin.netProfit)}</p>
-                  <p className="text-[8px] sm:text-[9px] text-muted-foreground">{fin.netMargin}% هامش صافي</p>
+              <div className="grid grid-cols-2 gap-1.5 sm:gap-2 shrink-0">
+                <div className="text-left bg-background/40 border border-border rounded-lg px-2 py-1.5 sm:px-4 sm:py-3">
+                  <p className="text-[7px] sm:text-[9px] text-muted-foreground whitespace-nowrap">صافي الربح</p>
+                  <p className={`text-xs sm:text-lg font-black ${fin.netProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}>{fc(fin.netProfit)}</p>
+                  <p className="text-[7px] sm:text-[9px] text-muted-foreground">{fin.netMargin}%</p>
                 </div>
-                <div className="text-left bg-primary/5 border border-primary/20 rounded-lg px-3 py-2 sm:px-4 sm:py-3">
-                  <p className="text-[8px] sm:text-[9px] text-muted-foreground">في الطريق (قيد التسليم)</p>
-                  <p className="text-sm sm:text-lg font-black text-primary">{fc(fin.pendingRevenue)}</p>
-                  <p className="text-[8px] sm:text-[9px] text-muted-foreground">إيرادات محتملة</p>
+                <div className="text-left bg-primary/5 border border-primary/20 rounded-lg px-2 py-1.5 sm:px-4 sm:py-3">
+                  <p className="text-[7px] sm:text-[9px] text-muted-foreground whitespace-nowrap">في الطريق</p>
+                  <p className="text-xs sm:text-lg font-black text-primary">{fc(fin.pendingRevenue)}</p>
+                  <p className="text-[7px] sm:text-[9px] text-muted-foreground">محتمل</p>
                 </div>
               </div>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 p-2 sm:p-3 bg-background/30 rounded-lg border border-border/40">
+            {/* Stats row — 4 أعمدة من sm */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-3 p-2 sm:p-3 bg-background/30 rounded-lg border border-border/40">
               <div className="text-center">
                 <div className="flex items-center justify-center gap-0.5 sm:gap-1 mb-0.5 sm:mb-1">
                   <ArrowUpRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-emerald-600 dark:text-emerald-400" />
@@ -963,7 +958,7 @@ export default function Dashboard() {
 
       {/* === PERIOD CARDS (admin only) === */}
       {canViewFinancials && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
+        <div className="grid grid-cols-3 sm:grid-cols-3 gap-2 sm:gap-3">
           {isAnalyticsLoading ? (
             [1,2,3].map(i => <Card key={i} className="animate-pulse h-32 sm:h-36 border-border" />)
           ) : analytics ? (
@@ -1821,17 +1816,20 @@ export default function Dashboard() {
 
         {/* RIGHT SIDEBAR */}
         <div className="space-y-3 sm:space-y-4">
-          <div className="space-y-1.5 sm:space-y-2">
-            <h2 className="text-xs sm:text-sm font-bold">إجراءات سريعة</h2>
-            <Link href="/orders/new" className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground py-2.5 px-4 rounded-md text-xs sm:text-sm font-bold hover:bg-primary/90 transition-colors min-h-[44px]">
-              <Plus className="w-4 h-4" />إضافة طلب
-            </Link>
-            <Link href="/inventory" className="w-full flex items-center justify-center gap-2 border border-border bg-card text-foreground hover:bg-muted/30 transition-colors py-2.5 px-4 rounded-md text-xs sm:text-sm font-semibold min-h-[44px]">
-              <Boxes className="w-4 h-4" />إدارة المخزون
-            </Link>
-            <Link href="/import" className="w-full flex items-center justify-center gap-2 border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors py-2.5 px-4 rounded-md text-xs sm:text-sm font-semibold min-h-[44px]">
-              <TrendingUp className="w-4 h-4" />استيراد Excel
-            </Link>
+          {/* إجراءات سريعة — أفقي على الموبايل */}
+          <div>
+            <h2 className="text-xs sm:text-sm font-bold mb-1.5 sm:mb-2">إجراءات سريعة</h2>
+            <div className="flex gap-2 sm:flex-col sm:gap-1.5 overflow-x-auto no-scrollbar pb-1 sm:pb-0">
+              <Link href="/orders/new" className="flex-1 min-w-[110px] sm:min-w-0 flex items-center justify-center gap-1.5 bg-primary text-primary-foreground py-2 px-3 rounded-md text-xs font-bold hover:bg-primary/90 transition-colors whitespace-nowrap">
+                <Plus className="w-3.5 h-3.5 shrink-0" />إضافة طلب
+              </Link>
+              <Link href="/inventory" className="flex-1 min-w-[110px] sm:min-w-0 flex items-center justify-center gap-1.5 border border-border bg-card text-foreground hover:bg-muted/30 transition-colors py-2 px-3 rounded-md text-xs font-semibold whitespace-nowrap">
+                <Boxes className="w-3.5 h-3.5 shrink-0" />إدارة المخزون
+              </Link>
+              <Link href="/import" className="flex-1 min-w-[110px] sm:min-w-0 flex items-center justify-center gap-1.5 border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors py-2 px-3 rounded-md text-xs font-semibold whitespace-nowrap">
+                <TrendingUp className="w-3.5 h-3.5 shrink-0" />استيراد Excel
+              </Link>
+            </div>
           </div>
 
           {canViewFinancials && fin && (
