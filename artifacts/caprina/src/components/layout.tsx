@@ -442,7 +442,11 @@ export default function Layout({ children }: LayoutProps) {
                 {/* Brand Logo */}
                 <BrandLogoMark size="sm" onClick={() => setBrandSettingsOpen(true)} />
                 {/* User avatar */}
-                <button type="button" onClick={() => setUserMenuOpen(v => !v)} title={user?.displayName}
+                <button type="button" onClick={(e) => {
+                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                  setUserMenuPos({top: Math.min(rect.bottom + 8, window.innerHeight - 144), left: Math.max(8, rect.left - 60), width: 180});
+                  setUserMenuOpen(v => !v);
+                }} title={user?.displayName}
                   className="relative w-10 h-10 rounded-full flex items-center justify-center hover:ring-2 hover:ring-primary/40 transition-all mt-1">
                   {(user as any)?.avatar
                     ? <img src={(user as any).avatar} className="w-10 h-10 rounded-full object-cover border-2 border-primary/30" alt={user?.displayName} />
@@ -656,7 +660,7 @@ export default function Layout({ children }: LayoutProps) {
                   <p className="text-xs font-bold text-sidebar-foreground truncate">{user?.displayName}</p>
                   <p className="text-[10px] text-sidebar-foreground/40">{getRoleLabel(user)}</p>
                 </div>
-                <div className="relative shrink-0">
+                <button type="button" className="relative shrink-0 cursor-pointer hover:ring-2 hover:ring-primary/40 rounded-full transition-all" onClick={(e) => { const rect=(e.currentTarget as HTMLElement).getBoundingClientRect(); setUserMenuPos({top:Math.min(rect.top-120,window.innerHeight-144),left:Math.max(8,rect.left-60),width:180}); setUserMenuOpen(v=>!v); }} title={user?.displayName}>
                   {(user as any)?.avatar
                     ? <img src={(user as any).avatar} className="w-8 h-8 rounded-full object-cover border-2 border-primary/30" alt={user?.displayName} />
                     : <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
@@ -666,7 +670,7 @@ export default function Layout({ children }: LayoutProps) {
                   <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-sidebar z-10" style={{boxShadow:"0 0 6px rgba(52,211,153,0.9)"}}>
                     <span className="absolute inset-0 rounded-full bg-emerald-400 animate-ping" style={{opacity:0.7}} />
                   </span>
-                </div>
+                </button>
                 {/* زر تسجيل الخروج */}
                 <button type="button" onClick={logout} title="تسجيل الخروج"
                   className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95"
