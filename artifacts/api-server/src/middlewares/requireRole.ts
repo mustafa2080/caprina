@@ -8,6 +8,11 @@ export function requireRole(...roles: UserRole[]) {
       res.status(401).json({ error: "غير مصرح" });
       return;
     }
+    // super_admin له كل الصلاحيات دايماً
+    if (user.role === "super_admin") {
+      next();
+      return;
+    }
     if (!roles.includes(user.role as UserRole)) {
       res.status(403).json({ error: "ليس لديك صلاحية لهذه العملية" });
       return;
