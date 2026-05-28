@@ -761,13 +761,51 @@ export default function Layout({ children }: LayoutProps) {
                   </div>
                 )}
               </nav>
-              <div className="px-3 pb-2 flex justify-center">
-                <button type="button" onClick={toggleTheme} className="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110"
-                  style={{ background: theme === "dark" ? "linear-gradient(135deg,#1e293b,#0f172a)" : "linear-gradient(135deg,#fef3c7,#fde68a)", border: theme === "dark" ? "1px solid rgba(148,163,184,0.2)" : "1px solid rgba(251,191,36,0.5)" }}>
-                  {theme === "dark" ? <Sun className="w-5 h-5 text-amber-300" /> : <Moon className="w-5 h-5 text-indigo-600" />}
+              <div className="border-t border-sidebar-border p-3 space-y-2">
+                {/* Theme Toggle — أنيق */}
+                <button
+                  type="button"
+                  onClick={toggleTheme}
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all duration-300 active:scale-95"
+                  style={{
+                    background: theme === "dark"
+                      ? "linear-gradient(135deg,rgba(30,41,59,0.8),rgba(15,23,42,0.6))"
+                      : "linear-gradient(135deg,rgba(254,243,199,0.8),rgba(253,230,138,0.5))",
+                    border: theme === "dark"
+                      ? "1px solid rgba(148,163,184,0.15)"
+                      : "1px solid rgba(251,191,36,0.4)",
+                  }}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                      style={{
+                        background: theme === "dark"
+                          ? "linear-gradient(135deg,#1e3a5f,#0f172a)"
+                          : "linear-gradient(135deg,#fbbf24,#f59e0b)",
+                        boxShadow: theme === "dark"
+                          ? "0 0 10px rgba(96,165,250,0.3)"
+                          : "0 0 10px rgba(251,191,36,0.5)",
+                      }}>
+                      {theme === "dark"
+                        ? <Moon className="w-3.5 h-3.5 text-blue-300" />
+                        : <Sun className="w-3.5 h-3.5 text-white" />}
+                    </div>
+                    <span className="text-xs font-semibold" style={{ color: theme === "dark" ? "rgba(148,163,184,0.9)" : "rgba(120,80,0,0.85)" }}>
+                      {theme === "dark" ? "الوضع الليلي" : "الوضع النهاري"}
+                    </span>
+                  </div>
+                  {/* Toggle pill */}
+                  <div className="relative w-10 h-5 rounded-full transition-all duration-300 shrink-0"
+                    style={{
+                      background: theme === "dark"
+                        ? "linear-gradient(90deg,#3b82f6,#1d4ed8)"
+                        : "rgba(209,213,219,0.7)",
+                      boxShadow: theme === "dark" ? "0 0 8px rgba(59,130,246,0.4)" : "none",
+                    }}>
+                    <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-md transition-all duration-300"
+                      style={{ right: theme === "dark" ? "2px" : "auto", left: theme === "dark" ? "auto" : "2px" }} />
+                  </div>
                 </button>
-              </div>
-              <div className="border-t border-sidebar-border p-3 space-y-1">
                 <div className="flex items-center gap-2 px-1 py-1">
                   <div className="relative shrink-0">
                     {(user as any)?.avatar
