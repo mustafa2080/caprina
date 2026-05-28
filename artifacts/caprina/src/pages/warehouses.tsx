@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Warehouse, Package, Edit2, Trash2, Star, ArrowLeft, Printer, TrendingDown, DollarSign, BoxIcon, ShoppingBag, Search, X, SlidersHorizontal, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Warehouse, Package, Edit2, Trash2, Star, ArrowLeft, Printer, TrendingDown, DollarSign, BoxIcon, ShoppingBag, Search, X, SlidersHorizontal, ChevronDown, ChevronUp, Wrench } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -532,6 +532,24 @@ export default function WarehousesPage() {
     }
   };
 
+  const [repairing, setRepairing] = useState(false);
+
+  const handleRepairStock = async () => {
+    if (!confirm("سيتم إصلاح أي كمية موجودة في المنتجات لكن غير مسجلة في المخازن — تكملة؟")) return;
+    setRepairing(true);
+    try {
+      const res = await fetch("/api/warehouses/repair-stock", { method: "POST", headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } });
+      const data = await res.json();
+      qc.invalidateQueries({ queryKey: ["warehouses"] });
+      qc.invalidateQueries({ queryKey: ["variants"] });
+      toast({ title: "✅ تم الإصلاح", description: data.message });
+    } catch (e: any) {
+      toast({ title: "خطأ", description: e.message, variant: "destructive" });
+    } finally {
+      setRepairing(false);
+    }
+  };
+
   const filteredWarehouses = useMemo(() => {
     if (!debouncedWarehouseSearch) return warehouses;
     const q = debouncedWarehouseSearch.toLowerCase();
@@ -557,11 +575,20 @@ export default function WarehousesPage() {
           <h1 className="text-xl font-bold">المخازن</h1>
           <p className="text-muted-foreground text-xs mt-0.5">إدارة المخازن ومخزون كل فرع</p>
         </div>
-        {canEdit && (
-          <Button size="sm" className="gap-2 h-8 text-xs" onClick={() => { setEditingWarehouse(undefined); setFormOpen(true); }}>
-            <Plus className="w-3.5 h-3.5" />إضافة مخزن
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {canEdit && (
+            <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs text-amber-600 border-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+              onClick={handleRepairStock} disabled={repairing}>
+              <Wrench className="w-3.5 h-3.5" />
+              {repairing ? "جاري الإصلاح..." : "إصلاح المخزون"}
+            </Button>
+          )}
+          {canEdit && (
+            <Button size="sm" className="gap-2 h-8 text-xs" onClick={() => { setEditingWarehouse(undefined); setFormOpen(true); }}>
+              <Plus className="w-3.5 h-3.5" />إضافة مخزن
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* ── شريط البحث ── */}

@@ -366,4 +366,103 @@ router.post("/warehouses/sync-stock-matrix", async (req, res): Promise<void> => 
   res.json({ success: true, message: `تمت المزامنة: ${inserted} صف جديد أُضيف`, warehouses: allWarehouses.length, products: allProducts.length, variants: allVariants.length });
 });
 
+// ─── Repair: إصلاح الـ warehouse_stock اللي مجموعه 0 بينما variant عنده كمية ──
+router.post("/warehouses/repair-stock", async (req, res): Promise<void> => {
+  // 1. جيب المخزن الافتراضي
+  const [defaultWh] = await db
+    .select()
+    .from(warehousesTable)
+    .orderBy(desc(warehousesTable.isDefault))
+    .limit(1);
+
+  if (!defaultWh) {
+    res.status(400).json({ error: "لا يوجد مخزن — أضف مخزناً أولاً" });
+    return;
+  }
+
+  // 2. جيب كل variants اللي عندها totalQuantity > 0
+  const variants = await db
+    .select({
+      id: productVariantsTable.id,
+      productId: productVariantsTable.productId,
+      totalQuantity: productVariantsTable.totalQuantity,
+      color: productVariantsTable.color,
+      size: productVariantsTable.size,
+    })
+    .from(productVariantsTable)
+    .innerJoin(productsTable, and(
+      eq(productVariantsTable.productId, productsTable.id),
+      eq(productsTable.isArchived, false),
+    ))
+    .where(eq(productVariantsTable.totalQuantity, 0));
+
+  // جيب كل variants بكمية > 0 بغض النظر عن warehouse_stock
+  const allVariants = await db
+    .select({
+      id: productVariantsTable.id,
+      productId: productVariantsTable.productId,
+      totalQuantity: productVariantsTable.totalQuantity,
+    })
+    .from(productVariantsTable)
+    .innerJoin(productsTable, and(
+      eq(productVariantsTable.productId, productsTable.id),
+      eq(productsTable.isArchived, false),
+    ));
+
+  let fixed = 0;
+  const now = new Date();
+
+  for (const v of allVariants) {
+    if (v.totalQuantity <= 0) continue;
+
+    // جيب مجموع warehouse_stock لهذا variant
+    const stockRows = await db
+      .select({ quantity: warehouseStockTable.quantity })
+      .from(warehouseStockTable)
+      .where(eq(warehouseStockTable.variantId, v.id));
+
+    const whTotal = stockRows.reduce((s, r) => s + r.quantity, 0);
+
+    if (whTotal === 0) {
+      // warehouse_stock = 0 لكن totalQuantity > 0 → نصلح
+      // ابحث عن صف موجود في المخزن الافتراضي
+      const [existingRow] = await db
+        .select()
+        .from(warehouseStockTable)
+        .where(and(
+          eq(warehouseStockTable.variantId, v.id),
+          eq(warehouseStockTable.warehouseId, defaultWh.id),
+        ));
+
+      if (existingRow) {
+        await db
+          .update(warehouseStockTable)
+          .set({ quantity: v.totalQuantity, updatedAt: now })
+          .where(eq(warehouseStockTable.id, existingRow.id));
+      } else {
+        await db.insert(warehouseStockTable).values({
+          warehouseId: defaultWh.id,
+          variantId: v.id,
+          productId: null,
+          quantity: v.totalQuantity,
+          updatedAt: now,
+        }).catch(() => {});
+      }
+      fixed++;
+    }
+  }
+
+  // 3. بعد الإصلاح — زامن totalQuantity من warehouse_stock
+  for (const v of allVariants) {
+    await syncProductQuantityFromWarehouses(v.id, null);
+  }
+
+  res.json({
+    success: true,
+    message: `تم إصلاح ${fixed} SKU — تم نقل الكميات للمخزن: ${defaultWh.name}`,
+    fixedCount: fixed,
+    defaultWarehouse: defaultWh.name,
+  });
+});
+
 export default router;
