@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, cashRegistersTable, cashTransactionsTable, expensesTable, ordersTable, purchaseOrdersTable, shippingFinancialInvoicesTable, shippingManifestsTable, shippingManifestOrdersTable, CREDIT_TYPES, DEBIT_TYPES } from "@workspace/db";
-import { eq, desc, gte, lte, and, sql, lt, isNull } from "drizzle-orm";
+import { eq, desc, gte, lte, and, sql, lt, isNull, inArray } from "drizzle-orm";
 import { getTenantId } from "../middlewares/requireTenant.js";
 
 const router = Router();
@@ -362,11 +362,16 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
     const pct = (a:number, b:number) => b === 0 ? null : +((( a - b) / b) * 100).toFixed(1);
 
     // ── 9. أحدث حركات الخزنة ────────────────────────────────────────────────
-    const recentTxConditions: any[] = [];
-    if (tenantId !== null) recentTxConditions.push(sql.raw(`cash_transactions.tenant_id = ${tenantId}`));
-    const recentTx = await db.select().from(cashTransactionsTable)
-      .where(recentTxConditions.length > 0 ? and(...recentTxConditions) : undefined)
-      .orderBy(desc(cashTransactionsTable.createdAt)).limit(10);
+    let recentTx;
+    if (tenantId !== null) {
+      const tenantRegisters = await db.select({ id: cashRegistersTable.id }).from(cashRegistersTable).where(eq(cashRegistersTable.tenantId, tenantId));
+      const registerIds = tenantRegisters.map(r => r.id);
+      recentTx = registerIds.length > 0
+        ? await db.select().from(cashTransactionsTable).where(inArray(cashTransactionsTable.registerId, registerIds)).orderBy(desc(cashTransactionsTable.createdAt)).limit(10)
+        : [];
+    } else {
+      recentTx = await db.select().from(cashTransactionsTable).orderBy(desc(cashTransactionsTable.createdAt)).limit(10);
+    }
 
     // ── 10. Smart Alerts ─────────────────────────────────────────────────────
     const alerts: { type:string; title:string; detail:string }[] = [];
