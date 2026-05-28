@@ -695,13 +695,74 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* ── Main content ── */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Mobile header — شريط علوي خفيف للوجو فقط */}
+        {/* Mobile header */}
         <header className="border-b border-sidebar-border/40 bg-sidebar md:hidden shrink-0">
-          <div className="flex items-center justify-between px-4 h-10">
-            <BrandFull logoSize="sm" layout="row" nameClass="text-sm text-sidebar-foreground" />
-            <button type="button" onClick={toggleTheme} className="text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors p-1">
-              {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </button>
+          <div className="flex items-center justify-between px-3 h-12 gap-2">
+
+            {/* ── يمين: لوجو first_logo ── */}
+            <div className="shrink-0">
+              <img
+                src="/first_logo.jpg"
+                alt="logo"
+                className="w-9 h-9 rounded-xl object-contain"
+                style={{ border: "1px solid rgba(255,255,255,0.12)" }}
+              />
+            </div>
+
+            {/* ── وسط: CAPRINA brand ── */}
+            <div className="flex-1 flex justify-center">
+              <BrandFull logoSize="sm" layout="row" nameClass="text-sm font-black text-sidebar-foreground tracking-widest" />
+            </div>
+
+            {/* ── شمال: avatar أونلاين + dark/light toggle ── */}
+            <div className="flex items-center gap-2 shrink-0">
+              {/* زر الثيم */}
+              <button
+                type="button"
+                onClick={toggleTheme}
+                className="w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-200 active:scale-90"
+                style={{
+                  background: theme === "dark"
+                    ? "linear-gradient(135deg,#1e3a5f,#0f172a)"
+                    : "linear-gradient(135deg,#fbbf24,#f59e0b)",
+                  boxShadow: theme === "dark"
+                    ? "0 0 8px rgba(96,165,250,0.35)"
+                    : "0 0 8px rgba(251,191,36,0.5)",
+                }}
+              >
+                {theme === "dark"
+                  ? <Moon className="w-3.5 h-3.5 text-blue-300" />
+                  : <Sun className="w-3.5 h-3.5 text-white" />}
+              </button>
+
+              {/* صورة المستخدم + نقطة أونلاين */}
+              <div className="relative">
+                {(user as any)?.avatar
+                  ? <img
+                      src={(user as any).avatar}
+                      className="w-8 h-8 rounded-full object-cover"
+                      style={{ border: "2px solid rgba(52,211,153,0.5)" }}
+                      alt={user?.displayName}
+                    />
+                  : <div
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-black text-primary"
+                      style={{
+                        background: "linear-gradient(135deg,rgba(99,102,241,0.2),rgba(99,102,241,0.05))",
+                        border: "2px solid rgba(52,211,153,0.45)",
+                      }}
+                    >
+                      {user?.displayName?.charAt(0) ?? "?"}
+                    </div>}
+                {/* نقطة أونلاين */}
+                <span
+                  className="absolute -bottom-0.5 -left-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-sidebar z-10"
+                  style={{ boxShadow: "0 0 6px rgba(52,211,153,0.8)" }}
+                >
+                  <span className="absolute inset-0 rounded-full bg-emerald-400 animate-ping" style={{ opacity: 0.6 }} />
+                </span>
+              </div>
+            </div>
+
           </div>
         </header>
 
