@@ -702,7 +702,7 @@ export default function Layout({ children }: LayoutProps) {
             {/* ── يمين: لوجو first_logo ── */}
             <div className="shrink-0">
               <img
-                src="/first_logo.jpg"
+                src={firstLogoBase64}
                 alt="logo"
                 className="w-9 h-9 rounded-xl object-contain"
                 style={{ border: "1px solid rgba(255,255,255,0.12)" }}
