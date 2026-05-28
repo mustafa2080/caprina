@@ -47,16 +47,11 @@ router.get("/", async (req, res): Promise<void> => {
   const isSuperAdmin = currentUser?.role === "super_admin";
 
   // super_admin → يجيب كل المستخدمين بدون فلتر
-  // admin عنده tenantId → يجيب users بنفس tenantId + super_admins (tenantId IS NULL)
+  // admin عنده tenantId → يجيب users بنفس tenantId فقط
   const users = isSuperAdmin
     ? await query.orderBy(usersTable.createdAt)
     : tenantId !== null
-      ? await query.where(
-          or(
-            eq(usersTable.tenantId, tenantId),
-            isNull(usersTable.tenantId)
-          )
-        ).orderBy(usersTable.createdAt)
+      ? await query.where(eq(usersTable.tenantId, tenantId)).orderBy(usersTable.createdAt)
       : await query.where(isNull(usersTable.tenantId)).orderBy(usersTable.createdAt);
 
   res.json(users.map(u => ({ ...u, permissions: parsePermissions(u.permissions) })));
@@ -129,6 +124,14 @@ router.patch("/:id", async (req, res): Promise<void> => {
   const [existing] = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
   if (!existing) { res.status(404).json({ error: "المستخدم غير موجود" }); return; }
 
+  // تأكد إن الـ admin بيعدل فقط users من نفس الـ tenant
+  const editorTenantId = getTenantId(req);
+  const isSuperAdminEditor = req.user?.role === "super_admin";
+  if (!isSuperAdminEditor && editorTenantId !== null && existing.tenantId !== editorTenantId) {
+    res.status(403).json({ error: "ليس لديك صلاحية تعديل هذا المستخدم" });
+    return;
+  }
+
   if (isActive === false && existing.role === "admin") {
     const adminCount = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.role, "admin"));
     const activeAdmins = adminCount.filter(a => a.id !== id);
@@ -178,6 +181,14 @@ router.delete("/:id", async (req, res): Promise<void> => {
   }
   const [existing] = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
   if (!existing) { res.status(404).json({ error: "المستخدم غير موجود" }); return; }
+
+  // تأكد إن الـ admin بيحذف فقط users من نفس الـ tenant
+  const deleterTenantId = getTenantId(req);
+  const isSuperAdminDeleter = req.user?.role === "super_admin";
+  if (!isSuperAdminDeleter && deleterTenantId !== null && existing.tenantId !== deleterTenantId) {
+    res.status(403).json({ error: "ليس لديك صلاحية حذف هذا المستخدم" });
+    return;
+  }
 
   await db.delete(usersTable).where(eq(usersTable.id, id));
 
