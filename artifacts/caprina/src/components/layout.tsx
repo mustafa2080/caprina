@@ -245,7 +245,7 @@ export default function Layout({ children }: LayoutProps) {
   const { toast } = useToast();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userCardRef = useRef<HTMLDivElement>(null);
-  const [userMenuPos, setUserMenuPos] = useState<{bottom: number; left: number; width: number} | null>(null);
+  const [userMenuPos, setUserMenuPos] = useState<{top: number; left: number; width: number} | null>(null);
   const [, navigate] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [financeOpen, setFinanceOpen] = useState(false);
@@ -497,7 +497,12 @@ export default function Layout({ children }: LayoutProps) {
                 <button type="button" onClick={() => {
                   if (userCardRef.current) {
                     const rect = userCardRef.current.getBoundingClientRect();
-                    setUserMenuPos({ bottom: window.innerHeight - rect.top + 4, left: rect.left + 12, width: rect.width - 24 });
+                    const menuWidth = Math.max(160, Math.min(220, rect.width - 24));
+                    setUserMenuPos({
+                      top: Math.min(rect.bottom + 8, window.innerHeight - 144),
+                      left: Math.max(8, Math.min(rect.left + 12, window.innerWidth - menuWidth - 8)),
+                      width: menuWidth,
+                    });
                   }
                   setUserMenuOpen(v => !v);
                 }}
@@ -729,7 +734,11 @@ export default function Layout({ children }: LayoutProps) {
                 onClick={() => {
                   if (userCardRef.current) {
                     const rect = userCardRef.current.getBoundingClientRect();
-                    setUserMenuPos({ bottom: window.innerHeight - rect.top + 8, left: rect.left - 80, width: 180 });
+                    setUserMenuPos({
+                      top: Math.min(rect.bottom + 8, window.innerHeight - 144),
+                      left: Math.max(8, Math.min(rect.left - 80, window.innerWidth - 188)),
+                      width: 180,
+                    });
                   }
                   setUserMenuOpen(v => !v);
                 }}
@@ -1013,9 +1022,11 @@ export default function Layout({ children }: LayoutProps) {
         <div
           style={{
             position: "fixed",
-            bottom: userMenuPos.bottom,
+            top: userMenuPos.top,
             left: userMenuPos.left,
             width: userMenuPos.width,
+            maxHeight: "calc(100vh - 16px)",
+            overflowY: "auto",
             zIndex: 9999,
           }}
           onClick={e => e.stopPropagation()}
