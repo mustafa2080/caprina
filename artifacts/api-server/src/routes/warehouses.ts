@@ -101,9 +101,15 @@ router.get("/warehouses", async (req, res): Promise<void> => {
   // For each warehouse, get total stock items and order count
   const enriched = await Promise.all(
     warehouses.map(async (w) => {
+      // فقط صفوف الـ variants اللي المنتج بتاعها مش مأرشف
       const stockItems = await db
-        .select()
+        .select({ quantity: warehouseStockTable.quantity })
         .from(warehouseStockTable)
+        .innerJoin(productVariantsTable, eq(warehouseStockTable.variantId, productVariantsTable.id))
+        .innerJoin(productsTable, and(
+          eq(productVariantsTable.productId, productsTable.id),
+          eq(productsTable.isArchived, false),
+        ))
         .where(eq(warehouseStockTable.warehouseId, w.id));
 
       const totalUnits = stockItems.reduce((s, si) => s + si.quantity, 0);
@@ -181,13 +187,12 @@ router.get("/warehouses/:id", async (req, res): Promise<void> => {
       variant: productVariantsTable,
     })
     .from(warehouseStockTable)
-    .leftJoin(productVariantsTable, eq(warehouseStockTable.variantId, productVariantsTable.id))
-    .leftJoin(productsTable, eq(productVariantsTable.productId, productsTable.id))
-    .where(and(
-      eq(warehouseStockTable.warehouseId, id),
-      // فقط صفوف الـ variants
-      eq(warehouseStockTable.variantId, productVariantsTable.id),
+    .innerJoin(productVariantsTable, eq(warehouseStockTable.variantId, productVariantsTable.id))
+    .innerJoin(productsTable, and(
+      eq(productVariantsTable.productId, productsTable.id),
+      eq(productsTable.isArchived, false),
     ))
+    .where(eq(warehouseStockTable.warehouseId, id))
     .orderBy(productsTable.name);
 
   const stock = stockRows.map((r) => ({
