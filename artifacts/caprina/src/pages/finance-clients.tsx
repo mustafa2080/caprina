@@ -298,8 +298,8 @@ function ClientForm({ open, onClose, editClient, onSuccess }: {
 export default function FinanceClients() {
 
   // ── Finance access guard ───────────────────────────────────────────────────
-  const { user: _fUser, can: _fCan } = useAuth();
-  if (_fUser?.role !== "admin" && !_fCan("finance.view")) {
+  const { isAdmin: _fAdmin, can: _fCan } = useAuth();
+  if (!_fAdmin && !_fCan("finance.view")) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center px-4">
         <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center">

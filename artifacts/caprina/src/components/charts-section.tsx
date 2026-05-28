@@ -570,12 +570,10 @@ const WeeklyBars = memo(function WeeklyBars({
   data,
   monthlySales,
   weekComparison,
-  shippingSpend = 0,
 }: {
   data: ChartsData["weeklySales"];
   monthlySales?: ChartsData["monthlySales"];
   weekComparison?: ChartsData["weekComparison"];
-  shippingSpend?: number;
 }) {
   const [salesView, setSalesView] = React.useState<SalesView>("current");
   const todayStr = new Date().toISOString().split("T")[0];
@@ -615,7 +613,7 @@ const WeeklyBars = memo(function WeeklyBars({
   const statCards = [
     {
       label: "الإيرادات (بعد الشحن)",
-      value: fc(Math.max(0, revenue - shippingSpend)),
+      value: fc(Math.max(0, revenue)),
       color: GLASS_PURPLE,
       glow: "rgba(126,87,194,0.32)",
       background: "linear-gradient(135deg, rgba(126,87,194,0.42) 0%, rgba(126,87,194,0.16) 52%, rgba(255,255,255,0.08) 100%)",
@@ -790,7 +788,7 @@ const WeeklyBars = memo(function WeeklyBars({
               </div>
               <div className="flex flex-col items-center gap-1 rounded-2xl px-2 py-2" style={{ background: "rgba(126,87,194,0.08)" }}>
                 <p className="text-[10px] text-muted-foreground">الإيرادات (بعد الشحن)</p>
-                <p className="text-base font-black" style={{ color: GLASS_PURPLE }}>{fc(Math.max(0, monthlyRevenue - shippingSpend))}</p>
+                <p className="text-base font-black" style={{ color: GLASS_PURPLE }}>{fc(Math.max(0, monthlyRevenue))}</p>
               </div>
               <div className="flex flex-col items-center gap-1 rounded-2xl px-2 py-2" style={{ background: "rgba(38,166,154,0.08)" }}>
                 <p className="text-[10px] text-muted-foreground">متوسط/يوم</p>

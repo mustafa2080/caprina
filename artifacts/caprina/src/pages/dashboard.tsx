@@ -1060,7 +1060,6 @@ export default function Dashboard() {
                 data={chartsData.weeklySales}
                 monthlySales={chartsData.monthlySales}
                 weekComparison={chartsData.weekComparison}
-                shippingSpend={fin?.shippingSpend ?? 0}
               />
 
               {/* مبيعات العملاء التجاريين */}
