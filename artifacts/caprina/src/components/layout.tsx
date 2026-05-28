@@ -898,89 +898,116 @@ export default function Layout({ children }: LayoutProps) {
         </div>
 
         {/* ── Bottom Navigation Bar (mobile only) ── */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around px-2 py-2"
-          style={{
-            background: "linear-gradient(180deg, rgba(10,10,10,0.97) 0%, rgba(5,5,5,1) 100%)",
-            borderTop: "1px solid rgba(255,255,255,0.06)",
-            boxShadow: "0 -4px 24px rgba(0,0,0,0.6)",
-            backdropFilter: "blur(12px)",
-          }}
-        >
-          {[
-            { href: "/",                 icon: LayoutDashboard, rgb: "96,165,250",   label: "الرئيسية",  exact: true },
-            { href: "/orders",           icon: Package,         rgb: "251,146,60",   label: "الطلبات"              },
-            { href: "/orders/new",       icon: Plus,            rgb: "52,211,153",   label: "جديد"                 },
-            { href: "/inventory",        icon: Boxes,           rgb: "167,139,250",  label: "المنتجات"             },
-            { href: "/finance",          icon: DollarSign,      rgb: "52,211,153",   label: "الماليات"             },
-            { href: "/smart",            icon: Brain,           rgb: "232,121,249",  label: "ذكاء"                 },
-          ].map(({ href, icon: Icon, rgb, label, exact }) => {
-            const isActive = exact ? location === href : (location === href || location.startsWith(href + "/"));
-            return (
-              <Link key={href} href={href} onClick={() => setMobileMenuOpen(false)}>
-                <div className="flex flex-col items-center gap-0.5 relative">
+        {/* ── Bottom Navigation Bar (mobile only) — ديناميكي حسب الصلاحيات ── */}
+        {(() => {
+          // قائمة المرشحين بترتيب الأولوية
+          const BOTTOM_CANDIDATES: Array<{
+            section: string; href: string; icon: any;
+            rgb: string; label: string; exact?: boolean;
+            permCheck?: string;
+          }> = [
+            { section: "section_dashboard",         href: "/",               icon: LayoutDashboard, rgb: "96,165,250",  label: "الرئيسية", exact: true },
+            { section: "section_orders",            href: "/orders",         icon: Package,         rgb: "251,146,60",  label: "الطلبات"  },
+            { section: "section_new_order",         href: "/orders/new",     icon: Plus,            rgb: "52,211,153",  label: "جديد"     },
+            { section: "section_inventory",         href: "/inventory",      icon: Boxes,           rgb: "167,139,250", label: "المنتجات" },
+            { section: "section_invoices",          href: "/invoices",       icon: FileText,        rgb: "250,204,21",  label: "الفواتير" },
+            { section: "section_finance",           href: "/finance",        icon: DollarSign,      rgb: "52,211,153",  label: "الماليات", permCheck: "finance.view" },
+            { section: "section_smart_analytics",   href: "/smart",          icon: Brain,           rgb: "232,121,249", label: "ذكاء"    },
+            { section: "section_shipping",          href: "/shipping",       icon: Truck,           rgb: "56,189,248",  label: "الشحن"   },
+            { section: "section_shipping_followup", href: "/shipping-followup", icon: Clock,        rgb: "34,211,238",  label: "متابعة"  },
+            { section: "section_team_management",   href: "/team",           icon: UserCog,         rgb: "163,230,53",  label: "الفريق"  },
+            { section: "section_users",             href: "/users",          icon: Users,           rgb: "74,222,128",  label: "المستخدمين" },
+            { section: "section_movements",         href: "/movements",      icon: Activity,        rgb: "192,132,252", label: "الحركات" },
+            { section: "section_import",            href: "/import",         icon: Upload,          rgb: "251,191,36",  label: "استيراد" },
+            { section: "section_ads_analytics",     href: "/ads-analytics",  icon: Megaphone,       rgb: "251,113,133", label: "الإعلانات" },
+          ];
+
+          // فلتر حسب الصلاحيات — نفس منطق الـ sidebar
+          const allowed = BOTTOM_CANDIDATES.filter(c => {
+            if (isAdmin) return true;
+            const sectionOk = can(c.section);
+            const permOk = c.permCheck ? can(c.permCheck) : true;
+            return sectionOk && permOk;
+          });
+
+          // خذ أول 5 فقط + زر المزيد
+          const visible = allowed.slice(0, 5);
+
+          return (
+            <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around px-2 py-2"
+              style={{
+                background: "linear-gradient(180deg, rgba(10,10,10,0.97) 0%, rgba(5,5,5,1) 100%)",
+                borderTop: "1px solid rgba(255,255,255,0.06)",
+                boxShadow: "0 -4px 24px rgba(0,0,0,0.6)",
+                backdropFilter: "blur(12px)",
+              }}
+            >
+              {visible.map(({ href, icon: Icon, rgb, label, exact }) => {
+                const isActive = exact ? location === href : (location === href || location.startsWith(href + "/"));
+                return (
+                  <Link key={href} href={href} onClick={() => setMobileMenuOpen(false)}>
+                    <div className="flex flex-col items-center gap-0.5 relative">
+                      <div
+                        className="w-11 h-11 rounded-2xl flex items-center justify-center transition-all duration-200 active:scale-90"
+                        style={{
+                          background: isActive
+                            ? `linear-gradient(145deg, rgba(${rgb},0.9) 0%, rgba(${rgb},0.55) 60%, rgba(${rgb},0.3) 100%)`
+                            : `linear-gradient(145deg, rgba(${rgb},0.15) 0%, rgba(${rgb},0.07) 100%)`,
+                          border: isActive ? `1px solid rgba(${rgb},0.6)` : `1px solid rgba(${rgb},0.12)`,
+                          boxShadow: isActive
+                            ? `0 4px 16px rgba(${rgb},0.5), 0 0 8px rgba(${rgb},0.3), inset 0 1px 0 rgba(255,255,255,0.2)`
+                            : `0 2px 6px rgba(${rgb},0.1)`,
+                        }}
+                      >
+                        <Icon style={{
+                          width: "20px", height: "20px",
+                          color: isActive ? "rgba(255,255,255,0.95)" : `rgba(${rgb},0.65)`,
+                          filter: isActive ? "drop-shadow(0 1px 3px rgba(0,0,0,0.4))" : "none",
+                        }} />
+                      </div>
+                      <span style={{
+                        fontSize: "9px",
+                        fontWeight: isActive ? "700" : "500",
+                        color: isActive ? `rgba(${rgb},0.9)` : "rgba(255,255,255,0.35)",
+                        letterSpacing: "0.02em",
+                      }}>{label}</span>
+                      {isActive && (
+                        <span className="absolute -top-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
+                          style={{ background: `rgba(${rgb},0.8)`, boxShadow: `0 0 6px rgba(${rgb},1)` }} />
+                      )}
+                    </div>
+                  </Link>
+                );
+              })}
+              {/* زر المزيد — دايماً ظاهر */}
+              <button type="button" onClick={() => setMobileMenuOpen(true)}>
+                <div className="flex flex-col items-center gap-0.5">
                   <div
                     className="w-11 h-11 rounded-2xl flex items-center justify-center transition-all duration-200 active:scale-90"
                     style={{
-                      background: isActive
-                        ? `linear-gradient(145deg, rgba(${rgb},0.9) 0%, rgba(${rgb},0.55) 60%, rgba(${rgb},0.3) 100%)`
-                        : `linear-gradient(145deg, rgba(${rgb},0.15) 0%, rgba(${rgb},0.07) 100%)`,
-                      border: isActive
-                        ? `1px solid rgba(${rgb},0.6)`
-                        : `1px solid rgba(${rgb},0.12)`,
-                      boxShadow: isActive
-                        ? `0 4px 16px rgba(${rgb},0.5), 0 0 8px rgba(${rgb},0.3), inset 0 1px 0 rgba(255,255,255,0.2)`
-                        : `0 2px 6px rgba(${rgb},0.1)`,
+                      background: mobileMenuOpen
+                        ? "linear-gradient(145deg, rgba(251,191,36,0.9) 0%, rgba(251,191,36,0.5) 100%)"
+                        : "linear-gradient(145deg, rgba(251,191,36,0.15) 0%, rgba(251,191,36,0.07) 100%)",
+                      border: mobileMenuOpen ? "1px solid rgba(251,191,36,0.6)" : "1px solid rgba(251,191,36,0.12)",
+                      boxShadow: mobileMenuOpen
+                        ? "0 4px 16px rgba(251,191,36,0.5), inset 0 1px 0 rgba(255,255,255,0.2)"
+                        : "0 2px 6px rgba(251,191,36,0.1)",
                     }}
                   >
-                    <Icon style={{
+                    <Menu style={{
                       width: "20px", height: "20px",
-                      color: isActive ? "rgba(255,255,255,0.95)" : `rgba(${rgb},0.65)`,
-                      filter: isActive ? "drop-shadow(0 1px 3px rgba(0,0,0,0.4))" : "none",
+                      color: mobileMenuOpen ? "rgba(255,255,255,0.95)" : "rgba(251,191,36,0.65)",
                     }} />
                   </div>
                   <span style={{
-                    fontSize: "9px",
-                    fontWeight: isActive ? "700" : "500",
-                    color: isActive ? `rgba(${rgb},0.9)` : "rgba(255,255,255,0.35)",
-                    letterSpacing: "0.02em",
-                  }}>{label}</span>
-                  {isActive && (
-                    <span className="absolute -top-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
-                      style={{ background: `rgba(${rgb},0.8)`, boxShadow: `0 0 6px rgba(${rgb},1)` }} />
-                  )}
+                    fontSize: "9px", fontWeight: "500",
+                    color: mobileMenuOpen ? "rgba(251,191,36,0.9)" : "rgba(255,255,255,0.35)",
+                  }}>المزيد</span>
                 </div>
-              </Link>
-            );
-          })}
-          {/* زر المزيد */}
-          <button type="button" onClick={() => setMobileMenuOpen(true)}>
-            <div className="flex flex-col items-center gap-0.5">
-              <div
-                className="w-11 h-11 rounded-2xl flex items-center justify-center transition-all duration-200 active:scale-90"
-                style={{
-                  background: mobileMenuOpen
-                    ? "linear-gradient(145deg, rgba(251,191,36,0.9) 0%, rgba(251,191,36,0.5) 100%)"
-                    : "linear-gradient(145deg, rgba(251,191,36,0.15) 0%, rgba(251,191,36,0.07) 100%)",
-                  border: mobileMenuOpen
-                    ? "1px solid rgba(251,191,36,0.6)"
-                    : "1px solid rgba(251,191,36,0.12)",
-                  boxShadow: mobileMenuOpen
-                    ? "0 4px 16px rgba(251,191,36,0.5), inset 0 1px 0 rgba(255,255,255,0.2)"
-                    : "0 2px 6px rgba(251,191,36,0.1)",
-                }}
-              >
-                <Menu style={{
-                  width: "20px", height: "20px",
-                  color: mobileMenuOpen ? "rgba(255,255,255,0.95)" : "rgba(251,191,36,0.65)",
-                }} />
-              </div>
-              <span style={{
-                fontSize: "9px", fontWeight: "500",
-                color: mobileMenuOpen ? "rgba(251,191,36,0.9)" : "rgba(255,255,255,0.35)",
-              }}>المزيد</span>
-            </div>
-          </button>
-        </nav>
+              </button>
+            </nav>
+          );
+        })()}
       </main>
 
       <BrandSettingsDialog open={brandSettingsOpen} onClose={() => setBrandSettingsOpen(false)} />
