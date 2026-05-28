@@ -305,9 +305,15 @@ export default function Inventory() {
       variantsApi.addStock(productId, variantId, qty, notes || null),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["variants"] });
+      queryClient.invalidateQueries({ queryKey: ["variants-all"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["warehouses"] });
       queryClient.invalidateQueries({ queryKey: ["stock-intelligence"] });
+      if (addStockVariant) {
+        queryClient.invalidateQueries({ queryKey: ["variant-wh-stock", addStockVariant.id] });
+      }
       setAddStockOpen(false); setAddStockVariant(null); setAddStockQty(""); setAddStockNotes("");
-      toast({ title: "تمت إضافة المخزون" });
+      toast({ title: "✅ تمت إضافة المخزون", description: "تم تزامن الكميات مع قسم المخازن" });
     },
     onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
@@ -395,6 +401,8 @@ export default function Inventory() {
           queryClient.invalidateQueries({ queryKey: ["variant-wh-stock", editingVariant.id] });
           queryClient.invalidateQueries({ queryKey: ["warehouses"] });
           queryClient.invalidateQueries({ queryKey: ["variants"] });
+          queryClient.invalidateQueries({ queryKey: ["variants-all"] });
+          queryClient.invalidateQueries({ queryKey: ["products"] });
           queryClient.invalidateQueries({ queryKey: ["stock-intelligence"] });
         }
         setVariantDialogOpen(false);
@@ -444,6 +452,8 @@ export default function Inventory() {
       }
 
       queryClient.invalidateQueries({ queryKey: ["variants"] });
+      queryClient.invalidateQueries({ queryKey: ["variants-all"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["analytics-profit"] });
       queryClient.invalidateQueries({ queryKey: ["warehouses"] });
       queryClient.invalidateQueries({ queryKey: ["stock-intelligence"] });

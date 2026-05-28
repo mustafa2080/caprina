@@ -227,9 +227,17 @@ function StockEditor({ warehouseId, onClose, canEdit }: { warehouseId: number; o
         variantId: selectedVariantId ? Number(selectedVariantId) : null,
         quantity: qty,
       });
+      // ── تزامن كل البيانات المرتبطة ──────────────────────────────────────
       qc.invalidateQueries({ queryKey: ["warehouses", warehouseId] });
       qc.invalidateQueries({ queryKey: ["warehouses"] });
-      toast({ title: "تم تحديث المخزون" });
+      qc.invalidateQueries({ queryKey: ["variants"] });
+      qc.invalidateQueries({ queryKey: ["variants-all"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["stock-intelligence"] });
+      if (selectedVariantId) {
+        qc.invalidateQueries({ queryKey: ["variant-wh-stock", Number(selectedVariantId)] });
+      }
+      toast({ title: "✅ تم تحديث المخزون", description: "تم تزامن الكميات مع قسم المنتجات" });
       setSelectedProductId(""); setSelectedVariantId(""); setQty(0);
     } catch (e: any) {
       toast({ title: "خطأ", description: e.message, variant: "destructive" });
@@ -238,11 +246,19 @@ function StockEditor({ warehouseId, onClose, canEdit }: { warehouseId: number; o
     }
   };
 
-  const handleUpdateQty = async (stockId: number, newQty: number) => {
+  const handleUpdateQty = async (stockId: number, newQty: number, variantId?: number | null) => {
     try {
       await warehousesApi.updateStock(warehouseId, stockId, newQty);
+      // ── تزامن كل البيانات المرتبطة ──────────────────────────────────────
       qc.invalidateQueries({ queryKey: ["warehouses", warehouseId] });
       qc.invalidateQueries({ queryKey: ["warehouses"] });
+      qc.invalidateQueries({ queryKey: ["variants"] });
+      qc.invalidateQueries({ queryKey: ["variants-all"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["stock-intelligence"] });
+      if (variantId) {
+        qc.invalidateQueries({ queryKey: ["variant-wh-stock", variantId] });
+      }
     } catch (e: any) {
       toast({ title: "خطأ", description: e.message, variant: "destructive" });
     }
@@ -485,7 +501,7 @@ function StockEditor({ warehouseId, onClose, canEdit }: { warehouseId: number; o
                     readOnly={!canEdit}
                     onBlur={canEdit ? e => {
                       const v = parseInt(e.target.value);
-                      if (!isNaN(v) && v !== item.quantity) handleUpdateQty(item.id, v);
+                      if (!isNaN(v) && v !== item.quantity) handleUpdateQty(item.id, v, item.variantId);
                     } : undefined}
                     className={`h-7 w-20 text-xs text-center mx-auto ${!canEdit ? "opacity-60 cursor-not-allowed" : ""}`}
                   />
