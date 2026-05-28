@@ -128,19 +128,49 @@ export default function SessionsReportPage() {
       {/* ── KPI Cards ── */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { icon: Users,  value: activeUsers,              label: "مستخدم نشط",       color: "text-primary",      bg: "bg-primary/10",   border: "border-primary/20"   },
-          { icon: LogIn,  value: totalSessions,            label: "إجمالي الجلسات",   color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-900/20", border: "border-emerald-200 dark:border-emerald-800" },
-          { icon: Timer,  value: formatDuration(totalDuration), label: "إجمالي وقت العمل", color: "text-amber-600 dark:text-amber-400",  bg: "bg-amber-50 dark:bg-amber-900/20",   border: "border-amber-200 dark:border-amber-800"   },
-        ].map(({ icon: Icon, value, label, color, bg, border }) => (
-          <Card key={label} className={`border ${border} ${bg}`}>
-            <CardContent className="p-4 text-center space-y-1">
-              <div className={`w-8 h-8 rounded-lg ${bg} border ${border} flex items-center justify-center mx-auto`}>
-                <Icon className={`w-4 h-4 ${color}`} />
-              </div>
-              <p className={`text-2xl font-black ${color}`}>{value}</p>
-              <p className="text-[10px] text-muted-foreground">{label}</p>
-            </CardContent>
-          </Card>
+          {
+            icon: Users, value: activeUsers, label: "مستخدم نشط",
+            color: "hsl(var(--primary))",
+            glow: "hsl(var(--primary) / 0.35)",
+            from: "hsl(var(--primary) / 0.18)", to: "hsl(var(--primary) / 0.04)",
+            border: "hsl(var(--primary) / 0.3)",
+          },
+          {
+            icon: LogIn, value: totalSessions, label: "إجمالي الجلسات",
+            color: "hsl(142 70% 48%)",
+            glow: "hsl(142 70% 45% / 0.35)",
+            from: "hsl(142 70% 25% / 0.22)", to: "hsl(142 70% 15% / 0.04)",
+            border: "hsl(142 70% 45% / 0.3)",
+          },
+          {
+            icon: Timer, value: formatDuration(totalDuration), label: "إجمالي وقت العمل",
+            color: "hsl(38 92% 52%)",
+            glow: "hsl(38 92% 50% / 0.35)",
+            from: "hsl(38 92% 35% / 0.22)", to: "hsl(38 92% 20% / 0.04)",
+            border: "hsl(38 92% 50% / 0.3)",
+          },
+        ].map(({ icon: Icon, value, label, color, glow, from, to, border }) => (
+          <div key={label} style={{
+            background: `linear-gradient(145deg, ${from}, ${to})`,
+            border: `1px solid ${border}`,
+            borderRadius: "0.875rem",
+            boxShadow: `0 0 22px ${glow}, 0 4px 16px hsl(0 0% 0% / 0.25), inset 0 1px 0 hsl(255 255% 255% / 0.06)`,
+            padding: "1rem",
+            textAlign: "center",
+          }}>
+            <div style={{
+              width: "2.25rem", height: "2.25rem", borderRadius: "0.625rem",
+              background: `linear-gradient(135deg, ${from}, ${to})`,
+              border: `1px solid ${border}`,
+              boxShadow: `0 0 12px ${glow}, inset 0 1px 0 hsl(255 255% 255% / 0.08)`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              margin: "0 auto 0.5rem",
+            }}>
+              <Icon style={{ width: "1rem", height: "1rem", color }} />
+            </div>
+            <p style={{ fontSize: "1.5rem", fontWeight: 900, color, lineHeight: 1 }}>{value}</p>
+            <p style={{ fontSize: "0.625rem", color: "hsl(var(--muted-foreground))", marginTop: "0.3rem" }}>{label}</p>
+          </div>
         ))}
       </div>
 
@@ -245,8 +275,14 @@ export default function SessionsReportPage() {
               </div>
               <div className="flex items-center gap-4 shrink-0 flex-wrap">
                 <div className="flex items-center gap-1.5">
-                  <div className="w-6 h-6 rounded-md bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center">
-                    <LogIn className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                  <div style={{
+                    width:"1.5rem", height:"1.5rem", borderRadius:"0.375rem",
+                    background:"linear-gradient(135deg, hsl(142 70% 20% / 0.4), hsl(142 70% 10% / 0.15))",
+                    border:"1px solid hsl(142 70% 45% / 0.35)",
+                    boxShadow:"0 0 10px hsl(142 70% 45% / 0.3)",
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                  }}>
+                    <LogIn style={{ width:"0.75rem", height:"0.75rem", color:"hsl(142 70% 48%)" }} />
                   </div>
                   <div>
                     <p className="text-xs font-bold text-foreground">{formatDateTime(s.loginAt)}</p>
@@ -254,8 +290,14 @@ export default function SessionsReportPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="w-6 h-6 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 flex items-center justify-center">
-                    <LogOut className="w-3 h-3 text-red-500 dark:text-red-400" />
+                  <div style={{
+                    width:"1.5rem", height:"1.5rem", borderRadius:"0.375rem",
+                    background:"linear-gradient(135deg, hsl(0 70% 22% / 0.4), hsl(0 70% 12% / 0.15))",
+                    border:"1px solid hsl(0 70% 55% / 0.35)",
+                    boxShadow:"0 0 10px hsl(0 70% 55% / 0.3)",
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                  }}>
+                    <LogOut style={{ width:"0.75rem", height:"0.75rem", color:"hsl(0 70% 58%)" }} />
                   </div>
                   <div>
                     <p className={`text-xs font-bold ${s.logoutAt ? "text-foreground" : "text-emerald-600 dark:text-emerald-400"}`}>
