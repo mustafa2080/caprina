@@ -1,4 +1,4 @@
-import { mysqlTable, text, int, real, datetime, varchar, mediumtext } from "drizzle-orm/mysql-core";
+import { mysqlTable, text, int, real, datetime, varchar, mediumtext, boolean } from "drizzle-orm/mysql-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -14,6 +14,7 @@ export const productsTable = mysqlTable("products", {
   unitPrice: real("unit_price").notNull().default(0),
   costPrice: real("cost_price").default(0),
   image: mediumtext("image"),  // base64 صورة المنتج
+  isArchived: boolean("is_archived").notNull().default(false),
   createdAt: datetime("created_at").notNull().default(new Date()),
   updatedAt: datetime("updated_at").notNull().default(new Date()),
 });
