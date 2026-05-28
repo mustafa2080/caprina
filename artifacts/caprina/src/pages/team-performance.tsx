@@ -134,34 +134,71 @@ function MemberCard({
       className="animate-in fade-in slide-in-from-bottom-3 fill-mode-both"
       style={{ animationDelay: `${animDelay}ms`, animationDuration: "350ms" }}
     >
-      <Card className={`border-border bg-card hover:shadow-md hover:-translate-y-0.5 transition-all duration-300
-        ${isTop ? "border-yellow-600/40 shadow-yellow-500/5 shadow-sm" : ""}`}>
-        <CardContent className="px-4 pt-4 pb-3 space-y-3">
+      <div
+        className={`rounded-2xl border transition-all duration-300 hover:-translate-y-1 group`}
+        style={{
+          background: isTop
+            ? "linear-gradient(145deg, hsl(var(--card)) 0%, hsl(45 80% 12% / 0.5) 100%)"
+            : "linear-gradient(145deg, hsl(var(--card)) 0%, hsl(var(--primary) / 0.04) 100%)",
+          borderColor: isTop ? "hsl(45 80% 50% / 0.35)" : "hsl(var(--border) / 0.6)",
+          boxShadow: isTop
+            ? "0 4px 24px hsl(45 80% 50% / 0.12), 0 1px 4px hsl(0 0% 0% / 0.15), inset 0 1px 0 hsl(45 80% 80% / 0.06)"
+            : "0 2px 12px hsl(var(--primary) / 0.06), 0 1px 3px hsl(0 0% 0% / 0.1), inset 0 1px 0 hsl(255 255% 255% / 0.03)",
+        }}
+      >
+        <div className="px-4 pt-4 pb-3 space-y-3">
 
           {/* ── header ── */}
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${rankCls}`}>
+              {/* rank badge */}
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                style={
+                  rank === 1 ? {
+                    background: "linear-gradient(135deg, #f59e0b, #d97706)",
+                    boxShadow: "0 0 12px hsl(45 80% 50% / 0.5), 0 2px 6px hsl(0 0% 0% / 0.2)",
+                    color: "#fff",
+                  } : rank === 2 ? {
+                    background: "linear-gradient(135deg, hsl(var(--muted)), hsl(var(--muted)/0.6))",
+                    boxShadow: "0 0 8px hsl(var(--muted-foreground)/0.2)",
+                    color: "hsl(var(--muted-foreground))",
+                  } : rank === 3 ? {
+                    background: "linear-gradient(135deg, #f97316, #ea580c)",
+                    boxShadow: "0 0 10px hsl(25 90% 50% / 0.35)",
+                    color: "#fff",
+                  } : {
+                    background: "hsl(var(--muted)/0.4)",
+                    color: "hsl(var(--muted-foreground))",
+                  }
+                }
+              >
                 {rank === 1 ? <Trophy className="w-4 h-4" /> : rank === 2 ? "②" : rank === 3 ? "③" : `${rank}`}
               </div>
               {/* avatar */}
               {(member as any).avatar && (member as any).avatar.startsWith("data:") ? (
                 <img
                   src={(member as any).avatar}
-                  className="w-10 h-10 rounded-full object-cover border-2 border-border/60 shrink-0 shadow-sm"
+                  className="w-10 h-10 rounded-full object-cover shrink-0"
+                  style={{ border: "2px solid hsl(var(--primary)/0.3)", boxShadow: "0 0 8px hsl(var(--primary)/0.2)" }}
                   alt={member.displayName}
                 />
               ) : (
                 <div
-                  className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 border-2 border-border/40 shadow-sm"
+                  className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0"
                   style={(() => {
-                    const colors = [
-                      ["#f59e0b","#78350f"],["#10b981","#064e3b"],["#3b82f6","#1e3a8a"],
+                    const colors: [string, string][] = [
+                      ["#f59e0b","#7c3a00"],["#10b981","#064e3b"],["#3b82f6","#1e3a8a"],
                       ["#8b5cf6","#4c1d95"],["#ef4444","#7f1d1d"],["#ec4899","#831843"],
                       ["#06b6d4","#164e63"],["#f97316","#7c2d12"],
                     ];
                     const idx = member.displayName.split("").reduce((a, c) => a + c.charCodeAt(0), 0) % colors.length;
-                    return { background: colors[idx][0], color: colors[idx][1] };
+                    return {
+                      background: `linear-gradient(135deg, ${colors[idx][0]}, ${colors[idx][1]})`,
+                      color: "#fff",
+                      border: `2px solid ${colors[idx][0]}55`,
+                      boxShadow: `0 0 10px ${colors[idx][0]}44`,
+                    };
                   })()}
                 >
                   {member.displayName.trim().split(/\s+/).slice(0,2).map(w => w[0]).join("").toUpperCase() || "?"}
@@ -175,12 +212,32 @@ function MemberCard({
               </div>
             </div>
             <div className="flex flex-col items-end gap-1 shrink-0">
-              <Badge variant="secondary" className="text-[10px] gap-0.5 font-bold">
+              {/* score badge */}
+              <div
+                className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
+                style={{
+                  background: "linear-gradient(135deg, hsl(var(--primary)/0.15), hsl(var(--primary)/0.05))",
+                  border: "1px solid hsl(var(--primary)/0.25)",
+                  boxShadow: "0 0 8px hsl(var(--primary)/0.1)",
+                  color: "hsl(var(--primary))",
+                }}
+              >
                 <Star className="w-2.5 h-2.5 text-yellow-500" />
                 {fmtNum(member.score)}
-              </Badge>
+              </div>
               {showProfit && (
-                <span className={`text-[10px] font-bold ${member.profit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}>
+                <span
+                  className="text-[10px] font-bold px-1.5 py-0.5 rounded-md"
+                  style={member.profit >= 0 ? {
+                    background: "hsl(142 70% 45% / 0.12)",
+                    color: "hsl(142 70% 45%)",
+                    border: "1px solid hsl(142 70% 45% / 0.2)",
+                  } : {
+                    background: "hsl(0 70% 50% / 0.12)",
+                    color: "hsl(0 70% 55%)",
+                    border: "1px solid hsl(0 70% 50% / 0.2)",
+                  }}
+                >
                   {fmt(member.profit)}
                 </span>
               )}
@@ -188,18 +245,39 @@ function MemberCard({
           </div>
 
           {/* ── score bar ── */}
-          <StatBar value={member.score} max={Math.max(maxScore, 1)} color={isTop ? "bg-yellow-500" : "bg-primary/70"} delay={animDelay + 100} />
+          <div className="w-full rounded-full h-1.5 overflow-hidden" style={{ background: "hsl(var(--muted)/0.3)" }}>
+            <div
+              ref={null}
+              style={{
+                height: "100%", borderRadius: "9999px",
+                width: `${Math.min(100, maxScore > 0 ? Math.round((member.score / maxScore) * 100) : 0)}%`,
+                background: isTop
+                  ? "linear-gradient(90deg, #f59e0b, #fcd34d)"
+                  : "linear-gradient(90deg, hsl(var(--primary)), hsl(var(--primary)/0.6))",
+                boxShadow: isTop ? "0 0 8px hsl(45 80% 50% / 0.6)" : "0 0 6px hsl(var(--primary)/0.4)",
+                transition: "width 0.7s cubic-bezier(0.34,1.56,0.64,1)",
+              }}
+            />
+          </div>
 
           {/* ── stats 4-col ── */}
-          <div className="grid grid-cols-4 gap-1 text-center">
+          <div className="grid grid-cols-4 gap-1.5 text-center">
             {[
-              { val: member.total, label: "إجمالي", cls: "bg-muted/20" },
-              { val: member.delivered, label: "مُسلَّم", cls: "bg-emerald-100 dark:bg-emerald-900/20", textCls: "text-emerald-600 dark:text-emerald-400" },
-              { val: member.returned, label: "مُرتجَع", cls: "bg-red-100 dark:bg-red-900/20", textCls: "text-red-600 dark:text-red-400" },
-              { val: member.pending, label: "مؤجَّل", cls: "bg-amber-50 dark:bg-amber-900/20", textCls: "text-amber-700 dark:text-amber-400" },
-            ].map(({ val, label, cls, textCls }) => (
-              <div key={label} className={`${cls} rounded-lg p-1.5`}>
-                <p className={`text-sm font-bold ${textCls ?? ""}`}>{fmtNum(val)}</p>
+              { val: member.total,     label: "إجمالي", color: "hsl(var(--primary))",  bg: "hsl(var(--primary)/0.08)",  border: "hsl(var(--primary)/0.18)"  },
+              { val: member.delivered, label: "مُسلَّم", color: "hsl(142 70% 45%)",     bg: "hsl(142 70% 45% / 0.08)",   border: "hsl(142 70% 45% / 0.2)"   },
+              { val: member.returned,  label: "مُرتجَع", color: "hsl(0 70% 55%)",       bg: "hsl(0 70% 55% / 0.08)",     border: "hsl(0 70% 55% / 0.2)"     },
+              { val: member.pending,   label: "مؤجَّل",  color: "hsl(38 90% 50%)",      bg: "hsl(38 90% 50% / 0.08)",    border: "hsl(38 90% 50% / 0.2)"    },
+            ].map(({ val, label, color, bg, border }) => (
+              <div
+                key={label}
+                className="rounded-xl p-1.5 transition-all duration-200 hover:scale-105"
+                style={{
+                  background: bg,
+                  border: `1px solid ${border}`,
+                  boxShadow: `0 2px 8px ${bg}, inset 0 1px 0 hsl(255 255% 255% / 0.04)`,
+                }}
+              >
+                <p className="text-sm font-bold" style={{ color }}>{fmtNum(val)}</p>
                 <p className="text-[9px] text-muted-foreground">{label}</p>
               </div>
             ))}
@@ -207,10 +285,10 @@ function MemberCard({
 
           {/* ── rates row ── */}
           <div className="flex items-center justify-between text-[10px] flex-wrap gap-1">
-            <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5">
+            <span className="flex items-center gap-0.5" style={{ color: "hsl(142 70% 45%)" }}>
               <CheckCircle2 className="w-3 h-3" /> تسليم <strong>{member.deliveryRate}%</strong>
             </span>
-            <span className="text-red-500 flex items-center gap-0.5">
+            <span className="flex items-center gap-0.5" style={{ color: "hsl(0 70% 55%)" }}>
               <XCircle className="w-3 h-3" /> رجوع <strong>{member.returnRate}%</strong>
             </span>
             <SpeedBadge hours={member.avgProcessingHours} />
@@ -220,7 +298,7 @@ function MemberCard({
           <button
             onClick={onToggle}
             className="w-full flex items-center justify-center gap-1 text-[10px] text-muted-foreground
-              hover:text-foreground transition-colors py-0.5 rounded hover:bg-muted/20"
+              hover:text-foreground transition-colors py-0.5 rounded-lg hover:bg-white/5"
           >
             {expanded
               ? <><ChevronUp className="w-3 h-3" /> إخفاء التفاصيل</>
@@ -263,8 +341,8 @@ function MemberCard({
               )}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }
