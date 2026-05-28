@@ -57,14 +57,29 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
 
     // ── 2. Chart التدفق النقدي آخر 30 يوم ───────────────────────────────────
     const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
-    const dailyFlow = await db.select({
-      day:      sql<string>`DATE(transaction_date)`,
-      totalIn:  sql<number>`COALESCE(SUM(CASE WHEN type IN (${creditSql}) THEN CAST(amount AS DECIMAL(14,2)) ELSE 0 END),0)`,
-      totalOut: sql<number>`COALESCE(SUM(CASE WHEN type IN (${debitSql})  THEN CAST(amount AS DECIMAL(14,2)) ELSE 0 END),0)`,
-    }).from(cashTransactionsTable)
-      .where(gte(cashTransactionsTable.transactionDate, thirtyDaysAgo))
-      .groupBy(sql`DATE(transaction_date)`)
-      .orderBy(sql`DATE(transaction_date)`);
+    let dailyFlow: { day: string; totalIn: number; totalOut: number }[] = [];
+    if (tenantId === null) {
+      dailyFlow = await db.select({
+        day:      sql<string>`DATE(transaction_date)`,
+        totalIn:  sql<number>`COALESCE(SUM(CASE WHEN type IN (${creditSql}) THEN CAST(amount AS DECIMAL(14,2)) ELSE 0 END),0)`,
+        totalOut: sql<number>`COALESCE(SUM(CASE WHEN type IN (${debitSql})  THEN CAST(amount AS DECIMAL(14,2)) ELSE 0 END),0)`,
+      }).from(cashTransactionsTable)
+        .where(gte(cashTransactionsTable.transactionDate, thirtyDaysAgo))
+        .groupBy(sql`DATE(transaction_date)`)
+        .orderBy(sql`DATE(transaction_date)`);
+    } else {
+      const tenantRegIds = registers.map(r => r.id);
+      if (tenantRegIds.length > 0) {
+        dailyFlow = await db.select({
+          day:      sql<string>`DATE(transaction_date)`,
+          totalIn:  sql<number>`COALESCE(SUM(CASE WHEN type IN (${creditSql}) THEN CAST(amount AS DECIMAL(14,2)) ELSE 0 END),0)`,
+          totalOut: sql<number>`COALESCE(SUM(CASE WHEN type IN (${debitSql})  THEN CAST(amount AS DECIMAL(14,2)) ELSE 0 END),0)`,
+        }).from(cashTransactionsTable)
+          .where(and(gte(cashTransactionsTable.transactionDate, thirtyDaysAgo), inArray(cashTransactionsTable.registerId, tenantRegIds)))
+          .groupBy(sql`DATE(transaction_date)`)
+          .orderBy(sql`DATE(transaction_date)`);
+      }
+    }
 
     // ── 3. مؤشرات المبيعات (الفترة الحالية) ─────────────────────────────────
     // الطلبات المُسلَّمة: الإيراد + التكلفة + الشحن
