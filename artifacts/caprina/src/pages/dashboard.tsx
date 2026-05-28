@@ -894,7 +894,7 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 p-2 sm:p-3 bg-background/30 rounded-lg border border-border/40">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 p-2 sm:p-3 bg-background/30 rounded-lg border border-border/40">
               <div className="text-center">
                 <div className="flex items-center justify-center gap-0.5 sm:gap-1 mb-0.5 sm:mb-1">
                   <ArrowUpRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-emerald-600 dark:text-emerald-400" />
@@ -996,7 +996,7 @@ export default function Dashboard() {
       {/* === VISUAL CHARTS === */}
       {chartsData ? (
         <div className="space-y-3 sm:space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
             <ChartCard
               title="توزيع حالات الطلبات"
               dot="#22c55e"
@@ -1183,7 +1183,7 @@ export default function Dashboard() {
 
       {/* === SMART QUICK INSIGHTS === */}
       {smartData && (
-        <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-4 gap-1.5 sm:gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-4 gap-1.5 sm:gap-2">
 
           {/* أفضل منصة */}
           <Link href="/smart">
@@ -1667,7 +1667,7 @@ export default function Dashboard() {
 
           {/* ── تتبع أداء فريق المبيعات — مخفي لو ماعندوش dashboard.team ── */}
           {canSeeTeam && (teamPerf.length > 0 || (isAdmin && employeeProfiles.length > 0)) && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-2 gap-3">
 
           {/* تتبع أداء فريق المبيعات */}
           {teamPerf.length > 0 && (
