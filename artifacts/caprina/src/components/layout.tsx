@@ -491,7 +491,7 @@ export default function Layout({ children }: LayoutProps) {
               </div>
 
               {/* User card */}
-              <div className="px-3 py-3">
+              <div className="px-3 py-3 relative">
                 <button type="button" onClick={() => setUserMenuOpen(v => !v)}
                   className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all hover:bg-foreground/5"
                   style={{ background: "hsl(var(--muted)/0.4)", border: "1px solid hsl(var(--border)/0.5)" }}>
@@ -513,7 +513,7 @@ export default function Layout({ children }: LayoutProps) {
                   <ChevronDown className={cn("w-3.5 h-3.5 text-sidebar-foreground/30 shrink-0 transition-transform", userMenuOpen && "rotate-180")} />
                 </button>
                 {userMenuOpen && (
-                  <div className="mt-1 rounded-xl border overflow-hidden shadow-xl z-50" style={{ background: "hsl(var(--card))", borderColor: "hsl(var(--border))" }}>
+                  <div className="absolute bottom-full left-3 right-3 mb-1 rounded-xl border overflow-hidden shadow-xl z-[200]" style={{ background: "hsl(var(--card))", borderColor: "hsl(var(--border))" }}>
                     <button type="button" onClick={() => { toggleTheme(); setUserMenuOpen(false); }}
                       className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-xs hover:bg-muted/30 transition-colors">
                       <div className="flex items-center gap-2">
