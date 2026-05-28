@@ -3,12 +3,20 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Crown, Plus, RefreshCw, Ban, Trash2, CheckCircle2, Clock, XCircle, Users, Building2, Zap, Rocket, X, ChevronDown } from "lucide-react";
+import { Crown, Plus, RefreshCw, Ban, Trash2, CheckCircle2, Clock, XCircle, Users, Building2, Zap, Rocket, X, ChevronDown, Tag, Save, ChevronUp } from "lucide-react";
 
 interface Tenant {
   id: number; name: string; slug: string; plan: string; planStatus: string;
   expiresAt: string; graceUntil: string | null; contactEmail: string | null;
   contactPhone: string | null; notes: string | null; isActive: boolean; createdAt: string;
+}
+
+interface PlanPrice {
+  monthlyPrice: number | null;
+  yearlyPrice: number | null;
+  yearlySaving: number | null;
+  priceDisplay: string;
+  period: string;
 }
 
 const PLAN_LABELS: Record<string, { label: string; color: string; icon: any }> = {
@@ -32,44 +40,171 @@ function formatDate(d: string) {
   return new Date(d).toLocaleDateString("ar-EG", { year: "numeric", month: "short", day: "numeric" });
 }
 
+
+// ── PricingManager Component ──────────────────────────────────────────────────
+function PricingManager() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [localPrices, setLocalPrices] = useState<Record<string, Partial<PlanPrice>>>({});
+
+  const { data: prices, isLoading } = useQuery<Record<string, PlanPrice>>({
+    queryKey: ["admin-plan-prices"],
+    queryFn: () => apiFetch("/admin/plan-prices"),
+    onSuccess: (data) => setLocalPrices(
+      Object.fromEntries(Object.entries(data).map(([k, v]) => [k, { monthlyPrice: v.monthlyPrice, yearlyPrice: v.yearlyPrice }]))
+    ),
+  });
+
+  const saveMut = useMutation({
+    mutationFn: (body: any) => apiFetch("/admin/plan-prices", { method: "PATCH", body: JSON.stringify(body) }),
+    onSuccess: () => { toast({ title: "✅ تم حفظ الأسعار" }); qc.invalidateQueries({ queryKey: ["admin-plan-prices"] }); },
+    onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
+  });
+
+  const editablePlans = ["starter", "pro"] as const;
+
+  return (
+    <div className="rounded-xl border border-border bg-card overflow-hidden">
+      {/* Header — clickable to toggle */}
+      <div
+        className="flex items-center justify-between px-4 py-3.5 cursor-pointer hover:bg-muted/20 transition-colors"
+        onClick={() => setOpen(v => !v)}
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/25 flex items-center justify-center shrink-0">
+            <Tag className="w-4 h-4 text-amber-400" />
+          </div>
+          <div>
+            <p className="text-sm font-black text-foreground">أسعار الباقات</p>
+            <p className="text-[11px] text-muted-foreground">تحكم في الأسعار المعروضة في صفحة تسجيل الدخول</p>
+          </div>
+        </div>
+        {open ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+      </div>
+
+      {open && (
+        <div className="border-t border-border px-4 pb-4 pt-4">
+          {isLoading ? (
+            <div className="flex justify-center py-6">
+              <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Starter + Pro — الباقتين اللي عندهم سعر */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {editablePlans.map(planKey => {
+                  const meta = PLAN_LABELS[planKey];
+                  const Icon = meta.icon;
+                  const current = prices?.[planKey];
+                  const local = localPrices[planKey] ?? {};
+                  return (
+                    <div key={planKey} className={`rounded-xl border p-4 space-y-3 ${meta.color.includes("blue") ? "border-blue-500/20 bg-blue-500/5" : "border-violet-500/20 bg-violet-500/5"}`}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className={`w-7 h-7 rounded-lg border flex items-center justify-center shrink-0 ${meta.color}`}>
+                          <Icon size={13} />
+                        </div>
+                        <span className="text-sm font-black text-foreground">{meta.label}</span>
+                        {current?.monthlyPrice && (
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border mr-auto ${meta.color}`}>
+                            {current.monthlyPrice} ج.م / شهر
+                          </span>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10px] font-bold text-muted-foreground block mb-1">السعر الشهري (ج.م)</label>
+                          <input
+                            type="number" min="0"
+                            value={local.monthlyPrice ?? current?.monthlyPrice ?? ""}
+                            onChange={e => setLocalPrices(p => ({ ...p, [planKey]: { ...p[planKey], monthlyPrice: e.target.value ? parseInt(e.target.value) : null } }))}
+                            className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm text-foreground outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/10 transition-all"
+                            dir="ltr"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-muted-foreground block mb-1">السعر السنوي (ج.م)</label>
+                          <input
+                            type="number" min="0"
+                            value={local.yearlyPrice ?? current?.yearlyPrice ?? ""}
+                            onChange={e => setLocalPrices(p => ({ ...p, [planKey]: { ...p[planKey], yearlyPrice: e.target.value ? parseInt(e.target.value) : null } }))}
+                            className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm text-foreground outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/10 transition-all"
+                            dir="ltr"
+                          />
+                        </div>
+                      </div>
+                      {/* حساب تلقائي للتوفير */}
+                      {(local.monthlyPrice ?? current?.monthlyPrice) && (local.yearlyPrice ?? current?.yearlyPrice) && (() => {
+                        const m = local.monthlyPrice ?? current?.monthlyPrice ?? 0;
+                        const y = local.yearlyPrice ?? current?.yearlyPrice ?? 0;
+                        const saving = (m! * 12) - y!;
+                        return saving > 0 ? (
+                          <p className="text-[10px] text-emerald-400 font-bold">
+                            💰 التوفير السنوي: {saving.toLocaleString("ar-EG")} ج.م ({Math.round(saving / (m! * 12) * 100)}%)
+                          </p>
+                        ) : null;
+                      })()}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Free trial + Enterprise info */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {(["free_trial", "enterprise"] as const).map(planKey => {
+                  const meta = PLAN_LABELS[planKey];
+                  const Icon = meta.icon;
+                  const current = prices?.[planKey];
+                  return (
+                    <div key={planKey} className="rounded-xl border border-border bg-muted/10 px-4 py-3 flex items-center gap-3">
+                      <div className={`w-7 h-7 rounded-lg border flex items-center justify-center shrink-0 ${meta.color}`}>
+                        <Icon size={13} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-foreground">{meta.label}</p>
+                        <p className="text-[10px] text-muted-foreground">{current?.priceDisplay ?? "—"}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <button
+                onClick={() => saveMut.mutate(localPrices)}
+                disabled={saveMut.isPending}
+                className="w-full h-11 bg-amber-500/15 border border-amber-500/30 text-amber-400 rounded-xl text-sm font-bold hover:bg-amber-500/25 active:scale-[.98] transition-all flex items-center justify-center gap-2 disabled:opacity-40"
+              >
+                {saveMut.isPending
+                  ? <><div className="w-4 h-4 border-2 border-amber-400/40 border-t-amber-400 rounded-full animate-spin" /> جاري الحفظ...</>
+                  : <><Save size={14} /> حفظ الأسعار</>
+                }
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm" onClick={onClose}>
       <div
-        className={[
-          "bg-card border border-border w-full flex flex-col",
-          // موبايل: bottom-sheet يأخذ 95% من الشاشة
-          "rounded-t-3xl sm:rounded-2xl",
-          "max-h-[95dvh] sm:max-h-[90vh]",
-          // ديسكتوب: عرض ثابت ومناسب
-          "sm:max-w-xl sm:w-full",
-          "shadow-2xl",
-        ].join(" ")}
+        className="bg-card border border-border w-full flex flex-col rounded-t-3xl sm:rounded-2xl max-h-[95dvh] sm:max-h-[90vh] sm:max-w-xl sm:w-full shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
-        {/* drag handle — موبايل فقط */}
         <div className="flex justify-center pt-2.5 pb-0 sm:hidden shrink-0">
           <div className="w-12 h-1.5 rounded-full bg-muted-foreground/30" />
         </div>
-
-        {/* header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-border shrink-0">
           <h3 className="font-black text-base text-foreground">{title}</h3>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
-          >
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors">
             <X size={16} />
           </button>
         </div>
-
-        {/* scrollable body — padding bottom كبير على موبايل لو فيه safe area */}
-        <div className="overflow-y-auto overscroll-contain flex-1 px-5 pt-5 pb-safe">
-          {children}
-        </div>
+        <div className="overflow-y-auto overscroll-contain flex-1 px-5 pt-5 pb-safe">{children}</div>
       </div>
     </div>
   );
@@ -177,7 +312,11 @@ export default function SuperAdminPage() {
         ))}
       </div>
 
-      {/* List */}
+      {/* ── Pricing Manager ────────────────────────────────────────────────── */}
+      <PricingManager />
+
+
+      {/* Tenants List */}
       <div className="rounded-xl border border-border bg-card overflow-hidden">
         {isLoading ? (
           <div className="flex items-center justify-center py-16">
@@ -217,7 +356,6 @@ export default function SuperAdminPage() {
                     </span>
                     <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform shrink-0 ${isExpanded ? "rotate-180" : ""}`} />
                   </div>
-
                   {isExpanded && (
                     <div className="px-4 pb-4 bg-muted/10 border-t border-border/50">
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3 text-xs">
@@ -252,215 +390,69 @@ export default function SuperAdminPage() {
         )}
       </div>
 
+      {/* Modal: Create */}
       {showCreate && (
         <Modal title="➕ اشتراك جديد" onClose={() => setShowCreate(false)}>
-          {/* wrapper: padding bottom ضخم على الموبايل عشان الـ sticky button ميغطيش المحتوى */}
           <div className="space-y-6 pb-28 sm:pb-6">
-
-            {/* ── Section 1: بيانات الشركة ── */}
             <div className="space-y-3">
               <div className="flex items-center gap-2 mb-1">
-                <div className="w-6 h-6 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center shrink-0">
-                  <Building2 size={12} className="text-blue-400" />
-                </div>
+                <div className="w-6 h-6 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center shrink-0"><Building2 size={12} className="text-blue-400" /></div>
                 <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">بيانات الشركة</p>
               </div>
-
-              {/* اسم الشركة */}
-              <div>
-                <label className="text-xs font-bold text-foreground/70 block mb-1.5">
-                  اسم الشركة / العميل <span className="text-red-400">*</span>
-                </label>
-                <input
-                  type="text" placeholder="مثال: شركة النور للتجارة" value={form.name}
-                  onChange={e => setForm(v => ({ ...v, name: e.target.value }))}
-                  className="w-full h-11 px-3.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/10 transition-all"
-                />
-              </div>
-
-              {/* Slug */}
-              <div>
-                <label className="text-xs font-bold text-foreground/70 block mb-1.5">
-                  Slug <span className="text-red-400">*</span>
-                  <span className="text-[10px] text-muted-foreground font-normal mr-2">معرّف فريد بالإنجليزية</span>
-                </label>
-                <input
-                  type="text" placeholder="al-noor" value={form.slug}
-                  onChange={e => setForm(v => ({ ...v, slug: e.target.value.replace(/\s/g, "-").toLowerCase() }))}
-                  className="w-full h-11 px-3.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/10 transition-all"
-                  dir="ltr"
-                />
-              </div>
-
-              {/* إيميل + هاتف — جنب بعض على sm فأكبر */}
+              <div><label className="text-xs font-bold text-foreground/70 block mb-1.5">اسم الشركة / العميل <span className="text-red-400">*</span></label>
+                <input type="text" placeholder="مثال: شركة النور للتجارة" value={form.name} onChange={e => setForm(v => ({ ...v, name: e.target.value }))} className="w-full h-11 px-3.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/10 transition-all" /></div>
+              <div><label className="text-xs font-bold text-foreground/70 block mb-1.5">Slug <span className="text-red-400">*</span><span className="text-[10px] text-muted-foreground font-normal mr-2">معرّف فريد بالإنجليزية</span></label>
+                <input type="text" placeholder="al-noor" value={form.slug} onChange={e => setForm(v => ({ ...v, slug: e.target.value.replace(/\s/g, "-").toLowerCase() }))} className="w-full h-11 px-3.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/10 transition-all" dir="ltr" /></div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-bold text-foreground/70 block mb-1.5">إيميل التواصل</label>
-                  <input
-                    type="email" placeholder="client@example.com" value={form.contactEmail}
-                    onChange={e => setForm(v => ({ ...v, contactEmail: e.target.value }))}
-                    className="w-full h-11 px-3.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/10 transition-all"
-                    dir="ltr"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-foreground/70 block mb-1.5">رقم الهاتف</label>
-                  <input
-                    type="tel" placeholder="01xxxxxxxxx" value={form.contactPhone}
-                    onChange={e => setForm(v => ({ ...v, contactPhone: e.target.value }))}
-                    className="w-full h-11 px-3.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/10 transition-all"
-                    dir="ltr"
-                  />
-                </div>
+                <div><label className="text-xs font-bold text-foreground/70 block mb-1.5">إيميل التواصل</label><input type="email" placeholder="client@example.com" value={form.contactEmail} onChange={e => setForm(v => ({ ...v, contactEmail: e.target.value }))} className="w-full h-11 px-3.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/10 transition-all" dir="ltr" /></div>
+                <div><label className="text-xs font-bold text-foreground/70 block mb-1.5">رقم الهاتف</label><input type="tel" placeholder="01xxxxxxxxx" value={form.contactPhone} onChange={e => setForm(v => ({ ...v, contactPhone: e.target.value }))} className="w-full h-11 px-3.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/10 transition-all" dir="ltr" /></div>
               </div>
-
-              {/* ملاحظات */}
-              <div>
-                <label className="text-xs font-bold text-foreground/70 block mb-1.5">ملاحظات</label>
-                <input
-                  type="text" placeholder="أي ملاحظات إضافية" value={form.notes}
-                  onChange={e => setForm(v => ({ ...v, notes: e.target.value }))}
-                  className="w-full h-11 px-3.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/10 transition-all"
-                />
-              </div>
+              <div><label className="text-xs font-bold text-foreground/70 block mb-1.5">ملاحظات</label><input type="text" placeholder="أي ملاحظات إضافية" value={form.notes} onChange={e => setForm(v => ({ ...v, notes: e.target.value }))} className="w-full h-11 px-3.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/10 transition-all" /></div>
             </div>
-
-            {/* divider */}
             <div className="border-t border-border/50" />
-
-            {/* ── Section 2: الباقة والمدة ── */}
             <div className="space-y-3">
               <div className="flex items-center gap-2 mb-1">
-                <div className="w-6 h-6 rounded-full bg-violet-500/20 border border-violet-500/30 flex items-center justify-center shrink-0">
-                  <Crown size={12} className="text-violet-400" />
-                </div>
+                <div className="w-6 h-6 rounded-full bg-violet-500/20 border border-violet-500/30 flex items-center justify-center shrink-0"><Crown size={12} className="text-violet-400" /></div>
                 <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">الباقة والمدة</p>
               </div>
-
-              {/* Plan cards — 2 × 2 */}
               <div className="grid grid-cols-2 gap-2">
                 {Object.entries(PLAN_LABELS).map(([k, v]) => {
-                  const Icon = v.icon;
-                  const selected = form.plan === k;
-                  return (
-                    <button
-                      key={k} type="button"
-                      onClick={() => setForm(p => ({ ...p, plan: k }))}
-                      className={`flex items-center gap-2.5 p-3 rounded-xl border-2 text-right transition-all active:scale-[.97] ${
-                        selected ? "border-primary bg-primary/5" : "border-border bg-background hover:bg-muted/20"
-                      }`}
-                    >
-                      <div className={`w-8 h-8 rounded-lg border flex items-center justify-center shrink-0 ${v.color}`}>
-                        <Icon size={14} />
-                      </div>
-                      <span className={`text-xs font-bold flex-1 ${selected ? "text-primary" : "text-foreground"}`}>
-                        {v.label}
-                      </span>
-                      {selected && <div className="w-2 h-2 rounded-full bg-primary shrink-0" />}
-                    </button>
-                  );
+                  const Icon = v.icon; const selected = form.plan === k;
+                  return (<button key={k} type="button" onClick={() => setForm(p => ({ ...p, plan: k }))} className={`flex items-center gap-2.5 p-3 rounded-xl border-2 text-right transition-all active:scale-[.97] ${selected ? "border-primary bg-primary/5" : "border-border bg-background hover:bg-muted/20"}`}>
+                    <div className={`w-8 h-8 rounded-lg border flex items-center justify-center shrink-0 ${v.color}`}><Icon size={14} /></div>
+                    <span className={`text-xs font-bold flex-1 ${selected ? "text-primary" : "text-foreground"}`}>{v.label}</span>
+                    {selected && <div className="w-2 h-2 rounded-full bg-primary shrink-0" />}
+                  </button>);
                 })}
               </div>
-
-              {/* Duration — 3 على موبايل / 5 على ديسكتوب */}
-              <div>
-                <label className="text-xs font-bold text-foreground/70 block mb-1.5">
-                  مدة الاشتراك <span className="text-red-400">*</span>
-                </label>
+              <div><label className="text-xs font-bold text-foreground/70 block mb-1.5">مدة الاشتراك <span className="text-red-400">*</span></label>
                 <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                   {[["14","14 يوم"],["30","شهر"],["90","3 أشهر"],["180","6 أشهر"],["365","سنة"]].map(([val, lbl]) => (
-                    <button
-                      key={val} type="button"
-                      onClick={() => setForm(p => ({ ...p, durationDays: val }))}
-                      className={`h-10 rounded-xl border-2 text-xs font-bold transition-all active:scale-[.97] ${
-                        form.durationDays === val
-                          ? "border-primary bg-primary/5 text-primary"
-                          : "border-border bg-background text-muted-foreground hover:bg-muted/20"
-                      }`}
-                    >
-                      {lbl}
-                    </button>
+                    <button key={val} type="button" onClick={() => setForm(p => ({ ...p, durationDays: val }))} className={`h-10 rounded-xl border-2 text-xs font-bold transition-all active:scale-[.97] ${form.durationDays === val ? "border-primary bg-primary/5 text-primary" : "border-border bg-background text-muted-foreground hover:bg-muted/20"}`}>{lbl}</button>
                   ))}
                 </div>
               </div>
             </div>
-
-            {/* divider */}
             <div className="border-t border-border/50" />
-
-            {/* ── Section 3: بيانات دخول العميل ── */}
             <div className="space-y-3">
               <div className="flex items-center gap-2 mb-1">
-                <div className="w-6 h-6 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0">
-                  <Users size={12} className="text-emerald-400" />
-                </div>
+                <div className="w-6 h-6 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0"><Users size={12} className="text-emerald-400" /></div>
                 <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">بيانات دخول العميل</p>
               </div>
-
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-bold text-foreground/70 block mb-1.5">
-                    اسم المستخدم <span className="text-red-400">*</span>
-                  </label>
-                  <input
-                    type="text" placeholder="alnoor_admin" value={form.adminUsername}
-                    onChange={e => setForm(v => ({ ...v, adminUsername: e.target.value.replace(/\s/g, "") }))}
-                    className="w-full h-11 px-3.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/10 transition-all"
-                    dir="ltr"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-foreground/70 block mb-1.5">
-                    كلمة المرور <span className="text-red-400">*</span>
-                  </label>
-                  <input
-                    type="text" placeholder="كلمة مرور قوية" value={form.adminPassword}
-                    onChange={e => setForm(v => ({ ...v, adminPassword: e.target.value }))}
-                    className="w-full h-11 px-3.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/10 transition-all"
-                  />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="text-xs font-bold text-foreground/70 block mb-1.5">الاسم الظاهر</label>
-                  <input
-                    type="text" placeholder={form.name || "اسم المدير"} value={form.adminDisplayName}
-                    onChange={e => setForm(v => ({ ...v, adminDisplayName: e.target.value }))}
-                    className="w-full h-11 px-3.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/10 transition-all"
-                  />
-                </div>
+                <div><label className="text-xs font-bold text-foreground/70 block mb-1.5">اسم المستخدم <span className="text-red-400">*</span></label><input type="text" placeholder="alnoor_admin" value={form.adminUsername} onChange={e => setForm(v => ({ ...v, adminUsername: e.target.value.replace(/\s/g, "") }))} className="w-full h-11 px-3.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/10 transition-all" dir="ltr" /></div>
+                <div><label className="text-xs font-bold text-foreground/70 block mb-1.5">كلمة المرور <span className="text-red-400">*</span></label><input type="text" placeholder="كلمة مرور قوية" value={form.adminPassword} onChange={e => setForm(v => ({ ...v, adminPassword: e.target.value }))} className="w-full h-11 px-3.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/10 transition-all" /></div>
+                <div className="sm:col-span-2"><label className="text-xs font-bold text-foreground/70 block mb-1.5">الاسم الظاهر</label><input type="text" placeholder={form.name || "اسم المدير"} value={form.adminDisplayName} onChange={e => setForm(v => ({ ...v, adminDisplayName: e.target.value }))} className="w-full h-11 px-3.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/10 transition-all" /></div>
               </div>
             </div>
           </div>
-
-          {/* ── Sticky action bar — بتثبت في أسفل الـ modal على أي شاشة ── */}
           <div className="sticky bottom-0 left-0 right-0 bg-card border-t border-border px-5 py-3 flex gap-2 shrink-0">
-            <button
-              onClick={() => createMut.mutate({
-                name: form.name,
-                slug: form.slug.toLowerCase().replace(/\s+/g, "-"),
-                plan: form.plan,
-                contactEmail: form.contactEmail || undefined,
-                contactPhone: form.contactPhone || undefined,
-                notes: form.notes || undefined,
-                durationDays: parseInt(form.durationDays),
-                adminUsername: form.adminUsername,
-                adminPassword: form.adminPassword,
-                adminDisplayName: form.adminDisplayName || undefined,
-              })}
+            <button onClick={() => createMut.mutate({ name: form.name, slug: form.slug.toLowerCase().replace(/\s+/g, "-"), plan: form.plan, contactEmail: form.contactEmail || undefined, contactPhone: form.contactPhone || undefined, notes: form.notes || undefined, durationDays: parseInt(form.durationDays), adminUsername: form.adminUsername, adminPassword: form.adminPassword, adminDisplayName: form.adminDisplayName || undefined })}
               disabled={!form.name || !form.slug || !form.adminUsername || !form.adminPassword || createMut.isPending}
-              className="flex-1 h-12 bg-primary text-primary-foreground rounded-xl text-sm font-bold disabled:opacity-40 hover:bg-primary/90 active:scale-[.98] transition-all flex items-center justify-center gap-2"
-            >
-              {createMut.isPending ? (
-                <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> جاري الإنشاء...</>
-              ) : (
-                <><Plus size={15} /> إنشاء الاشتراك والمستخدم</>
-              )}
+              className="flex-1 h-12 bg-primary text-primary-foreground rounded-xl text-sm font-bold disabled:opacity-40 hover:bg-primary/90 active:scale-[.98] transition-all flex items-center justify-center gap-2">
+              {createMut.isPending ? <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> جاري الإنشاء...</> : <><Plus size={15} /> إنشاء الاشتراك والمستخدم</>}
             </button>
-            <button
-              onClick={() => setShowCreate(false)}
-              className="h-12 px-5 border border-border rounded-xl text-sm text-muted-foreground hover:bg-muted/20 active:scale-[.98] transition-all"
-            >
-              إلغاء
-            </button>
+            <button onClick={() => setShowCreate(false)} className="h-12 px-5 border border-border rounded-xl text-sm text-muted-foreground hover:bg-muted/20 active:scale-[.98] transition-all">إلغاء</button>
           </div>
         </Modal>
       )}
@@ -469,56 +461,32 @@ export default function SuperAdminPage() {
       {showRenew && (
         <Modal title={`🔄 تجديد: ${showRenew.name}`} onClose={() => setShowRenew(null)}>
           <div className="space-y-5 pb-24 sm:pb-4">
-            <div>
-              <label className="text-xs font-bold text-foreground/70 block mb-2">الباقة</label>
+            <div><label className="text-xs font-bold text-foreground/70 block mb-2">الباقة</label>
               <div className="grid grid-cols-2 gap-2">
                 {Object.entries(PLAN_LABELS).map(([k, v]) => {
-                  const Icon = v.icon;
-                  const selected = renewPlan === k;
-                  return (
-                    <button key={k} type="button" onClick={() => setRenewPlan(k)}
-                      className={`flex items-center gap-2.5 p-3 rounded-xl border-2 text-right transition-all active:scale-[.97] ${
-                        selected ? "border-primary bg-primary/5" : "border-border bg-background hover:bg-muted/20"
-                      }`}>
-                      <div className={`w-7 h-7 rounded-lg border flex items-center justify-center shrink-0 ${v.color}`}>
-                        <Icon size={13} />
-                      </div>
-                      <span className={`text-xs font-bold flex-1 ${selected ? "text-primary" : "text-foreground"}`}>{v.label}</span>
-                      {selected && <div className="w-2 h-2 rounded-full bg-primary shrink-0" />}
-                    </button>
-                  );
+                  const Icon = v.icon; const selected = renewPlan === k;
+                  return (<button key={k} type="button" onClick={() => setRenewPlan(k)} className={`flex items-center gap-2.5 p-3 rounded-xl border-2 text-right transition-all active:scale-[.97] ${selected ? "border-primary bg-primary/5" : "border-border bg-background hover:bg-muted/20"}`}>
+                    <div className={`w-7 h-7 rounded-lg border flex items-center justify-center shrink-0 ${v.color}`}><Icon size={13} /></div>
+                    <span className={`text-xs font-bold flex-1 ${selected ? "text-primary" : "text-foreground"}`}>{v.label}</span>
+                    {selected && <div className="w-2 h-2 rounded-full bg-primary shrink-0" />}
+                  </button>);
                 })}
               </div>
             </div>
-            <div>
-              <label className="text-xs font-bold text-foreground/70 block mb-2">مدة التجديد</label>
+            <div><label className="text-xs font-bold text-foreground/70 block mb-2">مدة التجديد</label>
               <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                 {[["14","14 يوم"],["30","شهر"],["90","3 أشهر"],["180","6 أشهر"],["365","سنة"]].map(([val, lbl]) => (
-                  <button key={val} type="button" onClick={() => setRenewDays(val)}
-                    className={`h-10 rounded-xl border-2 text-xs font-bold transition-all active:scale-[.97] ${
-                      renewDays === val ? "border-primary bg-primary/5 text-primary" : "border-border bg-background text-muted-foreground hover:bg-muted/20"
-                    }`}>
-                    {lbl}
-                  </button>
+                  <button key={val} type="button" onClick={() => setRenewDays(val)} className={`h-10 rounded-xl border-2 text-xs font-bold transition-all active:scale-[.97] ${renewDays === val ? "border-primary bg-primary/5 text-primary" : "border-border bg-background text-muted-foreground hover:bg-muted/20"}`}>{lbl}</button>
                 ))}
               </div>
             </div>
           </div>
           <div className="sticky bottom-0 bg-card border-t border-border px-5 py-3 flex gap-2">
-            <button
-              onClick={() => renewMut.mutate({ id: showRenew.id, body: { plan: renewPlan, durationDays: parseInt(renewDays) } })}
-              disabled={renewMut.isPending}
+            <button onClick={() => renewMut.mutate({ id: showRenew.id, body: { plan: renewPlan, durationDays: parseInt(renewDays) } })} disabled={renewMut.isPending}
               className="flex-1 h-12 bg-emerald-600 text-white rounded-xl text-sm font-bold disabled:opacity-40 hover:bg-emerald-500 active:scale-[.98] transition-all flex items-center justify-center gap-2">
-              {renewMut.isPending ? (
-                <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> جاري التجديد...</>
-              ) : (
-                <><RefreshCw size={14} /> تجديد الاشتراك</>
-              )}
+              {renewMut.isPending ? <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> جاري التجديد...</> : <><RefreshCw size={14} /> تجديد الاشتراك</>}
             </button>
-            <button onClick={() => setShowRenew(null)}
-              className="h-12 px-5 border border-border rounded-xl text-sm text-muted-foreground hover:bg-muted/20 active:scale-[.98] transition-all">
-              إلغاء
-            </button>
+            <button onClick={() => setShowRenew(null)} className="h-12 px-5 border border-border rounded-xl text-sm text-muted-foreground hover:bg-muted/20 active:scale-[.98] transition-all">إلغاء</button>
           </div>
         </Modal>
       )}

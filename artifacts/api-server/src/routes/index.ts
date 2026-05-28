@@ -35,12 +35,13 @@ const router: IRouter = Router();
 // Public routes (no auth required)
 router.use(healthRouter);
 router.use("/auth", authRouter);
-router.use(brandRouter); // GET /brand + GET /brand/logo are public; PATCH/POST/DELETE self-protect internally
-router.use(settingsRouter); // GET/PATCH /settings — app feature flags
+router.use(brandRouter);
+router.use(settingsRouter);
+router.use(adminTenantsRouter); // يشمل GET /public/plan-prices (public) + /admin/* (محمي داخلياً بـ requireSuperAdmin بعد requireAuth)
 
 // All routes below require authentication
 router.use(requireAuth);
-router.use(checkSubscription); // ← فحص الاشتراك بعد الـ auth مباشرة
+router.use(checkSubscription);
 router.use("/users", usersRouter);
 router.use("/audit-logs", auditRouter);
 router.use(importRouter);
@@ -64,6 +65,5 @@ router.use("/cash-registers", cashRegistersRouter);
 router.use(attendanceRouter);
 router.use(financeSalesRouter);
 router.use(financeClientsRouter);
-router.use(adminTenantsRouter); // super_admin فقط — محمي داخلياً
 
 export default router;
