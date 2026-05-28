@@ -14,8 +14,8 @@ function parseValue(val: string | null | undefined): Record<string, any> {
   try { return JSON.parse(val); } catch { return {}; }
 }
 
-// GET /settings — returns app settings (super_admin only)
-router.get("/settings", requireAuth, requireSuperAdmin, async (_req, res): Promise<void> => {
+// GET /settings — returns app settings (admin+)
+router.get("/settings", requireAuth, requireAdmin, async (_req, res): Promise<void> => {
   try {
     const rows = await db
       .select()
