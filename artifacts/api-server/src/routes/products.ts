@@ -38,11 +38,9 @@ const AddStockSchema = z.object({
 
 router.get("/products", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req);
-  const conditions: any[] = [];
+  const conditions: any[] = [eq(productsTable.isArchived, false)];
   if (tenantId !== null) conditions.push(eq(productsTable.tenantId, tenantId));
-  const products = conditions.length > 0
-    ? await db.select().from(productsTable).where(and(...conditions)).orderBy(desc(productsTable.createdAt))
-    : await db.select().from(productsTable).orderBy(desc(productsTable.createdAt));
+  const products = await db.select().from(productsTable).where(and(...conditions)).orderBy(desc(productsTable.createdAt));
   res.json(products);
 });
 
