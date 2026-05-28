@@ -1431,13 +1431,16 @@ function EmployeeDetail({
       </div>
 
       <Tabs defaultValue={canSalaries ? "attendance" : canPerformance ? "kpis" : "profile"}>
-        <TabsList className="h-8 text-xs">
-          {canSalaries && <TabsTrigger value="attendance" className="text-xs">الحضور والمرتب</TabsTrigger>}
-          {canManage && <TabsTrigger value="daily" className="text-xs">متابعة يومية</TabsTrigger>}
-          {canPerformance && <TabsTrigger value="kpis" className="text-xs">مؤشرات الأداء</TabsTrigger>}
-          {canPerformance && <TabsTrigger value="report" className="text-xs">التقرير الشهري</TabsTrigger>}
-          <TabsTrigger value="profile" className="text-xs">الملف الشخصي</TabsTrigger>
-        </TabsList>
+        {/* ── TabsList متجاوب — scroll أفقي على الموبايل ── */}
+        <div className="overflow-x-auto no-scrollbar -mx-1 px-1">
+          <TabsList className="h-9 text-xs flex w-max min-w-full sm:w-full gap-0.5 p-1 rounded-xl bg-muted/40 dark:bg-black/30 border border-border/50 backdrop-blur-sm">
+            {canSalaries   && <TabsTrigger value="attendance" className="text-xs px-3 rounded-lg whitespace-nowrap transition-all duration-200 data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-[0_0_12px_rgba(99,102,241,0.3),0_2px_8px_rgba(0,0,0,0.15)] dark:data-[state=active]:shadow-[0_0_16px_rgba(99,102,241,0.45),0_2px_10px_rgba(0,0,0,0.4)]">الحضور والمرتب</TabsTrigger>}
+            {canManage     && <TabsTrigger value="daily"      className="text-xs px-3 rounded-lg whitespace-nowrap transition-all duration-200 data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-[0_0_12px_rgba(99,102,241,0.3),0_2px_8px_rgba(0,0,0,0.15)] dark:data-[state=active]:shadow-[0_0_16px_rgba(99,102,241,0.45),0_2px_10px_rgba(0,0,0,0.4)]">متابعة يومية</TabsTrigger>}
+            {canPerformance && <TabsTrigger value="kpis"      className="text-xs px-3 rounded-lg whitespace-nowrap transition-all duration-200 data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-[0_0_12px_rgba(99,102,241,0.3),0_2px_8px_rgba(0,0,0,0.15)] dark:data-[state=active]:shadow-[0_0_16px_rgba(99,102,241,0.45),0_2px_10px_rgba(0,0,0,0.4)]">مؤشرات الأداء</TabsTrigger>}
+            {canPerformance && <TabsTrigger value="report"    className="text-xs px-3 rounded-lg whitespace-nowrap transition-all duration-200 data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-[0_0_12px_rgba(99,102,241,0.3),0_2px_8px_rgba(0,0,0,0.15)] dark:data-[state=active]:shadow-[0_0_16px_rgba(99,102,241,0.45),0_2px_10px_rgba(0,0,0,0.4)]">التقرير الشهري</TabsTrigger>}
+            <TabsTrigger value="profile" className="text-xs px-3 rounded-lg whitespace-nowrap transition-all duration-200 data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-[0_0_12px_rgba(99,102,241,0.3),0_2px_8px_rgba(0,0,0,0.15)] dark:data-[state=active]:shadow-[0_0_16px_rgba(99,102,241,0.45),0_2px_10px_rgba(0,0,0,0.4)]">الملف الشخصي</TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* ─── Attendance Tab ─── */}
         {canSalaries && (
@@ -1538,13 +1541,14 @@ function EmployeeDetail({
               {/* Quick stats row */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                 {[
-                  { label: "الطلبيات",      value: fmtNum(report.orderStats.total),          icon: Package,     color: "text-primary",                         bg: "bg-primary/5 dark:bg-primary/10"              },
-                  { label: "مُسلَّم",        value: fmtNum(report.orderStats.delivered),      icon: TrendingUp,  color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-900/20"         },
-                  { label: "مُرتجَع",        value: fmtNum(report.orderStats.returned),       icon: TrendingDown, color: "text-red-600 dark:text-red-400",        bg: "bg-red-50 dark:bg-red-900/20"                 },
-                  { label: "نسبة التسليم",  value: `${report.orderStats.deliveryRate}%`,     icon: Star,        color: "text-amber-600 dark:text-amber-400",     bg: "bg-amber-50 dark:bg-amber-900/20"             },
+                  { label: "الطلبيات",      value: fmtNum(report.orderStats.total),          icon: Package,     color: "text-primary",                         bg: "bg-primary/5 dark:bg-primary/10",             glow: "shadow-[0_0_14px_rgba(99,102,241,0.18)] dark:shadow-[0_0_18px_rgba(99,102,241,0.3)]",  border: "border-primary/20 dark:border-primary/30",  gradient: "from-primary/5 to-transparent"         },
+                  { label: "مُسلَّم",        value: fmtNum(report.orderStats.delivered),      icon: TrendingUp,  color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-900/20",        glow: "shadow-[0_0_14px_rgba(16,185,129,0.18)] dark:shadow-[0_0_18px_rgba(16,185,129,0.3)]",   border: "border-emerald-200/60 dark:border-emerald-700/40", gradient: "from-emerald-500/5 to-transparent" },
+                  { label: "مُرتجَع",        value: fmtNum(report.orderStats.returned),       icon: TrendingDown, color: "text-red-600 dark:text-red-400",        bg: "bg-red-50 dark:bg-red-900/20",                glow: "shadow-[0_0_14px_rgba(239,68,68,0.18)] dark:shadow-[0_0_18px_rgba(239,68,68,0.3)]",     border: "border-red-200/60 dark:border-red-700/40",  gradient: "from-red-500/5 to-transparent"          },
+                  { label: "نسبة التسليم",  value: `${report.orderStats.deliveryRate}%`,     icon: Star,        color: "text-amber-600 dark:text-amber-400",     bg: "bg-amber-50 dark:bg-amber-900/20",            glow: "shadow-[0_0_14px_rgba(245,158,11,0.18)] dark:shadow-[0_0_18px_rgba(245,158,11,0.3)]",   border: "border-amber-200/60 dark:border-amber-700/40", gradient: "from-amber-500/5 to-transparent"      },
                 ].map(s => (
-                  <Card key={s.label} className={`border-border ${s.bg}`}>
-                    <CardContent className="px-3 py-3 flex items-center gap-2">
+                  <Card key={s.label} className={`relative overflow-hidden border-border ${s.bg} ${s.glow} ${s.border} transition-all duration-200`}>
+                    <div className={`absolute inset-0 bg-gradient-to-br ${s.gradient} pointer-events-none`} />
+                    <CardContent className="relative px-3 py-3 flex items-center gap-2">
                       <s.icon className={`w-4 h-4 shrink-0 ${s.color}`} />
                       <div>
                         <p className={`text-base font-bold ${s.color}`}>{s.value}</p>
@@ -1607,8 +1611,10 @@ function EmployeeDetail({
               )}
 
               {/* Salary card */}
-              <Card className="border-emerald-200 dark:border-emerald-900/40 bg-emerald-50 dark:bg-emerald-900/10">
-                <CardContent className="px-4 py-3 flex items-center justify-between">
+              <Card className="relative overflow-hidden border-emerald-200 dark:border-emerald-900/40 bg-emerald-50 dark:bg-emerald-900/10 shadow-[0_0_20px_rgba(16,185,129,0.12)] dark:shadow-[0_0_24px_rgba(16,185,129,0.2)] transition-all duration-200">
+                <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/8 to-transparent pointer-events-none" />
+                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/50 to-transparent" />
+                <CardContent className="relative px-4 py-3 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                     <div>
@@ -1805,11 +1811,11 @@ export default function TeamPage() {
           return (
             <div
               key={profile.id}
-              className="group relative overflow-hidden rounded-[22px] cursor-pointer transition-all duration-200 hover:-translate-y-1"
+              className="group relative overflow-hidden rounded-[22px] cursor-pointer transition-all duration-200 hover:-translate-y-1 dark:border-white/10 border-black/10"
               style={{
                 background: "hsl(var(--card))",
-                border: "1px solid rgba(255,255,255,0.08)",
-                boxShadow: "0 4px 24px rgba(0,0,0,0.25)",
+                border: "1px solid hsl(var(--border))",
+                boxShadow: "0 2px 12px rgba(0,0,0,0.08), 0 4px 24px rgba(0,0,0,0.06)",
               }}
               onClick={() => setSelectedProfileId(profile.id)}
             >
@@ -1868,19 +1874,15 @@ export default function TeamPage() {
                 {/* ── الإحصائيات ── */}
                 <div className="grid grid-cols-2 gap-3 mb-4">
                   {/* الحضور */}
-                  <div className="rounded-xl p-3"
-                    style={{
-                      background: "rgba(255,255,255,0.04)",
-                      border: "1px solid rgba(255,255,255,0.07)",
-                    }}>
+                  <div className="rounded-xl p-3 bg-muted/40 dark:bg-white/[0.04] border border-border/60 dark:border-white/[0.07]">
                     <div className="flex items-center justify-between mb-2">
-                      <p className="text-[10px] font-bold" style={{ color: "rgba(255,255,255,0.45)" }}>الحضور</p>
+                      <p className="text-[10px] font-bold text-muted-foreground">الحضور</p>
                       <span className={`text-sm font-black ${attColor.text}`}>
                         {att.workedDays > 0 ? att.workedDays : "—"}
                       </span>
                     </div>
                     {/* شريط الحضور */}
-                    <div className="w-full h-1.5 rounded-full" style={{ background: "rgba(255,255,255,0.08)" }}>
+                    <div className="w-full h-1.5 rounded-full bg-muted/60 dark:bg-white/[0.08]">
                       <div className="h-1.5 rounded-full transition-all duration-500"
                         style={{
                           width: `${attPct}%`,
@@ -1888,20 +1890,16 @@ export default function TeamPage() {
                           boxShadow: att.workedDays > 0 ? `0 0 6px ${attColor.glow}` : "none",
                         }} />
                     </div>
-                    <p className="text-[9px] mt-1" style={{ color: "rgba(255,255,255,0.30)" }}>
+                    <p className="text-[9px] mt-1 text-muted-foreground/70">
                       {att.workedDays > 0 ? `${attPct}% من الشهر` : "لا يوجد سجل"}
                     </p>
                   </div>
 
                   {/* مؤشرات الأداء */}
-                  <div className="rounded-xl p-3"
-                    style={{
-                      background: "rgba(255,255,255,0.04)",
-                      border: "1px solid rgba(255,255,255,0.07)",
-                    }}>
+                  <div className="rounded-xl p-3 bg-muted/40 dark:bg-white/[0.04] border border-border/60 dark:border-white/[0.07]">
                     <div className="flex items-center justify-between mb-2">
-                      <p className="text-[10px] font-bold" style={{ color: "rgba(255,255,255,0.45)" }}>مؤشرات الأداء</p>
-                      <span className="text-sm font-black" style={{ color: kpiCount > 0 ? "#6366F1" : "rgba(255,255,255,0.3)" }}>
+                      <p className="text-[10px] font-bold text-muted-foreground">مؤشرات الأداء</p>
+                      <span className={`text-sm font-black ${kpiCount > 0 ? "text-indigo-500 dark:text-indigo-400" : "text-muted-foreground/40"}`}>
                         {kpiCount > 0 ? kpiCount : "—"}
                       </span>
                     </div>
@@ -1912,33 +1910,31 @@ export default function TeamPage() {
                             <div key={i} className="w-2 h-2 rounded-full"
                               style={{ background: "#6366F1", boxShadow: "0 0 4px rgba(99,102,241,0.5)" }} />
                           ))
-                        : <p className="text-[9px]" style={{ color: "rgba(255,255,255,0.25)" }}>لم تُضف بعد</p>
+                        : <p className="text-[9px] text-muted-foreground/50">لم تُضف بعد</p>
                       }
                       {kpiCount > 6 && (
-                        <span className="text-[9px]" style={{ color: "rgba(99,102,241,0.7)" }}>+{kpiCount - 6}</span>
+                        <span className="text-[9px] text-indigo-500 dark:text-indigo-400/70">+{kpiCount - 6}</span>
                       )}
                     </div>
-                    <p className="text-[9px] mt-1" style={{ color: "rgba(255,255,255,0.30)" }}>
+                    <p className="text-[9px] mt-1 text-muted-foreground/70">
                       {kpiCount > 0 ? `${kpiCount} مؤشر نشط` : "أضف مؤشرات أداء"}
                     </p>
                   </div>
                 </div>
 
                 {/* ── الفوتر ── */}
-                <div className="flex items-center justify-between pt-3"
-                  style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-                  <div className="flex items-center gap-1.5 text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>
+                <div className="flex items-center justify-between pt-3 border-t border-border/50">
+                  <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/60">
                     <Target className="w-3 h-3" />
                     <span>عرض المؤشرات والتقرير</span>
                   </div>
                   {/* غياب لو فيه */}
                   {att.absentDays > 0 && (
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
-                      style={{ background: "rgba(239,68,68,0.15)", color: "#EF4444", border: "1px solid rgba(239,68,68,0.25)" }}>
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-500 dark:text-red-400 border border-red-500/25">
                       غياب: {att.absentDays}
                     </span>
                   )}
-                  <ChevronRight className="w-3.5 h-3.5" style={{ color: "rgba(255,255,255,0.25)" }} />
+                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/30" />
                 </div>
               </div>
             </div>
