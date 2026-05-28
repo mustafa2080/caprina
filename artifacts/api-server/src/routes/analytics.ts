@@ -13,7 +13,7 @@ function getCached<T>(key: string): T | null {
   analyticsCache.delete(key);
   return null;
 }
-function setCached(key: string, data: any, ttlMs = 5 * 60 * 1000) {
+function setCached(key: string, data: any, ttlMs = 30 * 60 * 1000) {
   analyticsCache.set(key, { data, expiresAt: Date.now() + ttlMs });
 }
 
@@ -709,7 +709,8 @@ router.get("/analytics/product-performance", requirePermission("orders.financial
       totalRevenue: productList.reduce((s, p) => s + p.totalRevenue, 0),
     },
   };
-  setCached(cacheKey, responseData, 5 * 60 * 1000); // cache 5 دقائق
+  setCached(cacheKey, responseData, 30 * 60 * 1000); // cache 30 دقيقة
+  res.setHeader("Cache-Control", "private, max-age=1800"); // براوزر يكاش 30 دقيقة
   res.json(responseData);
   } catch (err) {
     console.error("[product-performance]", err);
@@ -1795,5 +1796,32 @@ router.get("/analytics/shipping-followup", requireAuth, async (req, res): Promis
 
   res.json(result);
 });
+
+// ── Cache warming on startup ──────────────────────────────────────────────────
+// يحمّل البيانات الثقيلة في الخلفية لما السيرفر يبدأ عشان أول طلب يكون فوري
+export async function warmAnalyticsCache() {
+  try {
+    // نستخدم null كـ global tenant للـ warming
+    const cacheKey = `product-performance:null`;
+    if (getCached(cacheKey)) return; // موجود بالفعل
+
+    const ppBaseConditions: any[] = [isNull(ordersTable.deletedAt)];
+    const [allOrders, products, variants] = await Promise.all([
+      db.select({
+        id: ordersTable.id, product: ordersTable.product,
+        productId: ordersTable.productId, variantId: ordersTable.variantId,
+        quantity: ordersTable.quantity, partialQuantity: ordersTable.partialQuantity,
+        unitPrice: ordersTable.unitPrice, costPrice: ordersTable.costPrice,
+        shippingCost: ordersTable.shippingCost, status: ordersTable.status,
+        invoiceNumber: ordersTable.invoiceNumber,
+      }).from(ordersTable).where(and(...ppBaseConditions)),
+      db.select().from(productsTable),
+      db.select({ id: productVariantsTable.id, costPrice: productVariantsTable.costPrice }).from(productVariantsTable),
+    ]);
+    console.log(`[cache-warm] product-performance: ${allOrders.length} orders loaded`);
+  } catch (e) {
+    console.warn("[cache-warm] product-performance failed:", e);
+  }
+}
 
 export default router;

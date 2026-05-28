@@ -63593,12 +63593,13 @@ var init_users = __esm({
     "use strict";
     init_mysql_core();
     init_drizzle_zod();
-    USER_ROLES = ["super_admin", "admin", "employee", "warehouse"];
+    USER_ROLES = ["super_admin", "admin", "employee", "warehouse", "custom"];
     ROLE_PERMISSIONS = {
       super_admin: ["*"],
       admin: ["*"],
       employee: ["orders", "dashboard"],
-      warehouse: ["inventory", "movements", "dashboard"]
+      warehouse: ["inventory", "movements", "dashboard"],
+      custom: []
     };
     usersTable = mysqlTable("users", {
       id: int("id").primaryKey().autoincrement(),
@@ -64191,7 +64192,8 @@ var init_clients = __esm({
       // ── ميتا ──────────────────────────────────────────────────────────────
       notes: text("notes"),
       isActive: boolean("is_active").default(true),
-      avatar: text("avatar"),
+      avatar: longtext("avatar"),
+      // LONGTEXT عشان base64 الصور الكبيرة
       createdAt: datetime("created_at").notNull(),
       updatedAt: datetime("updated_at").notNull()
     });
@@ -89211,10 +89213,10 @@ var require_util = __commonJS({
       return typeof arg === "boolean";
     }
     exports2.isBoolean = isBoolean;
-    function isNull6(arg) {
+    function isNull7(arg) {
       return arg === null;
     }
-    exports2.isNull = isNull6;
+    exports2.isNull = isNull7;
     function isNullOrUndefined(arg) {
       return arg == null;
     }
@@ -146934,7 +146936,7 @@ var JWT_SECRET = _jwtSecret;
 var JWT_EXPIRES = "30d";
 function signToken(user) {
   return import_jsonwebtoken.default.sign(
-    { id: user.id, username: user.username, role: user.role, displayName: user.displayName, tenantId: user.tenantId ?? null },
+    { id: user.id, username: user.username, role: user.role, displayName: user.displayName, tenantId: user.tenantId ?? null, permissions: user.permissions ?? [] },
     JWT_SECRET,
     { expiresIn: JWT_EXPIRES }
   );
@@ -147850,6 +147852,25 @@ function requireSuperAdmin(req, res, next) {
     return;
   }
   next();
+}
+function requirePermission(permission) {
+  return (req, res, next) => {
+    const user = req.user;
+    if (!user) {
+      res.status(401).json({ error: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D" });
+      return;
+    }
+    if (user.role === "admin" || user.role === "super_admin") {
+      next();
+      return;
+    }
+    const perms = Array.isArray(user.permissions) ? user.permissions : [];
+    if (perms.includes(permission)) {
+      next();
+      return;
+    }
+    res.status(403).json({ error: "\u0644\u064A\u0633 \u0644\u062F\u064A\u0643 \u0635\u0644\u0627\u062D\u064A\u0629 \u0644\u0647\u0630\u0647 \u0627\u0644\u0639\u0645\u0644\u064A\u0629" });
+  };
 }
 
 // src/routes/products.ts
@@ -149231,7 +149252,7 @@ function getCached(key) {
   analyticsCache.delete(key);
   return null;
 }
-function setCached(key, data, ttlMs = 5 * 60 * 1e3) {
+function setCached(key, data, ttlMs = 30 * 60 * 1e3) {
   analyticsCache.set(key, { data, expiresAt: Date.now() + ttlMs });
 }
 var router8 = (0, import_express8.Router)();
@@ -149330,16 +149351,22 @@ function periodStats(orders, variantMap, productMap, shippingPerOrder) {
   const returnRate = closedInvoices.size > 0 ? Math.round(returnedInvoices.size / closedInvoices.size * 100) : 0;
   return { orders: allInvoices.size, revenue, cost, shippingCost: shipping, netProfit, returnRate, returnCount: returnedInvoices.size };
 }
-router8.get("/analytics/profit", requireAdmin, async (req, res) => {
+router8.get("/analytics/profit", requirePermission("orders.financials"), async (req, res) => {
   const tenantId = getTenantId(req);
   const now = /* @__PURE__ */ new Date();
+  const fromParam = req.query.from;
+  const toParam = req.query.to;
+  const period = req.query.period;
+  const cacheKey = `analytics-profit:${tenantId ?? "global"}:${period ?? ""}:${fromParam ?? ""}:${toParam ?? ""}`;
+  const cached2 = getCached(cacheKey);
+  if (cached2) {
+    res.json(cached2);
+    return;
+  }
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startOfWeek = new Date(startOfToday);
   startOfWeek.setDate(startOfToday.getDate() - startOfToday.getDay());
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const fromParam = req.query.from;
-  const toParam = req.query.to;
-  const period = req.query.period;
   const ordersBaseConditions = [isNull(ordersTable.deletedAt)];
   if (tenantId !== null) ordersBaseConditions.push(eq(ordersTable.tenantId, tenantId));
   const productsConditions = [];
@@ -149463,13 +149490,20 @@ router8.get("/analytics/profit", requireAdmin, async (req, res) => {
     lowStock: products.filter((p) => p.totalQuantity - p.reservedQuantity - p.soldQuantity <= p.lowStockThreshold)
   };
   res.json({ today, week, month, allTime, topProducts, losingProducts, inventoryValue });
+  setCached(cacheKey, { today, week, month, allTime, topProducts, losingProducts, inventoryValue }, 2 * 60 * 1e3);
 });
-router8.get("/analytics/financial-summary", requireAdmin, async (req, res) => {
+router8.get("/analytics/financial-summary", requirePermission("orders.financials"), async (req, res) => {
   const tenantId = getTenantId(req);
   const fromParam = req.query.from;
   const toParam = req.query.to;
   const period = req.query.period;
   const now = /* @__PURE__ */ new Date();
+  const fsCacheKey = `analytics-financial:${tenantId ?? "global"}:${period ?? ""}:${fromParam ?? ""}:${toParam ?? ""}`;
+  const fsCached = getCached(fsCacheKey);
+  if (fsCached) {
+    res.json(fsCached);
+    return;
+  }
   const fsBaseConditions = [isNull(ordersTable.deletedAt)];
   if (tenantId !== null) fsBaseConditions.push(eq(ordersTable.tenantId, tenantId));
   const [allOrdersRaw, products, variants, allManifests, allManifestOrders] = await Promise.all([
@@ -149596,7 +149630,7 @@ router8.get("/analytics/financial-summary", requireAdmin, async (req, res) => {
   const returnCount = new Set(allOrders.filter((o) => o.status === "returned").map((o) => o.invoiceNumber ?? `solo-${o.id}`)).size;
   const closedInvoices = new Set(allOrders.filter((o) => ["received", "partial_received", "returned"].includes(o.status)).map((o) => o.invoiceNumber ?? `solo-${o.id}`)).size;
   const returnRate = closedInvoices > 0 ? Math.round(returnCount / closedInvoices * 100) : 0;
-  res.json({
+  const fsResponse = {
     cashIn,
     costOfGoods,
     shippingSpend,
@@ -149618,7 +149652,9 @@ router8.get("/analytics/financial-summary", requireAdmin, async (req, res) => {
     inventoryAtCost,
     inventoryAtSell,
     potentialInventoryProfit: inventoryAtSell - inventoryAtCost
-  });
+  };
+  setCached(fsCacheKey, fsResponse, 2 * 60 * 1e3);
+  res.json(fsResponse);
 });
 router8.get("/analytics/damaged-orders", requireAdmin, async (req, res) => {
   const tenantId = getTenantId(req);
@@ -149663,7 +149699,7 @@ router8.get("/analytics/damaged-orders", requireAdmin, async (req, res) => {
   const totalLoss = result.reduce((s, o) => s + o.totalLoss, 0);
   res.json({ orders: result, totalDamagedValue, totalLoss, count: result.length });
 });
-router8.get("/analytics/product-performance", requireAdmin, async (req, res) => {
+router8.get("/analytics/product-performance", requirePermission("orders.financials"), async (req, res) => {
   try {
     const tenantId = getTenantId(req);
     const cacheKey = `product-performance:${tenantId ?? "global"}`;
@@ -149780,7 +149816,8 @@ router8.get("/analytics/product-performance", requireAdmin, async (req, res) => 
         totalRevenue: productList.reduce((s, p) => s + p.totalRevenue, 0)
       }
     };
-    setCached(cacheKey, responseData, 5 * 60 * 1e3);
+    setCached(cacheKey, responseData, 30 * 60 * 1e3);
+    res.setHeader("Cache-Control", "private, max-age=1800");
     res.json(responseData);
   } catch (err) {
     console.error("[product-performance]", err);
@@ -150217,7 +150254,7 @@ router8.get("/analytics/smart-insights", async (req, res) => {
     revenue: Math.round(p.revenue),
     cost: Math.round(p.cost),
     profit: Math.round(p.profit),
-    image: productImageMap.get(p.name) ?? null
+    image: (typeof productImageMap !== "undefined" ? productImageMap.get(p.name) : null) ?? null
   }));
   const stars = productList.filter((p) => p.profit > 0).sort((a, b) => b.profit - a.profit).slice(0, 5);
   const deadStock = products.map((p) => {
@@ -150314,8 +150351,19 @@ router8.get("/analytics/charts", async (req, res) => {
   const tenantId = getTenantId(req);
   const chartsBaseConditions = [isNull(ordersTable.deletedAt)];
   if (tenantId !== null) chartsBaseConditions.push(eq(ordersTable.tenantId, tenantId));
-  const allOrders = await db.select().from(ordersTable).where(and(...chartsBaseConditions));
+  const manifestsChartConditions = [];
+  if (tenantId !== null) manifestsChartConditions.push(eq(shippingManifestsTable.tenantId, tenantId));
+  const [allOrders, chartsManifests, chartsManifestOrders] = await Promise.all([
+    db.select().from(ordersTable).where(and(...chartsBaseConditions)),
+    db.select({ id: shippingManifestsTable.id, manualShippingCost: shippingManifestsTable.manualShippingCost }).from(shippingManifestsTable).where(manifestsChartConditions.length ? and(...manifestsChartConditions) : void 0),
+    db.select({ manifestId: shippingManifestOrdersTable.manifestId, orderId: shippingManifestOrdersTable.orderId }).from(shippingManifestOrdersTable)
+  ]);
   const invoiceMapRaw = /* @__PURE__ */ new Map();
+  const chartsProcessedShippingInvoices = /* @__PURE__ */ new Set();
+  const chartsCountedManifests = /* @__PURE__ */ new Set();
+  const chartsOrderToManifest = /* @__PURE__ */ new Map();
+  for (const mo of chartsManifestOrders) chartsOrderToManifest.set(mo.orderId, mo.manifestId);
+  const chartsManifestMap = new Map(chartsManifests.map((m) => [m.id, m]));
   for (const o of allOrders) {
     const key = o.invoiceNumber ?? `solo-${o.id}`;
     if (!invoiceMapRaw.has(key)) {
@@ -150332,6 +150380,15 @@ router8.get("/analytics/charts", async (req, res) => {
     if (o.status === "received" || o.status === "partial_received") {
       const qty = o.status === "partial_received" ? o.partialQuantity ?? o.quantity : o.quantity;
       grp.revenue += qty * o.unitPrice;
+      if (!chartsProcessedShippingInvoices.has(key)) {
+        chartsProcessedShippingInvoices.add(key);
+        grp.revenue -= o.shippingCost ?? 0;
+      }
+      const manifestId = chartsOrderToManifest.get(o.id);
+      if (manifestId !== void 0 && !chartsCountedManifests.has(manifestId)) {
+        chartsCountedManifests.add(manifestId);
+        grp.revenue -= Number(chartsManifestMap.get(manifestId)?.manualShippingCost ?? 0);
+      }
     }
   }
   const STATUS_PRIORITY2 = {
@@ -150442,7 +150499,15 @@ router8.get("/analytics/charts", async (req, res) => {
     count: count2,
     pct: total > 0 ? Math.round(count2 / total * 100) : 0
   })).sort((a, b) => b.count - a.count);
-  res.json({ statusBreakdown, weeklySales: days, monthlySales: monthDays, adSourceBreakdown, total, weekComparison });
+  res.json({
+    statusBreakdown,
+    weeklySales: days,
+    monthlySales: monthDays,
+    adSourceBreakdown,
+    total,
+    weekComparison,
+    _debug: { shippingFromOrders: [...chartsProcessedShippingInvoices].length, shippingFromManifests: chartsCountedManifests.size, totalRevenue: invoices.reduce((s, i) => s + i.revenue, 0) }
+  });
 });
 router8.get("/analytics/monthly-sales", requireAuth, async (req, res) => {
   const monthParam = req.query.month;
@@ -150605,6 +150670,33 @@ router8.get("/analytics/shipping-followup", requireAuth, async (req, res) => {
   })).filter((r) => now - new Date(r.createdAt).getTime() >= THREE_DAYS_MS).sort((a, b) => b.daysPending - a.daysPending);
   res.json(result);
 });
+async function warmAnalyticsCache() {
+  try {
+    const cacheKey = `product-performance:null`;
+    if (getCached(cacheKey)) return;
+    const ppBaseConditions = [isNull(ordersTable.deletedAt)];
+    const [allOrders, products, variants] = await Promise.all([
+      db.select({
+        id: ordersTable.id,
+        product: ordersTable.product,
+        productId: ordersTable.productId,
+        variantId: ordersTable.variantId,
+        quantity: ordersTable.quantity,
+        partialQuantity: ordersTable.partialQuantity,
+        unitPrice: ordersTable.unitPrice,
+        costPrice: ordersTable.costPrice,
+        shippingCost: ordersTable.shippingCost,
+        status: ordersTable.status,
+        invoiceNumber: ordersTable.invoiceNumber
+      }).from(ordersTable).where(and(...ppBaseConditions)),
+      db.select().from(productsTable),
+      db.select({ id: productVariantsTable.id, costPrice: productVariantsTable.costPrice }).from(productVariantsTable)
+    ]);
+    console.log(`[cache-warm] product-performance: ${allOrders.length} orders loaded`);
+  } catch (e) {
+    console.warn("[cache-warm] product-performance failed:", e);
+  }
+}
 var analytics_default = router8;
 
 // src/routes/auth.ts
@@ -150634,7 +150726,7 @@ function parsePermissions(permissions) {
 }
 var loginLimiter = lib_default({
   windowMs: 15 * 60 * 1e3,
-  max: 10,
+  max: 200,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "\u0645\u062D\u0627\u0648\u0644\u0627\u062A \u062A\u0633\u062C\u064A\u0644 \u062F\u062E\u0648\u0644 \u0643\u062B\u064A\u0631\u0629\u060C \u064A\u0631\u062C\u0649 \u0627\u0644\u0627\u0646\u062A\u0638\u0627\u0631 15 \u062F\u0642\u064A\u0642\u0629" },
@@ -150657,7 +150749,8 @@ router9.post("/login", loginLimiter, async (req, res) => {
     res.status(401).json({ error: "\u0627\u0633\u0645 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0623\u0648 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629" });
     return;
   }
-  const token = signToken(user);
+  const finalPerms = parsePermissions(user.permissions);
+  const token = signToken({ ...user, permissions: finalPerms });
   await logAudit({
     action: "login",
     entityType: "user",
@@ -150666,7 +150759,6 @@ router9.post("/login", loginLimiter, async (req, res) => {
     userId: user.id,
     userName: user.displayName
   });
-  const finalPerms = parsePermissions(user.permissions);
   const { passwordHash: _2, ...safeUser } = user;
   res.json({ token, user: { ...safeUser, permissions: finalPerms } });
 });
@@ -150749,7 +150841,14 @@ router10.get("/", async (req, res) => {
     createdAt: usersTable.createdAt,
     updatedAt: usersTable.updatedAt
   }).from(usersTable);
-  const users = tenantId !== null ? await query.where(eq(usersTable.tenantId, tenantId)).orderBy(usersTable.createdAt) : await query.where(isNull(usersTable.tenantId)).orderBy(usersTable.createdAt);
+  const currentUser = req.user;
+  const isSuperAdmin = currentUser?.role === "super_admin";
+  const users = isSuperAdmin ? await query.orderBy(usersTable.createdAt) : tenantId !== null ? await query.where(
+    or(
+      eq(usersTable.tenantId, tenantId),
+      isNull(usersTable.tenantId)
+    )
+  ).orderBy(usersTable.createdAt) : await query.where(isNull(usersTable.tenantId)).orderBy(usersTable.createdAt);
   res.json(users.map((u) => ({ ...u, permissions: parsePermissions2(u.permissions) })));
 });
 router10.post("/", async (req, res) => {
@@ -152482,12 +152581,33 @@ function mergeProfile(profile, user) {
 }
 router15.get("/employee-profiles", async (req, res) => {
   const tenantId = getTenantId(req);
-  const query = db.select({
-    profile: employeeProfilesTable,
-    user: usersTable
-  }).from(employeeProfilesTable).leftJoin(usersTable, eq(employeeProfilesTable.userId, usersTable.id));
-  const rows = tenantId !== null ? await query.where(eq(usersTable.tenantId, tenantId)) : await query.where(isNull(usersTable.tenantId));
-  res.json(rows.map((r) => mergeProfile(r.profile, r.user)));
+  const rows = await db.select({ profile: employeeProfilesTable, user: usersTable }).from(employeeProfilesTable).leftJoin(usersTable, eq(employeeProfilesTable.userId, usersTable.id));
+  const filtered = tenantId !== null ? rows.filter((r) => r.user === null || r.user.tenantId === tenantId) : rows.filter((r) => r.user === null || r.user.tenantId === null);
+  const allKpis = await db.select({ profileId: employeeKpisTable.profileId }).from(employeeKpisTable);
+  const kpiCountMap = {};
+  for (const k of allKpis) kpiCountMap[k.profileId] = (kpiCountMap[k.profileId] ?? 0) + 1;
+  const now = /* @__PURE__ */ new Date();
+  const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const attRecords = await db.select({
+    profileId: attendanceTable.profileId,
+    status: attendanceTable.status
+  }).from(attendanceTable).where(like(attendanceTable.date, `${monthStr}-%`));
+  const attMap = {};
+  for (const r of attRecords) {
+    if (!attMap[r.profileId]) attMap[r.profileId] = { workedDays: 0, absentDays: 0, lateDays: 0 };
+    if (r.status === "present") attMap[r.profileId].workedDays++;
+    if (r.status === "late") {
+      attMap[r.profileId].workedDays++;
+      attMap[r.profileId].lateDays++;
+    }
+    if (r.status === "absent") attMap[r.profileId].absentDays++;
+    if (r.status === "half_day") attMap[r.profileId].workedDays += 0.5;
+  }
+  res.json(filtered.map((r) => ({
+    ...mergeProfile(r.profile, r.user),
+    kpiCount: kpiCountMap[r.profile.id] ?? 0,
+    attendanceSummary: attMap[r.profile.id] ?? { workedDays: 0, absentDays: 0, lateDays: 0 }
+  })));
 });
 router15.get("/employee-profiles/:profileId", async (req, res) => {
   const profileId = parseInt(req.params.profileId);
@@ -154825,7 +154945,6 @@ router22.post("/finance/expenses", async (req, res) => {
       description: data.title,
       referenceNumber: data.referenceId ?? void 0,
       expenseId,
-      // ✅ الـ id الحقيقي دلوقتي
       transactionDate: new Date(data.expenseDate),
       createdByUserId: user?.id ?? null,
       createdByName: user?.displayName ?? null,
@@ -155038,6 +155157,53 @@ router22.patch("/finance/shipping-invoices/:id", async (req, res) => {
   await db.update(shippingFinancialInvoicesTable).set(updates).where(eq(shippingFinancialInvoicesTable.id, id));
   const [updated] = await db.select().from(shippingFinancialInvoicesTable).where(eq(shippingFinancialInvoicesTable.id, id));
   res.json(updated);
+});
+router22.delete("/finance/shipping-invoices/:id", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const now = /* @__PURE__ */ new Date();
+    const user = req.user;
+    const tenantId = getTenantId(req);
+    const conds = [eq(shippingFinancialInvoicesTable.id, id)];
+    if (tenantId !== null) conds.push(eq(shippingFinancialInvoicesTable.tenantId, tenantId));
+    const [inv] = await db.select().from(shippingFinancialInvoicesTable).where(and(...conds));
+    if (!inv) {
+      res.status(404).json({ error: "\u0627\u0644\u0641\u0627\u062A\u0648\u0631\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629" });
+      return;
+    }
+    if (inv.status === "paid" && parseFloat(inv.paidAmount ?? "0") > 0) {
+      try {
+        const regs = await db.select().from(cashRegistersTable).where(eq(cashRegistersTable.isActive, true)).orderBy(cashRegistersTable.id);
+        const reg = regs.find((r) => r.isDefault) ?? regs.find((r) => r.type === "main") ?? regs[0] ?? null;
+        if (reg) {
+          const paidAmt = parseFloat(inv.paidAmount ?? "0");
+          const bb = parseFloat(reg.balance ?? "0");
+          const ba = Math.max(0, bb - paidAmt);
+          await db.update(cashRegistersTable).set({ balance: String(ba), updatedAt: now }).where(eq(cashRegistersTable.id, reg.id));
+          await db.insert(cashTransactionsTable).values({
+            registerId: reg.id,
+            type: "withdrawal",
+            amount: String(paidAmt),
+            balanceBefore: String(bb),
+            balanceAfter: String(ba),
+            description: `\u062D\u0630\u0641 \u0641\u0627\u062A\u0648\u0631\u0629 \u0634\u062D\u0646 ${inv.invoiceNumber}`,
+            referenceNumber: inv.invoiceNumber,
+            transactionDate: now,
+            createdByUserId: user?.id ?? null,
+            createdByName: user?.displayName ?? null,
+            createdAt: now
+          });
+        }
+      } catch (e) {
+        console.error("[delete shipping-invoice cash rollback]", e);
+      }
+    }
+    await db.delete(shippingFinancialInvoicesTable).where(and(...conds));
+    res.status(204).send();
+  } catch (err) {
+    console.error("[DELETE shipping-invoice]", err);
+    res.status(500).json({ error: "\u0641\u0634\u0644 \u062D\u0630\u0641 \u0627\u0644\u0641\u0627\u062A\u0648\u0631\u0629" });
+  }
 });
 router22.get("/finance/analytics", async (req, res) => {
   const { from, to } = req.query;
@@ -157111,10 +157277,14 @@ app.use((0, import_cors.default)({
 }));
 var globalLimiter = lib_default({
   windowMs: 15 * 60 * 1e3,
-  max: 500,
+  max: 5e3,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: "\u0637\u0644\u0628\u0627\u062A \u0643\u062B\u064A\u0631\u0629 \u062C\u062F\u0627\u064B\u060C \u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0628\u0639\u062F \u0642\u0644\u064A\u0644" }
+  message: { error: "\u0637\u0644\u0628\u0627\u062A \u0643\u062B\u064A\u0631\u0629 \u062C\u062F\u0627\u064B\u060C \u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0628\u0639\u062F \u0642\u0644\u064A\u0644" },
+  skip: (req) => {
+    const url2 = req.url || "";
+    return url2.includes("/auth/me") || url2.includes("/brand") || url2.includes("/auth/login");
+  }
 });
 app.use(globalLimiter);
 app.use(
@@ -157315,6 +157485,7 @@ app_default.listen(port, (err) => {
     process.exit(1);
   }
   logger.info({ port }, "Server listening");
+  setTimeout(() => warmAnalyticsCache(), 2e3);
 });
 /*! Bundled license information:
 
