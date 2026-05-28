@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, and, isNull } from "drizzle-orm";
-import { db, productsTable, warehousesTable, warehouseStockTable } from "@workspace/db";
+import { db, productsTable, warehousesTable, warehouseStockTable, productVariantsTable } from "@workspace/db";
 import { getTenantId } from "../middlewares/requireTenant.js";
 import { z } from "zod";
 import { addStock } from "../lib/inventory.js";
@@ -84,11 +84,49 @@ router.patch("/products/:id", requireRole("admin", "warehouse", "super_admin"), 
 
   const [before] = await db.select().from(productsTable).where(eq(productsTable.id, id));
   if (!before) { res.status(404).json({ error: "Product not found" }); return; }
+
   await db.update(productsTable).set({ ...parsed.data, updatedAt: new Date() }).where(eq(productsTable.id, id));
+
+  // ── لو بيتأرشف: احذف warehouse_stock وصفّر variants تلقائياً ──────────────
+  if (parsed.data.isArchived === true) {
+    try {
+      // 1. احذف warehouse_stock للمنتج نفسه
+      await db.delete(warehouseStockTable).where(eq(warehouseStockTable.productId, id));
+
+      // 2. جيب كل variants المنتج
+      const variants = await db.select({ id: productVariantsTable.id })
+        .from(productVariantsTable)
+        .where(eq(productVariantsTable.productId, id));
+
+      // 3. احذف warehouse_stock لكل variant + صفّر الكميات
+      for (const v of variants) {
+        await db.delete(warehouseStockTable).where(eq(warehouseStockTable.variantId, v.id));
+        await db.update(productVariantsTable)
+          .set({ totalQuantity: 0, reservedQuantity: 0, updatedAt: new Date() })
+          .where(eq(productVariantsTable.id, v.id));
+      }
+
+      // 4. صفّر المنتج نفسه
+      await db.update(productsTable)
+        .set({ totalQuantity: 0, reservedQuantity: 0, updatedAt: new Date() })
+        .where(eq(productsTable.id, id));
+    } catch (e) {
+      console.error("Archive cleanup error:", e);
+    }
+  }
+
   const [product] = await db.select().from(productsTable).where(eq(productsTable.id, id));
   if (!product) { res.status(404).json({ error: "Product not found" }); return; }
 
-  if (before) await logAudit({ action: "update", entityType: "product", entityId: id, entityName: product.name, before: { name: before.name, unitPrice: before.unitPrice, lowStockThreshold: before.lowStockThreshold }, after: { name: product.name, unitPrice: product.unitPrice, lowStockThreshold: product.lowStockThreshold }, userId: req.user?.id, userName: req.user?.displayName });
+  await logAudit({
+    action: parsed.data.isArchived ? "archive" : "update",
+    entityType: "product", entityId: id, entityName: product.name,
+    before: { name: before.name, unitPrice: before.unitPrice, totalQuantity: before.totalQuantity },
+    after: parsed.data.isArchived
+      ? { isArchived: true, note: "تم أرشفة المنتج وحذف مخزونه" }
+      : { name: product.name, unitPrice: product.unitPrice },
+    userId: req.user?.id, userName: req.user?.displayName
+  });
 
   res.json(product);
 });
