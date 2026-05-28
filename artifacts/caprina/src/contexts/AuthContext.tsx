@@ -284,10 +284,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         pollFailuresRef.current = 0; // reset عند النجاح
         setUser((prev) => {
           if (!prev) return normalizeUser(updated);
-          const roleChanged = prev.role !== updated.role;
-          const activeChanged = prev.isActive !== updated.isActive;
-          const permsChanged = permissionsChanged(prev.permissions, updated.permissions);
-          if (!roleChanged && !activeChanged && !permsChanged) return prev;
+          const roleChanged    = prev.role !== updated.role;
+          const activeChanged  = prev.isActive !== updated.isActive;
+          const planChanged    = prev.planStatus !== updated.planStatus;
+          const permsChanged   = permissionsChanged(prev.permissions, updated.permissions);
+          if (!roleChanged && !activeChanged && !planChanged && !permsChanged) return prev;
           const fresh = normalizeUser(updated);
           localStorage.setItem(USER_KEY, JSON.stringify(fresh));
           return { ...fresh };

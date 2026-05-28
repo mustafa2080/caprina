@@ -8,6 +8,7 @@ import { BrandProvider } from "@/contexts/BrandContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { BrandLogoMark } from "@/components/brand-logo";
 import Layout from "@/components/layout";
+import { SubscriptionBlocker } from "@/components/subscription-blocker";
 
 // ─── Global Error Boundary ───────────────────────────────────────────────────
 interface EBState { hasError: boolean; errorMsg: string }
@@ -359,6 +360,7 @@ function App() {
                     <ScrollToTop />
                     <PermissionRefresher />
                     <Router />
+                    <SubscriptionBlocker />
                   </ErrorBoundary>
                 </AuthGuard>
               </AuthProvider>
