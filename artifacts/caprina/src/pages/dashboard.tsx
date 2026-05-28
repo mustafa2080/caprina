@@ -80,27 +80,27 @@ function PeriodCard({ label, data, accent }: { label: string; data: PeriodProfit
   const isProfit = data.netProfit >= 0;
   return (
     <Card className="border-border bg-card overflow-hidden">
-      <CardContent className="p-2 sm:p-4 space-y-1.5 sm:space-y-3">
+      <CardContent className="p-1.5 sm:p-4 space-y-1 sm:space-y-3">
         <div className="flex items-center justify-between gap-1">
-          <p className="text-[9px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider truncate">{label}</p>
-          <Badge variant="outline" className={`text-[7px] sm:text-[9px] font-bold border shrink-0 px-1 sm:px-2 ${
+          <p className="text-[8px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider truncate">{label}</p>
+          <Badge variant="outline" className={`text-[7px] sm:text-[9px] font-bold border shrink-0 px-1 ${
             data.returnRate > 20 ? "border-red-400 text-red-600 dark:border-red-800 dark:text-red-400" : "border-border text-muted-foreground"
           }`}>{data.returnRate}%↩</Badge>
         </div>
-        <div>
-          <p className={`text-base sm:text-2xl font-black leading-tight ${isProfit ? accent : "text-red-600 dark:text-red-400"}`}>{fc(data.netProfit)}</p>
-          <p className="text-[8px] sm:text-[10px] text-muted-foreground">صافي الربح</p>
+        <div className="min-w-0">
+          <p className={`text-sm sm:text-2xl font-black leading-tight truncate ${isProfit ? accent : "text-red-600 dark:text-red-400"}`}>{fc(data.netProfit)}</p>
+          <p className="text-[7px] sm:text-[10px] text-muted-foreground">صافي الربح</p>
         </div>
-        <div className="grid grid-cols-2 gap-x-2 gap-y-1 sm:gap-x-3 sm:gap-y-1.5 pt-1 sm:pt-2 border-t border-border">
-          <div>
+        <div className="grid grid-cols-2 gap-x-1 gap-y-1 sm:gap-x-3 sm:gap-y-1.5 pt-1 sm:pt-2 border-t border-border">
+          <div className="min-w-0">
             <p className="text-[7px] sm:text-[9px] text-muted-foreground leading-tight">إيرادات</p>
-            <p className="text-[9px] sm:text-xs font-bold text-primary">{fc(data.revenue - data.shippingCost)}</p>
+            <p className="text-[8px] sm:text-xs font-bold text-primary truncate">{fc(data.revenue - data.shippingCost)}</p>
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-[7px] sm:text-[9px] text-muted-foreground leading-tight">التكلفة</p>
-            <p className="text-[9px] sm:text-xs font-bold text-amber-700 dark:text-amber-400">{fc(data.cost)}</p>
+            <p className="text-[8px] sm:text-xs font-bold text-amber-700 dark:text-amber-400 truncate">{fc(data.cost)}</p>
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-[7px] sm:text-[9px] text-muted-foreground leading-tight">الطلبات</p>
             <p className="text-[9px] sm:text-xs font-bold">{fn(data.orders)}</p>
           </div>
@@ -720,23 +720,26 @@ export default function Dashboard() {
 
   return (
     <>
-    <div className="space-y-3 sm:space-y-4 lg:space-y-5 pb-4 sm:pb-0 animate-in fade-in duration-500 min-w-0 overflow-x-hidden">      {/* Header */}
-      <div className="flex items-center justify-between gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-base sm:text-xl lg:text-2xl font-bold truncate">لوحة إدارة العمليات</h1>
-          <p className="text-muted-foreground text-[10px] sm:text-xs lg:text-sm mt-0.5 hidden sm:block">CAPRINA OS.Dashboard</p>
-          <div className="mt-0.5 sm:mt-1.5">
-            <LiveClock />
+    <div className="space-y-3 sm:space-y-4 lg:space-y-5 pb-4 sm:pb-0 animate-in fade-in duration-500 min-w-0 overflow-x-hidden">
+
+      {/* ── Header ── */}
+      <div className="flex flex-col gap-2">
+        {/* Row 1: العنوان + ساعة */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <h1 className="text-sm sm:text-xl lg:text-2xl font-bold truncate">لوحة إدارة العمليات</h1>
+            <p className="text-muted-foreground text-[10px] sm:text-xs hidden sm:block">CAPRINA OS.Dashboard</p>
           </div>
+          <LiveClock />
         </div>
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {/* Period Filter */}
+        {/* Row 2: الأزرار — سطر مستقل على الموبايل */}
+        <div className="flex items-center gap-1.5 flex-wrap">
           {canViewFinancials && (
-            <div className="flex items-center gap-0.5 sm:gap-1 border border-border rounded-md p-0.5 bg-muted/30">
+            <div className="flex items-center gap-0.5 border border-border rounded-md p-0.5 bg-muted/30">
               {([
                 { key: "today", label: "اليوم" },
-                { key: "week",  label: "الأسبوع" },
-                { key: "month", label: "الشهر" },
+                { key: "week",  label: "أسبوع" },
+                { key: "month", label: "شهر" },
               ] as { key: Period; label: string }[]).map(({ key, label }) => (
                 <button
                   key={key}
@@ -753,13 +756,13 @@ export default function Dashboard() {
             </div>
           )}
           <Link href="/smart">
-            <button className="flex items-center gap-1 sm:gap-1.5 border border-primary/30 text-primary hover:bg-primary/5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-md text-[10px] sm:text-xs font-bold transition-colors">
+            <button className="flex items-center gap-1 border border-primary/30 text-primary hover:bg-primary/5 px-2 sm:px-3 py-1.5 rounded-md text-[10px] sm:text-xs font-bold transition-colors">
               <Brain className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-              <span className="hidden xs:inline">ذكاء</span>
+              <span>ذكاء</span>
             </button>
           </Link>
-          <Link href="/orders/new">
-            <button className="flex items-center gap-1.5 sm:gap-2 bg-primary text-primary-foreground px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-md text-[10px] sm:text-xs sm:text-sm font-bold hover:bg-primary/90 transition-colors">
+          <Link href="/orders/new" className="mr-auto sm:mr-0">
+            <button className="flex items-center gap-1.5 bg-primary text-primary-foreground px-3 sm:px-4 py-1.5 sm:py-2 rounded-md text-[10px] sm:text-sm font-bold hover:bg-primary/90 transition-colors whitespace-nowrap">
               <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span>طلب جديد</span>
             </button>
@@ -863,63 +866,49 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* === FINANCIAL OVERVIEW BANNER — يظهر فقط لو canSeeFinancials === */}
+      {/* === FINANCIAL OVERVIEW BANNER === */}
       {canViewFinancials && canSeeFinancials && fin && (
         <div className="rounded-xl border border-emerald-300 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-900/5 overflow-hidden">
-          <div className="p-2.5 sm:p-4">
-            {/* الرقم الكبير + بطاقتان صغيرتان */}
-            <div className="flex items-start justify-between gap-2 mb-2.5 sm:mb-4">
-              <div className="min-w-0">
-                <p className="text-[8px] sm:text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-0.5">
-                  إجمالي أرصدة الخزن
-                </p>
-                <p className="text-xl sm:text-3xl lg:text-4xl font-black text-emerald-600 dark:text-emerald-400 leading-tight">
-                  {fc(totalCash)}
-                </p>
+          <div className="p-3 sm:p-4">
+            {/* الرقم الكبير */}
+            <div className="mb-2 sm:mb-3">
+              <p className="text-[9px] sm:text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-0.5">
+                إجمالي أرصدة الخزن
+              </p>
+              <p className="text-2xl sm:text-3xl lg:text-4xl font-black text-emerald-600 dark:text-emerald-400 leading-tight">
+                {fc(totalCash)}
+              </p>
+            </div>
+            {/* بطاقتان صغيرتان */}
+            <div className="grid grid-cols-2 gap-2 mb-2 sm:mb-3">
+              <div className="bg-background/40 border border-border rounded-lg px-2 py-2 sm:px-4 sm:py-3">
+                <p className="text-[8px] sm:text-[9px] text-muted-foreground">صافي الربح</p>
+                <p className={`text-sm sm:text-lg font-black ${fin.netProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}>{fc(fin.netProfit)}</p>
+                <p className="text-[8px] sm:text-[9px] text-muted-foreground">{fin.netMargin}%</p>
               </div>
-              <div className="grid grid-cols-2 gap-1.5 sm:gap-2 shrink-0">
-                <div className="text-left bg-background/40 border border-border rounded-lg px-2 py-1.5 sm:px-4 sm:py-3">
-                  <p className="text-[7px] sm:text-[9px] text-muted-foreground whitespace-nowrap">صافي الربح</p>
-                  <p className={`text-xs sm:text-lg font-black ${fin.netProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}>{fc(fin.netProfit)}</p>
-                  <p className="text-[7px] sm:text-[9px] text-muted-foreground">{fin.netMargin}%</p>
-                </div>
-                <div className="text-left bg-primary/5 border border-primary/20 rounded-lg px-2 py-1.5 sm:px-4 sm:py-3">
-                  <p className="text-[7px] sm:text-[9px] text-muted-foreground whitespace-nowrap">في الطريق</p>
-                  <p className="text-xs sm:text-lg font-black text-primary">{fc(fin.pendingRevenue)}</p>
-                  <p className="text-[7px] sm:text-[9px] text-muted-foreground">محتمل</p>
-                </div>
+              <div className="bg-primary/5 border border-primary/20 rounded-lg px-2 py-2 sm:px-4 sm:py-3">
+                <p className="text-[8px] sm:text-[9px] text-muted-foreground">في الطريق</p>
+                <p className="text-sm sm:text-lg font-black text-primary">{fc(fin.pendingRevenue)}</p>
+                <p className="text-[8px] sm:text-[9px] text-muted-foreground">محتمل</p>
               </div>
             </div>
-            {/* Stats row — 4 أعمدة من sm */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-3 p-2 sm:p-3 bg-background/30 rounded-lg border border-border/40 overflow-hidden">
+            {/* Stats row */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-2 sm:p-3 bg-background/30 rounded-lg border border-border/40">
               <div className="text-center">
-                <div className="flex items-center justify-center gap-0.5 sm:gap-1 mb-0.5 sm:mb-1">
-                  <ArrowUpRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-emerald-600 dark:text-emerald-400" />
-                  <p className="text-[7px] sm:text-[9px] font-bold text-muted-foreground">إجمالي المقبوض</p>
-                </div>
-                <p className="font-black text-emerald-600 dark:text-emerald-400 text-[11px] sm:text-sm">{fc(fin.cashIn - fin.shippingSpend)}</p>
-                <p className="text-[7px] sm:text-[8px] text-muted-foreground">إيرادات − رسوم الشحن</p>
+                <p className="text-[8px] sm:text-[9px] font-bold text-muted-foreground mb-0.5">المقبوض</p>
+                <p className="font-black text-emerald-600 dark:text-emerald-400 text-xs sm:text-sm">{fc(fin.cashIn - fin.shippingSpend)}</p>
               </div>
               <div className="text-center">
-                <div className="flex items-center justify-center gap-0.5 sm:gap-1 mb-0.5 sm:mb-1">
-                  <ArrowDownRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-700 dark:text-amber-400" />
-                  <p className="text-[7px] sm:text-[9px] font-bold text-muted-foreground">تكلفة البضاعة</p>
-                </div>
-                <p className="font-black text-amber-700 dark:text-amber-400 text-[11px] sm:text-sm">{fc(fin.costOfGoods)}</p>
+                <p className="text-[8px] sm:text-[9px] font-bold text-muted-foreground mb-0.5">تكلفة البضاعة</p>
+                <p className="font-black text-amber-700 dark:text-amber-400 text-xs sm:text-sm">{fc(fin.costOfGoods)}</p>
               </div>
               <div className="text-center">
-                <div className="flex items-center justify-center gap-0.5 sm:gap-1 mb-0.5 sm:mb-1">
-                  <ArrowDownRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-orange-600 dark:text-orange-400" />
-                  <p className="text-[7px] sm:text-[9px] font-bold text-muted-foreground">تكلفة الشحن</p>
-                </div>
-                <p className="font-black text-orange-600 dark:text-orange-400 text-[11px] sm:text-sm">{fc(fin.shippingSpend)}</p>
+                <p className="text-[8px] sm:text-[9px] font-bold text-muted-foreground mb-0.5">تكلفة الشحن</p>
+                <p className="font-black text-orange-600 dark:text-orange-400 text-xs sm:text-sm">{fc(fin.shippingSpend)}</p>
               </div>
               <div className="text-center">
-                <div className="flex items-center justify-center gap-0.5 sm:gap-1 mb-0.5 sm:mb-1">
-                  <ArrowDownRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-red-600 dark:text-red-400" />
-                  <p className="text-[7px] sm:text-[9px] font-bold text-muted-foreground">خسائر المرتجعات</p>
-                </div>
-                <p className="font-black text-red-600 dark:text-red-400 text-[11px] sm:text-sm">{fc(fin.returnLoss)}</p>
+                <p className="text-[8px] sm:text-[9px] font-bold text-muted-foreground mb-0.5">خسائر المرتجعات</p>
+                <p className="font-black text-red-600 dark:text-red-400 text-xs sm:text-sm">{fc(fin.returnLoss)}</p>
               </div>
             </div>
           </div>
