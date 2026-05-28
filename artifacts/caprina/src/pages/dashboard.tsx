@@ -627,9 +627,11 @@ export default function Dashboard() {
   const { data: productPerf, isLoading: isPerfLoading } = useQuery({
     queryKey: ["analytics-product-performance"],
     queryFn: analyticsApi.productPerformance,
-    staleTime: 5 * 60 * 1000,   // 5 دقائق — متطابق مع cache الـ backend
-    gcTime: 10 * 60 * 1000,     // يفضل في الـ cache 10 دقائق
-    refetchOnWindowFocus: false, // مش يعيد التحميل كل ما تفتح التاب
+    staleTime: 30 * 60 * 1000,          // ✅ 30 دقيقة — متطابق مع cache الـ backend
+    gcTime: 60 * 60 * 1000,             // ✅ يفضل في الـ cache ساعة كاملة
+    placeholderData: (prev) => prev,     // ✅ يعرض الداتا القديمة فوراً عند الـ reload
+    refetchOnWindowFocus: false,         // ✅ مش يعيد التحميل كل ما تفتح التاب
+    refetchOnMount: false,               // ✅ لو الداتا موجودة في الكاش متجيبهاش تاني
     enabled: canViewFinancials,
   });
 
