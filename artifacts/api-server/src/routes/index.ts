@@ -24,7 +24,7 @@ import financeOperationsRouter from "./finance-operations";
 import financeHubRouter from "./finance-hub";
 import { cashRegistersRouter } from "./cash-registers";
 import attendanceRouter from "./attendance";
-import adminTenantsRouter from "./admin-tenants";
+import adminTenantsRouter, { publicAdminRouter } from "./admin-tenants";
 import financeSalesRouter from "./finance-sales";
 import financeClientsRouter from "./finance-clients";
 import { requireAuth } from "../middlewares/requireAuth.js";
@@ -37,7 +37,7 @@ router.use(healthRouter);
 router.use("/auth", authRouter);
 router.use(brandRouter);
 router.use(settingsRouter);
-router.use(adminTenantsRouter); // يشمل GET /public/plan-prices (public) + /admin/* (محمي داخلياً بـ requireSuperAdmin بعد requireAuth)
+router.use(publicAdminRouter); // GET /public/plan-prices — بدون auth
 
 // All routes below require authentication
 router.use(requireAuth);
@@ -65,5 +65,6 @@ router.use("/cash-registers", cashRegistersRouter);
 router.use(attendanceRouter);
 router.use(financeSalesRouter);
 router.use(financeClientsRouter);
+router.use(adminTenantsRouter); // /admin/* — بعد requireAuth عشان req.user يكون موجود
 
 export default router;

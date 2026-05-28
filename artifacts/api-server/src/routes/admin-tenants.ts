@@ -24,19 +24,21 @@ async function getStoredPrices(): Promise<typeof DEFAULT_PLAN_PRICES> {
   return { ...DEFAULT_PLAN_PRICES, ...stored };
 }
 
-const router = Router();
+// ── PUBLIC router: GET /api/public/plan-prices — بدون auth ───────────────────
+export const publicAdminRouter = Router();
 
-// ── PUBLIC: GET /api/public/plan-prices — بدون auth ──────────────────────────
-router.get("/public/plan-prices", async (_req, res): Promise<void> => {
+publicAdminRouter.get("/public/plan-prices", async (_req, res): Promise<void> => {
   try {
     const prices = await getStoredPrices();
     res.json(prices);
-  } catch (e: any) {
+  } catch {
     res.json(DEFAULT_PLAN_PRICES);
   }
 });
 
-// ── Middleware: super_admin فقط ───────────────────────────────────────────────
+// ── ADMIN router: /api/admin/* — بعد requireAuth + super_admin فقط ──────────
+const router = Router();
+
 function requireSuperAdmin(req: any, res: any, next: any) {
   if (req.user?.role !== "super_admin") {
     res.status(403).json({ error: "ممنوع — هذه الصفحة للأدمن الرئيسي فقط" });
@@ -46,37 +48,30 @@ function requireSuperAdmin(req: any, res: any, next: any) {
 }
 router.use(requireSuperAdmin);
 
-// ── GET /api/admin/plan-prices — جلب الأسعار الحالية ─────────────────────────
+// ── GET /api/admin/plan-prices ────────────────────────────────────────────────
 router.get("/admin/plan-prices", async (_req, res): Promise<void> => {
   const prices = await getStoredPrices();
   res.json(prices);
 });
 
-// ── PATCH /api/admin/plan-prices — تعديل الأسعار ─────────────────────────────
+// ── PATCH /api/admin/plan-prices ──────────────────────────────────────────────
 router.patch("/admin/plan-prices", async (req, res): Promise<void> => {
   try {
     const incoming = req.body as Record<string, any>;
     const existing = await getStoredPrices();
     const merged: any = { ...existing };
 
-    // دمج الأسعار القادمة لكل plan
     for (const planKey of Object.keys(DEFAULT_PLAN_PRICES)) {
       if (incoming[planKey]) {
         merged[planKey] = { ...existing[planKey as keyof typeof existing], ...incoming[planKey] };
-        // حساب العرض العربي تلقائياً لو في سعر شهري
         if (merged[planKey].monthlyPrice) {
           const n = parseInt(merged[planKey].monthlyPrice);
-          if (!isNaN(n)) {
-            merged[planKey].priceDisplay = n.toLocaleString("ar-EG");
-          }
+          if (!isNaN(n)) merged[planKey].priceDisplay = n.toLocaleString("ar-EG");
         }
-        // حساب توفير السنوي تلقائياً
         if (merged[planKey].monthlyPrice && merged[planKey].yearlyPrice) {
           const monthly = parseInt(merged[planKey].monthlyPrice);
-          const yearly = parseInt(merged[planKey].yearlyPrice);
-          if (!isNaN(monthly) && !isNaN(yearly)) {
-            merged[planKey].yearlySaving = (monthly * 12) - yearly;
-          }
+          const yearly  = parseInt(merged[planKey].yearlyPrice);
+          if (!isNaN(monthly) && !isNaN(yearly)) merged[planKey].yearlySaving = (monthly * 12) - yearly;
         }
       }
     }
@@ -87,11 +82,7 @@ router.patch("/admin/plan-prices", async (req, res): Promise<void> => {
         .set({ value: JSON.stringify(merged), updatedAt: new Date() })
         .where(eq(appSettingsTable.key, PRICES_KEY));
     } else {
-      await db.insert(appSettingsTable).values({
-        key: PRICES_KEY,
-        value: JSON.stringify(merged),
-        updatedAt: new Date(),
-      });
+      await db.insert(appSettingsTable).values({ key: PRICES_KEY, value: JSON.stringify(merged), updatedAt: new Date() });
     }
 
     res.json(merged);
@@ -115,7 +106,7 @@ router.get("/admin/tenants/:id", async (req, res): Promise<void> => {
   res.json(tenant);
 });
 
-// ── POST /api/admin/tenants — إنشاء tenant جديد ──────────────────────────────
+// ── POST /api/admin/tenants ───────────────────────────────────────────────────
 router.post("/admin/tenants", async (req, res): Promise<void> => {
   const { name, slug, plan, contactEmail, contactPhone, notes, durationDays, adminUsername, adminPassword, adminDisplayName } = req.body;
   if (!name || !slug || !plan || !durationDays || !adminUsername || !adminPassword) {
@@ -173,20 +164,15 @@ router.patch("/admin/tenants/:id/activate", async (req, res): Promise<void> => {
 
 // ── PATCH /api/admin/tenants/:id/suspend ─────────────────────────────────────
 router.patch("/admin/tenants/:id/suspend", async (req, res): Promise<void> => {
-  await db.update(tenantsTable).set({
-    planStatus: "suspended",
-    updatedAt: sql`NOW()`,
-  }).where(eq(tenantsTable.id, parseInt(req.params.id)));
+  await db.update(tenantsTable).set({ planStatus: "suspended", updatedAt: sql`NOW()` })
+    .where(eq(tenantsTable.id, parseInt(req.params.id)));
   res.json({ message: "تم إيقاف الاشتراك" });
 });
 
 // ── PATCH /api/admin/tenants/:id/expire ──────────────────────────────────────
 router.patch("/admin/tenants/:id/expire", async (req, res): Promise<void> => {
-  await db.update(tenantsTable).set({
-    planStatus: "expired",
-    expiresAt: sql`NOW()`,
-    updatedAt: sql`NOW()`,
-  }).where(eq(tenantsTable.id, parseInt(req.params.id)));
+  await db.update(tenantsTable).set({ planStatus: "expired", expiresAt: sql`NOW()`, updatedAt: sql`NOW()` })
+    .where(eq(tenantsTable.id, parseInt(req.params.id)));
   res.json({ message: "تم إنهاء الاشتراك" });
 });
 
