@@ -248,6 +248,12 @@ html.login-active #root {
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
+  /* Fix mobile overflow — prevent elements from breaking the viewport width */
+  img, svg:not(.recharts-surface):not([data-recharts]), video, canvas, iframe { max-width: 100%; }
+
+  /* Prevent horizontal scroll on mobile */
+  body { overflow-x: hidden; }
+
   /* Mobile performance: remove 300ms tap delay on all interactive elements */
   a, button, [role="button"], input, select, textarea, label {
     touch-action: manipulation;

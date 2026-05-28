@@ -720,7 +720,7 @@ export default function Dashboard() {
 
   return (
     <>
-    <div className="space-y-3 sm:space-y-4 lg:space-y-5 pb-4 sm:pb-0 animate-in fade-in duration-500">      {/* Header */}
+    <div className="space-y-3 sm:space-y-4 lg:space-y-5 pb-4 sm:pb-0 animate-in fade-in duration-500 min-w-0 overflow-x-hidden">      {/* Header */}
       <div className="flex items-center justify-between gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <h1 className="text-base sm:text-xl lg:text-2xl font-bold truncate">لوحة إدارة العمليات</h1>
@@ -891,7 +891,7 @@ export default function Dashboard() {
               </div>
             </div>
             {/* Stats row — 4 أعمدة من sm */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-3 p-2 sm:p-3 bg-background/30 rounded-lg border border-border/40">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-3 p-2 sm:p-3 bg-background/30 rounded-lg border border-border/40 overflow-hidden">
               <div className="text-center">
                 <div className="flex items-center justify-center gap-0.5 sm:gap-1 mb-0.5 sm:mb-1">
                   <ArrowUpRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-emerald-600 dark:text-emerald-400" />
@@ -960,7 +960,7 @@ export default function Dashboard() {
 
       {/* === PERIOD CARDS (admin only) === */}
       {canViewFinancials && (
-        <div className="grid grid-cols-3 sm:grid-cols-3 gap-2 sm:gap-3">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
           {isAnalyticsLoading ? (
             [1,2,3].map(i => <Card key={i} className="animate-pulse h-32 sm:h-36 border-border" />)
           ) : analytics ? (
@@ -1180,7 +1180,7 @@ export default function Dashboard() {
 
       {/* === SMART QUICK INSIGHTS === */}
       {smartData && (
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-4 gap-1.5 sm:gap-2">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5 sm:gap-2">
 
           {/* أفضل منصة */}
           <Link href="/smart">
@@ -1316,10 +1316,10 @@ export default function Dashboard() {
       )}
 
       {/* === MAIN GRID === */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 sm:gap-5">
-        <div className="lg:col-span-1 xl:col-span-2 2xl:col-span-3 space-y-3 sm:space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] xl:grid-cols-[1fr_300px] gap-3 sm:gap-4 lg:gap-5 items-start">
+        <div className="min-w-0 space-y-3 sm:space-y-4 order-2 lg:order-1">
           {canViewFinancials && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 
               {/* ── أفضل المنتجات ربحاً ───────────────────────────────── */}
               <Card className="border-border">
@@ -1664,7 +1664,7 @@ export default function Dashboard() {
 
           {/* ── تتبع أداء فريق المبيعات — مخفي لو ماعندوش dashboard.team ── */}
           {canSeeTeam && (teamPerf.length > 0 || (isAdmin && employeeProfiles.length > 0)) && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 
           {/* تتبع أداء فريق المبيعات */}
           {teamPerf.length > 0 && (
@@ -1817,7 +1817,7 @@ export default function Dashboard() {
         </div>
 
         {/* RIGHT SIDEBAR */}
-        <div className="space-y-3 sm:space-y-4">
+        <div className="space-y-3 sm:space-y-4 order-1 lg:order-2 min-w-0">
           {/* إجراءات سريعة — أفقي على الموبايل */}
           <div>
             <h2 className="text-xs sm:text-sm font-bold mb-1.5 sm:mb-2">إجراءات سريعة</h2>
