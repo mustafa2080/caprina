@@ -128,16 +128,25 @@ export default function ProductPerformancePage() {
     );
   }
 
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ["product-performance"],
     queryFn: analyticsApi.productPerformance,
-    staleTime: 30_000,
+    staleTime: 5 * 60 * 1000,        // ✅ البيانات تفضل valid 5 دقايق
+    gcTime: 10 * 60 * 1000,          // ✅ تتحفظ في الكاش 10 دقايق
+    placeholderData: (prev) => prev,  // ✅ تعرض البيانات القديمة فوراً أثناء التحديث
+    refetchOnWindowFocus: false,      // ✅ متعيدش التحميل لما المستخدم يرجع للتاب
   });
 
-  if (isLoading) {
+  // أول تحميل فقط (مفيش بيانات في الكاش) — نعرض skeleton
+  if (isLoading && !data) {
     return (
-      <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">
-        جارٍ تحميل التحليل...
+      <div className="space-y-6 animate-pulse">
+        <div className="h-8 w-48 bg-muted rounded" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[...Array(4)].map((_, i) => <div key={i} className="h-20 bg-muted rounded-lg" />)}
+        </div>
+        <div className="h-12 bg-muted rounded-lg" />
+        <div className="h-64 bg-muted rounded-lg" />
       </div>
     );
   }
@@ -187,9 +196,10 @@ export default function ProductPerformancePage() {
         </div>
         <button
           onClick={() => refetch()}
-          className="text-muted-foreground hover:text-foreground transition-colors p-1.5"
+          className="text-muted-foreground hover:text-foreground transition-colors p-1.5 relative"
+          title="تحديث البيانات"
         >
-          <RefreshCw className="w-4 h-4" />
+          <RefreshCw className={`w-4 h-4 transition-transform ${isFetching ? "animate-spin text-primary" : ""}`} />
         </button>
       </div>
 
