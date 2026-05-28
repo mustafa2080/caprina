@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, gte, lte, and, sql, lt, isNull, like, or } from "drizzle-orm";
 import ExcelJS from "exceljs";
-import { db, expensesTable, shippingFinancialInvoicesTable, ordersTable, shippingManifestsTable, shippingManifestOrdersTable, cashRegistersTable, cashTransactionsTable } from "@workspace/db";
+import { db, expensesTable, shippingFinancialInvoicesTable, ordersTable, shippingManifestsTable, shippingManifestOrdersTable, cashRegistersTable, cashTransactionsTable, shippingCompaniesTable } from "@workspace/db";
 import { z } from "zod";
 import { getTenantId } from "../middlewares/requireTenant.js";
 
@@ -306,11 +306,13 @@ const ShipInvSchema = z.object({
 router.get("/finance/shipping-invoices", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req);
   const conditions: any[] = [];
-  // shippingFinancialInvoicesTable has no tenantId column — no tenant filter needed
-  const invoices = await db.select().from(shippingFinancialInvoicesTable)
+  if (tenantId !== null) conditions.push(sql.raw(`shipping_companies.tenant_id = ${tenantId}`));
+  const invoices = await db.select({ inv: shippingFinancialInvoicesTable })
+    .from(shippingFinancialInvoicesTable)
+    .leftJoin(shippingCompaniesTable, eq(shippingFinancialInvoicesTable.shippingCompanyId, shippingCompaniesTable.id))
     .where(conditions.length ? and(...conditions) : undefined)
     .orderBy(desc(shippingFinancialInvoicesTable.invoiceDate));
-  res.json(invoices);
+  res.json(invoices.map(r => r.inv));
 });
 
 router.post("/finance/shipping-invoices", async (req, res): Promise<void> => {
