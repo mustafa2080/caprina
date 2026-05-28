@@ -3,6 +3,7 @@ import { usersTable } from "./users";
 
 export const employeeProfilesTable = mysqlTable("employee_profiles", {
   id: int("id").primaryKey().autoincrement(),
+  tenantId: int("tenant_id"),
   userId: int("user_id").unique().references(() => usersTable.id, { onDelete: "cascade" }),
   displayName: varchar("display_name", { length: 255 }),
   jobTitle: varchar("job_title", { length: 255 }),

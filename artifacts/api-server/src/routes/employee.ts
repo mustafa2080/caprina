@@ -131,10 +131,10 @@ router.get("/employee-profiles", async (req, res): Promise<void> => {
     .from(employeeProfilesTable)
     .leftJoin(usersTable, eq(employeeProfilesTable.userId, usersTable.id));
 
-  // فلترة بالـ tenant: profiles مرتبطة بـ user في نفس الـ tenant، أو profiles بدون user (team_only)
+  // فلترة بالـ tenant من الـ profile مباشرة
   const filtered = tenantId !== null
-    ? rows.filter(r => r.user === null || r.user.tenantId === tenantId)
-    : rows.filter(r => r.user === null || r.user.tenantId === null);
+    ? rows.filter(r => r.profile.tenantId === tenantId)
+    : rows.filter(r => r.profile.tenantId === null);
 
   // جلب kpiCount لكل profile دفعة واحدة
   const allKpis = await db.select({ profileId: employeeKpisTable.profileId }).from(employeeKpisTable);
@@ -233,9 +233,11 @@ router.post("/employee-profiles", requireAdmin, async (req, res): Promise<void> 
   }
 
   // Create new profile
+  const creatorTenantId = getTenantId(req);
   const insertResult = await db
     .insert(employeeProfilesTable)
     .values({
+      tenantId: creatorTenantId ?? undefined,
       userId: data.userId ?? null,
       displayName: data.displayName ?? null,
       jobTitle: data.jobTitle ?? null,
