@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, auditLogsTable } from "@workspace/db";
-import { desc, eq, and, gte, lte, like, or } from "drizzle-orm";
+import { desc, eq, and, gte, lte, like, or, sql } from "drizzle-orm";
 import { requireAuth } from "../middlewares/requireAuth.js";
 import { requireAdmin } from "../middlewares/requireRole.js";
 import { getTenantId } from "../middlewares/requireTenant.js";
@@ -15,7 +15,7 @@ router.get("/", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req);
 
   const conditions: any[] = [];
-  if (tenantId !== null) conditions.push(eq(auditLogsTable.tenantId, tenantId));
+  if (tenantId !== null) conditions.push(sql`audit_logs.tenant_id = ${tenantId}`);
   if (entityType) conditions.push(eq(auditLogsTable.entityType, entityType));
   if (action) conditions.push(eq(auditLogsTable.action, action as any));
   if (from) conditions.push(gte(auditLogsTable.createdAt, new Date(from)));
