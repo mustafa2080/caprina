@@ -964,7 +964,7 @@ export default function Dashboard() {
                   onClick={() => setPeriod(key)}
                   className={`rounded-xl cursor-pointer transition-all duration-200 ${
                     period === key
-                      ? "ring-2 ring-primary shadow-md scale-[1.01] sm:scale-[1.02]"
+                      ? "ring-2 ring-primary shadow-lg"
                       : "opacity-70 hover:opacity-90 hover:shadow-sm"
                   }`}
                 >
