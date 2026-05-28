@@ -244,6 +244,8 @@ export default function Layout({ children }: LayoutProps) {
   const { theme, toggleTheme, setTheme } = useTheme();
   const { toast } = useToast();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userCardRef = useRef<HTMLDivElement>(null);
+  const [userMenuPos, setUserMenuPos] = useState<{bottom: number; left: number; width: number} | null>(null);
   const [, navigate] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [financeOpen, setFinanceOpen] = useState(false);
@@ -491,8 +493,14 @@ export default function Layout({ children }: LayoutProps) {
               </div>
 
               {/* User card */}
-              <div className="px-3 py-3 relative">
-                <button type="button" onClick={() => setUserMenuOpen(v => !v)}
+              <div ref={userCardRef} className="px-3 py-3 relative">
+                <button type="button" onClick={() => {
+                  if (userCardRef.current) {
+                    const rect = userCardRef.current.getBoundingClientRect();
+                    setUserMenuPos({ bottom: window.innerHeight - rect.top + 4, left: rect.left + 12, width: rect.width - 24 });
+                  }
+                  setUserMenuOpen(v => !v);
+                }}
                   className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all hover:bg-foreground/5"
                   style={{ background: "hsl(var(--muted)/0.4)", border: "1px solid hsl(var(--border)/0.5)" }}>
                   <div className="relative shrink-0">
@@ -512,26 +520,6 @@ export default function Layout({ children }: LayoutProps) {
                   </div>
                   <ChevronDown className={cn("w-3.5 h-3.5 text-sidebar-foreground/30 shrink-0 transition-transform", userMenuOpen && "rotate-180")} />
                 </button>
-                {userMenuOpen && (
-                  <div className="absolute bottom-full left-3 right-3 mb-1 rounded-xl border overflow-hidden shadow-xl z-[200]" style={{ background: "hsl(var(--card))", borderColor: "hsl(var(--border))" }}>
-                    <button type="button" onClick={() => { toggleTheme(); setUserMenuOpen(false); }}
-                      className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-xs hover:bg-muted/30 transition-colors">
-                      <div className="flex items-center gap-2">
-                        {theme === "dark" ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-muted-foreground" />}
-                        {theme === "dark" ? "الوضع الفاتح" : "الوضع الداكن"}
-                      </div>
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted/40 text-muted-foreground">{theme === "dark" ? "Light" : "Dark"}</span>
-                    </button>
-                    <button type="button" onClick={() => { setUserMenuOpen(false); setPwDialogOpen(true); }}
-                      className="w-full flex items-center gap-2 px-3 py-2.5 text-xs hover:bg-muted/30 transition-colors">
-                      <KeyRound className="w-3.5 h-3.5 text-muted-foreground" />تغيير كلمة المرور
-                    </button>
-                    <button type="button" onClick={() => { setUserMenuOpen(false); logout(); }}
-                      className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-red-400 hover:bg-red-900/10 transition-colors border-t" style={{ borderColor: "hsl(var(--border))" }}>
-                      <LogOut className="w-3.5 h-3.5" />تسجيل الخروج
-                    </button>
-                  </div>
-                )}
               </div>
             </>)}
           </div>
@@ -735,7 +723,17 @@ export default function Layout({ children }: LayoutProps) {
               </button>
 
               {/* صورة المستخدم + نقطة أونلاين */}
-              <div className="relative">
+              <div
+                ref={userCardRef}
+                className="relative cursor-pointer"
+                onClick={() => {
+                  if (userCardRef.current) {
+                    const rect = userCardRef.current.getBoundingClientRect();
+                    setUserMenuPos({ bottom: window.innerHeight - rect.top + 8, left: rect.left - 80, width: 180 });
+                  }
+                  setUserMenuOpen(v => !v);
+                }}
+              >
                 {(user as any)?.avatar
                   ? <img
                       src={(user as any).avatar}
@@ -1009,6 +1007,37 @@ export default function Layout({ children }: LayoutProps) {
           );
         })()}
       </main>
+
+      {/* User menu dropdown — position:fixed عشان يطلع فوق overflow-hidden */}
+      {userMenuOpen && userMenuPos && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: userMenuPos.bottom,
+            left: userMenuPos.left,
+            width: userMenuPos.width,
+            zIndex: 9999,
+          }}
+          onClick={e => e.stopPropagation()}
+        >
+          <div style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "12px", padding: "6px", boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }}>
+            <button type="button" onClick={() => { setUserMenuOpen(false); setPwDialogOpen(true); }}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs font-semibold text-sidebar-foreground/80 hover:bg-foreground/5 transition-colors text-right">
+              <KeyRound className="w-3.5 h-3.5 shrink-0 text-sidebar-foreground/50" />
+              <span>تغيير كلمة المرور</span>
+            </button>
+            <div style={{ height: "1px", background: "hsl(var(--border)/0.5)", margin: "4px 8px" }} />
+            <button type="button" onClick={() => { setUserMenuOpen(false); logout(); }}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs font-semibold text-red-400 hover:bg-red-500/10 transition-colors text-right">
+              <LogOut className="w-3.5 h-3.5 shrink-0" />
+              <span>تسجيل الخروج</span>
+            </button>
+          </div>
+        </div>
+      )}
+      {userMenuOpen && (
+        <div className="fixed inset-0 z-[9998]" onClick={() => setUserMenuOpen(false)} />
+      )}
 
       <BrandSettingsDialog open={brandSettingsOpen} onClose={() => setBrandSettingsOpen(false)} />
 
