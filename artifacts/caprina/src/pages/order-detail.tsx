@@ -73,19 +73,36 @@ function AddProductDialog({ open, onOpenChange, order, onSuccess }: {
   const [costPrice, setCostPrice] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // combobox state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+
   const productVariants = allVariants.filter((v: any) => v.productId === selectedProduct?.id);
   const availableColors = [...new Set(productVariants.map((v: any) => v.color))] as string[];
   const hasVariants = productVariants.length > 0;
+
+  const filteredProducts = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    const inStock = (products as any[]).filter((p: any) => {
+      const variants = (allVariants as any[]).filter((v: any) => v.productId === p.id);
+      return variants.length > 0
+        ? variants.some((v: any) => (v.totalQuantity ?? 0) > 0)
+        : (p.totalQuantity ?? 0) > 0;
+    });
+    return (q ? inStock.filter((p: any) => p.name?.toLowerCase().includes(q)) : inStock).slice(0, 20);
+  }, [searchQuery, products, allVariants]);
 
   const reset = () => {
     setSelectedProduct(null);
     setVariantRows([{ color: "", size: "", quantity: 1 }]);
     setUnitPrice(0); setCostPrice(null);
+    setSearchQuery(""); setSearchOpen(false);
   };
 
   const handleSelectProduct = (p: any) => {
     setSelectedProduct(p);
     setVariantRows([{ color: "", size: "", quantity: 1 }]);
+    setSearchQuery(""); setSearchOpen(false);
     if (p.unitPrice) setUnitPrice(p.unitPrice);
     if (p.costPrice) setCostPrice(p.costPrice);
   };
@@ -93,7 +110,6 @@ function AddProductDialog({ open, onOpenChange, order, onSuccess }: {
   const updateRow = (i: number, key: string, val: any) => {
     setVariantRows(rows => {
       const next = rows.map((r, idx) => idx === i ? { ...r, [key]: val, ...(key === "color" ? { size: "" } : {}) } : r);
-      // auto-fill price from variant
       if (key === "size") {
         const row = next[i];
         const v = productVariants.find((pv: any) => pv.color === row.color && pv.size === val);
@@ -151,17 +167,8 @@ function AddProductDialog({ open, onOpenChange, order, onSuccess }: {
       <DialogContent
         className="max-w-md"
         dir="rtl"
-        onInteractOutside={(e) => {
-          // اسمح للـ combobox portal يشتغل — امنع الإغلاق بس لو الضغط برا الـ dialog وبرا أي portal
-          const target = e.target as HTMLElement;
-          if (target?.closest?.("#product-combobox-portal")) return;
-          e.preventDefault();
-        }}
-        onPointerDownOutside={(e) => {
-          const target = e.target as HTMLElement;
-          if (target?.closest?.("#product-combobox-portal")) return;
-          e.preventDefault();
-        }}
+        onInteractOutside={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-sm">
@@ -170,14 +177,14 @@ function AddProductDialog({ open, onOpenChange, order, onSuccess }: {
         </DialogHeader>
 
         <div className="space-y-4 py-1">
-          {/* Product selector */}
+          {/* Product selector — inline combobox بدون portal */}
           <div>
             <label className="text-xs font-medium mb-1.5 block">اختر من المخزون *</label>
             {selectedProduct ? (
               <div className="flex items-center justify-between gap-2 px-3 py-2 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800 rounded-md">
                 <div className="flex items-center gap-2">
-                  {(selectedProduct as any).image ? (
-                    <img src={(selectedProduct as any).image} alt={selectedProduct.name} className="w-8 h-8 rounded object-cover border border-emerald-300 shrink-0" />
+                  {selectedProduct.image ? (
+                    <img src={selectedProduct.image} alt={selectedProduct.name} className="w-8 h-8 rounded object-cover border border-emerald-300 shrink-0" />
                   ) : (
                     <Package className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                   )}
@@ -189,7 +196,61 @@ function AddProductDialog({ open, onOpenChange, order, onSuccess }: {
                 </button>
               </div>
             ) : (
-              <ProductSearchCombobox products={products} allVariants={allVariants} onSelect={handleSelectProduct} />
+              <div className="relative">
+                {/* Search input */}
+                <div className="relative">
+                  <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                  <input
+                    type="text"
+                    className="w-full h-9 text-sm pr-8 pl-3 rounded-md border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                    placeholder="ابحث عن منتج..."
+                    value={searchQuery}
+                    onChange={e => { setSearchQuery(e.target.value); setSearchOpen(true); }}
+                    onFocus={() => setSearchOpen(true)}
+                  />
+                  {searchQuery && (
+                    <button type="button" onClick={() => setSearchQuery("")}
+                      className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+                {/* Dropdown — inline داخل الـ Dialog */}
+                {searchOpen && (
+                  <div className="mt-1 w-full bg-popover border border-border rounded-md shadow-lg max-h-48 overflow-y-auto z-10 relative">
+                    {filteredProducts.length === 0 ? (
+                      <div className="px-3 py-4 text-center text-sm text-muted-foreground">
+                        {searchQuery ? "لا يوجد منتج بهذا الاسم" : "لا توجد منتجات في المخزون"}
+                      </div>
+                    ) : filteredProducts.map((p: any) => {
+                      const variants = (allVariants as any[]).filter((v: any) => v.productId === p.id);
+                      const stock = variants.length > 0
+                        ? variants.reduce((s: number, v: any) => s + (v.totalQuantity ?? 0), 0)
+                        : (p.totalQuantity ?? 0);
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onMouseDown={(e) => { e.preventDefault(); handleSelectProduct(p); }}
+                          className="w-full text-right flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-muted/50 transition-colors text-sm border-b border-border/20 last:border-0"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            {p.image ? (
+                              <img src={p.image} alt={p.name} className="w-7 h-7 rounded object-cover border border-border shrink-0" />
+                            ) : (
+                              <Package className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                            )}
+                            <span className="font-medium truncate">{p.name}</span>
+                          </div>
+                          <Badge variant="outline" className={`text-[9px] font-bold shrink-0 ${stock > 0 ? "border-emerald-400 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400" : "border-red-400 text-red-600"}`}>
+                            {stock > 0 ? `${stock} متاح` : "نفد"}
+                          </Badge>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
