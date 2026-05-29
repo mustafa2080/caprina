@@ -116,9 +116,14 @@ function ColFilterBtn({ col, colFilters, getColOptions, toggleColFilter, clearCo
   const handleOpen = () => {
     if (!open && btnRef.current) {
       const r = btnRef.current.getBoundingClientRect();
-      const panelW = 208;
-      const left = Math.max(4, Math.min(r.left, window.innerWidth - panelW - 4));
-      setPos({ top: r.bottom + 4, left });
+      const panelW = window.innerWidth < 640 ? window.innerWidth - 16 : 208;
+      const left = window.innerWidth < 640
+        ? 8
+        : Math.max(4, Math.min(r.left, window.innerWidth - panelW - 4));
+      const top = window.innerWidth < 640
+        ? Math.max(8, Math.min(r.bottom + 4, window.innerHeight - 360))
+        : r.bottom + 4;
+      setPos({ top, left });
     }
     setOpen(o => !o);
     setSearch("");
@@ -151,7 +156,7 @@ function ColFilterBtn({ col, colFilters, getColOptions, toggleColFilter, clearCo
         <div
           ref={panelRef}
           style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 9999 }}
-          className="bg-background border border-border rounded-lg shadow-2xl text-[11px] w-52"
+          className="bg-background border border-border rounded-lg shadow-2xl text-[11px] w-[calc(100vw-16px)] sm:w-52 max-h-[70vh]"
           dir="rtl"
         >
           <div className="flex gap-1 p-2 border-b border-border/50">
@@ -715,6 +720,40 @@ ${filtersRow}
               <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-muted-foreground" onClick={clearFilters}>
                 <X className="w-3 h-3" />مسح الفلاتر
               </Button>
+            </div>
+          )}
+          {showColFilters && (
+            <div className="mt-3 sm:hidden rounded-xl border border-border bg-muted/20 p-3">
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <p className="text-xs font-bold text-foreground">فلاتر الأعمدة</p>
+                <Button variant="ghost" size="sm" className="h-7 text-[10px] gap-1 text-muted-foreground" onClick={() => setShowColFilters(false)}>
+                  <X className="w-3 h-3" />إغلاق
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  ["date", "التاريخ"],
+                  ["type", "النوع"],
+                  ["product", "المنتج"],
+                  ["variant", "اللون/المقاس"],
+                  ["qty", "الكمية"],
+                  ["reason", "السبب"],
+                  ["order", "الطلب"],
+                  ["location", "الموقع"],
+                  ["notes", "ملاحظات"],
+                ] as const).map(([col, label]) => (
+                  <div key={col} className="flex items-center justify-between gap-2 rounded-lg border border-border bg-background px-2.5 py-2">
+                    <span className="text-[10px] font-medium text-muted-foreground truncate">{label}</span>
+                    <ColFilterBtn
+                      col={col}
+                      colFilters={colFilters}
+                      getColOptions={getColOptions}
+                      toggleColFilter={toggleColFilter}
+                      clearColFilter={clearColFilter}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </CardContent>
