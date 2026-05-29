@@ -202,9 +202,9 @@ export default function Invoices() {
       @page { size: A4 landscape; margin: 0; }
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { font-family: 'Cairo', 'Segoe UI', Tahoma, Arial, sans-serif; direction: rtl; background: white; color: #000; font-size: 9pt; font-weight: 600; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .page { display: grid; ${perPage === 1 ? "grid-template-columns: 1fr; grid-template-rows: 1fr;" : perPage === 2 ? "grid-template-columns: 1fr 1fr; grid-template-rows: 1fr;" : "grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;"} gap: 2mm; width: 297mm; height: 210mm; padding: 3mm; page-break-after: always; }
+      .page { display: grid; ${perPage === 1 ? "grid-template-columns: 1fr; grid-template-rows: auto;" : perPage === 2 ? "grid-template-columns: 1fr 1fr; grid-template-rows: auto;" : "grid-template-columns: 1fr 1fr; grid-template-rows: auto auto;"} gap: 2mm; width: 297mm; min-height: 210mm; padding: 3mm; page-break-after: always; }
       .page:last-child { page-break-after: avoid; }
-      .inv { border: 2px solid #000; border-radius: 2mm; display: flex; flex-direction: column; overflow: visible; background: white; min-height: 0; min-width: 0; height: 100%; }
+      .inv { border: 2px solid #000; border-radius: 2mm; display: flex; flex-direction: column; overflow: hidden; background: white; min-height: 0; min-width: 0; }
       .inv-hdr { background: #1a1a1a; color: white; display: flex; align-items: center; justify-content: space-between; padding: 2mm 3mm; gap: 2mm; flex-shrink: 0; }
       .hdr-date { font-size: 8pt; font-weight: 700; white-space: nowrap; direction: ltr; text-align: right; }
       .hdr-logo { display: flex; align-items: center; gap: 2mm; }
@@ -214,8 +214,8 @@ export default function Invoices() {
       .cust-row { display: flex; align-items: center; justify-content: space-between; padding: 1.5mm 3mm; border-bottom: 1.5px solid #000; background: #f0f0f0; flex-shrink: 0; gap: 2mm; }
       .cust-phone { font-size: 10pt; font-weight: 800; direction: ltr; color: #000; }
       .cust-name { font-size: 12pt; font-weight: 900; color: #000; }
-      .inv-body { padding: 1mm 3mm 0; flex: 1; min-height: 0; overflow: visible; display: flex; flex-direction: column; }
-      .table-wrap { overflow: visible; flex: 1; min-height: 0; }
+      .inv-body { padding: 1mm 3mm 0; flex: 1; overflow: visible; display: flex; flex-direction: column; }
+      .table-wrap { overflow: visible; }
       .total-bar { flex-shrink: 0; }
       .prod-table { width: 100%; border-collapse: collapse; }
       .prod-table th { background: #1a1a1a; color: white; border: 1px solid #333; padding: 1mm 1.5mm; font-weight: 800; font-size: 8pt; text-align: center; }
