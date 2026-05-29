@@ -986,12 +986,19 @@ router.get("/analytics/stock-intelligence", async (req, res): Promise<void> => {
 
     let category: StockItem["category"] = "stale";
     if (avail <= 0) {
-      category = "out";
+      // "out" فقط لو عنده variants فعلية أو أوردرات تاريخية (يعني المخزون نفد فعلاً)
+      const hasVariants = variants.some(v => v.productId === p.id);
+      const hasOrders = (allTimeSales.get(key) ?? 0) > 0;
+      if (hasVariants || hasOrders) {
+        category = "out";
+      }
+      // لو مفيهوش variants ولا أوردرات → stale (منتج جديد مش "نفد")
     } else if (daysUntilStockout !== null) {
       if (daysUntilStockout <= 7) category = "fast";
       else if (daysUntilStockout <= 30) category = "medium";
       else category = "slow";
     }
+    // stale = عنده مخزون (avail > 0) لكن velocity = 0 (لا مبيعات في 30 يوم)
 
     return {
       name: key,
@@ -1014,9 +1021,10 @@ router.get("/analytics/stock-intelligence", async (req, res): Promise<void> => {
   const categoryOrder = { fast: 0, medium: 1, slow: 2, stale: 3, out: 4 };
   items.sort((a, b) => categoryOrder[a.category] - categoryOrder[b.category] || b.velocityPerDay - a.velocityPerDay);
 
-  const totalFrozenCapital = items.filter(i => i.category === "slow" || i.category === "stale").reduce((s, i) => s + i.frozenCapital, 0);
+  // slowMovers = slow أو stale لكن فقط اللي عنده مخزون فعلي (avail > 0)
+  const totalFrozenCapital = items.filter(i => (i.category === "slow" || i.category === "stale") && i.availableQty > 0).reduce((s, i) => s + i.frozenCapital, 0);
   const totalFastMovers = items.filter(i => i.category === "fast").length;
-  const totalSlowMovers = items.filter(i => i.category === "slow" || i.category === "stale").length;
+  const totalSlowMovers = items.filter(i => (i.category === "slow" || i.category === "stale") && i.availableQty > 0).length;
 
   res.json({
     items,
