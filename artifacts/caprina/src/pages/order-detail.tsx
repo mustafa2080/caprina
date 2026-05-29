@@ -942,7 +942,13 @@ export default function OrderDetail() {
   const invoiceManifestStatus = manifestStatus?.manifestStatus === "open" ? manifestStatus : null;
   const updateOrder = useUpdateOrder();
 
-  // Track selected product for stock display in edit mode
+  // Edit form — inline product search state (same as AddProductDialog)
+  const [editSelectedProduct, setEditSelectedProduct] = useState<any>(null);
+  const [editSearchQuery, setEditSearchQuery] = useState("");
+  const [editSearchOpen, setEditSearchOpen] = useState(false);
+  const [editVariantRows, setEditVariantRows] = useState<{ color: string; size: string; quantity: number }[]>([{ color: "", size: "", quantity: 1 }]);
+
+  // legacy (kept for TS compat — unused after refactor)
   const [editProductId, setEditProductId] = useState<number | null>(null);
   const [editColor, setEditColor] = useState<string>("");
 
@@ -954,6 +960,12 @@ export default function OrderDetail() {
   useEffect(() => {
     if (order && !initializedRef.current) {
       form.reset({ customerName: order.customerName, phone: order.phone, address: order.address, product: order.product, quantity: order.quantity, unitPrice: order.unitPrice, shippingCompanyId: order.shippingCompanyId, trackingNumber: (order as any).trackingNumber ?? null, notes: order.notes });
+      // init inline product search
+      const existProd = order.productId && products ? (products as any[]).find((p: any) => p.id === order.productId) ?? null : null;
+      setEditSelectedProduct(existProd);
+      setEditSearchQuery("");
+      setEditSearchOpen(false);
+      setEditVariantRows([{ color: (order as any).color ?? "", size: (order as any).size ?? "", quantity: order.quantity ?? 1 }]);
       initializedRef.current = true;
     }
   }, [order, form]);
@@ -1079,7 +1091,28 @@ export default function OrderDetail() {
   };
 
   const onSubmitEdit = (values: EditFormValues) => {
-    updateOrder.mutate({ id, data: { ...values, shippingCompanyId: values.shippingCompanyId || null } }, {
+    // resolve variant from inline search if product selected
+    const editProdVariants = editSelectedProduct && allVariants
+      ? (allVariants as any[]).filter((v: any) => v.productId === editSelectedProduct.id)
+      : [];
+    const editHasVariants = editProdVariants.length > 0;
+    const editRow = editVariantRows[0];
+    const editVariant = editHasVariants && editRow.color && editRow.size
+      ? editProdVariants.find((v: any) => v.color === editRow.color && v.size === editRow.size)
+      : null;
+
+    const extraData = editSelectedProduct
+      ? {
+          product: editSelectedProduct.name,
+          color: editVariant?.color ?? (editRow.color || null),
+          size: editVariant?.size ?? (editRow.size || null),
+          quantity: editHasVariants ? editRow.quantity : values.quantity,
+          productId: editSelectedProduct.id,
+          variantId: editVariant?.id ?? null,
+        }
+      : {};
+
+    updateOrder.mutate({ id, data: { ...values, shippingCompanyId: values.shippingCompanyId || null, ...extraData } }, {
       onSuccess: (updated) => {
         queryClient.setQueryData(getGetOrderQueryKey(id), updated);
         queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
@@ -1087,6 +1120,8 @@ export default function OrderDetail() {
         queryClient.invalidateQueries({ queryKey: getGetRecentOrdersQueryKey() });
         setIsEditing(false);
         initializedRef.current = false;
+        setEditSelectedProduct(null); setEditSearchQuery(""); setEditSearchOpen(false);
+        setEditVariantRows([{ color: "", size: "", quantity: 1 }]);
         toast({ title: "تم الحفظ", description: "تم حفظ التعديلات بنجاح." });
       },
       onError: () => toast({ title: "خطأ", description: "فشل الحفظ.", variant: "destructive" }),
@@ -1726,72 +1761,165 @@ export default function OrderDetail() {
                         <Package className="w-3 h-3" />تفاصيل المنتج
                       </p>
 
-                      {/* Product picker from inventory */}
-                      <div className="mb-3 p-3 rounded-lg bg-muted/20 border border-border/50 space-y-2">
-                        <p className="text-[10px] text-muted-foreground font-semibold">اختر من المخزون (اختياري — يملأ البيانات تلقائياً)</p>
-                        <div className="grid grid-cols-2 gap-2">
-                          <Select
-                            value={editProductId?.toString() || "none"}
-                            onValueChange={v => {
-                              if (v === "none") { setEditProductId(null); setEditColor(""); }
-                              else {
-                                const pid = Number(v);
-                                setEditProductId(pid); setEditColor("");
-                                const p = products?.find(p => p.id === pid);
-                                if (p) form.setValue("product", p.name);
-                              }
-                            }}
-                          >
-                            <SelectTrigger className="h-8 text-xs bg-background"><SelectValue placeholder="اختر منتج..." /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">— إدخال يدوي —</SelectItem>
-                              {products?.map(p => {
-                                const avail = p.totalQuantity - p.reservedQuantity - p.soldQuantity;
-                                return <SelectItem key={p.id} value={String(p.id)}>{p.name} ({avail} متاح)</SelectItem>;
-                              })}
-                            </SelectContent>
-                          </Select>
-                          {editProductId && allVariants?.some(v => v.productId === editProductId) && (
-                            <Select
-                              value={editColor || "none"}
-                              onValueChange={v => {
-                                setEditColor(v === "none" ? "" : v);
-                                const variant = allVariants?.find(va => va.productId === editProductId && `${va.color}-${va.size}` === v);
-                                if (variant) form.setValue("unitPrice", variant.unitPrice);
-                              }}
-                            >
-                              <SelectTrigger className="h-8 text-xs bg-background"><SelectValue placeholder="اللون / المقاس" /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="none">— بدون تحديد —</SelectItem>
-                                {allVariants?.filter(v => v.productId === editProductId).map(v => {
-                                  const avail = v.totalQuantity - v.reservedQuantity - v.soldQuantity;
-                                  return <SelectItem key={v.id} value={`${v.color}-${v.size}`} disabled={avail === 0}>{v.color} / {v.size} — {avail === 0 ? "نفد" : `${avail} متاح`}</SelectItem>;
-                                })}
-                              </SelectContent>
-                            </Select>
-                          )}
-                        </div>
-                        {/* Stock badge */}
-                        {editProductId && (() => {
-                          const variants = allVariants?.filter(v => v.productId === editProductId) ?? [];
-                          if (variants.length === 0) {
-                            const p = products?.find(p => p.id === editProductId);
-                            if (!p) return null;
-                            const avail = p.totalQuantity - p.reservedQuantity - p.soldQuantity;
-                            return <Badge variant="outline" className={`text-[9px] font-bold border ${avail <= p.lowStockThreshold ? "border-red-700 text-red-400" : "border-emerald-700 text-emerald-400"}`}>متاح: {avail} وحدة</Badge>;
-                          }
-                          if (editColor) {
-                            const variant = variants.find(v => `${v.color}-${v.size}` === editColor);
-                            if (!variant) return null;
-                            const avail = variant.totalQuantity - variant.reservedQuantity - variant.soldQuantity;
-                            return <Badge variant="outline" className={`text-[9px] font-bold border ${avail <= variant.lowStockThreshold ? "border-red-700 text-red-400" : "border-emerald-700 text-emerald-400"}`}>متاح ({variant.color}/{variant.size}): {avail} وحدة</Badge>;
-                          }
-                          const totalAvail = variants.reduce((s, v) => s + v.totalQuantity - v.reservedQuantity - v.soldQuantity, 0);
-                          return <Badge variant="outline" className="text-[9px] font-bold border-primary/40 text-primary">إجمالي المتاح: {totalAvail} وحدة ({variants.length} متغيرات)</Badge>;
-                        })()}
+                      {/* Product picker — inline search مثل AddProductDialog */}
+                      <div className="mb-3">
+                        <label className="text-xs font-medium mb-1.5 block">اختر من المخزون *</label>
+                        {editSelectedProduct ? (
+                          <div className="flex items-center justify-between gap-2 px-3 py-2 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800 rounded-md">
+                            <div className="flex items-center gap-2">
+                              {(editSelectedProduct as any).image ? (
+                                <img src={(editSelectedProduct as any).image} alt={(editSelectedProduct as any).name} className="w-8 h-8 rounded object-cover border border-emerald-300 shrink-0" />
+                              ) : (
+                                <Package className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                              )}
+                              <span className="text-sm font-bold">{(editSelectedProduct as any).name}</span>
+                            </div>
+                            <button type="button" onClick={() => { setEditSelectedProduct(null); setEditVariantRows([{ color: "", size: "", quantity: editVariantRows[0]?.quantity ?? 1 }]); }}
+                              className="text-muted-foreground hover:text-red-500 transition-colors">
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="relative">
+                            <div className="relative">
+                              <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                              <input
+                                type="text"
+                                className="w-full h-9 text-sm pr-8 pl-3 rounded-md border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                                placeholder={`ابحث عن منتج... (حالياً: ${order.product ?? ""})`}
+                                value={editSearchQuery}
+                                onChange={e => { setEditSearchQuery(e.target.value); setEditSearchOpen(true); }}
+                                onFocus={() => setEditSearchOpen(true)}
+                                onBlur={() => setTimeout(() => setEditSearchOpen(false), 150)}
+                              />
+                              {editSearchQuery && (
+                                <button type="button" onClick={() => setEditSearchQuery("")}
+                                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                            {editSearchOpen && (() => {
+                              const q = editSearchQuery.toLowerCase().trim();
+                              const filtered = ((products ?? []) as any[])
+                                .filter((p: any) => !q || p.name?.toLowerCase().includes(q))
+                                .slice(0, 20);
+                              return (
+                                <div className="mt-1 w-full bg-popover border border-border rounded-md shadow-lg max-h-48 overflow-y-auto z-10 relative">
+                                  {filtered.length === 0 ? (
+                                    <div className="px-3 py-4 text-center text-sm text-muted-foreground">لا يوجد منتج بهذا الاسم</div>
+                                  ) : filtered.map((p: any) => {
+                                    const pvs = ((allVariants ?? []) as any[]).filter((v: any) => v.productId === p.id);
+                                    const stock = pvs.length > 0
+                                      ? pvs.reduce((s: number, v: any) => s + (v.totalQuantity ?? 0) - (v.reservedQuantity ?? 0) - (v.soldQuantity ?? 0), 0)
+                                      : (p.totalQuantity ?? 0) - (p.reservedQuantity ?? 0) - (p.soldQuantity ?? 0);
+                                    return (
+                                      <button key={p.id} type="button"
+                                        onMouseDown={() => {
+                                          setEditSelectedProduct(p);
+                                          setEditVariantRows([{ color: "", size: "", quantity: editVariantRows[0]?.quantity ?? 1 }]);
+                                          setEditSearchQuery(""); setEditSearchOpen(false);
+                                          form.setValue("product", p.name);
+                                          if (p.unitPrice) form.setValue("unitPrice", p.unitPrice);
+                                        }}
+                                        className="w-full text-right flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-muted/50 transition-colors text-sm border-b border-border/20 last:border-0"
+                                      >
+                                        <div className="flex items-center gap-2 min-w-0">
+                                          {p.image ? (
+                                            <img src={p.image} alt={p.name} className="w-7 h-7 rounded object-cover border border-border shrink-0" />
+                                          ) : (
+                                            <Package className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                                          )}
+                                          <span className="font-medium truncate">{p.name}</span>
+                                        </div>
+                                        <Badge variant="outline" className={`text-[9px] font-bold shrink-0 ${stock > 0 ? "border-emerald-400 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400" : "border-red-400 text-red-600"}`}>
+                                          {stock > 0 ? `${stock} متاح` : "نفد"}
+                                        </Badge>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        )}
                       </div>
 
-                      {/* اسم المنتج + الكمية + السعر */}
+                      {/* Variants إذا المنتج المختار عنده variants */}
+                      {editSelectedProduct && (() => {
+                        const ePVs = ((allVariants ?? []) as any[]).filter((v: any) => v.productId === (editSelectedProduct as any).id);
+                        const eColors = [...new Set(ePVs.map((v: any) => v.color))] as string[];
+                        const eHasV = ePVs.length > 0;
+                        const eRow = editVariantRows[0];
+                        const eSizes = ePVs.filter((v: any) => v.color === eRow.color).map((v: any) => v.size);
+                        const eVariant = ePVs.find((v: any) => v.color === eRow.color && v.size === eRow.size);
+                        const eAvail = eVariant
+                          ? (eVariant.totalQuantity ?? 0) - (eVariant.reservedQuantity ?? 0) - (eVariant.soldQuantity ?? 0)
+                          : null;
+                        if (!eHasV) return (
+                          <div className="mb-3">
+                            <label className="text-xs font-medium mb-1.5 block">الكمية *</label>
+                            <div className="flex items-center gap-2">
+                              <button type="button" onClick={() => { const q = Math.max(1, eRow.quantity - 1); setEditVariantRows([{ ...eRow, quantity: q }]); form.setValue("quantity", q); }}
+                                className="w-9 h-9 flex items-center justify-center rounded border border-input bg-card hover:bg-muted text-sm font-bold">−</button>
+                              <span className="w-10 text-center text-sm font-bold">{eRow.quantity}</span>
+                              <button type="button" onClick={() => { const q = eRow.quantity + 1; setEditVariantRows([{ ...eRow, quantity: q }]); form.setValue("quantity", q); }}
+                                className="w-9 h-9 flex items-center justify-center rounded border border-input bg-card hover:bg-muted text-sm font-bold">+</button>
+                            </div>
+                          </div>
+                        );
+                        return (
+                          <div className="mb-3 flex items-end gap-2 p-2 bg-muted/10 rounded-md border border-border/40">
+                            <div className="flex-1">
+                              <label className="text-[10px] text-muted-foreground mb-1 block">اللون</label>
+                              <select value={eRow.color}
+                                onChange={e => {
+                                  const c = e.target.value;
+                                  setEditVariantRows([{ color: c, size: "", quantity: eRow.quantity }]);
+                                  const v = ePVs.find((pv: any) => pv.color === c);
+                                  if (v?.unitPrice) form.setValue("unitPrice", v.unitPrice);
+                                }}
+                                className="w-full h-9 text-sm rounded-md border border-input bg-card px-2 focus:outline-none focus:ring-1 focus:ring-ring">
+                                <option value="">اختر لون...</option>
+                                {eColors.map((c: string) => <option key={c} value={c}>{c}</option>)}
+                              </select>
+                            </div>
+                            <div className="flex-1">
+                              <label className="text-[10px] text-muted-foreground mb-1 block">المقاس</label>
+                              <select value={eRow.size} disabled={!eRow.color}
+                                onChange={e => {
+                                  const s = e.target.value;
+                                  setEditVariantRows([{ ...eRow, size: s }]);
+                                  const v = ePVs.find((pv: any) => pv.color === eRow.color && pv.size === s);
+                                  if (v?.unitPrice) form.setValue("unitPrice", v.unitPrice);
+                                }}
+                                className="w-full h-9 text-sm rounded-md border border-input bg-card px-2 focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50">
+                                <option value="">اختر مقاس...</option>
+                                {eSizes.map((s: string) => {
+                                  const v = ePVs.find((pv: any) => pv.color === eRow.color && pv.size === s);
+                                  const a = v ? (v.totalQuantity ?? 0) - (v.reservedQuantity ?? 0) - (v.soldQuantity ?? 0) : 0;
+                                  return <option key={s} value={s} disabled={a === 0}>{s} {a === 0 ? "(نفد)" : `(${a})`}</option>;
+                                })}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="text-[10px] text-muted-foreground mb-1 block">الكمية</label>
+                              <div className="flex items-center gap-1">
+                                <button type="button" onClick={() => { const q = Math.max(1, eRow.quantity - 1); setEditVariantRows([{ ...eRow, quantity: q }]); form.setValue("quantity", q); }}
+                                  className="w-7 h-9 flex items-center justify-center rounded border border-input bg-card hover:bg-muted text-sm font-bold">−</button>
+                                <span className="w-8 text-center text-sm font-bold">{eRow.quantity}</span>
+                                <button type="button" onClick={() => { const q = eAvail !== null ? Math.min(eAvail, eRow.quantity + 1) : eRow.quantity + 1; setEditVariantRows([{ ...eRow, quantity: q }]); form.setValue("quantity", q); }}
+                                  className="w-7 h-9 flex items-center justify-center rounded border border-input bg-card hover:bg-muted text-sm font-bold">+</button>
+                              </div>
+                            </div>
+                            {eAvail !== null && (
+                              <span className={`text-[9px] font-bold mb-2 shrink-0 ${eAvail <= 5 ? "text-red-500" : "text-emerald-600 dark:text-emerald-400"}`}>متاح:{eAvail}</span>
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      {/* اسم المنتج + الكمية (fallback يدوي) + السعر */}
                       <div className="grid grid-cols-5 gap-3">
                         <FormField control={form.control} name="product" render={({ field }) => (
                           <FormItem className="col-span-3">
@@ -1799,12 +1927,14 @@ export default function OrderDetail() {
                             <FormControl><Input className="h-9 text-sm bg-background border-border/70 focus-visible:border-primary focus-visible:ring-primary/20" {...field} /></FormControl>
                           </FormItem>
                         )} />
-                        <FormField control={form.control} name="quantity" render={({ field }) => (
-                          <FormItem className="col-span-1">
-                            <FormLabel className="text-xs text-muted-foreground">الكمية</FormLabel>
-                            <FormControl><Input type="number" min="1" className="h-9 text-sm text-center bg-background border-border/70 focus-visible:border-primary focus-visible:ring-primary/20" {...field} /></FormControl>
-                          </FormItem>
-                        )} />
+                        {!editSelectedProduct && (
+                          <FormField control={form.control} name="quantity" render={({ field }) => (
+                            <FormItem className="col-span-1">
+                              <FormLabel className="text-xs text-muted-foreground">الكمية</FormLabel>
+                              <FormControl><Input type="number" min="1" className="h-9 text-sm text-center bg-background border-border/70 focus-visible:border-primary focus-visible:ring-primary/20" {...field} /></FormControl>
+                            </FormItem>
+                          )} />
+                        )}
                         <FormField control={form.control} name="unitPrice" render={({ field }) => (
                           <FormItem className="col-span-1">
                             <FormLabel className="text-xs text-muted-foreground">السعر</FormLabel>
