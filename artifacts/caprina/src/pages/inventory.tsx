@@ -300,7 +300,13 @@ export default function Inventory() {
   });
   const deleteVariantMutation = useMutation({
     mutationFn: ({ productId, id }: { productId: number; id: number }) => variantsApi.delete(productId, id),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["variants"] }); toast({ title: "تم الحذف" }); },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["variants"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["warehouses"] });
+      queryClient.invalidateQueries({ queryKey: ["stock-intelligence"] });
+      toast({ title: "تم الحذف" });
+    },
     onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
   const addStockMutation = useMutation({
@@ -490,7 +496,7 @@ export default function Inventory() {
   const getProductVariants = (productId: number) => allVariants?.filter(v => v.productId === productId) ?? [];
 
   const totalVariants = allVariants?.length ?? 0;
-  const lowStockVariants = allVariants?.filter(v => v.totalQuantity > 0 && v.totalQuantity <= v.lowStockThreshold).length ?? 0;
+  const lowStockVariants = allVariants?.filter(v => (v.sku ?? "").trim().length > 0 && v.totalQuantity > 0 && v.totalQuantity <= v.lowStockThreshold).length ?? 0;
   const totalAvailable = allVariants?.reduce((s, v) => s + Math.max(0, v.totalQuantity), 0) ?? 0;
   const inventoryValue = allVariants?.reduce((s, v) => s + Math.max(0, v.totalQuantity) * (v.costPrice ?? v.unitPrice * 0.6), 0) ?? 0;
 

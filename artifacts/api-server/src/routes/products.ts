@@ -137,6 +137,13 @@ router.delete("/products/:id", requireRole("admin"), async (req, res): Promise<v
 
   const [existing] = await db.select().from(productsTable).where(eq(productsTable.id, id));
   if (!existing) { res.status(404).json({ error: "Product not found" }); return; }
+
+  await db.delete(warehouseStockTable).where(eq(warehouseStockTable.productId, id));
+  const variants = await db.select({ id: productVariantsTable.id }).from(productVariantsTable).where(eq(productVariantsTable.productId, id));
+  for (const variant of variants) {
+    await db.delete(warehouseStockTable).where(eq(warehouseStockTable.variantId, variant.id));
+  }
+  await db.delete(productVariantsTable).where(eq(productVariantsTable.productId, id));
   await db.delete(productsTable).where(eq(productsTable.id, id));
 
   await logAudit({ action: "delete", entityType: "product", entityId: id, entityName: existing.name, before: { name: existing.name }, userId: req.user?.id, userName: req.user?.displayName });

@@ -87,7 +87,8 @@ router.post("/products/:productId/variants", requireRole("admin", "warehouse"), 
   const [product] = await db.select().from(productsTable).where(eq(productsTable.id, productId));
   if (!product) { res.status(404).json({ error: "Product not found" }); return; }
 
-  const sku = parsed.data.sku || `${product.name.substring(0, 3).toUpperCase()}-${parsed.data.color.substring(0, 3).toUpperCase()}-${parsed.data.size.toUpperCase()}`;
+  const skuInput = parsed.data.sku?.trim();
+  const sku = skuInput ? skuInput : `${product.name.substring(0, 3).toUpperCase()}-${parsed.data.color.substring(0, 3).toUpperCase()}-${parsed.data.size.toUpperCase()}`;
 
   const insertResult = await db.insert(productVariantsTable).values({
     productId, ...parsed.data, sku, reservedQuantity: 0, soldQuantity: 0,
@@ -118,8 +119,12 @@ router.patch("/products/:productId/variants/:variantId", requireRole("admin", "w
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
   const [before] = await db.select().from(productVariantsTable).where(eq(productVariantsTable.id, variantId));
+  const normalizedData = {
+    ...parsed.data,
+    ...(parsed.data.sku !== undefined ? { sku: parsed.data.sku?.trim() || null } : {}),
+  };
   await db.update(productVariantsTable)
-    .set({ ...parsed.data, updatedAt: new Date() })
+    .set({ ...normalizedData, updatedAt: new Date() })
     .where(eq(productVariantsTable.id, variantId));
   const [variant] = await db.select().from(productVariantsTable).where(eq(productVariantsTable.id, variantId));
   if (!variant) { res.status(404).json({ error: "Variant not found" }); return; }
@@ -137,8 +142,32 @@ router.delete("/products/:productId/variants/:variantId", requireRole("admin"), 
   const [toDelete] = await db.select().from(productVariantsTable)
     .where(and(eq(productVariantsTable.id, variantId), eq(productVariantsTable.productId, parseInt(req.params.productId))));
   if (!toDelete) { res.status(404).json({ error: "Variant not found" }); return; }
+
+  await db.delete(warehouseStockTable)
+    .where(eq(warehouseStockTable.variantId, variantId));
+
   await db.delete(productVariantsTable)
     .where(and(eq(productVariantsTable.id, variantId), eq(productVariantsTable.productId, parseInt(req.params.productId))));
+
+  const remainingVariants = await db
+    .select({
+      totalQuantity: productVariantsTable.totalQuantity,
+      reservedQuantity: productVariantsTable.reservedQuantity,
+      soldQuantity: productVariantsTable.soldQuantity,
+    })
+    .from(productVariantsTable)
+    .where(eq(productVariantsTable.productId, toDelete.productId));
+
+  const totals = remainingVariants.reduce((acc, variant) => {
+    acc.totalQuantity += variant.totalQuantity ?? 0;
+    acc.reservedQuantity += variant.reservedQuantity ?? 0;
+    acc.soldQuantity += variant.soldQuantity ?? 0;
+    return acc;
+  }, { totalQuantity: 0, reservedQuantity: 0, soldQuantity: 0 });
+
+  await db.update(productsTable)
+    .set({ ...totals, updatedAt: new Date() })
+    .where(eq(productsTable.id, toDelete.productId));
 
   await logAudit({ action: "delete", entityType: "variant", entityId: variantId, entityName: `${toDelete.color} ${toDelete.size}`, userId: req.user?.id, userName: req.user?.displayName });
 
