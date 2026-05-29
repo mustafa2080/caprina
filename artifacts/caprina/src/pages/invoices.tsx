@@ -214,8 +214,8 @@ export default function Invoices() {
       .cust-row { display: flex; align-items: center; justify-content: space-between; padding: 1.5mm 3mm; border-bottom: 1.5px solid #000; background: #f0f0f0; flex-shrink: 0; gap: 2mm; }
       .cust-phone { font-size: 10pt; font-weight: 800; direction: ltr; color: #000; }
       .cust-name { font-size: 12pt; font-weight: 900; color: #000; }
-      .inv-body { padding: 1mm 3mm 0; flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 0.5mm; }
-      .table-wrap { flex: 1; min-height: 0; overflow: hidden; }
+      .inv-body { padding: 1mm 3mm 0; flex: 1; min-height: 0; overflow: visible; display: flex; flex-direction: column; }
+      .table-wrap { overflow: hidden; flex: 1; min-height: 0; }
       .total-bar { flex-shrink: 0; }
       .prod-table { width: 100%; border-collapse: collapse; }
       .prod-table th { background: #1a1a1a; color: white; border: 1px solid #333; padding: 1mm 1.5mm; font-weight: 800; font-size: 8pt; text-align: center; }
@@ -258,18 +258,20 @@ export default function Invoices() {
       const city = (rep as any).city ?? "";
 
       const rowCount = realOrders.length;
-      // المساحة المتاحة للجدول بالـ mm حسب perPage
-      // A4 landscape = 210mm height, padding 3mm كل جهة = 204mm
-      // perPage=4: كل فاتورة = (204mm - 2mm gap) / 2 = ~101mm
-      //   منها: hdr~20mm + cust~8mm + total-bar~5mm + inv-bottom~22mm + footer~7mm = ~62mm
-      //   متبقي للجدول: ~39mm — كل صف ~7mm = ~5 صفوف بدون scale
-      // perPage=2: كل فاتورة ~101mm، نفس الحسابات = ~9 صفوف
-      // perPage=1: كل فاتورة ~204mm = ~16 صفوف
-      const maxRowsNoScale = perPage === 4 ? 5 : perPage === 2 ? 9 : 16;
-      const scaleFactor = rowCount <= maxRowsNoScale ? 1 : Math.max(0.5, maxRowsNoScale / rowCount);
+      // ارتفاع كل صف بالـ mm = font-size(7pt) × line-height(1.3) + padding(1mm top+bottom) ≈ 4.3mm
+      // ارتفاع header الجدول ≈ 5mm
+      // المساحة المتاحة للجدول:
+      //   perPage=4: فاتورة ~100mm - hdr(18mm) - cust(7mm) - totalbar(5mm) - bottom(20mm) - footer(6mm) - padding(2mm) = ~42mm
+      //   perPage=2: ~100mm - same = ~42mm
+      //   perPage=1: ~204mm - same = ~146mm
+      const availableForTable = perPage === 4 ? 42 : perPage === 2 ? 42 : 146;
+      const rowHeightMm = 4.5;
+      const theadHeightMm = 5;
+      const naturalTableHeight = theadHeightMm + rowCount * rowHeightMm;
+      const tableMaxHeight = Math.min(naturalTableHeight, availableForTable);
+      const scaleFactor = naturalTableHeight <= availableForTable ? 1 : Math.max(0.5, availableForTable / naturalTableHeight);
       const tblFontSize = (7 * scaleFactor).toFixed(1);
       const cellPad = scaleFactor < 0.75 ? "0.3mm 0.6mm" : scaleFactor < 0.85 ? "0.4mm 0.8mm" : "0.8mm 1mm";
-      // نقلل padding الـ header والـ cust-row لما يكون فيه منتجات كتير
       const hdrPad = scaleFactor < 0.85 ? "1mm 3mm" : "2mm 3mm";
       const custPad = scaleFactor < 0.85 ? "0.8mm 3mm" : "1.5mm 3mm";
 
