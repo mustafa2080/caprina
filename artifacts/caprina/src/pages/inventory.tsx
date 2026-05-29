@@ -255,7 +255,7 @@ export default function Inventory() {
   const [editingVariant, setEditingVariant] = useState<ProductVariant | null>(null);
   const [activeProductId, setActiveProductId] = useState<number | null>(null);
   const [variantForm, setVariantForm] = useState(emptyVariantForm);
-  const [customColorHex, setCustomColorHex] = useState("#6b6b6b");
+  const [pickedColorHex, setPickedColorHex] = useState("#6b6b6b");
 
   // Add Stock dialog
   const [addStockOpen, setAddStockOpen] = useState(false);
@@ -345,7 +345,7 @@ export default function Inventory() {
   const openAddVariant = (productId: number) => {
     setActiveProductId(productId);
     setEditingVariant(null);
-    setCustomColorHex("#6b6b6b");
+    setPickedColorHex("#6b6b6b");
     const p = products?.find(p => p.id === productId);
     setVariantForm({ ...emptyVariantForm, unitPrice: p?.unitPrice ?? 0, costPrice: p?.costPrice ?? null });
     if (warehouses && warehouses.length > 0) {
@@ -362,9 +362,9 @@ export default function Inventory() {
     setEditingVariant(v);
     // إذا كان اللون hex نضعه في الـ picker
     if (/^#[0-9a-fA-F]{6,7}$/.test(v.color)) {
-      setCustomColorHex(v.color);
+      setPickedColorHex(v.color);
     } else {
-      setCustomColorHex(getColorHex(v.color));
+      setPickedColorHex(getColorHex(v.color));
     }
     setVariantForm({ color: v.color, size: v.size, sku: v.sku ?? "", totalQuantity: 0, lowStockThreshold: v.lowStockThreshold, unitPrice: v.unitPrice, costPrice: v.costPrice });
     try {
@@ -1088,7 +1088,7 @@ export default function Inventory() {
             {/* Live color preview */}
             {variantForm.color && (
               <div className="flex items-center gap-2 shrink-0">
-                <span className="w-6 h-6 rounded-full border-2 border-white shadow-md" style={{ background: getColorHex(variantForm.color) }} />
+                <span className="w-6 h-6 rounded-full border-2 border-white shadow-md" style={{ background: pickedColorHex }} />
                 <span className="text-xs font-bold text-muted-foreground">{variantForm.color}{variantForm.size ? ` / ${variantForm.size}` : ""}</span>
               </div>
             )}
@@ -1101,7 +1101,13 @@ export default function Inventory() {
               <p className="text-[11px] font-bold text-muted-foreground mb-2.5 uppercase tracking-wider">اللون *</p>
               <div className="flex flex-wrap gap-1.5 mb-3">
                 {COMMON_COLORS.map(c => (
-                  <button key={c} type="button" onClick={() => setVariantForm(f => ({ ...f, color: c }))}
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => {
+                      setVariantForm(f => ({ ...f, color: c }));
+                      setPickedColorHex(getColorHex(c));
+                    }}
                     className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] border transition-all ${
                       variantForm.color === c
                         ? "border-primary bg-primary/10 text-primary font-bold shadow-sm"
@@ -1118,11 +1124,9 @@ export default function Inventory() {
                 <div className="relative shrink-0">
                   <input
                     type="color"
-                    value={customColorHex}
+                    value={pickedColorHex}
                     onChange={e => {
-                      setCustomColorHex(e.target.value);
-                      // خلي لون الـ SKU يتحدث دائماً مع اختيار الباليت
-                      setVariantForm(f => ({ ...f, color: e.target.value }));
+                      setPickedColorHex(e.target.value);
                     }}
                     className="w-10 h-9 rounded-lg border border-border cursor-pointer p-0.5 bg-transparent"
                     title="اختر لوناً من لوحة الألوان"
@@ -1133,9 +1137,11 @@ export default function Inventory() {
                   value={variantForm.color}
                   onChange={e => {
                     setVariantForm(f => ({ ...f, color: e.target.value }));
-                    // لو القيمة hex نحدث الـ picker
+                    // لو الاسم معروف أو hex نحدث معاينة اللون فقط
                     if (/^#[0-9a-fA-F]{6,7}$/.test(e.target.value)) {
-                      setCustomColorHex(e.target.value);
+                      setPickedColorHex(e.target.value);
+                    } else if (COMMON_COLORS.includes(e.target.value)) {
+                      setPickedColorHex(getColorHex(e.target.value));
                     }
                   }}
                   placeholder="اكتب اسم اللون أو اختره من اللوحة..."
@@ -1145,7 +1151,7 @@ export default function Inventory() {
                 {variantForm.color && (
                   <span
                     className="w-9 h-9 rounded-lg border-2 border-border shrink-0 shadow-sm"
-                    style={{ background: getColorHex(variantForm.color) }}
+                    style={{ background: pickedColorHex }}
                     title={variantForm.color}
                   />
                 )}
