@@ -361,11 +361,7 @@ export default function Inventory() {
     setActiveProductId(v.productId);
     setEditingVariant(v);
     // إذا كان اللون hex نضعه في الـ picker
-    if (/^#[0-9a-fA-F]{6,7}$/.test(v.color)) {
-      setPickedColorHex(v.color);
-    } else {
-      setPickedColorHex(getColorHex(v.color));
-    }
+    setPickedColorHex(v.colorHex?.trim() || getColorHex(v.color));
     setVariantForm({ color: v.color, size: v.size, sku: v.sku ?? "", totalQuantity: 0, lowStockThreshold: v.lowStockThreshold, unitPrice: v.unitPrice, costPrice: v.costPrice });
     try {
       const whStock = await warehousesApi.stockByVariant(v.id);
