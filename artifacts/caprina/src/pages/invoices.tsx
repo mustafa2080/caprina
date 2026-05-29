@@ -202,9 +202,9 @@ export default function Invoices() {
       @page { size: A4 landscape; margin: 0; }
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { font-family: 'Cairo', 'Segoe UI', Tahoma, Arial, sans-serif; direction: rtl; background: white; color: #000; font-size: 9pt; font-weight: 600; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .page { display: grid; ${perPage === 1 ? "grid-template-columns: 1fr; grid-template-rows: 204mm;" : perPage === 2 ? "grid-template-columns: 1fr 1fr; grid-template-rows: 204mm;" : "grid-template-columns: 1fr 1fr; grid-template-rows: 100mm 100mm;"} gap: 2mm; width: 297mm; height: 210mm; padding: 3mm; page-break-after: always; box-sizing: border-box; overflow: hidden; }
+      .page { display: grid; ${perPage === 1 ? "grid-template-columns: 1fr; grid-template-rows: 204mm;" : perPage === 2 ? "grid-template-columns: 1fr 1fr; grid-template-rows: 204mm;" : "grid-template-columns: 1fr 1fr; grid-template-rows: 101mm 101mm;"} gap: 2mm; width: 297mm; height: 210mm; padding: 3mm; page-break-after: always; box-sizing: border-box; overflow: hidden; }
       .page:last-child { page-break-after: avoid; }
-      .inv { border: 2px solid #000; border-radius: 2mm; display: flex; flex-direction: column; overflow: hidden; background: white; width: 100%; min-height: 0; max-height: 100%; }
+      .inv { border: 2px solid #000; border-radius: 2mm; display: flex; flex-direction: column; overflow: hidden; background: white; width: 100%; height: ${perPage === 4 ? "101mm" : perPage === 2 ? "204mm" : "204mm"}; max-height: ${perPage === 4 ? "101mm" : perPage === 2 ? "204mm" : "204mm"}; }
       .inv-hdr { background: #1a1a1a; color: white; display: flex; align-items: center; justify-content: space-between; padding: 2mm 3mm; gap: 2mm; flex-shrink: 0; }
       .hdr-date { font-size: 8pt; font-weight: 700; white-space: nowrap; direction: ltr; text-align: right; }
       .hdr-logo { display: flex; align-items: center; gap: 2mm; }
