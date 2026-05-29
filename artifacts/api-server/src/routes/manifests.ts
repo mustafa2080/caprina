@@ -655,6 +655,7 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
 // عند حذف البيان → reverseShipping لكل طلب كان لسه في الشحن
 
 router.delete("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<void> => {
+  try {
   const id = parseInt(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const [manifest] = await db.select().from(shippingManifestsTable).where(eq(shippingManifestsTable.id, id));
@@ -675,22 +676,22 @@ router.delete("/shipping-manifests/:id", requireAdmin, async (req, res): Promise
       const deliveredQty  = link.partialQuantity ?? order.partialQuantity ?? 0;
       const remainingQty  = order.quantity - deliveredQty;
 
-      if (link.deliveryStatus === "delivered") {
-        // كان استلم → أرجع الكمية كلها للمخزن
-        await reverseDelivery(ref, order.quantity, order.id);
-      } else if (link.deliveryStatus === "partial_received") {
-        // الجزء اللي استُلم → عكسه
-        if (deliveredQty > 0) await reverseDelivery(ref, deliveredQty, order.id);
-        // الجزء الباقي كان عند شركة الشحن → أرجعه من الشحن
-        if (remainingQty > 0) await reverseShipping(ref, remainingQty, order.id);
-      } else if (link.deliveryStatus === "returned") {
-        // لو المرتجع لم يصل المخزن → أرجعه من الشحن
-        if (Number(link.returnReceived) !== 1) {
+      try {
+        if (link.deliveryStatus === "delivered") {
+          await reverseDelivery(ref, order.quantity, order.id);
+        } else if (link.deliveryStatus === "partial_received") {
+          if (deliveredQty > 0) await reverseDelivery(ref, deliveredQty, order.id);
+          if (remainingQty > 0) await reverseShipping(ref, remainingQty, order.id);
+        } else if (link.deliveryStatus === "returned") {
+          if (Number(link.returnReceived) !== 1) {
+            await reverseShipping(ref, order.quantity, order.id);
+          }
+        } else {
           await reverseShipping(ref, order.quantity, order.id);
         }
-      } else {
-        // pending/postponed/in_shipping → كانت عند شركة الشحن → أرجعها
-        await reverseShipping(ref, order.quantity, order.id);
+      } catch (inventoryErr) {
+        console.error(`[DELETE manifest ${id}] inventory error for order ${order.id}:`, inventoryErr);
+        // نكمل الحذف حتى لو في error في المخزون
       }
     }
 
@@ -700,8 +701,14 @@ router.delete("/shipping-manifests/:id", requireAdmin, async (req, res): Promise
   }
 
   await db.delete(shippingManifestOrdersTable).where(eq(shippingManifestOrdersTable.manifestId, id));
+  // حذف الفواتير المالية المرتبطة بالبيان أولاً (foreign key constraint)
+  await db.delete(shippingFinancialInvoicesTable).where(eq(shippingFinancialInvoicesTable.manifestId, id));
   await db.delete(shippingManifestsTable).where(eq(shippingManifestsTable.id, id));
   res.status(204).send();
+  } catch (err: any) {
+    console.error("[DELETE shipping-manifests] error:", err);
+    res.status(500).json({ error: err?.message ?? "حدث خطأ أثناء حذف البيان" });
+  }
 });
 
 // ─── Remove order from manifest ───────────────────────────────────────────────
