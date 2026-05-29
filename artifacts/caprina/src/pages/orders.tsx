@@ -867,7 +867,7 @@ export default function Orders() {
                         <span className="text-[10px] text-muted-foreground truncate">{order.product}</span>
                           {((order as any).color || (order as any).size) && (
                             <span className="text-[9px] text-primary/70 font-bold mr-1">
-                              {(order as any).color}{(order as any).color && (order as any).size ? ‏ / ‏ : ""}{(order as any).size}
+                              {(order as any).color}{(order as any).color && (order as any).size ? " / " : ""}{(order as any).size}
                             </span>
                           )}
                       </div>
@@ -1016,7 +1016,7 @@ export default function Orders() {
                           <span className="truncate block font-medium">{order.product}</span>
                           {((order as any).color || (order as any).size) && (
                             <span className="text-[10px] text-primary/70 font-semibold">
-                              {(order as any).color}{(order as any).color && (order as any).size ? ‏ / ‏ : ""}{(order as any).size}
+                              {(order as any).color}{(order as any).color && (order as any).size ? " / " : ""}{(order as any).size}
                             </span>
                           )}
                           {!isGroup && <span className="text-muted-foreground text-[10px]">×{order.quantity}</span>}
