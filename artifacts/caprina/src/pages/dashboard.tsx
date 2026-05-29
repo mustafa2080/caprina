@@ -1466,12 +1466,15 @@ export default function Dashboard() {
                                 const pts = raw.some(v => v > 0)
                                   ? raw
                                   : [0.15, 0.3, 0.45, 0.55, 0.65, 0.8, 1].map(r => Math.round(p.totalOrders * r));
+                                if (!pts.length) return null;
                                 const max = Math.max(...pts, 1);
                                 const W = 44, H = 26;
-                                const coords = pts.map((v, idx) => [
-                                  (idx / (pts.length - 1)) * W,
-                                  H - (v / max) * (H - 4) - 1,
-                                ]);
+                                const coords = pts.length === 1
+                                  ? [[0, H / 2], [W, H / 2]] as [number, number][]
+                                  : pts.map((v, idx) => [
+                                      (idx / (pts.length - 1)) * W,
+                                      H - (v / max) * (H - 4) - 1,
+                                    ] as [number, number]);
                                 const d = coords.map(([x, y], idx) => `${idx === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
                                 const color = "#f59e0b"; // دهبي دايماً
                                 return (
@@ -1729,7 +1732,7 @@ export default function Dashboard() {
               {/* قائمة الأعضاء */}
               <div className="divide-y divide-border/60">
                 {teamPerf.slice(0, 4).map((m, i) => {
-                  const [bg, fg] = dbAvatarColor(m.displayName);
+                  const [bg, fg] = dbAvatarColor(m.displayName || "?");
                   const unifiedAvatar = avatarMap.get(m.userId) ?? null;
                   return (
                   <div key={m.userId} className="flex items-center gap-3 px-4 py-2.5">
@@ -1739,7 +1742,7 @@ export default function Dashboard() {
                     ) : (
                       <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
                         style={{ background: bg, color: fg }}>
-                        {dbInitials(m.displayName)}
+                        {dbInitials(m.displayName || "?")}
                       </div>
                     )}
                     <span className="text-sm font-bold truncate flex-1">{(m.displayName || "؟").split(" ")[0]}</span>
