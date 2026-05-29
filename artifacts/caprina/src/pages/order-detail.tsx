@@ -798,8 +798,8 @@ function InvoiceEditDialog({ open, onOpenChange, primaryOrder, orders, shippingC
   const queryClient = useQueryClient();
   const updateOrder = useUpdateOrder();
 
-  // state للمنتجات — كل منتج ليه quantity و unitPrice و costPrice و notes
-  const [productsState, setProductsState] = useState<{ id: number; quantity: number; unitPrice: number; costPrice: number | null; notes: string }[]>([]);
+  // state للمنتجات — كل منتج ليه quantity و unitPrice و costPrice و notes و color و size
+  const [productsState, setProductsState] = useState<{ id: number; quantity: number; unitPrice: number; costPrice: number | null; notes: string; color: string; size: string; variantId: number | null }[]>([]);
 
   useEffect(() => {
     if (open && orders.length > 0) {
@@ -809,6 +809,9 @@ function InvoiceEditDialog({ open, onOpenChange, primaryOrder, orders, shippingC
         unitPrice: o.unitPrice ?? 0,
         costPrice: o.costPrice ?? null,
         notes: o.notes ?? "",
+        color: o.color ?? "",
+        size: o.size ?? "",
+        variantId: o.variantId ?? null,
       })));
     }
   }, [open, orders]);
@@ -885,6 +888,9 @@ function InvoiceEditDialog({ open, onOpenChange, primaryOrder, orders, shippingC
           quantity:          ps?.quantity ?? o.quantity,
           unitPrice:         ps?.unitPrice ?? o.unitPrice,
           costPrice:         ps?.costPrice ?? null,
+          color:             ps?.color || null,
+          size:              ps?.size || null,
+          variantId:         ps?.variantId ?? null,
         } as any });
       }));
       queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
@@ -1056,8 +1062,21 @@ function InvoiceEditDialog({ open, onOpenChange, primaryOrder, orders, shippingC
                 const ps = productsState.find(p => p.id === o.id);
                 if (!ps) return null;
                 const productImg = (products as any[]).find((p: any) => p.name === o.product)?.image ?? null;
+                // variants لهذا المنتج
+                const productObj = (products as any[]).find((p: any) => p.name === o.product);
+                const productVariants = productObj
+                  ? (allVariants as any[]).filter((v: any) => v.productId === productObj.id)
+                  : [];
+                const hasVariants = productVariants.length > 0;
+                const availableColors = [...new Set(productVariants.map((v: any) => v.color))] as string[];
+                const sizesForColor = productVariants.filter((v: any) => v.color === ps.color).map((v: any) => v.size);
+
+                const updatePs = (field: string, value: any) =>
+                  setProductsState(prev => prev.map(p => p.id === o.id ? { ...p, [field]: value } : p));
+
                 return (
                   <div key={o.id} className="p-3 rounded-lg border border-border/60 bg-muted/10 space-y-2">
+                    {/* اسم المنتج + صورة */}
                     <div className="flex items-center gap-2">
                       {productImg ? (
                         <img src={productImg} alt={o.product} className="w-8 h-8 rounded object-cover border border-border shrink-0" />
@@ -1066,14 +1085,46 @@ function InvoiceEditDialog({ open, onOpenChange, primaryOrder, orders, shippingC
                           <Package className="w-3.5 h-3.5 text-muted-foreground" />
                         </div>
                       )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold truncate">{o.product}</p>
-                        <div className="flex gap-1 mt-0.5">
-                          {o.color && <span className="text-[10px] text-muted-foreground border border-border/50 rounded px-1">{o.color}</span>}
-                          {o.size && <span className="text-[10px] text-muted-foreground border border-border/50 rounded px-1">{o.size}</span>}
+                      <p className="text-sm font-bold truncate flex-1">{o.product}</p>
+                    </div>
+
+                    {/* اللون والمقاس — لو المنتج عنده variants */}
+                    {hasVariants && (
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10px] text-muted-foreground mb-1 block">اللون</label>
+                          <select value={ps.color} onChange={e => {
+                            const newColor = e.target.value;
+                            const firstVariant = productVariants.find((v: any) => v.color === newColor);
+                            updatePs("color", newColor);
+                            updatePs("size", "");
+                            updatePs("variantId", null);
+                          }} className="w-full h-8 text-sm rounded-md border border-input bg-card px-2 focus:outline-none focus:ring-1 focus:ring-ring">
+                            <option value="">اختر لون...</option>
+                            {availableColors.map((c: string) => <option key={c} value={c}>{c}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-muted-foreground mb-1 block">المقاس</label>
+                          <select value={ps.size} disabled={!ps.color} onChange={e => {
+                            const newSize = e.target.value;
+                            const variant = productVariants.find((v: any) => v.color === ps.color && v.size === newSize);
+                            updatePs("size", newSize);
+                            updatePs("variantId", variant?.id ?? null);
+                            if (variant?.unitPrice) updatePs("unitPrice", variant.unitPrice);
+                            if (variant?.costPrice) updatePs("costPrice", variant.costPrice);
+                          }} className="w-full h-8 text-sm rounded-md border border-input bg-card px-2 focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50">
+                            <option value="">اختر مقاس...</option>
+                            {sizesForColor.map((s: string) => {
+                              const v = productVariants.find((pv: any) => pv.color === ps.color && pv.size === s);
+                              const avail = v ? (v.totalQuantity ?? 0) : 0;
+                              return <option key={s} value={s} disabled={avail === 0}>{s} {avail === 0 ? "(نفد)" : `(${avail})`}</option>;
+                            })}
+                          </select>
                         </div>
                       </div>
-                    </div>
+                    )}
+
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="text-[10px] text-muted-foreground mb-1 block">الكمية</label>
