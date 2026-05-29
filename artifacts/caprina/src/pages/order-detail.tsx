@@ -1181,7 +1181,7 @@ function InvoiceEditDialog({ open, onOpenChange, primaryOrder, orders, shippingC
   );
 }
 
-function InvoiceView({ orders, currentId, shippingCompanies, products, allVariants, onRefresh, isAdmin, canViewFinancials, canViewProfitability, formatCurrency, warehouses, users }: {
+function InvoiceView({ orders, currentId, shippingCompanies, products, allVariants, onRefresh, isAdmin, canViewFinancials, canViewProfitability, formatCurrency, warehouses, users, canEdit, canDelete, canCreate }: {
   orders: any[]; currentId: number; shippingCompanies: any[]; products: any[]; allVariants: any[];
   onRefresh: () => void; isAdmin: boolean; canViewFinancials: boolean; canViewProfitability: boolean; formatCurrency: (n: number) => string;
   warehouses: any[]; users: any[]; canEdit: boolean; canDelete: boolean; canCreate: boolean;
