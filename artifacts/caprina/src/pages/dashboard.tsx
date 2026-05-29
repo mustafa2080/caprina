@@ -30,12 +30,14 @@ const AVATAR_COLORS_DB = [
   ["#06b6d4","#164e63"],["#f97316","#7c2d12"],
 ];
 function dbAvatarColor(name: string) {
-  let h = 0; for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+  const safeName = name || "?";
+  let h = 0; for (let i = 0; i < safeName.length; i++) h = safeName.charCodeAt(i) + ((h << 5) - h);
   return AVATAR_COLORS_DB[Math.abs(h) % AVATAR_COLORS_DB.length];
 }
 function dbInitials(name: string) {
-  const p = name.trim().split(/\s+/);
-  return p.length >= 2 ? (p[0][0]+p[1][0]).toUpperCase() : name.slice(0,2).toUpperCase();
+  const safeName = (name || "?").trim();
+  const p = safeName.split(/\s+/);
+  return p.length >= 2 ? (p[0][0]+p[1][0]).toUpperCase() : safeName.slice(0,2).toUpperCase();
 }
 function DashClientAvatar({ avatar, name }: { avatar?: string|null; name: string }) {
   if (avatar && avatar.startsWith("data:"))
