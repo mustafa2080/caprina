@@ -284,22 +284,22 @@ export default function Inventory() {
 
   const createProductMutation = useMutation({
     mutationFn: (data: typeof emptyProductForm) => productsApi.create({ ...data, totalQuantity: 0 }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["products"] }); invalidateDashboardFinancials(); setProductDialogOpen(false); setProductForm(emptyProductForm); toast({ title: "تمت إضافة المنتج" }); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["products"] }); queryClient.invalidateQueries({ queryKey: ["smart-insights"] }); invalidateDashboardFinancials(); setProductDialogOpen(false); setProductForm(emptyProductForm); toast({ title: "تمت إضافة المنتج" }); },
     onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
   const updateProductMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<typeof emptyProductForm> }) => productsApi.update(id, data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["products"] }); invalidateDashboardFinancials(); setProductDialogOpen(false); setEditingProduct(null); setProductForm(emptyProductForm); toast({ title: "تم التحديث" }); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["products"] }); queryClient.invalidateQueries({ queryKey: ["smart-insights"] }); invalidateDashboardFinancials(); setProductDialogOpen(false); setEditingProduct(null); setProductForm(emptyProductForm); toast({ title: "تم التحديث" }); },
     onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
   const deleteProductMutation = useMutation({
     mutationFn: (id: number) => productsApi.update(id, { isArchived: true } as any),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["products"] }); queryClient.invalidateQueries({ queryKey: ["variants"] }); invalidateDashboardFinancials(); toast({ title: "تم أرشفة المنتج" }); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["products"] }); queryClient.invalidateQueries({ queryKey: ["variants"] }); queryClient.invalidateQueries({ queryKey: ["smart-insights"] }); invalidateDashboardFinancials(); toast({ title: "تم أرشفة المنتج" }); },
     onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
   const updateVariantMutation = useMutation({
     mutationFn: ({ productId, id, data }: { productId: number; id: number; data: Partial<typeof emptyVariantForm> }) => variantsApi.update(productId, id, data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["variants"] }); invalidateDashboardFinancials(); setVariantDialogOpen(false); setEditingVariant(null); setVariantForm(emptyVariantForm); toast({ title: "تم التحديث" }); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["variants"] }); queryClient.invalidateQueries({ queryKey: ["smart-insights"] }); invalidateDashboardFinancials(); setVariantDialogOpen(false); setEditingVariant(null); setVariantForm(emptyVariantForm); toast({ title: "تم التحديث" }); },
     onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
   const deleteVariantMutation = useMutation({
@@ -309,6 +309,7 @@ export default function Inventory() {
       queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["warehouses"] });
       queryClient.invalidateQueries({ queryKey: ["stock-intelligence"] });
+      queryClient.invalidateQueries({ queryKey: ["smart-insights"] });
       invalidateDashboardFinancials();
       toast({ title: "تم الحذف" });
     },
@@ -323,6 +324,7 @@ export default function Inventory() {
       queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["warehouses"] });
       queryClient.invalidateQueries({ queryKey: ["stock-intelligence"] });
+      queryClient.invalidateQueries({ queryKey: ["smart-insights"] });
       if (addStockVariant) {
         queryClient.invalidateQueries({ queryKey: ["variant-wh-stock", addStockVariant.id] });
       }
@@ -425,6 +427,7 @@ export default function Inventory() {
           queryClient.invalidateQueries({ queryKey: ["variants-all"] });
           queryClient.invalidateQueries({ queryKey: ["products"] });
           queryClient.invalidateQueries({ queryKey: ["stock-intelligence"] });
+          queryClient.invalidateQueries({ queryKey: ["smart-insights"] });
         }
         setVariantDialogOpen(false);
         setEditingVariant(null);
@@ -478,6 +481,7 @@ export default function Inventory() {
       invalidateDashboardFinancials();
       queryClient.invalidateQueries({ queryKey: ["warehouses"] });
       queryClient.invalidateQueries({ queryKey: ["stock-intelligence"] });
+      queryClient.invalidateQueries({ queryKey: ["smart-insights"] });
       setVariantDialogOpen(false);
       setVariantForm(emptyVariantForm);
       setWarehouseDist([]);

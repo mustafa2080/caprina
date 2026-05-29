@@ -3087,6 +3087,7 @@ export default function ShippingManifestPage() {
     queryClient.invalidateQueries({ queryKey: ["movements-totals"] });
     queryClient.invalidateQueries({ queryKey: ["products"] });
     queryClient.invalidateQueries({ queryKey: ["stock-intelligence"] });
+    queryClient.invalidateQueries({ queryKey: ["smart-insights"] });
     queryClient.invalidateQueries({ queryKey: ["variant-wh-stock"] });
   }, [queryClient, id]);
 

@@ -1,14 +1,11 @@
 #!/bin/bash
 # ─── Caprina Deploy Script ───────────────────────────────────────────────────
-# الاستخدام: bash deploy.sh
-# ملاحظة: الـ Frontend build يتعمل على جهاز المطور ويترفع جاهز على GitHub
-# ─────────────────────────────────────────────────────────────────────────────
-
-set -e  # وقّف لو في error
+set -e
 
 echo "🚀 [1/4] جلب آخر تحديثات من GitHub..."
 cd /root/caprina
 git reset --hard HEAD
+git clean -fd artifacts/caprina/dist/public/assets/
 git pull
 
 echo "🔧 [2/4] بناء الـ API Server..."

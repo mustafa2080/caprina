@@ -1103,7 +1103,38 @@ router.get("/analytics/stock-intelligence", async (req, res): Promise<void> => {
 // return insights, stock predictor
 router.get("/analytics/smart-insights", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req);
-  const siCacheKey = `smart-insights:${tenantId ?? "global"}`;
+  const smartProductConditions: any[] = [eq(productsTable.isArchived, false)];
+  if (tenantId !== null) smartProductConditions.push(eq(productsTable.tenantId, tenantId));
+
+  const [productVersionRows, variantVersionRows, stockVersionRows] = await Promise.all([
+    db.select({
+      count: count(),
+      lastUpdated: sql<string | null>`MAX(${productsTable.updatedAt})`,
+    })
+      .from(productsTable)
+      .where(and(...smartProductConditions)),
+    db.select({
+      count: count(),
+      lastUpdated: sql<string | null>`MAX(${productVariantsTable.updatedAt})`,
+    })
+      .from(productVariantsTable)
+      .innerJoin(productsTable, and(eq(productVariantsTable.productId, productsTable.id), ...smartProductConditions))
+      .where(and(...smartProductConditions)),
+    db.select({
+      count: count(),
+      qty: sql<number | null>`COALESCE(SUM(${warehouseStockTable.quantity}), 0)`,
+      lastUpdated: sql<string | null>`MAX(${warehouseStockTable.updatedAt})`,
+    })
+      .from(warehouseStockTable)
+      .innerJoin(productsTable, and(eq(warehouseStockTable.productId, productsTable.id), ...smartProductConditions))
+      .where(and(...smartProductConditions)),
+  ]);
+
+  const productVersion = productVersionRows[0] ?? { count: 0, lastUpdated: null };
+  const variantVersion = variantVersionRows[0] ?? { count: 0, lastUpdated: null };
+  const stockVersion = stockVersionRows[0] ?? { count: 0, qty: 0, lastUpdated: null };
+
+  const siCacheKey = `smart-insights:${tenantId ?? "global"}:${productVersion.count}:${productVersion.lastUpdated ?? ""}:${variantVersion.count}:${variantVersion.lastUpdated ?? ""}:${stockVersion.count}:${stockVersion.qty ?? 0}:${stockVersion.lastUpdated ?? ""}`;
   const siCached = getCached<any>(siCacheKey);
   if (siCached) { res.json(siCached); return; }
   const smBaseConditions: any[] = [isNull(ordersTable.deletedAt)];
@@ -1122,6 +1153,46 @@ router.get("/analytics/smart-insights", async (req, res): Promise<void> => {
   const productImageMap = new Map<string, string | null>(
     products.filter(p => p && p.name).map(p => [String(p.name).trim(), (p as any).image ?? null])
   );
+  const liveProducts = products.filter(p => !(p as any).isArchived);
+  const productsWithVariants = new Set(variants.map(v => v.productId));
+
+  const variantStockRows = await db
+    .select({
+      quantity: warehouseStockTable.quantity,
+      productId: productVariantsTable.productId,
+      costPrice: productVariantsTable.costPrice,
+      unitPrice: productVariantsTable.unitPrice,
+    })
+    .from(warehouseStockTable)
+    .innerJoin(productVariantsTable, eq(warehouseStockTable.variantId, productVariantsTable.id))
+    .innerJoin(productsTable, and(
+      eq(productVariantsTable.productId, productsTable.id),
+      eq(productsTable.isArchived, false),
+      ...(tenantId !== null ? [eq(productsTable.tenantId, tenantId)] : []),
+    ));
+
+  const productStockRows = await db
+    .select({
+      quantity: warehouseStockTable.quantity,
+      costPrice: productsTable.costPrice,
+      unitPrice: productsTable.unitPrice,
+      productId: productsTable.id,
+    })
+    .from(warehouseStockTable)
+    .innerJoin(productsTable, and(
+      eq(warehouseStockTable.productId, productsTable.id),
+      eq(productsTable.isArchived, false),
+      ...(tenantId !== null ? [eq(productsTable.tenantId, tenantId)] : []),
+    ));
+
+  const stockByProductId = new Map<number, number>();
+  for (const row of variantStockRows) {
+    stockByProductId.set(row.productId, (stockByProductId.get(row.productId) ?? 0) + Math.max(0, row.quantity));
+  }
+  for (const row of productStockRows) {
+    if (productsWithVariants.has(row.productId)) continue;
+    stockByProductId.set(row.productId, (stockByProductId.get(row.productId) ?? 0) + Math.max(0, row.quantity));
+  }
 
   // بناء map: orderId → shippingCost من البيان (manualShippingCost ÷ عدد الأوردرات في البيان)
   const manifestOrderCount = new Map<number, number>();
@@ -1344,10 +1415,10 @@ router.get("/analytics/smart-insights", async (req, res): Promise<void> => {
     .slice(0, 5);
 
   // Dead stock: products with available inventory but fewer than 5 units sold in 30d
-  const deadStock = products
+  const deadStock = liveProducts
     .map(p => {
       const key = p.name.trim();
-      const avail = Math.max(0, p.totalQuantity - p.reservedQuantity - p.soldQuantity);
+      const avail = stockByProductId.get(p.id) ?? 0;
       const s30 = sales30d.get(key) ?? 0;
       const last = lastSaleDate.get(key);
       const daysSinceLastSale = last
@@ -1434,10 +1505,10 @@ router.get("/analytics/smart-insights", async (req, res): Promise<void> => {
     .map(p => ({ name: p.name, returnRate: p.returnRate, returnCount: p.returnCount, orderCount: p.closedCount }));
 
   // ── 4. Stock Predictor ───────────────────────────────────────────────────────
-  const stockPredictor = products
+  const stockPredictor = liveProducts
     .map(p => {
       const key = p.name.trim();
-      const avail = Math.max(0, p.totalQuantity - p.reservedQuantity - p.soldQuantity);
+      const avail = stockByProductId.get(p.id) ?? 0;
       const sold30 = sales30d.get(key) ?? 0;
       const velocity = sold30 / 30;
       const daysUntilStockout = avail > 0 && velocity > 0 ? Math.round(avail / velocity) : null;
