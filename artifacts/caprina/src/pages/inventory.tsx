@@ -928,202 +928,323 @@ export default function Inventory() {
         </div>
       )}
 
-      {/* ─── Product Dialog ─── */}
+      {/* ─── Product Dialog — احترافي ─── */}
       <Dialog open={productDialogOpen} onOpenChange={setProductDialogOpen}>
-        <DialogContent className="max-w-md w-[calc(100vw-2rem)] sm:w-full" dir="rtl">
-          <DialogHeader>
-            <DialogTitle>{editingProduct ? "تعديل المنتج" : "منتج جديد"}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 pt-2">
-            {/* صورة المنتج */}
-            <div className="flex items-center gap-4">
-              <ProductImageUpload value={productForm.image} onChange={v => setProductForm(f => ({ ...f, image: v }))} />
-              <div className="flex-1 space-y-3">
-                <div>
-                  <Label className="text-xs font-semibold mb-1.5 block">اسم المنتج *</Label>
-                  <Input value={productForm.name} onChange={e => setProductForm(f => ({ ...f, name: e.target.value }))} placeholder="مثال: تيشيرت قطن" className="h-9 text-sm" />
-                </div>
-                <div>
-                  <Label className="text-xs font-semibold mb-1.5 block">SKU (اختياري)</Label>
-                  <Input value={productForm.sku} onChange={e => setProductForm(f => ({ ...f, sku: e.target.value }))} placeholder="مثال: TS-001" className="h-9 text-sm font-mono" />
-                </div>
-              </div>
+        <DialogContent className="max-w-lg w-[calc(100vw-1.5rem)] sm:w-full p-0 gap-0 overflow-hidden" dir="rtl">
+          {/* Header */}
+          <div className="flex items-center gap-3 px-5 py-4 border-b border-border bg-muted/30">
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${editingProduct ? "bg-amber-100 dark:bg-amber-900/30" : "bg-primary/10"}`}>
+              {editingProduct ? <Edit2 className="w-4 h-4 text-amber-600 dark:text-amber-400" /> : <PackagePlus className="w-4 h-4 text-primary" />}
             </div>
-            <div className={`grid gap-3 ${canSeeCost ? "grid-cols-2" : "grid-cols-1"}`}>
-              <div>
-                <Label className="text-xs font-semibold mb-1.5 block">سعر البيع (ج.م)</Label>
-                <Input type="number" value={productForm.unitPrice || ""} onChange={e => setProductForm(f => ({ ...f, unitPrice: parseFloat(e.target.value) || 0 }))} placeholder="0" className="h-9 text-sm" />
-              </div>
-              {canSeeCost && (
-              <div>
-                <Label className="text-xs font-semibold mb-1.5 block">سعر التكلفة (ج.م)</Label>
-                <Input type="number" value={productForm.costPrice ?? ""} onChange={e => setProductForm(f => ({ ...f, costPrice: e.target.value ? parseFloat(e.target.value) : null }))} placeholder="اختياري" className="h-9 text-sm" />
-              </div>
-              )}
-            </div>
-            <div>
-              <Label className="text-xs font-semibold mb-1.5 block">حد المخزون المنخفض</Label>
-              <Input type="number" value={productForm.lowStockThreshold} onChange={e => setProductForm(f => ({ ...f, lowStockThreshold: parseInt(e.target.value) || 5 }))} className="h-9 text-sm" />
+            <div className="flex-1 min-w-0">
+              <DialogTitle className="text-base font-bold leading-tight">{editingProduct ? "تعديل المنتج" : "منتج جديد"}</DialogTitle>
+              <p className="text-[11px] text-muted-foreground mt-0.5">{editingProduct ? `تعديل: ${editingProduct.name}` : "أضف منتجاً جديداً للمخزون"}</p>
             </div>
           </div>
-          <div className="flex gap-2 pt-2">
-            <Button onClick={handleProductSubmit} disabled={isPending} className="flex-1 h-9 text-sm font-bold">
-              {isPending ? "جاري الحفظ..." : editingProduct ? "حفظ التعديلات" : "إضافة المنتج"}
+
+          <div className="p-5 space-y-5 max-h-[70vh] overflow-y-auto">
+            {/* صورة + اسم + SKU */}
+            <div className="flex gap-4">
+              <div className="shrink-0">
+                <ProductImageUpload value={productForm.image} onChange={v => setProductForm(f => ({ ...f, image: v }))} />
+              </div>
+              <div className="flex-1 space-y-3">
+                <div>
+                  <Label className="text-[11px] font-bold text-muted-foreground mb-1.5 block">اسم المنتج *</Label>
+                  <Input value={productForm.name} onChange={e => setProductForm(f => ({ ...f, name: e.target.value }))} placeholder="مثال: تيشيرت قطن" className="h-9 text-sm font-semibold" autoFocus />
+                </div>
+                <div>
+                  <Label className="text-[11px] font-bold text-muted-foreground mb-1.5 block">كود المنتج (SKU)</Label>
+                  <Input value={productForm.sku} onChange={e => setProductForm(f => ({ ...f, sku: e.target.value }))} placeholder="مثال: TS-001" className="h-9 text-sm font-mono tracking-wider" />
+                </div>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* التسعير */}
+            <div>
+              <p className="text-[11px] font-bold text-muted-foreground mb-3 flex items-center gap-1.5 uppercase tracking-wider">
+                <DollarSign className="w-3 h-3" />التسعير
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] font-bold text-muted-foreground block">سعر البيع (ج.م) *</Label>
+                  <div className="relative">
+                    <Input type="number" value={productForm.unitPrice || ""} onChange={e => setProductForm(f => ({ ...f, unitPrice: parseFloat(e.target.value) || 0 }))} placeholder="0" className="h-9 text-sm font-bold pl-10" />
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-muted-foreground">ج.م</span>
+                  </div>
+                </div>
+                {canSeeCost && (
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px] font-bold text-muted-foreground block">سعر التكلفة (ج.م)</Label>
+                    <div className="relative">
+                      <Input type="number" value={productForm.costPrice ?? ""} onChange={e => setProductForm(f => ({ ...f, costPrice: e.target.value ? parseFloat(e.target.value) : null }))} placeholder="اختياري" className="h-9 text-sm pl-10" />
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-muted-foreground">ج.م</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+              {/* Live margin preview */}
+              {canSeeCost && productForm.costPrice && productForm.unitPrice > 0 && (() => {
+                const m = calcMargin(productForm.unitPrice, productForm.costPrice);
+                const profit = productForm.unitPrice - productForm.costPrice;
+                if (m === null) return null;
+                const cls = m >= 40 ? "bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-400"
+                  : m >= 20 ? "bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-400"
+                  : "bg-red-50 border-red-200 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400";
+                return (
+                  <div className={`mt-2.5 flex items-center gap-3 px-3 py-2 rounded-lg border text-xs font-semibold ${cls}`}>
+                    <TrendingUp className="w-3.5 h-3.5 shrink-0" />
+                    <span>هامش الربح: <strong>{m}%</strong></span>
+                    <span className="opacity-40 mx-0.5">•</span>
+                    <span>ربح الوحدة: <strong>{fc(profit)}</strong></span>
+                  </div>
+                );
+              })()}
+            </div>
+
+            <Separator />
+
+            {/* تنبيهات */}
+            <div>
+              <p className="text-[11px] font-bold text-muted-foreground mb-3 flex items-center gap-1.5 uppercase tracking-wider">
+                <AlertTriangle className="w-3 h-3" />تنبيهات المخزون
+              </p>
+              <div className="flex items-center gap-4">
+                <div className="flex-1 space-y-1.5">
+                  <Label className="text-[11px] font-bold text-muted-foreground block">حد المخزون المنخفض</Label>
+                  <Input type="number" value={productForm.lowStockThreshold} onChange={e => setProductForm(f => ({ ...f, lowStockThreshold: parseInt(e.target.value) || 5 }))} className="h-9 text-sm" min="0" />
+                </div>
+                <p className="text-[10px] text-muted-foreground leading-relaxed pt-4 max-w-[160px]">سيظهر تنبيه عند وصول المخزون لهذا الحد أو أقل</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="flex items-center gap-2 px-5 py-4 border-t border-border bg-muted/20">
+            <Button onClick={handleProductSubmit} disabled={isPending || !productForm.name.trim()} className="flex-1 h-9 text-sm font-bold gap-2">
+              {isPending ? <><span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />جاري الحفظ...</> : editingProduct ? "حفظ التعديلات" : "إضافة المنتج"}
             </Button>
-            <Button variant="outline" onClick={() => setProductDialogOpen(false)} className="h-9 text-sm">إلغاء</Button>
+            <Button variant="outline" onClick={() => setProductDialogOpen(false)} className="h-9 px-5 text-sm">إلغاء</Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* ─── Variant Dialog ─── */}
+      {/* ─── Variant Dialog — احترافي ─── */}
       <Dialog open={variantDialogOpen} onOpenChange={setVariantDialogOpen}>
-        <DialogContent className="max-w-lg w-[calc(100vw-1rem)] sm:w-full max-h-[90vh] overflow-y-auto" dir="rtl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-base">
-              {editingVariant ? <><Edit2 className="w-4 h-4" />تعديل SKU</> : <><Plus className="w-4 h-4" />إضافة SKU جديد</>}
-            </DialogTitle>
-          </DialogHeader>
+        <DialogContent className="max-w-lg w-[calc(100vw-1rem)] sm:w-full p-0 gap-0 overflow-hidden" dir="rtl">
+          {/* Header */}
+          <div className="flex items-center gap-3 px-5 py-4 border-b border-border bg-muted/30">
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${editingVariant ? "bg-amber-100 dark:bg-amber-900/30" : "bg-primary/10"}`}>
+              {editingVariant ? <Edit2 className="w-4 h-4 text-amber-600 dark:text-amber-400" /> : <Layers className="w-4 h-4 text-primary" />}
+            </div>
+            <div className="flex-1 min-w-0">
+              <DialogTitle className="text-base font-bold leading-tight">
+                {editingVariant ? "تعديل اللون / المقاس" : "إضافة لون / مقاس جديد"}
+              </DialogTitle>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                {(() => { const p = products?.find(p => p.id === activeProductId); return p ? p.name : "SKU جديد"; })()}
+              </p>
+            </div>
+            {/* Live color preview */}
+            {variantForm.color && (
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="w-6 h-6 rounded-full border-2 border-white shadow-md" style={{ background: getColorHex(variantForm.color) }} />
+                <span className="text-xs font-bold text-muted-foreground">{variantForm.color}{variantForm.size ? ` / ${variantForm.size}` : ""}</span>
+              </div>
+            )}
+          </div>
 
-          <div className="space-y-4 pt-1">
+          <div className="p-5 space-y-5 max-h-[72vh] overflow-y-auto">
+
+            {/* اللون */}
             <div>
-              <Label className="text-[11px] font-bold mb-2 block text-muted-foreground">اللون *</Label>
-              <div className="flex flex-wrap gap-1.5 mb-2">
+              <p className="text-[11px] font-bold text-muted-foreground mb-2.5 uppercase tracking-wider">اللون *</p>
+              <div className="flex flex-wrap gap-1.5 mb-3">
                 {COMMON_COLORS.map(c => (
-                  <button key={c} onClick={() => setVariantForm(f => ({ ...f, color: c }))}
-                    className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] border transition-colors ${variantForm.color === c ? "border-primary bg-primary/10 text-primary font-bold" : "border-border bg-muted/30 hover:border-primary/50"}`}>
-                    <span className="w-2.5 h-2.5 rounded-full" style={{ background: getColorHex(c) }} />{c}
+                  <button key={c} type="button" onClick={() => setVariantForm(f => ({ ...f, color: c }))}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] border transition-all ${
+                      variantForm.color === c
+                        ? "border-primary bg-primary/10 text-primary font-bold shadow-sm"
+                        : "border-border bg-muted/30 text-muted-foreground hover:border-primary/40 hover:bg-muted/60"
+                    }`}>
+                    <span className="w-3 h-3 rounded-full border border-white/50 shadow-sm shrink-0" style={{ background: getColorHex(c) }} />
+                    {c}
                   </button>
                 ))}
               </div>
-              <Input value={variantForm.color} onChange={e => setVariantForm(f => ({ ...f, color: e.target.value }))} placeholder="أو اكتب لوناً آخر..." className="h-8 text-sm" />
+              <Input value={variantForm.color} onChange={e => setVariantForm(f => ({ ...f, color: e.target.value }))} placeholder="أو اكتب لوناً مخصصاً..." className="h-9 text-sm" />
             </div>
 
+            <Separator />
+
+            {/* المقاس */}
             <div>
-              <Label className="text-[11px] font-bold mb-2 block text-muted-foreground">المقاس *</Label>
-              <div className="flex flex-wrap gap-1.5 mb-2">
+              <p className="text-[11px] font-bold text-muted-foreground mb-2.5 uppercase tracking-wider">المقاس *</p>
+              <div className="flex flex-wrap gap-1.5 mb-3">
                 {COMMON_SIZES.map(s => (
-                  <button key={s} onClick={() => setVariantForm(f => ({ ...f, size: s }))}
-                    className={`px-2.5 py-0.5 rounded text-[11px] border transition-colors ${variantForm.size === s ? "border-primary bg-primary/10 text-primary font-bold" : "border-border bg-muted/30 hover:border-primary/50"}`}>
+                  <button key={s} type="button" onClick={() => setVariantForm(f => ({ ...f, size: s }))}
+                    className={`w-12 h-8 rounded-lg text-[11px] font-bold border transition-all ${
+                      variantForm.size === s
+                        ? "border-primary bg-primary/10 text-primary shadow-sm"
+                        : "border-border bg-muted/30 text-muted-foreground hover:border-primary/40 hover:bg-muted/60"
+                    }`}>
                     {s}
                   </button>
                 ))}
               </div>
-              <Input value={variantForm.size} onChange={e => setVariantForm(f => ({ ...f, size: e.target.value }))} placeholder="أو اكتب مقاساً آخر..." className="h-8 text-sm" />
+              <Input value={variantForm.size} onChange={e => setVariantForm(f => ({ ...f, size: e.target.value }))} placeholder="أو اكتب مقاساً مخصصاً..." className="h-9 text-sm" />
             </div>
 
-            <div className={`grid gap-2 ${canSeeCost ? "grid-cols-3" : "grid-cols-2"}`}>
-              <div>
-                <Label className="text-[11px] font-bold mb-1.5 block text-muted-foreground">كود SKU</Label>
-                <Input value={variantForm.sku} onChange={e => setVariantForm(f => ({ ...f, sku: e.target.value }))} placeholder="اختياري" className="h-8 text-xs font-mono" />
-              </div>
-              <div>
-                <Label className="text-[11px] font-bold mb-1.5 block text-muted-foreground">سعر البيع</Label>
-                <Input type="number" value={variantForm.unitPrice || ""} onChange={e => setVariantForm(f => ({ ...f, unitPrice: parseFloat(e.target.value) || 0 }))} className="h-8 text-xs" />
-              </div>
-              {canSeeCost && (
-              <div>
-                <Label className="text-[11px] font-bold mb-1.5 block text-muted-foreground">سعر التكلفة</Label>
-                <Input type="number" value={variantForm.costPrice ?? ""} onChange={e => setVariantForm(f => ({ ...f, costPrice: e.target.value ? parseFloat(e.target.value) : null }))} placeholder="اختياري" className="h-8 text-xs" />
-              </div>
-              )}
-            </div>
+            <Separator />
 
-            <>
-              <Separator />
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <WarehouseIcon className="w-4 h-4 text-primary" />
-                  <span className="text-sm font-bold">
-                    {editingVariant ? "كميات المخازن الحالية" : "توزيع الكميات على المخازن"}
-                  </span>
-                  {warehouses && warehouses.length > 0 && (
-                    <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
-                      {warehouses.length} مخزن
-                    </span>
-                  )}
+            {/* التسعير */}
+            <div>
+              <p className="text-[11px] font-bold text-muted-foreground mb-3 flex items-center gap-1.5 uppercase tracking-wider">
+                <DollarSign className="w-3 h-3" />التسعير
+              </p>
+              <div className={`grid gap-3 ${canSeeCost ? "grid-cols-3" : "grid-cols-2"}`}>
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] font-bold text-muted-foreground block">كود SKU</Label>
+                  <Input value={variantForm.sku} onChange={e => setVariantForm(f => ({ ...f, sku: e.target.value }))} placeholder="اختياري" className="h-9 text-xs font-mono" />
                 </div>
-
-                {!warehouses || warehouses.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
-                    <WarehouseIcon className="w-6 h-6 mx-auto mb-1.5 opacity-30" />
-                    لا توجد مخازن مضافة. أضف مخازن أولاً من قسم المخازن.
-                  </div>
-                ) : (
-                  <div className="rounded-xl border border-border overflow-hidden">
-                    <div className="grid grid-cols-[1fr_100px] gap-3 px-4 py-2 bg-muted/50 text-[10px] font-bold text-muted-foreground border-b border-border">
-                      <span>المخزن</span>
-                      <span className="text-center">الكمية</span>
-                    </div>
-                    {warehouses.map((wh, idx) => {
-                      const distList = editingVariant ? editWarehouseDist : warehouseDist;
-                      const entry = distList.find(d => d.warehouseId === wh.id);
-                      const qty = entry?.quantity ?? 0;
-                      return (
-                        <div
-                          key={wh.id}
-                          className={`grid grid-cols-[1fr_100px] gap-3 px-4 py-3 items-center transition-colors
-                            ${idx !== 0 ? "border-t border-border/50" : ""}
-                            ${qty > 0 ? "bg-primary/5" : "hover:bg-muted/30"}`}
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <div className={`w-2.5 h-2.5 rounded-full shrink-0 transition-colors ${qty > 0 ? "bg-primary" : "bg-muted-foreground/25"}`} />
-                            <span className="text-xs font-semibold truncate">{wh.name}</span>
-                            {wh.isDefault && (
-                              <span className="text-[9px] text-amber-600 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded-full font-bold shrink-0">
-                                افتراضي
-                              </span>
-                            )}
-                          </div>
-                          <Input
-                            type="number"
-                            min="0"
-                            value={qty || ""}
-                            placeholder="0"
-                            className={`h-9 text-sm text-center font-bold transition-all
-                              ${qty > 0 ? "border-primary/60 bg-primary/5 text-primary" : ""}`}
-                            onChange={e => {
-                              const newQty = parseInt(e.target.value) || 0;
-                              const updater = (prev: WarehouseDistEntry[]) => {
-                                const existing = prev.find(d => d.warehouseId === wh.id);
-                                if (existing) return prev.map(d => d.warehouseId === wh.id ? { ...d, quantity: newQty } : d);
-                                return [...prev, { warehouseId: wh.id, quantity: newQty }];
-                              };
-                              if (editingVariant) setEditWarehouseDist(updater);
-                              else setWarehouseDist(updater);
-                            }}
-                          />
-                        </div>
-                      );
-                    })}
-                    {(() => {
-                      const distList = editingVariant ? editWarehouseDist : warehouseDist;
-                      const distTotal = distList.reduce((s, d) => s + (d.quantity || 0), 0);
-                      return (
-                        <div className={`grid grid-cols-[1fr_100px] gap-3 px-4 py-2.5 border-t-2 items-center
-                          ${distTotal > 0 ? "border-primary/40 bg-primary/10" : "border-border bg-muted/30"}`}>
-                          <span className="text-xs font-bold text-foreground">إجمالي الكميات</span>
-                          <span className={`text-center text-base font-black ${distTotal > 0 ? "text-primary" : "text-muted-foreground"}`}>
-                            {distTotal}
-                          </span>
-                        </div>
-                      );
-                    })()}
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] font-bold text-muted-foreground block">سعر البيع (ج.م)</Label>
+                  <Input type="number" value={variantForm.unitPrice || ""} onChange={e => setVariantForm(f => ({ ...f, unitPrice: parseFloat(e.target.value) || 0 }))} className="h-9 text-sm font-bold" />
+                </div>
+                {canSeeCost && (
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px] font-bold text-muted-foreground block">سعر التكلفة (ج.م)</Label>
+                    <Input type="number" value={variantForm.costPrice ?? ""} onChange={e => setVariantForm(f => ({ ...f, costPrice: e.target.value ? parseFloat(e.target.value) : null }))} placeholder="اختياري" className="h-9 text-sm" />
                   </div>
                 )}
               </div>
-            </>
-
-            <div>
-              <Label className="text-[11px] font-bold mb-1.5 block text-muted-foreground">حد التنبيه (مخزون منخفض)</Label>
-              <Input type="number" value={variantForm.lowStockThreshold} onChange={e => setVariantForm(f => ({ ...f, lowStockThreshold: parseInt(e.target.value) || 5 }))} className="h-8 text-sm" />
+              {/* Live margin */}
+              {canSeeCost && variantForm.costPrice && variantForm.unitPrice > 0 && (() => {
+                const m = calcMargin(variantForm.unitPrice, variantForm.costPrice);
+                if (m === null) return null;
+                const cls = m >= 40 ? "bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-400"
+                  : m >= 20 ? "bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-400"
+                  : "bg-red-50 border-red-200 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400";
+                return (
+                  <div className={`mt-2.5 flex items-center gap-3 px-3 py-2 rounded-lg border text-xs font-semibold ${cls}`}>
+                    <TrendingUp className="w-3.5 h-3.5 shrink-0" />
+                    <span>هامش الربح: <strong>{m}%</strong></span>
+                    <span className="opacity-40 mx-0.5">•</span>
+                    <span>ربح الوحدة: <strong>{fc(variantForm.unitPrice - variantForm.costPrice)}</strong></span>
+                  </div>
+                );
+              })()}
             </div>
+
+            <Separator />
+
+            {/* المخازن */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-[11px] font-bold text-muted-foreground flex items-center gap-1.5 uppercase tracking-wider">
+                  <WarehouseIcon className="w-3 h-3" />
+                  {editingVariant ? "كميات المخازن" : "توزيع الكميات على المخازن"}
+                </p>
+                {(() => {
+                  const distList = editingVariant ? editWarehouseDist : warehouseDist;
+                  const total = distList.reduce((s, d) => s + (d.quantity || 0), 0);
+                  return total > 0 ? (
+                    <span className="text-xs font-black text-primary bg-primary/10 border border-primary/30 px-2 py-0.5 rounded-full">
+                      الإجمالي: {total} وحدة
+                    </span>
+                  ) : null;
+                })()}
+              </div>
+
+              {!warehouses || warehouses.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border p-5 text-center">
+                  <WarehouseIcon className="w-8 h-8 mx-auto mb-2 text-muted-foreground/30" />
+                  <p className="text-xs text-muted-foreground">لا توجد مخازن. أضف مخازن أولاً من قسم المخازن.</p>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-border overflow-hidden">
+                  {warehouses.map((wh, idx) => {
+                    const distList = editingVariant ? editWarehouseDist : warehouseDist;
+                    const entry = distList.find(d => d.warehouseId === wh.id);
+                    const qty = entry?.quantity ?? 0;
+                    return (
+                      <div key={wh.id} className={`flex items-center gap-3 px-4 py-3 transition-colors ${idx !== 0 ? "border-t border-border/50" : ""} ${qty > 0 ? "bg-primary/5" : "hover:bg-muted/20"}`}>
+                        <div className={`w-2 h-2 rounded-full shrink-0 transition-colors ${qty > 0 ? "bg-primary" : "bg-border"}`} />
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm font-semibold truncate block">{wh.name}</span>
+                          {wh.isDefault && <span className="text-[9px] text-amber-600 font-bold">افتراضي</span>}
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button type="button" onClick={() => {
+                            const newQty = Math.max(0, qty - 1);
+                            const updater = (prev: WarehouseDistEntry[]) => prev.find(d => d.warehouseId === wh.id)
+                              ? prev.map(d => d.warehouseId === wh.id ? { ...d, quantity: newQty } : d)
+                              : [...prev, { warehouseId: wh.id, quantity: newQty }];
+                            if (editingVariant) setEditWarehouseDist(updater); else setWarehouseDist(updater);
+                          }} className="w-8 h-8 rounded-lg border border-border bg-card hover:bg-muted flex items-center justify-center text-sm font-bold text-muted-foreground transition-colors">−</button>
+                          <Input
+                            type="number" min="0" value={qty || ""} placeholder="0"
+                            className={`w-16 h-8 text-sm text-center font-bold transition-all ${qty > 0 ? "border-primary/60 bg-primary/5 text-primary" : ""}`}
+                            onChange={e => {
+                              const newQty = parseInt(e.target.value) || 0;
+                              const updater = (prev: WarehouseDistEntry[]) => prev.find(d => d.warehouseId === wh.id)
+                                ? prev.map(d => d.warehouseId === wh.id ? { ...d, quantity: newQty } : d)
+                                : [...prev, { warehouseId: wh.id, quantity: newQty }];
+                              if (editingVariant) setEditWarehouseDist(updater); else setWarehouseDist(updater);
+                            }}
+                          />
+                          <button type="button" onClick={() => {
+                            const newQty = qty + 1;
+                            const updater = (prev: WarehouseDistEntry[]) => prev.find(d => d.warehouseId === wh.id)
+                              ? prev.map(d => d.warehouseId === wh.id ? { ...d, quantity: newQty } : d)
+                              : [...prev, { warehouseId: wh.id, quantity: newQty }];
+                            if (editingVariant) setEditWarehouseDist(updater); else setWarehouseDist(updater);
+                          }} className="w-8 h-8 rounded-lg border border-border bg-card hover:bg-muted flex items-center justify-center text-sm font-bold text-muted-foreground transition-colors">+</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {/* Total row */}
+                  {(() => {
+                    const distList = editingVariant ? editWarehouseDist : warehouseDist;
+                    const total = distList.reduce((s, d) => s + (d.quantity || 0), 0);
+                    return (
+                      <div className={`flex items-center justify-between px-4 py-2.5 border-t-2 ${total > 0 ? "border-primary/40 bg-primary/10" : "border-border bg-muted/30"}`}>
+                        <span className="text-xs font-bold">إجمالي الكميات</span>
+                        <span className={`text-lg font-black ${total > 0 ? "text-primary" : "text-muted-foreground"}`}>{total}</span>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+
+            <Separator />
+
+            {/* حد التنبيه */}
+            <div className="flex items-center gap-4">
+              <div className="flex-1 space-y-1.5">
+                <Label className="text-[11px] font-bold text-muted-foreground block flex items-center gap-1.5">
+                  <AlertTriangle className="w-3 h-3" />حد التنبيه (مخزون منخفض)
+                </Label>
+                <Input type="number" value={variantForm.lowStockThreshold} onChange={e => setVariantForm(f => ({ ...f, lowStockThreshold: parseInt(e.target.value) || 5 }))} className="h-9 text-sm" min="0" />
+              </div>
+              <p className="text-[10px] text-muted-foreground leading-relaxed pt-4 max-w-[140px]">تنبيه عند وصول المخزون لهذا الحد</p>
+            </div>
+
           </div>
 
-          <div className="flex gap-2 pt-3 border-t border-border mt-2">
-            <Button onClick={handleVariantSubmit} disabled={isVariantPending || isVariantSubmitting} className="flex-1 h-9 text-sm font-bold gap-2">
-              {(isVariantPending || isVariantSubmitting) ? "جاري الحفظ..." : editingVariant ? "حفظ التعديلات" : "إضافة SKU"}
+          {/* Footer */}
+          <div className="flex items-center gap-2 px-5 py-4 border-t border-border bg-muted/20">
+            <Button onClick={handleVariantSubmit} disabled={isVariantPending || isVariantSubmitting || !variantForm.color.trim() || !variantForm.size.trim()} className="flex-1 h-9 text-sm font-bold gap-2">
+              {(isVariantPending || isVariantSubmitting)
+                ? <><span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />جاري الحفظ...</>
+                : editingVariant ? "حفظ التعديلات" : "إضافة SKU"
+              }
             </Button>
-            <Button variant="outline" onClick={() => setVariantDialogOpen(false)} className="h-9 text-sm px-6">إلغاء</Button>
+            <Button variant="outline" onClick={() => setVariantDialogOpen(false)} className="h-9 px-5 text-sm">إلغاء</Button>
           </div>
         </DialogContent>
       </Dialog>
