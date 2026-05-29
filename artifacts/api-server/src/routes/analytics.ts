@@ -163,6 +163,7 @@ function periodStats(
 
 // ─── GET /api/analytics/profit ──────────────────────────────────────────────────
 router.get("/analytics/profit", requirePermission("orders.financials"), async (req, res): Promise<void> => {
+  try {
   const tenantId = getTenantId(req);
   const now = new Date();
 
@@ -340,10 +341,15 @@ router.get("/analytics/profit", requirePermission("orders.financials"), async (r
 
   res.json({ today, week, month, allTime, topProducts, losingProducts, inventoryValue });
   setCached(cacheKey, { today, week, month, allTime, topProducts, losingProducts, inventoryValue }, 2 * 60 * 1000);
+  } catch (err) {
+    console.error("[analytics/profit]", err);
+    res.status(500).json({ error: "فشل تحميل بيانات الأرباح", detail: String(err) });
+  }
 });
 
 // ─── GET /api/analytics/financial-summary ──────────────────────────────────────
 router.get("/analytics/financial-summary", requirePermission("orders.financials"), async (req, res): Promise<void> => {
+  try {
   const tenantId = getTenantId(req);
   const fromParam = req.query.from as string | undefined;
   const toParam   = req.query.to   as string | undefined;
@@ -566,6 +572,10 @@ router.get("/analytics/financial-summary", requirePermission("orders.financials"
   };
   setCached(fsCacheKey, fsResponse, 2 * 60 * 1000);
   res.json(fsResponse);
+  } catch (err) {
+    console.error("[analytics/financial-summary]", err);
+    res.status(500).json({ error: "فشل تحميل الملخص المالي", detail: String(err) });
+  }
 });
 
 // ─── GET /api/analytics/damaged-orders ──────────────────────────────────────
@@ -781,6 +791,7 @@ router.get("/analytics/product-performance", requirePermission("orders.financial
 // ─── GET /api/analytics/alerts ──────────────────────────────────────────────────
 // Smart automatic alerts: high returns, losing products, low stock, low margin
 router.get("/analytics/alerts", async (req, res): Promise<void> => {
+  try {
   const tenantId = getTenantId(req);
   const alertProductConditions: any[] = [eq(productsTable.isArchived, false)];
   if (tenantId !== null) alertProductConditions.push(eq(productsTable.tenantId, tenantId));
@@ -1040,6 +1051,10 @@ router.get("/analytics/alerts", async (req, res): Promise<void> => {
       low: alerts.filter(a => a.severity === "low").length,
     },
   }, 15 * 60 * 1000);
+  } catch (err) {
+    console.error("[analytics/alerts]", err);
+    res.status(500).json({ error: "فشل تحميل التنبيهات", detail: String(err) });
+  }
 });
 
 // ─── GET /api/analytics/stock-intelligence ──────────────────────────────────────
@@ -1184,6 +1199,7 @@ router.get("/analytics/stock-intelligence", async (req, res): Promise<void> => {
 // Comprehensive smart analytics: ad attribution, stars, dead stock,
 // return insights, stock predictor
 router.get("/analytics/smart-insights", async (req, res): Promise<void> => {
+  try {
   const tenantId = getTenantId(req);
   const smartProductConditions: any[] = [eq(productsTable.isArchived, false)];
   if (tenantId !== null) smartProductConditions.push(eq(productsTable.tenantId, tenantId));
@@ -1610,6 +1626,10 @@ router.get("/analytics/smart-insights", async (req, res): Promise<void> => {
   };
   setCached(siCacheKey, siResult, 15 * 60 * 1000); // 15 min cache
   res.json(siResult);
+  } catch (err) {
+    console.error("[analytics/smart-insights]", err);
+    res.status(500).json({ error: "فشل تحميل التحليلات الذكية", detail: String(err) });
+  }
 });
 
 // ─── GET /api/analytics/charts ──────────────────────────────────────────────
