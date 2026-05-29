@@ -1378,7 +1378,9 @@ export default function Dashboard() {
                 <CardContent className="p-2 sm:p-3 px-3 sm:px-4">
                   {/* رسم بياني منحني - مبيعات المنتجات */}
                   {productPerformance?.products && productPerformance.products.length > 0 && (() => {
+                    const activeProductNames = new Set(products?.map(pr => pr.name.trim().toLowerCase()) ?? []);
                     const chartData = [...productPerformance.products]
+                      .filter(p => activeProductNames.has(p.name.trim().toLowerCase()))
                       .sort((a, b) => b.totalOrders - a.totalOrders)
                       .slice(0, 7)
                       .map(p => ({
@@ -1391,7 +1393,7 @@ export default function Dashboard() {
                         <div className="flex items-center justify-between mb-1.5 px-1">
                           <p className="text-[9px] text-muted-foreground font-medium">الوحدات المباعة لكل منتج</p>
                           <p className="text-[10px] font-black text-amber-500">
-                            {fn(productPerformance.products.reduce((s, p) => s + p.totalSalesQty, 0))} وحدة
+                            {fn(chartData.reduce((s, p) => s + p.qty, 0))} وحدة
                           </p>
                         </div>
                         <ResponsiveContainer width="100%" height={100}>
@@ -1437,6 +1439,7 @@ export default function Dashboard() {
                   ) : productPerformance?.products?.length ? (
                     <div className="flex flex-col gap-2">
                       {[...productPerformance.products]
+                        .filter(p => (products?.map(pr => pr.name.trim().toLowerCase()) ?? []).includes(p.name.trim().toLowerCase()))
                         .sort((a, b) => b.totalOrders - a.totalOrders)
                         .slice(0, 5)
                         .map((p, i) => (
