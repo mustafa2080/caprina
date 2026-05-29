@@ -1,4 +1,4 @@
-﻿import { useParams, Link, useLocation } from "wouter";
+import { useParams, Link, useLocation } from "wouter";
 import { format } from "date-fns";
 import { ArrowRight, AlertCircle, Pencil, Save, X, Printer, Phone, MapPin, Trash2, RotateCcw, TrendingUp, TrendingDown, AlertTriangle, Lock, MessageCircle, Package, Truck, CheckCircle2, Clock, Plus, Search } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -22,9 +22,6 @@ import { ToastAction } from "@/components/ui/toast";
 import { shippingApi, ordersApi, productsApi, variantsApi, manifestsApi } from "@/lib/api";
 import { type WhatsAppOrderData } from "@/lib/whatsapp";
 import { WhatsAppDialog } from "@/components/whatsapp-dialog";
-import { formatCurrency } from "@/lib/utils";
-import { ProductSearchCombobox } from "@/components/product-search-combobox";
-import { AddProductDialog } from "@/components/add-product-dialog";
 import { RETURN_REASONS, returnReasonLabel, STATUS_LABELS as statusLabels, STATUS_CLASSES as statusClasses } from "@/lib/order-constants";
 import {
   AlertDialog,
@@ -57,6 +54,81 @@ const editSchema = z.object({
 });
 
 type EditFormValues = z.infer<typeof editSchema>;
+
+const formatCurrency = (n: number) =>
+  new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(n);
+
+// ── Product Search Combobox (same as order-form) ──────────────────────────────
+function ProductSearchCombobox({ products, allVariants, onSelect }: {
+  products: any[]; allVariants: any[]; onSelect: (p: any) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const inStockProducts = useMemo(() => products.filter((p: any) => {
+    const variants = allVariants.filter((v: any) => v.productId === p.id);
+    if (variants.length > 0) return variants.some((v: any) => (v.totalQuantity ?? 0) > 0);
+    return (p.totalQuantity ?? 0) > 0;
+  }), [products, allVariants]);
+
+  const filtered = useMemo(() => {
+    const q = query.toLowerCase().trim();
+    return (q ? inStockProducts.filter((p: any) => p.name?.toLowerCase().includes(q)) : inStockProducts).slice(0, 20);
+  }, [query, inStockProducts]);
+
+  useEffect(() => {
+    const fn = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", fn);
+    return () => document.removeEventListener("mousedown", fn);
+  }, []);
+
+  const getStock = (p: any) => {
+    const variants = allVariants.filter((v: any) => v.productId === p.id);
+    return variants.length > 0
+      ? variants.reduce((s: number, v: any) => s + (v.totalQuantity ?? 0), 0)
+      : (p.totalQuantity ?? 0);
+  };
+
+  return (
+    <div ref={ref} className="relative">
+      <div className="relative">
+        <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+        <Input className="h-9 text-sm pr-8 bg-card" placeholder="ابحث عن منتج من المخزون..."
+          value={query} onChange={e => { setQuery(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)} />
+        {query && (
+          <button type="button" onClick={() => setQuery("")} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+      {open && (
+        <div className="absolute z-50 mt-1 w-full bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
+          {filtered.length === 0 ? (
+            <div className="px-3 py-4 text-center text-sm text-muted-foreground">
+              {query ? "لا يوجد منتج بهذا الاسم في المخزون" : "لا توجد منتجات متاحة"}
+            </div>
+          ) : filtered.map((p: any) => {
+            const stock = getStock(p);
+            return (
+              <button key={p.id} type="button"
+                className="w-full text-right flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-muted/50 transition-colors text-sm border-b border-border/30 last:border-0"
+                onClick={() => { onSelect(p); setQuery(""); setOpen(false); }}>
+                <div className="flex items-center gap-2 min-w-0">
+                  <Package className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                  <span className="font-medium truncate">{p.name}</span>
+                </div>
+                <Badge variant="outline" className={`text-[9px] font-bold shrink-0 ${stock > 0 ? "border-emerald-400 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400" : "border-red-400 text-red-600"}`}>
+                  {stock > 0 ? `${stock} متاح` : "نفد"}
+                </Badge>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ── Add Product Dialog ────────────────────────────────────────────────────────
 function AddProductDialog({ open, onOpenChange, order, onSuccess }: {
@@ -291,7 +363,8 @@ function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, p
   const updateOrder = useUpdateOrder();
 
   const [editProductId, setEditProductId] = useState<number | null>(null);
-  const [editColor, setEditColor] = useState<string>("");
+  const [editColor, setEditColor] = useState("");
+  const [editSize, setEditSize] = useState("");
 
   const rowSchema = z.object({
     product:   z.string().min(1),
@@ -317,36 +390,53 @@ function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, p
         quantity: o.quantity, unitPrice: o.unitPrice, notes: o.notes ?? "",
       });
       setEditProductId(o.productId ?? null);
-      setEditColor(o.color && o.size ? `${o.color}-${o.size}` : "");
+      setEditColor(o.color ?? "");
+      setEditSize(o.size ?? "");
     }
   }, [o, open]);
 
   const productVariants = editProductId
     ? (allVariants?.filter((v: any) => v.productId === editProductId) ?? [])
     : [];
-  const hasVariants = productVariants.length > 0;
+  const availableColors = [...new Set(productVariants.map((v: any) => v.color))] as string[];
+  const sizesForColor   = productVariants.filter((v: any) => v.color === editColor).map((v: any) => v.size) as string[];
+  const hasVariants     = productVariants.length > 0;
+
+  const handleColorChange = (color: string) => {
+    setEditColor(color); setEditSize("");
+    form.setValue("color", color); form.setValue("size", "");
+  };
+
+  const handleSizeChange = (size: string) => {
+    setEditSize(size); form.setValue("size", size);
+    const variant = productVariants.find((v: any) => v.color === editColor && v.size === size);
+    if (variant?.unitPrice) form.setValue("unitPrice", variant.unitPrice);
+  };
 
   const handleProductSelect = (pid: number | null) => {
-    setEditProductId(pid);
-    setEditColor("");
-    form.setValue("color", "");
-    form.setValue("size", "");
+    setEditProductId(pid); setEditColor(""); setEditSize("");
+    form.setValue("color", ""); form.setValue("size", "");
     if (pid) {
       const p = products?.find((p: any) => p.id === pid);
       if (p) form.setValue("product", p.name);
     }
   };
 
+  const selectedVariant = editProductId && editColor && editSize
+    ? productVariants.find((v: any) => v.color === editColor && v.size === editSize)
+    : null;
+  const variantStock = selectedVariant ? (selectedVariant.totalQuantity ?? 0) : null;
+
   const onSubmit = (values: z.infer<typeof rowSchema>) => {
-    const variant = editProductId && editColor && editColor !== "none"
-      ? productVariants.find((v: any) => `${v.color}-${v.size}` === editColor)
+    const variant = editProductId && editColor && editSize
+      ? productVariants.find((v: any) => v.color === editColor && v.size === editSize)
       : null;
     updateOrder.mutate({
       id: o.id,
       data: {
         ...values,
-        color: variant?.color ?? (values.color || null),
-        size:  variant?.size  ?? (values.size  || null),
+        color: values.color || null,
+        size: values.size || null,
         productId: editProductId || null,
         variantId: variant?.id ?? null,
       } as any,
@@ -355,178 +445,94 @@ function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, p
         queryClient.setQueryData(getGetOrderQueryKey(o.id), updated);
         queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
         queryClient.invalidateQueries({ queryKey: ["invoice-orders"] });
-        toast({ title: "تم الحفظ", description: "تم تعديل المنتج بنجاح." });
+        toast({ title: "طھظ… ط§ظ„ط­ظپط¸", description: "طھظ… طھط¹ط¯ظٹظ„ ط§ظ„ظ…ظ†طھط¬ ط¨ظ†ط¬ط§ط­." });
         onSuccess(); onOpenChange(false);
       },
-      onError: () => toast({ title: "خطأ", description: "فشل الحفظ.", variant: "destructive" }),
+      onError: () => toast({ title: "ط®ط·ط£", description: "ظپط´ظ„ ط§ظ„ط­ظپط¸.", variant: "destructive" }),
     });
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md" dir="rtl">
-        <DialogHeader>
-          <DialogTitle className="text-sm flex items-center gap-2">
-            <Pencil className="w-4 h-4 text-primary" />تعديل المنتج
-          </DialogTitle>
-        </DialogHeader>
+        <DialogHeader><DialogTitle className="text-sm flex items-center gap-2"><Pencil className="w-4 h-4 text-primary" />طھط¹ط¯ظٹظ„ ط§ظ„ظ…ظ†طھط¬</DialogTitle></DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
-
             <div className="space-y-2 p-3 bg-muted/10 rounded border border-border/50">
-              <p className="text-[10px] text-muted-foreground font-bold flex items-center gap-1">
-                <Package className="w-3 h-3" />اختر من المخزون (اختياري)
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <p className="text-[10px] text-muted-foreground mb-1">المنتج</p>
-                  <Select
-                    value={editProductId?.toString() || "none"}
-                    onValueChange={v => handleProductSelect(v === "none" ? null : Number(v))}
-                  >
-                    <SelectTrigger className="h-8 text-xs bg-card">
-                      <SelectValue placeholder="اختر من المخزون..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">— إدخال يدوي —</SelectItem>
-                      {products?.map((p: any) => {
-                        const avail = (p.totalQuantity ?? 0) - (p.reservedQuantity ?? 0) - (p.soldQuantity ?? 0);
-                        return (
-                          <SelectItem key={p.id} value={String(p.id)}>
-                            {p.name} ({avail} متاح)
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {editProductId && hasVariants && (
-                  <div>
-                    <p className="text-[10px] text-muted-foreground mb-1">اللون / المقاس</p>
-                    <Select
-                      value={editColor || "none"}
-                      onValueChange={v => {
-                        const key = v === "none" ? "" : v;
-                        setEditColor(key);
-                        const variant = productVariants.find((va: any) => `${va.color}-${va.size}` === key);
-                        if (variant) {
-                          form.setValue("color", variant.color);
-                          form.setValue("size", variant.size);
-                          if (variant.unitPrice) form.setValue("unitPrice", variant.unitPrice);
-                        } else {
-                          form.setValue("color", "");
-                          form.setValue("size", "");
-                        }
-                      }}
-                    >
-                      <SelectTrigger className="h-8 text-xs bg-card">
-                        <SelectValue placeholder="اختر..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">— بدون تحديد —</SelectItem>
-                        {productVariants.map((v: any) => {
-                          const avail = (v.totalQuantity ?? 0) - (v.reservedQuantity ?? 0) - (v.soldQuantity ?? 0);
-                          const key = `${v.color}-${v.size}`;
-                          return (
-                            <SelectItem key={v.id} value={key} disabled={avail === 0}>
-                              {v.color} / {v.size} — {avail === 0 ? "نفد" : `${avail} متاح`}
-                            </SelectItem>
-                          );
-                        })}
-                      </SelectContent>
-                    </Select>
+              <p className="text-[10px] text-muted-foreground font-bold flex items-center gap-1"><Package className="w-3 h-3" />ط§ط®طھط± ظ…ظ† ط§ظ„ظ…ط®ط²ظˆظ† (ط§ط®طھظٹط§ط±ظٹ)</p>
+              <Select value={editProductId?.toString() || "none"} onValueChange={v => handleProductSelect(v === "none" ? null : Number(v))}>
+                <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="ط§ط®طھط± ظ…ظ† ط§ظ„ظ…ط®ط²ظˆظ†..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">â€” ط¥ط¯ط®ط§ظ„ ظٹط¯ظˆظٹ â€”</SelectItem>
+                  {products?.map((p: any) => (
+                    <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {editProductId && hasVariants && (
+                <div className="flex gap-2 mt-2">
+                  <div className="flex-1">
+                    <label className="text-[10px] text-muted-foreground mb-1 block">ط§ظ„ظ„ظˆظ†</label>
+                    <select value={editColor} onChange={e => handleColorChange(e.target.value)}
+                      className="w-full h-9 text-sm rounded-md border border-input bg-card px-2 focus:outline-none focus:ring-1 focus:ring-ring">
+                      <option value="">ط§ط®طھط± ظ„ظˆظ†...</option>
+                      {availableColors.map((c: string) => <option key={c} value={c}>{c}</option>)}
+                    </select>
                   </div>
-                )}
-              </div>
-
-              {editProductId && (() => {
-                const variants = productVariants;
-                if (variants.length === 0) {
-                  const p = products?.find((p: any) => p.id === editProductId);
-                  if (!p) return null;
-                  const avail = (p.totalQuantity ?? 0) - (p.reservedQuantity ?? 0) - (p.soldQuantity ?? 0);
-                  return (
-                    <Badge variant="outline" className={`text-[9px] font-bold border mt-1 ${avail <= (p.lowStockThreshold ?? 5) ? "border-red-700 text-red-400" : "border-emerald-700 text-emerald-400"}`}>
-                      متاح في المخزون: {avail} وحدة
-                    </Badge>
-                  );
-                }
-                if (editColor && editColor !== "none") {
-                  const variant = variants.find((v: any) => `${v.color}-${v.size}` === editColor);
-                  if (!variant) return null;
-                  const avail = (variant.totalQuantity ?? 0) - (variant.reservedQuantity ?? 0) - (variant.soldQuantity ?? 0);
-                  return (
-                    <Badge variant="outline" className={`text-[9px] font-bold border mt-1 ${avail <= (variant.lowStockThreshold ?? 5) ? "border-red-700 text-red-400" : "border-emerald-700 text-emerald-400"}`}>
-                      متاح ({variant.color} / {variant.size}): {avail} وحدة
-                    </Badge>
-                  );
-                }
-                const totalAvail = variants.reduce((s: number, v: any) => s + (v.totalQuantity ?? 0) - (v.reservedQuantity ?? 0) - (v.soldQuantity ?? 0), 0);
-                return (
-                  <Badge variant="outline" className="text-[9px] font-bold border-primary/40 text-primary mt-1">
-                    إجمالي المتاح: {totalAvail} وحدة ({variants.length} متغيرات)
-                  </Badge>
-                );
-              })()}
+                  <div className="flex-1">
+                    <label className="text-[10px] text-muted-foreground mb-1 block">ط§ظ„ظ…ظ‚ط§ط³</label>
+                    <select value={editSize} disabled={!editColor} onChange={e => handleSizeChange(e.target.value)}
+                      className="w-full h-9 text-sm rounded-md border border-input bg-card px-2 focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50">
+                      <option value="">ط§ط®طھط± ظ…ظ‚ط§ط³...</option>
+                      {sizesForColor.map((s: string) => {
+                        const v = productVariants.find((pv: any) => pv.color === editColor && pv.size === s);
+                        const a = v ? (v.totalQuantity ?? 0) : 0;
+                        return <option key={s} value={s} disabled={a === 0}>{s} {a === 0 ? "(ظ†ظپط¯)" : `(${a})`}</option>;
+                      })}
+                    </select>
+                  </div>
+                  {variantStock !== null && (
+                    <div className="flex items-end pb-1">
+                      <span className={`text-[9px] font-bold shrink-0 ${variantStock <= 5 ? "text-red-500" : "text-emerald-600 dark:text-emerald-400"}`}>
+                        ظ…طھط§ط­:{variantStock}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-
             <div className="grid grid-cols-3 gap-2">
               <FormField control={form.control} name="product" render={({ field }) => (
-                <FormItem className="col-span-1">
-                  <FormLabel className="text-xs">اسم المنتج *</FormLabel>
-                  <FormControl><Input className="h-8 text-sm" {...field} /></FormControl>
-                  <FormMessage className="text-xs" />
-                </FormItem>
+                <FormItem className="col-span-1"><FormLabel className="text-xs">ط§ط³ظ… ط§ظ„ظ…ظ†طھط¬ *</FormLabel><FormControl><Input className="h-8 text-sm" {...field} /></FormControl><FormMessage className="text-xs" /></FormItem>
               )} />
               <FormField control={form.control} name="quantity" render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-xs">الكمية</FormLabel>
-                  <FormControl><Input type="number" min="1" className="h-8 text-sm" {...field} /></FormControl>
-                </FormItem>
+                <FormItem><FormLabel className="text-xs">ط§ظ„ظƒظ…ظٹط©</FormLabel><FormControl><Input type="number" min="1" className="h-8 text-sm" {...field} /></FormControl></FormItem>
               )} />
               <FormField control={form.control} name="unitPrice" render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-xs">السعر</FormLabel>
-                  <FormControl><Input type="number" min="0" step="0.01" className="h-8 text-sm" {...field} /></FormControl>
-                </FormItem>
+                <FormItem><FormLabel className="text-xs">ط§ظ„ط³ط¹ط±</FormLabel><FormControl><Input type="number" min="0" step="0.01" className="h-8 text-sm" {...field} /></FormControl></FormItem>
               )} />
             </div>
-
             {(!editProductId || !hasVariants) && (
               <div className="grid grid-cols-2 gap-2">
                 <FormField control={form.control} name="color" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs">اللون</FormLabel>
-                    <FormControl>
-                      <Input className="h-8 text-sm" placeholder="مثال: أحمر" {...field} value={field.value ?? ""} />
-                    </FormControl>
-                  </FormItem>
+                  <FormItem><FormLabel className="text-xs">ط§ظ„ظ„ظˆظ†</FormLabel><FormControl>
+                    <Input className="h-8 text-sm" placeholder="ظ…ط«ط§ظ„: ط£ط­ظ…ط±" {...field} value={field.value ?? ""} />
+                  </FormControl></FormItem>
                 )} />
                 <FormField control={form.control} name="size" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs">المقاس</FormLabel>
-                    <FormControl>
-                      <Input className="h-8 text-sm" placeholder="مثال: M, XL, 42..." {...field} value={field.value ?? ""} />
-                    </FormControl>
-                  </FormItem>
+                  <FormItem><FormLabel className="text-xs">ط§ظ„ظ…ظ‚ط§ط³</FormLabel><FormControl>
+                    <Input className="h-8 text-sm" placeholder="ظ…ط«ط§ظ„: M, XL, 42..." {...field} value={field.value ?? ""} />
+                  </FormControl></FormItem>
                 )} />
               </div>
             )}
-
             <FormField control={form.control} name="notes" render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-xs">ملاحظات</FormLabel>
-                <FormControl>
-                  <Textarea className="min-h-[50px] text-sm resize-none" {...field} value={field.value ?? ""} />
-                </FormControl>
-              </FormItem>
+              <FormItem><FormLabel className="text-xs">ظ…ظ„ط§ط­ط¸ط§طھ</FormLabel><FormControl><Textarea className="min-h-[50px] text-sm resize-none" {...field} value={field.value ?? ""} /></FormControl></FormItem>
             )} />
-
             <DialogFooter className="gap-2">
-              <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)} className="flex-1">إلغاء</Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)} className="flex-1">ط¥ظ„ط؛ط§ط،</Button>
               <Button type="submit" size="sm" disabled={updateOrder.isPending} className="flex-1 gap-1">
-                <Save className="w-3 h-3" />{updateOrder.isPending ? "جاري..." : "حفظ التعديل"}
+                <Save className="w-3 h-3" />{updateOrder.isPending ? "ط¬ط§ط±ظٹ..." : "ط­ظپط¸ ط§ظ„طھط¹ط¯ظٹظ„"}
               </Button>
             </DialogFooter>
           </form>
@@ -535,6 +541,8 @@ function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, p
     </Dialog>
   );
 }
+
+// ── Invoice View (multi-product) ─────────────────────────────────────────────
 function InvoiceView({ orders, currentId, shippingCompanies, products, allVariants, onRefresh, isAdmin, canViewFinancials, canViewProfitability, formatCurrency }: {
   orders: any[]; currentId: number; shippingCompanies: any[]; products: any[]; allVariants: any[];
   onRefresh: () => void; isAdmin: boolean; canViewFinancials: boolean; canViewProfitability: boolean; formatCurrency: (n: number) => string;

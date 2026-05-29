@@ -1,11 +1,10 @@
 import { useForm, useFieldArray } from "react-hook-form";
-import { createPortal } from "react-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useLocation, Link } from "wouter";
 import {
   ArrowRight, Save, Phone, MapPin, Layers, DollarSign, Megaphone,
-  Warehouse, UserCheck, Plus, Trash2, Package, ChevronDown, ChevronUp, Search, X,
+  Warehouse, UserCheck, Plus, Trash2, Package, ChevronUp, ChevronDown,
 } from "lucide-react";
 import { getListOrdersQueryKey, getGetOrdersSummaryQueryKey, getGetRecentOrdersQueryKey } from "@workspace/api-client-react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
@@ -19,6 +18,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { productsApi, variantsApi, shippingApi, warehousesApi, usersApi, ordersApi } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { formatCurrency } from "@/lib/utils";
+import { ProductSearchCombobox } from "@/components/product-search-combobox";
 import { useState, useRef, useEffect, useMemo } from "react";
 
 // أيقونات SVG لمصادر الإعلان
@@ -82,173 +83,11 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 type ItemValues = z.infer<typeof itemSchema>;
 
-const formatCurrency = (n: number) =>
-  new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(n);
-
 const emptyItem = (): ItemValues => ({
   product: "", color: "", size: "", quantity: 1,
   unitPrice: 0, costPrice: null, productId: null, variantId: null,
 });
 
-// ── Product Search Combobox ───────────────────────────────────────────────────
-function ProductSearchCombobox({ products, allVariants, onSelect }: {
-  products: any[]; allVariants: any[]; onSelect: (p: any) => void;
-}) {
-  const [query, setQuery] = useState("");
-  const [open, setOpen] = useState(false);
-  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
-  const btnRef = useRef<HTMLButtonElement>(null);
-  const searchRef = useRef<HTMLInputElement>(null);
-
-  const inStockProducts = useMemo(() => products.filter(p => {
-    const variants = allVariants.filter(v => v.productId === p.id);
-    if (variants.length > 0) return variants.some(v => (v.totalQuantity ?? 0) > 0);
-    return (p.totalQuantity ?? 0) > 0;
-  }), [products, allVariants]);
-
-  const filtered = useMemo(() => {
-    const q = query.toLowerCase().trim();
-    return q ? inStockProducts.filter(p => p.name?.toLowerCase().includes(q)) : inStockProducts;
-  }, [query, inStockProducts]);
-
-  // احسب موضع الـ dropdown بالنسبة للـ button في الـ viewport
-  const calcPosition = () => {
-    if (!btnRef.current) return;
-    const rect = btnRef.current.getBoundingClientRect();
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const spaceAbove = rect.top;
-    const dropH = Math.min(320, window.innerHeight * 0.5);
-    const showAbove = spaceBelow < dropH + 8 && spaceAbove > spaceBelow;
-    setDropdownStyle({
-      position: "fixed",
-      zIndex: 9999,
-      width: rect.width,
-      left: rect.left,
-      ...(showAbove
-        ? { bottom: window.innerHeight - rect.top + 4 }
-        : { top: rect.bottom + 4 }),
-    });
-  };
-
-  const handleOpen = () => {
-    calcPosition();
-    setOpen(v => !v);
-  };
-
-  // أغلق لما يضغط برا
-  useEffect(() => {
-    if (!open) return;
-    const fn = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (btnRef.current?.contains(target)) return;
-      const portal = document.getElementById("product-combobox-portal");
-      if (portal?.contains(target)) return;
-      setOpen(false);
-    };
-    document.addEventListener("mousedown", fn);
-    return () => document.removeEventListener("mousedown", fn);
-  }, [open]);
-
-  // focus على البحث لما يفتح
-  useEffect(() => {
-    if (open) setTimeout(() => searchRef.current?.focus(), 50);
-  }, [open]);
-
-  // أعد حساب الموضع لو الصفحة اتسكرولت أو اتغيرت
-  useEffect(() => {
-    if (!open) return;
-    const update = () => calcPosition();
-    window.addEventListener("scroll", update, true);
-    window.addEventListener("resize", update);
-    return () => {
-      window.removeEventListener("scroll", update, true);
-      window.removeEventListener("resize", update);
-    };
-  }, [open]);
-
-  const getStock = (p: any) => {
-    const variants = allVariants.filter(v => v.productId === p.id);
-    return variants.length > 0
-      ? variants.reduce((s: number, v: any) => s + (v.totalQuantity ?? 0), 0)
-      : (p.totalQuantity ?? 0);
-  };
-
-  const dropdown = open ? (
-    <div id="product-combobox-portal" style={dropdownStyle}
-      className="bg-popover border border-border rounded-md shadow-2xl">
-      {/* بحث */}
-      <div className="p-2 border-b border-border/50">
-        <div className="relative">
-          <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-          <input
-            ref={searchRef}
-            type="text"
-            className="w-full h-8 text-sm pr-8 pl-3 rounded-md border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring"
-            placeholder="ابحث بالاسم..."
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-          />
-          {query && (
-            <button type="button" onClick={() => setQuery("")}
-              className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-              <X className="w-3 h-3" />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* القائمة scrollable */}
-      <div className="overflow-y-auto" style={{ maxHeight: 220 }}>
-        {filtered.length === 0 ? (
-          <div className="px-3 py-5 text-center text-sm text-muted-foreground">
-            {query ? "لا يوجد منتج بهذا الاسم" : "لا توجد منتجات متاحة في المخزون"}
-          </div>
-        ) : filtered.map(p => {
-          const stock = getStock(p);
-          return (
-            <button key={p.id} type="button"
-              className="w-full text-right flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-muted/50 transition-colors text-sm border-b border-border/20 last:border-0"
-              onClick={() => { onSelect(p); setQuery(""); setOpen(false); }}>
-              <div className="flex items-center gap-2 min-w-0">
-                {(p as any).image ? (
-                  <img src={(p as any).image} alt={p.name} className="w-7 h-7 rounded object-cover border border-border shrink-0" />
-                ) : (
-                  <Package className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                )}
-                <span className="font-medium truncate">{p.name}</span>
-              </div>
-              <Badge variant="outline" className={`text-[9px] font-bold shrink-0 ${stock > 0 ? "border-emerald-400 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400" : "border-red-400 text-red-600"}`}>
-                {stock > 0 ? `${stock} متاح` : "نفد"}
-              </Badge>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* عدد المنتجات */}
-      <div className="px-3 py-1.5 border-t border-border/30 text-[10px] text-muted-foreground text-center">
-        {filtered.length} منتج
-      </div>
-    </div>
-  ) : null;
-
-  return (
-    <>
-      <button
-        ref={btnRef}
-        type="button"
-        onClick={handleOpen}
-        className="w-full h-9 flex items-center justify-between gap-2 px-3 rounded-md border border-input bg-card text-sm hover:bg-muted/40 transition-colors"
-      >
-        <span className="text-muted-foreground">اختر منتج من المخزون...</span>
-        <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
-      </button>
-
-      {/* Portal — بيتـ render في الـ body مباشرة فوق كل حاجة */}
-      {createPortal(dropdown, document.body)}
-    </>
-  );
-}
 
 
 // ── Single product item row ───────────────────────────────────────────────────
