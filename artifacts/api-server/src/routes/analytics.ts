@@ -1060,6 +1060,7 @@ router.get("/analytics/alerts", async (req, res): Promise<void> => {
 // ─── GET /api/analytics/stock-intelligence ──────────────────────────────────────
 // Stock velocity (units/day), days until stockout, frozen capital
 router.get("/analytics/stock-intelligence", async (req, res): Promise<void> => {
+  try {
   const tenantId = getTenantId(req);
   const siBaseConditions: any[] = [isNull(ordersTable.deletedAt)];
   if (tenantId !== null) siBaseConditions.push(eq(ordersTable.tenantId, tenantId));
