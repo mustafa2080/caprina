@@ -30,8 +30,14 @@ const statusClasses: Record<string, string> = {
   partial_received: "bg-purple-50  dark:bg-purple-900/30  text-purple-700  dark:text-purple-400  border-purple-300  dark:border-purple-800",
 };
 
-const formatCurrency = (n: number) =>
-  new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n) + " ج.م";
+const formatCurrency = (n: number) => {
+  const rounded = Math.round(n * 100) / 100;
+  const isWhole = rounded % 1 === 0;
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: isWhole ? 0 : 2,
+    maximumFractionDigits: 2,
+  }).format(rounded) + " ج.م";
+};
 
 type InvoiceListStatus = "all" | "warehouse_ready" | "in_shipping" | "received" | "delayed" | "returned" | "partial_received";
 
@@ -195,41 +201,41 @@ export default function Invoices() {
       @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;900&display=swap');
       @page { size: A4 landscape; margin: 0; }
       * { box-sizing: border-box; margin: 0; padding: 0; }
-      body { font-family: 'Cairo', 'Segoe UI', Tahoma, Arial, sans-serif; direction: rtl; background: white; color: #111; font-size: 9pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      body { font-family: 'Cairo', 'Segoe UI', Tahoma, Arial, sans-serif; direction: rtl; background: white; color: #000; font-size: 9pt; font-weight: 600; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .page { display: grid; ${perPage === 1 ? "grid-template-columns: 1fr; grid-template-rows: 1fr;" : perPage === 2 ? "grid-template-columns: 1fr 1fr; grid-template-rows: 1fr;" : "grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;"} gap: 2mm; width: 297mm; height: 210mm; padding: 3mm; page-break-after: always; }
       .page:last-child { page-break-after: avoid; }
-      .inv { border: 1.5px solid #1a1a1a; border-radius: 2mm; display: flex; flex-direction: column; overflow: hidden; background: white; min-height: 0; min-width: 0; }
+      .inv { border: 2px solid #000; border-radius: 2mm; display: flex; flex-direction: column; overflow: hidden; background: white; min-height: 0; min-width: 0; }
       .inv-hdr { background: #1a1a1a; color: white; display: flex; align-items: center; justify-content: space-between; padding: 2mm 3mm; gap: 2mm; flex-shrink: 0; }
-      .hdr-date { font-size: 7pt; opacity: 0.85; white-space: nowrap; direction: ltr; text-align: right; }
+      .hdr-date { font-size: 8pt; font-weight: 700; white-space: nowrap; direction: ltr; text-align: right; }
       .hdr-logo { display: flex; align-items: center; gap: 2mm; }
       .logo-img { width: 14mm; height: 14mm; object-fit: contain; border-radius: 1.5mm; background: white; padding: 0.5mm; box-shadow: 0 0 0 1px rgba(255,255,255,0.2); }
-      .logo-txt { font-size: 10pt; font-weight: 900; letter-spacing: 2px; line-height: 1; }
-      .logo-sub { font-size: 4.5pt; opacity: 0.6; letter-spacing: 2px; }
-      .cust-row { display: flex; align-items: center; justify-content: space-between; padding: 1.2mm 3mm; border-bottom: 1px solid #ddd; background: #f9f9f9; flex-shrink: 0; gap: 2mm; }
-      .cust-phone { font-size: 9pt; font-weight: 700; direction: ltr; }
-      .cust-name { font-size: 11pt; font-weight: 900; }
+      .logo-txt { font-size: 11pt; font-weight: 900; letter-spacing: 2px; line-height: 1; }
+      .logo-sub { font-size: 5pt; font-weight: 700; opacity: 0.7; letter-spacing: 2px; }
+      .cust-row { display: flex; align-items: center; justify-content: space-between; padding: 1.5mm 3mm; border-bottom: 1.5px solid #000; background: #f0f0f0; flex-shrink: 0; gap: 2mm; }
+      .cust-phone { font-size: 10pt; font-weight: 800; direction: ltr; color: #000; }
+      .cust-name { font-size: 12pt; font-weight: 900; color: #000; }
       .inv-body { padding: 1.5mm 3mm; flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 1mm; justify-content: space-between; overflow: hidden; }
       .prod-table { width: 100%; border-collapse: collapse; flex-shrink: 1; }
-      .prod-table th { background: #1a1a1a; color: white; border: 0.5px solid #333; padding: 0.8mm 1mm; font-weight: 700; font-size: 7pt; text-align: center; }
-      .prod-table td { border: 0.5px solid #ddd; padding: 0.8mm 1mm; text-align: center; font-size: 7pt; vertical-align: middle; line-height: 1.2; }
-      .prod-table td.name-col { text-align: right; font-weight: 700; }
-      .prod-table .total-row td { background: #f0f0f0; font-weight: 900; font-size: 7pt; border-color: #bbb; color: #111; }
+      .prod-table th { background: #1a1a1a; color: white; border: 1px solid #333; padding: 1mm 1.5mm; font-weight: 800; font-size: 8pt; text-align: center; }
+      .prod-table td { border: 1px solid #bbb; padding: 1mm 1.5mm; text-align: center; font-size: 8pt; font-weight: 700; vertical-align: middle; line-height: 1.3; color: #000; }
+      .prod-table td.name-col { text-align: right; font-weight: 800; }
+      .prod-table .total-row td { background: #e0e0e0; font-weight: 900; font-size: 8.5pt; border-color: #888; color: #000; }
       .prod-table .total-row td.t-label { text-align: right; }
-      .info-strip { display: grid; grid-template-columns: 1fr 1fr 1fr; border: 0.5px solid #ddd; border-radius: 1mm; overflow: hidden; flex-shrink: 0; }
-      .info-cell { padding: 0.8mm 1.5mm; border-left: 0.5px solid #ddd; display: flex; flex-direction: column; }
+      .info-strip { display: grid; grid-template-columns: 1fr 1fr 1fr; border: 1px solid #bbb; border-radius: 1mm; overflow: hidden; flex-shrink: 0; }
+      .info-cell { padding: 1mm 1.5mm; border-left: 1px solid #bbb; display: flex; flex-direction: column; }
       .info-cell:last-child { border-left: none; }
-      .info-lbl { font-size: 5.5pt; color: #999; }
-      .info-val { font-size: 7pt; font-weight: 700; min-height: 3mm; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .addr-box { border: 0.5px solid #ddd; border-radius: 1mm; padding: 0.8mm 1.5mm; flex-shrink: 0; }
-      .addr-lbl { font-size: 5.5pt; color: #999; }
-      .addr-val { font-size: 7.5pt; font-weight: 700; word-break: break-word; line-height: 1.4; }
-      .notes-box { background: #fff8e1; border: 0.5px solid #ffe082; border-right: 3px solid #f59e0b; border-radius: 1mm; padding: 1.2mm 2mm; font-size: 6.5pt; color: #333; display: flex; gap: 1.5mm; flex-shrink: 0; line-height: 1.5; }
-      .notes-box b { color: #b45309; white-space: nowrap; font-size: 7pt; }
-      .confirm-box { border: 0.8px solid #bbb; border-radius: 1mm; padding: 1.2mm 2mm; font-size: 6pt; color: #333; flex-shrink: 0; display: flex; gap: 1.5mm; align-items: flex-start; line-height: 1.5; background: #fafafa; }
-      .confirm-box .cb-lbl { font-weight: 900; color: #111; font-size: 6.5pt; white-space: nowrap; }
-      .inv-footer { border-top: 1.5px solid #1a1a1a; background: #1a1a1a; padding: 1.5mm 3mm; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; gap: 2mm; }
-      .policy-txt { font-size: 5.5pt; color: #aaa; text-align: left; line-height: 1.5; }
-      .footer-brand { font-size: 7pt; font-weight: 900; color: #fff; letter-spacing: 2px; }
+      .info-lbl { font-size: 6pt; font-weight: 700; color: #555; }
+      .info-val { font-size: 8pt; font-weight: 800; color: #000; min-height: 3mm; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .addr-box { border: 1px solid #bbb; border-radius: 1mm; padding: 1mm 1.5mm; flex-shrink: 0; }
+      .addr-lbl { font-size: 6pt; font-weight: 700; color: #555; }
+      .addr-val { font-size: 8pt; font-weight: 800; color: #000; word-break: break-word; line-height: 1.4; }
+      .notes-box { background: #fff8e1; border: 1px solid #ffe082; border-right: 3px solid #f59e0b; border-radius: 1mm; padding: 1.2mm 2mm; font-size: 7pt; font-weight: 700; color: #222; display: flex; gap: 1.5mm; flex-shrink: 0; line-height: 1.5; }
+      .notes-box b { color: #92400e; white-space: nowrap; font-size: 7.5pt; font-weight: 900; }
+      .confirm-box { border: 1px solid #999; border-radius: 1mm; padding: 1.2mm 2mm; font-size: 6.5pt; font-weight: 700; color: #111; flex-shrink: 0; display: flex; gap: 1.5mm; align-items: flex-start; line-height: 1.5; background: #f5f5f5; }
+      .confirm-box .cb-lbl { font-weight: 900; color: #000; font-size: 7pt; white-space: nowrap; }
+      .inv-footer { border-top: 2px solid #1a1a1a; background: #1a1a1a; padding: 1.5mm 3mm; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; gap: 2mm; }
+      .policy-txt { font-size: 6pt; font-weight: 600; color: #ccc; text-align: left; line-height: 1.5; }
+      .footer-brand { font-size: 8pt; font-weight: 900; color: #fff; letter-spacing: 2px; }
       .empty-slot { border: 1px dashed #ddd; border-radius: 2mm; background: #fafafa; }
     `;
 
