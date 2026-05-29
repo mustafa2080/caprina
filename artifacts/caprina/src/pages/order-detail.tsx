@@ -786,15 +786,32 @@ function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, p
 }
 
 // ── Invoice Edit Dialog (تعديل بيانات الفاتورة كاملة) ──────────────────────
-function InvoiceEditDialog({ open, onOpenChange, primaryOrder, orders, shippingCompanies, warehouses, users, canViewFinancials, onSuccess }: {
+function InvoiceEditDialog({ open, onOpenChange, primaryOrder, orders, shippingCompanies, warehouses, users, canViewFinancials, products, allVariants, onSuccess }: {
   open: boolean; onOpenChange: (v: boolean) => void;
   primaryOrder: any; orders: any[];
   shippingCompanies: any[]; warehouses: any[]; users: any[];
-  canViewFinancials: boolean; onSuccess: () => void;
+  canViewFinancials: boolean;
+  products: any[]; allVariants: any[];
+  onSuccess: () => void;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const updateOrder = useUpdateOrder();
+
+  // state للمنتجات — كل منتج ليه quantity و unitPrice و costPrice و notes
+  const [productsState, setProductsState] = useState<{ id: number; quantity: number; unitPrice: number; costPrice: number | null; notes: string }[]>([]);
+
+  useEffect(() => {
+    if (open && orders.length > 0) {
+      setProductsState(orders.map(o => ({
+        id: o.id,
+        quantity: o.quantity ?? 1,
+        unitPrice: o.unitPrice ?? 0,
+        costPrice: o.costPrice ?? null,
+        notes: o.notes ?? "",
+      })));
+    }
+  }, [open, orders]);
 
   const invoiceEditSchema = z.object({
     customerName:      z.string().min(2, "الاسم مطلوب"),
@@ -850,9 +867,10 @@ function InvoiceEditDialog({ open, onOpenChange, primaryOrder, orders, shippingC
 
   const handleSubmit = async (values: InvoiceEditValues) => {
     try {
-      // نحدّث كل طلبات الفاتورة بنفس بيانات العميل والشحن
-      await Promise.all(orders.map(o =>
-        updateOrder.mutateAsync({ id: o.id, data: {
+      // نحدّث كل طلبات الفاتورة — بيانات العميل والشحن مشتركة، والمنتج لكل طلب على حدة
+      await Promise.all(orders.map(o => {
+        const ps = productsState.find(p => p.id === o.id);
+        return updateOrder.mutateAsync({ id: o.id, data: {
           customerName:      values.customerName,
           phone:             values.phone || null,
           city:              values.city || null,
@@ -863,9 +881,12 @@ function InvoiceEditDialog({ open, onOpenChange, primaryOrder, orders, shippingC
           assignedUserId:    values.assignedUserId || null,
           adSource:          values.adSource || null,
           adCampaign:        values.adCampaign || null,
-          notes:             values.notes || null,
-        } as any })
-      ));
+          notes:             ps?.notes || null,
+          quantity:          ps?.quantity ?? o.quantity,
+          unitPrice:         ps?.unitPrice ?? o.unitPrice,
+          costPrice:         ps?.costPrice ?? null,
+        } as any });
+      }));
       queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
       queryClient.invalidateQueries({ queryKey: getGetOrdersSummaryQueryKey() });
       toast({ title: "تم الحفظ", description: `تم تحديث بيانات فاتورة ${primaryOrder.invoiceNumber} بنجاح.` });
@@ -1026,7 +1047,65 @@ function InvoiceEditDialog({ open, onOpenChange, primaryOrder, orders, shippingC
               </div>
             </div>
 
-            {/* ملاحظات */}
+            {/* منتجات الفاتورة */}
+            <div className="space-y-3 pt-2 border-t border-border/60">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+                <Package className="w-3 h-3" />منتجات الفاتورة
+              </p>
+              {orders.map((o, idx) => {
+                const ps = productsState.find(p => p.id === o.id);
+                if (!ps) return null;
+                const productImg = (products as any[]).find((p: any) => p.name === o.product)?.image ?? null;
+                return (
+                  <div key={o.id} className="p-3 rounded-lg border border-border/60 bg-muted/10 space-y-2">
+                    <div className="flex items-center gap-2">
+                      {productImg ? (
+                        <img src={productImg} alt={o.product} className="w-8 h-8 rounded object-cover border border-border shrink-0" />
+                      ) : (
+                        <div className="w-8 h-8 rounded bg-muted border border-border flex items-center justify-center shrink-0">
+                          <Package className="w-3.5 h-3.5 text-muted-foreground" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold truncate">{o.product}</p>
+                        <div className="flex gap-1 mt-0.5">
+                          {o.color && <span className="text-[10px] text-muted-foreground border border-border/50 rounded px-1">{o.color}</span>}
+                          {o.size && <span className="text-[10px] text-muted-foreground border border-border/50 rounded px-1">{o.size}</span>}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[10px] text-muted-foreground mb-1 block">الكمية</label>
+                        <div className="flex items-center gap-1">
+                          <button type="button" onClick={() => setProductsState(prev => prev.map(p => p.id === o.id ? { ...p, quantity: Math.max(1, p.quantity - 1) } : p))}
+                            className="w-7 h-8 flex items-center justify-center rounded border border-input bg-card hover:bg-muted text-sm font-bold">-</button>
+                          <span className="w-8 text-center text-sm font-bold">{ps.quantity}</span>
+                          <button type="button" onClick={() => setProductsState(prev => prev.map(p => p.id === o.id ? { ...p, quantity: p.quantity + 1 } : p))}
+                            className="w-7 h-8 flex items-center justify-center rounded border border-input bg-card hover:bg-muted text-sm font-bold">+</button>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-muted-foreground mb-1 block">سعر البيع (ج.م)</label>
+                        <Input type="number" min={0} value={ps.unitPrice || ""} onChange={e => setProductsState(prev => prev.map(p => p.id === o.id ? { ...p, unitPrice: Number(e.target.value) } : p))} className="h-8 text-sm" />
+                      </div>
+                      {canViewFinancials && (
+                        <div>
+                          <label className="text-[10px] text-muted-foreground mb-1 block">تكلفة الوحدة (ج.م)</label>
+                          <Input type="number" min={0} value={ps.costPrice ?? ""} onChange={e => setProductsState(prev => prev.map(p => p.id === o.id ? { ...p, costPrice: e.target.value ? Number(e.target.value) : null } : p))} className="h-8 text-sm" />
+                        </div>
+                      )}
+                      <div className={canViewFinancials ? "" : "col-span-2"}>
+                        <label className="text-[10px] text-muted-foreground mb-1 block">ملاحظات</label>
+                        <Input value={ps.notes} onChange={e => setProductsState(prev => prev.map(p => p.id === o.id ? { ...p, notes: e.target.value } : p))} placeholder="ملاحظة للمنتج..." className="h-8 text-sm" />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ملاحظات عامة */}
             <div className="pt-2 border-t border-border/60">
               <FormField control={form.control} name="notes" render={({ field }) => (
                 <FormItem>
@@ -1179,10 +1258,6 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
                     </div>
                     {isAdmin && (
                       <div className="flex items-center gap-1.5 shrink-0">
-                        <Button variant="outline" size="sm" className="h-7 text-xs gap-1 border-border"
-                          onClick={() => setEditingOrder(o)}>
-                          <Pencil className="w-3 h-3" />تعديل
-                        </Button>
                         <Button variant="outline" size="sm" className="h-7 text-xs gap-1 border-red-800 text-red-400 hover:bg-red-900/20"
                           onClick={() => setShowDeleteId(o.id)} disabled={deletingId === o.id}>
                           <Trash2 className="w-3 h-3" />
@@ -1321,6 +1396,8 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
         warehouses={warehouses}
         users={users}
         canViewFinancials={canViewFinancials}
+        products={products}
+        allVariants={allVariants}
         onSuccess={onRefresh}
       />
     </div>
