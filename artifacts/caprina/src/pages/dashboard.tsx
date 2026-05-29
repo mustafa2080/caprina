@@ -1377,8 +1377,8 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent className="p-2 sm:p-3 px-3 sm:px-4">
                   {/* رسم بياني منحني - مبيعات المنتجات */}
-                  {productPerf?.products && productPerf.products.length > 0 && (() => {
-                    const chartData = [...productPerf.products]
+                  {productPerformance?.products && productPerformance.products.length > 0 && (() => {
+                    const chartData = [...productPerformance.products]
                       .sort((a, b) => b.totalOrders - a.totalOrders)
                       .slice(0, 7)
                       .map(p => ({
@@ -1391,7 +1391,7 @@ export default function Dashboard() {
                         <div className="flex items-center justify-between mb-1.5 px-1">
                           <p className="text-[9px] text-muted-foreground font-medium">الوحدات المباعة لكل منتج</p>
                           <p className="text-[10px] font-black text-amber-500">
-                            {fn(productPerf.products.reduce((s, p) => s + p.totalSalesQty, 0))} وحدة
+                            {fn(productPerformance.products.reduce((s, p) => s + p.totalSalesQty, 0))} وحدة
                           </p>
                         </div>
                         <ResponsiveContainer width="100%" height={100}>
@@ -1434,9 +1434,9 @@ export default function Dashboard() {
                         </div>
                       ))}
                     </div>
-                  ) : productPerf?.products?.length ? (
+                  ) : productPerformance?.products?.length ? (
                     <div className="flex flex-col gap-2">
-                      {[...productPerf.products]
+                      {[...productPerformance.products]
                         .sort((a, b) => b.totalOrders - a.totalOrders)
                         .slice(0, 5)
                         .map((p, i) => (
