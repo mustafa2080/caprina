@@ -615,7 +615,7 @@ export default function Dashboard() {
     refetchOnWindowFocus: false,
     refetchInterval: 120_000,
   });
-  const { data: productPerformance = [] } = useQuery<any[]>({
+  const { data: productPerformance = [], isLoading: isPerfLoading } = useQuery<any[]>({
     queryKey: ["analytics-product-performance"],
     queryFn: analyticsApi.productPerformance,
     staleTime: 30 * 60 * 1000,          // ✅ 30 دقيقة — متطابق مع cache الـ backend
