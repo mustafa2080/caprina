@@ -1184,7 +1184,7 @@ function InvoiceEditDialog({ open, onOpenChange, primaryOrder, orders, shippingC
 function InvoiceView({ orders, currentId, shippingCompanies, products, allVariants, onRefresh, isAdmin, canViewFinancials, canViewProfitability, formatCurrency, warehouses, users }: {
   orders: any[]; currentId: number; shippingCompanies: any[]; products: any[]; allVariants: any[];
   onRefresh: () => void; isAdmin: boolean; canViewFinancials: boolean; canViewProfitability: boolean; formatCurrency: (n: number) => string;
-  warehouses: any[]; users: any[];
+  warehouses: any[]; users: any[]; canEdit: boolean; canDelete: boolean; canCreate: boolean;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -1244,7 +1244,7 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
                 <p className="text-xs text-muted-foreground mb-1">إجمالي الفاتورة</p>
                 <p className="text-xl font-black text-primary">{formatCurrency(invoiceTotal)}</p>
               </div>
-              {isAdmin && (
+              {canEdit && (
                 <Button variant="outline" size="sm" className="h-7 text-xs gap-1 border-primary/40 text-primary hover:bg-primary/5"
                   onClick={() => setShowInvoiceEdit(true)}>
                   <Pencil className="w-3 h-3" />تعديل بيانات الفاتورة
@@ -1264,7 +1264,7 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
             <h3 className="text-xs font-bold text-muted-foreground flex items-center gap-1">
               <Package className="w-3.5 h-3.5" />منتجات الفاتورة
             </h3>
-            {isAdmin && (
+            {canCreate && (
               <button onClick={() => setShowAddProduct(true)}
                 className="flex items-center gap-1.5 text-xs font-bold text-primary border border-dashed border-primary/40 hover:bg-primary/5 px-3 py-1.5 rounded-md transition-colors">
                 <Plus className="w-3.5 h-3.5" />إضافة منتج
@@ -1307,12 +1307,20 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
                         {o.notes && <p className="text-[10px] text-muted-foreground mt-1 italic">{o.notes}</p>}
                       </div>
                     </div>
-                    {isAdmin && (
+                    {(canEdit || canDelete) && (
                       <div className="flex items-center gap-1.5 shrink-0">
+                        {canEdit && (
+                        <Button variant="outline" size="sm" className="h-7 text-xs gap-1 border-border text-muted-foreground hover:bg-muted/50"
+                          onClick={() => setEditingOrder(o)}>
+                          <Pencil className="w-3 h-3" />
+                        </Button>
+                        )}
+                        {canDelete && (
                         <Button variant="outline" size="sm" className="h-7 text-xs gap-1 border-red-800 text-red-400 hover:bg-red-900/20"
                           onClick={() => setShowDeleteId(o.id)} disabled={deletingId === o.id}>
                           <Trash2 className="w-3 h-3" />
                         </Button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1869,7 +1877,7 @@ export default function OrderDetail() {
                 <p className="text-xs text-muted-foreground mt-0.5">{format(new Date(order.createdAt), "yyyy/MM/dd HH:mm")}</p>
               </div>
             </div>
-            {isAdmin && (
+            {canDelete && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -1892,6 +1900,9 @@ export default function OrderDetail() {
             isAdmin={isAdmin}
             canViewFinancials={canViewFinancials}
             canViewProfitability={canViewProfitability}
+            canEdit={canEdit}
+            canDelete={canDelete}
+            canCreate={canCreate}
             formatCurrency={formatCurrency}
             onRefresh={() => {
               refetchInvoiceOrders();
@@ -2937,7 +2948,7 @@ export default function OrderDetail() {
                       <p className="text-xs font-bold text-muted-foreground flex items-center gap-1">
                         <Package className="w-3 h-3" />منتجات الفاتورة ({otherInvoiceOrders.length + 1} منتجات)
                       </p>
-                      {isAdmin && (
+                      {canCreate && (
                         <button
                           type="button"
                           onClick={() => setShowAddProduct(true)}
