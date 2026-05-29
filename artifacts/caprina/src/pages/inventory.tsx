@@ -74,6 +74,12 @@ const getColorHex = (name: string): string => {
   return map[name] || "#6b6b6b";
 };
 
+// تعيد الـ hex color للـ variant — تستخدم colorHex لو موجود، وإلا تحول اسم اللون
+const getVariantColorHex = (v: { colorHex?: string | null; color: string }): string => {
+  if (v.colorHex && /^#[0-9a-fA-F]{3,8}$/.test(v.colorHex.trim())) return v.colorHex.trim();
+  return getColorHex(v.color);
+};
+
 const calcMargin = (unitPrice: number, costPrice: number | null) => {
   if (!costPrice || costPrice === 0 || unitPrice === 0) return null;
   return Math.round(((unitPrice - costPrice) / unitPrice) * 100);
