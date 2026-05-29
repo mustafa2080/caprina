@@ -148,7 +148,12 @@ function AddProductDialog({ open, onOpenChange, order, onSuccess }: {
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) reset(); onOpenChange(v); }}>
-      <DialogContent className="max-w-md" dir="rtl">
+      <DialogContent
+        className="max-w-md"
+        dir="rtl"
+        onInteractOutside={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-sm">
             <Plus className="w-4 h-4 text-primary" />إضافة منتج لنفس الفاتورة
