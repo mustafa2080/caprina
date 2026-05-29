@@ -4,7 +4,7 @@ import { z } from "zod";
 import { useLocation, Link } from "wouter";
 import {
   ArrowRight, Save, Phone, MapPin, Layers, DollarSign, Megaphone,
-  Warehouse, UserCheck, Plus, Trash2, Package, ChevronUp, ChevronDown,
+  Warehouse, UserCheck, Plus, Trash2, Package, ChevronUp, ChevronDown, X,
 } from "lucide-react";
 import { getListOrdersQueryKey, getGetOrdersSummaryQueryKey, getGetRecentOrdersQueryKey } from "@workspace/api-client-react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
