@@ -1,6 +1,6 @@
 ﻿import { Router, type IRouter } from "express";
-import { db, ordersTable, productsTable, productVariantsTable, shippingCompaniesTable, shippingManifestsTable, shippingManifestOrdersTable } from "@workspace/db";
-import { eq, isNull, and, desc, lte, gte, sql, inArray } from "drizzle-orm";
+import { db, ordersTable, productsTable, productVariantsTable, shippingCompaniesTable, shippingManifestsTable, shippingManifestOrdersTable, warehouseStockTable } from "@workspace/db";
+import { eq, isNull, and, desc, lte, gte, sql, inArray, count } from "drizzle-orm";
 import { requireAdmin, requirePermission } from "../middlewares/requireRole.js";
 import { requireAuth } from "../middlewares/requireAuth.js";
 import { getTenantId } from "../middlewares/requireTenant.js";
@@ -350,7 +350,38 @@ router.get("/analytics/financial-summary", requirePermission("orders.financials"
   const period    = req.query.period as string | undefined;
   const now = new Date();
 
-  const fsCacheKey = `analytics-financial:${tenantId ?? "global"}:${period ?? ""}:${fromParam ?? ""}:${toParam ?? ""}`;
+  const productConditions: any[] = [eq(productsTable.isArchived, false)];
+  if (tenantId !== null) productConditions.push(eq(productsTable.tenantId, tenantId));
+
+  const [productVersionRows, variantVersionRows, stockVersionRows] = await Promise.all([
+    db.select({
+      count: count(),
+      lastUpdated: sql<string | null>`MAX(${productsTable.updatedAt})`,
+    })
+      .from(productsTable)
+      .where(and(...productConditions)),
+    db.select({
+      count: count(),
+      lastUpdated: sql<string | null>`MAX(${productVariantsTable.updatedAt})`,
+    })
+      .from(productVariantsTable)
+      .innerJoin(productsTable, and(eq(productVariantsTable.productId, productsTable.id), ...productConditions))
+      .where(and(...productConditions)),
+    db.select({
+      count: count(),
+      qty: sql<number | null>`COALESCE(SUM(${warehouseStockTable.quantity}), 0)`,
+      lastUpdated: sql<string | null>`MAX(${warehouseStockTable.updatedAt})`,
+    })
+      .from(warehouseStockTable)
+      .innerJoin(productsTable, and(eq(warehouseStockTable.productId, productsTable.id), ...productConditions))
+      .where(and(...productConditions)),
+  ]);
+
+  const productVersion = productVersionRows[0] ?? { count: 0, lastUpdated: null };
+  const variantVersion = variantVersionRows[0] ?? { count: 0, lastUpdated: null };
+  const stockVersion = stockVersionRows[0] ?? { count: 0, qty: 0, lastUpdated: null };
+
+  const fsCacheKey = `analytics-financial:${tenantId ?? "global"}:${period ?? ""}:${fromParam ?? ""}:${toParam ?? ""}:${productVersion.count}:${productVersion.lastUpdated ?? ""}:${variantVersion.count}:${variantVersion.lastUpdated ?? ""}:${stockVersion.count}:${stockVersion.qty ?? 0}:${stockVersion.lastUpdated ?? ""}`;
   const fsCached = getCached<any>(fsCacheKey);
   if (fsCached) { res.json(fsCached); return; }
 
@@ -477,28 +508,46 @@ router.get("/analytics/financial-summary", requirePermission("orders.financials"
   // المنتجات التي عندها variants — نحسب قيمتها من الـ variants فقط لتفادي التضاعف
   const productsWithVariants = new Set(variants.map(v => v.productId));
 
+  const variantStockRows = await db
+    .select({
+      quantity: warehouseStockTable.quantity,
+      costPrice: productVariantsTable.costPrice,
+      unitPrice: productVariantsTable.unitPrice,
+    })
+    .from(warehouseStockTable)
+    .innerJoin(productVariantsTable, eq(warehouseStockTable.variantId, productVariantsTable.id))
+    .innerJoin(productsTable, and(
+      eq(productVariantsTable.productId, productsTable.id),
+      eq(productsTable.isArchived, false),
+      ...(tenantId !== null ? [eq(productsTable.tenantId, tenantId)] : []),
+    ));
+
+  const productStockRows = await db
+    .select({
+      quantity: warehouseStockTable.quantity,
+      costPrice: productsTable.costPrice,
+      unitPrice: productsTable.unitPrice,
+      productId: productsTable.id,
+    })
+    .from(warehouseStockTable)
+    .innerJoin(productsTable, and(
+      eq(warehouseStockTable.productId, productsTable.id),
+      eq(productsTable.isArchived, false),
+      ...(tenantId !== null ? [eq(productsTable.tenantId, tenantId)] : []),
+    ));
+
   const inventoryAtCost =
-    // كل الـ variants (الكمية الحقيقية موجودة هنا)
-    variants.reduce((s, v) => {
-      const avail = Math.max(0, v.totalQuantity - v.reservedQuantity - v.soldQuantity);
-      return s + avail * (v.costPrice ?? 0);
-    }, 0)
-    // + المنتجات التي ليس لها أي variant فقط
-    + products.reduce((s, p) => {
-      if (productsWithVariants.has(p.id)) return s;
-      const avail = Math.max(0, p.totalQuantity - p.reservedQuantity - p.soldQuantity);
-      return s + avail * (p.costPrice ?? 0);
+    variantStockRows.reduce((s, row) => s + Math.max(0, row.quantity) * (row.costPrice ?? 0), 0)
+    + productStockRows.reduce((s, row) => {
+      if (productsWithVariants.has(row.productId)) return s;
+      return s + Math.max(0, row.quantity) * (row.costPrice ?? 0);
     }, 0);
 
   const inventoryAtSell =
-    variants.reduce((s, v) => {
-      const avail = Math.max(0, v.totalQuantity - v.reservedQuantity - v.soldQuantity);
-      return s + avail * v.unitPrice;
-    }, 0)
-    + products.reduce((s, p) => {
-      if (productsWithVariants.has(p.id)) return s;
-      const avail = Math.max(0, p.totalQuantity - p.reservedQuantity - p.soldQuantity);
-      return s + avail * p.unitPrice;
+    variantStockRows.reduce((s, row) => s + Math.max(0, row.quantity) * row.unitPrice, 0)
+    + productStockRows.reduce((s, row) => {
+      if (productsWithVariants.has(row.productId)) return s;
+      return s + Math.max(0, row.quantity) * row.unitPrice;
     }, 0);
 
   const returnCount = new Set(allOrders.filter(o => o.status === "returned").map(o => o.invoiceNumber ?? `solo-${o.id}`)).size;
