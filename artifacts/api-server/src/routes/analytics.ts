@@ -962,9 +962,15 @@ router.get("/analytics/stock-intelligence", async (req, res): Promise<void> => {
     potentialRevenue: number;    // availableQty × unitPrice
   };
 
+  // حساب المخزون الفعلي من الـ variants (أدق من totalQuantity على مستوى المنتج)
+  const variantStockByProduct = new Map<number, number>();
+  for (const v of variants) {
+    variantStockByProduct.set(v.productId, (variantStockByProduct.get(v.productId) ?? 0) + Math.max(0, v.totalQuantity));
+  }
+
   const items: StockItem[] = products.map(p => {
     const key = p.name.trim();
-    const avail = Math.max(0, p.totalQuantity - p.reservedQuantity - p.soldQuantity);
+    const avail = variantStockByProduct.get(p.id) ?? 0;
     const sold30 = last30DaysSales.get(key) ?? 0;
     const costPrice = (productMap.get(p.id) ?? 0);
 
@@ -991,8 +997,8 @@ router.get("/analytics/stock-intelligence", async (req, res): Promise<void> => {
       name: key,
       productId: p.id,
       availableQty: avail,
-      reservedQty: p.reservedQuantity,
-      soldQty: p.soldQuantity,
+      reservedQty: 0,
+      soldQty: allTimeSales.get(key) ?? 0,
       costPrice,
       unitPrice: p.unitPrice,
       last30DaysSales: sold30,
