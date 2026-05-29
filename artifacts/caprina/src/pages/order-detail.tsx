@@ -381,10 +381,11 @@ function AddProductDialog({ open, onOpenChange, order, onSuccess }: {
   );
 }
 
-// -- Edit Single Order Row Dialog
-function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, products, allVariants, onSuccess }: {
+// -- Edit Single Order Row Dialog (Full Form)
+function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, products, allVariants, warehouses, users, onSuccess }: {
   open: boolean; onOpenChange: (v: boolean) => void; order: any;
-  shippingCompanies: any[]; products: any[]; allVariants: any[]; onSuccess: () => void;
+  shippingCompanies: any[]; products: any[]; allVariants: any[];
+  warehouses: any[]; users: any[]; onSuccess: () => void;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -398,6 +399,18 @@ function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, p
   const [unitPrice, setUnitPrice] = useState(0);
   const [costPrice, setCostPrice] = useState<number | null>(null);
   const [notes, setNotes] = useState("");
+  // حقول بيانات العميل والشحن والإعلان
+  const [customerName, setCustomerName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [city, setCity] = useState("");
+  const [address, setAddress] = useState("");
+  const [trackingNumber, setTrackingNumber] = useState("");
+  const [shippingCompanyId, setShippingCompanyId] = useState<number | null>(null);
+  const [shippingCost, setShippingCost] = useState<number | null>(null);
+  const [warehouseId, setWarehouseId] = useState<number | null>(null);
+  const [assignedUserId, setAssignedUserId] = useState<number | null>(null);
+  const [adSource, setAdSource] = useState<string | null>(null);
+  const [adCampaign, setAdCampaign] = useState("");
 
   const filteredProducts = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
@@ -428,6 +441,18 @@ function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, p
       setCostPrice(o.costPrice ?? null);
       setNotes(o.notes ?? "");
       setVariantRows([{ color: o.color ?? "", size: o.size ?? "", quantity: o.quantity ?? 1 }]);
+      // بيانات العميل والشحن والإعلان
+      setCustomerName(o.customerName ?? "");
+      setPhone(o.phone ?? "");
+      setCity(o.city ?? "");
+      setAddress(o.address ?? "");
+      setTrackingNumber(o.trackingNumber ?? "");
+      setShippingCompanyId(o.shippingCompanyId ?? null);
+      setShippingCost(o.shippingCost ?? null);
+      setWarehouseId(o.warehouseId ?? null);
+      setAssignedUserId(o.assignedUserId ?? null);
+      setAdSource(o.adSource ?? null);
+      setAdCampaign(o.adCampaign ?? "");
     }
   }, [o, open]);
 
@@ -453,6 +478,10 @@ function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, p
   };
 
   const handleSubmit = async () => {
+    if (!customerName.trim()) {
+      toast({ title: "خطأ", description: "اسم العميل مطلوب.", variant: "destructive" });
+      return;
+    }
     try {
       const row = variantRows[0];
       const variant = hasVariants && row.color && row.size
@@ -461,6 +490,17 @@ function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, p
       await updateOrder.mutateAsync({
         id: o.id,
         data: {
+          customerName: customerName.trim(),
+          phone: phone || null,
+          city: city || null,
+          address: address || null,
+          trackingNumber: trackingNumber || null,
+          shippingCompanyId: shippingCompanyId ?? null,
+          shippingCost: shippingCost ?? null,
+          warehouseId: warehouseId ?? null,
+          assignedUserId: assignedUserId ?? null,
+          adSource: adSource ?? null,
+          adCampaign: adCampaign || null,
           product: selectedProduct?.name ?? o.product,
           color: variant?.color ?? (row.color || null),
           size: variant?.size ?? (row.size || null),
@@ -474,7 +514,7 @@ function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, p
       });
       queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
       queryClient.invalidateQueries({ queryKey: ["invoice-orders"] });
-      toast({ title: "تم الحفظ", description: "تم تعديل المنتج بنجاح." });
+      toast({ title: "تم الحفظ", description: "تم تعديل الطلب بنجاح." });
       onSuccess(); onOpenChange(false);
     } catch {
       toast({ title: "خطأ", description: "فشل الحفظ.", variant: "destructive" });
@@ -496,153 +536,240 @@ function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, p
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-sm">
-            <Pencil className="w-4 h-4 text-primary" />تعديل المنتج
+            <Pencil className="w-4 h-4 text-primary" />تعديل الطلب
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-1">
-          <div>
-            <label className="text-xs font-medium mb-1.5 block">اختر من المخزون</label>
-            {selectedProduct ? (
-              <div className="flex items-center justify-between gap-2 px-3 py-2 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800 rounded-md">
-                <div className="flex items-center gap-2">
-                  {selectedProduct.image ? (
-                    <img src={selectedProduct.image} alt={selectedProduct.name} className="w-8 h-8 rounded object-cover border border-emerald-300 shrink-0" />
-                  ) : (
-                    <Package className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                  )}
-                  <span className="text-sm font-bold">{selectedProduct.name}</span>
-                </div>
-                <button type="button" onClick={() => { setSelectedProduct(null); setVariantRows([{ color: "", size: "", quantity: row.quantity }]); }}
-                  className="text-muted-foreground hover:text-red-500 transition-colors">
-                  <X className="w-4 h-4" />
-                </button>
+        <div className="overflow-y-auto max-h-[70vh] space-y-4 py-1 pr-1">
+
+          {/* ── قسم 1: بيانات العميل ── */}
+          <div className="space-y-3 p-3 rounded-lg border border-border/60 bg-muted/20">
+            <p className="text-xs font-bold text-muted-foreground flex items-center gap-1.5"><UserCheck className="w-3.5 h-3.5" />بيانات العميل</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <label className="text-xs font-medium mb-1.5 block">اسم العميل *</label>
+                <Input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="اسم العميل" className="h-9 text-sm" />
               </div>
-            ) : (
-              <div className="relative">
+              <div>
+                <label className="text-xs font-medium mb-1.5 block">رقم الهاتف</label>
+                <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="01XXXXXXXXX" className="h-9 text-sm" dir="ltr" />
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1.5 block">المحافظة</label>
+                <Input value={city} onChange={e => setCity(e.target.value)} placeholder="القاهرة، الجيزة..." className="h-9 text-sm" />
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs font-medium mb-1.5 block">العنوان التفصيلي</label>
+                <Input value={address} onChange={e => setAddress(e.target.value)} placeholder="الشارع، الحي..." className="h-9 text-sm" />
+              </div>
+            </div>
+          </div>
+
+          {/* ── قسم 2: المنتج ── */}
+          <div className="space-y-3 p-3 rounded-lg border border-border/60 bg-muted/20">
+            <p className="text-xs font-bold text-muted-foreground flex items-center gap-1.5"><Package className="w-3.5 h-3.5" />تفاصيل المنتج</p>
+            <div>
+              <label className="text-xs font-medium mb-1.5 block">المنتج</label>
+              {selectedProduct ? (
+                <div className="flex items-center justify-between gap-2 px-3 py-2 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800 rounded-md">
+                  <div className="flex items-center gap-2">
+                    {selectedProduct.image ? (
+                      <img src={selectedProduct.image} alt={selectedProduct.name} className="w-8 h-8 rounded object-cover border border-emerald-300 shrink-0" />
+                    ) : (
+                      <Package className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    )}
+                    <span className="text-sm font-bold">{selectedProduct.name}</span>
+                  </div>
+                  <button type="button" onClick={() => { setSelectedProduct(null); setVariantRows([{ color: "", size: "", quantity: row.quantity }]); }}
+                    className="text-muted-foreground hover:text-red-500 transition-colors">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
                 <div className="relative">
-                  <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-                  <input
-                    type="text"
-                    className="w-full h-9 text-sm pr-8 pl-3 rounded-md border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring"
-                    placeholder={`ابحث عن منتج... (حالياّ: ${o?.product ?? ""})`}
-                    value={searchQuery}
-                    onChange={e => { setSearchQuery(e.target.value); setSearchOpen(true); }}
-                    onFocus={() => setSearchOpen(true)}
-                  />
-                  {searchQuery && (
-                    <button type="button" onClick={() => setSearchQuery("")}
-                      className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                      <X className="w-3.5 h-3.5" />
-                    </button>
+                  <div className="relative">
+                    <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                    <input
+                      type="text"
+                      className="w-full h-9 text-sm pr-8 pl-3 rounded-md border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                      placeholder={`ابحث عن منتج... (حالياً: ${o?.product ?? ""})`}
+                      value={searchQuery}
+                      onChange={e => { setSearchQuery(e.target.value); setSearchOpen(true); }}
+                      onFocus={() => setSearchOpen(true)}
+                    />
+                    {searchQuery && (
+                      <button type="button" onClick={() => setSearchQuery("")}
+                        className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  {searchOpen && (
+                    <div className="mt-1 w-full bg-popover border border-border rounded-md shadow-lg max-h-48 overflow-y-auto z-10 relative">
+                      {filteredProducts.length === 0 ? (
+                        <div className="px-3 py-4 text-center text-sm text-muted-foreground">
+                          {searchQuery ? "لا يوجد منتج بهذا الاسم" : "لا توجد منتجات في المخزون"}
+                        </div>
+                      ) : filteredProducts.map((p: any) => {
+                        const variants = (allVariants as any[]).filter((v: any) => v.productId === p.id);
+                        const stock = variants.length > 0
+                          ? variants.reduce((s: number, v: any) => s + (v.totalQuantity ?? 0), 0)
+                          : (p.totalQuantity ?? 0);
+                        return (
+                          <button key={p.id} type="button"
+                            onMouseDown={(e) => { e.preventDefault(); handleSelectProduct(p); }}
+                            className="w-full text-right flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-muted/50 transition-colors text-sm border-b border-border/20 last:border-0">
+                            <div className="flex items-center gap-2 min-w-0">
+                              {p.image ? (
+                                <img src={p.image} alt={p.name} className="w-7 h-7 rounded object-cover border border-border shrink-0" />
+                              ) : (
+                                <Package className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                              )}
+                              <span className="font-medium truncate">{p.name}</span>
+                            </div>
+                            <Badge variant="outline" className={`text-[9px] font-bold shrink-0 ${stock > 0 ? "border-emerald-400 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400" : "border-red-400 text-red-600"}`}>
+                              {stock > 0 ? `${stock} متاح` : "نفد"}
+                            </Badge>
+                          </button>
+                        );
+                      })}
+                    </div>
                   )}
                 </div>
-                {searchOpen && (
-                  <div className="mt-1 w-full bg-popover border border-border rounded-md shadow-lg max-h-48 overflow-y-auto z-10 relative">
-                    {filteredProducts.length === 0 ? (
-                      <div className="px-3 py-4 text-center text-sm text-muted-foreground">
-                        {searchQuery ? "لا يوجد منتج بهذا الاسم" : "لا توجد منتجات في المخزون"}
-                      </div>
-                    ) : filteredProducts.map((p: any) => {
-                      const variants = (allVariants as any[]).filter((v: any) => v.productId === p.id);
-                      const stock = variants.length > 0
-                        ? variants.reduce((s: number, v: any) => s + (v.totalQuantity ?? 0), 0)
-                        : (p.totalQuantity ?? 0);
-                      return (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onMouseDown={(e) => { e.preventDefault(); handleSelectProduct(p); }}
-                          className="w-full text-right flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-muted/50 transition-colors text-sm border-b border-border/20 last:border-0"
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            {p.image ? (
-                              <img src={p.image} alt={p.name} className="w-7 h-7 rounded object-cover border border-border shrink-0" />
-                            ) : (
-                              <Package className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                            )}
-                            <span className="font-medium truncate">{p.name}</span>
-                          </div>
-                          <Badge variant="outline" className={`text-[9px] font-bold shrink-0 ${stock > 0 ? "border-emerald-400 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400" : "border-red-400 text-red-600"}`}>
-                            {stock > 0 ? `${stock} متاح` : "نفد"}
-                          </Badge>
-                        </button>
-                      );
+              )}
+            </div>
+
+            {selectedProduct && hasVariants && (
+              <div className="flex items-end gap-2 p-2 bg-muted/10 rounded-md border border-border/40">
+                <div className="flex-1">
+                  <label className="text-[10px] text-muted-foreground mb-1 block">اللون</label>
+                  <select value={row.color} onChange={e => updateRow(0, "color", e.target.value)}
+                    className="w-full h-9 text-sm rounded-md border border-input bg-card px-2 focus:outline-none focus:ring-1 focus:ring-ring">
+                    <option value="">اختر لون...</option>
+                    {availableColors.map((c: string) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div className="flex-1">
+                  <label className="text-[10px] text-muted-foreground mb-1 block">المقاس</label>
+                  <select value={row.size} disabled={!row.color} onChange={e => updateRow(0, "size", e.target.value)}
+                    className="w-full h-9 text-sm rounded-md border border-input bg-card px-2 focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50">
+                    <option value="">اختر مقاس...</option>
+                    {sizesForColor.map((s: string) => {
+                      const v = productVariants.find((pv: any) => pv.color === row.color && pv.size === s);
+                      const a = v ? (v.totalQuantity ?? 0) : 0;
+                      return <option key={s} value={s} disabled={a === 0}>{s} {a === 0 ? "(نفد)" : `(${a})`}</option>;
                     })}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground mb-1 block">الكمية</label>
+                  <div className="flex items-center gap-1">
+                    <button type="button" onClick={() => updateRow(0, "quantity", Math.max(1, row.quantity - 1))}
+                      className="w-7 h-9 flex items-center justify-center rounded border border-input bg-card hover:bg-muted text-sm font-bold">-</button>
+                    <span className="w-8 text-center text-sm font-bold">{row.quantity}</span>
+                    <button type="button" onClick={() => updateRow(0, "quantity", avail !== null ? Math.min(avail, row.quantity + 1) : row.quantity + 1)}
+                      className="w-7 h-9 flex items-center justify-center rounded border border-input bg-card hover:bg-muted text-sm font-bold">+</button>
                   </div>
+                </div>
+                {avail !== null && (
+                  <span className={`text-[9px] font-bold mb-2 shrink-0 ${avail <= 5 ? "text-red-500" : "text-emerald-600 dark:text-emerald-400"}`}>متاح:{avail}</span>
                 )}
               </div>
             )}
-          </div>
 
-          {selectedProduct && hasVariants && (
-            <div className="flex items-end gap-2 p-2 bg-muted/10 rounded-md border border-border/40">
-              <div className="flex-1">
-                <label className="text-[10px] text-muted-foreground mb-1 block">اللون</label>
-                <select value={row.color} onChange={e => updateRow(0, "color", e.target.value)}
-                  className="w-full h-9 text-sm rounded-md border border-input bg-card px-2 focus:outline-none focus:ring-1 focus:ring-ring">
-                  <option value="">اختر لون...</option>
-                  {availableColors.map((c: string) => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-              <div className="flex-1">
-                <label className="text-[10px] text-muted-foreground mb-1 block">المقاس</label>
-                <select value={row.size} disabled={!row.color} onChange={e => updateRow(0, "size", e.target.value)}
-                  className="w-full h-9 text-sm rounded-md border border-input bg-card px-2 focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50">
-                  <option value="">اختر مقاس...</option>
-                  {sizesForColor.map((s: string) => {
-                    const v = productVariants.find((pv: any) => pv.color === row.color && pv.size === s);
-                    const a = v ? (v.totalQuantity ?? 0) : 0;
-                    return <option key={s} value={s} disabled={a === 0}>{s} {a === 0 ? "(نفد)" : `(${a})`}</option>;
-                  })}
-                </select>
-              </div>
+            {(!selectedProduct || !hasVariants) && (
               <div>
-                <label className="text-[10px] text-muted-foreground mb-1 block">الكمية</label>
-                <div className="flex items-center gap-1">
+                <label className="text-xs font-medium mb-1.5 block">الكمية *</label>
+                <div className="flex items-center gap-2">
                   <button type="button" onClick={() => updateRow(0, "quantity", Math.max(1, row.quantity - 1))}
-                    className="w-7 h-9 flex items-center justify-center rounded border border-input bg-card hover:bg-muted text-sm font-bold">-</button>
-                  <span className="w-8 text-center text-sm font-bold">{row.quantity}</span>
-                  <button type="button" onClick={() => updateRow(0, "quantity", avail !== null ? Math.min(avail, row.quantity + 1) : row.quantity + 1)}
-                    className="w-7 h-9 flex items-center justify-center rounded border border-input bg-card hover:bg-muted text-sm font-bold">+</button>
+                    className="w-9 h-9 flex items-center justify-center rounded border border-input bg-card hover:bg-muted text-sm font-bold">-</button>
+                  <span className="w-10 text-center text-sm font-bold">{row.quantity}</span>
+                  <button type="button" onClick={() => updateRow(0, "quantity", row.quantity + 1)}
+                    className="w-9 h-9 flex items-center justify-center rounded border border-input bg-card hover:bg-muted text-sm font-bold">+</button>
                 </div>
               </div>
-              {avail !== null && (
-                <span className={`text-[9px] font-bold mb-2 shrink-0 ${avail <= 5 ? "text-red-500" : "text-emerald-600 dark:text-emerald-400"}`}>متاح:{avail}</span>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium mb-1.5 block">سعر البيع (ج.م) *</label>
+                <Input type="number" min={0} value={unitPrice || ""} onChange={e => setUnitPrice(Number(e.target.value))} className="h-9 text-sm" />
+              </div>
+              {canViewFinancials && (
+                <div>
+                  <label className="text-xs font-medium mb-1.5 block">تكلفة الوحدة (ج.م)</label>
+                  <Input type="number" min={0} value={costPrice ?? ""} onChange={e => setCostPrice(e.target.value ? Number(e.target.value) : null)} className="h-9 text-sm" />
+                </div>
               )}
             </div>
-          )}
-
-          {(!selectedProduct || !hasVariants) && (
-            <div>
-              <label className="text-xs font-medium mb-1.5 block">الكمية *</label>
-              <div className="flex items-center gap-2">
-                <button type="button" onClick={() => updateRow(0, "quantity", Math.max(1, row.quantity - 1))}
-                  className="w-9 h-9 flex items-center justify-center rounded border border-input bg-card hover:bg-muted text-sm font-bold">-</button>
-                <span className="w-10 text-center text-sm font-bold">{row.quantity}</span>
-                <button type="button" onClick={() => updateRow(0, "quantity", row.quantity + 1)}
-                  className="w-9 h-9 flex items-center justify-center rounded border border-input bg-card hover:bg-muted text-sm font-bold">+</button>
-              </div>
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-medium mb-1.5 block">سعر البيع (ج.م) *</label>
-              <Input type="number" min={0} value={unitPrice || ""} onChange={e => setUnitPrice(Number(e.target.value))} className="h-9 text-sm" />
-            </div>
-            {canViewFinancials && (
-              <div>
-                <label className="text-xs font-medium mb-1.5 block">تكلفة الوحدة (ج.م)</label>
-                <Input type="number" min={0} value={costPrice ?? ""} onChange={e => setCostPrice(e.target.value ? Number(e.target.value) : null)} className="h-9 text-sm" />
-              </div>
-            )}
           </div>
 
+          {/* ── قسم 3: الشحن ── */}
+          <div className="space-y-3 p-3 rounded-lg border border-border/60 bg-muted/20">
+            <p className="text-xs font-bold text-muted-foreground flex items-center gap-1.5"><Truck className="w-3.5 h-3.5" />بيانات الشحن</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium mb-1.5 block">شركة الشحن</label>
+                <select value={shippingCompanyId ?? ""} onChange={e => setShippingCompanyId(e.target.value ? Number(e.target.value) : null)}
+                  className="w-full h-9 text-sm rounded-md border border-input bg-card px-2 focus:outline-none focus:ring-1 focus:ring-ring">
+                  <option value="">بدون شركة</option>
+                  {(shippingCompanies as any[]).map((sc: any) => <option key={sc.id} value={sc.id}>{sc.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1.5 block">رقم التتبع</label>
+                <Input value={trackingNumber} onChange={e => setTrackingNumber(e.target.value)} placeholder="رقم التتبع" className="h-9 text-sm" dir="ltr" />
+              </div>
+              {canViewFinancials && (
+                <div>
+                  <label className="text-xs font-medium mb-1.5 block">تكلفة الشحن (ج.م)</label>
+                  <Input type="number" min={0} value={shippingCost ?? ""} onChange={e => setShippingCost(e.target.value ? Number(e.target.value) : null)} className="h-9 text-sm" />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ── قسم 4: الإعلان والفريق ── */}
+          <div className="space-y-3 p-3 rounded-lg border border-border/60 bg-muted/20">
+            <p className="text-xs font-bold text-muted-foreground flex items-center gap-1.5"><Megaphone className="w-3.5 h-3.5" />تتبع الإعلان والفريق</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium mb-1.5 block">مصدر الطلب</label>
+                <select value={adSource ?? ""} onChange={e => setAdSource(e.target.value || null)}
+                  className="w-full h-9 text-sm rounded-md border border-input bg-card px-2 focus:outline-none focus:ring-1 focus:ring-ring">
+                  <option value="">اختر المصدر</option>
+                  {AD_SOURCES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1.5 block">اسم الحملة</label>
+                <Input value={adCampaign} onChange={e => setAdCampaign(e.target.value)} placeholder="اسم الحملة الإعلانية" className="h-9 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1.5 block">المخزن</label>
+                <select value={warehouseId ?? ""} onChange={e => setWarehouseId(e.target.value ? Number(e.target.value) : null)}
+                  className="w-full h-9 text-sm rounded-md border border-input bg-card px-2 focus:outline-none focus:ring-1 focus:ring-ring">
+                  <option value="">اختر مخزن</option>
+                  {(warehouses as any[]).map((w: any) => <option key={w.id} value={w.id}>{w.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1.5 block">الموظف المسؤول</label>
+                <select value={assignedUserId ?? ""} onChange={e => setAssignedUserId(e.target.value ? Number(e.target.value) : null)}
+                  className="w-full h-9 text-sm rounded-md border border-input bg-card px-2 focus:outline-none focus:ring-1 focus:ring-ring">
+                  <option value="">اختر موظف</option>
+                  {(users as any[]).map((u: any) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* ── قسم 5: ملاحظات ── */}
           <div>
             <label className="text-xs font-medium mb-1.5 block">ملاحظات</label>
-            <Textarea className="min-h-[50px] text-sm resize-none" value={notes} onChange={e => setNotes(e.target.value)} />
+            <Textarea className="min-h-[60px] text-sm resize-none" value={notes} onChange={e => setNotes(e.target.value)} placeholder="أي ملاحظات إضافية..." />
           </div>
+
         </div>
 
         <DialogFooter className="flex gap-2 mt-2">
@@ -1160,7 +1287,9 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
       <EditOrderRowDialog
         open={!!editingOrder} onOpenChange={v => { if (!v) setEditingOrder(null); }}
         order={editingOrder} shippingCompanies={shippingCompanies}
-        products={products} allVariants={allVariants} onSuccess={onRefresh}
+        products={products} allVariants={allVariants}
+        warehouses={warehouses} users={users}
+        onSuccess={onRefresh}
       />
       <AddProductDialog
         open={showAddProduct} onOpenChange={setShowAddProduct}
