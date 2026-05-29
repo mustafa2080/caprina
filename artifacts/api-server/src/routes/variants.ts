@@ -11,6 +11,7 @@ const router: IRouter = Router();
 
 const CreateVariantSchema = z.object({
   color: z.string().min(1),
+  colorHex: z.string().nullish().optional(),
   size: z.string().min(1),
   sku: z.string().nullish(),
   totalQuantity: z.number().int().min(0).default(0),
@@ -22,6 +23,7 @@ const CreateVariantSchema = z.object({
 // Update schema: totalQuantity excluded — use /add-stock instead
 const UpdateVariantSchema = z.object({
   color: z.string().min(1).optional(),
+  colorHex: z.string().nullish().optional(),
   size: z.string().min(1).optional(),
   sku: z.string().nullish().optional(),
   lowStockThreshold: z.number().int().min(0).optional(),
@@ -46,6 +48,7 @@ router.get("/variants", async (req, res): Promise<void> => {
       productId: productVariantsTable.productId,
       productName: productsTable.name,
       color: productVariantsTable.color,
+      colorHex: productVariantsTable.colorHex,
       size: productVariantsTable.size,
       sku: productVariantsTable.sku,
       totalQuantity: productVariantsTable.totalQuantity,
@@ -89,9 +92,10 @@ router.post("/products/:productId/variants", requireRole("admin", "warehouse"), 
 
   const skuInput = parsed.data.sku?.trim();
   const sku = skuInput || null;
+  const colorHex = parsed.data.colorHex?.trim() || null;
 
   const insertResult = await db.insert(productVariantsTable).values({
-    productId, ...parsed.data, sku, reservedQuantity: 0, soldQuantity: 0,
+    productId, ...parsed.data, sku, colorHex, reservedQuantity: 0, soldQuantity: 0,
   });
   const insertId = (insertResult as any)[0]?.insertId ?? (insertResult as any).insertId;
   const [variant] = await db.select().from(productVariantsTable).where(eq(productVariantsTable.id, insertId));
@@ -122,6 +126,7 @@ router.patch("/products/:productId/variants/:variantId", requireRole("admin", "w
   const normalizedData = {
     ...parsed.data,
     ...(parsed.data.sku !== undefined ? { sku: parsed.data.sku?.trim() || null } : {}),
+    ...(parsed.data.colorHex !== undefined ? { colorHex: parsed.data.colorHex?.trim() || null } : {}),
   };
   await db.update(productVariantsTable)
     .set({ ...normalizedData, updatedAt: new Date() })

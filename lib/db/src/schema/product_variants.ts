@@ -5,6 +5,7 @@ export const productVariantsTable = mysqlTable("product_variants", {
   id: int("id").primaryKey().autoincrement(),
   productId: int("product_id").notNull().references(() => productsTable.id, { onDelete: "cascade" }),
   color: varchar("color", { length: 100 }).notNull(),
+  colorHex: varchar("color_hex", { length: 20 }),
   size: varchar("size", { length: 100 }).notNull(),
   sku: varchar("sku", { length: 100 }),
   totalQuantity: int("total_quantity").notNull().default(0),

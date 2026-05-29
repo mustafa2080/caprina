@@ -114,6 +114,7 @@ export interface ProductVariant {
   productId: number;
   productName?: string;
   color: string;
+  colorHex?: string | null;
   size: string;
   sku: string | null;
   totalQuantity: number;
@@ -180,7 +181,7 @@ export const productsApi = {
 export const variantsApi = {
   listAll: () => apiFetch<ProductVariant[]>("/variants"),
   listByProduct: (productId: number) => apiFetch<ProductVariant[]>(`/products/${productId}/variants`),
-  create: (productId: number, data: { color: string; size: string; sku?: string; totalQuantity?: number; lowStockThreshold: number; unitPrice: number; costPrice?: number | null }) =>
+  create: (productId: number, data: { color: string; colorHex?: string | null; size: string; sku?: string; totalQuantity?: number; lowStockThreshold: number; unitPrice: number; costPrice?: number | null }) =>
     apiFetch<ProductVariant>(`/products/${productId}/variants`, { method: "POST", body: JSON.stringify(data) }),
   update: (productId: number, variantId: number, data: Partial<Omit<ProductVariant, "totalQuantity">>) =>
     apiFetch<ProductVariant>(`/products/${productId}/variants/${variantId}`, { method: "PATCH", body: JSON.stringify(data) }),
