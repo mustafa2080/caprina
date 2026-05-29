@@ -1307,20 +1307,12 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
                         {o.notes && <p className="text-[10px] text-muted-foreground mt-1 italic">{o.notes}</p>}
                       </div>
                     </div>
-                    {(canEdit || canDelete) && (
+                    {canDelete && (
                       <div className="flex items-center gap-1.5 shrink-0">
-                        {canEdit && (
-                        <Button variant="outline" size="sm" className="h-7 text-xs gap-1 border-border text-muted-foreground hover:bg-muted/50"
-                          onClick={() => setEditingOrder(o)}>
-                          <Pencil className="w-3 h-3" />
-                        </Button>
-                        )}
-                        {canDelete && (
                         <Button variant="outline" size="sm" className="h-7 text-xs gap-1 border-red-800 text-red-400 hover:bg-red-900/20"
                           onClick={() => setShowDeleteId(o.id)} disabled={deletingId === o.id}>
                           <Trash2 className="w-3 h-3" />
                         </Button>
-                        )}
                       </div>
                     )}
                   </div>
@@ -1867,27 +1859,75 @@ export default function OrderDetail() {
       {/* ── وضع الفاتورة المتعددة: عرض مختلف تماماً ── */}
       {isInvoiceMode && (
         <>
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <Link href="/orders">
                 <Button variant="outline" size="icon" className="h-8 w-8 rounded-full border-border"><ArrowRight className="h-4 w-4" /></Button>
               </Link>
               <div>
-                <h1 className="text-xl font-bold">فاتورة {invoiceNumber}</h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-xl font-bold">فاتورة {invoiceNumber}</h1>
+                  <Badge variant="outline" className={`font-bold border text-[10px] ${statusClasses[order.status] || ""}`}>
+                    {statusLabels[order.status] || order.status}
+                  </Badge>
+                </div>
                 <p className="text-xs text-muted-foreground mt-0.5">{format(new Date(order.createdAt), "yyyy/MM/dd HH:mm")}</p>
               </div>
             </div>
-            {canDelete && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowDeleteDialog(true)}
-                className="h-8 w-8 p-0 rounded-full text-red-400/60 hover:text-red-400 hover:bg-red-900/20 transition-all duration-200"
-                title="حذف الفاتورة كاملة"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </Button>
-            )}
+            <div className="flex items-center gap-2">
+              {canWriteOrders && (
+                <div className="w-44">
+                  <Select value={selectDisplayStatus ?? order.status} onValueChange={handleStatusChange} disabled={updateOrder.isPending}>
+                    <SelectTrigger className="h-8 text-xs bg-card border-border"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">قيد الانتظار</SelectItem>
+                      <SelectItem value="warehouse_ready">قيد الشحن في المخزن</SelectItem>
+                      <SelectItem value="in_shipping">قيد الشحن</SelectItem>
+                      <SelectItem value="received">استلم ✓</SelectItem>
+                      <SelectItem value="delayed">مؤجل</SelectItem>
+                      <SelectItem value="returned">مرتجع</SelectItem>
+                      <SelectItem value="partial_received">استلم جزئي</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {canEdit && (
+                <Button variant="outline" size="sm"
+                  onClick={() => !isOrderLocked && setIsEditing(true)}
+                  disabled={isOrderLocked}
+                  className="h-8 text-xs gap-1 border-border disabled:opacity-40">
+                  {isOrderLocked ? <Lock className="w-3 h-3" /> : <Pencil className="w-3 h-3" />}تعديل
+                </Button>
+              )}
+              {canCreate && (
+                <Button variant="outline" size="sm"
+                  onClick={() => setShowAddProduct(true)}
+                  className="h-8 text-xs gap-1 border-primary/40 text-primary hover:bg-primary/10">
+                  <Plus className="w-3 h-3" />إضافة منتج
+                </Button>
+              )}
+              {(order.status === "pending" || order.status === "warehouse_ready") && canWriteOrders && (
+                <Button variant="outline" size="sm"
+                  onClick={handleWhatsApp}
+                  className="h-8 text-xs gap-1 border-green-700 text-green-400 hover:bg-green-500/10">
+                  <MessageCircle className="w-3 h-3" />واتساب
+                </Button>
+              )}
+              {canDelete && (
+                <Button variant="outline" size="sm"
+                  onClick={() => {
+                    if (isManifestLocked) {
+                      toast({ title: "⛔ ممنوع حذف الطلب", description: `هذا الطلب مرتبط ببيان شحن مفتوح (${invoiceManifestStatus?.manifestNumber})`, variant: "destructive" });
+                      return;
+                    }
+                    if (!isOrderLocked) setShowDeleteDialog(true);
+                  }}
+                  disabled={isOrderLocked}
+                  className="h-8 text-xs gap-1 border-red-800 text-red-400 hover:bg-red-900/20 disabled:opacity-40">
+                  <Trash2 className="w-3 h-3" />حذف
+                </Button>
+              )}
+            </div>
           </div>
           <InvoiceView
             orders={invoiceOrders}
