@@ -258,22 +258,27 @@ export default function Invoices() {
       const city = (rep as any).city ?? "";
 
       const rowCount = realOrders.length;
-      // ارتفاع كل صف بالـ mm = font-size(7pt) × line-height(1.3) + padding(1mm top+bottom) ≈ 4.3mm
-      // ارتفاع header الجدول ≈ 5mm
-      // المساحة المتاحة للجدول:
-      //   perPage=4: فاتورة ~100mm - hdr(18mm) - cust(7mm) - totalbar(5mm) - bottom(20mm) - footer(6mm) - padding(2mm) = ~42mm
-      //   perPage=2: ~100mm - same = ~42mm
-      //   perPage=1: ~204mm - same = ~146mm
-      const availableForTable = perPage === 4 ? 48 : perPage === 2 ? 55 : 150;
-      const rowHeightMm = 4.2;
+      // الارتفاع الثابت لكل فاتورة بالـ mm
+      const invHeightMm = perPage === 4 ? 101 : 204;
+      // العناصر الثابتة: header(18) + custRow(9) + totalBar(6) + footer(7) + padding(4) = 44mm
+      const fixedMm = 44;
+      // الـ bottom section: info(6) + addr(8) + notes(5) + confirm(5) = 24mm
+      const bottomMm = 24;
+      // المساحة المتاحة للجدول فقط
+      const availableForTable = invHeightMm - fixedMm - bottomMm; // ~33mm للـ perPage=4, ~136mm للـ perPage=1
+      const rowHeightMm = 4.5;
       const theadHeightMm = 5;
       const naturalTableHeight = theadHeightMm + rowCount * rowHeightMm;
-      const tableMaxHeight = Math.min(naturalTableHeight, availableForTable);
-      const scaleFactor = naturalTableHeight <= availableForTable ? 1 : Math.max(0.45, availableForTable / naturalTableHeight);
+      // نحسب scale factor بناء على كل المحتوى
+      const totalNaturalHeight = fixedMm + bottomMm + naturalTableHeight;
+      const scaleFactor = totalNaturalHeight <= invHeightMm ? 1 : Math.max(0.4, invHeightMm / totalNaturalHeight);
       const tblFontSize = (7 * scaleFactor).toFixed(1);
-      const cellPad = scaleFactor < 0.75 ? "0.3mm 0.6mm" : scaleFactor < 0.85 ? "0.4mm 0.8mm" : "0.8mm 1mm";
-      const hdrPad = scaleFactor < 0.85 ? "1mm 3mm" : "2mm 3mm";
-      const custPad = scaleFactor < 0.85 ? "0.8mm 3mm" : "1.5mm 3mm";
+      const cellPad = scaleFactor < 0.7 ? "0.2mm 0.5mm" : scaleFactor < 0.85 ? "0.4mm 0.8mm" : "0.8mm 1mm";
+      const hdrPad = scaleFactor < 0.8 ? "0.8mm 3mm" : "2mm 3mm";
+      const custPad = scaleFactor < 0.8 ? "0.6mm 3mm" : "1.5mm 3mm";
+      const bottomPad = scaleFactor < 0.8 ? "0.3mm 1mm" : "0.6mm 1.5mm";
+      const bottomFontSize = (6 * scaleFactor).toFixed(1);
+      const logoSize = scaleFactor < 0.8 ? "10mm" : "14mm";
 
       const productRows = realOrders.map((o: any) => {
         const color = o.color ?? "";
@@ -286,7 +291,7 @@ export default function Invoices() {
       const totalQty = realOrders.reduce((s: number, o: any) => s + o.quantity, 0);
       const totalPrice = realOrders.reduce((s: number, o: any) => s + o.totalPrice, 0);
 
-      return `<div class="inv"><div class="inv-hdr" style="padding:${hdrPad}"><div class="hdr-logo">${logoEl}<div style="text-align:left;line-height:1.2"><div class="logo-txt">${brandName}</div><div class="logo-sub">${brandTagline}</div></div></div><div class="hdr-date">${dateStr}<br/><span style="font-size:5.5pt;opacity:0.5">ORDER #${orderNum}</span></div></div><div class="cust-row" style="padding:${custPad}"><div class="cust-name">${grp.customerName}</div><div class="cust-phone">&#128222; ${grp.phone ?? "&#8212;"}</div></div><div class="inv-body"><div class="table-wrap"><table class="prod-table" style="font-size:${tblFontSize}pt"><thead><tr><th style="width:30%;padding:${cellPad}">الصنف</th><th style="width:14%;padding:${cellPad}">المقاس</th><th style="width:18%;padding:${cellPad}">اللون</th><th style="width:10%;padding:${cellPad}">العدد</th><th style="width:14%;padding:${cellPad}">السعر</th><th style="width:14%;padding:${cellPad}">الإجمالي</th></tr></thead><tbody>${productRows}${shippingCost > 0 ? `<tr><td class="name-col" colspan="4" style="color:#777;font-size:${(parseFloat(tblFontSize)*0.85).toFixed(1)}pt;padding:${cellPad}">مصاريف الشحن</td><td colspan="2" style="font-weight:700;padding:${cellPad}">${formatCurrency(shippingCost)}</td></tr>` : ""}</tbody></table></div></div><div style="flex-shrink:0;display:flex;justify-content:space-between;align-items:center;background:#e0e0e0;border:1px solid #888;border-radius:1mm;padding:${cellPad};font-size:${tblFontSize}pt;font-weight:900;color:#000;margin:0 3mm 0.5mm"><span>&#9679; الإجمالي الكلي</span><span>${totalQty} قطعة &nbsp;|&nbsp; ${formatCurrency(totalPrice + shippingCost)}</span></div><div class="inv-bottom"><div class="info-strip"><div class="info-cell"><span class="info-lbl">المحافظة</span><span class="info-val">${city || "&#8212;"}</span></div><div class="info-cell"><span class="info-lbl">شركة الشحن</span><span class="info-val">${company ? company.name : "&#8212;"}</span></div><div class="info-cell"><span class="info-lbl">رقم التتبع</span><span class="info-val" style="direction:ltr;text-align:right">${trackingNumber || "&#8212;"}</span></div></div><div class="addr-box"><div class="addr-lbl">العنوان بالتفصيل</div><div class="addr-val">${address || "&#8212;"}</div></div><div class="notes-box"><b>&#128203; ملاحظات:</b><span>${notes || "&#8212;"}</span></div><div class="confirm-box"><span class="cb-lbl">&#10003; التاكيد علي الشحن:</span><span>تم التاكيد مع العميل &#8212; في حاله عدم الاستلام بيتم دفع مصاريف الشحن كامله المتفق عليها</span></div></div><div class="inv-footer"><div class="policy-txt">الاسترجاع فقط اثناء تواجد المندوب &middot; الاستبدال خلال 7 أيام &middot; ضمان 6 أشهر &middot; احتفظ بالفاتورة</div><div class="footer-brand">${brandName}</div></div></div>`;
+      return `<div class="inv"><div class="inv-hdr" style="padding:${hdrPad}"><div class="hdr-logo"><div style="width:${logoSize};height:${logoSize};flex-shrink:0">${logoB64 ? `<img src="${logoB64}" style="width:100%;height:100%;object-fit:contain;border-radius:1.5mm;background:white;padding:0.5mm;" alt="${brandName}" />` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.1);border-radius:1.5mm;font-size:7pt;font-weight:900;color:white;">${brandName.substring(0,2)}</div>`}</div><div style="text-align:left;line-height:1.2;margin-right:2mm"><div class="logo-txt" style="font-size:${scaleFactor < 0.8 ? "8pt" : "11pt"}">${brandName}</div><div class="logo-sub">${brandTagline}</div></div></div><div class="hdr-date" style="font-size:${scaleFactor < 0.8 ? "6.5pt" : "8pt"}">${dateStr}<br/><span style="font-size:5pt;opacity:0.5">ORDER #${orderNum}</span></div></div><div class="cust-row" style="padding:${custPad}"><div class="cust-name" style="font-size:${scaleFactor < 0.8 ? "9pt" : "12pt"}">${grp.customerName}</div><div class="cust-phone" style="font-size:${scaleFactor < 0.8 ? "8pt" : "10pt"}">&#128222; ${grp.phone ?? "&#8212;"}</div></div><div class="inv-body"><div class="table-wrap"><table class="prod-table" style="font-size:${tblFontSize}pt"><thead><tr><th style="width:30%;padding:${cellPad}">الصنف</th><th style="width:14%;padding:${cellPad}">المقاس</th><th style="width:18%;padding:${cellPad}">اللون</th><th style="width:10%;padding:${cellPad}">العدد</th><th style="width:14%;padding:${cellPad}">السعر</th><th style="width:14%;padding:${cellPad}">الإجمالي</th></tr></thead><tbody>${productRows}${shippingCost > 0 ? `<tr><td class="name-col" colspan="4" style="color:#777;font-size:${(parseFloat(tblFontSize)*0.85).toFixed(1)}pt;padding:${cellPad}">مصاريف الشحن</td><td colspan="2" style="font-weight:700;padding:${cellPad}">${formatCurrency(shippingCost)}</td></tr>` : ""}</tbody></table></div></div><div style="flex-shrink:0;display:flex;justify-content:space-between;align-items:center;background:#e0e0e0;border:1px solid #888;border-radius:1mm;padding:${cellPad};font-size:${tblFontSize}pt;font-weight:900;color:#000;margin:0 3mm 0.5mm"><span>&#9679; الإجمالي الكلي</span><span>${totalQty} قطعة &nbsp;|&nbsp; ${formatCurrency(totalPrice + shippingCost)}</span></div><div class="inv-bottom" style="font-size:${bottomFontSize}pt"><div class="info-strip"><div class="info-cell" style="padding:${bottomPad}"><span class="info-lbl">المحافظة</span><span class="info-val">${city || "&#8212;"}</span></div><div class="info-cell" style="padding:${bottomPad}"><span class="info-lbl">شركة الشحن</span><span class="info-val">${company ? company.name : "&#8212;"}</span></div><div class="info-cell" style="padding:${bottomPad}"><span class="info-lbl">رقم التتبع</span><span class="info-val" style="direction:ltr;text-align:right">${trackingNumber || "&#8212;"}</span></div></div><div class="addr-box" style="padding:${bottomPad}"><div class="addr-lbl">العنوان بالتفصيل</div><div class="addr-val">${address || "&#8212;"}</div></div><div class="notes-box" style="padding:${bottomPad};font-size:${bottomFontSize}pt"><b>&#128203; ملاحظات:</b><span>${notes || "&#8212;"}</span></div><div class="confirm-box" style="padding:${bottomPad};font-size:${bottomFontSize}pt"><span class="cb-lbl">&#10003; التاكيد علي الشحن:</span><span>تم التاكيد مع العميل &#8212; في حاله عدم الاستلام بيتم دفع مصاريف الشحن كامله المتفق عليها</span></div></div><div class="inv-footer"><div class="policy-txt">الاسترجاع فقط اثناء تواجد المندوب &middot; الاستبدال خلال 7 أيام &middot; ضمان 6 أشهر &middot; احتفظ بالفاتورة</div><div class="footer-brand">${brandName}</div></div></div>`;
     };
 
     const pagesHTML = pageGroups.map(group => {
