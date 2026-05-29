@@ -757,7 +757,7 @@ export default function Dashboard() {
           <LiveClock />
         </div>
         {/* Row 2: الأزرار — سطر مستقل على الموبايل */}
-        <div className="flex items-center gap-1.5 flex-wrap">
+        <div className="flex items-center gap-1.5 flex-wrap px-3 sm:px-0">
           {canViewFinancials && (
             <div className="flex items-center gap-0.5 border border-border rounded-md p-0.5 bg-muted/30">
               {([
