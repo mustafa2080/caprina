@@ -589,20 +589,20 @@ ${filtersRow}
 
   return (
     <div className="space-y-5 animate-in fade-in duration-500">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><Activity className="w-6 h-6 text-primary" />حركات المخزون</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">سجل كامل لكل دخول وخروج وتحويل في المخزن</p>
+          <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2"><Activity className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />حركات المخزون</h1>
+          <p className="text-muted-foreground text-xs sm:text-sm mt-0.5">سجل كامل لكل دخول وخروج وتحويل في المخزن</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" className="gap-2 text-sm font-bold h-9" onClick={handlePrint} disabled={movements.length === 0}>
+        <div className="flex flex-wrap gap-2 w-full lg:w-auto">
+          <Button variant="outline" className="gap-2 text-sm font-bold h-9 flex-1 sm:flex-none min-w-[120px]" onClick={handlePrint} disabled={movements.length === 0}>
             <Printer className="w-4 h-4" /><span className="hidden sm:inline">طباعة</span>
             {hasFilter && <span className="text-[9px] bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 font-bold">مفلترة</span>}
           </Button>
           {isAdmin && selectedIds.size > 0 && (
             <Button
               variant="destructive"
-              className="gap-2 font-bold text-sm h-9"
+              className="gap-2 font-bold text-sm h-9 flex-1 sm:flex-none min-w-[150px]"
               onClick={handleBulkDelete}
               disabled={bulkDeleteMutation.isPending}
             >
@@ -610,11 +610,11 @@ ${filtersRow}
               حذف المحدد ({selectedIds.size})
             </Button>
           )}
-          <Button variant="outline" className="gap-2 bg-violet-50 text-violet-700 border-violet-300 hover:bg-violet-100 dark:bg-violet-900/20 dark:text-violet-400 dark:border-violet-800 font-bold text-sm h-9"
+          <Button variant="outline" className="gap-2 bg-violet-50 text-violet-700 border-violet-300 hover:bg-violet-100 dark:bg-violet-900/20 dark:text-violet-400 dark:border-violet-800 font-bold text-sm h-9 flex-1 sm:flex-none min-w-[160px]"
             onClick={() => { setDialogMode("transfer"); setForm(f => ({ ...f, reason: "transfer", type: "OUT" })); setShowDialog(true); }}>
             <ArrowRightLeft className="w-4 h-4" />تحويل بين مواقع
           </Button>
-          <Button className="gap-2 bg-primary text-primary-foreground font-bold text-sm"
+          <Button className="gap-2 bg-primary text-primary-foreground font-bold text-sm h-9 flex-1 sm:flex-none min-w-[130px]"
             onClick={() => { setDialogMode("manual"); setForm(f => ({ ...f, reason: "manual_in", type: "IN" })); setShowDialog(true); }}>
             <Plus className="w-4 h-4" />حركة يدوية
           </Button>
@@ -666,7 +666,7 @@ ${filtersRow}
 
       <Card className="border-border">
         <CardContent className="p-3">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
             <Select value={filterType} onValueChange={setFilterType}>
               <SelectTrigger className="h-8 text-xs bg-card border-border">
                 <div className="flex items-center gap-1.5"><Filter className="w-3 h-3 text-muted-foreground" /><SelectValue placeholder="النوع" /></div>
@@ -703,11 +703,11 @@ ${filtersRow}
             </Select>
             <div className="relative">
               <CalendarDays className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
-              <Input type="date" className="h-8 text-xs pr-7 bg-card border-border" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+              <Input type="date" className="h-8 text-xs pr-7 bg-card border-border w-full" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
             </div>
             <div className="relative">
               <CalendarDays className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
-              <Input type="date" className="h-8 text-xs pr-7 bg-card border-border" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+              <Input type="date" className="h-8 text-xs pr-7 bg-card border-border w-full" value={dateTo} onChange={e => setDateTo(e.target.value)} />
             </div>
           </div>
           {hasFilter && (
@@ -753,8 +753,76 @@ ${filtersRow}
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
-            <Table>
+            <div className="sm:hidden p-3 space-y-3">
+              {colFilteredMovements.map((m: InventoryMovement) => {
+                const isTransfer = m.reason === "transfer";
+                return (
+                  <Card key={m.id} className={`border-border ${selectedIds.has(m.id) ? "bg-destructive/5" : ""}`}>
+                    <CardContent className="p-3 space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-[10px] text-muted-foreground">{formatMovementDate(m.createdAt)}</p>
+                          <p className="text-sm font-bold leading-5 break-words">{m.product}</p>
+                          <div className="mt-1 flex flex-wrap gap-1.5">
+                            <Badge variant="outline" className={`text-[9px] font-bold border ${REASON_COLORS[m.reason] ?? "bg-muted text-muted-foreground border-border"}`}>
+                              {REASON_LABELS[m.reason] ?? m.reason}
+                            </Badge>
+                            <Badge variant="outline" className="text-[9px] border-border">
+                              {isTransfer ? "تحويل" : m.type === "IN" ? "دخول" : "خروج"}
+                            </Badge>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {isAdmin && (
+                            <Checkbox
+                              checked={selectedIds.has(m.id)}
+                              onCheckedChange={() => toggleSelect(m.id)}
+                              aria-label="تحديد الصف"
+                            />
+                          )}
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10" title="تعديل" onClick={() => openEdit(m)}>
+                            <Pencil className="w-3.5 h-3.5" />
+                          </Button>
+                          {isAdmin && (
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" title="حذف" onClick={() => handleDelete(m.id)} disabled={deleteMutation.isPending}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="rounded-lg border border-border/70 bg-muted/20 p-2">
+                          <p className="text-[9px] text-muted-foreground">الكمية</p>
+                          <p className={`font-black ${isTransfer ? "text-violet-600 dark:text-violet-400" : m.type === "IN" ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                            {isTransfer ? m.quantity : formatQty(m.type, m.quantity)}
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-border/70 bg-muted/20 p-2">
+                          <p className="text-[9px] text-muted-foreground">رقم الطلب</p>
+                          <p className="font-mono font-bold text-foreground">{m.orderId ? `#${String(m.orderId).padStart(4, "0")}` : "—"}</p>
+                        </div>
+                        <div className="rounded-lg border border-border/70 bg-muted/20 p-2">
+                          <p className="text-[9px] text-muted-foreground">اللون / المقاس</p>
+                          <p className="font-medium text-foreground break-words">{m.color || m.size ? [m.color, m.size].filter(Boolean).join(" / ") : "—"}</p>
+                        </div>
+                        <div className="rounded-lg border border-border/70 bg-muted/20 p-2">
+                          <p className="text-[9px] text-muted-foreground">الموقع</p>
+                          <p className="font-medium text-foreground break-words">{isTransfer && m.fromLocation && m.toLocation ? `${m.fromLocation} → ${m.toLocation}` : (m as any).warehouseName ?? "—"}</p>
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg border border-border/70 bg-muted/20 p-2">
+                        <p className="text-[9px] text-muted-foreground">ملاحظات</p>
+                        <p className="text-xs text-foreground/80 break-words">{m.notes || "—"}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+            <div className="hidden sm:block overflow-x-auto">
+            <Table className="min-w-[1100px]">
               <TableHeader>
                 <TableRow className="border-border hover:bg-transparent">
                   {isAdmin && (
