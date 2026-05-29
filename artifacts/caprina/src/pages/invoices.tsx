@@ -235,7 +235,7 @@ export default function Invoices() {
       .notes-box b { color: #92400e; white-space: nowrap; font-size: 6pt; font-weight: 900; }
       .confirm-box { border: 1px solid #999; border-radius: 1mm; padding: 0.5mm 2mm; font-size: 5pt; font-weight: 700; color: #111; flex-shrink: 0; display: flex; gap: 1.5mm; align-items: flex-start; line-height: 1.3; background: #f5f5f5; }
       .confirm-box .cb-lbl { font-weight: 900; color: #000; font-size: 5.5pt; white-space: nowrap; }
-      .inv-footer { border-top: 2px solid #1a1a1a; background: #1a1a1a; padding: 1mm 3mm; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; gap: 2mm; }
+      .inv-footer { border-top: 2px solid #1a1a1a; background: #1a1a1a; padding: 1mm 3mm; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; gap: 2mm; margin-top: auto; }
       .inv-bottom { padding: 0.5mm 3mm; flex-shrink: 0; display: flex; flex-direction: column; gap: 0.5mm; border-top: 1px solid #ddd; background: white; }
       .policy-txt { font-size: 6pt; font-weight: 600; color: #ccc; text-align: left; line-height: 1.5; }
       .footer-brand { font-size: 8pt; font-weight: 900; color: #fff; letter-spacing: 2px; }
