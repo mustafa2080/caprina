@@ -353,7 +353,7 @@ function AddProductDialog({ open, onOpenChange, order, onSuccess }: {
   );
 }
 
-// ── Edit Single Order Row Dialog ─────────────────────────────────────────────
+// â”€â”€ Edit Single Order Row Dialog â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, products, allVariants, onSuccess }: {
   open: boolean; onOpenChange: (v: boolean) => void; order: any;
   shippingCompanies: any[]; products: any[]; allVariants: any[]; onSuccess: () => void;
@@ -361,100 +361,178 @@ function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, p
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const updateOrder = useUpdateOrder();
+
   const [editProductId, setEditProductId] = useState<number | null>(null);
   const [editColor, setEditColor] = useState("");
+  const [editSize, setEditSize] = useState("");
 
   const rowSchema = z.object({
-    product: z.string().min(1),
-    quantity: z.coerce.number().int().min(1),
+    product:   z.string().min(1),
+    color:     z.string().optional().nullable(),
+    size:      z.string().optional().nullable(),
+    quantity:  z.coerce.number().int().min(1),
     unitPrice: z.coerce.number().min(0),
-    notes: z.string().optional().nullable(),
+    notes:     z.string().optional().nullable(),
   });
+
   const form = useForm<z.infer<typeof rowSchema>>({
     resolver: zodResolver(rowSchema),
-    defaultValues: { product: o?.product || "", quantity: o?.quantity || 1, unitPrice: o?.unitPrice || 0, notes: o?.notes || "" },
+    defaultValues: {
+      product: o?.product || "", color: o?.color || "", size: o?.size || "",
+      quantity: o?.quantity || 1, unitPrice: o?.unitPrice || 0, notes: o?.notes || "",
+    },
   });
 
   useEffect(() => {
     if (o && open) {
-      form.reset({ product: o.product, quantity: o.quantity, unitPrice: o.unitPrice, notes: o.notes ?? "" });
-      setEditProductId(null); setEditColor("");
+      form.reset({
+        product: o.product, color: o.color ?? "", size: o.size ?? "",
+        quantity: o.quantity, unitPrice: o.unitPrice, notes: o.notes ?? "",
+      });
+      setEditProductId(o.productId ?? null);
+      setEditColor(o.color ?? "");
+      setEditSize(o.size ?? "");
     }
   }, [o, open]);
 
+  const productVariants = editProductId
+    ? (allVariants?.filter((v: any) => v.productId === editProductId) ?? [])
+    : [];
+  const availableColors = [...new Set(productVariants.map((v: any) => v.color))] as string[];
+  const sizesForColor   = productVariants.filter((v: any) => v.color === editColor).map((v: any) => v.size) as string[];
+  const hasVariants     = productVariants.length > 0;
+
+  const handleColorChange = (color: string) => {
+    setEditColor(color); setEditSize("");
+    form.setValue("color", color); form.setValue("size", "");
+  };
+
+  const handleSizeChange = (size: string) => {
+    setEditSize(size); form.setValue("size", size);
+    const variant = productVariants.find((v: any) => v.color === editColor && v.size === size);
+    if (variant?.unitPrice) form.setValue("unitPrice", variant.unitPrice);
+  };
+
+  const handleProductSelect = (pid: number | null) => {
+    setEditProductId(pid); setEditColor(""); setEditSize("");
+    form.setValue("color", ""); form.setValue("size", "");
+    if (pid) {
+      const p = products?.find((p: any) => p.id === pid);
+      if (p) form.setValue("product", p.name);
+    }
+  };
+
+  const selectedVariant = editProductId && editColor && editSize
+    ? productVariants.find((v: any) => v.color === editColor && v.size === editSize)
+    : null;
+  const variantStock = selectedVariant ? (selectedVariant.totalQuantity ?? 0) : null;
+
   const onSubmit = (values: z.infer<typeof rowSchema>) => {
-    updateOrder.mutate({ id: o.id, data: values }, {
+    const variant = editProductId && editColor && editSize
+      ? productVariants.find((v: any) => v.color === editColor && v.size === editSize)
+      : null;
+    updateOrder.mutate({
+      id: o.id,
+      data: {
+        ...values,
+        color: values.color || null,
+        size: values.size || null,
+        productId: editProductId || null,
+        variantId: variant?.id ?? null,
+      } as any,
+    }, {
       onSuccess: (updated: any) => {
         queryClient.setQueryData(getGetOrderQueryKey(o.id), updated);
         queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
         queryClient.invalidateQueries({ queryKey: ["invoice-orders"] });
-        toast({ title: "تم الحفظ", description: "تم تعديل المنتج بنجاح." });
+        toast({ title: "طھظ… ط§ظ„ط­ظپط¸", description: "طھظ… طھط¹ط¯ظٹظ„ ط§ظ„ظ…ظ†طھط¬ ط¨ظ†ط¬ط§ط­." });
         onSuccess(); onOpenChange(false);
       },
-      onError: () => toast({ title: "خطأ", description: "فشل الحفظ.", variant: "destructive" }),
+      onError: () => toast({ title: "ط®ط·ط£", description: "ظپط´ظ„ ط§ظ„ط­ظپط¸.", variant: "destructive" }),
     });
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md" dir="rtl">
-        <DialogHeader><DialogTitle className="text-sm flex items-center gap-2"><Pencil className="w-4 h-4 text-primary" />تعديل المنتج</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle className="text-sm flex items-center gap-2"><Pencil className="w-4 h-4 text-primary" />طھط¹ط¯ظٹظ„ ط§ظ„ظ…ظ†طھط¬</DialogTitle></DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
             <div className="space-y-2 p-3 bg-muted/10 rounded border border-border/50">
-              <p className="text-[10px] text-muted-foreground font-bold flex items-center gap-1"><Package className="w-3 h-3" />اختر من المخزون (اختياري)</p>
-              <Select value={editProductId?.toString() || "none"} onValueChange={v => {
-                if (v === "none") { setEditProductId(null); setEditColor(""); }
-                else {
-                  const pid = Number(v); setEditProductId(pid); setEditColor("");
-                  const p = products?.find((p: any) => p.id === pid);
-                  if (p) form.setValue("product", p.name);
-                }
-              }}>
-                <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="اختر من المخزون..." /></SelectTrigger>
+              <p className="text-[10px] text-muted-foreground font-bold flex items-center gap-1"><Package className="w-3 h-3" />ط§ط®طھط± ظ…ظ† ط§ظ„ظ…ط®ط²ظˆظ† (ط§ط®طھظٹط§ط±ظٹ)</p>
+              <Select value={editProductId?.toString() || "none"} onValueChange={v => handleProductSelect(v === "none" ? null : Number(v))}>
+                <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="ط§ط®طھط± ظ…ظ† ط§ظ„ظ…ط®ط²ظˆظ†..." /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">— إدخال يدوي —</SelectItem>
-                  {products?.map((p: any) => {
-                    const avail = p.totalQuantity - p.reservedQuantity - p.soldQuantity;
-                    return <SelectItem key={p.id} value={String(p.id)}>{p.name} ({avail} متاح)</SelectItem>;
-                  })}
+                  <SelectItem value="none">â€” ط¥ط¯ط®ط§ظ„ ظٹط¯ظˆظٹ â€”</SelectItem>
+                  {products?.map((p: any) => (
+                    <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-              {editProductId && allVariants?.some((v: any) => v.productId === editProductId) && (
-                <Select value={editColor || "none"} onValueChange={v => {
-                  setEditColor(v === "none" ? "" : v);
-                  const variant = allVariants?.find((va: any) => va.productId === editProductId && `${va.color}-${va.size}` === v);
-                  if (variant) form.setValue("unitPrice", variant.unitPrice);
-                }}>
-                  <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="اختر لون / مقاس..." /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">— بدون تحديد —</SelectItem>
-                    {allVariants?.filter((v: any) => v.productId === editProductId).map((v: any) => {
-                      const avail = v.totalQuantity - v.reservedQuantity - v.soldQuantity;
-                      return <SelectItem key={v.id} value={`${v.color}-${v.size}`} disabled={avail === 0}>{v.color} / {v.size} — {avail === 0 ? "نفد" : `${avail} متاح`}</SelectItem>;
-                    })}
-                  </SelectContent>
-                </Select>
+              {editProductId && hasVariants && (
+                <div className="flex gap-2 mt-2">
+                  <div className="flex-1">
+                    <label className="text-[10px] text-muted-foreground mb-1 block">ط§ظ„ظ„ظˆظ†</label>
+                    <select value={editColor} onChange={e => handleColorChange(e.target.value)}
+                      className="w-full h-9 text-sm rounded-md border border-input bg-card px-2 focus:outline-none focus:ring-1 focus:ring-ring">
+                      <option value="">ط§ط®طھط± ظ„ظˆظ†...</option>
+                      {availableColors.map((c: string) => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-[10px] text-muted-foreground mb-1 block">ط§ظ„ظ…ظ‚ط§ط³</label>
+                    <select value={editSize} disabled={!editColor} onChange={e => handleSizeChange(e.target.value)}
+                      className="w-full h-9 text-sm rounded-md border border-input bg-card px-2 focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50">
+                      <option value="">ط§ط®طھط± ظ…ظ‚ط§ط³...</option>
+                      {sizesForColor.map((s: string) => {
+                        const v = productVariants.find((pv: any) => pv.color === editColor && pv.size === s);
+                        const a = v ? (v.totalQuantity ?? 0) : 0;
+                        return <option key={s} value={s} disabled={a === 0}>{s} {a === 0 ? "(ظ†ظپط¯)" : `(${a})`}</option>;
+                      })}
+                    </select>
+                  </div>
+                  {variantStock !== null && (
+                    <div className="flex items-end pb-1">
+                      <span className={`text-[9px] font-bold shrink-0 ${variantStock <= 5 ? "text-red-500" : "text-emerald-600 dark:text-emerald-400"}`}>
+                        ظ…طھط§ط­:{variantStock}
+                      </span>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
             <div className="grid grid-cols-3 gap-2">
               <FormField control={form.control} name="product" render={({ field }) => (
-                <FormItem className="col-span-1"><FormLabel className="text-xs">اسم المنتج *</FormLabel><FormControl><Input className="h-8 text-sm" {...field} /></FormControl><FormMessage className="text-xs" /></FormItem>
+                <FormItem className="col-span-1"><FormLabel className="text-xs">ط§ط³ظ… ط§ظ„ظ…ظ†طھط¬ *</FormLabel><FormControl><Input className="h-8 text-sm" {...field} /></FormControl><FormMessage className="text-xs" /></FormItem>
               )} />
               <FormField control={form.control} name="quantity" render={({ field }) => (
-                <FormItem><FormLabel className="text-xs">الكمية</FormLabel><FormControl><Input type="number" min="1" className="h-8 text-sm" {...field} /></FormControl></FormItem>
+                <FormItem><FormLabel className="text-xs">ط§ظ„ظƒظ…ظٹط©</FormLabel><FormControl><Input type="number" min="1" className="h-8 text-sm" {...field} /></FormControl></FormItem>
               )} />
               <FormField control={form.control} name="unitPrice" render={({ field }) => (
-                <FormItem><FormLabel className="text-xs">السعر</FormLabel><FormControl><Input type="number" min="0" step="0.01" className="h-8 text-sm" {...field} /></FormControl></FormItem>
+                <FormItem><FormLabel className="text-xs">ط§ظ„ط³ط¹ط±</FormLabel><FormControl><Input type="number" min="0" step="0.01" className="h-8 text-sm" {...field} /></FormControl></FormItem>
               )} />
             </div>
+            {(!editProductId || !hasVariants) && (
+              <div className="grid grid-cols-2 gap-2">
+                <FormField control={form.control} name="color" render={({ field }) => (
+                  <FormItem><FormLabel className="text-xs">ط§ظ„ظ„ظˆظ†</FormLabel><FormControl>
+                    <Input className="h-8 text-sm" placeholder="ظ…ط«ط§ظ„: ط£ط­ظ…ط±" {...field} value={field.value ?? ""} />
+                  </FormControl></FormItem>
+                )} />
+                <FormField control={form.control} name="size" render={({ field }) => (
+                  <FormItem><FormLabel className="text-xs">ط§ظ„ظ…ظ‚ط§ط³</FormLabel><FormControl>
+                    <Input className="h-8 text-sm" placeholder="ظ…ط«ط§ظ„: M, XL, 42..." {...field} value={field.value ?? ""} />
+                  </FormControl></FormItem>
+                )} />
+              </div>
+            )}
             <FormField control={form.control} name="notes" render={({ field }) => (
-              <FormItem><FormLabel className="text-xs">ملاحظات</FormLabel><FormControl><Textarea className="min-h-[50px] text-sm resize-none" {...field} value={field.value ?? ""} /></FormControl></FormItem>
+              <FormItem><FormLabel className="text-xs">ظ…ظ„ط§ط­ط¸ط§طھ</FormLabel><FormControl><Textarea className="min-h-[50px] text-sm resize-none" {...field} value={field.value ?? ""} /></FormControl></FormItem>
             )} />
             <DialogFooter className="gap-2">
-              <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)} className="flex-1">إلغاء</Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)} className="flex-1">ط¥ظ„ط؛ط§ط،</Button>
               <Button type="submit" size="sm" disabled={updateOrder.isPending} className="flex-1 gap-1">
-                <Save className="w-3 h-3" />{updateOrder.isPending ? "جاري..." : "حفظ التعديل"}
+                <Save className="w-3 h-3" />{updateOrder.isPending ? "ط¬ط§ط±ظٹ..." : "ط­ظپط¸ ط§ظ„طھط¹ط¯ظٹظ„"}
               </Button>
             </DialogFooter>
           </form>
