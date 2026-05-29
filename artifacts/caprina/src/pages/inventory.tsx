@@ -1123,6 +1123,7 @@ export default function Inventory() {
                     value={pickedColorHex}
                     onChange={e => {
                       setPickedColorHex(e.target.value);
+                      setVariantForm(f => ({ ...f, color: f.color || e.target.value, colorHex: e.target.value }));
                     }}
                     className="w-10 h-9 rounded-lg border border-border cursor-pointer p-0.5 bg-transparent"
                     title="اختر لوناً من لوحة الألوان"
