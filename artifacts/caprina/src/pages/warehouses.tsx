@@ -235,6 +235,7 @@ function StockEditor({ warehouseId, onClose, canEdit }: { warehouseId: number; o
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["stock-intelligence"] });
       qc.invalidateQueries({ queryKey: ["smart-insights"] });
+      qc.invalidateQueries({ queryKey: ["analytics-alerts"] });
       if (selectedVariantId) {
         qc.invalidateQueries({ queryKey: ["variant-wh-stock", Number(selectedVariantId)] });
       }
@@ -258,6 +259,7 @@ function StockEditor({ warehouseId, onClose, canEdit }: { warehouseId: number; o
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["stock-intelligence"] });
       qc.invalidateQueries({ queryKey: ["smart-insights"] });
+      qc.invalidateQueries({ queryKey: ["analytics-alerts"] });
       if (variantId) {
         qc.invalidateQueries({ queryKey: ["variant-wh-stock", variantId] });
       }

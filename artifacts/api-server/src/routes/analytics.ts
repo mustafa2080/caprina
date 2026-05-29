@@ -782,6 +782,39 @@ router.get("/analytics/product-performance", requirePermission("orders.financial
 // Smart automatic alerts: high returns, losing products, low stock, low margin
 router.get("/analytics/alerts", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req);
+  const alertProductConditions: any[] = [eq(productsTable.isArchived, false)];
+  if (tenantId !== null) alertProductConditions.push(eq(productsTable.tenantId, tenantId));
+
+  const [productVersionRows, variantVersionRows, stockVersionRows] = await Promise.all([
+    db.select({
+      count: count(),
+      lastUpdated: sql<string | null>`MAX(${productsTable.updatedAt})`,
+    })
+      .from(productsTable)
+      .where(and(...alertProductConditions)),
+    db.select({
+      count: count(),
+      lastUpdated: sql<string | null>`MAX(${productVariantsTable.updatedAt})`,
+    })
+      .from(productVariantsTable)
+      .innerJoin(productsTable, and(eq(productVariantsTable.productId, productsTable.id), ...alertProductConditions))
+      .where(and(...alertProductConditions)),
+    db.select({
+      count: count(),
+      qty: sql<number | null>`COALESCE(SUM(${warehouseStockTable.quantity}), 0)`,
+      lastUpdated: sql<string | null>`MAX(${warehouseStockTable.updatedAt})`,
+    })
+      .from(warehouseStockTable)
+      .innerJoin(productsTable, and(eq(warehouseStockTable.productId, productsTable.id), ...alertProductConditions))
+      .where(and(...alertProductConditions)),
+  ]);
+
+  const productVersion = productVersionRows[0] ?? { count: 0, lastUpdated: null };
+  const variantVersion = variantVersionRows[0] ?? { count: 0, lastUpdated: null };
+  const stockVersion = stockVersionRows[0] ?? { count: 0, qty: 0, lastUpdated: null };
+  const cacheKey = `analytics-alerts:${tenantId ?? "global"}:${productVersion.count}:${productVersion.lastUpdated ?? ""}:${variantVersion.count}:${variantVersion.lastUpdated ?? ""}:${stockVersion.count}:${stockVersion.qty ?? 0}:${stockVersion.lastUpdated ?? ""}`;
+  const cached = getCached<any>(cacheKey);
+  if (cached) { res.json(cached); return; }
   const alertsBaseConditions: any[] = [isNull(ordersTable.deletedAt)];
   if (tenantId !== null) alertsBaseConditions.push(eq(ordersTable.tenantId, tenantId));
   const [allOrders, products, variants] = await Promise.all([
@@ -792,6 +825,42 @@ router.get("/analytics/alerts", async (req, res): Promise<void> => {
 
   const variantMap = new Map<number, number | null>(variants.map(v => [v.id, v.costPrice]));
   const productMap = new Map<number, number | null>(products.map(p => [p.id, p.costPrice]));
+  const liveProducts = products.filter(p => !(p as any).isArchived);
+  const productsWithVariants = new Set(variants.map(v => v.productId));
+  const variantStockRows = await db
+    .select({
+      variantId: warehouseStockTable.variantId,
+      productId: productVariantsTable.productId,
+      quantity: warehouseStockTable.quantity,
+    })
+    .from(warehouseStockTable)
+    .innerJoin(productVariantsTable, eq(warehouseStockTable.variantId, productVariantsTable.id))
+    .innerJoin(productsTable, and(
+      eq(productVariantsTable.productId, productsTable.id),
+      eq(productsTable.isArchived, false),
+      ...(tenantId !== null ? [eq(productsTable.tenantId, tenantId)] : []),
+    ));
+  const productStockRows = await db
+    .select({
+      productId: productsTable.id,
+      quantity: warehouseStockTable.quantity,
+    })
+    .from(warehouseStockTable)
+    .innerJoin(productsTable, and(
+      eq(warehouseStockTable.productId, productsTable.id),
+      eq(productsTable.isArchived, false),
+      ...(tenantId !== null ? [eq(productsTable.tenantId, tenantId)] : []),
+    ));
+  const stockByProductId = new Map<number, number>();
+  const stockByVariantId = new Map<number, number>();
+  for (const row of variantStockRows) {
+    stockByVariantId.set(row.variantId, (stockByVariantId.get(row.variantId) ?? 0) + Math.max(0, row.quantity));
+    stockByProductId.set(row.productId, (stockByProductId.get(row.productId) ?? 0) + Math.max(0, row.quantity));
+  }
+  for (const row of productStockRows) {
+    if (productsWithVariants.has(row.productId)) continue;
+    stockByProductId.set(row.productId, (stockByProductId.get(row.productId) ?? 0) + Math.max(0, row.quantity));
+  }
 
   type Alert = {
     id: string;
@@ -919,15 +988,15 @@ router.get("/analytics/alerts", async (req, res): Promise<void> => {
   }
 
   // Low stock alerts (products + variants)
-  for (const p of products) {
-    const avail = p.totalQuantity - p.reservedQuantity - p.soldQuantity;
-    if (avail <= p.lowStockThreshold && p.totalQuantity > 0) {
+  for (const p of liveProducts) {
+    const avail = stockByProductId.get(p.id) ?? 0;
+    if (avail <= p.lowStockThreshold && avail > 0) {
       alerts.push({
         id: `low_stock_p_${p.id}`,
         type: "LOW_STOCK",
-        severity: avail <= 0 ? "high" : "medium",
-        title: avail <= 0 ? `نفد المخزون` : `مخزون منخفض`,
-        detail: `${p.name} — ${avail <= 0 ? "نفد الستوك" : `باقي ${avail} وحدة`}`,
+        severity: "medium",
+        title: `مخزون منخفض`,
+        detail: `${p.name} — باقي ${avail} وحدة`,
         productName: p.name,
         value: avail,
       });
@@ -935,15 +1004,15 @@ router.get("/analytics/alerts", async (req, res): Promise<void> => {
   }
 
   for (const v of variants) {
-    const avail = v.totalQuantity - v.reservedQuantity - v.soldQuantity;
-    if (avail <= v.lowStockThreshold && v.totalQuantity > 0) {
+    const avail = stockByVariantId.get(v.id) ?? 0;
+    if (avail <= v.lowStockThreshold && avail > 0) {
       const label = [v.color, v.size].filter(Boolean).join(" / ");
       alerts.push({
         id: `low_stock_v_${v.id}`,
         type: "LOW_STOCK",
-        severity: avail <= 0 ? "high" : "medium",
-        title: avail <= 0 ? `نفد المخزون` : `مخزون منخفض`,
-        detail: `متغير ${label} — ${avail <= 0 ? "نفد الستوك" : `باقي ${avail} وحدة`}`,
+        severity: "medium",
+        title: `مخزون منخفض`,
+        detail: `متغير ${label} — باقي ${avail} وحدة`,
         value: avail,
       });
     }
@@ -962,6 +1031,15 @@ router.get("/analytics/alerts", async (req, res): Promise<void> => {
       low: alerts.filter(a => a.severity === "low").length,
     },
   });
+  setCached(cacheKey, {
+    alerts,
+    counts: {
+      total: alerts.length,
+      high: alerts.filter(a => a.severity === "high").length,
+      medium: alerts.filter(a => a.severity === "medium").length,
+      low: alerts.filter(a => a.severity === "low").length,
+    },
+  }, 15 * 60 * 1000);
 });
 
 // ─── GET /api/analytics/stock-intelligence ──────────────────────────────────────

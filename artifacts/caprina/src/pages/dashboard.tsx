@@ -735,9 +735,7 @@ export default function Dashboard() {
   const highAlerts = alertsData?.alerts.filter(a => a.severity === "high" && a.type !== "HIGH_RETURN") ?? [];
   const allAlerts = alertsData?.alerts ?? [];
 
-  const lowStockProducts = products?.filter(p =>
-    (p.totalQuantity - p.reservedQuantity - p.soldQuantity) <= p.lowStockThreshold
-  ) ?? [];
+  const lowStockAlerts = alertsData?.alerts.filter(a => a.type === "LOW_STOCK") ?? [];
 
   const hasCostData = fin && (fin.cashIn > 0 || fin.inventoryAtCost > 0);
   const noCostWarning = fin && fin.cashIn > 0 && fin.costOfGoods === 0;
@@ -2007,7 +2005,7 @@ export default function Dashboard() {
               } catch { return 0; }
             })();
             const highAlertList = highAlerts ?? [];
-            const lowStock      = lowStockProducts ?? [];
+            const lowStock      = lowStockAlerts ?? [];
 
             const tasks: { id:string; icon:any; color:string; bg:string; label:string; count:number; href:string; priority:"high"|"med"|"low" }[] = [
               pendingShip.length > 0 && {
