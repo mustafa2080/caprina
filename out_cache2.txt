@@ -1,0 +1,3 @@
+﻿OK smart-insights: added setCached to response
+OK charts: added setCached to response
+Saved 2 more fixes

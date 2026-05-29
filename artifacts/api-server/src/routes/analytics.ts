@@ -1029,6 +1029,9 @@ router.get("/analytics/stock-intelligence", async (req, res): Promise<void> => {
 // return insights, stock predictor
 router.get("/analytics/smart-insights", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req);
+  const siCacheKey = `smart-insights:${tenantId ?? "global"}`;
+  const siCached = getCached<any>(siCacheKey);
+  if (siCached) { res.json(siCached); return; }
   const smBaseConditions: any[] = [isNull(ordersTable.deletedAt)];
   if (tenantId !== null) smBaseConditions.push(eq(ordersTable.tenantId, tenantId));
   const [allOrders, products, variants, allManifests, allManifestOrders] = await Promise.all([
@@ -1371,19 +1374,24 @@ router.get("/analytics/smart-insights", async (req, res): Promise<void> => {
     .sort((a, b) => (a.daysUntilStockout ?? 999) - (b.daysUntilStockout ?? 999))
     .slice(0, 8);
 
-  res.json({
+  const siResult = {
     adAttribution: { bestSource, breakdown: adBreakdown },
     stars,
     deadStock,
     returnInsights: { byReason, highReturnProducts, totalReturnRate, totalReturns },
     stockPredictor,
-  });
+  };
+  setCached(siCacheKey, siResult, 15 * 60 * 1000); // 15 min cache
+  res.json(siResult);
 });
 
 // ─── GET /api/analytics/charts ──────────────────────────────────────────────
 // Returns all data needed for visual charts: status breakdown, weekly sales, ad sources
 router.get("/analytics/charts", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req);
+  const chartsCacheKey = `charts:${tenantId ?? "global"}`;
+  const chartsCached = getCached<any>(chartsCacheKey);
+  if (chartsCached) { res.json(chartsCached); return; }
   const chartsBaseConditions: any[] = [isNull(ordersTable.deletedAt)];
   if (tenantId !== null) chartsBaseConditions.push(eq(ordersTable.tenantId, tenantId));
 
@@ -1576,9 +1584,11 @@ router.get("/analytics/charts", async (req, res): Promise<void> => {
     }))
     .sort((a, b) => b.count - a.count);
 
-  res.json({ statusBreakdown, weeklySales: days, monthlySales: monthDays, adSourceBreakdown, total, weekComparison,
+  const chartsResult = { statusBreakdown, weeklySales: days, monthlySales: monthDays, adSourceBreakdown, total, weekComparison,
     _debug: { shippingFromOrders: [...chartsProcessedShippingInvoices].length, shippingFromManifests: chartsCountedManifests.size, totalRevenue: invoices.reduce((s,i)=>s+i.revenue,0) }
-  });
+  };
+  setCached(chartsCacheKey, chartsResult, 10 * 60 * 1000); // 10 min cache
+  res.json(chartsResult);
 });
 
 // ─── GET /api/analytics/monthly-sales ─────────────────────────────────────────

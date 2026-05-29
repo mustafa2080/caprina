@@ -452,18 +452,15 @@ function DashTeamMemberRow({ member, rank, maxScore, showProfit }: {
 type Period = "today" | "week" | "month";
 
 /** Card لشركة شحن في الداشبورد مع إحصائياتها */
-function DashShippingCompanyRow({ company, canViewFinancials }: { company: any; canViewFinancials: boolean }) {
-  const { data: stats } = useQuery({
-    queryKey: ["company-stats", company.id],
-    queryFn: () => manifestsApi.companyStats(company.id),
-    staleTime: 60000,
-  });
-  const { data: manifests } = useQuery({
-    queryKey: ["shipping-manifests", company.id],
-    queryFn: () => manifestsApi.list(company.id),
-    staleTime: 30000,
-  });
-  const openManifest = manifests?.find((m: any) => m.status === "open") ?? null;
+function DashShippingCompanyRow({ company, allStats, allManifests, canViewFinancials }: {
+  company: any;
+  allStats: Record<number, any>;
+  allManifests: Record<number, any[]>;
+  canViewFinancials: boolean;
+}) {
+  const stats = allStats[company.id] ?? null;
+  const manifests = allManifests[company.id] ?? [];
+  const openManifest = manifests.find((m: any) => m.status === "open") ?? null;
   const deliveryRate = stats?.deliveryRate ?? 0;
   const rateColor = deliveryRate >= 70 ? "text-emerald-500 dark:text-emerald-400" : deliveryRate >= 40 ? "text-amber-500 dark:text-amber-400" : "text-red-500 dark:text-red-400";
   const barColor   = deliveryRate >= 70 ? "bg-emerald-500" : deliveryRate >= 40 ? "bg-amber-500" : "bg-red-500";
@@ -561,70 +558,64 @@ export default function Dashboard() {
   const [showDamagedModal, setShowDamagedModal] = useState(false);
   const [clientPeriod, setClientPeriod] = useState<"thisWeek" | "lastWeek" | "thisMonth">("thisWeek");
   const { data: summary } = useGetOrdersSummary({
-    query: { queryKey: ["orders-summary"], staleTime: 30000, refetchOnWindowFocus: true, refetchInterval: 60000 },
+    query: { queryKey: ["orders-summary"], staleTime: 60_000, refetchOnWindowFocus: false, refetchInterval: 120_000 },
   });
   const { data: recentOrders, isLoading: isRecentLoading } = useGetRecentOrders({
-    query: { queryKey: ["recent-orders"], staleTime: 30000, refetchOnWindowFocus: true, refetchInterval: 60000 },
+    query: { queryKey: ["recent-orders"], staleTime: 60_000, refetchOnWindowFocus: false, refetchInterval: 120_000 },
   });
-  const { data: products } = useQuery({ queryKey: ["products"], queryFn: productsApi.list, staleTime: 60000 });
+  const { data: products } = useQuery({ queryKey: ["products"], queryFn: productsApi.list, staleTime: 5 * 60_000, refetchOnWindowFocus: false });
   const { data: analytics, isLoading: isAnalyticsLoading } = useQuery({
     queryKey: ["analytics-profit", period],
     queryFn: () => analyticsApi.profit({ period }),
-    staleTime: 30000,
-    refetchOnWindowFocus: true,
-    refetchInterval: 120000,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
     enabled: canViewFinancials,
   });
   const { data: fin, isLoading: isFinLoading } = useQuery({
     queryKey: ["analytics-financial", period],
     queryFn: () => analyticsApi.financialSummary({ period }),
-    staleTime: 30000,
-    refetchOnWindowFocus: true,
-    refetchInterval: 120000,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
     enabled: canViewFinancials,
   });
   const { data: alertsData } = useQuery({
     queryKey: ["analytics-alerts"],
     queryFn: analyticsApi.alerts,
-    staleTime: 30000,
-    refetchOnWindowFocus: true,
-    refetchInterval: 60000,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
   const { data: smartData } = useQuery({
     queryKey: ["smart-insights"],
     queryFn: analyticsApi.smartInsights,
-    staleTime: 60000,
-    refetchOnWindowFocus: true,
-    refetchInterval: 180000,
+    staleTime: 10 * 60_000,
+    refetchOnWindowFocus: false,
   });
   const { data: recentClients = [] } = useQuery<any[]>({
     queryKey: ["recent-clients-dashboard"],
     queryFn: () => apiFetchDashboard<any[]>("/finance/clients?limit=5"),
-    staleTime: 60000,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
-
   const { data: teamPerf = [] } = useQuery<TeamMemberExtStats[]>({
     queryKey: ["team-perf-dashboard"],
     queryFn: () => teamAnalyticsApi.teamPerformanceExtended(),
-    staleTime: 120000,
-    refetchInterval: 180000,
+    staleTime: 10 * 60_000,
+    refetchOnWindowFocus: false,
   });
-
   const { data: saleOrders = [] } = useQuery<any[]>({
     queryKey: ["sale-orders-dashboard-chart"],
     queryFn: () => apiFetchDashboard<any[]>("/finance/sale-orders?limit=200"),
-    staleTime: 60000,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
-
   const { data: chartsData } = useQuery({
     queryKey: ["analytics-charts"],
     queryFn: analyticsApi.charts,
-    staleTime: 30000,
-    refetchOnWindowFocus: true,
-    refetchInterval: 60000,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchInterval: 120_000,
   });
-
-  const { data: productPerf, isLoading: isPerfLoading } = useQuery({
+  const { data: shippingFollowup = [] } = useQuery<any[]>({
     queryKey: ["analytics-product-performance"],
     queryFn: analyticsApi.productPerformance,
     staleTime: 30 * 60 * 1000,          // ✅ 30 دقيقة — متطابق مع cache الـ backend
@@ -638,16 +629,47 @@ export default function Dashboard() {
   const { data: shippingFollowup = [] } = useQuery<any[]>({
     queryKey: ["shipping-followup-dashboard"],
     queryFn: analyticsApi.shippingFollowup,
-    staleTime: 60000,
-    refetchOnWindowFocus: true,
-    refetchInterval: 120000,
+    staleTime: 5 * 60_000,
+    gcTime: 10 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    placeholderData: (prev) => prev,
   });
 
   const { data: shippingCompanies = [] } = useQuery<any[]>({
     queryKey: ["shipping"],
     queryFn: shippingApi.list,
-    staleTime: 60000,
-    refetchOnWindowFocus: true,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+  });
+
+  // ── Batch shipping stats: request واحد لكل الشركات بدل N+1 ──
+  const { data: allShippingStats = {} } = useQuery<Record<number, any>>({
+    queryKey: ["shipping-stats-all"],
+    queryFn: async () => {
+      if (!shippingCompanies.length) return {};
+      const results = await Promise.all(
+        shippingCompanies.map((c: any) => manifestsApi.companyStats(c.id).then(s => [c.id, s] as const).catch(() => [c.id, null] as const))
+      );
+      return Object.fromEntries(results);
+    },
+    enabled: shippingCompanies.length > 0,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+  });
+
+  const { data: allShippingManifests = {} } = useQuery<Record<number, any[]>>({
+    queryKey: ["shipping-manifests-all"],
+    queryFn: async () => {
+      if (!shippingCompanies.length) return {};
+      const results = await Promise.all(
+        shippingCompanies.map((c: any) => manifestsApi.list(c.id).then(ms => [c.id, ms] as const).catch(() => [c.id, []] as const))
+      );
+      return Object.fromEntries(results);
+    },
+    enabled: shippingCompanies.length > 0,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const { data: employeeProfiles = [] } = useQuery<any[]>({
@@ -660,9 +682,11 @@ export default function Dashboard() {
   const { data: cashRegisters } = useQuery({
     queryKey: ["cash-registers-list"],
     queryFn: cashRegistersApi.list,
-    staleTime: 60000,
-    refetchOnWindowFocus: true,
-    refetchInterval: 120000,
+    staleTime: 5 * 60_000,
+    gcTime: 10 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    placeholderData: (prev) => prev,
     enabled: canViewFinancials,
   });
   const totalCash = cashRegisters?.totalBalance ?? 0;

@@ -266,10 +266,10 @@ export default function Inventory() {
   const [isVariantSubmitting, setIsVariantSubmitting] = useState(false);
   const [editWarehouseDist, setEditWarehouseDist] = useState<WarehouseDistEntry[]>([]);
 
-  const { data: products, isLoading } = useQuery({ queryKey: ["products"], queryFn: productsApi.list, staleTime: 0, refetchOnWindowFocus: true });
-  const { data: allVariants } = useQuery({ queryKey: ["variants"], queryFn: variantsApi.listAll, staleTime: 0, refetchOnWindowFocus: true });
+  const { data: products, isLoading } = useQuery({ queryKey: ["products"], queryFn: productsApi.list, staleTime: 2 * 60_000, gcTime: 10 * 60_000, refetchOnWindowFocus: false, refetchOnMount: false, placeholderData: (prev) => prev });
+  const { data: allVariants } = useQuery({ queryKey: ["variants"], queryFn: variantsApi.listAll, staleTime: 2 * 60_000, gcTime: 10 * 60_000, refetchOnWindowFocus: false, refetchOnMount: false, placeholderData: (prev) => prev });
   const { data: stockIntel } = useQuery({ queryKey: ["stock-intelligence"], queryFn: analyticsApi.stockIntelligence, staleTime: 30000 });
-  const { data: warehouses } = useQuery({ queryKey: ["warehouses"], queryFn: warehousesApi.list, staleTime: 0, refetchOnWindowFocus: true });
+  const { data: warehouses } = useQuery({ queryKey: ["warehouses"], queryFn: warehousesApi.list, staleTime: 10 * 60_000, gcTime: 30 * 60_000, refetchOnWindowFocus: false, refetchOnMount: false });
 
   const stockMap = new Map<string, StockIntelligenceItem>(
     stockIntel?.items.map(i => [i.name.trim().toLowerCase(), i]) ?? []
