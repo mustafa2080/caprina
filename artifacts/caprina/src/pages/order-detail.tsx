@@ -1,4 +1,4 @@
-﻿import { useParams, Link, useLocation } from "wouter";
+import { useParams, Link, useLocation } from "wouter";
 import { format } from "date-fns";
 import { ArrowRight, AlertCircle, Pencil, Save, X, Printer, Phone, MapPin, Trash2, RotateCcw, TrendingUp, TrendingDown, AlertTriangle, Lock, MessageCircle, Package, Truck, CheckCircle2, Clock, Plus, Search } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -449,10 +449,10 @@ function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, p
       });
       queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
       queryClient.invalidateQueries({ queryKey: ["invoice-orders"] });
-      toast({ title: "\u062a\u0645 \u0627\u0644\u062d\u0641\u0638", description: "\u062a\u0645 \u062a\u0639\u062f\u064a\u0644 \u0627\u0644\u0645\u0646\u062a\u062c \u0628\u0646\u062c\u0627\u062d." });
+      toast({ title: "تم الحفظ", description: "تم تعديل المنتج بنجاح." });
       onSuccess(); onOpenChange(false);
     } catch {
-      toast({ title: "\u062e\u0637\u0623", description: "\u0641\u0634\u0644 \u0627\u0644\u062d\u0641\u0638.", variant: "destructive" });
+      toast({ title: "خطأ", description: "فشل الحفظ.", variant: "destructive" });
     }
   };
 
@@ -471,13 +471,13 @@ function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, p
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-sm">
-            <Pencil className="w-4 h-4 text-primary" />\u062a\u0639\u062f\u064a\u0644 \u0627\u0644\u0645\u0646\u062a\u062c
+            <Pencil className="w-4 h-4 text-primary" />تعديل المنتج
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-1">
           <div>
-            <label className="text-xs font-medium mb-1.5 block">\u0627\u062e\u062a\u0631 \u0645\u0646 \u0627\u0644\u0645\u062e\u0632\u0648\u0646</label>
+            <label className="text-xs font-medium mb-1.5 block">اختر من المخزون</label>
             {selectedProduct ? (
               <div className="flex items-center justify-between gap-2 px-3 py-2 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800 rounded-md">
                 <div className="flex items-center gap-2">
@@ -500,7 +500,7 @@ function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, p
                   <input
                     type="text"
                     className="w-full h-9 text-sm pr-8 pl-3 rounded-md border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring"
-                    placeholder={`\u0627\u0628\u062d\u062b \u0639\u0646 \u0645\u0646\u062a\u062c... (\u062d\u0627\u0644\u064a\u0627\u0651: ${o?.product ?? ""})`}
+                    placeholder={`ابحث عن منتج... (حالياّ: ${o?.product ?? ""})`}
                     value={searchQuery}
                     onChange={e => { setSearchQuery(e.target.value); setSearchOpen(true); }}
                     onFocus={() => setSearchOpen(true)}
@@ -516,7 +516,7 @@ function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, p
                   <div className="mt-1 w-full bg-popover border border-border rounded-md shadow-lg max-h-48 overflow-y-auto z-10 relative">
                     {filteredProducts.length === 0 ? (
                       <div className="px-3 py-4 text-center text-sm text-muted-foreground">
-                        {searchQuery ? "\u0644\u0627 \u064a\u0648\u062c\u062f \u0645\u0646\u062a\u062c \u0628\u0647\u0630\u0627 \u0627\u0644\u0627\u0633\u0645" : "\u0644\u0627 \u062a\u0648\u062c\u062f \u0645\u0646\u062a\u062c\u0627\u062a \u0641\u064a \u0627\u0644\u0645\u062e\u0632\u0648\u0646"}
+                        {searchQuery ? "لا يوجد منتج بهذا الاسم" : "لا توجد منتجات في المخزون"}
                       </div>
                     ) : filteredProducts.map((p: any) => {
                       const variants = (allVariants as any[]).filter((v: any) => v.productId === p.id);
@@ -539,7 +539,7 @@ function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, p
                             <span className="font-medium truncate">{p.name}</span>
                           </div>
                           <Badge variant="outline" className={`text-[9px] font-bold shrink-0 ${stock > 0 ? "border-emerald-400 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400" : "border-red-400 text-red-600"}`}>
-                            {stock > 0 ? `${stock} \u0645\u062a\u0627\u062d` : "\u0646\u0641\u062f"}
+                            {stock > 0 ? `${stock} متاح` : "نفد"}
                           </Badge>
                         </button>
                       );
@@ -553,27 +553,27 @@ function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, p
           {selectedProduct && hasVariants && (
             <div className="flex items-end gap-2 p-2 bg-muted/10 rounded-md border border-border/40">
               <div className="flex-1">
-                <label className="text-[10px] text-muted-foreground mb-1 block">\u0627\u0644\u0644\u0648\u0646</label>
+                <label className="text-[10px] text-muted-foreground mb-1 block">اللون</label>
                 <select value={row.color} onChange={e => updateRow(0, "color", e.target.value)}
                   className="w-full h-9 text-sm rounded-md border border-input bg-card px-2 focus:outline-none focus:ring-1 focus:ring-ring">
-                  <option value="">\u0627\u062e\u062a\u0631 \u0644\u0648\u0646...</option>
+                  <option value="">اختر لون...</option>
                   {availableColors.map((c: string) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
               <div className="flex-1">
-                <label className="text-[10px] text-muted-foreground mb-1 block">\u0627\u0644\u0645\u0642\u0627\u0633</label>
+                <label className="text-[10px] text-muted-foreground mb-1 block">المقاس</label>
                 <select value={row.size} disabled={!row.color} onChange={e => updateRow(0, "size", e.target.value)}
                   className="w-full h-9 text-sm rounded-md border border-input bg-card px-2 focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50">
-                  <option value="">\u0627\u062e\u062a\u0631 \u0645\u0642\u0627\u0633...</option>
+                  <option value="">اختر مقاس...</option>
                   {sizesForColor.map((s: string) => {
                     const v = productVariants.find((pv: any) => pv.color === row.color && pv.size === s);
                     const a = v ? (v.totalQuantity ?? 0) : 0;
-                    return <option key={s} value={s} disabled={a === 0}>{s} {a === 0 ? "(\u0646\u0641\u062f)" : `(${a})`}</option>;
+                    return <option key={s} value={s} disabled={a === 0}>{s} {a === 0 ? "(نفد)" : `(${a})`}</option>;
                   })}
                 </select>
               </div>
               <div>
-                <label className="text-[10px] text-muted-foreground mb-1 block">\u0627\u0644\u0643\u0645\u064a\u0629</label>
+                <label className="text-[10px] text-muted-foreground mb-1 block">الكمية</label>
                 <div className="flex items-center gap-1">
                   <button type="button" onClick={() => updateRow(0, "quantity", Math.max(1, row.quantity - 1))}
                     className="w-7 h-9 flex items-center justify-center rounded border border-input bg-card hover:bg-muted text-sm font-bold">-</button>
@@ -583,14 +583,14 @@ function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, p
                 </div>
               </div>
               {avail !== null && (
-                <span className={`text-[9px] font-bold mb-2 shrink-0 ${avail <= 5 ? "text-red-500" : "text-emerald-600 dark:text-emerald-400"}`}>\u0645\u062a\u0627\u062d:{avail}</span>
+                <span className={`text-[9px] font-bold mb-2 shrink-0 ${avail <= 5 ? "text-red-500" : "text-emerald-600 dark:text-emerald-400"}`}>متاح:{avail}</span>
               )}
             </div>
           )}
 
           {(!selectedProduct || !hasVariants) && (
             <div>
-              <label className="text-xs font-medium mb-1.5 block">\u0627\u0644\u0643\u0645\u064a\u0629 *</label>
+              <label className="text-xs font-medium mb-1.5 block">الكمية *</label>
               <div className="flex items-center gap-2">
                 <button type="button" onClick={() => updateRow(0, "quantity", Math.max(1, row.quantity - 1))}
                   className="w-9 h-9 flex items-center justify-center rounded border border-input bg-card hover:bg-muted text-sm font-bold">-</button>
@@ -603,29 +603,29 @@ function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, p
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium mb-1.5 block">\u0633\u0639\u0631 \u0627\u0644\u0628\u064a\u0639 (\u062c.\u0645) *</label>
+              <label className="text-xs font-medium mb-1.5 block">سعر البيع (ج.م) *</label>
               <Input type="number" min={0} value={unitPrice || ""} onChange={e => setUnitPrice(Number(e.target.value))} className="h-9 text-sm" />
             </div>
             {canViewFinancials && (
               <div>
-                <label className="text-xs font-medium mb-1.5 block">\u062a\u0643\u0644\u0641\u0629 \u0627\u0644\u0648\u062d\u062f\u0629 (\u062c.\u0645)</label>
+                <label className="text-xs font-medium mb-1.5 block">تكلفة الوحدة (ج.م)</label>
                 <Input type="number" min={0} value={costPrice ?? ""} onChange={e => setCostPrice(e.target.value ? Number(e.target.value) : null)} className="h-9 text-sm" />
               </div>
             )}
           </div>
 
           <div>
-            <label className="text-xs font-medium mb-1.5 block">\u0645\u0644\u0627\u062d\u0638\u0627\u062a</label>
+            <label className="text-xs font-medium mb-1.5 block">ملاحظات</label>
             <Textarea className="min-h-[50px] text-sm resize-none" value={notes} onChange={e => setNotes(e.target.value)} />
           </div>
         </div>
 
         <DialogFooter className="flex gap-2 mt-2">
-          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} className="flex-1">\u0625\u0644\u063a\u0627\u0621</Button>
+          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} className="flex-1">إلغاء</Button>
           <Button size="sm" onClick={handleSubmit}
             disabled={updateOrder.isPending || unitPrice <= 0}
             className="flex-1 gap-1">
-            <Save className="w-3 h-3" />{updateOrder.isPending ? "\u062c\u0627\u0631\u064a \u0627\u0644\u062d\u0641\u0638..." : "\u062d\u0641\u0638 \u0627\u0644\u062a\u0639\u062f\u064a\u0644"}
+            <Save className="w-3 h-3" />{updateOrder.isPending ? "جاري الحفظ..." : "حفظ التعديل"}
           </Button>
         </DialogFooter>
       </DialogContent>

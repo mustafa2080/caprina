@@ -618,7 +618,7 @@ export default function Orders() {
                 }));
                 const header = Object.keys(rows[0]).join(",");
                 const csv = [header, ...rows.map(r => Object.values(r).map(v => `"${v}"`).join(","))].join("\n");
-                const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+                const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a");
                 a.href = url; a.download = `orders-${new Date().toISOString().slice(0,10)}.csv`; a.click();

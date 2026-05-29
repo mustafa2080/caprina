@@ -330,7 +330,7 @@ export default function Movements() {
   }, []);
 
   // نص سليم = فقط عربي/إنجليزي/أرقام/مسافات/رموز شائعة — نشيل أي garbled encoding
-  const isReadableText = (s: string) => /^[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFFa-zA-Z0-9\s\-_#\/\(\)،.,:؟!@٠-٩]+$/.test(s.trim());
+  const isReadableText = (s: string) => /^[؀-ۿݐ-ݿﭐ-﷿ﹰ-﻿a-zA-Z0-9\s\-_#\/\(\)،.,:؟!@٠-٩]+$/.test(s.trim());
 
   const getColOptions = useCallback((col: ColKey): string[] => {
     const vals = [...new Set((movements as InventoryMovement[]).map(m => getColVal(col, m)))]

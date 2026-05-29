@@ -1,4 +1,4 @@
-﻿import React, { useState, useMemo, memo, useCallback } from "react";
+import React, { useState, useMemo, memo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useListOrders } from "@workspace/api-client-react";
 import { analyticsApi, apiFetch, type ChartsData, type ChartDayItem } from "@/lib/api";
@@ -561,9 +561,9 @@ function GlassXTick({ x, y, payload, enriched }: any) {
 type SalesView = "current" | "prev" | "monthly";
 
 const SALES_VIEW_TABS: { id: SalesView; label: string; emoji: string; color: string }[] = [
-  { id: "current", label: "\u0627\u0644\u0623\u0633\u0628\u0648\u0639 \u0627\u0644\u062d\u0627\u0644\u064a", emoji: "\ud83d\udcc5", color: "#FFD54F" },
-  { id: "prev",    label: "\u0627\u0644\u0623\u0633\u0628\u0648\u0639 \u0627\u0644\u0645\u0627\u0636\u064a", emoji: "\u23ea",         color: "#7E57C2" },
-  { id: "monthly", label: "\u0627\u0644\u0634\u0647\u0631 \u0627\u0644\u062d\u0627\u0644\u064a",   emoji: "\ud83d\udcc6",         color: "#26A69A" },
+  { id: "current", label: "الأسبوع الحالي", emoji: "📅", color: "#FFD54F" },
+  { id: "prev",    label: "الأسبوع الماضي", emoji: "⏪",         color: "#7E57C2" },
+  { id: "monthly", label: "الشهر الحالي",   emoji: "📆",         color: "#26A69A" },
 ];
 
 const WeeklyBars = memo(function WeeklyBars({
