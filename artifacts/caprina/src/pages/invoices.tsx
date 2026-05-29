@@ -31,7 +31,7 @@ const statusClasses: Record<string, string> = {
 };
 
 const formatCurrency = (n: number) =>
-  new Intl.NumberFormat("en-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 2 }).format(n);
+  new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n) + " ج.م";
 
 type InvoiceListStatus = "all" | "warehouse_ready" | "in_shipping" | "received" | "delayed" | "returned" | "partial_received";
 
