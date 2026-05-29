@@ -500,7 +500,7 @@ export default function Inventory() {
 
   const getProductVariants = (productId: number) => allVariants?.filter(v => v.productId === productId) ?? [];
 
-  const totalVariants = allVariants?.length ?? 0;
+  const totalVariants = allVariants?.filter(v => (v.sku ?? "").trim().length > 0).length ?? 0;
   const lowStockVariants = allVariants?.filter(v => (v.sku ?? "").trim().length > 0 && v.totalQuantity > 0 && v.totalQuantity <= v.lowStockThreshold).length ?? 0;
   const totalAvailable = allVariants?.reduce((s, v) => s + Math.max(0, v.totalQuantity), 0) ?? 0;
   const inventoryValue = allVariants?.reduce((s, v) => s + Math.max(0, v.totalQuantity) * (v.costPrice ?? v.unitPrice * 0.6), 0) ?? 0;
