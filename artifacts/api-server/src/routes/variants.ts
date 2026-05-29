@@ -85,33 +85,51 @@ router.post("/products/:productId/variants", requireRole("admin", "warehouse"), 
   if (isNaN(productId)) { res.status(400).json({ error: "Invalid product ID" }); return; }
 
   const parsed = CreateVariantSchema.safeParse(req.body);
-  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return; }
 
-  const [product] = await db.select().from(productsTable).where(eq(productsTable.id, productId));
-  if (!product) { res.status(404).json({ error: "Product not found" }); return; }
-
-  const skuInput = parsed.data.sku?.trim();
-  const sku = skuInput || null;
-  const colorHex = parsed.data.colorHex?.trim() || null;
-
-  const insertResult = await db.insert(productVariantsTable).values({
-    productId, ...parsed.data, sku, colorHex, reservedQuantity: 0, soldQuantity: 0,
-  });
-  const insertId = (insertResult as any)[0]?.insertId ?? (insertResult as any).insertId;
-  const [variant] = await db.select().from(productVariantsTable).where(eq(productVariantsTable.id, insertId));
-
-  await logAudit({ action: "create", entityType: "variant", entityId: variant.id, entityName: `${product.name} — ${variant.color} ${variant.size}`, after: { color: variant.color, size: variant.size, totalQuantity: variant.totalQuantity }, userId: req.user?.id, userName: req.user?.displayName });
-
-  // ── تلقائياً: أضف صف بكمية 0 في كل المخازن الموجودة ──────────────────────
   try {
-    const allWarehouses = await db.select({ id: warehousesTable.id }).from(warehousesTable);
-    const now = new Date();
-    for (const wh of allWarehouses) {
-      await db.insert(warehouseStockTable).values({ warehouseId: wh.id, productId: null, variantId: variant.id, quantity: 0, updatedAt: now }).catch(() => {});
-    }
-  } catch (_) {}
+    const [product] = await db.select().from(productsTable).where(eq(productsTable.id, productId));
+    if (!product) { res.status(404).json({ error: "Product not found" }); return; }
 
-  res.status(201).json(variant);
+    const skuInput = parsed.data.sku?.trim();
+    const sku = skuInput || null;
+    const colorHex = parsed.data.colorHex?.trim() || null;
+
+    // استخرج الحقول المعروفة فقط — تجاهل أي حقول إضافية قد تسبب خطأ في DB
+    const { color, size, totalQuantity, lowStockThreshold, unitPrice, costPrice } = parsed.data;
+
+    const insertResult = await db.insert(productVariantsTable).values({
+      productId,
+      color,
+      colorHex,
+      size,
+      sku,
+      totalQuantity: totalQuantity ?? 0,
+      reservedQuantity: 0,
+      soldQuantity: 0,
+      lowStockThreshold: lowStockThreshold ?? 5,
+      unitPrice: unitPrice ?? 0,
+      costPrice: costPrice ?? null,
+    });
+    const insertId = (insertResult as any)[0]?.insertId ?? (insertResult as any).insertId;
+    const [variant] = await db.select().from(productVariantsTable).where(eq(productVariantsTable.id, insertId));
+
+    await logAudit({ action: "create", entityType: "variant", entityId: variant.id, entityName: `${product.name} — ${variant.color} ${variant.size}`, after: { color: variant.color, size: variant.size, totalQuantity: variant.totalQuantity }, userId: req.user?.id, userName: req.user?.displayName });
+
+    // ── تلقائياً: أضف صف بكمية 0 في كل المخازن الموجودة ──────────────────────
+    try {
+      const allWarehouses = await db.select({ id: warehousesTable.id }).from(warehousesTable);
+      const now = new Date();
+      for (const wh of allWarehouses) {
+        await db.insert(warehouseStockTable).values({ warehouseId: wh.id, productId: null, variantId: variant.id, quantity: 0, updatedAt: now }).catch(() => {});
+      }
+    } catch (_) {}
+
+    res.status(201).json(variant);
+  } catch (err: any) {
+    console.error("[POST /variants] DB error:", err?.message ?? err);
+    res.status(500).json({ error: "فشل إنشاء SKU", detail: err?.message ?? String(err) });
+  }
 });
 
 // Update variant
