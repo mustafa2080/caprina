@@ -66,12 +66,25 @@ const getColorHex = (name: string): string => {
   // لو القيمة نفسها hex color ارجعها مباشرة
   if (/^#[0-9a-fA-F]{3,8}$/.test(name)) return name;
   const map: Record<string, string> = {
-    أسود: "#1a1a1a", أبيض: "#f5f5f5", بيج: "#d4b896", رمادي: "#8a8a8a",
-    كحلي: "#1a2744", بني: "#6b3f1f", زيتي: "#4a5c2a", بردقاني: "#6b1a2e",
-    أزرق: "#1a4e8a", أحمر: "#8a1a1a", وردي: "#c87892", بنفسجي: "#5a2e7a",
-    أصفر: "#c8a81a", برتقالي: "#c8601a", أخضر: "#2a7a3a", تركوازي: "#1a7a7a",
+    // بهمزة
+    أسود: "#1a1a1a", أبيض: "#f5f5f5", أزرق: "#1a4e8a", أحمر: "#8a1a1a",
+    أخضر: "#2a7a3a", أصفر: "#c8a81a",
+    // بدون همزة
+    اسود: "#1a1a1a", ابيض: "#f5f5f5", ازرق: "#1a4e8a", احمر: "#8a1a1a",
+    اخضر: "#2a7a3a", اصفر: "#c8a81a",
+    // باقي الألوان
+    بيج: "#d4b896", رمادي: "#8a8a8a", كحلي: "#1a2744", بني: "#6b3f1f",
+    زيتي: "#4a5c2a", بردقاني: "#6b1a2e", وردي: "#c87892", بنفسجي: "#5a2e7a",
+    برتقالي: "#c8601a", تركوازي: "#1a7a7a", ذهبي: "#c8a020", فضي: "#a0a0b0",
+    لبني: "#f5ede0", تيفاني: "#0abfbc", نيلي: "#1a1a5e", سكري: "#e8a0b0",
+    // إنجليزي
+    blue: "#1a4e8a", red: "#8a1a1a", green: "#2a7a3a", yellow: "#c8a81a",
+    black: "#1a1a1a", white: "#f5f5f5", gray: "#8a8a8a", grey: "#8a8a8a",
+    pink: "#c87892", purple: "#5a2e7a", orange: "#c8601a", brown: "#6b3f1f",
+    navy: "#1a2744", beige: "#d4b896", teal: "#1a7a7a", gold: "#c8a020",
   };
-  return map[name] || "#6b6b6b";
+  const key = name.trim();
+  return map[key] ?? map[key.toLowerCase()] ?? "#6b6b6b";
 };
 
 // تعيد الـ hex color للـ variant — تستخدم colorHex لو موجود، وإلا تحول اسم اللون
