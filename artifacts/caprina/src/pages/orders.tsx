@@ -865,6 +865,11 @@ export default function Orders() {
                           <span className="text-[9px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">{groupCount} منتجات</span>
                         )}
                         <span className="text-[10px] text-muted-foreground truncate">{order.product}</span>
+                          {((order as any).color || (order as any).size) && (
+                            <span className="text-[9px] text-primary/70 font-bold mr-1">
+                              {(order as any).color}{(order as any).color && (order as any).size ? ‏ / ‏ : ""}{(order as any).size}
+                            </span>
+                          )}
                       </div>
                       <div className="flex items-center gap-2 mt-1">
                         <Badge variant="outline" className={`text-[9px] font-bold border ${statusClasses[order.status] || ""}`}>
@@ -1008,8 +1013,13 @@ export default function Orders() {
                         <TableCell className="text-sm font-semibold">{order.customerName}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">{order.phone || "—"}</TableCell>
                         <TableCell className="text-xs max-w-[200px]">
-                          <span className="truncate block">{order.product}</span>
-                          {!isGroup && <span className="text-muted-foreground">×{order.quantity}</span>}
+                          <span className="truncate block font-medium">{order.product}</span>
+                          {((order as any).color || (order as any).size) && (
+                            <span className="text-[10px] text-primary/70 font-semibold">
+                              {(order as any).color}{(order as any).color && (order as any).size ? ‏ / ‏ : ""}{(order as any).size}
+                            </span>
+                          )}
+                          {!isGroup && <span className="text-muted-foreground text-[10px]">×{order.quantity}</span>}
                         </TableCell>
                         {canFinancials && (
                         <TableCell className="text-xs font-bold text-primary">
