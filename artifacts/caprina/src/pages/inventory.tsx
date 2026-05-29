@@ -1121,12 +1121,8 @@ export default function Inventory() {
                     value={customColorHex}
                     onChange={e => {
                       setCustomColorHex(e.target.value);
-                      // لو المستخدم لم يكتب اسماً مخصصاً بعد، ضع الـ hex تلقائياً
-                      const isHex = /^#[0-9a-fA-F]{3,8}$/.test(variantForm.color);
-                      const isKnown = COMMON_COLORS.includes(variantForm.color);
-                      if (isHex || !variantForm.color || isKnown) {
-                        setVariantForm(f => ({ ...f, color: e.target.value }));
-                      }
+                      // خلي لون الـ SKU يتحدث دائماً مع اختيار الباليت
+                      setVariantForm(f => ({ ...f, color: e.target.value }));
                     }}
                     className="w-10 h-9 rounded-lg border border-border cursor-pointer p-0.5 bg-transparent"
                     title="اختر لوناً من لوحة الألوان"
