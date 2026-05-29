@@ -1461,8 +1461,12 @@ export default function OrderDetail() {
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { isAdmin, canViewFinancials, canViewProfitability, user } = useAuth();
-  const canWriteOrders = isAdmin || (user?.permissions?.includes("orders_write") ?? false);
+  const { isAdmin, canViewFinancials, canViewProfitability, user, can } = useAuth();
+  const canEdit        = isAdmin || can("orders.edit");
+  const canDelete      = isAdmin || can("orders.delete");
+  const canCreate      = isAdmin || can("orders.create");
+  const canFinancials  = isAdmin || can("orders.financials");
+  const canWriteOrders = isAdmin || canEdit || canCreate;
   const [isEditing, setIsEditing] = useState(false);
   const [showPartialInput, setShowPartialInput] = useState(false);
   const [partialQty, setPartialQty] = useState("");
@@ -1923,7 +1927,7 @@ export default function OrderDetail() {
         </div>
 
         <div className="flex items-center gap-2">
-          {!isEditing && isAdmin && (
+          {!isEditing && canWriteOrders && (
             <>
               <div className="w-44">
                 <Select value={selectDisplayStatus ?? order.status} onValueChange={handleStatusChange} disabled={updateOrder.isPending}>
@@ -1939,6 +1943,7 @@ export default function OrderDetail() {
                   </SelectContent>
                 </Select>
               </div>
+              {canEdit && (
               <Button
                 variant="outline" size="sm"
                 onClick={() => !isOrderLocked && setIsEditing(true)}
@@ -1948,6 +1953,8 @@ export default function OrderDetail() {
               >
                 {isOrderLocked ? <Lock className="w-3 h-3" /> : <Pencil className="w-3 h-3" />}تعديل
               </Button>
+              )}
+              {canCreate && (
               <Button
                 variant="outline" size="sm"
                 onClick={() => setShowAddProduct(true)}
@@ -1955,6 +1962,7 @@ export default function OrderDetail() {
               >
                 <Plus className="w-3 h-3" />إضافة منتج
               </Button>
+              )}
               {order.status === "warehouse_ready" && (
                 <Button variant="outline" size="sm" onClick={handlePrint} className="h-8 text-xs gap-1 border-border">
                   <Printer className="w-3 h-3" />فاتورة
@@ -1969,6 +1977,7 @@ export default function OrderDetail() {
                   <MessageCircle className="w-3 h-3" />واتساب
                 </Button>
               )}
+              {canDelete && (
               <Button
                 variant="outline" size="sm"
                 onClick={() => {
@@ -1994,9 +2003,10 @@ export default function OrderDetail() {
               >
                 <Trash2 className="w-3 h-3" />حذف
               </Button>
+              )}
             </>
           )}
-          {!isEditing && !isAdmin && order.status === "warehouse_ready" && (
+          {!isEditing && !canWriteOrders && order.status === "warehouse_ready" && (
             <Button variant="outline" size="sm" onClick={handlePrint} className="h-8 text-xs gap-1 border-border">
               <Printer className="w-3 h-3" />فاتورة
             </Button>
