@@ -1564,78 +1564,96 @@ export default function OrderDetail() {
           {isEditing ? (
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmitEdit)}>
-                <Card className="border-primary/40 bg-card">
-                  <CardHeader className="pb-3 pt-4 px-4 border-b border-border">
-                    <CardTitle className="text-sm font-bold text-primary">تعديل الطلب</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-4 space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      <FormField control={form.control} name="customerName" render={({ field }) => (
-                        <FormItem><FormLabel className="text-xs">اسم العميل</FormLabel><FormControl><Input className="h-8 text-sm" {...field} /></FormControl><FormMessage className="text-xs"/></FormItem>
-                      )} />
-                      <FormField control={form.control} name="phone" render={({ field }) => (
-                        <FormItem><FormLabel className="text-xs">الهاتف</FormLabel><FormControl><Input className="h-8 text-sm" {...field} value={field.value ?? ""} /></FormControl></FormItem>
-                      )} />
+                <Card className="border-primary/30 bg-card shadow-lg overflow-hidden">
+                  {/* Header */}
+                  <div className="flex items-center justify-between px-5 py-3.5 border-b border-border bg-primary/5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center">
+                        <Pencil className="w-3.5 h-3.5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-foreground">تعديل الطلب</p>
+                        <p className="text-[10px] text-muted-foreground">طلب #{order.id.toString().padStart(4,"0")}</p>
+                      </div>
                     </div>
-                    <FormField control={form.control} name="address" render={({ field }) => (
-                      <FormItem><FormLabel className="text-xs">العنوان</FormLabel><FormControl><Input className="h-8 text-sm" {...field} value={field.value ?? ""} /></FormControl></FormItem>
-                    )} />
-                    <div className="grid grid-cols-2 gap-3">
-                      <FormField control={form.control} name="shippingCompanyId" render={({ field }) => (
-                        <FormItem><FormLabel className="text-xs">شركة الشحن</FormLabel>
-                          <Select value={field.value?.toString() || "none"} onValueChange={v => field.onChange(v === "none" ? null : Number(v))}>
-                            <SelectTrigger className="h-8 text-sm bg-card"><SelectValue placeholder="بدون" /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">بدون</SelectItem>
-                              {shippingCompanies?.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                        </FormItem>
-                      )} />
-                      <FormField control={form.control} name="trackingNumber" render={({ field }) => (
-                        <FormItem><FormLabel className="text-xs">رقم التتبع</FormLabel><FormControl><Input className="h-8 text-sm font-mono" placeholder="TRK-12345" {...field} value={field.value ?? ""} /></FormControl></FormItem>
-                      )} />
+                    <button
+                      type="button"
+                      onClick={() => { setIsEditing(false); initializedRef.current = false; setEditProductId(null); setEditColor(""); }}
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  <CardContent className="p-0">
+                    {/* القسم الأول: بيانات العميل */}
+                    <div className="px-5 py-4 border-b border-border/60">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                        <Phone className="w-3 h-3" />بيانات العميل
+                      </p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <FormField control={form.control} name="customerName" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs text-muted-foreground">الاسم *</FormLabel>
+                            <FormControl>
+                              <Input className="h-9 text-sm bg-background border-border/70 focus-visible:border-primary focus-visible:ring-primary/20" {...field} />
+                            </FormControl>
+                            <FormMessage className="text-xs" />
+                          </FormItem>
+                        )} />
+                        <FormField control={form.control} name="phone" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs text-muted-foreground">رقم الهاتف</FormLabel>
+                            <FormControl>
+                              <Input className="h-9 text-sm bg-background border-border/70 focus-visible:border-primary focus-visible:ring-primary/20" placeholder="01x-xxxx-xxxx" {...field} value={field.value ?? ""} />
+                            </FormControl>
+                          </FormItem>
+                        )} />
+                      </div>
+                      <div className="mt-3">
+                        <FormField control={form.control} name="address" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="w-3 h-3" />العنوان</FormLabel>
+                            <FormControl>
+                              <Input className="h-9 text-sm bg-background border-border/70 focus-visible:border-primary focus-visible:ring-primary/20" placeholder="المدينة، الحي، الشارع..." {...field} value={field.value ?? ""} />
+                            </FormControl>
+                          </FormItem>
+                        )} />
+                      </div>
                     </div>
-                    {/* Product picker from inventory */}
-                    <div className="space-y-2 p-3 bg-muted/10 rounded border border-border/50">
-                      <p className="text-[10px] text-muted-foreground font-bold flex items-center gap-1"><Package className="w-3 h-3" />اختر من المخزون (اختياري)</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        {/* Product dropdown */}
-                        <div>
-                          <p className="text-[10px] text-muted-foreground mb-1">المنتج</p>
+
+                    {/* القسم الثاني: المنتج */}
+                    <div className="px-5 py-4 border-b border-border/60">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                        <Package className="w-3 h-3" />تفاصيل المنتج
+                      </p>
+
+                      {/* Product picker from inventory */}
+                      <div className="mb-3 p-3 rounded-lg bg-muted/20 border border-border/50 space-y-2">
+                        <p className="text-[10px] text-muted-foreground font-semibold">اختر من المخزون (اختياري — يملأ البيانات تلقائياً)</p>
+                        <div className="grid grid-cols-2 gap-2">
                           <Select
                             value={editProductId?.toString() || "none"}
                             onValueChange={v => {
-                              if (v === "none") {
-                                setEditProductId(null);
-                                setEditColor("");
-                              } else {
+                              if (v === "none") { setEditProductId(null); setEditColor(""); }
+                              else {
                                 const pid = Number(v);
-                                setEditProductId(pid);
-                                setEditColor("");
+                                setEditProductId(pid); setEditColor("");
                                 const p = products?.find(p => p.id === pid);
                                 if (p) form.setValue("product", p.name);
                               }
                             }}
                           >
-                            <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="اختر من المخزون..." /></SelectTrigger>
+                            <SelectTrigger className="h-8 text-xs bg-background"><SelectValue placeholder="اختر منتج..." /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="none">— إدخال يدوي —</SelectItem>
                               {products?.map(p => {
                                 const avail = p.totalQuantity - p.reservedQuantity - p.soldQuantity;
-                                return (
-                                  <SelectItem key={p.id} value={String(p.id)}>
-                                    {p.name} ({avail} متاح)
-                                  </SelectItem>
-                                );
+                                return <SelectItem key={p.id} value={String(p.id)}>{p.name} ({avail} متاح)</SelectItem>;
                               })}
                             </SelectContent>
                           </Select>
-                        </div>
-                        {/* Color dropdown (only if product has variants) */}
-                        {editProductId && allVariants?.some(v => v.productId === editProductId) && (
-                          <div>
-                            <p className="text-[10px] text-muted-foreground mb-1">اللون / المقاس</p>
+                          {editProductId && allVariants?.some(v => v.productId === editProductId) && (
                             <Select
                               value={editColor || "none"}
                               onValueChange={v => {
@@ -1644,92 +1662,119 @@ export default function OrderDetail() {
                                 if (variant) form.setValue("unitPrice", variant.unitPrice);
                               }}
                             >
-                              <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="اختر..." /></SelectTrigger>
+                              <SelectTrigger className="h-8 text-xs bg-background"><SelectValue placeholder="اللون / المقاس" /></SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="none">— بدون تحديد —</SelectItem>
-                                {allVariants
-                                  ?.filter(v => v.productId === editProductId)
-                                  .map(v => {
-                                    const avail = v.totalQuantity - v.reservedQuantity - v.soldQuantity;
-                                    const key = `${v.color}-${v.size}`;
-                                    return (
-                                      <SelectItem key={v.id} value={key} disabled={avail === 0}>
-                                        {v.color} / {v.size} — {avail === 0 ? "نفد" : `${avail} متاح`}
-                                      </SelectItem>
-                                    );
-                                  })}
+                                {allVariants?.filter(v => v.productId === editProductId).map(v => {
+                                  const avail = v.totalQuantity - v.reservedQuantity - v.soldQuantity;
+                                  return <SelectItem key={v.id} value={`${v.color}-${v.size}`} disabled={avail === 0}>{v.color} / {v.size} — {avail === 0 ? "نفد" : `${avail} متاح`}</SelectItem>;
+                                })}
                               </SelectContent>
                             </Select>
-                          </div>
-                        )}
+                          )}
+                        </div>
+                        {/* Stock badge */}
+                        {editProductId && (() => {
+                          const variants = allVariants?.filter(v => v.productId === editProductId) ?? [];
+                          if (variants.length === 0) {
+                            const p = products?.find(p => p.id === editProductId);
+                            if (!p) return null;
+                            const avail = p.totalQuantity - p.reservedQuantity - p.soldQuantity;
+                            return <Badge variant="outline" className={`text-[9px] font-bold border ${avail <= p.lowStockThreshold ? "border-red-700 text-red-400" : "border-emerald-700 text-emerald-400"}`}>متاح: {avail} وحدة</Badge>;
+                          }
+                          if (editColor) {
+                            const variant = variants.find(v => `${v.color}-${v.size}` === editColor);
+                            if (!variant) return null;
+                            const avail = variant.totalQuantity - variant.reservedQuantity - variant.soldQuantity;
+                            return <Badge variant="outline" className={`text-[9px] font-bold border ${avail <= variant.lowStockThreshold ? "border-red-700 text-red-400" : "border-emerald-700 text-emerald-400"}`}>متاح ({variant.color}/{variant.size}): {avail} وحدة</Badge>;
+                          }
+                          const totalAvail = variants.reduce((s, v) => s + v.totalQuantity - v.reservedQuantity - v.soldQuantity, 0);
+                          return <Badge variant="outline" className="text-[9px] font-bold border-primary/40 text-primary">إجمالي المتاح: {totalAvail} وحدة ({variants.length} متغيرات)</Badge>;
+                        })()}
                       </div>
-                      {/* Stock badge */}
-                      {editProductId && (() => {
-                        const variants = allVariants?.filter(v => v.productId === editProductId) ?? [];
-                        if (variants.length === 0) {
-                          const p = products?.find(p => p.id === editProductId);
-                          if (!p) return null;
-                          const avail = p.totalQuantity - p.reservedQuantity - p.soldQuantity;
-                          return (
-                            <Badge variant="outline" className={`text-[9px] font-bold border ${avail <= p.lowStockThreshold ? "border-red-700 text-red-400" : "border-emerald-700 text-emerald-400"}`}>
-                              متاح في المخزون: {avail} وحدة
-                            </Badge>
-                          );
-                        }
-                        if (editColor) {
-                          const variant = variants.find(v => `${v.color}-${v.size}` === editColor);
-                          if (!variant) return null;
-                          const avail = variant.totalQuantity - variant.reservedQuantity - variant.soldQuantity;
-                          return (
-                            <Badge variant="outline" className={`text-[9px] font-bold border ${avail <= variant.lowStockThreshold ? "border-red-700 text-red-400" : "border-emerald-700 text-emerald-400"}`}>
-                              متاح ({variant.color} / {variant.size}): {avail} وحدة
-                            </Badge>
-                          );
-                        }
-                        const totalAvail = variants.reduce((s, v) => s + v.totalQuantity - v.reservedQuantity - v.soldQuantity, 0);
-                        return (
-                          <Badge variant="outline" className="text-[9px] font-bold border-primary/40 text-primary">
-                            إجمالي المتاح: {totalAvail} وحدة ({variants.length} متغيرات)
-                          </Badge>
-                        );
-                      })()}
-                    </div>
-                    <div className="grid grid-cols-3 gap-3">
-                      <FormField control={form.control} name="product" render={({ field }) => (
-                        <FormItem className="col-span-1"><FormLabel className="text-xs">اسم المنتج</FormLabel><FormControl><Input className="h-8 text-sm" {...field} /></FormControl></FormItem>
-                      )} />
-                      <FormField control={form.control} name="quantity" render={({ field }) => (
-                        <FormItem><FormLabel className="text-xs">الكمية</FormLabel><FormControl><Input type="number" min="1" className="h-8 text-sm" {...field} /></FormControl></FormItem>
-                      )} />
-                      <FormField control={form.control} name="unitPrice" render={({ field }) => (
-                        <FormItem><FormLabel className="text-xs">السعر</FormLabel><FormControl><Input type="number" min="0" step="0.01" className="h-8 text-sm" {...field} /></FormControl></FormItem>
-                      )} />
-                    </div>
-                    <FormField control={form.control} name="notes" render={({ field }) => (
-                      <FormItem><FormLabel className="text-xs">ملاحظات</FormLabel><FormControl><Textarea className="min-h-[60px] text-sm resize-none" {...field} value={field.value ?? ""} /></FormControl></FormItem>
-                    )} />
 
-                    {/* ── إضافة منتج جوه التعديل ── */}
+                      {/* اسم المنتج + الكمية + السعر */}
+                      <div className="grid grid-cols-5 gap-3">
+                        <FormField control={form.control} name="product" render={({ field }) => (
+                          <FormItem className="col-span-3">
+                            <FormLabel className="text-xs text-muted-foreground">اسم المنتج *</FormLabel>
+                            <FormControl><Input className="h-9 text-sm bg-background border-border/70 focus-visible:border-primary focus-visible:ring-primary/20" {...field} /></FormControl>
+                          </FormItem>
+                        )} />
+                        <FormField control={form.control} name="quantity" render={({ field }) => (
+                          <FormItem className="col-span-1">
+                            <FormLabel className="text-xs text-muted-foreground">الكمية</FormLabel>
+                            <FormControl><Input type="number" min="1" className="h-9 text-sm text-center bg-background border-border/70 focus-visible:border-primary focus-visible:ring-primary/20" {...field} /></FormControl>
+                          </FormItem>
+                        )} />
+                        <FormField control={form.control} name="unitPrice" render={({ field }) => (
+                          <FormItem className="col-span-1">
+                            <FormLabel className="text-xs text-muted-foreground">السعر</FormLabel>
+                            <FormControl><Input type="number" min="0" step="0.01" className="h-9 text-sm text-center bg-background border-border/70 focus-visible:border-primary focus-visible:ring-primary/20" {...field} /></FormControl>
+                          </FormItem>
+                        )} />
+                      </div>
+
+                      <div className="mt-3">
+                        <FormField control={form.control} name="notes" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs text-muted-foreground">ملاحظات</FormLabel>
+                            <FormControl>
+                              <Textarea className="min-h-[64px] text-sm resize-none bg-background border-border/70 focus-visible:border-primary focus-visible:ring-primary/20" placeholder="أي ملاحظات إضافية..." {...field} value={field.value ?? ""} />
+                            </FormControl>
+                          </FormItem>
+                        )} />
+                      </div>
+                    </div>
+
+                    {/* القسم الثالث: الشحن */}
+                    <div className="px-5 py-4 border-b border-border/60">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                        <Truck className="w-3 h-3" />بيانات الشحن
+                      </p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <FormField control={form.control} name="shippingCompanyId" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs text-muted-foreground">شركة الشحن</FormLabel>
+                            <Select value={field.value?.toString() || "none"} onValueChange={v => field.onChange(v === "none" ? null : Number(v))}>
+                              <SelectTrigger className="h-9 text-sm bg-background border-border/70"><SelectValue placeholder="اختر شركة..." /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">بدون شركة شحن</SelectItem>
+                                {shippingCompanies?.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )} />
+                        <FormField control={form.control} name="trackingNumber" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs text-muted-foreground">رقم التتبع</FormLabel>
+                            <FormControl><Input className="h-9 text-sm font-mono bg-background border-border/70 focus-visible:border-primary focus-visible:ring-primary/20" placeholder="TRK-12345" {...field} value={field.value ?? ""} /></FormControl>
+                          </FormItem>
+                        )} />
+                      </div>
+                    </div>
+
+                    {/* منتجات الفاتورة (لو invoiceNumber موجود) */}
                     {invoiceNumber && (
-                      <div className="border border-dashed border-primary/30 rounded-md p-3 bg-primary/5">
-                        <div className="flex items-center justify-between">
-                          <p className="text-[10px] font-bold text-primary flex items-center gap-1">
+                      <div className="px-5 py-4 border-b border-border/60 bg-muted/5">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
                             <Package className="w-3 h-3" />منتجات الفاتورة ({invoiceOrders.length > 0 ? invoiceOrders.length : 1})
                           </p>
                           <button
                             type="button"
                             onClick={() => { setIsEditing(false); setTimeout(() => setShowAddProduct(true), 100); }}
-                            className="flex items-center gap-1 text-[10px] font-bold text-primary bg-primary/10 hover:bg-primary/20 px-2.5 py-1 rounded transition-colors"
+                            className="flex items-center gap-1 text-[10px] font-bold text-primary bg-primary/10 hover:bg-primary/20 px-2.5 py-1.5 rounded-md transition-colors"
                           >
-                            <Plus className="w-3 h-3" />إضافة منتج للفاتورة
+                            <Plus className="w-3 h-3" />إضافة منتج
                           </button>
                         </div>
                         {otherInvoiceOrders.length > 0 && (
-                          <div className="mt-2 flex flex-col gap-1">
+                          <div className="flex flex-col gap-1">
                             {otherInvoiceOrders.map((o: any) => (
-                              <div key={o.id} className="flex items-center justify-between text-[10px] text-muted-foreground px-1">
+                              <div key={o.id} className="flex items-center justify-between text-[10px] text-muted-foreground bg-background px-2.5 py-1.5 rounded border border-border/40">
                                 <span className="font-medium">{o.product}{o.color ? ` — ${o.color}` : ""}{o.size ? ` / ${o.size}` : ""}</span>
-                                <span>{o.quantity} وحدة</span>
+                                <span className="font-bold">{o.quantity} وحدة</span>
                               </div>
                             ))}
                           </div>
@@ -1737,12 +1782,24 @@ export default function OrderDetail() {
                       </div>
                     )}
 
-                    <div className="flex gap-2 pt-2">
-                      <Button type="submit" size="sm" className="h-8 text-xs gap-1" disabled={updateOrder.isPending}>
-                        <Save className="w-3 h-3" />{updateOrder.isPending ? "جاري..." : "حفظ"}
+                    {/* أزرار الحفظ */}
+                    <div className="px-5 py-4 flex items-center justify-between gap-3">
+                      <Button
+                        type="button" variant="ghost" size="sm"
+                        onClick={() => { setIsEditing(false); initializedRef.current = false; setEditProductId(null); setEditColor(""); }}
+                        className="h-9 px-4 text-sm text-muted-foreground hover:text-foreground"
+                      >
+                        إلغاء
                       </Button>
-                      <Button type="button" variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { setIsEditing(false); initializedRef.current = false; setEditProductId(null); setEditColor(""); }}>
-                        <X className="w-3 h-3 ml-1" />إلغاء
+                      <Button
+                        type="submit" size="sm"
+                        disabled={updateOrder.isPending}
+                        className="h-9 px-6 text-sm gap-2 font-bold"
+                      >
+                        {updateOrder.isPending
+                          ? <><span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />جاري الحفظ...</>
+                          : <><Save className="w-3.5 h-3.5" />حفظ التعديلات</>
+                        }
                       </Button>
                     </div>
                   </CardContent>
