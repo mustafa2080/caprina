@@ -42,7 +42,9 @@ function dbInitials(name: string) {
   try {
     const safeName = (name && typeof name === "string" ? name : "?").trim();
     const p = safeName.split(/\s+/);
-    return p.length >= 2 ? (p[0][0]+p[1][0]).toUpperCase() : safeName.slice(0,2).toUpperCase();
+    const first = p[0]?.[0] ?? safeName[0] ?? "?";
+    const second = p[1]?.[0] ?? p[0]?.[1] ?? first;
+    return p.length >= 2 ? (first + second).toUpperCase() : safeName.slice(0,2).toUpperCase();
   } catch { return "؟"; }
 }
 function DashClientAvatar({ avatar, name }: { avatar?: string|null; name: string }) {
@@ -405,12 +407,13 @@ function DashTeamMemberRow({ member, rank, maxScore, showProfit }: {
   member: TeamMemberExtStats; rank: number; maxScore: number; showProfit: boolean;
 }) {
   const scorePct = maxScore > 0 ? Math.round((member.score / maxScore) * 100) : 0;
+  const avatarColors = dbAvatarColor(member.displayName || "?");
   const rankColors = [
     "bg-yellow-400/20 text-yellow-600 dark:text-yellow-400 ring-1 ring-yellow-400/40",
     "bg-slate-300/20 text-slate-500 dark:text-slate-300 ring-1 ring-slate-400/30",
     "bg-orange-400/20 text-orange-600 dark:text-orange-400 ring-1 ring-orange-400/30",
   ];
-  const rankCls = rank <= 3 ? rankColors[rank - 1] : "bg-muted/20 text-muted-foreground";
+  const rankCls = rank <= 3 ? rankColors[Math.max(0, Math.min(rankColors.length - 1, rank - 1))] : "bg-muted/20 text-muted-foreground";
 
   return (
     <div className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-muted/20 transition-colors">
@@ -422,7 +425,7 @@ function DashTeamMemberRow({ member, rank, maxScore, showProfit }: {
         <img src={member.avatar} className="w-8 h-8 rounded-full object-cover border border-border/50 shrink-0" alt={member.displayName} />
       ) : (
         <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-[11px] shrink-0 border border-border/30"
-          style={{ background: dbAvatarColor(member.displayName || "?")[0], color: dbAvatarColor(member.displayName || "?")[1] }}>
+          style={{ background: avatarColors[0], color: avatarColors[1] }}>
           {dbInitials(member.displayName || "?")}
         </div>
       )}
@@ -1468,10 +1471,12 @@ export default function Dashboard() {
                             <div className="flex items-center gap-2 shrink-0">
                               {/* Sparkline ديناميكي */}
                               {(() => {
-                                const raw = productTrendMap[p.name] ?? [];
-                                const pts = raw.some(v => v > 0)
+                                const raw = Array.isArray(productTrendMap[p.name]) ? productTrendMap[p.name] : [];
+                                const hasPositiveTrend = raw.some(v => Number.isFinite(v) && v > 0);
+                                const pts = (hasPositiveTrend
                                   ? raw
-                                  : [0.15, 0.3, 0.45, 0.55, 0.65, 0.8, 1].map(r => Math.round(p.totalOrders * r));
+                                  : [0.15, 0.3, 0.45, 0.55, 0.65, 0.8, 1].map(r => Math.round(p.totalOrders * r)))
+                                  .filter((v): v is number => Number.isFinite(v));
                                 if (!pts.length) return null;
                                 const max = Math.max(...pts, 1);
                                 const W = 44, H = 26;
@@ -1481,6 +1486,7 @@ export default function Dashboard() {
                                       (idx / (pts.length - 1)) * W,
                                       H - (v / max) * (H - 4) - 1,
                                     ] as [number, number]);
+                                const lastCoord = coords[coords.length - 1];
                                 const d = coords.map(([x, y], idx) => `${idx === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
                                 const color = "#f59e0b"; // دهبي دايماً
                                 return (
@@ -1493,7 +1499,7 @@ export default function Dashboard() {
                                     </defs>
                                     <path d={`${d} L${W},${H} L0,${H} Z`} fill={`url(#sg-${i})`} />
                                     <path d={d} stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                    {coords.length > 0 && <circle cx={coords[coords.length-1][0]} cy={coords[coords.length-1][1]} r="2.5" fill={color}/>}
+                                    {lastCoord && <circle cx={lastCoord[0]} cy={lastCoord[1]} r="2.5" fill={color} />}
                                   </svg>
                                 );
                               })()}
