@@ -256,8 +256,8 @@ function apiFetchDashboard<T>(path: string): Promise<T> {
 // ─── Financial Row ──────────────────────────────────────────────────────────────
 function FinRow({ label, value, color = "text-foreground", sub }: { label: string; value: string; color?: string; sub?: string }) {
   return (
-    <div className="flex items-center justify-between py-1.5 sm:py-2 border-b border-border/50 last:border-0 gap-2">
-      <span className="text-[10px] sm:text-xs text-muted-foreground shrink-0">{label}</span>
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-1.5 sm:py-2 border-b border-border/50 last:border-0 gap-0.5 sm:gap-2 min-w-0">
+      <span className="text-[10px] sm:text-xs text-muted-foreground min-w-0 break-words">{label}</span>
       <div className="text-right min-w-0">
         <span className={`text-[10px] sm:text-xs font-bold block ${color}`}>{value}</span>
         {sub && <p className="text-[8px] sm:text-[9px] text-muted-foreground">{sub}</p>}
@@ -1851,7 +1851,7 @@ export default function Dashboard() {
           </div>
 
           {canViewFinancials && fin && (
-            <Card className="border-border">
+            <Card className="border-border overflow-hidden">
               <CardContent className="p-3 sm:p-4 space-y-0.5 sm:space-y-1">
                 <p className="text-[8px] sm:text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-2 sm:mb-3 flex items-center gap-1 sm:gap-1.5">
                   <Boxes className="w-2.5 h-2.5 sm:w-3 sm:h-3" />قيمة المخزون
@@ -2061,17 +2061,17 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent className="p-0">
                   {(salesDiff !== null || ordersDiff !== null) && (
-                    <div className="grid grid-cols-2 gap-0 border-b border-border">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-0 border-b border-border">
                       {[
                         { label:"المبيعات اليوم", diff:salesDiff, icon:TrendingUp },
                         { label:"الطلبات اليوم",  diff:ordersDiff, icon:ShoppingCart },
                       ].map((item,i) => (
-                        <div key={i} className={`p-3 ${i===0?"border-l border-border":""} flex items-center gap-2`}>
+                        <div key={i} className={`p-3 sm:p-3 ${i===0?"sm:border-l border-border":""} flex items-center gap-2 min-w-0`}>
                           <item.icon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                          <div>
-                            <p className="text-[10px] text-muted-foreground">{item.label}</p>
+                          <div className="min-w-0">
+                            <p className="text-[10px] text-muted-foreground break-words">{item.label}</p>
                             {item.diff !== null ? (
-                              <p className={`text-xs font-black ${item.diff >= 0 ? "text-emerald-400":"text-red-400"}`}>
+                              <p className={`text-xs font-black break-words ${item.diff >= 0 ? "text-emerald-400":"text-red-400"}`}>
                                 {item.diff >= 0 ? "▲":"▼"} {Math.abs(item.diff)}% عن أمس
                               </p>
                             ) : (
