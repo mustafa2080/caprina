@@ -214,8 +214,9 @@ export default function Invoices() {
       .cust-row { display: flex; align-items: center; justify-content: space-between; padding: 1.5mm 3mm; border-bottom: 1.5px solid #000; background: #f0f0f0; flex-shrink: 0; gap: 2mm; }
       .cust-phone { font-size: 10pt; font-weight: 800; direction: ltr; color: #000; }
       .cust-name { font-size: 12pt; font-weight: 900; color: #000; }
-      .inv-body { padding: 1mm 3mm 0; flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
-      .table-wrap { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-start; }
+      .inv-body { padding: 1mm 3mm 0; flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 0.5mm; }
+      .table-wrap { flex: 1; min-height: 0; overflow: hidden; }
+      .total-bar { flex-shrink: 0; }
       .prod-table { width: 100%; border-collapse: collapse; }
       .prod-table th { background: #1a1a1a; color: white; border: 1px solid #333; padding: 1mm 1.5mm; font-weight: 800; font-size: 8pt; text-align: center; }
       .prod-table td { border: 1px solid #bbb; padding: 1mm 1.5mm; text-align: center; font-size: 8pt; font-weight: 700; vertical-align: middle; line-height: 1.3; color: #000; }
@@ -257,8 +258,12 @@ export default function Invoices() {
       const city = (rep as any).city ?? "";
 
       const rowCount = realOrders.length;
-      const maxRowsNoScale = perPage === 4 ? 4 : perPage === 2 ? 8 : 15;
-      const scaleFactor = rowCount <= maxRowsNoScale ? 1 : Math.max(0.6, maxRowsNoScale / rowCount);
+      // حساب scaleFactor بناءً على المساحة الفعلية المتاحة للجدول
+      // perPage=4: كل فاتورة ~95mm ارتفاع، منها ~45mm للـ header+cust+bottom+total = ~50mm للجدول = ~5 صفوف
+      // perPage=2: ~50mm للجدول = ~9 صفوف
+      // perPage=1: ~90mm للجدول = ~16 صفوف
+      const maxRowsNoScale = perPage === 4 ? 5 : perPage === 2 ? 9 : 16;
+      const scaleFactor = rowCount <= maxRowsNoScale ? 1 : Math.max(0.55, maxRowsNoScale / rowCount);
       const tblFontSize = (7 * scaleFactor).toFixed(1);
       const cellPad = scaleFactor < 0.85 ? "0.4mm 0.8mm" : "0.8mm 1mm";
 
