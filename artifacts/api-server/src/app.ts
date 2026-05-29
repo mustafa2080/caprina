@@ -178,6 +178,21 @@ async function ensureAppSettingsTable() {
 }
 ensureAppSettingsTable();
 
+// ─── Ensure color_hex column exists in product_variants (safe migration) ──────
+async function ensureVariantColorHex() {
+  try {
+    await db.execute(sql`
+      ALTER TABLE product_variants ADD COLUMN IF NOT EXISTS color_hex VARCHAR(20) NULL
+    `);
+    logger.info("product_variants.color_hex column ensured");
+  } catch (err: any) {
+    if (err?.message && !err.message.includes("Duplicate column")) {
+      logger.error({ err }, "Failed to ensure color_hex column");
+    }
+  }
+}
+ensureVariantColorHex();
+
 // ─── Ensure invoice_number column exists in orders (safe migration) ───────────
 async function ensureOrdersInvoiceNumber() {
   try {

@@ -1174,6 +1174,10 @@ router.get("/analytics/stock-intelligence", async (req, res): Promise<void> => {
       totalFrozenCapital,
     },
   });
+  } catch (err: any) {
+    console.error("[stock-intelligence] error:", err?.message ?? err);
+    res.status(500).json({ error: "ظپط´ظ„ طھط­ظ„ظٹظ„ ط§ظ„ظ…ط®ط²ظˆظ†", detail: err?.message ?? String(err) });
+  }
 });
 
 // ─── GET /api/analytics/smart-insights ──────────────────────────────────────

@@ -39,31 +39,68 @@ const AddStockSchema = z.object({
 
 // List all variants (with product info) — used by order form
 router.get("/variants", async (req, res): Promise<void> => {
-  const tenantId = getTenantId(req);
-  const joinConditions: any[] = [eq(productVariantsTable.productId, productsTable.id)];
-  if (tenantId !== null) joinConditions.push(eq(productsTable.tenantId, tenantId));
-  const variants = await db
-    .select({
-      id: productVariantsTable.id,
-      productId: productVariantsTable.productId,
-      productName: productsTable.name,
-      color: productVariantsTable.color,
-      colorHex: productVariantsTable.colorHex,
-      size: productVariantsTable.size,
-      sku: productVariantsTable.sku,
-      totalQuantity: productVariantsTable.totalQuantity,
-      reservedQuantity: productVariantsTable.reservedQuantity,
-      soldQuantity: productVariantsTable.soldQuantity,
-      lowStockThreshold: productVariantsTable.lowStockThreshold,
-      unitPrice: productVariantsTable.unitPrice,
-      costPrice: productVariantsTable.costPrice,
-      createdAt: productVariantsTable.createdAt,
-      updatedAt: productVariantsTable.updatedAt,
-    })
-    .from(productVariantsTable)
-    .innerJoin(productsTable, and(...joinConditions))
-    .orderBy(desc(productVariantsTable.createdAt));
-  res.json(variants);
+  try {
+    const tenantId = getTenantId(req);
+    const joinConditions: any[] = [eq(productVariantsTable.productId, productsTable.id)];
+    if (tenantId !== null) joinConditions.push(eq(productsTable.tenantId, tenantId));
+    const variants = await db
+      .select({
+        id: productVariantsTable.id,
+        productId: productVariantsTable.productId,
+        productName: productsTable.name,
+        color: productVariantsTable.color,
+        colorHex: productVariantsTable.colorHex,
+        size: productVariantsTable.size,
+        sku: productVariantsTable.sku,
+        totalQuantity: productVariantsTable.totalQuantity,
+        reservedQuantity: productVariantsTable.reservedQuantity,
+        soldQuantity: productVariantsTable.soldQuantity,
+        lowStockThreshold: productVariantsTable.lowStockThreshold,
+        unitPrice: productVariantsTable.unitPrice,
+        costPrice: productVariantsTable.costPrice,
+        createdAt: productVariantsTable.createdAt,
+        updatedAt: productVariantsTable.updatedAt,
+      })
+      .from(productVariantsTable)
+      .innerJoin(productsTable, and(...joinConditions))
+      .orderBy(desc(productVariantsTable.createdAt));
+    res.json(variants);
+  } catch (err: any) {
+    console.error("[GET /variants] DB error:", err?.message ?? err);
+    // لو المشكلة في colorHex column → ارجع بدونه
+    if (err?.message?.includes("color_hex") || err?.message?.includes("Unknown column")) {
+      try {
+        const tenantId = getTenantId(req);
+        const joinConditions: any[] = [eq(productVariantsTable.productId, productsTable.id)];
+        if (tenantId !== null) joinConditions.push(eq(productsTable.tenantId, tenantId));
+        const variants = await db
+          .select({
+            id: productVariantsTable.id,
+            productId: productVariantsTable.productId,
+            productName: productsTable.name,
+            color: productVariantsTable.color,
+            size: productVariantsTable.size,
+            sku: productVariantsTable.sku,
+            totalQuantity: productVariantsTable.totalQuantity,
+            reservedQuantity: productVariantsTable.reservedQuantity,
+            soldQuantity: productVariantsTable.soldQuantity,
+            lowStockThreshold: productVariantsTable.lowStockThreshold,
+            unitPrice: productVariantsTable.unitPrice,
+            costPrice: productVariantsTable.costPrice,
+            createdAt: productVariantsTable.createdAt,
+            updatedAt: productVariantsTable.updatedAt,
+          })
+          .from(productVariantsTable)
+          .innerJoin(productsTable, and(...joinConditions))
+          .orderBy(desc(productVariantsTable.createdAt));
+        res.json(variants.map(v => ({ ...v, colorHex: null })));
+        return;
+      } catch (e2: any) {
+        console.error("[GET /variants] fallback error:", e2?.message);
+      }
+    }
+    res.status(500).json({ error: "فشل جلب المتغيرات", detail: err?.message ?? String(err) });
+  }
 });
 
 // List variants for a specific product
