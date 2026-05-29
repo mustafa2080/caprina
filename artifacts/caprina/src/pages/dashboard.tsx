@@ -973,7 +973,7 @@ export default function Dashboard() {
 
       {/* === PERIOD CARDS (admin only) === */}
       {canViewFinancials && (
-        <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
           {isAnalyticsLoading ? (
             [1,2,3].map(i => <Card key={i} className="animate-pulse h-32 sm:h-36 border-border" />)
           ) : analytics ? (
@@ -986,7 +986,7 @@ export default function Dashboard() {
                 <div
                   key={key}
                   onClick={() => setPeriod(key)}
-                  className={`rounded-xl cursor-pointer transition-all duration-200 ${
+                  className={`w-full min-w-0 rounded-xl cursor-pointer transition-all duration-200 ${
                     period === key
                       ? "border-2 border-primary shadow-lg"
                       : "border-2 border-transparent opacity-70 hover:opacity-90 hover:shadow-sm"
