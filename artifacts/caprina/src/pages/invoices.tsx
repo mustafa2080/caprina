@@ -202,9 +202,9 @@ export default function Invoices() {
       @page { size: A4 landscape; margin: 0; }
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { font-family: 'Cairo', 'Segoe UI', Tahoma, Arial, sans-serif; direction: rtl; background: white; color: #000; font-size: 9pt; font-weight: 600; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .page { display: grid; ${perPage === 1 ? "grid-template-columns: 1fr; grid-template-rows: 204mm;" : perPage === 2 ? "grid-template-columns: 1fr 1fr; grid-template-rows: 204mm;" : "grid-template-columns: 1fr 1fr; grid-template-rows: 101mm 101mm;"} gap: 2mm; width: 297mm; height: 210mm; padding: 3mm; page-break-after: always; box-sizing: border-box; overflow: hidden; }
+      .page { display: grid; ${perPage === 1 ? "grid-template-columns: 1fr;" : "grid-template-columns: 1fr 1fr;"} gap: 2mm; width: 297mm; padding: 3mm; page-break-after: always; box-sizing: border-box; align-items: stretch; }
       .page:last-child { page-break-after: avoid; }
-      .inv { border: 2px solid #000; border-radius: 2mm; display: flex; flex-direction: column; overflow: hidden; background: white; width: 100%; height: ${perPage === 4 ? "101mm" : perPage === 2 ? "204mm" : "204mm"}; max-height: ${perPage === 4 ? "101mm" : perPage === 2 ? "204mm" : "204mm"}; }
+      .inv { border: 2px solid #000; border-radius: 2mm; display: flex; flex-direction: column; overflow: hidden; background: white; width: 100%; }
       .inv-hdr { background: #1a1a1a; color: white; display: flex; align-items: center; justify-content: space-between; padding: 2mm 3mm; gap: 2mm; flex-shrink: 0; }
       .hdr-date { font-size: 8pt; font-weight: 700; white-space: nowrap; direction: ltr; text-align: right; }
       .hdr-logo { display: flex; align-items: center; gap: 2mm; }
@@ -214,7 +214,7 @@ export default function Invoices() {
       .cust-row { display: flex; align-items: center; justify-content: space-between; padding: 1.5mm 3mm; border-bottom: 1.5px solid #000; background: #f0f0f0; flex-shrink: 0; gap: 2mm; }
       .cust-phone { font-size: 10pt; font-weight: 800; direction: ltr; color: #000; }
       .cust-name { font-size: 12pt; font-weight: 900; color: #000; }
-      .inv-body { padding: 1mm 3mm 0; flex: 1; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
+      .inv-body { padding: 1mm 3mm 0; overflow: visible; display: flex; flex-direction: column; }
       .table-wrap { overflow: visible; }
       .total-bar { flex-shrink: 0; }
       .prod-table { width: 100%; border-collapse: collapse; }
@@ -235,7 +235,7 @@ export default function Invoices() {
       .notes-box b { color: #92400e; white-space: nowrap; font-size: 6pt; font-weight: 900; }
       .confirm-box { border: 1px solid #999; border-radius: 1mm; padding: 0.5mm 2mm; font-size: 5pt; font-weight: 700; color: #111; flex-shrink: 0; display: flex; gap: 1.5mm; align-items: flex-start; line-height: 1.3; background: #f5f5f5; }
       .confirm-box .cb-lbl { font-weight: 900; color: #000; font-size: 5.5pt; white-space: nowrap; }
-      .inv-footer { border-top: 2px solid #1a1a1a; background: #1a1a1a; padding: 1mm 3mm; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; gap: 2mm; margin-top: auto; }
+      .inv-footer { border-top: 2px solid #1a1a1a; background: #1a1a1a; padding: 1mm 3mm; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; gap: 2mm; }
       .inv-bottom { padding: 0.5mm 3mm; flex-shrink: 0; display: flex; flex-direction: column; gap: 0.5mm; border-top: 1px solid #ddd; background: white; }
       .policy-txt { font-size: 6pt; font-weight: 600; color: #ccc; text-align: left; line-height: 1.5; }
       .footer-brand { font-size: 8pt; font-weight: 900; color: #fff; letter-spacing: 2px; }
