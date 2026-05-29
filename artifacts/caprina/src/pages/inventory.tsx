@@ -453,20 +453,20 @@ export default function Inventory() {
     try {
       const newVariant = await variantsApi.create(activeProductId, {
         ...variantForm,
-        totalQuantity: distTotal,
+        colorHex: pickedColorHex || null,
+        totalQuantity: 0, // الكمية بتتحدد من warehouse addStock بعدين
       });
 
       if (distTotal > 0) {
         if (activeEntries.length > 0) {
-          await Promise.all(
-            activeEntries.map(d =>
-              warehousesApi.addStock(d.warehouseId, {
-                variantId: newVariant.id,
-                productId: activeProductId,
-                quantity: d.quantity,
-              })
-            )
-          );
+          // sequential عشان الـ sync يحصل صح بعد كل مخزن
+          for (const d of activeEntries) {
+            await warehousesApi.addStock(d.warehouseId, {
+              variantId: newVariant.id,
+              productId: activeProductId,
+              quantity: d.quantity,
+            });
+          }
         } else {
           await variantsApi.addStock(activeProductId, newVariant.id, distTotal, "مخزون افتتاحي");
           const defaultWh = warehouses?.find(w => w.isDefault);
