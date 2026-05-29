@@ -88,7 +88,7 @@ router.post("/products/:productId/variants", requireRole("admin", "warehouse"), 
   if (!product) { res.status(404).json({ error: "Product not found" }); return; }
 
   const skuInput = parsed.data.sku?.trim();
-  const sku = skuInput ? skuInput : `${product.name.substring(0, 3).toUpperCase()}-${parsed.data.color.substring(0, 3).toUpperCase()}-${parsed.data.size.toUpperCase()}`;
+  const sku = skuInput || null;
 
   const insertResult = await db.insert(productVariantsTable).values({
     productId, ...parsed.data, sku, reservedQuantity: 0, soldQuantity: 0,
