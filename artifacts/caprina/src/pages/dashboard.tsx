@@ -29,15 +29,21 @@ const AVATAR_COLORS_DB = [
   ["#8b5cf6","#4c1d95"],["#ef4444","#7f1d1d"],["#ec4899","#831843"],
   ["#06b6d4","#164e63"],["#f97316","#7c2d12"],
 ];
-function dbAvatarColor(name: string) {
-  const safeName = name || "?";
-  let h = 0; for (let i = 0; i < safeName.length; i++) h = safeName.charCodeAt(i) + ((h << 5) - h);
-  return AVATAR_COLORS_DB[Math.abs(h) % AVATAR_COLORS_DB.length];
+function dbAvatarColor(name: string): [string, string] {
+  try {
+    const safeName = (name && typeof name === "string") ? name : "?";
+    let h = 0; for (let i = 0; i < safeName.length; i++) h = safeName.charCodeAt(i) + ((h << 5) - h);
+    const color = AVATAR_COLORS_DB[Math.abs(h) % AVATAR_COLORS_DB.length];
+    if (!color || !Array.isArray(color) || color.length < 2) return ["#6b7280", "#fff"];
+    return color as [string, string];
+  } catch { return ["#6b7280", "#fff"]; }
 }
 function dbInitials(name: string) {
-  const safeName = (name || "?").trim();
-  const p = safeName.split(/\s+/);
-  return p.length >= 2 ? (p[0][0]+p[1][0]).toUpperCase() : safeName.slice(0,2).toUpperCase();
+  try {
+    const safeName = (name && typeof name === "string" ? name : "?").trim();
+    const p = safeName.split(/\s+/);
+    return p.length >= 2 ? (p[0][0]+p[1][0]).toUpperCase() : safeName.slice(0,2).toUpperCase();
+  } catch { return "؟"; }
 }
 function DashClientAvatar({ avatar, name }: { avatar?: string|null; name: string }) {
   if (avatar && avatar.startsWith("data:"))
