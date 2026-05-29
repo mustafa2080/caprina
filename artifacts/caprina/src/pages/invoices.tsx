@@ -215,7 +215,7 @@ export default function Invoices() {
       .cust-phone { font-size: 10pt; font-weight: 800; direction: ltr; color: #000; }
       .cust-name { font-size: 12pt; font-weight: 900; color: #000; }
       .inv-body { padding: 1mm 3mm 0; flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 0.5mm; }
-      .table-wrap { flex: 1; min-height: 0; overflow: hidden; }
+      .table-wrap { flex: 1; min-height: 0; overflow: visible; display: block; }
       .total-bar { flex-shrink: 0; }
       .prod-table { width: 100%; border-collapse: collapse; }
       .prod-table th { background: #1a1a1a; color: white; border: 1px solid #333; padding: 1mm 1.5mm; font-weight: 800; font-size: 8pt; text-align: center; }
@@ -258,14 +258,20 @@ export default function Invoices() {
       const city = (rep as any).city ?? "";
 
       const rowCount = realOrders.length;
-      // حساب scaleFactor بناءً على المساحة الفعلية المتاحة للجدول
-      // perPage=4: كل فاتورة ~95mm ارتفاع، منها ~45mm للـ header+cust+bottom+total = ~50mm للجدول = ~5 صفوف
-      // perPage=2: ~50mm للجدول = ~9 صفوف
-      // perPage=1: ~90mm للجدول = ~16 صفوف
+      // المساحة المتاحة للجدول بالـ mm حسب perPage
+      // A4 landscape = 210mm height, padding 3mm كل جهة = 204mm
+      // perPage=4: كل فاتورة = (204mm - 2mm gap) / 2 = ~101mm
+      //   منها: hdr~20mm + cust~8mm + total-bar~5mm + inv-bottom~22mm + footer~7mm = ~62mm
+      //   متبقي للجدول: ~39mm — كل صف ~7mm = ~5 صفوف بدون scale
+      // perPage=2: كل فاتورة ~101mm، نفس الحسابات = ~9 صفوف
+      // perPage=1: كل فاتورة ~204mm = ~16 صفوف
       const maxRowsNoScale = perPage === 4 ? 5 : perPage === 2 ? 9 : 16;
-      const scaleFactor = rowCount <= maxRowsNoScale ? 1 : Math.max(0.55, maxRowsNoScale / rowCount);
+      const scaleFactor = rowCount <= maxRowsNoScale ? 1 : Math.max(0.5, maxRowsNoScale / rowCount);
       const tblFontSize = (7 * scaleFactor).toFixed(1);
-      const cellPad = scaleFactor < 0.85 ? "0.4mm 0.8mm" : "0.8mm 1mm";
+      const cellPad = scaleFactor < 0.75 ? "0.3mm 0.6mm" : scaleFactor < 0.85 ? "0.4mm 0.8mm" : "0.8mm 1mm";
+      // نقلل padding الـ header والـ cust-row لما يكون فيه منتجات كتير
+      const hdrPad = scaleFactor < 0.85 ? "1mm 3mm" : "2mm 3mm";
+      const custPad = scaleFactor < 0.85 ? "0.8mm 3mm" : "1.5mm 3mm";
 
       const productRows = realOrders.map((o: any) => {
         const color = o.color ?? "";
@@ -278,7 +284,7 @@ export default function Invoices() {
       const totalQty = realOrders.reduce((s: number, o: any) => s + o.quantity, 0);
       const totalPrice = realOrders.reduce((s: number, o: any) => s + o.totalPrice, 0);
 
-      return `<div class="inv"><div class="inv-hdr"><div class="hdr-logo">${logoEl}<div style="text-align:left;line-height:1.2"><div class="logo-txt">${brandName}</div><div class="logo-sub">${brandTagline}</div></div></div><div class="hdr-date">${dateStr}<br/><span style="font-size:5.5pt;opacity:0.5">ORDER #${orderNum}</span></div></div><div class="cust-row"><div class="cust-name">${grp.customerName}</div><div class="cust-phone">&#128222; ${grp.phone ?? "&#8212;"}</div></div><div class="inv-body"><div class="table-wrap"><table class="prod-table" style="font-size:${tblFontSize}pt"><thead><tr><th style="width:30%;padding:${cellPad}">الصنف</th><th style="width:14%;padding:${cellPad}">المقاس</th><th style="width:18%;padding:${cellPad}">اللون</th><th style="width:10%;padding:${cellPad}">العدد</th><th style="width:14%;padding:${cellPad}">السعر</th><th style="width:14%;padding:${cellPad}">الإجمالي</th></tr></thead><tbody>${productRows}${shippingCost > 0 ? `<tr><td class="name-col" colspan="4" style="color:#777;font-size:${(parseFloat(tblFontSize)*0.85).toFixed(1)}pt;padding:${cellPad}">مصاريف الشحن</td><td colspan="2" style="font-weight:700;padding:${cellPad}">${formatCurrency(shippingCost)}</td></tr>` : ""}</tbody></table></div><div class="total-bar" style="flex-shrink:0;display:flex;justify-content:space-between;align-items:center;background:#e0e0e0;border:1px solid #888;border-radius:1mm;padding:${cellPad};font-size:${tblFontSize}pt;font-weight:900;color:#000;margin-top:0.5mm"><span>&#9679; الإجمالي الكلي</span><span>${totalQty} قطعة &nbsp;|&nbsp; ${formatCurrency(totalPrice + shippingCost)}</span></div></div><div class="inv-bottom"><div class="info-strip"><div class="info-cell"><span class="info-lbl">المحافظة</span><span class="info-val">${city || "&#8212;"}</span></div><div class="info-cell"><span class="info-lbl">شركة الشحن</span><span class="info-val">${company ? company.name : "&#8212;"}</span></div><div class="info-cell"><span class="info-lbl">رقم التتبع</span><span class="info-val" style="direction:ltr;text-align:right">${trackingNumber || "&#8212;"}</span></div></div><div class="addr-box"><div class="addr-lbl">العنوان بالتفصيل</div><div class="addr-val">${address || "&#8212;"}</div></div><div class="notes-box"><b>&#128203; ملاحظات:</b><span>${notes || "&#8212;"}</span></div><div class="confirm-box"><span class="cb-lbl">&#10003; التاكيد علي الشحن:</span><span>تم التاكيد مع العميل &#8212; في حاله عدم الاستلام بيتم دفع مصاريف الشحن كامله المتفق عليها</span></div></div><div class="inv-footer"><div class="policy-txt">الاسترجاع فقط اثناء تواجد المندوب &middot; الاستبدال خلال 7 أيام &middot; ضمان 6 أشهر &middot; احتفظ بالفاتورة</div><div class="footer-brand">${brandName}</div></div></div>`;
+      return `<div class="inv"><div class="inv-hdr" style="padding:${hdrPad}"><div class="hdr-logo">${logoEl}<div style="text-align:left;line-height:1.2"><div class="logo-txt">${brandName}</div><div class="logo-sub">${brandTagline}</div></div></div><div class="hdr-date">${dateStr}<br/><span style="font-size:5.5pt;opacity:0.5">ORDER #${orderNum}</span></div></div><div class="cust-row" style="padding:${custPad}"><div class="cust-name">${grp.customerName}</div><div class="cust-phone">&#128222; ${grp.phone ?? "&#8212;"}</div></div><div class="inv-body"><div class="table-wrap"><table class="prod-table" style="font-size:${tblFontSize}pt"><thead><tr><th style="width:30%;padding:${cellPad}">الصنف</th><th style="width:14%;padding:${cellPad}">المقاس</th><th style="width:18%;padding:${cellPad}">اللون</th><th style="width:10%;padding:${cellPad}">العدد</th><th style="width:14%;padding:${cellPad}">السعر</th><th style="width:14%;padding:${cellPad}">الإجمالي</th></tr></thead><tbody>${productRows}${shippingCost > 0 ? `<tr><td class="name-col" colspan="4" style="color:#777;font-size:${(parseFloat(tblFontSize)*0.85).toFixed(1)}pt;padding:${cellPad}">مصاريف الشحن</td><td colspan="2" style="font-weight:700;padding:${cellPad}">${formatCurrency(shippingCost)}</td></tr>` : ""}</tbody></table></div><div class="total-bar" style="flex-shrink:0;display:flex;justify-content:space-between;align-items:center;background:#e0e0e0;border:1px solid #888;border-radius:1mm;padding:${cellPad};font-size:${tblFontSize}pt;font-weight:900;color:#000;margin-top:0.5mm"><span>&#9679; الإجمالي الكلي</span><span>${totalQty} قطعة &nbsp;|&nbsp; ${formatCurrency(totalPrice + shippingCost)}</span></div></div><div class="inv-bottom"><div class="info-strip"><div class="info-cell"><span class="info-lbl">المحافظة</span><span class="info-val">${city || "&#8212;"}</span></div><div class="info-cell"><span class="info-lbl">شركة الشحن</span><span class="info-val">${company ? company.name : "&#8212;"}</span></div><div class="info-cell"><span class="info-lbl">رقم التتبع</span><span class="info-val" style="direction:ltr;text-align:right">${trackingNumber || "&#8212;"}</span></div></div><div class="addr-box"><div class="addr-lbl">العنوان بالتفصيل</div><div class="addr-val">${address || "&#8212;"}</div></div><div class="notes-box"><b>&#128203; ملاحظات:</b><span>${notes || "&#8212;"}</span></div><div class="confirm-box"><span class="cb-lbl">&#10003; التاكيد علي الشحن:</span><span>تم التاكيد مع العميل &#8212; في حاله عدم الاستلام بيتم دفع مصاريف الشحن كامله المتفق عليها</span></div></div><div class="inv-footer"><div class="policy-txt">الاسترجاع فقط اثناء تواجد المندوب &middot; الاستبدال خلال 7 أيام &middot; ضمان 6 أشهر &middot; احتفظ بالفاتورة</div><div class="footer-brand">${brandName}</div></div></div>`;
     };
 
     const pagesHTML = pageGroups.map(group => {
