@@ -2081,36 +2081,7 @@ export default function OrderDetail() {
         </div>
       </div>
 
-      {/* Delete confirmation dialog */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
-            <AlertDialogDescription>
-              {isInvoiceMode
-                ? `هل أنت متأكد من حذف فاتورة ${invoiceNumber} بالكامل (${invoiceOrders.length} منتجات) للعميل ${order.customerName}؟ لا يمكن التراجع عن هذا الإجراء.`
-                : `هل أنت متأكد من حذف طلب #${order.id.toString().padStart(4,"0")} للعميل ${order.customerName}؟ لا يمكن التراجع عن هذا الإجراء.`
-              }
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>إلغاء</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} disabled={isDeleting} className="bg-red-600 hover:bg-red-700 text-white">
-              {isDeleting ? "جاري الحذف..." : "نعم، احذف"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
-      {/* WhatsApp dialog */}
-      {order && (
-        <WhatsAppDialog
-          open={showWaDialog}
-          onOpenChange={setShowWaDialog}
-          order={{ id: order.id, customerName: order.customerName, product: order.product, quantity: order.quantity, totalPrice: order.totalPrice, status: order.status, phone: order.phone }}
-          onSent={handleWaSent}
-        />
-      )}
 
       {/* Partial received input */}
       {showPartialInput && (
@@ -3267,6 +3238,37 @@ export default function OrderDetail() {
         }}
       />
       </>}
+
+      {/* Delete confirmation dialog — يظهر في الوضعين (فردي ومتعدد) */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+            <AlertDialogDescription>
+              {isInvoiceMode
+                ? `هل أنت متأكد من حذف فاتورة ${invoiceNumber} بالكامل (${invoiceOrders.length} منتجات) للعميل ${order.customerName}؟ لا يمكن التراجع عن هذا الإجراء.`
+                : `هل أنت متأكد من حذف طلب #${order.id.toString().padStart(4,"0")} للعميل ${order.customerName}؟ لا يمكن التراجع عن هذا الإجراء.`
+              }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={isDeleting} className="bg-red-600 hover:bg-red-700 text-white">
+              {isDeleting ? "جاري الحذف..." : "نعم، احذف"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* WhatsApp dialog — يظهر في الوضعين (فردي ومتعدد) */}
+      {order && (
+        <WhatsAppDialog
+          open={showWaDialog}
+          onOpenChange={setShowWaDialog}
+          order={{ id: order.id, customerName: order.customerName, product: order.product, quantity: order.quantity, totalPrice: order.totalPrice, status: order.status, phone: order.phone }}
+          onSent={handleWaSent}
+        />
+      )}
     </div>
   );
 }
