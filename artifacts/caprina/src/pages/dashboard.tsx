@@ -973,7 +973,7 @@ export default function Dashboard() {
 
       {/* === PERIOD CARDS (admin only) === */}
       {canViewFinancials && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 px-1 sm:px-0">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 px-3 sm:px-0">
           {isAnalyticsLoading ? (
             [1,2,3].map(i => <Card key={i} className="animate-pulse h-32 sm:h-36 border-border" />)
           ) : analytics ? (
