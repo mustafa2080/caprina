@@ -2310,14 +2310,14 @@ export default function OrderDetail() {
               <form onSubmit={form.handleSubmit(onSubmitEdit)}>
                 <Card className="border-primary/30 bg-card shadow-lg overflow-hidden">
                   {/* Header */}
-                  <div className="flex items-center justify-between px-5 py-3.5 border-b border-border bg-primary/5">
-                    <div className="flex items-center gap-2.5">
+                  <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3.5 border-b border-border bg-primary/5">
+                    <div className="flex items-center gap-2.5 min-w-0">
                       <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center">
                         <Pencil className="w-3.5 h-3.5 text-primary" />
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <p className="text-sm font-bold text-foreground">تعديل الطلب</p>
-                        <p className="text-[10px] text-muted-foreground">طلب #{order.id.toString().padStart(4,"0")}</p>
+                        <p className="text-[10px] text-muted-foreground truncate">طلب #{order.id.toString().padStart(4,"0")}</p>
                       </div>
                     </div>
                     <button
@@ -2331,11 +2331,11 @@ export default function OrderDetail() {
 
                   <CardContent className="p-0">
                     {/* القسم الأول: بيانات العميل */}
-                    <div className="px-5 py-4 border-b border-border/60">
+                    <div className="px-4 sm:px-5 py-4 border-b border-border/60">
                       <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-1.5">
                         <Phone className="w-3 h-3" />بيانات العميل
                       </p>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <FormField control={form.control} name="customerName" render={({ field }) => (
                           <FormItem>
                             <FormLabel className="text-xs text-muted-foreground">الاسم *</FormLabel>
@@ -2354,7 +2354,7 @@ export default function OrderDetail() {
                           </FormItem>
                         )} />
                       </div>
-                      <div className="grid grid-cols-2 gap-3 mt-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                         <FormField control={form.control} name="city" render={({ field }) => (
                           <FormItem>
                             <FormLabel className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="w-3 h-3" />المحافظة</FormLabel>
@@ -2375,7 +2375,7 @@ export default function OrderDetail() {
                     </div>
 
                     {/* القسم الثاني: المنتج */}
-                    <div className="px-5 py-4 border-b border-border/60">
+                    <div className="px-4 sm:px-5 py-4 border-b border-border/60">
                       <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-1.5">
                         <Package className="w-3 h-3" />تفاصيل المنتج
                       </p>
@@ -2488,8 +2488,8 @@ export default function OrderDetail() {
                           </div>
                         );
                         return (
-                          <div className="mb-3 flex items-end gap-2 p-2 bg-muted/10 rounded-md border border-border/40">
-                            <div className="flex-1">
+                          <div className="mb-3 flex flex-col sm:flex-row sm:items-end gap-2 p-2 bg-muted/10 rounded-md border border-border/40">
+                            <div className="flex-1 min-w-0">
                               <label className="text-[10px] text-muted-foreground mb-1 block">اللون</label>
                               <select value={eRow.color}
                                 onChange={e => {
@@ -2503,7 +2503,7 @@ export default function OrderDetail() {
                                 {eColors.map((c: string) => <option key={c} value={c}>{c}</option>)}
                               </select>
                             </div>
-                            <div className="flex-1">
+                            <div className="flex-1 min-w-0">
                               <label className="text-[10px] text-muted-foreground mb-1 block">المقاس</label>
                               <select value={eRow.size} disabled={!eRow.color}
                                 onChange={e => {
@@ -2521,7 +2521,7 @@ export default function OrderDetail() {
                                 })}
                               </select>
                             </div>
-                            <div>
+                            <div className="sm:w-auto">
                               <label className="text-[10px] text-muted-foreground mb-1 block">الكمية</label>
                               <div className="flex items-center gap-1">
                                 <button type="button" onClick={() => { const q = Math.max(1, eRow.quantity - 1); setEditVariantRows([{ ...eRow, quantity: q }]); form.setValue("quantity", q); }}
@@ -2532,30 +2532,30 @@ export default function OrderDetail() {
                               </div>
                             </div>
                             {eAvail !== null && (
-                              <span className={`text-[9px] font-bold mb-2 shrink-0 ${eAvail <= 5 ? "text-red-500" : "text-emerald-600 dark:text-emerald-400"}`}>متاح:{eAvail}</span>
+                              <span className={`text-[9px] font-bold mt-1 sm:mt-0 sm:mb-2 shrink-0 ${eAvail <= 5 ? "text-red-500" : "text-emerald-600 dark:text-emerald-400"}`}>متاح:{eAvail}</span>
                             )}
                           </div>
                         );
                       })()}
 
                       {/* اسم المنتج + الكمية (fallback يدوي) + السعر */}
-                      <div className="grid grid-cols-5 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                         <FormField control={form.control} name="product" render={({ field }) => (
-                          <FormItem className="col-span-3">
+                          <FormItem className="lg:col-span-3">
                             <FormLabel className="text-xs text-muted-foreground">اسم المنتج *</FormLabel>
                             <FormControl><Input className="h-9 text-sm bg-background border-border/70 focus-visible:border-primary focus-visible:ring-primary/20" {...field} /></FormControl>
                           </FormItem>
                         )} />
                         {!editSelectedProduct && (
                           <FormField control={form.control} name="quantity" render={({ field }) => (
-                            <FormItem className="col-span-1">
+                            <FormItem className="lg:col-span-1">
                               <FormLabel className="text-xs text-muted-foreground">الكمية</FormLabel>
                               <FormControl><Input type="number" min="1" className="h-9 text-sm text-center bg-background border-border/70 focus-visible:border-primary focus-visible:ring-primary/20" {...field} /></FormControl>
                             </FormItem>
                           )} />
                         )}
                         <FormField control={form.control} name="unitPrice" render={({ field }) => (
-                          <FormItem className="col-span-1">
+                          <FormItem className="lg:col-span-1">
                             <FormLabel className="text-xs text-muted-foreground">السعر</FormLabel>
                             <FormControl><Input type="number" min="0" step="0.01" className="h-9 text-sm text-center bg-background border-border/70 focus-visible:border-primary focus-visible:ring-primary/20" {...field} /></FormControl>
                           </FormItem>
@@ -2565,11 +2565,11 @@ export default function OrderDetail() {
 
                     {/* القسم الرابع: التكلفة المالية */}
                     {canViewFinancials && (
-                      <div className="px-5 py-4 border-b border-border/60 bg-emerald-50/30 dark:bg-emerald-900/5">
+                      <div className="px-4 sm:px-5 py-4 border-b border-border/60 bg-emerald-50/30 dark:bg-emerald-900/5">
                         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-1.5">
                           <DollarSign className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />التكلفة المالية
                         </p>
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <FormField control={form.control} name="costPrice" render={({ field }) => (
                             <FormItem>
                               <FormLabel className="text-xs text-muted-foreground">تكلفة الوحدة (ج.م)</FormLabel>
@@ -2595,11 +2595,11 @@ export default function OrderDetail() {
                     )}
 
                     {/* القسم الخامس: تتبع الإعلان والفريق */}
-                    <div className="px-5 py-4 border-b border-border/60 bg-purple-50/30 dark:bg-purple-900/5">
+                    <div className="px-4 sm:px-5 py-4 border-b border-border/60 bg-purple-50/30 dark:bg-purple-900/5">
                       <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-1.5">
                         <Megaphone className="w-3 h-3 text-purple-400" />تتبع الإعلان والفريق
                       </p>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <FormField control={form.control} name="adSource" render={({ field }) => (
                           <FormItem>
                             <FormLabel className="text-xs text-muted-foreground flex items-center gap-1"><Megaphone className="w-3 h-3" />مصدر الطلب</FormLabel>
@@ -2632,7 +2632,7 @@ export default function OrderDetail() {
                           </FormItem>
                         )} />
                       </div>
-                      <div className="grid grid-cols-2 gap-3 mt-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                         <FormField control={form.control} name="warehouseId" render={({ field }) => (
                           <FormItem>
                             <FormLabel className="text-xs text-muted-foreground flex items-center gap-1"><Warehouse className="w-3 h-3" />المخزن</FormLabel>
@@ -2661,7 +2661,7 @@ export default function OrderDetail() {
                     </div>
 
                     {/* القسم السادس: الملاحظات */}
-                    <div className="px-5 py-4 border-b border-border/60">
+                    <div className="px-4 sm:px-5 py-4 border-b border-border/60">
                       <FormField control={form.control} name="notes" render={({ field }) => (
                         <FormItem>
                           <FormLabel className="text-xs text-muted-foreground">ملاحظات</FormLabel>
@@ -2672,7 +2672,7 @@ export default function OrderDetail() {
                       )} />
                     </div>
                     {invoiceNumber && (
-                      <div className="px-5 py-4 border-b border-border/60 bg-muted/5">
+                      <div className="px-4 sm:px-5 py-4 border-b border-border/60 bg-muted/5">
                         <div className="flex items-center justify-between mb-2">
                           <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
                             <Package className="w-3 h-3" />منتجات الفاتورة ({invoiceOrders.length > 0 ? invoiceOrders.length : 1})
@@ -2680,7 +2680,7 @@ export default function OrderDetail() {
                           <button
                             type="button"
                             onClick={() => { setIsEditing(false); setTimeout(() => setShowAddProduct(true), 100); }}
-                            className="flex items-center gap-1 text-[10px] font-bold text-primary bg-primary/10 hover:bg-primary/20 px-2.5 py-1.5 rounded-md transition-colors"
+                            className="shrink-0 flex items-center gap-1 text-[10px] font-bold text-primary bg-primary/10 hover:bg-primary/20 px-2.5 py-1.5 rounded-md transition-colors"
                           >
                             <Plus className="w-3 h-3" />إضافة منتج
                           </button>
@@ -2699,18 +2699,18 @@ export default function OrderDetail() {
                     )}
 
                     {/* أزرار الحفظ */}
-                    <div className="px-5 py-4 flex items-center justify-between gap-3">
+                    <div className="px-4 sm:px-5 py-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                       <Button
                         type="button" variant="ghost" size="sm"
                         onClick={() => { setIsEditing(false); initializedRef.current = false; setEditProductId(null); setEditColor(""); }}
-                        className="h-9 px-4 text-sm text-muted-foreground hover:text-foreground"
+                        className="h-9 px-4 text-sm text-muted-foreground hover:text-foreground w-full sm:w-auto"
                       >
                         إلغاء
                       </Button>
                       <Button
                         type="submit" size="sm"
                         disabled={updateOrder.isPending}
-                        className="h-9 px-6 text-sm gap-2 font-bold"
+                        className="h-9 px-6 text-sm gap-2 font-bold w-full sm:w-auto"
                       >
                         {updateOrder.isPending
                           ? <><span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />جاري الحفظ...</>
