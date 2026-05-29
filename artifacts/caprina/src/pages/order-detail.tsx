@@ -151,8 +151,17 @@ function AddProductDialog({ open, onOpenChange, order, onSuccess }: {
       <DialogContent
         className="max-w-md"
         dir="rtl"
-        onInteractOutside={(e) => e.preventDefault()}
-        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => {
+          // اسمح للـ combobox portal يشتغل — امنع الإغلاق بس لو الضغط برا الـ dialog وبرا أي portal
+          const target = e.target as HTMLElement;
+          if (target?.closest?.("#product-combobox-portal")) return;
+          e.preventDefault();
+        }}
+        onPointerDownOutside={(e) => {
+          const target = e.target as HTMLElement;
+          if (target?.closest?.("#product-combobox-portal")) return;
+          e.preventDefault();
+        }}
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-sm">
