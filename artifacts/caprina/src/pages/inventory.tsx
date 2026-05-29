@@ -63,6 +63,8 @@ const fc = (n: number) =>
   new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(n);
 
 const getColorHex = (name: string): string => {
+  // لو القيمة نفسها hex color ارجعها مباشرة
+  if (/^#[0-9a-fA-F]{3,8}$/.test(name)) return name;
   const map: Record<string, string> = {
     أسود: "#1a1a1a", أبيض: "#f5f5f5", بيج: "#d4b896", رمادي: "#8a8a8a",
     كحلي: "#1a2744", بني: "#6b3f1f", زيتي: "#4a5c2a", بردقاني: "#6b1a2e",
@@ -253,6 +255,7 @@ export default function Inventory() {
   const [editingVariant, setEditingVariant] = useState<ProductVariant | null>(null);
   const [activeProductId, setActiveProductId] = useState<number | null>(null);
   const [variantForm, setVariantForm] = useState(emptyVariantForm);
+  const [customColorHex, setCustomColorHex] = useState("#6b6b6b");
 
   // Add Stock dialog
   const [addStockOpen, setAddStockOpen] = useState(false);
@@ -327,6 +330,7 @@ export default function Inventory() {
   const openAddVariant = (productId: number) => {
     setActiveProductId(productId);
     setEditingVariant(null);
+    setCustomColorHex("#6b6b6b");
     const p = products?.find(p => p.id === productId);
     setVariantForm({ ...emptyVariantForm, unitPrice: p?.unitPrice ?? 0, costPrice: p?.costPrice ?? null });
     if (warehouses && warehouses.length > 0) {
@@ -341,6 +345,12 @@ export default function Inventory() {
   const openEditVariant = async (v: ProductVariant) => {
     setActiveProductId(v.productId);
     setEditingVariant(v);
+    // إذا كان اللون hex نضعه في الـ picker
+    if (/^#[0-9a-fA-F]{6,7}$/.test(v.color)) {
+      setCustomColorHex(v.color);
+    } else {
+      setCustomColorHex(getColorHex(v.color));
+    }
     setVariantForm({ color: v.color, size: v.size, sku: v.sku ?? "", totalQuantity: 0, lowStockThreshold: v.lowStockThreshold, unitPrice: v.unitPrice, costPrice: v.costPrice });
     try {
       const whStock = await warehousesApi.stockByVariant(v.id);
@@ -1074,10 +1084,49 @@ export default function Inventory() {
                   </button>
                 ))}
               </div>
-              <Input value={variantForm.color} onChange={e => setVariantForm(f => ({ ...f, color: e.target.value }))} placeholder="أو اكتب لوناً مخصصاً..." className="h-9 text-sm" />
+              {/* حقل اللون المخصص: color picker + اسم اللون */}
+              <div className="flex items-center gap-2">
+                {/* Color Picker */}
+                <div className="relative shrink-0">
+                  <input
+                    type="color"
+                    value={customColorHex}
+                    onChange={e => {
+                      setCustomColorHex(e.target.value);
+                      // لو المستخدم لم يكتب اسماً مخصصاً بعد، ضع الـ hex تلقائياً
+                      const isHex = /^#[0-9a-fA-F]{3,8}$/.test(variantForm.color);
+                      const isKnown = COMMON_COLORS.includes(variantForm.color);
+                      if (isHex || !variantForm.color || isKnown) {
+                        setVariantForm(f => ({ ...f, color: e.target.value }));
+                      }
+                    }}
+                    className="w-10 h-9 rounded-lg border border-border cursor-pointer p-0.5 bg-transparent"
+                    title="اختر لوناً من لوحة الألوان"
+                  />
+                </div>
+                {/* اسم اللون */}
+                <Input
+                  value={variantForm.color}
+                  onChange={e => {
+                    setVariantForm(f => ({ ...f, color: e.target.value }));
+                    // لو القيمة hex نحدث الـ picker
+                    if (/^#[0-9a-fA-F]{6,7}$/.test(e.target.value)) {
+                      setCustomColorHex(e.target.value);
+                    }
+                  }}
+                  placeholder="اكتب اسم اللون أو اختره من اللوحة..."
+                  className="h-9 text-sm flex-1"
+                />
+                {/* Preview */}
+                {variantForm.color && (
+                  <span
+                    className="w-9 h-9 rounded-lg border-2 border-border shrink-0 shadow-sm"
+                    style={{ background: getColorHex(variantForm.color) }}
+                    title={variantForm.color}
+                  />
+                )}
+              </div>
             </div>
-
-            <Separator />
 
             {/* المقاس */}
             <div>
