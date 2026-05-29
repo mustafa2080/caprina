@@ -1181,10 +1181,12 @@ function InvoiceEditDialog({ open, onOpenChange, primaryOrder, orders, shippingC
   );
 }
 
-function InvoiceView({ orders, currentId, shippingCompanies, products, allVariants, onRefresh, isAdmin, canViewFinancials, canViewProfitability, formatCurrency, warehouses, users, canEdit, canDelete, canCreate }: {
+function InvoiceView({ orders, currentId, shippingCompanies, products, allVariants, onRefresh, isAdmin, canViewFinancials, canViewProfitability, formatCurrency, warehouses, users, canEdit, canDelete, canCreate, externalShowAddProduct, onExternalShowAddProductChange, externalShowEdit, onExternalShowEditChange }: {
   orders: any[]; currentId: number; shippingCompanies: any[]; products: any[]; allVariants: any[];
   onRefresh: () => void; isAdmin: boolean; canViewFinancials: boolean; canViewProfitability: boolean; formatCurrency: (n: number) => string;
   warehouses: any[]; users: any[]; canEdit: boolean; canDelete: boolean; canCreate: boolean;
+  externalShowAddProduct?: boolean; onExternalShowAddProductChange?: (v: boolean) => void;
+  externalShowEdit?: boolean; onExternalShowEditChange?: (v: boolean) => void;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -1194,6 +1196,14 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [showDeleteId, setShowDeleteId] = useState<number | null>(null);
   const [showInvoiceEdit, setShowInvoiceEdit] = useState(false);
+
+  // sync external controls from parent header buttons
+  useEffect(() => {
+    if (externalShowAddProduct) { setShowAddProduct(true); onExternalShowAddProductChange?.(false); }
+  }, [externalShowAddProduct]);
+  useEffect(() => {
+    if (externalShowEdit) { setShowInvoiceEdit(true); onExternalShowEditChange?.(false); }
+  }, [externalShowEdit]);
 
   const primaryOrder = orders.find(o => o.id === currentId) || orders[0];
   const invoiceTotal = orders.reduce((s, o) => s + (o.totalPrice ?? 0), 0);
@@ -1476,6 +1486,8 @@ export default function OrderDetail() {
 
   // Add product dialog state
   const [showAddProduct, setShowAddProduct] = useState(false);
+  const [invoiceShowAddProduct, setInvoiceShowAddProduct] = useState(false);
+  const [invoiceShowEdit, setInvoiceShowEdit] = useState(false);
   const [addProductName, setAddProductName] = useState("");
   const [addProductQty, setAddProductQty] = useState(1);
   const [addProductPrice, setAddProductPrice] = useState(0);
@@ -1893,7 +1905,7 @@ export default function OrderDetail() {
               )}
               {canEdit && (
                 <Button variant="outline" size="sm"
-                  onClick={() => !isOrderLocked && setIsEditing(true)}
+                  onClick={() => !isOrderLocked && setInvoiceShowEdit(true)}
                   disabled={isOrderLocked}
                   className="h-8 text-xs gap-1 border-border disabled:opacity-40">
                   {isOrderLocked ? <Lock className="w-3 h-3" /> : <Pencil className="w-3 h-3" />}تعديل
@@ -1901,7 +1913,7 @@ export default function OrderDetail() {
               )}
               {canCreate && (
                 <Button variant="outline" size="sm"
-                  onClick={() => setShowAddProduct(true)}
+                  onClick={() => setInvoiceShowAddProduct(true)}
                   className="h-8 text-xs gap-1 border-primary/40 text-primary hover:bg-primary/10">
                   <Plus className="w-3 h-3" />إضافة منتج
                 </Button>
@@ -1943,6 +1955,10 @@ export default function OrderDetail() {
             canEdit={canEdit}
             canDelete={canDelete}
             canCreate={canCreate}
+            externalShowAddProduct={invoiceShowAddProduct}
+            onExternalShowAddProductChange={setInvoiceShowAddProduct}
+            externalShowEdit={invoiceShowEdit}
+            onExternalShowEditChange={setInvoiceShowEdit}
             formatCurrency={formatCurrency}
             onRefresh={() => {
               refetchInvoiceOrders();
