@@ -161,7 +161,7 @@ const StatusDonut = memo(function StatusDonut({
   onStatusClick?: (status: string | null) => void;
   selectedStatus?: string | null;
 }) {
-  const sorted = useMemo(() => [...data].sort((a, b) => b.count - a.count), [data]);
+  const sorted = useMemo(() => [...(data ?? [])].sort((a, b) => b.count - a.count), [data]);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
   const ORDER = ["warehouse_ready", "received", "pending", "returned", "in_shipping", "delayed", "partial_received"];
@@ -578,7 +578,7 @@ const WeeklyBars = memo(function WeeklyBars({
   const [salesView, setSalesView] = React.useState<SalesView>("current");
   const todayStr = new Date().toISOString().split("T")[0];
   const enriched = useMemo(() =>
-    data.map(d => ({ ...d, isToday: d.date === todayStr }))
+    (data ?? []).map(d => ({ ...d, isToday: d.date === todayStr }))
   , [data, todayStr]);
   const monthlyEnriched = useMemo(
     () => (monthlySales ?? []).map(d => ({ ...d, isToday: d.date === todayStr })),
@@ -973,7 +973,7 @@ function Skeleton() {
 
 // ─── KPI Strip ────────────────────────────────────────────────────────────────
 const KpiStrip = memo(function KpiStrip({ data, total }: { data: ChartsData["statusBreakdown"]; total: number }) {
-  const sorted = useMemo(() => [...data].sort((a, b) => b.count - a.count), [data]);
+  const sorted = useMemo(() => [...(data ?? [])].sort((a, b) => b.count - a.count), [data]);
   return (
     <div className="flex gap-2.5 overflow-x-auto pb-0.5 no-scrollbar">
       {/* Total pill */}

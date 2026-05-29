@@ -1019,8 +1019,8 @@ export default function Dashboard() {
               liveTag
             >
               <StatusDonutWithOrders
-                data={chartsData.statusBreakdown}
-                total={chartsData.total}
+                data={chartsData?.statusBreakdown ?? []}
+                total={chartsData?.total ?? 0}
               />
 
               {/* ── أحدث العملاء ── */}
@@ -1073,9 +1073,9 @@ export default function Dashboard() {
               glassStyle
             >
               <WeeklyBars
-                data={chartsData.weeklySales}
-                monthlySales={chartsData.monthlySales}
-                weekComparison={chartsData.weekComparison}
+                data={chartsData?.weeklySales ?? []}
+                monthlySales={chartsData?.monthlySales}
+                weekComparison={chartsData?.weekComparison}
               />
 
               {/* مبيعات العملاء التجاريين */}
