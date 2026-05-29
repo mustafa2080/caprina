@@ -465,12 +465,12 @@ type Period = "today" | "week" | "month";
 /** Card لشركة شحن في الداشبورد مع إحصائياتها */
 function DashShippingCompanyRow({ company, allStats, allManifests, canViewFinancials }: {
   company: any;
-  allStats: Record<number, any>;
-  allManifests: Record<number, any[]>;
+  allStats?: Record<number, any>;
+  allManifests?: Record<number, any[]>;
   canViewFinancials: boolean;
 }) {
-  const stats = allStats[company.id] ?? null;
-  const manifests = allManifests[company.id] ?? [];
+  const stats = allStats?.[company.id] ?? null;
+  const manifests = allManifests?.[company.id] ?? [];
   const openManifest = manifests.find((m: any) => m.status === "open") ?? null;
   const deliveryRate = stats?.deliveryRate ?? 0;
   const rateColor = deliveryRate >= 70 ? "text-emerald-500 dark:text-emerald-400" : deliveryRate >= 40 ? "text-amber-500 dark:text-amber-400" : "text-red-500 dark:text-red-400";
@@ -1580,7 +1580,13 @@ export default function Dashboard() {
                 ) : (
                   <div className="p-2.5 sm:p-3 grid grid-cols-1 gap-2.5">
                     {activeCompanies.map((company: any) => (
-                      <DashShippingCompanyRow key={company.id} company={company} canViewFinancials={canViewFinancials} />
+                      <DashShippingCompanyRow
+                        key={company.id}
+                        company={company}
+                        allStats={allShippingStats}
+                        allManifests={allShippingManifests}
+                        canViewFinancials={canViewFinancials}
+                      />
                     ))}
                   </div>
                 )}
