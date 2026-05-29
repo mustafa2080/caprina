@@ -658,9 +658,276 @@ function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, p
   );
 }
 
-function InvoiceView({ orders, currentId, shippingCompanies, products, allVariants, onRefresh, isAdmin, canViewFinancials, canViewProfitability, formatCurrency }: {
+// ── Invoice Edit Dialog (تعديل بيانات الفاتورة كاملة) ──────────────────────
+function InvoiceEditDialog({ open, onOpenChange, primaryOrder, orders, shippingCompanies, warehouses, users, canViewFinancials, onSuccess }: {
+  open: boolean; onOpenChange: (v: boolean) => void;
+  primaryOrder: any; orders: any[];
+  shippingCompanies: any[]; warehouses: any[]; users: any[];
+  canViewFinancials: boolean; onSuccess: () => void;
+}) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const updateOrder = useUpdateOrder();
+
+  const invoiceEditSchema = z.object({
+    customerName:      z.string().min(2, "الاسم مطلوب"),
+    phone:             z.string().optional().nullable(),
+    city:              z.string().optional().nullable(),
+    address:           z.string().optional().nullable(),
+    shippingCompanyId: z.coerce.number().optional().nullable(),
+    shippingCost:      z.coerce.number().min(0).optional().nullable(),
+    warehouseId:       z.coerce.number().optional().nullable(),
+    assignedUserId:    z.coerce.number().optional().nullable(),
+    adSource:          z.string().optional().nullable(),
+    adCampaign:        z.string().optional().nullable(),
+    notes:             z.string().optional().nullable(),
+  });
+
+  type InvoiceEditValues = z.infer<typeof invoiceEditSchema>;
+
+  const form = useForm<InvoiceEditValues>({
+    resolver: zodResolver(invoiceEditSchema),
+    defaultValues: {
+      customerName:      primaryOrder?.customerName ?? "",
+      phone:             primaryOrder?.phone ?? "",
+      city:              primaryOrder?.city ?? "",
+      address:           primaryOrder?.address ?? "",
+      shippingCompanyId: primaryOrder?.shippingCompanyId ?? null,
+      shippingCost:      primaryOrder?.shippingCost ?? 0,
+      warehouseId:       primaryOrder?.warehouseId ?? null,
+      assignedUserId:    primaryOrder?.assignedUserId ?? null,
+      adSource:          primaryOrder?.adSource ?? null,
+      adCampaign:        primaryOrder?.adCampaign ?? null,
+      notes:             primaryOrder?.notes ?? "",
+    },
+  });
+
+  // إعادة تحميل القيم لما الـ dialog يفتح
+  useEffect(() => {
+    if (open && primaryOrder) {
+      form.reset({
+        customerName:      primaryOrder.customerName ?? "",
+        phone:             primaryOrder.phone ?? "",
+        city:              primaryOrder.city ?? "",
+        address:           primaryOrder.address ?? "",
+        shippingCompanyId: primaryOrder.shippingCompanyId ?? null,
+        shippingCost:      primaryOrder.shippingCost ?? 0,
+        warehouseId:       primaryOrder.warehouseId ?? null,
+        assignedUserId:    primaryOrder.assignedUserId ?? null,
+        adSource:          primaryOrder.adSource ?? null,
+        adCampaign:        primaryOrder.adCampaign ?? null,
+        notes:             primaryOrder.notes ?? "",
+      });
+    }
+  }, [open, primaryOrder]);
+
+  const handleSubmit = async (values: InvoiceEditValues) => {
+    try {
+      // نحدّث كل طلبات الفاتورة بنفس بيانات العميل والشحن
+      await Promise.all(orders.map(o =>
+        updateOrder.mutateAsync({ id: o.id, data: {
+          customerName:      values.customerName,
+          phone:             values.phone || null,
+          city:              values.city || null,
+          address:           values.address || null,
+          shippingCompanyId: values.shippingCompanyId || null,
+          shippingCost:      values.shippingCost ?? null,
+          warehouseId:       values.warehouseId || null,
+          assignedUserId:    values.assignedUserId || null,
+          adSource:          values.adSource || null,
+          adCampaign:        values.adCampaign || null,
+          notes:             values.notes || null,
+        } as any })
+      ));
+      queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getGetOrdersSummaryQueryKey() });
+      toast({ title: "تم الحفظ", description: `تم تحديث بيانات فاتورة ${primaryOrder.invoiceNumber} بنجاح.` });
+      onSuccess();
+      onOpenChange(false);
+    } catch {
+      toast({ title: "خطأ", description: "فشل الحفظ.", variant: "destructive" });
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" dir="rtl"
+        onInteractOutside={e => e.preventDefault()} onPointerDownOutside={e => e.preventDefault()}>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-sm">
+            <Pencil className="w-4 h-4 text-primary" />
+            تعديل بيانات الفاتورة — {primaryOrder?.invoiceNumber}
+            <Badge variant="outline" className="text-[9px] border-primary/40 text-primary">{orders.length} منتجات</Badge>
+          </DialogTitle>
+        </DialogHeader>
+
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 py-1">
+
+            {/* بيانات العميل */}
+            <div className="space-y-3">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+                <Phone className="w-3 h-3" />بيانات العميل
+              </p>
+              <FormField control={form.control} name="customerName" render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs">اسم العميل *</FormLabel>
+                  <FormControl><Input className="h-9 text-sm" {...field} /></FormControl>
+                  <FormMessage className="text-xs" />
+                </FormItem>
+              )} />
+              <div className="grid grid-cols-2 gap-3">
+                <FormField control={form.control} name="phone" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs flex items-center gap-1"><Phone className="w-3 h-3" />الهاتف</FormLabel>
+                    <FormControl><Input placeholder="01x-xxxx-xxxx" className="h-9 text-sm" {...field} value={field.value ?? ""} /></FormControl>
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="city" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs flex items-center gap-1"><MapPin className="w-3 h-3" />المحافظة</FormLabel>
+                    <FormControl><Input placeholder="القاهرة..." className="h-9 text-sm" {...field} value={field.value ?? ""} /></FormControl>
+                  </FormItem>
+                )} />
+              </div>
+              <FormField control={form.control} name="address" render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs flex items-center gap-1"><MapPin className="w-3 h-3" />العنوان بالتفصيل</FormLabel>
+                  <FormControl><Input placeholder="الحي، الشارع، رقم المنزل..." className="h-9 text-sm" {...field} value={field.value ?? ""} /></FormControl>
+                </FormItem>
+              )} />
+            </div>
+
+            {/* الشحن */}
+            <div className="space-y-3 pt-2 border-t border-border/60">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+                <Truck className="w-3 h-3" />بيانات الشحن
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <FormField control={form.control} name="shippingCompanyId" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs">شركة الشحن</FormLabel>
+                    <Select value={field.value?.toString() || "none"} onValueChange={v => field.onChange(v === "none" ? null : Number(v))}>
+                      <SelectTrigger className="h-9 text-sm bg-card"><SelectValue placeholder="اختر شركة" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">بدون</SelectItem>
+                        {shippingCompanies?.filter((c: any) => c.isActive).map((c: any) => (
+                          <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )} />
+                {canViewFinancials && (
+                  <FormField control={form.control} name="shippingCost" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs flex items-center gap-1"><DollarSign className="w-3 h-3 text-emerald-600" />تكلفة الشحن (ج.م)</FormLabel>
+                      <FormControl>
+                        <Input type="number" min="0" step="0.01" placeholder="0" className="h-9 text-sm"
+                          {...field} value={field.value ?? ""}
+                          onChange={e => field.onChange(e.target.value ? Number(e.target.value) : 0)} />
+                      </FormControl>
+                    </FormItem>
+                  )} />
+                )}
+              </div>
+            </div>
+
+            {/* تتبع الإعلان والفريق */}
+            <div className="space-y-3 pt-2 border-t border-border/60">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+                <Megaphone className="w-3 h-3 text-purple-400" />تتبع الإعلان والفريق
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <FormField control={form.control} name="adSource" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs flex items-center gap-1"><Megaphone className="w-3 h-3" />مصدر الطلب</FormLabel>
+                    <Select value={field.value ?? "none"} onValueChange={v => field.onChange(v === "none" ? null : v)}>
+                      <SelectTrigger className="h-9 text-sm bg-card">
+                        <SelectValue placeholder="اختر المصدر">
+                          {field.value && field.value !== "none" && (
+                            <span className="flex items-center gap-2">
+                              <AdSourceIcon value={field.value} />
+                              {AD_SOURCES.find(s => s.value === field.value)?.label}
+                            </span>
+                          )}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">— غير محدد —</SelectItem>
+                        {AD_SOURCES.map(s => (
+                          <SelectItem key={s.value} value={s.value}>
+                            <span className="flex items-center gap-2"><AdSourceIcon value={s.value} />{s.label}</span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="adCampaign" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs">اسم الحملة</FormLabel>
+                    <FormControl><Input placeholder="Summer 2025..." className="h-9 text-sm" {...field} value={field.value ?? ""} /></FormControl>
+                  </FormItem>
+                )} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <FormField control={form.control} name="warehouseId" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs flex items-center gap-1"><Warehouse className="w-3 h-3" />المخزن</FormLabel>
+                    <Select value={field.value?.toString() ?? "none"} onValueChange={v => field.onChange(v === "none" ? null : Number(v))}>
+                      <SelectTrigger className="h-9 text-sm bg-card"><SelectValue placeholder="اختر مخزن" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">— غير محدد —</SelectItem>
+                        {warehouses?.map((w: any) => <SelectItem key={w.id} value={String(w.id)}>{w.name}{w.isDefault ? " ★" : ""}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="assignedUserId" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs flex items-center gap-1"><UserCheck className="w-3 h-3" />الموظف المسؤول</FormLabel>
+                    <Select value={field.value?.toString() ?? "none"} onValueChange={v => field.onChange(v === "none" ? null : Number(v))}>
+                      <SelectTrigger className="h-9 text-sm bg-card"><SelectValue placeholder="اختر موظف" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">— غير محدد —</SelectItem>
+                        {users?.filter((u: any) => u.isActive).map((u: any) => <SelectItem key={u.id} value={String(u.id)}>{u.displayName}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )} />
+              </div>
+            </div>
+
+            {/* ملاحظات */}
+            <div className="pt-2 border-t border-border/60">
+              <FormField control={form.control} name="notes" render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs">ملاحظات</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="أي ملاحظات إضافية..." className="min-h-[60px] text-sm resize-none" {...field} value={field.value ?? ""} />
+                  </FormControl>
+                </FormItem>
+              )} />
+            </div>
+
+            <DialogFooter className="flex gap-2 pt-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)} className="flex-1">إلغاء</Button>
+              <Button type="submit" size="sm" disabled={updateOrder.isPending} className="flex-1 gap-1">
+                <Save className="w-3 h-3" />{updateOrder.isPending ? "جاري الحفظ..." : `حفظ (${orders.length} طلبات)`}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function InvoiceView({ orders, currentId, shippingCompanies, products, allVariants, onRefresh, isAdmin, canViewFinancials, canViewProfitability, formatCurrency, warehouses, users }: {
   orders: any[]; currentId: number; shippingCompanies: any[]; products: any[]; allVariants: any[];
   onRefresh: () => void; isAdmin: boolean; canViewFinancials: boolean; canViewProfitability: boolean; formatCurrency: (n: number) => string;
+  warehouses: any[]; users: any[];
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -669,6 +936,7 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [showDeleteId, setShowDeleteId] = useState<number | null>(null);
+  const [showInvoiceEdit, setShowInvoiceEdit] = useState(false);
 
   const primaryOrder = orders.find(o => o.id === currentId) || orders[0];
   const invoiceTotal = orders.reduce((s, o) => s + (o.totalPrice ?? 0), 0);
@@ -707,13 +975,24 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
               {primaryOrder.phone && (
                 <p className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="w-3 h-3" />{primaryOrder.phone}</p>
               )}
+              {primaryOrder.city && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="w-3 h-3" />{primaryOrder.city}</p>
+              )}
               {primaryOrder.address && (
                 <p className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="w-3 h-3" />{primaryOrder.address}</p>
               )}
             </div>
-            <div className="text-left">
-              <p className="text-xs text-muted-foreground mb-1">إجمالي الفاتورة</p>
-              <p className="text-xl font-black text-primary">{formatCurrency(invoiceTotal)}</p>
+            <div className="flex flex-col items-end gap-2">
+              <div className="text-left">
+                <p className="text-xs text-muted-foreground mb-1">إجمالي الفاتورة</p>
+                <p className="text-xl font-black text-primary">{formatCurrency(invoiceTotal)}</p>
+              </div>
+              {isAdmin && (
+                <Button variant="outline" size="sm" className="h-7 text-xs gap-1 border-primary/40 text-primary hover:bg-primary/5"
+                  onClick={() => setShowInvoiceEdit(true)}>
+                  <Pencil className="w-3 h-3" />تعديل بيانات الفاتورة
+                </Button>
+              )}
             </div>
           </div>
         </CardContent>
@@ -902,6 +1181,19 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* ── Invoice Edit Dialog ── */}
+      <InvoiceEditDialog
+        open={showInvoiceEdit}
+        onOpenChange={setShowInvoiceEdit}
+        primaryOrder={primaryOrder}
+        orders={orders}
+        shippingCompanies={shippingCompanies}
+        warehouses={warehouses}
+        users={users}
+        canViewFinancials={canViewFinancials}
+        onSuccess={onRefresh}
+      />
     </div>
   );
 }
@@ -1334,6 +1626,8 @@ export default function OrderDetail() {
             shippingCompanies={shippingCompanies ?? []}
             products={products ?? []}
             allVariants={allVariants ?? []}
+            warehouses={warehouses ?? []}
+            users={users ?? []}
             isAdmin={isAdmin}
             canViewFinancials={canViewFinancials}
             canViewProfitability={canViewProfitability}
