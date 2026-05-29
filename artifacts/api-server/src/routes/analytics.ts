@@ -474,21 +474,32 @@ router.get("/analytics/financial-summary", requirePermission("orders.financials"
     ? Math.round(completedOrders.reduce((s, o) => s + o.cost, 0) / completedOrders.length)
     : 0;
 
-  const inventoryAtCost = variants.reduce((s, v) => {
-    const avail = Math.max(0, v.totalQuantity - v.reservedQuantity - v.soldQuantity);
-    return s + avail * (v.costPrice ?? 0);
-  }, 0) + products.reduce((s, p) => {
-    const avail = Math.max(0, p.totalQuantity - p.reservedQuantity - p.soldQuantity);
-    return s + avail * (p.costPrice ?? 0);
-  }, 0);
+  // المنتجات التي عندها variants — نحسب قيمتها من الـ variants فقط لتفادي التضاعف
+  const productsWithVariants = new Set(variants.map(v => v.productId));
 
-  const inventoryAtSell = variants.reduce((s, v) => {
-    const avail = Math.max(0, v.totalQuantity - v.reservedQuantity - v.soldQuantity);
-    return s + avail * v.unitPrice;
-  }, 0) + products.reduce((s, p) => {
-    const avail = Math.max(0, p.totalQuantity - p.reservedQuantity - p.soldQuantity);
-    return s + avail * p.unitPrice;
-  }, 0);
+  const inventoryAtCost =
+    // كل الـ variants (الكمية الحقيقية موجودة هنا)
+    variants.reduce((s, v) => {
+      const avail = Math.max(0, v.totalQuantity - v.reservedQuantity - v.soldQuantity);
+      return s + avail * (v.costPrice ?? 0);
+    }, 0)
+    // + المنتجات التي ليس لها أي variant فقط
+    + products.reduce((s, p) => {
+      if (productsWithVariants.has(p.id)) return s;
+      const avail = Math.max(0, p.totalQuantity - p.reservedQuantity - p.soldQuantity);
+      return s + avail * (p.costPrice ?? 0);
+    }, 0);
+
+  const inventoryAtSell =
+    variants.reduce((s, v) => {
+      const avail = Math.max(0, v.totalQuantity - v.reservedQuantity - v.soldQuantity);
+      return s + avail * v.unitPrice;
+    }, 0)
+    + products.reduce((s, p) => {
+      if (productsWithVariants.has(p.id)) return s;
+      const avail = Math.max(0, p.totalQuantity - p.reservedQuantity - p.soldQuantity);
+      return s + avail * p.unitPrice;
+    }, 0);
 
   const returnCount = new Set(allOrders.filter(o => o.status === "returned").map(o => o.invoiceNumber ?? `solo-${o.id}`)).size;
   // نسبة المرتجعات من الطلبات المنتهية فعلاً (received + partial_received + returned) — نعدّ الفواتير الفريدة
