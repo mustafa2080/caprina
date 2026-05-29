@@ -416,8 +416,8 @@ function DashTeamMemberRow({ member, rank, maxScore, showProfit }: {
         <img src={member.avatar} className="w-8 h-8 rounded-full object-cover border border-border/50 shrink-0" alt={member.displayName} />
       ) : (
         <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-[11px] shrink-0 border border-border/30"
-          style={{ background: dbAvatarColor(member.displayName)[0], color: dbAvatarColor(member.displayName)[1] }}>
-          {dbInitials(member.displayName)}
+          style={{ background: dbAvatarColor(member.displayName || "?")[0], color: dbAvatarColor(member.displayName || "?")[1] }}>
+          {dbInitials(member.displayName || "?")}
         </div>
       )}
       {/* info */}
@@ -1484,7 +1484,7 @@ export default function Dashboard() {
                                     </defs>
                                     <path d={`${d} L${W},${H} L0,${H} Z`} fill={`url(#sg-${i})`} />
                                     <path d={d} stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                    <circle cx={coords[coords.length-1][0]} cy={coords[coords.length-1][1]} r="2.5" fill={color}/>
+                                    {coords.length > 0 && <circle cx={coords[coords.length-1][0]} cy={coords[coords.length-1][1]} r="2.5" fill={color}/>}
                                   </svg>
                                 );
                               })()}
@@ -1701,7 +1701,7 @@ export default function Dashboard() {
               {/* منحنى أداء */}
               {(() => {
                 const chartData = teamPerf.slice(0, 5).map(m => ({
-                  name: m.displayName.split(" ")[0],
+                  name: (m.displayName || "؟").split(" ")[0],
                   تسليم: m.deliveryRate,
                   مرتجع: m.returnRate,
                 }));
@@ -1742,7 +1742,7 @@ export default function Dashboard() {
                         {dbInitials(m.displayName)}
                       </div>
                     )}
-                    <span className="text-sm font-bold truncate flex-1">{m.displayName.split(" ")[0]}</span>
+                    <span className="text-sm font-bold truncate flex-1">{(m.displayName || "؟").split(" ")[0]}</span>
                     <span className={`text-sm font-black ${m.deliveryRate >= 70 ? "text-emerald-500" : "text-amber-500"}`}>{m.deliveryRate}%</span>
                   </div>
                   );
