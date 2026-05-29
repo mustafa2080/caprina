@@ -1,4 +1,3 @@
-import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
@@ -44,6 +43,8 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       output: {
+        // ✅ يحافظ على النصوص العربية بدون unicode escape
+        charset: "utf8",
         manualChunks: {
           "vendor-react":  ["react", "react-dom"],
           "vendor-query":  ["@tanstack/react-query"],
@@ -80,23 +81,5 @@ export default defineConfig({
       strict: true,
       deny: ["**/.*"],
     },
-    warmup: {
-      clientFiles: ["./src/App.tsx", "./src/main.tsx", "./src/index.css"],
-    },
-  },
-  preview: {
-    port,
-    host: "0.0.0.0",
-    allowedHosts: true,
-  },
-  optimizeDeps: {
-    include: [
-      "react",
-      "react-dom",
-      "@tanstack/react-query",
-      "wouter",
-      "lucide-react",
-      "recharts",
-    ],
   },
 });
