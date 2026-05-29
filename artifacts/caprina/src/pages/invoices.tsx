@@ -204,7 +204,7 @@ export default function Invoices() {
       body { font-family: 'Cairo', 'Segoe UI', Tahoma, Arial, sans-serif; direction: rtl; background: white; color: #000; font-size: 9pt; font-weight: 600; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .page { display: grid; ${perPage === 1 ? "grid-template-columns: 1fr; grid-template-rows: 1fr;" : perPage === 2 ? "grid-template-columns: 1fr 1fr; grid-template-rows: 1fr;" : "grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;"} gap: 2mm; width: 297mm; height: 210mm; padding: 3mm; page-break-after: always; }
       .page:last-child { page-break-after: avoid; }
-      .inv { border: 2px solid #000; border-radius: 2mm; display: flex; flex-direction: column; overflow: hidden; background: white; min-height: 0; min-width: 0; height: 100%; }
+      .inv { border: 2px solid #000; border-radius: 2mm; display: flex; flex-direction: column; overflow: visible; background: white; min-height: 0; min-width: 0; height: 100%; }
       .inv-hdr { background: #1a1a1a; color: white; display: flex; align-items: center; justify-content: space-between; padding: 2mm 3mm; gap: 2mm; flex-shrink: 0; }
       .hdr-date { font-size: 8pt; font-weight: 700; white-space: nowrap; direction: ltr; text-align: right; }
       .hdr-logo { display: flex; align-items: center; gap: 2mm; }
@@ -215,7 +215,7 @@ export default function Invoices() {
       .cust-phone { font-size: 10pt; font-weight: 800; direction: ltr; color: #000; }
       .cust-name { font-size: 12pt; font-weight: 900; color: #000; }
       .inv-body { padding: 1mm 3mm 0; flex: 1; min-height: 0; overflow: visible; display: flex; flex-direction: column; }
-      .table-wrap { overflow: hidden; flex: 1; min-height: 0; }
+      .table-wrap { overflow: visible; flex: 1; min-height: 0; }
       .total-bar { flex-shrink: 0; }
       .prod-table { width: 100%; border-collapse: collapse; }
       .prod-table th { background: #1a1a1a; color: white; border: 1px solid #333; padding: 1mm 1.5mm; font-weight: 800; font-size: 8pt; text-align: center; }
@@ -264,12 +264,12 @@ export default function Invoices() {
       //   perPage=4: فاتورة ~100mm - hdr(18mm) - cust(7mm) - totalbar(5mm) - bottom(20mm) - footer(6mm) - padding(2mm) = ~42mm
       //   perPage=2: ~100mm - same = ~42mm
       //   perPage=1: ~204mm - same = ~146mm
-      const availableForTable = perPage === 4 ? 42 : perPage === 2 ? 42 : 146;
-      const rowHeightMm = 4.5;
+      const availableForTable = perPage === 4 ? 48 : perPage === 2 ? 55 : 150;
+      const rowHeightMm = 4.2;
       const theadHeightMm = 5;
       const naturalTableHeight = theadHeightMm + rowCount * rowHeightMm;
       const tableMaxHeight = Math.min(naturalTableHeight, availableForTable);
-      const scaleFactor = naturalTableHeight <= availableForTable ? 1 : Math.max(0.5, availableForTable / naturalTableHeight);
+      const scaleFactor = naturalTableHeight <= availableForTable ? 1 : Math.max(0.45, availableForTable / naturalTableHeight);
       const tblFontSize = (7 * scaleFactor).toFixed(1);
       const cellPad = scaleFactor < 0.75 ? "0.3mm 0.6mm" : scaleFactor < 0.85 ? "0.4mm 0.8mm" : "0.8mm 1mm";
       const hdrPad = scaleFactor < 0.85 ? "1mm 3mm" : "2mm 3mm";
