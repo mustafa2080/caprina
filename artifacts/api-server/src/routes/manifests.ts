@@ -476,11 +476,14 @@ router.get("/shipping-manifests/:id", async (req, res): Promise<void> => {
       const link = linkMap.get(o.id);
       if (!link) return { ...o, deliveryStatus: "pending", deliveryNote: null, deliveredAt: null, manifestOrderId: 0 };
       const _rrNum = link.returnReceived == null ? null : Number(link.returnReceived);
-      const _pq = (link as any).partialQuantity != null ? Number((link as any).partialQuantity) : (o.partialQuantity != null ? Number(o.partialQuantity) : null);
       // إذا الـ link حالته pending لكن الـ order نفسه partial_received → نعرضه partial_received
       const _deliveryStatus = (link.deliveryStatus === "pending" && o.status === "partial_received")
         ? "partial_received"
         : link.deliveryStatus;
+      // كمان لو الـ link نفسه partial_received بس partialQuantity = null → نجيب من ordersTable
+      const _pq = (link as any).partialQuantity != null
+        ? Number((link as any).partialQuantity)
+        : (_deliveryStatus === "partial_received" && o.partialQuantity != null ? Number(o.partialQuantity) : null);
       return { ...o, deliveryStatus: _deliveryStatus, deliveryNote: link.deliveryNote, deliveredAt: link.deliveredAt, partialQuantity: _pq, manifestOrderId: link.id, returnReceived: _rrNum, addedAt: link.addedAt };
     });
   }
