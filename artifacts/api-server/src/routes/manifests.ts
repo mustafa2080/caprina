@@ -309,6 +309,7 @@ router.get("/shipping-manifests", async (req, res): Promise<void> => {
   const postponedMap: Record<number, number> = {};
   const returnedMap: Record<number, number> = {};
   const pendingMap: Record<number, number> = {};
+  const partialMap: Record<number, number> = {};
   for (const [manifestIdStr, links] of Object.entries(manifestLinkMap)) {
     const manifestId = Number(manifestIdStr);
     // Map: invoiceKey → worst status (لو فاتورة فيها مؤجل وغيره → مؤجل)
@@ -323,15 +324,17 @@ router.get("/shipping-manifests", async (req, res): Promise<void> => {
       if (newPriority > existingPriority) invoiceStatusMap.set(key, link.deliveryStatus);
     }
     countMap[manifestId] = invoiceStatusMap.size;
-    let postponed = 0, returned = 0, pending = 0;
+    let postponed = 0, returned = 0, pending = 0, partial = 0;
     for (const status of invoiceStatusMap.values()) {
       if (status === "postponed" || status === "delayed") postponed++;
       if (status === "returned") returned++;
       if (status === "pending") pending++;
+      if (status === "partial_received") partial++;
     }
     postponedMap[manifestId] = postponed;
     returnedMap[manifestId] = returned;
     (pendingMap as Record<number, number>)[manifestId] = pending;
+    (partialMap as Record<number, number>)[manifestId] = partial;
   }
 
   res.json(manifests.map((m) => ({
@@ -340,6 +343,7 @@ router.get("/shipping-manifests", async (req, res): Promise<void> => {
     postponedCount: postponedMap[m.manifest.id] ?? 0,
     returnedCount: returnedMap[m.manifest.id] ?? 0,
     pendingCount: pendingMap[m.manifest.id] ?? 0,
+    partialCount: partialMap[m.manifest.id] ?? 0,
   })));
 });
 

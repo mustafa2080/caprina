@@ -132,10 +132,14 @@ function CompanyStats({ companyId, canViewFinancials }: { companyId: number; can
   return (
     <div className="mt-4 pt-4 border-t border-border space-y-3">
       <DeliveryBar rate={stats.deliveryRate} />
-      <div className="grid grid-cols-3 gap-2 text-center">
+      <div className="grid grid-cols-2 gap-2 text-center">
         <div className="bg-muted/20 rounded p-2">
           <p className="text-[10px] text-muted-foreground">مُسلَّم</p>
           <p className="text-sm font-black text-emerald-400">{stats.delivered}</p>
+        </div>
+        <div className="bg-muted/20 rounded p-2">
+          <p className="text-[10px] text-muted-foreground">مُسلَّم جزئي</p>
+          <p className="text-sm font-black text-teal-400">{(stats as any).partial ?? 0}</p>
         </div>
         <div className="bg-muted/20 rounded p-2">
           <p className="text-[10px] text-muted-foreground">مُرتجَع</p>
@@ -146,7 +150,7 @@ function CompanyStats({ companyId, canViewFinancials }: { companyId: number; can
           {openManifest ? (
             <div className="space-y-1.5">
               <p className="text-sm font-black text-amber-400 text-center">{openManifest.orderCount}</p>
-              <div className="grid grid-cols-3 gap-1">
+              <div className="grid grid-cols-4 gap-1">
                 <div className="flex flex-col items-center bg-blue-500/10 rounded py-1 px-0.5">
                   <span className="text-[10px] font-black text-blue-400">{openManifest.pendingCount ?? 0}</span>
                   <span className="text-[8px] text-muted-foreground leading-tight">انتظار</span>
@@ -158,6 +162,10 @@ function CompanyStats({ companyId, canViewFinancials }: { companyId: number; can
                 <div className="flex flex-col items-center bg-red-500/10 rounded py-1 px-0.5">
                   <span className="text-[10px] font-black text-red-400">{openManifest.returnedCount ?? 0}</span>
                   <span className="text-[8px] text-muted-foreground leading-tight">مرتجع</span>
+                </div>
+                <div className="flex flex-col items-center bg-teal-500/10 rounded py-1 px-0.5">
+                  <span className="text-[10px] font-black text-teal-400">{(openManifest as any).partialCount ?? 0}</span>
+                  <span className="text-[8px] text-muted-foreground leading-tight">جزئي</span>
                 </div>
               </div>
             </div>

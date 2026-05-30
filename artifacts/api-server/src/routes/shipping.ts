@@ -157,7 +157,7 @@ router.get("/shipping-companies/:id/stats", async (req, res): Promise<void> => {
   }
 
   const total = delivered + partial + returned + postponed + pending;
-  const deliveryRate = total > 0 ? Math.round((delivered / total) * 100) : 0;
+  const deliveryRate = total > 0 ? Math.round(((delivered + partial) / total) * 100) : 0;
   const netProfit = totalRevenue - totalCost - totalShipping - returnLosses;
 
   res.json({ delivered, partial, returned, pending, postponed, deliveryRate, netProfit, manifestCount });
