@@ -28,7 +28,7 @@ const SOURCE_META: Record<string, { label: string; color: string; bg: string; bo
   facebook:  { label: "فيسبوك",   icon: FaFacebook, iconColor: "#1877F2", color: "text-blue-700 dark:text-blue-400",    bg: "bg-blue-50 dark:bg-blue-900/30",     border: "border-blue-300 dark:border-blue-700" },
   tiktok:    { label: "تيك توك",  icon: FaTiktok,   iconColor: "#010101", color: "text-zinc-800 dark:text-zinc-200",    bg: "bg-zinc-50 dark:bg-zinc-900/30",     border: "border-zinc-300 dark:border-zinc-700" },
   instagram: { label: "إنستجرام", icon: FaInstagram,iconColor: "#E1306C", color: "text-pink-700 dark:text-pink-400",    bg: "bg-pink-50 dark:bg-pink-900/30",     border: "border-pink-300 dark:border-pink-700" },
-  organic:   { label: "عضوي",     icon: PiPlantFill,iconColor: "#22c55e", color: "text-emerald-700 dark:text-emerald-400",bg: "bg-emerald-50 dark:bg-emerald-900/20",border: "border-emerald-300 dark:border-emerald-700" },
+  organic:   { label: "ويبسايت",  icon: PiPlantFill,iconColor: "#22c55e", color: "text-emerald-700 dark:text-emerald-400",bg: "bg-emerald-50 dark:bg-emerald-900/20",border: "border-emerald-300 dark:border-emerald-700" },
   whatsapp:  { label: "واتساب",   icon: FaWhatsapp, iconColor: "#25D366", color: "text-green-700 dark:text-green-400",  bg: "bg-green-50 dark:bg-green-900/20",   border: "border-green-300 dark:border-green-700" },
   other:     { label: "أخرى",     icon: FiMoreHorizontal, iconColor: "#888",color: "text-zinc-600 dark:text-zinc-400",    bg: "bg-zinc-100 dark:bg-zinc-800/40",    border: "border-zinc-300 dark:border-zinc-700" },
 };
