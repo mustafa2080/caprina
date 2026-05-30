@@ -132,13 +132,14 @@ router.get("/shipping-companies/:id/stats", async (req, res): Promise<void> => {
       const shipping = order.shippingCost ?? 0;
       totalShipping += shipping;
       if (status === "delivered") {
-        // تسليم كامل فقط = إيراد
+        // تسليم كامل → إيراد كامل
         totalRevenue += order.totalPrice;
         totalCost += (order.costPrice ?? 0) * qty;
-      } else if (status === "returned" || status === "partial_received") {
-        // مرتجع أو جزئي = خسارة شحن فقط
+      } else if (status === "returned") {
+        // مرتجع كامل → خسارة شحن فقط
         returnLosses += shipping;
       }
+      // partial_received → رجع مخزن = صفر (لا إيراد ولا خسارة شحن)
     }
     if (status === "delivered") delivered++;
     else if (status === "returned" || status === "partial_received") returned++;

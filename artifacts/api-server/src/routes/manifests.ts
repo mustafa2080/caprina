@@ -82,10 +82,11 @@ async function createFinancialInvoiceOnClose(
       // تسليم كامل → إيراد كامل
       grossRevenue += Number(o.totalPrice);
       shippingFees += shipping;
-    } else if (o.deliveryStatus === "returned" || isPartial) {
-      // مرتجع أو جزئي → لا إيراد، فقط خسارة الشحن
+    } else if (o.deliveryStatus === "returned") {
+      // مرتجع كامل → خسارة تكلفة الشحن فقط
       returnFees += shipping;
     }
+    // partial_received → القطعة رجعت للمخزن = صفر (لا إيراد ولا خسارة شحن)
   }
 
   // لو في manualShippingCost على البيان → استخدمه كـ shippingFees
@@ -209,15 +210,16 @@ function computeStats(orders: OrderWithDelivery[]) {
       // تسليم كامل → إيراد كامل + تكلفة كاملة
       totalRevenue += o.totalPrice; totalCost += (o.costPrice ?? 0) * o.quantity;
       totalShippingCost += shipping; deliveredGross += o.totalPrice;
-    } else if (o.deliveryStatus === "returned" || isPartial) {
-      // مرتجع أو جزئي → لا إيراد، بس خسارة الشحن
+    } else if (o.deliveryStatus === "returned") {
+      // مرتجع كامل → خسارة شحن فقط
       totalShippingCost += shipping;
-      // الجزء اللي لسه عند الشحن
-      if (rv !== 1) {
-        stillAtShippingCount++;
-        stillAtShippingAmount += o.totalPrice;
-      }
-    } else { totalShippingCost += shipping; }
+      if (rv !== 1) { stillAtShippingCount++; stillAtShippingAmount += o.totalPrice; }
+    } else if (isPartial) {
+      // جزئي → القطعة رجعت للمخزن = صفر تماماً (لا إيراد ولا خسارة شحن)
+      if (rv !== 1) { stillAtShippingCount++; stillAtShippingAmount += o.totalPrice; }
+    } else {
+      totalShippingCost += shipping;
+    }
   }
   const actuallyDeliveredShipping = orders
     .filter(o => o.deliveryStatus === "delivered")
