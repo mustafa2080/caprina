@@ -219,8 +219,8 @@ export default function Invoices() {
       .cust-name { font-size: 11pt; font-weight: 900; color: #000; }
       .inv-body { padding: 0.8mm 2.5mm 0.3mm; flex-shrink: 0; overflow: visible; }
       .inv-mid-spacer { display: none; }
-      .inv-bottom { padding: 0.4mm 2.5mm; flex-shrink: 0; margin-top: auto; display: flex; flex-direction: column; gap: 0.4mm; border-top: 1px solid #ddd; background: white; }
-      .inv-footer { border-top: 2px solid #1a1a1a; background: #1a1a1a; padding: 0.8mm 2.5mm; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; gap: 2mm; }
+      .inv-bottom { padding: 0.4mm 2.5mm; flex-shrink: 0; display: flex; flex-direction: column; gap: 0.4mm; border-top: 1px solid #ddd; background: white; }
+      .inv-footer { border-top: 2px solid #1a1a1a; background: #1a1a1a; padding: 0.8mm 2.5mm; flex-shrink: 0; margin-top: auto; display: flex; justify-content: space-between; align-items: center; gap: 2mm; }
       .table-wrap { overflow: visible; }
       .total-bar { flex-shrink: 0; }
       .prod-table { width: 100%; border-collapse: collapse; }
