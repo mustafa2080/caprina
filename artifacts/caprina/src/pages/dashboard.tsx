@@ -79,13 +79,13 @@ const STATUS_LABELS: Record<string, string> = {
 // pending=#f59e0b  warehouse_ready=#f97316  in_shipping=#3b82f6
 // received=#22c55e  delayed=#8b5cf6  returned=#ef4444  partial_received=#06b6d4
 const STATUS_CLASSES: Record<string, string> = {
-  pending:          "bg-amber-50   dark:bg-amber-900/30   text-amber-600   dark:text-amber-400   border-amber-300   dark:border-amber-700",
+  pending:          "bg-amber-50   dark:bg-amber-900/30   text-amber-500   dark:text-amber-400   border-amber-300   dark:border-amber-700",
   in_shipping:      "bg-blue-50    dark:bg-blue-900/30    text-blue-600    dark:text-blue-400    border-blue-300    dark:border-blue-700",
-  warehouse_ready:  "bg-orange-100  dark:bg-orange-900/30  text-orange-500  dark:text-orange-300  border-orange-200  dark:border-orange-700",
-  received:         "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700",
-  delayed:          "bg-violet-50  dark:bg-violet-900/30  text-violet-600  dark:text-violet-400  border-violet-300  dark:border-violet-700",
+  warehouse_ready:  "bg-green-50   dark:bg-green-900/30   text-green-400   dark:text-green-300   border-green-200   dark:border-green-700",
+  received:         "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-500 border-emerald-300 dark:border-emerald-700",
+  delayed:          "bg-cyan-50    dark:bg-cyan-900/30    text-cyan-500    dark:text-cyan-400    border-cyan-300    dark:border-cyan-700",
   returned:         "bg-red-50     dark:bg-red-900/30     text-red-600     dark:text-red-400     border-red-300     dark:border-red-700",
-  partial_received: "bg-cyan-50    dark:bg-cyan-900/30    text-cyan-600    dark:text-cyan-400    border-cyan-300    dark:border-cyan-700",
+  partial_received: "bg-purple-50  dark:bg-purple-900/30  text-purple-500  dark:text-purple-400  border-purple-300  dark:border-purple-700",
 };
 
 // ─── Period Card ───────────────────────────────────────────────────────────────
