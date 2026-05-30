@@ -22,6 +22,17 @@ export function invalidateChartsCache(tenantId: number | null) {
   analyticsCache.delete(key);
 }
 
+export function invalidateSmartCache(tenantId: number | null) {
+  // امسح كل الـ keys اللي فيها smart-insights أو analytics-profit أو analytics-alerts
+  for (const key of analyticsCache.keys()) {
+    if (key.startsWith(`smart-insights:${tenantId ?? "global"}`) ||
+        key.startsWith(`analytics-profit:${tenantId ?? "global"}`) ||
+        key.startsWith(`analytics-alerts:${tenantId ?? "global"}`)) {
+      analyticsCache.delete(key);
+    }
+  }
+}
+
 const router: IRouter = Router();
 
 // ── Tenant-safe helpers ────────────────────────────────────────────────────────
