@@ -1339,7 +1339,7 @@ router.get("/analytics/smart-insights", async (req, res): Promise<void> => {
   // نبني map: manifestId → { totalOrders, sourceBreakdown } عشان نوزّع تكلفة البيان بالتساوي
   const manifestSourceMap = new Map<number, Map<string, Set<string>>>();
   for (const o of allOrders) {
-    const src = o.adSource ?? "organic";
+    const src = o.adSource ?? "unknown";
     const manifestId = allManifestOrders.find(mo => mo.orderId === o.id)?.manifestId;
     if (manifestId !== undefined) {
       if (!manifestSourceMap.has(manifestId)) manifestSourceMap.set(manifestId, new Map());
@@ -1352,7 +1352,7 @@ router.get("/analytics/smart-insights", async (req, res): Promise<void> => {
   const countedManifestsSI = new Set<number>();
 
   for (const o of allOrders) {
-    const src = o.adSource ?? "organic";
+    const src = o.adSource ?? "unknown";
     if (!sourceMap[src]) sourceMap[src] = {
       orders: 0, revenue: 0, cost: 0, profit: 0, adSpend: 0, returned: 0, shippingSpend: 0,
       invoiceSet: new Set<string>(), returnedInvoiceSet: new Set<string>(), processedShippingInvoices: new Set<string>(),
