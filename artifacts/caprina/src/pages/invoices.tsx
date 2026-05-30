@@ -217,8 +217,8 @@ export default function Invoices() {
       .cust-row { display: flex; align-items: center; justify-content: space-between; padding: 1mm 2.5mm; border-bottom: 1.5px solid #000; background: #f0f0f0; flex-shrink: 0; gap: 2mm; }
       .cust-phone { font-size: 9pt; font-weight: 800; direction: ltr; color: #000; }
       .cust-name { font-size: 11pt; font-weight: 900; color: #000; }
-      .inv-body { padding: 0.8mm 2.5mm 0.3mm; flex: 1; overflow: visible; display: flex; flex-direction: column; gap: 0.5mm; }
-      .inv-mid-spacer { flex: 1; }
+      .inv-body { padding: 0.8mm 2.5mm 0.3mm; flex-shrink: 0; overflow: visible; }
+      .inv-mid-spacer { flex: 1; min-height: 0; }
       .inv-bottom { padding: 0.4mm 2.5mm; flex-shrink: 0; display: flex; flex-direction: column; gap: 0.4mm; border-top: 1px solid #ddd; background: white; }
       .inv-footer { border-top: 2px solid #1a1a1a; background: #1a1a1a; padding: 0.8mm 2.5mm; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; gap: 2mm; }
       .table-wrap { overflow: visible; }
