@@ -25,13 +25,13 @@ const fn = (n: number) => new Intl.NumberFormat("ar-EG").format(Math.round(n));
 
 // â”€â”€â”€ Source meta â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const SOURCE_META: Record<string, { label: string; color: string; bg: string; border: string; icon: React.ElementType; iconColor: string }> = {
-  facebook:  { label: "ظپظٹط³ط¨ظˆظƒ",   icon: FaFacebook, iconColor: "#1877F2", color: "text-blue-700 dark:text-blue-400",    bg: "bg-blue-50 dark:bg-blue-900/30",     border: "border-blue-300 dark:border-blue-700" },
-  tiktok:    { label: "طھظٹظƒ طھظˆظƒ",  icon: FaTiktok,   iconColor: "#010101", color: "text-zinc-800 dark:text-zinc-200",    bg: "bg-zinc-50 dark:bg-zinc-900/30",     border: "border-zinc-300 dark:border-zinc-700" },
-  instagram: { label: "ط¥ظ†ط³طھط¬ط±ط§ظ…", icon: FaInstagram,iconColor: "#E1306C", color: "text-pink-700 dark:text-pink-400",    bg: "bg-pink-50 dark:bg-pink-900/30",     border: "border-pink-300 dark:border-pink-700" },
-  organic:   { label: "ظˆظٹط¨ط³ط§ظٹطھ",  icon: Globe, iconColor: "#6366f1", color: "text-indigo-700 dark:text-indigo-400", bg: "bg-indigo-50 dark:bg-indigo-900/20", border: "border-indigo-300 dark:border-indigo-700" },
-  unknown:   { label: "ط¹ط¶ظˆظٹ",     icon: Globe, iconColor: "#94a3b8", color: "text-slate-600 dark:text-slate-400",  bg: "bg-slate-50 dark:bg-slate-900/20",   border: "border-slate-300 dark:border-slate-700" },
-  whatsapp:  { label: "ظˆط§طھط³ط§ط¨",   icon: FaWhatsapp, iconColor: "#25D366", color: "text-green-700 dark:text-green-400",  bg: "bg-green-50 dark:bg-green-900/20",   border: "border-green-300 dark:border-green-700" },
-  other:     { label: "ط£ط®ط±ظ‰",     icon: FiMoreHorizontal, iconColor: "#888",color: "text-zinc-600 dark:text-zinc-400",    bg: "bg-zinc-100 dark:bg-zinc-800/40",    border: "border-zinc-300 dark:border-zinc-700" },
+  facebook:  { label: "فيسبوك",   icon: FaFacebook, iconColor: "#1877F2", color: "text-blue-700 dark:text-blue-400",    bg: "bg-blue-50 dark:bg-blue-900/30",     border: "border-blue-300 dark:border-blue-700" },
+  tiktok:    { label: "تيك توك",  icon: FaTiktok,   iconColor: "#010101", color: "text-zinc-800 dark:text-zinc-200",    bg: "bg-zinc-50 dark:bg-zinc-900/30",     border: "border-zinc-300 dark:border-zinc-700" },
+  instagram: { label: "إنستجرام", icon: FaInstagram,iconColor: "#E1306C", color: "text-pink-700 dark:text-pink-400",    bg: "bg-pink-50 dark:bg-pink-900/30",     border: "border-pink-300 dark:border-pink-700" },
+  organic:   { label: "ويبسايت",  icon: Globe, iconColor: "#6366f1", color: "text-indigo-700 dark:text-indigo-400", bg: "bg-indigo-50 dark:bg-indigo-900/20", border: "border-indigo-300 dark:border-indigo-700" },
+  unknown:   { label: "عضوي",     icon: Globe, iconColor: "#94a3b8", color: "text-slate-600 dark:text-slate-400",  bg: "bg-slate-50 dark:bg-slate-900/20",   border: "border-slate-300 dark:border-slate-700" },
+  whatsapp:  { label: "واتساب",   icon: FaWhatsapp, iconColor: "#25D366", color: "text-green-700 dark:text-green-400",  bg: "bg-green-50 dark:bg-green-900/20",   border: "border-green-300 dark:border-green-700" },
+  other:     { label: "أخرى",     icon: FiMoreHorizontal, iconColor: "#888",color: "text-zinc-600 dark:text-zinc-400",    bg: "bg-zinc-100 dark:bg-zinc-800/40",    border: "border-zinc-300 dark:border-zinc-700" },
 };
 function getMeta(src: string) { return SOURCE_META[src] ?? SOURCE_META.other; }
 
