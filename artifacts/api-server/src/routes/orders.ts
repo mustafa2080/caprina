@@ -718,7 +718,10 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
   if (!existing) { res.status(404).json({ error: "Order not found" }); return; }
 
   const userRole = (req as any).user?.role;
-  if (LOCKED_STATUSES.includes(existing.status as any) && userRole !== "admin") {
+  // allow changing to "returned" even if locked
+  const requestedStatus = req.body?.status;
+  const isAllowedStatusChange = requestedStatus === "returned";
+  if (LOCKED_STATUSES.includes(existing.status as any) && userRole !== "admin" && !isAllowedStatusChange) {
     res.status(403).json({ error: "┘ç╪░╪د ╪د┘╪╖┘╪ذ ┘à┘é┘┘ ┘ê┘╪د ┘è┘à┘â┘ ╪ز╪╣╪»┘è┘┘ç" });
     return;
   }
