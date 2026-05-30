@@ -207,25 +207,25 @@ export default function Invoices() {
       .page.single-row { grid-template-rows: auto; height: auto; }
       .inv-row { display: grid; grid-template-columns: 1fr 1fr; gap: 2mm; align-items: stretch; min-height: 0; }
       .inv-row.single { grid-template-columns: 1fr; }
-      .inv { border: 2px solid #000; border-radius: 2mm; display: flex; flex-direction: column; overflow: visible; background: white; width: 100%; height: 100%; min-height: 0; }
-      .inv-hdr { background: #1a1a1a; color: white; display: flex; align-items: center; justify-content: space-between; padding: 2mm 3mm; gap: 2mm; flex-shrink: 0; }
-      .hdr-date { font-size: 8pt; font-weight: 700; white-space: nowrap; direction: ltr; text-align: right; }
-      .hdr-logo { display: flex; align-items: center; gap: 2mm; }
-      .logo-img { width: 14mm; height: 14mm; object-fit: contain; border-radius: 1.5mm; background: white; padding: 0.5mm; box-shadow: 0 0 0 1px rgba(255,255,255,0.2); }
-      .logo-txt { font-size: 11pt; font-weight: 900; letter-spacing: 2px; line-height: 1; }
-      .logo-sub { font-size: 5pt; font-weight: 700; opacity: 0.7; letter-spacing: 2px; }
-      .cust-row { display: flex; align-items: center; justify-content: space-between; padding: 1.5mm 3mm; border-bottom: 1.5px solid #000; background: #f0f0f0; flex-shrink: 0; gap: 2mm; }
-      .cust-phone { font-size: 10pt; font-weight: 800; direction: ltr; color: #000; }
-      .cust-name { font-size: 12pt; font-weight: 900; color: #000; }
-      .inv-body { padding: 1mm 3mm 0.5mm; flex-shrink: 0; overflow: visible; }
+      .inv { border: 2px solid #000; border-radius: 2mm; display: flex; flex-direction: column; overflow: hidden; background: white; width: 100%; height: 100%; min-height: 0; }
+      .inv-hdr { background: #1a1a1a; color: white; display: flex; align-items: center; justify-content: space-between; padding: 1.5mm 2.5mm; gap: 2mm; flex-shrink: 0; }
+      .hdr-date { font-size: 7pt; font-weight: 700; white-space: nowrap; direction: ltr; text-align: right; }
+      .hdr-logo { display: flex; align-items: center; gap: 1.5mm; }
+      .logo-img { width: 12mm; height: 12mm; object-fit: contain; border-radius: 1.5mm; background: white; padding: 0.5mm; box-shadow: 0 0 0 1px rgba(255,255,255,0.2); }
+      .logo-txt { font-size: 10pt; font-weight: 900; letter-spacing: 2px; line-height: 1; }
+      .logo-sub { font-size: 4.5pt; font-weight: 700; opacity: 0.7; letter-spacing: 2px; }
+      .cust-row { display: flex; align-items: center; justify-content: space-between; padding: 1mm 2.5mm; border-bottom: 1.5px solid #000; background: #f0f0f0; flex-shrink: 0; gap: 2mm; }
+      .cust-phone { font-size: 9pt; font-weight: 800; direction: ltr; color: #000; }
+      .cust-name { font-size: 11pt; font-weight: 900; color: #000; }
+      .inv-body { padding: 0.8mm 2.5mm 0.3mm; flex-shrink: 0; overflow: visible; }
       .inv-mid-spacer { flex: 1 1 0; min-height: 0; }
-      .inv-bottom { padding: 0.5mm 3mm; flex-shrink: 0; display: flex; flex-direction: column; gap: 0.5mm; border-top: 1px solid #ddd; background: white; }
-      .inv-footer { border-top: 2px solid #1a1a1a; background: #1a1a1a; padding: 1mm 3mm; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; gap: 2mm; }
+      .inv-bottom { padding: 0.4mm 2.5mm; flex-shrink: 0; display: flex; flex-direction: column; gap: 0.4mm; border-top: 1px solid #ddd; background: white; }
+      .inv-footer { border-top: 2px solid #1a1a1a; background: #1a1a1a; padding: 0.8mm 2.5mm; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; gap: 2mm; }
       .table-wrap { overflow: visible; }
       .total-bar { flex-shrink: 0; }
       .prod-table { width: 100%; border-collapse: collapse; }
-      .prod-table th { background: #1a1a1a; color: white; border: 1px solid #333; padding: 1mm 1.5mm; font-weight: 800; font-size: 8pt; text-align: center; }
-      .prod-table td { border: 1px solid #bbb; padding: 1mm 1.5mm; text-align: center; font-size: 8pt; font-weight: 700; vertical-align: middle; line-height: 1.3; color: #000; }
+      .prod-table th { background: #1a1a1a; color: white; border: 1px solid #333; padding: 0.7mm 1.2mm; font-weight: 800; font-size: 7pt; text-align: center; }
+      .prod-table td { border: 1px solid #bbb; padding: 0.7mm 1.2mm; text-align: center; font-size: 7pt; font-weight: 700; vertical-align: middle; line-height: 1.2; color: #000; }
       .prod-table td.name-col { text-align: right; font-weight: 800; }
       .prod-table .total-row td { background: #e0e0e0; font-weight: 900; font-size: 8.5pt; border-color: #888; color: #000; }
       .prod-table .total-row td.t-label { text-align: right; }
@@ -263,12 +263,12 @@ export default function Invoices() {
       const city = (rep as any).city ?? "";
 
       const tblFontSize = "7";
-      const cellPad = "0.8mm 1.5mm";
-      const hdrPad = "2mm 3mm";
-      const custPad = "1.5mm 3mm";
-      const bottomPad = "0.6mm 1.5mm";
-      const bottomFontSize = "6";
-      const logoSize = "14mm";
+      const cellPad = "0.7mm 1.2mm";
+      const hdrPad = "1.5mm 2.5mm";
+      const custPad = "1mm 2.5mm";
+      const bottomPad = "0.4mm 1.2mm";
+      const bottomFontSize = "5.5";
+      const logoSize = "12mm";
 
       const rowCount = realOrders.length + (shippingCost > 0 ? 1 : 0);
       const makeProductRows = () => {
