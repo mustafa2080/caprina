@@ -559,7 +559,8 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
         pendingLinks.map((link) => {
           const isDelayed   = link.deliveryStatus === "postponed" || link.deliveryStatus === "delayed";
           const isReturned  = link.deliveryStatus === "returned";
-          const newStatus   = isDelayed ? link.deliveryStatus : isReturned ? "returned" : "pending";
+          const isPartial   = link.deliveryStatus === "partial_received";
+          const newStatus   = isDelayed ? link.deliveryStatus : isReturned ? "returned" : isPartial ? "partial_received" : "pending";
           const newNote     = isDelayed || isReturned ? link.deliveryNote : null;
           const newReturnReceived = isReturned ? link.returnReceived : null;
           return {
@@ -568,7 +569,7 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
             deliveryStatus: newStatus as any,
             deliveryNote: newNote,
             deliveredAt: null,
-            partialQuantity: null,
+            partialQuantity: isPartial ? link.partialQuantity : null,
             returnReceived: newReturnReceived,
             addedAt: new Date(),
           };
@@ -597,10 +598,19 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
         .map((l) => l.orderId);
       const nonReturnedIds = allPendingIds.filter((id) => !returnedIds.includes(id));
 
-      if (nonReturnedIds.length > 0) {
+      const partialIds = pendingLinks.filter((l) => l.deliveryStatus === "partial_received").map((l) => l.orderId);
+      const nonPartialNonReturnedIds = allPendingIds.filter((id) => !returnedIds.includes(id) && !partialIds.includes(id));
+
+      if (nonPartialNonReturnedIds.length > 0) {
         await db.update(ordersTable)
           .set({ status: "in_shipping", shippingCompanyId: updated.shippingCompanyId, partialQuantity: null })
-          .where(inArray(ordersTable.id, nonReturnedIds));
+          .where(inArray(ordersTable.id, nonPartialNonReturnedIds));
+      }
+      // partial_received يفضل status بتاعه كما هو (partial_received) في ordersTable
+      if (partialIds.length > 0) {
+        await db.update(ordersTable)
+          .set({ status: "partial_received", shippingCompanyId: updated.shippingCompanyId })
+          .where(inArray(ordersTable.id, partialIds));
       }
       if (returnedIds.length > 0) {
         await db.update(ordersTable)
