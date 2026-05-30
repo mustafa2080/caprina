@@ -202,8 +202,10 @@ export default function Invoices() {
       @page { size: A4 landscape; margin: 0; }
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { font-family: 'Cairo', 'Segoe UI', Tahoma, Arial, sans-serif; direction: rtl; background: white; color: #000; font-size: 9pt; font-weight: 600; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .page { display: grid; ${perPage === 1 ? "grid-template-columns: 1fr;" : "grid-template-columns: 1fr 1fr;"} ${perPage === 4 ? "grid-template-rows: auto auto;" : ""} gap: 2mm; width: 297mm; padding: 3mm; page-break-after: always; box-sizing: border-box; align-items: stretch; }
+      .page { display: flex; flex-direction: column; gap: 2mm; width: 297mm; padding: 3mm; page-break-after: always; box-sizing: border-box; }
       .page:last-child { page-break-after: avoid; }
+      .inv-row { display: grid; grid-template-columns: 1fr 1fr; gap: 2mm; align-items: stretch; }
+      .inv-row.single { grid-template-columns: 1fr; }
       .inv { border: 2px solid #000; border-radius: 2mm; display: flex; flex-direction: column; overflow: hidden; background: white; width: 100%; height: 100%; }
       .inv-hdr { background: #1a1a1a; color: white; display: flex; align-items: center; justify-content: space-between; padding: 2mm 3mm; gap: 2mm; flex-shrink: 0; }
       .hdr-date { font-size: 8pt; font-weight: 700; white-space: nowrap; direction: ltr; text-align: right; }
@@ -215,8 +217,8 @@ export default function Invoices() {
       .cust-phone { font-size: 10pt; font-weight: 800; direction: ltr; color: #000; }
       .cust-name { font-size: 12pt; font-weight: 900; color: #000; }
       .inv-body { padding: 1mm 3mm 0.5mm; flex-shrink: 0; overflow: visible; }
-      .inv-mid-spacer { flex: 1; min-height: 1mm; border-top: 1px solid #ddd; }
-      .inv-bottom { padding: 0.5mm 3mm; flex-shrink: 0; display: flex; flex-direction: column; gap: 0.5mm; background: white; }
+      .inv-mid-spacer { display: none; }
+      .inv-bottom { padding: 0.5mm 3mm; flex-shrink: 0; display: flex; flex-direction: column; gap: 0.5mm; border-top: 1px solid #ddd; background: white; }
       .inv-footer { border-top: 2px solid #1a1a1a; background: #1a1a1a; padding: 1mm 3mm; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; gap: 2mm; }
       .table-wrap { overflow: visible; }
       .total-bar { flex-shrink: 0; }
@@ -282,9 +284,17 @@ export default function Invoices() {
     };
 
     const pagesHTML = pageGroups.map(group => {
-      const invoices = group.map(g => invoiceHTML(g)).join("");
-      const empties = group.length < perPage ? Array(perPage - group.length).fill('<div class="empty-slot"></div>').join("") : "";
-      return `<div class="page">${invoices}${empties}</div>`;
+      // نقسم الفواتير لـ rows كل row فيها 2 (أو 1 لو perPage=1)
+      const cols = perPage === 1 ? 1 : 2;
+      let rowsHTML = "";
+      for (let i = 0; i < group.length; i += cols) {
+        const rowItems = group.slice(i, i + cols);
+        const rowInvoices = rowItems.map(g => invoiceHTML(g)).join("");
+        const rowEmpties = rowItems.length < cols ? '<div class="empty-slot"></div>' : "";
+        const isSingle = cols === 1 ? " single" : "";
+        rowsHTML += `<div class="inv-row${isSingle}">${rowInvoices}${rowEmpties}</div>`;
+      }
+      return `<div class="page">${rowsHTML}</div>`;
     }).join("");
 
     printWindow.document.write(`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>فواتير ${brandName}</title><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;900&display=swap" rel="stylesheet"><style>${styles}</style></head><body>${pagesHTML}</body></html>`);
