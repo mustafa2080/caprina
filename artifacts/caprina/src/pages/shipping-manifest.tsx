@@ -475,16 +475,24 @@ function OrderDeliveryRow({
                       const val = e.target.value;
                       if (val === "") { setPartialQty(""); return; }
                       const n = parseInt(val);
-                      if (!isNaN(n) && n > order.quantity) { setPartialQty(String(order.quantity)); return; }
-                      if (!isNaN(n) && n < 0) { setPartialQty("0"); return; }
+                      if (!isNaN(n) && n > order.quantity) { setPartialQty(String(order.quantity)); e.target.value = String(order.quantity); return; }
+                      if (!isNaN(n) && n < 0) { setPartialQty("0"); e.target.value = "0"; return; }
                       setPartialQty(val);
                     }}
-                    className={`h-8 text-xs w-28 bg-background ${partialQty === "" ? "border-destructive" : ""}`}
+                    onBlur={(e) => {
+                      const n = parseInt(e.target.value);
+                      if (!isNaN(n) && n > order.quantity) setPartialQty(String(order.quantity));
+                      if (!isNaN(n) && n < 0) setPartialQty("0");
+                    }}
+                    className={`h-8 text-xs w-28 bg-background ${partialQty === "" || parseInt(partialQty) > order.quantity ? "border-destructive" : ""}`}
                     placeholder="مطلوب"
                     autoFocus
                   />
                   {(partialQty === "") && (
                     <p className="text-[10px] text-destructive mt-0.5">⚠ أدخل الكمية المستلمة</p>
+                  )}
+                  {(partialQty !== "" && parseInt(partialQty) > order.quantity) && (
+                    <p className="text-[10px] text-destructive mt-0.5">⚠ الحد الأقصى {order.quantity}</p>
                   )}
                 </div>
                 <div>
@@ -621,6 +629,7 @@ function OrderDeliveryRow({
                 mutation.isPending ||
                 (needsNote && !note.trim()) ||
                 (needsPartial && (partialQty === "")) ||
+                (needsPartial && parseInt(partialQty) > order.quantity) ||
                 (status === "returned" && returnReceived === null)
               }
             >
