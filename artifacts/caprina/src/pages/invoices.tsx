@@ -199,12 +199,12 @@ export default function Invoices() {
 
     const styles = `
       @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;900&display=swap');
-      @page { size: A4 portrait; margin: 0; }
+      @page { size: A4 landscape; margin: 0; }
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { font-family: 'Cairo', 'Segoe UI', Tahoma, Arial, sans-serif; direction: rtl; background: white; color: #000; font-size: 9pt; font-weight: 600; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .page { display: grid; grid-template-rows: 1fr 1fr; gap: 2mm; width: 210mm; height: 297mm; padding: 3mm 2mm; page-break-after: always; box-sizing: border-box; }
+      .page { display: grid; grid-template-rows: 1fr 1fr; gap: 2mm; width: 297mm; height: 210mm; padding: 2mm 3mm; page-break-after: always; box-sizing: border-box; }
       .page:last-child { page-break-after: avoid; }
-      .page.single-row { grid-template-rows: 1fr; height: 148.5mm; }
+      .page.single-row { grid-template-rows: 1fr; height: 105mm; }
       .inv-row { display: grid; grid-template-columns: 1fr 1fr; gap: 2mm; align-items: stretch; min-height: 0; height: 100%; }
       .inv-row.single { grid-template-columns: 1fr; }
       .empty-slot { border: 2px dashed #ddd; border-radius: 2mm; background: #fafafa; width: 100%; height: 100%; min-height: 0; }
