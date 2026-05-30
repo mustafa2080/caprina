@@ -83,14 +83,15 @@ async function createFinancialInvoiceOnClose(
       grossRevenue += Number(o.totalPrice);
       shippingFees += shipping;
     } else if (isPartial) {
-      // استلام جزئي → إيراد على القطع اللي اتستلمت فعلاً فقط
-      // partialQuantity = عدد القطع اللي وصلت للعميل في هذا البيان
-      const deliveredQty = o.partialQuantity != null ? Number(o.partialQuantity) : 0;
-      if (deliveredQty > 0) {
-        grossRevenue += Number((o as any).unitPrice ?? 0) * deliveredQty;
-        shippingFees += shipping; // تكلفة الشحن على الجزء اللي اتسلّم
+      // rv = 0  → البيان الأول: إيراد على القطع اللي اتستلمت فعلاً
+      // rv = null → بيان مرحّل: القطعة لسه عند الشحن → إيراد صفر تماماً
+      if (Number((o as any).returnReceived) === 0) {
+        const deliveredQty = o.partialQuantity != null ? Number(o.partialQuantity) : 0;
+        if (deliveredQty > 0) {
+          grossRevenue += Number((o as any).unitPrice ?? 0) * deliveredQty;
+          shippingFees += shipping;
+        }
       }
-      // الجزء الباقي رجع مخزن = صفر (لا إيراد ولا خسارة شحن)
     } else if (o.deliveryStatus === "returned") {
       // مرتجع كامل → خسارة تكلفة الشحن فقط
       returnFees += shipping;
@@ -220,15 +221,18 @@ function computeStats(orders: OrderWithDelivery[]) {
       totalShippingCost += shipping; deliveredGross += o.totalPrice;
 
     } else if (isPartial) {
-      // استلام جزئي → إيراد على القطع اللي اتستلمت فعلاً
-      const deliveredQty = o.partialQuantity != null ? Number(o.partialQuantity) : 0;
-      if (deliveredQty > 0) {
-        const revenue = Number((o as any).unitPrice ?? 0) * deliveredQty;
-        totalRevenue += revenue; deliveredGross += revenue;
-        totalCost += (o.costPrice ?? 0) * deliveredQty;
-        totalShippingCost += shipping;
+      // rv = 0  → البيان الأول: المستخدم سجّل استلام جزئي → إيراد على القطع اللي اتستلمت
+      // rv = null → بيان مرحّل: القطعة لسه عند الشحن → إيراد صفر
+      if (rv === 0) {
+        const deliveredQty = o.partialQuantity != null ? Number(o.partialQuantity) : 0;
+        if (deliveredQty > 0) {
+          const revenue = Number((o as any).unitPrice ?? 0) * deliveredQty;
+          totalRevenue += revenue; deliveredGross += revenue;
+          totalCost += (o.costPrice ?? 0) * deliveredQty;
+          totalShippingCost += shipping;
+        }
       }
-      // الجزء الباقي لسه عند الشحن
+      // الجزء الباقي (أو كله لو مرحّل) لسه عند الشحن
       if (rv !== 1) { stillAtShippingCount++; stillAtShippingAmount += o.totalPrice; }
 
     } else if (o.deliveryStatus === "returned") {
