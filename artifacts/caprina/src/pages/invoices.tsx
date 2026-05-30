@@ -217,8 +217,8 @@ export default function Invoices() {
       .cust-row { display: flex; align-items: center; justify-content: space-between; padding: 1.5mm 3mm; border-bottom: 1.5px solid #000; background: #f0f0f0; flex-shrink: 0; gap: 2mm; }
       .cust-phone { font-size: 10pt; font-weight: 800; direction: ltr; color: #000; }
       .cust-name { font-size: 12pt; font-weight: 900; color: #000; }
-      .inv-body { padding: 1mm 3mm 0.5mm; flex: 1; overflow: visible; display: flex; flex-direction: column; justify-content: flex-start; }
-      .inv-mid-spacer { flex: 1; }
+      .inv-body { padding: 1mm 3mm 0.5mm; flex-shrink: 0; overflow: visible; }
+      .inv-mid-spacer { display: none; }
       .inv-bottom { padding: 0.5mm 3mm; flex-shrink: 0; display: flex; flex-direction: column; gap: 0.5mm; border-top: 1px solid #ddd; background: white; }
       .inv-footer { border-top: 2px solid #1a1a1a; background: #1a1a1a; padding: 1mm 3mm; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; gap: 2mm; }
       .table-wrap { overflow: visible; }
@@ -291,16 +291,19 @@ export default function Invoices() {
 
     const pagesHTML = pageGroups.map(group => {
       const cols = perPage === 1 ? 1 : 2;
+      // نحسب rowCount لكل فاتورة في الصفحة
+      const builtAll = group.map(g => invoiceHTML(g));
+      // أكبر عدد صفوف في الصفحة كلها — عشان كل الصفوف تتساوى
+      const pageMaxRows = Math.max(...builtAll.map(b => b.rowCount));
+
       let rowsHTML = "";
-      for (let i = 0; i < group.length; i += cols) {
-        const rowItems = group.slice(i, i + cols);
-        const built = rowItems.map(g => invoiceHTML(g));
-        const rowInvoices = built.map(b => b.html(0)).join("");
-        const rowEmpties = rowItems.length < cols ? '<div class="empty-slot"></div>' : "";
+      for (let i = 0; i < builtAll.length; i += cols) {
+        const rowBuilt = builtAll.slice(i, i + cols);
+        const rowInvoices = rowBuilt.map(b => b.html(pageMaxRows - b.rowCount)).join("");
+        const rowEmpties = rowBuilt.length < cols ? '<div class="empty-slot"></div>' : "";
         const isSingle = cols === 1 ? " single" : "";
         rowsHTML += `<div class="inv-row${isSingle}">${rowInvoices}${rowEmpties}</div>`;
       }
-      // لو الصفحة فيها صف واحد بس نضيف single-row عشان الـ height يبقى auto
       const rowCount = Math.ceil(group.length / cols);
       const pageClass = rowCount <= 1 ? "page single-row" : "page";
       return `<div class="${pageClass}">${rowsHTML}</div>`;
