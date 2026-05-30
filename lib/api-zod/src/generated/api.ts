@@ -195,6 +195,10 @@ export const GetOrderResponse = zod.object({
   returnReason: zod.string().nullable(),
   returnNote: zod.string().nullable(),
   returnReceived: zod.number().nullable(),
+  adSource: zod.string().nullable(),
+  adCampaign: zod.string().nullable(),
+  warehouseId: zod.number().nullable(),
+  assignedUserId: zod.number().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -241,6 +245,10 @@ export const UpdateOrderBody = zod.object({
   returnNote: zod.string().nullish(),
   returnReceived: zod.union([zod.boolean(), zod.number()]).nullish(),
   isDamaged: zod.boolean().nullish(),
+  adSource: zod.string().nullish(),
+  adCampaign: zod.string().nullish(),
+  warehouseId: zod.number().nullish(),
+  assignedUserId: zod.number().nullish(),
 });
 
 export const UpdateOrderResponse = zod.object({
@@ -274,6 +282,10 @@ export const UpdateOrderResponse = zod.object({
   returnReason: zod.string().nullable(),
   returnNote: zod.string().nullable(),
   returnReceived: zod.number().nullable(),
+  adSource: zod.string().nullable(),
+  adCampaign: zod.string().nullable(),
+  warehouseId: zod.number().nullable(),
+  assignedUserId: zod.number().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
