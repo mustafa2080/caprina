@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Brain, Star, Archive, RotateCcw, TrendingDown, TrendingUp,
-  AlertTriangle, Clock, Package, ArrowUpRight, Zap, ChevronDown,
+  AlertTriangle, Clock, Package, ArrowUpRight, Zap, ChevronDown, Globe,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { FaFacebook, FaTiktok, FaInstagram, FaWhatsapp } from "react-icons/fa";
