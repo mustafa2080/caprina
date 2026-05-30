@@ -1638,7 +1638,13 @@ export default function OrderDetail() {
     }
 
     setSelectDisplayStatus(newStatus);
-    updateOrder.mutate({ id, data: { status: newStatus as any } }, {
+    // ظپظٹ invoice mode: ظ†ط³طھط®ط¯ظ… ط£ظٹ ط£ظˆط±ط¯ط± ظ…ظ† ط§ظ„ظپط§طھظˆط±ط© ط¹ط´ط§ظ† ط§ظ„ط³ظٹط±ظپط± ظٹط؛ظٹط± ط§ظ„ظƒظ„
+    // (ظ†طھط¬ظ†ط¨ ط§ظ„ظ€ id ط§ظ„ط­ط§ظ„ظٹ ظ„ظˆ ظƒط§ظ† locked ط¨ظ€ received/partial_received)
+    const LOCKED = ["received", "partial_received"];
+    const targetId = invoiceOrders.length > 1
+      ? (invoiceOrders.find((o: any) => !LOCKED.includes(o.status))?.id ?? id)
+      : id;
+    updateOrder.mutate({ id: targetId, data: { status: newStatus as any } }, {
       onSuccess: (updated: any) => {
         queryClient.setQueryData(getGetOrderQueryKey(id), updated);
         setSelectDisplayStatus(null);
