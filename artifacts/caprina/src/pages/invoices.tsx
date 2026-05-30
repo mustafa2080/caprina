@@ -207,7 +207,7 @@ export default function Invoices() {
       .page.single-row { grid-template-rows: auto; height: auto; }
       .inv-row { display: grid; grid-template-columns: 1fr 1fr; gap: 2mm; align-items: stretch; min-height: 0; }
       .inv-row.single { grid-template-columns: 1fr; }
-      .inv { border: 2px solid #000; border-radius: 2mm; display: flex; flex-direction: column; overflow: hidden; background: white; width: 100%; height: 100%; min-height: 0; }
+      .inv { border: 2px solid #000; border-radius: 2mm; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; background: white; width: 100%; height: 100%; min-height: 0; }
       .inv-hdr { background: #1a1a1a; color: white; display: flex; align-items: center; justify-content: space-between; padding: 1.5mm 2.5mm; gap: 2mm; flex-shrink: 0; }
       .hdr-date { font-size: 7pt; font-weight: 700; white-space: nowrap; direction: ltr; text-align: right; }
       .hdr-logo { display: flex; align-items: center; gap: 1.5mm; }
@@ -220,7 +220,7 @@ export default function Invoices() {
       .inv-body { padding: 0.8mm 2.5mm 0.3mm; flex-shrink: 0; overflow: visible; }
       .inv-mid-spacer { display: none; }
       .total-bar-wrap { }
-      .inv-bottom { padding: 0.4mm 2.5mm; flex: 1; display: flex; flex-direction: column; gap: 0.4mm; border-top: 1px solid #ddd; background: white; justify-content: flex-end; }
+      .inv-bottom { padding: 0.4mm 2.5mm; flex-shrink: 0; display: flex; flex-direction: column; gap: 0.4mm; border-top: 1px solid #ddd; background: white; }
       .inv-footer { border-top: 2px solid #1a1a1a; background: #1a1a1a; padding: 0.8mm 2.5mm; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; gap: 2mm; }
       .table-wrap { overflow: visible; }
       .total-bar { flex-shrink: 0; }
