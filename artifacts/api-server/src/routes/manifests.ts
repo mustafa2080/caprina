@@ -530,6 +530,10 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
     console.log(`[CLOSE manifest ${id}] pendingLinks count=${pendingLinks.length}`, JSON.stringify(pendingLinks.map(l => ({ orderId: l.orderId, deliveryStatus: l.deliveryStatus, returnReceived: l.returnReceived, partialQuantity: l.partialQuantity }))));
 
     if (pendingLinks.length > 0) {
+      // جيب كل الطلبات مرة واحدة في البداية عشان نستخدمها في كل العمليات
+      const allPendingIds = pendingLinks.map((l) => l.orderId);
+      const pendingOrders = await db.select().from(ordersTable).where(inArray(ordersTable.id, allPendingIds));
+
       // ── الطلبات اللي لسه عند شركة الشحن (pending/postponed/in_shipping) ────────
       // كانت خرجت بـ to_shipping → نرجعها بـ from_shipping + نرجع حالتها لـ pending
       const stillAtShippingLinks = pendingLinks.filter(
@@ -546,19 +550,17 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
       // الجزء المتبقي (لم يستلم) لسه عند شركة الشحن → نرجعه للمخزن
       const partialWithoutReturn = pendingLinks.filter((l) => l.deliveryStatus === "partial_received");
       for (const link of partialWithoutReturn) {
-        const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, link.orderId));
+        const order = pendingOrders.find(o => o.id === link.orderId);
         if (!order) continue;
-        const deliveredQty  = link.partialQuantity ?? order.partialQuantity ?? 0;
-        const remainingQty  = order.quantity - deliveredQty;
+        // الكمية اللي اتستلمت = link.partialQuantity (دايماً من الـ link مش ordersTable)
+        // لأن ordersTable.partialQuantity ممكن يكون اتغير في بيانات سابقة
+        const deliveredQty = link.partialQuantity != null ? Number(link.partialQuantity) : 0;
+        const remainingQty = order.quantity - deliveredQty;
         // الجزء الباقي كان عند شركة الشحن → أرجعه للمخزن
         if (remainingQty > 0) await reverseShipping(buildOrderRef(order), remainingQty, order.id);
       }
 
       // ── رحّل كل الطلبات لبيان جديد ───────────────────────────────────────────
-      // جيب الطلبات أولاً قبل الـ insert عشان نحسب الكميات الصح
-      const allPendingIds = pendingLinks.map((l) => l.orderId);
-      const pendingOrders = await db.select().from(ordersTable).where(inArray(ordersTable.id, allPendingIds));
-
       const newManifestNumber = await generateManifestNumber(updated.shippingCompanyId);
       const insertResult = await db.insert(shippingManifestsTable).values({
         manifestNumber: newManifestNumber, shippingCompanyId: updated.shippingCompanyId,
