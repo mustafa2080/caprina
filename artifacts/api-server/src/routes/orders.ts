@@ -887,12 +887,19 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
 
   // لو الحالة اتغيرت وفيه invoiceNumber → غير كل منتجات الـ invoice بنفس الحالة
   if (data.status && data.status !== oldStatus && existing.invoiceNumber) {
+    // بناء الـ set object — لو returned نضيف returnReason وباقي حقول المرتجع
+    const bulkSet: Record<string, any> = { status: data.status, updatedAt: new Date() };
+    if (data.status === "returned") {
+      if (data.returnReason !== undefined) bulkSet.returnReason = data.returnReason;
+      if (data.returnNote !== undefined) bulkSet.returnNote = data.returnNote;
+      if (data.returnReceived !== undefined) bulkSet.returnReceived = data.returnReceived === true ? 1 : data.returnReceived === false ? 0 : data.returnReceived;
+      if (data.isDamaged !== undefined) bulkSet.isDamaged = data.isDamaged ? 1 : 0;
+    }
     await db.update(ordersTable)
-      .set({ status: data.status, updatedAt: new Date() })
+      .set(bulkSet)
       .where(and(
         eq(ordersTable.invoiceNumber, existing.invoiceNumber),
         isNull(ordersTable.deletedAt),
-        // مش الـ order الحالي عشان اتعمله update فوق
       ));
   }
 
