@@ -204,9 +204,9 @@ export default function Invoices() {
       body { font-family: 'Cairo', 'Segoe UI', Tahoma, Arial, sans-serif; direction: rtl; background: white; color: #000; font-size: 9pt; font-weight: 600; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .page { display: flex; flex-direction: column; gap: 2mm; width: 297mm; padding: 3mm; page-break-after: always; box-sizing: border-box; }
       .page:last-child { page-break-after: avoid; }
-      .inv-row { display: grid; grid-template-columns: 1fr 1fr; gap: 2mm; align-items: stretch; }
+      .inv-row { display: grid; grid-template-columns: 1fr 1fr; gap: 2mm; align-items: start; }
       .inv-row.single { grid-template-columns: 1fr; }
-      .inv { border: 2px solid #000; border-radius: 2mm; display: flex; flex-direction: column; overflow: hidden; background: white; width: 100%; height: 100%; }
+      .inv { border: 2px solid #000; border-radius: 2mm; display: flex; flex-direction: column; overflow: hidden; background: white; width: 100%; }
       .inv-hdr { background: #1a1a1a; color: white; display: flex; align-items: center; justify-content: space-between; padding: 2mm 3mm; gap: 2mm; flex-shrink: 0; }
       .hdr-date { font-size: 8pt; font-weight: 700; white-space: nowrap; direction: ltr; text-align: right; }
       .hdr-logo { display: flex; align-items: center; gap: 2mm; }
