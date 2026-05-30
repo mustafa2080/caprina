@@ -215,8 +215,8 @@ export default function Invoices() {
       .cust-phone { font-size: 10pt; font-weight: 800; direction: ltr; color: #000; }
       .cust-name { font-size: 12pt; font-weight: 900; color: #000; }
       .inv-body { padding: 1mm 3mm 0.5mm; flex-shrink: 0; overflow: visible; }
-      .inv-bottom { padding: 0.5mm 3mm; flex-shrink: 0; display: flex; flex-direction: column; gap: 0.5mm; border-top: 1px solid #ddd; background: white; }
-      .inv-footer { border-top: 2px solid #1a1a1a; background: #1a1a1a; padding: 1mm 3mm; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; gap: 2mm; margin-top: auto; }
+      .inv-bottom { padding: 0.5mm 3mm; flex-shrink: 0; display: flex; flex-direction: column; gap: 0.5mm; border-top: 1px solid #ddd; background: white; margin-top: auto; }
+      .inv-footer { border-top: 2px solid #1a1a1a; background: #1a1a1a; padding: 1mm 3mm; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; gap: 2mm; }
       .table-wrap { overflow: visible; }
       .total-bar { flex-shrink: 0; }
       .prod-table { width: 100%; border-collapse: collapse; }
