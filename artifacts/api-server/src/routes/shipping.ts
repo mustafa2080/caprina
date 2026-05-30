@@ -131,15 +131,17 @@ router.get("/shipping-companies/:id/stats", async (req, res): Promise<void> => {
       const qty = order.quantity;
       const shipping = order.shippingCost ?? 0;
       totalShipping += shipping;
-      if (status === "delivered" || status === "partial_received") {
+      if (status === "delivered") {
+        // تسليم كامل فقط = إيراد
         totalRevenue += order.totalPrice;
         totalCost += (order.costPrice ?? 0) * qty;
-      } else if (status === "returned") {
+      } else if (status === "returned" || status === "partial_received") {
+        // مرتجع أو جزئي = خسارة شحن فقط
         returnLosses += shipping;
       }
     }
-    if (status === "delivered" || status === "partial_received") delivered++;
-    else if (status === "returned") returned++;
+    if (status === "delivered") delivered++;
+    else if (status === "returned" || status === "partial_received") returned++;
     else if (status === "pending") pending++;
     // postponed محسوب مسبقاً من البيان المفتوح فقط
   }
