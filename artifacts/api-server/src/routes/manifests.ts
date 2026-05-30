@@ -67,26 +67,34 @@ async function createFinancialInvoiceOnClose(
   // ── حساب إحصائيات البيان ──────────────────────────────────────────────────
   const totalOrders = allOrders.length;
   const delivered   = allOrders.filter(o => o.deliveryStatus === "delivered").length;
-  // partial_received = جزء مرتجع + جزء لسه عند الشحن → يُحسب كـ returned في الفاتورة المالية
-  const returned    = allOrders.filter(o => o.deliveryStatus === "returned" || o.deliveryStatus === "partial_received").length;
+  const returned    = allOrders.filter(o => o.deliveryStatus === "returned").length;
+  // partial_received: عدد مستقل (لا delivered ولا returned)
 
   let grossRevenue = 0;
   let shippingFees = 0;
   let returnFees   = 0;
 
   for (const o of allOrders) {
-    const isPartial  = o.deliveryStatus === "partial_received";
-    const shipping   = Number(o.shippingCost ?? 0);
+    const isPartial = o.deliveryStatus === "partial_received";
+    const shipping  = Number(o.shippingCost ?? 0);
 
     if (o.deliveryStatus === "delivered") {
-      // تسليم كامل → إيراد كامل
+      // تسليم كامل → إيراد كامل + تكلفة شحن كاملة
       grossRevenue += Number(o.totalPrice);
       shippingFees += shipping;
+    } else if (isPartial) {
+      // استلام جزئي → إيراد على القطع اللي اتستلمت فعلاً فقط
+      // partialQuantity = عدد القطع اللي وصلت للعميل في هذا البيان
+      const deliveredQty = o.partialQuantity != null ? Number(o.partialQuantity) : 0;
+      if (deliveredQty > 0) {
+        grossRevenue += Number((o as any).unitPrice ?? 0) * deliveredQty;
+        shippingFees += shipping; // تكلفة الشحن على الجزء اللي اتسلّم
+      }
+      // الجزء الباقي رجع مخزن = صفر (لا إيراد ولا خسارة شحن)
     } else if (o.deliveryStatus === "returned") {
       // مرتجع كامل → خسارة تكلفة الشحن فقط
       returnFees += shipping;
     }
-    // partial_received → القطعة رجعت للمخزن = صفر (لا إيراد ولا خسارة شحن)
   }
 
   // لو في manualShippingCost على البيان → استخدمه كـ shippingFees
@@ -191,42 +199,53 @@ function computeStats(orders: OrderWithDelivery[]) {
       return (priority[o.deliveryStatus] ?? 0) > (priority[worst] ?? 0) ? o.deliveryStatus : worst;
     }, group[0].deliveryStatus);
   }
-  const total = groupedOrders.length;
-  // partial_received يُعامل كـ returned (جزء مرتجع) مش delivered
+  const total     = groupedOrders.length;
   const delivered = groupedOrders.filter((g) => groupStatus(g) === "delivered").length;
-  const returned  = groupedOrders.filter((g) => { const s = groupStatus(g); return s === "returned" || s === "partial_received"; }).length;
+  const returned  = groupedOrders.filter((g) => groupStatus(g) === "returned").length;
+  // partial_received: يُعدّ منفصلاً (لا delivered ولا returned)
+  const partial   = groupedOrders.filter((g) => groupStatus(g) === "partial_received").length;
   const postponed = groupedOrders.filter((g) => groupStatus(g) === "postponed").length;
-  const pending   = groupedOrders.filter((g) => ["pending", "postponed"].includes(groupStatus(g))).length;
+  const pending   = groupedOrders.filter((g) => groupStatus(g) === "pending").length;
   const deliveryRate = total > 0 ? Math.round((delivered / total) * 100) : 0;
   let totalRevenue = 0, totalCost = 0, totalShippingCost = 0, returnLosses = 0, deliveredGross = 0;
   let stillAtShippingCount = 0, stillAtShippingAmount = 0;
   for (const o of orders) {
-    const isPartial = o.deliveryStatus === "partial_received";
-    const partialQty = isPartial && o.partialQuantity != null ? o.partialQuantity : null;
-    const qty = partialQty !== null ? partialQty : o.quantity;
-    const shipping = o.shippingCost ?? 0;
-    const rv = (o as any).returnReceived;
+    const isPartial  = o.deliveryStatus === "partial_received";
+    const shipping   = o.shippingCost ?? 0;
+    const rv         = (o as any).returnReceived;
+
     if (o.deliveryStatus === "delivered") {
-      // تسليم كامل → إيراد كامل + تكلفة كاملة
+      // تسليم كامل → إيراد كامل
       totalRevenue += o.totalPrice; totalCost += (o.costPrice ?? 0) * o.quantity;
       totalShippingCost += shipping; deliveredGross += o.totalPrice;
+
+    } else if (isPartial) {
+      // استلام جزئي → إيراد على القطع اللي اتستلمت فعلاً
+      const deliveredQty = o.partialQuantity != null ? Number(o.partialQuantity) : 0;
+      if (deliveredQty > 0) {
+        const revenue = Number((o as any).unitPrice ?? 0) * deliveredQty;
+        totalRevenue += revenue; deliveredGross += revenue;
+        totalCost += (o.costPrice ?? 0) * deliveredQty;
+        totalShippingCost += shipping;
+      }
+      // الجزء الباقي لسه عند الشحن
+      if (rv !== 1) { stillAtShippingCount++; stillAtShippingAmount += o.totalPrice; }
+
     } else if (o.deliveryStatus === "returned") {
       // مرتجع كامل → خسارة شحن فقط
       totalShippingCost += shipping;
       if (rv !== 1) { stillAtShippingCount++; stillAtShippingAmount += o.totalPrice; }
-    } else if (isPartial) {
-      // جزئي → القطعة رجعت للمخزن = صفر تماماً (لا إيراد ولا خسارة شحن)
-      if (rv !== 1) { stillAtShippingCount++; stillAtShippingAmount += o.totalPrice; }
+
     } else {
       totalShippingCost += shipping;
     }
   }
   const actuallyDeliveredShipping = orders
-    .filter(o => o.deliveryStatus === "delivered")
+    .filter(o => o.deliveryStatus === "delivered" || o.deliveryStatus === "partial_received")
     .reduce((sum, o) => sum + (o.shippingCost ?? 0), 0);
   const dueFromCompany = deliveredGross - actuallyDeliveredShipping;
   return {
-    total, delivered, returned, pending, postponed, deliveryRate,
+    total, delivered, returned, partial, pending, postponed, deliveryRate,
     totalRevenue, totalCost, totalShippingCost, returnLosses,
     netProfit: totalRevenue - totalCost - totalShippingCost,
     deliveredGross, dueFromCompany, stillAtShippingCount, stillAtShippingAmount, actuallyDeliveredShipping,

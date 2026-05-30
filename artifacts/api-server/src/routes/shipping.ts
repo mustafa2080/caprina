@@ -122,36 +122,45 @@ router.get("/shipping-companies/:id/stats", async (req, res): Promise<void> => {
     }
   }
 
-  let delivered = 0, returned = 0, pending = 0;
+  let delivered = 0, returned = 0, partial = 0, pending = 0;
   let totalRevenue = 0, totalCost = 0, totalShipping = 0, returnLosses = 0;
 
   for (const [, invoice] of invoiceMap) {
     const status = invoice.status;
     for (const order of invoice.orders) {
-      const qty = order.quantity;
+      const qty      = order.quantity;
       const shipping = order.shippingCost ?? 0;
       totalShipping += shipping;
+
       if (status === "delivered") {
         // تسليم كامل → إيراد كامل
         totalRevenue += order.totalPrice;
-        totalCost += (order.costPrice ?? 0) * qty;
+        totalCost    += (order.costPrice ?? 0) * qty;
+      } else if (status === "partial_received") {
+        // استلام جزئي → إيراد على القطع اللي اتستلمت فعلاً فقط
+        const deliveredQty = (order as any).partialQuantity != null ? Number((order as any).partialQuantity) : 0;
+        if (deliveredQty > 0) {
+          totalRevenue += (order.unitPrice ?? 0) * deliveredQty;
+          totalCost    += (order.costPrice ?? 0) * deliveredQty;
+        }
+        // الجزء الباقي رجع مخزن = لا إيراد ولا خسارة شحن
       } else if (status === "returned") {
         // مرتجع كامل → خسارة شحن فقط
         returnLosses += shipping;
       }
-      // partial_received → رجع مخزن = صفر (لا إيراد ولا خسارة شحن)
     }
-    if (status === "delivered") delivered++;
-    else if (status === "returned" || status === "partial_received") returned++;
-    else if (status === "pending") pending++;
+    if (status === "delivered")        delivered++;
+    else if (status === "partial_received") partial++;
+    else if (status === "returned")    returned++;
+    else if (status === "pending")     pending++;
     // postponed محسوب مسبقاً من البيان المفتوح فقط
   }
 
-  const total = delivered + returned + postponed + pending;
+  const total = delivered + partial + returned + postponed + pending;
   const deliveryRate = total > 0 ? Math.round((delivered / total) * 100) : 0;
   const netProfit = totalRevenue - totalCost - totalShipping - returnLosses;
 
-  res.json({ delivered, returned, pending, postponed, deliveryRate, netProfit, manifestCount });
+  res.json({ delivered, partial, returned, pending, postponed, deliveryRate, netProfit, manifestCount });
 });
 
 router.patch("/shipping-companies/:id", async (req, res): Promise<void> => {
