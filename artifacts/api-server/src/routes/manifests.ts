@@ -568,8 +568,8 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
           const isReturned  = link.deliveryStatus === "returned";
           const isPartial   = link.deliveryStatus === "partial_received";
           const newStatus   = isDelayed ? link.deliveryStatus : isReturned ? "returned" : isPartial ? "partial_received" : "pending";
-          const newNote     = isDelayed || isReturned ? link.deliveryNote : null;
-          const newReturnReceived = isReturned ? link.returnReceived : null;
+          const newNote     = isDelayed || isReturned || isPartial ? link.deliveryNote : null;
+          const newReturnReceived = (isReturned || isPartial) ? link.returnReceived : null;
           return {
             manifestId: newManifest.id,
             orderId: link.orderId,
