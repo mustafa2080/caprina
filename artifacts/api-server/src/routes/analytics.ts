@@ -16,6 +16,11 @@ function getCached<T>(key: string): T | null {
 function setCached(key: string, data: any, ttlMs = 30 * 60 * 1000) {
   analyticsCache.set(key, { data, expiresAt: Date.now() + ttlMs });
 }
+// ظٹظڈظ†ط§ط¯ظ‰ ط¹ظ„ظٹظ‡ط§ ظ…ظ† orders route ط¹ظ†ط¯ ط£ظٹ طھط؛ظٹظٹط± ظپظٹ ط­ط§ظ„ط© ط§ظ„ط·ظ„ط¨ط§طھ
+export function invalidateChartsCache(tenantId: number | null) {
+  const key = `charts:${tenantId ?? "global"}`;
+  analyticsCache.delete(key);
+}
 
 const router: IRouter = Router();
 
@@ -1835,7 +1840,7 @@ router.get("/analytics/charts", async (req, res): Promise<void> => {
   const chartsResult = { statusBreakdown, weeklySales: days, monthlySales: monthDays, adSourceBreakdown, total, weekComparison,
     _debug: { shippingFromOrders: [...chartsProcessedShippingInvoices].length, shippingFromManifests: chartsCountedManifests.size, totalRevenue: invoices.reduce((s,i)=>s+i.revenue,0) }
   };
-  setCached(chartsCacheKey, chartsResult, 10 * 60 * 1000); // 10 min cache
+  setCached(chartsCacheKey, chartsResult, 30 * 1000); // 30 sec cache â€” real-time friendly
   res.json(chartsResult);
 });
 

@@ -16,6 +16,7 @@ import {
 import { processDelivery, reverseDelivery, processReturn, processToShipping, reverseShipping, updateMovementReason, resolveInventoryTarget, adjustWarehouseStock, syncProductQuantityFromWarehouses, recordMovement } from "../lib/inventory.js";
 import { logAudit, diffObjects } from "../lib/audit.js";
 import { requireAuth } from "../middlewares/requireAuth.js";
+import { invalidateChartsCache } from "./analytics.js";
 import { isAdmin } from "../middlewares/requireRole.js";
 import { getTenantId } from "../middlewares/requireTenant.js";
 
@@ -901,6 +902,8 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
 
   const [updated] = await db.select().from(ordersTable).where(eq(ordersTable.id, params.data.id));
   if (!updated) { res.status(500).json({ error: "Update failed" }); return; }
+  // ظ…ط³ط­ cache ط§ظ„ظ€ analytics ظپظˆط±ط§ظ‹ ط¹ط´ط§ظ† ط§ظ„ط¯ط§ط´ط¨ظˆط±ط¯ ظٹطھط­ط¯ط« real-time
+  invalidateChartsCache(getTenantId(req));
 
   const after = { customerName: updated.customerName, product: updated.product, status: updated.status, quantity: updated.quantity, unitPrice: updated.unitPrice };
   await logAudit({ action: "update", entityType: "order", entityId: updated.id, entityName: `${updated.customerName} ظ¤ ${updated.product}`, before, after: diffObjects(before, after), userId: (req as any).user?.id, userName: (req as any).user?.displayName });
