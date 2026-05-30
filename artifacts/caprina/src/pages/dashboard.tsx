@@ -79,13 +79,13 @@ const STATUS_LABELS: Record<string, string> = {
 // pending=#f59e0b  warehouse_ready=#f97316  in_shipping=#3b82f6
 // received=#22c55e  delayed=#8b5cf6  returned=#ef4444  partial_received=#06b6d4
 const STATUS_CLASSES: Record<string, string> = {
-  pending:          "bg-amber-50    dark:bg-amber-900/30   text-amber-500    dark:text-amber-400    border-amber-200    dark:border-amber-700",
-  in_shipping:      "bg-cyan-50     dark:bg-cyan-900/30    text-cyan-400     dark:text-cyan-300     border-cyan-200     dark:border-cyan-700",
-  warehouse_ready:  "bg-green-50    dark:bg-green-900/30   text-green-300    dark:text-green-300    border-green-200    dark:border-green-700",
-  received:         "bg-emerald-50  dark:bg-emerald-900/30 text-emerald-400  dark:text-emerald-300  border-emerald-200  dark:border-emerald-700",
-  delayed:          "bg-blue-50     dark:bg-blue-900/30    text-blue-400     dark:text-blue-300     border-blue-200     dark:border-blue-700",
-  returned:         "bg-red-50      dark:bg-red-900/30     text-red-400      dark:text-red-300      border-red-200      dark:border-red-700",
-  partial_received: "bg-fuchsia-50  dark:bg-fuchsia-900/30 text-fuchsia-400  dark:text-fuchsia-300  border-fuchsia-200  dark:border-fuchsia-700",
+  pending:          "bg-yellow-50   dark:bg-yellow-900/30  text-yellow-500   dark:text-yellow-400   border-yellow-200   dark:border-yellow-700",
+  in_shipping:      "bg-blue-50     dark:bg-blue-900/30    text-blue-500     dark:text-blue-400     border-blue-200     dark:border-blue-700",
+  warehouse_ready:  "bg-orange-50   dark:bg-orange-900/30  text-orange-500   dark:text-orange-400   border-orange-200   dark:border-orange-700",
+  received:         "bg-green-50    dark:bg-green-900/30   text-green-500    dark:text-green-400    border-green-200    dark:border-green-700",
+  delayed:          "bg-violet-50   dark:bg-violet-900/30  text-violet-500   dark:text-violet-400   border-violet-200   dark:border-violet-700",
+  returned:         "bg-red-50      dark:bg-red-900/30     text-red-500      dark:text-red-400      border-red-200      dark:border-red-700",
+  partial_received: "bg-cyan-50     dark:bg-cyan-900/30    text-cyan-500     dark:text-cyan-400     border-cyan-200     dark:border-cyan-700",
 };
 
 // ─── Period Card ───────────────────────────────────────────────────────────────
