@@ -477,7 +477,11 @@ router.get("/shipping-manifests/:id", async (req, res): Promise<void> => {
       if (!link) return { ...o, deliveryStatus: "pending", deliveryNote: null, deliveredAt: null, manifestOrderId: 0 };
       const _rrNum = link.returnReceived == null ? null : Number(link.returnReceived);
       const _pq = (link as any).partialQuantity != null ? Number((link as any).partialQuantity) : (o.partialQuantity != null ? Number(o.partialQuantity) : null);
-      return { ...o, deliveryStatus: link.deliveryStatus, deliveryNote: link.deliveryNote, deliveredAt: link.deliveredAt, partialQuantity: _pq, manifestOrderId: link.id, returnReceived: _rrNum, addedAt: link.addedAt };
+      // إذا الـ link حالته pending لكن الـ order نفسه partial_received → نعرضه partial_received
+      const _deliveryStatus = (link.deliveryStatus === "pending" && o.status === "partial_received")
+        ? "partial_received"
+        : link.deliveryStatus;
+      return { ...o, deliveryStatus: _deliveryStatus, deliveryNote: link.deliveryNote, deliveredAt: link.deliveredAt, partialQuantity: _pq, manifestOrderId: link.id, returnReceived: _rrNum, addedAt: link.addedAt };
     });
   }
   res.json({ ...row.manifest, invoicePrice: row.manifest.invoicePrice ? Number(row.manifest.invoicePrice) : null, manualShippingCost: row.manifest.manualShippingCost ? Number(row.manifest.manualShippingCost) : null, companyName: row.company?.name ?? "غير محدد", companyPhone: row.company?.phone ?? null, orders, stats: computeStats(orders) });
