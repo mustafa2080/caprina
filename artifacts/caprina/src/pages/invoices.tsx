@@ -202,11 +202,12 @@ export default function Invoices() {
       @page { size: A4 landscape; margin: 0; }
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { font-family: 'Cairo', 'Segoe UI', Tahoma, Arial, sans-serif; direction: rtl; background: white; color: #000; font-size: 9pt; font-weight: 600; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .page { display: flex; flex-direction: column; gap: 2mm; width: 297mm; padding: 3mm; page-break-after: always; box-sizing: border-box; }
+      .page { display: grid; grid-template-rows: 1fr 1fr; gap: 2mm; width: 297mm; height: 207mm; padding: 3mm; page-break-after: always; box-sizing: border-box; }
       .page:last-child { page-break-after: avoid; }
-      .inv-row { display: grid; grid-template-columns: 1fr 1fr; gap: 2mm; align-items: start; }
+      .page.single-row { grid-template-rows: auto; height: auto; }
+      .inv-row { display: grid; grid-template-columns: 1fr 1fr; gap: 2mm; align-items: stretch; min-height: 0; }
       .inv-row.single { grid-template-columns: 1fr; }
-      .inv { border: 2px solid #000; border-radius: 2mm; display: flex; flex-direction: column; overflow: hidden; background: white; width: 100%; }
+      .inv { border: 2px solid #000; border-radius: 2mm; display: flex; flex-direction: column; overflow: hidden; background: white; width: 100%; height: 100%; min-height: 0; }
       .inv-hdr { background: #1a1a1a; color: white; display: flex; align-items: center; justify-content: space-between; padding: 2mm 3mm; gap: 2mm; flex-shrink: 0; }
       .hdr-date { font-size: 8pt; font-weight: 700; white-space: nowrap; direction: ltr; text-align: right; }
       .hdr-logo { display: flex; align-items: center; gap: 2mm; }
@@ -216,8 +217,8 @@ export default function Invoices() {
       .cust-row { display: flex; align-items: center; justify-content: space-between; padding: 1.5mm 3mm; border-bottom: 1.5px solid #000; background: #f0f0f0; flex-shrink: 0; gap: 2mm; }
       .cust-phone { font-size: 10pt; font-weight: 800; direction: ltr; color: #000; }
       .cust-name { font-size: 12pt; font-weight: 900; color: #000; }
-      .inv-body { padding: 1mm 3mm 0.5mm; flex-shrink: 0; overflow: visible; }
-      .inv-mid-spacer { display: none; }
+      .inv-body { padding: 1mm 3mm 0.5mm; flex: 1; overflow: visible; display: flex; flex-direction: column; justify-content: flex-start; }
+      .inv-mid-spacer { flex: 1; }
       .inv-bottom { padding: 0.5mm 3mm; flex-shrink: 0; display: flex; flex-direction: column; gap: 0.5mm; border-top: 1px solid #ddd; background: white; }
       .inv-footer { border-top: 2px solid #1a1a1a; background: #1a1a1a; padding: 1mm 3mm; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; gap: 2mm; }
       .table-wrap { overflow: visible; }
@@ -293,17 +294,16 @@ export default function Invoices() {
       let rowsHTML = "";
       for (let i = 0; i < group.length; i += cols) {
         const rowItems = group.slice(i, i + cols);
-        // نبني كل فاتورة ونجيب rowCount بتاعها
         const built = rowItems.map(g => invoiceHTML(g));
-        // أكبر عدد صفوف في الصف ده
-        const maxRows = Math.max(...built.map(b => b.rowCount));
-        // نبني الـ HTML مع الصفوف الفارغة للفاتورة الأقصر
-        const rowInvoices = built.map(b => b.html(maxRows - b.rowCount)).join("");
+        const rowInvoices = built.map(b => b.html(0)).join("");
         const rowEmpties = rowItems.length < cols ? '<div class="empty-slot"></div>' : "";
         const isSingle = cols === 1 ? " single" : "";
         rowsHTML += `<div class="inv-row${isSingle}">${rowInvoices}${rowEmpties}</div>`;
       }
-      return `<div class="page">${rowsHTML}</div>`;
+      // لو الصفحة فيها صف واحد بس نضيف single-row عشان الـ height يبقى auto
+      const rowCount = Math.ceil(group.length / cols);
+      const pageClass = rowCount <= 1 ? "page single-row" : "page";
+      return `<div class="${pageClass}">${rowsHTML}</div>`;
     }).join("");
 
     printWindow.document.write(`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>فواتير ${brandName}</title><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;900&display=swap" rel="stylesheet"><style>${styles}</style></head><body>${pagesHTML}</body></html>`);
