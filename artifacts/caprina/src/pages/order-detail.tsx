@@ -1659,7 +1659,11 @@ export default function OrderDetail() {
     const pQty = parseInt(partialQty);
     if (isNaN(pQty) || pQty < 1) { toast({ title: "خطأ", description: "أدخل كمية صحيحة.", variant: "destructive" }); return; }
 
-    updateOrder.mutate({ id, data: { status: "partial_received", partialQuantity: pQty } }, {
+    const LOCKED_P = ["received", "partial_received"];
+    const partialTargetId = invoiceOrders.length > 1
+      ? (invoiceOrders.find((o: any) => !LOCKED_P.includes(o.status))?.id ?? id)
+      : id;
+    updateOrder.mutate({ id: partialTargetId, data: { status: "partial_received", partialQuantity: pQty } }, {
       onSuccess: (updated) => {
         queryClient.setQueryData(getGetOrderQueryKey(id), updated);
         invalidateAll();
@@ -1684,8 +1688,13 @@ export default function OrderDetail() {
     const finalReturnReceived = inManifest ? returnReceived : true;
     if (inManifest && returnReceived === null) { toast({ title: "خطأ", description: "حدد هل تم استلام المرتجع أم لا.", variant: "destructive" }); return; }
 
+    // ظپظٹ invoice mode: ظ†ط³طھط®ط¯ظ… ط£ظٹ ط£ظˆط±ط¯ط± ط؛ظٹط± locked ط¹ط´ط§ظ† ط§ظ„ط³ظٹط±ظپط± ظٹط؛ظٹط± ظƒظ„ ط§ظ„ظپط§طھظˆط±ط©
+    const LOCKED_S = ["received", "partial_received"];
+    const returnTargetId = invoiceOrders.length > 1
+      ? (invoiceOrders.find((o: any) => !LOCKED_S.includes(o.status))?.id ?? id)
+      : id;
     updateOrder.mutate({
-      id,
+      id: returnTargetId,
       data: {
         status: "returned",
         returnReason,
