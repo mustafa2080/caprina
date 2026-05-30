@@ -33,12 +33,12 @@ const CURRENT_MONTH = (() => {
 // ─── Color palette — modern flat ───────────────────────────────────────────
 const STATUS_CFG: Record<string, { label: string; color: string; bg: string }> = {
   pending:          { label: "قيد الانتظار",          color: "#f59e0b", bg: "#f59e0b18" }, // 🟡 أصفر ذهبي
-  warehouse_ready:  { label: "قيد الشحن في المخزن",  color: "#4ade80", bg: "#4ade8018" }, // 🟢 أخضر فاتح
-  in_shipping:      { label: "قيد الشحن",             color: "#3b82f6", bg: "#3b82f618" }, // 🔵 أزرق
-  received:         { label: "مُسلَّم",               color: "#16a34a", bg: "#16a34a18" }, // 🟢 أخضر غامق
-  delayed:          { label: "مؤجل",                  color: "#06b6d4", bg: "#06b6d418" }, // 🩵 سماوي
-  returned:         { label: "مرتجع",                 color: "#ef4444", bg: "#ef444418" }, // 🔴 أحمر
-  partial_received: { label: "استلم جزئي",            color: "#a855f7", bg: "#a855f718" }, // 🟣 بنفسجي
+  warehouse_ready:  { label: "قيد الشحن في المخزن",  color: "#86efac", bg: "#86efac18" }, // 🟢 أخضر فاتح ليموني
+  in_shipping:      { label: "قيد الشحن",             color: "#67e8f9", bg: "#67e8f918" }, // 🔵 سماوي فاتح
+  received:         { label: "مُسلَّم",               color: "#34d399", bg: "#34d39918" }, // 🟢 أخضر نعناعي
+  delayed:          { label: "مؤجل",                  color: "#60a5fa", bg: "#60a5fa18" }, // 🔵 أزرق كحلي
+  returned:         { label: "مرتجع",                 color: "#f87171", bg: "#f8717118" }, // 🔴 أحمر وردي
+  partial_received: { label: "استلم جزئي",            color: "#e879f9", bg: "#e879f918" }, // 🟣 بنفسجي وردي
 };
 
 const SOURCE_CFG: Record<string, { label: string; emoji: string; color: string }> = {
