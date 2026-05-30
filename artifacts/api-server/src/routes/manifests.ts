@@ -527,6 +527,8 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
       )
     );
 
+    console.log(`[CLOSE manifest ${id}] pendingLinks count=${pendingLinks.length}`, JSON.stringify(pendingLinks.map(l => ({ orderId: l.orderId, deliveryStatus: l.deliveryStatus, returnReceived: l.returnReceived, partialQuantity: l.partialQuantity }))));
+
     if (pendingLinks.length > 0) {
       // ── الطلبات اللي لسه عند شركة الشحن (pending/postponed/in_shipping) ────────
       // كانت خرجت بـ to_shipping → نرجعها بـ from_shipping + نرجع حالتها لـ pending
@@ -582,6 +584,8 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
           };
         })
       );
+
+      console.log(`[CLOSE manifest ${id}] new manifest ${newManifest.id} inserted links:`, JSON.stringify(pendingLinks.map(l => { const isPartial = l.deliveryStatus === "partial_received"; const newStatus = (l.deliveryStatus === "postponed" || l.deliveryStatus === "delayed") ? l.deliveryStatus : l.deliveryStatus === "returned" ? "returned" : isPartial ? "partial_received" : "pending"; return { orderId: l.orderId, newStatus, partialQuantity: isPartial ? l.partialQuantity : null }; })));
 
       // ── جيب الطلبات وأضفها للبيان الجديد بدون خصم مخزون إضافي ─────────────
       // المخزون اتخصم بالفعل لما الطلبات دخلت البيان الأول
