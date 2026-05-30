@@ -202,7 +202,7 @@ export default function Invoices() {
       @page { size: A4 landscape; margin: 0; }
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { font-family: 'Cairo', 'Segoe UI', Tahoma, Arial, sans-serif; direction: rtl; background: white; color: #000; font-size: 9pt; font-weight: 600; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .page { display: grid; grid-template-rows: 1fr 1fr; gap: 2mm; width: 297mm; height: 210mm; padding: 3mm; page-break-after: always; box-sizing: border-box; }
+      .page { display: grid; grid-template-rows: 1fr 1fr; gap: 2mm; width: 297mm; height: 210mm; padding: 3mm 2mm; page-break-after: always; box-sizing: border-box; }
       .page:last-child { page-break-after: avoid; }
       .page.single-row { grid-template-rows: auto; height: auto; }
       .inv-row { display: grid; grid-template-columns: 1fr 1fr; gap: 2mm; align-items: stretch; min-height: 0; }
