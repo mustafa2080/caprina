@@ -1509,12 +1509,13 @@ export default function OrderDetail() {
 
   // جيب كل أوردرات الفاتورة (لو فيه invoiceNumber)
   const invoiceNumber = (order as any)?.invoiceNumber as string | null | undefined;
-  const { data: invoiceOrders = [], refetch: refetchInvoiceOrders, isLoading: isInvoiceLoading, isError: isInvoiceError } = useQuery({
+  const { data: invoiceOrders = [], refetch: refetchInvoiceOrders, isLoading: isInvoiceLoading, isFetching: isInvoiceFetching, isError: isInvoiceError } = useQuery({
     queryKey: ["invoice-orders", invoiceNumber],
     queryFn: () => ordersApi.byInvoice(invoiceNumber!),
     enabled: !!invoiceNumber,
     staleTime: 0,
     retry: 1,
+    placeholderData: (prev: any) => prev, // ظٹط­طھظپط¸ ط¨ط§ظ„ط¨ظٹط§ظ†ط§طھ ط§ظ„ظ‚ط¯ظٹظ…ط© ط£ط«ظ†ط§ط، ط§ظ„ظ€ refetch
   });
   // كل أوردرات الفاتورة ماعدا الحالي (للعرض في القائمة)
   const otherInvoiceOrders = invoiceOrders.filter((o: any) => o.id !== id);
@@ -1879,7 +1880,8 @@ export default function OrderDetail() {
     </div>
   );
   // لو invoiceNumber موجود ولسه بنجيب الطلبات (وmش error) → نستنى عشان isInvoiceMode تتحدد صح
-  if (invoiceNumber && isInvoiceLoading && !isInvoiceError) return <div className="p-12 text-center text-muted-foreground animate-pulse">جاري التحميل...</div>;
+  // ط´ط§ط´ط© ط§ظ„طھط­ظ…ظٹظ„ ظپظ‚ط· ط¹ظ†ط¯ ط£ظˆظ„ fetch ظˆظ…ط§ ظپظٹط´ ط¨ظٹط§ظ†ط§طھ ظ‚ط¯ظٹظ…ط©
+  if (invoiceNumber && isInvoiceLoading && !isInvoiceError && invoiceOrders.length === 0) return <div className="p-12 text-center text-muted-foreground animate-pulse">جاري التحميل...</div>;
 
   const shippingCompany = shippingCompanies?.find(c => c.id === order.shippingCompanyId);
   const orderReturnReason = (order as any).returnReason as string | null;
@@ -1887,7 +1889,8 @@ export default function OrderDetail() {
   const isOrderLocked = (order.status === "received" || order.status === "partial_received") && !isAdmin;
   const isManifestLocked = !!invoiceManifestStatus;
   // لو invoiceNumber موجود ولسه loading → ننتظر قبل ما نحدد الوضع (إلا لو حصل error → نعرض الطلب الفردي)
-  const isInvoiceMode = !!invoiceNumber && !isInvoiceLoading && !isInvoiceError && invoiceOrders.length > 1;
+  // isInvoiceMode: ظ„ط§ طھطھط£ط«ط± ط¨ط§ظ„ظ€ refetch â€” طھط³طھط®ط¯ظ… invoiceOrders.length ظ…ط¨ط§ط´ط±ط© (placeholderData ط¨طھط­طھظپط¸ ط¨ط§ظ„ط¨ظٹط§ظ†ط§طھ)
+  const isInvoiceMode = !!invoiceNumber && !isInvoiceError && invoiceOrders.length > 1;
 
   return (
     <div className="max-w-4xl mx-auto space-y-5 animate-in fade-in duration-500">
