@@ -1,0 +1,1 @@
+import { readFileSync } from 'fs'; import { SourceMapConsumer } from 'source-map'; const map = JSON.parse(readFileSync('dist/public/assets/dashboard-Benh9zCY.js.map', 'utf8')); const consumer = await new SourceMapConsumer(map); const pos = consumer.originalPositionFor({ line: 1, column: 40415 }); console.log(JSON.stringify(pos)); consumer.destroy();

@@ -1,6 +1,6 @@
 import { lazy, Suspense, Component, type ReactNode, useRef, useEffect, useLayoutEffect } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wouter";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, MutationCache } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -103,15 +103,30 @@ const SuperAdminPage        = lazy(() => import("@/pages/super-admin"));
 const SubscriptionExpired   = lazy(() => import("@/pages/subscription-expired"));
 
 // ─── Global QueryClient with smart caching defaults ──────────────────────────
+// MutationCache: أي mutation تنجح على الطلبات → invalidate الـ analytics فوراً
 const queryClient = new QueryClient({
+  mutationCache: new MutationCache({
+    onSuccess: (_data, _vars, _ctx, mutation) => {
+      const key = mutation.options.mutationKey;
+      // كل mutation متعلقة بالطلبات أو الشحن تعمل invalidate للـ analytics
+      const orderKeys = ["update-order", "create-order", "delete-order", "bulk-status", "bulk-delete"];
+      const isOrderMutation =
+        (Array.isArray(key) && key.some(k => orderKeys.some(ok => String(k).includes(ok)))) ||
+        (mutation.options as any).__invalidatesCharts;
+      if (isOrderMutation) {
+        queryClient.invalidateQueries({ queryKey: ["analytics-charts"] });
+        queryClient.invalidateQueries({ queryKey: ["orders-summary"] });
+      }
+    },
+  }),
   defaultOptions: {
     queries: {
       staleTime: 60_000,
       gcTime: 10 * 60_000,
-      retry: 1,                        // محاولة واحدة إضافية بس — عشان ما يتأخرش في إظهار الخطأ
+      retry: 1,
       retryDelay: 2000,
       refetchOnWindowFocus: false,
-      refetchOnReconnect: true,        // لما الانترنت يرجع يعمل refetch تلقائي
+      refetchOnReconnect: true,
     },
     mutations: {
       retry: 1,

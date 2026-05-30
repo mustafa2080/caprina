@@ -1588,6 +1588,8 @@ export default function OrderDetail() {
     queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
     queryClient.invalidateQueries({ queryKey: getGetOrdersSummaryQueryKey() });
     queryClient.invalidateQueries({ queryKey: ["products"] });
+    queryClient.invalidateQueries({ queryKey: ["analytics-charts"] });
+    queryClient.invalidateQueries({ queryKey: ["orders-summary"] });
   };
 
   const handleStatusChange = (newStatus: string) => {
@@ -1743,6 +1745,7 @@ export default function OrderDetail() {
         queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetOrdersSummaryQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetRecentOrdersQueryKey() });
+        queryClient.invalidateQueries({ queryKey: ["analytics-charts"] });
         setIsEditing(false);
         initializedRef.current = false;
         setEditSelectedProduct(null); setEditSearchQuery(""); setEditSearchOpen(false);

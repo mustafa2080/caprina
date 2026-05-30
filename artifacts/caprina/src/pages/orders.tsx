@@ -375,6 +375,8 @@ export default function Orders() {
       const data = await res.json();
       await queryClient.refetchQueries({ queryKey: ["orders-list"] });
       queryClient.invalidateQueries({ queryKey: ["archived-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["analytics-charts"] });
+      queryClient.invalidateQueries({ queryKey: ["orders-summary"] });
       const skippedMsg = data.skipped > 0 ? ` (${data.skipped} محظور — مسلّمة)` : "";
       toast({ title: `تم حذف ${data.deleted} طلب ✅`, description: `تم حذف الطلبات بنجاح${skippedMsg}` });
       exitBulkMode();
@@ -418,6 +420,8 @@ export default function Orders() {
       }
     }
     queryClient.invalidateQueries({ queryKey: ["orders-list"] });
+    queryClient.invalidateQueries({ queryKey: ["analytics-charts"] });
+    queryClient.invalidateQueries({ queryKey: ["orders-summary"] });
     const label = statusLabels[newStatus] ?? newStatus;
     const failedMsg = failed > 0 ? ` (${failed} فشل)` : "";
     toast({ title: `تم تحديث ${done} طلب ✅`, description: `تم تغيير الحالة إلى «${label}»${failedMsg}` });

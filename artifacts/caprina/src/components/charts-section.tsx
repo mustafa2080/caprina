@@ -1128,8 +1128,9 @@ export function ChartsSection() {
   const { data, isLoading } = useQuery({
     queryKey: ["analytics-charts"],
     queryFn: analyticsApi.charts,
-    staleTime: 30000,
-    refetchInterval: 60000,
+    staleTime: 0,           // دايماً fresh لما يتعمل invalidate
+    refetchInterval: 15000, // كل 15 ثانية كـ fallback
+    refetchOnWindowFocus: true, // لما المستخدم يرجع للتبويبة يحدث فوراً
   });
 
   if (isLoading) return <Skeleton />;
