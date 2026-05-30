@@ -81,7 +81,7 @@ const STATUS_LABELS: Record<string, string> = {
 const STATUS_CLASSES: Record<string, string> = {
   pending:          "bg-amber-50   dark:bg-amber-900/30   text-amber-600   dark:text-amber-400   border-amber-300   dark:border-amber-700",
   in_shipping:      "bg-blue-50    dark:bg-blue-900/30    text-blue-600    dark:text-blue-400    border-blue-300    dark:border-blue-700",
-  warehouse_ready:  "bg-orange-50  dark:bg-orange-900/30  text-orange-600  dark:text-orange-400  border-orange-300  dark:border-orange-700",
+  warehouse_ready:  "bg-orange-100  dark:bg-orange-900/30  text-orange-500  dark:text-orange-300  border-orange-200  dark:border-orange-700",
   received:         "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700",
   delayed:          "bg-violet-50  dark:bg-violet-900/30  text-violet-600  dark:text-violet-400  border-violet-300  dark:border-violet-700",
   returned:         "bg-red-50     dark:bg-red-900/30     text-red-600     dark:text-red-400     border-red-300     dark:border-red-700",
