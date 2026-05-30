@@ -1917,9 +1917,34 @@ function CloseConfirmDialog({
   loading: boolean;
 }) {
   const s = manifest.stats;
-  const pendingCount = manifest.orders.filter(
-    (o) => o.deliveryStatus === "pending"
-  ).length;
+
+  // احسب الإحصائيات على مستوى الفواتير (مش الطلبات الفردية)
+  const invoiceStatusMap = useMemo(() => {
+    const map = new Map<string, string>();
+    const priority: Record<string, number> = { returned: 5, postponed: 4, partial_received: 3, pending: 2, delivered: 1 };
+    for (const o of manifest.orders) {
+      const key = (o as any).invoiceNumber?.trim() || `solo-${o.id}`;
+      const existing = map.get(key);
+      const existingP = existing ? (priority[existing] ?? 0) : 0;
+      const newP = priority[o.deliveryStatus] ?? 0;
+      if (newP > existingP) map.set(key, o.deliveryStatus);
+    }
+    return map;
+  }, [manifest.orders]);
+
+  const invoiceCounts = useMemo(() => {
+    let pending = 0, postponed = 0, returned = 0, partial = 0, delivered = 0;
+    for (const status of invoiceStatusMap.values()) {
+      if (status === "pending") pending++;
+      else if (status === "postponed") postponed++;
+      else if (status === "returned") returned++;
+      else if (status === "partial_received") partial++;
+      else if (status === "delivered") delivered++;
+    }
+    return { pending, postponed, returned, partial, delivered };
+  }, [invoiceStatusMap]);
+
+  const pendingCount = invoiceCounts.pending;
 
   return (
     <Dialog open onOpenChange={onClose}>
@@ -1953,7 +1978,7 @@ function CloseConfirmDialog({
             <div className="p-2 rounded-md bg-orange-900/10 border border-orange-700">
               <p className="text-orange-400">مؤجل</p>
               <p className="font-bold text-base text-orange-400">
-                {manifest.orders.filter((o) => o.deliveryStatus === "postponed").length}
+                {invoiceCounts.postponed}
               </p>
             </div>
             <div className="p-2 rounded-md bg-red-900/10 border border-red-700">
