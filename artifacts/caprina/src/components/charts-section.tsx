@@ -32,7 +32,7 @@ const CURRENT_MONTH = (() => {
 
 // ─── Color palette — modern flat ───────────────────────────────────────────
 const STATUS_CFG: Record<string, { label: string; color: string; bg: string }> = {
-  warehouse_ready:  { label: "قيد الشحن في المخزن",  color: "#fb923c", bg: "#fb923c18" },
+  warehouse_ready:  { label: "قيد الشحن في المخزن",  color: "#f5a623", bg: "#f5a62318" },
   received:         { label: "مُسلَّم",               color: "#22c55e", bg: "#22c55e18" },
   pending:          { label: "قيد الانتظار",          color: "#f59e0b", bg: "#f59e0b18" },
   returned:         { label: "مرتجع",                 color: "#ef4444", bg: "#ef444418" },
