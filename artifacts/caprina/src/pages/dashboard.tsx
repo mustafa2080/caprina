@@ -11,7 +11,7 @@ import {
   TrendingUp, TrendingDown, DollarSign, Package, AlertCircle,
   Plus, Activity, Boxes, ArrowUpRight, ArrowDownRight,
   Star, Wallet, BarChart3, ShoppingCart, AlertTriangle, RefreshCw, Bell, Brain, Zap, Archive, Clock,
-  Receipt, Building2, FileText, X, AlertOctagon, Users, Truck,
+  Receipt, Building2, FileText, X, AlertOctagon, Users, Truck, Globe,
 } from "lucide-react";
 import {
   analyticsApi, type PeriodProfit, type ProductProfit, type FinancialSummary, type Alert,
@@ -339,7 +339,8 @@ const AD_SOURCE_META: Record<string, { label: string; iconColor: string; gradFro
   facebook:  { label: "فيسبوك",   icon: FaFacebook,       iconColor: "#ffffff", gradFrom: "#1877F2", gradTo: "#0d4fa8" },
   tiktok:    { label: "تيك توك",  icon: FaTiktok,         iconColor: "#ffffff", gradFrom: "#010101", gradTo: "#333333" },
   instagram: { label: "إنستجرام", icon: FaInstagram,      iconColor: "#ffffff", gradFrom: "#833ab4", gradTo: "#fd1d1d" },
-  organic:   { label: "عضوي",     icon: PiPlantFill,      iconColor: "#ffffff", gradFrom: "#16a34a", gradTo: "#059669" },
+  organic:   { label: "ويبسايت",  icon: Globe,            iconColor: "#ffffff", gradFrom: "#6366f1", gradTo: "#4338ca" },
+  unknown:   { label: "عضوي",     icon: Globe,            iconColor: "#ffffff", gradFrom: "#94a3b8", gradTo: "#64748b" },
   whatsapp:  { label: "واتساب",   icon: FaWhatsapp,       iconColor: "#ffffff", gradFrom: "#25D366", gradTo: "#128C7E" },
   other:     { label: "أخرى",     icon: FiMoreHorizontal, iconColor: "#ffffff", gradFrom: "#6b7280", gradTo: "#374151" },
 };
@@ -1256,7 +1257,8 @@ export default function Dashboard() {
                        smartData.adAttribution.bestSource.source === "tiktok" ? "تيك توك" :
                        smartData.adAttribution.bestSource.source === "instagram" ? "إنستجرام" :
                        smartData.adAttribution.bestSource.source === "whatsapp" ? "واتساب" :
-                       smartData.adAttribution.bestSource.source === "organic" ? "عضوي" : "أخرى"}
+                       smartData.adAttribution.bestSource.source === "organic" ? "ويبسايت" :
+                       smartData.adAttribution.bestSource.source === "unknown" ? "عضوي" : "أخرى"}
                     </p>
                     {canViewFinancials && (
                       <p className="text-[8px] sm:text-[10px] text-emerald-600 dark:text-emerald-400 font-bold truncate">
