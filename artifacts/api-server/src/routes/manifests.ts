@@ -599,7 +599,7 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
 
       if (nonReturnedIds.length > 0) {
         await db.update(ordersTable)
-          .set({ status: "in_shipping", shippingCompanyId: updated.shippingCompanyId })
+          .set({ status: "in_shipping", shippingCompanyId: updated.shippingCompanyId, partialQuantity: null })
           .where(inArray(ordersTable.id, nonReturnedIds));
       }
       if (returnedIds.length > 0) {
