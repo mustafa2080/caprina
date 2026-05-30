@@ -233,12 +233,18 @@ function computeStats(orders: OrderWithDelivery[]) {
         }
       }
       // الجزء الباقي (أو كله لو مرحّل) لسه عند الشحن
-      if (rv !== 1) { stillAtShippingCount++; stillAtShippingAmount += o.totalPrice; }
+      if (rv !== 1) {
+        stillAtShippingCount++;
+        // المبلغ المتوقع = الجزء اللي لسه عند الشحن فقط (مش كل totalPrice)
+        const deliveredQty = (rv === 0 && o.partialQuantity != null) ? Number(o.partialQuantity) : 0;
+        const remainingQty = o.quantity - deliveredQty;
+        const unitPrice = Number((o as any).unitPrice ?? 0) || (o.quantity > 0 ? o.totalPrice / o.quantity : 0);
+        stillAtShippingAmount += remainingQty > 0 ? unitPrice * remainingQty : o.totalPrice;
+      }
 
     } else if (o.deliveryStatus === "returned") {
-      // مرتجع كامل → خسارة شحن فقط
+      // مرتجع كامل → خسارة شحن فقط — المرتجع مش "لسه عند الشحن"
       totalShippingCost += shipping;
-      if (rv !== 1) { stillAtShippingCount++; stillAtShippingAmount += o.totalPrice; }
 
     } else {
       totalShippingCost += shipping;
