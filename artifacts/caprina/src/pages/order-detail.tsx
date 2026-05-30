@@ -1667,8 +1667,8 @@ export default function OrderDetail() {
     if (!returnReason) { toast({ title: "خطأ", description: "اختر سبب الإرجاع.", variant: "destructive" }); return; }
     if (returnReason === "other" && !returnNote.trim()) { toast({ title: "خطأ", description: "اكتب سبب الإرجاع.", variant: "destructive" }); return; }
 
-    // لو الطلب مش في بيان شحن → المرتجع تلقائياً في المخزن
-    const inManifest = !!manifestStatus;
+    // لو الطلب في بيان شحن مفتوح → يطلب تحديد returnReceived، غير كده تلقائي true
+    const inManifest = manifestStatus?.manifestStatus === "open";
     const finalReturnReceived = inManifest ? returnReceived : true;
     if (inManifest && returnReceived === null) { toast({ title: "خطأ", description: "حدد هل تم استلام المرتجع أم لا.", variant: "destructive" }); return; }
 
@@ -2132,8 +2132,8 @@ export default function OrderDetail() {
                 />
               </div>
             )}
-            {/* هل تم استلام المرتجع؟ — يظهر فقط لو الطلب في بيان شحن */}
-            {!!manifestStatus && (
+            {/* هل تم استلام المرتجع؟ — يظهر فقط لو الطلب في بيان شحن مفتوح */}
+            {manifestStatus?.manifestStatus === "open" && (
             <div className="space-y-2">
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">هل تم استلام المرتجع؟ *</p>
               <div className="flex gap-2.5">
@@ -2215,7 +2215,7 @@ export default function OrderDetail() {
               </div>
             </div>
             <div className="flex items-center gap-2 pt-1">
-              <Button size="sm" className="h-8 text-xs bg-red-700 hover:bg-red-600 text-white gap-1" onClick={handleReturnConfirm} disabled={updateOrder.isPending || (!!manifestStatus && returnReceived === null)}>
+              <Button size="sm" className="h-8 text-xs bg-red-700 hover:bg-red-600 text-white gap-1" onClick={handleReturnConfirm} disabled={updateOrder.isPending || (manifestStatus?.manifestStatus === "open" && returnReceived === null)}>
                 <RotateCcw className="w-3 h-3" />{updateOrder.isPending ? "جاري..." : "تأكيد الإرجاع"}
               </Button>
               <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setShowReturnInput(false); setReturnReason(""); setReturnNote(""); setReturnIsDamaged(false); setReturnReceived(null); setSelectDisplayStatus(null); }}>إلغاء</Button>
