@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+﻿import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { analyticsApi, type AdSourceStat, type SmartProduct, type DeadStockItem, type ReturnReasonItem, type HighReturnProduct, type StockPredictorItem } from "@/lib/api";
