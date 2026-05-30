@@ -939,6 +939,10 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
   if (deliveryStatus === "partial_received" && parsedPartialQty === null) {
     res.status(400).json({ error: "يجب إدخال الكمية المستلمة للتسليم الجزئي" }); return;
   }
+  // لو الكمية المستلمة أكبر من كمية الطلب → خطأ صريح
+  if (deliveryStatus === "partial_received" && parsedPartialQty !== null && parsedPartialQty > existingOrder.quantity) {
+    res.status(400).json({ error: `الكمية المستلمة (${parsedPartialQty}) لا يمكن أن تتجاوز كمية الطلب (${existingOrder.quantity})` }); return;
+  }
   const oldPartialQtyNum = link.partialQuantity != null ? Number(link.partialQuantity) : null;
 
   // حساب القيمة القديمة لـ partialReturnReceived بشكل صريح
