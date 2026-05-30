@@ -471,7 +471,14 @@ function OrderDeliveryRow({
                     min={0}
                     max={order.quantity}
                     value={partialQty}
-                    onChange={(e) => setPartialQty(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === "") { setPartialQty(""); return; }
+                      const n = parseInt(val);
+                      if (!isNaN(n) && n > order.quantity) { setPartialQty(String(order.quantity)); return; }
+                      if (!isNaN(n) && n < 0) { setPartialQty("0"); return; }
+                      setPartialQty(val);
+                    }}
                     className={`h-8 text-xs w-28 bg-background ${partialQty === "" ? "border-destructive" : ""}`}
                     placeholder="مطلوب"
                     autoFocus
@@ -1365,7 +1372,14 @@ function InvoiceGroupDeliveryRow({
                             min={0}
                             max={o.quantity}
                             value={partialQtyMap[o.id] ?? ""}
-                            onChange={e => setPartialQtyMap(prev => ({ ...prev, [o.id]: e.target.value }))}
+                            onChange={e => {
+                              const raw = e.target.value;
+                              if (raw === "") { setPartialQtyMap(prev => ({ ...prev, [o.id]: "" })); return; }
+                              const n = parseInt(raw);
+                              if (!isNaN(n) && n > o.quantity) { setPartialQtyMap(prev => ({ ...prev, [o.id]: String(o.quantity) })); return; }
+                              if (!isNaN(n) && n < 0) { setPartialQtyMap(prev => ({ ...prev, [o.id]: "0" })); return; }
+                              setPartialQtyMap(prev => ({ ...prev, [o.id]: raw }));
+                            }}
                             className={`h-7 w-20 rounded border bg-background px-2 text-xs text-center ${
                               partialQtyMap[o.id] === "" || partialQtyMap[o.id] === undefined
                                 ? "border-border text-muted-foreground"
