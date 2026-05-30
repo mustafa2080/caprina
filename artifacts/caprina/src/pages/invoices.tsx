@@ -202,7 +202,7 @@ export default function Invoices() {
       @page { size: A4 landscape; margin: 0; }
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { font-family: 'Cairo', 'Segoe UI', Tahoma, Arial, sans-serif; direction: rtl; background: white; color: #000; font-size: 9pt; font-weight: 600; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .page { display: grid; ${perPage === 1 ? "grid-template-columns: 1fr;" : "grid-template-columns: 1fr 1fr;"} gap: 2mm; width: 297mm; padding: 3mm; page-break-after: always; box-sizing: border-box; align-items: stretch; }
+      .page { display: grid; ${perPage === 1 ? "grid-template-columns: 1fr;" : "grid-template-columns: 1fr 1fr;"} gap: 2mm; width: 297mm; padding: 3mm; page-break-after: always; box-sizing: border-box; align-items: start; }
       .page:last-child { page-break-after: avoid; }
       .inv { border: 2px solid #000; border-radius: 2mm; display: flex; flex-direction: column; overflow: hidden; background: white; width: 100%; }
       .inv-hdr { background: #1a1a1a; color: white; display: flex; align-items: center; justify-content: space-between; padding: 2mm 3mm; gap: 2mm; flex-shrink: 0; }
@@ -257,28 +257,13 @@ export default function Invoices() {
       const orderNum = String(rep.id).padStart(4, "0");
       const city = (rep as any).city ?? "";
 
-      const rowCount = realOrders.length;
-      // الارتفاع الثابت لكل فاتورة بالـ mm
-      const invHeightMm = perPage === 4 ? 101 : 204;
-      // العناصر الثابتة: header(18) + custRow(9) + totalBar(6) + footer(7) + padding(4) = 44mm
-      const fixedMm = 44;
-      // الـ bottom section: info(6) + addr(8) + notes(5) + confirm(5) = 24mm
-      const bottomMm = 24;
-      // المساحة المتاحة للجدول فقط
-      const availableForTable = invHeightMm - fixedMm - bottomMm; // ~33mm للـ perPage=4, ~136mm للـ perPage=1
-      const rowHeightMm = 4.5;
-      const theadHeightMm = 5;
-      const naturalTableHeight = theadHeightMm + rowCount * rowHeightMm;
-      // نحسب scale factor بناء على كل المحتوى
-      const totalNaturalHeight = fixedMm + bottomMm + naturalTableHeight;
-      const scaleFactor = totalNaturalHeight <= invHeightMm ? 1 : Math.max(0.4, invHeightMm / totalNaturalHeight);
-      const tblFontSize = (7 * scaleFactor).toFixed(1);
-      const cellPad = scaleFactor < 0.7 ? "0.2mm 0.5mm" : scaleFactor < 0.85 ? "0.4mm 0.8mm" : "0.8mm 1mm";
-      const hdrPad = scaleFactor < 0.8 ? "0.8mm 3mm" : "2mm 3mm";
-      const custPad = scaleFactor < 0.8 ? "0.6mm 3mm" : "1.5mm 3mm";
-      const bottomPad = scaleFactor < 0.8 ? "0.3mm 1mm" : "0.6mm 1.5mm";
-      const bottomFontSize = (6 * scaleFactor).toFixed(1);
-      const logoSize = scaleFactor < 0.8 ? "10mm" : "14mm";
+      const tblFontSize = "7";
+      const cellPad = "0.8mm 1.5mm";
+      const hdrPad = "2mm 3mm";
+      const custPad = "1.5mm 3mm";
+      const bottomPad = "0.6mm 1.5mm";
+      const bottomFontSize = "6";
+      const logoSize = "14mm";
 
       const productRows = realOrders.map((o: any) => {
         const color = o.color ?? "";
