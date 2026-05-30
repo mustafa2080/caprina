@@ -184,7 +184,7 @@ function computeStats(orders: OrderWithDelivery[]) {
   // كل فاتورة = طلب واحد، حالتها = حالة أسوأ منتج فيها
   function groupStatus(group: OrderWithDelivery[]): string {
     // أولوية الحالات: returned > postponed > partial_received > pending > delivered
-    const priority: Record<string, number> = { returned: 5, postponed: 4, pending: 3, partial_received: 2, delivered: 1 };
+    const priority: Record<string, number> = { returned: 5, postponed: 4, partial_received: 3, pending: 2, delivered: 1 };
     return group.reduce((worst, o) => {
       return (priority[o.deliveryStatus] ?? 0) > (priority[worst] ?? 0) ? o.deliveryStatus : worst;
     }, group[0].deliveryStatus);
