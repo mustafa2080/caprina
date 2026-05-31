@@ -56,7 +56,8 @@ function InvoiceCard({ order, isLatest }: { order: SaleOrder; isLatest: boolean 
   const total  = parseFloat(order.totalAmount ?? "0");
   const paid   = order.paymentStatus === "paid" ? total : parseFloat(order.paidAmount ?? "0");
   const unpaid = order.paymentStatus === "paid" ? 0 : Math.max(0, total - paid);
-  const isProcessing = order.status === "processing";
+  const isProcessing = ["draft", "confirmed", "processing"].includes(order.status);
+  const statusLabel = order.status === "draft" ? "مسودة" : order.status === "confirmed" ? "مؤكد" : "قيد التجهيز";
 
   return (
     <div
@@ -107,7 +108,7 @@ function InvoiceCard({ order, isLatest }: { order: SaleOrder; isLatest: boolean 
               }`}
             >
               {isProcessing
-                ? <><Clock className="w-2.5 h-2.5 inline ml-0.5" />قيد التجهيز</>
+                ? <><Clock className="w-2.5 h-2.5 inline ml-0.5" />{statusLabel}</>
                 : <><CheckCircle2 className="w-2.5 h-2.5 inline ml-0.5" />تم التسليم</>}
             </Badge>
             <ChevronRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
@@ -177,8 +178,8 @@ export default function CommercialClientDetailPage() {
   const salesPct    = Math.min((totalSales / (creditLimit > 0 ? creditLimit : 1_000_000)) * 100, 100);
   const remaining   = Math.max(0, creditLimit - totalSales);
 
-  const processingOrders = allOrders.filter(o => o.status === "processing");
-  const deliveredOrders  = allOrders.filter(o => o.status === "delivered");
+  const processingOrders = allOrders.filter(o => ["draft", "confirmed", "processing"].includes(o.status));
+  const deliveredOrders  = allOrders.filter(o => ["delivered", "closed"].includes(o.status));
   const latestProcessingId = processingOrders[0]?.id;
 
   return (
