@@ -3665,18 +3665,27 @@ export default function ShippingManifestPage() {
           </p>
           <p className="text-2xl font-black text-teal-400">{s.partial}</p>
           {(() => {
-            const partialReturnedQty = manifest.orders
-              .filter(o => o.deliveryStatus === "partial_received")
-              .reduce((sum, o) => {
-                const delivered = o.partialQuantity ?? 0;
-                const remaining = o.quantity - delivered;
-                return sum + (remaining > 0 ? remaining : 0);
-              }, 0);
-            return partialReturnedQty > 0 ? (
-              <p className="text-[10px] text-red-400 mt-0.5 font-semibold">
-                ↩ مرتجع جزئي: {partialReturnedQty} قطعة
-              </p>
-            ) : null;
+            const partialOrders = manifest.orders.filter(o => o.deliveryStatus === "partial_received");
+            const partialReturnedQty = partialOrders.reduce((sum, o) => {
+              const delivered = o.partialQuantity ?? 0;
+              const remaining = o.quantity - delivered;
+              return sum + (remaining > 0 ? remaining : 0);
+            }, 0);
+            const stillAtShipping = partialOrders.filter(o => (o as any).returnReceived !== 1).length;
+            return (
+              <>
+                {partialReturnedQty > 0 && (
+                  <p className="text-[10px] text-red-400 mt-0.5 font-semibold">
+                    ↩ مرتجع جزئي: {partialReturnedQty} قطعة
+                  </p>
+                )}
+                {stillAtShipping > 0 && (
+                  <p className="text-[10px] text-orange-400 mt-0.5 font-semibold">
+                    🚚 المرتجع ما زال في شركة الشحن
+                  </p>
+                )}
+              </>
+            );
           })()}
         </Card>
         <Card className="border-amber-900/50 bg-amber-900/10 p-4">
