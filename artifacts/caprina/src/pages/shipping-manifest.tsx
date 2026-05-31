@@ -2245,15 +2245,15 @@ function ExportDialog({
     ws1.pageSetup = { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 };
     ws1.pageMargins = { left: 0.25, right: 0.25, top: 0.4, bottom: 0.35, header: 0.15, footer: 0.15 };
     ws1.columns = [
-      { key: "note", width: 26 },
-      { key: "status", width: 14 },
-      { key: "total", width: 12 },
-      { key: "qty", width: 12 },
-      { key: "products", width: 35 },
-      { key: "phone", width: 16 },
-      { key: "customer", width: 20 },
-      { key: "invoice", width: 18 },
       { key: "idx", width: 8 },
+      { key: "invoice", width: 18 },
+      { key: "customer", width: 20 },
+      { key: "phone", width: 16 },
+      { key: "products", width: 35 },
+      { key: "qty", width: 12 },
+      { key: "total", width: 12 },
+      { key: "status", width: 14 },
+      { key: "note", width: 26 },
     ];
 
     ws1.mergeCells("A1:I1");
@@ -2287,7 +2287,7 @@ function ExportDialog({
     setCell(ws1.getCell("A4"), "", { fill: C.bg, border: C.bg });
     ws1.getRow(4).height = 8;
 
-    const headers = ["ملاحظة", "حالة التسليم", "الإجمالي", "الكمية الكلية", "المنتجات", "الهاتف", "اسم العميل", "رقم الفاتورة", "#"];
+    const headers = ["#", "رقم الفاتورة", "اسم العميل", "الهاتف", "المنتجات", "الكمية الكلية", "الإجمالي", "حالة التسليم", "ملاحظة"];
     const headerRow = ws1.getRow(5);
     headerRow.values = headers;
     headerRow.height = 24;
@@ -2322,28 +2322,27 @@ function ExportDialog({
 
       const row = ws1.getRow(idx + 6);
       row.height = 30;
-      setCell(row.getCell(1), notes || "", {
+      setCell(row.getCell(1), idx + 1, {
+        fill: baseFill,
+        font: { bold: true, color: { argb: C.darkText } },
+        align: { horizontal: "center", vertical: "middle" },
+        border: "FFD1D5DB",
+      });
+      setCell(row.getCell(2), invoiceNum, {
+        fill: baseFill,
+        font: { bold: true, color: { argb: C.blue } },
+        align: { horizontal: "center", vertical: "middle" },
+        border: "FFD1D5DB",
+      });
+      setCell(row.getCell(3), rep.customerName, {
         fill: baseFill,
         font: baseFont,
-        align: { horizontal: "right", vertical: "middle", wrapText: true },
+        align: { horizontal: "right", vertical: "middle" },
         border: "FFD1D5DB",
       });
-      setCell(row.getCell(2), deliveryLabel, {
-        fill: deliveryStatus === "delivered" ? C.greenBg : deliveryStatus === "returned" ? C.redBg : deliveryStatus === "partial_received" ? C.tealBg : deliveryStatus === "postponed" ? C.amberBg : C.grayBg,
-        font: { bold: true, color: { argb: deliveryStatus === "delivered" ? C.green : deliveryStatus === "returned" ? C.red : deliveryStatus === "partial_received" ? C.teal : deliveryStatus === "postponed" ? C.amber : C.gray } },
-        align: { horizontal: "center", vertical: "middle" },
-        border: deliveryStatus === "delivered" ? C.green : deliveryStatus === "returned" ? C.red : deliveryStatus === "partial_received" ? C.teal : deliveryStatus === "postponed" ? C.amber : "FFCBD5E1",
-      });
-      setCell(row.getCell(3), totalPrice, {
+      setCell(row.getCell(4), rep.phone ?? "—", {
         fill: baseFill,
-        font: { bold: true, color: { argb: C.darkText } },
-        align: { horizontal: "center", vertical: "middle" },
-        border: "FFD1D5DB",
-        numFmt: '#,##0 "ج.م"',
-      });
-      setCell(row.getCell(4), totalQty, {
-        fill: baseFill,
-        font: { bold: true, color: { argb: C.darkText } },
+        font: baseFont,
         align: { horizontal: "center", vertical: "middle" },
         border: "FFD1D5DB",
       });
@@ -2353,41 +2352,42 @@ function ExportDialog({
         align: { horizontal: "right", vertical: "middle", wrapText: true },
         border: "FFD1D5DB",
       });
-      setCell(row.getCell(6), rep.phone ?? "—", {
-        fill: baseFill,
-        font: baseFont,
-        align: { horizontal: "center", vertical: "middle" },
-        border: "FFD1D5DB",
-      });
-      setCell(row.getCell(7), rep.customerName, {
-        fill: baseFill,
-        font: baseFont,
-        align: { horizontal: "right", vertical: "middle" },
-        border: "FFD1D5DB",
-      });
-      setCell(row.getCell(8), invoiceNum, {
-        fill: baseFill,
-        font: { bold: true, color: { argb: C.blue } },
-        align: { horizontal: "center", vertical: "middle" },
-        border: "FFD1D5DB",
-      });
-      setCell(row.getCell(9), idx + 1, {
+      setCell(row.getCell(6), totalQty, {
         fill: baseFill,
         font: { bold: true, color: { argb: C.darkText } },
         align: { horizontal: "center", vertical: "middle" },
+        border: "FFD1D5DB",
+      });
+      setCell(row.getCell(7), totalPrice, {
+        fill: baseFill,
+        font: { bold: true, color: { argb: C.darkText } },
+        align: { horizontal: "center", vertical: "middle" },
+        border: "FFD1D5DB",
+        numFmt: '#,##0 "ج.م"',
+      });
+      setCell(row.getCell(8), deliveryLabel, {
+        fill: deliveryStatus === "delivered" ? C.greenBg : deliveryStatus === "returned" ? C.redBg : deliveryStatus === "partial_received" ? C.tealBg : deliveryStatus === "postponed" ? C.amberBg : C.grayBg,
+        font: { bold: true, color: { argb: deliveryStatus === "delivered" ? C.green : deliveryStatus === "returned" ? C.red : deliveryStatus === "partial_received" ? C.teal : deliveryStatus === "postponed" ? C.amber : C.gray } },
+        align: { horizontal: "center", vertical: "middle" },
+        border: deliveryStatus === "delivered" ? C.green : deliveryStatus === "returned" ? C.red : deliveryStatus === "partial_received" ? C.teal : deliveryStatus === "postponed" ? C.amber : "FFCBD5E1",
+      });
+      setCell(row.getCell(9), notes || "", {
+        fill: baseFill,
+        font: baseFont,
+        align: { horizontal: "right", vertical: "middle", wrapText: true },
         border: "FFD1D5DB",
       });
     });
 
     const totalRowIndex = groupedOrders.length + 6;
     ws1.mergeCells(`A${totalRowIndex}:B${totalRowIndex}`);
-    setCell(ws1.getCell(`A${totalRowIndex}`), "الإجمالي الكلي", {
+    setCell(ws1.getCell(`A${totalRowIndex}`), "الإجمالي بعد خصم الشحن", {
       fill: C.bg,
       font: { bold: true, color: { argb: C.gold }, size: 11 },
       align: { horizontal: "center", vertical: "middle" },
       border: C.gold,
     });
-    setCell(ws1.getCell(`C${totalRowIndex}`), totalCollected, {
+    setCell(ws1.getCell(`C${totalRowIndex}`), netDue, {
       fill: C.green,
       font: { bold: true, color: { argb: C.white }, size: 11 },
       align: { horizontal: "center", vertical: "middle" },
