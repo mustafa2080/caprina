@@ -2223,7 +2223,8 @@ function ExportDialog({
     const groupedPartial = groupedOrders.filter((group) => groupStatus(group) === "partial_received").length;
     const groupedPostponed = groupedOrders.filter((group) => groupStatus(group) === "postponed").length;
     const groupedPending = groupedOrders.filter((group) => groupStatus(group) === "pending").length;
-    const groupedDeliveryRate = groupedTotal > 0 ? Math.round((groupedDelivered / groupedTotal) * 100) : 0;
+    const groupedCompleted = groupedDelivered + groupedPartial;
+    const groupedDeliveryRate = groupedTotal > 0 ? Math.round((groupedCompleted / groupedTotal) * 100) : 0;
     const setCell = (cell: any, value: unknown, options?: {
       fill?: string;
       font?: Record<string, any>;
@@ -2274,7 +2275,7 @@ function ExportDialog({
     ws1.getRow(2).height = 24;
 
     ws1.mergeCells("A3:I3");
-    setCell(ws1.getCell("A3"), `طُبع: ${printDate}   |   إجمالي: ${groupedTotal} طلبية   |   نسبة التسليم: ${groupedDeliveryRate}%`, {
+    setCell(ws1.getCell("A3"), `طُبع: ${printDate}   |   إجمالي المسلَّم: ${groupedCompleted} من ${groupedTotal}   |   نسبة التسليم: ${groupedDeliveryRate}%`, {
       fill: C.panel,
       font: { size: 10, color: { argb: C.slate } },
       align: { horizontal: "center", vertical: "middle" },
@@ -2386,7 +2387,7 @@ function ExportDialog({
       align: { horizontal: "center", vertical: "middle" },
       border: C.gold,
     });
-    setCell(ws1.getCell(`C${totalRowIndex}`), manifest.orders.reduce((sum, order) => sum + order.totalPrice, 0), {
+    setCell(ws1.getCell(`C${totalRowIndex}`), totalCollected, {
       fill: C.green,
       font: { bold: true, color: { argb: C.white }, size: 11 },
       align: { horizontal: "center", vertical: "middle" },
@@ -2436,7 +2437,8 @@ function ExportDialog({
       ["شركة الشحن", manifest.companyName, C.blue],
       ["تاريخ الإنشاء", manifestDate, C.gray],
       ["الحالة", manifest.status === "closed" ? "مغلق ✓" : "مفتوح", manifest.status === "closed" ? C.green : C.blue],
-      ["إجمالي الطلبيات", String(groupedTotal), C.blue],
+      ["إجمالي البيان", String(groupedTotal), C.blue],
+      ["إجمالي المسلَّم", String(groupedCompleted), C.green],
       ["مسلَّم", String(groupedDelivered), C.green],
       ["مرتجع", String(groupedReturned), C.red],
       ["مؤجل", String(groupedPostponed), C.amber],
