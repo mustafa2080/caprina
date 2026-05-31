@@ -538,7 +538,7 @@ router.get("/shipping-manifests/:id", async (req, res): Promise<void> => {
       return { ...o, deliveryStatus: _deliveryStatus, deliveryNote: link.deliveryNote, deliveredAt: link.deliveredAt, partialQuantity: _pq, manifestOrderId: link.id, returnReceived: _rrNum, addedAt: link.addedAt };
     });
   }
-  res.json({ ...row.manifest, invoicePrice: row.manifest.invoicePrice ? Number(row.manifest.invoicePrice) : null, manualShippingCost: row.manifest.manualShippingCost ? Number(row.manifest.manualShippingCost) : null, companyName: row.company?.name ?? "غير محدد", companyPhone: row.company?.phone ?? null, orders, stats: computeStats(orders) });
+  res.json({ ...row.manifest, invoicePrice: row.manifest.invoicePrice ? Number(row.manifest.invoicePrice) : null, manualShippingCost: row.manifest.manualShippingCost ? Number(row.manifest.manualShippingCost) : null, companyName: row.company?.name ?? "غير محدد", companyPhone: row.company?.phone ?? null, companyLogo: row.company?.logo ?? null, orders, stats: computeStats(orders) });
 });
 
 // ─── Update manifest (PATCH) ──────────────────────────────────────────────────

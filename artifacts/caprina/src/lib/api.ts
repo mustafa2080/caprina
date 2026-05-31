@@ -693,6 +693,7 @@ export interface ManifestOrder extends Order {
 
 export interface ShippingManifestDetail extends ShippingManifestListItem {
   companyPhone: string | null;
+  companyLogo: string | null;
   orders: ManifestOrder[];
   stats: ManifestStats;
   manualShippingCost: number | null;

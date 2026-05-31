@@ -3250,14 +3250,35 @@ export default function ShippingManifestPage() {
 
       {/* ─── Header ─── */}
       <div className="manifest-print-header">
-        <div>
-          <div className="manifest-print-brand">CAPRINA</div>
-          <div className="manifest-print-brand-sub">SHIPPING MANIFEST</div>
+        {/* لوجو الشركة + اسم النظام */}
+        <div style={{ display: "flex", alignItems: "center", gap: "4mm" }}>
+          {manifest.companyLogo ? (
+            <img
+              src={manifest.companyLogo}
+              style={{ width: "16mm", height: "16mm", borderRadius: "50%", objectFit: "cover", border: "1.5px solid rgba(255,255,255,0.3)", background: "#fff" }}
+              alt={manifest.companyName}
+            />
+          ) : (
+            <div style={{ width: "16mm", height: "16mm", borderRadius: "50%", background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "10pt", fontWeight: 900, color: "#fff", border: "1.5px solid rgba(255,255,255,0.3)" }}>
+              {manifest.companyName?.charAt(0) ?? "S"}
+            </div>
+          )}
+          <div>
+            <div style={{ fontSize: "16pt", fontWeight: 900, color: "#fff", letterSpacing: "1px" }}>
+              {manifest.companyName}
+            </div>
+            <div style={{ fontSize: "6.5pt", color: "#94a3b8", marginTop: "0.5mm", letterSpacing: "2px" }}>
+              SHIPPING MANIFEST
+            </div>
+          </div>
         </div>
-        <div className="manifest-print-info">
-          <div className="manifest-print-title">بيان الشحن — {manifest.manifestNumber}</div>
-          <div className="manifest-print-meta">
-            شركة الشحن: <strong style={{ color: "#fff" }}>{manifest.companyName}</strong><br />
+
+        {/* بيانات البيان */}
+        <div style={{ textAlign: "left", borderRight: "1px solid rgba(255,255,255,0.2)", paddingRight: "6mm" }}>
+          <div style={{ fontSize: "14pt", fontWeight: 900, color: "#fff" }}>
+            بيان الشحن — {manifest.manifestNumber}
+          </div>
+          <div style={{ fontSize: "7.5pt", color: "#cbd5e1", marginTop: "1.5mm", lineHeight: 1.7 }}>
             تاريخ الإنشاء: {format(new Date(manifest.createdAt), "yyyy/MM/dd")}&emsp;
             {manifest.closedAt && <>أُغلق: {format(new Date(manifest.closedAt), "yyyy/MM/dd")}</>}<br />
             طُبع: {format(new Date(), "yyyy/MM/dd — HH:mm")}
