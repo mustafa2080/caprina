@@ -62,16 +62,26 @@ router.patch("/admin/plan-prices", async (req, res): Promise<void> => {
     const merged: any = { ...existing };
 
     for (const planKey of Object.keys(DEFAULT_PLAN_PRICES)) {
-      if (incoming[planKey]) {
+      if (incoming[planKey] !== undefined) {
         merged[planKey] = { ...existing[planKey as keyof typeof existing], ...incoming[planKey] };
-        if (merged[planKey].monthlyPrice) {
-          const n = parseInt(merged[planKey].monthlyPrice);
-          if (!isNaN(n)) merged[planKey].priceDisplay = n.toLocaleString("ar-EG");
+
+        const monthly = merged[planKey].monthlyPrice != null ? parseInt(merged[planKey].monthlyPrice) : null;
+        const yearly  = merged[planKey].yearlyPrice  != null ? parseInt(merged[planKey].yearlyPrice)  : null;
+
+        // priceDisplay: لو مفيش سعر → حسب الـ plan
+        if (monthly && !isNaN(monthly)) {
+          merged[planKey].priceDisplay = monthly.toLocaleString("ar-EG");
+        } else {
+          // reset للـ default display
+          merged[planKey].priceDisplay = DEFAULT_PLAN_PRICES[planKey as keyof typeof DEFAULT_PLAN_PRICES].priceDisplay;
+          merged[planKey].monthlyPrice = null;
+          merged[planKey].yearlyPrice  = null;
+          merged[planKey].yearlySaving = null;
         }
-        if (merged[planKey].monthlyPrice && merged[planKey].yearlyPrice) {
-          const monthly = parseInt(merged[planKey].monthlyPrice);
-          const yearly  = parseInt(merged[planKey].yearlyPrice);
-          if (!isNaN(monthly) && !isNaN(yearly)) merged[planKey].yearlySaving = (monthly * 12) - yearly;
+
+        // yearlySaving
+        if (monthly && yearly && !isNaN(monthly) && !isNaN(yearly)) {
+          merged[planKey].yearlySaving = (monthly * 12) - yearly;
         }
       }
     }

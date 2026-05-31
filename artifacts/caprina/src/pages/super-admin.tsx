@@ -65,7 +65,7 @@ function PricingManager() {
     onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
 
-  const editablePlans = ["starter", "pro"] as const;
+  const editablePlans = ["free_trial", "starter", "pro"] as const;
 
   return (
     <div className={`${cardCls} shadow-amber-500/10`}>
@@ -96,9 +96,53 @@ function PricingManager() {
             </div>
           ) : (
             <div className="space-y-4">
+              {/* free_trial — editable مع تلميح */}
+              {(() => {
+                const planKey = "free_trial";
+                const meta = PLAN_LABELS[planKey];
+                const Icon = meta.icon;
+                const current = prices?.[planKey];
+                const local = localPrices[planKey] ?? {};
+                const hasPrice = !!(local.monthlyPrice ?? current?.monthlyPrice);
+                return (
+                  <div className={`rounded-xl border ${meta.border} bg-gradient-to-br from-zinc-500/8 to-zinc-600/4 p-3.5 sm:p-4 space-y-3 shadow-lg ${meta.glow}`}>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div className={`w-8 h-8 rounded-lg border ${meta.border} ${meta.bg} flex items-center justify-center shrink-0`}>
+                        <Icon size={13} className={meta.text} />
+                      </div>
+                      <span className={`text-sm font-black ${meta.text}`}>{meta.label}</span>
+                      <span className="text-[10px] text-muted-foreground bg-muted/30 border border-border/40 px-2 py-0.5 rounded-full mr-auto">
+                        {hasPrice ? "💰 مدفوع" : "مجاناً افتراضياً"}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground leading-relaxed bg-muted/20 border border-border/30 rounded-lg px-3 py-2">
+                      💡 اتركه فارغاً لتعرض "مجاناً" في صفحة الأسعار — أو ضع سعراً إذا أردت تحويله لباقة مدفوعة
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className={`text-[10px] font-bold ${meta.text} opacity-70 block mb-1`}>السعر الشهري (ج.م) — اختياري</label>
+                        <input type="number" min="0" dir="ltr" placeholder="0 = مجاناً"
+                          value={local.monthlyPrice ?? current?.monthlyPrice ?? ""}
+                          onChange={e => setLocalPrices(p => ({ ...p, [planKey]: { ...p[planKey], monthlyPrice: e.target.value ? parseInt(e.target.value) : null } }))}
+                          className={glowInputCls}
+                        />
+                      </div>
+                      <div>
+                        <label className={`text-[10px] font-bold ${meta.text} opacity-70 block mb-1`}>السعر السنوي (ج.م) — اختياري</label>
+                        <input type="number" min="0" dir="ltr" placeholder="اتركه فارغاً"
+                          value={local.yearlyPrice ?? current?.yearlyPrice ?? ""}
+                          onChange={e => setLocalPrices(p => ({ ...p, [planKey]: { ...p[planKey], yearlyPrice: e.target.value ? parseInt(e.target.value) : null } }))}
+                          className={glowInputCls}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* starter + pro */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                {editablePlans.map(planKey => {
+                {(["starter", "pro"] as const).map(planKey => {
                   const meta = PLAN_LABELS[planKey];
                   const Icon = meta.icon;
                   const current = prices?.[planKey];
@@ -150,9 +194,9 @@ function PricingManager() {
                 })}
               </div>
 
-              {/* free_trial + enterprise — info only */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {(["free_trial", "enterprise"] as const).map(planKey => {
+              {/* enterprise — info only */}
+              <div className="grid grid-cols-1 gap-3">
+                {(["enterprise"] as const).map(planKey => {
                   const meta = PLAN_LABELS[planKey];
                   const Icon = meta.icon;
                   const current = prices?.[planKey];
