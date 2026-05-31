@@ -213,24 +213,18 @@ function computeStats(orders: OrderWithDelivery[]) {
 
   // حساب stillAtShipping على مستوى الفواتير (مش الطلبات الفردية)
   // المبلغ المتوقع = المؤجل فقط (لأن المرتجع والجزئي بيرجعوا مخزن مش فلوس)
+  // العداد (count) = المؤجل فقط كمان — الجزئي والمرتجع مش "لسه عند الشحن" بمعنى فلوس
   for (const group of groupedOrders) {
     const gStatus = groupStatus(group);
-    if (gStatus === "postponed" || gStatus === "pending") {
+    if (gStatus === "postponed") {
       stillAtShippingCount++;
-      // فقط المؤجل يُحسب في المبلغ المتوقع — pending مش واضح وضعه بعد
-      if (gStatus === "postponed") {
-        stillAtShippingAmount += group.reduce((sum, o) => sum + o.totalPrice, 0);
-      }
-    } else if (gStatus === "partial_received") {
-      // الجزئي: يُعد في الـ count كـ "لسه عند الشحن" لكن بدون مبلغ متوقع
-      // (الباقي بيرجع مخزن — مش فلوس)
-      const rep = group[0];
-      const rv = (rep as any).returnReceived;
-      if (rv !== 1) {
-        stillAtShippingCount++;
-        // لا نضيف أي مبلغ — الجزئي بيرجع بضاعة مش كاش
-      }
+      stillAtShippingAmount += group.reduce((sum, o) => sum + o.totalPrice, 0);
     }
+    // pending بيتعد بس بدون مبلغ (مش واضح وضعه بعد)
+    else if (gStatus === "pending") {
+      stillAtShippingCount++;
+    }
+    // partial_received و returned → بيرجعوا مخزن — مش "لسه عند الشحن"
   }
 
   for (const o of orders) {
