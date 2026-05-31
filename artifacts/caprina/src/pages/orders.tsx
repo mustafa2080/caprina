@@ -899,7 +899,7 @@ export default function Orders() {
                           return (
                             <span className="inline-flex flex-col gap-0 text-[9px] font-bold leading-tight">
                               {pq != null && qty != null && <span className="text-teal-600 dark:text-teal-400">✓ استُلم {pq} من {qty}</span>}
-                              {rr === 0 && <span className="text-orange-500 dark:text-orange-400">🚚 الباقي عند الشحن</span>}
+                              {rr === 0 && <span className="text-orange-500 dark:text-orange-400">🚚 المرتجع مازال في شركة الشحن</span>}
                               {rr === 1 && <span className="text-emerald-600 dark:text-emerald-400">↩ الباقي في المخزن</span>}
                             </span>
                           );
@@ -1067,7 +1067,7 @@ export default function Orders() {
                             return (
                               <div className="flex flex-col items-center gap-0 mt-1 text-[9px] font-bold leading-tight">
                                 {pq != null && qty != null && <span className="text-teal-600 dark:text-teal-400">✓ استُلم {pq} من {qty}</span>}
-                                {rr === 0 && <span className="text-orange-500 dark:text-orange-400">🚚 الباقي عند الشحن</span>}
+                                {rr === 0 && <span className="text-orange-500 dark:text-orange-400">🚚 المرتجع مازال في شركة الشحن</span>}
                                 {rr === 1 && <span className="text-emerald-600 dark:text-emerald-400">↩ الباقي في المخزن</span>}
                               </div>
                             );
