@@ -1998,13 +1998,22 @@ function CloseConfirmDialog({
             <div className="p-2 rounded-md bg-teal-900/10 border border-teal-700">
               <p className="text-teal-400">استلم جزئي</p>
               <p className="font-bold text-base text-teal-400">
-                {manifest.orders.filter((o) => o.deliveryStatus === "partial_received").length}
+                {invoiceCounts.partial}
               </p>
               {(() => {
-                const atShipping = manifest.orders.filter(o => o.deliveryStatus === "partial_received" && (o as any).returnReceived === 0).length;
-                const atWarehouse = manifest.orders.filter(o => o.deliveryStatus === "partial_received" && (o as any).returnReceived === 1).length;
+                const partialOrders = manifest.orders.filter(o => o.deliveryStatus === "partial_received");
+                const totalPartialReturned = partialOrders.reduce((sum, o) => {
+                  const delivered = o.partialQuantity ?? 0;
+                  const remaining = o.quantity - delivered;
+                  return sum + (remaining > 0 ? remaining : 0);
+                }, 0);
+                const atShipping = partialOrders.filter(o => (o as any).returnReceived === 0).length;
+                const atWarehouse = partialOrders.filter(o => (o as any).returnReceived === 1).length;
                 return (
                   <>
+                    {totalPartialReturned > 0 && (
+                      <p className="text-[9px] text-red-400 mt-0.5 font-semibold">↩ مرتجع جزئي: {totalPartialReturned} قطعة</p>
+                    )}
                     {atShipping > 0 && <p className="text-[9px] text-orange-400">🚚 باقي عند الشحن: {atShipping}</p>}
                     {atWarehouse > 0 && <p className="text-[9px] text-emerald-400">↩ باقي في المخزن: {atWarehouse}</p>}
                   </>
