@@ -1,16 +1,17 @@
-import { useState } from "react";
 import { useParams, Link, useLocation } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { shippingApi, manifestsApi, type ShippingManifestListItem } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { CreateManifestDialog } from "./shipping-companies";
 import {
   ArrowRight, Truck, PackagePlus, FileText, Lock,
   CheckCircle2, RotateCcw, Clock, TrendingUp, TrendingDown,
-  ChevronRight, Calendar, Package, Phone, Globe,
+  ChevronRight, Calendar, Package, Phone, Globe, X,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { ar } from "date-fns/locale";
@@ -136,6 +137,8 @@ export default function ShippingCompanyDetailPage() {
   const qc = useQueryClient();
   const [, navigate] = useLocation();
   const [showNewManifest, setShowNewManifest] = useState(false);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo]     = useState("");
   const { can, isAdmin } = useAuth();
   const canFinancials = isAdmin || can("shipping.financials");
   const canManifests  = isAdmin || can("shipping.manifests");
@@ -157,9 +160,23 @@ export default function ShippingCompanyDetailPage() {
 
   if (isNaN(companyId)) return <div className="p-8 text-center text-muted-foreground">معرّف غير صحيح</div>;
 
-  const openManifests = manifests?.filter((m) => m.status === "open") ?? [];
+  const openManifests   = manifests?.filter((m) => m.status === "open")   ?? [];
   const closedManifests = manifests?.filter((m) => m.status === "closed") ?? [];
-  const latestOpenId = openManifests[0]?.id;
+  const latestOpenId    = openManifests[0]?.id;
+
+  // ── فلتر التاريخ ──
+  const filterByDate = (list: typeof openManifests) => {
+    if (!dateFrom && !dateTo) return list;
+    return list.filter((m) => {
+      const d = new Date(m.createdAt);
+      if (dateFrom && d < new Date(dateFrom)) return false;
+      if (dateTo   && d > new Date(dateTo + "T23:59:59")) return false;
+      return true;
+    });
+  };
+  const filteredOpen   = filterByDate(openManifests);
+  const filteredClosed = filterByDate(closedManifests);
+  const hasDateFilter  = !!(dateFrom || dateTo);
 
   return (
     <div className="max-w-3xl mx-auto space-y-5 animate-in fade-in duration-500" dir="rtl">
@@ -172,8 +189,11 @@ export default function ShippingCompanyDetailPage() {
               <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>
-          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
-            <Truck className="w-5 h-5 text-muted-foreground" />
+          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0 overflow-hidden border border-border">
+            {company?.logoUrl
+              ? <img src={company.logoUrl} alt={company.name} className="w-full h-full object-cover" />
+              : <Truck className="w-5 h-5 text-muted-foreground" />
+            }
           </div>
           <div>
             <h1 className="text-xl font-bold">{company?.name ?? "…"}</h1>
@@ -249,13 +269,13 @@ export default function ShippingCompanyDetailPage() {
 
       {/* ─── Manifests Timeline ─── */}
       <div>
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <h2 className="font-bold text-sm flex items-center gap-2">
             <FileText className="w-4 h-4 text-muted-foreground" />
             البيانات
             {manifests && <Badge variant="outline" className="text-[9px]">{manifests.length}</Badge>}
           </h2>
-          <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+          <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
             <span className="flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />مفتوح: {openManifests.length}
             </span>
@@ -263,6 +283,41 @@ export default function ShippingCompanyDetailPage() {
               <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />مغلق: {closedManifests.length}
             </span>
           </div>
+        </div>
+
+        {/* ── فلتر التاريخ ── */}
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0">
+            <Calendar className="w-3.5 h-3.5" />من:
+          </div>
+          <Input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            className="h-7 text-xs w-36 px-2"
+          />
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0">إلى:</div>
+          <Input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            className="h-7 text-xs w-36 px-2"
+          />
+          {hasDateFilter && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground gap-1"
+              onClick={() => { setDateFrom(""); setDateTo(""); }}
+            >
+              <X className="w-3 h-3" />مسح
+            </Button>
+          )}
+          {hasDateFilter && (
+            <span className="text-[10px] text-muted-foreground">
+              ({filteredOpen.length + filteredClosed.length} نتيجة)
+            </span>
+          )}
         </div>
 
         {isLoading ? (
@@ -277,28 +332,33 @@ export default function ShippingCompanyDetailPage() {
           </div>
         ) : (
           <div className="space-y-2">
-            {openManifests.length > 0 && (
+            {filteredOpen.length > 0 && (
               <>
                 <p className="text-[10px] font-semibold text-blue-400 uppercase tracking-wider px-1">
                   مفتوح — يحتاج متابعة
                 </p>
-                {openManifests.map((m) => (
+                {filteredOpen.map((m) => (
                   <ManifestCard key={m.id} m={m} isLatest={m.id === latestOpenId} />
                 ))}
-                {closedManifests.length > 0 && <div className="border-t border-border my-3" />}
+                {filteredClosed.length > 0 && <div className="border-t border-border my-3" />}
               </>
             )}
-            {closedManifests.length > 0 && (
+            {filteredClosed.length > 0 && (
               <>
-                {openManifests.length > 0 && (
+                {filteredOpen.length > 0 && (
                   <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-1">
                     مُغلق — مكتمل
                   </p>
                 )}
-                {closedManifests.map((m) => (
+                {filteredClosed.map((m) => (
                   <ManifestCard key={m.id} m={m} isLatest={false} />
                 ))}
               </>
+            )}
+            {hasDateFilter && filteredOpen.length === 0 && filteredClosed.length === 0 && (
+              <div className="py-10 text-center text-muted-foreground text-sm">
+                لا توجد بيانات في هذا النطاق الزمني
+              </div>
             )}
           </div>
         )}
