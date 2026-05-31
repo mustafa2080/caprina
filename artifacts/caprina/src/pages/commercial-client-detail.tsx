@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import { useParams, Link, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import {
   ArrowRight, Users, ShoppingBag, TrendingUp, TrendingDown,
   ChevronRight, Calendar, Package, Phone, MapPin,
   Clock, CheckCircle2, Target, Edit2, Check, X,
+  Download, FileSpreadsheet, FileText, Loader2,
 } from "lucide-react";
 import { format, formatDistanceToNow, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { ar } from "date-fns/locale";
@@ -185,6 +186,208 @@ export default function CommercialClientDetailPage() {
     if (!isNaN(val) && val > 0) targetMutation.mutate(val);
   };
 
+  // ── تصدير Excel ──────────────────────────────────────────────────────────
+  const [exportingExcel, setExportingExcel] = useState(false);
+  const [exportingPDF,   setExportingPDF]   = useState(false);
+
+  const exportExcel = useCallback(async () => {
+    if (!data) return;
+    setExportingExcel(true);
+    try {
+      const ExcelJS = (await import("exceljs")).default;
+      const wb = new ExcelJS.Workbook();
+      wb.creator = "Caprina OS";
+      wb.created = new Date();
+
+      const ws = wb.addWorksheet("كشف الحساب", { views: [{ rightToLeft: true }] });
+
+      // ── العنوان ──
+      ws.mergeCells("A1:G1");
+      const titleCell = ws.getCell("A1");
+      titleCell.value = `كشف حساب — ${data.name}`;
+      titleCell.font  = { name: "Arial", size: 16, bold: true, color: { argb: "FFFFFFFF" } };
+      titleCell.alignment = { horizontal: "center", vertical: "middle" };
+      titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E293B" } };
+      ws.getRow(1).height = 36;
+
+      // ── ملخص ──
+      ws.mergeCells("A2:G2");
+      const TARGET_VAL = parseFloat(data.creditLimit ?? "0") > 0 ? parseFloat(data.creditLimit) : 1_000_000;
+      const tSales = parseFloat(data.totalSales ?? "0");
+      const tPaid  = parseFloat(data.totalPaid  ?? "0");
+      const tUnpaid = Math.max(0, tSales - tPaid);
+      const pct = Math.min((tSales / TARGET_VAL) * 100, 100).toFixed(1);
+
+      const summaryCell = ws.getCell("A2");
+      summaryCell.value = `المبيعات: ${tSales.toLocaleString("ar-EG")} ج.م  |  المدفوع: ${tPaid.toLocaleString("ar-EG")} ج.م  |  المتبقي: ${tUnpaid.toLocaleString("ar-EG")} ج.م  |  الهدف: ${TARGET_VAL.toLocaleString("ar-EG")} ج.م  |  التحقيق: ${pct}%`;
+      summaryCell.font      = { name: "Arial", size: 10, color: { argb: "FF94A3B8" } };
+      summaryCell.alignment = { horizontal: "center", vertical: "middle" };
+      summaryCell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0F172A" } };
+      ws.getRow(2).height   = 22;
+
+      // ── رأس الجدول ──
+      const headers = ["رقم الفاتورة", "التاريخ", "الحالة", "حالة الدفع", "الإجمالي", "المدفوع", "المتبقي"];
+      const headerRow = ws.addRow(headers);
+      headerRow.eachCell(cell => {
+        cell.font      = { name: "Arial", size: 10, bold: true, color: { argb: "FFFFFFFF" } };
+        cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+        cell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: "FF334155" } };
+        cell.border    = { bottom: { style: "thin", color: { argb: "FF475569" } } };
+      });
+      ws.getRow(3).height = 22;
+      ws.columns = [
+        { key: "soNumber",    width: 18 },
+        { key: "createdAt",   width: 14 },
+        { key: "status",      width: 14 },
+        { key: "payStatus",   width: 14 },
+        { key: "total",       width: 16 },
+        { key: "paid",        width: 16 },
+        { key: "unpaid",      width: 16 },
+      ];
+
+      const statusMap: Record<string, string> = {
+        draft: "مسودة", confirmed: "مؤكد", processing: "قيد التجهيز",
+        delivered: "تم التسليم", closed: "مغلق",
+      };
+      const payMap: Record<string, string> = {
+        paid: "مسدد", partial: "جزئي", unpaid: "غير مسدد",
+      };
+
+      data.orders.forEach((o, i) => {
+        const total  = parseFloat(o.totalAmount ?? "0");
+        const paid   = o.paymentStatus === "paid" ? total : parseFloat(o.paidAmount ?? "0");
+        const unpaid = Math.max(0, total - paid);
+        const row = ws.addRow({
+          soNumber:  o.soNumber,
+          createdAt: format(new Date(o.createdAt), "yyyy/MM/dd"),
+          status:    statusMap[o.status] ?? o.status,
+          payStatus: payMap[o.paymentStatus] ?? o.paymentStatus,
+          total,
+          paid,
+          unpaid,
+        });
+        const bg = i % 2 === 0 ? "FF1E293B" : "FF0F172A";
+        row.eachCell(cell => {
+          cell.font      = { name: "Arial", size: 10, color: { argb: "FFE2E8F0" } };
+          cell.alignment = { horizontal: "center", vertical: "middle" };
+          cell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: bg } };
+        });
+        // لون المتبقي أحمر لو فيه رصيد
+        if (unpaid > 0) {
+          row.getCell(7).font = { name: "Arial", size: 10, bold: true, color: { argb: "FFEF4444" } };
+        }
+        // تنسيق الأرقام
+        [5, 6, 7].forEach(col => {
+          row.getCell(col).numFmt = '#,##0 "ج.م"';
+        });
+        row.height = 20;
+      });
+
+      // ── صف الإجمالي ──
+      const totalRow = ws.addRow(["", "", "", "الإجمالي", tSales, tPaid, tUnpaid]);
+      totalRow.eachCell(cell => {
+        cell.font  = { name: "Arial", size: 11, bold: true, color: { argb: "FFFFFFFF" } };
+        cell.fill  = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1D4ED8" } };
+        cell.alignment = { horizontal: "center", vertical: "middle" };
+        cell.border = { top: { style: "medium", color: { argb: "FF3B82F6" } } };
+      });
+      [5, 6, 7].forEach(col => { totalRow.getCell(col).numFmt = '#,##0 "ج.م"'; });
+      totalRow.height = 24;
+
+      const buffer = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = url;
+      a.download = `كشف-حساب-${data.name}-${format(new Date(), "yyyy-MM-dd")}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExportingExcel(false);
+    }
+  }, [data]);
+
+  // ── تصدير PDF (print) ─────────────────────────────────────────────────────
+  const exportPDF = useCallback(() => {
+    if (!data) return;
+    setExportingPDF(true);
+    const TARGET_VAL = parseFloat(data.creditLimit ?? "0") > 0 ? parseFloat(data.creditLimit) : 1_000_000;
+    const tSales  = parseFloat(data.totalSales  ?? "0");
+    const tPaid   = parseFloat(data.totalPaid   ?? "0");
+    const tUnpaid = Math.max(0, tSales - tPaid);
+    const pct     = Math.min((tSales / TARGET_VAL) * 100, 100).toFixed(1);
+    const fmtNum  = (n: number) => new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(n);
+    const statusMap: Record<string, string> = {
+      draft: "مسودة", confirmed: "مؤكد", processing: "قيد التجهيز", delivered: "تم التسليم", closed: "مغلق",
+    };
+
+    const rows = data.orders.map((o, i) => {
+      const total  = parseFloat(o.totalAmount ?? "0");
+      const paid   = o.paymentStatus === "paid" ? total : parseFloat(o.paidAmount ?? "0");
+      const unpaid = Math.max(0, total - paid);
+      const bg = i % 2 === 0 ? "#1e293b" : "#0f172a";
+      return `
+        <tr style="background:${bg}">
+          <td>${o.soNumber}</td>
+          <td>${format(new Date(o.createdAt), "yyyy/MM/dd")}</td>
+          <td>${statusMap[o.status] ?? o.status}</td>
+          <td>${fmtNum(total)}</td>
+          <td style="color:#34d399">${fmtNum(paid)}</td>
+          <td style="color:${unpaid > 0 ? "#f87171" : "#94a3b8"};font-weight:${unpaid > 0 ? "bold" : "normal"}">${fmtNum(unpaid)}</td>
+        </tr>`;
+    }).join("");
+
+    const html = `<!DOCTYPE html><html dir="rtl" lang="ar">
+<head><meta charset="UTF-8">
+<title>كشف حساب — ${data.name}</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: Arial, sans-serif; background: #0f172a; color: #e2e8f0; padding: 32px; }
+  h1  { font-size: 22px; font-weight: 900; margin-bottom: 4px; }
+  .meta { font-size: 11px; color: #64748b; margin-bottom: 20px; }
+  .summary { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 24px; }
+  .stat { background: #1e293b; border-radius: 8px; padding: 12px; text-align: center; }
+  .stat-label { font-size: 10px; color: #64748b; margin-bottom: 4px; }
+  .stat-value { font-size: 16px; font-weight: 900; }
+  .goal-bar { height: 4px; background: #334155; border-radius: 99px; margin-top: 6px; overflow:hidden; }
+  .goal-fill { height: 4px; background: ${parseFloat(pct) >= 75 ? "#10b981" : parseFloat(pct) >= 50 ? "#f59e0b" : "#3b82f6"}; border-radius: 99px; width: ${pct}%; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  th { background: #334155; padding: 10px 8px; text-align: center; font-size: 10px; color: #94a3b8; }
+  td { padding: 9px 8px; text-align: center; border-bottom: 1px solid #1e293b; }
+  tfoot td { background: #1d4ed8; font-weight: 900; font-size: 12px; padding: 11px 8px; }
+  @media print { body { background: #fff; color: #000; } .stat { background: #f1f5f9; } th { background: #e2e8f0; color: #334155; } tfoot td { background: #1d4ed8; color: #fff; } }
+</style></head>
+<body>
+  <h1>كشف حساب — ${data.name}</h1>
+  <p class="meta">تاريخ الطباعة: ${format(new Date(), "yyyy/MM/dd HH:mm")}</p>
+  <div class="summary">
+    <div class="stat"><div class="stat-label">إجمالي الفواتير</div><div class="stat-value">${data.orders.length}</div></div>
+    <div class="stat"><div class="stat-label">إجمالي المبيعات</div><div class="stat-value" style="color:#2dd4bf">${fmtNum(tSales)}</div></div>
+    <div class="stat"><div class="stat-label">المديونية</div><div class="stat-value" style="color:#f87171">${fmtNum(tUnpaid)}</div></div>
+    <div class="stat">
+      <div class="stat-label">تحقيق الهدف</div>
+      <div class="stat-value" style="color:${parseFloat(pct) >= 75 ? "#10b981" : parseFloat(pct) >= 50 ? "#f59e0b" : "#3b82f6"}">${pct}%</div>
+      <div class="goal-bar"><div class="goal-fill"></div></div>
+      <div style="font-size:9px;color:#64748b;margin-top:4px">الهدف: ${fmtNum(TARGET_VAL)}</div>
+    </div>
+  </div>
+  <table>
+    <thead><tr><th>رقم الفاتورة</th><th>التاريخ</th><th>الحالة</th><th>الإجمالي</th><th>المدفوع</th><th>المتبقي</th></tr></thead>
+    <tbody>${rows}</tbody>
+    <tfoot><tr><td colspan="3">الإجمالي</td><td>${fmtNum(tSales)}</td><td>${fmtNum(tPaid)}</td><td>${fmtNum(tUnpaid)}</td></tr></tfoot>
+  </table>
+</body></html>`;
+
+    const win = window.open("", "_blank");
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+      win.onload = () => { win.print(); setExportingPDF(false); };
+    } else {
+      setExportingPDF(false);
+    }
+  }, [data]);
+
   const { data, isLoading } = useQuery<ClientDetail>({
     queryKey: ["client-detail", clientId],
     queryFn: () => apiFetch<ClientDetail>(`/finance/clients/${clientId}`),
@@ -318,6 +521,35 @@ export default function CommercialClientDetailPage() {
           </div>
         </div>
         {/* بدون زر "بيان جديد" — مش محتاجينه هنا */}
+        {/* ─── أزرار التصدير ─── */}
+        {client && (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={exportExcel}
+              disabled={exportingExcel}
+              className="h-8 gap-1.5 text-xs border-emerald-800 text-emerald-400 hover:bg-emerald-900/20"
+            >
+              {exportingExcel
+                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                : <FileSpreadsheet className="w-3.5 h-3.5" />}
+              Excel
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={exportPDF}
+              disabled={exportingPDF}
+              className="h-8 gap-1.5 text-xs border-blue-800 text-blue-400 hover:bg-blue-900/20"
+            >
+              {exportingPDF
+                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                : <FileText className="w-3.5 h-3.5" />}
+              PDF
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* ─── Stats Cards — زي شركات الشحن بس بأرقام العميل ─── */}
