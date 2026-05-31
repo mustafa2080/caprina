@@ -268,6 +268,18 @@ router.patch("/employee-profiles/:profileId", requireAdmin, async (req, res): Pr
     .update(employeeProfilesTable)
     .set({ ...parsed.data as any, updatedAt: new Date() })
     .where(eq(employeeProfilesTable.id, profileId));
+
+  // ── sync users table لو الـ profile مرتبط بـ userId ──
+  const [updatedProfile] = await db.select().from(employeeProfilesTable).where(eq(employeeProfilesTable.id, profileId));
+  if (updatedProfile.userId) {
+    const userUpdates: Record<string, any> = {};
+    if (parsed.data.displayName !== undefined) userUpdates.displayName = parsed.data.displayName;
+    if (parsed.data.avatar !== undefined) userUpdates.avatar = parsed.data.avatar ?? null;
+    if (Object.keys(userUpdates).length > 0) {
+      await db.update(usersTable).set(userUpdates).where(eq(usersTable.id, updatedProfile.userId));
+    }
+  }
+
   const [updated] = await db.select().from(employeeProfilesTable).where(eq(employeeProfilesTable.id, profileId));
   res.json(updated);
 });

@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, usersTable, USER_ROLES } from "@workspace/db";
+import { db, usersTable, USER_ROLES, employeeProfilesTable } from "@workspace/db";
 import { eq, and, isNull, or } from "drizzle-orm";
 import { hashPassword } from "../lib/auth.js";
 import { requireAuth } from "../middlewares/requireAuth.js";
@@ -156,6 +156,16 @@ router.patch("/:id", async (req, res): Promise<void> => {
   }
 
   await db.update(usersTable).set(updates).where(eq(usersTable.id, id));
+
+  // ── sync employee_profile المرتبط بنفس الـ userId ──
+  const profileUpdates: Record<string, any> = {};
+  if (displayName !== undefined) profileUpdates.displayName = displayName.trim();
+  if (avatar !== undefined) profileUpdates.avatar = avatar ?? null;
+  if (Object.keys(profileUpdates).length > 0) {
+    await db.update(employeeProfilesTable)
+      .set(profileUpdates)
+      .where(eq(employeeProfilesTable.userId, id));
+  }
   const [updated] = await db.select({
     id: usersTable.id, username: usersTable.username, displayName: usersTable.displayName,
     role: usersTable.role, permissions: usersTable.permissions, isActive: usersTable.isActive,
