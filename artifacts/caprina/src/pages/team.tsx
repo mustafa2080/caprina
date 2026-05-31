@@ -1829,7 +1829,8 @@ export default function TeamPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {profiles.map(profile => {
           const isSystemUser = !!(profile as any).isSystemUser;
-          const roleLabel = (profile as any).role === "admin" ? "مدير" : (profile as any).role === "warehouse" ? "مخزن" : isSystemUser ? "موظف" : "فريق فقط";
+          const roleMap: Record<string, string> = { super_admin: "سوبر أدمن", admin: "مدير", warehouse: "مخزن", employee: "موظف" };
+          const roleLabel = (profile as any).role ? (roleMap[(profile as any).role] ?? (profile as any).role) : (isSystemUser ? "موظف" : "فريق فقط");
           const name = profile.displayName ?? "—";
           const att = (profile as any).attendanceSummary ?? { workedDays: 0, absentDays: 0, lateDays: 0 };
           const kpiCount = (profile as any).kpiCount ?? 0;
