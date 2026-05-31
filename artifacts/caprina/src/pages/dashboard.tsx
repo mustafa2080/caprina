@@ -16,7 +16,7 @@ import {
 import {
   analyticsApi, type PeriodProfit, type ProductProfit, type FinancialSummary, type Alert,
   productsApi, cashRegistersApi, shippingApi, manifestsApi, teamAnalyticsApi, type TeamMemberExtStats,
-  employeeApi,
+  employeeApi, usersApi,
 } from "@/lib/api";
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { FaFacebook, FaTiktok, FaInstagram, FaWhatsapp } from "react-icons/fa";
@@ -617,6 +617,12 @@ export default function Dashboard() {
     staleTime: 10 * 60_000,
     refetchOnWindowFocus: false,
   });
+  const { data: allUsers = [] } = useQuery({
+    queryKey: ["users"],
+    queryFn: () => usersApi.list(),
+    staleTime: 10 * 60_000,
+    refetchOnWindowFocus: false,
+  });
   const { data: saleOrders = [] } = useQuery<any[]>({
     queryKey: ["sale-orders-dashboard-chart"],
     queryFn: () => apiFetchDashboard<any[]>("/finance/sale-orders?limit=200"),
@@ -706,19 +712,23 @@ export default function Dashboard() {
   });
   const totalCash = cashRegisters?.totalBalance ?? 0;
 
-  // ── خريطة موحدة للصور: تجمع teamPerf + employeeProfiles (userId → avatar) ──
+  // ── خريطة موحدة للصور: تجمع allUsers + employeeProfiles + teamPerf (userId → avatar) ──
   const avatarMap = useMemo(() => {
     const map = new Map<number, string>();
-    // أولاً: من employeeProfiles (الأحدث عند رفع من صفحة team)
-    for (const emp of employeeProfiles) {
-      if (emp.userId && emp.avatar) map.set(emp.userId, emp.avatar);
-    }
-    // ثانياً: من teamPerf — يكمل اللي ماعندوش في employeeProfiles
+    // أولاً: من teamPerf — بيانات أساسية
     for (const m of (teamPerf as any[])) {
-      if (m.userId && m.avatar && !map.has(m.userId)) map.set(m.userId, m.avatar);
+      if (m.userId && m.avatar) map.set(m.userId, m.avatar);
+    }
+    // ثانياً: من employeeProfiles — يغلب teamPerf لو فيه صورة محدثة
+    for (const emp of employeeProfiles) {
+      if ((emp as any).userId && (emp as any).avatar) map.set((emp as any).userId, (emp as any).avatar);
+    }
+    // ثالثاً: من allUsers (إدارة المستخدمين) — الأولوية القصوى
+    for (const u of (allUsers as any[])) {
+      if (u.id && u.avatar) map.set(u.id, u.avatar);
     }
     return map;
-  }, [employeeProfiles, teamPerf]);
+  }, [employeeProfiles, teamPerf, allUsers]);
 
   // ── حساب trend ديناميكي لكل منتج من آخر 7 أسابيع ──
   const productTrendMap = useMemo(() => {
