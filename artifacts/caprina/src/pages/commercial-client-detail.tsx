@@ -238,16 +238,25 @@ export default function CommercialClientDetailPage() {
             <p className="text-xl font-black text-red-400">{fmt(unpaid)}</p>
             <p className="text-[10px] text-muted-foreground">مدفوع: {fmt(totalPaid)}</p>
           </Card>
-          <Card className={`p-3 text-center border ${deliveryRate >= 75 ? "border-emerald-900/40 bg-emerald-900/10" : "border-primary/30 bg-primary/5"}`}>
-            <p className="text-[10px] text-muted-foreground mb-0.5">نسبة التسليم</p>
-            <p className={`text-xl font-black ${deliveryRate >= 75 ? "text-emerald-400" : "text-primary"}`}>
-              {deliveryRate.toFixed(1)}%
+          <Card className={`p-3 text-center border ${salesPct >= 75 ? "border-emerald-900/40 bg-emerald-900/10" : salesPct >= 50 ? "border-amber-900/40 bg-amber-900/10" : "border-primary/30 bg-primary/5"}`}>
+            <p className="text-[10px] text-muted-foreground mb-0.5">تحقيق الهدف</p>
+            <p className={`text-2xl font-black ${salesPct >= 75 ? "text-emerald-400" : salesPct >= 50 ? "text-amber-400" : "text-primary"}`}>
+              {salesPct.toFixed(1)}%
             </p>
-            <p className="text-[10px] flex items-center justify-center gap-0.5 text-muted-foreground">
-              {deliveryRate >= 75
+            {/* Progress bar للهدف */}
+            <div className="w-full bg-muted/30 rounded-full h-1.5 mt-1.5 overflow-hidden">
+              <div
+                className={`h-1.5 rounded-full transition-all ${salesPct >= 75 ? "bg-emerald-500" : salesPct >= 50 ? "bg-amber-500" : "bg-primary"}`}
+                style={{ width: `${Math.min(salesPct, 100)}%` }}
+              />
+            </div>
+            <p className="text-[10px] flex items-center justify-center gap-0.5 text-muted-foreground mt-1">
+              {salesPct >= 75
                 ? <TrendingUp className="w-3 h-3 text-emerald-400" />
-                : <Target className="w-3 h-3" />}
-              {creditLimit > 0 ? `هدف ${fmt(creditLimit)}` : `من ${fmt(1_000_000)}`}
+                : salesPct >= 50
+                  ? <TrendingUp className="w-3 h-3 text-amber-400" />
+                  : <Target className="w-3 h-3" />}
+              {creditLimit > 0 ? `هدف ${fmt(creditLimit)}` : `هدف ${fmt(1_000_000)}`}
             </p>
           </Card>
         </div>

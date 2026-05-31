@@ -679,11 +679,9 @@ export default function FinanceClients() {
                   <ColumnFilter label="المدينة" options={cityOptions} selected={filterCity} onChange={v => { setFilterCity(v); setPage(1); }} />
                 ) : <span className="text-[10px] font-bold text-muted-foreground">المدينة</span>}
               </div>
-              {/* شروط الدفع */}
+              {/* تحقيق الهدف */}
               <div className="flex items-center gap-1">
-                {showColFilters ? (
-                  <ColumnFilter label="شروط الدفع" options={paymentTermsOptions} selected={filterPaymentTerms} onChange={v => { setFilterPaymentTerms(v); setPage(1); }} />
-                ) : <span className="text-[10px] font-bold text-muted-foreground">شروط الدفع</span>}
+                <span className="text-[10px] font-bold text-muted-foreground">تحقيق الهدف</span>
               </div>
               {/* إجراءات */}
               <div className="flex items-center justify-between">
@@ -724,8 +722,25 @@ export default function FinanceClients() {
                     </div>
                     {/* المدينة */}
                     <span className="text-xs text-muted-foreground">{c.city ?? "—"}</span>
-                    {/* شروط الدفع */}
-                    <span className="text-xs">{c.paymentTerms ?? "—"}</span>
+                    {/* نسبة تحقيق الهدف */}
+                    <div>
+                      {(() => {
+                        const sales = parseFloat(c.totalSales ?? "0");
+                        const target = parseFloat(c.creditLimit ?? "0") || 1_000_000;
+                        const pct = Math.min((sales / target) * 100, 100);
+                        const color = pct >= 75 ? "bg-emerald-500 text-emerald-400" : pct >= 50 ? "bg-amber-500 text-amber-400" : "bg-primary text-primary";
+                        const [barColor, textColor] = color.split(" ");
+                        return (
+                          <div>
+                            <p className={`text-[10px] font-bold ${textColor}`}>{pct.toFixed(1)}%</p>
+                            <div className="w-full bg-muted/30 rounded-full h-1 mt-0.5 overflow-hidden">
+                              <div className={`h-1 rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
+                            </div>
+                            <p className="text-[9px] text-muted-foreground mt-0.5">{fmt(sales)}</p>
+                          </div>
+                        );
+                      })()}
+                    </div>
                     {/* الرصيد + إجراءات */}
                     <div className="flex items-center justify-between gap-1">
                       <span className={`text-xs font-bold ${unpaid > 0 ? "text-red-400" : "text-emerald-400"}`}>
