@@ -3290,13 +3290,10 @@ export default function ShippingManifestPage() {
     .mp-stat-delivered .mp-stat-val { color:#15803d; } .mp-stat-returned .mp-stat-val { color:#dc2626; }
     .mp-stat-postponed .mp-stat-val { color:#b45309; } .mp-stat-partial .mp-stat-val  { color:#0f766e; }
     /* ── Table ── */
-    .mp-table { width:100%; border-collapse:collapse; margin-bottom:3mm; font-size:9.5pt; border:2px solid #1e3a5f; }
+    .mp-table { width:100%; border-collapse:collapse; margin-bottom:3mm; font-size:9.5pt; }
     .mp-table thead tr { background:#1e3a5f; }
-    .mp-table th { color:#fff; font-size:9pt; font-weight:700; padding:2.5mm 3mm; text-align:right; border-left:1.5px solid rgba(255,255,255,0.35); border-bottom:2px solid #1e3a5f; }
-    .mp-table th:last-child { border-left:none; }
-    .mp-table td { padding:2.5mm 3mm; border-bottom:1.5px solid #cbd5e1; border-left:1.5px solid #cbd5e1; vertical-align:middle; line-height:1.5; }
-    .mp-table td:last-child { border-left:none; }
-    .mp-table tbody tr:last-child td { border-bottom:none; }
+    .mp-table th { color:#fff; font-size:9pt; font-weight:700; padding:2.5mm 3mm; text-align:right; border:1.5px solid rgba(255,255,255,0.35); }
+    .mp-table td { padding:2.5mm 3mm; border:1.5px solid #cbd5e1; vertical-align:middle; line-height:1.5; }
     .mp-row-alt td { background:#f0f4f8; }
     .mp-td-center { text-align:center; } .mp-td-bold { font-weight:700; }
     .mp-td-ltr { direction:ltr; text-align:right; }
@@ -4237,13 +4234,10 @@ export default function ShippingManifestPage() {
     .mp-stat-val { font-size:14pt; font-weight:900; color:#111; }
     .mp-stat-delivered .mp-stat-val { color:#15803d; } .mp-stat-returned .mp-stat-val { color:#dc2626; }
     .mp-stat-postponed .mp-stat-val { color:#b45309; } .mp-stat-partial .mp-stat-val { color:#0f766e; }
-    .mp-table { width:100%; border-collapse:collapse; margin-bottom:3mm; font-size:9.5pt; border:2px solid #1e3a5f; }
+    .mp-table { width:100%; border-collapse:collapse; margin-bottom:3mm; font-size:9.5pt; }
     .mp-table thead tr { background:#1e3a5f; }
-    .mp-table th { color:#fff; font-size:9pt; font-weight:700; padding:2.5mm 3mm; text-align:right; border-left:1.5px solid rgba(255,255,255,0.35); border-bottom:2px solid #1e3a5f; }
-    .mp-table th:last-child { border-left:none; }
-    .mp-table td { padding:2.5mm 3mm; border-bottom:1.5px solid #cbd5e1; border-left:1.5px solid #cbd5e1; vertical-align:middle; line-height:1.5; }
-    .mp-table td:last-child { border-left:none; }
-    .mp-table tbody tr:last-child td { border-bottom:none; }
+    .mp-table th { color:#fff; font-size:9pt; font-weight:700; padding:2.5mm 3mm; text-align:right; border:1.5px solid rgba(255,255,255,0.35); }
+    .mp-table td { padding:2.5mm 3mm; border:1.5px solid #cbd5e1; vertical-align:middle; line-height:1.5; }
     .mp-row-alt td { background:#f0f4f8; }
     .mp-td-center { text-align:center; } .mp-td-bold { font-weight:700; } .mp-td-ltr { direction:ltr; text-align:right; }
     .mp-num { color:#94a3b8; font-size:8pt; } .mp-sub { font-size:7.5pt; color:#94a3b8; margin-top:0.5mm; }
