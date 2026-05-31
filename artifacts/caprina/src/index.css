@@ -291,7 +291,23 @@ html.login-active #root {
 
   /* Print styles */
   @media print {
-    body { background: white !important; color: black !important; direction: rtl; }
+    /* ── Full reset ── */
+    * { box-shadow: none !important; text-shadow: none !important; }
+    body {
+      background: #fff !important;
+      color: #111 !important;
+      direction: rtl;
+      margin: 0 !important;
+      padding: 0 !important;
+      /* reset dark-theme CSS variables */
+      --background: 0 0% 100%;
+      --foreground: 0 0% 7%;
+      --card: 0 0% 100%;
+      --card-foreground: 0 0% 7%;
+      --muted: 0 0% 96%;
+      --muted-foreground: 0 0% 40%;
+      --border: 0 0% 88%;
+    }
 
     /* ── إخفاء الـ sidebar والـ header عند الطباعة ── */
     aside,
@@ -309,6 +325,7 @@ html.login-active #root {
     body > div,
     .flex.min-h-screen {
       display: block !important;
+      background: #fff !important;
     }
 
     main {
@@ -316,6 +333,7 @@ html.login-active #root {
       padding: 0 !important;
       margin: 0 !important;
       overflow: visible !important;
+      background: #fff !important;
     }
 
     /* الـ inner container */
@@ -325,6 +343,7 @@ html.login-active #root {
       padding: 0 !important;
       margin: 0 !important;
       overflow: visible !important;
+      background: #fff !important;
     }
     .no-print { display: none !important; }
     .print-container { display: block !important; }
@@ -359,10 +378,12 @@ html.login-active #root {
       display: block !important;
       font-family: 'Cairo', 'Segoe UI', Arial, sans-serif;
       font-size: 9pt;
-      color: #111;
-      background: #fff;
+      color: #111 !important;
+      background: #fff !important;
       direction: rtl;
       width: 100%;
+      min-height: 100vh;
+      position: relative;
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
     }

@@ -3246,7 +3246,7 @@ export default function ShippingManifestPage() {
   return (
     <>
     {/* ══════════════ PRINT-ONLY ══════════════ */}
-    <div className="manifest-print hidden" dir="rtl">
+    <div className="manifest-print print:block hidden" dir="rtl">
 
       {/* ─── Header ─── */}
       <div className="mp-header">
@@ -3362,7 +3362,7 @@ export default function ShippingManifestPage() {
     </div>
 
     {/* ══════════════ SCREEN-ONLY ══════════════ */}
-    <div className="manifest-screen max-w-5xl mx-auto space-y-5 animate-in fade-in duration-500" dir="rtl">
+    <div className="manifest-screen print:hidden max-w-5xl mx-auto space-y-5 animate-in fade-in duration-500" dir="rtl">
       {/* ─── Header ─── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
