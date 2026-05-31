@@ -1036,6 +1036,9 @@ function InvoiceGroupDeliveryRow({
                 {(rep as any).returnReceived === 1 && (
                   <p className="text-[9px] text-emerald-500 font-semibold">↩ الباقي في المخزن</p>
                 )}
+                {(rep as any).returnReceived !== 1 && (
+                  <p className="text-[9px] text-orange-400 font-semibold">🚚 المرتجع ما زال في شركة الشحن</p>
+                )}
               </div>
             ) : (
               <div className="flex flex-col gap-0.5">
