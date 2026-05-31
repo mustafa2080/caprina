@@ -2171,9 +2171,6 @@ function ExportDialog({
     const brandTagline = brand.tagline || "";
     const manifestDate = format(new Date(manifest.createdAt), "yyyy/MM/dd");
     const printDate = format(new Date(), "yyyy/MM/dd HH:mm");
-    const postponedCnt = manifest.orders.filter((o) => o.deliveryStatus === "postponed").length;
-    const partialCnt = manifest.orders.filter((o) => o.deliveryStatus === "partial_received").length;
-    const pendingCnt = manifest.orders.filter((o) => o.deliveryStatus === "pending").length;
     const groupedOrders = groupManifestOrders(manifest.orders);
     const fmtMoney = (n: number) => `${n.toLocaleString("ar-EG")} ج.م`;
 
@@ -2207,6 +2204,26 @@ function ExportDialog({
       const side = { style: "thin" as const, color: { argb } };
       return { top: side, bottom: side, left: side, right: side };
     };
+    const groupPriority: Record<string, number> = {
+      returned: 5,
+      postponed: 4,
+      partial_received: 3,
+      pending: 2,
+      delivered: 1,
+    };
+    const groupStatus = (group: ManifestOrder[]) =>
+      group.reduce((worst, order) =>
+        (groupPriority[order.deliveryStatus] ?? 0) > (groupPriority[worst] ?? 0)
+          ? order.deliveryStatus
+          : worst,
+      group[0]?.deliveryStatus ?? "pending");
+    const groupedTotal = groupedOrders.length;
+    const groupedDelivered = groupedOrders.filter((group) => groupStatus(group) === "delivered").length;
+    const groupedReturned = groupedOrders.filter((group) => groupStatus(group) === "returned").length;
+    const groupedPartial = groupedOrders.filter((group) => groupStatus(group) === "partial_received").length;
+    const groupedPostponed = groupedOrders.filter((group) => groupStatus(group) === "postponed").length;
+    const groupedPending = groupedOrders.filter((group) => groupStatus(group) === "pending").length;
+    const groupedDeliveryRate = groupedTotal > 0 ? Math.round((groupedDelivered / groupedTotal) * 100) : 0;
     const setCell = (cell: any, value: unknown, options?: {
       fill?: string;
       font?: Record<string, any>;
@@ -2257,7 +2274,7 @@ function ExportDialog({
     ws1.getRow(2).height = 24;
 
     ws1.mergeCells("A3:I3");
-    setCell(ws1.getCell("A3"), `طُبع: ${printDate}   |   إجمالي: ${manifest.orders.length} طلبية   |   نسبة التسليم: ${s.deliveryRate}%`, {
+    setCell(ws1.getCell("A3"), `طُبع: ${printDate}   |   إجمالي: ${groupedTotal} طلبية   |   نسبة التسليم: ${groupedDeliveryRate}%`, {
       fill: C.panel,
       font: { size: 10, color: { argb: C.slate } },
       align: { horizontal: "center", vertical: "middle" },
@@ -2376,7 +2393,7 @@ function ExportDialog({
       border: C.green,
       numFmt: '#,##0 "ج.م"',
     });
-    setCell(ws1.getCell(`D${totalRowIndex}`), `${s.deliveryRate}% نسبة تسليم`, {
+    setCell(ws1.getCell(`D${totalRowIndex}`), `${groupedDeliveryRate}% نسبة تسليم`, {
       fill: C.bg,
       font: { bold: true, color: { argb: C.gold }, size: 11 },
       align: { horizontal: "center", vertical: "middle" },
@@ -2419,13 +2436,13 @@ function ExportDialog({
       ["شركة الشحن", manifest.companyName, C.blue],
       ["تاريخ الإنشاء", manifestDate, C.gray],
       ["الحالة", manifest.status === "closed" ? "مغلق ✓" : "مفتوح", manifest.status === "closed" ? C.green : C.blue],
-      ["إجمالي الطلبيات", String(s.total), C.blue],
-      ["مسلَّم", String(s.delivered), C.green],
-      ["مرتجع", String(s.returned), C.red],
-      ["مؤجل", String(postponedCnt), C.amber],
-      ["استلم جزئي", String(partialCnt), C.teal],
-      ["قيد الانتظار", String(pendingCnt), C.gray],
-      ["نسبة التسليم", `${s.deliveryRate}%`, s.deliveryRate >= 70 ? C.green : s.deliveryRate >= 40 ? C.amber : C.red],
+      ["إجمالي الطلبيات", String(groupedTotal), C.blue],
+      ["مسلَّم", String(groupedDelivered), C.green],
+      ["مرتجع", String(groupedReturned), C.red],
+      ["مؤجل", String(groupedPostponed), C.amber],
+      ["استلم جزئي", String(groupedPartial), C.teal],
+      ["قيد الانتظار", String(groupedPending), C.gray],
+      ["نسبة التسليم", `${groupedDeliveryRate}%`, groupedDeliveryRate >= 70 ? C.green : groupedDeliveryRate >= 40 ? C.amber : C.red],
       ["إجمالي المحصَّل", fmtMoney(totalCollected), C.green],
       ["رسوم الشحن", fmtMoney(effectiveShipping), C.amber],
       ["صافي المستحق", fmtMoney(netDue), C.green],
@@ -2582,7 +2599,7 @@ function ExportDialog({
 
           {/* Info note */}
           <p className="text-[10px] text-muted-foreground text-center border-t border-border pt-3">
-            Excel: {manifest.orders.length} طلبية في {[...new Set(manifest.orders.map(o => o.deliveryStatus))].length} حالات مختلفة &nbsp;·&nbsp;
+            Excel: {manifest.stats.total} طلبية في {[...new Set(manifest.orders.map(o => o.deliveryStatus))].length} حالات مختلفة &nbsp;·&nbsp;
             PDF: طباعة البيان الرسمي بصيغة A4
           </p>
         </div>
