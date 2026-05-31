@@ -2057,9 +2057,6 @@ function CloseConfirmDialog({
                       💰 مبلغ متوقع (مؤجل فقط): {formatCurrency((s as any).stillAtShippingAmount ?? 0)}
                     </p>
                   )}
-                  <p className="text-muted-foreground text-[10px]">
-                    ملاحظة: المرتجع والجزئي بيرجعوا بضاعة للمخزن — لا فلوس متوقعة منهم
-                  </p>
                 </div>
               </div>
             )}
