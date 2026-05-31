@@ -9,7 +9,7 @@ import {
   ArrowRight, Users, ShoppingBag, TrendingUp, TrendingDown,
   ChevronRight, Calendar, Package, Phone, MapPin,
   Clock, CheckCircle2, Target, Edit2, Check, X,
-  Download, FileSpreadsheet, FileText, Loader2,
+  Download, FileSpreadsheet, FileText, Loader2, Bell, RefreshCw,
 } from "lucide-react";
 import { format, formatDistanceToNow, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { ar } from "date-fns/locale";
@@ -543,6 +543,37 @@ export default function CommercialClientDetailPage() {
 
   const PRODUCT_COLORS = ["#3b82f6","#10b981","#f59e0b","#8b5cf6","#ec4899"];
 
+  // ── معدل تكرار الشراء ────────────────────────────────────────────────────
+  const purchaseFrequency = useMemo(() => {
+    if (!allOrders || allOrders.length === 0) return null;
+
+    // ترتيب الفواتير من الأقدم للأحدث
+    const sorted = [...allOrders]
+      .map(o => new Date(o.createdAt).getTime())
+      .sort((a, b) => a - b);
+
+    const lastOrderDate = new Date(sorted[sorted.length - 1]);
+    const daysSinceLast = Math.floor((Date.now() - lastOrderDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    // متوسط الأيام بين كل فاتورة والتالية
+    let avgDays: number | null = null;
+    if (sorted.length >= 2) {
+      const gaps: number[] = [];
+      for (let i = 1; i < sorted.length; i++) {
+        const diff = Math.floor((sorted[i] - sorted[i - 1]) / (1000 * 60 * 60 * 24));
+        gaps.push(diff);
+      }
+      avgDays = Math.round(gaps.reduce((s, d) => s + d, 0) / gaps.length);
+    }
+
+    // هل فاتت أكثر من 30 يوم؟
+    const isOverdue = daysSinceLast > 30;
+    // هل قريب من الـ 30 يوم؟ (بين 20 و30)
+    const isWarning = daysSinceLast >= 20 && daysSinceLast <= 30;
+
+    return { lastOrderDate, daysSinceLast, avgDays, isOverdue, isWarning };
+  }, [allOrders]);
+
   return (
     <div className="max-w-3xl mx-auto space-y-5 animate-in fade-in duration-500" dir="rtl">
 
@@ -939,6 +970,117 @@ export default function CommercialClientDetailPage() {
           )}
         </Card>
       )}
+
+      {/* ─── معدل تكرار الشراء ─── */}
+      {!isLoading && client && purchaseFrequency && (() => {
+        const pf = purchaseFrequency;
+        const cardClass = pf.isOverdue
+          ? "border-red-900/40 bg-red-900/10"
+          : pf.isWarning
+          ? "border-amber-900/40 bg-amber-900/10"
+          : "border-border bg-card";
+        const textCls = pf.isOverdue ? "text-red-400" : pf.isWarning ? "text-amber-400" : "text-emerald-400";
+        const badgeClass = pf.isOverdue
+          ? "border-red-700 bg-red-900/30 text-red-400"
+          : pf.isWarning
+          ? "border-amber-700 bg-amber-900/30 text-amber-400"
+          : "border-emerald-700 bg-emerald-900/30 text-emerald-400";
+        const badgeLabel = pf.isOverdue ? "تنبيه — تجاوز 30 يوم" : pf.isWarning ? "قريب من 30 يوم" : "نشيط";
+
+        return (
+          <Card className={`border p-4 ${cardClass}`}>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-xs font-bold flex items-center gap-2">
+                <RefreshCw className="w-3.5 h-3.5 text-muted-foreground" />
+                معدل تكرار الشراء
+              </p>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${badgeClass}`}>
+                {pf.isOverdue && <Bell className="w-2.5 h-2.5" />}
+                {badgeLabel}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              {/* آخر شراء */}
+              <div className="text-center p-3 rounded-lg bg-muted/10 border border-border/50">
+                <p className="text-[10px] text-muted-foreground mb-1">آخر شراء</p>
+                <p className={`text-lg font-black leading-none ${textCls}`}>
+                  {pf.daysSinceLast === 0 ? "اليوم" : `${pf.daysSinceLast}`}
+                </p>
+                {pf.daysSinceLast > 0 && (
+                  <p className="text-[9px] text-muted-foreground mt-0.5">يوم مضى</p>
+                )}
+                <p className="text-[9px] text-muted-foreground mt-1 border-t border-border/30 pt-1">
+                  {format(pf.lastOrderDate, "dd/MM/yyyy")}
+                </p>
+              </div>
+
+              {/* متوسط الفترة */}
+              <div className="text-center p-3 rounded-lg bg-muted/10 border border-border/50">
+                <p className="text-[10px] text-muted-foreground mb-1">متوسط الفترة</p>
+                {pf.avgDays !== null ? (
+                  <>
+                    <p className="text-lg font-black leading-none text-primary">{pf.avgDays}</p>
+                    <p className="text-[9px] text-muted-foreground mt-0.5">يوم / طلب</p>
+                    <p className="text-[9px] text-muted-foreground mt-1 border-t border-border/30 pt-1">
+                      من {allOrders.length} فاتورة
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-lg font-black leading-none text-muted-foreground">—</p>
+                    <p className="text-[9px] text-muted-foreground mt-0.5">فاتورة واحدة</p>
+                  </>
+                )}
+              </div>
+
+              {/* التقييم */}
+              <div className="text-center p-3 rounded-lg bg-muted/10 border border-border/50">
+                <p className="text-[10px] text-muted-foreground mb-1">الحالة</p>
+                <p className={`text-lg font-black leading-none ${textCls}`}>
+                  {pf.isOverdue ? "⚠️" : pf.isWarning ? "⏳" : "✅"}
+                </p>
+                <p className={`text-[9px] font-bold mt-0.5 ${textCls}`}>
+                  {pf.isOverdue ? "غائب" : pf.isWarning ? "تحت المراقبة" : "منتظم"}
+                </p>
+                <p className="text-[9px] text-muted-foreground mt-1 border-t border-border/30 pt-1">
+                  {pf.isOverdue
+                    ? `منذ ${pf.daysSinceLast} يوم`
+                    : pf.avgDays !== null
+                    ? `كل ~${pf.avgDays} يوم`
+                    : "أول طلب"}
+                </p>
+              </div>
+            </div>
+
+            {/* شريط الـ 30 يوم */}
+            {pf.daysSinceLast <= 60 && (
+              <div className="mt-3 pt-3 border-t border-border/50">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[9px] text-muted-foreground">منذ آخر شراء</span>
+                  <span className="text-[9px] text-muted-foreground">حد التنبيه (30 يوم)</span>
+                </div>
+                <div className="w-full bg-muted/30 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="h-2 rounded-full transition-all duration-700"
+                    style={{
+                      width: `${Math.min((pf.daysSinceLast / 30) * 100, 100)}%`,
+                      background: pf.isOverdue ? "#e24b4a" : pf.isWarning ? "#f59e0b" : "#10b981",
+                    }}
+                  />
+                </div>
+                <p className="text-[9px] text-muted-foreground mt-1.5 text-center">
+                  {pf.isOverdue
+                    ? `⚠️ تجاوز حد التنبيه بـ ${pf.daysSinceLast - 30} يوم — يُنصح بالتواصل مع العميل`
+                    : pf.isWarning
+                    ? `متبقي ${30 - pf.daysSinceLast} يوم على حد التنبيه`
+                    : `العميل نشيط — متبقي ${30 - pf.daysSinceLast} يوم على حد التنبيه`}
+                </p>
+              </div>
+            )}
+          </Card>
+        );
+      })()}
 
       {/* ─── فواتير البيع — زي Manifests Timeline ─── */}
       <div>
