@@ -189,7 +189,7 @@ function CompanyStats({ companyId, canViewFinancials }: { companyId: number; can
                 <span className="absolute right-1 top-1/2 -translate-y-1/2 w-1 h-1 rounded-full bg-teal-400 shadow-[0_0_5px_1px_rgba(45,212,191,0.7)]" />
                 <span className="absolute left-1 top-1/2 -translate-y-1/2 w-1 h-1 rounded-full bg-teal-400 shadow-[0_0_5px_1px_rgba(45,212,191,0.7)]" />
                 <span className="text-[11px] font-black text-teal-400 drop-shadow-[0_0_5px_rgba(45,212,191,0.9)]">{(openManifest as any).partialCount ?? 0}</span>
-                <span className="text-[7px] text-muted-foreground leading-tight text-center mt-0.5">توصيل جزئي</span>
+                <span className="text-[7px] text-muted-foreground leading-tight text-center mt-0.5">مرتجع جزئي</span>
               </div>
             </div>
           </div>
