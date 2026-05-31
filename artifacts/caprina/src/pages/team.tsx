@@ -1850,6 +1850,10 @@ export default function TeamPage() {
           const totalDaysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
           const attPct = Math.min(100, Math.round((att.workedDays / Math.max(totalDaysInMonth, 1)) * 100));
 
+          // الصورة: أولوية لصورة الـ profile، ثم صورة الـ user من allUsers
+          const linkedUser = isSystemUser ? allUsers.find((u: any) => u.id === (profile as any).userId) : null;
+          const avatarSrc = profile.avatar || (linkedUser as any)?.avatar || null;
+
           // لون بناءً على نسبة الحضور
           const attColor = att.workedDays === 0
             ? { text: "text-muted-foreground", bar: "#6B7280", glow: "rgba(107,114,128,0.3)" }
@@ -1885,8 +1889,8 @@ export default function TeamPage() {
                 <div className="flex items-start justify-between gap-3 mb-4">
                   <div className="flex items-center gap-3">
                     {/* الأفاتار */}
-                    {profile.avatar ? (
-                      <img src={profile.avatar} alt={name}
+                    {avatarSrc ? (
+                      <img src={avatarSrc} alt={name}
                         className="w-12 h-12 rounded-2xl object-cover shrink-0"
                         style={{ border: "2px solid rgba(255,255,255,0.12)" }} />
                     ) : (
@@ -1903,9 +1907,9 @@ export default function TeamPage() {
                     <div className="min-w-0">
                       <p className="text-sm font-bold truncate" style={{ color: "hsl(var(--foreground))" }}>{name}</p>
                       <p className="text-[11px] truncate mt-0.5" style={{ color: "hsl(var(--muted-foreground))" }}>
-                        {profile.jobTitle || (isSystemUser ? "موظف" : "عضو فريق")}
+                        {profile.jobTitle || (isSystemUser ? null : "عضو فريق")}
                         {profile.department && (
-                          <span style={{ color: "rgba(255,255,255,0.35)" }}> · {profile.department}</span>
+                          <span style={{ color: "rgba(255,255,255,0.35)" }}>{profile.jobTitle ? ` · ${profile.department}` : profile.department}</span>
                         )}
                       </p>
                     </div>

@@ -49,6 +49,7 @@ export interface AppUser {
   permissions: string[]; isActive: boolean;
   jobTitle?: string | null;
   department?: string | null;
+  avatar?: string | null;
   createdAt: string; updatedAt: string;
 }
 
