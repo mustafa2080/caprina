@@ -3192,7 +3192,117 @@ export default function ShippingManifestPage() {
       }),
   });
 
-  const handlePrint = () => window.print();
+  const handlePrint = async () => {
+    const printEl = document.querySelector(".manifest-print") as HTMLElement | null;
+    if (!printEl) return;
+
+    // تحويل الـ logo لـ base64 عشان تظهر صح في الـ popup
+    let logoBase64 = "";
+    if (brand.logoUrl) {
+      try {
+        const res = await fetch(brand.logoUrl);
+        const blob = await res.blob();
+        logoBase64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(blob);
+        });
+      } catch { /* تجاهل لو فشل */ }
+    }
+
+    // استبدل src الصورة في الـ innerHTML بالـ base64
+    let html = printEl.innerHTML;
+    if (logoBase64 && brand.logoUrl) {
+      // استبدل أي src يبدأ بـ /api/brand/logo أو يحتوي على logo
+      html = html.replace(/src="[^"]*brand\/logo[^"]*"/g, `src="${logoBase64}"`);
+    }
+
+    const win = window.open("", "_blank", "width=900,height=700");
+    if (!win) { window.print(); return; }
+
+    win.document.write(`<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8"/>
+  <title>بيان الشحن — ${manifest.manifestNumber}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    @page { size: A4 portrait; margin: 12mm; }
+    body {
+      font-family: 'Cairo', 'Segoe UI', Arial, sans-serif;
+      font-size: 9pt;
+      color: #111;
+      background: #fff;
+      direction: rtl;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    /* ── Header ── */
+    .mp-header { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #1e3a5f; padding-bottom:4mm; margin-bottom:4mm; }
+    .mp-title { font-size:17pt; font-weight:900; color:#1e3a5f; line-height:1.1; }
+    .mp-meta { font-size:7.5pt; color:#555; margin-top:2mm; line-height:1.8; }
+    .mp-badge { display:inline-block; margin-top:2.5mm; padding:1mm 4mm; border-radius:10mm; font-size:7.5pt; font-weight:800; }
+    .mp-badge-open   { background:#dbeafe; color:#1d4ed8; border:1px solid #93c5fd; }
+    .mp-badge-closed { background:#dcfce7; color:#15803d; border:1px solid #86efac; }
+    .mp-header-right { display:flex; align-items:center; gap:3mm; }
+    .mp-company-name { font-size:15pt; font-weight:900; color:#1e3a5f; letter-spacing:1px; }
+    .mp-company-sub  { font-size:6pt; color:#94a3b8; letter-spacing:2px; margin-top:0.5mm; }
+    .mp-logo { width:14mm; height:14mm; border-radius:50%; object-fit:cover; border:2px solid #e2e8f0; }
+    /* ── Stats ── */
+    .mp-stats { display:grid; grid-template-columns:repeat(6,1fr); border:1.5px solid #e2e8f0; border-radius:2mm; overflow:hidden; margin-bottom:4mm; }
+    .mp-stat { padding:2.5mm 2mm; text-align:center; border-left:1px solid #e2e8f0; background:#f8fafc; }
+    .mp-stat:last-child { border-left:none; }
+    .mp-stat-delivered { background:#f0fdf4; } .mp-stat-returned { background:#fff1f2; }
+    .mp-stat-postponed { background:#fffbeb; } .mp-stat-partial   { background:#f0fdfa; }
+    .mp-stat-lbl { font-size:6.5pt; color:#64748b; margin-bottom:1mm; font-weight:600; }
+    .mp-stat-val { font-size:13pt; font-weight:900; color:#111; }
+    .mp-stat-delivered .mp-stat-val { color:#15803d; } .mp-stat-returned .mp-stat-val  { color:#dc2626; }
+    .mp-stat-postponed .mp-stat-val { color:#b45309; } .mp-stat-partial .mp-stat-val   { color:#0f766e; }
+    /* ── Table ── */
+    .mp-table { width:100%; border-collapse:collapse; margin-bottom:4mm; font-size:8pt; }
+    .mp-table thead tr { background:#1e3a5f; }
+    .mp-table th { color:#fff; font-size:7.5pt; font-weight:700; padding:2.5mm 3mm; text-align:right; border-left:1px solid rgba(255,255,255,0.15); }
+    .mp-table th:last-child { border-left:none; }
+    .mp-table td { padding:2mm 3mm; border-bottom:1px solid #f1f5f9; border-left:1px solid #f1f5f9; vertical-align:middle; line-height:1.5; }
+    .mp-table td:last-child { border-left:none; }
+    .mp-row-alt td { background:#f8fafc; }
+    .mp-td-center { text-align:center; } .mp-td-bold { font-weight:700; }
+    .mp-td-ltr { direction:ltr; text-align:right; font-size:7.5pt; }
+    .mp-num { color:#94a3b8; font-size:7pt; } .mp-sub { font-size:6.5pt; color:#94a3b8; font-weight:400; margin-top:0.5mm; }
+    .mp-note { font-size:7pt; color:#6b7280; }
+    /* ── Status badges ── */
+    .st-d { color:#15803d; font-weight:800; background:#dcfce7; padding:0.5mm 2mm; border-radius:1mm; font-size:7pt; }
+    .st-r { color:#dc2626; font-weight:800; background:#fee2e2; padding:0.5mm 2mm; border-radius:1mm; font-size:7pt; }
+    .st-p { color:#b45309; font-weight:800; background:#fef3c7; padding:0.5mm 2mm; border-radius:1mm; font-size:7pt; }
+    .st-x { color:#0f766e; font-weight:800; background:#ccfbf1; padding:0.5mm 2mm; border-radius:1mm; font-size:7pt; }
+    .st-n { color:#64748b; background:#f1f5f9;  padding:0.5mm 2mm; border-radius:1mm; font-size:7pt; }
+    /* ── Totals ── */
+    .mp-totals { display:grid; grid-template-columns:repeat(3,1fr); gap:3mm; margin-bottom:5mm; }
+    .mp-total-card { border:1.5px solid #e2e8f0; border-radius:2mm; padding:3mm 4mm; text-align:center; background:#f8fafc; }
+    .mp-total-highlight { background:#f0fdf4; border-color:#86efac; }
+    .mp-total-lbl { font-size:6.5pt; color:#64748b; margin-bottom:1mm; font-weight:600; }
+    .mp-total-val { font-size:12pt; font-weight:900; color:#111; }
+    .mp-total-orange { color:#d97706; } .mp-total-green { color:#15803d; } .mp-total-blue { color:#1d4ed8; }
+    /* ── Footer ── */
+    .mp-footer { border-top:1.5px solid #e2e8f0; padding-top:3mm; margin-top:3mm; display:flex; justify-content:space-between; align-items:flex-end; }
+    .mp-watermark { font-size:6.5pt; color:#cbd5e1; }
+    .mp-sigs { display:flex; gap:5mm; }
+    .mp-sig { min-width:40mm; text-align:center; }
+    .mp-sig-title { font-size:7pt; color:#64748b; margin-bottom:6mm; }
+    .mp-sig-line  { border-top:1px solid #333; }
+    .mp-sig-name  { font-size:6.5pt; color:#555; margin-top:1.5mm; }
+  </style>
+</head>
+<body>
+  ${html}
+</body>
+</html>`);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); win.close(); }, 800);
+  };
 
   if (isLoading)
     return (
@@ -3222,11 +3332,11 @@ export default function ShippingManifestPage() {
 
   const statusLabel = (st: DeliveryStatus) => {
     switch (st) {
-      case "delivered":        return { label: "مسلَّم",          cls: "status-delivered" };
-      case "returned":         return { label: "مرتجع",           cls: "status-returned" };
-      case "postponed":        return { label: "مؤجل",            cls: "status-postponed" };
-      case "partial_received": return { label: "جزئي",            cls: "status-partial" };
-      default:                 return { label: "قيد الانتظار",   cls: "status-pending" };
+      case "delivered":        return { label: "مسلَّم",         cls: "st-d" };
+      case "returned":         return { label: "مرتجع",           cls: "st-r" };
+      case "postponed":        return { label: "مؤجل",            cls: "st-p" };
+      case "partial_received": return { label: "جزئي",            cls: "st-x" };
+      default:                 return { label: "قيد الانتظار",   cls: "st-n" };
     }
   };
 
@@ -3262,11 +3372,11 @@ export default function ShippingManifestPage() {
           </span>
         </div>
         <div className="mp-header-right">
-          {manifest.companyLogo && (
-            <img src={manifest.companyLogo} className="mp-logo" alt={manifest.companyName} />
+          {brand.logoUrl && (
+            <img src={brand.logoUrl} className="mp-logo" alt={brand.name} crossOrigin="anonymous" />
           )}
           <div>
-            <div className="mp-company-name">{manifest.companyName}</div>
+            <div className="mp-company-name">{brand.name}</div>
             <div className="mp-company-sub">SHIPPING MANIFEST</div>
           </div>
         </div>
@@ -3352,7 +3462,7 @@ export default function ShippingManifestPage() {
 
       {/* ─── Footer ─── */}
       <div className="mp-footer">
-        <div className="mp-watermark">{manifest.companyName} · {manifest.manifestNumber} · {format(new Date(), "yyyy")}</div>
+        <div className="mp-watermark">{brand.name} · {manifest.manifestNumber} · {format(new Date(), "yyyy")}</div>
         <div className="mp-sigs">
           <div className="mp-sig"><div className="mp-sig-title">توقيع المندوب</div><div className="mp-sig-line"/><div className="mp-sig-name">الاسم: ___________</div></div>
           <div className="mp-sig"><div className="mp-sig-title">توقيع المسؤول</div><div className="mp-sig-line"/><div className="mp-sig-name">الاسم: ___________</div></div>
