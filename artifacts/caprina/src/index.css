@@ -499,18 +499,17 @@ html.login-active #root {
     /* ── Footer ── */
     .mp-footer {
       border-top: 1.5px solid #e2e8f0;
-      padding-top: 3mm;
-      margin-top: 3mm;
+      padding-top: 4mm;
+      margin-top: 5mm;
       display: flex;
       justify-content: space-between;
       align-items: flex-end;
     }
-    .mp-watermark { font-size: 6.5pt; color: #cbd5e1; }
-    .mp-sigs { display: flex; gap: 5mm; }
-    .mp-sig { min-width: 40mm; text-align: center; }
-    .mp-sig-title { font-size: 7pt; color: #64748b; margin-bottom: 6mm; }
-    .mp-sig-line  { border-top: 1px solid #333; }
-    .mp-sig-name  { font-size: 6.5pt; color: #555; margin-top: 1.5mm; }
+    .mp-watermark { font-size: 7.5pt; color: #cbd5e1; text-align: center; }
+    .mp-sig { min-width: 50mm; text-align: center; }
+    .mp-sig-title { font-size: 9pt; color: #64748b; margin-bottom: 8mm; font-weight: 700; }
+    .mp-sig-line  { border-top: 1.5px solid #333; width: 80%; margin: 0 auto; }
+    .mp-sig-name  { font-size: 8pt; color: #555; margin-top: 2mm; }
   }
 }
 

@@ -69,6 +69,7 @@ import {
   PackagePlus,
   FileSpreadsheet,
   Download,
+  Eye,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/contexts/AuthContext";
@@ -2956,6 +2957,7 @@ export default function ShippingManifestPage() {
   const [showReopenDialog, setShowReopenDialog] = useState(false);
   const [showAddOrdersDialog, setShowAddOrdersDialog] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const [showOrders, setShowOrders] = useState(true);
   const [showRolloverDialog, setShowRolloverDialog] = useState<null | { id: number; manifestNumber: string; orderCount: number; breakdown: string }>(null);
   // ─── البحث المباشر — بدون popover ──────────────────────────────────────────
@@ -3291,13 +3293,12 @@ export default function ShippingManifestPage() {
     .mp-total-val { font-size:13pt; font-weight:900; color:#111; }
     .mp-total-orange { color:#d97706; } .mp-total-green { color:#15803d; } .mp-total-blue { color:#1d4ed8; }
     /* ── Footer ── */
-    .mp-footer { border-top:1.5px solid #e2e8f0; padding-top:3mm; margin-top:3mm; display:flex; justify-content:space-between; align-items:flex-end; }
-    .mp-watermark { font-size:8pt; color:#cbd5e1; }
-    .mp-sigs { display:flex; gap:8mm; }
-    .mp-sig { min-width:45mm; text-align:center; }
-    .mp-sig-title { font-size:8.5pt; color:#64748b; margin-bottom:7mm; font-weight:700; }
-    .mp-sig-line  { border-top:1px solid #333; }
-    .mp-sig-name  { font-size:8pt; color:#555; margin-top:1.5mm; }
+    .mp-footer { border-top:1.5px solid #e2e8f0; padding-top:4mm; margin-top:5mm; display:flex; justify-content:space-between; align-items:flex-end; }
+    .mp-watermark { font-size:7.5pt; color:#cbd5e1; text-align:center; }
+    .mp-sig { min-width:50mm; text-align:center; }
+    .mp-sig-title { font-size:9pt; color:#64748b; margin-bottom:8mm; font-weight:700; }
+    .mp-sig-line  { border-top:1.5px solid #333; width:80%; margin:0 auto; }
+    .mp-sig-name  { font-size:8pt; color:#555; margin-top:2mm; }
   </style>
 </head>
 <body>
@@ -3468,11 +3469,9 @@ export default function ShippingManifestPage() {
 
       {/* ─── Footer ─── */}
       <div className="mp-footer">
+        <div className="mp-sig"><div className="mp-sig-title">توقيع المندوب</div><div className="mp-sig-line"/><div className="mp-sig-name">الاسم: ___________</div></div>
         <div className="mp-watermark">{brand.name} · {manifest.manifestNumber} · {format(new Date(), "yyyy")}</div>
-        <div className="mp-sigs">
-          <div className="mp-sig"><div className="mp-sig-title">توقيع المندوب</div><div className="mp-sig-line"/><div className="mp-sig-name">الاسم: ___________</div></div>
-          <div className="mp-sig"><div className="mp-sig-title">توقيع المسؤول</div><div className="mp-sig-line"/><div className="mp-sig-name">الاسم: ___________</div></div>
-        </div>
+        <div className="mp-sig"><div className="mp-sig-title">توقيع المسؤول</div><div className="mp-sig-line"/><div className="mp-sig-name">الاسم: ___________</div></div>
       </div>
 
     </div>
@@ -3522,6 +3521,14 @@ export default function ShippingManifestPage() {
           </div>
         </div>
         <div className="flex items-center gap-1.5 flex-wrap print:hidden">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs gap-1 border-border"
+            onClick={() => setShowPreview(true)}
+          >
+            <Eye className="w-3 h-3" />معاينة
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -4137,6 +4144,106 @@ export default function ShippingManifestPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+
+    {/* ══════════════ PREVIEW MODAL ══════════════ */}
+    {showPreview && createPortal(
+      <div
+        className="fixed inset-0 z-[9999] flex items-start justify-center bg-black/70 overflow-y-auto py-6"
+        onClick={(e) => { if (e.target === e.currentTarget) setShowPreview(false); }}
+      >
+        <div className="bg-white rounded-xl shadow-2xl w-[210mm] max-w-[96vw] relative">
+          {/* شريط التحكم */}
+          <div className="flex items-center justify-between px-4 py-2.5 bg-slate-800 rounded-t-xl sticky top-0 z-10">
+            <span className="text-white text-sm font-bold">معاينة قبل الطباعة — {manifest.manifestNumber}</span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => { setShowPreview(false); handlePrint(); }}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-primary text-white text-xs font-bold hover:bg-primary/90"
+              >
+                <Printer className="w-3.5 h-3.5" />طباعة
+              </button>
+              <button
+                onClick={() => setShowPreview(false)}
+                className="flex items-center justify-center w-7 h-7 rounded-md bg-slate-700 text-slate-300 hover:bg-slate-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+          {/* المحتوى — iframe بيعرض نفس HTML الطباعة */}
+          <iframe
+            className="w-full rounded-b-xl border-0"
+            style={{ height: "80vh" }}
+            srcDoc={(() => {
+              const el = document.querySelector(".manifest-print") as HTMLElement | null;
+              const html = el?.innerHTML ?? "";
+              return `<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8"/>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Cairo', Arial, sans-serif; font-size: 10pt; color: #111; background: #fff; direction: rtl; padding: 8mm 10mm; }
+    .mp-header { display:flex; justify-content:space-between; align-items:center; border-bottom:3px solid #1e3a5f; padding-bottom:3mm; margin-bottom:3mm; }
+    .mp-header-left { flex:1; }
+    .mp-header-right { display:flex; align-items:center; gap:3mm; flex-direction:row; flex-shrink:0; }
+    .mp-title { font-size:18pt; font-weight:900; color:#1e3a5f; line-height:1.1; }
+    .mp-meta { font-size:9pt; color:#555; margin-top:1.5mm; line-height:1.7; }
+    .mp-badge { display:inline-block; margin-top:2mm; padding:1mm 4mm; border-radius:10mm; font-size:8pt; font-weight:800; }
+    .mp-badge-open { background:#dbeafe; color:#1d4ed8; border:1px solid #93c5fd; }
+    .mp-badge-closed { background:#dcfce7; color:#15803d; border:1px solid #86efac; }
+    .mp-company-name { font-size:16pt; font-weight:900; color:#1e3a5f; letter-spacing:1px; }
+    .mp-company-sub { font-size:7pt; color:#94a3b8; letter-spacing:2px; margin-top:0.5mm; }
+    .mp-logo { width:16mm; height:16mm; border-radius:50%; object-fit:cover; border:2px solid #e2e8f0; }
+    .mp-stats { display:grid; grid-template-columns:repeat(6,1fr); border:1.5px solid #e2e8f0; border-radius:2mm; overflow:hidden; margin-bottom:4mm; }
+    .mp-stat { padding:2.5mm 2mm; text-align:center; border-left:1px solid #e2e8f0; background:#f8fafc; }
+    .mp-stat:last-child { border-left:none; }
+    .mp-stat-delivered { background:#f0fdf4; } .mp-stat-returned { background:#fff1f2; }
+    .mp-stat-postponed { background:#fffbeb; } .mp-stat-partial { background:#f0fdfa; }
+    .mp-stat-lbl { font-size:8pt; color:#64748b; margin-bottom:1mm; font-weight:700; }
+    .mp-stat-val { font-size:14pt; font-weight:900; color:#111; }
+    .mp-stat-delivered .mp-stat-val { color:#15803d; } .mp-stat-returned .mp-stat-val { color:#dc2626; }
+    .mp-stat-postponed .mp-stat-val { color:#b45309; } .mp-stat-partial .mp-stat-val { color:#0f766e; }
+    .mp-table { width:100%; border-collapse:collapse; margin-bottom:3mm; font-size:9.5pt; }
+    .mp-table thead tr { background:#1e3a5f; }
+    .mp-table th { color:#fff; font-size:9pt; font-weight:700; padding:2mm 3mm; text-align:right; border-left:1px solid rgba(255,255,255,0.15); }
+    .mp-table th:last-child { border-left:none; }
+    .mp-table td { padding:2.5mm 3mm; border-bottom:1px solid #f1f5f9; border-left:1px solid #f1f5f9; vertical-align:middle; line-height:1.5; }
+    .mp-table td:last-child { border-left:none; }
+    .mp-row-alt td { background:#f8fafc; }
+    .mp-td-center { text-align:center; } .mp-td-bold { font-weight:700; } .mp-td-ltr { direction:ltr; text-align:right; }
+    .mp-num { color:#94a3b8; font-size:8pt; } .mp-sub { font-size:7.5pt; color:#94a3b8; margin-top:0.5mm; }
+    .mp-note { font-size:8pt; color:#6b7280; }
+    .st-d { color:#15803d; font-weight:800; background:#dcfce7; padding:0.5mm 2.5mm; border-radius:1mm; font-size:8.5pt; white-space:nowrap; }
+    .st-r { color:#dc2626; font-weight:800; background:#fee2e2; padding:0.5mm 2.5mm; border-radius:1mm; font-size:8.5pt; white-space:nowrap; }
+    .st-p { color:#b45309; font-weight:800; background:#fef3c7; padding:0.5mm 2.5mm; border-radius:1mm; font-size:8.5pt; white-space:nowrap; }
+    .st-x { color:#0f766e; font-weight:800; background:#ccfbf1; padding:0.5mm 2.5mm; border-radius:1mm; font-size:8.5pt; white-space:nowrap; }
+    .st-n { color:#64748b; background:#f1f5f9; padding:0.5mm 2.5mm; border-radius:1mm; font-size:8.5pt; white-space:nowrap; }
+    .mp-totals { display:grid; grid-template-columns:repeat(3,1fr); gap:3mm; margin-bottom:4mm; }
+    .mp-total-card { border:1.5px solid #e2e8f0; border-radius:2mm; padding:3mm 4mm; text-align:center; background:#f8fafc; }
+    .mp-total-highlight { background:#f0fdf4; border-color:#86efac; }
+    .mp-total-lbl { font-size:8pt; color:#64748b; margin-bottom:1mm; font-weight:700; }
+    .mp-total-val { font-size:13pt; font-weight:900; color:#111; }
+    .mp-total-orange { color:#d97706; } .mp-total-green { color:#15803d; } .mp-total-blue { color:#1d4ed8; }
+    .mp-footer { border-top:1.5px solid #e2e8f0; padding-top:4mm; margin-top:5mm; display:flex; justify-content:space-between; align-items:flex-end; }
+    .mp-watermark { font-size:7.5pt; color:#cbd5e1; text-align:center; }
+    .mp-sig { min-width:50mm; text-align:center; }
+    .mp-sig-title { font-size:9pt; color:#64748b; margin-bottom:8mm; font-weight:700; }
+    .mp-sig-line { border-top:1.5px solid #333; width:80%; margin:0 auto; }
+    .mp-sig-name { font-size:8pt; color:#555; margin-top:2mm; }
+  </style>
+</head>
+<body>${html}</body>
+</html>`;
+            })()}
+            title="معاينة"
+          />
+        </div>
+      </div>,
+      document.body
+    )}
+
     </>
   );
 }
