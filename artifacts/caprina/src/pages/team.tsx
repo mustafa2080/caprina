@@ -1101,64 +1101,70 @@ function DailyTrackerTab({ profileId }: { profileId: number }) {
 }
 
 // ─── Add Member Wizard ────────────────────────────────────────────────────────
-function AddMemberWizard({ open, onClose, onSuccess }: {
+function AddMemberWizard({ open, onClose, onSuccess, availableUsers, existingProfiles }: {
   open: boolean; onClose: () => void; onSuccess: (profileId: number) => void;
+  availableUsers: AppUser[]; existingProfiles: EmployeeProfile[];
 }) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [mode, setMode] = useState<"system" | "team_only">("system");
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
-  const [createdUser, setCreatedUser] = useState<AppUser | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState("");
+  const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
   const [displayName, setDisplayName] = useState("");
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [role, setRole] = useState("employee");
   const [jobTitle, setJobTitle] = useState("");
   const [department, setDepartment] = useState("");
   const [monthlySalary, setMonthlySalary] = useState("0");
   const [hireDate, setHireDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [jobRole, setJobRole] = useState("employee");
 
   const reset = () => {
-    setStep(1); setSaving(false); setCreatedUser(null); setMode("system");
-    setDisplayName(""); setUsername(""); setPassword(""); setRole("employee");
-    setJobTitle(""); setDepartment(""); setMonthlySalary("0");
+    setStep(1); setSaving(false); setSelectedUserId(""); setSelectedUser(null); setMode("system");
+    setDisplayName(""); setJobTitle(""); setDepartment(""); setMonthlySalary("0");
     setHireDate(new Date().toISOString().slice(0, 10));
+    setJobRole("employee");
   };
 
-  // System user flow: step1=account, step2=job info
-  const handleCreateUser = async () => {
-    if (!displayName.trim() || !username.trim() || !password.trim()) {
-      toast({ title: "الاسم واسم المستخدم وكلمة المرور مطلوبة", variant: "destructive" }); return;
+  const handleSelectSystemUser = () => {
+    if (!selectedUser) {
+      toast({ title: "اختر مستخدم أولاً", variant: "destructive" });
+      return;
     }
-    setSaving(true);
-    try {
-      const user = await usersApi.create({ displayName: displayName.trim(), username: username.trim(), password, role });
-      setCreatedUser(user);
-      setStep(2);
-      qc.invalidateQueries({ queryKey: ["users"] });
-    } catch (e: any) {
-      toast({ title: "خطأ", description: e.message || "فشل إنشاء الحساب", variant: "destructive" });
-    } finally { setSaving(false); }
+    setStep(2);
   };
 
   const handleSaveProfile = async () => {
-    if (!createdUser) return;
+    if (!selectedUser) return;
     setSaving(true);
     try {
       const profile = await employeeApi.upsertProfile({
-        userId: createdUser.id,
+        userId: selectedUser.id,
+        displayName: selectedUser.displayName,
         jobTitle: jobTitle || null,
         department: department || null,
         monthlySalary: parseFloat(monthlySalary) || 0,
         hireDate: hireDate || null,
       });
       qc.invalidateQueries({ queryKey: ["employee-profiles"] });
-      toast({ title: `تم إضافة ${createdUser.displayName} للفريق ✅` });
+      toast({ title: `تم إضافة ${selectedUser.displayName} للفريق ✅` });
       reset(); onSuccess(profile.id);
     } catch (e: any) {
       toast({ title: "خطأ", description: e.message, variant: "destructive" });
     } finally { setSaving(false); }
+  };
+
+  const handleSystemUserChange = (value: string) => {
+    setSelectedUserId(value);
+    const user = availableUsers.find(u => String(u.id) === value) ?? null;
+    setSelectedUser(user);
+    setDisplayName(user?.displayName ?? "");
+    setJobRole(user?.role ?? "employee");
+    const existingProfile = user ? existingProfiles.find(p => p.userId === user.id) ?? null : null;
+    setJobTitle(existingProfile?.jobTitle ?? "");
+    setDepartment(existingProfile?.department ?? "");
+    setMonthlySalary(existingProfile?.monthlySalary?.toString() ?? "0");
+    setHireDate(existingProfile?.hireDate ?? new Date().toISOString().slice(0, 10));
   };
 
   // Team-only flow: single step — name + job info only
@@ -1217,36 +1223,47 @@ function AddMemberWizard({ open, onClose, onSuccess }: {
         {mode === "system" && step === 1 && (
           <>
             <div className="flex items-center gap-2 text-[10px]">
-              <div className="flex items-center gap-1 px-2.5 py-1 rounded-full font-bold bg-primary text-primary-foreground">١ بيانات الحساب</div>
+              <div className="flex items-center gap-1 px-2.5 py-1 rounded-full font-bold bg-primary text-primary-foreground">١ اختيار المستخدم</div>
               <div className="flex-1 h-px bg-border" />
               <div className="flex items-center gap-1 px-2.5 py-1 rounded-full font-bold bg-muted text-muted-foreground">٢ بيانات الوظيفة</div>
             </div>
             <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs font-bold">الاسم الكامل *</Label>
-                  <Input value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="محمد أحمد" className="h-8 text-xs mt-1" />
-                </div>
-                <div>
-                  <Label className="text-xs font-bold">اسم المستخدم *</Label>
-                  <Input value={username} onChange={e => setUsername(e.target.value.toLowerCase())} placeholder="mohamed" className="h-8 text-xs mt-1" dir="ltr" />
-                </div>
-              </div>
               <div>
-                <Label className="text-xs font-bold">كلمة المرور *</Label>
-                <Input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" className="h-8 text-xs mt-1" dir="ltr" />
-              </div>
-              <div>
-                <Label className="text-xs font-bold">الدور</Label>
-                <Select value={role} onValueChange={setRole}>
-                  <SelectTrigger className="h-8 text-xs mt-1"><SelectValue /></SelectTrigger>
+                <Label className="text-xs font-bold">اختر المستخدم *</Label>
+                <Select value={selectedUserId} onValueChange={handleSystemUserChange}>
+                  <SelectTrigger className="h-9 text-xs mt-1">
+                    <SelectValue placeholder="اختر مستخدمًا من إدارة المستخدمين" />
+                  </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="employee">موظف</SelectItem>
-                    <SelectItem value="warehouse">مخزن</SelectItem>
-                    <SelectItem value="admin">مدير</SelectItem>
+                    {availableUsers.map(user => {
+                      const linked = existingProfiles.some(p => p.userId === user.id);
+                      return (
+                        <SelectItem key={user.id} value={String(user.id)}>
+                          <div className="flex items-center justify-between gap-2 w-full">
+                            <span className="truncate">{user.displayName}</span>
+                            <span className="text-[10px] text-muted-foreground shrink-0">@{user.username} · {user.role}{linked ? " · مضاف" : ""}</span>
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
+              {selectedUser && (
+                <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-2 text-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-bold truncate">{selectedUser.displayName}</div>
+                    <Badge variant="outline" className="text-[10px] h-5 px-2 border-primary/30 text-primary">{jobRole}</Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-muted-foreground">
+                    <div className="truncate">اسم المستخدم: <span className="text-foreground font-medium">{selectedUser.username}</span></div>
+                    <div className="truncate">الحالة: <span className="text-foreground font-medium">{selectedUser.isActive ? "نشط" : "غير نشط"}</span></div>
+                  </div>
+                  <div className="text-[10px] text-muted-foreground">
+                    {existingProfiles.some(p => p.userId === selectedUser.id) ? "هذا المستخدم لديه ملف فريق بالفعل — سيتم تحديثه." : "هذا المستخدم غير مضاف للفريق بعد."}
+                  </div>
+                </div>
+              )}
             </div>
           </>
         )}
@@ -1254,16 +1271,16 @@ function AddMemberWizard({ open, onClose, onSuccess }: {
         {/* System user — step 2: job info */}
         {mode === "system" && step === 2 && (
           <>
-            <div className="flex items-center gap-2 text-[10px]">
-              <div className="flex items-center gap-1 px-2.5 py-1 rounded-full font-bold bg-emerald-600/20 text-emerald-400"><Check className="w-3 h-3" /> بيانات الحساب</div>
-              <div className="flex-1 h-px bg-border" />
-              <div className="flex items-center gap-1 px-2.5 py-1 rounded-full font-bold bg-primary text-primary-foreground">٢ بيانات الوظيفة</div>
-            </div>
-            <div className="space-y-3">
-              <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-400 flex items-center gap-2">
-                <Check className="w-3.5 h-3.5 shrink-0" />
-                تم إنشاء حساب <strong>{createdUser?.displayName}</strong> — أدخل بيانات الوظيفة
+              <div className="flex items-center gap-2 text-[10px]">
+                <div className="flex items-center gap-1 px-2.5 py-1 rounded-full font-bold bg-emerald-600/20 text-emerald-400"><Check className="w-3 h-3" /> بيانات الحساب</div>
+                <div className="flex-1 h-px bg-border" />
+                <div className="flex items-center gap-1 px-2.5 py-1 rounded-full font-bold bg-primary text-primary-foreground">٢ بيانات الوظيفة</div>
               </div>
+              <div className="space-y-3">
+                <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-400 flex items-center gap-2">
+                  <Check className="w-3.5 h-3.5 shrink-0" />
+                  تم اختيار <strong>{selectedUser?.displayName}</strong> — الدور: <strong>{jobRole}</strong>
+                </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs font-bold">المسمى الوظيفي</Label>
@@ -1325,7 +1342,7 @@ function AddMemberWizard({ open, onClose, onSuccess }: {
           {mode === "system" && step === 1 && (
             <>
               <Button variant="outline" onClick={() => { reset(); onClose(); }} className="text-xs h-7">إلغاء</Button>
-              <Button onClick={handleCreateUser} disabled={saving || !displayName.trim() || !username.trim() || !password.trim()} className="text-xs h-7 gap-1">
+              <Button onClick={handleSelectSystemUser} disabled={saving || !selectedUserId} className="text-xs h-7 gap-1">
                 {saving ? "..." : <><Check className="w-3 h-3" />التالي</>}
               </Button>
             </>
@@ -1737,9 +1754,6 @@ export default function TeamPage() {
     queryFn: usersApi.list,
   });
 
-  const profiledUserIds = new Set(profiles.map(p => p.userId).filter(Boolean));
-  const unprofiledUsers = allUsers.filter(u => !profiledUserIds.has(u.id) && u.isActive);
-
   const profileToDelete = profiles.find(p => p.id === deleteConfirmId);
 
   const handleDeleteProfile = async () => {
@@ -1978,6 +1992,8 @@ export default function TeamPage() {
         open={wizardOpen}
         onClose={() => setWizardOpen(false)}
         onSuccess={(profileId) => { setWizardOpen(false); setSelectedProfileId(profileId); }}
+        availableUsers={allUsers}
+        existingProfiles={profiles}
       />
 
       {/* Add profile dialog (existing users without profile) */}
