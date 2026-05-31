@@ -210,6 +210,27 @@ function computeStats(orders: OrderWithDelivery[]) {
   const deliveryRate = total > 0 ? Math.round((delivered / total) * 100) : 0;
   let totalRevenue = 0, totalCost = 0, totalShippingCost = 0, returnLosses = 0, deliveredGross = 0;
   let stillAtShippingCount = 0, stillAtShippingAmount = 0;
+
+  // حساب stillAtShipping على مستوى الفواتير (مش الطلبات الفردية)
+  for (const group of groupedOrders) {
+    const gStatus = groupStatus(group);
+    if (gStatus === "postponed" || gStatus === "pending") {
+      stillAtShippingCount++;
+      stillAtShippingAmount += group.reduce((sum, o) => sum + o.totalPrice, 0);
+    } else if (gStatus === "partial_received") {
+      // الجزء الباقي فقط
+      const rep = group[0]; // نمثل الفاتورة بأول طلب
+      const rv = (rep as any).returnReceived;
+      if (rv !== 1) {
+        stillAtShippingCount++;
+        const deliveredQty = (rv === 0 && rep.partialQuantity != null) ? Number(rep.partialQuantity) : 0;
+        const remainingQty = rep.quantity - deliveredQty;
+        const unitPrice = Number((rep as any).unitPrice ?? 0) || (rep.quantity > 0 ? rep.totalPrice / rep.quantity : 0);
+        stillAtShippingAmount += remainingQty > 0 ? unitPrice * remainingQty : rep.totalPrice;
+      }
+    }
+  }
+
   for (const o of orders) {
     const isPartial  = o.deliveryStatus === "partial_received";
     const shipping   = o.shippingCost ?? 0;
@@ -232,21 +253,14 @@ function computeStats(orders: OrderWithDelivery[]) {
           totalShippingCost += shipping;
         }
       }
-      // الجزء الباقي (أو كله لو مرحّل) لسه عند الشحن
-      if (rv !== 1) {
-        stillAtShippingCount++;
-        // المبلغ المتوقع = الجزء اللي لسه عند الشحن فقط (مش كل totalPrice)
-        const deliveredQty = (rv === 0 && o.partialQuantity != null) ? Number(o.partialQuantity) : 0;
-        const remainingQty = o.quantity - deliveredQty;
-        const unitPrice = Number((o as any).unitPrice ?? 0) || (o.quantity > 0 ? o.totalPrice / o.quantity : 0);
-        stillAtShippingAmount += remainingQty > 0 ? unitPrice * remainingQty : o.totalPrice;
-      }
+      // الجزء الباقي (أو كله لو مرحّل) — محسوب بالفعل في loop الفواتير
 
     } else if (o.deliveryStatus === "returned") {
       // مرتجع كامل → خسارة شحن فقط — المرتجع مش "لسه عند الشحن"
       totalShippingCost += shipping;
 
     } else {
+      // مؤجل / pending → محسوب بالفعل في loop الفواتير
       totalShippingCost += shipping;
     }
   }

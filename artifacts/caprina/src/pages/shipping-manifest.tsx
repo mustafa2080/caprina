@@ -3567,9 +3567,9 @@ export default function ShippingManifestPage() {
           <p className="text-xs text-amber-400 mb-1 flex items-center gap-1">
             <Clock className="w-3 h-3" />مؤجل / معلَّق
           </p>
-          <p className="text-2xl font-black text-amber-400">{s.pending}</p>
+          <p className="text-2xl font-black text-amber-400">{s.postponed + s.pending}</p>
           <p className="text-xs text-amber-600 mt-0.5 font-bold">
-            {s.total > 0 ? Math.round((s.pending / s.total) * 100) : 0}% من الإجمالي
+            {s.total > 0 ? Math.round(((s.postponed + s.pending) / s.total) * 100) : 0}% من الإجمالي
           </p>
         </Card>
       </div>
