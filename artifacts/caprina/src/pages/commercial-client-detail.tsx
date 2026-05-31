@@ -185,6 +185,44 @@ export default function CommercialClientDetailPage() {
   const TARGET = creditLimit > 0 ? creditLimit : 1_000_000;
   const monthlyTarget = Math.round(TARGET / 12);
 
+  // ── مؤشر الخطر 0–100 (كلما قل كان أأمن) ────────────────────────────────
+  const riskScore = useMemo(() => {
+    if (!client || allOrders.length === 0) return null;
+
+    // 1. نسبة السداد (0–40 نقطة خطر) — كلما قلت النسبة زاد الخطر
+    const payRate = totalSales > 0 ? totalPaid / totalSales : 0;
+    const payRisk = Math.round((1 - payRate) * 40);
+
+    // 2. عمر الديون (0–35 نقطة) — أقدم فاتورة غير مسددة
+    const unpaidOrders = allOrders.filter(o => o.paymentStatus !== "paid");
+    let debtAgeRisk = 0;
+    if (unpaidOrders.length > 0) {
+      const oldestDays = Math.max(...unpaidOrders.map(o => {
+        const diff = Date.now() - new Date(o.createdAt).getTime();
+        return Math.floor(diff / (1000 * 60 * 60 * 24));
+      }));
+      if (oldestDays > 90)      debtAgeRisk = 35;
+      else if (oldestDays > 60) debtAgeRisk = 25;
+      else if (oldestDays > 30) debtAgeRisk = 15;
+      else                       debtAgeRisk = 5;
+    }
+
+    // 3. انتظام الشراء (0–25 نقطة) — لو مفيش أوردر آخر 60 يوم
+    const sortedDates = allOrders
+      .map(o => new Date(o.createdAt).getTime())
+      .sort((a, b) => b - a);
+    let regularityRisk = 0;
+    if (sortedDates.length > 0) {
+      const daysSinceLast = Math.floor((Date.now() - sortedDates[0]) / (1000 * 60 * 60 * 24));
+      if (daysSinceLast > 90)      regularityRisk = 25;
+      else if (daysSinceLast > 60) regularityRisk = 18;
+      else if (daysSinceLast > 30) regularityRisk = 10;
+      else                          regularityRisk = 0;
+    }
+
+    const total = Math.min(100, payRisk + debtAgeRisk + regularityRisk);
+    return { total, payRisk, debtAgeRisk, regularityRisk };
+  }, [client, allOrders, totalSales, totalPaid]);
   // ── بيانات الـ Donut chart ───────────────────────────────────────────────
   const donutData = useMemo(() => [
     { name: "المبيعات الفعلية", value: Math.min(totalSales, TARGET) },
@@ -385,6 +423,82 @@ export default function CommercialClientDetailPage() {
           </Card>
         </div>
       )}
+
+      {/* ─── مؤشر الخطر ─── */}
+      {!isLoading && client && riskScore !== null && (() => {
+        const s = riskScore.total;
+        const isLow    = s <= 30;
+        const isMed    = s > 30 && s <= 65;
+        const isHigh   = s > 65;
+        const color    = isLow ? "#10b981" : isMed ? "#f59e0b" : "#e24b4a";
+        const bgClass  = isLow ? "border-emerald-900/40 bg-emerald-900/10" : isMed ? "border-amber-900/40 bg-amber-900/10" : "border-red-900/40 bg-red-900/10";
+        const label    = isLow ? "آمن" : isMed ? "تحت المراقبة" : "خطر مرتفع";
+        const textCls  = isLow ? "text-emerald-400" : isMed ? "text-amber-400" : "text-red-400";
+
+        const bars = [
+          { label: "نسبة السداد",      max: 40, val: riskScore.payRisk,         icon: "ti-coin" },
+          { label: "عمر الديون",       max: 35, val: riskScore.debtAgeRisk,     icon: "ti-calendar-x" },
+          { label: "انتظام الشراء",   max: 25, val: riskScore.regularityRisk,  icon: "ti-repeat" },
+        ];
+
+        return (
+          <Card className={`border p-4 ${bgClass}`}>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-xs font-bold flex items-center gap-2">
+                <i className="ti ti-shield-half" style={{ fontSize: 15, color }} aria-hidden="true" />
+                مؤشر الخطر
+              </p>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                isLow ? "border-emerald-700 bg-emerald-900/30 text-emerald-400"
+                : isMed ? "border-amber-700 bg-amber-900/30 text-amber-400"
+                : "border-red-700 bg-red-900/30 text-red-400"
+              }`}>{label}</span>
+            </div>
+
+            <div className="flex items-center gap-5">
+              {/* الـ Score الكبير */}
+              <div className="shrink-0 text-center w-20">
+                <p className={`text-4xl font-black leading-none ${textCls}`}>{s}</p>
+                <p className="text-[9px] text-muted-foreground mt-1">من 100</p>
+                {/* شريط نصف دائري بسيط */}
+                <div className="mt-2 w-full bg-muted/30 rounded-full h-2 overflow-hidden">
+                  <div className="h-2 rounded-full transition-all" style={{ width: `${s}%`, background: color }} />
+                </div>
+              </div>
+
+              {/* تفاصيل العوامل */}
+              <div className="flex-1 space-y-2.5">
+                {bars.map(b => {
+                  const pct = b.max > 0 ? Math.round((b.val / b.max) * 100) : 0;
+                  const barColor = pct >= 70 ? "#e24b4a" : pct >= 40 ? "#f59e0b" : "#10b981";
+                  return (
+                    <div key={b.label}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                          <i className={`ti ${b.icon}`} style={{ fontSize: 11 }} aria-hidden="true" />
+                          {b.label}
+                        </span>
+                        <span className="text-[10px] font-bold" style={{ color: barColor }}>
+                          {b.val}/{b.max}
+                        </span>
+                      </div>
+                      <div className="w-full bg-muted/30 rounded-full h-1.5 overflow-hidden">
+                        <div className="h-1.5 rounded-full transition-all" style={{ width: `${pct}%`, background: barColor }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <p className="text-[9px] text-muted-foreground mt-3 border-t border-border/50 pt-2">
+              {isLow  && "العميل ملتزم بالسداد ونشيط في الشراء — لا توجد مخاطر حالياً."}
+              {isMed  && "يوجد بعض التأخر في السداد أو انتظام الشراء — يُنصح بالمتابعة."}
+              {isHigh && "تحذير: ديون متأخرة أو توقف في الشراء — يستلزم تدخلاً فورياً."}
+            </p>
+          </Card>
+        );
+      })()}
 
       {/* ─── فواتير البيع — زي Manifests Timeline ─── */}
       <div>
