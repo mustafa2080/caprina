@@ -2950,6 +2950,7 @@ export default function ShippingManifestPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { canViewFinancials, isAdmin } = useAuth();
+  const { brand } = useBrand();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showCloseDialog, setShowCloseDialog] = useState(false);
   const [showReopenDialog, setShowReopenDialog] = useState(false);
