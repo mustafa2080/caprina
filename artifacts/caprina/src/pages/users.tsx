@@ -417,12 +417,14 @@ interface UserForm {
   role: string;
   permissions: string[];
   avatar: string;
+  jobTitle: string;
+  department: string;
 }
 
 const emptyForm = (): UserForm => ({
   username: "", password: "", displayName: "",
   role: "employee", permissions: DEFAULT_PERMISSIONS["employee"]?.() ?? [],
-  avatar: "",
+  avatar: "", jobTitle: "", department: "",
 });
 
 export default function UsersPage() {
@@ -528,6 +530,8 @@ export default function UsersPage() {
       role: u.role,
       permissions: expandPermissions(rawPerms, u.role),
       avatar: (u as any).avatar ?? "",
+      jobTitle: (u as any).jobTitle ?? "",
+      department: (u as any).department ?? "",
     });
     setShowPassword(false);
     // استخرج الـ customRoleName من الـ permissions markers
@@ -631,6 +635,8 @@ export default function UsersPage() {
         role: form.role,
         permissions: permsWithMarker,
         avatar: form.avatar || null,
+        jobTitle: form.jobTitle || null,
+        department: form.department || null,
       };
       if (form.password) data.password = form.password;
       updateMutation.mutate({ id: editingUser.id, data });
@@ -644,7 +650,9 @@ export default function UsersPage() {
         role: form.role,
         permissions: permsWithMarker,
         avatar: form.avatar || undefined,
-      });
+        jobTitle: form.jobTitle || undefined,
+        department: form.department || undefined,
+      } as any);
     }
   };
 
@@ -1044,6 +1052,28 @@ export default function UsersPage() {
                     <div>
                       <p className="text-xs font-semibold text-white/80">صورة الملف الشخصي</p>
                       <p className="text-[10px] text-muted-foreground mt-0.5">اضغط على الأيقونة في الأعلى لتغيير الصورة — PNG أو JPG بحد أقصى 2MB</p>
+                    </div>
+                  </div>
+
+                  {/* Job Title + Department */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-[11px] text-muted-foreground font-semibold">المسمى الوظيفي</Label>
+                      <Input
+                        className="h-10 text-sm bg-white/[0.04] border-white/[0.08] focus:border-primary/50 rounded-xl"
+                        value={form.jobTitle}
+                        onChange={e => setForm(f => ({ ...f, jobTitle: e.target.value }))}
+                        placeholder="مسؤول مبيعات"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[11px] text-muted-foreground font-semibold">القسم</Label>
+                      <Input
+                        className="h-10 text-sm bg-white/[0.04] border-white/[0.08] focus:border-primary/50 rounded-xl"
+                        value={form.department}
+                        onChange={e => setForm(f => ({ ...f, department: e.target.value }))}
+                        placeholder="المبيعات"
+                      />
                     </div>
                   </div>
                 </div>

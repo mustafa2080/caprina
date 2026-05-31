@@ -30,6 +30,8 @@ function parsePermissions(permissions: any): string[] {
 // GET /users
 router.get("/", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req);
+  const currentUser = (req as any).user;
+  const isSuperAdmin = currentUser?.role === "super_admin";
 
   const query = db.select({
     id: usersTable.id,
@@ -41,10 +43,10 @@ router.get("/", async (req, res): Promise<void> => {
     avatar: usersTable.avatar,
     createdAt: usersTable.createdAt,
     updatedAt: usersTable.updatedAt,
-  }).from(usersTable);
-
-  const currentUser = (req as any).user;
-  const isSuperAdmin = currentUser?.role === "super_admin";
+    jobTitle: employeeProfilesTable.jobTitle,
+    department: employeeProfilesTable.department,
+  }).from(usersTable)
+    .leftJoin(employeeProfilesTable, eq(employeeProfilesTable.userId, usersTable.id));
 
   // super_admin → يجيب كل المستخدمين بدون فلتر
   // admin عنده tenantId → يجيب users بنفس tenantId فقط
@@ -116,9 +118,10 @@ router.post("/", async (req, res): Promise<void> => {
 // PATCH /users/:id
 router.patch("/:id", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
-  const { displayName, role, permissions, isActive, password, avatar } = req.body as {
+  const { displayName, role, permissions, isActive, password, avatar, jobTitle, department } = req.body as {
     displayName?: string; role?: string; permissions?: string[];
     isActive?: boolean; password?: string; avatar?: string | null;
+    jobTitle?: string | null; department?: string | null;
   };
 
   const [existing] = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
@@ -161,6 +164,8 @@ router.patch("/:id", async (req, res): Promise<void> => {
   const profileUpdates: Record<string, any> = {};
   if (displayName !== undefined) profileUpdates.displayName = displayName.trim();
   if (avatar !== undefined) profileUpdates.avatar = avatar ?? null;
+  if (jobTitle !== undefined) profileUpdates.jobTitle = jobTitle ?? null;
+  if (department !== undefined) profileUpdates.department = department ?? null;
   if (Object.keys(profileUpdates).length > 0) {
     await db.update(employeeProfilesTable)
       .set(profileUpdates)

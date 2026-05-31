@@ -1161,8 +1161,9 @@ function AddMemberWizard({ open, onClose, onSuccess, availableUsers, existingPro
     setDisplayName(user?.displayName ?? "");
     setJobRole(user?.role ?? "employee");
     const existingProfile = user ? existingProfiles.find(p => p.userId === user.id) ?? null : null;
-    setJobTitle(existingProfile?.jobTitle ?? "");
-    setDepartment(existingProfile?.department ?? "");
+    // نأخذ jobTitle/department من الـ profile أو من بيانات المستخدم مباشرة (بعد الـ API join)
+    setJobTitle(existingProfile?.jobTitle ?? (user as any)?.jobTitle ?? "");
+    setDepartment(existingProfile?.department ?? (user as any)?.department ?? "");
     setMonthlySalary(existingProfile?.monthlySalary?.toString() ?? "0");
     setHireDate(existingProfile?.hireDate ?? new Date().toISOString().slice(0, 10));
   };
