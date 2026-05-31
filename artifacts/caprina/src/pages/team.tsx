@@ -1689,7 +1689,8 @@ function EmployeeDetail({
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function TeamPage() {
-  const { isAdmin, can } = useAuth();
+  const { isAdmin, can, user } = useAuth();
+  const isSuperAdmin = user?.role === "super_admin";
   // ── Team permission shortcuts ──────────────────────────────────────────────
   const canManage     = isAdmin || can("team.manage");
   const canSalaries   = isAdmin || can("team.salaries");
@@ -1714,6 +1715,8 @@ export default function TeamPage() {
   const [addProfileOpen, setAddProfileOpen] = useState(false);
   const [addingUser, setAddingUser] = useState<AppUser | null>(null);
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const { data: appSettings } = useQuery({
     queryKey: ["app-settings"],
@@ -1736,6 +1739,23 @@ export default function TeamPage() {
 
   const profiledUserIds = new Set(profiles.map(p => p.userId).filter(Boolean));
   const unprofiledUsers = allUsers.filter(u => !profiledUserIds.has(u.id) && u.isActive);
+
+  const profileToDelete = profiles.find(p => p.id === deleteConfirmId);
+
+  const handleDeleteProfile = async () => {
+    if (!deleteConfirmId) return;
+    setDeleting(true);
+    try {
+      await employeeApi.deleteProfile(deleteConfirmId);
+      qc.invalidateQueries({ queryKey: ["employee-profiles"] });
+      toast({ title: "تم حذف العضو بنجاح" });
+      setDeleteConfirmId(null);
+    } catch (e: any) {
+      toast({ title: "خطأ", description: e.message, variant: "destructive" });
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const selectedProfile = profiles.find(p => p.id === selectedProfileId);
 
@@ -1860,15 +1880,26 @@ export default function TeamPage() {
                     </div>
                   </div>
 
-                  {/* Badge الدور */}
-                  <span className="shrink-0 text-[9px] font-bold px-2 py-0.5 rounded-full"
-                    style={{
-                      background: isSystemUser ? "rgba(201,162,39,0.15)" : "rgba(245,158,11,0.10)",
-                      color: isSystemUser ? "#c9a227" : "#F59E0B",
-                      border: `1px solid ${isSystemUser ? "rgba(201,162,39,0.30)" : "rgba(245,158,11,0.20)"}`,
-                    }}>
-                    {roleLabel}
-                  </span>
+                  {/* Badge الدور + زرار حذف للسوبر ادمن */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full"
+                      style={{
+                        background: isSystemUser ? "rgba(201,162,39,0.15)" : "rgba(245,158,11,0.10)",
+                        color: isSystemUser ? "#c9a227" : "#F59E0B",
+                        border: `1px solid ${isSystemUser ? "rgba(201,162,39,0.30)" : "rgba(245,158,11,0.20)"}`,
+                      }}>
+                      {roleLabel}
+                    </span>
+                    {isSuperAdmin && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(profile.id); }}
+                        className="w-6 h-6 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        title="حذف العضو"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* ── الإحصائيات ── */}
@@ -1995,6 +2026,36 @@ export default function TeamPage() {
                 className="text-xs h-7"
               >
                 إضافة للفريق
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* ── Delete Confirm Dialog — super_admin فقط ── */}
+      {deleteConfirmId !== null && (
+        <Dialog open onOpenChange={() => setDeleteConfirmId(null)}>
+          <DialogContent className="max-w-sm" dir="rtl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-destructive">
+                <Trash2 className="w-4 h-4" />
+                حذف العضو
+              </DialogTitle>
+            </DialogHeader>
+            <div className="py-2 space-y-2">
+              <p className="text-sm">
+                هل أنت متأكد من حذف{" "}
+                <strong>{profileToDelete?.displayName ?? "هذا العضو"}</strong>؟
+              </p>
+              <p className="text-xs text-muted-foreground">
+                سيتم حذف الملف الشخصي ومؤشرات الأداء وسجل الحضور. هذا الإجراء لا يمكن التراجع عنه.
+              </p>
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" size="sm" onClick={() => setDeleteConfirmId(null)} className="text-xs">إلغاء</Button>
+              <Button variant="destructive" size="sm" onClick={handleDeleteProfile} disabled={deleting} className="text-xs gap-1">
+                {deleting ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                {deleting ? "جارٍ الحذف..." : "حذف نهائي"}
               </Button>
             </DialogFooter>
           </DialogContent>
