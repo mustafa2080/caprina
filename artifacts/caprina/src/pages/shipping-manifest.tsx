@@ -3280,8 +3280,8 @@ export default function ShippingManifestPage() {
     .mp-company-sub  { font-size:7pt; color:#94a3b8; letter-spacing:2px; margin-top:0.5mm; text-align:left; }
     .mp-logo { width:16mm; height:16mm; border-radius:50%; object-fit:cover; border:2px solid #e2e8f0; }
     /* ── Stats ── */
-    .mp-stats { display:grid; grid-template-columns:repeat(6,1fr); border:1.5px solid #e2e8f0; border-radius:2mm; overflow:hidden; margin-bottom:3mm; }
-    .mp-stat { padding:2mm; text-align:center; border-left:1px solid #e2e8f0; background:#f8fafc; }
+    .mp-stats { display:grid; grid-template-columns:repeat(6,1fr); border:2.5px solid #1e3a5f; border-radius:2mm; overflow:hidden; margin-bottom:3mm; }
+    .mp-stat { padding:2mm; text-align:center; border-left:2px solid #94a3b8; background:#f8fafc; }
     .mp-stat:last-child { border-left:none; }
     .mp-stat-delivered { background:#f0fdf4; } .mp-stat-returned { background:#fff1f2; }
     .mp-stat-postponed { background:#fffbeb; } .mp-stat-partial   { background:#f0fdfa; }
@@ -3307,8 +3307,8 @@ export default function ShippingManifestPage() {
     .st-n { color:#64748b; background:#f1f5f9; padding:0.5mm 2.5mm; border-radius:1mm; font-size:8.5pt; white-space:nowrap; }
     /* ── Totals ── */
     .mp-totals { display:grid; grid-template-columns:repeat(3,1fr); gap:3mm; margin-bottom:4mm; }
-    .mp-total-card { border:1.5px solid #e2e8f0; border-radius:2mm; padding:3mm 4mm; text-align:center; background:#f8fafc; }
-    .mp-total-highlight { background:#f0fdf4; border-color:#86efac; }
+    .mp-total-card { border:2.5px solid #94a3b8; border-radius:2mm; padding:3mm 4mm; text-align:center; background:#f8fafc; }
+    .mp-total-highlight { background:#f0fdf4; border-color:#15803d; }
     .mp-total-lbl { font-size:8pt; color:#64748b; margin-bottom:1mm; font-weight:700; }
     .mp-total-val { font-size:13pt; font-weight:900; color:#111; }
     .mp-total-orange { color:#d97706; } .mp-total-green { color:#15803d; } .mp-total-blue { color:#1d4ed8; }
@@ -4225,8 +4225,8 @@ export default function ShippingManifestPage() {
     .mp-company-name { font-size:16pt; font-weight:900; color:#1e3a5f; letter-spacing:1px; }
     .mp-company-sub { font-size:7pt; color:#94a3b8; letter-spacing:2px; margin-top:0.5mm; }
     .mp-logo { width:16mm; height:16mm; border-radius:50%; object-fit:cover; border:2px solid #e2e8f0; }
-    .mp-stats { display:grid; grid-template-columns:repeat(6,1fr); border:1.5px solid #e2e8f0; border-radius:2mm; overflow:hidden; margin-bottom:4mm; }
-    .mp-stat { padding:2.5mm 2mm; text-align:center; border-left:1px solid #e2e8f0; background:#f8fafc; }
+    .mp-stats { display:grid; grid-template-columns:repeat(6,1fr); border:2.5px solid #1e3a5f; border-radius:2mm; overflow:hidden; margin-bottom:4mm; }
+    .mp-stat { padding:2.5mm 2mm; text-align:center; border-left:2px solid #94a3b8; background:#f8fafc; }
     .mp-stat:last-child { border-left:none; }
     .mp-stat-delivered { background:#f0fdf4; } .mp-stat-returned { background:#fff1f2; }
     .mp-stat-postponed { background:#fffbeb; } .mp-stat-partial { background:#f0fdfa; }
@@ -4248,8 +4248,8 @@ export default function ShippingManifestPage() {
     .st-x { color:#0f766e; font-weight:800; background:#ccfbf1; padding:0.5mm 2.5mm; border-radius:1mm; font-size:8.5pt; white-space:nowrap; }
     .st-n { color:#64748b; background:#f1f5f9; padding:0.5mm 2.5mm; border-radius:1mm; font-size:8.5pt; white-space:nowrap; }
     .mp-totals { display:grid; grid-template-columns:repeat(3,1fr); gap:3mm; margin-bottom:4mm; }
-    .mp-total-card { border:1.5px solid #e2e8f0; border-radius:2mm; padding:3mm 4mm; text-align:center; background:#f8fafc; }
-    .mp-total-highlight { background:#f0fdf4; border-color:#86efac; }
+    .mp-total-card { border:2.5px solid #94a3b8; border-radius:2mm; padding:3mm 4mm; text-align:center; background:#f8fafc; }
+    .mp-total-highlight { background:#f0fdf4; border-color:#15803d; }
     .mp-total-lbl { font-size:8pt; color:#64748b; margin-bottom:1mm; font-weight:700; }
     .mp-total-val { font-size:13pt; font-weight:900; color:#111; }
     .mp-total-orange { color:#d97706; } .mp-total-green { color:#15803d; } .mp-total-blue { color:#1d4ed8; }
