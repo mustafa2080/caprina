@@ -415,47 +415,47 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
 
           {/* Employee Info */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
-            <div style={{ background: "#f8f8f8", borderRadius: 8, padding: 12 }}>
-              <h3 style={{ fontSize: 10, color: "#888", textTransform: "uppercase", marginBottom: 8 }}>بيانات الموظف</h3>
+            <div className="bg-muted/20 border border-border/50 rounded-lg p-3">
+              <h3 className="text-[10px] text-muted-foreground uppercase mb-2 font-semibold">بيانات الموظف</h3>
               {[
                 ["الاسم", report.displayName],
                 ["المسمى الوظيفي", report.profile?.jobTitle || "—"],
                 ["القسم", report.profile?.department || "—"],
                 ["تاريخ التعيين", report.profile?.hireDate ? new Date(report.profile.hireDate).toLocaleDateString("ar-EG") : "—"],
               ].map(([label, value]) => (
-                <div key={label} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
-                  <span style={{ color: "#666" }}>{label}</span>
-                  <span style={{ fontWeight: 600 }}>{value}</span>
+                <div key={label} className="flex justify-between text-xs mb-1">
+                  <span className="text-muted-foreground">{label}</span>
+                  <span className="font-semibold">{value}</span>
                 </div>
               ))}
             </div>
-            <div style={{ background: "#f8f8f8", borderRadius: 8, padding: 12 }}>
-              <h3 style={{ fontSize: 10, color: "#888", textTransform: "uppercase", marginBottom: 8 }}>فترة التقرير</h3>
+            <div className="bg-muted/20 border border-border/50 rounded-lg p-3">
+              <h3 className="text-[10px] text-muted-foreground uppercase mb-2 font-semibold">فترة التقرير</h3>
               {[
                 ["الشهر", periodLabel],
                 ["من", new Date(report.period.from).toLocaleDateString("ar-EG")],
                 ["إلى", new Date(report.period.to).toLocaleDateString("ar-EG")],
                 ["إجمالي الطلبيات", fmtNum(report.orderStats.total)],
               ].map(([label, value]) => (
-                <div key={label} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
-                  <span style={{ color: "#666" }}>{label}</span>
-                  <span style={{ fontWeight: 600 }}>{value}</span>
+                <div key={label} className="flex justify-between text-xs mb-1">
+                  <span className="text-muted-foreground">{label}</span>
+                  <span className="font-semibold">{value}</span>
                 </div>
               ))}
             </div>
           </div>
 
           {/* Order Stats */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 20 }}>
+          <div className="grid grid-cols-4 gap-2 mb-5">
             {[
-              { label: "إجمالي الطلبيات", value: fmtNum(report.orderStats.total), color: "#1a1a1a" },
-              { label: "مُسلَّم", value: fmtNum(report.orderStats.delivered), color: "#16a34a" },
-              { label: "مُرتجَع", value: fmtNum(report.orderStats.returned), color: "#dc2626" },
-              { label: "نسبة التسليم", value: `${report.orderStats.deliveryRate}%`, color: "#c9a227" },
+              { label: "إجمالي الطلبيات", value: fmtNum(report.orderStats.total), colorCls: "text-foreground", bgCls: "bg-muted/20 border-border/50" },
+              { label: "مُسلَّم", value: fmtNum(report.orderStats.delivered), colorCls: "text-emerald-500", bgCls: "bg-emerald-500/10 border-emerald-500/20" },
+              { label: "مُرتجَع", value: fmtNum(report.orderStats.returned), colorCls: "text-red-500", bgCls: "bg-red-500/10 border-red-500/20" },
+              { label: "نسبة التسليم", value: `${report.orderStats.deliveryRate}%`, colorCls: "text-[#c9a227]", bgCls: "bg-[#c9a227]/10 border-[#c9a227]/20" },
             ].map(s => (
-              <div key={s.label} style={{ background: "#f8f8f8", borderRadius: 8, padding: 10, textAlign: "center" }}>
-                <div style={{ fontSize: 20, fontWeight: 800, color: s.color }}>{s.value}</div>
-                <div style={{ fontSize: 10, color: "#888" }}>{s.label}</div>
+              <div key={s.label} className={`border rounded-xl p-2.5 text-center ${s.bgCls}`}>
+                <div className={`text-xl font-black ${s.colorCls}`}>{s.value}</div>
+                <div className="text-[10px] text-muted-foreground mt-0.5">{s.label}</div>
               </div>
             ))}
           </div>
@@ -522,54 +522,54 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
               <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, borderRight: "3px solid #c9a227", paddingRight: 8 }}>الحضور والمرتب التفصيلي</h3>
 
               {/* Attendance stats - responsive 3 cols on small, 5 on large */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, marginBottom: 12 }}>
+              <div className="grid grid-cols-3 gap-1.5 mb-3">
                 {[
-                  { label: "أيام الحضور",  val: salaryReport.workedDays,        color: "#16a34a", bg: "#f0fdf4" },
-                  { label: "أيام الغياب",  val: salaryReport.absentDays,        color: "#dc2626", bg: "#fef2f2" },
-                  { label: "أيام التأخير", val: salaryReport.lateDays,          color: "#d97706", bg: "#fffbeb" },
-                  { label: "نصف يوم",      val: salaryReport.halfDays,          color: "#2563eb", bg: "#eff6ff" },
-                  { label: "إجمالي الأيام", val: salaryReport.totalWorkingDays, color: "#555",    bg: "#f8f8f8" },
-                  { label: "أيام العمل الفعلية", val: salaryReport.workedDays + salaryReport.halfDays * 0.5, color: "#c9a227", bg: "#fef9e7" },
+                  { label: "أيام الحضور",  val: salaryReport.workedDays,        colorCls: "text-emerald-500", bgCls: "bg-emerald-500/10 border-emerald-500/20" },
+                  { label: "أيام الغياب",  val: salaryReport.absentDays,        colorCls: "text-red-500",     bgCls: "bg-red-500/10 border-red-500/20" },
+                  { label: "أيام التأخير", val: salaryReport.lateDays,          colorCls: "text-amber-500",   bgCls: "bg-amber-500/10 border-amber-500/20" },
+                  { label: "نصف يوم",      val: salaryReport.halfDays,          colorCls: "text-blue-500",    bgCls: "bg-blue-500/10 border-blue-500/20" },
+                  { label: "إجمالي الأيام", val: salaryReport.totalWorkingDays, colorCls: "text-muted-foreground", bgCls: "bg-muted/20 border-border/50" },
+                  { label: "أيام العمل الفعلية", val: salaryReport.workedDays + salaryReport.halfDays * 0.5, colorCls: "text-[#c9a227]", bgCls: "bg-[#c9a227]/10 border-[#c9a227]/20" },
                 ].map(s => (
-                  <div key={s.label} style={{ background: s.bg, border: `1px solid ${s.color}22`, borderRadius: 8, padding: "10px 8px", textAlign: "center" }}>
-                    <div style={{ fontSize: 22, fontWeight: 900, color: s.color, lineHeight: 1 }}>{s.val}</div>
-                    <div style={{ fontSize: 10, color: "#666", marginTop: 4, fontWeight: 500 }}>{s.label}</div>
+                  <div key={s.label} className={`border rounded-xl p-2.5 text-center ${s.bgCls}`}>
+                    <div className={`text-2xl font-black leading-none ${s.colorCls}`}>{s.val}</div>
+                    <div className="text-[9px] text-muted-foreground mt-1 font-medium">{s.label}</div>
                   </div>
                 ))}
               </div>
 
               {/* Salary breakdown */}
-              <div style={{ border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden", marginBottom: 10 }}>
-                <div style={{ background: "#c9a227", padding: "8px 12px", display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ color: "white", fontWeight: 700, fontSize: 12 }}>البند</span>
-                  <span style={{ color: "white", fontWeight: 700, fontSize: 12 }}>المبلغ</span>
+              <div className="border border-border/50 rounded-xl overflow-hidden mb-2.5">
+                <div className="bg-[#c9a227] px-3 py-2 flex justify-between">
+                  <span className="text-white font-bold text-xs">البند</span>
+                  <span className="text-white font-bold text-xs">المبلغ</span>
                 </div>
                 {[
-                  { label: "الراتب الأساسي",        val: salaryReport.baseSalary,            color: "#1a1a1a", sign: "",  bg: "white"   },
-                  { label: "خصم الغياب / نصف اليوم", val: salaryReport.attendanceDeduction,   color: salaryReport.attendanceDeduction > 0 ? "#dc2626" : "#aaa", sign: salaryReport.attendanceDeduction > 0 ? "−" : "", bg: salaryReport.attendanceDeduction > 0 ? "#fff5f5" : "white" },
-                  { label: "بونص إضافي",             val: salaryReport.bonuses,               color: salaryReport.bonuses > 0 ? "#16a34a" : "#aaa", sign: salaryReport.bonuses > 0 ? "+" : "", bg: salaryReport.bonuses > 0 ? "#f0fdf4" : "white" },
-                  { label: "خصومات إضافية",          val: salaryReport.extraDeductions,       color: salaryReport.extraDeductions > 0 ? "#dc2626" : "#aaa", sign: salaryReport.extraDeductions > 0 ? "−" : "", bg: salaryReport.extraDeductions > 0 ? "#fff5f5" : "white" },
-                ].map(({ label, val, color, sign, bg }) => (
-                  <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 12px", background: bg, borderBottom: "1px solid #f0f0f0" }}>
-                    <span style={{ fontSize: 12, color: "#444" }}>{label}</span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color }}>{sign}{fmt(Math.abs(val))}</span>
+                  { label: "الراتب الأساسي",        val: salaryReport.baseSalary,          colorCls: "text-foreground",  sign: "",  bgCls: "bg-muted/10" },
+                  { label: "خصم الغياب / نصف اليوم", val: salaryReport.attendanceDeduction, colorCls: salaryReport.attendanceDeduction > 0 ? "text-red-500" : "text-muted-foreground", sign: salaryReport.attendanceDeduction > 0 ? "−" : "", bgCls: salaryReport.attendanceDeduction > 0 ? "bg-red-500/5" : "bg-muted/10" },
+                  { label: "بونص إضافي",             val: salaryReport.bonuses,             colorCls: salaryReport.bonuses > 0 ? "text-emerald-500" : "text-muted-foreground", sign: salaryReport.bonuses > 0 ? "+" : "", bgCls: salaryReport.bonuses > 0 ? "bg-emerald-500/5" : "bg-muted/10" },
+                  { label: "خصومات إضافية",          val: salaryReport.extraDeductions,     colorCls: salaryReport.extraDeductions > 0 ? "text-red-500" : "text-muted-foreground", sign: salaryReport.extraDeductions > 0 ? "−" : "", bgCls: salaryReport.extraDeductions > 0 ? "bg-red-500/5" : "bg-muted/10" },
+                ].map(({ label, val, colorCls, sign, bgCls }) => (
+                  <div key={label} className={`flex justify-between items-center px-3 py-2 border-b border-border/30 ${bgCls}`}>
+                    <span className="text-xs text-muted-foreground">{label}</span>
+                    <span className={`text-sm font-bold ${colorCls}`}>{sign}{fmt(Math.abs(val))}</span>
                   </div>
                 ))}
                 {/* Net salary row */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "11px 12px", background: salaryReport.netSalary >= salaryReport.baseSalary ? "#f0fdf4" : "#fffbeb", borderTop: "2px solid #c9a227" }}>
-                  <span style={{ fontSize: 13, fontWeight: 800, color: "#1a1a1a" }}>💰 صافي المرتب</span>
-                  <span style={{ fontSize: 20, fontWeight: 900, color: salaryReport.netSalary >= salaryReport.baseSalary ? "#16a34a" : "#d97706" }}>{fmt(salaryReport.netSalary)}</span>
+                <div className={`flex justify-between items-center px-3 py-2.5 border-t-2 border-[#c9a227] ${salaryReport.netSalary >= salaryReport.baseSalary ? "bg-emerald-500/8" : "bg-amber-500/8"}`}>
+                  <span className="text-sm font-black">💰 صافي المرتب</span>
+                  <span className={`text-xl font-black ${salaryReport.netSalary >= salaryReport.baseSalary ? "text-emerald-500" : "text-amber-500"}`}>{fmt(salaryReport.netSalary)}</span>
                 </div>
               </div>
 
               {/* Adjustments list */}
               {salaryReport.adjustments.length > 0 && (
                 <div>
-                  <p style={{ fontSize: 11, color: "#888", marginBottom: 6, fontWeight: 600 }}>تفاصيل البونص والخصومات:</p>
+                  <p className="text-[11px] text-muted-foreground mb-1.5 font-semibold">تفاصيل البونص والخصومات:</p>
                   {salaryReport.adjustments.map(adj => (
-                    <div key={adj.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, padding: "7px 10px", background: adj.type === "bonus" ? "#f0fdf4" : "#fef2f2", border: `1px solid ${adj.type === "bonus" ? "#bbf7d0" : "#fecaca"}`, borderRadius: 6, marginBottom: 4 }}>
-                      <span style={{ color: "#444" }}>{adj.reason}</span>
-                      <span style={{ fontWeight: 800, fontSize: 13, color: adj.type === "bonus" ? "#16a34a" : "#dc2626" }}>
+                    <div key={adj.id} className={`flex justify-between items-center text-xs px-2.5 py-1.5 rounded-lg border mb-1 ${adj.type === "bonus" ? "bg-emerald-500/8 border-emerald-500/20" : "bg-red-500/8 border-red-500/20"}`}>
+                      <span className="text-muted-foreground">{adj.reason}</span>
+                      <span className={`font-bold text-sm ${adj.type === "bonus" ? "text-emerald-500" : "text-red-500"}`}>
                         {adj.type === "bonus" ? "+" : "−"}{fmt(adj.amount)}
                       </span>
                     </div>
@@ -581,11 +581,11 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
 
           {/* Salary fallback (if no salaryReport) */}
           {!salaryReport && (
-            <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: 12, marginBottom: 20 }}>
-              <h3 style={{ fontSize: 11, color: "#888", marginBottom: 8 }}>الراتب الشهري</h3>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ fontSize: 12 }}>الراتب المستحق عن شهر {periodLabel}</span>
-                <span style={{ fontSize: 20, fontWeight: 900, color: "#16a34a" }}>{fmt(report.salary)}</span>
+            <div className="border border-emerald-500/20 bg-emerald-500/8 rounded-xl p-3 mb-5">
+              <h3 className="text-[11px] text-muted-foreground mb-2">الراتب الشهري</h3>
+              <div className="flex justify-between items-center">
+                <span className="text-xs">الراتب المستحق عن شهر {periodLabel}</span>
+                <span className="text-xl font-black text-emerald-500">{fmt(report.salary)}</span>
               </div>
             </div>
           )}
