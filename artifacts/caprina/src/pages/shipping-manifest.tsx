@@ -3544,7 +3544,7 @@ export default function ShippingManifestPage() {
       )}
 
       {/* ─── KPI Cards ─── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <Card className="border-border bg-card p-4">
           <p className="text-xs text-muted-foreground mb-1">إجمالي الطلبيات</p>
           <p className="text-2xl font-black">{s.total}</p>
@@ -3571,6 +3571,12 @@ export default function ShippingManifestPage() {
           <p className="text-xs text-red-600 mt-0.5 font-bold">
             {s.total > 0 ? Math.round((s.returned / s.total) * 100) : 0}% نسبة الإرجاع
           </p>
+        </Card>
+        <Card className="border-teal-900/50 bg-teal-900/10 p-4">
+          <p className="text-xs text-teal-400 mb-1 flex items-center gap-1">
+            <CheckCircle2 className="w-3 h-3" />استلم جزئي
+          </p>
+          <p className="text-2xl font-black text-teal-400">{s.partial}</p>
           {(() => {
             const partialReturnedQty = manifest.orders
               .filter(o => o.deliveryStatus === "partial_received")
@@ -3580,7 +3586,7 @@ export default function ShippingManifestPage() {
                 return sum + (remaining > 0 ? remaining : 0);
               }, 0);
             return partialReturnedQty > 0 ? (
-              <p className="text-[10px] text-red-400 mt-1 font-semibold border-t border-red-900/50 pt-1">
+              <p className="text-[10px] text-red-400 mt-0.5 font-semibold">
                 ↩ مرتجع جزئي: {partialReturnedQty} قطعة
               </p>
             ) : null;
