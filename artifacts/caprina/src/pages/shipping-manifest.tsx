@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import { useParams, Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -2159,343 +2159,311 @@ function ExportDialog({
   const totalCollected = deliveredGross + partialGross;
   const netDue = totalCollected - effectiveShipping;
 
-  // ── Excel Export — XLSX library with cell-level styling ─────────────────────
-  const exportExcel = () => {
+  // ── Excel Export — styled workbook with RTL layout ────────────────────────
+  const exportExcel = async () => {
+    const ExcelJS = await import("exceljs");
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = "CAPRINA";
+    workbook.created = new Date();
+    workbook.modified = new Date();
 
-    const brandName    = brand.name || "CAPRINA";
+    const brandName = brand.name || "CAPRINA";
     const brandTagline = brand.tagline || "";
     const manifestDate = format(new Date(manifest.createdAt), "yyyy/MM/dd");
-    const printDate    = format(new Date(), "yyyy/MM/dd HH:mm");
-    const postponedCnt = manifest.orders.filter(o => o.deliveryStatus === "postponed").length;
-    const partialCnt   = manifest.orders.filter(o => o.deliveryStatus === "partial_received").length;
-    const pendingCnt   = manifest.orders.filter(o => o.deliveryStatus === "pending").length;
+    const printDate = format(new Date(), "yyyy/MM/dd HH:mm");
+    const postponedCnt = manifest.orders.filter((o) => o.deliveryStatus === "postponed").length;
+    const partialCnt = manifest.orders.filter((o) => o.deliveryStatus === "partial_received").length;
+    const pendingCnt = manifest.orders.filter((o) => o.deliveryStatus === "pending").length;
+    const groupedOrders = groupManifestOrders(manifest.orders);
     const fmtMoney = (n: number) => `${n.toLocaleString("ar-EG")} ج.م`;
 
-    // ── Color palette ──────────────────────────────────────────────────────────
     const C = {
-      darkBg:   "0F172A", navyBg:  "1E293B", gold:    "F59E0B",
-      white:    "FFFFFF", offWhite:"F8FAFC", slate:   "475569",
-      green:    "15803D", greenBg: "DCFCE7", red:     "DC2626",
-      redBg:    "FEE2E2", amber:   "D97706", amberBg: "FEF3C7",
-      teal:     "0F766E", tealBg:  "CCFBF1", gray:    "64748B",
-      grayBg:   "F1F5F9", darkText:"1E293B",
+      bg: "FF0F172A",
+      panel: "FF1E293B",
+      gold: "FFF59E0B",
+      white: "FFFFFFFF",
+      offWhite: "FFF8FAFC",
+      slate: "FF64748B",
+      darkText: "FF0F172A",
+      green: "FF15803D",
+      greenBg: "FFD1FAE5",
+      red: "FFDC2626",
+      redBg: "FFFEE2E2",
+      amber: "FFD97706",
+      amberBg: "FFFEF3C7",
+      teal: "FF0F766E",
+      tealBg: "FFCCFBF1",
+      gray: "FF64748B",
+      grayBg: "FFF1F5F9",
+      blue: "FF1D4ED8",
     };
 
-    // ── Style factories ────────────────────────────────────────────────────────
-    const font = (color: string, sz = 10, bold = false, name = "Cairo") =>
-      ({ name, sz, bold, color: { rgb: color } });
-    const fill = (rgb: string) =>
-      ({ type: "pattern" as const, patternType: "solid" as const, fgColor: { rgb } });
-    const border = (color = "CBD5E1", style: "thin" | "medium" = "thin") => {
-      const s = { style, color: { rgb: color } };
-      return { top: s, bottom: s, left: s, right: s };
-    };
-    const align = (h: "center"|"left"|"right" = "center", wrap = false) =>
-      ({ horizontal: h, vertical: "center" as const, readingOrder: 2, wrapText: wrap });
-
-    // Predefined cell styles
-    const S = {
-      brandTitle: { font: font(C.gold, 18, true), fill: fill(C.darkBg), alignment: align("center", true) },
-      title:      { font: font(C.gold, 12, true), fill: fill(C.darkBg), alignment: align("center") },
-      printInfo:  { font: font(C.slate,  9),      fill: fill(C.navyBg), alignment: align("center") },
-      spacer:     { fill: fill(C.darkBg) },
-      header:     { font: font(C.white, 10, true), fill: fill(C.navyBg), border: border(), alignment: align("center") },
-      white:      { font: font(C.darkText), fill: fill(C.white),    border: border(), alignment: align() },
-      alt:        { font: font(C.darkText), fill: fill(C.offWhite), border: border(), alignment: align() },
-      whiteNum:   { font: font(C.darkText), fill: fill(C.white),    border: border(), alignment: align("center") },
-      altNum:     { font: font(C.darkText), fill: fill(C.offWhite), border: border(), alignment: align("center") },
-      delivered:  { font: font(C.green, 10, true),  fill: fill(C.greenBg), border: border(C.green), alignment: align("center") },
-      returned:   { font: font(C.red,   10, true),  fill: fill(C.redBg),   border: border(C.red),   alignment: align("center") },
-      postponed:  { font: font(C.amber, 10, true),  fill: fill(C.amberBg), border: border(C.amber), alignment: align("center") },
-      partial:    { font: font(C.teal,  10, true),  fill: fill(C.tealBg),  border: border(C.teal),  alignment: align("center") },
-      pending:    { font: font(C.gray,  10, true),  fill: fill(C.grayBg),  border: border(),         alignment: align("center") },
-      totalDark:  { font: font(C.gold, 10, true),   fill: fill(C.darkBg),  border: border(C.gold),  alignment: align() },
-      netGreen:   { font: font(C.white,10, true),   fill: fill(C.green),   border: border(C.green), alignment: align() },
-      shipping:   { font: font(C.white,10, true),   fill: fill("92400E"),  border: border(),         alignment: align() },
-      invoice:    { font: font(C.white,10, true),   fill: fill("1D4ED8"),  border: border(),         alignment: align() },
-      section:    { font: font(C.gold, 10, true),   fill: fill("1E3A5F"),  border: border(),         alignment: align() },
-      label:      { font: font(C.slate,10),          fill: fill(C.offWhite),border: border(),         alignment: align() },
-      moneyGreen: { font: font(C.green,10, true),   fill: fill(C.offWhite),border: border(),         alignment: align() },
-      moneyRed:   { font: font(C.red,  10, true),   fill: fill(C.offWhite),border: border(),         alignment: align() },
-      subHeader:  { font: font(C.white,10, true),   fill: fill("1E3A5F"),  border: border(),         alignment: align() },
-    };
-
-    const statusStyle = (st: string) => ({
-      delivered: S.delivered, returned: S.returned,
-      postponed: S.postponed, partial_received: S.partial, pending: S.pending,
-    }[st] ?? S.pending);
-
-    // ── Cell helper: styled cell ───────────────────────────────────────────────
-    const sc = (v: string | number, style: object): XLSX.CellObject => ({
-      v, t: typeof v === "number" ? "n" : "s",
-      s: style,
-    } as XLSX.CellObject);
-
-    // ── Worksheet builder from 2-D array of CellObject ────────────────────────
-    const makeWS = (
-      rows: (XLSX.CellObject | null)[][],
-      colWidths: number[],
-      merges: XLSX.Range[] = [],
-      tableOpts?: { headerRow: number; totalRows: number; name: string },
-    ): XLSX.WorkSheet => {
-      const ws: XLSX.WorkSheet = {};
-      let maxR = 0, maxC = 0;
-      rows.forEach((row, R) => {
-        row.forEach((cell, C) => {
-          if (!cell) return;
-          const addr = XLSX.utils.encode_cell({ r: R, c: C });
-          ws[addr] = cell;
-          if (C > maxC) maxC = C;
-        });
-        if (R > maxR) maxR = R;
-      });
-      ws["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: maxR, c: maxC } });
-      ws["!cols"] = colWidths.map(w => ({ wch: w }));
-      if (merges.length) ws["!merges"] = merges;
-      // RTL لكل الشيتات
-      ws["!sheetview"] = [{ rightToLeft: true, showGridLines: true }] as any;
-
-      // Add Excel Table for auto-filter + banding
-      if (tableOpts) {
-        const { headerRow, totalRows, name } = tableOpts;
-        const tableRef = XLSX.utils.encode_range({
-          s: { r: headerRow, c: 0 },
-          e: { r: headerRow + totalRows, c: maxC },
-        });
-        const cols = rows[headerRow]
-          .map((cell, i) => ({
-            name: (cell?.v as string) ?? `Col${i + 1}`,
-            filterButton: true,
-          }));
-        ws["!tables"] = ws["!tables"] || [];
-        (ws["!tables"] as any[]).push({ name, ref: tableRef, columns: cols, style: { name: "TableStyleMedium9", showRowStripes: true } });
-      }
-
-      return ws;
-    };
-
-    // ── Merge helper: A1-style range → XLSX.Range ─────────────────────────────
-    const merge = (ref: string): XLSX.Range => XLSX.utils.decode_range(ref);
-
-    // ── Spacer row (empty styled cells) ───────────────────────────────────────
-    const spacerRow = (n: number) => Array.from({ length: n }, () => sc("", S.spacer));
-
-    // ══════════════════════════════════════════════════════════════════
-    // SHEET 1 — الطلبيات
-    // ══════════════════════════════════════════════════════════════════
-    const sheet1Data: (XLSX.CellObject | null)[][] = [];
-    const nCols = 10;
-
-    // Row 0: brand title (merged A1:J1)
-    const brandRow = [sc(`${brandName}${brandTagline ? "  ·  " + brandTagline : ""}`, S.brandTitle),
-      ...Array(nCols - 1).fill(sc("", S.brandTitle))];
-    sheet1Data.push(brandRow);
-
-    // Row 1: manifest title (merged A2:J2)
-    sheet1Data.push([
-      sc(`بيان الشحن — ${manifest.manifestNumber}   |   ${manifest.companyName}   |   ${manifestDate}`, S.title),
-      ...Array(nCols - 1).fill(sc("", S.title)),
-    ]);
-
-    // Row 2: print info (merged A3:J3)
-    sheet1Data.push([
-      sc(`طُبع: ${printDate}   |   إجمالي: ${manifest.orders.length} طلبية   |   نسبة التسليم: ${s.deliveryRate}%`, S.printInfo),
-      ...Array(nCols - 1).fill(sc("", S.printInfo)),
-    ]);
-
-    // Row 3: spacer
-    sheet1Data.push(spacerRow(nCols));
-
-    // ── Group orders by invoiceNumber (or customerName+phone as fallback) ──────
-    const groupedOrders = groupManifestOrders(manifest.orders);
-
-    // Row 4: headers  — ترتيب RTL: # على اليمين
-    sheet1Data.push(["ملاحظة","حالة التسليم","الإجمالي","الكمية الكلية","المنتجات","الهاتف","اسم العميل","رقم الفاتورة","#",""]
-      .map(h => sc(h, S.header)));
-
-    // Rows: one row per customer/invoice group
-    groupedOrders.forEach((group, idx) => {
-      const base  = idx % 2 === 0 ? S.white   : S.alt;
-      const baseN = idx % 2 === 0 ? S.whiteNum : S.altNum;
-      const rep = group[0];
-      const invoiceNum = (rep as any).invoiceNumber?.trim() || `${rep.customerName}-${idx + 1}`;
-      const totalQty   = group.reduce((s, o) => s + o.quantity, 0);
-      const totalPrice = group.reduce((s, o) => s + o.totalPrice, 0);
-
-      // Build products string: "منتج 1 (لون/مقاس) ×ك\nمنتج 2 ×ك"
-      const productsText = group.map(o => {
-        const variant = [o.color, o.size].filter(Boolean).join("/");
-        return variant ? `${o.product} (${variant}) ×${o.quantity}` : `${o.product} ×${o.quantity}`;
-      }).join("\n");
-
-      // Delivery status: if all same → show it, else "متعددة"
-      const statuses = [...new Set(group.map(o => o.deliveryStatus))];
-      const deliveryStatus = statuses.length === 1 ? statuses[0] : "pending";
-      const deliveryLabel  = statuses.length === 1
-        ? (STATUS_LABEL_AR[statuses[0]] ?? statuses[0])
-        : "حالات متعددة";
-
-      // Notes: collect unique non-empty notes
-      const notes = [...new Set(group.map(o => o.deliveryNote).filter(Boolean))].join(" | ");
-
-      const productsCell: XLSX.CellObject = {
-        v: productsText, t: "s",
-        s: { ...base, alignment: { ...align("right", true) } },
-      } as XLSX.CellObject;
-
-      sheet1Data.push([
-        sc(notes,         base),
-        sc(deliveryLabel, statuses.length === 1 ? statusStyle(deliveryStatus) : S.pending),
-        sc(totalPrice,    baseN),
-        sc(totalQty,      baseN),
-        productsCell,
-        sc(rep.phone ?? "—", base),
-        sc(rep.customerName, base),
-        sc(invoiceNum,    base),
-        sc(idx + 1,       baseN),
-        sc("",            base),
-      ]);
+    const makeFill = (argb: string) => ({
+      type: "pattern" as const,
+      pattern: "solid" as const,
+      fgColor: { argb },
     });
+    const makeBorder = (argb = "FFCBD5E1") => {
+      const side = { style: "thin" as const, color: { argb } };
+      return { top: side, bottom: side, left: side, right: side };
+    };
+    const setCell = (cell: any, value: unknown, options?: {
+      fill?: string;
+      font?: Record<string, any>;
+      align?: Record<string, any>;
+      border?: string;
+      numFmt?: string;
+    }) => {
+      cell.value = value as any;
+      if (options?.fill) cell.fill = makeFill(options.fill);
+      if (options?.font) cell.font = { name: "Tahoma", size: 10, ...options.font };
+      if (options?.align) cell.alignment = options.align;
+      if (options?.border) cell.border = makeBorder(options.border);
+      if (options?.numFmt) cell.numFmt = options.numFmt;
+    };
 
-    // Totals row — نفس ترتيب RTL
-    const grandTotal = manifest.orders.reduce((sum, o) => sum + o.totalPrice, 0);
-    sheet1Data.push([
-      sc("", S.totalDark),
-      sc(`${s.deliveryRate}% نسبة تسليم`, S.totalDark),
-      sc(grandTotal,  S.netGreen),
-      ...Array(5).fill(sc("", S.totalDark)),
-      sc("الإجمالي الكلي", S.totalDark),
-      sc("", S.totalDark),
-    ]);
-
-    const ws1 = makeWS(sheet1Data,
-      [28, 13, 13, 10, 36, 14, 22, 14, 5, 5],
-      [merge("A1:J1"), merge("A2:J2"), merge("A3:J3"), merge("A4:J4")],
-      { headerRow: 4, totalRows: groupedOrders.length, name: "OrdersTable" },
-    );
-
-    // ══════════════════════════════════════════════════════════════════
-    // SHEET 2 — ملخص البيان
-    // ══════════════════════════════════════════════════════════════════
-    const sheet2Data: (XLSX.CellObject | null)[][] = [];
-
-    const addSection = (label: string) =>
-      sheet2Data.push([sc(label, S.section), sc("", S.section)]);
-    const addInfo = (label: string, val: string, valStyle = S.white) =>
-      sheet2Data.push([sc(label, S.label), sc(val, valStyle)]);
-    const addMoney = (label: string, val: number, style: object) =>
-      sheet2Data.push([sc(label, style), sc(fmtMoney(val), style)]);
-    const addSpacer2 = () =>
-      sheet2Data.push([sc("", S.spacer), sc("", S.spacer)]);
-
-    sheet2Data.push([sc(`${brandName}${brandTagline ? "  ·  " + brandTagline : ""}`, S.brandTitle), sc("", S.brandTitle)]);
-    sheet2Data.push([sc(`ملخص بيان الشحن — ${manifest.manifestNumber}`, S.title), sc("", S.title)]);
-    addSpacer2();
-
-    addSection("معلومات البيان");
-    addInfo("رقم البيان",     manifest.manifestNumber, S.subHeader);
-    addInfo("شركة الشحن",    manifest.companyName,     S.subHeader);
-    addInfo("تاريخ الإنشاء", manifestDate);
-    addInfo("الحالة", manifest.status === "closed" ? "مغلق ✓" : "مفتوح",
-      manifest.status === "closed" ? S.moneyGreen : S.invoice);
-    if (manifest.closedAt)
-      addInfo("تاريخ الإغلاق", format(new Date(manifest.closedAt), "yyyy/MM/dd"));
-
-    addSpacer2();
-    addSection("إحصائيات التسليم");
-    addInfo("إجمالي الطلبيات", String(s.total),       S.subHeader);
-    addInfo("مسلَّم",           String(s.delivered),   S.delivered);
-    addInfo("مرتجع",            String(s.returned),    S.returned);
-    addInfo("مؤجل",             String(postponedCnt),  S.postponed);
-    addInfo("استلم جزئي",      String(partialCnt),    S.partial);
-    addInfo("قيد الانتظار",    String(pendingCnt),    S.pending);
-    addInfo("نسبة التسليم",    `${s.deliveryRate}%`,
-      s.deliveryRate >= 70 ? S.moneyGreen : s.deliveryRate >= 40 ? S.postponed : S.returned);
-
-    addSpacer2();
-    addSection("الحساب المالي");
-    addMoney("اجمالي المحصَّل",   totalCollected,   S.moneyGreen);
-    addMoney("رسوم الشحن",        effectiveShipping, S.shipping);
-    addMoney("صافي المستحق",      netDue,            S.netGreen);
-    if (manifest.invoicePrice != null) {
-      addMoney("سعر الفاتورة المتفق", manifest.invoicePrice, S.invoice);
-      const diff = manifest.invoicePrice - netDue;
-      addMoney(diff >= 0 ? "فرق لصالحنا" : "فرق علينا", Math.abs(diff),
-        diff >= 0 ? S.moneyGreen : S.moneyRed);
-    }
-
-    const ws2 = makeWS(sheet2Data, [26, 24],
-      [merge("A1:B1"), merge("A2:B2"), merge("A3:B3")]);
-
-    // ══════════════════════════════════════════════════════════════════
-    // SHEETS 3..N — كل حالة على حدة
-    // ══════════════════════════════════════════════════════════════════
-    const statusDefs2: { key: DeliveryStatus; label: string; sty: object }[] = [
-      { key: "delivered",        label: "مسلَّم",        sty: S.delivered },
-      { key: "returned",         label: "مرتجع",         sty: S.returned  },
-      { key: "postponed",        label: "مؤجل",          sty: S.postponed },
-      { key: "partial_received", label: "استلم جزئي",   sty: S.partial   },
-      { key: "pending",          label: "قيد الانتظار", sty: S.pending   },
+    // ── Sheet 1: Main manifest ───────────────────────────────────────────────
+    const ws1 = workbook.addWorksheet("الطلبيات", { views: [{ state: "frozen", ySplit: 5, rightToLeft: true }] });
+    ws1.pageSetup = { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 };
+    ws1.pageMargins = { left: 0.25, right: 0.25, top: 0.4, bottom: 0.35, header: 0.15, footer: 0.15 };
+    ws1.columns = [
+      { key: "note", width: 26 },
+      { key: "status", width: 14 },
+      { key: "total", width: 12 },
+      { key: "qty", width: 12 },
+      { key: "products", width: 35 },
+      { key: "phone", width: 16 },
+      { key: "customer", width: 20 },
+      { key: "invoice", width: 18 },
+      { key: "idx", width: 8 },
     ];
 
-    const statusSheets2: { name: string; ws: XLSX.WorkSheet }[] = [];
-    statusDefs2.forEach(({ key, label, sty }) => {
-      const orders = manifest.orders.filter(o => o.deliveryStatus === key);
-      if (orders.length === 0) return;
+    ws1.mergeCells("A1:I1");
+    setCell(ws1.getCell("A1"), `${brandName}${brandTagline ? `  ·  ${brandTagline}` : ""}`, {
+      fill: C.bg,
+      font: { bold: true, size: 16, color: { argb: C.gold } },
+      align: { horizontal: "center", vertical: "middle" },
+      border: C.bg,
+    });
+    ws1.getRow(1).height = 28;
 
-      // Group by invoice / customer
-        const sGroupMap = new Map<string, ManifestOrder[]>();
-        orders.forEach(o => {
-          const k = getManifestGroupKey(o);
-          if (!sGroupMap.has(k)) sGroupMap.set(k, []);
-          sGroupMap.get(k)!.push(o);
-        });
-      const sGroups = Array.from(sGroupMap.values());
+    ws1.mergeCells("A2:I2");
+    setCell(ws1.getCell("A2"), `بيان الشحن — ${manifest.manifestNumber}   |   ${manifest.companyName}   |   ${manifestDate}`, {
+      fill: C.bg,
+      font: { bold: true, size: 12, color: { argb: C.gold } },
+      align: { horizontal: "center", vertical: "middle" },
+      border: C.bg,
+    });
+    ws1.getRow(2).height = 24;
 
-      const data: (XLSX.CellObject | null)[][] = [];
-      // Title row
-      data.push([sc(`${label} — ${sGroups.length} عميل / ${orders.length} طلبية`, sty), ...Array(7).fill(sc("", sty))]);
-      // Headers — RTL
-      data.push(["ملاحظة","الإجمالي","الكمية","المنتجات","الهاتف","اسم العميل","رقم الفاتورة","#"].map(h => sc(h, S.header)));
-      sGroups.forEach((group, idx) => {
-        const base  = idx % 2 === 0 ? S.white   : S.alt;
-        const baseN = idx % 2 === 0 ? S.whiteNum : S.altNum;
-        const rep = group[0];
-        const invoiceNum = (rep as any).invoiceNumber?.trim() || `${rep.customerName}-${idx + 1}`;
-        const totalQty   = group.reduce((s, o) => s + o.quantity, 0);
-        const totalPrice = group.reduce((s, o) => s + o.totalPrice, 0);
-        const productsText = group.map(o => {
-          const variant = [o.color, o.size].filter(Boolean).join("/");
-          return variant ? `${o.product} (${variant}) ×${o.quantity}` : `${o.product} ×${o.quantity}`;
-        }).join("\n");
-        const notes = [...new Set(group.map(o => o.deliveryNote).filter(Boolean))].join(" | ");
-        const productsCell: XLSX.CellObject = {
-          v: productsText, t: "s",
-          s: { ...base, alignment: { ...align("right", true) } },
-        } as XLSX.CellObject;
-        data.push([
-          sc(notes, base), sc(totalPrice, baseN), sc(totalQty, baseN),
-          productsCell,
-          sc(rep.phone ?? "—", base), sc(rep.customerName, base),
-          sc(invoiceNum, base), sc(idx + 1, baseN),
-        ]);
+    ws1.mergeCells("A3:I3");
+    setCell(ws1.getCell("A3"), `طُبع: ${printDate}   |   إجمالي: ${manifest.orders.length} طلبية   |   نسبة التسليم: ${s.deliveryRate}%`, {
+      fill: C.panel,
+      font: { size: 10, color: { argb: C.slate } },
+      align: { horizontal: "center", vertical: "middle" },
+      border: "FF334155",
+    });
+    ws1.getRow(3).height = 22;
+
+    ws1.mergeCells("A4:I4");
+    setCell(ws1.getCell("A4"), "", { fill: C.bg, border: C.bg });
+    ws1.getRow(4).height = 8;
+
+    const headers = ["ملاحظة", "حالة التسليم", "الإجمالي", "الكمية الكلية", "المنتجات", "الهاتف", "اسم العميل", "رقم الفاتورة", "#"];
+    const headerRow = ws1.getRow(5);
+    headerRow.values = headers;
+    headerRow.height = 24;
+    headerRow.eachCell((cell) => {
+      setCell(cell, cell.value, {
+        fill: C.panel,
+        font: { bold: true, color: { argb: C.white }, size: 10 },
+        align: { horizontal: "center", vertical: "middle", wrapText: true },
+        border: "FF334155",
       });
-      const sub = orders.reduce((sum, o) => sum + o.totalPrice, 0);
-      data.push([sc("", sty), sc(fmtMoney(sub), sty), ...Array(5).fill(sc("", sty)), sc(`المجموع (${sGroups.length} عميل)`, sty)]);
-      statusSheets2.push({ name: label, ws: makeWS(data, [28,13,7,36,14,22,14,5], [merge("A1:H1")],
-        { headerRow: 1, totalRows: sGroups.length, name: `Table_${key}` }) });
     });
 
-    // ══════════════════════════════════════════════════════════════════
-    // Assemble workbook & download
-    // ══════════════════════════════════════════════════════════════════
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws1, "الطلبيات");
-    XLSX.utils.book_append_sheet(wb, ws2, "ملخص البيان");
-    statusSheets2.forEach(({ name, ws }) => XLSX.utils.book_append_sheet(wb, ws, name));
+    groupedOrders.forEach((group, idx) => {
+      const rep = group[0];
+      const invoiceNum = (rep as any).invoiceNumber?.trim() || `${rep.customerName}-${idx + 1}`;
+      const totalQty = group.reduce((sum, order) => sum + order.quantity, 0);
+      const totalPrice = group.reduce((sum, order) => sum + order.totalPrice, 0);
+      const productsText = group
+        .map((order) => {
+          const variant = [order.color, order.size].filter(Boolean).join("/");
+          return variant ? `${order.product} (${variant}) ×${order.quantity}` : `${order.product} ×${order.quantity}`;
+        })
+        .join("\n");
+      const statuses = [...new Set(group.map((order) => order.deliveryStatus))];
+      const deliveryStatus = statuses.length === 1 ? statuses[0] : "pending";
+      const deliveryLabel = statuses.length === 1
+        ? (STATUS_LABEL_AR[statuses[0]] ?? statuses[0])
+        : "حالات متعددة";
+      const notes = [...new Set(group.map((order) => order.deliveryNote).filter(Boolean))].join(" | ");
+      const baseFill = idx % 2 === 0 ? C.white : C.offWhite;
+      const baseFont = { color: { argb: C.darkText } };
 
-    const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-    const blob = new Blob([wbout], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const row = ws1.getRow(idx + 6);
+      row.height = 30;
+      setCell(row.getCell(1), notes || "", {
+        fill: baseFill,
+        font: baseFont,
+        align: { horizontal: "right", vertical: "middle", wrapText: true },
+        border: "FFD1D5DB",
+      });
+      setCell(row.getCell(2), deliveryLabel, {
+        fill: deliveryStatus === "delivered" ? C.greenBg : deliveryStatus === "returned" ? C.redBg : deliveryStatus === "partial_received" ? C.tealBg : deliveryStatus === "postponed" ? C.amberBg : C.grayBg,
+        font: { bold: true, color: { argb: deliveryStatus === "delivered" ? C.green : deliveryStatus === "returned" ? C.red : deliveryStatus === "partial_received" ? C.teal : deliveryStatus === "postponed" ? C.amber : C.gray } },
+        align: { horizontal: "center", vertical: "middle" },
+        border: deliveryStatus === "delivered" ? C.green : deliveryStatus === "returned" ? C.red : deliveryStatus === "partial_received" ? C.teal : deliveryStatus === "postponed" ? C.amber : "FFCBD5E1",
+      });
+      setCell(row.getCell(3), totalPrice, {
+        fill: baseFill,
+        font: { bold: true, color: { argb: C.darkText } },
+        align: { horizontal: "center", vertical: "middle" },
+        border: "FFD1D5DB",
+        numFmt: '#,##0 "ج.م"',
+      });
+      setCell(row.getCell(4), totalQty, {
+        fill: baseFill,
+        font: { bold: true, color: { argb: C.darkText } },
+        align: { horizontal: "center", vertical: "middle" },
+        border: "FFD1D5DB",
+      });
+      setCell(row.getCell(5), productsText, {
+        fill: baseFill,
+        font: { color: { argb: C.darkText } },
+        align: { horizontal: "right", vertical: "middle", wrapText: true },
+        border: "FFD1D5DB",
+      });
+      setCell(row.getCell(6), rep.phone ?? "—", {
+        fill: baseFill,
+        font: baseFont,
+        align: { horizontal: "center", vertical: "middle" },
+        border: "FFD1D5DB",
+      });
+      setCell(row.getCell(7), rep.customerName, {
+        fill: baseFill,
+        font: baseFont,
+        align: { horizontal: "right", vertical: "middle" },
+        border: "FFD1D5DB",
+      });
+      setCell(row.getCell(8), invoiceNum, {
+        fill: baseFill,
+        font: { bold: true, color: { argb: C.blue } },
+        align: { horizontal: "center", vertical: "middle" },
+        border: "FFD1D5DB",
+      });
+      setCell(row.getCell(9), idx + 1, {
+        fill: baseFill,
+        font: { bold: true, color: { argb: C.darkText } },
+        align: { horizontal: "center", vertical: "middle" },
+        border: "FFD1D5DB",
+      });
+    });
+
+    const totalRowIndex = groupedOrders.length + 6;
+    ws1.mergeCells(`A${totalRowIndex}:B${totalRowIndex}`);
+    setCell(ws1.getCell(`A${totalRowIndex}`), "الإجمالي الكلي", {
+      fill: C.bg,
+      font: { bold: true, color: { argb: C.gold }, size: 11 },
+      align: { horizontal: "center", vertical: "middle" },
+      border: C.gold,
+    });
+    setCell(ws1.getCell(`C${totalRowIndex}`), manifest.orders.reduce((sum, order) => sum + order.totalPrice, 0), {
+      fill: C.green,
+      font: { bold: true, color: { argb: C.white }, size: 11 },
+      align: { horizontal: "center", vertical: "middle" },
+      border: C.green,
+      numFmt: '#,##0 "ج.م"',
+    });
+    setCell(ws1.getCell(`D${totalRowIndex}`), `${s.deliveryRate}% نسبة تسليم`, {
+      fill: C.bg,
+      font: { bold: true, color: { argb: C.gold }, size: 11 },
+      align: { horizontal: "center", vertical: "middle" },
+      border: C.gold,
+    });
+    for (const col of ["E", "F", "G", "H", "I"]) {
+      setCell(ws1.getCell(`${col}${totalRowIndex}`), "", {
+        fill: C.bg,
+        border: C.gold,
+      });
+    }
+    ws1.getRow(totalRowIndex).height = 24;
+
+    // ── Sheet 2: summary ────────────────────────────────────────────────────
+    const ws2 = workbook.addWorksheet("ملخص البيان", { views: [{ state: "frozen", ySplit: 4, rightToLeft: true }] });
+    ws2.pageSetup = { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 };
+    ws2.columns = [{ width: 28 }, { width: 20 }];
+    ws2.mergeCells("A1:B1");
+    setCell(ws2.getCell("A1"), `${brandName}${brandTagline ? `  ·  ${brandTagline}` : ""}`, {
+      fill: C.bg,
+      font: { bold: true, size: 16, color: { argb: C.gold } },
+      align: { horizontal: "center", vertical: "middle" },
+      border: C.bg,
+    });
+    ws2.getRow(1).height = 28;
+    ws2.mergeCells("A2:B2");
+    setCell(ws2.getCell("A2"), `ملخص بيان الشحن — ${manifest.manifestNumber}`, {
+      fill: C.bg,
+      font: { bold: true, size: 12, color: { argb: C.gold } },
+      align: { horizontal: "center", vertical: "middle" },
+      border: C.bg,
+    });
+    ws2.getRow(2).height = 24;
+    ws2.mergeCells("A3:B3");
+    setCell(ws2.getCell("A3"), "", { fill: C.panel, border: "FF334155" });
+    ws2.getRow(3).height = 8;
+
+    const summaryRows: Array<[string, string, string]> = [
+      ["رقم البيان", manifest.manifestNumber, C.blue],
+      ["شركة الشحن", manifest.companyName, C.blue],
+      ["تاريخ الإنشاء", manifestDate, C.gray],
+      ["الحالة", manifest.status === "closed" ? "مغلق ✓" : "مفتوح", manifest.status === "closed" ? C.green : C.blue],
+      ["إجمالي الطلبيات", String(s.total), C.blue],
+      ["مسلَّم", String(s.delivered), C.green],
+      ["مرتجع", String(s.returned), C.red],
+      ["مؤجل", String(postponedCnt), C.amber],
+      ["استلم جزئي", String(partialCnt), C.teal],
+      ["قيد الانتظار", String(pendingCnt), C.gray],
+      ["نسبة التسليم", `${s.deliveryRate}%`, s.deliveryRate >= 70 ? C.green : s.deliveryRate >= 40 ? C.amber : C.red],
+      ["إجمالي المحصَّل", fmtMoney(totalCollected), C.green],
+      ["رسوم الشحن", fmtMoney(effectiveShipping), C.amber],
+      ["صافي المستحق", fmtMoney(netDue), C.green],
+    ];
+
+    let sRow = 4;
+    for (const [label, value, color] of summaryRows) {
+      const row = ws2.getRow(sRow++);
+      row.height = 24;
+      setCell(row.getCell(1), label, {
+        fill: C.offWhite,
+        font: { color: { argb: C.slate } },
+        align: { horizontal: "right", vertical: "middle" },
+        border: "FFD1D5DB",
+      });
+      setCell(row.getCell(2), value, {
+        fill: C.offWhite,
+        font: { bold: true, color: { argb: color } },
+        align: { horizontal: "center", vertical: "middle" },
+        border: "FFD1D5DB",
+      });
+    }
+    ws2.views = [{ state: "frozen", ySplit: 3, rightToLeft: true }];
+
+    // ── sheet styling ───────────────────────────────────────────────────────
+    ws1.eachRow((row) => {
+      row.eachCell((cell) => {
+        if (!cell.alignment) cell.alignment = { horizontal: "right", vertical: "middle" };
+      });
+    });
+    ws2.eachRow((row) => {
+      row.eachCell((cell) => {
+        if (!cell.alignment) cell.alignment = { horizontal: "right", vertical: "middle" };
+      });
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
