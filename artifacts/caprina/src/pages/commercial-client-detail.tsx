@@ -681,22 +681,22 @@ export default function CommercialClientDetailPage() {
       {/* ─── Stats Cards — زي شركات الشحن بس بأرقام العميل ─── */}
       {!isLoading && client && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Card className="border-border bg-card p-3 text-center">
+          <Card className="card-glow border-border bg-card p-3 text-center">
             <p className="text-[10px] text-muted-foreground mb-0.5">إجمالي الفواتير</p>
             <p className="text-2xl font-black">{allOrders.length}</p>
             <p className="text-[10px] text-muted-foreground">{processingOrders.length} جارية · {deliveredOrders.length} مكتملة</p>
           </Card>
-          <Card className="border-teal-900/40 bg-teal-900/10 p-3 text-center">
+          <Card className="card-glow card-glow-teal border-teal-900/40 bg-teal-900/10 p-3 text-center">
             <p className="text-[10px] text-teal-400 mb-0.5">إجمالي المبيعات</p>
             <p className="text-xl font-black text-teal-400">{fmt(totalSales)}</p>
             <p className="text-[10px] text-teal-600">{salesPct.toFixed(1)}% من الهدف</p>
           </Card>
-          <Card className="border-red-900/40 bg-red-900/10 p-3 text-center">
+          <Card className="card-glow card-glow-red border-red-900/40 bg-red-900/10 p-3 text-center">
             <p className="text-[10px] text-red-400 mb-0.5">المديونية</p>
             <p className="text-xl font-black text-red-400">{fmt(unpaid)}</p>
             <p className="text-[10px] text-muted-foreground">مدفوع: {fmt(totalPaid)}</p>
           </Card>
-          <Card className={`p-3 text-center border ${salesPct >= 75 ? "border-emerald-900/40 bg-emerald-900/10" : salesPct >= 50 ? "border-amber-900/40 bg-amber-900/10" : "border-primary/30 bg-primary/5"}`}>
+          <Card className={`card-glow p-3 text-center border ${salesPct >= 75 ? "card-glow-emerald border-emerald-900/40 bg-emerald-900/10" : salesPct >= 50 ? "card-glow-amber border-amber-900/40 bg-amber-900/10" : "card-glow-blue border-primary/30 bg-primary/5"}`}>
             <p className="text-[10px] text-muted-foreground mb-0.5">تحقيق الهدف</p>
             <p className={`text-2xl font-black ${salesPct >= 75 ? "text-emerald-400" : salesPct >= 50 ? "text-amber-400" : "text-primary"}`}>
               {salesPct.toFixed(1)}%
@@ -753,7 +753,7 @@ export default function CommercialClientDetailPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
           {/* Donut — مقياس الهدف */}
-          <Card className="border-border bg-card p-4">
+          <Card className="card-glow border-border bg-card p-4">
             <p className="text-xs font-bold mb-3 flex items-center gap-2">
               <Target className="w-3.5 h-3.5 text-muted-foreground" />
               مقياس الهدف
@@ -803,7 +803,7 @@ export default function CommercialClientDetailPage() {
           </Card>
 
           {/* Line chart — النمو الشهري */}
-          <Card className="border-border bg-card p-4">
+          <Card className="card-glow border-border bg-card p-4">
             <p className="text-xs font-bold mb-1 flex items-center gap-2">
               <TrendingUp className="w-3.5 h-3.5 text-muted-foreground" />
               النمو الشهري
@@ -848,6 +848,7 @@ export default function CommercialClientDetailPage() {
         const isHigh   = s > 65;
         const color    = isLow ? "#10b981" : isMed ? "#f59e0b" : "#e24b4a";
         const bgClass  = isLow ? "border-emerald-900/40 bg-emerald-900/10" : isMed ? "border-amber-900/40 bg-amber-900/10" : "border-red-900/40 bg-red-900/10";
+        const glowCls  = isLow ? "card-glow-emerald" : isMed ? "card-glow-amber" : "card-glow-danger";
         const label    = isLow ? "آمن" : isMed ? "تحت المراقبة" : "خطر مرتفع";
         const textCls  = isLow ? "text-emerald-400" : isMed ? "text-amber-400" : "text-red-400";
 
@@ -858,7 +859,7 @@ export default function CommercialClientDetailPage() {
         ];
 
         return (
-          <Card className={`border p-4 ${bgClass}`}>
+          <Card className={`card-glow ${glowCls} border p-4 ${bgClass}`}>
             <div className="flex items-center justify-between mb-4">
               <p className="text-xs font-bold flex items-center gap-2">
                 <i className="ti ti-shield-half" style={{ fontSize: 15, color }} aria-hidden="true" />
@@ -918,7 +919,7 @@ export default function CommercialClientDetailPage() {
 
       {/* ─── أكثر المنتجات شراءً ─── */}
       {!isLoading && client && topProductsData && topProductsData.items.length > 0 && (
-        <Card className="border-border bg-card p-4">
+        <Card className="card-glow border-border bg-card p-4">
           <div className="flex items-center justify-between mb-4">
             <p className="text-xs font-bold flex items-center gap-2">
               <Package className="w-3.5 h-3.5 text-muted-foreground" />
@@ -1012,7 +1013,7 @@ export default function CommercialClientDetailPage() {
         const gf = goalForecast;
 
         if (gf.done) return (
-          <Card className="border-emerald-900/40 bg-emerald-900/10 p-4">
+          <Card className="card-glow card-glow-emerald border-emerald-900/40 bg-emerald-900/10 p-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-emerald-900/40 flex items-center justify-center shrink-0">
                 <CheckCircle2 className="w-5 h-5 text-emerald-400" />
@@ -1035,7 +1036,7 @@ export default function CommercialClientDetailPage() {
           : null;
 
         return (
-          <Card className="border-border bg-card p-4">
+          <Card className="card-glow border-border bg-card p-4">
             <div className="flex items-center justify-between mb-4">
               <p className="text-xs font-bold flex items-center gap-2">
                 <TrendingUp className="w-3.5 h-3.5 text-muted-foreground" />
@@ -1108,6 +1109,7 @@ export default function CommercialClientDetailPage() {
           : pf.isWarning
           ? "border-amber-900/40 bg-amber-900/10"
           : "border-border bg-card";
+        const glowCard = pf.isOverdue ? "card-glow-danger" : pf.isWarning ? "card-glow-amber" : "card-glow";
         const textCls = pf.isOverdue ? "text-red-400" : pf.isWarning ? "text-amber-400" : "text-emerald-400";
         const badgeClass = pf.isOverdue
           ? "border-red-700 bg-red-900/30 text-red-400"
@@ -1117,7 +1119,7 @@ export default function CommercialClientDetailPage() {
         const badgeLabel = pf.isOverdue ? "تنبيه — تجاوز 30 يوم" : pf.isWarning ? "قريب من 30 يوم" : "نشيط";
 
         return (
-          <Card className={`border p-4 ${cardClass}`}>
+          <Card className={`card-glow ${glowCard} border p-4 ${cardClass}`}>
             <div className="flex items-center justify-between mb-4">
               <p className="text-xs font-bold flex items-center gap-2">
                 <RefreshCw className="w-3.5 h-3.5 text-muted-foreground" />
