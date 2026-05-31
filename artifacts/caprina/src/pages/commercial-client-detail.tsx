@@ -579,38 +579,32 @@ export default function CommercialClientDetailPage() {
     if (!allOrders || allOrders.length === 0) return null;
     if (totalSales >= TARGET) return { done: true, completionDate: null, monthsLeft: 0, dailyRate: 0, confidence: "high" as const };
 
-    // معدل المبيعات اليومي من آخر 90 يوم (أو كل الفواتير لو أقل)
     const now = Date.now();
-    const window90 = 90 * 24 * 60 * 60 * 1000;
-    const recentOrders = allOrders.filter(o => now - new Date(o.createdAt).getTime() <= window90);
-    const basedOrders  = recentOrders.length >= 2 ? recentOrders : allOrders;
 
-    const sortedDates = [...basedOrders].sort((a, b) =>
+    // الـ span من أقدم فاتورة لحد دلوقتي — بيشتغل حتى مع فاتورة واحدة
+    const sorted = [...allOrders].sort((a, b) =>
       new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     );
-    const spanMs   = new Date(sortedDates[sortedDates.length - 1]).getTime() - new Date(sortedDates[0]).getTime();
-    const spanDays = Math.max(spanMs / (1000 * 60 * 60 * 24), 1);
-    const totalInSpan = basedOrders.reduce((s, o) => s + parseFloat(o.totalAmount ?? "0"), 0);
-    const dailyRate   = totalInSpan / spanDays;
+    const oldestTs  = new Date(sorted[0].createdAt).getTime();
+    const spanDays  = Math.max((now - oldestTs) / (1000 * 60 * 60 * 24), 1);
+    const dailyRate = totalSales / spanDays;
 
     if (dailyRate <= 0) return null;
 
-    const remaining    = TARGET - totalSales;
-    const daysNeeded   = Math.ceil(remaining / dailyRate);
+    const remaining  = TARGET - totalSales;
+    const daysNeeded = Math.ceil(remaining / dailyRate);
 
-    // guard: لو الحساب طلع أكثر من 10 سنين مش منطقي
+    // guard: أكثر من 10 سنين = توقع مش منطقي
     if (daysNeeded > 3650) return null;
 
-    const completionTs   = now + daysNeeded * 24 * 60 * 60 * 1000;
-    const completionDate = new Date(completionTs);
+    const completionDate = new Date(now + daysNeeded * 24 * 60 * 60 * 1000);
     if (isNaN(completionDate.getTime())) return null;
 
-    const monthsLeft   = Math.ceil(daysNeeded / 30);
+    const monthsLeft = Math.ceil(daysNeeded / 30);
 
-    // مستوى الثقة بناءً على عدد الفواتير وطول الفترة
     const confidence: "high" | "medium" | "low" =
-      basedOrders.length >= 5 && spanDays >= 30 ? "high"
-      : basedOrders.length >= 2 ? "medium"
+      allOrders.length >= 5 && spanDays >= 30 ? "high"
+      : allOrders.length >= 2 ? "medium"
       : "low";
 
     return { done: false, completionDate, monthsLeft, daysNeeded, dailyRate, confidence };
