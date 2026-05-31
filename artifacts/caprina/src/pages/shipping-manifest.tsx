@@ -3197,30 +3197,33 @@ export default function ShippingManifestPage() {
     const printEl = document.querySelector(".manifest-print") as HTMLElement | null;
     if (!printEl) return;
 
-    // تحويل الـ logo لـ base64 — نفس طريقة الفواتير
+    // تحويل الـ logo لـ base64 — فقط لو فيه لوجو فعلاً
     let logoB64 = "";
-    const logoSrc = brand.logoUrl || "/api/brand/logo";
-    try {
-      const r = await fetch(logoSrc);
-      const blob = await r.blob();
-      logoB64 = await new Promise<string>(res => {
-        const reader = new FileReader();
-        reader.onload = () => res(reader.result as string);
-        reader.readAsDataURL(blob);
-      });
-    } catch { /* تجاهل لو فشل */ }
+    if (brand.hasLogo && brand.logoUrl) {
+      try {
+        const r = await fetch(brand.logoUrl);
+        if (r.ok) {
+          const blob = await r.blob();
+          logoB64 = await new Promise<string>(res => {
+            const reader = new FileReader();
+            reader.onload = () => res(reader.result as string);
+            reader.readAsDataURL(blob);
+          });
+        }
+      } catch { /* تجاهل لو فشل */ }
+    }
 
     const brandName = brand.name || "CAPRINA";
 
     // بناء الـ logo HTML element
     const logoEl = logoB64
       ? `<img src="${logoB64}" class="mp-logo" alt="${brandName}" />`
-      : `<div style="width:14mm;height:14mm;display:flex;align-items:center;justify-content:center;background:#1e3a5f;border-radius:50%;font-size:8pt;font-weight:900;color:white;">${brandName.substring(0, 2)}</div>`;
+      : `<div class="mp-logo-txt">${brandName.substring(0, 2)}</div>`;
 
     // استبدل الـ img tag في الـ innerHTML بالـ base64 version
     let html = printEl.innerHTML;
-    // استبدال شامل لأي img فيها brand/logo أو logoUrl
     html = html.replace(/<img[^>]*class="mp-logo"[^>]*>/g, logoEl);
+    // لو مفيش img (مفيش لوجو في JSX) — مش محتاجين نستبدل حاجة
 
     const win = window.open("", "_blank", "width=900,height=700");
     if (!win) { window.print(); return; }
@@ -3245,16 +3248,17 @@ export default function ShippingManifestPage() {
       print-color-adjust: exact;
     }
     /* ── Header ── */
-    .mp-header { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #1e3a5f; padding-bottom:4mm; margin-bottom:4mm; }
+    .mp-header { display:flex; justify-content:space-between; align-items:center; border-bottom:3px solid #1e3a5f; padding-bottom:4mm; margin-bottom:4mm; }
     .mp-title { font-size:17pt; font-weight:900; color:#1e3a5f; line-height:1.1; }
     .mp-meta { font-size:7.5pt; color:#555; margin-top:2mm; line-height:1.8; }
     .mp-badge { display:inline-block; margin-top:2.5mm; padding:1mm 4mm; border-radius:10mm; font-size:7.5pt; font-weight:800; }
     .mp-badge-open   { background:#dbeafe; color:#1d4ed8; border:1px solid #93c5fd; }
     .mp-badge-closed { background:#dcfce7; color:#15803d; border:1px solid #86efac; }
-    .mp-header-right { display:flex; align-items:center; gap:3mm; }
-    .mp-company-name { font-size:15pt; font-weight:900; color:#1e3a5f; letter-spacing:1px; }
-    .mp-company-sub  { font-size:6pt; color:#94a3b8; letter-spacing:2px; margin-top:0.5mm; }
+    .mp-header-right { display:flex; align-items:center; gap:3mm; flex-direction:row-reverse; }
+    .mp-company-name { font-size:15pt; font-weight:900; color:#1e3a5f; letter-spacing:1px; text-align:right; }
+    .mp-company-sub  { font-size:6pt; color:#94a3b8; letter-spacing:2px; margin-top:0.5mm; text-align:right; }
     .mp-logo { width:14mm; height:14mm; border-radius:50%; object-fit:cover; border:2px solid #e2e8f0; }
+    .mp-logo-txt { width:14mm; height:14mm; border-radius:50%; background:#1e3a5f; display:flex; align-items:center; justify-content:center; font-size:8pt; font-weight:900; color:white; flex-shrink:0; }
     /* ── Stats ── */
     .mp-stats { display:grid; grid-template-columns:repeat(6,1fr); border:1.5px solid #e2e8f0; border-radius:2mm; overflow:hidden; margin-bottom:4mm; }
     .mp-stat { padding:2.5mm 2mm; text-align:center; border-left:1px solid #e2e8f0; background:#f8fafc; }
@@ -3377,11 +3381,12 @@ export default function ShippingManifestPage() {
           </span>
         </div>
         <div className="mp-header-right">
-          {brand.logoUrl && (
-            <img src={brand.logoUrl} className="mp-logo" alt={brand.name} crossOrigin="anonymous" />
-          )}
+          {brand.hasLogo && brand.logoUrl
+            ? <img src={brand.logoUrl} className="mp-logo" alt={brand.name} crossOrigin="anonymous" />
+            : <div className="mp-logo-txt">{(brand.name || "CA").substring(0, 2)}</div>
+          }
           <div>
-            <div className="mp-company-name">{brand.name}</div>
+            <div className="mp-company-name">{brand.name || "CAPRINA"}</div>
             <div className="mp-company-sub">SHIPPING MANIFEST</div>
           </div>
         </div>
