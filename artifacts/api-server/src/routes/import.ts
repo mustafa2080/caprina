@@ -220,6 +220,8 @@ router.post("/orders/import/execute", async (req, res): Promise<void> => {
       shippingCost: shippingCost || 0,
       invoiceNumber,
       status: "pending" as const,
+      createdByUserId: (req as any).user?.id ?? null,
+      createdByName: (req as any).user?.displayName ?? null,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
