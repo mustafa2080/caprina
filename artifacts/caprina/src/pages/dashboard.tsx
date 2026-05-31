@@ -1815,8 +1815,8 @@ export default function Dashboard() {
                 </div>
               </CardHeader>
 
-              <div className="divide-y divide-border/60">
-                {employeeProfiles.slice(0, 4).map((emp: any) => {
+              <div className="divide-y divide-border/60 max-h-64 overflow-y-auto">
+                {employeeProfiles.map((emp: any) => {
                   const [bg, fg] = dbAvatarColor(emp.displayName || "?");
                   // نستخدم avatarMap الموحد بدل البحث في teamPerf مباشرة
                   const avatarSrc = avatarMap.get(emp.userId) ?? emp.avatar ?? null;
