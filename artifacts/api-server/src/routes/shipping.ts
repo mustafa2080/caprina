@@ -54,7 +54,22 @@ router.get("/shipping-companies/:id/stats", async (req, res): Promise<void> => {
   const manifestCount = manifests.length;
 
   if (manifestCount === 0) {
-    res.json({ delivered: 0, returned: 0, pending: 0, postponed: 0, deliveryRate: 0, netProfit: 0, manifestCount: 0 });
+    res.json({
+      total: 0,
+      delivered: 0,
+      partial: 0,
+      returned: 0,
+      pending: 0,
+      postponed: 0,
+      deliveryRate: 0,
+      totalRevenue: 0,
+      totalCost: 0,
+      totalShippingCost: 0,
+      returnLosses: 0,
+      netProfit: 0,
+      deliveredGross: 0,
+      manifestCount: 0,
+    });
     return;
   }
 
@@ -76,7 +91,22 @@ router.get("/shipping-companies/:id/stats", async (req, res): Promise<void> => {
     .where(inArray(shippingManifestOrdersTable.manifestId, manifestIds));
 
   if (links.length === 0) {
-    res.json({ delivered: 0, returned: 0, pending: 0, postponed: 0, deliveryRate: 0, netProfit: 0, manifestCount });
+    res.json({
+      total: 0,
+      delivered: 0,
+      partial: 0,
+      returned: 0,
+      pending: 0,
+      postponed: 0,
+      deliveryRate: 0,
+      totalRevenue: 0,
+      totalCost: 0,
+      totalShippingCost: 0,
+      returnLosses: 0,
+      netProfit: 0,
+      deliveredGross: 0,
+      manifestCount,
+    });
     return;
   }
 
@@ -159,8 +189,22 @@ router.get("/shipping-companies/:id/stats", async (req, res): Promise<void> => {
   const total = delivered + partial + returned + postponed + pending;
   const deliveryRate = total > 0 ? Math.round(((delivered + partial) / total) * 100) : 0;
   const netProfit = totalRevenue - totalCost - totalShipping - returnLosses;
-
-  res.json({ delivered, partial, returned, pending, postponed, deliveryRate, netProfit, manifestCount });
+  res.json({
+    total,
+    delivered,
+    partial,
+    returned,
+    pending,
+    postponed,
+    deliveryRate,
+    totalRevenue,
+    totalCost,
+    totalShippingCost: totalShipping,
+    returnLosses,
+    netProfit,
+    deliveredGross: totalRevenue,
+    manifestCount,
+  });
 });
 
 router.patch("/shipping-companies/:id", async (req, res): Promise<void> => {

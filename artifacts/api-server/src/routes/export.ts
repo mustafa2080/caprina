@@ -4,10 +4,11 @@ import {
   db, ordersTable, productsTable, productVariantsTable,
   shippingCompaniesTable, usersTable, inventoryMovementsTable,
   warehousesTable, warehouseStockTable,
+  shippingManifestsTable, shippingManifestOrdersTable,
 } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth.js";
 import { requireAdmin } from "../middlewares/requireRole.js";
-import { isNull, eq, desc } from "drizzle-orm";
+import { isNull, eq, desc, inArray } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -129,6 +130,213 @@ function autoFilter(sheet: ExcelJS.Worksheet) {
 
 function freezeHeader(sheet: ExcelJS.Worksheet) {
   sheet.views = [{ state: "frozen", ySplit: 1, xSplit: 0 }];
+}
+
+function setArabicSheetLayout(sheet: ExcelJS.Worksheet, frozenRows = 1) {
+  sheet.views = [{ state: "frozen", ySplit: frozenRows, rightToLeft: true }];
+  sheet.properties.defaultRowHeight = 22;
+  sheet.pageSetup = {
+    paperSize: 9,
+    orientation: "landscape",
+    fitToPage: true,
+    fitToWidth: 1,
+    fitToHeight: 0,
+  };
+  sheet.pageMargins = {
+    left: 0.25,
+    right: 0.25,
+    top: 0.45,
+    bottom: 0.4,
+    header: 0.2,
+    footer: 0.2,
+  };
+  sheet.getColumn(1).alignment = { horizontal: "right" };
+}
+
+type ShippingCompanyExportStats = {
+  total: number;
+  delivered: number;
+  partial: number;
+  returned: number;
+  pending: number;
+  postponed: number;
+  deliveryRate: number;
+  totalRevenue: number;
+  totalCost: number;
+  totalShippingCost: number;
+  returnLosses: number;
+  netProfit: number;
+  deliveredGross: number;
+  manifestCount: number;
+};
+
+function formatDateArabic(value: Date | string | null | undefined) {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : date.toLocaleDateString("ar-EG");
+}
+
+function formatCurrencyReport(value: number) {
+  return new Intl.NumberFormat("ar-EG", {
+    style: "currency",
+    currency: "EGP",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function chooseInvoiceStatus(current: string | null, next: string) {
+  const priority: Record<string, number> = {
+    returned: 5,
+    postponed: 4,
+    delayed: 4,
+    partial_received: 3,
+    pending: 2,
+    delivered: 1,
+  };
+  if (!current) return next;
+  return (priority[next] ?? 0) > (priority[current] ?? 0) ? next : current;
+}
+
+async function collectShippingCompanyStats() {
+  const companies = await db.select().from(shippingCompaniesTable).orderBy(desc(shippingCompaniesTable.createdAt));
+  const manifests = await db.select({
+    id: shippingManifestsTable.id,
+    shippingCompanyId: shippingManifestsTable.shippingCompanyId,
+    status: shippingManifestsTable.status,
+    createdAt: shippingManifestsTable.createdAt,
+  }).from(shippingManifestsTable);
+
+  const manifestIds = manifests.map(m => m.id);
+  const links = manifestIds.length
+    ? await db.select({
+        deliveryStatus: shippingManifestOrdersTable.deliveryStatus,
+        partialQuantity: shippingManifestOrdersTable.partialQuantity,
+        orderId: shippingManifestOrdersTable.orderId,
+        manifestId: shippingManifestOrdersTable.manifestId,
+      }).from(shippingManifestOrdersTable)
+    : [];
+
+  const orderIds = [...new Set(links.map(l => l.orderId))];
+  const fullOrders = orderIds.length
+    ? await db.select().from(ordersTable).where(inArray(ordersTable.id, orderIds))
+    : [];
+
+  const manifestsByCompany = new Map<number, typeof manifests>();
+  for (const manifest of manifests) {
+    const bucket = manifestsByCompany.get(manifest.shippingCompanyId) ?? [];
+    bucket.push(manifest);
+    manifestsByCompany.set(manifest.shippingCompanyId, bucket);
+  }
+
+  const linksByManifest = new Map<number, typeof links>();
+  for (const link of links) {
+    const bucket = linksByManifest.get(link.manifestId) ?? [];
+    bucket.push(link);
+    linksByManifest.set(link.manifestId, bucket);
+  }
+
+  const orderMap = new Map(fullOrders.map(order => [order.id, order]));
+
+  const result = companies.map(company => {
+    const companyManifests = manifestsByCompany.get(company.id) ?? [];
+    const manifestCount = companyManifests.length;
+    const companyManifestIds = companyManifests.map(m => m.id);
+    const companyLinks = companyManifestIds.flatMap(id => linksByManifest.get(id) ?? []);
+    const openManifest = companyManifests.find(m => m.status === "open");
+    const openLinks = openManifest ? (linksByManifest.get(openManifest.id) ?? []) : [];
+
+    let postponed = 0;
+    if (openLinks.length) {
+      const uniqueInvoices = new Set<string>();
+      for (const link of openLinks) {
+        if (link.deliveryStatus !== "pending" && link.deliveryStatus !== "postponed") continue;
+        const order = orderMap.get(link.orderId);
+        if (!order) continue;
+        const key = order.invoiceNumber?.trim() || `solo-${order.id}`;
+        uniqueInvoices.add(key);
+      }
+      postponed = uniqueInvoices.size;
+    }
+
+    const invoiceMap = new Map<string, { status: string; orders: typeof fullOrders }>();
+    for (const link of companyLinks) {
+      const order = orderMap.get(link.orderId);
+      if (!order) continue;
+      const key = order.invoiceNumber?.trim() || `solo-${order.id}`;
+      const current = invoiceMap.get(key);
+      if (!current) {
+        invoiceMap.set(key, { status: link.deliveryStatus, orders: [order] as typeof fullOrders });
+      } else {
+        current.orders.push(order);
+        current.status = chooseInvoiceStatus(current.status, link.deliveryStatus);
+      }
+    }
+
+    let delivered = 0;
+    let returned = 0;
+    let partial = 0;
+    let pending = 0;
+    let totalRevenue = 0;
+    let totalCost = 0;
+    let totalShippingCost = 0;
+    let returnLosses = 0;
+    let deliveredGross = 0;
+
+    for (const invoice of invoiceMap.values()) {
+      const status = invoice.status;
+      for (const order of invoice.orders) {
+        const qty = order.quantity;
+        const shippingCost = order.shippingCost ?? 0;
+        totalShippingCost += shippingCost;
+
+        if (status === "delivered") {
+          totalRevenue += order.totalPrice;
+          totalCost += (order.costPrice ?? 0) * qty;
+          deliveredGross += order.totalPrice;
+        } else if (status === "partial_received") {
+          const deliveredQty = (order as any).partialQuantity != null ? Number((order as any).partialQuantity) : 0;
+          if (deliveredQty > 0) {
+            totalRevenue += (order.unitPrice ?? 0) * deliveredQty;
+            totalCost += (order.costPrice ?? 0) * deliveredQty;
+            deliveredGross += (order.unitPrice ?? 0) * deliveredQty;
+          }
+        } else if (status === "returned") {
+          returnLosses += shippingCost;
+        }
+      }
+
+      if (status === "delivered") delivered++;
+      else if (status === "partial_received") partial++;
+      else if (status === "returned") returned++;
+      else if (status === "pending") pending++;
+    }
+
+    const total = delivered + partial + returned + postponed + pending;
+    const deliveryRate = total > 0 ? Math.round(((delivered + partial) / total) * 100) : 0;
+    const netProfit = totalRevenue - totalCost - totalShippingCost - returnLosses;
+
+    return {
+      company,
+      stats: {
+        total,
+        delivered,
+        partial,
+        returned,
+        pending,
+        postponed,
+        deliveryRate,
+        totalRevenue,
+        totalCost,
+        totalShippingCost,
+        returnLosses,
+        netProfit,
+        deliveredGross,
+        manifestCount,
+      } satisfies ShippingCompanyExportStats,
+    };
+  });
+
+  return result;
 }
 
 // ─── Number & Currency formats ────────────────────────────────────────────────
@@ -493,35 +701,155 @@ router.get("/export/movements", requireAuth, async (req, res): Promise<void> => 
 // ═══════════════════════════════════════════════════════════════════════════════
 router.get("/export/shipping", requireAuth, async (req, res): Promise<void> => {
   try {
-    const companies = await db.select().from(shippingCompaniesTable);
-
+    const rows = await collectShippingCompanyStats();
     const wb = new ExcelJS.Workbook();
+    wb.creator = "Caprina";
+    wb.created = new Date();
+    wb.modified = new Date();
+
     const ws = wb.addWorksheet("شركات الشحن", { tabColor: { argb: BRAND.primary } });
+    setArabicSheetLayout(ws, 7);
+    ws.columns = [
+      { key: "idx", width: 6  },
+      { key: "name", width: 22 },
+      { key: "active", width: 12 },
+      { key: "manifests", width: 10 },
+      { key: "orders", width: 10 },
+      { key: "delivered", width: 9  },
+      { key: "partial", width: 9  },
+      { key: "returned", width: 9  },
+      { key: "pending", width: 9  },
+      { key: "rate", width: 12 },
+      { key: "profit", width: 14 },
+      { key: "phone", width: 16 },
+      { key: "website", width: 20 },
+      { key: "notes", width: 24 },
+      { key: "createdAt", width: 14 },
+    ];
 
-    applyHeader(ws, [
-      { header: "#",         key: "id",        width: 8  },
-      { header: "الاسم",    key: "name",      width: 26 },
-      { header: "الهاتف",   key: "phone",     width: 18 },
-      { header: "الموقع",   key: "website",   width: 28 },
-      { header: "ملاحظات",  key: "notes",     width: 30 },
-      { header: "الحالة",   key: "active",    width: 12 },
-      { header: "تاريخ الإضافة", key: "createdAt", width: 18 },
-    ]);
+    // ── Title block ──────────────────────────────────────────────────────────
+    ws.mergeCells("A1:O1");
+    const title = ws.getCell("A1");
+    title.value = "بيان شركات الشحن";
+    title.font = { bold: true, size: 18, color: { argb: BRAND.white }, name: "Tahoma" };
+    title.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.primary } };
+    title.alignment = { horizontal: "center", vertical: "middle" };
+    ws.getRow(1).height = 30;
 
-    let idx = 2;
-    for (const c of companies) {
+    ws.mergeCells("A2:O2");
+    const subtitle = ws.getCell("A2");
+    subtitle.value = `تصدير Excel عربي من اليمين إلى اليسار • تاريخ التصدير: ${new Date().toLocaleString("ar-EG")}`;
+    subtitle.font = { size: 10, color: { argb: "FF6B7280" }, name: "Tahoma" };
+    subtitle.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.lightGray } };
+    subtitle.alignment = { horizontal: "center", vertical: "middle" };
+    ws.getRow(2).height = 22;
+
+    // ── KPI cards ────────────────────────────────────────────────────────────
+    const totalCompanies = rows.length;
+    const activeCompanies = rows.filter(r => r.company.isActive).length;
+    const totalOrders = rows.reduce((sum, r) => sum + r.stats.total, 0);
+    const totalDelivered = rows.reduce((sum, r) => sum + r.stats.delivered + r.stats.partial, 0);
+    const totalDeliveryRate = totalOrders > 0 ? Math.round((totalDelivered / totalOrders) * 100) : 0;
+    const totalNetProfit = rows.reduce((sum, r) => sum + r.stats.netProfit, 0);
+
+    const cards = [
+      { range: "A4:C5", label: "إجمالي الشركات", value: totalCompanies, fill: "FF1f2937", color: BRAND.white },
+      { range: "D4:F5", label: "الشركات النشطة", value: activeCompanies, fill: "FF0f766e", color: BRAND.white },
+      { range: "G4:I5", label: "إجمالي الطلبيات", value: totalOrders, fill: "FF1d4ed8", color: BRAND.white },
+      { range: "J4:L5", label: "نسبة التسليم", value: `${totalDeliveryRate}%`, fill: "FF7c3aed", color: BRAND.white },
+      { range: "M4:O5", label: "صافي الربح", value: formatCurrencyReport(totalNetProfit), fill: "FFca8a04", color: BRAND.white },
+    ];
+    for (const card of cards) {
+      ws.mergeCells(card.range);
+      const cell = ws.getCell(card.range.split(":")[0]);
+      cell.value = `${card.label}\n${card.value}`;
+      cell.font = { bold: true, size: 13, color: { argb: card.color }, name: "Tahoma" };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: card.fill } };
+      cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+      cell.border = {
+        top: { style: "thin", color: { argb: "FF374151" } },
+        bottom: { style: "thin", color: { argb: "FF374151" } },
+        left: { style: "thin", color: { argb: "FF374151" } },
+        right: { style: "thin", color: { argb: "FF374151" } },
+      };
+    }
+    ws.getRow(4).height = 22;
+    ws.getRow(5).height = 26;
+
+    // ── Table header ─────────────────────────────────────────────────────────
+    const headerRowIdx = 7;
+    const headerRow = ws.getRow(headerRowIdx);
+    headerRow.values = [
+      "#",
+      "اسم الشركة",
+      "الحالة",
+      "البيانات",
+      "الطلبيات",
+      "مُسلَّم",
+      "جزئي",
+      "مرتجع",
+      "مؤجل",
+      "نسبة التسليم",
+      "صافي الربح",
+      "الهاتف",
+      "الموقع",
+      "ملاحظات",
+      "تاريخ الإضافة",
+    ];
+    headerRow.height = 24;
+    headerRow.eachCell(cell => {
+      cell.font = { bold: true, color: { argb: BRAND.white }, size: 10, name: "Tahoma" };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.primary } };
+      cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+      cell.border = {
+        bottom: { style: "medium", color: { argb: BRAND.accent } },
+      };
+    });
+
+    // ── Data rows ────────────────────────────────────────────────────────────
+    let idx = headerRowIdx + 1;
+    for (const entry of rows) {
       const row = ws.getRow(idx);
       row.values = [
-        c.id, c.name, c.phone ?? "", c.website ?? "", c.notes ?? "",
-        c.isActive ? "✅ نشط" : "⛔ موقوف",
-        c.createdAt ? new Date(c.createdAt).toLocaleDateString("ar-EG") : "",
+        entry.company.id,
+        entry.company.name,
+        entry.company.isActive ? "✅ نشط" : "⛔ موقوف",
+        entry.stats.manifestCount,
+        entry.stats.total,
+        entry.stats.delivered,
+        entry.stats.partial,
+        entry.stats.returned,
+        entry.stats.postponed,
+      entry.stats.deliveryRate / 100,
+        entry.stats.netProfit,
+        entry.company.phone ?? "",
+        entry.company.website ?? "",
+        entry.company.notes ?? "",
+        formatDateArabic(entry.company.createdAt),
       ];
       styleDataRow(row, idx % 2 === 0);
-      const activeCell = row.getCell("active");
-      activeCell.font = { bold: true, color: { argb: c.isActive ? BRAND.green : BRAND.red }, size: 10 };
+      row.height = 24;
+      row.eachCell({ includeEmpty: true }, cell => {
+        cell.alignment = { horizontal: "right", vertical: "middle", wrapText: true };
+      });
+      row.getCell(1).alignment = { horizontal: "center", vertical: "middle" };
+      row.getCell(3).font = { bold: true, color: { argb: entry.company.isActive ? BRAND.green : BRAND.red }, size: 10, name: "Tahoma" };
+      row.getCell(10).numFmt = "0%";
+      row.getCell(11).numFmt = FMT_CURRENCY;
+      row.getCell(6).font = { bold: true, color: { argb: BRAND.green }, size: 10, name: "Tahoma" };
+      row.getCell(7).font = { bold: true, color: { argb: BRAND.yellow }, size: 10, name: "Tahoma" };
+      row.getCell(8).font = { bold: true, color: { argb: BRAND.red }, size: 10, name: "Tahoma" };
+      row.getCell(9).font = { bold: true, color: { argb: "FF8b5cf6" }, size: 10, name: "Tahoma" };
+      row.getCell(11).font = {
+        bold: true,
+        color: { argb: entry.stats.netProfit >= 0 ? BRAND.green : BRAND.red },
+        size: 10,
+        name: "Tahoma",
+      };
       idx++;
     }
-    autoFilter(ws); freezeHeader(ws);
+    ws.autoFilter = "A7:O7";
+    ws.views = [{ state: "frozen", ySplit: headerRowIdx, rightToLeft: true }];
 
     await sendWorkbook(res, wb, `شركات-الشحن-${new Date().toISOString().slice(0,10)}`);
   } catch (err: any) {
