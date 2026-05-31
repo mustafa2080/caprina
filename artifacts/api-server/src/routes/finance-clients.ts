@@ -168,7 +168,25 @@ router.get("/finance/clients/:id", async (req, res): Promise<void> => {
       .where(and(...orderConds))
       .orderBy(desc(saleOrdersTable.createdAt));
 
-    res.json({ ...client, orders });
+    // ✅ حساب الإحصائيات live من الفواتير الفعلية (مش من الـ DB المخزّن)
+    const totalSales = orders.reduce((s, o) => s + parseFloat(o.totalAmount ?? "0"), 0);
+    const totalPaid  = orders.reduce((s, o) => {
+      const t = parseFloat(o.totalAmount ?? "0");
+      const p = o.paymentStatus === "paid" ? t : parseFloat(o.paidAmount ?? "0");
+      return s + p;
+    }, 0);
+    const totalOrders     = orders.length;
+    const deliveredOrders = orders.filter(o => o.status === "delivered").length;
+    const deliveryRate    = totalOrders > 0 ? Math.round((deliveredOrders / totalOrders) * 100) : 0;
+
+    res.json({
+      ...client,
+      totalOrders,
+      totalSales:   String(totalSales),
+      totalPaid:    String(totalPaid),
+      deliveryRate,
+      orders,
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

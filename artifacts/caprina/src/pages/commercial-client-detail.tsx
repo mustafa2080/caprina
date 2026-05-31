@@ -48,7 +48,7 @@ type Client = {
   notes: string | null; isActive: boolean; createdAt: string;
 };
 
-type ClientDetail = Client & { orders: SaleOrder[] };
+type ClientDetail = Client & { orders: SaleOrder[]; deliveryRate?: number };
 
 // ── بطاقة الفاتورة — زي ManifestCard بالظبط ────────────────────────────────
 function InvoiceCard({ order, isLatest }: { order: SaleOrder; isLatest: boolean }) {
@@ -161,6 +161,7 @@ export default function CommercialClientDetailPage() {
 
   const client      = data;
   const creditLimit = parseFloat(client?.creditLimit ?? "0");
+  // ✅ totalSales و totalPaid بيجوا live من الـ API (محسوبين من الفواتير الفعلية)
   const totalSales  = parseFloat(client?.totalSales  ?? "0");
   const totalPaid   = parseFloat(client?.totalPaid   ?? "0");
   const allOrders        = data?.orders ?? [];
@@ -170,6 +171,9 @@ export default function CommercialClientDetailPage() {
     const p = o.paymentStatus === "paid" ? t : parseFloat(o.paidAmount ?? "0");
     return sum + Math.max(0, t - p);
   }, 0);
+  // ✅ نسبة التسليم الحقيقية من الـ API (delivered ÷ total)
+  const deliveryRate = data?.deliveryRate ?? 0;
+  // نسبة تحقيق الهدف (المبيعات ÷ creditLimit)
   const salesPct    = Math.min((totalSales / (creditLimit > 0 ? creditLimit : 1_000_000)) * 100, 100);
   const remaining   = Math.max(0, creditLimit - totalSales);
 
@@ -234,13 +238,13 @@ export default function CommercialClientDetailPage() {
             <p className="text-xl font-black text-red-400">{fmt(unpaid)}</p>
             <p className="text-[10px] text-muted-foreground">مدفوع: {fmt(totalPaid)}</p>
           </Card>
-          <Card className={`p-3 text-center border ${salesPct >= 75 ? "border-emerald-900/40 bg-emerald-900/10" : "border-primary/30 bg-primary/5"}`}>
+          <Card className={`p-3 text-center border ${deliveryRate >= 75 ? "border-emerald-900/40 bg-emerald-900/10" : "border-primary/30 bg-primary/5"}`}>
             <p className="text-[10px] text-muted-foreground mb-0.5">نسبة التسليم</p>
-            <p className={`text-xl font-black ${salesPct >= 75 ? "text-emerald-400" : "text-primary"}`}>
-              {salesPct.toFixed(1)}%
+            <p className={`text-xl font-black ${deliveryRate >= 75 ? "text-emerald-400" : "text-primary"}`}>
+              {deliveryRate.toFixed(1)}%
             </p>
             <p className="text-[10px] flex items-center justify-center gap-0.5 text-muted-foreground">
-              {salesPct >= 75
+              {deliveryRate >= 75
                 ? <TrendingUp className="w-3 h-3 text-emerald-400" />
                 : <Target className="w-3 h-3" />}
               {creditLimit > 0 ? `هدف ${fmt(creditLimit)}` : `من ${fmt(1_000_000)}`}
