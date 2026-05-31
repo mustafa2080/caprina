@@ -3197,11 +3197,11 @@ export default function ShippingManifestPage() {
     const printEl = document.querySelector(".manifest-print") as HTMLElement | null;
     if (!printEl) return;
 
-    // تحويل الـ logo لـ base64 — فقط لو فيه لوجو فعلاً
+    // تحويل لوجو شركة الشحن لـ base64 — فقط لو فيه لوجو فعلاً
     let logoB64 = "";
-    if (brand.hasLogo && brand.logoUrl) {
+    if (manifest.companyLogo) {
       try {
-        const r = await fetch(brand.logoUrl);
+        const r = await fetch(manifest.companyLogo);
         if (r.ok) {
           const blob = await r.blob();
           logoB64 = await new Promise<string>(res => {
@@ -3213,17 +3213,12 @@ export default function ShippingManifestPage() {
       } catch { /* تجاهل لو فشل */ }
     }
 
-    const brandName = brand.name || "CAPRINA";
-
-    // بناء الـ logo HTML element
-    const logoEl = logoB64
-      ? `<img src="${logoB64}" class="mp-logo" alt="${brandName}" />`
-      : `<div class="mp-logo-txt">${brandName.substring(0, 2)}</div>`;
-
-    // استبدل الـ img tag في الـ innerHTML بالـ base64 version
+    // استبدل الـ img tag في الـ innerHTML بالـ base64 version — فقط لو فيه لوجو
     let html = printEl.innerHTML;
-    html = html.replace(/<img[^>]*class="mp-logo"[^>]*>/g, logoEl);
-    // لو مفيش img (مفيش لوجو في JSX) — مش محتاجين نستبدل حاجة
+    if (logoB64) {
+      html = html.replace(/<img[^>]*class="mp-logo"[^>]*>/g,
+        `<img src="${logoB64}" class="mp-logo" alt="${manifest.companyName}" />`);
+    }
 
     const win = window.open("", "_blank", "width=900,height=700");
     if (!win) { window.print(); return; }
@@ -3244,22 +3239,22 @@ export default function ShippingManifestPage() {
       color: #111;
       background: #fff;
       direction: rtl;
+      padding: 0 2mm;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
     /* ── Header ── */
     .mp-header { display:flex; justify-content:space-between; align-items:center; border-bottom:3px solid #1e3a5f; padding-bottom:3mm; margin-bottom:3mm; }
     .mp-header-left { flex:1; }
-    .mp-header-right { display:flex; align-items:center; gap:3mm; }
+    .mp-header-right { display:flex; align-items:center; gap:3mm; flex-direction:row; flex-shrink:0; }
     .mp-title { font-size:18pt; font-weight:900; color:#1e3a5f; line-height:1.1; }
     .mp-meta { font-size:9pt; color:#555; margin-top:1.5mm; line-height:1.7; }
     .mp-badge { display:inline-block; margin-top:2mm; padding:1mm 4mm; border-radius:10mm; font-size:8pt; font-weight:800; }
     .mp-badge-open   { background:#dbeafe; color:#1d4ed8; border:1px solid #93c5fd; }
     .mp-badge-closed { background:#dcfce7; color:#15803d; border:1px solid #86efac; }
-    .mp-company-name { font-size:16pt; font-weight:900; color:#1e3a5f; letter-spacing:1px; }
-    .mp-company-sub  { font-size:7pt; color:#94a3b8; letter-spacing:2px; margin-top:0.5mm; }
+    .mp-company-name { font-size:16pt; font-weight:900; color:#1e3a5f; letter-spacing:1px; text-align:left; }
+    .mp-company-sub  { font-size:7pt; color:#94a3b8; letter-spacing:2px; margin-top:0.5mm; text-align:left; }
     .mp-logo { width:16mm; height:16mm; border-radius:50%; object-fit:cover; border:2px solid #e2e8f0; }
-    .mp-logo-txt { width:16mm; height:16mm; border-radius:50%; background:#1e3a5f; display:flex; align-items:center; justify-content:center; font-size:9pt; font-weight:900; color:white; flex-shrink:0; }
     /* ── Stats ── */
     .mp-stats { display:grid; grid-template-columns:repeat(6,1fr); border:1.5px solid #e2e8f0; border-radius:2mm; overflow:hidden; margin-bottom:3mm; }
     .mp-stat { padding:2mm; text-align:center; border-left:1px solid #e2e8f0; background:#f8fafc; }
@@ -3382,12 +3377,12 @@ export default function ShippingManifestPage() {
           </span>
         </div>
         <div className="mp-header-right">
-          {brand.hasLogo && brand.logoUrl
-            ? <img src={brand.logoUrl} className="mp-logo" alt={brand.name} crossOrigin="anonymous" />
-            : <div className="mp-logo-txt">{(brand.name || "CA").substring(0, 2)}</div>
+          {manifest.companyLogo
+            ? <img src={manifest.companyLogo} className="mp-logo" alt={manifest.companyName} crossOrigin="anonymous" />
+            : null
           }
           <div>
-            <div className="mp-company-name">{brand.name || "CAPRINA"}</div>
+            <div className="mp-company-name">{manifest.companyName}</div>
             <div className="mp-company-sub">SHIPPING MANIFEST</div>
           </div>
         </div>
