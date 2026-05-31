@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Warehouse, Package, Edit2, Trash2, Star, ArrowLeft, Printer, TrendingDown, DollarSign, BoxIcon, ShoppingBag, Search, X, SlidersHorizontal, ChevronDown, ChevronUp, Wrench } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -31,6 +31,14 @@ function WarehouseFormDialog({
   const [notes, setNotes] = useState(existing?.notes ?? "");
   const [isDefault, setIsDefault] = useState(existing?.isDefault ?? false);
   const [saving, setSaving] = useState(false);
+
+  // إعادة تعيين القيم كل ما يتغير المخزن المحدد أو يُفتح الـ dialog
+  useEffect(() => {
+    setName(existing?.name ?? "");
+    setAddress(existing?.address ?? "");
+    setNotes(existing?.notes ?? "");
+    setIsDefault(existing?.isDefault ?? false);
+  }, [existing, open]);
 
   const handleSave = async () => {
     if (!name.trim()) {
