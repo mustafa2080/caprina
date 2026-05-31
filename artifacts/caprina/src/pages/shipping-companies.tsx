@@ -134,41 +134,62 @@ function CompanyStats({ companyId, canViewFinancials }: { companyId: number; can
       <DeliveryBar rate={stats.deliveryRate} />
       {/* صف: مسلم | مسلم جزئي | مرتجع */}
       <div className="grid grid-cols-3 gap-2 text-center">
-        <div className="bg-muted/20 rounded p-2">
-          <p className="text-[10px] text-muted-foreground">مُسلَّم</p>
-          <p className="text-sm font-black text-emerald-400">{stats.delivered}</p>
+        {/* مسلم */}
+        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-2 relative">
+          <span className="absolute right-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_2px_rgba(52,211,153,0.6)]" />
+          <span className="absolute left-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_2px_rgba(52,211,153,0.6)]" />
+          <p className="text-[10px] text-emerald-300/70 mb-0.5">مُسلَّم</p>
+          <p className="text-sm font-black text-emerald-400 drop-shadow-[0_0_6px_rgba(52,211,153,0.8)]">{stats.delivered}</p>
         </div>
-        <div className="bg-muted/20 rounded p-2">
-          <p className="text-[10px] text-muted-foreground">مُسلَّم جزئي</p>
-          <p className="text-sm font-black text-teal-400">{(stats as any).partial ?? 0}</p>
+        {/* مسلم جزئي */}
+        <div className="bg-teal-500/10 border border-teal-500/20 rounded-lg p-2 relative">
+          <span className="absolute right-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-teal-400 shadow-[0_0_6px_2px_rgba(45,212,191,0.6)]" />
+          <span className="absolute left-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-teal-400 shadow-[0_0_6px_2px_rgba(45,212,191,0.6)]" />
+          <p className="text-[10px] text-teal-300/70 mb-0.5">مُسلَّم جزئي</p>
+          <p className="text-sm font-black text-teal-400 drop-shadow-[0_0_6px_rgba(45,212,191,0.8)]">{(stats as any).partial ?? 0}</p>
         </div>
-        <div className="bg-muted/20 rounded p-2">
-          <p className="text-[10px] text-muted-foreground">مُرتجَع</p>
-          <p className="text-sm font-black text-red-400">{stats.returned}</p>
+        {/* مرتجع */}
+        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-2 relative">
+          <span className="absolute right-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-red-400 shadow-[0_0_6px_2px_rgba(248,113,113,0.6)]" />
+          <span className="absolute left-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-red-400 shadow-[0_0_6px_2px_rgba(248,113,113,0.6)]" />
+          <p className="text-[10px] text-red-300/70 mb-0.5">مُرتجَع</p>
+          <p className="text-sm font-black text-red-400 drop-shadow-[0_0_6px_rgba(248,113,113,0.8)]">{stats.returned}</p>
         </div>
       </div>
       {/* قسم البيان الحالي */}
-      <div className="bg-muted/20 rounded p-2">
+      <div className="bg-muted/20 border border-border/40 rounded-lg p-2">
         <p className="text-[10px] text-muted-foreground text-center mb-1.5">البيان الحالي</p>
         {openManifest ? (
           <div className="space-y-1.5">
-            <p className="text-sm font-black text-amber-400 text-center">{openManifest.orderCount}</p>
+            <p className="text-sm font-black text-amber-400 text-center drop-shadow-[0_0_6px_rgba(251,191,36,0.8)]">• {openManifest.orderCount} •</p>
             <div className="grid grid-cols-4 gap-1">
-              <div className="flex flex-col items-center bg-blue-500/10 rounded py-1 px-0.5">
-                <span className="text-[10px] font-black text-blue-400">{openManifest.pendingCount ?? 0}</span>
-                <span className="text-[8px] text-muted-foreground leading-tight text-center">قيد الانتظار</span>
+              {/* قيد الانتظار */}
+              <div className="flex flex-col items-center bg-blue-500/10 border border-blue-500/20 rounded-lg py-1.5 px-0.5 relative">
+                <span className="absolute right-1 top-1/2 -translate-y-1/2 w-1 h-1 rounded-full bg-blue-400 shadow-[0_0_5px_1px_rgba(96,165,250,0.7)]" />
+                <span className="absolute left-1 top-1/2 -translate-y-1/2 w-1 h-1 rounded-full bg-blue-400 shadow-[0_0_5px_1px_rgba(96,165,250,0.7)]" />
+                <span className="text-[11px] font-black text-blue-400 drop-shadow-[0_0_5px_rgba(96,165,250,0.9)]">{openManifest.pendingCount ?? 0}</span>
+                <span className="text-[7px] text-muted-foreground leading-tight text-center mt-0.5">قيد الانتظار</span>
               </div>
-              <div className="flex flex-col items-center bg-amber-500/10 rounded py-1 px-0.5">
-                <span className="text-[10px] font-black text-amber-400">{openManifest.postponedCount ?? 0}</span>
-                <span className="text-[8px] text-muted-foreground leading-tight text-center">شحنات مؤجلة</span>
+              {/* شحنات مؤجلة */}
+              <div className="flex flex-col items-center bg-amber-500/10 border border-amber-500/20 rounded-lg py-1.5 px-0.5 relative">
+                <span className="absolute right-1 top-1/2 -translate-y-1/2 w-1 h-1 rounded-full bg-amber-400 shadow-[0_0_5px_1px_rgba(251,191,36,0.7)]" />
+                <span className="absolute left-1 top-1/2 -translate-y-1/2 w-1 h-1 rounded-full bg-amber-400 shadow-[0_0_5px_1px_rgba(251,191,36,0.7)]" />
+                <span className="text-[11px] font-black text-amber-400 drop-shadow-[0_0_5px_rgba(251,191,36,0.9)]">{openManifest.postponedCount ?? 0}</span>
+                <span className="text-[7px] text-muted-foreground leading-tight text-center mt-0.5">شحنات مؤجلة</span>
               </div>
-              <div className="flex flex-col items-center bg-red-500/10 rounded py-1 px-0.5">
-                <span className="text-[10px] font-black text-red-400">{openManifest.returnedCount ?? 0}</span>
-                <span className="text-[8px] text-muted-foreground leading-tight text-center">شحنات مرتجعة</span>
+              {/* شحنات مرتجعة */}
+              <div className="flex flex-col items-center bg-red-500/10 border border-red-500/20 rounded-lg py-1.5 px-0.5 relative">
+                <span className="absolute right-1 top-1/2 -translate-y-1/2 w-1 h-1 rounded-full bg-red-400 shadow-[0_0_5px_1px_rgba(248,113,113,0.7)]" />
+                <span className="absolute left-1 top-1/2 -translate-y-1/2 w-1 h-1 rounded-full bg-red-400 shadow-[0_0_5px_1px_rgba(248,113,113,0.7)]" />
+                <span className="text-[11px] font-black text-red-400 drop-shadow-[0_0_5px_rgba(248,113,113,0.9)]">{openManifest.returnedCount ?? 0}</span>
+                <span className="text-[7px] text-muted-foreground leading-tight text-center mt-0.5">شحنات مرتجعة</span>
               </div>
-              <div className="flex flex-col items-center bg-teal-500/10 rounded py-1 px-0.5">
-                <span className="text-[10px] font-black text-teal-400">{(openManifest as any).partialCount ?? 0}</span>
-                <span className="text-[8px] text-muted-foreground leading-tight text-center">توصيل جزئي</span>
+              {/* توصيل جزئي */}
+              <div className="flex flex-col items-center bg-teal-500/10 border border-teal-500/20 rounded-lg py-1.5 px-0.5 relative">
+                <span className="absolute right-1 top-1/2 -translate-y-1/2 w-1 h-1 rounded-full bg-teal-400 shadow-[0_0_5px_1px_rgba(45,212,191,0.7)]" />
+                <span className="absolute left-1 top-1/2 -translate-y-1/2 w-1 h-1 rounded-full bg-teal-400 shadow-[0_0_5px_1px_rgba(45,212,191,0.7)]" />
+                <span className="text-[11px] font-black text-teal-400 drop-shadow-[0_0_5px_rgba(45,212,191,0.9)]">{(openManifest as any).partialCount ?? 0}</span>
+                <span className="text-[7px] text-muted-foreground leading-tight text-center mt-0.5">توصيل جزئي</span>
               </div>
             </div>
           </div>
