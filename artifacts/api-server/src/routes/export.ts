@@ -249,7 +249,8 @@ async function collectShippingCompanyStats() {
     if (openLinks.length) {
       const uniqueInvoices = new Set<string>();
       for (const link of openLinks) {
-        if (link.deliveryStatus !== "pending" && link.deliveryStatus !== "postponed") continue;
+        // ✅ نحسب المؤجل فقط من البيان المفتوح (مش pending عشان pending بيتحسب في invoiceMap)
+        if (link.deliveryStatus !== "postponed") continue;
         const order = orderMap.get(link.orderId);
         if (!order) continue;
         const key = order.invoiceNumber?.trim() || `solo-${order.id}`;
@@ -308,10 +309,13 @@ async function collectShippingCompanyStats() {
       if (status === "delivered") delivered++;
       else if (status === "partial_received") partial++;
       else if (status === "returned") returned++;
-      else if (status === "pending") pending++;
+      else if (status === "postponed" || status === "delayed") postponed++;
+      else pending++; // pending أو أي حالة أخرى
     }
 
+    // ✅ الإجمالي = مُسلَّم + مُسلَّم جزئي + مرتجع + مؤجل + قيد الانتظار (كله من invoiceMap موحد)
     const total = delivered + partial + returned + postponed + pending;
+    // ✅ نسبة التسليم = (مُسلَّم + مُسلَّم جزئي) ÷ الإجمالي الكلي
     const deliveryRate = total > 0 ? Math.round(((delivered + partial) / total) * 100) : 0;
     const netProfit = totalRevenue - totalCost - totalShippingCost - returnLosses;
 
