@@ -597,7 +597,14 @@ export default function CommercialClientDetailPage() {
 
     const remaining    = TARGET - totalSales;
     const daysNeeded   = Math.ceil(remaining / dailyRate);
-    const completionDate = new Date(now + daysNeeded * 24 * 60 * 60 * 1000);
+
+    // guard: لو الحساب طلع أكثر من 10 سنين مش منطقي
+    if (daysNeeded > 3650) return null;
+
+    const completionTs   = now + daysNeeded * 24 * 60 * 60 * 1000;
+    const completionDate = new Date(completionTs);
+    if (isNaN(completionDate.getTime())) return null;
+
     const monthsLeft   = Math.ceil(daysNeeded / 30);
 
     // مستوى الثقة بناءً على عدد الفواتير وطول الفترة
