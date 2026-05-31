@@ -166,12 +166,8 @@ export default function CommercialClientDetailPage() {
   const totalSales  = parseFloat(client?.totalSales  ?? "0");
   const totalPaid   = parseFloat(client?.totalPaid   ?? "0");
   const allOrders        = data?.orders ?? [];
-  // حساب المديونية الحقيقية من الفواتير — يراعي paymentStatus
-  const unpaid = allOrders.reduce((sum, o) => {
-    const t = parseFloat(o.totalAmount ?? "0");
-    const p = o.paymentStatus === "paid" ? t : parseFloat(o.paidAmount ?? "0");
-    return sum + Math.max(0, t - p);
-  }, 0);
+  // المديونية = إجمالي المبيعات - إجمالي المدفوع (محسوبين live من الـ API)
+  const unpaid = Math.max(0, totalSales - totalPaid);
   // ✅ نسبة التسليم الحقيقية من الـ API (delivered ÷ total)
   const deliveryRate = data?.deliveryRate ?? 0;
   // نسبة تحقيق الهدف (المبيعات ÷ creditLimit)
@@ -226,8 +222,8 @@ export default function CommercialClientDetailPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <Card className="border-border bg-card p-3 text-center">
             <p className="text-[10px] text-muted-foreground mb-0.5">إجمالي الفواتير</p>
-            <p className="text-2xl font-black">{allOrders.filter(o => o.status === "processing" || o.status === "delivered").length}</p>
-            <p className="text-[10px] text-muted-foreground">{client.totalOrders ?? 0} فاتورة كلياً</p>
+            <p className="text-2xl font-black">{allOrders.length}</p>
+            <p className="text-[10px] text-muted-foreground">{processingOrders.length} جارية · {deliveredOrders.length} مكتملة</p>
           </Card>
           <Card className="border-teal-900/40 bg-teal-900/10 p-3 text-center">
             <p className="text-[10px] text-teal-400 mb-0.5">إجمالي المبيعات</p>
