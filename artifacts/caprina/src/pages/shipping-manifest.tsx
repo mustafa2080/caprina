@@ -409,8 +409,13 @@ function OrderDeliveryRow({
         {order.deliveryStatus === "partial_received" && (order as any).returnReceived === 1 && (
           <p className="text-[10px] text-emerald-600 font-semibold">↩ الباقي في المخزن</p>
         )}
-        {order.deliveryStatus === "partial_received" && (order as any).returnReceived === 0 && (
-          <p className="text-[10px] text-orange-500 font-semibold">🚚 الباقي عند الشحن</p>
+        {order.deliveryStatus === "partial_received" && (order as any).returnReceived !== 1 && (
+          <>
+            {(order as any).returnReceived === 0 && (
+              <p className="text-[10px] text-orange-500 font-semibold">🚚 الباقي عند الشحن</p>
+            )}
+            <p className="text-[10px] text-orange-400 font-semibold">🚚 المرتجع ما زال في شركة الشحن</p>
+          </>
         )}
         {order.deliveryStatus === "delayed" && order.deliveryNote && !editing && (
           <p className="text-[10px] text-orange-400 mt-0.5 font-semibold">
