@@ -3571,6 +3571,20 @@ export default function ShippingManifestPage() {
           <p className="text-xs text-red-600 mt-0.5 font-bold">
             {s.total > 0 ? Math.round((s.returned / s.total) * 100) : 0}% نسبة الإرجاع
           </p>
+          {(() => {
+            const partialReturnedQty = manifest.orders
+              .filter(o => o.deliveryStatus === "partial_received")
+              .reduce((sum, o) => {
+                const delivered = o.partialQuantity ?? 0;
+                const remaining = o.quantity - delivered;
+                return sum + (remaining > 0 ? remaining : 0);
+              }, 0);
+            return partialReturnedQty > 0 ? (
+              <p className="text-[10px] text-red-400 mt-1 font-semibold border-t border-red-900/50 pt-1">
+                ↩ مرتجع جزئي: {partialReturnedQty} قطعة
+              </p>
+            ) : null;
+          })()}
         </Card>
         <Card className="border-amber-900/50 bg-amber-900/10 p-4">
           <p className="text-xs text-amber-400 mb-1 flex items-center gap-1">
