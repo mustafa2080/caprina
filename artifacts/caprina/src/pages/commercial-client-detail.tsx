@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams, Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
@@ -9,9 +9,13 @@ import {
   ChevronRight, Calendar, Package, Phone, MapPin,
   Clock, CheckCircle2, Target,
 } from "lucide-react";
-import { format, formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { ar } from "date-fns/locale";
 import { apiFetch } from "@/lib/api";
+import {
+  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  ReferenceLine, CartesianGrid, PieChart, Pie, Cell,
+} from "recharts";
 
 const fmt = (n: string | number) =>
   new Intl.NumberFormat("ar-EG", {
@@ -178,6 +182,37 @@ export default function CommercialClientDetailPage() {
   const deliveredOrders  = allOrders.filter(o => ["delivered", "closed"].includes(o.status));
   const latestProcessingId = processingOrders[0]?.id;
 
+  const TARGET = creditLimit > 0 ? creditLimit : 1_000_000;
+  const monthlyTarget = Math.round(TARGET / 12);
+
+  // ── بيانات الـ Donut chart ───────────────────────────────────────────────
+  const donutData = useMemo(() => [
+    { name: "المبيعات الفعلية", value: Math.min(totalSales, TARGET) },
+    { name: "المتبقي للهدف",    value: Math.max(0, TARGET - totalSales) },
+  ], [totalSales, TARGET]);
+
+  // ── بيانات الـ Line chart — آخر 6 أشهر ─────────────────────────────────
+  const monthlyData = useMemo(() => {
+    const months: { label: string; sales: number; target: number }[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d     = subMonths(new Date(), i);
+      const start = startOfMonth(d);
+      const end   = endOfMonth(d);
+      const sales = allOrders
+        .filter(o => {
+          const cd = new Date(o.createdAt);
+          return cd >= start && cd <= end;
+        })
+        .reduce((s, o) => s + parseFloat(o.totalAmount ?? "0"), 0);
+      months.push({
+        label: format(d, "MMM", { locale: ar }),
+        sales: Math.round(sales),
+        target: monthlyTarget,
+      });
+    }
+    return months;
+  }, [allOrders, monthlyTarget]);
+
   return (
     <div className="max-w-3xl mx-auto space-y-5 animate-in fade-in duration-500" dir="rtl">
 
@@ -254,6 +289,98 @@ export default function CommercialClientDetailPage() {
                   ? <TrendingUp className="w-3 h-3 text-amber-400" />
                   : <Target className="w-3 h-3" />}
               {creditLimit > 0 ? `هدف ${fmt(creditLimit)}` : `هدف ${fmt(1_000_000)}`}
+            </p>
+          </Card>
+        </div>
+      )}
+
+      {/* ─── Charts: Donut + Line ─── */}
+      {!isLoading && client && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+          {/* Donut — مقياس الهدف */}
+          <Card className="border-border bg-card p-4">
+            <p className="text-xs font-bold mb-3 flex items-center gap-2">
+              <Target className="w-3.5 h-3.5 text-muted-foreground" />
+              مقياس الهدف
+            </p>
+            <div className="flex items-center gap-4">
+              <div className="relative shrink-0" style={{ width: 110, height: 110 }}>
+                <PieChart width={110} height={110}>
+                  <Pie
+                    data={donutData}
+                    cx={55} cy={55}
+                    innerRadius={34} outerRadius={50}
+                    startAngle={90} endAngle={-270}
+                    dataKey="value" strokeWidth={0}
+                  >
+                    <Cell fill={salesPct >= 75 ? "#10b981" : salesPct >= 50 ? "#f59e0b" : "#3b82f6"} />
+                    <Cell fill="hsl(var(--muted)/0.3)" />
+                  </Pie>
+                </PieChart>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <p className={`text-lg font-black leading-none ${salesPct >= 75 ? "text-emerald-400" : salesPct >= 50 ? "text-amber-400" : "text-blue-400"}`}>
+                    {Math.round(salesPct)}%
+                  </p>
+                  <p className="text-[9px] text-muted-foreground mt-0.5">من الهدف</p>
+                </div>
+              </div>
+              <div className="flex-1 space-y-2.5">
+                <div>
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: salesPct >= 75 ? "#10b981" : salesPct >= 50 ? "#f59e0b" : "#3b82f6" }} />
+                    <p className="text-[10px] text-muted-foreground">المبيعات الفعلية</p>
+                  </div>
+                  <p className="text-sm font-black text-primary">{fmt(totalSales)}</p>
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <span className="w-2 h-2 rounded-full bg-muted-foreground/30 shrink-0" />
+                    <p className="text-[10px] text-muted-foreground">المتبقي للهدف</p>
+                  </div>
+                  <p className="text-sm font-black text-muted-foreground">{fmt(Math.max(0, TARGET - totalSales))}</p>
+                </div>
+                <div className="pt-1 border-t border-border">
+                  <p className="text-[10px] text-muted-foreground">الهدف الكلي</p>
+                  <p className="text-xs font-bold">{fmt(TARGET)}</p>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* Line chart — النمو الشهري */}
+          <Card className="border-border bg-card p-4">
+            <p className="text-xs font-bold mb-1 flex items-center gap-2">
+              <TrendingUp className="w-3.5 h-3.5 text-muted-foreground" />
+              النمو الشهري
+            </p>
+            <div className="flex items-center gap-3 mb-3 text-[10px]">
+              <span className="flex items-center gap-1">
+                <span className="w-5 h-0.5 bg-blue-400 inline-block rounded" />المبيعات
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-5 h-0.5 border-t border-dashed border-amber-400 inline-block" />الهدف الشهري
+              </span>
+            </div>
+            <ResponsiveContainer width="100%" height={130}>
+              <LineChart data={monthlyData} margin={{ top: 4, right: 4, left: -28, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false}
+                  tickFormatter={v => v >= 1000 ? `${Math.round(v / 1000)}K` : String(v)} />
+                <Tooltip
+                  contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11, direction: "rtl" }}
+                  formatter={(v: any, name: string) => [fmt(v), name === "sales" ? "المبيعات" : "الهدف"]}
+                  labelFormatter={(l) => `شهر ${l}`}
+                />
+                <ReferenceLine y={monthlyTarget} stroke="#f59e0b" strokeDasharray="4 3" strokeWidth={1.5} />
+                <Line type="monotone" dataKey="sales" stroke="#3b82f6" strokeWidth={2}
+                  dot={{ fill: "#3b82f6", r: 3, strokeWidth: 0 }}
+                  activeDot={{ r: 5, fill: "#3b82f6" }} />
+              </LineChart>
+            </ResponsiveContainer>
+            <p className="text-[9px] text-muted-foreground text-center mt-1">
+              الهدف الشهري: {fmt(monthlyTarget)}
             </p>
           </Card>
         </div>
