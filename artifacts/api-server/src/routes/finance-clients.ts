@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, clientsTable, saleOrdersTable } from "@workspace/db";
+import { db, clientsTable, saleOrdersTable, saleOrderItemsTable } from "@workspace/db";
 import { eq, desc, and, sql, or, like } from "drizzle-orm";
 import { getTenantId } from "../middlewares/requireTenant.js";
 import { z } from "zod";
@@ -317,6 +317,50 @@ router.delete("/finance/clients/:id", async (req, res): Promise<void> => {
 
     await db.delete(clientsTable).where(and(...conds));
     res.status(204).send();
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── GET /finance/clients/:id/top-products ────────────────────────────────────
+router.get("/finance/clients/:id/top-products", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req);
+    const id = parseInt(req.params.id);
+
+    const conds: any[] = [eq(clientsTable.id, id)];
+    if (tenantId !== null) conds.push(eq(clientsTable.tenantId, tenantId));
+    const [client] = await db.select({ name: clientsTable.name }).from(clientsTable).where(and(...conds));
+    if (!client) { res.status(404).json({ error: "العميل غير موجود" }); return; }
+
+    // جلب كل بنود أوامر البيع لهذا العميل عبر join
+    const orderConds: any[] = [eq(saleOrdersTable.clientName, client.name)];
+    if (tenantId !== null) orderConds.push(eq(saleOrdersTable.tenantId, tenantId));
+
+    const items = await db
+      .select({
+        productName: saleOrderItemsTable.productName,
+        quantity:    sql<number>`SUM(${saleOrderItemsTable.quantity})`,
+        totalValue:  sql<number>`SUM(${saleOrderItemsTable.totalPrice})`,
+      })
+      .from(saleOrderItemsTable)
+      .innerJoin(saleOrdersTable, eq(saleOrderItemsTable.saleOrderId, saleOrdersTable.id))
+      .where(and(...orderConds))
+      .groupBy(saleOrderItemsTable.productName)
+      .orderBy(desc(sql`SUM(${saleOrderItemsTable.totalPrice})`))
+      .limit(5);
+
+    // حساب الإجمالي عشان نطلع النسبة
+    const grandTotal = items.reduce((s, i) => s + Number(i.totalValue), 0);
+
+    const result = items.map(i => ({
+      productName: i.productName,
+      quantity:    Number(i.quantity),
+      totalValue:  Number(i.totalValue),
+      percentage:  grandTotal > 0 ? Math.round((Number(i.totalValue) / grandTotal) * 100) : 0,
+    }));
+
+    res.json({ items: result, grandTotal });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

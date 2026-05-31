@@ -531,6 +531,18 @@ export default function CommercialClientDetailPage() {
     return months;
   }, [allOrders, monthlyTarget]);
 
+  // ── أكثر المنتجات شراءً ──────────────────────────────────────────────────
+  const { data: topProductsData } = useQuery<{
+    items: { productName: string; quantity: number; totalValue: number; percentage: number }[];
+    grandTotal: number;
+  }>({
+    queryKey: ["client-top-products", clientId],
+    queryFn:  () => apiFetch(`/finance/clients/${clientId}/top-products`),
+    enabled:  !isNaN(clientId),
+  });
+
+  const PRODUCT_COLORS = ["#3b82f6","#10b981","#f59e0b","#8b5cf6","#ec4899"];
+
   return (
     <div className="max-w-3xl mx-auto space-y-5 animate-in fade-in duration-500" dir="rtl">
 
@@ -836,6 +848,97 @@ export default function CommercialClientDetailPage() {
           </Card>
         );
       })()}
+
+      {/* ─── أكثر المنتجات شراءً ─── */}
+      {!isLoading && client && topProductsData && topProductsData.items.length > 0 && (
+        <Card className="border-border bg-card p-4">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-xs font-bold flex items-center gap-2">
+              <Package className="w-3.5 h-3.5 text-muted-foreground" />
+              أكثر المنتجات شراءً
+            </p>
+            <span className="text-[10px] text-muted-foreground">
+              إجمالي: {fmt(topProductsData.grandTotal)}
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            {topProductsData.items.map((item, i) => (
+              <div key={item.productName}>
+                {/* الصف الرئيسي */}
+                <div className="flex items-center gap-3 mb-1.5">
+                  {/* الرقم */}
+                  <div
+                    className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 text-white"
+                    style={{ background: PRODUCT_COLORS[i] }}
+                  >
+                    {i + 1}
+                  </div>
+
+                  {/* الاسم + الكمية */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-bold truncate">{item.productName}</p>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-[10px] text-muted-foreground">
+                          {item.quantity.toLocaleString("ar-EG")} قطعة
+                        </span>
+                        <span className="text-[11px] font-black" style={{ color: PRODUCT_COLORS[i] }}>
+                          {fmt(item.totalValue)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* شريط النسبة */}
+                    <div className="flex items-center gap-2 mt-1">
+                      <div className="flex-1 bg-muted/30 rounded-full h-1.5 overflow-hidden">
+                        <div
+                          className="h-1.5 rounded-full transition-all duration-700"
+                          style={{ width: `${item.percentage}%`, background: PRODUCT_COLORS[i] }}
+                        />
+                      </div>
+                      <span className="text-[10px] font-bold w-8 text-left shrink-0" style={{ color: PRODUCT_COLORS[i] }}>
+                        {item.percentage}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* mini donut للمقارنة البصرية */}
+          {topProductsData.items.length > 1 && (
+            <div className="mt-4 pt-3 border-t border-border flex items-center gap-4">
+              <div className="shrink-0">
+                <PieChart width={80} height={80}>
+                  <Pie
+                    data={topProductsData.items}
+                    dataKey="totalValue"
+                    nameKey="productName"
+                    cx={40} cy={40}
+                    innerRadius={22} outerRadius={36}
+                    strokeWidth={2}
+                    stroke="hsl(var(--card))"
+                  >
+                    {topProductsData.items.map((_, i) => (
+                      <Cell key={i} fill={PRODUCT_COLORS[i]} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </div>
+              <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                {topProductsData.items.map((item, i) => (
+                  <div key={item.productName} className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: PRODUCT_COLORS[i] }} />
+                    <span className="text-[10px] text-muted-foreground truncate max-w-[100px]">{item.productName}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* ─── فواتير البيع — زي Manifests Timeline ─── */}
       <div>
