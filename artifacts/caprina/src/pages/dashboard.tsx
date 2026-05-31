@@ -1727,7 +1727,7 @@ export default function Dashboard() {
                     <TrendingUp className="w-4 h-4 text-emerald-500" />
                     أداء فريق المبيعات
                     <Badge variant="outline" className="text-[11px] h-5 px-2 border-emerald-400/40 text-emerald-600 dark:text-emerald-400">
-                      {teamPerf.length} عضو
+                      {teamPerf.filter(m => m.userId !== 0).length} عضو
                     </Badge>
                   </CardTitle>
                   <Link href="/team-performance" className="text-xs text-primary hover:underline font-medium">تفاصيل ←</Link>
