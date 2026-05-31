@@ -1754,6 +1754,9 @@ export default function TeamPage() {
     queryFn: usersApi.list,
   });
 
+  const profiledUserIds2 = new Set(profiles.map(p => (p as any).userId).filter(Boolean));
+  const unprofiledUsers = allUsers.filter((u: any) => !profiledUserIds2.has(u.id) && u.isActive);
+
   const profileToDelete = profiles.find(p => p.id === deleteConfirmId);
 
   const handleDeleteProfile = async () => {
