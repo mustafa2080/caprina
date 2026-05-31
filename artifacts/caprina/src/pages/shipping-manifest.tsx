@@ -3196,26 +3196,30 @@ export default function ShippingManifestPage() {
     const printEl = document.querySelector(".manifest-print") as HTMLElement | null;
     if (!printEl) return;
 
-    // تحويل الـ logo لـ base64 عشان تظهر صح في الـ popup
-    let logoBase64 = "";
-    if (brand.logoUrl) {
-      try {
-        const res = await fetch(brand.logoUrl);
-        const blob = await res.blob();
-        logoBase64 = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(blob);
-        });
-      } catch { /* تجاهل لو فشل */ }
-    }
+    // تحويل الـ logo لـ base64 — نفس طريقة الفواتير
+    let logoB64 = "";
+    const logoSrc = brand.logoUrl || "/api/brand/logo";
+    try {
+      const r = await fetch(logoSrc);
+      const blob = await r.blob();
+      logoB64 = await new Promise<string>(res => {
+        const reader = new FileReader();
+        reader.onload = () => res(reader.result as string);
+        reader.readAsDataURL(blob);
+      });
+    } catch { /* تجاهل لو فشل */ }
 
-    // استبدل src الصورة في الـ innerHTML بالـ base64
+    const brandName = brand.name || "CAPRINA";
+
+    // بناء الـ logo HTML element
+    const logoEl = logoB64
+      ? `<img src="${logoB64}" class="mp-logo" alt="${brandName}" />`
+      : `<div style="width:14mm;height:14mm;display:flex;align-items:center;justify-content:center;background:#1e3a5f;border-radius:50%;font-size:8pt;font-weight:900;color:white;">${brandName.substring(0, 2)}</div>`;
+
+    // استبدل الـ img tag في الـ innerHTML بالـ base64 version
     let html = printEl.innerHTML;
-    if (logoBase64 && brand.logoUrl) {
-      // استبدل أي src يبدأ بـ /api/brand/logo أو يحتوي على logo
-      html = html.replace(/src="[^"]*brand\/logo[^"]*"/g, `src="${logoBase64}"`);
-    }
+    // استبدال شامل لأي img فيها brand/logo أو logoUrl
+    html = html.replace(/<img[^>]*class="mp-logo"[^>]*>/g, logoEl);
 
     const win = window.open("", "_blank", "width=900,height=700");
     if (!win) { window.print(); return; }
