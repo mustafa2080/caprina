@@ -1118,12 +1118,38 @@ function AddMemberWizard({ open, onClose, onSuccess, availableUsers, existingPro
   const [monthlySalary, setMonthlySalary] = useState("0");
   const [hireDate, setHireDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [jobRole, setJobRole] = useState("employee");
+  const [teamOnlyAvatar, setTeamOnlyAvatar] = useState<string | null>(null);
 
   const reset = () => {
     setStep(1); setSaving(false); setSelectedUserId(""); setSelectedUser(null); setMode("system");
     setDisplayName(""); setJobTitle(""); setDepartment(""); setMonthlySalary("0");
     setHireDate(new Date().toISOString().slice(0, 10));
-    setJobRole("employee");
+    setJobRole("employee"); setTeamOnlyAvatar(null);
+  };
+
+  const handleTeamOnlyAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "الصورة كبيرة جداً", description: "الحد الأقصى 5MB", variant: "destructive" });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const MAX = 300;
+        let w = img.width, h = img.height;
+        if (w > h) { if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; } }
+        else { if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; } }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+        setTeamOnlyAvatar(canvas.toDataURL("image/jpeg", 0.8));
+      };
+      img.src = ev.target?.result as string;
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSelectSystemUser = () => {
@@ -1180,6 +1206,7 @@ function AddMemberWizard({ open, onClose, onSuccess, availableUsers, existingPro
         department: department || null,
         monthlySalary: parseFloat(monthlySalary) || 0,
         hireDate: hireDate || null,
+        avatar: teamOnlyAvatar || null,
       });
       qc.invalidateQueries({ queryKey: ["employee-profiles"] });
       toast({ title: `تم إضافة ${displayName.trim()} للفريق ✅` });
@@ -1324,6 +1351,34 @@ function AddMemberWizard({ open, onClose, onSuccess, availableUsers, existingPro
             <div className="p-2.5 rounded-lg bg-amber-900/10 border border-amber-700/30 text-xs text-amber-400 flex items-center gap-2">
               🏷️ هذا العضو لن يمتلك حساب دخول للنظام — يمكنك تتبع أداؤه يدوياً عبر المؤشرات
             </div>
+
+            {/* Avatar upload */}
+            <div className="flex items-center gap-3">
+              <div className="relative shrink-0">
+                {teamOnlyAvatar ? (
+                  <img src={teamOnlyAvatar} className="w-16 h-16 rounded-2xl object-cover border-2 border-amber-600/40" alt="صورة العضو" />
+                ) : (
+                  <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-black bg-amber-900/20 border-2 border-amber-700/30 text-amber-500">
+                    {displayName ? displayName.charAt(0).toUpperCase() : "؟"}
+                  </div>
+                )}
+                {teamOnlyAvatar && (
+                  <button
+                    onClick={() => setTeamOnlyAvatar(null)}
+                    className="absolute -top-1.5 -left-1.5 w-5 h-5 rounded-full bg-destructive text-white flex items-center justify-center text-[10px] hover:bg-destructive/80 transition-colors"
+                  >✕</button>
+                )}
+              </div>
+              <div className="flex-1">
+                <Label className="text-xs font-bold mb-1 block">صورة العضو (اختياري)</Label>
+                <label className="flex items-center gap-2 cursor-pointer h-8 px-3 rounded-lg border border-dashed border-amber-700/40 bg-amber-900/10 hover:bg-amber-900/20 transition-colors text-xs text-amber-400 font-medium">
+                  <input type="file" accept="image/*" className="hidden" onChange={handleTeamOnlyAvatarChange} />
+                  📷 {teamOnlyAvatar ? "تغيير الصورة" : "رفع صورة"}
+                </label>
+                <p className="text-[10px] text-muted-foreground mt-1">PNG أو JPG — الحد الأقصى 5MB</p>
+              </div>
+            </div>
+
             <div>
               <Label className="text-xs font-bold">الاسم الكامل *</Label>
               <Input value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="أحمد الساعي" className="h-8 text-xs mt-1" />
