@@ -186,6 +186,12 @@ export default function CommercialClientDetailPage() {
     if (!isNaN(val) && val > 0) targetMutation.mutate(val);
   };
 
+  const { data, isLoading } = useQuery<ClientDetail>({
+    queryKey: ["client-detail", clientId],
+    queryFn: () => apiFetch<ClientDetail>(`/finance/clients/${clientId}`),
+    enabled: !isNaN(clientId),
+  });
+
   // ── تصدير Excel ──────────────────────────────────────────────────────────
   const [exportingExcel, setExportingExcel] = useState(false);
   const [exportingPDF,   setExportingPDF]   = useState(false);
@@ -201,98 +207,145 @@ export default function CommercialClientDetailPage() {
 
       const ws = wb.addWorksheet("كشف الحساب", { views: [{ rightToLeft: true }] });
 
-      // ── العنوان ──
-      ws.mergeCells("A1:G1");
-      const titleCell = ws.getCell("A1");
-      titleCell.value = `كشف حساب — ${data.name}`;
-      titleCell.font  = { name: "Arial", size: 16, bold: true, color: { argb: "FFFFFFFF" } };
-      titleCell.alignment = { horizontal: "center", vertical: "middle" };
-      titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E293B" } };
-      ws.getRow(1).height = 36;
-
-      // ── ملخص ──
-      ws.mergeCells("A2:G2");
       const TARGET_VAL = parseFloat(data.creditLimit ?? "0") > 0 ? parseFloat(data.creditLimit) : 1_000_000;
-      const tSales = parseFloat(data.totalSales ?? "0");
-      const tPaid  = parseFloat(data.totalPaid  ?? "0");
+      const tSales  = parseFloat(data.totalSales ?? "0");
+      const tPaid   = parseFloat(data.totalPaid  ?? "0");
       const tUnpaid = Math.max(0, tSales - tPaid);
-      const pct = Math.min((tSales / TARGET_VAL) * 100, 100).toFixed(1);
+      const pct     = Math.min((tSales / TARGET_VAL) * 100, 100).toFixed(1);
 
-      const summaryCell = ws.getCell("A2");
-      summaryCell.value = `المبيعات: ${tSales.toLocaleString("ar-EG")} ج.م  |  المدفوع: ${tPaid.toLocaleString("ar-EG")} ج.م  |  المتبقي: ${tUnpaid.toLocaleString("ar-EG")} ج.م  |  الهدف: ${TARGET_VAL.toLocaleString("ar-EG")} ج.م  |  التحقيق: ${pct}%`;
-      summaryCell.font      = { name: "Arial", size: 10, color: { argb: "FF94A3B8" } };
-      summaryCell.alignment = { horizontal: "center", vertical: "middle" };
-      summaryCell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0F172A" } };
-      ws.getRow(2).height   = 22;
+      const bAll = (cell: any, color = "FFB0BEC5") => {
+        const s = { style: "thin" as const, color: { argb: color } };
+        cell.border = { top: s, left: s, bottom: s, right: s };
+      };
 
-      // ── رأس الجدول ──
-      const headers = ["رقم الفاتورة", "التاريخ", "الحالة", "حالة الدفع", "الإجمالي", "المدفوع", "المتبقي"];
-      const headerRow = ws.addRow(headers);
-      headerRow.eachCell(cell => {
-        cell.font      = { name: "Arial", size: 10, bold: true, color: { argb: "FFFFFFFF" } };
-        cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
-        cell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: "FF334155" } };
-        cell.border    = { bottom: { style: "thin", color: { argb: "FF475569" } } };
+      // ══ سطر 1: عنوان ══
+      ws.mergeCells("A1:G1");
+      const t1 = ws.getCell("A1");
+      t1.value     = `كشف حساب — ${data.name}`;
+      t1.font      = { name: "Arial", size: 18, bold: true, color: { argb: "FFFFFFFF" } };
+      t1.alignment = { horizontal: "center", vertical: "middle" };
+      t1.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E3A5F" } };
+      ws.getRow(1).height = 44;
+
+      // ══ سطر 2: تاريخ ══
+      ws.mergeCells("A2:G2");
+      const t2 = ws.getCell("A2");
+      t2.value     = `تاريخ الإصدار: ${format(new Date(), "yyyy/MM/dd  HH:mm")}`;
+      t2.font      = { name: "Arial", size: 9, italic: true, color: { argb: "FF94A3B8" } };
+      t2.alignment = { horizontal: "center", vertical: "middle" };
+      t2.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0F1A2E" } };
+      ws.getRow(2).height = 18;
+      ws.getRow(3).height = 8;
+
+      // ══ سطرات 4-5: ملخص أرقام (4 بلوكات) ══
+      const smColors  = ["FF0D9488","FF16A34A","FFDC2626","FF1D4ED8"];
+      const smBGs     = ["FF0D3331","FF052E16","FF450A0A","FF1E3A5F"];
+      const smLabels  = ["إجمالي المبيعات","إجمالي المدفوع","المديونية",`تحقيق الهدف`];
+      const smVals    = [tSales, tPaid, tUnpaid, parseFloat(pct)];
+      const smFmts    = ['#,##0 "ج.م"','#,##0 "ج.م"','#,##0 "ج.م"','0.0"%"'];
+      const smCols    = [["A","B"],["C","D"],["E","F"],["G","G"]];
+
+      smLabels.forEach((lbl, i) => {
+        const [c1, c2] = smCols[i];
+        if (c1 !== c2) { ws.mergeCells(`${c1}4:${c2}4`); ws.mergeCells(`${c1}5:${c2}5`); }
+        const hCell = ws.getCell(`${c1}4`);
+        hCell.value     = lbl;
+        hCell.font      = { name: "Arial", size: 9, bold: true, color: { argb: smColors[i] } };
+        hCell.alignment = { horizontal: "center", vertical: "middle" };
+        hCell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: smBGs[i] } };
+        bAll(hCell, smColors[i]);
+        ws.getRow(4).height = 20;
+
+        const vCell = ws.getCell(`${c1}5`);
+        vCell.value     = smVals[i];
+        vCell.numFmt    = smFmts[i];
+        vCell.font      = { name: "Arial", size: 14, bold: true, color: { argb: smColors[i] } };
+        vCell.alignment = { horizontal: "center", vertical: "middle" };
+        vCell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: smBGs[i] } };
+        bAll(vCell, smColors[i]);
+        ws.getRow(5).height = 32;
       });
-      ws.getRow(3).height = 22;
+
+      ws.getRow(6).height = 8;
+
+      // ══ أعمدة الجدول ══
       ws.columns = [
-        { key: "soNumber",    width: 18 },
-        { key: "createdAt",   width: 14 },
-        { key: "status",      width: 14 },
-        { key: "payStatus",   width: 14 },
-        { key: "total",       width: 16 },
-        { key: "paid",        width: 16 },
-        { key: "unpaid",      width: 16 },
+        { key: "soNumber",  width: 20 },
+        { key: "createdAt", width: 14 },
+        { key: "status",    width: 16 },
+        { key: "payStatus", width: 14 },
+        { key: "total",     width: 18 },
+        { key: "paid",      width: 18 },
+        { key: "unpaid",    width: 18 },
       ];
 
-      const statusMap: Record<string, string> = {
-        draft: "مسودة", confirmed: "مؤكد", processing: "قيد التجهيز",
-        delivered: "تم التسليم", closed: "مغلق",
-      };
-      const payMap: Record<string, string> = {
-        paid: "مسدد", partial: "جزئي", unpaid: "غير مسدد",
-      };
+      // ══ سطر 7: رأس الجدول ══
+      const hdr = ws.addRow(["رقم الفاتورة","التاريخ","الحالة","حالة الدفع","الإجمالي","المدفوع","المتبقي"]);
+      hdr.eachCell(cell => {
+        cell.font      = { name: "Arial", size: 10, bold: true, color: { argb: "FFFFFFFF" } };
+        cell.alignment = { horizontal: "center", vertical: "middle" };
+        cell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E3A5F" } };
+        bAll(cell, "FF3B82F6");
+      });
+      hdr.height = 24;
+
+      // ══ صفوف الفواتير ══
+      const stMap: Record<string,string> = { draft:"مسودة", confirmed:"مؤكد", processing:"قيد التجهيز", delivered:"تم التسليم", closed:"مغلق" };
+      const pyMap: Record<string,string> = { paid:"مسدد", partial:"جزئي", unpaid:"غير مسدد" };
 
       data.orders.forEach((o, i) => {
-        const total  = parseFloat(o.totalAmount ?? "0");
-        const paid   = o.paymentStatus === "paid" ? total : parseFloat(o.paidAmount ?? "0");
-        const unpaid = Math.max(0, total - paid);
+        const tot  = parseFloat(o.totalAmount ?? "0");
+        const pd   = o.paymentStatus === "paid" ? tot : parseFloat(o.paidAmount ?? "0");
+        const unp  = Math.max(0, tot - pd);
+        const rowBG = i % 2 === 0 ? "FFF0F4FA" : "FFFFFFFF";
+        const isProc = ["draft","confirmed","processing"].includes(o.status);
+
         const row = ws.addRow({
           soNumber:  o.soNumber,
           createdAt: format(new Date(o.createdAt), "yyyy/MM/dd"),
-          status:    statusMap[o.status] ?? o.status,
-          payStatus: payMap[o.paymentStatus] ?? o.paymentStatus,
-          total,
-          paid,
-          unpaid,
+          status:    stMap[o.status]          ?? o.status,
+          payStatus: pyMap[o.paymentStatus]   ?? o.paymentStatus,
+          total: tot, paid: pd, unpaid: unp,
         });
-        const bg = i % 2 === 0 ? "FF1E293B" : "FF0F172A";
+
         row.eachCell(cell => {
-          cell.font      = { name: "Arial", size: 10, color: { argb: "FFE2E8F0" } };
+          cell.font      = { name: "Arial", size: 10, color: { argb: "FF1E293B" } };
           cell.alignment = { horizontal: "center", vertical: "middle" };
-          cell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: bg } };
+          cell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: rowBG } };
+          bAll(cell, "FFD1D5DB");
         });
-        // لون المتبقي أحمر لو فيه رصيد
-        if (unpaid > 0) {
-          row.getCell(7).font = { name: "Arial", size: 10, bold: true, color: { argb: "FFEF4444" } };
+
+        row.getCell(5).numFmt = '#,##0 "ج.م"';
+        row.getCell(6).numFmt = '#,##0 "ج.م"';
+        row.getCell(7).numFmt = '#,##0 "ج.م"';
+
+        // لون خلية الحالة
+        row.getCell(3).font = { name:"Arial", size:10, bold:true, color:{ argb: isProc ? "FFD97706" : "FF059669" } };
+        row.getCell(3).fill = { type:"pattern", pattern:"solid", fgColor:{ argb: isProc ? "FFFEF3C7" : "FFD1FAE5" } };
+
+        // لون المتبقي
+        if (unp > 0) {
+          row.getCell(7).font = { name:"Arial", size:10, bold:true, color:{ argb:"FFDC2626" } };
+          row.getCell(7).fill = { type:"pattern", pattern:"solid", fgColor:{ argb:"FFFEE2E2" } };
+        } else {
+          row.getCell(7).font = { name:"Arial", size:10, color:{ argb:"FF059669" } };
         }
-        // تنسيق الأرقام
-        [5, 6, 7].forEach(col => {
-          row.getCell(col).numFmt = '#,##0 "ج.م"';
-        });
-        row.height = 20;
+        row.height = 22;
       });
 
-      // ── صف الإجمالي ──
-      const totalRow = ws.addRow(["", "", "", "الإجمالي", tSales, tPaid, tUnpaid]);
-      totalRow.eachCell(cell => {
-        cell.font  = { name: "Arial", size: 11, bold: true, color: { argb: "FFFFFFFF" } };
-        cell.fill  = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1D4ED8" } };
-        cell.alignment = { horizontal: "center", vertical: "middle" };
-        cell.border = { top: { style: "medium", color: { argb: "FF3B82F6" } } };
+      // ══ صف الإجمالي ══
+      const totRow = ws.addRow(["","","","الإجمالي", tSales, tPaid, tUnpaid]);
+      totRow.eachCell(cell => {
+        cell.font      = { name:"Arial", size:11, bold:true, color:{ argb:"FFFFFFFF" } };
+        cell.fill      = { type:"pattern", pattern:"solid", fgColor:{ argb:"FF1D4ED8" } };
+        cell.alignment = { horizontal:"center", vertical:"middle" };
+        bAll(cell, "FF60A5FA");
       });
-      [5, 6, 7].forEach(col => { totalRow.getCell(col).numFmt = '#,##0 "ج.م"'; });
-      totalRow.height = 24;
+      totRow.getCell(5).numFmt = '#,##0 "ج.م"';
+      totRow.getCell(6).numFmt = '#,##0 "ج.م"';
+      totRow.getCell(7).numFmt = '#,##0 "ج.م"';
+      if (tUnpaid > 0) totRow.getCell(7).font = { name:"Arial", size:11, bold:true, color:{ argb:"FFFBBF24" } };
+      totRow.height = 26;
 
       const buffer = await wb.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
@@ -387,12 +440,6 @@ export default function CommercialClientDetailPage() {
       setExportingPDF(false);
     }
   }, [data]);
-
-  const { data, isLoading } = useQuery<ClientDetail>({
-    queryKey: ["client-detail", clientId],
-    queryFn: () => apiFetch<ClientDetail>(`/finance/clients/${clientId}`),
-    enabled: !isNaN(clientId),
-  });
 
   if (isNaN(clientId))
     return <div className="p-8 text-center text-muted-foreground">معرّف غير صحيح</div>;
