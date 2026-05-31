@@ -1161,9 +1161,8 @@ function AddMemberWizard({ open, onClose, onSuccess, availableUsers, existingPro
     setDisplayName(user?.displayName ?? "");
     setJobRole(user?.role ?? "employee");
     const existingProfile = user ? existingProfiles.find(p => p.userId === user.id) ?? null : null;
-    // نأخذ jobTitle/department من الـ profile أو من بيانات المستخدم مباشرة (بعد الـ API join)
-    setJobTitle(existingProfile?.jobTitle ?? (user as any)?.jobTitle ?? "");
-    setDepartment(existingProfile?.department ?? (user as any)?.department ?? "");
+    setJobTitle(existingProfile?.jobTitle ?? user?.jobTitle ?? "");
+    setDepartment(existingProfile?.department ?? user?.department ?? "");
     setMonthlySalary(existingProfile?.monthlySalary?.toString() ?? "0");
     setHireDate(existingProfile?.hireDate ?? new Date().toISOString().slice(0, 10));
   };
@@ -1240,9 +1239,16 @@ function AddMemberWizard({ open, onClose, onSuccess, availableUsers, existingPro
                       const linked = existingProfiles.some(p => p.userId === user.id);
                       return (
                         <SelectItem key={user.id} value={String(user.id)}>
-                          <div className="flex items-center justify-between gap-2 w-full">
-                            <span className="truncate">{user.displayName}</span>
-                            <span className="text-[10px] text-muted-foreground shrink-0">@{user.username} · {user.role}{linked ? " · مضاف" : ""}</span>
+                          <div className="flex flex-col items-start gap-0.5 w-full">
+                            <span className="truncate font-medium">{user.displayName}</span>
+                            <span className="text-[10px] text-muted-foreground shrink-0">
+                              @{user.username} · {user.role}{linked ? " · مضاف" : ""}
+                            </span>
+                            {(user.jobTitle || user.department) && (
+                              <span className="text-[10px] text-primary/70 truncate">
+                                {user.jobTitle || "—"}{user.department ? ` — ${user.department}` : ""}
+                              </span>
+                            )}
                           </div>
                         </SelectItem>
                       );
@@ -1260,6 +1266,12 @@ function AddMemberWizard({ open, onClose, onSuccess, availableUsers, existingPro
                     <div className="truncate">اسم المستخدم: <span className="text-foreground font-medium">{selectedUser.username}</span></div>
                     <div className="truncate">الحالة: <span className="text-foreground font-medium">{selectedUser.isActive ? "نشط" : "غير نشط"}</span></div>
                   </div>
+                  {(selectedUser.jobTitle || selectedUser.department) && (
+                    <div className="grid grid-cols-2 gap-2 text-muted-foreground">
+                      <div className="truncate">المسمى: <span className="text-foreground font-medium">{selectedUser.jobTitle || "—"}</span></div>
+                      <div className="truncate">القسم: <span className="text-foreground font-medium">{selectedUser.department || "—"}</span></div>
+                    </div>
+                  )}
                   <div className="text-[10px] text-muted-foreground">
                     {existingProfiles.some(p => p.userId === selectedUser.id) ? "هذا المستخدم لديه ملف فريق بالفعل — سيتم تحديثه." : "هذا المستخدم غير مضاف للفريق بعد."}
                   </div>

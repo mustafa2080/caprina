@@ -47,6 +47,8 @@ export interface AppUser {
   id: number; username: string; displayName: string;
   role: "admin" | "employee" | "warehouse";
   permissions: string[]; isActive: boolean;
+  jobTitle?: string | null;
+  department?: string | null;
   createdAt: string; updatedAt: string;
 }
 
