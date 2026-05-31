@@ -154,21 +154,21 @@ function CompanyStats({ companyId, canViewFinancials }: { companyId: number; can
           <div className="space-y-1.5">
             <p className="text-sm font-black text-amber-400 text-center">{openManifest.orderCount}</p>
             <div className="grid grid-cols-4 gap-1">
-              <div className="flex flex-col items-center bg-teal-500/10 rounded py-1 px-0.5">
-                <span className="text-[10px] font-black text-teal-400">{(openManifest as any).partialCount ?? 0}</span>
-                <span className="text-[8px] text-muted-foreground leading-tight">جزئي</span>
-              </div>
-              <div className="flex flex-col items-center bg-red-500/10 rounded py-1 px-0.5">
-                <span className="text-[10px] font-black text-red-400">{openManifest.returnedCount ?? 0}</span>
-                <span className="text-[8px] text-muted-foreground leading-tight">مرتجع</span>
+              <div className="flex flex-col items-center bg-blue-500/10 rounded py-1 px-0.5">
+                <span className="text-[10px] font-black text-blue-400">{openManifest.pendingCount ?? 0}</span>
+                <span className="text-[8px] text-muted-foreground leading-tight text-center">قيد الانتظار</span>
               </div>
               <div className="flex flex-col items-center bg-amber-500/10 rounded py-1 px-0.5">
                 <span className="text-[10px] font-black text-amber-400">{openManifest.postponedCount ?? 0}</span>
-                <span className="text-[8px] text-muted-foreground leading-tight">مؤجل</span>
+                <span className="text-[8px] text-muted-foreground leading-tight text-center">شحنات مؤجلة</span>
               </div>
-              <div className="flex flex-col items-center bg-blue-500/10 rounded py-1 px-0.5">
-                <span className="text-[10px] font-black text-blue-400">{openManifest.pendingCount ?? 0}</span>
-                <span className="text-[8px] text-muted-foreground leading-tight">انتظار</span>
+              <div className="flex flex-col items-center bg-red-500/10 rounded py-1 px-0.5">
+                <span className="text-[10px] font-black text-red-400">{openManifest.returnedCount ?? 0}</span>
+                <span className="text-[8px] text-muted-foreground leading-tight text-center">شحنات مرتجعة</span>
+              </div>
+              <div className="flex flex-col items-center bg-teal-500/10 rounded py-1 px-0.5">
+                <span className="text-[10px] font-black text-teal-400">{(openManifest as any).partialCount ?? 0}</span>
+                <span className="text-[8px] text-muted-foreground leading-tight text-center">توصيل جزئي</span>
               </div>
             </div>
           </div>
