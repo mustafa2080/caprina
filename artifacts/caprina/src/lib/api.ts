@@ -202,23 +202,44 @@ export const shippingApi = {
 };
 
 const parseFile = async (file: File, endpoint: string): Promise<ParsedImport> => {
-  const form = new FormData();
-  form.append("file", file);
-  const token = getToken();
-  const res = await fetch(`${BASE}/${endpoint}`, {
-    method: "POST",
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    body: form,
-  });
-  if (res.status === 401) {
-    localStorage.removeItem("caprina_token");
-    localStorage.removeItem("caprina_user");
-    window.location.href = "/login";
-    throw new Error("غير مصرح");
+  // ── قراءة الملف محلياً بـ SheetJS لتجنب 413 من nginx ──────────────────────
+  try {
+    const XLSX = await import("xlsx");
+    const buffer = await file.arrayBuffer();
+    const wb = XLSX.read(buffer, { type: "array" });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+    if (!rows.length) throw new Error("الملف فارغ.");
+    const headers = (rows[0] as any[]).map(h => String(h ?? "").trim());
+    const dataRows = rows.slice(1).filter(r => (r as any[]).some(c => c !== "" && c != null));
+    const sample = dataRows.slice(0, 5);
+    return {
+      headers,
+      sample,
+      allRows: dataRows,
+      totalRows: dataRows.length,
+    } as ParsedImport;
+  } catch (localErr: any) {
+    // fallback: ارفع الملف للسيرفر (للأنواع غير المدعومة)
+    const form = new FormData();
+    form.append("file", file);
+    const token = getToken();
+    const res = await fetch(`${BASE}/${endpoint}`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    });
+    if (res.status === 401) {
+      localStorage.removeItem("caprina_token");
+      localStorage.removeItem("caprina_user");
+      window.location.href = "/login";
+      throw new Error("غير مصرح");
+    }
+    if (res.status === 413) throw new Error("الملف كبير جداً. يرجى تقليل حجمه أو تقسيمه إلى أجزاء أصغر.");
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data;
   }
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-  return data;
 };
 
 const executeImport = async (endpoint: string, payload: { headers: string[]; rows: any[][]; mapping: any }): Promise<ImportResult> => {
