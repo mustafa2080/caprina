@@ -190,8 +190,8 @@ export default function ShippingCompanyDetailPage() {
             </Button>
           </Link>
           <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0 overflow-hidden border border-border">
-            {company?.logoUrl
-              ? <img src={company.logoUrl} alt={company.name} className="w-full h-full object-cover" />
+            {company?.logo
+              ? <img src={company.logo} alt={company.name} className="w-full h-full object-cover" />
               : <Truck className="w-5 h-5 text-muted-foreground" />
             }
           </div>
