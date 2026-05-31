@@ -574,6 +574,41 @@ export default function CommercialClientDetailPage() {
     return { lastOrderDate, daysSinceLast, avgDays, isOverdue, isWarning };
   }, [allOrders]);
 
+  // ── توقع اكتمال الهدف ────────────────────────────────────────────────────
+  const goalForecast = useMemo(() => {
+    if (!allOrders || allOrders.length === 0) return null;
+    if (totalSales >= TARGET) return { done: true, completionDate: null, monthsLeft: 0, dailyRate: 0, confidence: "high" as const };
+
+    // معدل المبيعات اليومي من آخر 90 يوم (أو كل الفواتير لو أقل)
+    const now = Date.now();
+    const window90 = 90 * 24 * 60 * 60 * 1000;
+    const recentOrders = allOrders.filter(o => now - new Date(o.createdAt).getTime() <= window90);
+    const basedOrders  = recentOrders.length >= 2 ? recentOrders : allOrders;
+
+    const sortedDates = [...basedOrders].sort((a, b) =>
+      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+    const spanMs   = new Date(sortedDates[sortedDates.length - 1]).getTime() - new Date(sortedDates[0]).getTime();
+    const spanDays = Math.max(spanMs / (1000 * 60 * 60 * 24), 1);
+    const totalInSpan = basedOrders.reduce((s, o) => s + parseFloat(o.totalAmount ?? "0"), 0);
+    const dailyRate   = totalInSpan / spanDays;
+
+    if (dailyRate <= 0) return null;
+
+    const remaining    = TARGET - totalSales;
+    const daysNeeded   = Math.ceil(remaining / dailyRate);
+    const completionDate = new Date(now + daysNeeded * 24 * 60 * 60 * 1000);
+    const monthsLeft   = Math.ceil(daysNeeded / 30);
+
+    // مستوى الثقة بناءً على عدد الفواتير وطول الفترة
+    const confidence: "high" | "medium" | "low" =
+      basedOrders.length >= 5 && spanDays >= 30 ? "high"
+      : basedOrders.length >= 2 ? "medium"
+      : "low";
+
+    return { done: false, completionDate, monthsLeft, daysNeeded, dailyRate, confidence };
+  }, [allOrders, totalSales, TARGET]);
+
   return (
     <div className="max-w-3xl mx-auto space-y-5 animate-in fade-in duration-500" dir="rtl">
 
@@ -970,6 +1005,99 @@ export default function CommercialClientDetailPage() {
           )}
         </Card>
       )}
+
+      {/* ─── توقع اكتمال الهدف ─── */}
+      {!isLoading && client && goalForecast && (() => {
+        const gf = goalForecast;
+
+        if (gf.done) return (
+          <Card className="border-emerald-900/40 bg-emerald-900/10 p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-emerald-900/40 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-emerald-400">🎉 تم تحقيق الهدف!</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  المبيعات {fmt(totalSales)} تجاوزت الهدف {fmt(TARGET)}
+                </p>
+              </div>
+            </div>
+          </Card>
+        );
+
+        const confColor   = gf.confidence === "high" ? "#10b981" : gf.confidence === "medium" ? "#f59e0b" : "#94a3b8";
+        const confLabel   = gf.confidence === "high" ? "توقع موثوق" : gf.confidence === "medium" ? "توقع تقريبي" : "بيانات قليلة";
+        const progressPct = Math.min((totalSales / TARGET) * 100, 100);
+        const monthName   = gf.completionDate
+          ? format(gf.completionDate, "MMMM yyyy", { locale: ar })
+          : null;
+
+        return (
+          <Card className="border-border bg-card p-4">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-xs font-bold flex items-center gap-2">
+                <TrendingUp className="w-3.5 h-3.5 text-muted-foreground" />
+                توقع اكتمال الهدف
+              </p>
+              <span
+                className="text-[10px] font-bold px-2 py-0.5 rounded-full border"
+                style={{ borderColor: confColor + "80", background: confColor + "15", color: confColor }}
+              >
+                {confLabel}
+              </span>
+            </div>
+
+            {/* الشهر المتوقع — كبير في المنتصف */}
+            <div className="text-center mb-4 py-3 rounded-xl bg-primary/5 border border-primary/20">
+              <p className="text-[10px] text-muted-foreground mb-1">الشهر المتوقع لاكتمال الهدف</p>
+              <p className="text-2xl font-black text-primary leading-none">{monthName}</p>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                {gf.daysNeeded! <= 30
+                  ? `خلال ${gf.daysNeeded} يوم فقط 🚀`
+                  : `بعد ~${gf.monthsLeft} شهر`}
+              </p>
+            </div>
+
+            {/* شريط التقدم نحو الهدف */}
+            <div className="mb-3">
+              <div className="flex items-center justify-between mb-1.5 text-[10px]">
+                <span className="text-muted-foreground">المبيعات الحالية</span>
+                <span className="font-bold">{progressPct.toFixed(1)}%</span>
+              </div>
+              <div className="w-full bg-muted/30 rounded-full h-3 overflow-hidden relative">
+                <div
+                  className="h-3 rounded-full transition-all duration-700"
+                  style={{
+                    width: `${progressPct}%`,
+                    background: progressPct >= 75 ? "#10b981" : progressPct >= 50 ? "#f59e0b" : "#3b82f6",
+                  }}
+                />
+              </div>
+              <div className="flex items-center justify-between mt-1 text-[9px] text-muted-foreground">
+                <span>{fmt(totalSales)}</span>
+                <span>الهدف: {fmt(TARGET)}</span>
+              </div>
+            </div>
+
+            {/* إحصائيات الحساب */}
+            <div className="grid grid-cols-3 gap-2 pt-3 border-t border-border/50">
+              <div className="text-center">
+                <p className="text-[9px] text-muted-foreground">المتبقي</p>
+                <p className="text-xs font-black text-red-400">{fmt(TARGET - totalSales)}</p>
+              </div>
+              <div className="text-center border-x border-border/50">
+                <p className="text-[9px] text-muted-foreground">معدل يومي</p>
+                <p className="text-xs font-black text-primary">{fmt(Math.round(gf.dailyRate))}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-[9px] text-muted-foreground">أيام متبقية</p>
+                <p className="text-xs font-black">{gf.daysNeeded!.toLocaleString("ar-EG")}</p>
+              </div>
+            </div>
+          </Card>
+        );
+      })()}
 
       {/* ─── معدل تكرار الشراء ─── */}
       {!isLoading && client && purchaseFrequency && (() => {
