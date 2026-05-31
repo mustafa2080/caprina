@@ -2050,9 +2050,16 @@ function CloseConfirmDialog({
             {(s as any).stillAtShippingCount > 0 && (
               <div className="p-2 rounded-md bg-orange-900/10 border border-orange-700 text-xs flex items-start gap-2">
                 <span className="text-base">🚚</span>
-                <div>
+                <div className="space-y-0.5">
                   <p className="text-orange-400 font-bold">لسه عند الشحن: {(s as any).stillAtShippingCount} طلبية</p>
-                  <p className="text-orange-300 text-[10px]">مبلغ متوقع: {formatCurrency((s as any).stillAtShippingAmount ?? 0)}</p>
+                  {(s as any).stillAtShippingAmount > 0 && (
+                    <p className="text-orange-300 text-[10px]">
+                      💰 مبلغ متوقع (مؤجل فقط): {formatCurrency((s as any).stillAtShippingAmount ?? 0)}
+                    </p>
+                  )}
+                  <p className="text-muted-foreground text-[10px]">
+                    ملاحظة: المرتجع والجزئي بيرجعوا بضاعة للمخزن — لا فلوس متوقعة منهم
+                  </p>
                 </div>
               </div>
             )}

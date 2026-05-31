@@ -212,21 +212,23 @@ function computeStats(orders: OrderWithDelivery[]) {
   let stillAtShippingCount = 0, stillAtShippingAmount = 0;
 
   // حساب stillAtShipping على مستوى الفواتير (مش الطلبات الفردية)
+  // المبلغ المتوقع = المؤجل فقط (لأن المرتجع والجزئي بيرجعوا مخزن مش فلوس)
   for (const group of groupedOrders) {
     const gStatus = groupStatus(group);
     if (gStatus === "postponed" || gStatus === "pending") {
       stillAtShippingCount++;
-      stillAtShippingAmount += group.reduce((sum, o) => sum + o.totalPrice, 0);
+      // فقط المؤجل يُحسب في المبلغ المتوقع — pending مش واضح وضعه بعد
+      if (gStatus === "postponed") {
+        stillAtShippingAmount += group.reduce((sum, o) => sum + o.totalPrice, 0);
+      }
     } else if (gStatus === "partial_received") {
-      // الجزء الباقي فقط
-      const rep = group[0]; // نمثل الفاتورة بأول طلب
+      // الجزئي: يُعد في الـ count كـ "لسه عند الشحن" لكن بدون مبلغ متوقع
+      // (الباقي بيرجع مخزن — مش فلوس)
+      const rep = group[0];
       const rv = (rep as any).returnReceived;
       if (rv !== 1) {
         stillAtShippingCount++;
-        const deliveredQty = (rv === 0 && rep.partialQuantity != null) ? Number(rep.partialQuantity) : 0;
-        const remainingQty = rep.quantity - deliveredQty;
-        const unitPrice = Number((rep as any).unitPrice ?? 0) || (rep.quantity > 0 ? rep.totalPrice / rep.quantity : 0);
-        stillAtShippingAmount += remainingQty > 0 ? unitPrice * remainingQty : rep.totalPrice;
+        // لا نضيف أي مبلغ — الجزئي بيرجع بضاعة مش كاش
       }
     }
   }
