@@ -2150,8 +2150,11 @@ function ExportDialog({
   const partialGross = manifest.orders
     .filter(o => o.deliveryStatus === "partial_received")
     .reduce((sum, o) => {
-      const pct = o.partialQuantity && o.quantity ? o.partialQuantity / o.quantity : 1;
-      return sum + o.totalPrice * pct;
+      // لو في partialQuantity محددة نحسب نسبتها، لو مفيش نحسب المبلغ كاملاً
+      const pct = (o.partialQuantity != null && o.quantity > 0)
+        ? o.partialQuantity / o.quantity
+        : 1;
+      return sum + Math.round(o.totalPrice * pct);
     }, 0);
   const totalCollected = deliveredGross + partialGross;
   const netDue = totalCollected - effectiveShipping;
@@ -2249,7 +2252,8 @@ function ExportDialog({
       ws["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: maxR, c: maxC } });
       ws["!cols"] = colWidths.map(w => ({ wch: w }));
       if (merges.length) ws["!merges"] = merges;
-      ws["!sheetview"] = [{ rightToLeft: true }] as any;
+      // RTL لكل الشيتات
+      ws["!sheetview"] = [{ rightToLeft: true, showGridLines: true }] as any;
 
       // Add Excel Table for auto-filter + banding
       if (tableOpts) {
@@ -2305,8 +2309,8 @@ function ExportDialog({
     // ── Group orders by invoiceNumber (or customerName+phone as fallback) ──────
     const groupedOrders = groupManifestOrders(manifest.orders);
 
-    // Row 4: headers  (رقم الفاتورة بدل رقم الطلب)
-    sheet1Data.push(["#","رقم الفاتورة","اسم العميل","الهاتف","المنتجات","الكمية الكلية","الإجمالي","حالة التسليم","ملاحظة", ""]
+    // Row 4: headers  — ترتيب RTL: # على اليمين
+    sheet1Data.push(["ملاحظة","حالة التسليم","الإجمالي","الكمية الكلية","المنتجات","الهاتف","اسم العميل","رقم الفاتورة","#",""]
       .map(h => sc(h, S.header)));
 
     // Rows: one row per customer/invoice group
@@ -2340,32 +2344,32 @@ function ExportDialog({
       } as XLSX.CellObject;
 
       sheet1Data.push([
-        sc(idx + 1,       baseN),
-        sc(invoiceNum,    base),
-        sc(rep.customerName, base),
-        sc(rep.phone ?? "—", base),
-        productsCell,
-        sc(totalQty,      baseN),
-        sc(totalPrice,    baseN),
-        sc(deliveryLabel, statuses.length === 1 ? statusStyle(deliveryStatus) : S.pending),
         sc(notes,         base),
+        sc(deliveryLabel, statuses.length === 1 ? statusStyle(deliveryStatus) : S.pending),
+        sc(totalPrice,    baseN),
+        sc(totalQty,      baseN),
+        productsCell,
+        sc(rep.phone ?? "—", base),
+        sc(rep.customerName, base),
+        sc(invoiceNum,    base),
+        sc(idx + 1,       baseN),
         sc("",            base),
       ]);
     });
 
-    // Totals row
+    // Totals row — نفس ترتيب RTL
     const grandTotal = manifest.orders.reduce((sum, o) => sum + o.totalPrice, 0);
     sheet1Data.push([
-      sc("الإجمالي الكلي", S.totalDark),
-      ...Array(5).fill(sc("", S.totalDark)),
-      sc(grandTotal,  S.netGreen),
-      sc(`${s.deliveryRate}% نسبة تسليم`, S.totalDark),
       sc("", S.totalDark),
+      sc(`${s.deliveryRate}% نسبة تسليم`, S.totalDark),
+      sc(grandTotal,  S.netGreen),
+      ...Array(5).fill(sc("", S.totalDark)),
+      sc("الإجمالي الكلي", S.totalDark),
       sc("", S.totalDark),
     ]);
 
     const ws1 = makeWS(sheet1Data,
-      [5, 14, 22, 14, 36, 10, 13, 13, 28, 5],
+      [28, 13, 13, 10, 36, 14, 22, 14, 5, 5],
       [merge("A1:J1"), merge("A2:J2"), merge("A3:J3"), merge("A4:J4")],
       { headerRow: 4, totalRows: groupedOrders.length, name: "OrdersTable" },
     );
@@ -2451,8 +2455,8 @@ function ExportDialog({
       const data: (XLSX.CellObject | null)[][] = [];
       // Title row
       data.push([sc(`${label} — ${sGroups.length} عميل / ${orders.length} طلبية`, sty), ...Array(7).fill(sc("", sty))]);
-      // Headers
-      data.push(["#","رقم الفاتورة","اسم العميل","الهاتف","المنتجات","الكمية","الإجمالي","ملاحظة"].map(h => sc(h, S.header)));
+      // Headers — RTL
+      data.push(["ملاحظة","الإجمالي","الكمية","المنتجات","الهاتف","اسم العميل","رقم الفاتورة","#"].map(h => sc(h, S.header)));
       sGroups.forEach((group, idx) => {
         const base  = idx % 2 === 0 ? S.white   : S.alt;
         const baseN = idx % 2 === 0 ? S.whiteNum : S.altNum;
@@ -2470,15 +2474,15 @@ function ExportDialog({
           s: { ...base, alignment: { ...align("right", true) } },
         } as XLSX.CellObject;
         data.push([
-          sc(idx + 1, baseN), sc(invoiceNum, base),
-          sc(rep.customerName, base), sc(rep.phone ?? "—", base),
+          sc(notes, base), sc(totalPrice, baseN), sc(totalQty, baseN),
           productsCell,
-          sc(totalQty, baseN), sc(totalPrice, baseN), sc(notes, base),
+          sc(rep.phone ?? "—", base), sc(rep.customerName, base),
+          sc(invoiceNum, base), sc(idx + 1, baseN),
         ]);
       });
       const sub = orders.reduce((sum, o) => sum + o.totalPrice, 0);
-      data.push([sc(`المجموع (${sGroups.length} عميل)`, sty), ...Array(5).fill(sc("", sty)), sc(fmtMoney(sub), sty), sc("", sty)]);
-      statusSheets2.push({ name: label, ws: makeWS(data, [5,14,22,14,36,7,13,28], [merge("A1:H1")],
+      data.push([sc("", sty), sc(fmtMoney(sub), sty), ...Array(5).fill(sc("", sty)), sc(`المجموع (${sGroups.length} عميل)`, sty)]);
+      statusSheets2.push({ name: label, ws: makeWS(data, [28,13,7,36,14,22,14,5], [merge("A1:H1")],
         { headerRow: 1, totalRows: sGroups.length, name: `Table_${key}` }) });
     });
 
