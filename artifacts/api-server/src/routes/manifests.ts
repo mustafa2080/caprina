@@ -207,7 +207,7 @@ function computeStats(orders: OrderWithDelivery[]) {
   const partial   = groupedOrders.filter((g) => groupStatus(g) === "partial_received").length;
   const postponed = groupedOrders.filter((g) => groupStatus(g) === "postponed").length;
   const pending   = groupedOrders.filter((g) => groupStatus(g) === "pending").length;
-  const deliveryRate = total > 0 ? Math.round(((delivered + partial * 0.5) / total) * 100) : 0;
+  const deliveryRate = total > 0 ? Math.round(((delivered + partial) / total) * 100) : 0;
   let totalRevenue = 0, totalCost = 0, totalShippingCost = 0, returnLosses = 0, deliveredGross = 0;
   let stillAtShippingCount = 0, stillAtShippingAmount = 0;
 
