@@ -379,16 +379,23 @@ router.patch("/finance/sale-orders/:id", async (req, res): Promise<void> => {
 
     // لو الحالة تغيرت إلى delivered → خصم فعلي من المخزن
     if (status === "delivered" && current.status !== "delivered") {
-      const items = await db.select().from(saleOrderItemsTable)
+      const orderItems = await db.select().from(saleOrderItemsTable)
         .where(eq(saleOrderItemsTable.saleOrderId, id));
       const wid = warehouseId ? parseInt(warehouseId) : current.warehouseId;
       if (wid) {
-        for (const item of items) {
+        for (const item of orderItems) {
           if (!item.variantId) continue;
+
+          // لو الفاتورة كانت confirmed من قبل → المخزون محجوز فعلاً
+          // لو كانت draft/processing → نخصم مباشرة بدون ما نلمس reserved
+          const wasConfirmed = current.status === "confirmed" || current.status === "processing";
+
           await db.update(warehouseStockTable)
             .set({
-              quantity:         sql`quantity - ${item.quantity}`,
-              reservedQuantity: sql`GREATEST(0, reserved_quantity - ${item.quantity})`,
+              quantity:         sql`GREATEST(0, quantity - ${item.quantity})`,
+              reservedQuantity: wasConfirmed
+                ? sql`GREATEST(0, reserved_quantity - ${item.quantity})`
+                : sql`reserved_quantity`,
             })
             .where(and(
               eq(warehouseStockTable.warehouseId, wid),
