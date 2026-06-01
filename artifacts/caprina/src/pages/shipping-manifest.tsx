@@ -2380,33 +2380,39 @@ function ExportDialog({
     });
 
     const totalRowIndex = groupedOrders.length + 6;
-    ws1.mergeCells(`A${totalRowIndex}:B${totalRowIndex}`);
-    setCell(ws1.getCell(`A${totalRowIndex}`), "الإجمالي بعد خصم الشحن", {
-      fill: C.grayBg,
-      font: { bold: true, color: { argb: C.gold }, size: 11 },
-      align: { horizontal: "center", vertical: "middle" },
-      border: "FFF59E0B",
-    });
-    setCell(ws1.getCell(`C${totalRowIndex}`), netDue, {
-      fill: C.green,
-      font: { bold: true, color: { argb: C.white }, size: 11 },
-      align: { horizontal: "center", vertical: "middle" },
-      border: C.green,
-      numFmt: '#,##0 "ج.م"',
-    });
-    setCell(ws1.getCell(`D${totalRowIndex}`), `${groupedDeliveryRate}% نسبة تسليم`, {
-      fill: C.grayBg,
-      font: { bold: true, color: { argb: C.gold }, size: 11 },
-      align: { horizontal: "center", vertical: "middle" },
-      border: "FFF59E0B",
-    });
-    for (const col of ["E", "F", "G", "H", "I"]) {
-      setCell(ws1.getCell(`${col}${totalRowIndex}`), "", {
+    const totalSummaryRows = [
+      { row: totalRowIndex, label: "الإجمالي", value: totalCollected, note: `${groupedDeliveryRate}% نسبة تسليم`, fill: C.green },
+      { row: totalRowIndex + 1, label: "إجمالي مصاريف الشحن", value: effectiveShipping, note: "", fill: C.green },
+      { row: totalRowIndex + 2, label: "الصافي المستحق", value: netDue, note: "", fill: C.green },
+    ];
+    for (const item of totalSummaryRows) {
+      setCell(ws1.getCell(`A${item.row}`), item.label, {
         fill: C.grayBg,
+        font: { bold: true, color: { argb: C.gold }, size: 11 },
+        align: { horizontal: "right", vertical: "middle" },
         border: "FFF59E0B",
       });
+      setCell(ws1.getCell(`B${item.row}`), item.value, {
+        fill: item.fill,
+        font: { bold: true, color: { argb: C.white }, size: 11 },
+        align: { horizontal: "center", vertical: "middle" },
+        border: C.green,
+        numFmt: '#,##0 "ج.م"',
+      });
+      setCell(ws1.getCell(`C${item.row}`), item.note, {
+        fill: C.grayBg,
+        font: { bold: true, color: { argb: C.gold }, size: 11 },
+        align: { horizontal: "center", vertical: "middle" },
+        border: "FFF59E0B",
+      });
+      for (const col of ["D", "E", "F", "G", "H", "I"]) {
+        setCell(ws1.getCell(`${col}${item.row}`), "", {
+          fill: C.grayBg,
+          border: "FFF59E0B",
+        });
+      }
+      ws1.getRow(item.row).height = 24;
     }
-    ws1.getRow(totalRowIndex).height = 24;
 
     // ── Sheet 2: summary ────────────────────────────────────────────────────
     const ws2 = workbook.addWorksheet("ملخص البيان", { views: [{ state: "frozen", ySplit: 4, rightToLeft: true }] });
