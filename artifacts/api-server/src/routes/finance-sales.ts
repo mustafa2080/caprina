@@ -355,7 +355,45 @@ router.patch("/finance/sale-orders/:id", async (req, res): Promise<void> => {
         await transferToTreasury(updatedOrder as any, tenantId, userId, userName);
       } catch (cashErr) {
         console.error("[sale close] treasury transfer error:", cashErr);
-        // لا نوقف العملية لو الخزنة فيها مشكلة
+      }
+    }
+
+    // ── خصم المخزن عند الدفع ────────────────────────────────────────────────
+    // لو paymentStatus تغير إلى "paid" وما اتخصمش المخزن قبل كده
+    // (يعني status مش delivered ومش closed) → نخصم دلوقتي
+    const stockAlreadyDeducted = ["delivered", "closed"].includes(current.status);
+    if (
+      paymentStatus === "paid" &&
+      current.paymentStatus !== "paid" &&
+      !stockAlreadyDeducted
+    ) {
+      const orderItems = await db.select().from(saleOrderItemsTable)
+        .where(eq(saleOrderItemsTable.saleOrderId, id));
+      const wid = warehouseId ? parseInt(warehouseId) : current.warehouseId;
+      if (wid && orderItems.length > 0) {
+        for (const item of orderItems) {
+          if (!item.variantId) continue;
+          const wasConfirmed = ["confirmed", "processing"].includes(current.status);
+          await db.update(warehouseStockTable)
+            .set({
+              quantity: sql`GREATEST(0, quantity - ${item.quantity})`,
+              reservedQuantity: wasConfirmed
+                ? sql`GREATEST(0, reserved_quantity - ${item.quantity})`
+                : sql`reserved_quantity`,
+            })
+            .where(and(
+              eq(warehouseStockTable.warehouseId, wid),
+              eq(warehouseStockTable.variantId, item.variantId),
+            ));
+          await db.update(saleOrderItemsTable)
+            .set({ deliveredQty: item.quantity })
+            .where(eq(saleOrderItemsTable.id, item.id));
+        }
+      }
+      // رفع status تلقائياً لـ delivered لو لسه مش delivered
+      if (!["delivered", "closed"].includes(current.status)) {
+        updates.status    = "delivered";
+        updates.deliveredAt = new Date();
       }
     }
 
