@@ -2251,8 +2251,8 @@ function ExportDialog({
     const groupedPartial = groupedOrders.filter((group) => groupStatus(group) === "partial_received").length;
     const groupedPostponed = groupedOrders.filter((group) => groupStatus(group) === "postponed").length;
     const groupedPending = groupedOrders.filter((group) => groupStatus(group) === "pending").length;
-    const groupedCompleted = groupedDelivered + groupedPartial;
-    const groupedDeliveryRate = groupedTotal > 0 ? Math.round((groupedCompleted / groupedTotal) * 100) : 0;
+    const groupedCompleted = groupedDelivered;
+    const groupedDeliveryRate = groupedTotal > 0 ? Math.round((groupedDelivered / groupedTotal) * 100) : 0;
     const setCell = (cell: any, value: unknown, options?: {
       fill?: string;
       font?: Record<string, any>;
