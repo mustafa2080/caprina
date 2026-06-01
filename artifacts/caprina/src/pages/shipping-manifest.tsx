@@ -3401,6 +3401,7 @@ export default function ShippingManifestPage() {
   const groupedTotalCount = groupedManifestOrders.length;
   const groupedCompletedCount = groupedDeliveredCount + groupedPartialCount;
   const groupedDeliveryRate = groupedTotalCount > 0 ? Math.round((groupedCompletedCount / groupedTotalCount) * 100) : 0;
+  const screenDeliveryRate = groupedTotalCount > 0 ? Math.round((groupedDeliveredCount / groupedTotalCount) * 100) : 0;
   const groupedPendingOrders = groupedPendingCount;
 
   const statusLabel = (st: DeliveryStatus) => {
@@ -3715,7 +3716,7 @@ export default function ShippingManifestPage() {
           </p>
           <p className="text-2xl font-black text-emerald-400">{groupedDeliveredCount}</p>
           <p className="text-xs text-emerald-600 mt-0.5 font-bold">
-            {groupedDeliveryRate}% نسبة التسليم
+            {screenDeliveryRate}% نسبة التسليم
           </p>
         </Card>
         <Card className="border-red-900/50 bg-red-900/10 p-4">
@@ -3773,14 +3774,14 @@ export default function ShippingManifestPage() {
           <p className="text-sm font-bold">نسبة التسليم</p>
           <p
             className={`text-xl font-black ${
-              groupedDeliveryRate >= 70
+              screenDeliveryRate >= 70
                 ? "text-emerald-400"
-                : groupedDeliveryRate >= 40
+                : screenDeliveryRate >= 40
                 ? "text-amber-400"
                 : "text-red-400"
             }`}
           >
-            {groupedDeliveryRate}%
+            {screenDeliveryRate}%
           </p>
         </div>
         <div className="w-full bg-muted rounded-full h-3 overflow-hidden flex">
