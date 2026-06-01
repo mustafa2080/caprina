@@ -3396,6 +3396,12 @@ export default function ShippingManifestPage() {
   const groupedPostponedCount = groupedManifestOrders.filter((group) => groupManifestStatus(group) === "postponed").length;
   const groupedPartialCount = groupedManifestOrders.filter((group) => groupManifestStatus(group) === "partial_received").length;
   const groupedPendingCount = groupedManifestOrders.filter((group) => groupManifestStatus(group) === "pending").length;
+  const groupedDeliveredCount = groupedManifestOrders.filter((group) => groupManifestStatus(group) === "delivered").length;
+  const groupedReturnedCount = groupedManifestOrders.filter((group) => groupManifestStatus(group) === "returned").length;
+  const groupedTotalCount = groupedManifestOrders.length;
+  const groupedCompletedCount = groupedDeliveredCount + groupedPartialCount;
+  const groupedDeliveryRate = groupedTotalCount > 0 ? Math.round((groupedCompletedCount / groupedTotalCount) * 100) : 0;
+  const groupedPendingOrders = groupedPendingCount;
 
   const statusLabel = (st: DeliveryStatus) => {
     switch (st) {
@@ -3696,10 +3702,10 @@ export default function ShippingManifestPage() {
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <Card className="border-border bg-card p-4">
           <p className="text-xs text-muted-foreground mb-1">إجمالي الطلبيات</p>
-          <p className="text-2xl font-black">{s.total}</p>
-          {pendingOrders > 0 && !isLocked && (
+          <p className="text-2xl font-black">{groupedTotalCount}</p>
+          {groupedPendingOrders > 0 && !isLocked && (
             <p className="text-[10px] text-amber-500 mt-0.5">
-              {pendingOrders} بانتظار التقفيل
+              {groupedPendingOrders} بانتظار التقفيل
             </p>
           )}
         </Card>
@@ -3707,25 +3713,25 @@ export default function ShippingManifestPage() {
           <p className="text-xs text-emerald-400 mb-1 flex items-center gap-1">
             <CheckCircle2 className="w-3 h-3" />مُسلَّم
           </p>
-          <p className="text-2xl font-black text-emerald-400">{s.delivered}</p>
+          <p className="text-2xl font-black text-emerald-400">{groupedDeliveredCount}</p>
           <p className="text-xs text-emerald-600 mt-0.5 font-bold">
-            {s.deliveryRate}% نسبة التسليم
+            {groupedDeliveryRate}% نسبة التسليم
           </p>
         </Card>
         <Card className="border-red-900/50 bg-red-900/10 p-4">
           <p className="text-xs text-red-400 mb-1 flex items-center gap-1">
             <RotateCcw className="w-3 h-3" />مُرتجَع
           </p>
-          <p className="text-2xl font-black text-red-400">{s.returned}</p>
+          <p className="text-2xl font-black text-red-400">{groupedReturnedCount}</p>
           <p className="text-xs text-red-600 mt-0.5 font-bold">
-            {s.total > 0 ? Math.round((s.returned / s.total) * 100) : 0}% نسبة الإرجاع
+            {groupedTotalCount > 0 ? Math.round((groupedReturnedCount / groupedTotalCount) * 100) : 0}% نسبة الإرجاع
           </p>
         </Card>
         <Card className="border-teal-900/50 bg-teal-900/10 p-4">
           <p className="text-xs text-teal-400 mb-1 flex items-center gap-1">
             <CheckCircle2 className="w-3 h-3" />استلم جزئي
           </p>
-          <p className="text-2xl font-black text-teal-400">{s.partial}</p>
+          <p className="text-2xl font-black text-teal-400">{groupedPartialCount}</p>
           {(() => {
             const partialOrders = manifest.orders.filter(o => o.deliveryStatus === "partial_received");
             const partialReturnedQty = partialOrders.reduce((sum, o) => {
@@ -3756,7 +3762,7 @@ export default function ShippingManifestPage() {
           </p>
           <p className="text-2xl font-black text-amber-400">{groupedPostponedCount}</p>
           <p className="text-xs text-amber-600 mt-0.5 font-bold">
-            {s.total > 0 ? Math.round((groupedPostponedCount / s.total) * 100) : 0}% من الإجمالي
+            {groupedTotalCount > 0 ? Math.round((groupedPostponedCount / groupedTotalCount) * 100) : 0}% من الإجمالي
           </p>
         </Card>
       </div>
@@ -3767,36 +3773,36 @@ export default function ShippingManifestPage() {
           <p className="text-sm font-bold">نسبة التسليم</p>
           <p
             className={`text-xl font-black ${
-              s.deliveryRate >= 70
+              groupedDeliveryRate >= 70
                 ? "text-emerald-400"
-                : s.deliveryRate >= 40
+                : groupedDeliveryRate >= 40
                 ? "text-amber-400"
                 : "text-red-400"
             }`}
           >
-            {s.deliveryRate}%
+            {groupedDeliveryRate}%
           </p>
         </div>
         <div className="w-full bg-muted rounded-full h-3 overflow-hidden flex">
           <div
             className="h-3 bg-emerald-500 transition-all"
-            style={{ width: `${s.total > 0 ? (s.delivered / s.total) * 100 : 0}%` }}
+            style={{ width: `${groupedTotalCount > 0 ? (groupedDeliveredCount / groupedTotalCount) * 100 : 0}%` }}
           />
           <div
             className="h-3 bg-orange-500 transition-all"
             style={{
-              width: `${s.total > 0 ? (s.pending / s.total) * 100 : 0}%`,
+              width: `${groupedTotalCount > 0 ? (groupedPendingCount / groupedTotalCount) * 100 : 0}%`,
             }}
           />
           <div
             className="h-3 bg-red-500 transition-all"
-            style={{ width: `${s.total > 0 ? (s.returned / s.total) * 100 : 0}%` }}
+            style={{ width: `${groupedTotalCount > 0 ? (groupedReturnedCount / groupedTotalCount) * 100 : 0}%` }}
           />
         </div>
         <div className="flex justify-between mt-1.5 text-[10px] text-muted-foreground">
-          <span className="text-emerald-600">مُسلَّم: {s.delivered}</span>
+          <span className="text-emerald-600">مُسلَّم: {groupedDeliveredCount}</span>
           <span className="text-orange-600">مؤجل: {groupedPostponedCount}</span>
-          <span className="text-red-600">مُرتجَع: {s.returned}</span>
+          <span className="text-red-600">مُرتجَع: {groupedReturnedCount}</span>
         </div>
       </Card>
 
