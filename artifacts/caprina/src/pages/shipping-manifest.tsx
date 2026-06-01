@@ -3469,7 +3469,7 @@ export default function ShippingManifestPage() {
         <div className="mp-stat mp-stat-returned"><div className="mp-stat-lbl">مرتجع</div><div className="mp-stat-val">{s.returned}</div></div>
         <div className="mp-stat mp-stat-postponed"><div className="mp-stat-lbl">مؤجل</div><div className="mp-stat-val">{groupedPostponedCount}</div></div>
         <div className="mp-stat mp-stat-partial"><div className="mp-stat-lbl">جزئي</div><div className="mp-stat-val">{groupedPartialCount}</div></div>
-        <div className="mp-stat"><div className="mp-stat-lbl">نسبة التسليم</div><div className="mp-stat-val">{s.deliveryRate}%</div></div>
+        <div className="mp-stat"><div className="mp-stat-lbl">نسبة التسليم</div><div className="mp-stat-val">{screenDeliveryRate}%</div></div>
       </div>
 
       {/* ─── Orders table ─── */}
