@@ -195,6 +195,30 @@ router.post("/finance/sale-orders", async (req, res): Promise<void> => {
       }
     }
 
+    // لو الفاتورة اتعملت مباشرة بـ delivered أو paymentStatus = paid → خصم فوري من المخزن
+    if (
+      (status === "delivered" || paymentStatus === "paid") &&
+      warehouseId &&
+      (items as any[]).length > 0
+    ) {
+      const wid = parseInt(warehouseId);
+      // جلب الـ items المحفوظة عشان نضمن الـ IDs صح
+      const savedItems = await db.select().from(saleOrderItemsTable)
+        .where(eq(saleOrderItemsTable.saleOrderId, orderId));
+      for (const item of savedItems) {
+        if (!item.variantId) continue;
+        await db.update(warehouseStockTable)
+          .set({ quantity: sql`GREATEST(0, quantity - ${item.quantity})` })
+          .where(and(
+            eq(warehouseStockTable.warehouseId, wid),
+            eq(warehouseStockTable.variantId, item.variantId),
+          ));
+        await db.update(saleOrderItemsTable)
+          .set({ deliveredQty: item.quantity })
+          .where(eq(saleOrderItemsTable.id, item.id));
+      }
+    }
+
     res.json({ id: orderId, soNumber });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
