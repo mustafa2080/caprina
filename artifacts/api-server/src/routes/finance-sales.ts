@@ -2,6 +2,16 @@ import { Router } from "express";
 import { db, saleOrdersTable, saleOrderItemsTable, warehousesTable, warehouseStockTable, productVariantsTable, productsTable, cashRegistersTable, cashTransactionsTable } from "@workspace/db";
 import { eq, desc, gte, lte, and, sql, inArray } from "drizzle-orm";
 import { getTenantId } from "../middlewares/requireTenant.js";
+import { adjustWarehouseStock, syncProductQuantityFromWarehouses } from "../lib/inventory.js";
+
+// ── خصم المخزن مع مزامنة totalQuantity ────────────────────────────────────────
+async function deductStock(warehouseId: number, items: { variantId: number | null; productId: number | null; quantity: number }[]) {
+  for (const item of items) {
+    if (!item.variantId && !item.productId) continue;
+    await adjustWarehouseStock(warehouseId, item.variantId, item.productId, -item.quantity);
+    await syncProductQuantityFromWarehouses(item.variantId, item.productId);
+  }
+}
 
 const router = Router();
 
@@ -202,20 +212,12 @@ router.post("/finance/sale-orders", async (req, res): Promise<void> => {
       (items as any[]).length > 0
     ) {
       const wid = parseInt(warehouseId);
-      // جلب الـ items المحفوظة عشان نضمن الـ IDs صح
       const savedItems = await db.select().from(saleOrderItemsTable)
         .where(eq(saleOrderItemsTable.saleOrderId, orderId));
+      await deductStock(wid, savedItems.map(i => ({ variantId: i.variantId, productId: i.productId, quantity: i.quantity })));
+      // تحديث deliveredQty
       for (const item of savedItems) {
-        if (!item.variantId) continue;
-        await db.update(warehouseStockTable)
-          .set({ quantity: sql`GREATEST(0, quantity - ${item.quantity})` })
-          .where(and(
-            eq(warehouseStockTable.warehouseId, wid),
-            eq(warehouseStockTable.variantId, item.variantId),
-          ));
-        await db.update(saleOrderItemsTable)
-          .set({ deliveredQty: item.quantity })
-          .where(eq(saleOrderItemsTable.id, item.id));
+        await db.update(saleOrderItemsTable).set({ deliveredQty: item.quantity }).where(eq(saleOrderItemsTable.id, item.id));
       }
     }
 
@@ -384,7 +386,6 @@ router.patch("/finance/sale-orders/:id", async (req, res): Promise<void> => {
 
     // ── خصم المخزن عند الدفع ────────────────────────────────────────────────
     const stockAlreadyDeducted = ["delivered", "closed"].includes(current.status);
-    console.log("[stock-deduct] paymentStatus:", paymentStatus, "| current.paymentStatus:", current.paymentStatus, "| current.status:", current.status, "| stockAlreadyDeducted:", stockAlreadyDeducted);
     if (
       paymentStatus === "paid" &&
       current.paymentStatus !== "paid" &&
@@ -393,29 +394,10 @@ router.patch("/finance/sale-orders/:id", async (req, res): Promise<void> => {
       const orderItems = await db.select().from(saleOrderItemsTable)
         .where(eq(saleOrderItemsTable.saleOrderId, id));
       const wid = warehouseId !== undefined ? (warehouseId ? parseInt(warehouseId) : null) : current.warehouseId;
-      console.log("[stock-deduct] wid:", wid, "| orderItems count:", orderItems.length, "| items with variantId:", orderItems.filter(i => i.variantId).length);
       if (wid && orderItems.length > 0) {
+        await deductStock(wid, orderItems.map(i => ({ variantId: i.variantId, productId: i.productId, quantity: i.quantity })));
         for (const item of orderItems) {
-          if (!item.variantId) {
-            console.log("[stock-deduct] SKIP item (no variantId):", item.productName);
-            continue;
-          }
-          console.log("[stock-deduct] DEDUCTING:", item.productName, "qty:", item.quantity, "variantId:", item.variantId, "warehouseId:", wid);
-          const wasConfirmed = ["confirmed", "processing"].includes(current.status);
-          await db.update(warehouseStockTable)
-            .set({
-              quantity: sql`GREATEST(0, quantity - ${item.quantity})`,
-              reservedQuantity: wasConfirmed
-                ? sql`GREATEST(0, reserved_quantity - ${item.quantity})`
-                : sql`reserved_quantity`,
-            })
-            .where(and(
-              eq(warehouseStockTable.warehouseId, wid),
-              eq(warehouseStockTable.variantId, item.variantId),
-            ));
-          await db.update(saleOrderItemsTable)
-            .set({ deliveredQty: item.quantity })
-            .where(eq(saleOrderItemsTable.id, item.id));
+          await db.update(saleOrderItemsTable).set({ deliveredQty: item.quantity }).where(eq(saleOrderItemsTable.id, item.id));
         }
       }
       if (!["delivered", "closed"].includes(current.status)) {
@@ -447,28 +429,10 @@ router.patch("/finance/sale-orders/:id", async (req, res): Promise<void> => {
       const orderItems = await db.select().from(saleOrderItemsTable)
         .where(eq(saleOrderItemsTable.saleOrderId, id));
       const wid = warehouseId ? parseInt(warehouseId) : current.warehouseId;
-      if (wid) {
+      if (wid && !stockAlreadyDeducted) {
+        await deductStock(wid, orderItems.map(i => ({ variantId: i.variantId, productId: i.productId, quantity: i.quantity })));
         for (const item of orderItems) {
-          if (!item.variantId) continue;
-
-          // لو الفاتورة كانت confirmed من قبل → المخزون محجوز فعلاً
-          // لو كانت draft/processing → نخصم مباشرة بدون ما نلمس reserved
-          const wasConfirmed = current.status === "confirmed" || current.status === "processing";
-
-          await db.update(warehouseStockTable)
-            .set({
-              quantity:         sql`GREATEST(0, quantity - ${item.quantity})`,
-              reservedQuantity: wasConfirmed
-                ? sql`GREATEST(0, reserved_quantity - ${item.quantity})`
-                : sql`reserved_quantity`,
-            })
-            .where(and(
-              eq(warehouseStockTable.warehouseId, wid),
-              eq(warehouseStockTable.variantId, item.variantId),
-            ));
-          await db.update(saleOrderItemsTable)
-            .set({ deliveredQty: item.quantity })
-            .where(eq(saleOrderItemsTable.id, item.id));
+          await db.update(saleOrderItemsTable).set({ deliveredQty: item.quantity }).where(eq(saleOrderItemsTable.id, item.id));
         }
       }
     }
