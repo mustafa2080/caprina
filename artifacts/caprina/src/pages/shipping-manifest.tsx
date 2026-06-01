@@ -2245,8 +2245,8 @@ function ExportDialog({
     ws1.pageSetup = { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 };
     ws1.pageMargins = { left: 0.25, right: 0.25, top: 0.4, bottom: 0.35, header: 0.15, footer: 0.15 };
     ws1.columns = [
-      { key: "idx", width: 8 },
-      { key: "invoice", width: 18 },
+      { key: "idx", width: 16 },
+      { key: "invoice", width: 20 },
       { key: "customer", width: 20 },
       { key: "phone", width: 16 },
       { key: "products", width: 35 },
@@ -2389,20 +2389,20 @@ function ExportDialog({
       setCell(ws1.getCell(`A${item.row}`), item.label, {
         fill: C.grayBg,
         font: { bold: true, color: { argb: C.gold }, size: 11 },
-        align: { horizontal: "right", vertical: "middle" },
+        align: { horizontal: "right", vertical: "middle", wrapText: false, shrinkToFit: true },
         border: "FFF59E0B",
       });
       setCell(ws1.getCell(`B${item.row}`), item.value, {
         fill: item.fill,
         font: { bold: true, color: { argb: C.white }, size: 11 },
-        align: { horizontal: "center", vertical: "middle" },
+        align: { horizontal: "center", vertical: "middle", wrapText: false, shrinkToFit: true },
         border: C.green,
         numFmt: '#,##0 "ج.م"',
       });
       setCell(ws1.getCell(`C${item.row}`), item.note, {
         fill: C.grayBg,
         font: { bold: true, color: { argb: C.gold }, size: 11 },
-        align: { horizontal: "center", vertical: "middle" },
+        align: { horizontal: "center", vertical: "middle", wrapText: false, shrinkToFit: true },
         border: "FFF59E0B",
       });
       for (const col of ["D", "E", "F", "G", "H", "I"]) {
