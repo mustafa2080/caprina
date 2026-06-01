@@ -359,9 +359,8 @@ router.patch("/finance/sale-orders/:id", async (req, res): Promise<void> => {
     }
 
     // ── خصم المخزن عند الدفع ────────────────────────────────────────────────
-    // لو paymentStatus تغير إلى "paid" وما اتخصمش المخزن قبل كده
-    // (يعني status مش delivered ومش closed) → نخصم دلوقتي
     const stockAlreadyDeducted = ["delivered", "closed"].includes(current.status);
+    console.log("[stock-deduct] paymentStatus:", paymentStatus, "| current.paymentStatus:", current.paymentStatus, "| current.status:", current.status, "| stockAlreadyDeducted:", stockAlreadyDeducted);
     if (
       paymentStatus === "paid" &&
       current.paymentStatus !== "paid" &&
@@ -369,10 +368,15 @@ router.patch("/finance/sale-orders/:id", async (req, res): Promise<void> => {
     ) {
       const orderItems = await db.select().from(saleOrderItemsTable)
         .where(eq(saleOrderItemsTable.saleOrderId, id));
-      const wid = warehouseId ? parseInt(warehouseId) : current.warehouseId;
+      const wid = warehouseId !== undefined ? (warehouseId ? parseInt(warehouseId) : null) : current.warehouseId;
+      console.log("[stock-deduct] wid:", wid, "| orderItems count:", orderItems.length, "| items with variantId:", orderItems.filter(i => i.variantId).length);
       if (wid && orderItems.length > 0) {
         for (const item of orderItems) {
-          if (!item.variantId) continue;
+          if (!item.variantId) {
+            console.log("[stock-deduct] SKIP item (no variantId):", item.productName);
+            continue;
+          }
+          console.log("[stock-deduct] DEDUCTING:", item.productName, "qty:", item.quantity, "variantId:", item.variantId, "warehouseId:", wid);
           const wasConfirmed = ["confirmed", "processing"].includes(current.status);
           await db.update(warehouseStockTable)
             .set({
@@ -390,7 +394,6 @@ router.patch("/finance/sale-orders/:id", async (req, res): Promise<void> => {
             .where(eq(saleOrderItemsTable.id, item.id));
         }
       }
-      // رفع status تلقائياً لـ delivered لو لسه مش delivered
       if (!["delivered", "closed"].includes(current.status)) {
         updates.status    = "delivered";
         updates.deliveredAt = new Date();
