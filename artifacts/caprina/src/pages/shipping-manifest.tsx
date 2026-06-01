@@ -2150,11 +2150,13 @@ function ExportDialog({
   const partialGross = manifest.orders
     .filter(o => o.deliveryStatus === "partial_received")
     .reduce((sum, o) => {
-      // لو في partialQuantity محددة نحسب نسبتها، لو مفيش نحسب المبلغ كاملاً
-      const pct = (o.partialQuantity != null && o.quantity > 0)
-        ? o.partialQuantity / o.quantity
-        : 1;
-      return sum + Math.round(o.totalPrice * pct);
+      const returnReceived = (o as any).returnReceived == null ? null : Number((o as any).returnReceived);
+      if (returnReceived == null) return sum;
+      if (o.partialQuantity == null || o.quantity <= 0) return sum;
+      const unitPrice = (o as any).unitPrice != null
+        ? Number((o as any).unitPrice)
+        : Number(o.totalPrice) / Number(o.quantity);
+      return sum + Math.round(unitPrice * Number(o.partialQuantity));
     }, 0);
   const totalCollected = deliveredGross + partialGross;
   const netDue = totalCollected - effectiveShipping;
@@ -2507,9 +2509,9 @@ function ExportDialog({
   const statusGroups = [
     { label: "مسلَّم", count: s.delivered, color: "#15803d", bg: "#dcfce7" },
     { label: "مرتجع", count: s.returned, color: "#dc2626", bg: "#fee2e2" },
-    { label: "مؤجل", count: manifest.orders.filter(o => o.deliveryStatus === "postponed").length, color: "#d97706", bg: "#fef3c7" },
-    { label: "جزئي", count: manifest.orders.filter(o => o.deliveryStatus === "partial_received").length, color: "#0f766e", bg: "#ccfbf1" },
-    { label: "انتظار", count: manifest.orders.filter(o => o.deliveryStatus === "pending").length, color: "#64748b", bg: "#f1f5f9" },
+    { label: "مؤجل", count: groupedPostponedCount, color: "#d97706", bg: "#fef3c7" },
+    { label: "جزئي", count: groupedPartialCount, color: "#0f766e", bg: "#ccfbf1" },
+    { label: "انتظار", count: groupedPendingCount, color: "#64748b", bg: "#f1f5f9" },
   ];
 
   return (
@@ -3352,6 +3354,22 @@ export default function ShippingManifestPage() {
     (o) => o.deliveryStatus === "pending"
   ).length;
   const groupedManifestOrders = groupManifestOrders(manifest.orders);
+  const manifestGroupPriority: Record<string, number> = {
+    returned: 5,
+    postponed: 4,
+    partial_received: 3,
+    pending: 2,
+    delivered: 1,
+  };
+  const groupManifestStatus = (group: ManifestOrder[]) =>
+    group.reduce((worst, order) =>
+      (manifestGroupPriority[order.deliveryStatus] ?? 0) > (manifestGroupPriority[worst] ?? 0)
+        ? order.deliveryStatus
+        : worst,
+    group[0]?.deliveryStatus ?? "pending");
+  const groupedPostponedCount = groupedManifestOrders.filter((group) => groupManifestStatus(group) === "postponed").length;
+  const groupedPartialCount = groupedManifestOrders.filter((group) => groupManifestStatus(group) === "partial_received").length;
+  const groupedPendingCount = groupedManifestOrders.filter((group) => groupManifestStatus(group) === "pending").length;
 
   const statusLabel = (st: DeliveryStatus) => {
     switch (st) {
@@ -3370,8 +3388,13 @@ export default function ShippingManifestPage() {
   const partialGross = manifest.orders
     .filter(o => o.deliveryStatus === "partial_received")
     .reduce((sum, o) => {
-      const pct = o.partialQuantity && o.quantity ? o.partialQuantity / o.quantity : 1;
-      return sum + o.totalPrice * pct;
+      const returnReceived = (o as any).returnReceived == null ? null : Number((o as any).returnReceived);
+      if (returnReceived == null) return sum;
+      if (o.partialQuantity == null || o.quantity <= 0) return sum;
+      const unitPrice = (o as any).unitPrice != null
+        ? Number((o as any).unitPrice)
+        : Number(o.totalPrice) / Number(o.quantity);
+      return sum + Math.round(unitPrice * Number(o.partialQuantity));
     }, 0);
 
   const totalCollected = deliveredGross + partialGross;
@@ -3411,8 +3434,8 @@ export default function ShippingManifestPage() {
         <div className="mp-stat"><div className="mp-stat-lbl">إجمالي الطلبيات</div><div className="mp-stat-val">{s.total}</div></div>
         <div className="mp-stat mp-stat-delivered"><div className="mp-stat-lbl">مسلَّم</div><div className="mp-stat-val">{s.delivered}</div></div>
         <div className="mp-stat mp-stat-returned"><div className="mp-stat-lbl">مرتجع</div><div className="mp-stat-val">{s.returned}</div></div>
-        <div className="mp-stat mp-stat-postponed"><div className="mp-stat-lbl">مؤجل</div><div className="mp-stat-val">{manifest.orders.filter(o => o.deliveryStatus === "postponed").length}</div></div>
-        <div className="mp-stat mp-stat-partial"><div className="mp-stat-lbl">جزئي</div><div className="mp-stat-val">{manifest.orders.filter(o => o.deliveryStatus === "partial_received").length}</div></div>
+        <div className="mp-stat mp-stat-postponed"><div className="mp-stat-lbl">مؤجل</div><div className="mp-stat-val">{groupedPostponedCount}</div></div>
+        <div className="mp-stat mp-stat-partial"><div className="mp-stat-lbl">جزئي</div><div className="mp-stat-val">{groupedPartialCount}</div></div>
         <div className="mp-stat"><div className="mp-stat-lbl">نسبة التسليم</div><div className="mp-stat-val">{s.deliveryRate}%</div></div>
       </div>
 
@@ -3705,9 +3728,9 @@ export default function ShippingManifestPage() {
           <p className="text-xs text-amber-400 mb-1 flex items-center gap-1">
             <Clock className="w-3 h-3" />مؤجل / معلَّق
           </p>
-          <p className="text-2xl font-black text-amber-400">{s.postponed + s.pending}</p>
+          <p className="text-2xl font-black text-amber-400">{groupedPostponedCount}</p>
           <p className="text-xs text-amber-600 mt-0.5 font-bold">
-            {s.total > 0 ? Math.round(((s.postponed + s.pending) / s.total) * 100) : 0}% من الإجمالي
+            {s.total > 0 ? Math.round((groupedPostponedCount / s.total) * 100) : 0}% من الإجمالي
           </p>
         </Card>
       </div>
@@ -3746,7 +3769,7 @@ export default function ShippingManifestPage() {
         </div>
         <div className="flex justify-between mt-1.5 text-[10px] text-muted-foreground">
           <span className="text-emerald-600">مُسلَّم: {s.delivered}</span>
-          <span className="text-orange-600">مؤجل: {s.pending}</span>
+          <span className="text-orange-600">مؤجل: {groupedPostponedCount}</span>
           <span className="text-red-600">مُرتجَع: {s.returned}</span>
         </div>
       </Card>
