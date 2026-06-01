@@ -2381,7 +2381,7 @@ function ExportDialog({
 
     const totalRowIndex = groupedOrders.length + 6;
     const totalSummaryRows = [
-      { row: totalRowIndex, label: "الإجمالي", value: totalCollected, note: `${groupedDeliveryRate}% نسبة تسليم`, fill: C.green },
+      { row: totalRowIndex, label: "الإجمالي بالكامل", value: totalCollected, note: `${groupedDeliveryRate}% نسبة تسليم`, fill: C.green },
       { row: totalRowIndex + 1, label: "إجمالي مصاريف الشحن", value: effectiveShipping, note: "", fill: C.green },
       { row: totalRowIndex + 2, label: "الصافي المستحق", value: netDue, note: "", fill: C.green },
     ];
