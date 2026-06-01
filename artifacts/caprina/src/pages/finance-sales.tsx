@@ -882,6 +882,7 @@ function SOForm({ open, onClose, editOrder, warehouses, products, onSuccess }: {
       }
       body.items = items.map(r => ({
         productId: r.productId ? parseInt(r.productId) : null,
+        variantId: r.variantId ?? null,
         productName: r.productName, color: r.color || null, size: r.size || null,
         sku: r.sku || null, quantity: r.quantity, unitPrice: r.unitPrice,
       }));
