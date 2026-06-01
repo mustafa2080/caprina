@@ -752,7 +752,7 @@ function SOForm({ open, onClose, editOrder, warehouses, products, onSuccess }: {
     setClientName(editOrder?.clientName ?? "");
     setClientPhone(editOrder?.clientPhone ?? "");
     setClientAddress(editOrder?.clientAddress ?? "");
-    setWarehouseId(String(editOrder?.warehouseId ?? ""));
+    setWarehouseId(String(editOrder?.warehouseId ?? warehouses[0]?.id ?? ""));
     setStatus(editOrder?.status ?? "draft");
     setPayStatus(editOrder?.paymentStatus ?? "unpaid");
     setPaidAmount(editOrder?.paidAmount ?? "0");
@@ -999,11 +999,12 @@ function SOForm({ open, onClose, editOrder, warehouses, products, onSuccess }: {
           </div>
           <div><Label>رقم الهاتف</Label><Input placeholder="01xxxxxxxxx" value={clientPhone} onChange={e => setClientPhone(e.target.value)} /></div>
           <div>
-            <Label>المخزن</Label>
+            <Label>المخزن <span className="text-red-400">*</span></Label>
             <Select value={warehouseId} onValueChange={setWarehouseId}>
-              <SelectTrigger><SelectValue placeholder="اختر المخزن" /></SelectTrigger>
+              <SelectTrigger className={!warehouseId ? "border-red-500/50" : ""}><SelectValue placeholder="اختر المخزن (مطلوب)" /></SelectTrigger>
               <SelectContent>{warehouses.map(w => <SelectItem key={w.id} value={String(w.id)}>{w.name}</SelectItem>)}</SelectContent>
             </Select>
+            {!warehouseId && <p className="text-[10px] text-red-400 mt-1">⚠️ اختيار المخزن مطلوب لخصم المخزون</p>}
           </div>
           <div className="col-span-2"><Label>العنوان</Label><Input placeholder="عنوان التسليم" value={clientAddress} onChange={e => setClientAddress(e.target.value)} /></div>
           {/* الحالة والدفع */}
@@ -1243,7 +1244,7 @@ function SOForm({ open, onClose, editOrder, warehouses, products, onSuccess }: {
               }
             }
             mutation.mutate();
-          }} disabled={mutation.isPending || !clientName.trim()}>
+          }} disabled={mutation.isPending || !clientName.trim() || !warehouseId}>
             {mutation.isPending ? "جارٍ الحفظ…" : isEdit ? "حفظ التعديلات" : "إنشاء الأمر"}
           </Button>
         </div>
