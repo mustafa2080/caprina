@@ -2143,6 +2143,32 @@ function ExportDialog({
   const s = manifest.stats;
   const effectiveShipping = manifest.manualShippingCost ?? s.totalShippingCost;
   const { brand } = useBrand();
+  const groupedManifestOrders = groupManifestOrders(manifest.orders);
+  const manifestGroupPriority: Record<string, number> = {
+    returned: 5,
+    postponed: 4,
+    partial_received: 3,
+    pending: 2,
+    delivered: 1,
+  };
+  const groupManifestStatus = (group: ManifestOrder[]) =>
+    group.reduce(
+      (worst, order) =>
+        (manifestGroupPriority[order.deliveryStatus] ?? 0) >
+        (manifestGroupPriority[worst] ?? 0)
+          ? order.deliveryStatus
+          : worst,
+      group[0]?.deliveryStatus ?? "pending"
+    );
+  const groupedPostponedCount = groupedManifestOrders.filter(
+    (group) => groupManifestStatus(group) === "postponed"
+  ).length;
+  const groupedPartialCount = groupedManifestOrders.filter(
+    (group) => groupManifestStatus(group) === "partial_received"
+  ).length;
+  const groupedPendingCount = groupedManifestOrders.filter(
+    (group) => groupManifestStatus(group) === "pending"
+  ).length;
 
   const deliveredGross = manifest.orders
     .filter(o => o.deliveryStatus === "delivered")
