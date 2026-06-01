@@ -2258,33 +2258,33 @@ function ExportDialog({
 
     ws1.mergeCells("A1:I1");
     setCell(ws1.getCell("A1"), `${brandName}${brandTagline ? `  ·  ${brandTagline}` : ""}`, {
-      fill: C.bg,
+      fill: "FFE2E8F0",
       font: { bold: true, size: 16, color: { argb: C.gold } },
       align: { horizontal: "center", vertical: "middle" },
-      border: C.bg,
+      border: "FFCBD5E1",
     });
     ws1.getRow(1).height = 28;
 
     ws1.mergeCells("A2:I2");
     setCell(ws1.getCell("A2"), `بيان الشحن — ${manifest.manifestNumber}   |   ${manifest.companyName}   |   ${manifestDate}`, {
-      fill: C.bg,
+      fill: "FFE2E8F0",
       font: { bold: true, size: 12, color: { argb: C.gold } },
       align: { horizontal: "center", vertical: "middle" },
-      border: C.bg,
+      border: "FFCBD5E1",
     });
     ws1.getRow(2).height = 24;
 
     ws1.mergeCells("A3:I3");
     setCell(ws1.getCell("A3"), `طُبع: ${printDate}   |   إجمالي المسلَّم: ${groupedCompleted} من ${groupedTotal}   |   نسبة التسليم: ${groupedDeliveryRate}%`, {
-      fill: C.panel,
-      font: { size: 10, color: { argb: C.slate } },
+      fill: "FFD6DFEC",
+      font: { size: 10, color: { argb: "FF6B7280" } },
       align: { horizontal: "center", vertical: "middle" },
-      border: "FF334155",
+      border: "FFCBD5E1",
     });
     ws1.getRow(3).height = 22;
 
     ws1.mergeCells("A4:I4");
-    setCell(ws1.getCell("A4"), "", { fill: C.bg, border: C.bg });
+    setCell(ws1.getCell("A4"), "", { fill: "FFE2E8F0", border: "FFCBD5E1" });
     ws1.getRow(4).height = 8;
 
     const headers = ["#", "رقم الفاتورة", "اسم العميل", "الهاتف", "المنتجات", "الكمية الكلية", "الإجمالي", "حالة التسليم", "ملاحظة"];
@@ -2317,52 +2317,52 @@ function ExportDialog({
         ? (STATUS_LABEL_AR[statuses[0]] ?? statuses[0])
         : "حالات متعددة";
       const notes = [...new Set(group.map((order) => order.deliveryNote).filter(Boolean))].join(" | ");
-      const baseFill = idx % 2 === 0 ? C.white : C.offWhite;
-      const baseFont = { color: { argb: C.darkText } };
+      const baseFill = C.bg;
+      const baseFont = { color: { argb: C.white } };
 
       const row = ws1.getRow(idx + 6);
       row.height = 30;
       setCell(row.getCell(1), idx + 1, {
         fill: baseFill,
-        font: { bold: true, color: { argb: C.darkText } },
+        font: { bold: true, color: { argb: C.white } },
         align: { horizontal: "center", vertical: "middle" },
-        border: "FFD1D5DB",
+        border: "FF2D3748",
       });
       setCell(row.getCell(2), invoiceNum, {
         fill: baseFill,
         font: { bold: true, color: { argb: C.blue } },
         align: { horizontal: "center", vertical: "middle" },
-        border: "FFD1D5DB",
+        border: "FF2D3748",
       });
       setCell(row.getCell(3), rep.customerName, {
         fill: baseFill,
         font: baseFont,
         align: { horizontal: "right", vertical: "middle" },
-        border: "FFD1D5DB",
+        border: "FF2D3748",
       });
       setCell(row.getCell(4), rep.phone ?? "—", {
         fill: baseFill,
         font: baseFont,
         align: { horizontal: "center", vertical: "middle" },
-        border: "FFD1D5DB",
+        border: "FF2D3748",
       });
       setCell(row.getCell(5), productsText, {
         fill: baseFill,
-        font: { color: { argb: C.darkText } },
+        font: { color: { argb: C.white } },
         align: { horizontal: "right", vertical: "middle", wrapText: true },
-        border: "FFD1D5DB",
+        border: "FF2D3748",
       });
       setCell(row.getCell(6), totalQty, {
         fill: baseFill,
-        font: { bold: true, color: { argb: C.darkText } },
+        font: { bold: true, color: { argb: C.white } },
         align: { horizontal: "center", vertical: "middle" },
-        border: "FFD1D5DB",
+        border: "FF2D3748",
       });
       setCell(row.getCell(7), totalPrice, {
         fill: baseFill,
-        font: { bold: true, color: { argb: C.darkText } },
+        font: { bold: true, color: { argb: C.white } },
         align: { horizontal: "center", vertical: "middle" },
-        border: "FFD1D5DB",
+        border: "FF2D3748",
         numFmt: '#,##0 "ج.م"',
       });
       setCell(row.getCell(8), deliveryLabel, {
@@ -2375,17 +2375,17 @@ function ExportDialog({
         fill: baseFill,
         font: baseFont,
         align: { horizontal: "right", vertical: "middle", wrapText: true },
-        border: "FFD1D5DB",
+        border: "FF2D3748",
       });
     });
 
     const totalRowIndex = groupedOrders.length + 6;
     ws1.mergeCells(`A${totalRowIndex}:B${totalRowIndex}`);
     setCell(ws1.getCell(`A${totalRowIndex}`), "الإجمالي بعد خصم الشحن", {
-      fill: C.bg,
+      fill: "FFE2E8F0",
       font: { bold: true, color: { argb: C.gold }, size: 11 },
       align: { horizontal: "center", vertical: "middle" },
-      border: C.gold,
+      border: "FFF59E0B",
     });
     setCell(ws1.getCell(`C${totalRowIndex}`), netDue, {
       fill: C.green,
@@ -2395,15 +2395,15 @@ function ExportDialog({
       numFmt: '#,##0 "ج.م"',
     });
     setCell(ws1.getCell(`D${totalRowIndex}`), `${groupedDeliveryRate}% نسبة تسليم`, {
-      fill: C.bg,
+      fill: "FFE2E8F0",
       font: { bold: true, color: { argb: C.gold }, size: 11 },
       align: { horizontal: "center", vertical: "middle" },
-      border: C.gold,
+      border: "FFF59E0B",
     });
     for (const col of ["E", "F", "G", "H", "I"]) {
       setCell(ws1.getCell(`${col}${totalRowIndex}`), "", {
-        fill: C.bg,
-        border: C.gold,
+        fill: "FFE2E8F0",
+        border: "FFF59E0B",
       });
     }
     ws1.getRow(totalRowIndex).height = 24;
