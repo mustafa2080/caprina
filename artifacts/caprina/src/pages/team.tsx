@@ -1837,7 +1837,6 @@ function EmployeeDetail({
                           <PolarGrid stroke="hsl(var(--border))" />
                           <PolarAngleAxis dataKey="subject" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
                           <Radar name="الأداء" dataKey="score" stroke="#c9a227" fill="#c9a227" fillOpacity={0.25} strokeWidth={2} />
-                          <ReferenceLine y={100} stroke="#10B981" strokeDasharray="3 3" />
                         </RadarChart>
                       </ResponsiveContainer>
                     </CardContent>
