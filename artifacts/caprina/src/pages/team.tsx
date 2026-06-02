@@ -1863,6 +1863,238 @@ function MyDashboardTab({ profileId, monthlySalary }: {
   );
 }
 
+// ─── MyOrdersTab ─────────────────────────────────────────────────────────────
+function MyOrdersTab({
+  profileId, displayName, reportMonth, onMonthChange, kpis,
+}: {
+  profileId: number;
+  displayName: string;
+  reportMonth: string;
+  onMonthChange: (m: string) => void;
+  kpis: EmployeeKpi[];
+}) {
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [search, setSearch] = useState("");
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["employee-orders", profileId, reportMonth],
+    queryFn: () => employeeApi.getOrders(profileId, reportMonth),
+  });
+
+  const orders = data?.orders ?? [];
+  const stats  = data?.stats;
+  const kpiImpact = data?.kpiImpact;
+
+  // حساب KPI targets من الـ kpis المتاحة
+  const deliveryKpi  = kpis.find(k => k.metric === "delivery_rate" && k.isActive);
+  const returnKpi    = kpis.find(k => k.metric === "return_rate"   && k.isActive);
+  const ordersKpi    = kpis.find(k => k.metric === "total_orders"  && k.isActive);
+  const revenueKpi   = kpis.find(k => k.metric === "revenue"       && k.isActive);
+  const profitKpi    = kpis.find(k => k.metric === "profit"        && k.isActive);
+
+  const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
+    pending:           { label: "معلق",           color: "text-amber-600 dark:text-amber-400",   bg: "bg-amber-500/10 border-amber-500/20" },
+    warehouse_ready:   { label: "جاهز للشحن",     color: "text-blue-600 dark:text-blue-400",     bg: "bg-blue-500/10 border-blue-500/20" },
+    in_shipping:       { label: "في الشحن",        color: "text-indigo-600 dark:text-indigo-400", bg: "bg-indigo-500/10 border-indigo-500/20" },
+    received:          { label: "تم الاستلام",     color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/20" },
+    partial_received:  { label: "استلام جزئي",    color: "text-teal-600 dark:text-teal-400",     bg: "bg-teal-500/10 border-teal-500/20" },
+    returned:          { label: "مرتجع",           color: "text-red-600 dark:text-red-400",       bg: "bg-red-500/10 border-red-500/20" },
+    cancelled:         { label: "ملغي",            color: "text-muted-foreground",                bg: "bg-muted/20 border-border" },
+  };
+
+  // فلترة
+  const filtered = orders.filter(o => {
+    const matchStatus = statusFilter === "all" || o.status === statusFilter;
+    const matchSearch = !search || o.customerName.includes(search) || (o.invoiceNumber ?? "").includes(search) || o.product.includes(search);
+    return matchStatus && matchSearch;
+  });
+
+  if (isLoading) return (
+    <div className="flex items-center justify-center py-16">
+      <RefreshCw className="w-5 h-5 animate-spin text-muted-foreground" />
+    </div>
+  );
+
+  return (
+    <div className="space-y-3 animate-in fade-in duration-300">
+      {/* ─ Header ─ */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div>
+          <p className="text-sm font-bold">📦 طلبات {displayName}</p>
+          <p className="text-[10px] text-muted-foreground">الطلبات التي أنشأها الموظف — مرتبطة بمؤشرات أدائه</p>
+        </div>
+        <div className="mr-auto">
+          <Label className="text-[10px] text-muted-foreground block mb-1">الشهر</Label>
+          <Input type="month" value={reportMonth} onChange={e => onMonthChange(e.target.value)} className="h-7 text-xs w-36" />
+        </div>
+      </div>
+
+      {/* ─ بطاقات الإحصائيات ─ */}
+      {stats && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+          {[
+            { label: "إجمالي الطلبات", val: stats.total,        color: "text-foreground",                  bg: "bg-muted/20 border-border",                    kpi: ordersKpi   },
+            { label: "تم التسليم",     val: stats.delivered,    color: "text-emerald-500",                  bg: "bg-emerald-500/8 border-emerald-500/20",        kpi: null },
+            { label: "في الشحن",       val: stats.inShipping,   color: "text-indigo-500",                   bg: "bg-indigo-500/8 border-indigo-500/20",          kpi: null },
+            { label: "مرتجع",          val: stats.returned,     color: "text-red-500",                      bg: "bg-red-500/8 border-red-500/20",                kpi: null },
+            { label: "نسبة التسليم",   val: `${stats.deliveryRate}%`, color: stats.deliveryRate >= (deliveryKpi?.targetValue ?? 80) ? "text-emerald-500" : "text-amber-500", bg: stats.deliveryRate >= (deliveryKpi?.targetValue ?? 80) ? "bg-emerald-500/8 border-emerald-500/20" : "bg-amber-500/8 border-amber-500/20", kpi: deliveryKpi },
+            { label: "نسبة المرتجعات", val: `${stats.returnRate}%`,  color: stats.returnRate <= (returnKpi?.targetValue ?? 20)  ? "text-emerald-500" : "text-red-500",    bg: stats.returnRate <= (returnKpi?.targetValue ?? 20)  ? "bg-emerald-500/8 border-emerald-500/20" : "bg-red-500/8 border-red-500/20",    kpi: returnKpi   },
+          ].map(c => (
+            <div key={c.label} className={`rounded-xl border ${c.bg} p-2.5 text-center relative`}>
+              {c.kpi && (
+                <div className="absolute top-1.5 left-1.5">
+                  <span className="text-[8px] bg-primary/10 text-primary rounded-full px-1 py-0.5 font-bold">KPI</span>
+                </div>
+              )}
+              <p className="text-[9px] text-muted-foreground mb-0.5">{c.label}</p>
+              <p className={`text-sm font-black ${c.color}`}>{c.val}</p>
+              {c.kpi && (
+                <p className="text-[8px] text-muted-foreground/60 mt-0.5">
+                  هدف: {c.kpi.direction === "lower_is_better" ? "≤" : "≥"}{c.kpi.targetValue}{c.kpi.unit}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ─ KPI Impact Section ─ */}
+      {kpiImpact && kpis.filter(k => k.isActive && k.metric !== "manual").length > 0 && (
+        <Card className="border-border bg-card">
+          <CardContent className="px-4 py-3">
+            <div className="flex items-center gap-2 mb-3">
+              <Target className="w-3.5 h-3.5 text-primary shrink-0" />
+              <p className="text-xs font-bold">تأثير الطلبات على مؤشرات الأداء (KPIs)</p>
+            </div>
+            <div className="space-y-2.5">
+              {[
+                deliveryKpi && { kpi: deliveryKpi, actual: kpiImpact.deliveryRate, label: "نسبة التسليم" },
+                returnKpi   && { kpi: returnKpi,   actual: kpiImpact.returnRate,   label: "نسبة المرتجعات" },
+                ordersKpi   && { kpi: ordersKpi,   actual: kpiImpact.totalOrders,  label: "عدد الطلبيات" },
+                revenueKpi  && { kpi: revenueKpi,  actual: kpiImpact.revenue,      label: "الإيرادات" },
+                profitKpi   && { kpi: profitKpi,   actual: kpiImpact.profit,       label: "الربح" },
+              ].filter(Boolean).map(item => {
+                if (!item) return null;
+                const { kpi, actual, label } = item as { kpi: EmployeeKpi; actual: number; label: string };
+                const target = kpi.targetValue;
+                let score = 0;
+                if (kpi.direction === "lower_is_better") {
+                  score = actual <= target ? 100 : Math.max(0, Math.round((target / actual) * 100));
+                } else {
+                  score = Math.min(Math.round((actual / target) * 100), 150);
+                }
+                const achieved = kpi.direction === "lower_is_better" ? score >= 70 : score >= 80;
+                const isOT = score > 100;
+                const barScore = Math.min(score, 100);
+                const fillColor = isOT ? "#3B82F6" : achieved ? "#10B981" : "#EF4444";
+                const fmtVal = (v: number, unit: string) => unit === "%" ? `${v}%` : unit === "ج.م" ? fmt(v) : fmtNum(v) + " " + unit;
+
+                return (
+                  <div key={kpi.id} className="rounded-xl border border-border/50 bg-muted/5 px-3 py-2.5">
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-[10px] font-bold truncate">{kpi.name}</span>
+                        <span className="text-[9px] text-muted-foreground shrink-0">({label})</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className={`text-[9px] font-black ${isOT ? "text-blue-500" : achieved ? "text-emerald-500" : "text-red-500"}`}>
+                          {isOT ? `🏆 ${score}%` : achieved ? `✅ ${score}%` : `❌ ${score}%`}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="w-full h-2 rounded-full bg-muted/30 overflow-hidden mb-1.5">
+                      <div className="h-full rounded-full transition-all duration-700" style={{ width: `${barScore}%`, background: fillColor }} />
+                    </div>
+                    <div className="flex justify-between text-[9px] text-muted-foreground">
+                      <span>فعلي: <strong className="text-foreground">{fmtVal(actual, kpi.unit)}</strong></span>
+                      <span>هدف: {kpi.direction === "lower_is_better" ? "≤" : "≥"}{fmtVal(target, kpi.unit)}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ─ فلاتر + بحث ─ */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          placeholder="بحث باسم العميل، الفاتورة، المنتج..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="h-7 text-xs flex-1 min-w-[180px]"
+        />
+        <div className="flex gap-1 flex-wrap">
+          {["all", "pending", "in_shipping", "received", "returned"].map(s => (
+            <button
+              key={s}
+              onClick={() => setStatusFilter(s)}
+              className={`h-6 px-2 rounded-lg text-[10px] font-bold border transition-colors ${
+                statusFilter === s
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "border-border bg-muted/20 text-muted-foreground hover:border-primary/40"
+              }`}
+            >
+              {s === "all" ? "الكل" : STATUS_MAP[s]?.label ?? s}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ─ جدول الطلبات ─ */}
+      {filtered.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground text-xs">
+          {orders.length === 0 ? "لا توجد طلبات هذا الشهر" : "لا توجد طلبات مطابقة للفلتر"}
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          <p className="text-[10px] text-muted-foreground">{filtered.length} طلب</p>
+          {filtered.map(order => {
+            const st = STATUS_MAP[order.status] ?? { label: order.status, color: "text-muted-foreground", bg: "bg-muted/20 border-border" };
+            return (
+              <div key={order.id} className="rounded-xl border border-border/50 bg-card px-3 py-2.5 flex items-center gap-3 hover:shadow-sm transition-shadow">
+                {/* رقم الفاتورة */}
+                <div className="shrink-0 w-20">
+                  <p className="text-[9px] text-muted-foreground">فاتورة</p>
+                  <p className="text-[10px] font-black text-primary truncate">{order.invoiceNumber ?? `#${order.id}`}</p>
+                </div>
+                {/* العميل + المنتج */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold truncate">{order.customerName}</p>
+                  <p className="text-[9px] text-muted-foreground truncate">
+                    {order.product}
+                    {order.color ? ` · ${order.color}` : ""}
+                    {order.size  ? ` / ${order.size}` : ""}
+                    {order.city  ? ` · ${order.city}` : ""}
+                  </p>
+                </div>
+                {/* الكمية + السعر */}
+                <div className="shrink-0 text-center hidden sm:block">
+                  <p className="text-[9px] text-muted-foreground">الكمية</p>
+                  <p className="text-xs font-bold">{order.quantity}</p>
+                </div>
+                <div className="shrink-0 text-center hidden sm:block">
+                  <p className="text-[9px] text-muted-foreground">الإجمالي</p>
+                  <p className="text-xs font-bold text-emerald-500">{fmt(order.totalPrice)}</p>
+                </div>
+                {/* الحالة */}
+                <div className={`shrink-0 rounded-lg border px-2 py-1 text-center ${st.bg}`}>
+                  <p className={`text-[9px] font-black ${st.color}`}>{st.label}</p>
+                </div>
+                {/* التاريخ */}
+                <div className="shrink-0 hidden lg:block">
+                  <p className="text-[9px] text-muted-foreground">{new Date(order.createdAt).toLocaleDateString("ar-EG", { day: "2-digit", month: "short" })}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Employee Detail ──────────────────────────────────────────────────────────
 function EmployeeDetail({
   profileId, displayName, isSystemUser, username, onBack,
@@ -1983,6 +2215,7 @@ function EmployeeDetail({
         <div className="overflow-x-auto no-scrollbar -mx-1 px-1">
           <TabsList className="h-9 text-xs flex w-max min-w-full sm:w-full gap-0.5 p-1 rounded-xl bg-muted/40 dark:bg-black/30 border border-border/50 backdrop-blur-sm">
             <TabsTrigger value="my-dashboard" className="text-xs px-3 rounded-lg whitespace-nowrap transition-all duration-200 data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-[0_0_12px_rgba(99,102,241,0.3),0_2px_8px_rgba(0,0,0,0.15)] dark:data-[state=active]:shadow-[0_0_16px_rgba(99,102,241,0.45),0_2px_10px_rgba(0,0,0,0.4)]">🏠 لوحتي</TabsTrigger>
+            {isSystemUser  && <TabsTrigger value="my-orders"   className="text-xs px-3 rounded-lg whitespace-nowrap transition-all duration-200 data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-[0_0_12px_rgba(99,102,241,0.3),0_2px_8px_rgba(0,0,0,0.15)] dark:data-[state=active]:shadow-[0_0_16px_rgba(99,102,241,0.45),0_2px_10px_rgba(0,0,0,0.4)]">📦 طلباتي</TabsTrigger>}
             {canSalaries   && <TabsTrigger value="attendance" className="text-xs px-3 rounded-lg whitespace-nowrap transition-all duration-200 data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-[0_0_12px_rgba(99,102,241,0.3),0_2px_8px_rgba(0,0,0,0.15)] dark:data-[state=active]:shadow-[0_0_16px_rgba(99,102,241,0.45),0_2px_10px_rgba(0,0,0,0.4)]">الحضور والمرتب</TabsTrigger>}
             {canManage     && <TabsTrigger value="daily"      className="text-xs px-3 rounded-lg whitespace-nowrap transition-all duration-200 data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-[0_0_12px_rgba(99,102,241,0.3),0_2px_8px_rgba(0,0,0,0.15)] dark:data-[state=active]:shadow-[0_0_16px_rgba(99,102,241,0.45),0_2px_10px_rgba(0,0,0,0.4)]">متابعة يومية</TabsTrigger>}
             {canPerformance && <TabsTrigger value="kpis"      className="text-xs px-3 rounded-lg whitespace-nowrap transition-all duration-200 data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-[0_0_12px_rgba(99,102,241,0.3),0_2px_8px_rgba(0,0,0,0.15)] dark:data-[state=active]:shadow-[0_0_16px_rgba(99,102,241,0.45),0_2px_10px_rgba(0,0,0,0.4)]">مؤشرات الأداء</TabsTrigger>}
@@ -1998,6 +2231,19 @@ function EmployeeDetail({
             monthlySalary={fullProfile?.monthlySalary ?? 0}
           />
         </TabsContent>
+
+        {/* ─── My Orders Tab ─── */}
+        {isSystemUser && (
+          <TabsContent value="my-orders" className="space-y-3 mt-3">
+            <MyOrdersTab
+              profileId={profileId}
+              displayName={displayName}
+              reportMonth={reportMonth}
+              onMonthChange={setReportMonth}
+              kpis={kpis}
+            />
+          </TabsContent>
+        )}
 
         {/* ─── Attendance Tab ─── */}
         {canSalaries && (

@@ -546,6 +546,114 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
   });
 });
 
+// ────────────────────────────────────────────────────────────────────────────
+// GET /employee-orders/:profileId?month=YYYY-MM
+// طلبات الموظف (createdBy أو assigned) مع إحصائياتها الكاملة
+// ────────────────────────────────────────────────────────────────────────────
+router.get("/employee-orders/:profileId", async (req, res): Promise<void> => {
+  const profileId = parseInt(req.params.profileId);
+  if (isNaN(profileId)) { res.status(400).json({ error: "Invalid profileId" }); return; }
+
+  const monthParam = req.query.month as string | undefined;
+  let dateFrom: Date, dateTo: Date;
+  if (monthParam) {
+    const [y, m] = monthParam.split("-").map(Number);
+    dateFrom = new Date(y, m - 1, 1, 0, 0, 0, 0);
+    dateTo   = new Date(y, m, 0, 23, 59, 59, 999);
+  } else {
+    const now = new Date();
+    dateFrom = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    dateTo   = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+  }
+
+  // جلب الـ profile والـ userId
+  const [row] = await db
+    .select({ profile: employeeProfilesTable, user: usersTable })
+    .from(employeeProfilesTable)
+    .leftJoin(usersTable, eq(employeeProfilesTable.userId, usersTable.id))
+    .where(eq(employeeProfilesTable.id, profileId));
+
+  if (!row) { res.status(404).json({ error: "الموظف غير موجود" }); return; }
+
+  const userId = row.profile.userId;
+  if (!userId) {
+    // موظف team_only بدون حساب — يرجع إحصائيات فاضية
+    res.json({
+      orders: [], stats: { total: 0, delivered: 0, returned: 0, pending: 0, inShipping: 0,
+        deliveryRate: 0, returnRate: 0, totalRevenue: 0, totalProfit: 0 },
+      kpiImpact: { deliveryRate: 0, returnRate: 0, totalOrders: 0, revenue: 0, profit: 0 },
+    });
+    return;
+  }
+
+  // جلب طلبات الموظف (اللي كريتها أو المعيّنة عليه)
+  const orders = await db
+    .select()
+    .from(ordersTable)
+    .where(
+      and(
+        eq(ordersTable.createdByUserId, userId),
+        gte(ordersTable.createdAt, dateFrom),
+        lte(ordersTable.createdAt, dateTo)
+      )
+    )
+    .orderBy(desc(ordersTable.createdAt));
+
+  // حساب الإحصائيات
+  const delivered  = orders.filter(o => o.status === "received" || o.status === "partial_received");
+  const returned   = orders.filter(o => o.status === "returned");
+  const inShipping = orders.filter(o => o.status === "in_shipping");
+  const pending    = orders.filter(o => !["received","partial_received","returned"].includes(o.status));
+
+  const totalRevenue = delivered.reduce((s, o) => {
+    const rev = o.status === "partial_received" && o.partialQuantity
+      ? o.unitPrice * o.partialQuantity : o.totalPrice;
+    return s + rev;
+  }, 0);
+  const totalProfit = orders.reduce((s, o) => s + profitFromOrder(o), 0);
+
+  const stats = {
+    total:        orders.length,
+    delivered:    delivered.length,
+    returned:     returned.length,
+    inShipping:   inShipping.length,
+    pending:      pending.length,
+    deliveryRate: orders.length > 0 ? Math.round((delivered.length / orders.length) * 100) : 0,
+    returnRate:   orders.length > 0 ? Math.round((returned.length  / orders.length) * 100) : 0,
+    totalRevenue: Math.round(totalRevenue),
+    totalProfit:  Math.round(totalProfit),
+  };
+
+  // حساب KPI impact (القيم الفعلية)
+  const kpiImpact = {
+    deliveryRate: stats.deliveryRate,
+    returnRate:   stats.returnRate,
+    totalOrders:  stats.total,
+    revenue:      stats.totalRevenue,
+    profit:       stats.totalProfit,
+  };
+
+  // إرجاع الطلبات مع الإحصائيات — نختار أهم الفيلدات فقط
+  const simplifiedOrders = orders.map(o => ({
+    id:            o.id,
+    invoiceNumber: o.invoiceNumber,
+    customerName:  o.customerName,
+    product:       o.product,
+    quantity:      o.quantity,
+    unitPrice:     o.unitPrice,
+    totalPrice:    o.totalPrice,
+    status:        o.status,
+    city:          o.city,
+    adSource:      o.adSource,
+    shippingCost:  o.shippingCost,
+    createdAt:     o.createdAt,
+    color:         o.color,
+    size:          o.size,
+  }));
+
+  res.json({ orders: simplifiedOrders, stats, kpiImpact });
+});
+
 // All users without profile (for setup)
 router.get("/users-without-profile", async (req, res): Promise<void> => {
   const allUsers = await db.select().from(usersTable).where(eq(usersTable.isActive, true));

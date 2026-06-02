@@ -987,6 +987,48 @@ export interface WeekLogsResult {
   kpiWeeks: KpiWeek[];
 }
 
+// ─── Employee Orders (طلبات الموظف) ─────────────────────────────────────────
+export interface EmployeeOrderItem {
+  id: number;
+  invoiceNumber: string | null;
+  customerName: string;
+  product: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  status: string;
+  city: string | null;
+  adSource: string | null;
+  shippingCost: number | null;
+  createdAt: string;
+  color: string | null;
+  size: string | null;
+}
+
+export interface EmployeeOrdersStats {
+  total: number;
+  delivered: number;
+  returned: number;
+  inShipping: number;
+  pending: number;
+  deliveryRate: number;
+  returnRate: number;
+  totalRevenue: number;
+  totalProfit: number;
+}
+
+export interface EmployeeOrdersResponse {
+  orders: EmployeeOrderItem[];
+  stats: EmployeeOrdersStats;
+  kpiImpact: {
+    deliveryRate: number;
+    returnRate: number;
+    totalOrders: number;
+    revenue: number;
+    profit: number;
+  };
+}
+
 export const employeeApi = {
   listProfiles: () => apiFetch<EmployeeProfile[]>("/employee-profiles"),
   getProfile: (profileId: number) => apiFetch<EmployeeProfile & { kpis: EmployeeKpi[] }>(`/employee-profiles/${profileId}`),
@@ -1038,6 +1080,8 @@ export const employeeApi = {
     apiFetch<WeekLogsResult>(`/employee-daily-logs/${profileId}/week${date ? `?date=${date}` : ""}`),
   saveDailyLog: (data: { profileId: number; kpiId: number; date: string; value: number; notes?: string | null }) =>
     apiFetch<{ id: number }>("/employee-daily-logs", { method: "POST", body: JSON.stringify(data) }),
+  getOrders: (profileId: number, month?: string) =>
+    apiFetch<EmployeeOrdersResponse>(`/employee-orders/${profileId}${month ? `?month=${month}` : ""}`),
 };
 
 export const teamAnalyticsApi = {
