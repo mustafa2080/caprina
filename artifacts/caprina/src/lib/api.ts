@@ -908,6 +908,8 @@ export interface EmployeeKpi {
   unit: string;
   direction: "higher_is_better" | "lower_is_better";
   weight: number;
+  salaryWeight: number;
+  overtargetBonus: number;
   isActive: boolean;
   description: string | null;
   createdAt: string;
@@ -938,6 +940,15 @@ export interface EmployeeReport {
     totalProfit: number;
   };
   kpis: EvaluatedKpi[];
+  kpiFinancials: {
+    totalSalaryWeight: number;
+    salaryAtRiskPercent: number;
+    totalDeduction: number;
+    totalBonus: number;
+    achievedCount: number;
+    failedCount: number;
+    overTargetCount: number;
+  };
   overallScore: number | null;
   rating: string;
   salary: number;
@@ -1012,7 +1023,8 @@ export const employeeApi = {
     profileId: number; name: string; metric: string;
     targetValue: number; unit: string;
     direction: "higher_is_better" | "lower_is_better";
-    weight: number; isActive: boolean; description?: string | null;
+    weight: number; salaryWeight?: number; overtargetBonus?: number;
+    isActive: boolean; description?: string | null;
   }) => apiFetch<EmployeeKpi>("/employee-kpis", { method: "POST", body: JSON.stringify(data) }),
   updateKpi: (kpiId: number, data: Partial<EmployeeKpi>) =>
     apiFetch<EmployeeKpi>(`/employee-kpis/${kpiId}`, { method: "PATCH", body: JSON.stringify(data) }),

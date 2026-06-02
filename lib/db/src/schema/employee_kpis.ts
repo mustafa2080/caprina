@@ -25,6 +25,8 @@ export const employeeKpisTable = mysqlTable("employee_kpis", {
   unit: varchar("unit", { length: 20 }).notNull().default("%"),
   direction: varchar("direction", { length: 50 }).notNull().default("higher_is_better"),
   weight: real("weight").notNull().default(100),
+  salaryWeight: real("salary_weight").notNull().default(0),
+  overtargetBonus: real("overtarget_bonus").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
   description: text("description"),
   createdAt: datetime("created_at").notNull().default(new Date()),

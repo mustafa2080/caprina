@@ -20,7 +20,7 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, ReferenceLine,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, ReferenceLine, PieChart, Pie,
 } from "recharts";
 import { employeeApi, usersApi, type EmployeeProfile, type EmployeeKpi, type EmployeeReport, type AppUser, type DailyKpiEntry, type DailyLogDay, appSettingsApi, attendanceApi, type AttendanceRecord, type AttendanceStatus, type PayrollAdjustment, type MonthlySalaryReport } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -207,8 +207,8 @@ function KpiFormDialog({
     existing?.direction ?? "higher_is_better"
   );
   const [weight, setWeight] = useState(existing?.weight?.toString() ?? "100");
-  const [salaryWeight, setSalaryWeight] = useState<string>((existing as any)?.salaryWeight?.toString() ?? "0");
-  const [overtargetBonus, setOvertargetBonus] = useState<string>((existing as any)?.overtargetBonus?.toString() ?? "0");
+  const [salaryWeight, setSalaryWeight] = useState<string>(existing?.salaryWeight?.toString() ?? "0");
+  const [overtargetBonus, setOvertargetBonus] = useState<string>(existing?.overtargetBonus?.toString() ?? "0");
   const [description, setDescription] = useState(existing?.description ?? "");
   const [isActive, setIsActive] = useState(existing?.isActive ?? true);
   const [saving, setSaving] = useState(false);
@@ -417,15 +417,24 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
 
   // ── حساب تأثير KPI على الراتب ─────────────────────────────────────────────
   const baseSalary = salaryReport?.baseSalary ?? report.salary ?? 0;
-  const kpiDeductions = report.kpis
-    .filter(k => k.achieved === false && (k as any).salaryWeight > 0)
-    .reduce((sum, k) => sum + Math.round(((k as any).salaryWeight / 100) * baseSalary), 0);
-  const kpiBonuses = report.kpis
-    .filter(k => k.score !== null && k.score > 100 && (k as any).overtargetBonus > 0)
-    .reduce((sum, k) => sum + Math.round(((k as any).overtargetBonus / 100) * baseSalary), 0);
-  const kpiAchievedCount   = report.kpis.filter(k => k.achieved === true).length;
-  const kpiFailedCount     = report.kpis.filter(k => k.achieved === false).length;
-  const kpiOverTargetCount = report.kpis.filter(k => k.score !== null && k.score > 100).length;
+  const kpiFinancials = report.kpiFinancials ?? {
+    totalSalaryWeight: report.kpis.reduce((sum, k) => sum + (k.salaryWeight ?? 0), 0),
+    salaryAtRiskPercent: report.kpis.reduce((sum, k) => sum + (k.salaryWeight ?? 0), 0),
+    totalDeduction: report.kpis
+      .filter(k => k.achieved === false && (k.salaryWeight ?? 0) > 0)
+      .reduce((sum, k) => sum + Math.round(((k.salaryWeight ?? 0) / 100) * baseSalary), 0),
+    totalBonus: report.kpis
+      .filter(k => k.score !== null && k.score > 100 && (k.overtargetBonus ?? 0) > 0)
+      .reduce((sum, k) => sum + Math.round(((k.overtargetBonus ?? 0) / 100) * baseSalary), 0),
+    achievedCount: report.kpis.filter(k => k.achieved === true).length,
+    failedCount: report.kpis.filter(k => k.achieved === false).length,
+    overTargetCount: report.kpis.filter(k => k.score !== null && k.score > 100).length,
+  };
+  const kpiDeductions = kpiFinancials.totalDeduction;
+  const kpiBonuses = kpiFinancials.totalBonus;
+  const kpiAchievedCount = kpiFinancials.achievedCount;
+  const kpiFailedCount = kpiFinancials.failedCount;
+  const kpiOverTargetCount = kpiFinancials.overTargetCount;
 
   const handlePrint = () => {
     const content = printRef.current;
@@ -596,8 +605,8 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
                 </thead>
                 <tbody>
                   {report.kpis.map((kpi, i) => {
-                    const sw = (kpi as any).salaryWeight ?? 0;
-                    const ot = (kpi as any).overtargetBonus ?? 0;
+                    const sw = kpi.salaryWeight ?? 0;
+                    const ot = kpi.overtargetBonus ?? 0;
                     const kpiAmt = sw > 0 && baseSalary > 0 ? Math.round((sw / 100) * baseSalary) : 0;
                     const otAmt  = ot > 0 && baseSalary > 0 ? Math.round((ot / 100) * baseSalary) : 0;
                     const isOT   = kpi.score !== null && kpi.score > 100;
@@ -1766,192 +1775,80 @@ function EmployeeDetail({
           {!kpisLoading && kpis.length > 0 && (() => {
             const salary = fullProfile?.monthlySalary ?? 0;
             const activeKpis = kpis.filter(k => k.isActive);
-            const totalSW = activeKpis.reduce((s, k) => s + ((k as any).salaryWeight ?? 0), 0);
-            const totalOT = activeKpis.reduce((s, k) => s + ((k as any).overtargetBonus ?? 0), 0);
+            const totalSW = activeKpis.reduce((s, k) => s + (k.salaryWeight ?? 0), 0);
+            const totalOT = activeKpis.reduce((s, k) => s + (k.overtargetBonus ?? 0), 0);
             const totalDeduction = salary > 0 ? Math.round((totalSW / 100) * salary) : 0;
             const totalBonus = salary > 0 ? Math.round((totalOT / 100) * salary) : 0;
+            const achievedCount = kpis.filter(k => (k as any).achieved === true).length;
+            const failedCount = kpis.filter(k => (k as any).achieved === false).length;
+            const overTargetCount = kpis.filter(k => (k as any).score !== null && (k as any).score > 100).length;
+            const overallScore = kpis.length > 0
+              ? Math.round(kpis.filter(k => k.score !== null).reduce((s, k) => s + Math.min(k.score!, 100), 0) / Math.max(kpis.filter(k => k.score !== null).length, 1))
+              : null;
 
-            // بيانات الـ Radar chart
+            // Radar data — كفاءات المؤشرات
             const radarData = activeKpis.map(k => ({
-              subject: k.name.length > 7 ? k.name.slice(0, 7) + "…" : k.name,
-              value: (k as any).salaryWeight ?? 0,
+              subject: k.name.length > 6 ? k.name.slice(0, 6) + "…" : k.name,
+              value: Math.min(k.score ?? (k.salaryWeight ?? 0), 100),
               fullName: k.name,
             }));
 
-            // بيانات bar chart للتوزيع المالي
-            const barData = activeKpis
-              .filter(k => ((k as any).salaryWeight ?? 0) > 0)
-              .map(k => ({
-                name: k.name.length > 9 ? k.name.slice(0, 9) + "…" : k.name,
-                خصم: salary > 0 ? Math.round(((k as any).salaryWeight / 100) * salary) : (k as any).salaryWeight,
-                مكافأة: salary > 0 ? Math.round((((k as any).overtargetBonus ?? 0) / 100) * salary) : ((k as any).overtargetBonus ?? 0),
-              }));
+            // Bar data — تقييم ربعي
+            const barData = activeKpis.slice(0, 4).map(k => ({
+              name: k.name.length > 8 ? k.name.slice(0, 8) + "…" : k.name,
+              "تقييم الأداء الحالي": Math.min((k as any).score ?? 0, 100),
+              "المتوسط العام": 70,
+            }));
+
+            // مؤشرات تشغيلية للبطاقة 4
+            const opMetrics = activeKpis.slice(0, 3).map(k => ({
+              label: k.name,
+              value: k.score !== null ? `${Math.min(Math.round(k.score), 100)}%` : (k.actualValue !== null ? `${fmtNum(k.actualValue)} ${k.unit}` : "—"),
+              achieved: (k as any).achieved,
+              isOT: (k as any).score !== null && (k as any).score > 100,
+              icon: k.direction === "higher_is_better" ? TrendingUp : TrendingDown,
+            }));
 
             return (
               <>
-                {/* ── Summary Cards Row ── */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {/* عدد المؤشرات */}
-                  <Card className="relative overflow-hidden border-primary/20 bg-primary/5 shadow-[0_0_14px_rgba(99,102,241,0.12)]">
-                    <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />
-                    <CardContent className="relative px-3 py-3">
-                      <div className="flex items-center justify-between mb-1">
-                        <Target className="w-4 h-4 text-primary" />
-                        <span className="text-[9px] font-bold text-primary/70 bg-primary/10 rounded-full px-1.5 py-0.5">مؤشر</span>
-                      </div>
-                      <p className="text-xl font-black text-primary">{activeKpis.length}</p>
-                      <p className="text-[9px] text-muted-foreground">مؤشر نشط</p>
-                    </CardContent>
-                  </Card>
-                  {/* إجمالي نسبة KPI */}
-                  <Card className="relative overflow-hidden border-amber-500/25 bg-amber-500/5 shadow-[0_0_14px_rgba(245,158,11,0.12)]">
-                    <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-transparent pointer-events-none" />
-                    <CardContent className="relative px-3 py-3">
-                      <div className="flex items-center justify-between mb-1">
-                        <DollarSign className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                        <span className={`text-[9px] font-bold rounded-full px-1.5 py-0.5 ${totalSW > 100 ? "bg-red-500/15 text-red-500" : "bg-amber-500/15 text-amber-600"}`}>{totalSW > 100 ? "تجاوز" : "KPI"}</span>
-                      </div>
-                      <p className={`text-xl font-black ${totalSW > 100 ? "text-red-500" : "text-amber-600 dark:text-amber-400"}`}>{totalSW}%</p>
-                      <p className="text-[9px] text-muted-foreground">{salary > 0 ? `= ${fmt(totalDeduction)}` : "من الراتب"}</p>
-                    </CardContent>
-                  </Card>
-                  {/* الراتب الأساسي */}
-                  <Card className="relative overflow-hidden border-emerald-200/60 dark:border-emerald-800/40 bg-emerald-50 dark:bg-emerald-900/15 shadow-[0_0_14px_rgba(16,185,129,0.1)]">
-                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent pointer-events-none" />
-                    <CardContent className="relative px-3 py-3">
-                      <div className="flex items-center justify-between mb-1">
-                        <Briefcase className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                        <span className="text-[9px] font-bold text-emerald-600 bg-emerald-500/10 rounded-full px-1.5 py-0.5">راتب</span>
-                      </div>
-                      <p className="text-xl font-black text-emerald-600 dark:text-emerald-400">{salary > 0 ? fmt(salary) : "—"}</p>
-                      <p className="text-[9px] text-muted-foreground">الراتب الأساسي</p>
-                    </CardContent>
-                  </Card>
-                  {/* مكافأة Over Target */}
-                  <Card className="relative overflow-hidden border-blue-200/60 dark:border-blue-800/40 bg-blue-50 dark:bg-blue-900/15 shadow-[0_0_14px_rgba(59,130,246,0.1)]">
-                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent pointer-events-none" />
-                    <CardContent className="relative px-3 py-3">
-                      <div className="flex items-center justify-between mb-1">
-                        <Trophy className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                        <span className="text-[9px] font-bold text-blue-600 bg-blue-500/10 rounded-full px-1.5 py-0.5">OT</span>
-                      </div>
-                      <p className="text-xl font-black text-blue-600 dark:text-blue-400">{totalOT > 0 ? `+${totalOT}%` : "—"}</p>
-                      <p className="text-[9px] text-muted-foreground">{totalBonus > 0 ? `= ${fmt(totalBonus)}` : "مكافأة Over Target"}</p>
-                    </CardContent>
-                  </Card>
-                </div>
+                {/* ══ ROW 1: 3 بطاقات متجاورة — مستوحاة من الصورة ══ */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
 
-                {/* ── Charts Row ── */}
-                {(radarData.length >= 3 || barData.length > 0) && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {/* Radar — توزيع المؤشرات */}
-                    {radarData.length >= 3 && (
-                      <Card className="border-border bg-card">
-                        <CardHeader className="pb-1 pt-3 px-4">
-                          <CardTitle className="text-xs flex items-center gap-1.5 text-muted-foreground">
-                            <BarChart2 className="w-3.5 h-3.5" />تطور الكفاءات الأساسية
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="px-2 pb-3">
-                          <ResponsiveContainer width="100%" height={180}>
-                            <RadarChart data={radarData}>
-                              <PolarGrid stroke="hsl(var(--border))" />
-                              <PolarAngleAxis dataKey="subject" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
-                              <Radar name="الوزن" dataKey="value" stroke="#c9a227" fill="#c9a227" fillOpacity={0.28} strokeWidth={2} />
-                            </RadarChart>
-                          </ResponsiveContainer>
-                        </CardContent>
-                      </Card>
-                    )}
-                    {/* Bar — التوزيع المالي */}
-                    {barData.length > 0 && salary > 0 && (
-                      <Card className="border-border bg-card">
-                        <CardHeader className="pb-1 pt-3 px-4">
-                          <CardTitle className="text-xs flex items-center gap-1.5 text-muted-foreground">
-                            <DollarSign className="w-3.5 h-3.5" />مؤشرات الأداء التشغيلي
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="px-2 pb-3">
-                          <ResponsiveContainer width="100%" height={180}>
-                            <BarChart data={barData} margin={{ top: 5, right: 5, bottom: 5, left: -10 }}>
-                              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                              <XAxis dataKey="name" tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} />
-                              <YAxis tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} />
-                              <Tooltip
-                                formatter={(v: any, n: string) => [fmt(v), n]}
-                                contentStyle={{ fontSize: 10, background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, direction: "rtl" }}
-                              />
-                              <Bar dataKey="خصم" fill="#EF4444" radius={[4, 4, 0, 0]} maxBarSize={20} />
-                              <Bar dataKey="مكافأة" fill="#10B981" radius={[4, 4, 0, 0]} maxBarSize={20} />
-                            </BarChart>
-                          </ResponsiveContainer>
-                        </CardContent>
-                      </Card>
-                    )}
-                  </div>
-                )}
-
-                {/* ── التقدم نحو الأهداف — إجمالي توزيع الراتب ── */}
-                {totalSW > 0 && salary > 0 && (
-                  <Card className="border-border bg-card">
-                    <CardHeader className="pb-2 pt-3 px-4">
-                      <CardTitle className="text-xs flex items-center gap-1.5 text-muted-foreground">
-                        <TrendingUp className="w-3.5 h-3.5" />التقدم نحو الأهداف السنوية
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="px-4 pb-3 space-y-3">
-                      {/* Progress ring summary */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="flex flex-col items-center justify-center rounded-xl bg-muted/20 border border-border py-3 gap-1">
-                          <div className="relative w-16 h-16">
-                            <svg viewBox="0 0 64 64" className="w-full h-full -rotate-90">
-                              <circle cx="32" cy="32" r="26" fill="none" stroke="hsl(var(--muted))" strokeWidth="6" />
-                              <circle cx="32" cy="32" r="26" fill="none" stroke="#c9a227" strokeWidth="6"
-                                strokeDasharray={`${Math.min(100, totalSW) * 1.634} 163.4`}
-                                strokeLinecap="round" />
-                            </svg>
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <span className="text-xs font-black">{totalSW}%</span>
-                            </div>
-                          </div>
-                          <p className="text-[9px] text-muted-foreground text-center">إجمالي KPI<br />من الراتب</p>
-                        </div>
-                        <div className="flex flex-col justify-center gap-2">
-                          <div className="flex items-center justify-between text-[10px]">
-                            <span className="text-muted-foreground flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-emerald-500" />بدون خصم</span>
-                            <span className="font-bold text-emerald-600 dark:text-emerald-400">{fmt(salary)}</span>
-                          </div>
-                          <div className="flex items-center justify-between text-[10px]">
-                            <span className="text-muted-foreground flex items-center gap-1"><XCircle className="w-3 h-3 text-red-500" />عند قصور كامل</span>
-                            <span className="font-bold text-red-500">{fmt(salary - totalDeduction)}</span>
-                          </div>
-                          {totalBonus > 0 && (
-                            <div className="flex items-center justify-between text-[10px]">
-                              <span className="text-muted-foreground flex items-center gap-1"><Trophy className="w-3 h-3 text-blue-500" />مع Over Target</span>
-                              <span className="font-bold text-blue-600 dark:text-blue-400">{fmt(salary + totalBonus)}</span>
-                            </div>
-                          )}
+                  {/* بطاقة 1 — التقدم نحو الأهداف (Progress Ring) */}
+                  <Card className="relative overflow-hidden border-border bg-card">
+                    <div className="absolute top-2 right-2.5 text-[9px] font-black text-muted-foreground/40">1</div>
+                    <CardContent className="px-4 py-4 flex flex-col items-center gap-2">
+                      <p className="text-xs font-bold text-foreground self-end w-full text-right">التقدم نحو الأهداف</p>
+                      {/* Ring */}
+                      <div className="relative w-24 h-24 my-1">
+                        <svg viewBox="0 0 96 96" className="w-full h-full -rotate-90">
+                          <circle cx="48" cy="48" r="38" fill="none" stroke="hsl(var(--muted))" strokeWidth="8" />
+                          <circle cx="48" cy="48" r="38" fill="none"
+                            stroke={overallScore !== null && overallScore >= 80 ? "#10B981" : overallScore !== null && overallScore >= 60 ? "#c9a227" : "#EF4444"}
+                            strokeWidth="8"
+                            strokeDasharray={`${(overallScore ?? 0) * 2.388} 238.8`}
+                            strokeLinecap="round" />
+                        </svg>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                          <span className="text-lg font-black leading-none">{overallScore !== null ? `${overallScore}%` : "—"}</span>
+                          <span className="text-[9px] text-muted-foreground mt-0.5">
+                            {overallScore !== null && overallScore >= 80 ? "ممتاز" : overallScore !== null && overallScore >= 60 ? "جيد" : "يحتاج تحسين"}
+                          </span>
                         </div>
                       </div>
-                      {/* Progress bar لكل مؤشر */}
-                      <div className="space-y-2 pt-1 border-t border-border/30">
-                        {activeKpis.filter(k => ((k as any).salaryWeight ?? 0) > 0).map(kpi => {
-                          const sw = (kpi as any).salaryWeight ?? 0;
-                          const ob = (kpi as any).overtargetBonus ?? 0;
-                          const kpiAmt = Math.round((sw / 100) * salary);
+                      {/* تفاصيل أسفل الـ ring */}
+                      <div className="w-full space-y-1.5">
+                        {activeKpis.slice(0, 3).map(k => {
+                          const sc = Math.min((k as any).score ?? 0, 100);
                           return (
-                            <div key={kpi.id} className="space-y-0.5">
-                              <div className="flex items-center justify-between">
-                                <span className="text-[10px] font-bold truncate max-w-[55%]">{kpi.name}</span>
-                                <div className="flex items-center gap-1.5">
-                                  <span className="text-[9px] font-bold text-amber-600 dark:text-amber-400">{sw}%</span>
-                                  <span className="text-[9px] text-muted-foreground">= {fmt(kpiAmt)}</span>
-                                  {ob > 0 && <span className="text-[9px] text-emerald-500 font-bold">+{ob}%</span>}
-                                </div>
+                            <div key={k.id}>
+                              <div className="flex justify-between text-[9px] mb-0.5">
+                                <span className="text-muted-foreground truncate max-w-[60%]">{k.name}</span>
+                                <span className="font-bold">{sc}%</span>
                               </div>
-                              <div className="w-full h-1.5 rounded-full bg-muted/40 overflow-hidden">
-                                <div className="h-full rounded-full bg-gradient-to-r from-amber-500 to-amber-400 transition-all duration-500"
-                                  style={{ width: `${Math.min(100, sw)}%` }} />
+                              <div className="w-full h-1 rounded-full bg-muted/40 overflow-hidden">
+                                <div className="h-full rounded-full transition-all duration-700"
+                                  style={{ width: `${sc}%`, background: sc >= 80 ? "#10B981" : sc >= 60 ? "#c9a227" : "#EF4444" }} />
                               </div>
                             </div>
                           );
@@ -1959,31 +1856,188 @@ function EmployeeDetail({
                       </div>
                     </CardContent>
                   </Card>
-                )}
 
-                {/* ── KPI Cards (مؤشرات الأداء التفصيلية) ── */}
+                  {/* بطاقة 2 — تقييم الأداء الربعي (Bar Chart) */}
+                  {barData.length > 0 && (
+                    <Card className="relative overflow-hidden border-border bg-card">
+                      <div className="absolute top-2 right-2.5 text-[9px] font-black text-muted-foreground/40">2</div>
+                      <CardContent className="px-3 py-4">
+                        <div className="flex items-start justify-between mb-2">
+                          <p className="text-xs font-bold text-foreground">تقييم الأداء الربعي</p>
+                          <div className="flex flex-col items-end gap-0.5">
+                            <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
+                              <span className="w-2 h-2 rounded-sm bg-primary inline-block" />تقييم الأداء الحالي
+                            </div>
+                            <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
+                              <span className="w-2 h-2 rounded-sm bg-emerald-500 inline-block" />المتوسط العام
+                            </div>
+                          </div>
+                        </div>
+                        {/* Rating stars */}
+                        {overallScore !== null && (
+                          <div className="flex items-center gap-0.5 mb-2 justify-end">
+                            {[1,2,3,4,5].map(s => (
+                              <Star key={s} className={`w-3 h-3 ${s <= Math.round(overallScore / 20) ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"}`} />
+                            ))}
+                            <span className="text-[9px] text-muted-foreground mr-1">
+                              {overallScore >= 90 ? "ممتاز" : overallScore >= 75 ? "جيد جداً" : overallScore >= 60 ? "جيد" : "مقبول"}
+                            </span>
+                          </div>
+                        )}
+                        <ResponsiveContainer width="100%" height={130}>
+                          <BarChart data={barData} margin={{ top: 2, right: 2, bottom: 2, left: -25 }} barGap={2}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                            <XAxis dataKey="name" tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                            <YAxis tick={{ fontSize: 7, fill: "hsl(var(--muted-foreground))" }} domain={[0, 100]} axisLine={false} tickLine={false} />
+                            <Tooltip
+                              formatter={(v: any, n: string) => [`${v}%`, n]}
+                              contentStyle={{ fontSize: 10, background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, direction: "rtl" }}
+                            />
+                            <Bar dataKey="تقييم الأداء الحالي" fill="hsl(var(--primary))" radius={[3, 3, 0, 0]} maxBarSize={16} />
+                            <Bar dataKey="المتوسط العام" fill="#10B981" radius={[3, 3, 0, 0]} maxBarSize={16} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                        {/* نسب أسفل الـ chart */}
+                        <div className="flex justify-around mt-1 border-t border-border/30 pt-2">
+                          {activeKpis.slice(0, 3).map(k => (
+                            <div key={k.id} className="text-center">
+                              <p className="text-[9px] font-black">{Math.min((k as any).score ?? 0, 100)}%</p>
+                              <p className="text-[8px] text-muted-foreground truncate max-w-[40px]">{k.name.slice(0, 6)}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* بطاقة 3 — تطور الكفاءات (Radar) */}
+                  {radarData.length >= 3 && (
+                    <Card className="relative overflow-hidden border-border bg-card">
+                      <div className="absolute top-2 right-2.5 text-[9px] font-black text-muted-foreground/40">3</div>
+                      <CardContent className="px-3 py-4">
+                        <p className="text-xs font-bold text-foreground mb-1">تطور الكفاءات الأساسية</p>
+                        <ResponsiveContainer width="100%" height={180}>
+                          <RadarChart data={radarData} margin={{ top: 5, right: 20, bottom: 5, left: 20 }}>
+                            <PolarGrid stroke="hsl(var(--border))" />
+                            <PolarAngleAxis dataKey="subject" tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} />
+                            <Radar name="الأداء" dataKey="value" stroke="#c9a227" fill="#c9a227" fillOpacity={0.3} strokeWidth={2} dot={{ fill: "#c9a227", r: 2 }} />
+                          </RadarChart>
+                        </ResponsiveContainer>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+
+                {/* ══ ROW 2: بطاقتان — مؤشرات تشغيلية + ملخص مالي ══ */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+                  {/* بطاقة 4 — مؤشرات الأداء التشغيلي */}
+                  <Card className="relative overflow-hidden border-border bg-card">
+                    <div className="absolute top-2 right-2.5 text-[9px] font-black text-muted-foreground/40">4</div>
+                    <CardContent className="px-4 py-4">
+                      <p className="text-xs font-bold text-foreground mb-3">مؤشرات الأداء التشغيلي</p>
+                      <div className="space-y-2.5">
+                        {opMetrics.map((m, i) => (
+                          <div key={i} className="flex items-center justify-between">
+                            <span className="text-xs text-muted-foreground truncate max-w-[55%]">{m.label}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-black">{m.value}</span>
+                              <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${
+                                m.isOT ? "bg-blue-500/15" : m.achieved === true ? "bg-emerald-500/15" : m.achieved === false ? "bg-red-500/15" : "bg-muted/30"
+                              }`}>
+                                <m.icon className={`w-3 h-3 ${
+                                  m.isOT ? "text-blue-500" : m.achieved === true ? "text-emerald-500" : m.achieved === false ? "text-red-500" : "text-muted-foreground"
+                                }`} />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        {opMetrics.length === 0 && (
+                          <p className="text-xs text-muted-foreground text-center py-4">لا توجد بيانات بعد</p>
+                        )}
+                      </div>
+                      {/* ملاحظة */}
+                      {overallScore !== null && (
+                        <div className="mt-3 pt-2.5 border-t border-border/30">
+                          <p className="text-[10px] font-bold text-muted-foreground mb-0.5">التعليقات والملاحظات</p>
+                          <p className="text-[10px] text-muted-foreground/80">
+                            {overallScore >= 90 ? "🌟 أداء استثنائي هذا الشهر، استمر في الإبداع!" :
+                             overallScore >= 75 ? "👍 أداء فوق المتوسط، يحتاج تعزيز بعض الجوانب" :
+                             overallScore >= 60 ? "✅ أداء مقبول، مع وجود فرص للتطوير" :
+                             "⚠️ يحتاج الموظف إلى دعم وتحسين في المؤشرات"}
+                          </p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* بطاقة 5 — الملخص المالي KPI */}
+                  <Card className="relative overflow-hidden border-border bg-card">
+                    <div className="absolute top-2 right-2.5 text-[9px] font-black text-muted-foreground/40">5</div>
+                    <CardContent className="px-4 py-4">
+                      <p className="text-xs font-bold text-foreground mb-3">الملخص المالي للمؤشرات</p>
+                      {salary > 0 ? (
+                        <div className="space-y-2">
+                          {[
+                            { label: "الراتب الأساسي", value: fmt(salary), color: "text-foreground", bg: "bg-muted/20" },
+                            { label: "إجمالي KPI من الراتب", value: `${totalSW}%`, sub: fmt(totalDeduction), color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-500/8" },
+                            { label: "عند قصور كامل", value: fmt(salary - totalDeduction), color: "text-red-500", bg: "bg-red-500/8" },
+                            ...(totalBonus > 0 ? [{ label: "مع Over Target", value: fmt(salary + totalBonus), color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-500/8" }] : []),
+                          ].map((row, i) => (
+                            <div key={i} className={`flex items-center justify-between rounded-lg px-3 py-2 ${row.bg}`}>
+                              <span className="text-[10px] text-muted-foreground">{row.label}</span>
+                              <div className="text-right">
+                                <span className={`text-xs font-black ${row.color}`}>{row.value}</span>
+                                {(row as any).sub && <p className="text-[8px] text-muted-foreground">{(row as any).sub}</p>}
+                              </div>
+                            </div>
+                          ))}
+                          {/* KPI status summary */}
+                          <div className="grid grid-cols-3 gap-1.5 pt-1">
+                            {[
+                              { label: "محقق", val: achievedCount, color: "text-emerald-600", bg: "bg-emerald-500/10" },
+                              { label: "لم يتحقق", val: failedCount, color: "text-red-500", bg: "bg-red-500/10" },
+                              { label: "Over Target", val: overTargetCount, color: "text-blue-600", bg: "bg-blue-500/10" },
+                            ].map(s => (
+                              <div key={s.label} className={`rounded-lg py-2 text-center ${s.bg}`}>
+                                <p className={`text-base font-black ${s.color}`}>{s.val}</p>
+                                <p className="text-[8px] text-muted-foreground">{s.label}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-6">
+                          <DollarSign className="w-8 h-8 mx-auto mb-2 opacity-20" />
+                          <p className="text-xs text-muted-foreground">لم يُحدد الراتب الأساسي بعد</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* ══ KPI Detail Cards ══ */}
                 <div>
                   <h3 className="text-xs font-bold text-muted-foreground mb-3 flex items-center gap-1.5">
                     <Settings className="w-3.5 h-3.5" />مؤشرات الأداء التفصيلية
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {kpis.map((kpi, idx) => {
-                      const salaryW = (kpi as any).salaryWeight ?? 0;
-                      const otBonus = (kpi as any).overtargetBonus ?? 0;
+                      const salaryW = kpi.salaryWeight ?? 0;
+                      const otBonus = kpi.overtargetBonus ?? 0;
                       const kpiAmt = salary > 0 && salaryW > 0 ? Math.round((salaryW / 100) * salary) : 0;
                       const bonusAmt = salary > 0 && otBonus > 0 ? Math.round((otBonus / 100) * salary) : 0;
                       const isOT = (kpi as any).score !== null && (kpi as any).score > 100;
                       const isAchieved = (kpi as any).achieved === true;
                       const isFailed = (kpi as any).achieved === false;
 
-                      // لون الكارت بناءً على نوع المؤشر
                       const colorMap: Record<string, { accent: string; iconBg: string; iconColor: string; badgeBg: string; badgeText: string }> = {
                         delivery_rate: { accent: "bg-emerald-500", iconBg: "bg-emerald-50 dark:bg-emerald-900/30", iconColor: "text-emerald-600 dark:text-emerald-400", badgeBg: "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-700/40", badgeText: "text-emerald-700 dark:text-emerald-300" },
-                        return_rate:   { accent: "bg-red-500",     iconBg: "bg-red-50 dark:bg-red-900/30",         iconColor: "text-red-600 dark:text-red-400",         badgeBg: "bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-700/40",         badgeText: "text-red-700 dark:text-red-300"     },
-                        total_orders:  { accent: "bg-blue-500",    iconBg: "bg-blue-50 dark:bg-blue-900/30",        iconColor: "text-blue-600 dark:text-blue-400",        badgeBg: "bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700/40",        badgeText: "text-blue-700 dark:text-blue-300"   },
-                        profit:        { accent: "bg-violet-500",  iconBg: "bg-violet-50 dark:bg-violet-900/30",    iconColor: "text-violet-600 dark:text-violet-400",    badgeBg: "bg-violet-50 dark:bg-violet-900/30 border-violet-200 dark:border-violet-700/40",    badgeText: "text-violet-700 dark:text-violet-300" },
+                        return_rate:   { accent: "bg-red-500",     iconBg: "bg-red-50 dark:bg-red-900/30",         iconColor: "text-red-600 dark:text-red-400",         badgeBg: "bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-700/40",         badgeText: "text-red-700 dark:text-red-300" },
+                        total_orders:  { accent: "bg-blue-500",    iconBg: "bg-blue-50 dark:bg-blue-900/30",        iconColor: "text-blue-600 dark:text-blue-400",        badgeBg: "bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700/40",        badgeText: "text-blue-700 dark:text-blue-300" },
+                        profit:        { accent: "bg-violet-500",  iconBg: "bg-violet-50 dark:bg-violet-900/30",    iconColor: "text-violet-600 dark:text-violet-400",    badgeBg: "bg-violet-50 dark:bg-violet-900/30 border-violet-200 dark:border-violet-700/40", badgeText: "text-violet-700 dark:text-violet-300" },
                         revenue:       { accent: "bg-amber-500",   iconBg: "bg-amber-50 dark:bg-amber-900/30",      iconColor: "text-amber-600 dark:text-amber-400",      badgeBg: "bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-700/40",      badgeText: "text-amber-700 dark:text-amber-300" },
-                        manual:        { accent: "bg-primary",     iconBg: "bg-primary/10",                         iconColor: "text-primary",                            badgeBg: "bg-primary/5 border-primary/20",                                                       badgeText: "text-primary"                       },
+                        manual:        { accent: "bg-primary",     iconBg: "bg-primary/10",                         iconColor: "text-primary",                            badgeBg: "bg-primary/5 border-primary/20",                                                      badgeText: "text-primary" },
                       };
                       const colors = colorMap[kpi.metric] ?? colorMap.manual;
 
@@ -1998,32 +2052,21 @@ function EmployeeDetail({
 
                       return (
                         <div key={kpi.id} className={`relative rounded-xl border border-border bg-card overflow-hidden transition-all duration-200 ${!kpi.isActive ? "opacity-40 grayscale" : "hover:shadow-lg hover:-translate-y-0.5"}`}>
-
-                          {/* شريط لوني علوي */}
                           <div className={`h-1 w-full ${colors.accent} opacity-80`} />
-
-                          {/* Status Badge — حالة المؤشر */}
                           {(isOT || isAchieved || isFailed) && (
                             <div className={`px-3 py-1.5 flex items-center gap-1.5 text-[10px] font-bold border-b border-border/20 ${
-                              isOT      ? "bg-blue-500/10 text-blue-600 dark:text-blue-400" :
+                              isOT ? "bg-blue-500/10 text-blue-600 dark:text-blue-400" :
                               isAchieved ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" :
                                           "bg-red-500/10 text-red-700 dark:text-red-400"
                             }`}>
-                              {isOT ? (
-                                <><Trophy className="w-3 h-3" />Over Target — تجاوز الهدف 🏆</>
-                              ) : isAchieved ? (
-                                <><CheckCircle2 className="w-3 h-3" />تم تحقيق المؤشر ✅</>
-                              ) : (
-                                <><XCircle className="w-3 h-3" />لم يتحقق المؤشر ❌</>
-                              )}
+                              {isOT ? <><Trophy className="w-3 h-3" />Over Target — تجاوز الهدف 🏆</> :
+                               isAchieved ? <><CheckCircle2 className="w-3 h-3" />تم تحقيق المؤشر ✅</> :
+                                            <><XCircle className="w-3 h-3" />لم يتحقق المؤشر ❌</>}
                             </div>
                           )}
-
                           <div className="p-4">
-                            {/* Row 1: أيقونة + اسم + أزرار */}
                             <div className="flex items-start justify-between gap-2 mb-3">
                               <div className="flex items-center gap-3 min-w-0">
-                                {/* أيقونة دائرية */}
                                 <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${colors.iconBg}`}>
                                   <span className={colors.iconColor}>{iconForMetric[kpi.metric] ?? <Target className="w-4 h-4" />}</span>
                                 </div>
@@ -2036,9 +2079,7 @@ function EmployeeDetail({
                                 </div>
                               </div>
                               <div className="flex items-center gap-0.5 shrink-0">
-                                {!kpi.isActive && (
-                                  <span className="text-[9px] bg-muted text-muted-foreground rounded-full px-2 py-0.5 border border-border">معطل</span>
-                                )}
+                                {!kpi.isActive && <span className="text-[9px] bg-muted text-muted-foreground rounded-full px-2 py-0.5 border border-border">معطل</span>}
                                 {isAdmin && (
                                   <>
                                     <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground/60 hover:text-primary hover:bg-primary/5 rounded-lg"
@@ -2167,6 +2208,127 @@ function EmployeeDetail({
                 ))}
               </div>
 
+              {report.kpis.length > 0 && (
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 mt-3">
+                  <Card className="border-border bg-card/80">
+                    <CardHeader className="px-4 pt-4 pb-2">
+                      <CardTitle className="text-sm flex items-center justify-between gap-2">
+                        <span className="flex items-center gap-1.5">
+                          <Target className="w-4 h-4 text-primary" />توزيع حالة KPI
+                        </span>
+                        <Badge variant="outline" className="text-[10px] h-5 px-2">
+                          {kpiFinancials.salaryAtRiskPercent}% من الراتب
+                        </Badge>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-4 pb-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-[180px_1fr] gap-3 items-center">
+                        <div className="h-[220px] w-full">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={[
+                                  { name: "محقق", value: kpiAchievedCount, fill: "#10B981" },
+                                  { name: "لم يتحقق", value: kpiFailedCount, fill: "#EF4444" },
+                                  { name: "Over Target", value: kpiOverTargetCount, fill: "#2563EB" },
+                                ].filter(item => item.value > 0)}
+                                dataKey="value"
+                                nameKey="name"
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={54}
+                                outerRadius={82}
+                                paddingAngle={3}
+                              >
+                                {[
+                                  { name: "محقق", value: kpiAchievedCount, fill: "#10B981" },
+                                  { name: "لم يتحقق", value: kpiFailedCount, fill: "#EF4444" },
+                                  { name: "Over Target", value: kpiOverTargetCount, fill: "#2563EB" },
+                                ].filter(item => item.value > 0).map((entry, index) => (
+                                  <Cell key={`status-${index}`} fill={entry.fill} />
+                                ))}
+                              </Pie>
+                              <Tooltip
+                                formatter={(value: any, name: string) => [`${value}`, name]}
+                                contentStyle={{ fontSize: 10, background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, direction: "rtl" }}
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <div className="space-y-2">
+                          {[
+                            { label: "محقق", value: kpiAchievedCount, color: "text-emerald-500", bg: "bg-emerald-500/10" },
+                            { label: "لم يتحقق", value: kpiFailedCount, color: "text-red-500", bg: "bg-red-500/10" },
+                            { label: "Over Target", value: kpiOverTargetCount, color: "text-blue-500", bg: "bg-blue-500/10" },
+                            { label: "إجمالي وزن KPI", value: `${kpiFinancials.totalSalaryWeight}%`, color: "text-amber-500", bg: "bg-amber-500/10" },
+                          ].map(item => (
+                            <div key={item.label} className={`rounded-xl px-3 py-2 flex items-center justify-between ${item.bg}`}>
+                              <span className="text-xs text-muted-foreground">{item.label}</span>
+                              <span className={`text-sm font-black ${item.color}`}>{item.value}</span>
+                            </div>
+                          ))}
+                          <div className="rounded-xl border border-border/50 bg-muted/20 p-3">
+                            <p className="text-[10px] text-muted-foreground mb-1">مؤشر الراتب المعرض للخطر</p>
+                            <Progress value={Math.min(kpiFinancials.salaryAtRiskPercent, 100)} className="h-2" />
+                            <div className="mt-2 flex items-center justify-between text-[10px]">
+                              <span className="text-muted-foreground">محتمل الخصم</span>
+                              <span className="font-bold text-amber-600 dark:text-amber-400">{fmt(kpiFinancials.totalDeduction)}</span>
+                            </div>
+                            {kpiFinancials.totalSalaryWeight > 100 && (
+                              <p className="mt-1 text-[10px] font-medium text-red-500">
+                                إجمالي الأوزان أكبر من 100%، راجع إعدادات KPI حتى لا يتجاوز الخصم الراتب الأساسي.
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-border bg-card/80">
+                    <CardHeader className="px-4 pt-4 pb-2">
+                      <CardTitle className="text-sm flex items-center gap-1.5">
+                        <BarChart2 className="w-4 h-4 text-primary" />توزيع الراتب الشهري
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-4 pb-4">
+                      <ResponsiveContainer width="100%" height={250}>
+                        <BarChart
+                          data={[
+                            { name: "الأساسي", value: baseSalary, fill: "#3b82f6" },
+                            { name: "خصم الحضور", value: salaryReport?.attendanceDeduction ?? 0, fill: "#ef4444" },
+                            { name: "خصم KPI", value: kpiDeductions, fill: "#dc2626" },
+                            { name: "البونص", value: (salaryReport?.bonuses ?? 0) + kpiBonuses, fill: "#10b981" },
+                            { name: "الصافي", value: Math.max((salaryReport?.netSalary ?? baseSalary) - kpiDeductions + kpiBonuses, 0), fill: "#c9a227" },
+                          ]}
+                          layout="vertical"
+                          margin={{ top: 8, right: 12, left: 8, bottom: 8 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
+                          <XAxis type="number" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                          <YAxis type="category" dataKey="name" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} width={72} />
+                          <Tooltip
+                            formatter={(v: any) => fmt(Number(v))}
+                            contentStyle={{ fontSize: 10, background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, direction: "rtl" }}
+                          />
+                          <Bar dataKey="value" radius={[0, 8, 8, 0]} maxBarSize={28}>
+                            {[
+                              { name: "الأساسي", value: baseSalary, fill: "#3b82f6" },
+                              { name: "خصم الحضور", value: salaryReport?.attendanceDeduction ?? 0, fill: "#ef4444" },
+                              { name: "خصم KPI", value: kpiDeductions, fill: "#dc2626" },
+                              { name: "البونص", value: (salaryReport?.bonuses ?? 0) + kpiBonuses, fill: "#10b981" },
+                              { name: "الصافي", value: Math.max((salaryReport?.netSalary ?? baseSalary) - kpiDeductions + kpiBonuses, 0), fill: "#c9a227" },
+                            ].map((entry, idx) => (
+                              <Cell key={`salary-${idx}`} fill={entry.fill} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
               {/* KPI Charts */}
               {report.kpis.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -2241,11 +2403,11 @@ function EmployeeDetail({
                   {(() => {
                     const salary = report.salary || fullProfile?.monthlySalary || 0;
                     const kpiDeductions = report.kpis
-                      .filter(k => k.achieved === false && (k as any).salaryWeight > 0)
-                      .reduce((sum, k) => sum + Math.round(((k as any).salaryWeight / 100) * salary), 0);
+                      .filter(k => k.achieved === false && (k.salaryWeight ?? 0) > 0)
+                      .reduce((sum, k) => sum + Math.round(((k.salaryWeight ?? 0) / 100) * salary), 0);
                     const kpiBonuses = report.kpis
-                      .filter(k => k.score !== null && k.score > 100 && (k as any).overtargetBonus > 0)
-                      .reduce((sum, k) => sum + Math.round(((k as any).overtargetBonus / 100) * salary), 0);
+                      .filter(k => k.score !== null && k.score > 100 && (k.overtargetBonus ?? 0) > 0)
+                      .reduce((sum, k) => sum + Math.round(((k.overtargetBonus ?? 0) / 100) * salary), 0);
                     const hasImpact = kpiDeductions > 0 || kpiBonuses > 0;
                     if (!hasImpact) return null;
                     return (
@@ -2280,8 +2442,8 @@ function EmployeeDetail({
                   })()}
 
                   {report.kpis.map(kpi => {
-                    const salaryW = (kpi as any).salaryWeight ?? 0;
-                    const otBonus = (kpi as any).overtargetBonus ?? 0;
+                    const salaryW = kpi.salaryWeight ?? 0;
+                    const otBonus = kpi.overtargetBonus ?? 0;
                     const salary = report.salary || fullProfile?.monthlySalary || 0;
                     const kpiAmt = salary > 0 && salaryW > 0 ? Math.round((salaryW / 100) * salary) : 0;
                     const bonusAmt = salary > 0 && otBonus > 0 ? Math.round((otBonus / 100) * salary) : 0;

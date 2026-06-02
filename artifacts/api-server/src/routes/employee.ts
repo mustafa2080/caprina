@@ -303,6 +303,8 @@ const KpiSchema = z.object({
   unit: z.string().default("%"),
   direction: z.enum(["higher_is_better", "lower_is_better"]).default("higher_is_better"),
   weight: z.number().min(0).max(100).default(100),
+  salaryWeight: z.number().min(0).max(100).default(0),
+  overtargetBonus: z.number().min(0).max(100).default(0),
   isActive: z.boolean().default(true),
   description: z.string().nullish(),
 });
@@ -340,6 +342,8 @@ router.post("/employee-kpis", requireAdmin, async (req, res): Promise<void> => {
       unit: parsed.data.unit,
       direction: parsed.data.direction,
       weight: parsed.data.weight,
+      salaryWeight: parsed.data.salaryWeight,
+      overtargetBonus: parsed.data.overtargetBonus,
       isActive: parsed.data.isActive,
       description: parsed.data.description ?? null,
     });
@@ -472,6 +476,31 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
   );
 
   const scoredKpis = evaluatedKpis.filter((k) => k.score !== null);
+  const baseSalary = profile.monthlySalary ?? 0;
+  const kpiFinancials = evaluatedKpis.reduce(
+    (acc, kpi) => {
+      const salaryWeight = kpi.salaryWeight ?? 0;
+      const overtargetBonus = kpi.overtargetBonus ?? 0;
+      const salaryImpact = baseSalary > 0 ? Math.round((salaryWeight / 100) * baseSalary) : 0;
+      const bonusImpact = baseSalary > 0 ? Math.round((overtargetBonus / 100) * baseSalary) : 0;
+
+      acc.totalSalaryWeight += salaryWeight;
+      acc.achievedCount += kpi.achieved === true ? 1 : 0;
+      acc.failedCount += kpi.achieved === false ? 1 : 0;
+      acc.overTargetCount += kpi.score !== null && kpi.score > 100 ? 1 : 0;
+      acc.totalDeduction += kpi.achieved === false && salaryWeight > 0 ? salaryImpact : 0;
+      acc.totalBonus += kpi.score !== null && kpi.score > 100 && overtargetBonus > 0 ? bonusImpact : 0;
+      return acc;
+    },
+    {
+      totalSalaryWeight: 0,
+      totalDeduction: 0,
+      totalBonus: 0,
+      achievedCount: 0,
+      failedCount: 0,
+      overTargetCount: 0,
+    }
+  );
   let overallScore: number | null = null;
   if (scoredKpis.length > 0) {
     const totalWeight = scoredKpis.reduce((s, k) => s + k.weight, 0);
@@ -504,9 +533,16 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
     },
     orderStats,
     kpis: evaluatedKpis,
+    kpiFinancials: {
+      ...kpiFinancials,
+      totalSalaryWeight: Math.round(kpiFinancials.totalSalaryWeight),
+      totalDeduction: Math.round(kpiFinancials.totalDeduction),
+      totalBonus: Math.round(kpiFinancials.totalBonus),
+      salaryAtRiskPercent: Math.round(kpiFinancials.totalSalaryWeight),
+    },
     overallScore,
     rating,
-    salary: profile.monthlySalary ?? 0,
+    salary: baseSalary,
   });
 });
 
