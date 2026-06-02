@@ -405,7 +405,6 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
   const printRef = useRef<HTMLDivElement>(null);
   const ratingCfg = RATING_CONFIG[report.rating] ?? RATING_CONFIG["غير محدد"];
 
-  // جلب تقرير المرتب التفصيلي (الحضور + الخصومات + البونص)
   const { data: salaryReport } = useQuery({
     queryKey: ["salary-report", report.profile?.id, report.period.month],
     queryFn: () => {
@@ -415,6 +414,18 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
     },
     enabled: !!report.profile?.id,
   });
+
+  // ── حساب تأثير KPI على الراتب ─────────────────────────────────────────────
+  const baseSalary = salaryReport?.baseSalary ?? report.salary ?? 0;
+  const kpiDeductions = report.kpis
+    .filter(k => k.achieved === false && (k as any).salaryWeight > 0)
+    .reduce((sum, k) => sum + Math.round(((k as any).salaryWeight / 100) * baseSalary), 0);
+  const kpiBonuses = report.kpis
+    .filter(k => k.score !== null && k.score > 100 && (k as any).overtargetBonus > 0)
+    .reduce((sum, k) => sum + Math.round(((k as any).overtargetBonus / 100) * baseSalary), 0);
+  const kpiAchievedCount   = report.kpis.filter(k => k.achieved === true).length;
+  const kpiFailedCount     = report.kpis.filter(k => k.achieved === false).length;
+  const kpiOverTargetCount = report.kpis.filter(k => k.score !== null && k.score > 100).length;
 
   const handlePrint = () => {
     const content = printRef.current;
@@ -554,16 +565,43 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
           {report.kpis.length > 0 && (
             <div style={{ marginBottom: 20 }}>
               <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 8, borderRight: "3px solid #c9a227", paddingRight: 8 }}>مؤشرات الأداء الرئيسية</h3>
+
+              {/* ملخص KPI المالي */}
+              {(kpiDeductions > 0 || kpiBonuses > 0) && (
+                <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                  {kpiDeductions > 0 && (
+                    <div style={{ flex: 1, background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: "8px 12px", textAlign: "center" }}>
+                      <div style={{ fontSize: 10, color: "#888", marginBottom: 2 }}>إجمالي خصم KPI</div>
+                      <div style={{ fontSize: 16, fontWeight: 900, color: "#dc2626" }}>−{fmt(kpiDeductions)}</div>
+                      <div style={{ fontSize: 9, color: "#999" }}>{kpiFailedCount} مؤشر لم يتحقق</div>
+                    </div>
+                  )}
+                  {kpiBonuses > 0 && (
+                    <div style={{ flex: 1, background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: "8px 12px", textAlign: "center" }}>
+                      <div style={{ fontSize: 10, color: "#888", marginBottom: 2 }}>إجمالي مكافأة Over Target</div>
+                      <div style={{ fontSize: 16, fontWeight: 900, color: "#16a34a" }}>+{fmt(kpiBonuses)}</div>
+                      <div style={{ fontSize: 9, color: "#999" }}>🏆 {kpiOverTargetCount} مؤشر</div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr>
-                    {["المؤشر", "الهدف", "الفعلي", "الدرجة", "الحالة"].map(h => (
+                    {["المؤشر", "الهدف", "الفعلي", "الدرجة", "الحالة", "التأثير المالي"].map(h => (
                       <th key={h} style={{ background: "#c9a227", color: "white", padding: "8px 10px", textAlign: "right", fontSize: 11 }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {report.kpis.map((kpi, i) => (
+                  {report.kpis.map((kpi, i) => {
+                    const sw = (kpi as any).salaryWeight ?? 0;
+                    const ot = (kpi as any).overtargetBonus ?? 0;
+                    const kpiAmt = sw > 0 && baseSalary > 0 ? Math.round((sw / 100) * baseSalary) : 0;
+                    const otAmt  = ot > 0 && baseSalary > 0 ? Math.round((ot / 100) * baseSalary) : 0;
+                    const isOT   = kpi.score !== null && kpi.score > 100;
+                    return (
                     <tr key={kpi.id}>
                       <td style={{ padding: "8px 10px", borderBottom: "1px solid #eee", background: i % 2 === 0 ? "white" : "#fafafa", fontSize: 12, fontWeight: 600 }}>
                         {kpi.name}
@@ -578,11 +616,23 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
                       <td style={{ padding: "8px 10px", borderBottom: "1px solid #eee", background: i % 2 === 0 ? "white" : "#fafafa", fontSize: 12 }}>
                         {kpi.score !== null ? `${kpi.score}%` : "—"}
                       </td>
-                      <td style={{ padding: "8px 10px", borderBottom: "1px solid #eee", background: i % 2 === 0 ? "white" : "#fafafa", fontSize: 12, fontWeight: 700, color: kpi.achieved ? "#16a34a" : kpi.achieved === false ? "#dc2626" : "#888" }}>
-                        {kpi.achieved === true ? "✓ محقق" : kpi.achieved === false ? "✗ لم يتحقق" : "—"}
+                      <td style={{ padding: "8px 10px", borderBottom: "1px solid #eee", background: i % 2 === 0 ? "white" : "#fafafa", fontSize: 12, fontWeight: 700, color: isOT ? "#2563eb" : kpi.achieved ? "#16a34a" : kpi.achieved === false ? "#dc2626" : "#888" }}>
+                        {isOT ? "🏆 Over Target" : kpi.achieved === true ? "✓ محقق" : kpi.achieved === false ? "✗ لم يتحقق" : "—"}
+                      </td>
+                      <td style={{ padding: "8px 10px", borderBottom: "1px solid #eee", background: i % 2 === 0 ? "white" : "#fafafa", fontSize: 11, fontWeight: 700 }}>
+                        {isOT && otAmt > 0 ? (
+                          <span style={{ color: "#16a34a" }}>+{fmt(otAmt)}</span>
+                        ) : kpi.achieved === false && kpiAmt > 0 ? (
+                          <span style={{ color: "#dc2626" }}>−{fmt(kpiAmt)}</span>
+                        ) : kpi.achieved === true ? (
+                          <span style={{ color: "#888" }}>لا خصم</span>
+                        ) : (
+                          <span style={{ color: "#ccc" }}>—</span>
+                        )}
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -630,26 +680,77 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
 
               {/* Salary breakdown */}
               <div className="border border-border/50 rounded-xl overflow-hidden mb-2.5">
-                <div className="bg-[#c9a227] px-3 py-2 flex justify-between">
+                <div className="bg-[#c9a227] px-3 py-2 flex justify-between items-center">
                   <span className="text-white font-bold text-xs">البند</span>
                   <span className="text-white font-bold text-xs">المبلغ</span>
                 </div>
-                {[
-                  { label: "الراتب الأساسي",        val: salaryReport.baseSalary,          colorCls: "text-foreground",  sign: "",  bgCls: "bg-muted/10" },
-                  { label: "خصم الغياب / نصف اليوم", val: salaryReport.attendanceDeduction, colorCls: salaryReport.attendanceDeduction > 0 ? "text-red-500" : "text-muted-foreground", sign: salaryReport.attendanceDeduction > 0 ? "−" : "", bgCls: salaryReport.attendanceDeduction > 0 ? "bg-red-500/5" : "bg-muted/10" },
-                  { label: "بونص إضافي",             val: salaryReport.bonuses,             colorCls: salaryReport.bonuses > 0 ? "text-emerald-500" : "text-muted-foreground", sign: salaryReport.bonuses > 0 ? "+" : "", bgCls: salaryReport.bonuses > 0 ? "bg-emerald-500/5" : "bg-muted/10" },
-                  { label: "خصومات إضافية",          val: salaryReport.extraDeductions,     colorCls: salaryReport.extraDeductions > 0 ? "text-red-500" : "text-muted-foreground", sign: salaryReport.extraDeductions > 0 ? "−" : "", bgCls: salaryReport.extraDeductions > 0 ? "bg-red-500/5" : "bg-muted/10" },
-                ].map(({ label, val, colorCls, sign, bgCls }) => (
-                  <div key={label} className={`flex justify-between items-center px-3 py-2 border-b border-border/30 ${bgCls}`}>
-                    <span className="text-xs text-muted-foreground">{label}</span>
-                    <span className={`text-sm font-bold ${colorCls}`}>{sign}{fmt(Math.abs(val))}</span>
-                  </div>
-                ))}
-                {/* Net salary row */}
-                <div className={`flex justify-between items-center px-3 py-2.5 border-t-2 border-[#c9a227] ${salaryReport.netSalary >= salaryReport.baseSalary ? "bg-emerald-500/8" : "bg-amber-500/8"}`}>
-                  <span className="text-sm font-black">💰 صافي المرتب</span>
-                  <span className={`text-xl font-black ${salaryReport.netSalary >= salaryReport.baseSalary ? "text-emerald-500" : "text-amber-500"}`}>{fmt(salaryReport.netSalary)}</span>
+                {/* الراتب الأساسي */}
+                <div className="flex justify-between items-center px-3 py-2 border-b border-border/30 bg-muted/10">
+                  <span className="text-xs text-muted-foreground">الراتب الأساسي</span>
+                  <span className="text-sm font-bold text-foreground">{fmt(salaryReport.baseSalary)}</span>
                 </div>
+                {/* خصم الغياب */}
+                <div className={`flex justify-between items-center px-3 py-2 border-b border-border/30 ${salaryReport.attendanceDeduction > 0 ? "bg-red-500/5" : "bg-muted/10"}`}>
+                  <span className="text-xs text-muted-foreground">خصم الغياب / نصف اليوم</span>
+                  <span className={`text-sm font-bold ${salaryReport.attendanceDeduction > 0 ? "text-red-500" : "text-muted-foreground"}`}>
+                    {salaryReport.attendanceDeduction > 0 ? `−${fmt(salaryReport.attendanceDeduction)}` : "—"}
+                  </span>
+                </div>
+                {/* خصم KPI */}
+                <div className={`flex justify-between items-center px-3 py-2 border-b border-border/30 ${kpiDeductions > 0 ? "bg-red-500/5" : "bg-muted/10"}`}>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-muted-foreground">خصم مؤشرات KPI</span>
+                    {kpiDeductions > 0 && (
+                      <span className="text-[9px] bg-red-500/15 text-red-600 dark:text-red-400 rounded-full px-1.5 py-0.5 font-bold">{kpiFailedCount} مؤشر لم يتحقق</span>
+                    )}
+                  </div>
+                  <span className={`text-sm font-bold ${kpiDeductions > 0 ? "text-red-500" : "text-muted-foreground"}`}>
+                    {kpiDeductions > 0 ? `−${fmt(kpiDeductions)}` : "—"}
+                  </span>
+                </div>
+                {/* مكافأة بونص */}
+                <div className={`flex justify-between items-center px-3 py-2 border-b border-border/30 ${salaryReport.bonuses > 0 ? "bg-emerald-500/5" : "bg-muted/10"}`}>
+                  <span className="text-xs text-muted-foreground">بونص إضافي</span>
+                  <span className={`text-sm font-bold ${salaryReport.bonuses > 0 ? "text-emerald-500" : "text-muted-foreground"}`}>
+                    {salaryReport.bonuses > 0 ? `+${fmt(salaryReport.bonuses)}` : "—"}
+                  </span>
+                </div>
+                {/* مكافأة Over Target */}
+                <div className={`flex justify-between items-center px-3 py-2 border-b border-border/30 ${kpiBonuses > 0 ? "bg-emerald-500/5" : "bg-muted/10"}`}>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-muted-foreground">مكافأة Over Target</span>
+                    {kpiBonuses > 0 && (
+                      <span className="text-[9px] bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 rounded-full px-1.5 py-0.5 font-bold">🏆 {kpiOverTargetCount} مؤشر</span>
+                    )}
+                  </div>
+                  <span className={`text-sm font-bold ${kpiBonuses > 0 ? "text-emerald-500" : "text-muted-foreground"}`}>
+                    {kpiBonuses > 0 ? `+${fmt(kpiBonuses)}` : "—"}
+                  </span>
+                </div>
+                {/* خصومات إضافية */}
+                {salaryReport.extraDeductions > 0 && (
+                  <div className="flex justify-between items-center px-3 py-2 border-b border-border/30 bg-red-500/5">
+                    <span className="text-xs text-muted-foreground">خصومات إضافية</span>
+                    <span className="text-sm font-bold text-red-500">−{fmt(salaryReport.extraDeductions)}</span>
+                  </div>
+                )}
+                {/* صافي المرتب النهائي */}
+                {(() => {
+                  const finalNet = salaryReport.netSalary - kpiDeductions + kpiBonuses;
+                  return (
+                    <div className={`flex justify-between items-center px-3 py-3 border-t-2 border-[#c9a227] ${finalNet >= salaryReport.baseSalary ? "bg-emerald-500/8" : finalNet < salaryReport.baseSalary * 0.9 ? "bg-red-500/5" : "bg-amber-500/8"}`}>
+                      <div>
+                        <p className="text-sm font-black">صافي المرتب</p>
+                        <p className="text-[9px] text-muted-foreground mt-0.5">
+                          {salaryReport.baseSalary} − {salaryReport.attendanceDeduction + kpiDeductions} + {salaryReport.bonuses + kpiBonuses}
+                        </p>
+                      </div>
+                      <span className={`text-2xl font-black ${finalNet >= salaryReport.baseSalary ? "text-emerald-500" : finalNet < salaryReport.baseSalary * 0.9 ? "text-red-500" : "text-amber-500"}`}>
+                        {fmt(finalNet)}
+                      </span>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Adjustments list */}
@@ -1871,6 +1972,9 @@ function EmployeeDetail({
                       const otBonus = (kpi as any).overtargetBonus ?? 0;
                       const kpiAmt = salary > 0 && salaryW > 0 ? Math.round((salaryW / 100) * salary) : 0;
                       const bonusAmt = salary > 0 && otBonus > 0 ? Math.round((otBonus / 100) * salary) : 0;
+                      const isOT = (kpi as any).score !== null && (kpi as any).score > 100;
+                      const isAchieved = (kpi as any).achieved === true;
+                      const isFailed = (kpi as any).achieved === false;
 
                       // لون الكارت بناءً على نوع المؤشر
                       const colorMap: Record<string, { accent: string; iconBg: string; iconColor: string; badgeBg: string; badgeText: string }> = {
@@ -1897,6 +2001,23 @@ function EmployeeDetail({
 
                           {/* شريط لوني علوي */}
                           <div className={`h-1 w-full ${colors.accent} opacity-80`} />
+
+                          {/* Status Badge — حالة المؤشر */}
+                          {(isOT || isAchieved || isFailed) && (
+                            <div className={`px-3 py-1.5 flex items-center gap-1.5 text-[10px] font-bold border-b border-border/20 ${
+                              isOT      ? "bg-blue-500/10 text-blue-600 dark:text-blue-400" :
+                              isAchieved ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" :
+                                          "bg-red-500/10 text-red-700 dark:text-red-400"
+                            }`}>
+                              {isOT ? (
+                                <><Trophy className="w-3 h-3" />Over Target — تجاوز الهدف 🏆</>
+                              ) : isAchieved ? (
+                                <><CheckCircle2 className="w-3 h-3" />تم تحقيق المؤشر ✅</>
+                              ) : (
+                                <><XCircle className="w-3 h-3" />لم يتحقق المؤشر ❌</>
+                              )}
+                            </div>
+                          )}
 
                           <div className="p-4">
                             {/* Row 1: أيقونة + اسم + أزرار */}
