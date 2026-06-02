@@ -1860,84 +1860,141 @@ function EmployeeDetail({
                   </Card>
                 )}
 
-                {/* ── KPI Cards (تقييم الأداء التشغيلي) ── */}
+                {/* ── KPI Cards (مؤشرات الأداء التفصيلية) ── */}
                 <div>
-                  <h3 className="text-xs font-bold text-muted-foreground mb-2 flex items-center gap-1.5">
+                  <h3 className="text-xs font-bold text-muted-foreground mb-3 flex items-center gap-1.5">
                     <Settings className="w-3.5 h-3.5" />مؤشرات الأداء التفصيلية
                   </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {kpis.map((kpi, idx) => {
                       const salaryW = (kpi as any).salaryWeight ?? 0;
                       const otBonus = (kpi as any).overtargetBonus ?? 0;
                       const kpiAmt = salary > 0 && salaryW > 0 ? Math.round((salaryW / 100) * salary) : 0;
                       const bonusAmt = salary > 0 && otBonus > 0 ? Math.round((otBonus / 100) * salary) : 0;
-                      const cardNum = idx + 1;
+
+                      // لون الكارت بناءً على نوع المؤشر
+                      const colorMap: Record<string, { accent: string; iconBg: string; iconColor: string; badgeBg: string; badgeText: string }> = {
+                        delivery_rate: { accent: "bg-emerald-500", iconBg: "bg-emerald-50 dark:bg-emerald-900/30", iconColor: "text-emerald-600 dark:text-emerald-400", badgeBg: "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-700/40", badgeText: "text-emerald-700 dark:text-emerald-300" },
+                        return_rate:   { accent: "bg-red-500",     iconBg: "bg-red-50 dark:bg-red-900/30",         iconColor: "text-red-600 dark:text-red-400",         badgeBg: "bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-700/40",         badgeText: "text-red-700 dark:text-red-300"     },
+                        total_orders:  { accent: "bg-blue-500",    iconBg: "bg-blue-50 dark:bg-blue-900/30",        iconColor: "text-blue-600 dark:text-blue-400",        badgeBg: "bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700/40",        badgeText: "text-blue-700 dark:text-blue-300"   },
+                        profit:        { accent: "bg-violet-500",  iconBg: "bg-violet-50 dark:bg-violet-900/30",    iconColor: "text-violet-600 dark:text-violet-400",    badgeBg: "bg-violet-50 dark:bg-violet-900/30 border-violet-200 dark:border-violet-700/40",    badgeText: "text-violet-700 dark:text-violet-300" },
+                        revenue:       { accent: "bg-amber-500",   iconBg: "bg-amber-50 dark:bg-amber-900/30",      iconColor: "text-amber-600 dark:text-amber-400",      badgeBg: "bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-700/40",      badgeText: "text-amber-700 dark:text-amber-300" },
+                        manual:        { accent: "bg-primary",     iconBg: "bg-primary/10",                         iconColor: "text-primary",                            badgeBg: "bg-primary/5 border-primary/20",                                                       badgeText: "text-primary"                       },
+                      };
+                      const colors = colorMap[kpi.metric] ?? colorMap.manual;
+
+                      const iconForMetric: Record<string, React.ReactNode> = {
+                        delivery_rate: <TrendingUp className="w-4 h-4" />,
+                        return_rate:   <TrendingDown className="w-4 h-4" />,
+                        total_orders:  <Package className="w-4 h-4" />,
+                        profit:        <DollarSign className="w-4 h-4" />,
+                        revenue:       <BarChart2 className="w-4 h-4" />,
+                        manual:        <Target className="w-4 h-4" />,
+                      };
+
                       return (
-                        <Card key={kpi.id} className={`relative overflow-hidden border-border bg-card transition-all duration-200 ${!kpi.isActive ? "opacity-50" : "hover:shadow-md"}`}>
-                          <div className="absolute top-0 left-0 w-1 h-full rounded-r-none bg-gradient-to-b from-primary/60 to-primary/20" />
-                          <CardContent className="px-4 py-3 pr-5">
-                            {/* Header row */}
-                            <div className="flex items-start justify-between gap-2 mb-2">
-                              <div className="flex items-center gap-2 min-w-0">
-                                <span className="text-[9px] font-black text-primary/60 bg-primary/8 rounded-full w-5 h-5 flex items-center justify-center shrink-0">{cardNum}</span>
-                                <p className="text-xs font-bold leading-tight">{kpi.name}</p>
+                        <div key={kpi.id} className={`relative rounded-xl border border-border bg-card overflow-hidden transition-all duration-200 ${!kpi.isActive ? "opacity-40 grayscale" : "hover:shadow-lg hover:-translate-y-0.5"}`}>
+
+                          {/* شريط لوني علوي */}
+                          <div className={`h-1 w-full ${colors.accent} opacity-80`} />
+
+                          <div className="p-4">
+                            {/* Row 1: أيقونة + اسم + أزرار */}
+                            <div className="flex items-start justify-between gap-2 mb-3">
+                              <div className="flex items-center gap-3 min-w-0">
+                                {/* أيقونة دائرية */}
+                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${colors.iconBg}`}>
+                                  <span className={colors.iconColor}>{iconForMetric[kpi.metric] ?? <Target className="w-4 h-4" />}</span>
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-sm font-bold leading-tight truncate">{kpi.name}</p>
+                                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                                    {kpi.direction === "higher_is_better" ? "↑ الأعلى أفضل" : "↓ الأدنى أفضل"}
+                                    {" · "}وزن {kpi.weight}%
+                                  </p>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-1 shrink-0">
-                                {!kpi.isActive && <Badge variant="outline" className="text-[8px] h-4 px-1">معطل</Badge>}
+                              <div className="flex items-center gap-0.5 shrink-0">
+                                {!kpi.isActive && (
+                                  <span className="text-[9px] bg-muted text-muted-foreground rounded-full px-2 py-0.5 border border-border">معطل</span>
+                                )}
                                 {isAdmin && (
                                   <>
-                                    <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:text-primary"
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground/60 hover:text-primary hover:bg-primary/5 rounded-lg"
                                       onClick={() => { setEditingKpi(kpi); setKpiDialogOpen(true); }}>
-                                      <Edit2 className="w-2.5 h-2.5" />
+                                      <Edit2 className="w-3 h-3" />
                                     </Button>
-                                    <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:text-destructive"
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground/60 hover:text-destructive hover:bg-destructive/5 rounded-lg"
                                       onClick={() => deleteKpi(kpi.id)}>
-                                      <Trash2 className="w-2.5 h-2.5" />
+                                      <Trash2 className="w-3 h-3" />
                                     </Button>
                                   </>
                                 )}
                               </div>
                             </div>
-                            {/* Info row */}
-                            <p className="text-[9px] text-muted-foreground mb-2">
-                              الهدف: <strong>{kpi.direction === "lower_is_better" ? "≤" : "≥"}{fmtNum(kpi.targetValue)} {kpi.unit}</strong>
-                              {" · "}الوزن: {kpi.weight}%
-                              {" · "}{kpi.direction === "higher_is_better" ? "↑ أعلى أفضل" : "↓ أدنى أفضل"}
-                            </p>
-                            {/* Badges */}
-                            <div className="flex flex-wrap gap-1 mb-2">
-                              {salaryW > 0 && (
-                                <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 rounded-full px-2 py-0.5">
-                                  💰 {salaryW}% راتب {kpiAmt > 0 && `= ${fmt(kpiAmt)}`}
-                                </span>
-                              )}
-                              {otBonus > 0 && (
-                                <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded-full px-2 py-0.5">
-                                  🏆 +{otBonus}% OT {bonusAmt > 0 && `= +${fmt(bonusAmt)}`}
-                                </span>
-                              )}
-                              {salaryW === 0 && otBonus === 0 && (
-                                <span className="inline-flex items-center text-[9px] text-muted-foreground/60 italic">لا تأثير مالي</span>
-                              )}
+
+                            {/* Row 2: الهدف الكمي */}
+                            <div className={`flex items-center justify-between rounded-lg px-3 py-2 mb-3 border ${colors.badgeBg}`}>
+                              <span className="text-[10px] text-muted-foreground">الهدف المطلوب</span>
+                              <span className={`text-sm font-black ${colors.badgeText}`}>
+                                {kpi.direction === "lower_is_better" ? "≤" : "≥"}{fmtNum(kpi.targetValue)} <span className="text-[10px] font-normal opacity-70">{kpi.unit}</span>
+                              </span>
                             </div>
-                            {/* Deduction/bonus row */}
-                            {salary > 0 && (salaryW > 0 || otBonus > 0) && (
-                              <div className="flex gap-1.5 flex-wrap">
-                                {salaryW > 0 && (
-                                  <span className="text-[9px] bg-red-500/10 text-red-500 border border-red-500/15 rounded px-1.5 py-0.5 font-bold">
-                                    قصور → −{fmt(kpiAmt)}
-                                  </span>
+
+                            {/* Row 3: التأثير المالي — صف مقسم */}
+                            {(salaryW > 0 || otBonus > 0) && (
+                              <div className="grid grid-cols-2 gap-2 mb-3">
+                                {salaryW > 0 ? (
+                                  <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200/60 dark:border-red-700/30 px-2.5 py-2 text-center">
+                                    <p className="text-[9px] text-red-500/80 mb-0.5">عند قصور</p>
+                                    <p className="text-xs font-black text-red-600 dark:text-red-400">−{fmt(kpiAmt)}</p>
+                                    <p className="text-[9px] text-red-400/70">{salaryW}% من الراتب</p>
+                                  </div>
+                                ) : (
+                                  <div className="rounded-lg bg-muted/20 border border-border px-2.5 py-2 text-center opacity-40">
+                                    <p className="text-[9px] text-muted-foreground mb-0.5">عند قصور</p>
+                                    <p className="text-xs font-bold text-muted-foreground">—</p>
+                                  </div>
                                 )}
-                                {otBonus > 0 && (
-                                  <span className="text-[9px] bg-emerald-500/10 text-emerald-500 border border-emerald-500/15 rounded px-1.5 py-0.5 font-bold">
-                                    Over Target → +{fmt(bonusAmt)}
-                                  </span>
+                                {otBonus > 0 ? (
+                                  <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200/60 dark:border-emerald-700/30 px-2.5 py-2 text-center">
+                                    <p className="text-[9px] text-emerald-500/80 mb-0.5">Over Target</p>
+                                    <p className="text-xs font-black text-emerald-600 dark:text-emerald-400">+{fmt(bonusAmt)}</p>
+                                    <p className="text-[9px] text-emerald-400/70">+{otBonus}% مكافأة</p>
+                                  </div>
+                                ) : (
+                                  <div className="rounded-lg bg-muted/20 border border-border px-2.5 py-2 text-center opacity-40">
+                                    <p className="text-[9px] text-muted-foreground mb-0.5">Over Target</p>
+                                    <p className="text-xs font-bold text-muted-foreground">—</p>
+                                  </div>
                                 )}
                               </div>
                             )}
-                            {kpi.description && <p className="text-[9px] text-muted-foreground/60 mt-1.5 italic">{kpi.description}</p>}
-                          </CardContent>
-                        </Card>
+
+                            {/* Row 4: Progress bar — نسبة وزن المؤشر */}
+                            {salaryW > 0 && (
+                              <div className="space-y-1">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[9px] text-muted-foreground">نسبة تأثير المؤشر على الراتب</span>
+                                  <span className="text-[9px] font-bold text-amber-600 dark:text-amber-400">{salaryW}%</span>
+                                </div>
+                                <div className="w-full h-1.5 rounded-full bg-muted/40 overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full ${colors.accent} opacity-70 transition-all duration-700`}
+                                    style={{ width: `${Math.min(100, salaryW)}%` }}
+                                  />
+                                </div>
+                              </div>
+                            )}
+
+                            {/* ملاحظة */}
+                            {kpi.description && (
+                              <p className="text-[9px] text-muted-foreground/60 mt-2.5 italic leading-relaxed border-t border-border/30 pt-2">
+                                {kpi.description}
+                              </p>
+                            )}
+                          </div>
+                        </div>
                       );
                     })}
                   </div>
