@@ -1672,6 +1672,15 @@ function EmployeeDetail({
     queryFn: () => employeeApi.getReport(profileId, reportMonth),
   });
 
+  const { data: salaryReport } = useQuery({
+    queryKey: ["salary-report", profileId, reportMonth],
+    queryFn: () => {
+      if (!profileId) return null;
+      return attendanceApi.salaryReport(profileId, reportMonth);
+    },
+    enabled: !!profileId,
+  });
+
   const deleteKpi = async (kpiId: number) => {
     if (!confirm("حذف هذا المؤشر؟")) return;
     try {
@@ -1685,6 +1694,27 @@ function EmployeeDetail({
   };
 
   const ratingCfg = RATING_CONFIG[report?.rating ?? "غير محدد"] ?? RATING_CONFIG["غير محدد"];
+
+  // ── حساب تأثير KPI على الراتب ─────────────────────────────────────────────
+  const baseSalary = report?.salary ?? 0;
+  const kpiFinancials = report?.kpiFinancials ?? {
+    totalSalaryWeight: (report?.kpis ?? []).reduce((sum, k) => sum + (k.salaryWeight ?? 0), 0),
+    salaryAtRiskPercent: (report?.kpis ?? []).reduce((sum, k) => sum + (k.salaryWeight ?? 0), 0),
+    totalDeduction: (report?.kpis ?? [])
+      .filter(k => k.achieved === false && (k.salaryWeight ?? 0) > 0)
+      .reduce((sum, k) => sum + Math.round(((k.salaryWeight ?? 0) / 100) * baseSalary), 0),
+    totalBonus: (report?.kpis ?? [])
+      .filter(k => k.score !== null && k.score > 100 && (k.overtargetBonus ?? 0) > 0)
+      .reduce((sum, k) => sum + Math.round(((k.overtargetBonus ?? 0) / 100) * baseSalary), 0),
+    achievedCount: (report?.kpis ?? []).filter(k => k.achieved === true).length,
+    failedCount: (report?.kpis ?? []).filter(k => k.achieved === false).length,
+    overTargetCount: (report?.kpis ?? []).filter(k => k.score !== null && k.score > 100).length,
+  };
+  const kpiDeductions = kpiFinancials.totalDeduction;
+  const kpiBonuses = kpiFinancials.totalBonus;
+  const kpiAchievedCount = kpiFinancials.achievedCount;
+  const kpiFailedCount = kpiFinancials.failedCount;
+  const kpiOverTargetCount = kpiFinancials.overTargetCount;
 
   return (
     <div className="space-y-4 animate-in fade-in duration-300">
