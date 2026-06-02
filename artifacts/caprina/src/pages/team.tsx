@@ -1812,8 +1812,9 @@ function EmployeeDetail({
             const achievedCount = kpis.filter(k => (k as any).achieved === true).length;
             const failedCount = kpis.filter(k => (k as any).achieved === false).length;
             const overTargetCount = kpis.filter(k => (k as any).score !== null && (k as any).score > 100).length;
-            const overallScore = kpis.length > 0
-              ? Math.round(kpis.filter(k => k.score !== null).reduce((s, k) => s + Math.min(k.score!, 100), 0) / Math.max(kpis.filter(k => k.score !== null).length, 1))
+            const scoredKpis = kpis.filter(k => k.score !== null);
+            const overallScore = scoredKpis.length > 0
+              ? Math.round(scoredKpis.reduce((s, k) => s + Math.min(k.score!, 100), 0) / scoredKpis.length)
               : null;
 
             // Radar data — كفاءات المؤشرات
