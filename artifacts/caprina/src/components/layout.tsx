@@ -443,6 +443,7 @@ export default function Layout({ children }: LayoutProps) {
                 <BrandLogoMark size="sm" onClick={() => setBrandSettingsOpen(true)} />
                 {/* User avatar */}
                 <button type="button" onClick={(e) => {
+                  e.stopPropagation();
                   const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                   setUserMenuPos({ top: rect.bottom + 8, left: rect.right + 8, width: 220 });
                   setUserMenuOpen(v => !v);
@@ -501,11 +502,7 @@ export default function Layout({ children }: LayoutProps) {
                 <button type="button" onClick={() => {
                   if (userCardRef.current) {
                     const rect = userCardRef.current.getBoundingClientRect();
-                    setUserMenuPos({
-                      top: rect.bottom + 4,
-                      left: rect.left,
-                      width: rect.width,
-                    });
+                    setUserMenuPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
                   }
                   setUserMenuOpen(v => !v);
                 }}
@@ -660,8 +657,9 @@ export default function Layout({ children }: LayoutProps) {
                   <p className="text-[10px] text-sidebar-foreground/40">{getRoleLabel(user)}</p>
                 </div>
                 <button type="button" className="relative shrink-0 cursor-pointer hover:ring-2 hover:ring-primary/40 rounded-full transition-all" onClick={(e) => {
+                  e.stopPropagation();
                   const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                  setUserMenuPos({ top: rect.top - 180, left: Math.max(8, rect.left - 80), width: 220 });
+                  setUserMenuPos({ top: rect.top - 195, left: Math.max(8, rect.left - 90), width: 220 });
                   setUserMenuOpen(v=>!v);
                 }} title={user?.displayName}>
                   {(user as any)?.avatar
@@ -738,7 +736,8 @@ export default function Layout({ children }: LayoutProps) {
               <div
                 ref={userCardRef}
                 className="relative cursor-pointer"
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   if (userCardRef.current) {
                     const rect = userCardRef.current.getBoundingClientRect();
                     const menuW = Math.min(220, window.innerWidth - 16);
