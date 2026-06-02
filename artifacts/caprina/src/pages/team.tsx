@@ -1902,125 +1902,145 @@ function EmployeeDetail({
                   </CardContent>
                 </Card>
 
-                {/* ══ ROW 1: 3 بطاقات متجاورة — مستوحاة من الصورة ══ */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                {/* ══ ROW 1: نظرة عامة + الرسوم ══ */}
+                <div className="grid grid-cols-1 xl:grid-cols-[1.15fr_1fr] gap-3">
 
                   {/* بطاقة 1 — التقدم نحو الأهداف (Progress Ring) */}
                   <Card className="relative overflow-hidden border-border bg-card">
                     <div className="absolute top-2 right-2.5 text-[9px] font-black text-muted-foreground/40">1</div>
-                    <CardContent className="px-4 py-4 flex flex-col items-center gap-2">
-                      <p className="text-xs font-bold text-foreground self-end w-full text-right">التقدم نحو الأهداف</p>
-                      {/* Ring */}
-                      <div className="relative w-24 h-24 my-1">
-                        <svg viewBox="0 0 96 96" className="w-full h-full -rotate-90">
-                          <circle cx="48" cy="48" r="38" fill="none" stroke="hsl(var(--muted))" strokeWidth="8" />
-                          <circle cx="48" cy="48" r="38" fill="none"
-                            stroke={overallScore !== null && overallScore >= 80 ? "#10B981" : overallScore !== null && overallScore >= 60 ? "#c9a227" : "#EF4444"}
-                            strokeWidth="8"
-                            strokeDasharray={`${(overallScore ?? 0) * 2.388} 238.8`}
-                            strokeLinecap="round" />
-                        </svg>
-                        <div className="absolute inset-0 flex flex-col items-center justify-center">
-                          <span className="text-lg font-black leading-none">{overallScore !== null ? `${overallScore}%` : "—"}</span>
-                          <span className="text-[9px] text-muted-foreground mt-0.5">
-                            {overallScore !== null && overallScore >= 80 ? "ممتاز" : overallScore !== null && overallScore >= 60 ? "جيد" : "يحتاج تحسين"}
-                          </span>
-                        </div>
+                    <CardContent className="px-4 py-4 sm:py-5 flex flex-col items-center gap-3">
+                      <div className="flex items-center justify-between w-full">
+                        <p className="text-xs font-bold text-foreground">التقدم نحو الأهداف</p>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          overallScore !== null && overallScore >= 80 ? "bg-emerald-500/10 text-emerald-500" :
+                          overallScore !== null && overallScore >= 60 ? "bg-amber-500/10 text-amber-500" :
+                          "bg-red-500/10 text-red-500"
+                        }`}>
+                          {overallScore !== null && overallScore >= 80 ? "ممتاز" : overallScore !== null && overallScore >= 60 ? "جيد" : "يحتاج تحسين"}
+                        </span>
                       </div>
-                      {/* تفاصيل أسفل الـ ring */}
-                      <div className="w-full space-y-1.5">
-                        {activeKpis.slice(0, 3).map(k => {
-                          const sc = Math.min(evaluatedById.get(k.id)?.score ?? 0, 100);
-                          return (
-                            <div key={k.id}>
-                              <div className="flex justify-between text-[9px] mb-0.5">
-                                <span className="text-muted-foreground truncate max-w-[60%]">{k.name}</span>
-                                <span className="font-bold">{sc}%</span>
+                      <div className="flex flex-col md:flex-row items-center gap-4 md:gap-5 w-full">
+                        <div className="relative w-28 h-28 shrink-0">
+                          <svg viewBox="0 0 96 96" className="w-full h-full -rotate-90">
+                            <circle cx="48" cy="48" r="38" fill="none" stroke="hsl(var(--muted))" strokeWidth="8" />
+                            <circle cx="48" cy="48" r="38" fill="none"
+                              stroke={overallScore !== null && overallScore >= 80 ? "#10B981" : overallScore !== null && overallScore >= 60 ? "#c9a227" : "#EF4444"}
+                              strokeWidth="8"
+                              strokeDasharray={`${(overallScore ?? 0) * 2.388} 238.8`}
+                              strokeLinecap="round" />
+                          </svg>
+                          <div className="absolute inset-0 flex flex-col items-center justify-center">
+                            <span className="text-xl font-black leading-none">{overallScore !== null ? `${overallScore}%` : "—"}</span>
+                            <span className="text-[9px] text-muted-foreground mt-0.5">المتوسط الشهري</span>
+                          </div>
+                        </div>
+                        <div className="flex-1 w-full space-y-2">
+                          <div className="grid grid-cols-3 gap-2">
+                            {[
+                              { label: "محقق", value: achievedCount, color: "text-emerald-500", bg: "bg-emerald-500/10" },
+                              { label: "غير محقق", value: failedCount, color: "text-red-500", bg: "bg-red-500/10" },
+                              { label: "OT", value: overTargetCount, color: "text-blue-500", bg: "bg-blue-500/10" },
+                            ].map(item => (
+                              <div key={item.label} className={`rounded-xl border border-border/50 ${item.bg} px-3 py-2 text-center`}>
+                                <p className={`text-base font-black ${item.color}`}>{item.value}</p>
+                                <p className="text-[9px] text-muted-foreground">{item.label}</p>
                               </div>
-                              <div className="w-full h-1 rounded-full bg-muted/40 overflow-hidden">
-                                <div className="h-full rounded-full transition-all duration-700"
-                                  style={{ width: `${sc}%`, background: sc >= 80 ? "#10B981" : sc >= 60 ? "#c9a227" : "#EF4444" }} />
-                              </div>
-                            </div>
-                          );
-                        })}
+                            ))}
+                          </div>
+                          <div className="space-y-1.5 pt-1">
+                            {activeKpis.slice(0, 3).map(k => {
+                              const sc = Math.min(evaluatedById.get(k.id)?.score ?? 0, 100);
+                              return (
+                                <div key={k.id} className="rounded-lg border border-border/40 bg-muted/10 px-3 py-2">
+                                  <div className="flex items-center justify-between text-[9px] mb-1">
+                                    <span className="text-muted-foreground truncate max-w-[68%]">{k.name}</span>
+                                    <span className="font-bold">{sc}%</span>
+                                  </div>
+                                  <div className="w-full h-1.5 rounded-full bg-muted/40 overflow-hidden">
+                                    <div className="h-full rounded-full transition-all duration-700"
+                                      style={{ width: `${sc}%`, background: sc >= 80 ? "#10B981" : sc >= 60 ? "#c9a227" : "#EF4444" }} />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
 
-                  {/* بطاقة 2 — تقييم الأداء الربعي (Bar Chart) */}
-                  {barData.length > 0 && (
-                    <Card className="relative overflow-hidden border-border bg-card">
-                      <div className="absolute top-2 right-2.5 text-[9px] font-black text-muted-foreground/40">2</div>
-                      <CardContent className="px-3 py-4">
-                        <div className="flex items-start justify-between mb-2">
-                          <p className="text-xs font-bold text-foreground">تقييم الأداء الربعي</p>
-                          <div className="flex flex-col items-end gap-0.5">
-                            <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
-                              <span className="w-2 h-2 rounded-sm bg-primary inline-block" />تقييم الأداء الحالي
+                  {/* الرسوم */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-1 gap-3">
+                    {barData.length > 0 && (
+                      <Card className="relative overflow-hidden border-border bg-card">
+                        <div className="absolute top-2 right-2.5 text-[9px] font-black text-muted-foreground/40">2</div>
+                        <CardContent className="px-3 py-4">
+                          <div className="flex items-start justify-between mb-2">
+                            <div>
+                              <p className="text-xs font-bold text-foreground">تقييم الأداء الربعي</p>
+                              <p className="text-[9px] text-muted-foreground">مقارنة الأداء الحالي مع المرجع العام</p>
                             </div>
-                            <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
-                              <span className="w-2 h-2 rounded-sm bg-emerald-500 inline-block" />المتوسط العام
+                            <div className="flex flex-col items-end gap-0.5">
+                              <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
+                                <span className="w-2 h-2 rounded-sm bg-primary inline-block" />الأداء الحالي
+                              </div>
+                              <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
+                                <span className="w-2 h-2 rounded-sm bg-emerald-500 inline-block" />المرجع
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        {/* Rating stars */}
-                        {overallScore !== null && (
-                          <div className="flex items-center gap-0.5 mb-2 justify-end">
-                            {[1,2,3,4,5].map(s => (
-                              <Star key={s} className={`w-3 h-3 ${s <= Math.round(overallScore / 20) ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"}`} />
-                            ))}
-                            <span className="text-[9px] text-muted-foreground mr-1">
-                              {overallScore >= 90 ? "ممتاز" : overallScore >= 75 ? "جيد جداً" : overallScore >= 60 ? "جيد" : "مقبول"}
-                            </span>
-                          </div>
-                        )}
-                        <ResponsiveContainer width="100%" height={130}>
-                          <BarChart data={barData} margin={{ top: 2, right: 2, bottom: 2, left: -25 }} barGap={2}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                            <XAxis dataKey="name" tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
-                            <YAxis tick={{ fontSize: 7, fill: "hsl(var(--muted-foreground))" }} domain={[0, 100]} axisLine={false} tickLine={false} />
-                            <Tooltip
-                              formatter={(v: any, n: string) => [`${v}%`, n]}
-                              contentStyle={{ fontSize: 10, background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, direction: "rtl" }}
-                            />
-                            <Bar dataKey="تقييم الأداء الحالي" fill="hsl(var(--primary))" radius={[3, 3, 0, 0]} maxBarSize={16} />
-                            <Bar dataKey="المتوسط العام" fill="#10B981" radius={[3, 3, 0, 0]} maxBarSize={16} />
-                          </BarChart>
-                        </ResponsiveContainer>
-                        {/* نسب أسفل الـ chart */}
-                        <div className="flex justify-around mt-1 border-t border-border/30 pt-2">
-                          {activeKpis.slice(0, 3).map(k => (
-                            <div key={k.id} className="text-center">
-                              <p className="text-[9px] font-black">{Math.min(evaluatedById.get(k.id)?.score ?? 0, 100)}%</p>
-                              <p className="text-[8px] text-muted-foreground truncate max-w-[40px]">{k.name.slice(0, 6)}</p>
+                          {overallScore !== null && (
+                            <div className="flex items-center gap-0.5 mb-2 justify-end">
+                              {[1,2,3,4,5].map(s => (
+                                <Star key={s} className={`w-3 h-3 ${s <= Math.round(overallScore / 20) ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"}`} />
+                              ))}
+                              <span className="text-[9px] text-muted-foreground mr-1">
+                                {overallScore >= 90 ? "ممتاز" : overallScore >= 75 ? "جيد جداً" : overallScore >= 60 ? "جيد" : "مقبول"}
+                              </span>
                             </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
+                          )}
+                          <ResponsiveContainer width="100%" height={160}>
+                            <BarChart data={barData} margin={{ top: 2, right: 2, bottom: 2, left: -25 }} barGap={2}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                              <XAxis dataKey="name" tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                              <YAxis tick={{ fontSize: 7, fill: "hsl(var(--muted-foreground))" }} domain={[0, 100]} axisLine={false} tickLine={false} />
+                              <Tooltip
+                                formatter={(v: any, n: string) => [`${v}%`, n]}
+                                contentStyle={{ fontSize: 10, background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, direction: "rtl" }}
+                              />
+                              <Bar dataKey="تقييم الأداء الحالي" fill="hsl(var(--primary))" radius={[3, 3, 0, 0]} maxBarSize={16} />
+                              <Bar dataKey="المتوسط العام" fill="#10B981" radius={[3, 3, 0, 0]} maxBarSize={16} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </CardContent>
+                      </Card>
+                    )}
 
-                  {/* بطاقة 3 — تطور الكفاءات (Radar) */}
-                  {radarData.length >= 3 && (
-                    <Card className="relative overflow-hidden border-border bg-card">
-                      <div className="absolute top-2 right-2.5 text-[9px] font-black text-muted-foreground/40">3</div>
-                      <CardContent className="px-3 py-4">
-                        <p className="text-xs font-bold text-foreground mb-1">تطور الكفاءات الأساسية</p>
-                        <ResponsiveContainer width="100%" height={180}>
-                          <RadarChart data={radarData} margin={{ top: 5, right: 20, bottom: 5, left: 20 }}>
-                            <PolarGrid stroke="hsl(var(--border))" />
-                            <PolarAngleAxis dataKey="subject" tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} />
-                            <Radar name="الأداء" dataKey="value" stroke="#c9a227" fill="#c9a227" fillOpacity={0.3} strokeWidth={2} dot={{ fill: "#c9a227", r: 2 }} />
-                          </RadarChart>
-                        </ResponsiveContainer>
-                      </CardContent>
-                    </Card>
-                  )}
+                    {radarData.length >= 3 && (
+                      <Card className="relative overflow-hidden border-border bg-card">
+                        <div className="absolute top-2 right-2.5 text-[9px] font-black text-muted-foreground/40">3</div>
+                        <CardContent className="px-3 py-4">
+                          <div className="flex items-start justify-between mb-1">
+                            <div>
+                              <p className="text-xs font-bold text-foreground">تطور الكفاءات الأساسية</p>
+                              <p className="text-[9px] text-muted-foreground">خريطة سريعة لتوازن الأداء بين المؤشرات</p>
+                            </div>
+                          </div>
+                          <ResponsiveContainer width="100%" height={180}>
+                            <RadarChart data={radarData} margin={{ top: 5, right: 20, bottom: 5, left: 20 }}>
+                              <PolarGrid stroke="hsl(var(--border))" />
+                              <PolarAngleAxis dataKey="subject" tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} />
+                              <Radar name="الأداء" dataKey="value" stroke="#c9a227" fill="#c9a227" fillOpacity={0.3} strokeWidth={2} dot={{ fill: "#c9a227", r: 2 }} />
+                            </RadarChart>
+                          </ResponsiveContainer>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
                 </div>
 
                 {/* ══ ROW 2: بطاقتان — مؤشرات تشغيلية + ملخص مالي ══ */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
 
                   {/* بطاقة 4 — مؤشرات الأداء التشغيلي */}
                   <Card className="relative overflow-hidden border-border bg-card">
