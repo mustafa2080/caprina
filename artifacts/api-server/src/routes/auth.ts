@@ -95,6 +95,34 @@ router.get("/me", requireAuth, async (req, res): Promise<void> => {
   res.json({ ...safeUser, permissions: finalPerms, planStatus });
 });
 
+// PATCH /auth/update-profile — update avatar (and optionally displayName) for current user
+router.patch("/update-profile", requireAuth, async (req, res): Promise<void> => {
+  const { avatar, displayName } = req.body as { avatar?: string | null; displayName?: string };
+  const updates: Partial<typeof usersTable.$inferInsert> = {};
+  if (avatar !== undefined) updates.avatar = avatar ?? null;
+  if (displayName !== undefined && displayName.trim()) updates.displayName = displayName.trim();
+
+  if (Object.keys(updates).length === 0) {
+    res.status(400).json({ error: "لا توجد بيانات للتحديث" });
+    return;
+  }
+
+  await db.update(usersTable).set(updates).where(eq(usersTable.id, req.user!.id));
+
+  // sync employee_profile إذا كان مرتبطاً
+  const { employeeProfilesTable } = await import("@workspace/db");
+  const profileUpdates: Record<string, any> = {};
+  if (updates.avatar !== undefined) profileUpdates.avatar = updates.avatar;
+  if (updates.displayName !== undefined) profileUpdates.displayName = updates.displayName;
+  if (Object.keys(profileUpdates).length > 0) {
+    await db.update(employeeProfilesTable).set(profileUpdates).where(eq(employeeProfilesTable.userId, req.user!.id));
+  }
+
+  const [updated] = await db.select().from(usersTable).where(eq(usersTable.id, req.user!.id)).limit(1);
+  const { passwordHash: _, ...safeUser } = updated;
+  res.json({ ...safeUser, permissions: parsePermissions(safeUser.permissions) });
+});
+
 // POST /auth/change-password
 router.post("/change-password", requireAuth, async (req, res): Promise<void> => {
   const { currentPassword, newPassword } = req.body as { currentPassword: string; newPassword: string };

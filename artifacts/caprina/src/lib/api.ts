@@ -40,6 +40,8 @@ export const authApi = {
   me: () => apiFetch<LoginResponse["user"]>("/auth/me"),
   changePassword: (currentPassword: string, newPassword: string) =>
     apiFetch<{ success: boolean }>("/auth/change-password", { method: "POST", body: JSON.stringify({ currentPassword, newPassword }) }),
+  updateProfile: (data: { avatar?: string | null; displayName?: string }) =>
+    apiFetch<LoginResponse["user"]>("/auth/update-profile", { method: "PATCH", body: JSON.stringify(data) }),
 };
 
 // ─── Users API ─────────────────────────────────────────────────────────────

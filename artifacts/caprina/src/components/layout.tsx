@@ -2,7 +2,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { firstLogoBase64 } from "@/lib/first-logo";
 import { secondLogoBase64 } from "@/lib/second-logo";
-import { LayoutDashboard, Package, Plus, Boxes, Truck, FileText, Upload, Activity, BarChart3, Users, Shield, LogOut, ChevronDown, KeyRound, Warehouse, Megaphone, UserCheck, UserCog, Sun, Moon, Brain, Archive, Clock, MessageCircle, Menu, X, Download, DollarSign, ShoppingCart, ShoppingBag, Receipt, Building2, Wallet, ChevronLeft, Crown, Settings, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { LayoutDashboard, Package, Plus, Boxes, Truck, FileText, Upload, Activity, BarChart3, Users, Shield, LogOut, ChevronDown, KeyRound, Warehouse, Megaphone, UserCheck, UserCog, Sun, Moon, Brain, Archive, Clock, MessageCircle, Menu, X, Download, DollarSign, ShoppingCart, ShoppingBag, Receipt, Building2, Wallet, ChevronLeft, Crown, Settings, PanelRightClose, PanelRightOpen, User } from "lucide-react";
 import { BrandFull, BrandLogoMark } from "@/components/brand-logo";
 import { BrandSettingsDialog } from "@/components/brand-settings-dialog";
 import { cn } from "@/lib/utils";
@@ -1036,6 +1036,31 @@ export default function Layout({ children }: LayoutProps) {
           onClick={e => e.stopPropagation()}
         >
           <div style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "12px", padding: "6px", boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }}>
+            {/* User info header */}
+            <div className="px-3 py-2.5 mb-1">
+              <div className="flex items-center gap-2.5">
+                <div className="relative shrink-0">
+                  {(user as any)?.avatar
+                    ? <img src={(user as any).avatar} className="w-8 h-8 rounded-full object-cover border-2 border-primary/30" alt={user?.displayName} />
+                    : <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
+                        style={{ background: "linear-gradient(135deg,hsl(var(--primary)/0.8),hsl(var(--primary)/0.4))", color: "hsl(var(--primary-foreground))", border: "2px solid hsl(var(--primary)/0.3)" }}>
+                        {user?.displayName?.charAt(0)?.toUpperCase() ?? "?"}
+                      </div>}
+                  <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-card" style={{boxShadow:"0 0 5px rgba(52,211,153,0.8)"}} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold truncate">{user?.displayName}</p>
+                  <p className="text-[10px] text-muted-foreground truncate">@{(user as any)?.username}</p>
+                </div>
+              </div>
+            </div>
+            <div style={{ height: "1px", background: "hsl(var(--border)/0.5)", margin: "2px 8px 4px" }} />
+            {/* Profile link */}
+            <Link href="/profile" onClick={() => setUserMenuOpen(false)}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs font-semibold text-sidebar-foreground/80 hover:bg-foreground/5 transition-colors text-right">
+              <User className="w-3.5 h-3.5 shrink-0 text-primary/70" />
+              <span>صفحة البروفايل</span>
+            </Link>
             <button type="button" onClick={() => { setUserMenuOpen(false); setPwDialogOpen(true); }}
               className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs font-semibold text-sidebar-foreground/80 hover:bg-foreground/5 transition-colors text-right">
               <KeyRound className="w-3.5 h-3.5 shrink-0 text-sidebar-foreground/50" />

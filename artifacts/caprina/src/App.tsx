@@ -101,6 +101,7 @@ const SalesReportPage              = lazy(() => import("@/pages/finance-sales-re
 const AllClientsPage              = lazy(() => import("@/pages/finance-all-clients"));
 const SuperAdminPage        = lazy(() => import("@/pages/super-admin"));
 const SubscriptionExpired   = lazy(() => import("@/pages/subscription-expired"));
+const ProfilePage           = lazy(() => import("@/pages/profile"));
 
 // ─── Global QueryClient with smart caching defaults ──────────────────────────
 // MutationCache: أي mutation تنجح على الطلبات → invalidate الـ analytics فوراً
@@ -351,6 +352,8 @@ function Router() {
           <Route path="/finance/cash/archive"    component={() => <ProtectedRoute permission="finance.view" component={FinanceCashArchive} />} />
           {/* Super Admin */}
           <Route path="/super-admin" component={() => user?.role === "super_admin" ? <SuperAdminPage /> : <Redirect to="/" />} />
+          {/* Profile */}
+          <Route path="/profile" component={ProfilePage} />
           {/* Subscription Expired */}
           <Route path="/subscription-expired" component={SubscriptionExpired} />
           <Route                                  component={NotFound} />
