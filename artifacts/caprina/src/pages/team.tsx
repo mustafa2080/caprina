@@ -1843,11 +1843,60 @@ function EmployeeDetail({
               isOT: (evaluatedById.get(k.id)?.score ?? 0) > 100,
               icon: k.direction === "higher_is_better" ? TrendingUp : TrendingDown,
             }));
+            const kpiOverviewCards = [
+              { label: "إجمالي KPI", value: kpis.length, note: `${activeKpis.length} نشط`, color: "text-primary", bg: "bg-primary/5", border: "border-primary/20" },
+              { label: "وزن الراتب", value: `${totalSW}%`, note: fmt(totalDeduction), color: "text-amber-500", bg: "bg-amber-500/8", border: "border-amber-500/20" },
+              { label: "محقق", value: achievedCount, note: `${Math.min(Math.round((achievedCount / Math.max(evaluatedKpis.length, 1)) * 100), 100)}%`, color: "text-emerald-500", bg: "bg-emerald-500/8", border: "border-emerald-500/20" },
+              { label: "يحتاج تحسين", value: failedCount, note: `${overTargetCount} OT`, color: "text-red-500", bg: "bg-red-500/8", border: "border-red-500/20" },
+            ];
 
             return (
               <>
+                <Card className="border-border/60 bg-gradient-to-br from-background via-card to-primary/5 overflow-hidden">
+                  <CardContent className="p-4 sm:p-5">
+                    <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+                      <div className="space-y-1">
+                        <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/70 px-3 py-1 text-[10px] font-bold text-muted-foreground">
+                          <Target className="w-3 h-3 text-primary" />
+                          لوحة مؤشرات الأداء الشهرية
+                        </div>
+                        <h3 className="text-lg font-black leading-tight">مراجعة سريعة لأداء {displayName}</h3>
+                        <p className="text-xs text-muted-foreground max-w-2xl">
+                          عرض احترافي يربط الأداء التشغيلي بالمؤشرات المالية، مع تتبع واضح للمحقق وغير المحقق والمكافآت.
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <div className="rounded-2xl border border-border/60 bg-background/80 px-3 py-2 text-center min-w-[110px]">
+                          <p className="text-[10px] text-muted-foreground">التقييم الإجمالي</p>
+                          <p className="text-lg font-black text-primary">{overallScore !== null ? `${overallScore}%` : "—"}</p>
+                        </div>
+                        <div className={`rounded-2xl border px-3 py-2 text-center min-w-[110px] ${ratingCfg.bg} ${ratingCfg.color}`}>
+                          <p className="text-[10px] opacity-80">النتيجة</p>
+                          <p className="text-sm font-black">{ratingCfg.label}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mt-4">
+                      {kpiOverviewCards.map(card => (
+                        <div key={card.label} className={`rounded-2xl border ${card.border} ${card.bg} px-3 py-3`}>
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="text-[10px] text-muted-foreground">{card.label}</p>
+                              <p className={`text-lg font-black ${card.color}`}>{card.value}</p>
+                            </div>
+                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center bg-background/70 border border-border/50`}>
+                              <div className={`w-2.5 h-2.5 rounded-full ${card.color.replace("text-", "bg-")}`} />
+                            </div>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground mt-1">{card.note}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
                 {/* ══ ROW 1: 3 بطاقات متجاورة — مستوحاة من الصورة ══ */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
 
                   {/* بطاقة 1 — التقدم نحو الأهداف (Progress Ring) */}
                   <Card className="relative overflow-hidden border-border bg-card">
@@ -2223,6 +2272,47 @@ function EmployeeDetail({
 
           {report && !reportLoading && (
             <>
+              <Card className="relative overflow-hidden border-border/60 bg-gradient-to-br from-card via-card to-emerald-500/5">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(201,162,39,0.12),transparent_35%),radial-gradient(circle_at_bottom_left,rgba(16,185,129,0.10),transparent_28%)] pointer-events-none" />
+                <CardContent className="relative p-4 sm:p-5 space-y-4">
+                  <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/70 px-3 py-1 text-[10px] font-bold text-muted-foreground">
+                        <FileText className="w-3 h-3 text-primary" />
+                        التقرير الشهري التفصيلي
+                      </div>
+                      <h3 className="text-lg font-black leading-tight">ملخص أداء {report.displayName}</h3>
+                      <p className="text-xs text-muted-foreground max-w-2xl">
+                        نظرة مالية وتشغيلية متكاملة تجمع بين الطلبيات، مؤشرات الأداء، والحضور — بصورة سهلة القراءة وعرض احترافي.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <div className="rounded-2xl border border-border/60 bg-background/80 px-3 py-2 min-w-[115px]">
+                        <p className="text-[10px] text-muted-foreground">الشهر</p>
+                        <p className="text-sm font-black">{periodLabel}</p>
+                      </div>
+                      <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/8 px-3 py-2 min-w-[115px]">
+                        <p className="text-[10px] text-muted-foreground">الحالة</p>
+                        <p className="text-sm font-black text-emerald-500">{report.rating}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {[
+                      { label: "الطلبيات", value: fmtNum(report.orderStats.total), color: "text-primary" },
+                      { label: "نسبة التسليم", value: `${report.orderStats.deliveryRate}%`, color: "text-amber-500" },
+                      { label: "خصم KPI", value: fmt(kpiDeductions), color: "text-red-500" },
+                      { label: "مكافأة KPI", value: fmt(kpiBonuses), color: "text-emerald-500" },
+                    ].map(item => (
+                      <div key={item.label} className="rounded-2xl border border-border/60 bg-background/75 px-3 py-3">
+                        <p className="text-[10px] text-muted-foreground">{item.label}</p>
+                        <p className={`text-lg font-black ${item.color}`}>{item.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* Quick stats row */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                 {[
@@ -2369,8 +2459,8 @@ function EmployeeDetail({
               {report.kpis.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {/* Radar Chart */}
-                  <Card className="border-border bg-card">
-                    <CardHeader className="pb-1 pt-3 px-4">
+                  <Card className="border-border bg-card/90 overflow-hidden">
+                    <CardHeader className="pb-1 pt-3 px-4 border-b border-border/40 bg-muted/20">
                       <CardTitle className="text-xs flex items-center gap-1.5 text-muted-foreground">
                         <BarChart2 className="w-3.5 h-3.5" />مؤشرات الأداء — نسبة التحقق
                       </CardTitle>
@@ -2391,8 +2481,8 @@ function EmployeeDetail({
                   </Card>
 
                   {/* Bar Chart — KPI vs Target */}
-                  <Card className="border-border bg-card">
-                    <CardHeader className="pb-1 pt-3 px-4">
+                  <Card className="border-border bg-card/90 overflow-hidden">
+                    <CardHeader className="pb-1 pt-3 px-4 border-b border-border/40 bg-muted/20">
                       <CardTitle className="text-xs flex items-center gap-1.5 text-muted-foreground">
                         <Target className="w-3.5 h-3.5" />نسبة التحقق لكل مؤشر
                       </CardTitle>
