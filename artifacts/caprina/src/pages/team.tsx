@@ -1805,38 +1805,42 @@ function EmployeeDetail({
           {!kpisLoading && kpis.length > 0 && (() => {
             const salary = fullProfile?.monthlySalary ?? 0;
             const activeKpis = kpis.filter(k => k.isActive);
+            const evaluatedKpis = report?.kpis ?? [];
+            const evaluatedById = new Map(evaluatedKpis.map(k => [k.id, k]));
             const totalSW = activeKpis.reduce((s, k) => s + (k.salaryWeight ?? 0), 0);
             const totalOT = activeKpis.reduce((s, k) => s + (k.overtargetBonus ?? 0), 0);
             const totalDeduction = salary > 0 ? Math.round((totalSW / 100) * salary) : 0;
             const totalBonus = salary > 0 ? Math.round((totalOT / 100) * salary) : 0;
-            const achievedCount = kpis.filter(k => (k as any).achieved === true).length;
-            const failedCount = kpis.filter(k => (k as any).achieved === false).length;
-            const overTargetCount = kpis.filter(k => (k as any).score !== null && (k as any).score > 100).length;
-            const scoredKpis = kpis.filter(k => k.score !== null);
+            const achievedCount = evaluatedKpis.filter(k => k.achieved === true).length;
+            const failedCount = evaluatedKpis.filter(k => k.achieved === false).length;
+            const overTargetCount = evaluatedKpis.filter(k => k.score !== null && k.score > 100).length;
+            const scoredKpis = evaluatedKpis.filter(k => k.score !== null && Number.isFinite(k.score));
             const overallScore = scoredKpis.length > 0
-              ? Math.round(scoredKpis.reduce((s, k) => s + Math.min(k.score!, 100), 0) / scoredKpis.length)
+              ? Math.round(scoredKpis.reduce((s, k) => s + Math.min(k.score ?? 0, 100), 0) / scoredKpis.length)
               : null;
 
             // Radar data — كفاءات المؤشرات
             const radarData = activeKpis.map(k => ({
               subject: k.name.length > 6 ? k.name.slice(0, 6) + "…" : k.name,
-              value: Math.min(k.score ?? (k.salaryWeight ?? 0), 100),
+              value: Math.min(evaluatedById.get(k.id)?.score ?? (k.salaryWeight ?? 0), 100),
               fullName: k.name,
             }));
 
             // Bar data — تقييم ربعي
             const barData = activeKpis.slice(0, 4).map(k => ({
               name: k.name.length > 8 ? k.name.slice(0, 8) + "…" : k.name,
-              "تقييم الأداء الحالي": Math.min((k as any).score ?? 0, 100),
+              "تقييم الأداء الحالي": Math.min(evaluatedById.get(k.id)?.score ?? 0, 100),
               "المتوسط العام": 70,
             }));
 
             // مؤشرات تشغيلية للبطاقة 4
             const opMetrics = activeKpis.slice(0, 3).map(k => ({
               label: k.name,
-              value: k.score !== null ? `${Math.min(Math.round(k.score), 100)}%` : (k.actualValue !== null ? `${fmtNum(k.actualValue)} ${k.unit}` : "—"),
-              achieved: (k as any).achieved,
-              isOT: (k as any).score !== null && (k as any).score > 100,
+              value: evaluatedById.get(k.id)?.score !== null && evaluatedById.get(k.id)?.score !== undefined
+                ? `${Math.min(Math.round(evaluatedById.get(k.id)!.score ?? 0), 100)}%`
+                : "—",
+              achieved: evaluatedById.get(k.id)?.achieved,
+              isOT: (evaluatedById.get(k.id)?.score ?? 0) > 100,
               icon: k.direction === "higher_is_better" ? TrendingUp : TrendingDown,
             }));
 
@@ -1870,7 +1874,7 @@ function EmployeeDetail({
                       {/* تفاصيل أسفل الـ ring */}
                       <div className="w-full space-y-1.5">
                         {activeKpis.slice(0, 3).map(k => {
-                          const sc = Math.min((k as any).score ?? 0, 100);
+                          const sc = Math.min(evaluatedById.get(k.id)?.score ?? 0, 100);
                           return (
                             <div key={k.id}>
                               <div className="flex justify-between text-[9px] mb-0.5">
@@ -1932,7 +1936,7 @@ function EmployeeDetail({
                         <div className="flex justify-around mt-1 border-t border-border/30 pt-2">
                           {activeKpis.slice(0, 3).map(k => (
                             <div key={k.id} className="text-center">
-                              <p className="text-[9px] font-black">{Math.min((k as any).score ?? 0, 100)}%</p>
+                              <p className="text-[9px] font-black">{Math.min(evaluatedById.get(k.id)?.score ?? 0, 100)}%</p>
                               <p className="text-[8px] text-muted-foreground truncate max-w-[40px]">{k.name.slice(0, 6)}</p>
                             </div>
                           ))}
@@ -2058,9 +2062,10 @@ function EmployeeDetail({
                       const otBonus = kpi.overtargetBonus ?? 0;
                       const kpiAmt = salary > 0 && salaryW > 0 ? Math.round((salaryW / 100) * salary) : 0;
                       const bonusAmt = salary > 0 && otBonus > 0 ? Math.round((otBonus / 100) * salary) : 0;
-                      const isOT = (kpi as any).score !== null && (kpi as any).score > 100;
-                      const isAchieved = (kpi as any).achieved === true;
-                      const isFailed = (kpi as any).achieved === false;
+                      const evalKpi = evaluatedById.get(kpi.id);
+                      const isOT = (evalKpi?.score ?? 0) > 100;
+                      const isAchieved = evalKpi?.achieved === true;
+                      const isFailed = evalKpi?.achieved === false;
 
                       const colorMap: Record<string, { accent: string; iconBg: string; iconColor: string; badgeBg: string; badgeText: string }> = {
                         delivery_rate: { accent: "bg-emerald-500", iconBg: "bg-emerald-50 dark:bg-emerald-900/30", iconColor: "text-emerald-600 dark:text-emerald-400", badgeBg: "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-700/40", badgeText: "text-emerald-700 dark:text-emerald-300" },
