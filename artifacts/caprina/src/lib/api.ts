@@ -706,6 +706,26 @@ export interface ManifestCompanyStats extends ManifestStats {
   manifestCount: number;
 }
 
+export interface Order {
+  id: number;
+  invoiceNumber: string;
+  customerName: string;
+  customerPhone: string | null;
+  city: string | null;
+  product: string | null;
+  quantity: number | null;
+  total: number;
+  cost: number | null;
+  shippingCost: number | null;
+  status: string;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string | null;
+  assignedUserId: number | null;
+  createdByUserId: number | null;
+  shippingCompanyId: number | null;
+}
+
 export interface ManifestOrder extends Order {
   deliveryStatus: DeliveryStatus;
   deliveryNote: string | null;

@@ -2495,7 +2495,7 @@ function EmployeeDetail({
                 </Card>
 
                 {/* ══ ROW 1: نظرة عامة + الرسوم ══ */}
-                <div className="grid grid-cols-1 xl:grid-cols-[1.15fr_1fr] gap-3">
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
 
                   {/* بطاقة 1 — التقدم نحو الأهداف (Progress Ring) */}
                   <Card className="relative overflow-hidden border-border bg-card">
@@ -2561,8 +2561,8 @@ function EmployeeDetail({
                     </CardContent>
                   </Card>
 
-                  {/* الرسوم */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-1 gap-3">
+                  {/* الرسوم — Bar دائماً + Radar لو >= 3 مؤشرات */}
+                  <>
                     {barData.length > 0 && (
                       <Card className="relative overflow-hidden border-border bg-card">
                         <div className="absolute top-2 right-2.5 text-[9px] font-black text-muted-foreground/40">2</div>
@@ -2591,7 +2591,7 @@ function EmployeeDetail({
                               </span>
                             </div>
                           )}
-                          <ResponsiveContainer width="100%" height={160}>
+                          <ResponsiveContainer width="100%" height={radarData.length >= 3 ? 140 : 180}>
                             <BarChart data={barData} margin={{ top: 2, right: 2, bottom: 2, left: -25 }} barGap={2}>
                               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                               <XAxis dataKey="name" tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
@@ -2604,37 +2604,32 @@ function EmployeeDetail({
                               <Bar dataKey="المتوسط العام" fill="#10B981" radius={[3, 3, 0, 0]} maxBarSize={16} />
                             </BarChart>
                           </ResponsiveContainer>
+                          {/* Radar مدمج هنا لو المؤشرات أقل من 3 أو بعد الـ Bar */}
+                          {radarData.length >= 3 && (
+                            <>
+                              <div className="mt-3 pt-3 border-t border-border/30">
+                                <p className="text-[9px] text-muted-foreground mb-1">تطور الكفاءات الأساسية</p>
+                                <ResponsiveContainer width="100%" height={150}>
+                                  <RadarChart data={radarData} margin={{ top: 5, right: 20, bottom: 5, left: 20 }}>
+                                    <PolarGrid stroke="hsl(var(--border))" />
+                                    <PolarAngleAxis dataKey="subject" tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} />
+                                    <Radar name="الأداء" dataKey="value" stroke="#c9a227" fill="#c9a227" fillOpacity={0.3} strokeWidth={2} dot={{ fill: "#c9a227", r: 2 }} />
+                                  </RadarChart>
+                                </ResponsiveContainer>
+                              </div>
+                            </>
+                          )}
                         </CardContent>
                       </Card>
                     )}
-
-                    {radarData.length >= 3 && (
-                      <Card className="relative overflow-hidden border-border bg-card">
-                        <div className="absolute top-2 right-2.5 text-[9px] font-black text-muted-foreground/40">3</div>
-                        <CardContent className="px-3 py-4">
-                          <div className="flex items-start justify-between mb-1">
-                            <div>
-                              <p className="text-xs font-bold text-foreground">تطور الكفاءات الأساسية</p>
-                              <p className="text-[9px] text-muted-foreground">خريطة سريعة لتوازن الأداء بين المؤشرات</p>
-                            </div>
-                          </div>
-                          <ResponsiveContainer width="100%" height={180}>
-                            <RadarChart data={radarData} margin={{ top: 5, right: 20, bottom: 5, left: 20 }}>
-                              <PolarGrid stroke="hsl(var(--border))" />
-                              <PolarAngleAxis dataKey="subject" tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} />
-                              <Radar name="الأداء" dataKey="value" stroke="#c9a227" fill="#c9a227" fillOpacity={0.3} strokeWidth={2} dot={{ fill: "#c9a227", r: 2 }} />
-                            </RadarChart>
-                          </ResponsiveContainer>
-                        </CardContent>
-                      </Card>
-                    )}
-                  </div>
+                  </>
                 </div>
 
                 {/* ══ ROW 2: بطاقتان — مؤشرات تشغيلية + ملخص مالي ══ */}
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
 
-                  {/* بطاقة 4 — مؤشرات الأداء التشغيلي */}
+                  {/* بطاقة 4 — مؤشرات الأداء التشغيلي — تظهر فقط لو في مؤشرات */}
+                  {opMetrics.length > 0 && (
                   <Card className="relative overflow-hidden border-border bg-card">
                     <div className="absolute top-2 right-2.5 text-[9px] font-black text-muted-foreground/40">4</div>
                     <CardContent className="px-4 py-4">
@@ -2655,11 +2650,7 @@ function EmployeeDetail({
                             </div>
                           </div>
                         ))}
-                        {opMetrics.length === 0 && (
-                          <p className="text-xs text-muted-foreground text-center py-4">لا توجد بيانات بعد</p>
-                        )}
                       </div>
-                      {/* ملاحظة */}
                       {overallScore !== null && (
                         <div className="mt-3 pt-2.5 border-t border-border/30">
                           <p className="text-[10px] font-bold text-muted-foreground mb-0.5">التعليقات والملاحظات</p>
@@ -2673,6 +2664,7 @@ function EmployeeDetail({
                       )}
                     </CardContent>
                   </Card>
+                  )}
 
                   {/* بطاقة 5 — الملخص المالي KPI */}
                   <Card className="relative overflow-hidden border-border bg-card">
@@ -2695,7 +2687,6 @@ function EmployeeDetail({
                               </div>
                             </div>
                           ))}
-                          {/* KPI status summary */}
                           <div className="grid grid-cols-3 gap-1.5 pt-1">
                             {[
                               { label: "محقق", val: achievedCount, color: "text-emerald-600", bg: "bg-emerald-500/10" },
@@ -2713,6 +2704,7 @@ function EmployeeDetail({
                         <div className="text-center py-6">
                           <DollarSign className="w-8 h-8 mx-auto mb-2 opacity-20" />
                           <p className="text-xs text-muted-foreground">لم يُحدد الراتب الأساسي بعد</p>
+                          <p className="text-[10px] text-muted-foreground/60 mt-1">أضف الراتب في تعديل بيانات الموظف لرؤية التأثير المالي</p>
                         </div>
                       )}
                     </CardContent>
