@@ -509,15 +509,15 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
       </div>
 
       <div ref={printRef}>
-        <div className="report" style={{ direction: "rtl", fontFamily: "'Segoe UI', Tahoma, Arial, sans-serif", color: "#1a1a1a" }}>
+        <div className="report" style={{ direction: "rtl", fontFamily: "'Segoe UI', Tahoma, Arial, sans-serif" }}>
 
           {/* Header */}
-          <div className="header" style={{ borderBottom: "3px solid #c9a227", paddingBottom: 16, marginBottom: 20, display: "flex", justifyContent: "space-between" }}>
+          <div className="header border-b-2 border-primary pb-4 mb-5 flex justify-between items-start">
             <div>
-              <div className="brand" style={{ fontSize: 22, fontWeight: 900, color: "#c9a227" }}>CAPRINA</div>
-              <div className="title" style={{ fontSize: 13, color: "#666" }}>تقرير أداء موظف — {periodLabel}</div>
+              <div className="brand text-2xl font-black text-primary">CAPRINA</div>
+              <div className="title text-xs text-muted-foreground mt-0.5">تقرير أداء موظف — {periodLabel}</div>
             </div>
-            <div style={{ textAlign: "left", fontSize: 12, color: "#666" }}>
+            <div className="text-left text-xs text-muted-foreground">
               <div>تاريخ الإصدار: {new Date().toLocaleDateString("ar-EG")}</div>
               {report.profile?.department && <div>القسم: {report.profile.department}</div>}
             </div>
@@ -572,92 +572,94 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
 
           {/* KPIs Table */}
           {report.kpis.length > 0 && (
-            <div style={{ marginBottom: 20 }}>
-              <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 8, borderRight: "3px solid #c9a227", paddingRight: 8 }}>مؤشرات الأداء الرئيسية</h3>
+            <div className="mb-5">
+              <h3 className="text-sm font-bold mb-2 border-r-4 border-primary pr-2">مؤشرات الأداء الرئيسية</h3>
 
               {/* ملخص KPI المالي */}
               {(kpiDeductions > 0 || kpiBonuses > 0) && (
-                <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                <div className="flex gap-2 mb-3">
                   {kpiDeductions > 0 && (
-                    <div style={{ flex: 1, background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: "8px 12px", textAlign: "center" }}>
-                      <div style={{ fontSize: 10, color: "#888", marginBottom: 2 }}>إجمالي خصم KPI</div>
-                      <div style={{ fontSize: 16, fontWeight: 900, color: "#dc2626" }}>−{fmt(kpiDeductions)}</div>
-                      <div style={{ fontSize: 9, color: "#999" }}>{kpiFailedCount} مؤشر لم يتحقق</div>
+                    <div className="flex-1 bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-center">
+                      <div className="text-[10px] text-muted-foreground mb-1">إجمالي خصم KPI</div>
+                      <div className="text-base font-black text-red-500">−{fmt(kpiDeductions)}</div>
+                      <div className="text-[9px] text-muted-foreground">{kpiFailedCount} مؤشر لم يتحقق</div>
                     </div>
                   )}
                   {kpiBonuses > 0 && (
-                    <div style={{ flex: 1, background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: "8px 12px", textAlign: "center" }}>
-                      <div style={{ fontSize: 10, color: "#888", marginBottom: 2 }}>إجمالي مكافأة Over Target</div>
-                      <div style={{ fontSize: 16, fontWeight: 900, color: "#16a34a" }}>+{fmt(kpiBonuses)}</div>
-                      <div style={{ fontSize: 9, color: "#999" }}>🏆 {kpiOverTargetCount} مؤشر</div>
+                    <div className="flex-1 bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 text-center">
+                      <div className="text-[10px] text-muted-foreground mb-1">إجمالي مكافأة Over Target</div>
+                      <div className="text-base font-black text-emerald-500">+{fmt(kpiBonuses)}</div>
+                      <div className="text-[9px] text-muted-foreground">🏆 {kpiOverTargetCount} مؤشر</div>
                     </div>
                   )}
                 </div>
               )}
 
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead>
-                  <tr>
-                    {["المؤشر", "الهدف", "الفعلي", "الدرجة", "الحالة", "التأثير المالي"].map(h => (
-                      <th key={h} style={{ background: "#c9a227", color: "white", padding: "8px 10px", textAlign: "right", fontSize: 11 }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {report.kpis.map((kpi, i) => {
-                    const sw = kpi.salaryWeight ?? 0;
-                    const ot = kpi.overtargetBonus ?? 0;
-                    const kpiAmt = sw > 0 && baseSalary > 0 ? Math.round((sw / 100) * baseSalary) : 0;
-                    const otAmt  = ot > 0 && baseSalary > 0 ? Math.round((ot / 100) * baseSalary) : 0;
-                    const isOT   = kpi.score !== null && kpi.score > 100;
-                    return (
-                    <tr key={kpi.id}>
-                      <td style={{ padding: "8px 10px", borderBottom: "1px solid #eee", background: i % 2 === 0 ? "white" : "#fafafa", fontSize: 12, fontWeight: 600 }}>
-                        {kpi.name}
-                        {kpi.description && <div style={{ fontSize: 10, color: "#888", fontWeight: 400 }}>{kpi.description}</div>}
-                      </td>
-                      <td style={{ padding: "8px 10px", borderBottom: "1px solid #eee", background: i % 2 === 0 ? "white" : "#fafafa", fontSize: 12 }}>
-                        {kpi.direction === "lower_is_better" ? "≤" : "≥"}{fmtNum(kpi.targetValue)} {kpi.unit}
-                      </td>
-                      <td style={{ padding: "8px 10px", borderBottom: "1px solid #eee", background: i % 2 === 0 ? "white" : "#fafafa", fontSize: 12, fontWeight: 700 }}>
-                        {kpi.actualValue !== null ? `${fmtNum(kpi.actualValue)} ${kpi.unit}` : "—"}
-                      </td>
-                      <td style={{ padding: "8px 10px", borderBottom: "1px solid #eee", background: i % 2 === 0 ? "white" : "#fafafa", fontSize: 12 }}>
-                        {kpi.score !== null ? `${kpi.score}%` : "—"}
-                      </td>
-                      <td style={{ padding: "8px 10px", borderBottom: "1px solid #eee", background: i % 2 === 0 ? "white" : "#fafafa", fontSize: 12, fontWeight: 700, color: isOT ? "#2563eb" : kpi.achieved ? "#16a34a" : kpi.achieved === false ? "#dc2626" : "#888" }}>
-                        {isOT ? "🏆 Over Target" : kpi.achieved === true ? "✓ محقق" : kpi.achieved === false ? "✗ لم يتحقق" : "—"}
-                      </td>
-                      <td style={{ padding: "8px 10px", borderBottom: "1px solid #eee", background: i % 2 === 0 ? "white" : "#fafafa", fontSize: 11, fontWeight: 700 }}>
-                        {isOT && otAmt > 0 ? (
-                          <span style={{ color: "#16a34a" }}>+{fmt(otAmt)}</span>
-                        ) : kpi.achieved === false && kpiAmt > 0 ? (
-                          <span style={{ color: "#dc2626" }}>−{fmt(kpiAmt)}</span>
-                        ) : kpi.achieved === true ? (
-                          <span style={{ color: "#888" }}>لا خصم</span>
-                        ) : (
-                          <span style={{ color: "#ccc" }}>—</span>
-                        )}
-                      </td>
+              <div className="rounded-xl overflow-hidden border border-border/50">
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr>
+                      {["المؤشر", "الهدف", "الفعلي", "الدرجة", "الحالة", "التأثير المالي"].map(h => (
+                        <th key={h} className="bg-primary text-white px-3 py-2 text-right text-[11px] font-bold">{h}</th>
+                      ))}
                     </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {report.kpis.map((kpi, i) => {
+                      const sw = kpi.salaryWeight ?? 0;
+                      const ot = kpi.overtargetBonus ?? 0;
+                      const kpiAmt = sw > 0 && baseSalary > 0 ? Math.round((sw / 100) * baseSalary) : 0;
+                      const otAmt  = ot > 0 && baseSalary > 0 ? Math.round((ot / 100) * baseSalary) : 0;
+                      const isOT   = kpi.score !== null && kpi.score > 100;
+                      return (
+                      <tr key={kpi.id} className={i % 2 === 0 ? "bg-muted/10" : "bg-muted/20"}>
+                        <td className="px-3 py-2 border-b border-border/20 text-xs font-semibold">
+                          {kpi.name}
+                          {kpi.description && <div className="text-[10px] text-muted-foreground font-normal">{kpi.description}</div>}
+                        </td>
+                        <td className="px-3 py-2 border-b border-border/20 text-xs">
+                          {kpi.direction === "lower_is_better" ? "≤" : "≥"}{fmtNum(kpi.targetValue)} {kpi.unit}
+                        </td>
+                        <td className="px-3 py-2 border-b border-border/20 text-xs font-bold">
+                          {kpi.actualValue !== null ? `${fmtNum(kpi.actualValue)} ${kpi.unit}` : "—"}
+                        </td>
+                        <td className="px-3 py-2 border-b border-border/20 text-xs">
+                          {kpi.score !== null ? `${kpi.score}%` : "—"}
+                        </td>
+                        <td className={`px-3 py-2 border-b border-border/20 text-xs font-bold ${isOT ? "text-blue-500" : kpi.achieved ? "text-emerald-500" : kpi.achieved === false ? "text-red-500" : "text-muted-foreground"}`}>
+                          {isOT ? "🏆 Over Target" : kpi.achieved === true ? "✓ محقق" : kpi.achieved === false ? "✗ لم يتحقق" : "—"}
+                        </td>
+                        <td className="px-3 py-2 border-b border-border/20 text-xs font-bold">
+                          {isOT && otAmt > 0 ? (
+                            <span className="text-emerald-500">+{fmt(otAmt)}</span>
+                          ) : kpi.achieved === false && kpiAmt > 0 ? (
+                            <span className="text-red-500">−{fmt(kpiAmt)}</span>
+                          ) : kpi.achieved === true ? (
+                            <span className="text-muted-foreground">لا خصم</span>
+                          ) : (
+                            <span className="text-muted-foreground/40">—</span>
+                          )}
+                        </td>
+                      </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 
           {/* Overall Score */}
-          <div style={{ background: "#fef9e7", border: "2px solid #c9a227", borderRadius: 8, padding: 16, marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div className="bg-primary/8 border-2 border-primary rounded-xl p-4 mb-5 flex justify-between items-center">
             <div>
-              <div style={{ fontSize: 12, color: "#888", marginBottom: 4 }}>التقييم الإجمالي</div>
-              <div style={{ fontSize: 36, fontWeight: 900, color: "#c9a227" }}>
+              <div className="text-xs text-muted-foreground mb-1">التقييم الإجمالي</div>
+              <div className="text-4xl font-black text-primary">
                 {report.overallScore !== null ? `${report.overallScore}%` : "—"}
               </div>
             </div>
-            <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 20, fontWeight: 800 }}>{report.rating}</div>
-              <div style={{ fontSize: 11, color: "#888", marginTop: 4 }}>
+            <div className="text-center">
+              <div className="text-xl font-black">{report.rating}</div>
+              <div className="text-xs text-muted-foreground mt-1">
                 {report.overallScore !== null
                   ? report.overallScore >= 90 ? "أداء استثنائي" : report.overallScore >= 75 ? "أداء فوق المتوسط" : report.overallScore >= 60 ? "أداء مقبول" : "يحتاج تحسين"
                   : "لا توجد مؤشرات"}
@@ -667,8 +669,8 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
 
           {/* Attendance & Salary Section */}
           {salaryReport && (
-            <div style={{ marginBottom: 20 }}>
-              <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, borderRight: "3px solid #c9a227", paddingRight: 8 }}>الحضور والمرتب التفصيلي</h3>
+            <div className="mb-5">
+              <h3 className="text-sm font-bold mb-3 border-r-4 border-primary pr-2">الحضور والمرتب التفصيلي</h3>
 
               {/* Attendance stats - responsive 3 cols on small, 5 on large */}
               <div className="grid grid-cols-3 gap-1.5 mb-3">
