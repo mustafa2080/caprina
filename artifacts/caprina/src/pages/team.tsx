@@ -1637,6 +1637,232 @@ function AddMemberWizard({ open, onClose, onSuccess, availableUsers, existingPro
   );
 }
 
+// ─── My Dashboard Tab ────────────────────────────────────────────────────────
+function MyDashboardTab({ profileId, monthlySalary }: {
+  profileId: number; monthlySalary: number;
+}) {
+  const today = new Date().toISOString().slice(0, 10);
+  const currentMonth = today.slice(0, 7);
+  const prevMonthDate = new Date();
+  prevMonthDate.setMonth(prevMonthDate.getMonth() - 1);
+  const prevMonth = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, "0")}`;
+
+  const { data: report } = useQuery({
+    queryKey: ["employee-report", profileId, currentMonth],
+    queryFn: () => employeeApi.getReport(profileId, currentMonth),
+  });
+  const { data: prevReport } = useQuery({
+    queryKey: ["employee-report", profileId, prevMonth],
+    queryFn: () => employeeApi.getReport(profileId, prevMonth),
+  });
+  const { data: salaryReport } = useQuery({
+    queryKey: ["salary-report", profileId, currentMonth],
+    queryFn: () => attendanceApi.salaryReport(profileId, currentMonth),
+    enabled: !!profileId,
+  });
+
+  const overallScore = report?.overallScore ?? null;
+  const prevScore    = prevReport?.overallScore ?? null;
+  const scoreDiff    = overallScore !== null && prevScore !== null ? overallScore - prevScore : null;
+  const kpis            = report?.kpis ?? [];
+  const achievedCount   = kpis.filter(k => k.achieved === true).length;
+  const failedCount     = kpis.filter(k => k.achieved === false).length;
+  const overTargetCount = kpis.filter(k => k.score !== null && k.score > 100).length;
+  const totalKpis       = kpis.length;
+  const baseSalary      = salaryReport?.baseSalary ?? monthlySalary;
+  const kpiDeductions   = kpis
+    .filter(k => k.achieved === false && (k.salaryWeight ?? 0) > 0)
+    .reduce((sum, k) => sum + Math.round(((k.salaryWeight ?? 0) / 100) * baseSalary), 0);
+  const kpiBonuses = kpis
+    .filter(k => k.score !== null && k.score > 100 && (k.overtargetBonus ?? 0) > 0)
+    .reduce((sum, k) => sum + Math.round(((k.overtargetBonus ?? 0) / 100) * baseSalary), 0);
+  const workedDays       = salaryReport?.workedDays ?? 0;
+  const totalWorkingDays = salaryReport?.totalWorkingDays ?? 26;
+  const absentDays       = salaryReport?.absentDays ?? 0;
+  const lateDays         = salaryReport?.lateDays ?? 0;
+  const attPct           = totalWorkingDays > 0 ? Math.round((workedDays / totalWorkingDays) * 100) : 0;
+  const daysInMonth        = new Date(parseInt(currentMonth.split("-")[0]), parseInt(currentMonth.split("-")[1]), 0).getDate();
+  const dayOfMonth         = new Date().getDate();
+  const monthProgress      = Math.round((dayOfMonth / daysInMonth) * 100);
+  const isAtRisk           = overallScore !== null && overallScore < 60;
+  const isMidMonthWarning  = dayOfMonth >= Math.floor(daysInMonth * 0.4) && dayOfMonth <= Math.floor(daysInMonth * 0.7) && overallScore !== null && overallScore < 50;
+  const isExcellent        = overallScore !== null && overallScore >= 90;
+  const totalPoints  = Math.round((overallScore ?? 0) * 3.4 + (prevScore ?? 0) * 2.1);
+  const level        = totalPoints >= 800 ? "Elite 🏆" : totalPoints >= 500 ? "Gold 🥇" : totalPoints >= 300 ? "Silver 🥈" : "Bronze 🥉";
+  const levelColor   = totalPoints >= 800 ? "text-blue-500" : totalPoints >= 500 ? "text-amber-500" : totalPoints >= 300 ? "text-muted-foreground" : "text-amber-700 dark:text-amber-500";
+  const nextLevelPts = totalPoints >= 800 ? 1000 : totalPoints >= 500 ? 800 : totalPoints >= 300 ? 500 : 300;
+  const levelPct     = Math.min(100, Math.round((totalPoints / nextLevelPts) * 100));
+  const periodLabel  = new Date(parseInt(currentMonth.split("-")[0]), parseInt(currentMonth.split("-")[1]) - 1, 1)
+    .toLocaleDateString("ar-EG", { month: "long", year: "numeric" });
+  const statusColor = overallScore === null ? "text-muted-foreground" : overallScore >= 80 ? "text-emerald-500" : overallScore >= 60 ? "text-amber-500" : "text-red-500";
+  const statusBg    = overallScore === null ? "bg-muted/20 border-border" : overallScore >= 80 ? "bg-emerald-500/8 border-emerald-500/20" : overallScore >= 60 ? "bg-amber-500/8 border-amber-500/20" : "bg-red-500/8 border-red-500/20";
+  const statusLabel = overallScore === null ? "لا يوجد بيانات" : overallScore >= 90 ? "أداء استثنائي ⭐" : overallScore >= 80 ? "أداء ممتاز ✅" : overallScore >= 60 ? "أداء جيد 👍" : overallScore >= 40 ? "يحتاج تحسين ⚠️" : "أداء ضعيف — خطر ❌";
+
+  return (
+    <div className="space-y-4 animate-in fade-in duration-300">
+      {/* ── إشارات الخطر والأمان ── */}
+      <div className="space-y-2">
+        {isExcellent && (
+          <div className="flex items-center gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/8 px-3.5 py-2.5 text-xs text-emerald-600 dark:text-emerald-400">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <span><strong>أداء ممتاز هذا الشهر!</strong>{kpiBonuses > 0 && <span> مكافأة Over Target: <strong>{fmt(kpiBonuses)}</strong></span>}</span>
+          </div>
+        )}
+        {isMidMonthWarning && !isExcellent && (
+          <div className="flex items-center gap-2 rounded-xl border border-amber-500/25 bg-amber-500/8 px-3.5 py-2.5 text-xs text-amber-600 dark:text-amber-400">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <span><strong>تنبيه منتصف الشهر:</strong> أداؤك الحالي {overallScore}% — تبقى {daysInMonth - dayOfMonth} يوم.</span>
+          </div>
+        )}
+        {isAtRisk && kpiDeductions > 0 && (
+          <div className="flex items-center gap-2 rounded-xl border border-red-500/25 bg-red-500/8 px-3.5 py-2.5 text-xs text-red-600 dark:text-red-400">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span><strong>تحذير:</strong> {failedCount} مؤشر لم يتحقق — خصم محتمل: <strong>{fmt(kpiDeductions)}</strong></span>
+          </div>
+        )}
+        {absentDays >= 3 && (
+          <div className="flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/5 px-3.5 py-2.5 text-xs text-red-600 dark:text-red-400">
+            <UserX className="w-4 h-4 shrink-0" />
+            <span><strong>غياب متكرر:</strong> {absentDays} أيام غياب هذا الشهر تؤثر على راتبك.</span>
+          </div>
+        )}
+        {!isAtRisk && !isMidMonthWarning && !isExcellent && absentDays < 3 && overallScore !== null && overallScore >= 60 && (
+          <div className="flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3.5 py-2.5 text-xs text-emerald-600 dark:text-emerald-400">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <span>أداؤك في المنطقة الآمنة — استمر على هذا المستوى 💪</span>
+          </div>
+        )}
+      </div>
+
+      {/* ── التقييم الإجمالي + Ring ── */}
+      <div className={`rounded-2xl border px-4 py-4 ${statusBg}`}>
+        <div className="flex items-center justify-between gap-4">
+          <div className="relative w-24 h-24 shrink-0">
+            <svg viewBox="0 0 96 96" className="w-full h-full -rotate-90">
+              <circle cx="48" cy="48" r="38" fill="none" stroke="hsl(var(--muted))" strokeWidth="9" />
+              <circle cx="48" cy="48" r="38" fill="none"
+                stroke={overallScore !== null && overallScore >= 80 ? "#10B981" : overallScore !== null && overallScore >= 60 ? "#F59E0B" : "#EF4444"}
+                strokeWidth="9"
+                strokeDasharray={`${(overallScore ?? 0) * 2.388} 238.8`}
+                strokeLinecap="round" />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className={`text-xl font-black leading-none ${statusColor}`}>{overallScore !== null ? `${overallScore}%` : "—"}</span>
+              <span className="text-[9px] text-muted-foreground mt-0.5">أداؤك</span>
+            </div>
+          </div>
+          <div className="flex-1 space-y-2">
+            <p className={`text-sm font-bold ${statusColor}`}>{statusLabel}</p>
+            <p className="text-xs text-muted-foreground">{periodLabel}</p>
+            {scoreDiff !== null && (
+              <div className={`flex items-center gap-1 text-xs font-bold ${scoreDiff >= 0 ? "text-emerald-500" : "text-red-500"}`}>
+                {scoreDiff >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                {scoreDiff >= 0 ? "+" : ""}{scoreDiff}% عن الشهر الماضي
+              </div>
+            )}
+            <div>
+              <div className="flex justify-between text-[9px] text-muted-foreground mb-1">
+                <span>تقدم الشهر</span><span>{monthProgress}%</span>
+              </div>
+              <div className="w-full h-1.5 rounded-full bg-black/10 dark:bg-white/10">
+                <div className="h-1.5 rounded-full bg-primary/60 transition-all" style={{ width: `${monthProgress}%` }} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── بطاقات سريعة ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {[
+          { label: "KPI محققة",    val: `${achievedCount}/${totalKpis}`, color: achievedCount >= Math.ceil(totalKpis * 0.8) ? "text-emerald-500" : "text-amber-500", bg: achievedCount >= Math.ceil(totalKpis * 0.8) ? "bg-emerald-500/8 border-emerald-500/20" : "bg-amber-500/8 border-amber-500/20" },
+          { label: "Over Target",  val: overTargetCount > 0 ? `+${overTargetCount}` : "0", color: overTargetCount > 0 ? "text-blue-500" : "text-muted-foreground", bg: overTargetCount > 0 ? "bg-blue-500/8 border-blue-500/20" : "bg-muted/20 border-border" },
+          { label: "نسبة الحضور", val: `${attPct}%`, color: attPct >= 80 ? "text-emerald-500" : attPct >= 60 ? "text-amber-500" : "text-red-500", bg: attPct >= 80 ? "bg-emerald-500/8 border-emerald-500/20" : attPct >= 60 ? "bg-amber-500/8 border-amber-500/20" : "bg-red-500/8 border-red-500/20" },
+          { label: "تأثير الراتب", val: kpiBonuses > 0 ? `+${fmt(kpiBonuses)}` : kpiDeductions > 0 ? `-${fmt(kpiDeductions)}` : "مستقر", color: kpiBonuses > 0 ? "text-emerald-500" : kpiDeductions > 0 ? "text-red-500" : "text-muted-foreground", bg: kpiBonuses > 0 ? "bg-emerald-500/8 border-emerald-500/20" : kpiDeductions > 0 ? "bg-red-500/8 border-red-500/20" : "bg-muted/20 border-border" },
+        ].map(c => (
+          <div key={c.label} className={`rounded-xl border ${c.bg} p-3 text-center`}>
+            <p className="text-[10px] text-muted-foreground mb-1">{c.label}</p>
+            <p className={`text-base font-black ${c.color}`}>{c.val}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* ── شريط KPIs التقدم ── */}
+      {kpis.length > 0 && (
+        <div className="rounded-xl border border-border bg-card p-3.5 space-y-3">
+          <p className="text-xs font-bold">تقدمك نحو الأهداف الشهرية</p>
+          {kpis.map(kpi => {
+            const sc   = Math.min(kpi.score ?? 0, 100);
+            const isOT = (kpi.score ?? 0) > 100;
+            const fillColor = isOT ? "#3B82F6" : kpi.achieved === true ? "#10B981" : kpi.achieved === false ? "#EF4444" : "#c9a227";
+            return (
+              <div key={kpi.id}>
+                <div className="flex items-center justify-between text-[10px] mb-1.5">
+                  <span className="text-muted-foreground truncate max-w-[60%]">{kpi.name}</span>
+                  <div className="flex items-center gap-2">
+                    <span className={`font-bold text-xs ${isOT ? "text-blue-500" : kpi.achieved === true ? "text-emerald-500" : kpi.achieved === false ? "text-red-500" : "text-amber-500"}`}>
+                      {isOT ? "🏆 OT" : kpi.achieved === true ? "✅" : kpi.achieved === false ? "❌" : "⏳"}
+                    </span>
+                    <span className="font-bold">{kpi.score !== null ? `${Math.min(Math.round(kpi.score), 100)}%` : "—"}</span>
+                  </div>
+                </div>
+                <div className="w-full h-2 rounded-full bg-muted/40">
+                  <div className="h-2 rounded-full transition-all duration-700" style={{ width: `${sc}%`, background: fillColor }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── الحضور ── */}
+      <div className="rounded-xl border border-border bg-card p-3.5">
+        <p className="text-xs font-bold mb-3">سجل الحضور — {periodLabel}</p>
+        <div className="grid grid-cols-3 gap-2 mb-2">
+          {[
+            { label: "أيام الحضور",  val: workedDays,  color: "text-emerald-500" },
+            { label: "أيام الغياب",  val: absentDays,  color: "text-red-500" },
+            { label: "أيام التأخير", val: lateDays,    color: "text-amber-500" },
+          ].map(s => (
+            <div key={s.label} className="text-center rounded-lg bg-muted/20 p-2">
+              <p className={`text-lg font-black ${s.color}`}>{s.val}</p>
+              <p className="text-[9px] text-muted-foreground">{s.label}</p>
+            </div>
+          ))}
+        </div>
+        <div>
+          <div className="flex justify-between text-[9px] text-muted-foreground mb-1">
+            <span>نسبة الحضور</span><span>{attPct}%</span>
+          </div>
+          <div className="w-full h-2 rounded-full bg-muted/30">
+            <div className="h-2 rounded-full transition-all duration-700" style={{ width: `${attPct}%`, background: attPct >= 80 ? "#10B981" : attPct >= 60 ? "#F59E0B" : "#EF4444" }} />
+          </div>
+        </div>
+      </div>
+
+      {/* ── مستوى الإنجاز التراكمي ── */}
+      <div className="rounded-xl border border-border bg-card p-3.5">
+        <p className="text-xs font-bold mb-3">مستوى الإنجاز التراكمي</p>
+        <div className="flex items-center gap-4">
+          <div className="text-center shrink-0">
+            <p className={`text-2xl font-black ${levelColor}`}>{level}</p>
+            <p className="text-[9px] text-muted-foreground mt-0.5">{totalPoints} نقطة</p>
+          </div>
+          <div className="flex-1">
+            <div className="flex justify-between text-[9px] text-muted-foreground mb-1">
+              <span>التقدم نحو المستوى التالي</span><span>{totalPoints}/{nextLevelPts}</span>
+            </div>
+            <div className="w-full h-2.5 rounded-full bg-muted/30">
+              <div className="h-2.5 rounded-full transition-all duration-700 bg-amber-500" style={{ width: `${levelPct}%` }} />
+            </div>
+            <p className="text-[9px] text-muted-foreground mt-1">تبقى {nextLevelPts - totalPoints} نقطة للمستوى التالي</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Employee Detail ──────────────────────────────────────────────────────────
 function EmployeeDetail({
   profileId, displayName, isSystemUser, username, onBack,
@@ -1752,10 +1978,11 @@ function EmployeeDetail({
         </div>
       </div>
 
-      <Tabs defaultValue={canSalaries ? "attendance" : canPerformance ? "kpis" : "profile"}>
+      <Tabs defaultValue="my-dashboard">
         {/* ── TabsList متجاوب — scroll أفقي على الموبايل ── */}
         <div className="overflow-x-auto no-scrollbar -mx-1 px-1">
           <TabsList className="h-9 text-xs flex w-max min-w-full sm:w-full gap-0.5 p-1 rounded-xl bg-muted/40 dark:bg-black/30 border border-border/50 backdrop-blur-sm">
+            <TabsTrigger value="my-dashboard" className="text-xs px-3 rounded-lg whitespace-nowrap transition-all duration-200 data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-[0_0_12px_rgba(99,102,241,0.3),0_2px_8px_rgba(0,0,0,0.15)] dark:data-[state=active]:shadow-[0_0_16px_rgba(99,102,241,0.45),0_2px_10px_rgba(0,0,0,0.4)]">🏠 لوحتي</TabsTrigger>
             {canSalaries   && <TabsTrigger value="attendance" className="text-xs px-3 rounded-lg whitespace-nowrap transition-all duration-200 data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-[0_0_12px_rgba(99,102,241,0.3),0_2px_8px_rgba(0,0,0,0.15)] dark:data-[state=active]:shadow-[0_0_16px_rgba(99,102,241,0.45),0_2px_10px_rgba(0,0,0,0.4)]">الحضور والمرتب</TabsTrigger>}
             {canManage     && <TabsTrigger value="daily"      className="text-xs px-3 rounded-lg whitespace-nowrap transition-all duration-200 data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-[0_0_12px_rgba(99,102,241,0.3),0_2px_8px_rgba(0,0,0,0.15)] dark:data-[state=active]:shadow-[0_0_16px_rgba(99,102,241,0.45),0_2px_10px_rgba(0,0,0,0.4)]">متابعة يومية</TabsTrigger>}
             {canPerformance && <TabsTrigger value="kpis"      className="text-xs px-3 rounded-lg whitespace-nowrap transition-all duration-200 data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-[0_0_12px_rgba(99,102,241,0.3),0_2px_8px_rgba(0,0,0,0.15)] dark:data-[state=active]:shadow-[0_0_16px_rgba(99,102,241,0.45),0_2px_10px_rgba(0,0,0,0.4)]">مؤشرات الأداء</TabsTrigger>}
@@ -1763,6 +1990,14 @@ function EmployeeDetail({
             <TabsTrigger value="profile" className="text-xs px-3 rounded-lg whitespace-nowrap transition-all duration-200 data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-[0_0_12px_rgba(99,102,241,0.3),0_2px_8px_rgba(0,0,0,0.15)] dark:data-[state=active]:shadow-[0_0_16px_rgba(99,102,241,0.45),0_2px_10px_rgba(0,0,0,0.4)]">الملف الشخصي</TabsTrigger>
           </TabsList>
         </div>
+
+        {/* ─── My Dashboard Tab ─── */}
+        <TabsContent value="my-dashboard" className="space-y-3 mt-3">
+          <MyDashboardTab
+            profileId={profileId}
+            monthlySalary={fullProfile?.monthlySalary ?? 0}
+          />
+        </TabsContent>
 
         {/* ─── Attendance Tab ─── */}
         {canSalaries && (
@@ -2273,6 +2508,295 @@ function EmployeeDetail({
                     })}
                   </div>
                 </div>
+
+                {/* ══ NEW: توصية ذكية + ملاحظة المدير + مقارنة الأشهر ══ */}
+
+                {/* ─── Smart Recommendation Box ─── */}
+                {overallScore !== null && (
+                  <div className={`rounded-2xl border px-4 py-4 space-y-2 ${
+                    overallScore >= 90 ? "bg-emerald-500/8 border-emerald-500/20" :
+                    overallScore >= 70 ? "bg-amber-500/8 border-amber-500/20" :
+                    "bg-red-500/8 border-red-500/20"
+                  }`}>
+                    <div className="flex items-center gap-2">
+                      <Briefcase className={`w-4 h-4 shrink-0 ${overallScore >= 90 ? "text-emerald-500" : overallScore >= 70 ? "text-amber-500" : "text-red-500"}`} />
+                      <p className="text-xs font-bold">توصية ذكية للسوبريوزر</p>
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      {overallScore >= 90
+                        ? `🌟 ${displayName} يؤدي بشكل استثنائي. يُنصح بالنظر في ترقيته أو إسناد مهام قيادية إضافية. المكافأة المالية ستعزز الدافعية.`
+                        : overallScore >= 80
+                        ? `✅ أداء قوي من ${displayName}. يمكن الاعتماد عليه في المهام المعقدة. حدد معه هدفاً طموحاً للشهر القادم.`
+                        : overallScore >= 70
+                        ? `👍 أداء جيد لكن هناك فرص للتحسين. يُنصح بمراجعة المؤشرات الضعيفة معه في اجتماع قصير واضع تارجت واضح.`
+                        : overallScore >= 50
+                        ? `⚠️ الأداء تحت المتوسط. تحقق من الأسباب: هل هناك عقبات خارجية؟ ضع خطة تحسين ٣٠ يوم مع متابعة أسبوعية.`
+                        : `🔴 أداء ضعيف ويحتاج تدخل فوري. اعقد اجتماع 1-on-1 عاجل. إذا استمر خلال شهر، ادرس إعادة التقييم الوظيفي.`
+                      }
+                    </p>
+                  </div>
+                )}
+
+                {/* ─── Manager Comment Box ─── */}
+                <Card className="border-border bg-card">
+                  <CardContent className="px-4 py-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <FileText className="w-4 h-4 text-primary shrink-0" />
+                      <p className="text-xs font-bold">ملاحظة المدير على المؤشرات</p>
+                      <span className="text-[9px] text-muted-foreground/60 mr-auto">(تظهر في التقرير المطبوع)</span>
+                    </div>
+                    <ManagerKpiComment profileId={profileId} reportMonth={reportMonth} />
+                  </CardContent>
+                </Card>
+
+                {/* ─── Monthly Trend: آخر 3 أشهر ─── */}
+                <Card className="border-border bg-card">
+                  <CardContent className="px-4 py-4">
+                    <div className="flex items-center gap-2 mb-4">
+                      <TrendingUp className="w-4 h-4 text-primary shrink-0" />
+                      <p className="text-xs font-bold">مقارنة الأداء — آخر 3 أشهر</p>
+                    </div>
+                    <MonthlyTrend profileId={profileId} currentMonth={reportMonth} kpis={kpis} />
+                  </CardContent>
+                </Card>
+
+                {/* ─── NEW 1: Performance Risk Matrix ─── */}
+                {activeKpis.length > 0 && (() => {
+                  // كل KPI يحصل على تصنيف في مصفوفة 2×2: التأثير المالي (محور X) × الأداء الحالي (محور Y)
+                  const matrixKpis = activeKpis.map(k => {
+                    const ev = evaluatedById.get(k.id);
+                    const sc = ev?.score ?? null;
+                    const salaryW = k.salaryWeight ?? 0;
+                    const impact = salaryW >= 20 ? "high" : salaryW >= 10 ? "medium" : "low";
+                    const perf = sc === null ? "unknown" : sc >= 80 ? "good" : sc >= 50 ? "warning" : "danger";
+                    return { ...k, sc, impact, perf };
+                  });
+
+                  const zones = [
+                    { key: "danger-high",   label: "🔴 خطر عالي الأولوية",  color: "bg-red-500/12 border-red-500/30",    textColor: "text-red-600 dark:text-red-400",    filter: (k: any) => k.perf === "danger" && k.impact === "high" },
+                    { key: "danger-low",    label: "🟠 خطر منخفض التأثير",  color: "bg-orange-500/10 border-orange-500/25", textColor: "text-orange-600 dark:text-orange-400", filter: (k: any) => k.perf === "danger" && k.impact !== "high" },
+                    { key: "warning-high",  label: "🟡 تحذير — راقبه",      color: "bg-amber-500/10 border-amber-500/25",  textColor: "text-amber-600 dark:text-amber-400",  filter: (k: any) => k.perf === "warning" && k.impact === "high" },
+                    { key: "good",          label: "🟢 على المسار الصحيح",  color: "bg-emerald-500/10 border-emerald-500/25", textColor: "text-emerald-600 dark:text-emerald-400", filter: (k: any) => k.perf === "good" },
+                  ];
+
+                  return (
+                    <Card className="border-border bg-card">
+                      <CardContent className="px-4 py-4">
+                        <div className="flex items-center gap-2 mb-4">
+                          <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                          <p className="text-xs font-bold">مصفوفة مخاطر المؤشرات</p>
+                          <span className="text-[9px] text-muted-foreground/60 mr-auto">تصنيف حسب الأداء × التأثير المالي</span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          {zones.map(zone => {
+                            const items = matrixKpis.filter(zone.filter);
+                            if (items.length === 0) return null;
+                            return (
+                              <div key={zone.key} className={`rounded-xl border p-3 ${zone.color}`}>
+                                <p className={`text-[10px] font-bold mb-2 ${zone.textColor}`}>{zone.label}</p>
+                                <div className="space-y-1.5">
+                                  {items.map(k => (
+                                    <div key={k.id} className="flex items-center justify-between gap-2">
+                                      <span className="text-[10px] truncate text-foreground/80">{k.name}</span>
+                                      <div className="flex items-center gap-1.5 shrink-0">
+                                        {k.sc !== null && (
+                                          <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${
+                                            k.sc >= 80 ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400" :
+                                            k.sc >= 50 ? "bg-amber-500/20 text-amber-600 dark:text-amber-400" :
+                                            "bg-red-500/20 text-red-600 dark:text-red-400"
+                                          }`}>{k.sc}%</span>
+                                        )}
+                                        {(k.salaryWeight ?? 0) > 0 && (
+                                          <span className="text-[9px] text-muted-foreground bg-muted/40 rounded-full px-1.5 py-0.5">{k.salaryWeight}%</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          }).filter(Boolean)}
+                          {zones.every(z => matrixKpis.filter(z.filter).length === 0) && (
+                            <div className="col-span-2 text-center py-6 text-xs text-muted-foreground">
+                              لا توجد بيانات كافية لعرض المصفوفة — أدخل القيم الفعلية للمؤشرات أولاً.
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })()}
+
+                {/* ─── NEW 2: KPI Velocity Tracker ─── */}
+                {activeKpis.some(k => evaluatedById.get(k.id)?.score !== null) && (() => {
+                  const now = new Date();
+                  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+                  const dayPassed = now.getDate();
+                  const monthPct = Math.round((dayPassed / daysInMonth) * 100);
+
+                  return (
+                    <Card className="border-border bg-card">
+                      <CardContent className="px-4 py-4">
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <div className="flex items-center gap-2">
+                            <BarChart2 className="w-4 h-4 text-primary shrink-0" />
+                            <p className="text-xs font-bold">متتبع سرعة الإنجاز</p>
+                          </div>
+                          <span className="text-[9px] text-muted-foreground/60 bg-muted/30 rounded-full px-2 py-0.5">
+                            مرّ {dayPassed} يوم من {daysInMonth} ({monthPct}% من الشهر)
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mb-3.5">هل الموظف سيصل للهدف قبل نهاية الشهر بناءً على معدله الحالي؟</p>
+                        <div className="space-y-3">
+                          {activeKpis.map(kpi => {
+                            const ev = evaluatedById.get(kpi.id);
+                            const sc = ev?.score ?? null;
+                            if (sc === null) return null;
+
+                            // الإسقاط: لو وصل sc% في dayPassed يوم، بنهاية الشهر هيوصل؟
+                            const projectedScore = monthPct > 0 ? Math.round((sc / monthPct) * 100) : sc;
+                            const velocity = sc - monthPct; // فرق الأداء عن التوقع
+                            const willReach = projectedScore >= 100;
+                            const isOT = sc > 100;
+
+                            return (
+                              <div key={kpi.id} className="rounded-xl border border-border/50 bg-muted/5 px-3 py-2.5">
+                                <div className="flex items-center justify-between gap-2 mb-2">
+                                  <span className="text-[10px] font-bold truncate max-w-[55%]">{kpi.name}</span>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    {isOT ? (
+                                      <span className="text-[9px] font-black text-blue-500 bg-blue-500/10 rounded-full px-2 py-0.5">🏆 Over Target</span>
+                                    ) : willReach ? (
+                                      <span className="text-[9px] font-black text-emerald-500 bg-emerald-500/10 rounded-full px-2 py-0.5">✅ سيصل للهدف</span>
+                                    ) : (
+                                      <span className="text-[9px] font-black text-red-500 bg-red-500/10 rounded-full px-2 py-0.5">⚡ يحتاج تسريع</span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="relative w-full h-3 rounded-full bg-muted/40 overflow-visible mb-1.5">
+                                  {/* شريط التوقع الشهري */}
+                                  <div
+                                    className="absolute top-0 h-3 rounded-full bg-muted/60 transition-all"
+                                    style={{ width: `${Math.min(monthPct, 100)}%` }}
+                                  />
+                                  {/* شريط الأداء الفعلي */}
+                                  <div
+                                    className={`absolute top-0 h-3 rounded-full transition-all duration-700 ${
+                                      isOT ? "bg-blue-500" : willReach ? "bg-emerald-500" : "bg-red-500"
+                                    }`}
+                                    style={{ width: `${Math.min(sc, 100)}%` }}
+                                  />
+                                  {/* خط التوقع */}
+                                  <div
+                                    className="absolute top-[-3px] w-0.5 h-[18px] bg-foreground/40 rounded-full"
+                                    style={{ left: `${Math.min(monthPct, 100)}%` }}
+                                  />
+                                </div>
+                                <div className="flex items-center justify-between text-[9px] text-muted-foreground">
+                                  <span>فعلي: <strong className="text-foreground">{sc}%</strong></span>
+                                  <span>توقع الشهر: <strong className={willReach || isOT ? "text-emerald-500" : "text-amber-500"}>{Math.min(projectedScore, 150)}%</strong></span>
+                                  <span className={`font-bold ${velocity >= 0 ? "text-emerald-500" : "text-red-500"}`}>
+                                    {velocity >= 0 ? "+" : ""}{velocity}% عن المتوقع
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          }).filter(Boolean)}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })()}
+
+                {/* ─── NEW 3: Achievement Badge Wall ─── */}
+                {(() => {
+                  // شارات الإنجاز تُحسب من الأداء الحالي
+                  const badges: { icon: string; title: string; desc: string; earned: boolean; color: string }[] = [
+                    {
+                      icon: "🏆", title: "محقق الكل",
+                      desc: "تحقيق جميع المؤشرات في شهر واحد",
+                      earned: activeKpis.length > 0 && activeKpis.every(k => evaluatedById.get(k.id)?.achieved === true || (evaluatedById.get(k.id)?.score ?? 0) > 100),
+                      color: "border-amber-500/40 bg-amber-500/8 text-amber-500",
+                    },
+                    {
+                      icon: "🚀", title: "فوق الهدف",
+                      desc: "تجاوز الهدف في مؤشر واحد على الأقل",
+                      earned: activeKpis.some(k => (evaluatedById.get(k.id)?.score ?? 0) > 100),
+                      color: "border-blue-500/40 bg-blue-500/8 text-blue-500",
+                    },
+                    {
+                      icon: "⭐", title: "أداء ممتاز",
+                      desc: "متوسط أداء فوق 90%",
+                      earned: overallScore !== null && overallScore >= 90,
+                      color: "border-emerald-500/40 bg-emerald-500/8 text-emerald-500",
+                    },
+                    {
+                      icon: "📈", title: "تحسن مستمر",
+                      desc: "أداء فوق 70% — على مسار التحسين",
+                      earned: overallScore !== null && overallScore >= 70 && overallScore < 90,
+                      color: "border-indigo-500/40 bg-indigo-500/8 text-indigo-500",
+                    },
+                    {
+                      icon: "🎯", title: "نصف الطريق",
+                      desc: "تحقيق 50%+ من المؤشرات النشطة",
+                      earned: activeKpis.length > 0 && (activeKpis.filter(k => evaluatedById.get(k.id)?.achieved === true || (evaluatedById.get(k.id)?.score ?? 0) > 100).length / activeKpis.length) >= 0.5,
+                      color: "border-violet-500/40 bg-violet-500/8 text-violet-500",
+                    },
+                    {
+                      icon: "💰", title: "حامي الراتب",
+                      desc: "لا خصومات KPI هذا الشهر",
+                      earned: activeKpis.length > 0 && activeKpis.every(k => (evaluatedById.get(k.id)?.achieved !== false) || (k.salaryWeight ?? 0) === 0),
+                      color: "border-rose-500/40 bg-rose-500/8 text-rose-500",
+                    },
+                  ];
+
+                  const earnedCount = badges.filter(b => b.earned).length;
+
+                  return (
+                    <Card className="border-border bg-card">
+                      <CardContent className="px-4 py-4">
+                        <div className="flex items-center justify-between gap-2 mb-4">
+                          <div className="flex items-center gap-2">
+                            <Gift className="w-4 h-4 text-primary shrink-0" />
+                            <p className="text-xs font-bold">جدار الإنجازات الشهرية</p>
+                          </div>
+                          <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
+                            earnedCount >= 4 ? "bg-amber-500/15 text-amber-600 dark:text-amber-400" :
+                            earnedCount >= 2 ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" :
+                            "bg-muted/40 text-muted-foreground"
+                          }`}>
+                            {earnedCount} / {badges.length} شارة محققة
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {badges.map(badge => (
+                            <div key={badge.title} className={`relative rounded-xl border p-3 text-center transition-all ${
+                              badge.earned
+                                ? `${badge.color} shadow-sm`
+                                : "border-border/30 bg-muted/5 opacity-35 grayscale"
+                            }`}>
+                              {badge.earned && (
+                                <div className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-current animate-pulse opacity-60" />
+                              )}
+                              <div className="text-2xl mb-1.5">{badge.icon}</div>
+                              <p className="text-[10px] font-black leading-tight">{badge.title}</p>
+                              <p className="text-[9px] text-muted-foreground mt-0.5 leading-relaxed">{badge.desc}</p>
+                              {badge.earned && (
+                                <div className="mt-1.5 text-[8px] font-bold opacity-70">✓ محققة</div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        {earnedCount === 0 && (
+                          <p className="text-center text-[10px] text-muted-foreground mt-3">
+                            لا توجد شارات محققة بعد — أدخل القيم الفعلية للمؤشرات لتفعيل نظام الشارات.
+                          </p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })()}
+
               </>
             );
           })()}
