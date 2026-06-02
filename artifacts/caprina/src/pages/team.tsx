@@ -1863,6 +1863,117 @@ function MyDashboardTab({ profileId, monthlySalary }: {
   );
 }
 
+// ─── ManagerKpiComment ───────────────────────────────────────────────────────
+function ManagerKpiComment({ profileId, reportMonth }: { profileId: number; reportMonth: string }) {
+  const STORAGE_KEY = `kpi_comment_${profileId}_${reportMonth}`;
+  const [comment, setComment] = useState(() => {
+    try { return localStorage.getItem(STORAGE_KEY) ?? ""; } catch { return ""; }
+  });
+  const [saved, setSaved] = useState(false);
+
+  const handleSave = () => {
+    try { localStorage.setItem(STORAGE_KEY, comment); } catch { /* ignore */ }
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  return (
+    <div className="space-y-2">
+      <Textarea
+        value={comment}
+        onChange={e => { setComment(e.target.value); setSaved(false); }}
+        placeholder="أكتب ملاحظتك على أداء الموظف هذا الشهر — ستظهر في التقرير المطبوع..."
+        className="text-xs min-h-[80px] resize-none"
+        dir="rtl"
+      />
+      <div className="flex justify-end">
+        <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5" onClick={handleSave}>
+          {saved ? <><CheckCircle2 className="w-3 h-3 text-emerald-500" />تم الحفظ</> : <><Save className="w-3 h-3" />حفظ الملاحظة</>}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ─── MonthlyTrend ─────────────────────────────────────────────────────────────
+function MonthlyTrend({ profileId, currentMonth, kpis }: { profileId: number; currentMonth: string; kpis: EmployeeKpi[] }) {
+  // احسب آخر 3 أشهر
+  const months = (() => {
+    const [y, m] = currentMonth.split("-").map(Number);
+    return [-2, -1, 0].map(offset => {
+      const d = new Date(y, m - 1 + offset, 1);
+      const my = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      return `${my}-${mm}`;
+    });
+  })();
+
+  const { data: r0 } = useQuery({ queryKey: ["employee-report", profileId, months[0]], queryFn: () => employeeApi.getReport(profileId, months[0]) });
+  const { data: r1 } = useQuery({ queryKey: ["employee-report", profileId, months[1]], queryFn: () => employeeApi.getReport(profileId, months[1]) });
+  const { data: r2 } = useQuery({ queryKey: ["employee-report", profileId, months[2]], queryFn: () => employeeApi.getReport(profileId, months[2]) });
+
+  const reports = [r0, r1, r2];
+
+  const trendData = months.map((mo, i) => {
+    const rep = reports[i];
+    const label = new Date(parseInt(mo.split("-")[0]), parseInt(mo.split("-")[1]) - 1, 1)
+      .toLocaleDateString("ar-EG", { month: "short" });
+    return {
+      month: label,
+      score: rep?.overallScore ?? null,
+      delivered: rep?.orderStats?.delivered ?? 0,
+      returned: rep?.orderStats?.returned ?? 0,
+      total: rep?.orderStats?.total ?? 0,
+      isCurrentMonth: mo === currentMonth,
+    };
+  });
+
+  if (trendData.every(d => d.score === null)) {
+    return <p className="text-center text-xs text-muted-foreground py-4">لا توجد بيانات كافية لعرض الاتجاه الشهري.</p>;
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-3 gap-2">
+        {trendData.map((d, i) => (
+          <div key={i} className={`rounded-xl border p-3 text-center transition-all ${
+            d.isCurrentMonth ? "border-primary/40 bg-primary/5" : "border-border bg-muted/5"
+          }`}>
+            <p className="text-[9px] text-muted-foreground mb-1">{d.month}</p>
+            {d.score !== null ? (
+              <>
+                <p className={`text-lg font-black ${
+                  d.score >= 80 ? "text-emerald-500" : d.score >= 60 ? "text-amber-500" : "text-red-500"
+                }`}>{d.score}%</p>
+                <div className="w-full h-1.5 rounded-full bg-muted/40 mt-1.5 overflow-hidden">
+                  <div className="h-full rounded-full transition-all" style={{
+                    width: `${d.score}%`,
+                    background: d.score >= 80 ? "#10B981" : d.score >= 60 ? "#c9a227" : "#EF4444"
+                  }} />
+                </div>
+                <p className="text-[8px] text-muted-foreground mt-1">{d.delivered} تسليم / {d.returned} مرتجع</p>
+              </>
+            ) : (
+              <p className="text-xs text-muted-foreground">—</p>
+            )}
+            {d.isCurrentMonth && <p className="text-[8px] text-primary font-bold mt-1">الشهر الحالي</p>}
+          </div>
+        ))}
+      </div>
+      {/* سهم الاتجاه */}
+      {trendData[1].score !== null && trendData[2].score !== null && (() => {
+        const diff = trendData[2].score! - trendData[1].score!;
+        return (
+          <div className={`flex items-center gap-1.5 justify-center text-xs font-bold ${diff >= 0 ? "text-emerald-500" : "text-red-500"}`}>
+            {diff >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+            {diff >= 0 ? "+" : ""}{diff}% مقارنة بالشهر الماضي
+          </div>
+        );
+      })()}
+    </div>
+  );
+}
+
 // ─── MyOrdersTab ─────────────────────────────────────────────────────────────
 function MyOrdersTab({
   profileId, displayName, reportMonth, onMonthChange, kpis,
