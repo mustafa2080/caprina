@@ -1637,9 +1637,14 @@ function EmployeeDetail({
 
         {/* ─── KPIs Tab ─── */}
         {canPerformance && (
-        <TabsContent value="kpis" className="space-y-3 mt-3">
+        <TabsContent value="kpis" className="space-y-4 mt-3">
+
+          {/* ── Header ── */}
           <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground">حدد المؤشرات التي سيُقيَّم عليها هذا الموظف</p>
+            <div>
+              <p className="text-sm font-bold">لوحة مؤشرات الأداء</p>
+              <p className="text-[10px] text-muted-foreground">نظرة شاملة على أداء الموظف ومؤشراته الشهرية</p>
+            </div>
             {isAdmin && (
               <Button size="sm" className="h-7 text-xs gap-1" onClick={() => { setEditingKpi(undefined); setKpiDialogOpen(true); }}>
                 <Plus className="w-3 h-3" />إضافة مؤشر
@@ -1647,132 +1652,299 @@ function EmployeeDetail({
             )}
           </div>
 
-          {/* ملخص نسب KPI من الراتب */}
-          {kpis.filter(k => k.isActive && (k as any).salaryWeight > 0).length > 0 && (
-            <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-3 space-y-2">
-              <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
-                <DollarSign className="w-3 h-3" />
-                توزيع الراتب على المؤشرات
-              </p>
-              <div className="space-y-1.5">
-                {kpis.filter(k => k.isActive && (k as any).salaryWeight > 0).map(kpi => {
-                  const sw = (kpi as any).salaryWeight ?? 0;
-                  const ob = (kpi as any).overtargetBonus ?? 0;
-                  const salary = fullProfile?.monthlySalary ?? 0;
-                  const kpiAmt = Math.round((sw / 100) * salary);
-                  const bonusAmt = Math.round((ob / 100) * salary);
-                  return (
-                    <div key={kpi.id} className="flex items-center gap-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-1 mb-0.5">
-                          <span className="text-[10px] font-bold truncate">{kpi.name}</span>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <span className="text-[9px] font-bold text-amber-600 dark:text-amber-400">{sw}%</span>
-                            {kpiAmt > 0 && <span className="text-[9px] text-muted-foreground">= {fmt(kpiAmt)}</span>}
-                            {ob > 0 && <span className="text-[9px] text-emerald-500">+{ob}% OT</span>}
-                          </div>
-                        </div>
-                        <div className="w-full h-1 rounded-full bg-muted/50">
-                          <div className="h-1 rounded-full bg-amber-500/60" style={{ width: `${Math.min(100, sw)}%` }} />
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-                {/* إجمالي النسب */}
-                {(() => {
-                  const totalSW = kpis.filter(k => k.isActive).reduce((s, k) => s + ((k as any).salaryWeight ?? 0), 0);
-                  const salary = fullProfile?.monthlySalary ?? 0;
-                  return (
-                    <div className="flex justify-between items-center pt-1 border-t border-amber-500/20">
-                      <span className="text-[9px] text-muted-foreground font-bold">إجمالي نسبة KPI من الراتب</span>
-                      <span className={`text-[10px] font-black ${totalSW > 100 ? "text-red-500" : totalSW > 50 ? "text-amber-500" : "text-emerald-500"}`}>
-                        {totalSW}% {salary > 0 ? `= ${fmt(Math.round((totalSW / 100) * salary))}` : ""}
-                      </span>
-                    </div>
-                  );
-                })()}
-              </div>
-            </div>
-          )}
-
           {kpisLoading && <p className="text-center text-muted-foreground text-xs py-6">جاري التحميل...</p>}
 
           {!kpisLoading && kpis.length === 0 && (
-            <div className="text-center py-10 text-muted-foreground border border-dashed border-border rounded-lg">
-              <Target className="w-8 h-8 mx-auto mb-2 opacity-20" />
-              <p className="text-sm">لا توجد مؤشرات أداء بعد.</p>
-              {isAdmin && <p className="text-xs mt-1">أضف مؤشرات لتتبع أداء هذا الموظف.</p>}
+            <div className="text-center py-10 text-muted-foreground border border-dashed border-border rounded-xl">
+              <Target className="w-10 h-10 mx-auto mb-3 opacity-20" />
+              <p className="text-sm font-bold">لا توجد مؤشرات أداء بعد</p>
+              {isAdmin && <p className="text-xs mt-1 text-muted-foreground/70">أضف مؤشرات لتتبع وتقييم أداء هذا الموظف</p>}
             </div>
           )}
 
-          <div className="space-y-2">
-            {kpis.map(kpi => {
-              const salaryW = (kpi as any).salaryWeight ?? 0;
-              const otBonus = (kpi as any).overtargetBonus ?? 0;
-              const salary = fullProfile?.monthlySalary ?? 0;
-              const kpiAmt = salary > 0 ? Math.round((salaryW / 100) * salary) : 0;
-              const bonusAmt = salary > 0 ? Math.round((otBonus / 100) * salary) : 0;
+          {!kpisLoading && kpis.length > 0 && (() => {
+            const salary = fullProfile?.monthlySalary ?? 0;
+            const activeKpis = kpis.filter(k => k.isActive);
+            const totalSW = activeKpis.reduce((s, k) => s + ((k as any).salaryWeight ?? 0), 0);
+            const totalOT = activeKpis.reduce((s, k) => s + ((k as any).overtargetBonus ?? 0), 0);
+            const totalDeduction = salary > 0 ? Math.round((totalSW / 100) * salary) : 0;
+            const totalBonus = salary > 0 ? Math.round((totalOT / 100) * salary) : 0;
 
-              return (
-                <Card key={kpi.id} className={`border-border bg-card ${!kpi.isActive ? "opacity-50" : ""}`}>
-                  <CardContent className="px-4 py-3">
-                    <div className="flex items-start gap-3">
-                      <Target className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-xs font-bold">{kpi.name}</p>
-                          {!kpi.isActive && <Badge variant="outline" className="text-[9px] h-4">معطل</Badge>}
-                          {salaryW > 0 && (
-                            <Badge variant="outline" className="text-[9px] h-4 border-amber-500/40 text-amber-600 dark:text-amber-400">
-                              💰 {salaryW}% راتب
-                            </Badge>
-                          )}
-                          {otBonus > 0 && (
-                            <Badge variant="outline" className="text-[9px] h-4 border-emerald-500/40 text-emerald-600 dark:text-emerald-400">
-                              🏆 +{otBonus}% OT
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">
-                          الهدف: {kpi.direction === "lower_is_better" ? "≤" : "≥"}{fmtNum(kpi.targetValue)} {kpi.unit}
-                          {" · "}الوزن: {kpi.weight}%
-                          {" · "}{kpi.direction === "higher_is_better" ? "↑ الأعلى أفضل" : "↓ الأدنى أفضل"}
-                        </p>
-                        {(salaryW > 0 || otBonus > 0) && salary > 0 && (
-                          <div className="flex gap-3 mt-1.5">
-                            {salaryW > 0 && (
-                              <span className="text-[9px] text-red-500 bg-red-500/10 rounded px-1.5 py-0.5">
-                                قصور: −{fmt(kpiAmt)}
-                              </span>
-                            )}
-                            {otBonus > 0 && (
-                              <span className="text-[9px] text-emerald-500 bg-emerald-500/10 rounded px-1.5 py-0.5">
-                                Over Target: +{fmt(bonusAmt)}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                        {kpi.description && <p className="text-[10px] text-muted-foreground/60 mt-0.5">{kpi.description}</p>}
+            // بيانات الـ Radar chart
+            const radarData = activeKpis.map(k => ({
+              subject: k.name.length > 7 ? k.name.slice(0, 7) + "…" : k.name,
+              value: (k as any).salaryWeight ?? 0,
+              fullName: k.name,
+            }));
+
+            // بيانات bar chart للتوزيع المالي
+            const barData = activeKpis
+              .filter(k => ((k as any).salaryWeight ?? 0) > 0)
+              .map(k => ({
+                name: k.name.length > 9 ? k.name.slice(0, 9) + "…" : k.name,
+                خصم: salary > 0 ? Math.round(((k as any).salaryWeight / 100) * salary) : (k as any).salaryWeight,
+                مكافأة: salary > 0 ? Math.round((((k as any).overtargetBonus ?? 0) / 100) * salary) : ((k as any).overtargetBonus ?? 0),
+              }));
+
+            return (
+              <>
+                {/* ── Summary Cards Row ── */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {/* عدد المؤشرات */}
+                  <Card className="relative overflow-hidden border-primary/20 bg-primary/5 shadow-[0_0_14px_rgba(99,102,241,0.12)]">
+                    <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />
+                    <CardContent className="relative px-3 py-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <Target className="w-4 h-4 text-primary" />
+                        <span className="text-[9px] font-bold text-primary/70 bg-primary/10 rounded-full px-1.5 py-0.5">مؤشر</span>
                       </div>
-                      {isAdmin && (
-                        <div className="flex items-center gap-1 shrink-0">
-                          <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-primary"
-                            onClick={() => { setEditingKpi(kpi); setKpiDialogOpen(true); }}>
-                            <Edit2 className="w-3 h-3" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                            onClick={() => deleteKpi(kpi.id)}>
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
+                      <p className="text-xl font-black text-primary">{activeKpis.length}</p>
+                      <p className="text-[9px] text-muted-foreground">مؤشر نشط</p>
+                    </CardContent>
+                  </Card>
+                  {/* إجمالي نسبة KPI */}
+                  <Card className="relative overflow-hidden border-amber-500/25 bg-amber-500/5 shadow-[0_0_14px_rgba(245,158,11,0.12)]">
+                    <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-transparent pointer-events-none" />
+                    <CardContent className="relative px-3 py-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <DollarSign className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                        <span className={`text-[9px] font-bold rounded-full px-1.5 py-0.5 ${totalSW > 100 ? "bg-red-500/15 text-red-500" : "bg-amber-500/15 text-amber-600"}`}>{totalSW > 100 ? "تجاوز" : "KPI"}</span>
+                      </div>
+                      <p className={`text-xl font-black ${totalSW > 100 ? "text-red-500" : "text-amber-600 dark:text-amber-400"}`}>{totalSW}%</p>
+                      <p className="text-[9px] text-muted-foreground">{salary > 0 ? `= ${fmt(totalDeduction)}` : "من الراتب"}</p>
+                    </CardContent>
+                  </Card>
+                  {/* الراتب الأساسي */}
+                  <Card className="relative overflow-hidden border-emerald-200/60 dark:border-emerald-800/40 bg-emerald-50 dark:bg-emerald-900/15 shadow-[0_0_14px_rgba(16,185,129,0.1)]">
+                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent pointer-events-none" />
+                    <CardContent className="relative px-3 py-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <Briefcase className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                        <span className="text-[9px] font-bold text-emerald-600 bg-emerald-500/10 rounded-full px-1.5 py-0.5">راتب</span>
+                      </div>
+                      <p className="text-xl font-black text-emerald-600 dark:text-emerald-400">{salary > 0 ? fmt(salary) : "—"}</p>
+                      <p className="text-[9px] text-muted-foreground">الراتب الأساسي</p>
+                    </CardContent>
+                  </Card>
+                  {/* مكافأة Over Target */}
+                  <Card className="relative overflow-hidden border-blue-200/60 dark:border-blue-800/40 bg-blue-50 dark:bg-blue-900/15 shadow-[0_0_14px_rgba(59,130,246,0.1)]">
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent pointer-events-none" />
+                    <CardContent className="relative px-3 py-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <Trophy className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                        <span className="text-[9px] font-bold text-blue-600 bg-blue-500/10 rounded-full px-1.5 py-0.5">OT</span>
+                      </div>
+                      <p className="text-xl font-black text-blue-600 dark:text-blue-400">{totalOT > 0 ? `+${totalOT}%` : "—"}</p>
+                      <p className="text-[9px] text-muted-foreground">{totalBonus > 0 ? `= ${fmt(totalBonus)}` : "مكافأة Over Target"}</p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* ── Charts Row ── */}
+                {(radarData.length >= 3 || barData.length > 0) && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Radar — توزيع المؤشرات */}
+                    {radarData.length >= 3 && (
+                      <Card className="border-border bg-card">
+                        <CardHeader className="pb-1 pt-3 px-4">
+                          <CardTitle className="text-xs flex items-center gap-1.5 text-muted-foreground">
+                            <BarChart2 className="w-3.5 h-3.5" />تطور الكفاءات الأساسية
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="px-2 pb-3">
+                          <ResponsiveContainer width="100%" height={180}>
+                            <RadarChart data={radarData}>
+                              <PolarGrid stroke="hsl(var(--border))" />
+                              <PolarAngleAxis dataKey="subject" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
+                              <Radar name="الوزن" dataKey="value" stroke="#c9a227" fill="#c9a227" fillOpacity={0.28} strokeWidth={2} />
+                            </RadarChart>
+                          </ResponsiveContainer>
+                        </CardContent>
+                      </Card>
+                    )}
+                    {/* Bar — التوزيع المالي */}
+                    {barData.length > 0 && salary > 0 && (
+                      <Card className="border-border bg-card">
+                        <CardHeader className="pb-1 pt-3 px-4">
+                          <CardTitle className="text-xs flex items-center gap-1.5 text-muted-foreground">
+                            <DollarSign className="w-3.5 h-3.5" />مؤشرات الأداء التشغيلي
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="px-2 pb-3">
+                          <ResponsiveContainer width="100%" height={180}>
+                            <BarChart data={barData} margin={{ top: 5, right: 5, bottom: 5, left: -10 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                              <XAxis dataKey="name" tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} />
+                              <YAxis tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} />
+                              <Tooltip
+                                formatter={(v: any, n: string) => [fmt(v), n]}
+                                contentStyle={{ fontSize: 10, background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, direction: "rtl" }}
+                              />
+                              <Bar dataKey="خصم" fill="#EF4444" radius={[4, 4, 0, 0]} maxBarSize={20} />
+                              <Bar dataKey="مكافأة" fill="#10B981" radius={[4, 4, 0, 0]} maxBarSize={20} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
+                )}
+
+                {/* ── التقدم نحو الأهداف — إجمالي توزيع الراتب ── */}
+                {totalSW > 0 && salary > 0 && (
+                  <Card className="border-border bg-card">
+                    <CardHeader className="pb-2 pt-3 px-4">
+                      <CardTitle className="text-xs flex items-center gap-1.5 text-muted-foreground">
+                        <TrendingUp className="w-3.5 h-3.5" />التقدم نحو الأهداف السنوية
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-4 pb-3 space-y-3">
+                      {/* Progress ring summary */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="flex flex-col items-center justify-center rounded-xl bg-muted/20 border border-border py-3 gap-1">
+                          <div className="relative w-16 h-16">
+                            <svg viewBox="0 0 64 64" className="w-full h-full -rotate-90">
+                              <circle cx="32" cy="32" r="26" fill="none" stroke="hsl(var(--muted))" strokeWidth="6" />
+                              <circle cx="32" cy="32" r="26" fill="none" stroke="#c9a227" strokeWidth="6"
+                                strokeDasharray={`${Math.min(100, totalSW) * 1.634} 163.4`}
+                                strokeLinecap="round" />
+                            </svg>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <span className="text-xs font-black">{totalSW}%</span>
+                            </div>
+                          </div>
+                          <p className="text-[9px] text-muted-foreground text-center">إجمالي KPI<br />من الراتب</p>
                         </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+                        <div className="flex flex-col justify-center gap-2">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-emerald-500" />بدون خصم</span>
+                            <span className="font-bold text-emerald-600 dark:text-emerald-400">{fmt(salary)}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground flex items-center gap-1"><XCircle className="w-3 h-3 text-red-500" />عند قصور كامل</span>
+                            <span className="font-bold text-red-500">{fmt(salary - totalDeduction)}</span>
+                          </div>
+                          {totalBonus > 0 && (
+                            <div className="flex items-center justify-between text-[10px]">
+                              <span className="text-muted-foreground flex items-center gap-1"><Trophy className="w-3 h-3 text-blue-500" />مع Over Target</span>
+                              <span className="font-bold text-blue-600 dark:text-blue-400">{fmt(salary + totalBonus)}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {/* Progress bar لكل مؤشر */}
+                      <div className="space-y-2 pt-1 border-t border-border/30">
+                        {activeKpis.filter(k => ((k as any).salaryWeight ?? 0) > 0).map(kpi => {
+                          const sw = (kpi as any).salaryWeight ?? 0;
+                          const ob = (kpi as any).overtargetBonus ?? 0;
+                          const kpiAmt = Math.round((sw / 100) * salary);
+                          return (
+                            <div key={kpi.id} className="space-y-0.5">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold truncate max-w-[55%]">{kpi.name}</span>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[9px] font-bold text-amber-600 dark:text-amber-400">{sw}%</span>
+                                  <span className="text-[9px] text-muted-foreground">= {fmt(kpiAmt)}</span>
+                                  {ob > 0 && <span className="text-[9px] text-emerald-500 font-bold">+{ob}%</span>}
+                                </div>
+                              </div>
+                              <div className="w-full h-1.5 rounded-full bg-muted/40 overflow-hidden">
+                                <div className="h-full rounded-full bg-gradient-to-r from-amber-500 to-amber-400 transition-all duration-500"
+                                  style={{ width: `${Math.min(100, sw)}%` }} />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* ── KPI Cards (تقييم الأداء التشغيلي) ── */}
+                <div>
+                  <h3 className="text-xs font-bold text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <Settings className="w-3.5 h-3.5" />مؤشرات الأداء التفصيلية
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {kpis.map((kpi, idx) => {
+                      const salaryW = (kpi as any).salaryWeight ?? 0;
+                      const otBonus = (kpi as any).overtargetBonus ?? 0;
+                      const kpiAmt = salary > 0 && salaryW > 0 ? Math.round((salaryW / 100) * salary) : 0;
+                      const bonusAmt = salary > 0 && otBonus > 0 ? Math.round((otBonus / 100) * salary) : 0;
+                      const cardNum = idx + 1;
+                      return (
+                        <Card key={kpi.id} className={`relative overflow-hidden border-border bg-card transition-all duration-200 ${!kpi.isActive ? "opacity-50" : "hover:shadow-md"}`}>
+                          <div className="absolute top-0 left-0 w-1 h-full rounded-r-none bg-gradient-to-b from-primary/60 to-primary/20" />
+                          <CardContent className="px-4 py-3 pr-5">
+                            {/* Header row */}
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="text-[9px] font-black text-primary/60 bg-primary/8 rounded-full w-5 h-5 flex items-center justify-center shrink-0">{cardNum}</span>
+                                <p className="text-xs font-bold leading-tight">{kpi.name}</p>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                {!kpi.isActive && <Badge variant="outline" className="text-[8px] h-4 px-1">معطل</Badge>}
+                                {isAdmin && (
+                                  <>
+                                    <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:text-primary"
+                                      onClick={() => { setEditingKpi(kpi); setKpiDialogOpen(true); }}>
+                                      <Edit2 className="w-2.5 h-2.5" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:text-destructive"
+                                      onClick={() => deleteKpi(kpi.id)}>
+                                      <Trash2 className="w-2.5 h-2.5" />
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                            {/* Info row */}
+                            <p className="text-[9px] text-muted-foreground mb-2">
+                              الهدف: <strong>{kpi.direction === "lower_is_better" ? "≤" : "≥"}{fmtNum(kpi.targetValue)} {kpi.unit}</strong>
+                              {" · "}الوزن: {kpi.weight}%
+                              {" · "}{kpi.direction === "higher_is_better" ? "↑ أعلى أفضل" : "↓ أدنى أفضل"}
+                            </p>
+                            {/* Badges */}
+                            <div className="flex flex-wrap gap-1 mb-2">
+                              {salaryW > 0 && (
+                                <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 rounded-full px-2 py-0.5">
+                                  💰 {salaryW}% راتب {kpiAmt > 0 && `= ${fmt(kpiAmt)}`}
+                                </span>
+                              )}
+                              {otBonus > 0 && (
+                                <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded-full px-2 py-0.5">
+                                  🏆 +{otBonus}% OT {bonusAmt > 0 && `= +${fmt(bonusAmt)}`}
+                                </span>
+                              )}
+                              {salaryW === 0 && otBonus === 0 && (
+                                <span className="inline-flex items-center text-[9px] text-muted-foreground/60 italic">لا تأثير مالي</span>
+                              )}
+                            </div>
+                            {/* Deduction/bonus row */}
+                            {salary > 0 && (salaryW > 0 || otBonus > 0) && (
+                              <div className="flex gap-1.5 flex-wrap">
+                                {salaryW > 0 && (
+                                  <span className="text-[9px] bg-red-500/10 text-red-500 border border-red-500/15 rounded px-1.5 py-0.5 font-bold">
+                                    قصور → −{fmt(kpiAmt)}
+                                  </span>
+                                )}
+                                {otBonus > 0 && (
+                                  <span className="text-[9px] bg-emerald-500/10 text-emerald-500 border border-emerald-500/15 rounded px-1.5 py-0.5 font-bold">
+                                    Over Target → +{fmt(bonusAmt)}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            {kpi.description && <p className="text-[9px] text-muted-foreground/60 mt-1.5 italic">{kpi.description}</p>}
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
         </TabsContent>
         )}
 
