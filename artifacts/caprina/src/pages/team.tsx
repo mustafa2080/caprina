@@ -1694,6 +1694,13 @@ function EmployeeDetail({
   };
 
   const ratingCfg = RATING_CONFIG[report?.rating ?? "غير محدد"] ?? RATING_CONFIG["غير محدد"];
+  const periodLabel = report?.period.month
+    ? new Date(
+        parseInt(report.period.month.split("-")[0]),
+        parseInt(report.period.month.split("-")[1]) - 1,
+        1
+      ).toLocaleDateString("ar-EG", { month: "long", year: "numeric" })
+    : "—";
 
   // ── حساب تأثير KPI على الراتب ─────────────────────────────────────────────
   const baseSalary = report?.salary ?? 0;
