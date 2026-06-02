@@ -444,7 +444,7 @@ export default function Layout({ children }: LayoutProps) {
                 {/* User avatar */}
                 <button type="button" onClick={(e) => {
                   const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                  setUserMenuPos({top: Math.min(rect.bottom + 8, window.innerHeight - 144), left: Math.max(8, rect.left - 60), width: 180});
+                  setUserMenuPos({ top: rect.bottom + 8, left: rect.right + 8, width: 220 });
                   setUserMenuOpen(v => !v);
                 }} title={user?.displayName}
                   className="relative w-10 h-10 rounded-full flex items-center justify-center hover:ring-2 hover:ring-primary/40 transition-all mt-1">
@@ -501,11 +501,10 @@ export default function Layout({ children }: LayoutProps) {
                 <button type="button" onClick={() => {
                   if (userCardRef.current) {
                     const rect = userCardRef.current.getBoundingClientRect();
-                    const menuWidth = Math.max(160, Math.min(220, rect.width - 24));
                     setUserMenuPos({
-                      top: Math.min(rect.bottom + 8, window.innerHeight - 144),
-                      left: Math.max(8, Math.min(rect.left + 12, window.innerWidth - menuWidth - 8)),
-                      width: menuWidth,
+                      top: rect.bottom + 4,
+                      left: rect.left,
+                      width: rect.width,
                     });
                   }
                   setUserMenuOpen(v => !v);
@@ -660,7 +659,11 @@ export default function Layout({ children }: LayoutProps) {
                   <p className="text-xs font-bold text-sidebar-foreground truncate">{user?.displayName}</p>
                   <p className="text-[10px] text-sidebar-foreground/40">{getRoleLabel(user)}</p>
                 </div>
-                <button type="button" className="relative shrink-0 cursor-pointer hover:ring-2 hover:ring-primary/40 rounded-full transition-all" onClick={(e) => { const rect=(e.currentTarget as HTMLElement).getBoundingClientRect(); setUserMenuPos({top:Math.min(rect.top-120,window.innerHeight-144),left:Math.max(8,rect.left-60),width:180}); setUserMenuOpen(v=>!v); }} title={user?.displayName}>
+                <button type="button" className="relative shrink-0 cursor-pointer hover:ring-2 hover:ring-primary/40 rounded-full transition-all" onClick={(e) => {
+                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                  setUserMenuPos({ top: rect.top - 180, left: Math.max(8, rect.left - 80), width: 220 });
+                  setUserMenuOpen(v=>!v);
+                }} title={user?.displayName}>
                   {(user as any)?.avatar
                     ? <img src={(user as any).avatar} className="w-8 h-8 rounded-full object-cover border-2 border-primary/30" alt={user?.displayName} />
                     : <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
@@ -738,10 +741,11 @@ export default function Layout({ children }: LayoutProps) {
                 onClick={() => {
                   if (userCardRef.current) {
                     const rect = userCardRef.current.getBoundingClientRect();
+                    const menuW = Math.min(220, window.innerWidth - 16);
                     setUserMenuPos({
-                      top: Math.min(rect.bottom + 8, window.innerHeight - 144),
-                      left: Math.max(8, Math.min(rect.left - 80, window.innerWidth - 188)),
-                      width: 180,
+                      top: rect.bottom + 8,
+                      left: Math.max(8, window.innerWidth - menuW - 8),
+                      width: menuW,
                     });
                   }
                   setUserMenuOpen(v => !v);
@@ -1029,6 +1033,7 @@ export default function Layout({ children }: LayoutProps) {
             top: userMenuPos.top,
             left: userMenuPos.left,
             width: userMenuPos.width,
+            minWidth: "200px",
             maxHeight: "calc(100vh - 16px)",
             overflowY: "auto",
             zIndex: 9999,
