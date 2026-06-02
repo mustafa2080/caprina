@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, gte, lte, desc, isNotNull, isNull, like } from "drizzle-orm";
+import { eq, and, or, gte, lte, desc, isNotNull, isNull, like } from "drizzle-orm";
 import {
   db,
   usersTable,
@@ -587,17 +587,26 @@ router.get("/employee-orders/:profileId", async (req, res): Promise<void> => {
   }
 
   // جلب طلبات الموظف (اللي كريتها أو المعيّنة عليه)
-  const orders = await db
+  const tenantId = getTenantId(req);
+  const allOrders = await db
     .select()
     .from(ordersTable)
     .where(
       and(
-        eq(ordersTable.createdByUserId, userId),
+        or(
+          eq(ordersTable.createdByUserId, userId),
+          eq(ordersTable.assignedUserId, userId)
+        ),
         gte(ordersTable.createdAt, dateFrom),
         lte(ordersTable.createdAt, dateTo)
       )
     )
     .orderBy(desc(ordersTable.createdAt));
+
+  // فلترة tenant في JS (نفس أسلوب باقي الـ routes)
+  const orders = tenantId !== null
+    ? allOrders.filter(o => o.tenantId === tenantId)
+    : allOrders.filter(o => o.tenantId === null);
 
   // حساب الإحصائيات
   const delivered  = orders.filter(o => o.status === "received" || o.status === "partial_received");
