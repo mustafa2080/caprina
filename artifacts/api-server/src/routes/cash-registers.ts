@@ -163,14 +163,14 @@ cashRegistersRouter.get("/alerts", async (req, res) => {
 // ─── POST transaction ─────────────────────────────────────────────────────────
 cashRegistersRouter.post("/:id/transaction", async (req, res) => {
   try {
-    const registerId=parseInt(req.params.id); const{type,amount,description,referenceNumber,transactionDate}=req.body as any; const amt=parseFloat(amount); const now=new Date();
+    const registerId=parseInt(req.params.id); const{type,amount,description,referenceNumber,transactionDate,orderId}=req.body as any; const amt=parseFloat(amount); const now=new Date();
     const[register]=await db.select().from(cashRegistersTable).where(eq(cashRegistersTable.id,registerId));
     if(!register)return res.status(404).json({error:"الخزنة مش موجودة"});
     const balanceBefore=parseFloat(register.balance??"0"); const DEBIT=["withdrawal","expense_paid","purchase_paid","transfer_out"]; const isDebit=DEBIT.includes(type);
     const balanceAfter=isDebit?balanceBefore-amt:balanceBefore+amt;
     if(isDebit&&balanceAfter<0)return res.status(400).json({error:`الرصيد مش كفاية — المتاح: ${balanceBefore.toLocaleString("ar-EG")} ج.م`});
     await db.update(cashRegistersTable).set({balance:String(balanceAfter),updatedAt:now}).where(eq(cashRegistersTable.id,registerId));
-    await db.insert(cashTransactionsTable).values({registerId,type,amount:String(amt),balanceBefore:String(balanceBefore),balanceAfter:String(balanceAfter),description,referenceNumber,transactionDate:transactionDate?new Date(transactionDate):now,createdByUserId:req.body.userId??null,createdByName:req.body.userName??null,createdAt:now});
+    await db.insert(cashTransactionsTable).values({registerId,type,amount:String(amt),balanceBefore:String(balanceBefore),balanceAfter:String(balanceAfter),description,referenceNumber,orderId:orderId?Number(orderId):null,transactionDate:transactionDate?new Date(transactionDate):now,createdByUserId:req.body.userId??null,createdByName:req.body.userName??null,createdAt:now});
     res.json({success:true,newBalance:balanceAfter});
   } catch(err){res.status(500).json({error:"فشل تسجيل الحركة"});}
 });

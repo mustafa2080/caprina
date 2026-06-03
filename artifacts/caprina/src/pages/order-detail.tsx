@@ -1986,6 +1986,7 @@ export default function OrderDetail() {
           description: `إغلاق طلب #${order.invoiceNumber ?? id} — ${order.customerName ?? ""}`,
           referenceNumber: order.invoiceNumber ?? String(id),
           transactionDate: new Date().toISOString(),
+          orderId: order.id,
         }),
       });
       invalidateAll();
