@@ -267,9 +267,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!tkn) return;
     const updated = await fetchMe(tkn);
     if (updated) {
-      const fresh = normalizeUser(updated);
-      localStorage.setItem(USER_KEY, JSON.stringify(fresh));
-      setUser({ ...fresh });
+      // نفس منطق الـ polling — نحدّث الـ state بس لو في تغيير فعلي
+      setUser((prev) => {
+        if (!prev) return normalizeUser(updated);
+        const roleChanged    = prev.role !== updated.role;
+        const activeChanged  = prev.isActive !== updated.isActive;
+        const planChanged    = prev.planStatus !== updated.planStatus;
+        const permsChanged   = permissionsChanged(prev.permissions, updated.permissions);
+        const profileLinkChanged = (prev as any).showProfileLink !== (updated as any).showProfileLink;
+        if (!roleChanged && !activeChanged && !planChanged && !permsChanged && !profileLinkChanged) return prev;
+        const fresh = normalizeUser(updated);
+        localStorage.setItem(USER_KEY, JSON.stringify(fresh));
+        return { ...fresh };
+      });
     }
   }, [fetchMe]);
 
