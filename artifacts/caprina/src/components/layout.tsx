@@ -444,9 +444,7 @@ export default function Layout({ children }: LayoutProps) {
                 {/* User avatar */}
                 <button type="button" onClick={(e) => {
                   e.stopPropagation();
-                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                  setUserMenuPos({ top: rect.bottom + 8, left: rect.right + 8, width: 220 });
-                  setUserMenuOpen(v => !v);
+                  navigate("/profile");
                 }} title={user?.displayName}
                   className="relative w-10 h-10 rounded-full flex items-center justify-center hover:ring-2 hover:ring-primary/40 transition-all mt-1">
                   {(user as any)?.avatar
@@ -738,16 +736,7 @@ export default function Layout({ children }: LayoutProps) {
                 className="relative cursor-pointer"
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (userCardRef.current) {
-                    const rect = userCardRef.current.getBoundingClientRect();
-                    const menuW = Math.min(220, window.innerWidth - 16);
-                    setUserMenuPos({
-                      top: rect.bottom + 8,
-                      left: Math.max(8, window.innerWidth - menuW - 8),
-                      width: menuW,
-                    });
-                  }
-                  setUserMenuOpen(v => !v);
+                  navigate("/profile");
                 }}
               >
                 {(user as any)?.avatar
