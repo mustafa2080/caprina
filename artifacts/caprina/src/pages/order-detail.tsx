@@ -1856,10 +1856,14 @@ export default function OrderDetail() {
     const shippingCost = order.shippingCost ?? 0;
     const totalPrice = order.totalPrice ?? 0;
     const logoUrl = `${window.location.origin}/logo.jpg`;
+    // دالة تنسيق بأرقام إنجليزية
+    const fmtEN = (n: number) =>
+      new Intl.NumberFormat("en-US", { style: "currency", currency: "EGP", maximumFractionDigits: 0 })
+        .format(n).replace("EGP", "").trim() + " ج.م";
     const rowHtml = `
       <tr>
-        <td>${formatCurrency(totalPrice)}</td>
-        <td>${formatCurrency(order.unitPrice ?? 0)}</td>
+        <td>${fmtEN(totalPrice)}</td>
+        <td>${fmtEN(order.unitPrice ?? 0)}</td>
         <td>${order.quantity ?? 1}</td>
         <td>${[order.color, order.size].filter(Boolean).join(" / ") || "-"}</td>
         <td class="name">${order.product ?? "-"}</td>
@@ -1871,33 +1875,33 @@ export default function OrderDetail() {
 <html lang="ar" dir="rtl"><head><meta charset="UTF-8"/><title>فاتورة ${inv}</title>
 <style>
   *{box-sizing:border-box}
-  body{font-family:Tahoma,Arial,sans-serif;margin:0;padding:20px;color:#000;background:#fff;font-size:14px;font-weight:500;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body{font-family:Tahoma,Arial,sans-serif;margin:0;padding:20px;color:#000;background:#fff;font-size:15px;font-weight:500;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .sheet{max-width:860px;margin:0 auto;border:1px solid #ddd;padding:24px;border-radius:4px}
   /* Header: عنوان يسار، لوجو يمين */
   .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #000;padding-bottom:14px;margin-bottom:18px}
   .header-left{display:flex;flex-direction:column;gap:2px}
-  .inv-main-title{font-size:20px;font-weight:900;margin:0 0 2px}
-  .inv-count{font-size:12px;color:#555;font-weight:600}
+  .inv-main-title{font-size:22px;font-weight:900;margin:0 0 2px}
+  .inv-count{font-size:13px;color:#555;font-weight:600}
   .header-right{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
-  .brand-name{font-size:22px;font-weight:900;letter-spacing:2px}
-  .inv-sub{font-size:12px;font-weight:600;color:#333;text-align:left}
+  .brand-name{font-size:24px;font-weight:900;letter-spacing:2px}
+  .inv-sub{font-size:13px;font-weight:600;color:#333;text-align:left}
   .logo-wrap{display:flex;align-items:center;gap:8px}
   .logo-wrap img{height:64px;width:auto;object-fit:contain;border-radius:50%}
   .brand-fallback{font-size:22px;font-weight:900;display:none}
   /* Meta بيانات العميل */
   .meta{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;margin-bottom:18px;padding:10px 14px;border:1px solid #ccc;border-radius:4px}
-  .meta-item{font-size:13px;font-weight:600;display:flex;gap:6px}
+  .meta-item{font-size:14px;font-weight:600;display:flex;gap:6px}
   .meta-label{color:#555;min-width:60px}
   .meta-value{font-weight:800}
   /* Table */
   table{width:100%;border-collapse:collapse;margin-bottom:18px}
-  th{background:#1a1a1a;color:#fff;padding:9px 8px;font-size:13px;font-weight:700;border:1px solid #000;text-align:center}
-  td{border:1px solid #bbb;padding:8px;text-align:center;font-size:13px;font-weight:600}
-  td.name{font-weight:800}
+  th{background:#1a1a1a;color:#fff;padding:10px 8px;font-size:14px;font-weight:700;border:1px solid #000;text-align:center}
+  td{border:1px solid #bbb;padding:9px 8px;text-align:center;font-size:15px;font-weight:700}
+  td.name{font-weight:800;font-size:15px}
   /* Totals */
-  .totals{width:280px;margin-top:4px}
-  .totals-row{display:flex;justify-content:space-between;padding:7px 0;font-size:13px;font-weight:600;border-bottom:1px solid #e0e0e0}
-  .totals-row:last-child{border-bottom:none;font-size:16px;font-weight:900;padding-top:10px}
+  .totals{width:300px;margin-top:4px}
+  .totals-row{display:flex;justify-content:space-between;padding:8px 0;font-size:15px;font-weight:700;border-bottom:1px solid #e0e0e0}
+  .totals-row:last-child{border-bottom:none;font-size:18px;font-weight:900;padding-top:10px}
   @media print{body{padding:0}.sheet{border:none;max-width:none}}
 </style></head><body><div class="sheet">
   <div class="header">
@@ -1927,9 +1931,9 @@ export default function OrderDetail() {
     <tbody>${rowHtml}</tbody>
   </table>
   <div class="totals">
-    <div class="totals-row"><span>إجمالي المنتجات</span><span>${formatCurrency(totalPrice)}</span></div>
-    <div class="totals-row"><span>الشحن</span><span>${formatCurrency(shippingCost)}</span></div>
-    <div class="totals-row"><span>الإجمالي الكلي</span><span>${formatCurrency(totalPrice + shippingCost)}</span></div>
+    <div class="totals-row"><span>إجمالي المنتجات</span><span>${fmtEN(totalPrice)}</span></div>
+    <div class="totals-row"><span>الشحن</span><span>${fmtEN(shippingCost)}</span></div>
+    <div class="totals-row"><span>الإجمالي الكلي</span><span>${fmtEN(totalPrice + shippingCost)}</span></div>
   </div>
 </div></body></html>`);
     printWindow.document.close();
