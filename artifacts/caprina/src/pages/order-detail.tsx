@@ -1873,9 +1873,11 @@ export default function OrderDetail() {
     if (!printWindow) return;
     printWindow.document.write(`<!DOCTYPE html>
 <html lang="ar" dir="rtl"><head><meta charset="UTF-8"/><title>فاتورة ${inv}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;900&display=swap" rel="stylesheet">
 <style>
-  *{box-sizing:border-box}
-  body{font-family:Tahoma,Arial,sans-serif;margin:0;padding:20px;color:#000;background:#fff;font-size:15px;font-weight:500;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body{font-family:'Cairo',Tahoma,Arial,sans-serif;margin:0;padding:20px;color:#000;background:#fff;font-size:15px;font-weight:700}
   .sheet{max-width:860px;margin:0 auto;border:1px solid #ddd;padding:24px;border-radius:4px}
   /* Header: عنوان يسار، لوجو يمين */
   .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #000;padding-bottom:14px;margin-bottom:18px}
@@ -1896,8 +1898,8 @@ export default function OrderDetail() {
   /* Table */
   table{width:100%;border-collapse:collapse;margin-bottom:18px}
   th{background:#1a1a1a;color:#fff;padding:10px 8px;font-size:14px;font-weight:700;border:1px solid #000;text-align:center}
-  td{border:1px solid #bbb;padding:9px 8px;text-align:center;font-size:15px;font-weight:700}
-  td.name{font-weight:800;font-size:15px}
+  td{border:1px solid #bbb;padding:9px 8px;text-align:center;font-size:15px;font-weight:700;font-family:'Cairo',Tahoma,Arial,sans-serif}
+  td.name{font-weight:900;font-size:15px}
   /* Totals */
   .totals{width:300px;margin-top:4px}
   .totals-row{display:flex;justify-content:space-between;padding:8px 0;font-size:15px;font-weight:700;border-bottom:1px solid #e0e0e0}
@@ -1937,7 +1939,16 @@ export default function OrderDetail() {
   </div>
 </div></body></html>`);
     printWindow.document.close();
-    printWindow.onload = () => { setTimeout(() => { printWindow.focus(); printWindow.print(); }, 500); };
+    printWindow.onload = () => {
+      // ننتظر الـ fonts تتحمل قبل الطباعة
+      if ((printWindow as any).document.fonts?.ready) {
+        (printWindow as any).document.fonts.ready.then(() => {
+          setTimeout(() => { printWindow.focus(); printWindow.print(); }, 300);
+        });
+      } else {
+        setTimeout(() => { printWindow.focus(); printWindow.print(); }, 1200);
+      }
+    };
   };
 
   const handleWhatsApp = () => { setShowWaDialog(true); };
