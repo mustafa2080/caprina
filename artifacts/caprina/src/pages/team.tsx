@@ -5,6 +5,7 @@ import {
   TrendingUp, TrendingDown, Printer, Star, AlertCircle, Trophy, Briefcase, Package,
   DollarSign, Calendar, BarChart2, Settings, ArrowLeft, Save, RefreshCw, UserPlus,
   Clock, UserCheck, UserX, Gift, MinusCircle, CheckCircle2, XCircle, AlertTriangle,
+  Crown, Medal, Award,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1640,6 +1641,210 @@ function AddMemberWizard({ open, onClose, onSuccess, availableUsers, existingPro
   );
 }
 
+// ─── Star Employees Section ───────────────────────────────────────────────────
+// للسوبر أدمن: ranking + اختيار النجوم الـ 3
+// للموظف: عرض النجوم المختارين بشكل احترافي مشجّع
+function StarEmployeesSection({ isSuperAdmin, currentMonth }: { isSuperAdmin: boolean; currentMonth: string }) {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [rankingOpen, setRankingOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [rankMonth, setRankMonth] = useState(currentMonth);
+
+  const { data: stars = [], isLoading: starsLoading } = useQuery({
+    queryKey: ["star-employees"],
+    queryFn: () => employeeApi.getStarEmployees(),
+  });
+
+  const { data: ranking = [], isLoading: rankLoading } = useQuery({
+    queryKey: ["team-ranking", rankMonth],
+    queryFn: () => employeeApi.getTeamRanking(rankMonth),
+    enabled: rankingOpen,
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: (ids: number[]) => employeeApi.setStarEmployees(ids),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["star-employees"] });
+      setRankingOpen(false);
+      toast({ title: "✅ تم حفظ الموظفين النجوم" });
+    },
+  });
+
+  // sync selectedIds من الـ stars المحفوظة
+  useEffect(() => {
+    if (stars.length) setSelectedIds(stars.map((s: any) => s.id));
+  }, [stars]);
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : prev.length < 3 ? [...prev, id] : prev
+    );
+  };
+
+  const rankIcons = [
+    <Crown key="1" className="w-5 h-5 text-yellow-400" />,
+    <Medal key="2" className="w-5 h-5 text-slate-300" />,
+    <Award key="3" className="w-5 h-5 text-amber-600" />,
+  ];
+  const rankColors = [
+    "from-yellow-500/20 to-yellow-600/5 border-yellow-500/30",
+    "from-slate-400/20 to-slate-500/5 border-slate-400/30",
+    "from-amber-600/20 to-amber-700/5 border-amber-600/30",
+  ];
+  const rankLabels = ["🥇 الأول", "🥈 الثاني", "🥉 الثالث"];
+
+  if (starsLoading) return null;
+
+  return (
+    <div className="mb-4">
+      {/* ── عرض النجوم للجميع ── */}
+      {stars.length > 0 && (
+        <div className="rounded-2xl border border-yellow-500/20 bg-gradient-to-br from-yellow-500/5 to-transparent p-4 mb-3">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Trophy className="w-4 h-4 text-yellow-400" />
+              <span className="text-sm font-bold text-yellow-300">موظفو الشهر المتميزون</span>
+            </div>
+            {isSuperAdmin && (
+              <Button size="sm" variant="outline"
+                className="h-7 text-xs border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10"
+                onClick={() => setRankingOpen(true)}>
+                <Edit2 className="w-3 h-3 ml-1" /> تعديل
+              </Button>
+            )}
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {stars.slice(0, 3).map((emp: any, i: number) => (
+              <div key={emp.id}
+                className={`relative rounded-xl border bg-gradient-to-br ${rankColors[i]} p-3 flex flex-col items-center gap-1.5 text-center`}>
+                <div className="absolute -top-2 -right-1">{rankIcons[i]}</div>
+                <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-white/10 bg-muted shrink-0">
+                  {emp.avatar
+                    ? <img src={emp.avatar} className="w-full h-full object-cover" alt={emp.displayName} />
+                    : <div className="w-full h-full flex items-center justify-center text-lg font-bold"
+                        style={{ background: "linear-gradient(135deg,hsl(var(--primary)/0.7),hsl(var(--primary)/0.3))" }}>
+                        {emp.displayName?.charAt(0)?.toUpperCase()}
+                      </div>}
+                </div>
+                <p className="text-xs font-bold leading-tight">{emp.displayName}</p>
+                <p className="text-[10px] text-muted-foreground leading-tight">{emp.jobTitle ?? emp.department ?? ""}</p>
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                  style={{ background: i === 0 ? "rgba(234,179,8,0.2)" : i === 1 ? "rgba(148,163,184,0.2)" : "rgba(180,83,9,0.2)",
+                           color: i === 0 ? "#fbbf24" : i === 1 ? "#cbd5e1" : "#d97706" }}>
+                  {rankLabels[i]}
+                </span>
+              </div>
+            ))}
+          </div>
+          <p className="text-center text-[10px] text-muted-foreground mt-2">
+            🌟 هؤلاء الموظفون حققوا أعلى الأهداف هذا الشهر — استمر في التميز!
+          </p>
+        </div>
+      )}
+
+      {/* زرار فتح الـ ranking للسوبر أدمن لو مفيش نجوم */}
+      {isSuperAdmin && stars.length === 0 && (
+        <button onClick={() => setRankingOpen(true)}
+          className="w-full mb-3 flex items-center justify-center gap-2 p-3 rounded-xl border border-dashed border-yellow-500/30 text-yellow-400/70 hover:border-yellow-500/60 hover:text-yellow-400 transition-colors text-sm">
+          <Trophy className="w-4 h-4" />
+          اختر موظفي الشهر المتميزين
+        </button>
+      )}
+
+      {/* ── Dialog الـ Ranking ── */}
+      <Dialog open={rankingOpen} onOpenChange={setRankingOpen}>
+        <DialogContent className="max-w-lg bg-card border-border" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Trophy className="w-4 h-4 text-yellow-400" />
+              ترتيب الموظفين حسب الأداء
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* اختيار الشهر */}
+          <div className="flex items-center gap-2 mb-3">
+            <Label className="text-xs text-muted-foreground whitespace-nowrap">الشهر:</Label>
+            <Input type="month" value={rankMonth} onChange={e => setRankMonth(e.target.value)}
+              className="h-8 text-xs bg-background border-border w-40" />
+            <span className="text-xs text-muted-foreground">اختر حتى 3 موظفين</span>
+          </div>
+
+          {rankLoading ? (
+            <div className="flex items-center justify-center py-8 text-muted-foreground text-sm">جاري التحميل...</div>
+          ) : ranking.length === 0 ? (
+            <div className="flex items-center justify-center py-8 text-muted-foreground text-sm">لا توجد بيانات لهذا الشهر</div>
+          ) : (
+            <div className="space-y-2 max-h-80 overflow-y-auto">
+              {ranking.map((emp: any, i: number) => {
+                const isSelected = selectedIds.includes(emp.id);
+                const rank = i + 1;
+                return (
+                  <div key={emp.id}
+                    onClick={() => toggleSelect(emp.id)}
+                    className={`flex items-center gap-3 p-2.5 rounded-xl border cursor-pointer transition-all ${
+                      isSelected ? "border-primary/50 bg-primary/8" : "border-border/50 hover:border-border"
+                    }`}>
+                    {/* rank badge */}
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                      rank === 1 ? "bg-yellow-500/20 text-yellow-400" :
+                      rank === 2 ? "bg-slate-400/20 text-slate-300" :
+                      rank === 3 ? "bg-amber-600/20 text-amber-500" : "bg-muted text-muted-foreground"
+                    }`}>{rank}</div>
+                    {/* avatar */}
+                    <div className="w-8 h-8 rounded-full overflow-hidden bg-muted shrink-0">
+                      {emp.avatar
+                        ? <img src={emp.avatar} className="w-full h-full object-cover" alt={emp.displayName} />
+                        : <div className="w-full h-full flex items-center justify-center text-sm font-bold"
+                            style={{ background: "linear-gradient(135deg,hsl(var(--primary)/0.6),hsl(var(--primary)/0.3))" }}>
+                            {emp.displayName?.charAt(0)?.toUpperCase()}
+                          </div>}
+                    </div>
+                    {/* info */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold truncate">{emp.displayName}</p>
+                      <p className="text-[10px] text-muted-foreground">{emp.jobTitle ?? emp.department ?? "—"}</p>
+                    </div>
+                    {/* score */}
+                    <div className="text-left shrink-0">
+                      {emp.overallScore !== null ? (
+                        <span className={`text-sm font-bold ${emp.overallScore >= 90 ? "text-emerald-400" : emp.overallScore >= 70 ? "text-blue-400" : emp.overallScore >= 50 ? "text-yellow-400" : "text-red-400"}`}>
+                          {emp.overallScore}%
+                        </span>
+                      ) : <span className="text-xs text-muted-foreground">—</span>}
+                      <p className="text-[9px] text-muted-foreground">{emp.achievedCount}/{emp.totalKpis} مؤشر</p>
+                    </div>
+                    {/* checkbox */}
+                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-all ${
+                      isSelected ? "border-primary bg-primary" : "border-border"
+                    }`}>
+                      {isSelected && <Check className="w-3 h-3 text-white" />}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="flex gap-2 mt-2">
+            <Button className="flex-1 h-9 text-sm font-bold"
+              onClick={() => saveMutation.mutate(selectedIds)}
+              disabled={saveMutation.isPending || selectedIds.length === 0}>
+              {saveMutation.isPending ? "جاري الحفظ..." : `حفظ النجوم (${selectedIds.length}/3)`}
+            </Button>
+            {selectedIds.length > 0 && (
+              <Button variant="outline" size="sm" className="h-9 text-xs border-red-500/30 text-red-400 hover:bg-red-500/10"
+                onClick={() => { setSelectedIds([]); saveMutation.mutate([]); }}>
+                مسح الكل
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 // ─── My Dashboard Tab ────────────────────────────────────────────────────────
 function MyDashboardTab({ profileId, monthlySalary }: {
   profileId: number; monthlySalary: number;
@@ -2340,6 +2545,10 @@ function EmployeeDetail({
 
         {/* ─── My Dashboard Tab ─── */}
         <TabsContent value="my-dashboard" className="space-y-3 mt-3">
+          <StarEmployeesSection
+            isSuperAdmin={isSuperAdmin}
+            currentMonth={new Date().toISOString().slice(0, 7)}
+          />
           <MyDashboardTab
             profileId={profileId}
             monthlySalary={fullProfile?.monthlySalary ?? 0}

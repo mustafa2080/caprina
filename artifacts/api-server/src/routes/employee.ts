@@ -8,6 +8,7 @@ import {
   employeeKpisTable,
   employeeDailyLogsTable,
   attendanceTable,
+  appSettingsTable,
 } from "@workspace/db";
 import { z } from "zod";
 import { requireAuth } from "../middlewares/requireAuth";
@@ -1029,6 +1030,108 @@ router.post("/employee-daily-logs", async (req, res): Promise<void> => {
     const [created] = await db.select().from(employeeDailyLogsTable).where(eq(employeeDailyLogsTable.id, logInsertId));
     res.status(201).json(created);
   }
+});
+
+// ── GET /employee/team-ranking?month=YYYY-MM ──────────────────────────────
+// يرجع كل الموظفين مرتبين حسب overallScore من الأعلى للأقل
+router.get("/team-ranking", requireAdmin, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req);
+  const month = (req.query.month as string) || new Date().toISOString().slice(0, 7);
+
+  // جيب كل الـ profiles في نفس الـ tenant
+  const profiles = await db.select({
+    id: employeeProfilesTable.id,
+    displayName: employeeProfilesTable.displayName,
+    jobTitle: employeeProfilesTable.jobTitle,
+    department: employeeProfilesTable.department,
+    avatar: employeeProfilesTable.avatar,
+    userId: employeeProfilesTable.userId,
+  }).from(employeeProfilesTable)
+    .leftJoin(usersTable, eq(usersTable.id, employeeProfilesTable.userId))
+    .where(tenantId !== null ? eq(usersTable.tenantId, tenantId) : undefined as any);
+
+  // لكل profile احسب الـ overallScore
+  const ranking = await Promise.all(profiles.map(async (profile) => {
+    const kpis = await db.select().from(employeeKpisTable).where(
+      and(eq(employeeKpisTable.profileId, profile.id), eq(employeeKpisTable.isActive, true))
+    );
+    if (kpis.length === 0) return { ...profile, overallScore: null, achievedCount: 0, totalKpis: 0 };
+
+    const [y, m] = month.split("-").map(Number);
+    const startDate = new Date(y, m - 1, 1).toISOString().slice(0, 10);
+    const endDate   = new Date(y, m, 0).toISOString().slice(0, 10);
+
+    const evaluated = await Promise.all(kpis.map(async (kpi) => {
+      const logs = await db.select({ value: employeeDailyLogsTable.value })
+        .from(employeeDailyLogsTable)
+        .where(and(
+          eq(employeeDailyLogsTable.kpiId, kpi.id),
+          eq(employeeDailyLogsTable.profileId, profile.id),
+          gte(employeeDailyLogsTable.date, startDate),
+          lte(employeeDailyLogsTable.date, endDate)
+        ));
+      const actualValue = logs.length > 0 ? logs.reduce((s, l) => s + (l.value ?? 0), 0) : null;
+      const score = actualValue !== null ? computeKpiScore(actualValue, kpi.targetValue, kpi.direction) : null;
+      return { score, weight: kpi.weight ?? 1, achieved: score !== null ? score >= 100 : null };
+    }));
+
+    const scored = evaluated.filter(k => k.score !== null);
+    const totalWeight = scored.reduce((s, k) => s + k.weight, 0);
+    const overallScore = scored.length > 0 && totalWeight > 0
+      ? Math.round(scored.reduce((s, k) => s + k.score! * k.weight, 0) / totalWeight)
+      : null;
+    const achievedCount = evaluated.filter(k => k.achieved === true).length;
+
+    return { ...profile, overallScore, achievedCount, totalKpis: kpis.length };
+  }));
+
+  // رتّب من الأعلى للأقل (null في الآخر)
+  ranking.sort((a, b) => {
+    if (a.overallScore === null && b.overallScore === null) return 0;
+    if (a.overallScore === null) return 1;
+    if (b.overallScore === null) return -1;
+    return b.overallScore - a.overallScore;
+  });
+
+  res.json(ranking);
+});
+
+// ── GET /employee/star-employees ─────────────────────────────────────────
+router.get("/star-employees", requireAuth, async (req, res): Promise<void> => {
+  const [setting] = await db.select().from(appSettingsTable).where(eq(appSettingsTable.key, "star_employees")).limit(1);
+  if (!setting?.value) { res.json([]); return; }
+  try {
+    const ids: number[] = JSON.parse(setting.value);
+    if (!ids.length) { res.json([]); return; }
+    const profiles = await db.select({
+      id: employeeProfilesTable.id,
+      displayName: employeeProfilesTable.displayName,
+      jobTitle: employeeProfilesTable.jobTitle,
+      department: employeeProfilesTable.department,
+      avatar: employeeProfilesTable.avatar,
+    }).from(employeeProfilesTable).where(
+      or(...ids.map(id => eq(employeeProfilesTable.id, id)))
+    );
+    // رتّبهم بنفس ترتيب الاختيار
+    const ordered = ids.map(id => profiles.find(p => p.id === id)).filter(Boolean);
+    res.json(ordered);
+  } catch { res.json([]); }
+});
+
+// ── POST /employee/star-employees ────────────────────────────────────────
+router.post("/star-employees", requireSuperAdmin, async (req, res): Promise<void> => {
+  const { profileIds } = req.body as { profileIds: number[] };
+  if (!Array.isArray(profileIds) || profileIds.length > 3) {
+    res.status(400).json({ error: "أقصى 3 موظفين نجوم" }); return;
+  }
+  const value = JSON.stringify(profileIds);
+  const existing = await db.select().from(appSettingsTable).where(eq(appSettingsTable.key, "star_employees")).limit(1);
+  if (existing.length) {
+    await db.update(appSettingsTable).set({ value, updatedAt: new Date() }).where(eq(appSettingsTable.key, "star_employees"));
+  } else {
+    await db.insert(appSettingsTable).values({ key: "star_employees", value, updatedAt: new Date() });
+  }
+  res.json({ success: true, profileIds });
 });
 
 export default router;
