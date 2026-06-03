@@ -1,5 +1,5 @@
 ﻿import { Router, type IRouter } from "express";
-import { eq, desc, like, or, gte, lte, and, isNull, isNotNull, inArray, notInArray } from "drizzle-orm";
+import { eq, desc, like, or, gte, lte, and, isNull, isNotNull, inArray, notInArray, sql } from "drizzle-orm";
 import { db, ordersTable, productsTable, productVariantsTable, shippingManifestOrdersTable, shippingManifestsTable, shippingCompaniesTable, inventoryMovementsTable, cashRegistersTable, cashTransactionsTable } from "@workspace/db";
 import {
   ListOrdersQueryParams,
@@ -676,17 +676,33 @@ router.delete("/orders/bulk", async (req, res): Promise<void> => {
       }
     } catch (_) {}
 
-    // -- 2) remove cash transaction linked to this order
+    // -- 2) reverse cash transaction linked to this order
     try {
-      const invoiceRef = order.invoiceNumber ?? String(order.id);
-      await db
-        .delete(cashTransactionsTable)
+      const [txRow] = await db
+        .select()
+        .from(cashTransactionsTable)
         .where(
           and(
             eq(cashTransactionsTable.type, "order_collected"),
-            eq(cashTransactionsTable.referenceNumber, invoiceRef),
+            eq(cashTransactionsTable.orderId, order.id),
           )
-        );
+        )
+        .limit(1);
+      if (txRow) {
+        const amt = parseFloat(txRow.amount ?? "0");
+        // اطرح المبلغ من رصيد الخزنة
+        await db
+          .update(cashRegistersTable)
+          .set({
+            balance: sql`balance - ${amt}`,
+            updatedAt: new Date(),
+          })
+          .where(eq(cashRegistersTable.id, txRow.registerId));
+        // احذف الـ transaction
+        await db
+          .delete(cashTransactionsTable)
+          .where(eq(cashTransactionsTable.id, txRow.id));
+      }
     } catch (_) {}
 
     await db.update(ordersTable).set({ deletedAt: new Date() }).where(eq(ordersTable.id, order.id));
