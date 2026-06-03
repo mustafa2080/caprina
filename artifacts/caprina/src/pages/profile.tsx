@@ -729,6 +729,8 @@ function ScoreRing({ score, size = 80 }: { score: number; size?: number }) {
 }
 
 function MonthlyReportTab({ profile }: { profile?: EmployeeProfile }) {
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === "super_admin";
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), "yyyy-MM"));
 
   const monthOptions = useMemo(() => Array.from({ length: 12 }, (_, i) => {
@@ -830,10 +832,12 @@ function MonthlyReportTab({ profile }: { profile?: EmployeeProfile }) {
                 <span className="text-base font-black text-emerald-400">{pct(os.deliveryRate)}</span>
               </div>
               <div className="w-px bg-border/50 self-stretch" />
+              {isSuperAdmin && (
               <div className="flex flex-col">
                 <span className="text-[10px] text-muted-foreground">صافي الأرباح</span>
                 <span className="text-base font-black text-violet-400">{fmt(os.totalProfit)}</span>
               </div>
+              )}
             </div>
           </div>
         </div>
