@@ -23,7 +23,7 @@ export const usersTable = mysqlTable("users", {
   permissions: json("permissions").$type<string[]>().default([]),
   isActive: boolean("is_active").notNull().default(true),
   avatar: mediumtext("avatar"),  // base64 صورة المستخدم
-  showProfileLink: boolean("show_profile_link").notNull().default(true), // إظهار لينك البروفايل في الـ dropdown
+  // showProfileLink: boolean("show_profile_link").default(true), -- يُفعَّل بعد تشغيل: ALTER TABLE users ADD COLUMN show_profile_link TINYINT(1) NOT NULL DEFAULT 1
   createdAt: datetime("created_at").notNull().default(new Date()),
   updatedAt: datetime("updated_at").notNull().default(new Date()),
 });
