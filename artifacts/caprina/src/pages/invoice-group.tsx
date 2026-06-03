@@ -733,41 +733,67 @@ export default function InvoiceGroup() {
     `).join("");
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
+    const logoUrl = `${window.location.origin}/logo.jpg`;
     printWindow.document.write(`<!DOCTYPE html>
 <html lang="ar" dir="rtl"><head><meta charset="UTF-8" /><title>فاتورة ${invoiceNumber}</title>
 <style>
-  body{font-family:Arial,Tahoma,sans-serif;margin:0;padding:24px;color:#111;background:#fff}
-  .sheet{max-width:900px;margin:0 auto;border:1px solid #ddd;padding:24px}
-  .header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:20px;border-bottom:2px solid #111;padding-bottom:16px}
-  .brand{font-size:28px;font-weight:800}.muted{color:#666;font-size:13px}
-  .title{font-size:24px;font-weight:800;margin:0 0 8px}
-  .meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 24px;margin-bottom:20px}
-  .meta-item{font-size:14px}.meta-item b{display:inline-block;min-width:88px}
+  *{box-sizing:border-box}
+  body{font-family:Tahoma,Arial,sans-serif;margin:0;padding:20px;color:#000;background:#fff;font-size:15px;font-weight:600;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .sheet{max-width:860px;margin:0 auto}
+  .header{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #000;padding-bottom:14px;margin-bottom:18px}
+  .logo-wrap img{height:72px;width:auto;object-fit:contain}
+  .brand-fallback{font-size:26px;font-weight:900;letter-spacing:1px;display:none}
+  .inv-title{font-size:22px;font-weight:900;margin:0 0 4px;text-align:left}
+  .inv-sub{font-size:13px;font-weight:700;color:#333;text-align:left}
+  .meta{display:grid;grid-template-columns:1fr 1fr;gap:8px 32px;margin-bottom:18px;border:2px solid #000;padding:12px 16px;border-radius:4px}
+  .meta-item{font-size:14px;font-weight:700}
+  .meta-item span{font-weight:900}
   table{width:100%;border-collapse:collapse;margin-bottom:18px}
-  th,td{border:1px solid #ddd;padding:10px 8px;text-align:center;font-size:14px}
-  th{background:#111;color:#fff}td.name{text-align:right;font-weight:700}
-  .totals{width:320px;margin-right:auto}
-  .totals-row{display:flex;justify-content:space-between;border-bottom:1px solid #ddd;padding:8px 0;font-size:14px}
-  .totals-row.total{font-size:18px;font-weight:800;border-bottom:2px solid #111}
-  @media print{body{padding:0}.sheet{border:0;max-width:none}}
+  th{background:#111;color:#fff;padding:10px 8px;font-size:14px;font-weight:800;border:1px solid #000;text-align:center}
+  td{border:1px solid #555;padding:9px 8px;text-align:center;font-size:14px;font-weight:700}
+  td.name{text-align:right;font-weight:900}
+  tbody tr:nth-child(even){background:#f5f5f5}
+  .totals-wrap{display:flex;justify-content:flex-start}
+  .totals{width:340px;border:2px solid #000;border-radius:4px;overflow:hidden}
+  .totals-row{display:flex;justify-content:space-between;padding:9px 14px;font-size:14px;font-weight:700;border-bottom:1px solid #ccc}
+  .totals-row:last-child{border-bottom:none}
+  .totals-row.grand{background:#111;color:#fff;font-size:17px;font-weight:900}
+  .footer{margin-top:28px;text-align:center;font-size:12px;font-weight:700;color:#555;border-top:1px solid #ccc;padding-top:10px}
+  @media print{body{padding:0}.sheet{max-width:none}}
 </style></head><body><div class="sheet">
-<div class="header"><div><div class="brand">${brandName}</div><div class="muted">فاتورة رقم: ${invoiceNumber}</div><div class="muted">${dateLabel}</div></div>
-<div><h1 class="title">فاتورة العميل</h1><div class="muted">${orders.length} منتجات / ${totalQty} قطعة</div></div></div>
-<div class="meta">
-  <div class="meta-item"><b>العميل:</b> ${rep.customerName || "-"}</div>
-  <div class="meta-item"><b>الهاتف:</b> ${rep.phone || "-"}</div>
-  <div class="meta-item"><b>المحافظة:</b> ${rep.city || "-"}</div>
-  <div class="meta-item"><b>العنوان:</b> ${rep.address || "-"}</div>
-</div>
-<table><thead><tr><th>#</th><th>المنتج</th><th>اللون/المقاس</th><th>الكمية</th><th>سعر الوحدة</th><th>الإجمالي</th></tr></thead>
-<tbody>${rowsHtml}</tbody></table>
-<div class="totals">
-  <div class="totals-row"><span>إجمالي المنتجات</span><b>${formatCurrency(totalPrice)}</b></div>
-  <div class="totals-row"><span>الشحن</span><b>${formatCurrency(shippingCost)}</b></div>
-  <div class="totals-row total"><span>الإجمالي الكلي</span><b>${formatCurrency(totalPrice + shippingCost)}</b></div>
-</div></div></body></html>`);
+  <div class="header">
+    <div class="logo-wrap">
+      <img src="${logoUrl}" alt="${brandName}" onerror="this.style.display='none';this.nextElementSibling.style.display='block'" />
+      <div class="brand-fallback">${brandName}</div>
+    </div>
+    <div>
+      <div class="inv-title">فاتورة بيع</div>
+      <div class="inv-sub">رقم الفاتورة: <strong>${invoiceNumber}</strong></div>
+      <div class="inv-sub">التاريخ: <strong>${dateLabel}</strong></div>
+      <div class="inv-sub">${orders.length} منتج / ${totalQty} قطعة</div>
+    </div>
+  </div>
+  <div class="meta">
+    <div class="meta-item">العميل: <span>${rep.customerName || "-"}</span></div>
+    <div class="meta-item">الهاتف: <span>${rep.phone || "-"}</span></div>
+    <div class="meta-item">المحافظة: <span>${rep.city || "-"}</span></div>
+    <div class="meta-item">العنوان: <span>${rep.address || "-"}</span></div>
+  </div>
+  <table>
+    <thead><tr><th>#</th><th>المنتج</th><th>اللون / المقاس</th><th>الكمية</th><th>سعر الوحدة</th><th>الإجمالي</th></tr></thead>
+    <tbody>${rowsHtml}</tbody>
+  </table>
+  <div class="totals-wrap">
+    <div class="totals">
+      <div class="totals-row"><span>إجمالي المنتجات</span><strong>${formatCurrency(totalPrice)}</strong></div>
+      <div class="totals-row"><span>تكلفة الشحن</span><strong>${formatCurrency(shippingCost)}</strong></div>
+      <div class="totals-row grand"><span>الإجمالي الكلي</span><strong>${formatCurrency(totalPrice + shippingCost)}</strong></div>
+    </div>
+  </div>
+  <div class="footer">${brandName} — شكراً لتعاملكم معنا</div>
+</div></body></html>`);
     printWindow.document.close();
-    printWindow.onload = () => { setTimeout(() => { printWindow.focus(); printWindow.print(); }, 400); };
+    printWindow.onload = () => { setTimeout(() => { printWindow.focus(); printWindow.print(); }, 500); };
   };
 
   const handleWhatsApp = () => {
