@@ -692,6 +692,21 @@ function KpisTab({ myStats, profile }: { myStats?: TeamMemberExtStats; profile?:
 }
 
 /* ── Tab: Monthly Report (تقرير شهري) ── */
+function ScoreRing({ score, size = 80 }: { score: number; size?: number }) {
+  const r = (size - 12) / 2;
+  const circ = 2 * Math.PI * r;
+  const dash = (score / 100) * circ;
+  const color = score >= 80 ? "#10b981" : score >= 60 ? "#3b82f6" : score >= 40 ? "#f59e0b" : "#ef4444";
+  return (
+    <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="hsl(var(--muted)/0.3)" strokeWidth={10} />
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={10}
+        strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
+        style={{ transition: "stroke-dasharray 1s ease" }} />
+    </svg>
+  );
+}
+
 function MonthlyReportTab({ profile }: { profile?: EmployeeProfile }) {
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), "yyyy-MM"));
 
@@ -710,137 +725,288 @@ function MonthlyReportTab({ profile }: { profile?: EmployeeProfile }) {
 
   const { orderStats: os, kpis, kpiFinancials: fin, overallScore, rating, salary } = report;
   const netSalary = salary + (fin?.totalBonus ?? 0) - (fin?.totalDeduction ?? 0);
+  const monthLabel = monthOptions.find(m => m.value === selectedMonth)?.label ?? selectedMonth;
 
-  // Pie data for order distribution
+  const ratingMeta: Record<string, { color: string; bg: string; border: string; icon: any }> = {
+    "ممتاز":    { color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/30", icon: Trophy },
+    "جيد جداً": { color: "text-blue-400",    bg: "bg-blue-500/10",    border: "border-blue-500/30",    icon: Star },
+    "جيد":      { color: "text-sky-400",      bg: "bg-sky-500/10",     border: "border-sky-500/30",     icon: Star },
+    "مقبول":    { color: "text-amber-400",    bg: "bg-amber-500/10",   border: "border-amber-500/30",   icon: Flame },
+    "ضعيف":     { color: "text-rose-400",     bg: "bg-rose-500/10",    border: "border-rose-500/30",    icon: Zap },
+  };
+  const rm = ratingMeta[rating ?? ""] ?? { color: "text-muted-foreground", bg: "bg-muted/20", border: "border-border", icon: Star };
+  const RatingIcon = rm.icon;
+
   const pieData = [
-    { name: "مسلّمة", value: os.delivered, color: "#10b981" },
-    { name: "مرتجعة", value: os.returned, color: "#ef4444" },
-    { name: "قيد التنفيذ", value: os.pending, color: "#f59e0b" },
+    { name: "مسلّمة",    value: os.delivered, color: "#10b981" },
+    { name: "مرتجعة",    value: os.returned,  color: "#ef4444" },
+    { name: "قيد التنفيذ", value: os.pending,   color: "#f59e0b" },
   ].filter(d => d.value > 0);
 
   return (
     <div className="space-y-4" dir="rtl">
-      {/* Month selector */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
-        <select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
-          className="text-sm border border-border rounded-lg px-3 py-1.5 bg-background text-foreground cursor-pointer">
-          {monthOptions.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-        </select>
+
+      {/* ── Month Selector ── */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+        {monthOptions.slice(0, 6).map(m => (
+          <button key={m.value} type="button" onClick={() => setSelectedMonth(m.value)}
+            className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all border whitespace-nowrap ${
+              selectedMonth === m.value
+                ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+            }`}>
+            {m.label}
+          </button>
+        ))}
       </div>
 
-      {/* Report Header */}
-      <Card className="border overflow-hidden">
-        <div className="px-5 py-4 bg-gradient-to-l from-primary/10 via-primary/5 to-transparent border-b border-border/50">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <div>
-              <h3 className="font-black text-base">التقرير الشهري</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {monthOptions.find(m => m.value === selectedMonth)?.label} · {report.displayName}
-              </p>
-            </div>
-            {overallScore != null && (
-              <div className="flex items-center gap-3">
-                <div className="text-left">
-                  <div className="text-3xl font-black leading-none">{overallScore}<span className="text-sm text-muted-foreground">/100</span></div>
-                  <ScoreBadge score={overallScore} />
-                </div>
+      {/* ── Hero Card: Score + Rating + Name ── */}
+      <div className="relative overflow-hidden rounded-2xl border border-border bg-card">
+        {/* Decorative gradient bg */}
+        <div className="absolute inset-0 pointer-events-none"
+          style={{ background: "radial-gradient(ellipse at 10% 50%, hsl(var(--primary)/0.12) 0%, transparent 60%)" }} />
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+
+        <div className="relative p-5 flex items-center gap-5 flex-wrap">
+          {/* Score Ring */}
+          {overallScore != null ? (
+            <div className="relative shrink-0">
+              <ScoreRing score={overallScore} size={88} />
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-xl font-black leading-none">{overallScore}</span>
+                <span className="text-[9px] text-muted-foreground">/ 100</span>
               </div>
+            </div>
+          ) : (
+            <div className="w-[88px] h-[88px] rounded-full border-4 border-dashed border-border/40 flex items-center justify-center shrink-0">
+              <span className="text-xs text-muted-foreground text-center leading-tight">لا يوجد<br/>تقييم</span>
+            </div>
+          )}
+
+          {/* Info */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <span className="font-black text-lg leading-tight">{report.displayName}</span>
+              {rating && (
+                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border ${rm.bg} ${rm.border} ${rm.color}`}>
+                  <RatingIcon className="w-3 h-3" />{rating}
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+              <CalendarDays className="w-3.5 h-3.5 shrink-0" />{monthLabel}
+            </p>
+
+            {/* Mini stats row */}
+            <div className="flex gap-4 mt-3 flex-wrap">
+              <div className="flex flex-col">
+                <span className="text-[10px] text-muted-foreground">إجمالي الطلبات</span>
+                <span className="text-base font-black">{fmtNum(os.total)}</span>
+              </div>
+              <div className="w-px bg-border/50 self-stretch" />
+              <div className="flex flex-col">
+                <span className="text-[10px] text-muted-foreground">معدل التسليم</span>
+                <span className="text-base font-black text-emerald-400">{pct(os.deliveryRate)}</span>
+              </div>
+              <div className="w-px bg-border/50 self-stretch" />
+              <div className="flex flex-col">
+                <span className="text-[10px] text-muted-foreground">صافي الأرباح</span>
+                <span className="text-base font-black text-violet-400">{fmt(os.totalProfit)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Order Stats Grid ── */}
+      <div>
+        <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mb-2.5 px-0.5">إحصائيات الطلبات</p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+          {[
+            { label: "إجمالي الطلبات",   value: fmtNum(os.total),      icon: Package,      grad: "from-slate-500/15 to-slate-600/5 border-slate-500/20",   val: "text-foreground" },
+            { label: "مسلّمة",            value: fmtNum(os.delivered),  icon: CheckCircle2, grad: "from-emerald-500/15 to-green-600/5 border-emerald-500/20", val: "text-emerald-400" },
+            { label: "مرتجعة",           value: fmtNum(os.returned),   icon: XCircle,      grad: "from-rose-500/15 to-red-600/5 border-rose-500/20",        val: "text-rose-400" },
+            { label: "قيد التنفيذ",      value: fmtNum(os.pending),    icon: Hourglass,    grad: "from-amber-500/15 to-yellow-600/5 border-amber-500/20",   val: "text-amber-400" },
+            { label: "إجمالي الإيرادات", value: fmt(os.totalRevenue),  icon: Coins,        grad: "from-blue-500/15 to-blue-600/5 border-blue-500/20",       val: "text-blue-400" },
+            { label: "صافي الأرباح",     value: fmt(os.totalProfit),   icon: TrendingUp,   grad: "from-violet-500/15 to-purple-600/5 border-violet-500/20", val: "text-violet-400" },
+          ].map(({ label, value, icon: Icon, grad, val }) => (
+            <div key={label} className={`rounded-xl p-3.5 border bg-gradient-to-br ${grad} flex flex-col gap-1`}>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-muted-foreground leading-tight">{label}</span>
+                <Icon className="w-3.5 h-3.5 opacity-50 shrink-0" />
+              </div>
+              <span className={`text-base font-black leading-tight ${val}`}>{value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Delivery vs Return Bars ── */}
+      <div className="rounded-xl border border-border bg-card p-4 space-y-3.5">
+        <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">أداء التسليم والإرجاع</p>
+
+        <div className="space-y-1.5">
+          <div className="flex justify-between text-xs font-semibold">
+            <span className="flex items-center gap-1.5 text-emerald-400"><CheckCircle2 className="w-3.5 h-3.5" />معدل التسليم</span>
+            <span className="text-emerald-400">{pct(os.deliveryRate)}</span>
+          </div>
+          <div className="h-3 bg-muted/30 rounded-full overflow-hidden">
+            <div className="h-full rounded-full bg-emerald-500 transition-all duration-700"
+              style={{ width: `${os.deliveryRate}%` }} />
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <div className="flex justify-between text-xs font-semibold">
+            <span className="flex items-center gap-1.5 text-rose-400"><XCircle className="w-3.5 h-3.5" />معدل الإرجاع</span>
+            <span className="text-rose-400">{pct(os.returnRate)}</span>
+          </div>
+          <div className="h-3 bg-muted/30 rounded-full overflow-hidden">
+            <div className="h-full rounded-full bg-rose-500 transition-all duration-700"
+              style={{ width: `${os.returnRate}%` }} />
+          </div>
+        </div>
+
+        {/* Pie chart */}
+        {pieData.length > 0 && (
+          <div className="flex items-center gap-4 pt-1">
+            <ResponsiveContainer width={110} height={110}>
+              <PieChart>
+                <Pie data={pieData} dataKey="value" cx="50%" cy="50%" innerRadius={28} outerRadius={50} paddingAngle={3}>
+                  {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                </Pie>
+                <Tooltip formatter={(v: any) => [fmtNum(v), ""]}
+                  contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11 }} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="flex-1 space-y-2">
+              {pieData.map(d => (
+                <div key={d.name} className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: d.color }} />
+                    <span className="text-xs text-muted-foreground">{d.name}</span>
+                  </div>
+                  <span className="text-xs font-bold">{fmtNum(d.value)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── KPIs ── */}
+      {kpis.length > 0 && (
+        <div>
+          <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mb-2.5 px-0.5">مؤشرات الأداء الوظيفي</p>
+          <div className="space-y-2.5">
+            {kpis.map(k => {
+              const actual = k.actualValue ?? 0;
+              const progress = k.targetValue > 0 ? Math.min(100, (actual / k.targetValue) * 100) : 0;
+              const scoreColor = k.score == null ? "text-muted-foreground"
+                : k.score >= 80 ? "text-emerald-400" : k.score >= 60 ? "text-blue-400"
+                : k.score >= 40 ? "text-amber-400" : "text-rose-400";
+              const barColor = k.achieved ? "bg-emerald-500" : progress >= 70 ? "bg-amber-500" : "bg-rose-500";
+              return (
+                <div key={k.id} className={`rounded-xl border p-4 transition-all ${k.achieved ? "border-emerald-500/30 bg-emerald-500/5" : "border-border bg-card"}`}>
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        {k.achieved === true
+                          ? <BadgeCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                          : k.achieved === false
+                            ? <XCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                            : <Info className="w-4 h-4 text-muted-foreground shrink-0" />}
+                        <span className="font-bold text-sm">{k.name}</span>
+                      </div>
+                      {k.description && <p className="text-[11px] text-muted-foreground mt-0.5 mr-6">{k.description}</p>}
+                    </div>
+                    {k.score != null && (
+                      <div className="text-right shrink-0">
+                        <span className={`text-xl font-black ${scoreColor}`}>{k.score.toFixed(0)}</span>
+                        <span className="text-[10px] text-muted-foreground">/100</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-2 mr-6">
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-muted-foreground">الفعلي: <strong className="text-foreground">{fmtNum(actual)} {k.unit}</strong></span>
+                      <span className="text-muted-foreground">الهدف: <strong className="text-foreground">{fmtNum(k.targetValue)} {k.unit}</strong></span>
+                    </div>
+                    <div className="h-2.5 bg-muted/30 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full ${barColor} transition-all duration-700`} style={{ width: `${progress}%` }} />
+                    </div>
+                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                      <span>{progress.toFixed(1)}% من الهدف</span>
+                      {k.weight > 0 && <span>الوزن: {k.weight}%</span>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Salary Card ── */}
+      {salary > 0 && (
+        <div className="rounded-2xl border border-border overflow-hidden">
+          <div className="px-5 py-3 border-b border-border/50 flex items-center gap-2"
+            style={{ background: "linear-gradient(to left, hsl(var(--primary)/0.08), transparent)" }}>
+            <Wallet className="w-4 h-4 text-primary shrink-0" />
+            <p className="font-black text-sm">ملخص الراتب</p>
+          </div>
+          <div className="p-4 bg-card space-y-2.5">
+            <div className="flex justify-between items-center py-2 border-b border-border/20">
+              <span className="text-sm text-muted-foreground">الراتب الأساسي</span>
+              <span className="font-bold text-sm">{fmt(salary)}</span>
+            </div>
+            {fin && fin.totalBonus > 0 && (
+              <div className="flex justify-between items-center py-2 border-b border-border/20">
+                <span className="text-sm text-emerald-400 flex items-center gap-1.5">
+                  <ArrowUp className="w-3.5 h-3.5" />مكافآت الأداء
+                </span>
+                <span className="font-bold text-sm text-emerald-400">+ {fmt(fin.totalBonus)}</span>
+              </div>
+            )}
+            {fin && fin.totalDeduction > 0 && (
+              <div className="flex justify-between items-center py-2 border-b border-border/20">
+                <span className="text-sm text-rose-400 flex items-center gap-1.5">
+                  <ArrowDown className="w-3.5 h-3.5" />خصومات الأداء
+                </span>
+                <span className="font-bold text-sm text-rose-400">- {fmt(fin.totalDeduction)}</span>
+              </div>
+            )}
+            <div className="flex justify-between items-center pt-2 mt-1">
+              <span className="font-black text-sm">صافي الراتب المستحق</span>
+              <span className="font-black text-xl text-primary">{fmt(netSalary)}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Overall Rating Banner ── */}
+      {rating && overallScore != null && (
+        <div className={`rounded-2xl border ${rm.border} ${rm.bg} p-4 flex items-center gap-4`}>
+          <div className="shrink-0">
+            <ScoreRing score={overallScore} size={64} />
+            <div className="absolute" style={{ marginTop: -64, width: 64, height: 64, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", top: -64 }}>
+            </div>
+          </div>
+          <div className="flex-1">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-0.5">التقييم العام لشهر {monthLabel}</p>
+            <div className="flex items-center gap-2">
+              <RatingIcon className={`w-5 h-5 ${rm.color} shrink-0`} />
+              <span className={`text-2xl font-black ${rm.color}`}>{rating}</span>
+            </div>
+            {fin && (
+              <p className="text-[11px] text-muted-foreground mt-1">
+                {fin.achievedCount} من {kpis.length} مؤشرات محققة
+              </p>
             )}
           </div>
         </div>
-        <CardContent className="p-5 space-y-5">
+      )}
 
-          {/* Order Stats + Pie */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <p className="font-bold text-xs text-muted-foreground uppercase tracking-wider">إحصائيات الطلبات</p>
-              <div className="space-y-2">
-                {[
-                  { label: "إجمالي الطلبات", value: fmtNum(os.total), color: "text-foreground" },
-                  { label: "الطلبات المسلّمة", value: `${fmtNum(os.delivered)} (${pct(os.deliveryRate)})`, color: "text-emerald-400" },
-                  { label: "الطلبات المرتجعة", value: `${fmtNum(os.returned)} (${pct(os.returnRate)})`, color: "text-rose-400" },
-                  { label: "قيد التنفيذ", value: fmtNum(os.pending), color: "text-amber-400" },
-                  { label: "إجمالي الإيرادات", value: fmt(os.totalRevenue), color: "text-blue-400" },
-                  { label: "صافي الأرباح", value: fmt(os.totalProfit), color: "text-violet-400" },
-                ].map(({ label, value, color }) => (
-                  <div key={label} className="flex justify-between items-center py-1.5 border-b border-border/20 last:border-0">
-                    <span className="text-xs text-muted-foreground">{label}</span>
-                    <span className={`text-xs font-bold ${color}`}>{value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            {pieData.length > 0 && (
-              <div className="flex flex-col items-center justify-center">
-                <ResponsiveContainer width="100%" height={140}>
-                  <PieChart>
-                    <Pie data={pieData} dataKey="value" cx="50%" cy="50%" innerRadius={35} outerRadius={60} paddingAngle={3}>
-                      {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                    </Pie>
-                    <Tooltip formatter={(v: any) => [fmtNum(v), ""]} contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11 }} />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="flex gap-3 flex-wrap justify-center text-[11px]">
-                  {pieData.map(d => <span key={d.name} className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: d.color }} />{d.name}</span>)}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* KPI Summary */}
-          {kpis.length > 0 && (
-            <div className="space-y-2">
-              <p className="font-bold text-xs text-muted-foreground uppercase tracking-wider">ملخص مؤشرات الأداء</p>
-              <div className="grid grid-cols-1 gap-2">
-                {kpis.map(k => (
-                  <div key={k.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border ${k.achieved ? "border-emerald-500/30 bg-emerald-500/5" : "border-border bg-muted/10"}`}>
-                    {k.achieved ? <BadgeCheck className="w-4 h-4 text-emerald-400 shrink-0" /> : <XCircle className="w-4 h-4 text-rose-400 shrink-0" />}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between gap-2">
-                        <span className="text-xs font-semibold truncate">{k.name}</span>
-                        <span className={`text-xs font-bold shrink-0 ${k.score != null && k.score >= 80 ? "text-emerald-400" : k.score != null && k.score >= 60 ? "text-blue-400" : "text-rose-400"}`}>
-                          {k.score?.toFixed(0) ?? "—"}/100
-                        </span>
-                      </div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5">
-                        الفعلي: {fmtNum(k.actualValue ?? 0)} / الهدف: {fmtNum(k.targetValue)} {k.unit}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Salary Summary */}
-          {salary > 0 && (
-            <div className="rounded-xl border border-border p-4 bg-muted/10 space-y-2">
-              <p className="font-bold text-xs text-muted-foreground uppercase tracking-wider">ملخص الراتب</p>
-              <div className="space-y-1.5">
-                <div className="flex justify-between text-sm"><span className="text-muted-foreground">الراتب الأساسي</span><span className="font-bold">{fmt(salary)}</span></div>
-                {fin && fin.totalBonus > 0 && <div className="flex justify-between text-sm"><span className="text-emerald-400 flex items-center gap-1"><ArrowUp className="w-3 h-3" />مكافآت الأداء</span><span className="font-bold text-emerald-400">+ {fmt(fin.totalBonus)}</span></div>}
-                {fin && fin.totalDeduction > 0 && <div className="flex justify-between text-sm"><span className="text-rose-400 flex items-center gap-1"><ArrowDown className="w-3 h-3" />خصومات الأداء</span><span className="font-bold text-rose-400">- {fmt(fin.totalDeduction)}</span></div>}
-                <div className="flex justify-between text-sm font-black border-t border-border/50 pt-2 mt-1">
-                  <span>صافي الراتب المستحق</span>
-                  <span className="text-primary text-base">{fmt(netSalary)}</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Rating */}
-          {rating && (
-            <div className="flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
-              <Star className="w-5 h-5 text-amber-400 shrink-0" />
-              <div>
-                <p className="text-xs text-muted-foreground">التقييم العام</p>
-                <p className="font-black text-sm">{rating}</p>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }
