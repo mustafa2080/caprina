@@ -1419,12 +1419,14 @@ export default function ProfilePage() {
 
   const roleColor = getRoleColor(user.role);
 
+  const isAdminRole = user?.role === "super_admin" || user?.role === "admin";
+
   const TABS = [
     { key: "dashboard",  label: "لوحتي",         icon: LayoutDashboard },
     { key: "orders",     label: "طلباتي",         icon: ListOrdered },
     { key: "kpis",       label: "مؤشرات الأداء",  icon: Activity },
     { key: "report",     label: "تقرير شهري",     icon: FileText },
-    { key: "attendance", label: "الحضور",          icon: CalendarCheck2 },
+    ...(!isAdminRole ? [{ key: "attendance", label: "الحضور", icon: CalendarCheck2 }] : []),
     { key: "settings",   label: "الإعدادات",       icon: User },
   ];
 
