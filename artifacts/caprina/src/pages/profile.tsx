@@ -244,12 +244,23 @@ function DashboardTab({ myStats, profile }: { myStats?: TeamMemberExtStats; prof
             </div>
             {compData.length > 0 ? (
               <ResponsiveContainer width="100%" height={110}>
-                <BarChart data={compData} barGap={2}>
+                <LineChart data={compData}>
                   <XAxis dataKey="name" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <Tooltip formatter={(v: any) => [fmtNum(v), ""]} contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11 }} />
-                  <Bar dataKey="delivered" name="مسلّمة" fill="#10b981" radius={[3,3,0,0]} />
-                  <Bar dataKey="returned" name="مرتجعة" fill="#ef4444" radius={[3,3,0,0]} />
-                </BarChart>
+                  <Tooltip
+                    formatter={(v: any) => [fmtNum(v), ""]}
+                    contentStyle={{
+                      background: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: 8,
+                      fontSize: 11,
+                      boxShadow: "none",
+                    }}
+                    itemStyle={{ color: "hsl(var(--foreground))" }}
+                    cursor={{ stroke: "hsl(var(--border))", strokeWidth: 1 }}
+                  />
+                  <Line type="monotone" dataKey="delivered" name="مسلّمة" stroke="#10b981" strokeWidth={2.5} dot={{ r: 4, fill: "#10b981", strokeWidth: 0 }} activeDot={{ r: 5, fill: "#10b981", strokeWidth: 0 }} />
+                  <Line type="monotone" dataKey="returned" name="مرتجعة" stroke="#ef4444" strokeWidth={2.5} dot={{ r: 4, fill: "#ef4444", strokeWidth: 0 }} activeDot={{ r: 5, fill: "#ef4444", strokeWidth: 0 }} />
+                </LineChart>
               </ResponsiveContainer>
             ) : <div className="h-[110px] flex items-center justify-center text-muted-foreground text-sm">لا بيانات كافية</div>}
           </CardContent>
