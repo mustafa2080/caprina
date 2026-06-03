@@ -162,14 +162,12 @@ function DashboardTab({ myStats, profile }: { myStats?: TeamMemberExtStats; prof
   const prevMonth = format(subMonths(new Date(), 1), "yyyy-MM");
 
   const { data: currReport } = useQuery({
-    queryKey: ["emp-report-curr", profile?.id],
-    queryFn: () => employeeApi.getReport(profile!.id, currentMonth),
-    enabled: !!profile?.id,
+    queryKey: ["emp-report-curr-mine", currentMonth],
+    queryFn: () => employeeApi.getMyReport(currentMonth),
   });
   const { data: prevReport } = useQuery({
-    queryKey: ["emp-report-prev", profile?.id],
-    queryFn: () => employeeApi.getReport(profile!.id, prevMonth),
-    enabled: !!profile?.id,
+    queryKey: ["emp-report-prev-mine", prevMonth],
+    queryFn: () => employeeApi.getMyReport(prevMonth),
   });
 
   // Build comparison data for mini bar chart
@@ -185,8 +183,7 @@ function DashboardTab({ myStats, profile }: { myStats?: TeamMemberExtStats; prof
   const score = currReport?.overallScore;
   const rating = currReport?.rating;
 
-  if (!myStats && !profile) return <EmptyState icon={LayoutDashboard} title="لا توجد بيانات" sub="لم يتم إنشاء بروفايل موظف لحسابك بعد" />;
-
+  // دايماً نعرض اللوحة — البيانات هتييجي من getMyReport حتى لو مفيش profile
   return (
     <div className="space-y-4">
       {/* Quick KPI Cards */}
@@ -426,19 +423,23 @@ function KpisTab({ myStats, profile }: { myStats?: TeamMemberExtStats; profile?:
     return { value: format(d, "yyyy-MM"), label: format(d, "MMMM yyyy", { locale: ar }) };
   }), []);
 
-  // تقرير KPI المخصص (لو في profile)
+  // استخدم getMyReport بدل getReport(profile.id) — يشتغل حتى بدون profile
   const { data: report, isLoading: reportLoading } = useQuery({
-    queryKey: ["emp-report-kpis", profile?.id, selectedMonth],
-    queryFn: () => employeeApi.getReport(profile!.id, selectedMonth),
-    enabled: !!profile?.id,
+    queryKey: ["emp-report-kpis-mine", selectedMonth],
+    queryFn: () => employeeApi.getMyReport(selectedMonth),
   });
 
   const kpis = report?.kpis ?? [];
   const fin = report?.kpiFinancials;
 
-  // ── مؤشرات من أداء الفريق (دائماً متاحة) ──
+  // ── مؤشرات من التقرير الشهري (الأولوية) أو من myStats كـ fallback ──
   const teamKpiItems = useMemo(() => {
-    if (!myStats) return [];
+    const os = report?.orderStats;
+    const deliveryRate = os?.deliveryRate ?? myStats?.deliveryRate ?? 0;
+    const returnRate   = os?.returnRate   ?? myStats?.returnRate   ?? 0;
+    const ordersPerDay = myStats?.ordersPerDay ?? (os ? os.total / 26 : 0);
+    const score        = myStats?.score ?? 0;
+    if (!os && !myStats) return [];
     return [
       {
         id: "delivery",
@@ -446,10 +447,10 @@ function KpisTab({ myStats, profile }: { myStats?: TeamMemberExtStats; profile?:
         icon: CheckCircle2,
         color: "text-emerald-400",
         bg: "from-emerald-500/15 to-green-600/5 border-emerald-500/20",
-        progress: myStats.deliveryRate,
-        value: `${myStats.deliveryRate.toFixed(1)}%`,
+        progress: deliveryRate,
+        value: `${deliveryRate.toFixed(1)}%`,
         target: "80%",
-        achieved: myStats.deliveryRate >= 80,
+        achieved: deliveryRate >= 80,
         description: "نسبة الطلبات المسلّمة من الإجمالي",
       },
       {
@@ -458,10 +459,10 @@ function KpisTab({ myStats, profile }: { myStats?: TeamMemberExtStats; profile?:
         icon: XCircle,
         color: "text-rose-400",
         bg: "from-rose-500/15 to-red-600/5 border-rose-500/20",
-        progress: Math.max(0, 20 - myStats.returnRate) / 20 * 100,
-        value: `${myStats.returnRate.toFixed(1)}%`,
+        progress: Math.max(0, 20 - returnRate) / 20 * 100,
+        value: `${returnRate.toFixed(1)}%`,
         target: "< 20%",
-        achieved: myStats.returnRate < 20,
+        achieved: returnRate < 20,
         description: "نسبة الطلبات المرتجعة (كلما قلّت كان أفضل)",
       },
       {
@@ -470,10 +471,10 @@ function KpisTab({ myStats, profile }: { myStats?: TeamMemberExtStats; profile?:
         icon: Trophy,
         color: "text-amber-400",
         bg: "from-amber-500/15 to-yellow-600/5 border-amber-500/20",
-        progress: myStats.score,
-        value: `${myStats.score} / 100`,
+        progress: score,
+        value: `${score} / 100`,
         target: "80 نقطة",
-        achieved: myStats.score >= 80,
+        achieved: score >= 80,
         description: "النقاط الإجمالية بناءً على كل المؤشرات",
       },
       {
@@ -482,10 +483,10 @@ function KpisTab({ myStats, profile }: { myStats?: TeamMemberExtStats; profile?:
         icon: Package,
         color: "text-blue-400",
         bg: "from-blue-500/15 to-blue-600/5 border-blue-500/20",
-        progress: Math.min(100, myStats.ordersPerDay * 10),
-        value: `${myStats.ordersPerDay.toFixed(1)} / يوم`,
+        progress: Math.min(100, ordersPerDay * 10),
+        value: `${ordersPerDay.toFixed(1)} / يوم`,
         target: "10 يومياً",
-        achieved: myStats.ordersPerDay >= 10,
+        achieved: ordersPerDay >= 10,
         description: "متوسط الطلبات اليومية",
       },
       {
@@ -494,16 +495,16 @@ function KpisTab({ myStats, profile }: { myStats?: TeamMemberExtStats; profile?:
         icon: Zap,
         color: "text-violet-400",
         bg: "from-violet-500/15 to-purple-600/5 border-violet-500/20",
-        progress: myStats.avgProcessingHours != null
+        progress: myStats?.avgProcessingHours != null
           ? Math.max(0, (48 - myStats.avgProcessingHours) / 48 * 100)
           : 0,
-        value: myStats.avgProcessingHours != null ? `${myStats.avgProcessingHours.toFixed(1)} ساعة` : "—",
+        value: myStats?.avgProcessingHours != null ? `${myStats.avgProcessingHours.toFixed(1)} ساعة` : "—",
         target: "< 24 ساعة",
-        achieved: myStats.avgProcessingHours != null && myStats.avgProcessingHours < 24,
+        achieved: myStats?.avgProcessingHours != null && myStats.avgProcessingHours < 24,
         description: "متوسط الوقت من إنشاء الطلب للتسليم",
       },
     ];
-  }, [myStats]);
+  }, [myStats, report]);
 
   const achieved = teamKpiItems.filter(k => k.achieved).length;
 

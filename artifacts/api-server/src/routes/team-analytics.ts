@@ -91,6 +91,7 @@ function buildPerUserInvoices(rawOrders: (typeof ordersTable.$inferSelect)[]) {
 
     for (const r of rows) {
       if (r.createdByUserId) ownerUserIds.add(r.createdByUserId);
+      if (r.assignedUserId)  ownerUserIds.add(r.assignedUserId);
       profit += profitFromOrder(r);
       const upd = new Date(r.updatedAt);
       if (upd > updatedAt) updatedAt = upd;
