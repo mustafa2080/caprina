@@ -4,6 +4,7 @@ import {
   ArrowRight, AlertCircle, Printer, Trash2, RefreshCw,
   Package, Phone, MapPin, RotateCcw, Lock, MessageCircle,
   Pencil, Plus, Save, X, Search, TrendingUp, TrendingDown,
+  CheckCircle, Banknote,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState, useRef, useEffect, useMemo } from "react";
@@ -26,7 +27,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import { ordersApi, apiFetch, manifestsApi, productsApi, variantsApi, shippingApi } from "@/lib/api";
+import { ordersApi, apiFetch, manifestsApi, productsApi, variantsApi, shippingApi, cashRegistersApi } from "@/lib/api";
 import { STATUS_LABELS as statusLabels, STATUS_CLASSES as statusClasses, RETURN_REASONS } from "@/lib/order-constants";
 import { type WhatsAppOrderData } from "@/lib/whatsapp";
 import { WhatsAppDialog } from "@/components/whatsapp-dialog";
@@ -489,6 +490,11 @@ export default function InvoiceGroup() {
   const [deletingProductId, setDeletingProductId]       = useState<number | null>(null);
   const [confirmDeleteId, setConfirmDeleteId]           = useState<number | null>(null);
 
+  // ── Close Invoice state ──
+  const [showCloseDialog, setShowCloseDialog]           = useState(false);
+  const [selectedRegisterId, setSelectedRegisterId]     = useState<string>("");
+  const [isClosing, setIsClosing]                       = useState(false);
+
   // Inline edit form state
   const [editCustomerName, setEditCustomerName]         = useState("");
   const [editPhone, setEditPhone]                       = useState("");
@@ -500,6 +506,13 @@ export default function InvoiceGroup() {
   const [isSavingEdit, setIsSavingEdit]                 = useState(false);
 
   const { data: shippingCompanies = [] } = useQuery({ queryKey: ["shipping-companies"], queryFn: shippingApi.list });
+
+  // ── Cash registers for close dialog ──
+  const { data: cashData } = useQuery({
+    queryKey: ["cash-registers-list"],
+    queryFn: cashRegistersApi.list,
+    staleTime: 60_000,
+  });
 
   const { data: orders, isLoading, error } = useQuery({
     queryKey: ["invoice-group", invoiceNumber],
@@ -524,6 +537,49 @@ export default function InvoiceGroup() {
     queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
     queryClient.invalidateQueries({ queryKey: getGetOrdersSummaryQueryKey() });
     queryClient.invalidateQueries({ queryKey: ["invoice-group", invoiceNumber] });
+  };
+
+  // ── Close Invoice: تحويل كل الأوردرات لـ received + إيداع في الخزنة ──
+  const handleCloseInvoice = async () => {
+    if (!orders?.length) return;
+    const regId = parseInt(selectedRegisterId);
+    if (!regId) return;
+    setIsClosing(true);
+    try {
+      // 1) حول كل أوردر مش received لـ received
+      const toClose = orders.filter((o: any) => o.status !== "received" && o.status !== "partial_received");
+      for (const order of toClose) {
+        await new Promise<void>((resolve) => {
+          updateOrder.mutate(
+            { id: order.id, data: { status: "received" } },
+            { onSuccess: () => resolve(), onError: () => resolve() }
+          );
+        });
+      }
+      // 2) أضف transaction للخزنة بمبلغ الفاتورة
+      const amount = orders.reduce((s: number, o: any) => s + (o.totalPrice ?? 0), 0);
+      await apiFetch(`/cash-registers/${regId}/transaction`, {
+        method: "POST",
+        body: JSON.stringify({
+          type: "order_collected",
+          amount,
+          description: `إغلاق فاتورة #${invoiceNumber} — ${orders[0]?.customerName ?? ""}`,
+          referenceNumber: invoiceNumber,
+          transactionDate: new Date().toISOString(),
+        }),
+      });
+      invalidateAll();
+      queryClient.invalidateQueries({ queryKey: ["cash-registers-list"] });
+      toast({
+        title: "✅ تم إغلاق الفاتورة",
+        description: `تم تحويل ${toClose.length} طلب لـ «استلم» وإيداع ${new Intl.NumberFormat("ar-EG",{style:"currency",currency:"EGP",maximumFractionDigits:0}).format(amount)} في الخزنة`,
+      });
+      setShowCloseDialog(false);
+    } catch (err: any) {
+      toast({ title: "خطأ", description: err.message ?? "فشل إغلاق الفاتورة", variant: "destructive" });
+    } finally {
+      setIsClosing(false);
+    }
   };
 
   const handleOpenEdit = (r: any) => {
@@ -844,6 +900,19 @@ export default function InvoiceGroup() {
             className="h-9 text-xs gap-1.5 border-border font-bold shrink-0">
             <Printer className="w-3.5 h-3.5" />فاتورة
           </Button>
+
+          {/* ── زرار إغلاق — يظهر لو فيه أوردرات لسه مش received ── */}
+          {orders.some((o: any) => !["received","partial_received","returned"].includes(o.status)) && !hasOpenManifest && (
+            <Button size="sm"
+              onClick={() => {
+                const defaultReg = cashData?.registers?.find((r: any) => r.isDefault) ?? cashData?.registers?.[0];
+                if (defaultReg) setSelectedRegisterId(String(defaultReg.id));
+                setShowCloseDialog(true);
+              }}
+              className="h-9 text-xs gap-1.5 font-bold bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shrink-0">
+              <CheckCircle className="w-3.5 h-3.5" />إغلاق
+            </Button>
+          )}
 
           {orders.some((o: any) => ["pending","warehouse_ready","in_shipping","delayed"].includes(o.status)) && (
             <Button variant="outline" size="sm" onClick={handleWhatsApp}
@@ -1284,6 +1353,83 @@ export default function InvoiceGroup() {
         order={waOrder}
         onSent={() => waOrder && handleWaSent(waOrder.id, waOrder.status)}
       />
+
+      {/* ── Close Invoice Dialog ── */}
+      <Dialog open={showCloseDialog} onOpenChange={setShowCloseDialog}>
+        <DialogContent className="max-w-sm" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <CheckCircle className="w-5 h-5 text-emerald-400" />
+              إغلاق الفاتورة
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* ملخص */}
+            <div className="rounded-lg bg-muted/30 border border-border p-3 space-y-1.5 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">العميل</span>
+                <span className="font-bold">{orders?.[0]?.customerName ?? "—"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">طلبات سيتم تسليمها</span>
+                <span className="font-bold text-emerald-400">
+                  {orders?.filter((o: any) => !["received","partial_received","returned"].includes(o.status)).length ?? 0} طلب
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">المبلغ المُودَع</span>
+                <span className="font-bold text-emerald-400">
+                  {formatCurrency(orders?.reduce((s: number, o: any) => s + (o.totalPrice ?? 0), 0) ?? 0)}
+                </span>
+              </div>
+            </div>
+
+            {/* اختيار الخزنة */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                <Banknote className="w-3.5 h-3.5" />الخزنة المستهدفة
+              </Label>
+              {(cashData?.registers?.length ?? 0) > 1 ? (
+                <Select value={selectedRegisterId} onValueChange={setSelectedRegisterId}>
+                  <SelectTrigger className="h-9 text-sm border-border">
+                    <SelectValue placeholder="اختر الخزنة..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {cashData?.registers?.map((r: any) => (
+                      <SelectItem key={r.id} value={String(r.id)}>
+                        {r.name} {r.isDefault && <span className="text-muted-foreground text-xs mr-1">(افتراضي)</span>}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="h-9 flex items-center px-3 rounded-md border border-border bg-muted/30 text-sm font-medium">
+                  {cashData?.registers?.[0]?.name ?? "لا توجد خزنة"}
+                </div>
+              )}
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              سيتم تحويل جميع الطلبات غير المغلقة إلى <span className="font-bold text-foreground">«استلم»</span> وإضافة المبلغ للخزنة كـ <span className="font-bold text-foreground">«تحصيل أوردر»</span>.
+            </p>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" size="sm" onClick={() => setShowCloseDialog(false)} disabled={isClosing}>
+              إلغاء
+            </Button>
+            <Button size="sm" onClick={handleCloseInvoice} disabled={isClosing || !selectedRegisterId}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1.5">
+              {isClosing ? (
+                <><RefreshCw className="w-3.5 h-3.5 animate-spin" />جاري الإغلاق...</>
+              ) : (
+                <><CheckCircle className="w-3.5 h-3.5" />تأكيد الإغلاق</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
