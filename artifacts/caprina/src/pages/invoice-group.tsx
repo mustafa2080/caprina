@@ -909,7 +909,7 @@ export default function InvoiceGroup() {
                 if (defaultReg) setSelectedRegisterId(String(defaultReg.id));
                 setShowCloseDialog(true);
               }}
-              className="h-9 text-xs gap-1.5 font-bold bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shrink-0">
+              className="h-9 text-xs gap-1.5 font-bold bg-transparent hover:bg-emerald-500/10 text-emerald-400 border border-emerald-600/50 hover:border-emerald-500 shrink-0">
               <CheckCircle className="w-3.5 h-3.5" />إغلاق
             </Button>
           )}
