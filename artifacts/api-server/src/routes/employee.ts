@@ -773,28 +773,9 @@ router.get("/employee-orders/:profileId", async (req, res): Promise<void> => {
   const isSuperOrAdmin = reqUser?.role === "super_admin" || reqUser?.role === "admin";
   const tenantId = getTenantId(req);
 
-  // جلب طلبات الموظف
-  const allOrders = await db
-    .select()
-    .from(ordersTable)
-    .where(
-      and(
-        // السوبريوزر/admin يشوف كل الطلبات — الموظف يشوف طلباته بس
-        isSuperOrAdmin
-          ? undefined
-          : eq(ordersTable.createdByUserId, reqUser?.id),
-        gte(ordersTable.createdAt, dateFrom),
-        lte(ordersTable.createdAt, dateTo)
-      )
-    )
-    .orderBy(desc(ordersTable.createdAt));
-
-  // فلترة tenant في JS
-  const orders = tenantId !== null
-    ? allOrders.filter(o => o.tenantId === tenantId)
-    : allOrders.filter(o => o.tenantId === null);
-
-  if (!row.profile.userId && !isSuperOrAdmin) {
+  // جلب طلبات الموظف — دايماً فلتر على userId بتاع الموظف (مش الـ requester)
+  const targetUserId = row.profile.userId;
+  if (!targetUserId) {
     res.json({
       orders: [], stats: { total: 0, delivered: 0, returned: 0, pending: 0, inShipping: 0,
         deliveryRate: 0, returnRate: 0, totalRevenue: 0, totalProfit: 0 },
@@ -802,6 +783,20 @@ router.get("/employee-orders/:profileId", async (req, res): Promise<void> => {
     });
     return;
   }
+
+  const orderConditions: any[] = [
+    isNull(ordersTable.deletedAt),                        // استبعاد المحذوفة دايماً
+    eq(ordersTable.createdByUserId, targetUserId),        // طلبات الموظف ده بالتحديد
+    gte(ordersTable.createdAt, dateFrom),
+    lte(ordersTable.createdAt, dateTo),
+  ];
+  if (tenantId !== null) orderConditions.push(eq(ordersTable.tenantId, tenantId));
+
+  const orders = await db
+    .select()
+    .from(ordersTable)
+    .where(and(...orderConditions))
+    .orderBy(desc(ordersTable.createdAt));
 
   // حساب الإحصائيات
   const delivered  = orders.filter(o => o.status === "received" || o.status === "partial_received");
