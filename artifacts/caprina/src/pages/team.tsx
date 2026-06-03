@@ -3674,30 +3674,162 @@ function EmployeeDetail({
         )}
         {/* ─── Profile Tab ─── */}
         <TabsContent value="profile" className="mt-3">
-          <Card className="border-border bg-card">
-            <CardContent className="px-4 py-4 space-y-3">
-              {[
-                { label: "الاسم الكامل", value: displayName, icon: <Users className="w-3.5 h-3.5" /> },
-                ...(isSystemUser && username ? [{ label: "اسم المستخدم", value: `@${username}`, icon: null }] : []),
-                ...(isSystemUser ? [] : [{ label: "نوع العضوية", value: "فريق فقط (بدون حساب)", icon: null }]),
-                { label: "المسمى الوظيفي", value: fullProfile?.jobTitle || "—", icon: <Briefcase className="w-3.5 h-3.5" /> },
-                { label: "القسم", value: fullProfile?.department || "—", icon: null },
-                { label: "الراتب الشهري", value: fullProfile?.monthlySalary ? fmt(fullProfile.monthlySalary) : "—", icon: <DollarSign className="w-3.5 h-3.5" /> },
-                { label: "تاريخ التعيين", value: fullProfile?.hireDate ? new Date(fullProfile.hireDate).toLocaleDateString("ar-EG") : "—", icon: <Calendar className="w-3.5 h-3.5" /> },
-              ].map(row => (
-                <div key={row.label} className="flex items-center justify-between py-1 border-b border-border/30 last:border-0">
-                  <span className="text-xs text-muted-foreground flex items-center gap-1">{row.icon}{row.label}</span>
-                  <span className="text-xs font-bold">{row.value}</span>
+          {/* ── Hero Card ── */}
+          <div className="relative rounded-2xl overflow-hidden border border-border bg-gradient-to-br from-card via-card to-muted/20 mb-3">
+            {/* خلفية زخرفية */}
+            <div className="absolute inset-0 pointer-events-none">
+              <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full opacity-10"
+                style={{ background: "radial-gradient(circle, hsl(var(--primary)), transparent)" }} />
+              <div className="absolute -bottom-8 -left-8 w-32 h-32 rounded-full opacity-8"
+                style={{ background: "radial-gradient(circle, #c9a227, transparent)" }} />
+            </div>
+            <div className="relative px-5 py-5 flex items-center gap-4">
+              {/* Avatar */}
+              <div className="relative shrink-0">
+                <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-primary/30 shadow-lg"
+                  style={{ boxShadow: "0 0 20px hsl(var(--primary)/0.25)" }}>
+                  {fullProfile?.avatar
+                    ? <img src={fullProfile.avatar} alt={displayName} className="w-full h-full object-cover" />
+                    : <div className="w-full h-full flex items-center justify-center text-2xl font-black"
+                        style={{ background: "linear-gradient(135deg,hsl(var(--primary)/0.8),hsl(var(--primary)/0.4))", color: "hsl(var(--primary-foreground))" }}>
+                        {(displayName || "?").charAt(0).toUpperCase()}
+                      </div>
+                  }
                 </div>
-              ))}
-              {fullProfile?.notes && (
-                <div className="pt-1">
-                  <p className="text-[10px] text-muted-foreground">ملاحظات:</p>
-                  <p className="text-xs mt-1">{fullProfile.notes}</p>
+                {/* نقطة الحالة */}
+                <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-card bg-emerald-500" />
+              </div>
+              {/* بيانات أساسية */}
+              <div className="flex-1 min-w-0">
+                <h2 className="text-lg font-black truncate">{displayName}</h2>
+                <p className="text-sm text-primary font-semibold truncate">
+                  {fullProfile?.jobTitle || "—"}
+                </p>
+                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                  {fullProfile?.department && (
+                    <span className="text-[10px] bg-muted/50 border border-border/50 px-2 py-0.5 rounded-full text-muted-foreground">
+                      {fullProfile.department}
+                    </span>
+                  )}
+                  {isSystemUser && username && (
+                    <span className="text-[10px] bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full text-primary font-mono">
+                      @{username}
+                    </span>
+                  )}
+                  {!isSystemUser && (
+                    <span className="text-[10px] bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full text-amber-500">
+                      فريق فقط
+                    </span>
+                  )}
                 </div>
+              </div>
+              {/* زرار تعديل */}
+              {isAdmin && (
+                <Button variant="outline" size="icon"
+                  className="shrink-0 rounded-xl h-9 w-9 border-border/60 hover:border-primary/50 hover:bg-primary/5"
+                  onClick={() => setProfileOpen(true)}>
+                  <Edit2 className="w-3.5 h-3.5" />
+                </Button>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
+
+          {/* ── Info Grid ── */}
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            {[
+              {
+                icon: DollarSign,
+                label: "الراتب الأساسي",
+                value: fullProfile?.monthlySalary ? fmt(fullProfile.monthlySalary) : "—",
+                color: "text-emerald-400",
+                bg: "from-emerald-500/10 to-green-600/5 border-emerald-500/20",
+              },
+              {
+                icon: Calendar,
+                label: "تاريخ التعيين",
+                value: fullProfile?.hireDate
+                  ? new Date(fullProfile.hireDate).toLocaleDateString("ar-EG", { year: "numeric", month: "short", day: "numeric" })
+                  : "—",
+                color: "text-blue-400",
+                bg: "from-blue-500/10 to-blue-600/5 border-blue-500/20",
+              },
+              {
+                icon: Briefcase,
+                label: "المسمى الوظيفي",
+                value: fullProfile?.jobTitle || "—",
+                color: "text-violet-400",
+                bg: "from-violet-500/10 to-purple-600/5 border-violet-500/20",
+              },
+              {
+                icon: Users,
+                label: "القسم",
+                value: fullProfile?.department || "—",
+                color: "text-amber-400",
+                bg: "from-amber-500/10 to-yellow-600/5 border-amber-500/20",
+              },
+            ].map(item => (
+              <div key={item.label}
+                className={`rounded-xl p-3 border bg-gradient-to-br ${item.bg} flex flex-col gap-1`}>
+                <div className="flex items-center gap-1.5">
+                  <item.icon className={`w-3.5 h-3.5 ${item.color}`} />
+                  <span className="text-[10px] text-muted-foreground">{item.label}</span>
+                </div>
+                <p className={`text-sm font-black truncate ${item.color}`}>{item.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* ── مدة الخدمة ── */}
+          {fullProfile?.hireDate && (() => {
+            const hire = new Date(fullProfile.hireDate);
+            const now = new Date();
+            const months = (now.getFullYear() - hire.getFullYear()) * 12 + (now.getMonth() - hire.getMonth());
+            const years = Math.floor(months / 12);
+            const remMonths = months % 12;
+            const label = years > 0
+              ? `${years} ${years === 1 ? "سنة" : "سنوات"}${remMonths > 0 ? ` و ${remMonths} شهر` : ""}`
+              : `${months} شهر`;
+            return (
+              <div className="rounded-xl border border-border/50 bg-muted/20 px-4 py-3 mb-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Clock className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-muted-foreground">مدة الخدمة</p>
+                    <p className="text-sm font-black text-primary">{label}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] text-muted-foreground">من</p>
+                  <p className="text-xs font-bold">{hire.toLocaleDateString("ar-EG", { year: "numeric", month: "long" })}</p>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ── ملاحظات ── */}
+          {fullProfile?.notes && (
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3">
+              <p className="text-[10px] text-amber-500 font-bold mb-1 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" />ملاحظات
+              </p>
+              <p className="text-xs text-muted-foreground leading-relaxed">{fullProfile.notes}</p>
+            </div>
+          )}
+
+          {/* ── لو مفيش profile ── */}
+          {!fullProfile && (
+            <div className="rounded-xl border border-dashed border-border/50 bg-muted/10 px-4 py-8 text-center">
+              <Users className="w-10 h-10 mx-auto mb-2 opacity-20" />
+              <p className="text-sm text-muted-foreground">لم يتم إنشاء ملف شخصي بعد</p>
+              {isAdmin && (
+                <Button size="sm" className="mt-3 text-xs" onClick={() => setProfileOpen(true)}>
+                  إنشاء ملف شخصي
+                </Button>
+              )}
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 
