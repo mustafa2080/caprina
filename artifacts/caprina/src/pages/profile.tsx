@@ -417,7 +417,7 @@ function OrdersTab({ profile, userId }: { profile?: EmployeeProfile; userId: num
 }
 
 /* ── Tab: KPIs (مؤشرات الأداء) ── */
-function KpisTab({ profile }: { profile?: EmployeeProfile }) {
+function KpisTab({ myStats, profile }: { myStats?: TeamMemberExtStats; profile?: EmployeeProfile }) {
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), "yyyy-MM"));
 
   const monthOptions = useMemo(() => Array.from({ length: 6 }, (_, i) => {
@@ -425,49 +425,271 @@ function KpisTab({ profile }: { profile?: EmployeeProfile }) {
     return { value: format(d, "yyyy-MM"), label: format(d, "MMMM yyyy", { locale: ar }) };
   }), []);
 
-  const { data: report, isLoading } = useQuery({
+  // تقرير KPI المخصص (لو في profile)
+  const { data: report, isLoading: reportLoading } = useQuery({
     queryKey: ["emp-report-kpis", profile?.id, selectedMonth],
     queryFn: () => employeeApi.getReport(profile!.id, selectedMonth),
     enabled: !!profile?.id,
   });
 
-  if (!profile?.id) return <EmptyState icon={Activity} title="لا يوجد بروفايل موظف" sub="تواصل مع المدير لإنشاء بروفايل موظف" />;
-  if (isLoading) return <LoadingSpinner text="جاري تحميل مؤشرات الأداء..." />;
-
   const kpis = report?.kpis ?? [];
   const fin = report?.kpiFinancials;
 
+  // ── مؤشرات من أداء الفريق (دائماً متاحة) ──
+  const teamKpiItems = useMemo(() => {
+    if (!myStats) return [];
+    return [
+      {
+        id: "delivery",
+        name: "معدل التسليم",
+        icon: CheckCircle2,
+        color: "text-emerald-400",
+        bg: "from-emerald-500/15 to-green-600/5 border-emerald-500/20",
+        progress: myStats.deliveryRate,
+        value: `${myStats.deliveryRate.toFixed(1)}%`,
+        target: "80%",
+        achieved: myStats.deliveryRate >= 80,
+        description: "نسبة الطلبات المسلّمة من الإجمالي",
+      },
+      {
+        id: "return",
+        name: "معدل الإرجاع",
+        icon: XCircle,
+        color: "text-rose-400",
+        bg: "from-rose-500/15 to-red-600/5 border-rose-500/20",
+        progress: Math.max(0, 20 - myStats.returnRate) / 20 * 100,
+        value: `${myStats.returnRate.toFixed(1)}%`,
+        target: "< 20%",
+        achieved: myStats.returnRate < 20,
+        description: "نسبة الطلبات المرتجعة (كلما قلّت كان أفضل)",
+      },
+      {
+        id: "score",
+        name: "نقاط الأداء الكلية",
+        icon: Trophy,
+        color: "text-amber-400",
+        bg: "from-amber-500/15 to-yellow-600/5 border-amber-500/20",
+        progress: myStats.score,
+        value: `${myStats.score} / 100`,
+        target: "80 نقطة",
+        achieved: myStats.score >= 80,
+        description: "النقاط الإجمالية بناءً على كل المؤشرات",
+      },
+      {
+        id: "volume",
+        name: "حجم المبيعات",
+        icon: Package,
+        color: "text-blue-400",
+        bg: "from-blue-500/15 to-blue-600/5 border-blue-500/20",
+        progress: Math.min(100, myStats.ordersPerDay * 10),
+        value: `${myStats.ordersPerDay.toFixed(1)} / يوم`,
+        target: "10 يومياً",
+        achieved: myStats.ordersPerDay >= 10,
+        description: "متوسط الطلبات اليومية",
+      },
+      {
+        id: "speed",
+        name: "سرعة المعالجة",
+        icon: Zap,
+        color: "text-violet-400",
+        bg: "from-violet-500/15 to-purple-600/5 border-violet-500/20",
+        progress: myStats.avgProcessingHours != null
+          ? Math.max(0, (48 - myStats.avgProcessingHours) / 48 * 100)
+          : 0,
+        value: myStats.avgProcessingHours != null ? `${myStats.avgProcessingHours.toFixed(1)} ساعة` : "—",
+        target: "< 24 ساعة",
+        achieved: myStats.avgProcessingHours != null && myStats.avgProcessingHours < 24,
+        description: "متوسط الوقت من إنشاء الطلب للتسليم",
+      },
+    ];
+  }, [myStats]);
+
+  const achieved = teamKpiItems.filter(k => k.achieved).length;
+
   return (
     <div className="space-y-4">
-      {/* Month selector */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <Activity className="w-4 h-4 text-muted-foreground shrink-0" />
-        <div className="flex gap-2 flex-wrap">
-          {monthOptions.map(m => (
-            <button key={m.value} type="button" onClick={() => setSelectedMonth(m.value)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${selectedMonth === m.value ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"}`}>
-              {m.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Financial summary */}
-      {fin && (
+      {/* ── Quick Stats من أداء الفريق ── */}
+      {myStats && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <MiniCard icon={BadgeCheck} label="KPIs محققة" value={`${fin.achievedCount} / ${kpis.length}`} color="from-emerald-500/15 to-green-600/5 border-emerald-500/20 text-emerald-400" />
-          <MiniCard icon={Coins} label="مكافآت" value={fmt(fin.totalBonus)} color="from-amber-500/15 to-yellow-600/5 border-amber-500/20 text-amber-400" />
-          <MiniCard icon={TrendingDown} label="خصومات" value={fmt(fin.totalDeduction)} color="from-rose-500/15 to-red-600/5 border-rose-500/20 text-rose-400" />
-          <MiniCard icon={Wallet} label="الراتب بعد التعديل" value={fmt((report?.salary ?? 0) + fin.totalBonus - fin.totalDeduction)} color="from-blue-500/15 to-blue-600/5 border-blue-500/20 text-blue-400" />
+          <MiniCard icon={Trophy} label="النقاط الكلية" value={`${myStats.score}/100`}
+            color="from-amber-500/15 to-yellow-600/5 border-amber-500/20 text-amber-400" />
+          <MiniCard icon={CheckCircle2} label="معدل التسليم" value={`${myStats.deliveryRate.toFixed(1)}%`}
+            color="from-emerald-500/15 to-green-600/5 border-emerald-500/20 text-emerald-400" />
+          <MiniCard icon={XCircle} label="معدل الإرجاع" value={`${myStats.returnRate.toFixed(1)}%`}
+            color="from-rose-500/15 to-red-600/5 border-rose-500/20 text-rose-400" />
+          <MiniCard icon={BadgeCheck} label="محقق" value={`${achieved} / ${teamKpiItems.length}`}
+            color="from-blue-500/15 to-blue-600/5 border-blue-500/20 text-blue-400" />
         </div>
       )}
 
-      {/* KPI Cards */}
-      {kpis.length === 0 ? (
-        <EmptyState icon={Target} title="لا توجد مؤشرات أداء" sub="لم يتم تحديد مؤشرات أداء لهذا الموظف بعد" />
-      ) : (
-        <div className="space-y-3">
-          {kpis.map((kpi) => {
+      {/* ── Month selector (للـ KPIs المخصصة فقط) ── */}
+      {profile?.id && (
+        <div className="flex items-center gap-3 flex-wrap">
+          <Activity className="w-4 h-4 text-muted-foreground shrink-0" />
+          <div className="flex gap-2 flex-wrap">
+            {monthOptions.map(m => (
+              <button key={m.value} type="button" onClick={() => setSelectedMonth(m.value)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                  selectedMonth === m.value
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "border-border text-muted-foreground hover:text-foreground"
+                }`}>
+                {m.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── مؤشرات أداء الفريق ── */}
+      {teamKpiItems.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">مؤشرات أداء الفريق</p>
+          <div className="space-y-2.5">
+            {teamKpiItems.map(kpi => (
+              <Card key={kpi.id} className={`border transition-all ${
+                kpi.achieved ? "border-emerald-500/30" : "border-border"
+              }`}>
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <kpi.icon className={`w-4 h-4 ${kpi.color} shrink-0`} />
+                        <span className="font-bold text-sm">{kpi.name}</span>
+                        {kpi.achieved
+                          ? <BadgeCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                          : <XCircle className="w-4 h-4 text-rose-400 shrink-0" />}
+                      </div>
+                      <p className="text-xs text-muted-foreground">{kpi.description}</p>
+                    </div>
+                    <div className="text-left shrink-0">
+                      <span className={`text-lg font-black ${kpi.color}`}>{kpi.value}</span>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                      <span>التقدم</span>
+                      <span>الهدف: {kpi.target}</span>
+                    </div>
+                    <div className="h-2.5 bg-muted/30 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-700 ${
+                          kpi.achieved ? "bg-emerald-500" : kpi.progress >= 60 ? "bg-amber-500" : "bg-rose-500"
+                        }`}
+                        style={{ width: `${Math.min(100, kpi.progress)}%` }}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── مصادر الإعلانات ── */}
+      {myStats?.sourceCounts && Object.keys(myStats.sourceCounts).length > 0 && (
+        <Card className="border">
+          <CardContent className="p-4">
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">توزيع مصادر الطلبات</p>
+            <div className="space-y-2">
+              {Object.entries(myStats.sourceCounts)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5)
+                .map(([source, count]) => {
+                  const total = Object.values(myStats.sourceCounts).reduce((s, v) => s + v, 0);
+                  const pctVal = total > 0 ? (count / total) * 100 : 0;
+                  return (
+                    <div key={source} className="flex items-center gap-3">
+                      <span className="text-xs text-muted-foreground w-20 shrink-0 truncate">{source}</span>
+                      <div className="flex-1 h-2 bg-muted/30 rounded-full overflow-hidden">
+                        <div className="h-full bg-primary/60 rounded-full transition-all duration-700"
+                          style={{ width: `${pctVal}%` }} />
+                      </div>
+                      <span className="text-xs font-bold w-10 text-right shrink-0">{fmtNum(count)}</span>
+                    </div>
+                  );
+                })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── KPIs المخصصة من employee profile ── */}
+      {profile?.id && (
+        reportLoading ? (
+          <LoadingSpinner text="جاري تحميل مؤشرات الأداء المخصصة..." />
+        ) : kpis.length > 0 ? (
+          <div className="space-y-2">
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">KPIs مخصصة</p>
+            {/* Financial summary */}
+            {fin && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
+                <MiniCard icon={BadgeCheck} label="KPIs محققة" value={`${fin.achievedCount} / ${kpis.length}`} color="from-emerald-500/15 to-green-600/5 border-emerald-500/20 text-emerald-400" />
+                <MiniCard icon={Coins} label="مكافآت" value={fmt(fin.totalBonus)} color="from-amber-500/15 to-yellow-600/5 border-amber-500/20 text-amber-400" />
+                <MiniCard icon={TrendingDown} label="خصومات" value={fmt(fin.totalDeduction)} color="from-rose-500/15 to-red-600/5 border-rose-500/20 text-rose-400" />
+                <MiniCard icon={Wallet} label="الراتب بعد التعديل" value={fmt((report?.salary ?? 0) + fin.totalBonus - fin.totalDeduction)} color="from-blue-500/15 to-blue-600/5 border-blue-500/20 text-blue-400" />
+              </div>
+            )}
+            <div className="space-y-2.5">
+              {kpis.map((kpi) => {
+                const actual = kpi.actualValue ?? 0;
+                const target = kpi.targetValue;
+                const progress = target > 0 ? Math.min(100, (actual / target) * 100) : 0;
+                const achieved = kpi.achieved;
+                const progressColor = achieved ? "bg-emerald-500" : progress >= 70 ? "bg-amber-500" : "bg-rose-500";
+                return (
+                  <Card key={kpi.id} className={`border transition-all ${achieved ? "border-emerald-500/30" : "border-border"}`}>
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="font-bold text-sm">{kpi.name}</span>
+                            {achieved === true && <BadgeCheck className="w-4 h-4 text-emerald-400 shrink-0" />}
+                            {achieved === false && <XCircle className="w-4 h-4 text-rose-400 shrink-0" />}
+                          </div>
+                          {kpi.description && <p className="text-xs text-muted-foreground">{kpi.description}</p>}
+                        </div>
+                        <div className="text-left shrink-0">
+                          {kpi.score != null && (
+                            <span className={`text-lg font-black ${
+                              kpi.score >= 80 ? "text-emerald-400" : kpi.score >= 60 ? "text-blue-400"
+                              : kpi.score >= 40 ? "text-amber-400" : "text-rose-400"
+                            }`}>
+                              {kpi.score.toFixed(0)}<span className="text-xs text-muted-foreground">/100</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">الفعلي: <span className="font-bold text-foreground">{fmtNum(actual)} {kpi.unit}</span></span>
+                          <span className="text-muted-foreground">الهدف: <span className="font-bold text-foreground">{fmtNum(target)} {kpi.unit}</span></span>
+                        </div>
+                        <div className="h-2.5 bg-muted/30 rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full transition-all duration-700 ${progressColor}`} style={{ width: `${progress}%` }} />
+                        </div>
+                        <div className="flex justify-between text-[10px] text-muted-foreground">
+                          <span>{progress.toFixed(1)}% من الهدف</span>
+                          <span>الوزن: {kpi.weight}%</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        ) : null
+      )}
+
+      {/* ── فارغ لو مفيش بيانات خالص ── */}
+      {!myStats && !profile?.id && (
+        <EmptyState icon={Activity} title="لا توجد بيانات أداء" sub="لا توجد بيانات في أداء الفريق" />
+      )}
+    </div>
+  );
+}
             const actual = kpi.actualValue ?? 0;
             const target = kpi.targetValue;
             const progress = target > 0 ? Math.min(100, (actual / target) * 100) : 0;
@@ -867,7 +1089,7 @@ export default function ProfilePage() {
       {/* ── Tab Content ── */}
       {activeTab === "dashboard" && <DashboardTab myStats={myStats} profile={myProfile} />}
       {activeTab === "orders" && <OrdersTab profile={myProfile} userId={user.id} />}
-      {activeTab === "kpis" && <KpisTab profile={myProfile} />}
+      {activeTab === "kpis" && <KpisTab myStats={myStats} profile={myProfile} />}
       {activeTab === "report" && <MonthlyReportTab profile={myProfile} />}
       {activeTab === "settings" && (
         <SettingsTab
