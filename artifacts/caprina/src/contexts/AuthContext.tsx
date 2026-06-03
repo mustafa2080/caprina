@@ -288,7 +288,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const activeChanged  = prev.isActive !== updated.isActive;
           const planChanged    = prev.planStatus !== updated.planStatus;
           const permsChanged   = permissionsChanged(prev.permissions, updated.permissions);
-          if (!roleChanged && !activeChanged && !planChanged && !permsChanged) return prev;
+          const profileLinkChanged = (prev as any).showProfileLink !== (updated as any).showProfileLink;
+          if (!roleChanged && !activeChanged && !planChanged && !permsChanged && !profileLinkChanged) return prev;
           const fresh = normalizeUser(updated);
           localStorage.setItem(USER_KEY, JSON.stringify(fresh));
           return { ...fresh };
