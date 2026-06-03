@@ -21,6 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, ReferenceLine, PieChart, Pie,
+  LineChart, Line, Legend,
 } from "recharts";
 import { employeeApi, usersApi, type EmployeeProfile, type EmployeeKpi, type EmployeeReport, type AppUser, type DailyKpiEntry, type DailyLogDay, appSettingsApi, attendanceApi, type AttendanceRecord, type AttendanceStatus, type PayrollAdjustment, type MonthlySalaryReport } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -2594,17 +2595,42 @@ function EmployeeDetail({
                             </div>
                           )}
                           <ResponsiveContainer width="100%" height={radarData.length >= 3 ? 140 : 180}>
-                            <BarChart data={barData} margin={{ top: 2, right: 2, bottom: 2, left: -25 }} barGap={2}>
+                            <LineChart data={barData} margin={{ top: 8, right: 8, bottom: 2, left: -20 }}>
                               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                               <XAxis dataKey="name" tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
                               <YAxis tick={{ fontSize: 7, fill: "hsl(var(--muted-foreground))" }} domain={[0, 100]} axisLine={false} tickLine={false} />
                               <Tooltip
                                 formatter={(v: any, n: string) => [`${v}%`, n]}
-                                contentStyle={{ fontSize: 10, background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, direction: "rtl" }}
+                                contentStyle={{
+                                  fontSize: 10,
+                                  background: "hsl(var(--card))",
+                                  border: "1px solid hsl(var(--border))",
+                                  borderRadius: 8,
+                                  direction: "rtl",
+                                  color: "hsl(var(--foreground))",
+                                  boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                                }}
+                                labelStyle={{ color: "hsl(var(--muted-foreground))", fontSize: 9 }}
+                                cursor={{ stroke: "hsl(var(--border))", strokeWidth: 1 }}
                               />
-                              <Bar dataKey="تقييم الأداء الحالي" fill="hsl(var(--primary))" radius={[3, 3, 0, 0]} maxBarSize={16} />
-                              <Bar dataKey="المتوسط العام" fill="#10B981" radius={[3, 3, 0, 0]} maxBarSize={16} />
-                            </BarChart>
+                              <Line
+                                type="monotone"
+                                dataKey="تقييم الأداء الحالي"
+                                stroke="hsl(var(--primary))"
+                                strokeWidth={2.5}
+                                dot={{ fill: "hsl(var(--primary))", r: 3, strokeWidth: 0 }}
+                                activeDot={{ r: 5, strokeWidth: 0 }}
+                              />
+                              <Line
+                                type="monotone"
+                                dataKey="المتوسط العام"
+                                stroke="#10B981"
+                                strokeWidth={2}
+                                strokeDasharray="4 2"
+                                dot={{ fill: "#10B981", r: 3, strokeWidth: 0 }}
+                                activeDot={{ r: 5, strokeWidth: 0 }}
+                              />
+                            </LineChart>
                           </ResponsiveContainer>
                           {/* Radar مدمج هنا لو المؤشرات أقل من 3 أو بعد الـ Bar */}
                           {radarData.length >= 3 && (
@@ -2615,6 +2641,17 @@ function EmployeeDetail({
                                   <RadarChart data={radarData} margin={{ top: 5, right: 20, bottom: 5, left: 20 }}>
                                     <PolarGrid stroke="hsl(var(--border))" />
                                     <PolarAngleAxis dataKey="subject" tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} />
+                                    <Tooltip
+                                      contentStyle={{
+                                        fontSize: 10,
+                                        background: "hsl(var(--card))",
+                                        border: "1px solid hsl(var(--border))",
+                                        borderRadius: 8,
+                                        color: "hsl(var(--foreground))",
+                                        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                                      }}
+                                      labelStyle={{ color: "hsl(var(--muted-foreground))", fontSize: 9 }}
+                                    />
                                     <Radar name="الأداء" dataKey="value" stroke="#c9a227" fill="#c9a227" fillOpacity={0.3} strokeWidth={2} dot={{ fill: "#c9a227", r: 2 }} />
                                   </RadarChart>
                                 </ResponsiveContainer>
@@ -3278,7 +3315,7 @@ function EmployeeDetail({
                               </Pie>
                               <Tooltip
                                 formatter={(value: any, name: string) => [`${value}`, name]}
-                                contentStyle={{ fontSize: 10, background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, direction: "rtl" }}
+                                contentStyle={{ fontSize: 10, background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, direction: "rtl", color: "hsl(var(--foreground))", boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}
                               />
                             </PieChart>
                           </ResponsiveContainer>
@@ -3337,7 +3374,7 @@ function EmployeeDetail({
                           <YAxis type="category" dataKey="name" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} width={72} />
                           <Tooltip
                             formatter={(v: any) => fmt(Number(v))}
-                            contentStyle={{ fontSize: 10, background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, direction: "rtl" }}
+                            contentStyle={{ fontSize: 10, background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, direction: "rtl", color: "hsl(var(--foreground))", boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}
                           />
                           <Bar dataKey="value" radius={[0, 8, 8, 0]} maxBarSize={28}>
                             {[
@@ -3405,7 +3442,7 @@ function EmployeeDetail({
                           <YAxis type="category" dataKey="name" tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} width={55} />
                           <Tooltip
                             formatter={(v: any) => [`${v}%`, "الأداء"]}
-                            contentStyle={{ fontSize: 11, background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, direction: "rtl" }}
+                            contentStyle={{ fontSize: 11, background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, direction: "rtl", color: "hsl(var(--foreground))", boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}
                           />
                           <ReferenceLine x={100} stroke="#10B981" strokeDasharray="4 2" strokeWidth={1.5} label={{ value: "الهدف", fill: "#10B981", fontSize: 9 }} />
                           <Bar dataKey="score" radius={[0, 4, 4, 0]} maxBarSize={18}>
