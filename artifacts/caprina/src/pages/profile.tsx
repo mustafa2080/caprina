@@ -19,9 +19,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  authApi, teamAnalyticsApi, employeeApi,
+  authApi, teamAnalyticsApi, employeeApi, ordersApi, apiFetch,
   type TeamMemberExtStats, type EmployeeProfile,
-  type EmployeeOrderItem,
   type EmployeeReport, type EvaluatedKpi,
 } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
@@ -281,36 +280,64 @@ function DashboardTab({ myStats, profile }: { myStats?: TeamMemberExtStats; prof
 /* ── Tab: My Orders (طلباتي) ── */
 function OrdersTab({ profile, userId }: { profile?: EmployeeProfile; userId: number }) {
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), "yyyy-MM"));
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  // Build month options: current + 5 previous months
-  const monthOptions = useMemo(() => {
-    return Array.from({ length: 6 }, (_, i) => {
-      const d = subMonths(new Date(), i);
-      return { value: format(d, "yyyy-MM"), label: format(d, "MMMM yyyy", { locale: ar }) };
-    });
-  }, []);
+  const monthOptions = useMemo(() => Array.from({ length: 6 }, (_, i) => {
+    const d = subMonths(new Date(), i);
+    return { value: format(d, "yyyy-MM"), label: format(d, "MMMM yyyy", { locale: ar }) };
+  }), []);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["emp-orders", profile?.id ?? userId, selectedMonth],
-    queryFn: () => profile?.id
-      ? employeeApi.getOrders(profile.id, selectedMonth)
-      : null,
-    enabled: !!profile?.id,
+  // نجيب الطلبات مباشرة من /orders/my-orders — بدون الحاجة لـ profileId أو userId
+  const { data: orders = [], isLoading } = useQuery({
+    queryKey: ["my-orders", userId, selectedMonth],
+    queryFn: () => apiFetch<any[]>(`/orders/my-orders?month=${selectedMonth}`),
+    staleTime: 60_000,
   });
 
-  const orders = data?.orders ?? [];
-  const stats = data?.stats;
+  // فلترة بالحالة في الـ frontend
+  const filtered = useMemo(() => {
+    if (statusFilter === "all") return orders;
+    // received/partial_received = delivered
+    if (statusFilter === "delivered") return orders.filter((o: any) => o.status === "received" || o.status === "partial_received");
+    if (statusFilter === "returned") return orders.filter((o: any) => o.status === "returned");
+    if (statusFilter === "pending") return orders.filter((o: any) => !["received","partial_received","returned","in_shipping"].includes(o.status));
+    if (statusFilter === "in_shipping") return orders.filter((o: any) => o.status === "in_shipping");
+    return orders;
+  }, [orders, statusFilter]);
+
+  // احسب الإحصائيات من البيانات
+  const stats = useMemo(() => {
+    const delivered = orders.filter((o: any) => o.status === "received" || o.status === "partial_received");
+    const returned = orders.filter((o: any) => o.status === "returned");
+    const inShipping = orders.filter((o: any) => o.status === "in_shipping");
+    const total = orders.length;
+    const totalProfit = orders.reduce((s: number, o: any) => s + (o.profit ?? 0), 0);
+    const totalRevenue = delivered.reduce((s: number, o: any) => s + (o.totalPrice ?? 0), 0);
+    return {
+      total, delivered: delivered.length, returned: returned.length, inShipping: inShipping.length,
+      deliveryRate: total > 0 ? (delivered.length / total) * 100 : 0,
+      returnRate: total > 0 ? (returned.length / total) * 100 : 0,
+      totalProfit, totalRevenue,
+    };
+  }, [orders]);
+
+  const STATUS_FILTERS = [
+    { key: "all", label: "الكل", count: stats.total },
+    { key: "delivered", label: "مسلّمة", count: stats.delivered },
+    { key: "in_shipping", label: "في الشحن", count: stats.inShipping },
+    { key: "returned", label: "مرتجعة", count: stats.returned },
+    { key: "pending", label: "معلقة", count: stats.total - stats.delivered - stats.returned - stats.inShipping },
+  ];
 
   return (
     <div className="space-y-4">
       {/* Month Filter */}
       <div className="flex items-center gap-3 flex-wrap">
         <CalendarDays className="w-4 h-4 text-muted-foreground shrink-0" />
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-1.5 flex-wrap">
           {monthOptions.map(m => (
-            <button key={m.value} type="button"
-              onClick={() => setSelectedMonth(m.value)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${selectedMonth === m.value ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"}`}>
+            <button key={m.value} type="button" onClick={() => setSelectedMonth(m.value)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${selectedMonth === m.value ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:text-foreground"}`}>
               {m.label}
             </button>
           ))}
@@ -318,43 +345,52 @@ function OrdersTab({ profile, userId }: { profile?: EmployeeProfile; userId: num
       </div>
 
       {/* Stats Row */}
-      {stats && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <MiniCard icon={Package} label="إجمالي" value={fmtNum(stats.total)} color="from-blue-500/15 to-blue-600/5 border-blue-500/20 text-blue-400" />
-          <MiniCard icon={CheckCircle2} label="مسلّمة" value={fmtNum(stats.delivered)} sub={pct(stats.deliveryRate)} color="from-emerald-500/15 to-green-600/5 border-emerald-500/20 text-emerald-400" />
-          <MiniCard icon={XCircle} label="مرتجعة" value={fmtNum(stats.returned)} sub={pct(stats.returnRate)} color="from-rose-500/15 to-red-600/5 border-rose-500/20 text-rose-400" />
-          <MiniCard icon={Coins} label="الأرباح" value={fmt(stats.totalProfit)} color="from-violet-500/15 to-purple-600/5 border-violet-500/20 text-violet-400" />
-        </div>
-      )}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <MiniCard icon={Package} label="إجمالي" value={fmtNum(stats.total)} color="from-blue-500/15 to-blue-600/5 border-blue-500/20 text-blue-400" />
+        <MiniCard icon={CheckCircle2} label="مسلّمة" value={fmtNum(stats.delivered)} sub={pct(stats.deliveryRate)} color="from-emerald-500/15 to-green-600/5 border-emerald-500/20 text-emerald-400" />
+        <MiniCard icon={XCircle} label="مرتجعة" value={fmtNum(stats.returned)} sub={pct(stats.returnRate)} color="from-rose-500/15 to-red-600/5 border-rose-500/20 text-rose-400" />
+        <MiniCard icon={Coins} label="الإيرادات" value={fmt(stats.totalRevenue)} color="from-violet-500/15 to-purple-600/5 border-violet-500/20 text-violet-400" />
+      </div>
 
-      {/* Orders List */}
-      {!profile?.id ? (
-        <EmptyState icon={ListOrdered} title="لا يوجد بروفايل موظف" sub="تواصل مع المدير لإنشاء بروفايل موظف لحسابك" />
-      ) : isLoading ? (
+      {/* Status Filter Tabs */}
+      <div className="flex gap-1.5 flex-wrap">
+        {STATUS_FILTERS.map(f => (
+          <button key={f.key} type="button" onClick={() => setStatusFilter(f.key)}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all border ${statusFilter === f.key ? "bg-foreground text-background border-foreground" : "border-border text-muted-foreground hover:text-foreground"}`}>
+            {f.label}
+            {f.count > 0 && <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${statusFilter === f.key ? "bg-background/20" : "bg-muted"}`}>{f.count}</span>}
+          </button>
+        ))}
+      </div>
+
+      {/* Orders Table */}
+      {isLoading ? (
         <LoadingSpinner text="جاري تحميل طلباتك..." />
-      ) : orders.length === 0 ? (
-        <EmptyState icon={Package} title="لا توجد طلبات في هذا الشهر" sub="لم يتم تسجيل أي طلبات باسمك في هذا الشهر" />
+      ) : filtered.length === 0 ? (
+        <EmptyState icon={Package} title={orders.length === 0 ? "لا توجد طلبات في هذا الشهر" : "لا توجد طلبات بهذا الفلتر"} sub="جرب تغيير الشهر أو الفلتر" />
       ) : (
         <Card className="border overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm" dir="rtl">
               <thead>
                 <tr className="border-b border-border/50 bg-muted/20">
-                  <th className="text-right py-2.5 px-3 text-xs text-muted-foreground font-medium">رقم الفاتورة</th>
+                  <th className="text-right py-2.5 px-3 text-xs text-muted-foreground font-medium">الفاتورة</th>
                   <th className="text-right py-2.5 px-3 text-xs text-muted-foreground font-medium">العميل</th>
                   <th className="text-right py-2.5 px-3 text-xs text-muted-foreground font-medium">المنتج</th>
-                  <th className="text-right py-2.5 px-3 text-xs text-muted-foreground font-medium">الكمية</th>
+                  <th className="text-center py-2.5 px-3 text-xs text-muted-foreground font-medium">الكمية</th>
                   <th className="text-right py-2.5 px-3 text-xs text-muted-foreground font-medium">الإجمالي</th>
                   <th className="text-right py-2.5 px-3 text-xs text-muted-foreground font-medium">الحالة</th>
                   <th className="text-right py-2.5 px-3 text-xs text-muted-foreground font-medium">التاريخ</th>
                 </tr>
               </thead>
               <tbody>
-                {orders.map((o, i) => (
+                {filtered.map((o: any, i: number) => (
                   <tr key={o.id} className={`border-b border-border/30 hover:bg-muted/10 transition-colors ${i % 2 === 0 ? "" : "bg-muted/5"}`}>
                     <td className="py-2.5 px-3 text-xs font-mono text-muted-foreground">{o.invoiceNumber ?? `#${o.id}`}</td>
-                    <td className="py-2.5 px-3 text-xs font-medium max-w-[120px] truncate">{o.customerName}</td>
-                    <td className="py-2.5 px-3 text-xs text-muted-foreground max-w-[100px] truncate">{o.product}{o.color ? ` - ${o.color}` : ""}{o.size ? ` / ${o.size}` : ""}</td>
+                    <td className="py-2.5 px-3 text-xs font-medium max-w-[110px] truncate">{o.customerName}</td>
+                    <td className="py-2.5 px-3 text-xs text-muted-foreground max-w-[100px] truncate">
+                      {o.product}{o.color ? ` - ${o.color}` : ""}{o.size ? ` / ${o.size}` : ""}
+                    </td>
                     <td className="py-2.5 px-3 text-xs text-center">{o.quantity}</td>
                     <td className="py-2.5 px-3 text-xs font-bold">{fmt(o.totalPrice)}</td>
                     <td className="py-2.5 px-3">
@@ -370,8 +406,9 @@ function OrdersTab({ profile, userId }: { profile?: EmployeeProfile; userId: num
               </tbody>
             </table>
           </div>
-          <div className="px-3 py-2 border-t border-border/30 bg-muted/10 text-xs text-muted-foreground">
-            إجمالي {fmtNum(orders.length)} طلب
+          <div className="px-3 py-2 border-t border-border/30 bg-muted/10 text-xs text-muted-foreground flex justify-between">
+            <span>يعرض {fmtNum(filtered.length)} من {fmtNum(orders.length)} طلب</span>
+            <span>{format(new Date(selectedMonth + "-01"), "MMMM yyyy", { locale: ar })}</span>
           </div>
         </Card>
       )}

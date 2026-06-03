@@ -80,6 +80,55 @@ router.get("/orders/stats", async (req, res): Promise<void> => {
   });
 });
 
+// ─── My Orders (طلبات الموظف الحالي من الـ token) ──────────────────────────────
+router.get("/orders/my-orders", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req);
+  const userId = (req as any).user?.id;
+  if (!userId) { res.status(401).json({ error: "غير مصرح" }); return; }
+
+  const { month } = req.query as { month?: string };
+
+  const conditions: any[] = [
+    isNull(ordersTable.deletedAt),
+    eq(ordersTable.createdByUserId, userId),
+  ];
+  if (tenantId !== null) conditions.push(eq(ordersTable.tenantId, tenantId));
+
+  if (month) {
+    const [year, mon] = month.split("-").map(Number);
+    const from = new Date(year, mon - 1, 1);
+    const to = new Date(year, mon, 1);
+    conditions.push(gte(ordersTable.createdAt, from));
+    conditions.push(lte(ordersTable.createdAt, to));
+  }
+
+  const orders = await db
+    .select()
+    .from(ordersTable)
+    .where(and(...conditions))
+    .orderBy(desc(ordersTable.createdAt));
+
+  const result = orders.map(o => ({
+    id: o.id,
+    invoiceNumber: o.invoiceNumber,
+    customerName: o.customerName,
+    product: o.product,
+    color: o.color,
+    size: o.size,
+    quantity: o.quantity,
+    unitPrice: o.unitPrice,
+    totalPrice: o.totalPrice,
+    status: o.status,
+    city: o.city,
+    adSource: o.adSource,
+    shippingCost: o.shippingCost,
+    profit: o.totalPrice - (o.costPrice ?? 0) * o.quantity - (o.shippingCost ?? 0),
+    createdAt: o.createdAt,
+  }));
+
+  res.json(result);
+});
+
 // ظ¤ظ¤ظ¤ List orders ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
 
 router.get("/orders", async (req, res): Promise<void> => {
@@ -215,6 +264,10 @@ router.get("/orders", async (req, res): Promise<void> => {
   if ((req.query as any).shippingCompanyId) {
     const cid = parseInt((req.query as any).shippingCompanyId as string);
     if (!isNaN(cid)) conditions.push(eq(ordersTable.shippingCompanyId, cid));
+  }
+  if ((req.query as any).createdByUserId) {
+    const uid = parseInt((req.query as any).createdByUserId as string);
+    if (!isNaN(uid)) conditions.push(eq(ordersTable.createdByUserId, uid));
   }
 
   if (conditions.length === 1) query = query.where(conditions[0]);

@@ -629,6 +629,18 @@ export const ordersApi = {
     const qs = q.toString();
     return apiFetch<any[]>(`/orders${qs ? `?${qs}` : ""}`);
   },
+  getMyOrders: (userId: number, month?: string) => {
+    const q = new URLSearchParams();
+    q.set("createdByUserId", String(userId));
+    if (month) {
+      const [y, m] = month.split("-").map(Number);
+      const dateFrom = new Date(y, m - 1, 1);
+      const dateTo = new Date(y, m, 0);
+      q.set("dateFrom", dateFrom.toISOString().split("T")[0]);
+      q.set("dateTo", dateTo.toISOString().split("T")[0]);
+    }
+    return apiFetch<any[]>(`/orders?${q.toString()}`);
+  },
 };
 
 export type MovementType = "IN" | "OUT";
