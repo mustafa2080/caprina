@@ -56,9 +56,9 @@ const RATING_CONFIG: Record<string, { color: string; bg: string; label: string }
 
 // ─── Profile Form Dialog ──────────────────────────────────────────────────────
 function ProfileFormDialog({
-  open, onClose, profileId, displayName, isSystemUser, existing,
+  open, onClose, profileId, displayName, isSystemUser, existing, isAdmin,
 }: {
-  open: boolean; onClose: () => void; profileId: number; displayName: string; isSystemUser: boolean; existing: EmployeeProfile | null;
+  open: boolean; onClose: () => void; profileId: number; displayName: string; isSystemUser: boolean; existing: EmployeeProfile | null; isAdmin?: boolean;
 }) {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -125,7 +125,8 @@ function ProfileFormDialog({
       <DialogContent className="max-w-md" dir="rtl">
         <DialogHeader><DialogTitle>بيانات العضو: {displayName}</DialogTitle></DialogHeader>
         <div className="space-y-3 py-2">
-          {/* ── صورة الموظف ── */}
+          {/* ── صورة الموظف — للأدمن فقط ── */}
+          {isAdmin && (
           <div className="flex items-center gap-3">
             <div className="relative shrink-0">
               {avatar ? (
@@ -152,6 +153,7 @@ function ProfileFormDialog({
               <p className="text-[9px] text-muted-foreground">JPG / PNG / WebP — حد أقصى 2MB</p>
             </div>
           </div>
+          )}
 
           {!isSystemUser && (
             <div className="space-y-1">
@@ -4194,6 +4196,7 @@ function EmployeeDetail({
           displayName={displayName}
           isSystemUser={isSystemUser}
           existing={fullProfile ?? null}
+          isAdmin={isAdmin}
         />
       )}
 
