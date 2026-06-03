@@ -419,12 +419,13 @@ interface UserForm {
   avatar: string;
   jobTitle: string;
   department: string;
+  showProfileLink: boolean;
 }
 
 const emptyForm = (): UserForm => ({
   username: "", password: "", displayName: "",
   role: "employee", permissions: DEFAULT_PERMISSIONS["employee"]?.() ?? [],
-  avatar: "", jobTitle: "", department: "",
+  avatar: "", jobTitle: "", department: "", showProfileLink: true,
 });
 
 export default function UsersPage() {
@@ -532,6 +533,7 @@ export default function UsersPage() {
       avatar: (u as any).avatar ?? "",
       jobTitle: (u as any).jobTitle ?? "",
       department: (u as any).department ?? "",
+      showProfileLink: (u as any).showProfileLink ?? true,
     });
     setShowPassword(false);
     // استخرج الـ customRoleName من الـ permissions markers
@@ -637,6 +639,7 @@ export default function UsersPage() {
         avatar: form.avatar || null,
         jobTitle: form.jobTitle || null,
         department: form.department || null,
+        showProfileLink: form.showProfileLink,
       };
       if (form.password) data.password = form.password;
       updateMutation.mutate({ id: editingUser.id, data });
@@ -1075,6 +1078,28 @@ export default function UsersPage() {
                         placeholder="المبيعات"
                       />
                     </div>
+                  </div>
+
+                  {/* إظهار لينك البروفايل */}
+                  <div
+                    className="flex items-center justify-between p-3 rounded-xl border cursor-pointer select-none transition-colors"
+                    style={{ borderColor: form.showProfileLink ? "hsl(var(--primary)/0.4)" : "hsl(var(--border)/0.5)", background: form.showProfileLink ? "hsl(var(--primary)/0.06)" : "hsl(var(--muted)/0.3)" }}
+                    onClick={() => setForm(f => ({ ...f, showProfileLink: !f.showProfileLink }))}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div
+                        className="w-4 h-4 rounded flex items-center justify-center border-2 transition-all"
+                        style={{ borderColor: form.showProfileLink ? "hsl(var(--primary))" : "hsl(var(--border))", background: form.showProfileLink ? "hsl(var(--primary))" : "transparent" }}
+                      >
+                        {form.showProfileLink && (
+                          <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                            <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                      </div>
+                      <span className="text-sm font-semibold">إظهار لينك البروفايل</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">{form.showProfileLink ? "ظاهر في القائمة" : "مخفي من القائمة"}</span>
                   </div>
                 </div>
               );

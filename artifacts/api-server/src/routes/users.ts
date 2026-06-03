@@ -41,6 +41,7 @@ router.get("/", async (req, res): Promise<void> => {
     permissions: usersTable.permissions,
     isActive: usersTable.isActive,
     avatar: usersTable.avatar,
+    showProfileLink: usersTable.showProfileLink,
     createdAt: usersTable.createdAt,
     updatedAt: usersTable.updatedAt,
     jobTitle: employeeProfilesTable.jobTitle,
@@ -118,10 +119,11 @@ router.post("/", async (req, res): Promise<void> => {
 // PATCH /users/:id
 router.patch("/:id", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
-  const { displayName, role, permissions, isActive, password, avatar, jobTitle, department } = req.body as {
+  const { displayName, role, permissions, isActive, password, avatar, jobTitle, department, showProfileLink } = req.body as {
     displayName?: string; role?: string; permissions?: string[];
     isActive?: boolean; password?: string; avatar?: string | null;
     jobTitle?: string | null; department?: string | null;
+    showProfileLink?: boolean;
   };
 
   const [existing] = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
@@ -153,6 +155,7 @@ router.patch("/:id", async (req, res): Promise<void> => {
   }
   if (avatar !== undefined) updates.avatar = avatar ?? null;
   if (isActive !== undefined) updates.isActive = isActive;
+  if (showProfileLink !== undefined) updates.showProfileLink = showProfileLink;
   if (password) {
     if (password.length < 6) { res.status(400).json({ error: "كلمة المرور يجب أن تكون 6 أحرف على الأقل" }); return; }
     updates.passwordHash = await hashPassword(password);

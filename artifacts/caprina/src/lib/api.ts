@@ -52,6 +52,7 @@ export interface AppUser {
   jobTitle?: string | null;
   department?: string | null;
   avatar?: string | null;
+  showProfileLink?: boolean;
   createdAt: string; updatedAt: string;
 }
 
