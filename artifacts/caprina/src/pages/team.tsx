@@ -1280,13 +1280,14 @@ function DailyTrackerTab({ profileId }: { profileId: number }) {
                 <div className="flex items-center gap-4 text-[10px] text-muted-foreground flex-wrap">
                   {isManual ? (
                     <>
-                      <span>الهدف الشهري: <span className="font-bold text-foreground">{fmtNum(kpi.dailyTarget)} {kpi.unit}</span></span>
+                      <span>المتوقع حتى اليوم: <span className={`font-bold ${kpi.achieved === true ? "text-emerald-400" : "text-amber-400"}`}>{fmtNum(kpi.dailyTarget)} {kpi.unit}</span></span>
                       <span>المتراكم: <span className={`font-bold ${kpi.achieved === true ? "text-emerald-400" : cumulativeValue !== null && cumulativeValue > 0 ? "text-blue-400" : "text-foreground"}`}>
                         {cumulativeValue !== null ? `${fmtNum(cumulativeValue)} ${kpi.unit}` : "—"}
                       </span></span>
                       {todayValue !== null && (
                         <span className="text-muted-foreground/70">اليوم: <span className="font-semibold text-foreground">{fmtNum(todayValue)} {kpi.unit}</span></span>
                       )}
+                      <span className="text-muted-foreground/50">الهدف الشهري: {fmtNum(kpi.targetValue)} {kpi.unit}</span>
                     </>
                   ) : (
                     <>
