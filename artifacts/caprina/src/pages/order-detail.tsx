@@ -1901,7 +1901,7 @@ export default function OrderDetail() {
   td{border:1px solid #bbb;padding:9px 8px;text-align:center;font-size:15px;font-weight:700;font-family:'Cairo',Tahoma,Arial,sans-serif}
   td.name{font-weight:900;font-size:15px}
   /* Totals */
-  .totals{width:300px;margin-top:4px}
+  .totals{width:300px;margin-top:4px;margin-right:auto;margin-left:0}
   .totals-row{display:flex;justify-content:space-between;padding:8px 0;font-size:15px;font-weight:700;border-bottom:1px solid #e0e0e0}
   .totals-row:last-child{border-bottom:none;font-size:18px;font-weight:900;padding-top:10px}
   @media print{body{padding:0}.sheet{border:none;max-width:none}}
