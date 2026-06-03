@@ -1,6 +1,6 @@
 ﻿import { Router, type IRouter } from "express";
 import { eq, desc, like, or, gte, lte, and, isNull, isNotNull, inArray, notInArray } from "drizzle-orm";
-import { db, ordersTable, productsTable, productVariantsTable, shippingManifestOrdersTable, shippingManifestsTable, shippingCompaniesTable, inventoryMovementsTable } from "@workspace/db";
+import { db, ordersTable, productsTable, productVariantsTable, shippingManifestOrdersTable, shippingManifestsTable, shippingCompaniesTable, inventoryMovementsTable, cashRegistersTable, cashTransactionsTable } from "@workspace/db";
 import {
   ListOrdersQueryParams,
   ListOrdersResponse,

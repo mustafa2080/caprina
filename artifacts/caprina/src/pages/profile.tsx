@@ -219,9 +219,18 @@ function DashboardTab({ myStats, profile }: { myStats?: TeamMemberExtStats; prof
                   }} />
                 </div>
                 {rating && <p className="text-xs text-center text-muted-foreground">التقييم: <span className="font-bold text-foreground">{rating}</span></p>}
+                {!currReport?.kpis?.length && (
+                  <p className="text-[11px] text-center text-muted-foreground/70 mt-1 flex items-center justify-center gap-1">
+                    <Info className="w-3 h-3" />محسوبة من معدل التسليم والإرجاع
+                  </p>
+                )}
               </>
             ) : (
-              <p className="text-sm text-muted-foreground text-center py-4">لا توجد نقاط أداء بعد</p>
+              <div className="flex flex-col items-center justify-center py-4 gap-2">
+                <Target className="w-8 h-8 text-muted-foreground/30" />
+                <p className="text-sm text-muted-foreground text-center">لا توجد طلبات هذا الشهر</p>
+                <p className="text-[11px] text-muted-foreground/60 text-center">ستظهر النقاط بعد تسجيل أول طلب</p>
+              </div>
             )}
           </CardContent>
         </Card>

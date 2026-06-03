@@ -562,8 +562,15 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
         : null;
   }
 
+  // fallback: لو مفيش KPIs — نحسب من deliveryRate ومعدل الإرجاع
+  if (overallScore === null && orderStats.total > 0) {
+    const deliveryScore = orderStats.deliveryRate;
+    const returnPenalty = Math.max(0, 100 - orderStats.returnRate * 2);
+    overallScore = Math.round(deliveryScore * 0.6 + returnPenalty * 0.4);
+  }
+
   const rating =
-    overallScore === null ? "غير محدد"
+    overallScore === null ? "لا توجد بيانات"
     : overallScore >= 90 ? "ممتاز"
     : overallScore >= 75 ? "جيد جداً"
     : overallScore >= 60 ? "جيد"
@@ -780,8 +787,15 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
       : null;
   }
 
+  // fallback: لو مفيش KPIs — نحسب النقاط من deliveryRate (60% وزن) ومعدل الإرجاع (40% وزن)
+  if (overallScore === null && orderStats.total > 0) {
+    const deliveryScore = orderStats.deliveryRate; // 0-100
+    const returnPenalty = Math.max(0, 100 - orderStats.returnRate * 2); // عقوبة المرتجعات
+    overallScore = Math.round(deliveryScore * 0.6 + returnPenalty * 0.4);
+  }
+
   const rating =
-    overallScore === null ? "غير محدد"
+    overallScore === null ? "لا توجد بيانات"
     : overallScore >= 90 ? "ممتاز"
     : overallScore >= 75 ? "جيد جداً"
     : overallScore >= 60 ? "جيد"
