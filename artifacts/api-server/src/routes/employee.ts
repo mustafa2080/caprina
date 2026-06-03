@@ -491,6 +491,16 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
     };
   }
 
+  // For manual KPIs: if the month is still in progress, compare against
+  // the progressive target (monthlyTarget * daysPassed / daysInMonth)
+  // so the score reflects current-day pace, not the full monthly target.
+  const now = new Date();
+  const isCurrentMonth =
+    dateFrom.getFullYear() === now.getFullYear() &&
+    dateFrom.getMonth() === now.getMonth();
+  const reportDayNumber  = isCurrentMonth ? now.getDate() : dateTo.getDate();
+  const reportDaysInMonth = new Date(dateFrom.getFullYear(), dateFrom.getMonth() + 1, 0).getDate();
+
   const evaluatedKpis = await Promise.all(
     kpis.map(async (kpi) => {
       let actualValue: number | null;
@@ -502,13 +512,18 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
           ? await computeActualValue(kpi.metric, userId, dateFrom, dateTo, profile.tenantId)
           : 0;
       }
+      // For manual KPIs: use progressive target based on day number in month
+      // For past months (completed): use full monthly target
+      const effectiveTarget = kpi.metric === "manual" && isCurrentMonth
+        ? Math.max(1, Math.round((kpi.targetValue / reportDaysInMonth) * reportDayNumber))
+        : kpi.targetValue;
       const score =
         actualValue !== null
-          ? computeKpiScore(actualValue, kpi.targetValue, kpi.direction)
+          ? computeKpiScore(actualValue, effectiveTarget, kpi.direction)
           : null;
       const achieved =
         score !== null ? (kpi.direction === "lower_is_better" ? score >= 70 : score >= 80) : null;
-      return { ...kpi, actualValue, score, achieved };
+      return { ...kpi, actualValue, score, achieved, effectiveTarget };
     })
   );
 
@@ -716,6 +731,14 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
     totalProfit,
   };
 
+  // Progressive target for manual KPIs (same logic as employee-report)
+  const nowMR = new Date();
+  const isCurrentMonthMR =
+    dateFrom.getFullYear() === nowMR.getFullYear() &&
+    dateFrom.getMonth() === nowMR.getMonth();
+  const reportDayNumberMR   = isCurrentMonthMR ? nowMR.getDate() : dateTo.getDate();
+  const reportDaysInMonthMR = new Date(dateFrom.getFullYear(), dateFrom.getMonth() + 1, 0).getDate();
+
   const evaluatedKpis = await Promise.all(
     kpis.map(async (kpi) => {
       let actualValue: number | null;
@@ -724,9 +747,12 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
       } else {
         actualValue = await computeActualValue(kpi.metric, userId, dateFrom, dateTo, profile.tenantId);
       }
-      const score = actualValue !== null ? computeKpiScore(actualValue, kpi.targetValue, kpi.direction) : null;
+      const effectiveTarget = kpi.metric === "manual" && isCurrentMonthMR
+        ? Math.max(1, Math.round((kpi.targetValue / reportDaysInMonthMR) * reportDayNumberMR))
+        : kpi.targetValue;
+      const score = actualValue !== null ? computeKpiScore(actualValue, effectiveTarget, kpi.direction) : null;
       const achieved = score !== null ? (kpi.direction === "lower_is_better" ? score >= 70 : score >= 80) : null;
-      return { ...kpi, actualValue, score, achieved };
+      return { ...kpi, actualValue, score, achieved, effectiveTarget };
     })
   );
 
