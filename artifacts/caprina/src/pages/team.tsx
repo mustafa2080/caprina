@@ -2618,8 +2618,8 @@ function EmployeeDetail({
                                 dataKey="تقييم الأداء الحالي"
                                 stroke="hsl(var(--primary))"
                                 strokeWidth={2.5}
-                                dot={{ fill: "hsl(var(--primary))", r: 3, strokeWidth: 0 }}
-                                activeDot={{ r: 5, strokeWidth: 0 }}
+                                dot={false}
+                                activeDot={{ r: 4, strokeWidth: 0 }}
                               />
                               <Line
                                 type="monotone"
@@ -2627,8 +2627,8 @@ function EmployeeDetail({
                                 stroke="#10B981"
                                 strokeWidth={2}
                                 strokeDasharray="4 2"
-                                dot={{ fill: "#10B981", r: 3, strokeWidth: 0 }}
-                                activeDot={{ r: 5, strokeWidth: 0 }}
+                                dot={false}
+                                activeDot={{ r: 4, strokeWidth: 0 }}
                               />
                             </LineChart>
                           </ResponsiveContainer>
