@@ -655,6 +655,40 @@ router.delete("/orders/bulk", async (req, res): Promise<void> => {
       skipped++;
       continue;
     }
+    // -- 1) restore inventory stock if a movement exists
+    try {
+      const [lastMovement] = await db
+        .select({ id: inventoryMovementsTable.id })
+        .from(inventoryMovementsTable)
+        .where(eq(inventoryMovementsTable.orderId, order.id))
+        .orderBy(desc(inventoryMovementsTable.id))
+        .limit(1);
+      if (lastMovement) {
+        const orderRef = {
+          variantId: order.variantId, productId: order.productId,
+          product: order.product, color: order.color,
+          size: order.size, warehouseId: order.warehouseId,
+        };
+        const { variantId, productId } = await resolveInventoryTarget(orderRef);
+        await adjustWarehouseStock(order.warehouseId, variantId, productId, order.quantity).catch(() => {});
+        await syncProductQuantityFromWarehouses(variantId, productId).catch(() => {});
+        await db.delete(inventoryMovementsTable).where(eq(inventoryMovementsTable.orderId, order.id)).catch(() => {});
+      }
+    } catch (_) {}
+
+    // -- 2) remove cash transaction linked to this order
+    try {
+      const invoiceRef = order.invoiceNumber ?? String(order.id);
+      await db
+        .delete(cashTransactionsTable)
+        .where(
+          and(
+            eq(cashTransactionsTable.type, "order_collected"),
+            eq(cashTransactionsTable.referenceNumber, invoiceRef),
+          )
+        );
+    } catch (_) {}
+
     await db.update(ordersTable).set({ deletedAt: new Date() }).where(eq(ordersTable.id, order.id));
     await logAudit({
       action: "delete", entityType: "order", entityId: order.id,
