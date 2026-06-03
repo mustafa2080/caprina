@@ -187,11 +187,11 @@ function DashboardTab({ myStats, profile }: { myStats?: TeamMemberExtStats; prof
   return (
     <div className="space-y-4">
       {/* Quick KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <MiniCard icon={Package} label="طلبات الشهر" value={fmtNum(stats?.total ?? myStats?.total ?? 0)} color="from-blue-500/15 to-blue-600/5 border-blue-500/20 text-blue-400" />
         <MiniCard icon={CheckCircle2} label="مسلّمة" value={fmtNum(stats?.delivered ?? myStats?.delivered ?? 0)} sub={pct(stats?.deliveryRate ?? myStats?.deliveryRate ?? 0)} color="from-emerald-500/15 to-green-600/5 border-emerald-500/20 text-emerald-400" />
         <MiniCard icon={XCircle} label="مرتجعات" value={fmtNum(stats?.returned ?? myStats?.returned ?? 0)} sub={pct(stats?.returnRate ?? myStats?.returnRate ?? 0)} color="from-rose-500/15 to-red-600/5 border-rose-500/20 text-rose-400" />
-        <MiniCard icon={Coins} label="الأرباح" value={fmt(stats?.totalProfit ?? myStats?.profit ?? 0)} color="from-violet-500/15 to-purple-600/5 border-violet-500/20 text-violet-400" />
+
       </div>
 
       {/* Score + Comparison */}
@@ -253,7 +253,6 @@ function DashboardTab({ myStats, profile }: { myStats?: TeamMemberExtStats; prof
           <CardContent className="p-4 space-y-2.5">
             <div className="flex items-center gap-2"><TrendingUp className="w-4 h-4 text-emerald-400" /><span className="font-bold text-sm">الأداء المالي</span></div>
             <div><div className="flex justify-between text-xs mb-1"><span className="text-muted-foreground">إجمالي الإيرادات</span><span className="font-bold">{fmt(stats?.totalRevenue ?? 0)}</span></div><AnimatedBar pct={100} color="bg-blue-500" /></div>
-            <div><div className="flex justify-between text-xs mb-1"><span className="text-muted-foreground">الأرباح الصافية</span><span className="font-bold text-emerald-400">{fmt(stats?.totalProfit ?? 0)}</span></div><AnimatedBar pct={stats?.totalRevenue ? (stats.totalProfit / stats.totalRevenue) * 100 : 0} color="bg-emerald-500" /></div>
             <div><div className="flex justify-between text-xs mb-1"><span className="text-muted-foreground">معدل التسليم</span><span className="font-bold text-blue-400">{pct(stats?.deliveryRate ?? 0)}</span></div><AnimatedBar pct={stats?.deliveryRate ?? 0} color="bg-blue-500" /></div>
             <div><div className="flex justify-between text-xs mb-1"><span className="text-muted-foreground">معدل الإرجاع</span><span className="font-bold text-rose-400">{pct(stats?.returnRate ?? 0)}</span></div><AnimatedBar pct={stats?.returnRate ?? 0} color="bg-rose-500" /></div>
           </CardContent>
