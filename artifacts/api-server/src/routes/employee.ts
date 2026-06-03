@@ -11,7 +11,7 @@ import {
 } from "@workspace/db";
 import { z } from "zod";
 import { requireAuth } from "../middlewares/requireAuth";
-import { requireAdmin } from "../middlewares/requireRole";
+import { requireAdmin, requireSuperAdmin } from "../middlewares/requireRole";
 import { getTenantId } from "../middlewares/requireTenant.js";
 
 const router: IRouter = Router();
@@ -375,7 +375,7 @@ router.patch("/employee-kpis/:kpiId", requireAdmin, async (req, res): Promise<vo
   res.json(updated);
 });
 
-router.delete("/employee-kpis/:kpiId", requireAdmin, async (req, res): Promise<void> => {
+router.delete("/employee-kpis/:kpiId", requireSuperAdmin, async (req, res): Promise<void> => {
   const kpiId = parseInt(req.params.kpiId);
   if (isNaN(kpiId)) { res.status(400).json({ error: "Invalid kpiId" }); return; }
   await db.delete(employeeKpisTable).where(eq(employeeKpisTable.id, kpiId));

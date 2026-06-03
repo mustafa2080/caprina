@@ -2215,7 +2215,7 @@ function EmployeeDetail({
 }: {
   profileId: number; displayName: string; isSystemUser: boolean; username?: string | null; onBack: () => void;
 }) {
-  const { isAdmin, can } = useAuth();
+  const { isAdmin, isSuperAdmin, can } = useAuth();
   const canSalaries   = isAdmin || can("team.salaries");
   const canPerformance = isAdmin || can("team.performance");
   const canManage     = isAdmin || can("team.manage");
@@ -2821,10 +2821,12 @@ function EmployeeDetail({
                                       onClick={() => { setEditingKpi(kpi); setKpiDialogOpen(true); }}>
                                       <Edit2 className="w-3 h-3" />
                                     </Button>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground/60 hover:text-destructive hover:bg-destructive/5 rounded-lg"
-                                      onClick={() => deleteKpi(kpi.id)}>
-                                      <Trash2 className="w-3 h-3" />
-                                    </Button>
+                                    {isSuperAdmin && (
+                                      <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground/60 hover:text-destructive hover:bg-destructive/5 rounded-lg"
+                                        onClick={() => deleteKpi(kpi.id)}>
+                                        <Trash2 className="w-3 h-3" />
+                                      </Button>
+                                    )}
                                   </>
                                 )}
                               </div>

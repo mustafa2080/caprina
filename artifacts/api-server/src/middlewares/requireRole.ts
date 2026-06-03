@@ -33,7 +33,7 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction): v
 export function requireSuperAdmin(req: Request, res: Response, next: NextFunction): void {
   const user = req.user;
   if (!user || user.role !== "super_admin") {
-    res.status(403).json({ error: "هذه الصفحة متاحة للـ Super Admin فقط" });
+    res.status(403).json({ error: "هذه العملية متاحة للسوبر أدمن فقط" });
     return;
   }
   next();
