@@ -1908,7 +1908,7 @@ export default function OrderDetail() {
 </style></head><body><div class="sheet">
   <div class="header">
     <div class="header-left">
-      <div class="inv-main-title">فاتورة العميل</div>
+      <div class="inv-main-title">فاتورة</div>
       <div class="inv-count">1 منتجات / ${order.quantity ?? 1} قطعة</div>
     </div>
     <div class="header-right">
