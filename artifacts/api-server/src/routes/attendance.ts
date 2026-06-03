@@ -20,8 +20,9 @@ router.get("/attendance/my", async (req, res): Promise<void> => {
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
   const month = (req.query.month as string) || new Date().toISOString().slice(0, 7);
-  const [year, mon] = month.split("-");
-  const prefix = `${year}-${mon}`;
+  // Always use zero-padded prefix: "2026-06"
+  const [yearStr, monStr] = month.split("-");
+  const prefix = `${yearStr}-${monStr.padStart(2, "0")}`;
 
   const [profile] = await db
     .select()
@@ -88,6 +89,8 @@ router.get("/attendance/my/salary-report", async (req, res): Promise<void> => {
   const extraDeductions = adjustments.filter(a => a.type === "deduction").reduce((s, a) => s + Number(a.amount), 0);
   const baseSalary = Number(profile.monthlySalary) || 0;
   const netSalary = baseSalary - totalDeduction + bonuses - extraDeductions;
+  const totalRecordedDays = records.length;
+  const workDays = records.filter(r => r.status !== "holiday").length;
 
   res.json({
     profileId: profile.id,
@@ -101,6 +104,8 @@ router.get("/attendance/my/salary-report", async (req, res): Promise<void> => {
     holidayDays,
     excusedDays,
     totalWorkingDays: daysInMonth,
+    totalRecordedDays,
+    workDays,
     attendanceDeduction: totalDeduction,
     bonuses,
     extraDeductions,

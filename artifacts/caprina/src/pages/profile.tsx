@@ -1112,21 +1112,41 @@ function AttendanceTab() {
   });
 
   if (isLoading) return <LoadingSpinner text="جاري تحميل سجل الحضور..." />;
-  if (!report) return <EmptyState icon={CalendarCheck2} title="لا توجد بيانات" sub="لا يوجد سجل حضور لهذا الشهر" />;
 
-  const { attendance, workedDays, absentDays, lateDays, halfDays, holidayDays, excusedDays, totalWorkingDays } = report;
-  const attendanceRate = totalWorkingDays > 0 ? Math.round(((workedDays) / totalWorkingDays) * 100) : 0;
+  // noProfile or no data at all
+  if (!report || report.noProfile) return (
+    <EmptyState icon={CalendarCheck2} title="لا يوجد بروفايل موظف" sub="تواصل مع المدير لإنشاء بروفايل وتسجيل الحضور" />
+  );
 
-  // Build calendar grid for the month
+  const {
+    attendance, workedDays, absentDays, lateDays, halfDays,
+    holidayDays = 0, excusedDays = 0,
+    totalWorkingDays, workDays, totalRecordedDays,
+    baseSalary, attendanceDeduction, bonuses, extraDeductions, netSalary, adjustments,
+  } = report;
+
+  // حساب نسبة الحضور على أيام العمل المسجلة فعلاً (مش كل أيام الشهر)
+  const effectiveWorkDays = (workDays ?? totalRecordedDays ?? 0) || (workedDays + absentDays + lateDays + halfDays);
+  const attendanceRate = effectiveWorkDays > 0 ? Math.round((workedDays / effectiveWorkDays) * 100) : 0;
+  const totalDeductionAll = attendanceDeduction + extraDeductions;
+
+  // Chart data
+  const barData = [
+    { name: "حاضر",    value: workedDays,       fill: "#10b981" },
+    { name: "غائب",    value: absentDays,       fill: "#ef4444" },
+    { name: "متأخر",   value: lateDays,         fill: "#f59e0b" },
+    { name: "نصف يوم", value: halfDays,         fill: "#3b82f6" },
+    { name: "إجازة",   value: holidayDays,      fill: "#8b5cf6" },
+    { name: "مبرر",    value: excusedDays,      fill: "#06b6d4" },
+  ].filter(d => d.value > 0);
+
+  // Build calendar
   const [year, mon] = selectedMonth.split("-").map(Number);
-  const firstDay = new Date(year, mon - 1, 1).getDay(); // 0=Sun
+  const firstDay = new Date(year, mon - 1, 1).getDay();
   const daysInMonth = new Date(year, mon, 0).getDate();
   const attMap = Object.fromEntries(attendance.map(a => [a.date, a]));
-
-  // Reorder: Saturday=0 for Arabic week start (Sat)
   const weekDays = ["سبت", "أحد", "اثنين", "ثلاثاء", "أربعاء", "خميس", "جمعة"];
-  // firstDay: 0=Sun,1=Mon,...,6=Sat → convert to Sat-start offset
-  const offset = (firstDay + 1) % 7; // Sat=0,Sun=1,...,Fri=6
+  const offset = (firstDay + 1) % 7;
 
   return (
     <div className="space-y-4" dir="rtl">
@@ -1145,15 +1165,15 @@ function AttendanceTab() {
         ))}
       </div>
 
-      {/* Stats Summary */}
+      {/* Stats Grid */}
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
         {[
-          { label: "حاضر",    value: workedDays,   meta: STATUS_META.present },
-          { label: "غائب",    value: absentDays,   meta: STATUS_META.absent },
-          { label: "متأخر",   value: lateDays,     meta: STATUS_META.late },
-          { label: "نصف يوم", value: halfDays,     meta: STATUS_META.half_day },
-          { label: "إجازة",   value: holidayDays ?? 0,  meta: STATUS_META.holiday },
-          { label: "مبرر",    value: excusedDays ?? 0,  meta: STATUS_META.excused },
+          { label: "حاضر",    value: workedDays,  meta: STATUS_META.present },
+          { label: "غائب",    value: absentDays,  meta: STATUS_META.absent },
+          { label: "متأخر",   value: lateDays,    meta: STATUS_META.late },
+          { label: "نصف يوم", value: halfDays,    meta: STATUS_META.half_day },
+          { label: "إجازة",   value: holidayDays, meta: STATUS_META.holiday },
+          { label: "مبرر",    value: excusedDays, meta: STATUS_META.excused },
         ].map(({ label, value, meta }) => (
           <div key={label} className={`rounded-xl p-3 border ${meta.border} ${meta.bg} flex flex-col items-center gap-1`}>
             <span className={`text-2xl font-black ${meta.color}`}>{value}</span>
@@ -1162,13 +1182,13 @@ function AttendanceTab() {
         ))}
       </div>
 
-      {/* Attendance Rate Bar */}
-      <div className="rounded-xl border border-border bg-card p-4 space-y-2">
+      {/* Attendance Rate + Bar Chart */}
+      <div className="rounded-xl border border-border bg-card p-4 space-y-3">
         <div className="flex justify-between items-center">
           <span className="text-sm font-bold flex items-center gap-2">
             <CalendarCheck2 className="w-4 h-4 text-primary" />نسبة الحضور
           </span>
-          <span className={`text-sm font-black ${attendanceRate >= 80 ? "text-emerald-400" : attendanceRate >= 60 ? "text-amber-400" : "text-rose-400"}`}>
+          <span className={`text-lg font-black ${attendanceRate >= 80 ? "text-emerald-400" : attendanceRate >= 60 ? "text-amber-400" : "text-rose-400"}`}>
             {attendanceRate}%
           </span>
         </div>
@@ -1176,8 +1196,67 @@ function AttendanceTab() {
           <div className={`h-full rounded-full transition-all duration-700 ${attendanceRate >= 80 ? "bg-emerald-500" : attendanceRate >= 60 ? "bg-amber-500" : "bg-rose-500"}`}
             style={{ width: `${attendanceRate}%` }} />
         </div>
-        <p className="text-[11px] text-muted-foreground">{workedDays} يوم من أصل {totalWorkingDays} يوم عمل</p>
+        <p className="text-[11px] text-muted-foreground">
+          {workedDays} يوم حضور من أصل {effectiveWorkDays} يوم عمل مسجّل
+        </p>
+
+        {/* Bar chart */}
+        {barData.length > 0 && (
+          <div className="pt-2">
+            <ResponsiveContainer width="100%" height={100}>
+              <BarChart data={barData} barSize={28}>
+                <XAxis dataKey="name" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                <YAxis hide />
+                <Tooltip
+                  formatter={(v: any) => [fmtNum(v), "أيام"]}
+                  contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11 }} />
+                <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                  {barData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </div>
+
+      {/* Salary Summary (only if baseSalary > 0) */}
+      {baseSalary > 0 && (
+        <div className="rounded-2xl border border-border overflow-hidden">
+          <div className="px-4 py-3 border-b border-border/50 flex items-center gap-2"
+            style={{ background: "linear-gradient(to left, hsl(var(--primary)/0.08), transparent)" }}>
+            <Wallet className="w-4 h-4 text-primary" />
+            <span className="font-black text-sm">ملخص الراتب — {monthOptions.find(m => m.value === selectedMonth)?.label}</span>
+          </div>
+          <div className="p-4 space-y-2.5 bg-card">
+            <div className="flex justify-between py-1.5 border-b border-border/20">
+              <span className="text-sm text-muted-foreground">الراتب الأساسي</span>
+              <span className="font-bold text-sm">{fmt(baseSalary)}</span>
+            </div>
+            {attendanceDeduction > 0 && (
+              <div className="flex justify-between py-1.5 border-b border-border/20">
+                <span className="text-sm text-rose-400 flex items-center gap-1.5"><ArrowDown className="w-3.5 h-3.5" />خصم غياب وتأخير</span>
+                <span className="font-bold text-sm text-rose-400">- {fmt(attendanceDeduction)}</span>
+              </div>
+            )}
+            {bonuses > 0 && (
+              <div className="flex justify-between py-1.5 border-b border-border/20">
+                <span className="text-sm text-emerald-400 flex items-center gap-1.5"><ArrowUp className="w-3.5 h-3.5" />مكافآت</span>
+                <span className="font-bold text-sm text-emerald-400">+ {fmt(bonuses)}</span>
+              </div>
+            )}
+            {extraDeductions > 0 && (
+              <div className="flex justify-between py-1.5 border-b border-border/20">
+                <span className="text-sm text-rose-400 flex items-center gap-1.5"><ArrowDown className="w-3.5 h-3.5" />خصومات إضافية</span>
+                <span className="font-bold text-sm text-rose-400">- {fmt(extraDeductions)}</span>
+              </div>
+            )}
+            <div className="flex justify-between pt-2">
+              <span className="font-black text-sm">صافي الراتب المستحق</span>
+              <span className="font-black text-xl text-primary">{fmt(netSalary)}</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Calendar Grid */}
       <div className="rounded-xl border border-border bg-card overflow-hidden">
@@ -1186,61 +1265,43 @@ function AttendanceTab() {
           <CalendarDays className="w-4 h-4 text-primary" />
           <span className="font-black text-sm">{monthOptions.find(m => m.value === selectedMonth)?.label}</span>
         </div>
-
-        {/* Week header */}
         <div className="grid grid-cols-7 border-b border-border/30">
           {weekDays.map(d => (
             <div key={d} className="py-2 text-center text-[10px] font-bold text-muted-foreground">{d}</div>
           ))}
         </div>
-
-        {/* Days grid */}
         <div className="grid grid-cols-7 gap-px bg-border/10 p-2">
-          {/* Empty cells before first day */}
-          {Array.from({ length: offset }).map((_, i) => (
-            <div key={`empty-${i}`} />
-          ))}
-          {/* Day cells */}
+          {Array.from({ length: offset }).map((_, i) => <div key={`e-${i}`} />)}
           {Array.from({ length: daysInMonth }, (_, i) => {
             const day = i + 1;
             const dateStr = `${year}-${String(mon).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
             const rec = attMap[dateStr];
             const meta = rec ? STATUS_META[rec.status] : null;
             const isToday = dateStr === format(new Date(), "yyyy-MM-dd");
-
             return (
-              <div key={day} className={`relative rounded-lg p-1.5 flex flex-col items-center gap-0.5 min-h-[48px] justify-center
-                ${meta ? `${meta.bg} ${meta.border} border` : "border border-transparent"}
-                ${isToday ? "ring-1 ring-primary ring-offset-0" : ""}`}>
-                <span className={`text-xs font-bold leading-none ${meta ? meta.color : "text-foreground"}`}>{day}</span>
-                {rec && (
-                  <>
-                    <span className={`w-1.5 h-1.5 rounded-full ${meta!.dot}`} />
-                    {rec.checkIn && (
-                      <span className="text-[8px] text-muted-foreground leading-none">{rec.checkIn}</span>
-                    )}
-                    {rec.lateMinutes > 0 && (
-                      <span className="text-[8px] text-amber-400 leading-none">+{rec.lateMinutes}د</span>
-                    )}
-                  </>
-                )}
+              <div key={day} title={rec ? `${STATUS_META[rec.status]?.label}${rec.checkIn ? ` · دخول: ${rec.checkIn}` : ""}` : undefined}
+                className={`rounded-lg p-1 flex flex-col items-center gap-0.5 min-h-[46px] justify-center cursor-default transition-all
+                  ${meta ? `${meta.bg} ${meta.border} border` : "border border-transparent hover:bg-muted/20"}
+                  ${isToday ? "ring-2 ring-primary" : ""}`}>
+                <span className={`text-xs font-bold leading-none ${meta ? meta.color : "text-muted-foreground"}`}>{day}</span>
+                {rec && <span className={`w-1.5 h-1.5 rounded-full ${meta!.dot}`} />}
+                {rec?.checkIn && <span className="text-[8px] text-muted-foreground leading-none">{rec.checkIn}</span>}
+                {rec?.lateMinutes && rec.lateMinutes > 0 ? <span className="text-[8px] text-amber-400 leading-none">+{rec.lateMinutes}د</span> : null}
               </div>
             );
           })}
         </div>
-
-        {/* Legend */}
         <div className="px-4 py-3 border-t border-border/30 flex flex-wrap gap-3">
-          {Object.entries(STATUS_META).map(([key, m]) => (
-            <span key={key} className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+          {Object.entries(STATUS_META).map(([, m]) => (
+            <span key={m.label} className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
               <span className={`w-2 h-2 rounded-full shrink-0 ${m.dot}`} />{m.label}
             </span>
           ))}
         </div>
       </div>
 
-      {/* Detailed Records List */}
-      {attendance.length > 0 && (
+      {/* Detailed List */}
+      {attendance.length > 0 ? (
         <div>
           <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mb-2.5">سجل مفصّل</p>
           <div className="space-y-2">
@@ -1251,17 +1312,15 @@ function AttendanceTab() {
                   <span className={`w-2 h-2 rounded-full shrink-0 ${meta.dot}`} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold">{format(new Date(rec.date), "EEEE d MMMM", { locale: ar })}</span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${meta.bg} ${meta.border} ${meta.color}`}>
-                        {meta.label}
-                      </span>
+                      <span className="text-sm font-bold">{format(new Date(rec.date + "T00:00:00"), "EEEE d MMMM", { locale: ar })}</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${meta.bg} ${meta.border} ${meta.color}`}>{meta.label}</span>
                     </div>
                     <div className="flex gap-3 mt-0.5 flex-wrap text-[11px] text-muted-foreground">
-                      {rec.checkIn && <span>دخول: <strong className="text-foreground">{rec.checkIn}</strong></span>}
+                      {rec.checkIn  && <span>دخول: <strong className="text-foreground">{rec.checkIn}</strong></span>}
                       {rec.checkOut && <span>خروج: <strong className="text-foreground">{rec.checkOut}</strong></span>}
                       {rec.lateMinutes > 0 && <span className="text-amber-400">تأخير: {rec.lateMinutes} دقيقة</span>}
-                      {rec.deduction > 0 && <span className="text-rose-400">خصم: {fmt(rec.deduction)}</span>}
-                      {rec.notes && <span className="text-muted-foreground">{rec.notes}</span>}
+                      {rec.deduction > 0    && <span className="text-rose-400">خصم: {fmt(rec.deduction)}</span>}
+                      {rec.notes && <span>{rec.notes}</span>}
                     </div>
                   </div>
                 </div>
@@ -1269,9 +1328,7 @@ function AttendanceTab() {
             })}
           </div>
         </div>
-      )}
-
-      {attendance.length === 0 && (
+      ) : (
         <EmptyState icon={CalendarCheck2} title="لا يوجد سجل حضور" sub="لم يتم تسجيل أي حضور لهذا الشهر بعد" />
       )}
     </div>

@@ -1013,6 +1013,8 @@ export interface AttendanceSalaryReport {
   holidayDays: number;
   excusedDays: number;
   totalWorkingDays: number;
+  totalRecordedDays?: number;
+  workDays?: number;
   attendanceDeduction: number;
   bonuses: number;
   extraDeductions: number;
