@@ -40,7 +40,8 @@ async function computeActualValue(
   metric: string,
   userId: number,
   dateFrom: Date,
-  dateTo: Date
+  dateTo: Date,
+  tenantId?: number | null
 ): Promise<number | null> {
   if (metric === "manual") return null;
 
@@ -54,7 +55,9 @@ async function computeActualValue(
           eq(ordersTable.createdByUserId, userId)
         ),
         gte(ordersTable.createdAt, dateFrom),
-        lte(ordersTable.createdAt, dateTo)
+        lte(ordersTable.createdAt, dateTo),
+        isNull(ordersTable.deletedAt),
+        tenantId != null ? eq(ordersTable.tenantId, tenantId) : undefined
       )
     );
 
@@ -423,6 +426,7 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
   };
 
   if (userId) {
+    const tenantId = profile.tenantId;
     const orders = await db
       .select()
       .from(ordersTable)
@@ -433,7 +437,9 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
             eq(ordersTable.createdByUserId, userId)
           ),
           gte(ordersTable.createdAt, dateFrom),
-          lte(ordersTable.createdAt, dateTo)
+          lte(ordersTable.createdAt, dateTo),
+          isNull(ordersTable.deletedAt),
+          tenantId != null ? eq(ordersTable.tenantId, tenantId) : undefined
         )
       );
 
@@ -469,7 +475,7 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
   const evaluatedKpis = await Promise.all(
     kpis.map(async (kpi) => {
       const actualValue = userId
-        ? await computeActualValue(kpi.metric, userId, dateFrom, dateTo)
+        ? await computeActualValue(kpi.metric, userId, dateFrom, dateTo, profile.tenantId)
         : kpi.metric === "manual" ? null : 0;
       const score =
         actualValue !== null
@@ -583,9 +589,13 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
       .select()
       .from(ordersTable)
       .where(and(
-        eq(ordersTable.assignedUserId, userId),
+        or(
+          eq(ordersTable.assignedUserId, userId),
+          eq(ordersTable.createdByUserId, userId)
+        ),
         gte(ordersTable.createdAt, dateFrom),
-        lte(ordersTable.createdAt, dateTo)
+        lte(ordersTable.createdAt, dateTo),
+        isNull(ordersTable.deletedAt)
       ));
 
     const [userRow] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
@@ -642,7 +652,9 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
         eq(ordersTable.createdByUserId, userId)
       ),
       gte(ordersTable.createdAt, dateFrom),
-      lte(ordersTable.createdAt, dateTo)
+      lte(ordersTable.createdAt, dateTo),
+      isNull(ordersTable.deletedAt),
+      profile.tenantId != null ? eq(ordersTable.tenantId, profile.tenantId) : undefined
     ));
 
   const delivered = orders.filter(o => o.status === "received" || o.status === "partial_received").length;
@@ -665,7 +677,7 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
 
   const evaluatedKpis = await Promise.all(
     kpis.map(async (kpi) => {
-      const actualValue = await computeActualValue(kpi.metric, userId, dateFrom, dateTo);
+      const actualValue = await computeActualValue(kpi.metric, userId, dateFrom, dateTo, profile.tenantId);
       const score = actualValue !== null ? computeKpiScore(actualValue, kpi.targetValue, kpi.direction) : null;
       const achieved = score !== null ? (kpi.direction === "lower_is_better" ? score >= 70 : score >= 80) : null;
       return { ...kpi, actualValue, score, achieved };
