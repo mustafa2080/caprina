@@ -2057,11 +2057,9 @@ export default function OrderDetail() {
                 <Plus className="w-3 h-3" />إضافة منتج
               </Button>
               )}
-              {order.status === "warehouse_ready" && (
-                <Button variant="outline" size="sm" onClick={handlePrint} className="h-8 text-xs gap-1 border-border">
-                  <Printer className="w-3 h-3" />فاتورة
-                </Button>
-              )}
+              <Button variant="outline" size="sm" onClick={handlePrint} className="h-8 text-xs gap-1 border-border">
+                <Printer className="w-3 h-3" />فاتورة
+              </Button>
               {(order.status === "pending" || order.status === "warehouse_ready") && (
                 <Button
                   variant="outline" size="sm"
@@ -2100,7 +2098,7 @@ export default function OrderDetail() {
               )}
             </>
           )}
-          {!isEditing && !canWriteOrders && order.status === "warehouse_ready" && (
+          {!isEditing && !canWriteOrders && (
             <Button variant="outline" size="sm" onClick={handlePrint} className="h-8 text-xs gap-1 border-border">
               <Printer className="w-3 h-3" />فاتورة
             </Button>
