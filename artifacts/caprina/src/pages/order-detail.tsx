@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { ToastAction } from "@/components/ui/toast";
-import { shippingApi, ordersApi, productsApi, variantsApi, manifestsApi, warehousesApi, usersApi } from "@/lib/api";
+import { shippingApi, ordersApi, productsApi, variantsApi, manifestsApi, warehousesApi, usersApi, cashRegistersApi, apiFetch } from "@/lib/api";
 import { type WhatsAppOrderData } from "@/lib/whatsapp";
 import { WhatsAppDialog } from "@/components/whatsapp-dialog";
 import { formatCurrency } from "@/lib/utils";
@@ -1483,6 +1483,9 @@ export default function OrderDetail() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showWaDialog, setShowWaDialog] = useState(false);
+  const [showCloseDialog, setShowCloseDialog] = useState(false);
+  const [selectedRegisterId, setSelectedRegisterId] = useState<string>("");
+  const [isClosing, setIsClosing] = useState(false);
 
   // Add product dialog state
   const [showAddProduct, setShowAddProduct] = useState(false);
@@ -1951,6 +1954,54 @@ export default function OrderDetail() {
     };
   };
 
+  // ── Cash registers for close dialog ──
+  const { data: cashData } = useQuery({
+    queryKey: ["cash-registers-list"],
+    queryFn: cashRegistersApi.list,
+    enabled: isAdmin,
+  });
+
+  const handleCloseInvoice = async () => {
+    if (!order) return;
+    const regId = parseInt(selectedRegisterId);
+    if (!regId) return;
+    setIsClosing(true);
+    try {
+      // حول الأوردر لـ received لو مش كده
+      if (order.status !== "received" && order.status !== "partial_received") {
+        await new Promise<void>((resolve) => {
+          updateOrder.mutate(
+            { id: order.id, data: { status: "received" } },
+            { onSuccess: () => resolve(), onError: () => resolve() }
+          );
+        });
+      }
+      // أضف transaction للخزنة
+      const amount = order.totalPrice ?? 0;
+      await apiFetch(`/cash-registers/${regId}/transaction`, {
+        method: "POST",
+        body: JSON.stringify({
+          type: "order_collected",
+          amount,
+          description: `إغلاق طلب #${order.invoiceNumber ?? id} — ${order.customerName ?? ""}`,
+          referenceNumber: order.invoiceNumber ?? String(id),
+          transactionDate: new Date().toISOString(),
+        }),
+      });
+      invalidateAll();
+      queryClient.invalidateQueries({ queryKey: ["cash-registers-list"] });
+      toast({
+        title: "✅ تم إغلاق الطلب",
+        description: `تم تحويله لـ «استلم» وإيداع ${new Intl.NumberFormat("ar-EG",{style:"currency",currency:"EGP",maximumFractionDigits:0}).format(amount)} في الخزنة`,
+      });
+      setShowCloseDialog(false);
+    } catch (err: any) {
+      toast({ title: "خطأ", description: err.message ?? "فشل إغلاق الطلب", variant: "destructive" });
+    } finally {
+      setIsClosing(false);
+    }
+  };
+
   const handleWhatsApp = () => { setShowWaDialog(true); };
 
   const handleWaSent = () => {
@@ -2160,6 +2211,20 @@ export default function OrderDetail() {
               <Button variant="outline" size="sm" onClick={handlePrint} className="h-8 text-xs gap-1 border-border">
                 <Printer className="w-3 h-3" />فاتورة
               </Button>
+              {isAdmin && order.status !== "received" && order.status !== "partial_received" && order.status !== "returned" && (
+                <Button
+                  variant="outline" size="sm"
+                  onClick={() => {
+                    const regs = (cashData as any)?.registers ?? [];
+                    const defaultReg = regs.find((r: any) => r.isDefault) ?? regs[0];
+                    if (defaultReg) setSelectedRegisterId(String(defaultReg.id));
+                    setShowCloseDialog(true);
+                  }}
+                  className="h-8 text-xs gap-1 bg-transparent hover:bg-emerald-500/10 text-emerald-400 border border-emerald-600/50 hover:border-emerald-500"
+                >
+                  <CheckCircle2 className="w-3 h-3" />إغلاق
+                </Button>
+              )}
               {(order.status === "pending" || order.status === "warehouse_ready") && (
                 <Button
                   variant="outline" size="sm"
@@ -3363,6 +3428,56 @@ export default function OrderDetail() {
         }}
       />
       </>}
+
+      {/* Close Invoice Dialog */}
+      <AlertDialog open={showCloseDialog} onOpenChange={setShowCloseDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+              إغلاق الطلب وإيداع المبلغ
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-right">
+              سيتم تحويل الطلب إلى «استلم» وإيداع المبلغ في الخزنة المحددة.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="py-2 space-y-3">
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-muted-foreground">المبلغ:</span>
+              <span className="font-bold text-emerald-400">
+                {new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(order?.totalPrice ?? 0)}
+              </span>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">اختر الخزنة</label>
+              <select
+                value={selectedRegisterId}
+                onChange={(e) => setSelectedRegisterId(e.target.value)}
+                className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              >
+                <option value="">-- اختر خزنة --</option>
+                {((cashData as any)?.registers ?? []).map((r: any) => (
+                  <option key={r.id} value={String(r.id)}>
+                    {r.name}{r.isDefault ? " (افتراضية)" : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isClosing}>إلغاء</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleCloseInvoice}
+              disabled={isClosing || !selectedRegisterId}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              {isClosing ? "جاري الإغلاق..." : "تأكيد الإغلاق"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete confirmation dialog — يظهر في الوضعين (فردي ومتعدد) */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
