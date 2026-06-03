@@ -653,17 +653,34 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
       .reduce((s, o) => s + (o.status === "partial_received" && o.partialQuantity ? o.unitPrice * o.partialQuantity : o.totalPrice), 0);
     const totalProfit = orders.reduce((s, o) => s + profitFromOrder(o), 0);
 
+    const deliveryRate = orders.length > 0 ? Math.round((delivered / orders.length) * 100) : 0;
+    const returnRate   = orders.length > 0 ? Math.round((returned  / orders.length) * 100) : 0;
+
+    // fallback score من deliveryRate ومعدل الإرجاع
+    let noProfileScore: number | null = null;
+    if (orders.length > 0) {
+      const returnPenalty = Math.max(0, 100 - returnRate * 2);
+      noProfileScore = Math.round(deliveryRate * 0.6 + returnPenalty * 0.4);
+    }
+    const noProfileRating =
+      noProfileScore === null ? "لا توجد بيانات"
+      : noProfileScore >= 90 ? "ممتاز"
+      : noProfileScore >= 75 ? "جيد جداً"
+      : noProfileScore >= 60 ? "جيد"
+      : noProfileScore >= 40 ? "مقبول"
+      : "ضعيف";
+
     return res.json({
       profileId: null,
       userId,
       displayName: userRow?.displayName ?? "—",
       noProfile: true,
       period: { month: monthParam || `${dateFrom.getFullYear()}-${String(dateFrom.getMonth() + 1).padStart(2, "0")}`, from: dateFrom.toISOString(), to: dateTo.toISOString() },
-      orderStats: { total: orders.length, delivered, returned, pending, deliveryRate: orders.length > 0 ? Math.round((delivered / orders.length) * 100) : 0, returnRate: orders.length > 0 ? Math.round((returned / orders.length) * 100) : 0, totalRevenue, totalProfit },
+      orderStats: { total: orders.length, delivered, returned, pending, deliveryRate, returnRate, totalRevenue, totalProfit },
       kpis: [],
       kpiFinancials: { totalSalaryWeight: 0, totalDeduction: 0, totalBonus: 0, achievedCount: 0, failedCount: 0, overTargetCount: 0, salaryAtRiskPercent: 0 },
-      overallScore: null,
-      rating: "غير محدد",
+      overallScore: noProfileScore,
+      rating: noProfileRating,
       salary: 0,
     });
   }
