@@ -1060,7 +1060,7 @@ export default function Layout({ children }: LayoutProps) {
             </div>
             <div style={{ height: "1px", background: "hsl(var(--border)/0.5)", margin: "2px 8px 4px" }} />
             {/* Profile link */}
-            {(user as any)?.showProfileLink !== false && (
+            {((user as any)?.showProfileLink === true || (user as any)?.showProfileLink === 1) && (
             <Link href="/profile" onClick={() => setUserMenuOpen(false)}
               className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs font-semibold text-sidebar-foreground/80 hover:bg-foreground/5 transition-colors text-right">
               <User className="w-3.5 h-3.5 shrink-0 text-primary/70" />
