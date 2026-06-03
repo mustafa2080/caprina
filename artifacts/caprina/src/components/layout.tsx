@@ -1011,6 +1011,23 @@ export default function Layout({ children }: LayoutProps) {
                   }}>المزيد</span>
                 </div>
               </button>
+
+              {/* زر تسجيل الخروج — دايماً ظاهر في الـ bottom bar */}
+              <button type="button" onClick={logout}>
+                <div className="flex flex-col items-center gap-0.5">
+                  <div
+                    className="w-11 h-11 rounded-2xl flex items-center justify-center transition-all duration-200 active:scale-90"
+                    style={{
+                      background: "linear-gradient(145deg, rgba(239,68,68,0.15) 0%, rgba(239,68,68,0.07) 100%)",
+                      border: "1px solid rgba(239,68,68,0.2)",
+                      boxShadow: "0 2px 6px rgba(239,68,68,0.1)",
+                    }}
+                  >
+                    <LogOut style={{ width: "20px", height: "20px", color: "rgba(239,68,68,0.75)" }} />
+                  </div>
+                  <span style={{ fontSize: "9px", fontWeight: "500", color: "rgba(239,68,68,0.6)" }}>خروج</span>
+                </div>
+              </button>
             </nav>
           );
         })()}
