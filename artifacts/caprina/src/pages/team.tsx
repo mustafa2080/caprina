@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+﻿import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Users, Plus, Edit2, Trash2, Target, FileText, ChevronRight, Check, X,
@@ -720,7 +720,7 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
           </div>
 
           {/* KPIs Table */}
-          {report.kpis.length > 0 && (
+          {report.kpis.length > 0 && report.profile?.role === "sales" && (
             <div className="mb-5">
               <h3 className="text-sm font-bold mb-2 border-r-4 border-primary pr-2">مؤشرات الأداء الرئيسية</h3>
 
@@ -1135,7 +1135,7 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
                 </div>
               </div>
 
-              {report.kpis.length > 0 && (
+              {report.kpis.length > 0 && report.profile?.role === "sales" && (
                 <div style={{
                   borderRadius: 22,
                   background: "#ffffff",
@@ -4046,7 +4046,7 @@ function EmployeeDetail({
                 ))}
               </div>
 
-              {report.kpis.length > 0 && (
+              {report.kpis.length > 0 && report.profile?.role === "sales" && (
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 mt-3">
                   <Card className="border-border bg-card/80">
                     <CardHeader className="px-4 pt-4 pb-2">
@@ -4198,7 +4198,7 @@ function EmployeeDetail({
               )}
 
               {/* KPI Charts */}
-              {report.kpis.length > 0 && (
+              {report.kpis.length > 0 && report.profile?.role === "sales" && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {/* Radar Chart */}
                   <Card className="border-border bg-card/90 overflow-hidden">
@@ -4278,7 +4278,7 @@ function EmployeeDetail({
               )}
 
               {/* KPI Evaluation */}
-              {report.kpis.length > 0 && (
+              {report.kpis.length > 0 && report.profile?.role === "sales" && (
                 <div className="space-y-2">
                   <h3 className="text-xs font-bold text-muted-foreground flex items-center gap-1.5">
                     <Target className="w-3.5 h-3.5" />تقييم المؤشرات
