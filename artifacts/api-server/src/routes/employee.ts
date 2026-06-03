@@ -49,7 +49,10 @@ async function computeActualValue(
     .from(ordersTable)
     .where(
       and(
-        eq(ordersTable.assignedUserId, userId),
+        or(
+          eq(ordersTable.assignedUserId, userId),
+          eq(ordersTable.createdByUserId, userId)
+        ),
         gte(ordersTable.createdAt, dateFrom),
         lte(ordersTable.createdAt, dateTo)
       )
@@ -425,7 +428,10 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
       .from(ordersTable)
       .where(
         and(
-          eq(ordersTable.assignedUserId, userId),
+          or(
+            eq(ordersTable.assignedUserId, userId),
+            eq(ordersTable.createdByUserId, userId)
+          ),
           gte(ordersTable.createdAt, dateFrom),
           lte(ordersTable.createdAt, dateTo)
         )
@@ -605,10 +611,121 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
     });
   }
 
-  // Has profile — forward to existing handler logic by rewriting params
-  req.params.profileId = String(row.profile.id);
-  // Re-use the existing endpoint logic by redirecting internally
-  return res.redirect(`/analytics/employee-report/${row.profile.id}${req.query.month ? `?month=${req.query.month}` : ""}`);
+  // Has profile — run full report logic directly (no redirect)
+  const profileId = row.profile.id;
+  const profile = row.profile;
+  const userRow = row.user;
+
+  const monthParam = (req.query.month as string) || "";
+  let dateFrom: Date, dateTo: Date;
+  if (monthParam) {
+    const [year, month] = monthParam.split("-").map(Number);
+    dateFrom = new Date(year, month - 1, 1);
+    dateTo = new Date(year, month, 0, 23, 59, 59, 999);
+  } else {
+    const now = new Date();
+    dateFrom = new Date(now.getFullYear(), now.getMonth(), 1);
+    dateTo = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+  }
+
+  const kpis = await db
+    .select()
+    .from(employeeKpisTable)
+    .where(and(eq(employeeKpisTable.profileId, profileId), eq(employeeKpisTable.isActive, true)));
+
+  const orders = await db
+    .select()
+    .from(ordersTable)
+    .where(and(
+      or(
+        eq(ordersTable.assignedUserId, userId),
+        eq(ordersTable.createdByUserId, userId)
+      ),
+      gte(ordersTable.createdAt, dateFrom),
+      lte(ordersTable.createdAt, dateTo)
+    ));
+
+  const delivered = orders.filter(o => o.status === "received" || o.status === "partial_received").length;
+  const returned  = orders.filter(o => o.status === "returned").length;
+  const pending   = orders.filter(o => o.status !== "received" && o.status !== "partial_received" && o.status !== "returned").length;
+  const totalRevenue = orders.filter(o => o.status === "received" || o.status === "partial_received")
+    .reduce((s, o) => s + (o.status === "partial_received" && o.partialQuantity ? o.unitPrice * o.partialQuantity : o.totalPrice), 0);
+  const totalProfit = orders.reduce((s, o) => s + profitFromOrder(o), 0);
+
+  const orderStats = {
+    total: orders.length,
+    delivered,
+    returned,
+    pending,
+    deliveryRate: orders.length > 0 ? Math.round((delivered / orders.length) * 100) : 0,
+    returnRate:   orders.length > 0 ? Math.round((returned  / orders.length) * 100) : 0,
+    totalRevenue,
+    totalProfit,
+  };
+
+  const evaluatedKpis = await Promise.all(
+    kpis.map(async (kpi) => {
+      const actualValue = await computeActualValue(kpi.metric, userId, dateFrom, dateTo);
+      const score = actualValue !== null ? computeKpiScore(actualValue, kpi.targetValue, kpi.direction) : null;
+      const achieved = score !== null ? (kpi.direction === "lower_is_better" ? score >= 70 : score >= 80) : null;
+      return { ...kpi, actualValue, score, achieved };
+    })
+  );
+
+  const scoredKpis = evaluatedKpis.filter(k => k.score !== null);
+  const baseSalary = profile.monthlySalary ?? 0;
+  const kpiFinancials = evaluatedKpis.reduce((acc, kpi) => {
+    const salaryWeight    = kpi.salaryWeight ?? 0;
+    const overtargetBonus = kpi.overtargetBonus ?? 0;
+    const salaryImpact    = baseSalary > 0 ? Math.round((salaryWeight / 100) * baseSalary) : 0;
+    const bonusImpact     = baseSalary > 0 ? Math.round((overtargetBonus / 100) * baseSalary) : 0;
+    acc.totalSalaryWeight += salaryWeight;
+    acc.achievedCount     += kpi.achieved === true  ? 1 : 0;
+    acc.failedCount       += kpi.achieved === false ? 1 : 0;
+    acc.overTargetCount   += kpi.score !== null && kpi.score > 100 ? 1 : 0;
+    acc.totalDeduction    += kpi.achieved === false && salaryWeight > 0 ? salaryImpact : 0;
+    acc.totalBonus        += kpi.score !== null && kpi.score > 100 && overtargetBonus > 0 ? bonusImpact : 0;
+    return acc;
+  }, { totalSalaryWeight: 0, totalDeduction: 0, totalBonus: 0, achievedCount: 0, failedCount: 0, overTargetCount: 0 });
+
+  let overallScore: number | null = null;
+  if (scoredKpis.length > 0) {
+    const totalWeight = scoredKpis.reduce((s, k) => s + k.weight, 0);
+    overallScore = totalWeight > 0
+      ? Math.round(scoredKpis.reduce((s, k) => s + k.score! * k.weight, 0) / totalWeight)
+      : null;
+  }
+
+  const rating =
+    overallScore === null ? "غير محدد"
+    : overallScore >= 90 ? "ممتاز"
+    : overallScore >= 75 ? "جيد جداً"
+    : overallScore >= 60 ? "جيد"
+    : overallScore >= 40 ? "مقبول"
+    : "ضعيف";
+
+  return res.json({
+    profileId,
+    userId,
+    displayName: profile.displayName ?? userRow?.displayName ?? "—",
+    period: {
+      month: monthParam || `${dateFrom.getFullYear()}-${String(dateFrom.getMonth() + 1).padStart(2, "0")}`,
+      from: dateFrom.toISOString(),
+      to: dateTo.toISOString(),
+    },
+    orderStats,
+    kpis: evaluatedKpis,
+    kpiFinancials: {
+      ...kpiFinancials,
+      totalSalaryWeight: Math.round(kpiFinancials.totalSalaryWeight),
+      totalDeduction: Math.round(kpiFinancials.totalDeduction),
+      totalBonus: Math.round(kpiFinancials.totalBonus),
+      salaryAtRiskPercent: Math.round(kpiFinancials.totalSalaryWeight),
+    },
+    overallScore,
+    rating,
+    salary: baseSalary,
+  });
 });
 
 // ────────────────────────────────────────────────────────────────────────────
