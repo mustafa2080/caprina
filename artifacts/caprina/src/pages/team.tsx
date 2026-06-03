@@ -287,7 +287,13 @@ function KpiFormDialog({
           <div className="space-y-1">
             <Label className="text-xs font-bold">اسم المؤشر *</Label>
             <div className="relative group">
-              <Input value={name} onChange={e => setName(e.target.value)} className="h-8 text-xs pr-7" placeholder="مثال: نسبة التسليم الشهرية" />
+              <Input
+                value={name}
+                onChange={e => setName(e.target.value)}
+                onClick={() => { if (metric === "manual") setName(""); }}
+                className="h-8 text-xs pr-7 cursor-text"
+                placeholder="اكتب اسم المؤشر هنا..."
+              />
               {metric === "manual" && name && (
                 <button
                   type="button"
