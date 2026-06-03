@@ -690,56 +690,6 @@ function KpisTab({ myStats, profile }: { myStats?: TeamMemberExtStats; profile?:
     </div>
   );
 }
-            const actual = kpi.actualValue ?? 0;
-            const target = kpi.targetValue;
-            const progress = target > 0 ? Math.min(100, (actual / target) * 100) : 0;
-            const achieved = kpi.achieved;
-            const isHigher = kpi.direction === "higher_is_better";
-            const progressColor = achieved ? "bg-emerald-500" : progress >= 70 ? "bg-amber-500" : "bg-rose-500";
-
-            return (
-              <Card key={kpi.id} className={`border transition-all ${achieved ? "border-emerald-500/30" : "border-border"}`}>
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="font-bold text-sm">{kpi.name}</span>
-                        {achieved === true && <BadgeCheck className="w-4 h-4 text-emerald-400 shrink-0" />}
-                        {achieved === false && <XCircle className="w-4 h-4 text-rose-400 shrink-0" />}
-                      </div>
-                      {kpi.description && <p className="text-xs text-muted-foreground">{kpi.description}</p>}
-                    </div>
-                    <div className="text-left shrink-0">
-                      {kpi.score != null && (
-                        <span className={`text-lg font-black ${kpi.score >= 80 ? "text-emerald-400" : kpi.score >= 60 ? "text-blue-400" : kpi.score >= 40 ? "text-amber-400" : "text-rose-400"}`}>
-                          {kpi.score.toFixed(0)}<span className="text-xs text-muted-foreground">/100</span>
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  {/* Progress Bar */}
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between text-xs">
-                      <span className="text-muted-foreground">الفعلي: <span className="font-bold text-foreground">{fmtNum(actual)} {kpi.unit}</span></span>
-                      <span className="text-muted-foreground">الهدف: <span className="font-bold text-foreground">{fmtNum(target)} {kpi.unit}</span></span>
-                    </div>
-                    <div className="h-2.5 bg-muted/30 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full transition-all duration-700 ${progressColor}`} style={{ width: `${progress}%` }} />
-                    </div>
-                    <div className="flex justify-between text-[10px] text-muted-foreground">
-                      <span>{progress.toFixed(1)}% من الهدف</span>
-                      <span>الوزن: {kpi.weight}%</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
 
 /* ── Tab: Monthly Report (تقرير شهري) ── */
 function MonthlyReportTab({ profile }: { profile?: EmployeeProfile }) {
