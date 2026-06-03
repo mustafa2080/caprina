@@ -467,7 +467,7 @@ export default function UsersPage() {
       setDialogOpen(false);
       setResetPasswordOpen(false);
       toast({ title: "تم تحديث المستخدم بنجاح" });
-      if (variables.id === currentUser?.id) refreshUser();
+      refreshUser();
     },
     onError: (e: any) => toast({ title: "خطأ في الحفظ", description: e.message, variant: "destructive" }),
   });
