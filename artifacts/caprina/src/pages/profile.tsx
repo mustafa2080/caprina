@@ -701,12 +701,10 @@ function MonthlyReportTab({ profile }: { profile?: EmployeeProfile }) {
   }), []);
 
   const { data: report, isLoading } = useQuery({
-    queryKey: ["emp-report-monthly", profile?.id, selectedMonth],
-    queryFn: () => employeeApi.getReport(profile!.id, selectedMonth),
-    enabled: !!profile?.id,
+    queryKey: ["emp-report-monthly-mine", selectedMonth],
+    queryFn: () => employeeApi.getMyReport(selectedMonth),
   });
 
-  if (!profile?.id) return <EmptyState icon={FileText} title="لا يوجد بروفايل موظف" sub="تواصل مع المدير لإنشاء بروفايل موظف" />;
   if (isLoading) return <LoadingSpinner text="جاري تحميل التقرير الشهري..." />;
   if (!report) return <EmptyState icon={FileText} title="لا يوجد تقرير" sub="لا توجد بيانات لهذا الشهر" />;
 

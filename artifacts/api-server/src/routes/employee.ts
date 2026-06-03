@@ -547,6 +547,71 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
 });
 
 // ────────────────────────────────────────────────────────────────────────────
+// GET /analytics/my-report?month=YYYY-MM  (current user from token)
+// ────────────────────────────────────────────────────────────────────────────
+router.get("/analytics/my-report", async (req, res): Promise<void> => {
+  const userId = (req as any).user?.id;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const [row] = await db
+    .select({ profile: employeeProfilesTable, user: usersTable })
+    .from(employeeProfilesTable)
+    .leftJoin(usersTable, eq(employeeProfilesTable.userId, usersTable.id))
+    .where(eq(employeeProfilesTable.userId, userId));
+
+  if (!row) {
+    // No employee profile — return basic stats from orders only
+    const monthParam = (req.query.month as string) || "";
+    let dateFrom: Date, dateTo: Date;
+    if (monthParam) {
+      const [year, month] = monthParam.split("-").map(Number);
+      dateFrom = new Date(year, month - 1, 1);
+      dateTo = new Date(year, month, 0, 23, 59, 59, 999);
+    } else {
+      const now = new Date();
+      dateFrom = new Date(now.getFullYear(), now.getMonth(), 1);
+      dateTo = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    }
+
+    const orders = await db
+      .select()
+      .from(ordersTable)
+      .where(and(
+        eq(ordersTable.assignedUserId, userId),
+        gte(ordersTable.createdAt, dateFrom),
+        lte(ordersTable.createdAt, dateTo)
+      ));
+
+    const [userRow] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+    const delivered = orders.filter(o => o.status === "received" || o.status === "partial_received").length;
+    const returned = orders.filter(o => o.status === "returned").length;
+    const pending = orders.filter(o => o.status !== "received" && o.status !== "partial_received" && o.status !== "returned").length;
+    const totalRevenue = orders.filter(o => o.status === "received" || o.status === "partial_received")
+      .reduce((s, o) => s + (o.status === "partial_received" && o.partialQuantity ? o.unitPrice * o.partialQuantity : o.totalPrice), 0);
+    const totalProfit = orders.reduce((s, o) => s + profitFromOrder(o), 0);
+
+    return res.json({
+      profileId: null,
+      userId,
+      displayName: userRow?.displayName ?? "—",
+      noProfile: true,
+      period: { month: monthParam || `${dateFrom.getFullYear()}-${String(dateFrom.getMonth() + 1).padStart(2, "0")}`, from: dateFrom.toISOString(), to: dateTo.toISOString() },
+      orderStats: { total: orders.length, delivered, returned, pending, deliveryRate: orders.length > 0 ? Math.round((delivered / orders.length) * 100) : 0, returnRate: orders.length > 0 ? Math.round((returned / orders.length) * 100) : 0, totalRevenue, totalProfit },
+      kpis: [],
+      kpiFinancials: { totalSalaryWeight: 0, totalDeduction: 0, totalBonus: 0, achievedCount: 0, failedCount: 0, overTargetCount: 0, salaryAtRiskPercent: 0 },
+      overallScore: null,
+      rating: "غير محدد",
+      salary: 0,
+    });
+  }
+
+  // Has profile — forward to existing handler logic by rewriting params
+  req.params.profileId = String(row.profile.id);
+  // Re-use the existing endpoint logic by redirecting internally
+  return res.redirect(`/analytics/employee-report/${row.profile.id}${req.query.month ? `?month=${req.query.month}` : ""}`);
+});
+
+// ────────────────────────────────────────────────────────────────────────────
 // GET /employee-orders/:profileId?month=YYYY-MM
 // طلبات الموظف (createdBy أو assigned) مع إحصائياتها الكاملة
 // ────────────────────────────────────────────────────────────────────────────
