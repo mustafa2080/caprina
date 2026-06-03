@@ -1238,13 +1238,21 @@ function DailyTrackerTab({ profileId }: { profileId: number }) {
 
       <div className="space-y-2">
         {(dailyData?.kpis ?? []).map(kpi => {
-          const rawPct = kpi.dailyTarget > 0
-            ? Math.min(100, ((kpi.actualValue ?? 0) / kpi.dailyTarget) * 100)
+          const isManual = kpi.metric === "manual";
+
+          // manual: progress = cumulative / monthly target
+          // auto:   progress = today's value / daily target
+          const compareValue  = isManual ? ((kpi as any).cumulativeValue ?? 0) : (kpi.actualValue ?? 0);
+          const compareTarget = kpi.dailyTarget; // backend already sets correct target per type
+          const rawPct = compareTarget > 0
+            ? Math.min(100, (compareValue / compareTarget) * 100)
             : 0;
           const pct = kpi.direction === "lower_is_better"
             ? (kpi.achieved ? 100 : Math.max(0, 100 - rawPct))
             : rawPct;
-          const isManual = kpi.metric === "manual";
+
+          const todayValue      = (kpi as any).todayValue as number | null;
+          const cumulativeValue = (kpi as any).cumulativeValue as number | null;
 
           return (
             <Card key={kpi.id} className={`border ${kpi.achieved === true ? "border-emerald-700/50 bg-emerald-950/10" : kpi.achieved === false ? "border-red-800/30" : "border-border"}`}>
@@ -1258,6 +1266,7 @@ function DailyTrackerTab({ profileId }: { profileId: number }) {
                         : <Target className="w-4 h-4 text-muted-foreground shrink-0" />}
                     <p className="text-sm font-bold break-words leading-tight" title={kpi.name}>{kpi.name}</p>
                     {!isManual && <Badge variant="outline" className="text-[8px] h-3.5 shrink-0">تلقائي</Badge>}
+                    {isManual && <Badge variant="outline" className="text-[8px] h-3.5 shrink-0 border-blue-700/50 text-blue-400">متراكم</Badge>}
                   </div>
                   <Badge variant="outline" className={`text-[9px] shrink-0 ${kpi.achieved === true ? "border-emerald-700 text-emerald-400" : kpi.achieved === false ? "border-red-700 text-red-400" : "border-border text-muted-foreground"}`}>
                     {kpi.achieved === true ? "✅ محقق" : kpi.achieved === false ? "❌ لم يُحقَّق" : "غير مسجل"}
@@ -1266,11 +1275,25 @@ function DailyTrackerTab({ profileId }: { profileId: number }) {
 
                 <Progress value={pct} className={`h-1.5 ${kpi.achieved === true ? "[&>div]:bg-emerald-500" : kpi.achieved === false ? "[&>div]:bg-red-400" : "[&>div]:bg-primary"}`} />
 
-                <div className="flex items-center gap-4 text-[10px] text-muted-foreground">
-                  <span>الهدف اليومي: <span className="font-bold text-foreground">{fmtNum(Math.round(kpi.dailyTarget * 10) / 10)} {kpi.unit}</span></span>
-                  <span>المحقق: <span className={`font-bold ${kpi.achieved === true ? "text-emerald-400" : kpi.achieved === false ? "text-red-400" : "text-foreground"}`}>
-                    {kpi.actualValue !== null ? `${fmtNum(kpi.actualValue)} ${kpi.unit}` : "—"}
-                  </span></span>
+                <div className="flex items-center gap-4 text-[10px] text-muted-foreground flex-wrap">
+                  {isManual ? (
+                    <>
+                      <span>الهدف الشهري: <span className="font-bold text-foreground">{fmtNum(kpi.dailyTarget)} {kpi.unit}</span></span>
+                      <span>المتراكم: <span className={`font-bold ${kpi.achieved === true ? "text-emerald-400" : cumulativeValue !== null && cumulativeValue > 0 ? "text-blue-400" : "text-foreground"}`}>
+                        {cumulativeValue !== null ? `${fmtNum(cumulativeValue)} ${kpi.unit}` : "—"}
+                      </span></span>
+                      {todayValue !== null && (
+                        <span className="text-muted-foreground/70">اليوم: <span className="font-semibold text-foreground">{fmtNum(todayValue)} {kpi.unit}</span></span>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <span>الهدف اليومي: <span className="font-bold text-foreground">{fmtNum(Math.round(kpi.dailyTarget * 10) / 10)} {kpi.unit}</span></span>
+                      <span>المحقق: <span className={`font-bold ${kpi.achieved === true ? "text-emerald-400" : kpi.achieved === false ? "text-red-400" : "text-foreground"}`}>
+                        {kpi.actualValue !== null ? `${fmtNum(kpi.actualValue)} ${kpi.unit}` : "—"}
+                      </span></span>
+                    </>
+                  )}
                 </div>
 
                 {isManual && (
@@ -1280,7 +1303,7 @@ function DailyTrackerTab({ profileId }: { profileId: number }) {
                       min="0"
                       value={logValues[kpi.id] ?? ""}
                       onChange={e => setLogValues(v => ({ ...v, [kpi.id]: e.target.value }))}
-                      placeholder={`أدخل القيمة (${kpi.unit})`}
+                      placeholder={`أضف قيمة اليوم (${kpi.unit})`}
                       className="h-7 text-xs flex-1"
                     />
                     <Button
@@ -1290,7 +1313,7 @@ function DailyTrackerTab({ profileId }: { profileId: number }) {
                       onClick={() => handleSave(kpi)}
                     >
                       <Save className="w-3 h-3" />
-                      {saving[kpi.id] ? "..." : "تسجيل"}
+                      {saving[kpi.id] ? "..." : "أضف"}
                     </Button>
                   </div>
                 )}

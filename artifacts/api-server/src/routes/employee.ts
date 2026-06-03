@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, or, gte, lte, desc, isNotNull, isNull, like } from "drizzle-orm";
+import { eq, and, or, gte, lte, desc, isNotNull, isNull, like, sum } from "drizzle-orm";
 import {
   db,
   usersTable,
@@ -875,6 +875,10 @@ router.get("/employee-daily-logs/:profileId", async (req, res): Promise<void> =>
   const dayStart = new Date(`${date}T00:00:00.000Z`);
   const dayEnd = new Date(`${date}T23:59:59.999Z`);
 
+  // month range for cumulative sum
+  const monthStart = date.slice(0, 7) + "-01";
+  const monthEnd   = date;
+
   // Get userId from profile for auto-computed metrics
   const [profile] = await db
     .select()
@@ -882,16 +886,31 @@ router.get("/employee-daily-logs/:profileId", async (req, res): Promise<void> =>
     .where(eq(employeeProfilesTable.id, profileId));
   const userId = profile?.userId ?? null;
 
-  const [kpis, logs] = await Promise.all([
+  const [kpis, logs, monthlyLogs] = await Promise.all([
     db.select().from(employeeKpisTable).where(
       and(eq(employeeKpisTable.profileId, profileId), eq(employeeKpisTable.isActive, true))
     ),
+    // today's logs only (for the input field current value)
     db.select().from(employeeDailyLogsTable).where(
       and(eq(employeeDailyLogsTable.profileId, profileId), eq(employeeDailyLogsTable.date, date))
+    ),
+    // all logs this month (for cumulative sum)
+    db.select().from(employeeDailyLogsTable).where(
+      and(
+        eq(employeeDailyLogsTable.profileId, profileId),
+        gte(employeeDailyLogsTable.date, monthStart),
+        lte(employeeDailyLogsTable.date, monthEnd)
+      )
     ),
   ]);
 
   const logsMap = new Map(logs.map(l => [l.kpiId, l]));
+
+  // build cumulative map per kpiId
+  const cumulativeMap = new Map<number, number>();
+  for (const log of monthlyLogs) {
+    cumulativeMap.set(log.kpiId, (cumulativeMap.get(log.kpiId) ?? 0) + (log.value ?? 0));
+  }
 
   const result = await Promise.all(
     kpis.map(async (kpi) => {
@@ -900,18 +919,29 @@ router.get("/employee-daily-logs/:profileId", async (req, res): Promise<void> =>
       if (kpi.metric !== "manual" && userId) {
         autoValue = await computeActualValue(kpi.metric, userId, dayStart, dayEnd);
       }
-      const actualValue = kpi.metric === "manual" ? (log?.value ?? null) : autoValue;
-      const dailyTarget = kpi.targetValue / 30;
+
+      // manual KPIs: use cumulative monthly sum for progress/achieved
+      // todayValue: what was entered today (shown in input field)
+      const todayValue   = kpi.metric === "manual" ? (log?.value ?? null) : null;
+      const cumulativeValue = kpi.metric === "manual" ? (cumulativeMap.get(kpi.id) ?? null) : null;
+      const actualValue  = kpi.metric === "manual" ? cumulativeValue : autoValue;
+
+      // manual: compare cumulative vs full monthly target (not /30)
+      // auto:   compare daily value vs dailyTarget (target/30)
+      const dailyTarget  = kpi.metric === "manual" ? kpi.targetValue : kpi.targetValue / 30;
+
       const score = actualValue !== null
         ? computeKpiScore(actualValue, dailyTarget, kpi.direction)
         : null;
-      const achieved = score !== null
-        ? (kpi.direction === "lower_is_better" ? actualValue! <= dailyTarget : actualValue! >= dailyTarget)
+      const achieved = actualValue !== null
+        ? (kpi.direction === "lower_is_better" ? actualValue <= dailyTarget : actualValue >= dailyTarget)
         : null;
       return {
         ...kpi,
         date,
         actualValue,
+        cumulativeValue,
+        todayValue,
         dailyTarget,
         logId: log?.id ?? null,
         logNotes: log?.notes ?? null,
