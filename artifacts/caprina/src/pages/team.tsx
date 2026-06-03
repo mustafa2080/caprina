@@ -1256,7 +1256,7 @@ function DailyTrackerTab({ profileId }: { profileId: number }) {
                       : kpi.achieved === false
                         ? <X className="w-4 h-4 text-red-400 shrink-0" />
                         : <Target className="w-4 h-4 text-muted-foreground shrink-0" />}
-                    <p className="text-sm font-bold truncate">{kpi.name}</p>
+                    <p className="text-sm font-bold break-words leading-tight" title={kpi.name}>{kpi.name}</p>
                     {!isManual && <Badge variant="outline" className="text-[8px] h-3.5 shrink-0">تلقائي</Badge>}
                   </div>
                   <Badge variant="outline" className={`text-[9px] shrink-0 ${kpi.achieved === true ? "border-emerald-700 text-emerald-400" : kpi.achieved === false ? "border-red-700 text-red-400" : "border-border text-muted-foreground"}`}>
