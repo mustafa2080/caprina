@@ -452,6 +452,7 @@ function KpiFormDialog({
 // ─── Monthly Report ───────────────────────────────────────────────────────────
 function MonthlyReport({ report }: { report: EmployeeReport }) {
   const printRef = useRef<HTMLDivElement>(null);
+  const exportRef = useRef<HTMLDivElement>(null);
   const [exportingPdf, setExportingPdf] = useState(false);
   const ratingCfg = RATING_CONFIG[report.rating] ?? RATING_CONFIG["غير محدد"];
 
@@ -547,7 +548,7 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
   };
 
   const handleExportPdf = async () => {
-    const content = printRef.current;
+    const content = exportRef.current;
     if (!content || exportingPdf) return;
 
     const root = document.documentElement;
@@ -923,6 +924,313 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
             تقرير صادر من نظام CAPRINA لإدارة المبيعات — {new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" })}
           </div>
 
+        </div>
+      </div>
+
+      <div ref={exportRef} aria-hidden="true" className="fixed -left-[20000px] top-0 w-[980px] bg-white text-slate-900 pointer-events-none">
+        <div className="p-8" style={{ direction: "rtl", fontFamily: "'Segoe UI', Tahoma, Arial, sans-serif" }}>
+          <div style={{
+            borderRadius: 28,
+            overflow: "hidden",
+            background: "linear-gradient(135deg, #0f172a 0%, #111827 55%, #1f2937 100%)",
+            color: "white",
+            boxShadow: "0 24px 60px rgba(15, 23, 42, 0.18)",
+          }}>
+            <div style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 24,
+              padding: "22px 26px",
+              borderBottom: "1px solid rgba(255,255,255,0.12)",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                <img
+                  src="/logo.jpg"
+                  alt="Caprina"
+                  style={{
+                    width: 62,
+                    height: 62,
+                    borderRadius: 18,
+                    objectFit: "cover",
+                    border: "2px solid rgba(201,162,39,0.45)",
+                    boxShadow: "0 10px 24px rgba(0,0,0,0.22)",
+                    background: "#fff",
+                  }}
+                />
+                <div>
+                  <div style={{ fontSize: 30, fontWeight: 900, letterSpacing: 0.6, color: "#f8fafc" }}>CAPRINA</div>
+                  <div style={{ fontSize: 12, color: "rgba(248,250,252,0.72)", marginTop: 2 }}>
+                    تقرير الأداء الشهري للموظف — {periodLabel}
+                  </div>
+                </div>
+              </div>
+              <div style={{
+                textAlign: "left",
+                minWidth: 170,
+                padding: "12px 16px",
+                borderRadius: 18,
+                background: "rgba(255,255,255,0.08)",
+                border: "1px solid rgba(255,255,255,0.12)",
+              }}>
+                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.62)" }}>تاريخ الإصدار</div>
+                <div style={{ fontSize: 13, fontWeight: 700 }}>{new Date().toLocaleDateString("ar-EG")}</div>
+                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.62)", marginTop: 8 }}>القسم</div>
+                <div style={{ fontSize: 13, fontWeight: 700 }}>{report.profile?.department || "—"}</div>
+              </div>
+            </div>
+
+            <div style={{ padding: 26, background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.98) 100%)", color: "#0f172a" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1.35fr 1fr", gap: 16, marginBottom: 16 }}>
+                <div style={{
+                  borderRadius: 22,
+                  background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
+                  border: "1px solid rgba(148,163,184,0.18)",
+                  padding: 18,
+                  boxShadow: "0 12px 30px rgba(15,23,42,0.06)",
+                }}>
+                  <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700, letterSpacing: 0.3 }}>بيانات الموظف</div>
+                  <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
+                    {[
+                      ["الاسم", report.displayName],
+                      ["المسمى الوظيفي", report.profile?.jobTitle || "—"],
+                      ["القسم", report.profile?.department || "—"],
+                      ["تاريخ التعيين", report.profile?.hireDate ? new Date(report.profile.hireDate).toLocaleDateString("ar-EG") : "—"],
+                    ].map(([label, value]) => (
+                      <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 12, padding: "6px 0", borderBottom: "1px dashed rgba(148,163,184,0.18)" }}>
+                        <span style={{ color: "#64748b" }}>{label}</span>
+                        <span style={{ fontWeight: 700, color: "#0f172a" }}>{value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{
+                  borderRadius: 22,
+                  background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
+                  border: "1px solid rgba(148,163,184,0.18)",
+                  padding: 18,
+                  boxShadow: "0 12px 30px rgba(15,23,42,0.06)",
+                }}>
+                  <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700 }}>ملخص الشهر</div>
+                  <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
+                    {[
+                      { label: "الفترة", value: periodLabel },
+                      { label: "من", value: new Date(report.period.from).toLocaleDateString("ar-EG") },
+                      { label: "إلى", value: new Date(report.period.to).toLocaleDateString("ar-EG") },
+                      { label: "النتيجة", value: report.rating },
+                    ].map(item => (
+                      <div key={item.label} style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", padding: "9px 12px", borderRadius: 14, background: "rgba(248,250,252,0.95)", border: "1px solid rgba(226,232,240,0.9)" }}>
+                        <span style={{ fontSize: 12, color: "#64748b" }}>{item.label}</span>
+                        <span style={{ fontSize: 12, fontWeight: 800, color: item.label === "النتيجة" ? "#c9a227" : "#0f172a" }}>{item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 16 }}>
+                {[
+                  { label: "إجمالي الطلبيات", value: fmtNum(report.orderStats.total), color: "#0f172a", bg: "#ffffff" },
+                  { label: "مُسلَّم", value: fmtNum(report.orderStats.delivered), color: "#10b981", bg: "#ecfdf5" },
+                  { label: "مُرتجَع", value: fmtNum(report.orderStats.returned), color: "#ef4444", bg: "#fef2f2" },
+                  { label: "نسبة التسليم", value: `${report.orderStats.deliveryRate}%`, color: "#c9a227", bg: "#fffbeb" },
+                ].map(item => (
+                  <div key={item.label} style={{
+                    borderRadius: 18,
+                    background: item.bg,
+                    border: "1px solid rgba(148,163,184,0.18)",
+                    padding: "14px 16px",
+                    boxShadow: "0 10px 24px rgba(15,23,42,0.04)",
+                  }}>
+                    <div style={{ fontSize: 10, color: "#64748b", marginBottom: 8 }}>{item.label}</div>
+                    <div style={{ fontSize: 24, lineHeight: 1, fontWeight: 900, color: item.color }}>{item.value}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+                <div style={{
+                  borderRadius: 22,
+                  background: "#ffffff",
+                  border: "1px solid rgba(148,163,184,0.18)",
+                  padding: 18,
+                  boxShadow: "0 12px 30px rgba(15,23,42,0.06)",
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: "#0f172a" }}>مؤشرات الأداء الرئيسية</div>
+                    <div style={{ fontSize: 11, color: "#64748b" }}>{kpiFinancials.salaryAtRiskPercent}% من الراتب</div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 14 }}>
+                    {[
+                      { label: "محقق", value: kpiAchievedCount, bg: "#ecfdf5", color: "#10b981" },
+                      { label: "لم يتحقق", value: kpiFailedCount, bg: "#fef2f2", color: "#ef4444" },
+                      { label: "Over Target", value: kpiOverTargetCount, bg: "#eff6ff", color: "#2563eb" },
+                    ].map(item => (
+                      <div key={item.label} style={{ borderRadius: 16, padding: 12, textAlign: "center", background: item.bg, border: "1px solid rgba(148,163,184,0.14)" }}>
+                        <div style={{ fontSize: 20, fontWeight: 900, color: item.color, lineHeight: 1 }}>{item.value}</div>
+                        <div style={{ fontSize: 10, color: "#475569", marginTop: 6 }}>{item.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ borderRadius: 16, padding: 14, background: "linear-gradient(135deg, #fffbeb 0%, #fff7ed 100%)", border: "1px solid rgba(245,158,11,0.18)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 8 }}>
+                      <span style={{ color: "#64748b" }}>مؤشر الراتب المعرض للخطر</span>
+                      <span style={{ fontWeight: 900, color: "#c9a227" }}>{Math.min(kpiFinancials.salaryAtRiskPercent, 100)}%</span>
+                    </div>
+                    <div style={{ height: 10, borderRadius: 999, background: "#fde68a", overflow: "hidden" }}>
+                      <div style={{ width: `${Math.min(kpiFinancials.salaryAtRiskPercent, 100)}%`, height: "100%", background: "linear-gradient(90deg, #f59e0b, #c9a227)" }} />
+                    </div>
+                    <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between", fontSize: 11 }}>
+                      <span style={{ color: "#64748b" }}>محتمل الخصم</span>
+                      <span style={{ fontWeight: 900, color: "#b45309" }}>{fmt(kpiFinancials.totalDeduction)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{
+                  borderRadius: 22,
+                  background: "#ffffff",
+                  border: "1px solid rgba(148,163,184,0.18)",
+                  padding: 18,
+                  boxShadow: "0 12px 30px rgba(15,23,42,0.06)",
+                }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: "#0f172a", marginBottom: 12 }}>توزيع الراتب الشهري</div>
+                  <div style={{ display: "grid", gap: 10 }}>
+                    {[
+                      { label: "الأساسي", value: fmt(baseSalary), color: "#0f172a" },
+                      { label: "خصم الحضور", value: `−${fmt(salaryReport?.attendanceDeduction ?? 0)}`, color: "#ef4444" },
+                      { label: "خصم KPI", value: `−${fmt(kpiDeductions)}`, color: "#ef4444" },
+                      { label: "البونص", value: `+${fmt((salaryReport?.bonuses ?? 0) + kpiBonuses)}`, color: "#10b981" },
+                      { label: "الصافي", value: fmt(Math.max((salaryReport?.netSalary ?? baseSalary) - kpiDeductions + kpiBonuses, 0)), color: "#c9a227" },
+                    ].map(item => (
+                      <div key={item.label} style={{ display: "flex", justifyContent: "space-between", padding: "10px 12px", borderRadius: 14, background: "rgba(248,250,252,0.95)", border: "1px solid rgba(226,232,240,0.9)" }}>
+                        <span style={{ fontSize: 12, color: "#64748b" }}>{item.label}</span>
+                        <span style={{ fontSize: 13, fontWeight: 900, color: item.color }}>{item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {report.kpis.length > 0 && (
+                <div style={{
+                  borderRadius: 22,
+                  background: "#ffffff",
+                  border: "1px solid rgba(148,163,184,0.18)",
+                  padding: 18,
+                  boxShadow: "0 12px 30px rgba(15,23,42,0.06)",
+                  marginBottom: 16,
+                  breakInside: "avoid",
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: "#0f172a" }}>مؤشرات الأداء التفصيلية</div>
+                    <div style={{ fontSize: 11, color: "#64748b" }}>التأثير المالي لكل مؤشر</div>
+                  </div>
+                  <table style={{ width: "100%", borderCollapse: "collapse", direction: "rtl" }}>
+                    <thead>
+                      <tr>
+                        {["المؤشر", "الهدف", "الفعلي", "الدرجة", "الحالة", "الأثر المالي"].map(h => (
+                          <th key={h} style={{ textAlign: "right", fontSize: 10, color: "#64748b", padding: "10px 10px", borderBottom: "1px solid rgba(226,232,240,0.9)", background: "#f8fafc" }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {report.kpis.map((kpi, index) => {
+                        const sw = kpi.salaryWeight ?? 0;
+                        const ot = kpi.overtargetBonus ?? 0;
+                        const kpiAmt = sw > 0 && baseSalary > 0 ? Math.round((sw / 100) * baseSalary) : 0;
+                        const otAmt = ot > 0 && baseSalary > 0 ? Math.round((ot / 100) * baseSalary) : 0;
+                        const isOT = kpi.score !== null && kpi.score > 100;
+                        return (
+                          <tr key={kpi.id} style={{ background: index % 2 === 0 ? "#ffffff" : "#f8fafc" }}>
+                            <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(226,232,240,0.8)", fontSize: 11, fontWeight: 700 }}>
+                              {kpi.name}
+                              {kpi.description && <div style={{ marginTop: 3, fontSize: 9, fontWeight: 400, color: "#64748b" }}>{kpi.description}</div>}
+                            </td>
+                            <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(226,232,240,0.8)", fontSize: 11 }}>
+                              {kpi.direction === "lower_is_better" ? "≤" : "≥"}{fmtNum(kpi.targetValue)} {kpi.unit}
+                            </td>
+                            <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(226,232,240,0.8)", fontSize: 11, fontWeight: 700 }}>
+                              {kpi.actualValue !== null ? `${fmtNum(kpi.actualValue)} ${kpi.unit}` : "—"}
+                            </td>
+                            <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(226,232,240,0.8)", fontSize: 11 }}>
+                              {kpi.score !== null ? `${kpi.score}%` : "—"}
+                            </td>
+                            <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(226,232,240,0.8)", fontSize: 11, fontWeight: 800, color: isOT ? "#2563eb" : kpi.achieved ? "#10b981" : kpi.achieved === false ? "#ef4444" : "#64748b" }}>
+                              {isOT ? "Over Target" : kpi.achieved === true ? "محقق" : kpi.achieved === false ? "لم يتحقق" : "—"}
+                            </td>
+                            <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(226,232,240,0.8)", fontSize: 11, fontWeight: 900, color: isOT && otAmt > 0 ? "#10b981" : kpi.achieved === false && kpiAmt > 0 ? "#ef4444" : "#64748b" }}>
+                              {isOT && otAmt > 0 ? `+${fmt(otAmt)}` : kpi.achieved === false && kpiAmt > 0 ? `−${fmt(kpiAmt)}` : "—"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {salaryReport && (
+                <div style={{
+                  borderRadius: 22,
+                  background: "#ffffff",
+                  border: "1px solid rgba(148,163,184,0.18)",
+                  padding: 18,
+                  boxShadow: "0 12px 30px rgba(15,23,42,0.06)",
+                  marginBottom: 16,
+                  breakInside: "avoid",
+                }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: "#0f172a", marginBottom: 12 }}>الحضور والمرتب التفصيلي</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 10, marginBottom: 14 }}>
+                    {[
+                      { label: "الحضور", val: salaryReport.workedDays, bg: "#ecfdf5", color: "#10b981" },
+                      { label: "الغياب", val: salaryReport.absentDays, bg: "#fef2f2", color: "#ef4444" },
+                      { label: "التأخير", val: salaryReport.lateDays, bg: "#fffbeb", color: "#f59e0b" },
+                      { label: "نصف يوم", val: salaryReport.halfDays, bg: "#eff6ff", color: "#2563eb" },
+                      { label: "الأيام الكلية", val: salaryReport.totalWorkingDays, bg: "#f8fafc", color: "#0f172a" },
+                      { label: "الأيام الفعلية", val: salaryReport.workedDays + salaryReport.halfDays * 0.5, bg: "#f8fafc", color: "#c9a227" },
+                    ].map(item => (
+                      <div key={item.label} style={{ borderRadius: 16, padding: 12, textAlign: "center", background: item.bg, border: "1px solid rgba(148,163,184,0.14)" }}>
+                        <div style={{ fontSize: 22, fontWeight: 900, color: item.color, lineHeight: 1 }}>{item.val}</div>
+                        <div style={{ fontSize: 10, color: "#475569", marginTop: 6 }}>{item.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ borderRadius: 18, overflow: "hidden", border: "1px solid rgba(226,232,240,0.9)" }}>
+                    {[
+                      ["الراتب الأساسي", fmt(salaryReport.baseSalary), "#0f172a"],
+                      ["خصم الحضور / نصف اليوم", salaryReport.attendanceDeduction > 0 ? `−${fmt(salaryReport.attendanceDeduction)}` : "—", "#ef4444"],
+                      ["خصم KPI", kpiDeductions > 0 ? `−${fmt(kpiDeductions)}` : "—", "#ef4444"],
+                      ["البونص الإضافي", salaryReport.bonuses > 0 ? `+${fmt(salaryReport.bonuses)}` : "—", "#10b981"],
+                      ["مكافأة Over Target", kpiBonuses > 0 ? `+${fmt(kpiBonuses)}` : "—", "#10b981"],
+                    ].map((row, idx) => (
+                      <div key={row[0]} style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", padding: "11px 14px", background: idx % 2 === 0 ? "#ffffff" : "#f8fafc", borderBottom: idx < 4 ? "1px solid rgba(226,232,240,0.9)" : "none" }}>
+                        <span style={{ fontSize: 11, color: "#64748b" }}>{row[0]}</span>
+                        <span style={{ fontSize: 12, fontWeight: 900, color: row[2] }}>{row[1]}</span>
+                      </div>
+                    ))}
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", padding: "14px", background: "linear-gradient(135deg, #0f172a 0%, #111827 100%)", color: "white" }}>
+                      <span style={{ fontSize: 12, fontWeight: 800 }}>صافي المرتب</span>
+                      <span style={{ fontSize: 20, fontWeight: 900 }}>{fmt(Math.max((salaryReport.netSalary ?? baseSalary) - kpiDeductions + kpiBonuses, 0))}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div style={{
+                borderRadius: 18,
+                padding: "12px 16px",
+                background: "linear-gradient(135deg, #fffbeb 0%, #fff7ed 100%)",
+                border: "1px solid rgba(201,162,39,0.22)",
+                color: "#92400e",
+                fontSize: 11,
+                fontWeight: 700,
+              }}>
+                تم إصدار هذا التقرير من نظام CAPRINA لإدارة المبيعات — نسخة رسمية مخصصة للتسليم الشهري.
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
