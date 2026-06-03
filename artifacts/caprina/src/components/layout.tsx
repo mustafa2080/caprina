@@ -294,6 +294,9 @@ export default function Layout({ children }: LayoutProps) {
   useEffect(() => {
     if (isAdmin) return;
     if (redirectingRef.current) return;
+    // صفحات عامة مش محتاجة nav permission — ما نعملش ليها redirect أبداً
+    const globalPages = ["/profile", "/subscription-expired"];
+    if (globalPages.some(p => location === p || location.startsWith(p + "/"))) return;
     const allowed = visibleNav.map(i => i.href);
     // مش نعمل redirect لو visibleNav فاضية — ده بيحصل أثناء تحديث الـ permissions
     if (allowed.length === 0) return;
