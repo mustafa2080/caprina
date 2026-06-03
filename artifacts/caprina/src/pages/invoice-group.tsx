@@ -899,6 +899,11 @@ export default function InvoiceGroup() {
 
         {/* Action buttons — all in one row, no wrapping */}
         <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
+          <Button variant="outline" size="sm" onClick={handlePrint}
+            className="h-9 text-xs gap-1.5 border-border font-bold shrink-0">
+            <Printer className="w-3.5 h-3.5" />فاتورة
+          </Button>
+
           <Button
             variant="outline" size="sm"
             onClick={() => !isAnyLocked && !hasOpenManifest && setShowBulkDeleteDialog(true)}
@@ -921,11 +926,6 @@ export default function InvoiceGroup() {
               <Pencil className="w-3.5 h-3.5" />تعديل
             </Button>
           )}
-
-          <Button variant="outline" size="sm" onClick={handlePrint}
-            className="h-9 text-xs gap-1.5 border-border font-bold shrink-0">
-            <Printer className="w-3.5 h-3.5" />فاتورة
-          </Button>
 
           {/* ── زرار إغلاق — يظهر لو فيه أوردرات لسه مش received ── */}
           {orders.some((o: any) => !["received","partial_received","returned"].includes(o.status)) && !hasOpenManifest && (
