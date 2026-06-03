@@ -420,6 +420,24 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
     .from(employeeKpisTable)
     .where(and(eq(employeeKpisTable.profileId, profileId), eq(employeeKpisTable.isActive, true)));
 
+  // Cumulative sum for manual KPIs from daily logs in this month
+  const monthStart = dateFrom.toISOString().slice(0, 10);
+  const monthEnd   = dateTo.toISOString().slice(0, 10);
+  const manualLogs = await db
+    .select({ kpiId: employeeDailyLogsTable.kpiId, total: sum(employeeDailyLogsTable.value) })
+    .from(employeeDailyLogsTable)
+    .where(
+      and(
+        eq(employeeDailyLogsTable.profileId, profileId),
+        gte(employeeDailyLogsTable.date, monthStart),
+        lte(employeeDailyLogsTable.date, monthEnd)
+      )
+    )
+    .groupBy(employeeDailyLogsTable.kpiId);
+  const manualCumulativeMap = new Map(
+    manualLogs.map(r => [r.kpiId, parseFloat(String(r.total ?? "0"))])
+  );
+
   // Order stats (only for system users)
   let orderStats = {
     total: 0, delivered: 0, returned: 0, pending: 0,
@@ -475,9 +493,15 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
 
   const evaluatedKpis = await Promise.all(
     kpis.map(async (kpi) => {
-      const actualValue = userId
-        ? await computeActualValue(kpi.metric, userId, dateFrom, dateTo, profile.tenantId)
-        : kpi.metric === "manual" ? null : 0;
+      let actualValue: number | null;
+      if (kpi.metric === "manual") {
+        // use cumulative monthly sum from daily logs
+        actualValue = manualCumulativeMap.get(kpi.id) ?? null;
+      } else {
+        actualValue = userId
+          ? await computeActualValue(kpi.metric, userId, dateFrom, dateTo, profile.tenantId)
+          : 0;
+      }
       const score =
         actualValue !== null
           ? computeKpiScore(actualValue, kpi.targetValue, kpi.direction)
@@ -644,6 +668,22 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
     .from(employeeKpisTable)
     .where(and(eq(employeeKpisTable.profileId, profileId), eq(employeeKpisTable.isActive, true)));
 
+  // Cumulative sum for manual KPIs from daily logs in this month
+  const monthStartMR = dateFrom.toISOString().slice(0, 10);
+  const monthEndMR   = dateTo.toISOString().slice(0, 10);
+  const manualLogsMR = await db
+    .select({ kpiId: employeeDailyLogsTable.kpiId, total: sum(employeeDailyLogsTable.value) })
+    .from(employeeDailyLogsTable)
+    .where(and(
+      eq(employeeDailyLogsTable.profileId, profileId),
+      gte(employeeDailyLogsTable.date, monthStartMR),
+      lte(employeeDailyLogsTable.date, monthEndMR)
+    ))
+    .groupBy(employeeDailyLogsTable.kpiId);
+  const manualCumulativeMapMR = new Map(
+    manualLogsMR.map(r => [r.kpiId, parseFloat(String(r.total ?? "0"))])
+  );
+
   const orders = await db
     .select()
     .from(ordersTable)
@@ -678,7 +718,12 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
 
   const evaluatedKpis = await Promise.all(
     kpis.map(async (kpi) => {
-      const actualValue = await computeActualValue(kpi.metric, userId, dateFrom, dateTo, profile.tenantId);
+      let actualValue: number | null;
+      if (kpi.metric === "manual") {
+        actualValue = manualCumulativeMapMR.get(kpi.id) ?? null;
+      } else {
+        actualValue = await computeActualValue(kpi.metric, userId, dateFrom, dateTo, profile.tenantId);
+      }
       const score = actualValue !== null ? computeKpiScore(actualValue, kpi.targetValue, kpi.direction) : null;
       const achieved = score !== null ? (kpi.direction === "lower_is_better" ? score >= 70 : score >= 80) : null;
       return { ...kpi, actualValue, score, achieved };

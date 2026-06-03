@@ -2755,9 +2755,10 @@ function EmployeeDetail({
             const failedCount = evaluatedKpis.filter(k => k.achieved === false).length;
             const overTargetCount = evaluatedKpis.filter(k => k.score !== null && k.score > 100).length;
             const scoredKpis = evaluatedKpis.filter(k => k.score !== null && Number.isFinite(k.score));
-            const overallScore = scoredKpis.length > 0
+            // Use backend overallScore (weighted, includes manual cumulative) — fallback to local simple avg
+            const overallScore = report?.overallScore ?? (scoredKpis.length > 0
               ? Math.round(scoredKpis.reduce((s, k) => s + Math.min(k.score ?? 0, 100), 0) / scoredKpis.length)
-              : null;
+              : null);
 
             // Radar data — كفاءات المؤشرات
             const radarData = activeKpis.map(k => ({
