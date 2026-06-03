@@ -3306,18 +3306,38 @@ function EmployeeDetail({
                                 innerRadius={54}
                                 outerRadius={82}
                                 paddingAngle={3}
+                                isAnimationActive={true}
+                                animationBegin={0}
+                                animationDuration={900}
+                                animationEasing="ease-out"
                               >
                                 {[
                                   { name: "محقق", value: kpiAchievedCount, fill: "#10B981" },
                                   { name: "لم يتحقق", value: kpiFailedCount, fill: "#EF4444" },
                                   { name: "Over Target", value: kpiOverTargetCount, fill: "#2563EB" },
                                 ].filter(item => item.value > 0).map((entry, index) => (
-                                  <Cell key={`status-${index}`} fill={entry.fill} />
+                                  <Cell
+                                    key={`status-${index}`}
+                                    fill={entry.fill}
+                                    stroke="transparent"
+                                    style={{ cursor: "pointer", transition: "opacity 0.2s, filter 0.2s" }}
+                                  />
                                 ))}
                               </Pie>
                               <Tooltip
                                 formatter={(value: any, name: string) => [`${value}`, name]}
-                                contentStyle={{ fontSize: 10, background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, direction: "rtl", color: "hsl(var(--foreground))", boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}
+                                contentStyle={{
+                                  fontSize: 11,
+                                  background: "hsl(var(--card))",
+                                  border: "1px solid hsl(var(--border))",
+                                  borderRadius: 10,
+                                  direction: "rtl",
+                                  color: "hsl(var(--foreground))",
+                                  boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+                                  padding: "8px 12px",
+                                }}
+                                itemStyle={{ color: "hsl(var(--foreground))" }}
+                                cursor={false}
                               />
                             </PieChart>
                           </ResponsiveContainer>
@@ -3359,37 +3379,47 @@ function EmployeeDetail({
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="px-4 pb-4">
-                      <ResponsiveContainer width="100%" height={250}>
-                        <BarChart
+                      <ResponsiveContainer width="100%" height={220}>
+                        <LineChart
                           data={[
-                            { name: "الأساسي", value: baseSalary, fill: "#3b82f6" },
-                            { name: "خصم الحضور", value: salaryReport?.attendanceDeduction ?? 0, fill: "#ef4444" },
-                            { name: "خصم KPI", value: kpiDeductions, fill: "#dc2626" },
-                            { name: "البونص", value: (salaryReport?.bonuses ?? 0) + kpiBonuses, fill: "#10b981" },
-                            { name: "الصافي", value: Math.max((salaryReport?.netSalary ?? baseSalary) - kpiDeductions + kpiBonuses, 0), fill: "#c9a227" },
+                            { name: "الأساسي",     value: baseSalary },
+                            { name: "خصم الحضور", value: salaryReport?.attendanceDeduction ?? 0 },
+                            { name: "خصم KPI",    value: kpiDeductions },
+                            { name: "البونص",      value: (salaryReport?.bonuses ?? 0) + kpiBonuses },
+                            { name: "الصافي",      value: Math.max((salaryReport?.netSalary ?? baseSalary) - kpiDeductions + kpiBonuses, 0) },
                           ]}
-                          layout="vertical"
-                          margin={{ top: 8, right: 12, left: 8, bottom: 8 }}
+                          margin={{ top: 12, right: 16, left: 0, bottom: 8 }}
                         >
-                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
-                          <XAxis type="number" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
-                          <YAxis type="category" dataKey="name" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} width={72} />
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                          <XAxis dataKey="name" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                          <YAxis tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={v => fmt(v).replace("ج.م.‏","").trim()} width={60} />
                           <Tooltip
-                            formatter={(v: any) => fmt(Number(v))}
-                            contentStyle={{ fontSize: 10, background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, direction: "rtl", color: "hsl(var(--foreground))", boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}
+                            formatter={(v: any) => [fmt(Number(v)), "القيمة"]}
+                            contentStyle={{
+                              fontSize: 10,
+                              background: "hsl(var(--card))",
+                              border: "1px solid hsl(var(--border))",
+                              borderRadius: 10,
+                              direction: "rtl",
+                              color: "hsl(var(--foreground))",
+                              boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+                              padding: "8px 12px",
+                            }}
+                            itemStyle={{ color: "hsl(var(--foreground))" }}
+                            cursor={{ stroke: "hsl(var(--border))", strokeWidth: 1, strokeDasharray: "4 2" }}
                           />
-                          <Bar dataKey="value" radius={[0, 8, 8, 0]} maxBarSize={28}>
-                            {[
-                              { name: "الأساسي", value: baseSalary, fill: "#3b82f6" },
-                              { name: "خصم الحضور", value: salaryReport?.attendanceDeduction ?? 0, fill: "#ef4444" },
-                              { name: "خصم KPI", value: kpiDeductions, fill: "#dc2626" },
-                              { name: "البونص", value: (salaryReport?.bonuses ?? 0) + kpiBonuses, fill: "#10b981" },
-                              { name: "الصافي", value: Math.max((salaryReport?.netSalary ?? baseSalary) - kpiDeductions + kpiBonuses, 0), fill: "#c9a227" },
-                            ].map((entry, idx) => (
-                              <Cell key={`salary-${idx}`} fill={entry.fill} />
-                            ))}
-                          </Bar>
-                        </BarChart>
+                          <Line
+                            type="monotone"
+                            dataKey="value"
+                            stroke="#c9a227"
+                            strokeWidth={2.5}
+                            dot={{ fill: "#c9a227", r: 4, strokeWidth: 2, stroke: "hsl(var(--card))" }}
+                            activeDot={{ r: 6, strokeWidth: 2, stroke: "hsl(var(--card))" }}
+                            isAnimationActive={true}
+                            animationDuration={800}
+                            animationEasing="ease-out"
+                          />
+                        </LineChart>
                       </ResponsiveContainer>
                     </CardContent>
                   </Card>
@@ -3430,29 +3460,46 @@ function EmployeeDetail({
                     </CardHeader>
                     <CardContent className="px-2 pb-3">
                       <ResponsiveContainer width="100%" height={200}>
-                        <BarChart
+                        <LineChart
                           data={report.kpis.filter(k => k.score !== null).map(k => ({
                             name: k.name.length > 7 ? k.name.slice(0, 7) + "…" : k.name,
                             score: Math.min(k.score ?? 0, 130),
                             achieved: k.achieved,
+                            fullName: k.name,
                           }))}
-                          margin={{ top: 5, right: 5, bottom: 5, left: -20 }}
-                          layout="vertical"
+                          margin={{ top: 8, right: 8, left: -20, bottom: 8 }}
                         >
-                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
-                          <XAxis type="number" domain={[0, 120]} tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} />
-                          <YAxis type="category" dataKey="name" tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} width={55} />
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                          <XAxis dataKey="name" tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                          <YAxis domain={[0, 130]} tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                          <ReferenceLine y={100} stroke="#10B981" strokeDasharray="4 2" strokeWidth={1.5} label={{ value: "الهدف", fill: "#10B981", fontSize: 9, position: "insideTopRight" }} />
                           <Tooltip
-                            formatter={(v: any) => [`${v}%`, "الأداء"]}
-                            contentStyle={{ fontSize: 11, background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, direction: "rtl", color: "hsl(var(--foreground))", boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}
+                            formatter={(v: any, _: any, props: any) => [`${v}%`, props?.payload?.fullName ?? "الأداء"]}
+                            contentStyle={{
+                              fontSize: 10,
+                              background: "hsl(var(--card))",
+                              border: "1px solid hsl(var(--border))",
+                              borderRadius: 10,
+                              direction: "rtl",
+                              color: "hsl(var(--foreground))",
+                              boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+                              padding: "8px 12px",
+                            }}
+                            itemStyle={{ color: "hsl(var(--foreground))" }}
+                            cursor={{ stroke: "hsl(var(--border))", strokeWidth: 1, strokeDasharray: "4 2" }}
                           />
-                          <ReferenceLine x={100} stroke="#10B981" strokeDasharray="4 2" strokeWidth={1.5} label={{ value: "الهدف", fill: "#10B981", fontSize: 9 }} />
-                          <Bar dataKey="score" radius={[0, 4, 4, 0]} maxBarSize={18}>
-                            {report.kpis.filter(k => k.score !== null).map((k, i) => (
-                              <Cell key={i} fill={k.score !== null && k.score >= 100 ? "#10B981" : k.achieved === false ? "#EF4444" : "#c9a227"} />
-                            ))}
-                          </Bar>
-                        </BarChart>
+                          <Line
+                            type="monotone"
+                            dataKey="score"
+                            stroke="#c9a227"
+                            strokeWidth={2.5}
+                            dot={false}
+                            activeDot={{ r: 5, strokeWidth: 2, stroke: "hsl(var(--card))", fill: "#c9a227" }}
+                            isAnimationActive={true}
+                            animationDuration={800}
+                            animationEasing="ease-out"
+                          />
+                        </LineChart>
                       </ResponsiveContainer>
                     </CardContent>
                   </Card>
