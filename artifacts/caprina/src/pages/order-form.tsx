@@ -129,7 +129,9 @@ function ProductItem({
       const fv = productVariants.find((v: any) => v.color === first.color && v.size === first.size);
       setValue(`items.${index}.color`, first.color);
       setValue(`items.${index}.size`, first.size);
-      setValue(`items.${index}.quantity`, first.quantity);
+      // الكمية = مجموع كل الـ rows المعبية
+      const totalQty = rows.filter(r => r.color && r.size).reduce((sum, r) => sum + (r.quantity || 0), 0);
+      setValue(`items.${index}.quantity`, totalQty || first.quantity);
       setValue(`items.${index}.variantId`, fv?.id ?? null);
       if (fv?.unitPrice) setValue(`items.${index}.unitPrice`, fv.unitPrice);
       if (fv?.costPrice) setValue(`items.${index}.costPrice`, fv.costPrice);
