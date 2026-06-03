@@ -1862,12 +1862,12 @@ export default function OrderDetail() {
         .format(n).replace("EGP", "").trim() + " ج.م";
     const rowHtml = `
       <tr>
-        <td>${fmtEN(totalPrice)}</td>
-        <td>${fmtEN(order.unitPrice ?? 0)}</td>
-        <td>${order.quantity ?? 1}</td>
-        <td>${[order.color, order.size].filter(Boolean).join(" / ") || "-"}</td>
-        <td class="name">${order.product ?? "-"}</td>
         <td>1</td>
+        <td class="name">${order.product ?? "-"}</td>
+        <td>${[order.color, order.size].filter(Boolean).join(" / ") || "-"}</td>
+        <td>${order.quantity ?? 1}</td>
+        <td>${fmtEN(order.unitPrice ?? 0)}</td>
+        <td>${fmtEN(totalPrice)}</td>
       </tr>`;
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
@@ -1927,7 +1927,7 @@ export default function OrderDetail() {
     <div class="meta-item"><span class="meta-label">العنوان:</span><span class="meta-value">${order.address ?? "-"}</span></div>
   </div>
   <table>
-    <thead><tr><th>الإجمالي</th><th>سعر الوحدة</th><th>الكمية</th><th>اللون/المقاس</th><th>المنتج</th><th>#</th></tr></thead>
+    <thead><tr><th>#</th><th>المنتج</th><th>اللون/المقاس</th><th>الكمية</th><th>سعر الوحدة</th><th>الإجمالي</th></tr></thead>
     <tbody>${rowHtml}</tbody>
   </table>
   <div class="totals">
