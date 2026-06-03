@@ -41,6 +41,7 @@ router.get("/", async (req, res): Promise<void> => {
     permissions: usersTable.permissions,
     isActive: usersTable.isActive,
     avatar: usersTable.avatar,
+    showProfileLink: usersTable.showProfileLink,
     createdAt: usersTable.createdAt,
     updatedAt: usersTable.updatedAt,
     jobTitle: employeeProfilesTable.jobTitle,
@@ -154,6 +155,7 @@ router.patch("/:id", async (req, res): Promise<void> => {
   }
   if (avatar !== undefined) updates.avatar = avatar ?? null;
   if (isActive !== undefined) updates.isActive = isActive;
+  if (showProfileLink !== undefined) updates.showProfileLink = showProfileLink;
   if (password) {
     if (password.length < 6) { res.status(400).json({ error: "كلمة المرور يجب أن تكون 6 أحرف على الأقل" }); return; }
     updates.passwordHash = await hashPassword(password);
