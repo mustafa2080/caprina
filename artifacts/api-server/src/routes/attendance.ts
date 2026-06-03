@@ -13,6 +13,103 @@ import { requireAdmin } from "../middlewares/requireRole";
 const router: IRouter = Router();
 router.use(requireAuth);
 
+// ─── GET my attendance (current user from token) ──────────────────────────────
+// GET /attendance/my?month=YYYY-MM
+router.get("/attendance/my", async (req, res): Promise<void> => {
+  const userId = (req as any).user?.id;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const month = (req.query.month as string) || new Date().toISOString().slice(0, 7);
+  const [year, mon] = month.split("-");
+  const prefix = `${year}-${mon}`;
+
+  const [profile] = await db
+    .select()
+    .from(employeeProfilesTable)
+    .where(eq(employeeProfilesTable.userId, userId));
+
+  if (!profile) { res.json([]); return; }
+
+  const records = await db
+    .select()
+    .from(attendanceTable)
+    .where(eq(attendanceTable.profileId, profile.id));
+
+  res.json(records.filter((r) => r.date.startsWith(prefix)));
+});
+
+// ─── GET my salary report (current user from token) ──────────────────────────
+// GET /attendance/my/salary-report?month=YYYY-MM
+router.get("/attendance/my/salary-report", async (req, res): Promise<void> => {
+  const userId = (req as any).user?.id;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const month = (req.query.month as string) || new Date().toISOString().slice(0, 7);
+  const [year, mon] = month.split("-").map(Number);
+  const prefix = `${year}-${String(mon).padStart(2, "0")}`;
+  const daysInMonth = new Date(year, mon, 0).getDate();
+
+  const [profile] = await db
+    .select()
+    .from(employeeProfilesTable)
+    .where(eq(employeeProfilesTable.userId, userId));
+
+  if (!profile) {
+    res.json({
+      profileId: null, displayName: null, noProfile: true,
+      month, baseSalary: 0, workedDays: 0, absentDays: 0, lateDays: 0,
+      halfDays: 0, totalWorkingDays: daysInMonth,
+      attendanceDeduction: 0, bonuses: 0, extraDeductions: 0, netSalary: 0,
+      attendance: [], adjustments: [],
+    });
+    return;
+  }
+
+  const allRecords = await db.select().from(attendanceTable).where(eq(attendanceTable.profileId, profile.id));
+  const records = allRecords.filter((r) => r.date.startsWith(prefix));
+
+  const adjustments = await db
+    .select()
+    .from(payrollAdjustmentsTable)
+    .where(and(eq(payrollAdjustmentsTable.profileId, profile.id), eq(payrollAdjustmentsTable.month, `${year}-${String(mon).padStart(2, "0")}`)));
+
+  let workedDays = 0, absentDays = 0, lateDays = 0, halfDays = 0, holidayDays = 0, excusedDays = 0, totalDeduction = 0;
+  for (const r of records) {
+    if (r.status === "present")   workedDays++;
+    else if (r.status === "late") { workedDays++; lateDays++; }
+    else if (r.status === "absent")   absentDays++;
+    else if (r.status === "half_day") halfDays++;
+    else if (r.status === "holiday")  holidayDays++;
+    else if (r.status === "excused")  excusedDays++;
+    totalDeduction += Number(r.deduction) || 0;
+  }
+
+  const bonuses = adjustments.filter(a => a.type === "bonus").reduce((s, a) => s + Number(a.amount), 0);
+  const extraDeductions = adjustments.filter(a => a.type === "deduction").reduce((s, a) => s + Number(a.amount), 0);
+  const baseSalary = Number(profile.monthlySalary) || 0;
+  const netSalary = baseSalary - totalDeduction + bonuses - extraDeductions;
+
+  res.json({
+    profileId: profile.id,
+    displayName: profile.displayName,
+    month,
+    baseSalary,
+    workedDays,
+    absentDays,
+    lateDays,
+    halfDays,
+    holidayDays,
+    excusedDays,
+    totalWorkingDays: daysInMonth,
+    attendanceDeduction: totalDeduction,
+    bonuses,
+    extraDeductions,
+    netSalary,
+    attendance: records,
+    adjustments,
+  });
+});
+
 // ─── GET attendance for a profile in a month ─────────────────────────────────
 // GET /attendance/:profileId?month=YYYY-MM
 router.get("/attendance/:profileId", async (req, res): Promise<void> => {

@@ -10,7 +10,7 @@ import {
   ListOrdered, Activity, FileText, ChevronRight,
   ChevronDown, AlertCircle, Coins, Percent, ArrowUp,
   ArrowDown, CalendarDays, Wallet, BadgeCheck, Info,
-  RefreshCw,
+  RefreshCw, CalendarCheck2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ import {
   authApi, teamAnalyticsApi, employeeApi, ordersApi, apiFetch,
   type TeamMemberExtStats, type EmployeeProfile,
   type EmployeeReport, type EvaluatedKpi,
+  type Attendance, type AttendanceSalaryReport,
 } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from "recharts";
@@ -1087,13 +1088,203 @@ function SettingsTab({ user, avatarB64, setAvatarB64, avatarMutation, handleSave
 }
 
 /* ── Main Profile Page ── */
+/* ── Tab: Attendance ── */
+const STATUS_META: Record<string, { label: string; color: string; bg: string; border: string; dot: string }> = {
+  present:  { label: "حاضر",     color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/30", dot: "bg-emerald-500" },
+  late:     { label: "متأخر",    color: "text-amber-400",   bg: "bg-amber-500/10",   border: "border-amber-500/30",   dot: "bg-amber-500" },
+  absent:   { label: "غائب",     color: "text-rose-400",    bg: "bg-rose-500/10",    border: "border-rose-500/30",    dot: "bg-rose-500" },
+  half_day: { label: "نصف يوم",  color: "text-blue-400",    bg: "bg-blue-500/10",    border: "border-blue-500/30",    dot: "bg-blue-500" },
+  holiday:  { label: "إجازة",    color: "text-violet-400",  bg: "bg-violet-500/10",  border: "border-violet-500/30",  dot: "bg-violet-500" },
+  excused:  { label: "مبرر",     color: "text-sky-400",     bg: "bg-sky-500/10",     border: "border-sky-500/30",     dot: "bg-sky-500" },
+};
+
+function AttendanceTab() {
+  const [selectedMonth, setSelectedMonth] = useState(format(new Date(), "yyyy-MM"));
+
+  const monthOptions = useMemo(() => Array.from({ length: 12 }, (_, i) => {
+    const d = subMonths(new Date(), i);
+    return { value: format(d, "yyyy-MM"), label: format(d, "MMMM yyyy", { locale: ar }) };
+  }), []);
+
+  const { data: report, isLoading } = useQuery({
+    queryKey: ["my-attendance-report", selectedMonth],
+    queryFn: () => employeeApi.getMySalaryReport(selectedMonth),
+  });
+
+  if (isLoading) return <LoadingSpinner text="جاري تحميل سجل الحضور..." />;
+  if (!report) return <EmptyState icon={CalendarCheck2} title="لا توجد بيانات" sub="لا يوجد سجل حضور لهذا الشهر" />;
+
+  const { attendance, workedDays, absentDays, lateDays, halfDays, holidayDays, excusedDays, totalWorkingDays } = report;
+  const attendanceRate = totalWorkingDays > 0 ? Math.round(((workedDays) / totalWorkingDays) * 100) : 0;
+
+  // Build calendar grid for the month
+  const [year, mon] = selectedMonth.split("-").map(Number);
+  const firstDay = new Date(year, mon - 1, 1).getDay(); // 0=Sun
+  const daysInMonth = new Date(year, mon, 0).getDate();
+  const attMap = Object.fromEntries(attendance.map(a => [a.date, a]));
+
+  // Reorder: Saturday=0 for Arabic week start (Sat)
+  const weekDays = ["سبت", "أحد", "اثنين", "ثلاثاء", "أربعاء", "خميس", "جمعة"];
+  // firstDay: 0=Sun,1=Mon,...,6=Sat → convert to Sat-start offset
+  const offset = (firstDay + 1) % 7; // Sat=0,Sun=1,...,Fri=6
+
+  return (
+    <div className="space-y-4" dir="rtl">
+
+      {/* Month Selector */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+        {monthOptions.slice(0, 6).map(m => (
+          <button key={m.value} type="button" onClick={() => setSelectedMonth(m.value)}
+            className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all border whitespace-nowrap ${
+              selectedMonth === m.value
+                ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+            }`}>
+            {m.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Stats Summary */}
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+        {[
+          { label: "حاضر",    value: workedDays,   meta: STATUS_META.present },
+          { label: "غائب",    value: absentDays,   meta: STATUS_META.absent },
+          { label: "متأخر",   value: lateDays,     meta: STATUS_META.late },
+          { label: "نصف يوم", value: halfDays,     meta: STATUS_META.half_day },
+          { label: "إجازة",   value: holidayDays ?? 0,  meta: STATUS_META.holiday },
+          { label: "مبرر",    value: excusedDays ?? 0,  meta: STATUS_META.excused },
+        ].map(({ label, value, meta }) => (
+          <div key={label} className={`rounded-xl p-3 border ${meta.border} ${meta.bg} flex flex-col items-center gap-1`}>
+            <span className={`text-2xl font-black ${meta.color}`}>{value}</span>
+            <span className="text-[10px] text-muted-foreground">{label}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Attendance Rate Bar */}
+      <div className="rounded-xl border border-border bg-card p-4 space-y-2">
+        <div className="flex justify-between items-center">
+          <span className="text-sm font-bold flex items-center gap-2">
+            <CalendarCheck2 className="w-4 h-4 text-primary" />نسبة الحضور
+          </span>
+          <span className={`text-sm font-black ${attendanceRate >= 80 ? "text-emerald-400" : attendanceRate >= 60 ? "text-amber-400" : "text-rose-400"}`}>
+            {attendanceRate}%
+          </span>
+        </div>
+        <div className="h-3 bg-muted/30 rounded-full overflow-hidden">
+          <div className={`h-full rounded-full transition-all duration-700 ${attendanceRate >= 80 ? "bg-emerald-500" : attendanceRate >= 60 ? "bg-amber-500" : "bg-rose-500"}`}
+            style={{ width: `${attendanceRate}%` }} />
+        </div>
+        <p className="text-[11px] text-muted-foreground">{workedDays} يوم من أصل {totalWorkingDays} يوم عمل</p>
+      </div>
+
+      {/* Calendar Grid */}
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <div className="px-4 py-3 border-b border-border/50 flex items-center gap-2"
+          style={{ background: "linear-gradient(to left, hsl(var(--primary)/0.08), transparent)" }}>
+          <CalendarDays className="w-4 h-4 text-primary" />
+          <span className="font-black text-sm">{monthOptions.find(m => m.value === selectedMonth)?.label}</span>
+        </div>
+
+        {/* Week header */}
+        <div className="grid grid-cols-7 border-b border-border/30">
+          {weekDays.map(d => (
+            <div key={d} className="py-2 text-center text-[10px] font-bold text-muted-foreground">{d}</div>
+          ))}
+        </div>
+
+        {/* Days grid */}
+        <div className="grid grid-cols-7 gap-px bg-border/10 p-2">
+          {/* Empty cells before first day */}
+          {Array.from({ length: offset }).map((_, i) => (
+            <div key={`empty-${i}`} />
+          ))}
+          {/* Day cells */}
+          {Array.from({ length: daysInMonth }, (_, i) => {
+            const day = i + 1;
+            const dateStr = `${year}-${String(mon).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+            const rec = attMap[dateStr];
+            const meta = rec ? STATUS_META[rec.status] : null;
+            const isToday = dateStr === format(new Date(), "yyyy-MM-dd");
+
+            return (
+              <div key={day} className={`relative rounded-lg p-1.5 flex flex-col items-center gap-0.5 min-h-[48px] justify-center
+                ${meta ? `${meta.bg} ${meta.border} border` : "border border-transparent"}
+                ${isToday ? "ring-1 ring-primary ring-offset-0" : ""}`}>
+                <span className={`text-xs font-bold leading-none ${meta ? meta.color : "text-foreground"}`}>{day}</span>
+                {rec && (
+                  <>
+                    <span className={`w-1.5 h-1.5 rounded-full ${meta!.dot}`} />
+                    {rec.checkIn && (
+                      <span className="text-[8px] text-muted-foreground leading-none">{rec.checkIn}</span>
+                    )}
+                    {rec.lateMinutes > 0 && (
+                      <span className="text-[8px] text-amber-400 leading-none">+{rec.lateMinutes}د</span>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Legend */}
+        <div className="px-4 py-3 border-t border-border/30 flex flex-wrap gap-3">
+          {Object.entries(STATUS_META).map(([key, m]) => (
+            <span key={key} className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+              <span className={`w-2 h-2 rounded-full shrink-0 ${m.dot}`} />{m.label}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Detailed Records List */}
+      {attendance.length > 0 && (
+        <div>
+          <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mb-2.5">سجل مفصّل</p>
+          <div className="space-y-2">
+            {[...attendance].sort((a, b) => b.date.localeCompare(a.date)).map(rec => {
+              const meta = STATUS_META[rec.status] ?? STATUS_META.present;
+              return (
+                <div key={rec.id} className={`rounded-xl border ${meta.border} ${meta.bg} px-4 py-3 flex items-center gap-3`}>
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${meta.dot}`} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-bold">{format(new Date(rec.date), "EEEE d MMMM", { locale: ar })}</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${meta.bg} ${meta.border} ${meta.color}`}>
+                        {meta.label}
+                      </span>
+                    </div>
+                    <div className="flex gap-3 mt-0.5 flex-wrap text-[11px] text-muted-foreground">
+                      {rec.checkIn && <span>دخول: <strong className="text-foreground">{rec.checkIn}</strong></span>}
+                      {rec.checkOut && <span>خروج: <strong className="text-foreground">{rec.checkOut}</strong></span>}
+                      {rec.lateMinutes > 0 && <span className="text-amber-400">تأخير: {rec.lateMinutes} دقيقة</span>}
+                      {rec.deduction > 0 && <span className="text-rose-400">خصم: {fmt(rec.deduction)}</span>}
+                      {rec.notes && <span className="text-muted-foreground">{rec.notes}</span>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {attendance.length === 0 && (
+        <EmptyState icon={CalendarCheck2} title="لا يوجد سجل حضور" sub="لم يتم تسجيل أي حضور لهذا الشهر بعد" />
+      )}
+    </div>
+  );
+}
+
 export default function ProfilePage() {
   const { user, refreshUser } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
 
   const [avatarB64, setAvatarB64] = useState<string | null | undefined>(undefined);
-  const [activeTab, setActiveTab] = useState<"dashboard" | "orders" | "kpis" | "report" | "settings">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "orders" | "kpis" | "report" | "attendance" | "settings">("dashboard");
 
   // Fetch team extended stats (for current user overview)
   const { data: allStats } = useQuery({
@@ -1143,11 +1334,12 @@ export default function ProfilePage() {
   const roleColor = getRoleColor(user.role);
 
   const TABS = [
-    { key: "dashboard", label: "لوحتي", icon: LayoutDashboard },
-    { key: "orders", label: "طلباتي", icon: ListOrdered },
-    { key: "kpis", label: "مؤشرات الأداء", icon: Activity },
-    { key: "report", label: "تقرير شهري", icon: FileText },
-    { key: "settings", label: "الإعدادات", icon: User },
+    { key: "dashboard",  label: "لوحتي",         icon: LayoutDashboard },
+    { key: "orders",     label: "طلباتي",         icon: ListOrdered },
+    { key: "kpis",       label: "مؤشرات الأداء",  icon: Activity },
+    { key: "report",     label: "تقرير شهري",     icon: FileText },
+    { key: "attendance", label: "الحضور",          icon: CalendarCheck2 },
+    { key: "settings",   label: "الإعدادات",       icon: User },
   ];
 
   return (
@@ -1205,6 +1397,7 @@ export default function ProfilePage() {
       {activeTab === "orders" && <OrdersTab profile={myProfile} userId={user.id} />}
       {activeTab === "kpis" && <KpisTab myStats={myStats} profile={myProfile} />}
       {activeTab === "report" && <MonthlyReportTab profile={myProfile} />}
+      {activeTab === "attendance" && <AttendanceTab />}
       {activeTab === "settings" && (
         <SettingsTab
           user={user}

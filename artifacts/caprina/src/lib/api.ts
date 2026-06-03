@@ -988,6 +988,39 @@ export interface EmployeeReport {
   salary: number;
 }
 
+export interface Attendance {
+  id: number;
+  profileId: number;
+  date: string;         // YYYY-MM-DD
+  status: "present" | "absent" | "late" | "half_day" | "holiday" | "excused";
+  checkIn: string | null;
+  checkOut: string | null;
+  lateMinutes: number;
+  deduction: number;
+  notes: string | null;
+}
+
+export interface AttendanceSalaryReport {
+  profileId: number | null;
+  displayName: string | null;
+  noProfile?: boolean;
+  month: string;
+  baseSalary: number;
+  workedDays: number;
+  absentDays: number;
+  lateDays: number;
+  halfDays: number;
+  holidayDays: number;
+  excusedDays: number;
+  totalWorkingDays: number;
+  attendanceDeduction: number;
+  bonuses: number;
+  extraDeductions: number;
+  netSalary: number;
+  attendance: Attendance[];
+  adjustments: { id: number; type: "bonus" | "deduction"; amount: number; reason: string }[];
+}
+
 export interface DailyKpiEntry extends EmployeeKpi {
   date: string;
   actualValue: number | null;
@@ -1109,6 +1142,10 @@ export const employeeApi = {
     apiFetch<EmployeeReport>(`/analytics/employee-report/${profileId}${month ? `?month=${month}` : ""}`),
   getMyReport: (month?: string) =>
     apiFetch<EmployeeReport>(`/analytics/my-report${month ? `?month=${month}` : ""}`),
+  getMyAttendance: (month?: string) =>
+    apiFetch<Attendance[]>(`/attendance/my${month ? `?month=${month}` : ""}`),
+  getMySalaryReport: (month?: string) =>
+    apiFetch<AttendanceSalaryReport>(`/attendance/my/salary-report${month ? `?month=${month}` : ""}`),
   listUsers: () => apiFetch<AppUser[]>("/users"),
   getDailyLogs: (profileId: number, date?: string) =>
     apiFetch<DailyLogDay>(`/employee-daily-logs/${profileId}${date ? `?date=${date}` : ""}`),
