@@ -1885,7 +1885,7 @@ export default function OrderDetail() {
   .inv-main-title{font-size:22px;font-weight:900;margin:0 0 2px}
   .inv-count{font-size:13px;color:#555;font-weight:600}
   .header-right{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
-  .brand-name{font-size:24px;font-weight:900;letter-spacing:2px}
+  .brand-name{font-size:26px;font-weight:900;letter-spacing:0;font-family:'Cairo',Tahoma,Arial,sans-serif}
   .inv-sub{font-size:13px;font-weight:600;color:#333;text-align:left}
   .logo-wrap{display:flex;align-items:center;gap:8px}
   .logo-wrap img{height:64px;width:auto;object-fit:contain;border-radius:50%}
