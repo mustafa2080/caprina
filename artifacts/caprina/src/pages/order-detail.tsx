@@ -1849,7 +1849,82 @@ export default function OrderDetail() {
     }
   };
 
-  const handlePrint = () => { window.open(`/invoices?orderId=${id}`, "_blank"); };
+  const handlePrint = () => {
+    if (!order) return;
+    const inv = order.invoiceNumber ?? `#${id}`;
+    const dateLabel = format(new Date(order.createdAt), "yyyy/MM/dd HH:mm");
+    const shippingCost = order.shippingCost ?? 0;
+    const logoUrl = `${window.location.origin}/logo.jpg`;
+    const rowHtml = `
+      <tr>
+        <td>1</td>
+        <td class="name">${order.product ?? "-"}</td>
+        <td>${[order.color, order.size].filter(Boolean).join(" / ") || "-"}</td>
+        <td>${order.quantity ?? 1}</td>
+        <td>${formatCurrency(order.unitPrice ?? 0)}</td>
+        <td>${formatCurrency(order.totalPrice ?? 0)}</td>
+      </tr>`;
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    printWindow.document.write(`<!DOCTYPE html>
+<html lang="ar" dir="rtl"><head><meta charset="UTF-8"/><title>فاتورة ${inv}</title>
+<style>
+  *{box-sizing:border-box}
+  body{font-family:Tahoma,Arial,sans-serif;margin:0;padding:20px;color:#000;background:#fff;font-size:15px;font-weight:600;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .sheet{max-width:860px;margin:0 auto}
+  .header{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #000;padding-bottom:14px;margin-bottom:18px}
+  .logo-wrap img{height:72px;width:auto;object-fit:contain}
+  .brand-fallback{font-size:26px;font-weight:900;display:none}
+  .inv-title{font-size:22px;font-weight:900;margin:0 0 4px}
+  .inv-sub{font-size:13px;font-weight:700;color:#333}
+  .meta{display:grid;grid-template-columns:1fr 1fr;gap:8px 32px;margin-bottom:18px;border:2px solid #000;padding:12px 16px;border-radius:4px}
+  .meta-item{font-size:14px;font-weight:700}
+  .meta-item span{font-weight:900}
+  table{width:100%;border-collapse:collapse;margin-bottom:18px}
+  th{background:#111;color:#fff;padding:10px 8px;font-size:14px;font-weight:800;border:1px solid #000;text-align:center}
+  td{border:1px solid #555;padding:9px 8px;text-align:center;font-size:14px;font-weight:700}
+  td.name{text-align:right;font-weight:900}
+  .totals-wrap{display:flex;justify-content:flex-start}
+  .totals{width:340px;border:2px solid #000;border-radius:4px;overflow:hidden}
+  .totals-row{display:flex;justify-content:space-between;padding:9px 14px;font-size:14px;font-weight:700;border-bottom:1px solid #ccc}
+  .totals-row:last-child{border-bottom:none}
+  .totals-row.grand{background:#111;color:#fff;font-size:17px;font-weight:900}
+  .footer{margin-top:28px;text-align:center;font-size:12px;font-weight:700;color:#555;border-top:1px solid #ccc;padding-top:10px}
+  @media print{body{padding:0}.sheet{max-width:none}}
+</style></head><body><div class="sheet">
+  <div class="header">
+    <div class="logo-wrap">
+      <img src="${logoUrl}" alt="logo" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"/>
+      <div class="brand-fallback">CAPRINA</div>
+    </div>
+    <div>
+      <div class="inv-title">فاتورة بيع</div>
+      <div class="inv-sub">رقم الفاتورة: <strong>${inv}</strong></div>
+      <div class="inv-sub">التاريخ: <strong>${dateLabel}</strong></div>
+    </div>
+  </div>
+  <div class="meta">
+    <div class="meta-item">العميل: <span>${order.customerName ?? "-"}</span></div>
+    <div class="meta-item">الهاتف: <span>${order.phone ?? "-"}</span></div>
+    <div class="meta-item">المحافظة: <span>${order.city ?? "-"}</span></div>
+    <div class="meta-item">العنوان: <span>${order.address ?? "-"}</span></div>
+  </div>
+  <table>
+    <thead><tr><th>#</th><th>المنتج</th><th>اللون / المقاس</th><th>الكمية</th><th>سعر الوحدة</th><th>الإجمالي</th></tr></thead>
+    <tbody>${rowHtml}</tbody>
+  </table>
+  <div class="totals-wrap">
+    <div class="totals">
+      <div class="totals-row"><span>إجمالي المنتجات</span><strong>${formatCurrency(order.totalPrice ?? 0)}</strong></div>
+      <div class="totals-row"><span>تكلفة الشحن</span><strong>${formatCurrency(shippingCost)}</strong></div>
+      <div class="totals-row grand"><span>الإجمالي الكلي</span><strong>${formatCurrency((order.totalPrice ?? 0) + shippingCost)}</strong></div>
+    </div>
+  </div>
+  <div class="footer">CAPRINA — شكراً لتعاملكم معنا</div>
+</div></body></html>`);
+    printWindow.document.close();
+    printWindow.onload = () => { setTimeout(() => { printWindow.focus(); printWindow.print(); }, 500); };
+  };
 
   const handleWhatsApp = () => { setShowWaDialog(true); };
 
