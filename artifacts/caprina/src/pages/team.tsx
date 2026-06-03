@@ -454,6 +454,7 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
   const printRef = useRef<HTMLDivElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
   const [exportingPdf, setExportingPdf] = useState(false);
+  const { toast } = useToast();
   const ratingCfg = RATING_CONFIG[report.rating] ?? RATING_CONFIG["غير محدد"];
 
   const { data: salaryReport } = useQuery({
@@ -564,14 +565,47 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
       await (document.fonts?.ready ?? Promise.resolve());
       await waitForImages(content);
 
-      const canvas = await html2canvas(content, {
-        scale: Math.min(2, window.devicePixelRatio || 2),
+      const captureNode = content.cloneNode(true) as HTMLElement;
+      captureNode.setAttribute("data-pdf-capture", "true");
+      captureNode.style.position = "fixed";
+      captureNode.style.left = "0";
+      captureNode.style.top = "0";
+      captureNode.style.width = "1120px";
+      captureNode.style.maxWidth = "1120px";
+      captureNode.style.height = "auto";
+      captureNode.style.margin = "0";
+      captureNode.style.padding = "0";
+      captureNode.style.background = "#ffffff";
+      captureNode.style.color = "#0f172a";
+      captureNode.style.zIndex = "2147483647";
+      captureNode.style.pointerEvents = "none";
+      captureNode.style.overflow = "visible";
+
+      const pageShell = captureNode.querySelector(".report") as HTMLElement | null;
+      if (pageShell) {
+        pageShell.style.maxWidth = "1120px";
+        pageShell.style.margin = "0";
+        pageShell.style.padding = "24px";
+        pageShell.style.background = "#ffffff";
+        pageShell.style.color = "#0f172a";
+      }
+
+      document.body.appendChild(captureNode);
+      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+      await waitForImages(captureNode);
+
+      const canvas = await html2canvas(captureNode, {
+        scale: 1.6,
         useCORS: true,
         backgroundColor: "#ffffff",
         logging: false,
-        windowWidth: Math.max(content.scrollWidth, 1200),
-        windowHeight: content.scrollHeight,
+        windowWidth: 1120,
+        windowHeight: captureNode.scrollHeight,
+        scrollX: 0,
+        scrollY: 0,
       });
+
+      document.body.removeChild(captureNode);
 
       const pdf = new jsPDF({
         orientation: "portrait",
@@ -580,32 +614,36 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
         compress: true,
       });
 
-      const margin = 10;
+      const margin = 8;
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
       const usableWidth = pageWidth - margin * 2;
       const usableHeight = pageHeight - margin * 2;
       const imgData = canvas.toDataURL("image/png");
       const imageHeight = (canvas.height * usableWidth) / canvas.width;
+      const pageHeightInCanvas = (usableHeight * canvas.width) / usableWidth;
 
-      let remainingHeight = imageHeight;
-      let offset = 0;
-
-      pdf.addImage(imgData, "PNG", margin, margin - offset, usableWidth, imageHeight, undefined, "FAST");
-      remainingHeight -= usableHeight;
-
-      while (remainingHeight > 0) {
-        offset += usableHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, "PNG", margin, margin - offset, usableWidth, imageHeight, undefined, "FAST");
-        remainingHeight -= usableHeight;
+      let position = 0;
+      let pageIndex = 0;
+      while (position < imageHeight) {
+        if (pageIndex > 0) pdf.addPage();
+        pdf.addImage(imgData, "PNG", margin, margin - position, usableWidth, imageHeight, undefined, "FAST");
+        position += pageHeightInCanvas;
+        pageIndex += 1;
       }
 
-      const fileName = `تقرير-الأداء-${report.displayName}-${report.period.month}.pdf`
-        .replace(/[\\/:*?"<>|]+/g, "-")
-        .replace(/\s+/g, "-");
+      const fileName = `caprina-monthly-report-${report.profile?.id ?? "employee"}-${report.period.month}.pdf`;
       pdf.save(fileName);
+      toast({ title: "تم تصدير PDF", description: "تم إنشاء التقرير الشهري بنجاح." });
+    } catch (error: any) {
+      toast({
+        title: "تعذر تصدير PDF",
+        description: error?.message || "حدث خطأ أثناء إنشاء ملف PDF. حاول مرة أخرى.",
+        variant: "destructive",
+      });
     } finally {
+      const existingCapture = document.querySelector('[data-pdf-capture="true"]');
+      if (existingCapture?.parentElement) existingCapture.parentElement.removeChild(existingCapture);
       if (hadDarkMode) root.classList.add("dark");
       root.style.colorScheme = previousColorScheme;
       setExportingPdf(false);
@@ -949,9 +987,9 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
                   src="/logo.jpg"
                   alt="Caprina"
                   style={{
-                    width: 62,
-                    height: 62,
-                    borderRadius: 18,
+                    width: 44,
+                    height: 44,
+                    borderRadius: 14,
                     objectFit: "cover",
                     border: "2px solid rgba(201,162,39,0.45)",
                     boxShadow: "0 10px 24px rgba(0,0,0,0.22)",
@@ -959,8 +997,8 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
                   }}
                 />
                 <div>
-                  <div style={{ fontSize: 30, fontWeight: 900, letterSpacing: 0.6, color: "#f8fafc" }}>CAPRINA</div>
-                  <div style={{ fontSize: 12, color: "rgba(248,250,252,0.72)", marginTop: 2 }}>
+                  <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: 0.4, color: "#f8fafc" }}>CAPRINA</div>
+                  <div style={{ fontSize: 11, color: "rgba(248,250,252,0.72)", marginTop: 2 }}>
                     تقرير الأداء الشهري للموظف — {periodLabel}
                   </div>
                 </div>
@@ -986,7 +1024,7 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
                   borderRadius: 22,
                   background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
                   border: "1px solid rgba(148,163,184,0.18)",
-                  padding: 18,
+                  padding: 16,
                   boxShadow: "0 12px 30px rgba(15,23,42,0.06)",
                 }}>
                   <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700, letterSpacing: 0.3 }}>بيانات الموظف</div>
@@ -1009,7 +1047,7 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
                   borderRadius: 22,
                   background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
                   border: "1px solid rgba(148,163,184,0.18)",
-                  padding: 18,
+                  padding: 16,
                   boxShadow: "0 12px 30px rgba(15,23,42,0.06)",
                 }}>
                   <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700 }}>ملخص الشهر</div>
@@ -1118,7 +1156,7 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
                   borderRadius: 22,
                   background: "#ffffff",
                   border: "1px solid rgba(148,163,184,0.18)",
-                  padding: 18,
+                  padding: 16,
                   boxShadow: "0 12px 30px rgba(15,23,42,0.06)",
                   marginBottom: 16,
                   breakInside: "avoid",
@@ -1176,7 +1214,7 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
                   borderRadius: 22,
                   background: "#ffffff",
                   border: "1px solid rgba(148,163,184,0.18)",
-                  padding: 18,
+                  padding: 16,
                   boxShadow: "0 12px 30px rgba(15,23,42,0.06)",
                   marginBottom: 16,
                   breakInside: "avoid",
