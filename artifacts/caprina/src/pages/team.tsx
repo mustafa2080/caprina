@@ -5,7 +5,7 @@ import {
   TrendingUp, TrendingDown, Printer, Star, AlertCircle, Trophy, Briefcase, Package,
   DollarSign, Calendar, BarChart2, Settings, ArrowLeft, Save, RefreshCw, UserPlus,
   Clock, UserCheck, UserX, Gift, MinusCircle, CheckCircle2, XCircle, AlertTriangle,
-  Crown, Medal, Award,
+  Crown, Medal, Award, Download,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,8 @@ import {
 } from "recharts";
 import { employeeApi, usersApi, type EmployeeProfile, type EmployeeKpi, type EmployeeReport, type AppUser, type DailyKpiEntry, type DailyLogDay, appSettingsApi, attendanceApi, type AttendanceRecord, type AttendanceStatus, type PayrollAdjustment, type MonthlySalaryReport } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
+import html2canvas from "html2canvas";
+import { jsPDF } from "jspdf";
 
 const fmt = (n: number) =>
   new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(n);
@@ -34,6 +36,20 @@ const fmtNum = (n: number) => new Intl.NumberFormat("ar-EG").format(n);
 function dbInitials(name: string) {
   const p = (name || "?").trim().split(/\s+/);
   return p.length >= 2 ? (p[0][0] + p[1][0]).toUpperCase() : (name || "?").slice(0, 2).toUpperCase();
+}
+
+async function waitForImages(root: HTMLElement) {
+  const images = Array.from(root.querySelectorAll("img"));
+  await Promise.all(
+    images.map(image =>
+      image.complete
+        ? Promise.resolve()
+        : new Promise<void>(resolve => {
+            image.onload = () => resolve();
+            image.onerror = () => resolve();
+          })
+    )
+  );
 }
 
 const METRIC_OPTIONS = [
@@ -436,6 +452,7 @@ function KpiFormDialog({
 // ─── Monthly Report ───────────────────────────────────────────────────────────
 function MonthlyReport({ report }: { report: EmployeeReport }) {
   const printRef = useRef<HTMLDivElement>(null);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const ratingCfg = RATING_CONFIG[report.rating] ?? RATING_CONFIG["غير محدد"];
 
   const { data: salaryReport } = useQuery({
@@ -529,13 +546,82 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
     setTimeout(() => { printWindow.print(); printWindow.close(); }, 500);
   };
 
+  const handleExportPdf = async () => {
+    const content = printRef.current;
+    if (!content || exportingPdf) return;
+
+    const root = document.documentElement;
+    const hadDarkMode = root.classList.contains("dark");
+    const previousColorScheme = root.style.colorScheme;
+
+    setExportingPdf(true);
+    try {
+      if (hadDarkMode) root.classList.remove("dark");
+      root.style.colorScheme = "light";
+      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+
+      await (document.fonts?.ready ?? Promise.resolve());
+      await waitForImages(content);
+
+      const canvas = await html2canvas(content, {
+        scale: Math.min(2, window.devicePixelRatio || 2),
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        logging: false,
+        windowWidth: Math.max(content.scrollWidth, 1200),
+        windowHeight: content.scrollHeight,
+      });
+
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+        compress: true,
+      });
+
+      const margin = 10;
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const usableWidth = pageWidth - margin * 2;
+      const usableHeight = pageHeight - margin * 2;
+      const imgData = canvas.toDataURL("image/png");
+      const imageHeight = (canvas.height * usableWidth) / canvas.width;
+
+      let remainingHeight = imageHeight;
+      let offset = 0;
+
+      pdf.addImage(imgData, "PNG", margin, margin - offset, usableWidth, imageHeight, undefined, "FAST");
+      remainingHeight -= usableHeight;
+
+      while (remainingHeight > 0) {
+        offset += usableHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", margin, margin - offset, usableWidth, imageHeight, undefined, "FAST");
+        remainingHeight -= usableHeight;
+      }
+
+      const fileName = `تقرير-الأداء-${report.displayName}-${report.period.month}.pdf`
+        .replace(/[\\/:*?"<>|]+/g, "-")
+        .replace(/\s+/g, "-");
+      pdf.save(fileName);
+    } finally {
+      if (hadDarkMode) root.classList.add("dark");
+      root.style.colorScheme = previousColorScheme;
+      setExportingPdf(false);
+    }
+  };
+
   const [yearStr, monthStr] = report.period.month.split("-");
   const periodLabel = new Date(parseInt(yearStr), parseInt(monthStr) - 1, 1)
     .toLocaleDateString("ar-EG", { month: "long", year: "numeric" });
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-end">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <Button onClick={handleExportPdf} disabled={exportingPdf} className="gap-2 h-8 text-xs bg-emerald-600 hover:bg-emerald-700">
+          <Download className="w-3.5 h-3.5" />
+          {exportingPdf ? "جارٍ التصدير..." : "تصدير PDF"}
+        </Button>
         <Button onClick={handlePrint} className="gap-2 h-8 text-xs bg-primary">
           <Printer className="w-3.5 h-3.5" />طباعة التقرير
         </Button>
@@ -546,9 +632,16 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
 
           {/* Header */}
           <div className="header border-b-2 border-primary pb-4 mb-5 flex justify-between items-start">
-            <div>
-              <div className="brand text-2xl font-black text-primary">CAPRINA</div>
-              <div className="title text-xs text-muted-foreground mt-0.5">تقرير أداء موظف — {periodLabel}</div>
+            <div className="flex items-center gap-3">
+              <img
+                src="/logo.jpg"
+                alt="Caprina"
+                className="h-12 w-12 rounded-2xl object-cover border border-border/60 shadow-sm bg-background"
+              />
+              <div>
+                <div className="brand text-2xl font-black text-primary">CAPRINA</div>
+                <div className="title text-xs text-muted-foreground mt-0.5">تقرير أداء موظف — {periodLabel}</div>
+              </div>
             </div>
             <div className="text-left text-xs text-muted-foreground">
               <div>تاريخ الإصدار: {new Date().toLocaleDateString("ar-EG")}</div>
