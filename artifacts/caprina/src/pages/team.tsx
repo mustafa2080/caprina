@@ -489,7 +489,7 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
   const kpiOverTargetCount = kpiFinancials.overTargetCount;
 
   const handlePrint = () => {
-    const content = printRef.current;
+    const content = exportRef.current;
     if (!content) return;
     const printWindow = window.open("", "_blank", "width=900,height=700");
     if (!printWindow) return;
@@ -499,53 +499,37 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
         <meta charset="UTF-8" />
         <title>تقرير الأداء - ${report.displayName}</title>
         <style>
-          * { box-sizing: border-box; margin: 0; padding: 0; }
-          body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; background: white; color: #1a1a1a; direction: rtl; font-size: 13px; }
-          .report { max-width: 800px; margin: 20px auto; padding: 30px; }
-          .header { border-bottom: 3px solid #c9a227; padding-bottom: 16px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-start; }
-          .brand { font-size: 22px; font-weight: 900; color: #c9a227; }
-          .title { font-size: 14px; color: #666; margin-top: 4px; }
-          .employee-info { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
-          .info-card { background: #f8f8f8; border-radius: 8px; padding: 12px; }
-          .info-card h3 { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
-          .info-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
-          .info-label { color: #666; }
-          .info-value { font-weight: 600; }
-          .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 20px; }
-          .stat-box { background: #f8f8f8; border-radius: 8px; padding: 10px; text-align: center; }
-          .stat-value { font-size: 18px; font-weight: 800; }
-          .stat-label { font-size: 10px; color: #888; margin-top: 2px; }
-          .delivered { color: #16a34a; }
-          .returned { color: #dc2626; }
-          .pending { color: #d97706; }
-          .kpis-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-          .kpis-table th { background: #c9a227; color: white; padding: 8px 12px; text-align: right; font-size: 11px; }
-          .kpis-table td { padding: 8px 12px; border-bottom: 1px solid #eee; font-size: 12px; }
-          .kpis-table tr:nth-child(even) td { background: #fafafa; }
-          .score-bar { width: 80px; height: 6px; background: #eee; border-radius: 3px; display: inline-block; vertical-align: middle; margin-left: 6px; }
-          .score-fill { height: 100%; border-radius: 3px; }
-          .achieved-yes { color: #16a34a; font-weight: 700; }
-          .achieved-no { color: #dc2626; font-weight: 700; }
-          .overall { background: #fef9e7; border: 2px solid #c9a227; border-radius: 8px; padding: 16px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
-          .score-big { font-size: 36px; font-weight: 900; color: #c9a227; }
-          .rating-badge { font-size: 18px; font-weight: 800; }
-          .salary-section { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px; }
-          .attendance-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-bottom: 12px; }
-          .att-box { background: #f8f8f8; border-radius: 6px; padding: 8px 6px; text-align: center; }
-          .att-val { font-size: 18px; font-weight: 800; }
-          .att-label { font-size: 9px; color: #888; margin-top: 2px; }
-          .salary-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
-          .salary-table th { background: #c9a227; color: white; padding: 6px 10px; text-align: right; font-size: 11px; }
-          .salary-table td { padding: 6px 10px; border-bottom: 1px solid #eee; font-size: 12px; }
-          .adj-row { display: flex; justify-content: space-between; font-size: 11px; padding: 4px 8px; border-radius: 4px; margin-bottom: 3px; }
-          .footer { text-align: center; font-size: 10px; color: #aaa; margin-top: 24px; border-top: 1px solid #eee; padding-top: 12px; }
-          @media print { @page { size: A4; margin: 15mm; } .report { margin: 0; padding: 0; max-width: 100%; } }
+          * { box-sizing: border-box; }
+          html, body { margin: 0; padding: 0; direction: rtl; font-family: 'Segoe UI', Tahoma, Arial, sans-serif; background: #fff; color: #0f172a; }
+          body { padding: 0; }
+          @page { size: A4; margin: 0; }
+          .print-wrap { padding: 14mm 12mm; }
+          .print-wrap img { max-width: 100%; }
+          .print-wrap .shadow-sm,
+          .print-wrap .shadow-md,
+          .print-wrap .shadow-lg,
+          .print-wrap [style*="box-shadow"] { box-shadow: none !important; }
+          .print-wrap .report {
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+            color: #0f172a !important;
+          }
+          .print-wrap .report * { color: inherit; }
+          .print-wrap .avoid-break { break-inside: avoid; page-break-inside: avoid; }
+          .print-wrap .print-compact table { width: 100%; }
+          .print-wrap .print-compact th,
+          .print-wrap .print-compact td { font-size: 10px !important; padding-top: 8px !important; padding-bottom: 8px !important; }
+          .print-wrap .print-page-title { margin-bottom: 8px; }
         </style>
       </head>
-      <body>${content.innerHTML}</body></html>
+      <body><div class="print-wrap">${content.innerHTML}</div></body></html>
     `);
     printWindow.document.close();
-    setTimeout(() => { printWindow.print(); printWindow.close(); }, 500);
+    printWindow.onload = () => {
+      setTimeout(() => { printWindow.print(); printWindow.close(); }, 300);
+    };
   };
 
   const handleExportPdf = async () => {
@@ -1020,7 +1004,7 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
 
             <div style={{ padding: 26, background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.98) 100%)", color: "#0f172a" }}>
               <div style={{ display: "grid", gridTemplateColumns: "1.35fr 1fr", gap: 16, marginBottom: 16 }}>
-                <div style={{
+                <div className="avoid-break print-page-title" style={{
                   borderRadius: 22,
                   background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
                   border: "1px solid rgba(148,163,184,0.18)",
@@ -1088,7 +1072,7 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
-                <div style={{
+                <div className="avoid-break print-compact" style={{
                   borderRadius: 22,
                   background: "#ffffff",
                   border: "1px solid rgba(148,163,184,0.18)",
@@ -1126,7 +1110,7 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
                   </div>
                 </div>
 
-                <div style={{
+                <div className="avoid-break print-compact" style={{
                   borderRadius: 22,
                   background: "#ffffff",
                   border: "1px solid rgba(148,163,184,0.18)",
