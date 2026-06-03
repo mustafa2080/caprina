@@ -1371,6 +1371,15 @@ export default function ProfilePage() {
   });
   const myStats = allStats?.find(s => s.userId === user?.id);
 
+  // Fetch my-report لنقاط الأداء الصحيحة (0-100) في الـ header
+  const currentMonth = format(new Date(), "yyyy-MM");
+  const { data: myReport } = useQuery({
+    queryKey: ["my-report-header", currentMonth],
+    queryFn: () => employeeApi.getMyReport(currentMonth),
+    staleTime: 5 * 60_000,
+  });
+  const headerScore = myReport?.overallScore ?? null;
+
   // Fetch employee profiles list to find the current user's profile
   const { data: profiles } = useQuery({
     queryKey: ["emp-profiles-list"],
@@ -1448,11 +1457,11 @@ export default function ProfilePage() {
                 {myProfile?.department && <Badge variant="outline" className="text-xs">{myProfile.department}</Badge>}
               </div>
             </div>
-            {myStats && (
+            {headerScore != null && (
               <div className="shrink-0 text-center sm:text-left">
                 <div className="text-xs text-muted-foreground mb-0.5">نقاط الأداء</div>
-                <div className="text-3xl font-black">{myStats.score}<span className="text-sm text-muted-foreground">/100</span></div>
-                <ScoreBadge score={myStats.score} />
+                <div className="text-3xl font-black">{headerScore}<span className="text-sm text-muted-foreground">/100</span></div>
+                <ScoreBadge score={headerScore} />
               </div>
             )}
           </div>
