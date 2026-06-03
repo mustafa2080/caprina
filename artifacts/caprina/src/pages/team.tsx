@@ -286,7 +286,19 @@ function KpiFormDialog({
           {/* اسم + هدف + وحدة */}
           <div className="space-y-1">
             <Label className="text-xs font-bold">اسم المؤشر *</Label>
-            <Input value={name} onChange={e => setName(e.target.value)} className="h-8 text-xs" placeholder="مثال: نسبة التسليم الشهرية" />
+            <div className="relative group">
+              <Input value={name} onChange={e => setName(e.target.value)} className="h-8 text-xs pr-7" placeholder="مثال: نسبة التسليم الشهرية" />
+              {metric === "manual" && name && (
+                <button
+                  type="button"
+                  onClick={() => setName("")}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                  tabIndex={-1}
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
           </div>
           <div className="grid grid-cols-3 gap-2">
             <div className="space-y-1">
@@ -295,7 +307,18 @@ function KpiFormDialog({
             </div>
             <div className="space-y-1">
               <Label className="text-xs">الوحدة</Label>
-              <Input value={unit} onChange={e => setUnit(e.target.value)} placeholder="%" className="h-8 text-xs" />
+              {metric === "manual" ? (
+                <Select value={unit} onValueChange={setUnit}>
+                  <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="اختر الوحدة" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="%">نسبة مئوية (%)</SelectItem>
+                    <SelectItem value="عدد">عدد</SelectItem>
+                    <SelectItem value="ج.م">جنيه (ج.م)</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input value={unit} onChange={e => setUnit(e.target.value)} placeholder="%" className="h-8 text-xs" />
+              )}
             </div>
             <div className="space-y-1">
               <Label className="text-xs">الوزن (%)</Label>
