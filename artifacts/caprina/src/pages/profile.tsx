@@ -160,6 +160,7 @@ function AvatarUpload({ currentAvatar, displayName, onUpload }: {
 function DashboardTab({ myStats, profile }: { myStats?: TeamMemberExtStats; profile?: EmployeeProfile }) {
   const currentMonth = format(new Date(), "yyyy-MM");
   const prevMonth = format(subMonths(new Date(), 1), "yyyy-MM");
+  const todayStr = format(new Date(), "yyyy-MM-dd");
 
   const { data: currReport } = useQuery({
     queryKey: ["emp-report-curr-mine", currentMonth],
@@ -169,6 +170,41 @@ function DashboardTab({ myStats, profile }: { myStats?: TeamMemberExtStats; prof
     queryKey: ["emp-report-prev-mine", prevMonth],
     queryFn: () => employeeApi.getMyReport(prevMonth),
   });
+
+  // ── الأداء اليومي: طلبات اليوم ──
+  const { data: todayOrders = [] } = useQuery({
+    queryKey: ["my-orders-today", todayStr],
+    queryFn: () => apiFetch<any[]>(`/orders/my-orders?month=${currentMonth}`),
+    select: (orders) => orders.filter((o: any) => {
+      const d = o.createdAt?.slice(0, 10) ?? o.date?.slice(0, 10);
+      return d === todayStr;
+    }),
+    staleTime: 30_000,
+  });
+
+  // ── الأداء اليومي: KPI logs اليوم ──
+  const { data: dailyLogs } = useQuery({
+    queryKey: ["daily-logs-today", profile?.id, todayStr],
+    queryFn: () => employeeApi.getDailyLogs(profile!.id, todayStr),
+    enabled: !!profile?.id,
+    staleTime: 30_000,
+  });
+
+  // احسب إحصائيات طلبات اليوم
+  const todayDelivered = todayOrders.filter((o: any) => o.status === "received" || o.status === "partial_received").length;
+  const todayReturned  = todayOrders.filter((o: any) => o.status === "returned").length;
+  const todayPending   = todayOrders.filter((o: any) => !["received","partial_received","returned"].includes(o.status)).length;
+
+  // KPI entries من daily logs
+  const kpiEntries: { label: string; value: number; target: number; unit: string }[] = useMemo(() => {
+    if (!dailyLogs?.entries?.length) return [];
+    return dailyLogs.entries.map((e: any) => ({
+      label: e.kpiName ?? e.label ?? "مؤشر",
+      value: e.value ?? 0,
+      target: e.targetValue ?? e.target ?? 0,
+      unit: e.unit ?? "",
+    }));
+  }, [dailyLogs]);
 
   // Build comparison data for mini bar chart
   const compData = useMemo(() => {
@@ -193,6 +229,56 @@ function DashboardTab({ myStats, profile }: { myStats?: TeamMemberExtStats; prof
         <MiniCard icon={XCircle} label="مرتجعات" value={fmtNum(stats?.returned ?? myStats?.returned ?? 0)} sub={pct(stats?.returnRate ?? myStats?.returnRate ?? 0)} color="from-rose-500/15 to-red-600/5 border-rose-500/20 text-rose-400" />
 
       </div>
+
+      {/* ── الأداء اليومي ── */}
+      <Card className="border border-amber-500/20 bg-gradient-to-br from-amber-500/5 to-transparent">
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Flame className="w-4 h-4 text-amber-400" />
+            <span className="font-bold text-sm">الأداء اليومي — {format(new Date(), "d MMMM yyyy", { locale: ar })}</span>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-xl border border-border bg-muted/20 p-3 text-center">
+              <p className="text-2xl font-black">{todayOrders.length}</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">طلبات اليوم</p>
+            </div>
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3 text-center">
+              <p className="text-2xl font-black text-emerald-400">{todayDelivered}</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">مسلّمة</p>
+            </div>
+            <div className="rounded-xl border border-rose-500/30 bg-rose-500/5 p-3 text-center">
+              <p className="text-2xl font-black text-rose-400">{todayReturned}</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">مرتجعة</p>
+            </div>
+          </div>
+          {todayPending > 0 && (
+            <p className="text-[11px] text-amber-400/80 flex items-center gap-1">
+              <Hourglass className="w-3 h-3" />{todayPending} طلب قيد الانتظار
+            </p>
+          )}
+          {/* KPI اليومية */}
+          {kpiEntries.length > 0 && (
+            <div className="space-y-2 pt-1 border-t border-border/50">
+              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">مؤشرات اليوم</p>
+              {kpiEntries.map((k, i) => {
+                const achieved = k.target > 0 ? Math.min(100, (k.value / k.target) * 100) : 0;
+                return (
+                  <div key={i} className="space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">{k.label}</span>
+                      <span className="font-bold">{fmtNum(k.value)}{k.unit ? ` ${k.unit}` : ""} {k.target > 0 && <span className="text-muted-foreground font-normal">/ {fmtNum(k.target)}</span>}</span>
+                    </div>
+                    {k.target > 0 && <AnimatedBar pct={achieved} color={achieved >= 100 ? "bg-emerald-500" : achieved >= 60 ? "bg-blue-500" : "bg-amber-500"} />}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {todayOrders.length === 0 && kpiEntries.length === 0 && (
+            <p className="text-xs text-muted-foreground text-center py-2">لا توجد نشاطات مسجلة اليوم</p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Score + Comparison */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
