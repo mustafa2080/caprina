@@ -4749,6 +4749,12 @@ export default function TeamPage() {
     queryKey: ["employee-profiles"],
     queryFn: employeeApi.listProfiles,
   });
+
+  const { data: teamPerfData = [] } = useQuery({
+    queryKey: ["team-perf-cards"],
+    queryFn: () => teamAnalyticsApi.teamPerformanceExtended(),
+    staleTime: 2 * 60_000,
+  });
   
   const { data: allUsers = [] } = useQuery({
     queryKey: ["users"],
@@ -4871,6 +4877,14 @@ export default function TeamPage() {
           const totalDaysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
           const attPct = Math.min(100, Math.round((att.workedDays / Math.max(totalDaysInMonth, 1)) * 100));
 
+          // الأداء من teamPerformanceExtended
+          const perfEntry = teamPerfData.find((e: any) => e.userId === (profile as any).userId);
+          const perfScore = perfEntry?.overallScore ?? null;
+          const perfRating = perfScore === null ? null : perfScore >= 90 ? "ممتاز" : perfScore >= 75 ? "جيد جداً" : perfScore >= 60 ? "جيد" : perfScore >= 40 ? "مقبول" : "ضعيف";
+          const perfColor = perfScore === null ? "text-muted-foreground" : perfScore >= 75 ? "text-emerald-400" : perfScore >= 50 ? "text-amber-400" : "text-red-400";
+          const perfBar   = perfScore === null ? "#6B7280" : perfScore >= 75 ? "#10B981" : perfScore >= 50 ? "#F59E0B" : "#EF4444";
+          const monthProgress = Math.round((new Date().getDate() / totalDaysInMonth) * 100);
+
           // الصورة: أولوية لصورة الـ profile، ثم صورة الـ user من allUsers
           const linkedUser = isSystemUser ? allUsers.find((u: any) => u.id === (profile as any).userId) : null;
           const avatarSrc = profile.avatar || (linkedUser as any)?.avatar || null;
@@ -4960,26 +4974,26 @@ export default function TeamPage() {
 
                 {/* ── الإحصائيات ── */}
                 <div className="grid grid-cols-2 gap-3 mb-4">
-                  {/* الحضور */}
+                  {/* الأداء الشهري */}
                   <div className="rounded-xl p-3 bg-muted/40 dark:bg-white/[0.04] border border-border/60 dark:border-white/[0.07]">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-[10px] font-bold text-muted-foreground">الحضور</p>
-                      <span className={`text-sm font-black ${attColor.text}`}>
-                        {att.workedDays > 0 ? att.workedDays : "—"}
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-[10px] font-bold text-muted-foreground">الأداء</p>
+                      <span className={`text-sm font-black ${perfColor}`}>
+                        {perfScore !== null ? `${perfScore}%` : "—"}
                       </span>
                     </div>
-                    {/* شريط الحضور */}
-                    <div className="w-full h-1.5 rounded-full bg-muted/60 dark:bg-white/[0.08]">
+                    <div className="w-full h-1.5 rounded-full bg-muted/60 dark:bg-white/[0.08] mb-1">
                       <div className="h-1.5 rounded-full transition-all duration-500"
-                        style={{
-                          width: `${attPct}%`,
-                          background: attColor.bar,
-                          boxShadow: att.workedDays > 0 ? `0 0 6px ${attColor.glow}` : "none",
-                        }} />
+                        style={{ width: `${perfScore ?? 0}%`, background: perfBar }} />
                     </div>
-                    <p className="text-[9px] mt-1 text-muted-foreground/70">
-                      {att.workedDays > 0 ? `${attPct}% من الشهر` : "لا يوجد سجل"}
-                    </p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-[9px] text-muted-foreground/70">
+                        {perfRating ?? "لا توجد بيانات"}
+                      </p>
+                      <p className="text-[9px] text-muted-foreground/50">
+                        تقدم {monthProgress}%
+                      </p>
+                    </div>
                   </div>
 
                   {/* مؤشرات الأداء */}
