@@ -144,8 +144,8 @@ router.get("/orders", async (req, res): Promise<void> => {
   const conditions: any[] = [isNull(ordersTable.deletedAt)];
   if (tenantId !== null) conditions.push(eq(ordersTable.tenantId, tenantId));
 
-  // موظف المبيعات يشوف طلباته بس
-  if (reqRole === "sales") {
+  // موظف المبيعات (employee / sales) يشوف طلباته بس — الـ admin والـ super_admin يشوفوا الكل
+  if (reqRole === "sales" || reqRole === "employee") {
     conditions.push(
       or(
         eq(ordersTable.createdByUserId, reqUserId),
