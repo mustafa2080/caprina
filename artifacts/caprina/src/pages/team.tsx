@@ -4773,7 +4773,7 @@ export default function TeamPage() {
             <UserPlus className="w-3.5 h-3.5" />موظف موجود
           </Button>
         )}
-        
+      </div>
 
       {profilesLoading && <p className="text-center text-muted-foreground py-12 text-sm">جاري التحميل...</p>}
 
