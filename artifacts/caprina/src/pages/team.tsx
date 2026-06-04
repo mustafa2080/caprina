@@ -4981,12 +4981,13 @@ export default function TeamPage() {
                       const r = 22, circ = 2 * Math.PI * r;
                       const pct = perfScore ?? 0;
                       const dash = (pct / 100) * circ;
+                      const gap = circ - dash;
                       return (
                         <div className="relative flex items-center justify-center">
                           <svg width="60" height="60" viewBox="0 0 60 60" style={{ transform: "rotate(-90deg)" }}>
-                            <circle cx="30" cy="30" r={r} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="5" />
+                            <circle cx="30" cy="30" r={r} fill="none" stroke="rgba(128,128,128,0.15)" strokeWidth="5" />
                             <circle cx="30" cy="30" r={r} fill="none" stroke={perfBar} strokeWidth="5"
-                              strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
+                              strokeDasharray={`${dash} ${gap}`} strokeLinecap="round"
                               style={{ transition: "stroke-dasharray 0.5s ease" }} />
                           </svg>
                           <div className="absolute inset-0 flex flex-col items-center justify-center" style={{ transform: "none" }}>
