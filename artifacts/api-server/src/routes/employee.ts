@@ -129,6 +129,27 @@ function mergeProfile(profile: typeof employeeProfilesTable.$inferSelect, user: 
 // Employee Profiles CRUD
 // ────────────────────────────────────────────────────────────────────────────
 
+
+// ─── دالة حساب دورة الراتب: من 26 الشهر السابق لـ 25 الشهر الحالي ──────────
+function getPayPeriod(monthParam: string): { dateFrom: Date; dateTo: Date; periodLabel: string } {
+  let year: number, month: number;
+  if (monthParam) {
+    [year, month] = monthParam.split("-").map(Number);
+  } else {
+    const now = new Date();
+    year = now.getFullYear();
+    month = now.getMonth() + 1;
+  }
+  // من: 26 الشهر السابق
+  const prevMonth = month === 1 ? 12 : month - 1;
+  const prevYear  = month === 1 ? year - 1 : year;
+  const dateFrom  = new Date(prevYear, prevMonth - 1, 26, 0, 0, 0, 0);
+  // إلى: 25 الشهر الحالي
+  const dateTo    = new Date(year, month - 1, 25, 23, 59, 59, 999);
+  const periodLabel = `${prevYear}-${String(prevMonth).padStart(2,"0")}-26 → ${year}-${String(month).padStart(2,"0")}-25`;
+  return { dateFrom, dateTo, periodLabel };
+}
+
 router.get("/employee-profiles", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req);
 
@@ -392,16 +413,7 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
   if (isNaN(profileId)) { res.status(400).json({ error: "Invalid profileId" }); return; }
 
   const monthParam = (req.query.month as string) || "";
-  let dateFrom: Date, dateTo: Date;
-  if (monthParam) {
-    const [year, month] = monthParam.split("-").map(Number);
-    dateFrom = new Date(year, month - 1, 1);
-    dateTo = new Date(year, month, 0, 23, 59, 59, 999);
-  } else {
-    const now = new Date();
-    dateFrom = new Date(now.getFullYear(), now.getMonth(), 1);
-    dateTo = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-  }
+  const { dateFrom, dateTo } = getPayPeriod(monthParam);
 
   const [row] = await db
     .select({ profile: employeeProfilesTable, user: usersTable })
@@ -620,17 +632,8 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
 
   if (!row) {
     // No employee profile — return basic stats from orders only
-    const monthParam = (req.query.month as string) || "";
-    let dateFrom: Date, dateTo: Date;
-    if (monthParam) {
-      const [year, month] = monthParam.split("-").map(Number);
-      dateFrom = new Date(year, month - 1, 1);
-      dateTo = new Date(year, month, 0, 23, 59, 59, 999);
-    } else {
-      const now = new Date();
-      dateFrom = new Date(now.getFullYear(), now.getMonth(), 1);
-      dateTo = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-    }
+  const monthParam = (req.query.month as string) || "";
+  const { dateFrom, dateTo } = getPayPeriod(monthParam);
 
     const orders = await db
       .select()
@@ -691,16 +694,7 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
   const userRow = row.user;
 
   const monthParam = (req.query.month as string) || "";
-  let dateFrom: Date, dateTo: Date;
-  if (monthParam) {
-    const [year, month] = monthParam.split("-").map(Number);
-    dateFrom = new Date(year, month - 1, 1);
-    dateTo = new Date(year, month, 0, 23, 59, 59, 999);
-  } else {
-    const now = new Date();
-    dateFrom = new Date(now.getFullYear(), now.getMonth(), 1);
-    dateTo = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-  }
+  const { dateFrom, dateTo } = getPayPeriod(monthParam);
 
   const kpis = await db
     .select()
@@ -851,17 +845,8 @@ router.get("/employee-orders/:profileId", async (req, res): Promise<void> => {
   const profileId = parseInt(req.params.profileId);
   if (isNaN(profileId)) { res.status(400).json({ error: "Invalid profileId" }); return; }
 
-  const monthParam = req.query.month as string | undefined;
-  let dateFrom: Date, dateTo: Date;
-  if (monthParam) {
-    const [y, m] = monthParam.split("-").map(Number);
-    dateFrom = new Date(y, m - 1, 1, 0, 0, 0, 0);
-    dateTo   = new Date(y, m, 0, 23, 59, 59, 999);
-  } else {
-    const now = new Date();
-    dateFrom = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-    dateTo   = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-  }
+  const monthParam = (req.query.month as string | undefined) || "";
+  const { dateFrom, dateTo } = getPayPeriod(monthParam);
 
   // جلب الـ profile والـ userId
   const [row] = await db
@@ -1198,9 +1183,9 @@ router.get("/team-ranking", requireAdmin, async (req, res): Promise<void> => {
     );
     if (kpis.length === 0) return { ...profile, overallScore: null, achievedCount: 0, totalKpis: 0 };
 
-    const [y, m] = month.split("-").map(Number);
-    const startDate = new Date(y, m - 1, 1).toISOString().slice(0, 10);
-    const endDate   = new Date(y, m, 0).toISOString().slice(0, 10);
+    const { dateFrom: kpiFrom, dateTo: kpiTo } = getPayPeriod(month);
+    const startDate = kpiFrom.toISOString().slice(0, 10);
+    const endDate   = kpiTo.toISOString().slice(0, 10);
 
     const evaluated = await Promise.all(kpis.map(async (kpi) => {
       const logs = await db.select({ value: employeeDailyLogsTable.value })
