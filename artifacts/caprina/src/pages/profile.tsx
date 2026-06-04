@@ -1227,7 +1227,14 @@ function SalesKPIDashboardTab({ myStats, profile }: { myStats?: TeamMemberExtSta
   const kpis = currReport?.kpis ?? [];
   const fin = currReport?.kpiFinancials;
   const score = currReport?.overallScore ?? myStats?.score ?? 0;
-  const rating = currReport?.rating;
+
+  // نحسب التقييم محلياً من النقاط عشان نتجنب مشكلة encoding القادم من الـ API
+  const ratingLabel =
+    score >= 80 ? "ممتاز" :
+    score >= 65 ? "جيد جداً" :
+    score >= 50 ? "جيد" :
+    score >= 35 ? "مقبول" :
+    score > 0   ? "ضعيف" : null;
 
   // ── 1. التقدم نحو الأهداف ──
   const goals = useMemo(() => {
@@ -1448,7 +1455,7 @@ function SalesKPIDashboardTab({ myStats, profile }: { myStats?: TeamMemberExtSta
             <div className="flex-1 space-y-1">
               <p className="text-sm font-bold">{achievedGoals === goals.length ? "🎉 كل الأهداف محققة!" : `${goals.length - achievedGoals} أهداف متبقية`}</p>
               <p className="text-xs text-muted-foreground">شهر {format(new Date(currentMonth + "-01"), "MMMM yyyy", { locale: ar })}</p>
-              {rating && <p className="text-xs font-bold" style={{ color: score >= 80 ? "#10b981" : score >= 60 ? "#3b82f6" : "#f59e0b" }}>التقييم: {rating}</p>}
+              {ratingLabel && <p className="text-xs font-bold" style={{ color: score >= 80 ? "#10b981" : score >= 60 ? "#3b82f6" : "#f59e0b" }}>التقييم: {ratingLabel}</p>}
             </div>
           </div>
           {/* Goals list */}
@@ -1535,11 +1542,11 @@ function SalesKPIDashboardTab({ myStats, profile }: { myStats?: TeamMemberExtSta
             ))}
           </div>
           {/* Rating badge */}
-          {rating && (
+          {ratingLabel && (
             <div className={`rounded-xl p-3 border flex items-center justify-between ${score >= 80 ? "border-emerald-500/30 bg-emerald-500/5" : score >= 60 ? "border-blue-500/30 bg-blue-500/5" : "border-amber-500/30 bg-amber-500/5"}`}>
               <span className="text-sm font-bold">التقييم الإجمالي للربع</span>
               <span className={`text-sm font-black flex items-center gap-1 ${score >= 80 ? "text-emerald-400" : score >= 60 ? "text-blue-400" : "text-amber-400"}`}>
-                <Star className="w-4 h-4 text-yellow-400" />{rating}
+                <Star className="w-4 h-4 text-yellow-400" />{ratingLabel}
               </span>
             </div>
           )}
