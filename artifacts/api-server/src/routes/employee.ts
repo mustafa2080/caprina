@@ -461,7 +461,25 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
   if (isNaN(profileId)) { res.status(400).json({ error: "Invalid profileId" }); return; }
 
   const monthParam = (req.query.month as string) || "";
-  const { dateFrom, dateTo } = getPayPeriod(monthParam);
+  const mode = (req.query.mode as string) || "monthly"; // "monthly" | "daily"
+  const dateParam = (req.query.date as string) || ""; // YYYY-MM-DD for daily mode
+
+  let dateFrom: Date;
+  let dateTo: Date;
+  let resolvedMonth: string;
+
+  if (mode === "daily" && dateParam) {
+    // daily mode: range = start of day → end of day
+    const d = new Date(dateParam);
+    dateFrom = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+    dateTo   = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+    resolvedMonth = dateParam.slice(0, 7);
+  } else {
+    const period = getPayPeriod(monthParam);
+    dateFrom = period.dateFrom;
+    dateTo   = period.dateTo;
+    resolvedMonth = monthParam || `${dateFrom.getFullYear()}-${String(dateFrom.getMonth() + 1).padStart(2, "0")}`;
+  }
 
   const [row] = await db
     .select({ profile: employeeProfilesTable, user: usersTable })
@@ -469,7 +487,7 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
     .leftJoin(usersTable, eq(employeeProfilesTable.userId, usersTable.id))
     .where(eq(employeeProfilesTable.id, profileId));
 
-  if (!row) { res.status(404).json({ error: "ط§ظ„ظ…ظˆط¸ظپ ط؛ظٹط± ظ…ظˆط¬ظˆط¯" }); return; }
+  if (!row) { res.status(404).json({ error: "الموظف غير موجود" }); return; }
 
   const profile = row.profile;
   const userRow = row.user;
@@ -574,7 +592,7 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
 
   // For manual KPIs: if the month is still in progress, compare against
   // the progressive target (monthlyTarget * daysPassed / daysInMonth)
-  // so the score reflects current-day pace, not the full monthly target.
+  // In daily mode: compare against daily target (monthlyTarget / daysInMonth).
   const now = new Date();
   const isCurrentMonth =
     dateFrom.getFullYear() === now.getFullYear() &&
@@ -595,9 +613,11 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
       }
       // Progressive target for current month â€” applies to ALL metric types.
       // For past months (completed): use full monthly target as-is.
-      const effectiveTarget = isCurrentMonth
-        ? Math.max(1, Math.round((kpi.targetValue / reportDaysInMonth) * reportDayNumber))
-        : kpi.targetValue;
+      const effectiveTarget = mode === 'daily'
+        ? Math.max(1, Math.round(kpi.targetValue / reportDaysInMonth))
+        : isCurrentMonth
+          ? Math.max(1, Math.round((kpi.targetValue / reportDaysInMonth) * reportDayNumber))
+          : kpi.targetValue;
       const score =
         actualValue !== null
           ? computeKpiScore(actualValue, effectiveTarget, kpi.direction)
@@ -672,7 +692,9 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
     isSystemUser: userRow !== null,
     profile,
     period: {
-      month: monthParam || `${dateFrom.getFullYear()}-${String(dateFrom.getMonth() + 1).padStart(2, "0")}`,
+      mode,
+      month: resolvedMonth,
+      date: mode === "daily" ? dateParam : undefined,
       from: dateFrom.toISOString(),
       to: dateTo.toISOString(),
     },

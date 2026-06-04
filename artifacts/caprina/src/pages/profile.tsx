@@ -819,7 +819,9 @@ function ScoreRing({ score, size = 80 }: { score: number; size?: number }) {
 function MonthlyReportTab({ profile }: { profile?: EmployeeProfile }) {
   const { user } = useAuth();
   const isSuperAdmin = user?.role === "super_admin";
+  const [viewMode, setViewMode] = useState<"monthly" | "daily">("monthly");
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), "yyyy-MM"));
+  const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
 
   const monthOptions = useMemo(() => Array.from({ length: 12 }, (_, i) => {
     const d = subMonths(new Date(), i);
@@ -829,10 +831,17 @@ function MonthlyReportTab({ profile }: { profile?: EmployeeProfile }) {
   const profileId = profile?.id;
 
   const { data: report, isLoading } = useQuery({
-    queryKey: ["emp-report-monthly", profileId, selectedMonth],
-    queryFn: () => profileId
-      ? employeeApi.getReport(profileId, selectedMonth)
-      : employeeApi.getMyReport(selectedMonth),
+    queryKey: ["emp-report", profileId, viewMode, viewMode === "daily" ? selectedDate : selectedMonth],
+    queryFn: () => {
+      if (viewMode === "daily") {
+        return profileId
+          ? employeeApi.getReport(profileId, undefined, "daily", selectedDate)
+          : employeeApi.getMyReport(selectedDate.slice(0, 7));
+      }
+      return profileId
+        ? employeeApi.getReport(profileId, selectedMonth)
+        : employeeApi.getMyReport(selectedMonth);
+    },
   });
 
   // ── Adjustments (بونص/خصم يدوي) ──
@@ -881,12 +890,14 @@ function MonthlyReportTab({ profile }: { profile?: EmployeeProfile }) {
     addAdjMutation.mutate({ type: adjForm.type, amount, reason: adjForm.reason.trim() });
   };
 
-  if (isLoading) return <LoadingSpinner text="جاري تحميل التقرير الشهري..." />;
-  if (!report) return <EmptyState icon={FileText} title="لا يوجد تقرير" sub="لا توجد بيانات لهذا الشهر" />;
+  if (isLoading) return <LoadingSpinner text={viewMode === "daily" ? "جاري تحميل تقرير اليوم..." : "جاري تحميل التقرير الشهري..."} />;
+  if (!report) return <EmptyState icon={FileText} title="لا يوجد تقرير" sub={viewMode === "daily" ? "لا توجد بيانات لهذا اليوم" : "لا توجد بيانات لهذا الشهر"} />;
 
   const { orderStats: os, kpis, kpiFinancials: fin, overallScore, salary } = report;
   const netSalary = salary + (fin?.totalBonus ?? 0) - (fin?.totalDeduction ?? 0);
-  const monthLabel = monthOptions.find(m => m.value === selectedMonth)?.label ?? selectedMonth;
+  const monthLabel = viewMode === "daily"
+    ? format(new Date(selectedDate), "d MMMM yyyy", { locale: ar })
+    : (monthOptions.find(m => m.value === selectedMonth)?.label ?? selectedMonth);
 
   // نحسب التقييم محلياً من النقاط لتجنب مشكلة encoding القادم من الـ API
   const score = overallScore ?? 0;
@@ -916,7 +927,28 @@ function MonthlyReportTab({ profile }: { profile?: EmployeeProfile }) {
   return (
     <div className="space-y-4" dir="rtl">
 
-      {/* ── Month Selector ── */}
+      {/* ── Mode Toggle: شهري / يومي ── */}
+      <div className="flex items-center gap-2">
+        <button type="button" onClick={() => setViewMode("monthly")}
+          className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${
+            viewMode === "monthly"
+              ? "bg-primary text-primary-foreground border-primary shadow-sm"
+              : "border-border text-muted-foreground hover:text-foreground"
+          }`}>
+          شهري
+        </button>
+        <button type="button" onClick={() => setViewMode("daily")}
+          className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${
+            viewMode === "daily"
+              ? "bg-primary text-primary-foreground border-primary shadow-sm"
+              : "border-border text-muted-foreground hover:text-foreground"
+          }`}>
+          يومي
+        </button>
+      </div>
+
+      {/* ── Date/Month Selector ── */}
+      {viewMode === "monthly" ? (
       <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
         {monthOptions.slice(0, 6).map(m => (
           <button key={m.value} type="button" onClick={() => setSelectedMonth(m.value)}
@@ -929,6 +961,18 @@ function MonthlyReportTab({ profile }: { profile?: EmployeeProfile }) {
           </button>
         ))}
       </div>
+      ) : (
+      <div className="flex items-center gap-2">
+        <label className="text-xs text-muted-foreground font-bold">اختر يوم:</label>
+        <input
+          type="date"
+          value={selectedDate}
+          max={format(new Date(), "yyyy-MM-dd")}
+          onChange={e => setSelectedDate(e.target.value)}
+          className="px-3 py-1.5 rounded-lg border border-border bg-card text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+        />
+      </div>
+      )}
 
       {/* ── Hero Card: Score + Rating + Name ── */}
       <div className="relative overflow-hidden rounded-2xl border border-border bg-card">

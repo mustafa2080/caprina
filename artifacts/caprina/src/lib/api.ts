@@ -1141,8 +1141,14 @@ export const employeeApi = {
   updateKpi: (kpiId: number, data: Partial<EmployeeKpi>) =>
     apiFetch<EmployeeKpi>(`/employee-kpis/${kpiId}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteKpi: (kpiId: number) => apiFetch<void>(`/employee-kpis/${kpiId}`, { method: "DELETE" }),
-  getReport: (profileId: number, month?: string) =>
-    apiFetch<EmployeeReport>(`/analytics/employee-report/${profileId}${month ? `?month=${month}` : ""}`),
+  getReport: (profileId: number, month?: string, mode?: "monthly" | "daily", date?: string) => {
+    const params = new URLSearchParams();
+    if (month) params.set("month", month);
+    if (mode) params.set("mode", mode);
+    if (date) params.set("date", date);
+    const qs = params.toString();
+    return apiFetch<EmployeeReport>(`/analytics/employee-report/${profileId}${qs ? `?${qs}` : ""}`);
+  },
   getMyReport: (month?: string) =>
     apiFetch<EmployeeReport>(`/analytics/my-report${month ? `?month=${month}` : ""}`),
   getMyAttendance: (month?: string) =>
