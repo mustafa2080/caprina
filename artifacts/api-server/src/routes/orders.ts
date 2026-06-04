@@ -1021,6 +1021,142 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
         eq(ordersTable.invoiceNumber, existing.invoiceNumber),
         isNull(ordersTable.deletedAt),
       ));
+
+    // ━━ Inventory للأوردرات الأخرى في نفس الفاتورة ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // الأوردر الحالي (existing.id) اتعالج inventory-ه فوق — هنا نعالج الباقين فقط
+    const siblingOrders = await db
+      .select()
+      .from(ordersTable)
+      .where(and(
+        eq(ordersTable.invoiceNumber, existing.invoiceNumber),
+        isNull(ordersTable.deletedAt),
+      ));
+
+    for (const sibling of siblingOrders) {
+      if (sibling.id === existing.id) continue; // اتعالج فوق
+
+      // تحقق إذا الأوردر ده موجود في بيان (في حالتها الـ manifest هو المسؤول)
+      const [siblingManifestLink] = await db
+        .select({ id: shippingManifestOrdersTable.id })
+        .from(shippingManifestOrdersTable)
+        .where(eq(shippingManifestOrdersTable.orderId, sibling.id))
+        .limit(1)
+        .catch(() => []);
+      if (siblingManifestLink) continue; // الـ manifest هو المسؤول عن inventory-ه
+
+      const siblingRef = {
+        variantId: sibling.variantId,
+        productId: sibling.productId,
+        product: sibling.product,
+        color: sibling.color,
+        size: sibling.size,
+        warehouseId: sibling.warehouseId,
+      };
+
+      const [siblingMovement] = await db
+        .select({ id: inventoryMovementsTable.id, reason: inventoryMovementsTable.reason })
+        .from(inventoryMovementsTable)
+        .where(eq(inventoryMovementsTable.orderId, sibling.id))
+        .orderBy(desc(inventoryMovementsTable.id))
+        .limit(1)
+        .catch(() => []);
+
+      if (data.status === "in_shipping" && oldStatus !== "in_shipping") {
+        if (siblingMovement) {
+          if (siblingMovement.reason === "adjustment") {
+            const { variantId, productId } = await resolveInventoryTarget(siblingRef);
+            await adjustWarehouseStock(sibling.warehouseId, variantId, productId, -sibling.quantity).catch(() => {});
+            await syncProductQuantityFromWarehouses(variantId, productId).catch(() => {});
+          }
+          await updateMovementReason(sibling.id, siblingMovement.reason as any, "to_shipping" as any, "تحويل لشركة الشحن").catch(() => {});
+        } else {
+          await processToShipping(siblingRef, sibling.quantity, sibling.id).catch(() => {});
+        }
+      }
+
+      if (data.status === "received") {
+        if (siblingMovement) {
+          await updateMovementReason(sibling.id, siblingMovement.reason as any, "sale", "تم الاستلام — بيع").catch(() => {});
+        } else {
+          await processDelivery(siblingRef, sibling.quantity, "sale", sibling.id).catch(() => {});
+        }
+      }
+
+      if (data.status === "partial_received") {
+        if (siblingMovement) {
+          await updateMovementReason(sibling.id, siblingMovement.reason as any, "partial_sale", "استلام جزئي").catch(() => {});
+        } else {
+          await processDelivery(siblingRef, sibling.quantity, "partial_sale", sibling.id).catch(() => {});
+        }
+      }
+
+      if (data.status === "returned") {
+        const returnReceived = data.returnReceived === true || data.returnReceived === 1;
+        const isDamaged = data.isDamaged === true || data.isDamaged === 1;
+        const { variantId, productId } = await resolveInventoryTarget(siblingRef);
+
+        if (siblingMovement) {
+          const wasDeducted = ["sale", "partial_sale", "to_shipping"].includes(siblingMovement.reason ?? "");
+          if (returnReceived) {
+            if (isDamaged) {
+              await updateMovementReason(sibling.id, siblingMovement.reason as any, "damaged" as any, "مرتجع تالف").catch(() => {});
+            } else {
+              if (wasDeducted) {
+                await adjustWarehouseStock(sibling.warehouseId, variantId, productId, sibling.quantity).catch(() => {});
+                await syncProductQuantityFromWarehouses(variantId, productId).catch(() => {});
+              }
+              await updateMovementReason(sibling.id, siblingMovement.reason as any, "return", "مرتجع — تم الاستلام ودخل المخزن").catch(() => {});
+            }
+          } else {
+            await updateMovementReason(sibling.id, siblingMovement.reason as any, "return", "مرتجع — مازال عند شركة الشحن").catch(() => {});
+          }
+        } else {
+          const wasReceived = oldStatus === "received" || oldStatus === "partial_received";
+          if (returnReceived) {
+            await processReturn({ ...siblingRef, quantity: sibling.quantity }, wasReceived, isDamaged, sibling.id).catch(() => {});
+          } else {
+            if (variantId || productId) {
+              await recordMovement({
+                product: sibling.product ?? "منتج",
+                color: sibling.color,
+                size: sibling.size,
+                quantity: sibling.quantity,
+                type: "OUT",
+                reason: "return" as any,
+                productId: productId ?? null,
+                variantId: variantId ?? null,
+                warehouseId: sibling.warehouseId ?? null,
+                orderId: sibling.id,
+                notes: "مرتجع — مازال عند شركة الشحن",
+              }).catch(() => {});
+            }
+          }
+        }
+      }
+
+      if (oldStatus === "in_shipping" && data.status !== "in_shipping" && data.status !== "received" && data.status !== "partial_received" && data.status !== "returned") {
+        if (siblingMovement) {
+          const { variantId, productId } = await resolveInventoryTarget(siblingRef);
+          await adjustWarehouseStock(sibling.warehouseId, variantId, productId, sibling.quantity).catch(() => {});
+          await syncProductQuantityFromWarehouses(variantId, productId).catch(() => {});
+          await updateMovementReason(sibling.id, siblingMovement.reason as any, "adjustment" as any, "إلغاء شحن — إرجاع للمخزون").catch(() => {});
+        } else {
+          await reverseShipping(siblingRef, sibling.quantity, sibling.id).catch(() => {});
+        }
+      }
+
+      if (oldStatus === "received" && data.status !== "received") {
+        if (siblingMovement) {
+          const { variantId, productId } = await resolveInventoryTarget(siblingRef);
+          await adjustWarehouseStock(sibling.warehouseId, variantId, productId, sibling.quantity).catch(() => {});
+          await syncProductQuantityFromWarehouses(variantId, productId).catch(() => {});
+          await updateMovementReason(sibling.id, siblingMovement.reason as any, "adjustment" as any, "إلغاء استلام").catch(() => {});
+        } else {
+          await reverseDelivery(siblingRef, sibling.quantity, sibling.id).catch(() => {});
+        }
+      }
+    }
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   }
 
   const [updated] = await db.select().from(ordersTable).where(eq(ordersTable.id, params.data.id));
