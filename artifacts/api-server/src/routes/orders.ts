@@ -108,23 +108,41 @@ router.get("/orders/my-orders", async (req, res): Promise<void> => {
     .where(and(...conditions))
     .orderBy(desc(ordersTable.createdAt));
 
-  const result = orders.map(o => ({
-    id: o.id,
-    invoiceNumber: o.invoiceNumber,
-    customerName: o.customerName,
-    product: o.product,
-    color: o.color,
-    size: o.size,
-    quantity: o.quantity,
-    unitPrice: o.unitPrice,
-    totalPrice: o.totalPrice,
-    status: o.status,
-    city: o.city,
-    adSource: o.adSource,
-    shippingCost: o.shippingCost,
-    profit: o.totalPrice - (o.costPrice ?? 0) * o.quantity - (o.shippingCost ?? 0),
-    createdAt: o.createdAt,
-  }));
+  // ── Group rows → invoices بنفس منطق /employee-orders ──
+  const _SP: Record<string, number> = { pending:1, in_shipping:2, warehouse_ready:3, delayed:4, partial_received:5, received:6, returned:7 };
+  const invMap = new Map<string, (typeof ordersTable.$inferSelect)[]>();
+  for (const o of orders) {
+    const k = o.invoiceNumber ?? `solo-${o.id}`;
+    if (!invMap.has(k)) invMap.set(k, []);
+    invMap.get(k)!.push(o);
+  }
+
+  const result = Array.from(invMap.values()).map(rows => {
+    const resolvedStatus = [...rows.map(r => r.status)].sort((a, b) => (_SP[a] ?? 99) - (_SP[b] ?? 99))[0];
+    const first = rows[0];
+    const totalQty   = rows.reduce((s, r) => s + r.quantity, 0);
+    const totalPrice = rows.reduce((s, r) => s + r.totalPrice, 0);
+    const totalProfit = rows.reduce((s, r) => s + (r.totalPrice - (r.costPrice ?? 0) * r.quantity - (r.shippingCost ?? 0)), 0);
+    const productNames = [...new Set(rows.map(r => r.product ?? ""))].join(" + ");
+    return {
+      id:            first.id,
+      invoiceNumber: first.invoiceNumber,
+      customerName:  first.customerName,
+      product:       productNames,
+      color:         rows.length > 1 ? null : first.color,
+      size:          rows.length > 1 ? null : first.size,
+      quantity:      totalQty,
+      unitPrice:     first.unitPrice,
+      totalPrice,
+      status:        resolvedStatus,
+      city:          first.city,
+      adSource:      first.adSource,
+      shippingCost:  first.shippingCost,
+      profit:        totalProfit,
+      createdAt:     first.createdAt,
+      productCount:  rows.length,
+    };
+  }).sort((a, b) => new Date(b.createdAt as any).getTime() - new Date(a.createdAt as any).getTime());
 
   res.json(result);
 });
