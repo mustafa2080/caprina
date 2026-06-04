@@ -1149,8 +1149,14 @@ export const employeeApi = {
     const qs = params.toString();
     return apiFetch<EmployeeReport>(`/analytics/employee-report/${profileId}${qs ? `?${qs}` : ""}`);
   },
-  getMyReport: (month?: string) =>
-    apiFetch<EmployeeReport>(`/analytics/my-report${month ? `?month=${month}` : ""}`),
+  getMyReport: (month?: string, mode?: "monthly" | "daily", date?: string) => {
+    const params = new URLSearchParams();
+    if (month) params.set("month", month);
+    if (mode)  params.set("mode", mode);
+    if (date)  params.set("date", date);
+    const qs = params.toString();
+    return apiFetch<EmployeeReport>(`/analytics/my-report${qs ? `?${qs}` : ""}`);
+  },
   getMyAttendance: (month?: string) =>
     apiFetch<Attendance[]>(`/attendance/my${month ? `?month=${month}` : ""}`),
   getMySalaryReport: (month?: string) =>

@@ -191,7 +191,7 @@ function DashboardTab({ myStats, profile }: { myStats?: TeamMemberExtStats; prof
   // ── daily report للتاريخ المختار ──
   const { data: dailyReport } = useQuery({
     queryKey: ["emp-report-daily", selectedDate],
-    queryFn: () => employeeApi.getMyReport(selectedMonth, "daily", selectedDate),
+    queryFn: () => employeeApi.getMyReport(undefined, "daily", selectedDate),
     enabled: viewMode === "daily",
     staleTime: 60_000,
   });
@@ -243,7 +243,22 @@ function DashboardTab({ myStats, profile }: { myStats?: TeamMemberExtStats; prof
   // في الـ daily mode: استخدم dailyReport، وإلا currReport
   const activeReport  = viewMode === "daily" ? dailyReport : currReport;
   const activeStats   = activeReport?.orderStats;
-  const activeScore   = activeReport?.overallScore ?? (viewMode === "monthly" ? score : null);
+
+  // احسب score اليوم محلياً لو الـ API مردش overallScore
+  const dailyScoreLocal = useMemo(() => {
+    if (viewMode !== "daily") return null;
+    const total = dayOrders.length;
+    if (total === 0) return null;
+    const deliveryRate = dayDelivered / total * 100;
+    const returnRate   = dayReturned  / total * 100;
+    // نفس منطق الـ backend: delivery 60% + return penalty 40%
+    const s = Math.max(0, Math.round(deliveryRate * 0.6 + (100 - returnRate) * 0.4));
+    return s;
+  }, [viewMode, dayOrders, dayDelivered, dayReturned]);
+
+  const activeScore   = viewMode === "daily"
+    ? (activeReport?.overallScore ?? dailyScoreLocal)
+    : score;
   const activeRating  = activeScore == null ? null
     : activeScore >= 80 ? "ممتاز" : activeScore >= 65 ? "جيد جداً"
     : activeScore >= 50 ? "جيد"   : activeScore >= 35 ? "مقبول" : "ضعيف";
