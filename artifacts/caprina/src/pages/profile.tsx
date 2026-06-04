@@ -1207,26 +1207,53 @@ function SalesKPIDashboardTab({ myStats, profile }: { myStats?: TeamMemberExtSta
   const prevMonth = format(subMonths(new Date(), 1), "yyyy-MM");
   const prev2Month = format(subMonths(new Date(), 2), "yyyy-MM");
 
+  const profileId = profile?.id;
+  const userId    = profile?.userId ?? null;
+
+  // ── جلب التقارير الشهرية الحقيقية للموظف ──
+  // لو عندنا profileId نستخدم getReport (بيانات الموظف المحدد)
+  // لو مفيش نرجع لـ getMyReport (بيانات الـ logged-in user)
   const { data: currReport } = useQuery({
-    queryKey: ["sales-kpi-curr", currentMonth],
-    queryFn: () => employeeApi.getMyReport(currentMonth),
+    queryKey: ["sales-kpi-curr", profileId, currentMonth],
+    queryFn: () => profileId
+      ? employeeApi.getReport(profileId, currentMonth)
+      : employeeApi.getMyReport(currentMonth),
     staleTime: 5 * 60_000,
   });
   const { data: prevReport } = useQuery({
-    queryKey: ["sales-kpi-prev", prevMonth],
-    queryFn: () => employeeApi.getMyReport(prevMonth),
+    queryKey: ["sales-kpi-prev", profileId, prevMonth],
+    queryFn: () => profileId
+      ? employeeApi.getReport(profileId, prevMonth)
+      : employeeApi.getMyReport(prevMonth),
     staleTime: 5 * 60_000,
   });
   const { data: prev2Report } = useQuery({
-    queryKey: ["sales-kpi-prev2", prev2Month],
-    queryFn: () => employeeApi.getMyReport(prev2Month),
+    queryKey: ["sales-kpi-prev2", profileId, prev2Month],
+    queryFn: () => profileId
+      ? employeeApi.getReport(profileId, prev2Month)
+      : employeeApi.getMyReport(prev2Month),
     staleTime: 5 * 60_000,
   });
+
+  // ── جلب الـ TeamMemberExtStats الحقيقية للموظف من أداء الفريق ──
+  const currMonthStart = format(startOfMonth(new Date()), "yyyy-MM-dd");
+  const currMonthEnd   = format(endOfMonth(new Date()), "yyyy-MM-dd");
+  const { data: teamExtList } = useQuery({
+    queryKey: ["team-ext-for-employee", userId, currentMonth],
+    queryFn: () => teamAnalyticsApi.teamPerformanceExtended(currMonthStart, currMonthEnd),
+    enabled: !!userId,
+    staleTime: 5 * 60_000,
+  });
+  // استخرج stats الموظف المحدد
+  const liveStats: TeamMemberExtStats | undefined = useMemo(() => {
+    if (!teamExtList || !userId) return myStats;
+    return teamExtList.find(m => m.userId === userId) ?? myStats;
+  }, [teamExtList, userId, myStats]);
 
   const os = currReport?.orderStats;
   const kpis = currReport?.kpis ?? [];
   const fin = currReport?.kpiFinancials;
-  const score = currReport?.overallScore ?? myStats?.score ?? 0;
+  const score = currReport?.overallScore ?? liveStats?.score ?? 0;
 
   // نحسب التقييم محلياً من النقاط عشان نتجنب مشكلة encoding القادم من الـ API
   const ratingLabel =
@@ -1238,17 +1265,17 @@ function SalesKPIDashboardTab({ myStats, profile }: { myStats?: TeamMemberExtSta
 
   // ── 1. التقدم نحو الأهداف ──
   const goals = useMemo(() => {
-    const deliveryRate = os?.deliveryRate ?? myStats?.deliveryRate ?? 0;
-    const returnRate   = os?.returnRate   ?? myStats?.returnRate   ?? 0;
-    const total        = os?.total        ?? myStats?.total        ?? 0;
-    const daily        = myStats?.ordersPerDay ?? (total / 26);
+    const deliveryRate = os?.deliveryRate ?? liveStats?.deliveryRate ?? 0;
+    const returnRate   = os?.returnRate   ?? liveStats?.returnRate   ?? 0;
+    const total        = os?.total        ?? liveStats?.total        ?? 0;
+    const daily        = liveStats?.ordersPerDay ?? (total / 26);
     return [
       { label: "معدل التسليم",   value: deliveryRate,       target: 80,   unit: "%",       icon: CheckCircle2, color: "emerald" },
       { label: "تخفيض الإرجاع", value: Math.max(0,20-returnRate), target: 20, unit: "%",  icon: XCircle,      color: "rose",    invert: true, rawValue: returnRate, rawTarget: 20 },
       { label: "طلبات يومياً",   value: daily,              target: 10,   unit: "طلب",    icon: Package,      color: "blue" },
       { label: "نقاط الأداء",    value: score,              target: 80,   unit: "نقطة",   icon: Trophy,       color: "amber" },
     ];
-  }, [os, myStats, score]);
+  }, [os, liveStats, score]);
 
   const achievedGoals = goals.filter(g => {
     if (g.invert) return (g.rawValue ?? 0) < (g.rawTarget ?? 20);
@@ -1268,14 +1295,14 @@ function SalesKPIDashboardTab({ myStats, profile }: { myStats?: TeamMemberExtSta
   const operationalKpis = useMemo(() => [
     {
       label: "معدل التسليم",
-      value: os?.deliveryRate ?? myStats?.deliveryRate ?? 0,
+      value: os?.deliveryRate ?? liveStats?.deliveryRate ?? 0,
       target: 80, unit: "%", icon: CheckCircle2,
       color: (os?.deliveryRate ?? 0) >= 80 ? "emerald" : "amber",
       description: "نسبة الطلبات المكتملة",
     },
     {
       label: "معدل الإرجاع",
-      value: os?.returnRate ?? myStats?.returnRate ?? 0,
+      value: os?.returnRate ?? liveStats?.returnRate ?? 0,
       target: 20, unit: "%", icon: XCircle,
       color: (os?.returnRate ?? 0) < 20 ? "emerald" : "rose",
       description: "نسبة الطلبات المرتجعة",
@@ -1283,20 +1310,20 @@ function SalesKPIDashboardTab({ myStats, profile }: { myStats?: TeamMemberExtSta
     },
     {
       label: "سرعة المعالجة",
-      value: myStats?.avgProcessingHours ?? 0,
+      value: liveStats?.avgProcessingHours ?? 0,
       target: 24, unit: "ساعة", icon: Clock,
-      color: (myStats?.avgProcessingHours ?? 99) <= 24 ? "emerald" : "amber",
+      color: (liveStats?.avgProcessingHours ?? 99) <= 24 ? "emerald" : "amber",
       description: "متوسط وقت الإنجاز",
       lowerIsBetter: true,
     },
     {
       label: "طلبات/يوم",
-      value: myStats?.ordersPerDay ?? 0,
+      value: liveStats?.ordersPerDay ?? 0,
       target: 10, unit: "طلب", icon: Gauge,
-      color: (myStats?.ordersPerDay ?? 0) >= 10 ? "emerald" : "blue",
+      color: (liveStats?.ordersPerDay ?? 0) >= 10 ? "emerald" : "blue",
       description: "متوسط الإنتاجية اليومية",
     },
-  ], [os, myStats]);
+  ], [os, liveStats]);
 
   // ── 4. الملخص المالي ──
   const baseSalary = currReport?.salary ?? 0;
@@ -1308,9 +1335,9 @@ function SalesKPIDashboardTab({ myStats, profile }: { myStats?: TeamMemberExtSta
   // ── 5. مصفوفة مخاطر المؤشرات ──
   const riskMatrix = useMemo(() => {
     const items: { label: string; risk: "high" | "medium" | "low"; trend: "up" | "down" | "stable"; value: string; note: string }[] = [];
-    const returnRate = os?.returnRate ?? myStats?.returnRate ?? 0;
-    const deliveryRate = os?.deliveryRate ?? myStats?.deliveryRate ?? 0;
-    const procHours = myStats?.avgProcessingHours ?? null;
+    const returnRate = os?.returnRate ?? liveStats?.returnRate ?? 0;
+    const deliveryRate = os?.deliveryRate ?? liveStats?.deliveryRate ?? 0;
+    const procHours = liveStats?.avgProcessingHours ?? null;
     const scoreVal = score;
 
     if (returnRate >= 25) items.push({ label: "معدل الإرجاع", risk: "high", trend: "down", value: `${returnRate.toFixed(1)}%`, note: "يتجاوز الحد المقبول 20%" });
@@ -1335,15 +1362,15 @@ function SalesKPIDashboardTab({ myStats, profile }: { myStats?: TeamMemberExtSta
       const order = { high: 0, medium: 1, low: 2 };
       return order[a.risk] - order[b.risk];
     });
-  }, [os, myStats, score]);
+  }, [os, liveStats, score]);
 
   // ── 6. جدار الإنجازات الشهرية ──
   const achievements = useMemo(() => {
-    const deliveryRate = os?.deliveryRate ?? myStats?.deliveryRate ?? 0;
-    const returnRate   = os?.returnRate   ?? myStats?.returnRate   ?? 0;
+    const deliveryRate = os?.deliveryRate ?? liveStats?.deliveryRate ?? 0;
+    const returnRate   = os?.returnRate   ?? liveStats?.returnRate   ?? 0;
     const total        = os?.total        ?? 0;
-    const daily        = myStats?.ordersPerDay ?? 0;
-    const procHours    = myStats?.avgProcessingHours ?? null;
+    const daily        = liveStats?.ordersPerDay ?? 0;
+    const procHours    = liveStats?.avgProcessingHours ?? null;
     const scoreVal     = score;
 
     return [
@@ -1402,7 +1429,7 @@ function SalesKPIDashboardTab({ myStats, profile }: { myStats?: TeamMemberExtSta
         progress: Math.min(100, (total / 100) * 100),
       },
     ];
-  }, [os, myStats, score]);
+  }, [os, liveStats, score]);
 
   const unlockedCount = achievements.filter(a => a.unlocked).length;
 
