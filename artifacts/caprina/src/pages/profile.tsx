@@ -20,10 +20,10 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  authApi, teamAnalyticsApi, employeeApi, ordersApi, apiFetch,
+  authApi, teamAnalyticsApi, employeeApi, ordersApi, apiFetch, attendanceApi,
   type TeamMemberExtStats, type EmployeeProfile,
   type EmployeeReport, type EvaluatedKpi,
-  type Attendance, type AttendanceSalaryReport,
+  type Attendance, type AttendanceSalaryReport, type PayrollAdjustment,
 } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from "recharts";
@@ -835,6 +835,52 @@ function MonthlyReportTab({ profile }: { profile?: EmployeeProfile }) {
       : employeeApi.getMyReport(selectedMonth),
   });
 
+  // ── Adjustments (بونص/خصم يدوي) ──
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data: adjustments = [], isLoading: adjLoading } = useQuery({
+    queryKey: ["adjustments", profileId, selectedMonth],
+    queryFn: () => profileId
+      ? attendanceApi.listAdjustments(profileId, selectedMonth)
+      : Promise.resolve([] as PayrollAdjustment[]),
+    enabled: !!profileId,
+  });
+
+  const [adjForm, setAdjForm] = useState<{
+    show: boolean; type: "bonus" | "deduction"; amount: string; reason: string; editId: number | null;
+  }>({ show: false, type: "bonus", amount: "", reason: "", editId: null });
+
+  const addAdjMutation = useMutation({
+    mutationFn: (data: { type: "bonus" | "deduction"; amount: number; reason: string }) =>
+      attendanceApi.addAdjustment({ profileId: profileId!, month: selectedMonth, ...data }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["adjustments", profileId, selectedMonth] });
+      queryClient.invalidateQueries({ queryKey: ["emp-report-monthly", profileId, selectedMonth] });
+      setAdjForm({ show: false, type: "bonus", amount: "", reason: "", editId: null });
+      toast({ title: "تم الحفظ", description: "تمت إضافة التسوية بنجاح" });
+    },
+    onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteAdjMutation = useMutation({
+    mutationFn: (id: number) => attendanceApi.deleteAdjustment(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["adjustments", profileId, selectedMonth] });
+      queryClient.invalidateQueries({ queryKey: ["emp-report-monthly", profileId, selectedMonth] });
+      toast({ title: "تم الحذف", description: "تم حذف التسوية" });
+    },
+    onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
+  });
+
+  const handleSaveAdj = () => {
+    const amount = parseFloat(adjForm.amount);
+    if (!amount || amount <= 0 || !adjForm.reason.trim()) {
+      toast({ title: "بيانات ناقصة", description: "ادخل المبلغ والسبب", variant: "destructive" });
+      return;
+    }
+    addAdjMutation.mutate({ type: adjForm.type, amount, reason: adjForm.reason.trim() });
+  };
+
   if (isLoading) return <LoadingSpinner text="جاري تحميل التقرير الشهري..." />;
   if (!report) return <EmptyState icon={FileText} title="لا يوجد تقرير" sub="لا توجد بيانات لهذا الشهر" />;
 
@@ -1104,9 +1150,148 @@ function MonthlyReportTab({ profile }: { profile?: EmployeeProfile }) {
                 <span className="font-bold text-sm text-rose-400">- {fmt(fin.totalDeduction)}</span>
               </div>
             )}
+
+            {/* ── تسويات يدوية (بونص/خصم المكتب) ── */}
+            {profileId && (
+              <div className="py-2 border-b border-border/20 space-y-2">
+                {/* عنوان القسم */}
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />تسويات المكتب
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setAdjForm(f => ({ ...f, show: !f.show, editId: null, amount: "", reason: "", type: "bonus" }))}
+                    className="flex items-center gap-1 text-xs font-bold text-primary hover:text-primary/80 transition-colors"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    {adjForm.show ? "إلغاء" : "+ إضافة"}
+                  </button>
+                </div>
+
+                {/* فورم الإضافة */}
+                {adjForm.show && (
+                  <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 space-y-3">
+                    {/* نوع التسوية */}
+                    <div className="grid grid-cols-2 gap-2">
+                      {(["bonus", "deduction"] as const).map(t => (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => setAdjForm(f => ({ ...f, type: t }))}
+                          className={`py-2 rounded-lg text-xs font-bold border transition-all ${
+                            adjForm.type === t
+                              ? t === "bonus"
+                                ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400"
+                                : "bg-rose-500/20 border-rose-500/50 text-rose-400"
+                              : "border-border text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          {t === "bonus" ? "✦ بونص" : "✕ خصم"}
+                        </button>
+                      ))}
+                    </div>
+                    {/* المبلغ */}
+                    <div className="space-y-1">
+                      <label className="text-[11px] text-muted-foreground font-medium">المبلغ (ج.م)</label>
+                      <Input
+                        type="number"
+                        min="0"
+                        placeholder="0"
+                        value={adjForm.amount}
+                        onChange={e => setAdjForm(f => ({ ...f, amount: e.target.value }))}
+                        className="h-9 text-sm"
+                      />
+                    </div>
+                    {/* السبب */}
+                    <div className="space-y-1">
+                      <label className="text-[11px] text-muted-foreground font-medium">السبب / الملاحظات</label>
+                      <Input
+                        placeholder="مثال: مكافأة أداء شهر يونيو"
+                        value={adjForm.reason}
+                        onChange={e => setAdjForm(f => ({ ...f, reason: e.target.value }))}
+                        className="h-9 text-sm"
+                      />
+                    </div>
+                    {/* زر الحفظ */}
+                    <Button
+                      size="sm"
+                      className="w-full h-9 text-xs font-bold"
+                      onClick={handleSaveAdj}
+                      disabled={addAdjMutation.isPending}
+                    >
+                      {addAdjMutation.isPending
+                        ? <><div className="w-3.5 h-3.5 rounded-full border-2 border-primary-foreground border-t-transparent animate-spin" />جاري الحفظ...</>
+                        : <><Save className="w-3.5 h-3.5" />حفظ التسوية</>}
+                    </Button>
+                  </div>
+                )}
+
+                {/* قائمة التسويات الموجودة */}
+                {adjLoading ? (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground py-1">
+                    <div className="w-3 h-3 rounded-full border-2 border-muted-foreground border-t-transparent animate-spin" />
+                    جاري التحميل...
+                  </div>
+                ) : adjustments.length > 0 ? (
+                  <div className="space-y-2">
+                    {adjustments.map(adj => (
+                      <div key={adj.id} className={`rounded-lg border px-3 py-2 flex items-center justify-between gap-3 ${
+                        adj.type === "bonus"
+                          ? "border-emerald-500/25 bg-emerald-500/5"
+                          : "border-rose-500/25 bg-rose-500/5"
+                      }`}>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-xs font-black ${adj.type === "bonus" ? "text-emerald-400" : "text-rose-400"}`}>
+                              {adj.type === "bonus" ? "+" : "-"}{fmt(adj.amount)}
+                            </span>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                              adj.type === "bonus"
+                                ? "bg-emerald-500/15 text-emerald-400"
+                                : "bg-rose-500/15 text-rose-400"
+                            }`}>
+                              {adj.type === "bonus" ? "بونص" : "خصم"}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground truncate mt-0.5">{adj.reason}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => deleteAdjMutation.mutate(adj.id)}
+                          disabled={deleteAdjMutation.isPending}
+                          className="shrink-0 text-muted-foreground hover:text-rose-400 transition-colors p-1 rounded"
+                        >
+                          <XCircle className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                    {/* مجموع التسويات */}
+                    <div className="flex justify-between text-xs font-bold pt-1 px-0.5">
+                      <span className="text-muted-foreground">مجموع التسويات</span>
+                      <span className={(() => {
+                        const net = adjustments.reduce((s, a) => a.type === "bonus" ? s + a.amount : s - a.amount, 0);
+                        return net >= 0 ? "text-emerald-400" : "text-rose-400";
+                      })()}>
+                        {(() => {
+                          const net = adjustments.reduce((s, a) => a.type === "bonus" ? s + a.amount : s - a.amount, 0);
+                          return (net >= 0 ? "+" : "") + fmt(net);
+                        })()}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground text-center py-1">لا توجد تسويات لهذا الشهر</p>
+                )}
+              </div>
+            )}
+
             <div className="flex justify-between items-center pt-2 mt-1">
               <span className="font-black text-sm">صافي الراتب المستحق</span>
-              <span className="font-black text-xl text-primary">{fmt(netSalary)}</span>
+              <span className="font-black text-xl text-primary">{fmt(
+                netSalary +
+                adjustments.reduce((s, a) => a.type === "bonus" ? s + a.amount : s - a.amount, 0)
+              )}</span>
             </div>
           </div>
         </div>
