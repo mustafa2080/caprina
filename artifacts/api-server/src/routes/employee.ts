@@ -800,8 +800,19 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
   const profile = row.profile;
   const userRow = row.user;
 
+  const modeParam  = (req.query.mode  as string) || "monthly";
+  const dateParam  = (req.query.date  as string) || "";
   const monthParam = (req.query.month as string) || "";
-  const { dateFrom, dateTo } = getPayPeriod(monthParam);
+
+  // في الـ daily mode: نحسب من بداية اليوم لنهايته
+  let dateFrom: Date;
+  let dateTo: Date;
+  if (modeParam === "daily" && dateParam) {
+    dateFrom = new Date(`${dateParam}T00:00:00.000Z`);
+    dateTo   = new Date(`${dateParam}T23:59:59.999Z`);
+  } else {
+    ({ dateFrom, dateTo } = getPayPeriod(monthParam));
+  }
 
   const kpis = await db
     .select()
