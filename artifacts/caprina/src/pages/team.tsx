@@ -4975,24 +4975,40 @@ export default function TeamPage() {
                 {/* ── الإحصائيات ── */}
                 <div className="grid grid-cols-2 gap-3 mb-4">
                   {/* الأداء الشهري */}
-                  <div className="rounded-xl p-3 bg-muted/40 dark:bg-white/[0.04] border border-border/60 dark:border-white/[0.07]">
-                    <div className="flex items-center justify-between mb-1">
-                      <p className="text-[10px] font-bold text-muted-foreground">الأداء</p>
-                      <span className={`text-sm font-black ${perfColor}`}>
-                        {perfScore !== null ? `${perfScore}%` : "—"}
-                      </span>
-                    </div>
-                    <div className="w-full h-1.5 rounded-full bg-muted/60 dark:bg-white/[0.08] mb-1">
-                      <div className="h-1.5 rounded-full transition-all duration-500"
-                        style={{ width: `${perfScore ?? 0}%`, background: perfBar }} />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <p className="text-[9px] text-muted-foreground/70">
-                        {perfRating ?? "لا توجد بيانات"}
-                      </p>
-                      <p className="text-[9px] text-muted-foreground/50">
-                        تقدم {monthProgress}%
-                      </p>
+                  <div className="rounded-xl p-3 bg-muted/40 dark:bg-white/[0.04] border border-border/60 dark:border-white/[0.07] flex flex-col items-center justify-center gap-1">
+                    {/* الدايرة */}
+                    {(() => {
+                      const r = 22, circ = 2 * Math.PI * r;
+                      const pct = perfScore ?? 0;
+                      const dash = (pct / 100) * circ;
+                      return (
+                        <div className="relative flex items-center justify-center">
+                          <svg width="60" height="60" viewBox="0 0 60 60" style={{ transform: "rotate(-90deg)" }}>
+                            <circle cx="30" cy="30" r={r} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="5" />
+                            <circle cx="30" cy="30" r={r} fill="none" stroke={perfBar} strokeWidth="5"
+                              strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
+                              style={{ transition: "stroke-dasharray 0.5s ease" }} />
+                          </svg>
+                          <div className="absolute inset-0 flex flex-col items-center justify-center" style={{ transform: "none" }}>
+                            <span className={`text-xs font-black leading-none ${perfColor}`}>
+                              {perfScore !== null ? `${perfScore}%` : "—"}
+                            </span>
+                            <span className="text-[8px] text-muted-foreground/60 mt-0.5">أداؤك</span>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                    <p className="text-[9px] text-muted-foreground/70 text-center leading-tight">
+                      {perfRating ?? "لا توجد بيانات"}
+                    </p>
+                    <div className="w-full">
+                      <div className="flex justify-between text-[8px] text-muted-foreground/50 mb-0.5">
+                        <span>تقدم الشهر</span>
+                        <span>{monthProgress}%</span>
+                      </div>
+                      <div className="w-full h-1 rounded-full bg-muted/60 dark:bg-white/[0.08]">
+                        <div className="h-1 rounded-full bg-primary/60 transition-all" style={{ width: `${monthProgress}%` }} />
+                      </div>
                     </div>
                   </div>
 
