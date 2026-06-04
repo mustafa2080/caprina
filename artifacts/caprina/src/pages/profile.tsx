@@ -1235,7 +1235,9 @@ function AttendanceTab() {
                 <YAxis hide />
                 <Tooltip
                   formatter={(v: any) => [fmtNum(v), "أيام"]}
-                  contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11 }} />
+                  contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11 }}
+                  cursor={false}
+                  wrapperStyle={{ display: "none" }} />
                 <Bar dataKey="value" radius={[6, 6, 0, 0]}>
                   {barData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
                 </Bar>
