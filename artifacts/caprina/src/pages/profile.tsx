@@ -826,17 +826,30 @@ function MonthlyReportTab({ profile }: { profile?: EmployeeProfile }) {
     return { value: format(d, "yyyy-MM"), label: format(d, "MMMM yyyy", { locale: ar }) };
   }), []);
 
+  const profileId = profile?.id;
+
   const { data: report, isLoading } = useQuery({
-    queryKey: ["emp-report-monthly-mine", selectedMonth],
-    queryFn: () => employeeApi.getMyReport(selectedMonth),
+    queryKey: ["emp-report-monthly", profileId, selectedMonth],
+    queryFn: () => profileId
+      ? employeeApi.getReport(profileId, selectedMonth)
+      : employeeApi.getMyReport(selectedMonth),
   });
 
   if (isLoading) return <LoadingSpinner text="جاري تحميل التقرير الشهري..." />;
   if (!report) return <EmptyState icon={FileText} title="لا يوجد تقرير" sub="لا توجد بيانات لهذا الشهر" />;
 
-  const { orderStats: os, kpis, kpiFinancials: fin, overallScore, rating, salary } = report;
+  const { orderStats: os, kpis, kpiFinancials: fin, overallScore, salary } = report;
   const netSalary = salary + (fin?.totalBonus ?? 0) - (fin?.totalDeduction ?? 0);
   const monthLabel = monthOptions.find(m => m.value === selectedMonth)?.label ?? selectedMonth;
+
+  // نحسب التقييم محلياً من النقاط لتجنب مشكلة encoding القادم من الـ API
+  const score = overallScore ?? 0;
+  const rating =
+    score >= 80 ? "ممتاز" :
+    score >= 65 ? "جيد جداً" :
+    score >= 50 ? "جيد" :
+    score >= 35 ? "مقبول" :
+    score > 0   ? "ضعيف" : null;
 
   const ratingMeta: Record<string, { color: string; bg: string; border: string; icon: any }> = {
     "ممتاز":    { color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/30", icon: Trophy },
