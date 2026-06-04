@@ -1298,13 +1298,22 @@ function AttendanceTab({ profileId, monthlySalary, isAdmin }: {
   // بناء خريطة التواريخ
   const recMap = Object.fromEntries(records.map(r => [r.date, r]));
 
-  // حساب أيام الشهر
+  // حساب أيام دورة الراتب: من 26 الشهر السابق لـ 25 الشهر الحالي
   const [year, mon] = month.split("-").map(Number);
-  const daysInMonth = new Date(year, mon, 0).getDate();
-  const days = Array.from({ length: daysInMonth }, (_, i) => {
-    const d = String(i + 1).padStart(2, "0");
-    return `${month}-${d}`;
-  });
+  const prevMon  = mon === 1 ? 12 : mon - 1;
+  const prevYear = mon === 1 ? year - 1 : year;
+  const periodStart = new Date(prevYear, prevMon - 1, 26); // 26 الشهر السابق
+  const periodEnd   = new Date(year, mon - 1, 25);         // 25 الشهر الحالي
+  const days: string[] = [];
+  const cur = new Date(periodStart);
+  while (cur <= periodEnd) {
+    const y = cur.getFullYear();
+    const m = String(cur.getMonth() + 1).padStart(2, "0");
+    const d = String(cur.getDate()).padStart(2, "0");
+    days.push(`${y}-${m}-${d}`);
+    cur.setDate(cur.getDate() + 1);
+  }
+  const daysInMonth = days.length;
 
   // إحصائيات الحضور
   const stats = days.reduce((acc, date) => {
@@ -1411,8 +1420,8 @@ function AttendanceTab({ profileId, monthlySalary, isAdmin }: {
               {["أحد","إثن","ثلا","أرب","خمس","جمع","سبت"].map(d => (
                 <div key={d} className="text-center text-[9px] font-bold text-muted-foreground py-1">{d}</div>
               ))}
-              {/* padding للبداية */}
-              {Array.from({ length: new Date(`${month}-01`).getDay() }).map((_, i) => (
+              {/* padding للبداية على أساس يوم 26 */}
+              {Array.from({ length: periodStart.getDay() }).map((_, i) => (
                 <div key={`pad-${i}`} />
               ))}
               {days.map(date => {
