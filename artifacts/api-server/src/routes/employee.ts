@@ -673,15 +673,21 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
       ));
 
     const [userRow] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
-    const delivered = orders.filter(o => o.status === "received" || o.status === "partial_received").length;
-    const returned = orders.filter(o => o.status === "returned").length;
-    const pending = orders.filter(o => o.status !== "received" && o.status !== "partial_received" && o.status !== "returned").length;
+    // ── عد الـ invoices الفريدة ──
+    const _sp0: Record<string, number> = { pending:1,in_shipping:2,warehouse_ready:3,delayed:4,partial_received:5,received:6,returned:7 };
+    const _imap0 = new Map<string, (typeof ordersTable.$inferSelect)[]>();
+    for (const o of orders) { const k = o.invoiceNumber ?? `solo-${o.id}`; if (!_imap0.has(k)) _imap0.set(k,[]); _imap0.get(k)!.push(o); }
+    const _inv0 = Array.from(_imap0.values()).map(rows => { const ss=rows.map(r=>r.status); return [...ss].sort((a,b)=>(_sp0[a]??99)-(_sp0[b]??99))[0]; });
+    const totalInvoices0 = _inv0.length;
+    const delivered = _inv0.filter(s => s === "received" || s === "partial_received").length;
+    const returned = _inv0.filter(s => s === "returned").length;
+    const pending = _inv0.filter(s => s !== "received" && s !== "partial_received" && s !== "returned").length;
     const totalRevenue = orders.filter(o => o.status === "received" || o.status === "partial_received")
       .reduce((s, o) => s + (o.status === "partial_received" && o.partialQuantity ? o.unitPrice * o.partialQuantity : o.totalPrice), 0);
     const totalProfit = orders.reduce((s, o) => s + profitFromOrder(o), 0);
 
-    const deliveryRate = orders.length > 0 ? Math.round((delivered / orders.length) * 100) : 0;
-    const returnRate   = orders.length > 0 ? Math.round((returned  / orders.length) * 100) : 0;
+    const deliveryRate = totalInvoices0 > 0 ? Math.round((delivered / totalInvoices0) * 100) : 0;
+    const returnRate   = totalInvoices0 > 0 ? Math.round((returned  / totalInvoices0) * 100) : 0;
 
     // fallback score من deliveryRate ومعدل الإرجاع
     let noProfileScore: number | null = null;
@@ -703,7 +709,7 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
       displayName: userRow?.displayName ?? "—",
       noProfile: true,
       period: { month: monthParam || `${dateFrom.getFullYear()}-${String(dateFrom.getMonth() + 1).padStart(2, "0")}`, from: dateFrom.toISOString(), to: dateTo.toISOString() },
-      orderStats: { total: orders.length, delivered, returned, pending, deliveryRate, returnRate, totalRevenue, totalProfit },
+      orderStats: { total: totalInvoices0, delivered, returned, pending, deliveryRate, returnRate, totalRevenue, totalProfit },
       kpis: [],
       kpiFinancials: { totalSalaryWeight: 0, totalDeduction: 0, totalBonus: 0, achievedCount: 0, failedCount: 0, overTargetCount: 0, salaryAtRiskPercent: 0 },
       overallScore: noProfileScore,
@@ -755,20 +761,27 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
       profile.tenantId != null ? eq(ordersTable.tenantId, profile.tenantId) : undefined
     ));
 
-  const delivered = orders.filter(o => o.status === "received" || o.status === "partial_received").length;
-  const returned  = orders.filter(o => o.status === "returned").length;
-  const pending   = orders.filter(o => o.status !== "received" && o.status !== "partial_received" && o.status !== "returned").length;
   const totalRevenue = orders.filter(o => o.status === "received" || o.status === "partial_received")
     .reduce((s, o) => s + (o.status === "partial_received" && o.partialQuantity ? o.unitPrice * o.partialQuantity : o.totalPrice), 0);
   const totalProfit = orders.reduce((s, o) => s + profitFromOrder(o), 0);
 
+  // ── عد الـ invoices الفريدة ──
+  const _sp2: Record<string, number> = { pending:1,in_shipping:2,warehouse_ready:3,delayed:4,partial_received:5,received:6,returned:7 };
+  const _imap2 = new Map<string, (typeof ordersTable.$inferSelect)[]>();
+  for (const o of orders) { const k = o.invoiceNumber ?? `solo-${o.id}`; if (!_imap2.has(k)) _imap2.set(k,[]); _imap2.get(k)!.push(o); }
+  const _inv2 = Array.from(_imap2.values()).map(rows => { const ss=rows.map(r=>r.status); return [...ss].sort((a,b)=>(_sp2[a]??99)-(_sp2[b]??99))[0]; });
+  const totalInvoices2 = _inv2.length;
+  const delivered = _inv2.filter(s => s === "received" || s === "partial_received").length;
+  const returned  = _inv2.filter(s => s === "returned").length;
+  const pending   = _inv2.filter(s => s !== "received" && s !== "partial_received" && s !== "returned").length;
+
   const orderStats = {
-    total: orders.length,
+    total: totalInvoices2,
     delivered,
     returned,
     pending,
-    deliveryRate: orders.length > 0 ? Math.round((delivered / orders.length) * 100) : 0,
-    returnRate:   orders.length > 0 ? Math.round((returned  / orders.length) * 100) : 0,
+    deliveryRate: totalInvoices2 > 0 ? Math.round((delivered / totalInvoices2) * 100) : 0,
+    returnRate:   totalInvoices2 > 0 ? Math.round((returned  / totalInvoices2) * 100) : 0,
     totalRevenue,
     totalProfit,
   };
