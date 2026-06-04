@@ -78,8 +78,11 @@ async function computeActualValue(
       const returned = orders.filter((o) => o.status === "returned").length;
       return Math.round((returned / orders.length) * 100);
     }
-    case "total_orders":
-      return orders.length;
+    case "total_orders": {
+      // عد الـ invoices الفريدة (مش الـ rows) — نفس منطق orders.tsx
+      const uniqueInvoices = new Set(orders.map(o => o.invoiceNumber ?? `solo-${o.id}`));
+      return uniqueInvoices.size;
+    }
     case "profit":
       return Math.round(orders.reduce((s, o) => s + profitFromOrder(o), 0));
     case "revenue":
@@ -474,12 +477,33 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
         )
       );
 
-    const delivered = orders.filter(
-      (o) => o.status === "received" || o.status === "partial_received"
+    // ── حساب الإحصائيات على مستوى الـ invoice (مش الـ rows) ──
+    // نفس منطق buildPerUserInvoices في team-analytics.ts
+    const STATUS_PRIORITY: Record<string, number> = {
+      pending: 1, in_shipping: 2, warehouse_ready: 3, delayed: 4,
+      partial_received: 5, received: 6, returned: 7,
+    };
+    const invoiceRowsMap = new Map<string, (typeof ordersTable.$inferSelect)[]>();
+    for (const o of orders) {
+      const key = o.invoiceNumber ?? `solo-${o.id}`;
+      if (!invoiceRowsMap.has(key)) invoiceRowsMap.set(key, []);
+      invoiceRowsMap.get(key)!.push(o);
+    }
+    const invoiceStatuses = Array.from(invoiceRowsMap.values()).map(rows => {
+      const statuses = rows.map(r => r.status);
+      if (statuses.length === 1) return { status: statuses[0], rows };
+      const resolved = [...statuses].sort(
+        (a, b) => (STATUS_PRIORITY[a] ?? 99) - (STATUS_PRIORITY[b] ?? 99)
+      )[0];
+      return { status: resolved, rows };
+    });
+    const totalInvoices = invoiceStatuses.length;
+    const delivered = invoiceStatuses.filter(
+      (i) => i.status === "received" || i.status === "partial_received"
     ).length;
-    const returned = orders.filter((o) => o.status === "returned").length;
-    const pending = orders.filter(
-      (o) => o.status !== "received" && o.status !== "partial_received" && o.status !== "returned"
+    const returned = invoiceStatuses.filter((i) => i.status === "returned").length;
+    const pending = invoiceStatuses.filter(
+      (i) => i.status !== "received" && i.status !== "partial_received" && i.status !== "returned"
     ).length;
     const totalRevenue = orders
       .filter((o) => o.status === "received" || o.status === "partial_received")
@@ -492,12 +516,12 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
       }, 0);
     const totalProfit = orders.reduce((s, o) => s + profitFromOrder(o), 0);
     orderStats = {
-      total: orders.length,
+      total: totalInvoices,
       delivered,
       returned,
       pending,
-      deliveryRate: orders.length > 0 ? Math.round((delivered / orders.length) * 100) : 0,
-      returnRate: orders.length > 0 ? Math.round((returned / orders.length) * 100) : 0,
+      deliveryRate: totalInvoices > 0 ? Math.round((delivered / totalInvoices) * 100) : 0,
+      returnRate: totalInvoices > 0 ? Math.round((returned / totalInvoices) * 100) : 0,
       totalRevenue,
       totalProfit,
     };
