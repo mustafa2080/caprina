@@ -4806,7 +4806,7 @@ export default function TeamPage() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {profiles.filter(p => !teamSearch || (p.displayName ?? "").includes(teamSearch) || (p as any).username?.includes(teamSearch) || (p as any).jobTitle?.includes(teamSearch)).map(profile => {
+        {profiles.filter(p => { const q = teamSearch.toLowerCase(); return !teamSearch || (p.displayName ?? "").toLowerCase().includes(q) || (p as any).username?.toLowerCase().includes(q) || (p as any).jobTitle?.toLowerCase().includes(q); }).map(profile => {
           const isSystemUser = !!(profile as any).isSystemUser;
           const roleMap: Record<string, string> = { super_admin: "سوبر أدمن", admin: "مدير", warehouse: "مخزن", employee: "موظف" };
           const roleLabel = (profile as any).role ? (roleMap[(profile as any).role] ?? (profile as any).role) : (isSystemUser ? "موظف" : "فريق فقط");
