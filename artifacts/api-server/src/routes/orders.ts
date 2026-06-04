@@ -154,23 +154,11 @@ router.get("/orders", async (req, res): Promise<void> => {
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
   const tenantId = getTenantId(req);
-  const reqUser = (req as any).user;
-  const reqRole = reqUser?.role;
-  const reqUserId = reqUser?.id;
 
   let query = db.select().from(ordersTable).orderBy(desc(ordersTable.createdAt)).$dynamic();
   const conditions: any[] = [isNull(ordersTable.deletedAt)];
   if (tenantId !== null) conditions.push(eq(ordersTable.tenantId, tenantId));
 
-  // موظف المبيعات (employee / sales) يشوف طلباته بس — الـ admin والـ super_admin يشوفوا الكل
-  if (reqRole === "sales" || reqRole === "employee") {
-    conditions.push(
-      or(
-        eq(ordersTable.createdByUserId, reqUserId),
-        eq(ordersTable.assignedUserId, reqUserId)
-      )
-    );
-  }
   const isDashboard = (req.query as any).source === "dashboard";
 
   if (params.data.status) {
