@@ -480,7 +480,7 @@ export default function TeamPerformancePage() {
         <div>
           <h1 className="text-xl font-bold flex items-center gap-2">
             <UserCheck className="w-5 h-5 text-primary" />
-            أداء الفريق
+            أداء فريق المبيعات
           </h1>
           <p className="text-muted-foreground text-xs mt-0.5">تتبع أداء كل موظف وأثره على الإيرادات</p>
         </div>
