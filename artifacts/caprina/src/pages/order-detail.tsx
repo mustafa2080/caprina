@@ -1837,6 +1837,7 @@ export default function OrderDetail() {
       queryClient.invalidateQueries({ queryKey: ["orders-stats"] });
       queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["archived-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["cash-registers-list"] });
 
       const msg = idsToDelete.length > 1
         ? `تم حذف الطلب وكل منتجاته (${idsToDelete.length} منتج).`
