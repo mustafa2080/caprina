@@ -2417,6 +2417,18 @@ function MyDashboardTab({ profileId, monthlySalary }: {
   const today = new Date().toISOString().slice(0, 10);
   const currentMonth = today.slice(0, 7);
 
+  // ── Toggle يومي/شهري ──
+  const [viewMode, setViewMode] = useState<"monthly" | "daily">("monthly");
+  const [selectedDate, setSelectedDate] = useState(today);
+
+  // daily report للتاريخ المختار
+  const { data: dailyReport } = useQuery({
+    queryKey: ["employee-report-daily", profileId, selectedDate],
+    queryFn: () => employeeApi.getReport(profileId, undefined, "daily", selectedDate),
+    enabled: viewMode === "daily",
+    staleTime: 60_000,
+  });
+
   // daily KPIs for today
   const { data: dailyData } = useQuery({
     queryKey: ["employee-daily-logs", profileId, today],
@@ -2443,10 +2455,11 @@ function MyDashboardTab({ profileId, monthlySalary }: {
     enabled: !!profileId,
   });
 
-  const overallScore = report?.overallScore ?? null;
+  const overallScore = (viewMode === "daily" ? dailyReport?.overallScore : report?.overallScore) ?? null;
   const prevScore    = prevReport?.overallScore ?? null;
   const scoreDiff    = overallScore !== null && prevScore !== null ? overallScore - prevScore : null;
-  const kpis            = report?.kpis ?? [];
+  const kpis            = (viewMode === "daily" ? dailyReport?.kpis : report?.kpis) ?? [];
+  const activeReport    = viewMode === "daily" ? dailyReport : report;
   const achievedCount   = kpis.filter(k => k.achieved === true).length;
   const failedCount     = kpis.filter(k => k.achieved === false).length;
   const overTargetCount = kpis.filter(k => k.score !== null && k.score > 100).length;
@@ -2474,14 +2487,38 @@ function MyDashboardTab({ profileId, monthlySalary }: {
   const levelColor   = totalPoints >= 800 ? "text-blue-500" : totalPoints >= 500 ? "text-amber-500" : totalPoints >= 300 ? "text-muted-foreground" : "text-amber-700 dark:text-amber-500";
   const nextLevelPts = totalPoints >= 800 ? 1000 : totalPoints >= 500 ? 800 : totalPoints >= 300 ? 500 : 300;
   const levelPct     = Math.min(100, Math.round((totalPoints / nextLevelPts) * 100));
-  const periodLabel  = new Date(parseInt(currentMonth.split("-")[0]), parseInt(currentMonth.split("-")[1]) - 1, 1)
-    .toLocaleDateString("ar-EG", { month: "long", year: "numeric" });
+  const periodLabel  = viewMode === "daily"
+    ? new Date(selectedDate + "T00:00:00").toLocaleDateString("ar-EG", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
+    : new Date(parseInt(currentMonth.split("-")[0]), parseInt(currentMonth.split("-")[1]) - 1, 1)
+        .toLocaleDateString("ar-EG", { month: "long", year: "numeric" });
   const statusColor = overallScore === null ? "text-muted-foreground" : overallScore >= 80 ? "text-emerald-500" : overallScore >= 60 ? "text-amber-500" : "text-red-500";
   const statusBg    = overallScore === null ? "bg-muted/20 border-border" : overallScore >= 80 ? "bg-emerald-500/8 border-emerald-500/20" : overallScore >= 60 ? "bg-amber-500/8 border-amber-500/20" : "bg-red-500/8 border-red-500/20";
   const statusLabel = overallScore === null ? "لا يوجد بيانات" : overallScore >= 90 ? "أداء استثنائي ⭐" : overallScore >= 80 ? "أداء ممتاز ✅" : overallScore >= 60 ? "أداء جيد 👍" : overallScore >= 40 ? "يحتاج تحسين ⚠️" : "أداء ضعيف — خطر ❌";
 
   return (
     <div className="space-y-4 animate-in fade-in duration-300">
+
+      {/* ── Toggle يومي / شهري ── */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-1 p-1 rounded-xl border border-border bg-muted/20">
+          {(["monthly", "daily"] as const).map(mode => (
+            <button key={mode} type="button" onClick={() => setViewMode(mode)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                viewMode === mode ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}>
+              {mode === "monthly" ? "شهري" : "يومي"}
+            </button>
+          ))}
+        </div>
+        {viewMode === "daily" ? (
+          <input type="date" value={selectedDate} max={today}
+            onChange={e => setSelectedDate(e.target.value)}
+            className="rounded-lg border border-border bg-muted/20 px-3 py-1.5 text-xs font-medium focus:outline-none focus:border-primary" />
+        ) : (
+          <span className="text-xs text-muted-foreground font-medium">{currentMonth}</span>
+        )}
+      </div>
+
       {/* ── إشارات الخطر والأمان ── */}
       <div className="space-y-2">
         {isExcellent && (
@@ -2542,6 +2579,7 @@ function MyDashboardTab({ profileId, monthlySalary }: {
                 {scoreDiff >= 0 ? "+" : ""}{scoreDiff}% عن الشهر الماضي
               </div>
             )}
+            {viewMode === "monthly" && (
             <div>
               <div className="flex justify-between text-[9px] text-muted-foreground mb-1">
                 <span>تقدم الشهر</span><span>{monthProgress}%</span>
@@ -2550,6 +2588,7 @@ function MyDashboardTab({ profileId, monthlySalary }: {
                 <div className="h-1.5 rounded-full bg-primary/60 transition-all" style={{ width: `${monthProgress}%` }} />
               </div>
             </div>
+            )}
           </div>
         </div>
       </div>
