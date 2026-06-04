@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+﻿import { Router, type IRouter } from "express";
 import { eq, and, or, gte, lte, desc, isNotNull, isNull, like, sum } from "drizzle-orm";
 import {
   db,
@@ -168,9 +168,15 @@ router.get("/employee-profiles", async (req, res): Promise<void> => {
     : rows.filter(r => (r.profile as any).tenantId === null);
 
   // ط¬ظ„ط¨ kpiCount ظ„ظƒظ„ profile ط¯ظپط¹ط© ظˆط§ط­ط¯ط©
-  const allKpis = await db.select({ profileId: employeeKpisTable.profileId }).from(employeeKpisTable);
+  const allKpis = await db.select().from(employeeKpisTable).where(eq(employeeKpisTable.isActive, true));
   const kpiCountMap: Record<number, number> = {};
-  for (const k of allKpis) if (k.profileId != null) kpiCountMap[k.profileId] = (kpiCountMap[k.profileId] ?? 0) + 1;
+  const kpisByProfile: Record<number, any[]> = {};
+  for (const k of allKpis) {
+    if (k.profileId == null) continue;
+    kpiCountMap[k.profileId] = (kpiCountMap[k.profileId] ?? 0) + 1;
+    if (!kpisByProfile[k.profileId]) kpisByProfile[k.profileId] = [];
+    kpisByProfile[k.profileId].push(k);
+  }
 
   // ط¬ظ„ط¨ ط§ظ„ط­ط¶ظˆط± ظ„ظ„ط´ظ‡ط± ط§ظ„ط­ط§ظ„ظٹ ظ„ظƒظ„ profile
   const now = new Date();
@@ -190,10 +196,48 @@ router.get("/employee-profiles", async (req, res): Promise<void> => {
     if (r.status === "half_day") attMap[r.profileId].workedDays += 0.5;
   }
 
+  const monthStart2 = `${monthStr}-01`;
+  const monthEnd2 = `${monthStr}-31`;
+  const allLogs = await db
+    .select({ profileId: employeeDailyLogsTable.profileId, kpiId: employeeDailyLogsTable.kpiId, total: sum(employeeDailyLogsTable.value) })
+    .from(employeeDailyLogsTable)
+    .where(and(gte(employeeDailyLogsTable.date, monthStart2), lte(employeeDailyLogsTable.date, monthEnd2)))
+    .groupBy(employeeDailyLogsTable.profileId, employeeDailyLogsTable.kpiId);
+  const logsMap: Record<number, Record<number, number>> = {};
+  for (const l of allLogs) {
+    if (l.profileId == null || l.kpiId == null) continue;
+    if (!logsMap[l.profileId]) logsMap[l.profileId] = {};
+    logsMap[l.profileId][l.kpiId] = parseFloat(String(l.total ?? "0"));
+  }
+  const dayNum = now.getDate();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const overallScoreMap: Record<number, number | null> = {};
+  for (const r of filtered) {
+    const pid = r.profile.id;
+    const kpis2 = kpisByProfile[pid] ?? [];
+    if (kpis2.length === 0) { overallScoreMap[pid] = null; continue; }
+    const profileLogs = logsMap[pid] ?? {};
+    const scored: { score: number; weight: number }[] = [];
+    for (const kpi of kpis2) {
+      if (kpi.metric !== "manual") continue;
+      const effTarget = Math.max(1, Math.round((kpi.targetValue / daysInMonth) * dayNum));
+      const actual = profileLogs[kpi.id] ?? 0;
+      const rawScore = Math.round((actual / effTarget) * 100);
+      const kpiScore = kpi.direction === "lower_is_better"
+        ? (actual <= effTarget ? 100 : Math.max(0, Math.round((effTarget / actual) * 100)))
+        : Math.min(150, rawScore);
+      scored.push({ score: kpiScore, weight: kpi.weight ?? 1 });
+    }
+    if (scored.length > 0) {
+      const tw = scored.reduce((s: number, k: any) => s + k.weight, 0);
+      overallScoreMap[pid] = tw > 0 ? Math.round(scored.reduce((s: number, k: any) => s + k.score * k.weight, 0) / tw) : null;
+    } else { overallScoreMap[pid] = null; }
+  }
   res.json(filtered.map((r) => ({
     ...mergeProfile(r.profile, r.user),
     kpiCount: kpiCountMap[r.profile.id] ?? 0,
     attendanceSummary: attMap[r.profile.id] ?? { workedDays: 0, absentDays: 0, lateDays: 0 },
+    overallScore: overallScoreMap[r.profile.id] ?? null,
   })));
 });
 

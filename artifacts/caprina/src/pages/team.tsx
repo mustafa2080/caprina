@@ -4877,16 +4877,8 @@ export default function TeamPage() {
           const totalDaysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
           const attPct = Math.min(100, Math.round((att.workedDays / Math.max(totalDaysInMonth, 1)) * 100));
 
-          // الأداء من teamPerformanceExtended
-          const perfEntry = teamPerfData.find((e: any) => e.userId === (profile as any).userId);
-          // perfScore كـ % مبني على deliveryRate + returnRate penalty + volume bonus
-          const perfScore: number | null = perfEntry
-            ? Math.min(100, Math.max(0, Math.round(
-                (perfEntry.deliveryRate ?? 0) * 0.7
-                + Math.max(0, 100 - (perfEntry.returnRate ?? 0)) * 0.2
-                + Math.min(perfEntry.total ?? 0, 50) * 0.2
-              )))
-            : null;
+          // الأداء من listProfiles (overallScore محسوب في الـ backend من KPIs اليومية)
+          const perfScore: number | null = (profile as any).overallScore ?? null;
           const perfRating = perfScore === null ? null : perfScore >= 90 ? "ممتاز" : perfScore >= 75 ? "جيد جداً" : perfScore >= 60 ? "جيد" : perfScore >= 40 ? "مقبول" : "ضعيف";
           const perfColor = perfScore === null ? "text-muted-foreground" : perfScore >= 75 ? "text-emerald-400" : perfScore >= 50 ? "text-amber-400" : "text-red-400";
           const perfBar   = perfScore === null ? "#6B7280" : perfScore >= 75 ? "#10B981" : perfScore >= 50 ? "#F59E0B" : "#EF4444";
