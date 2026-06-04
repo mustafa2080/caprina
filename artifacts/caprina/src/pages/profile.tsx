@@ -901,7 +901,9 @@ function MonthlyReportTab({ profile }: { profile?: EmployeeProfile }) {
                   {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                 </Pie>
                 <Tooltip formatter={(v: any) => [fmtNum(v), ""]}
-                  contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11 }} />
+                  contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11 }}
+                  cursor={false}
+                  wrapperStyle={{ display: "none" }} />
               </PieChart>
             </ResponsiveContainer>
             <div className="flex-1 space-y-2">
