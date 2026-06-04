@@ -4773,12 +4773,7 @@ export default function TeamPage() {
             <UserPlus className="w-3.5 h-3.5" />موظف موجود
           </Button>
         )}
-        {canShowWizard && (
-          <Button size="sm" className="gap-1 h-8 text-xs" onClick={() => setWizardOpen(true)}>
-            <Plus className="w-3.5 h-3.5" />عضو جديد
-          </Button>
-        )}
-      </div>
+        
 
       {profilesLoading && <p className="text-center text-muted-foreground py-12 text-sm">جاري التحميل...</p>}
 
