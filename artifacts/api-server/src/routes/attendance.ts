@@ -15,14 +15,23 @@ router.use(requireAuth);
 
 // ─── GET my attendance (current user from token) ──────────────────────────────
 // GET /attendance/my?month=YYYY-MM
+
+// ─── دورة الراتب: من 26 الشهر السابق لـ 25 الشهر الحالي ──────────────────────
+function getPayPeriodDates(month: string): { from: string; to: string } {
+  const [y, m] = month.split("-").map(Number);
+  const prevMon  = m === 1 ? 12 : m - 1;
+  const prevYear = m === 1 ? y - 1 : y;
+  const from = `${prevYear}-${String(prevMon).padStart(2,"0")}-26`;
+  const to   = `${y}-${String(m).padStart(2,"0")}-25`;
+  return { from, to };
+}
+
 router.get("/attendance/my", async (req, res): Promise<void> => {
   const userId = (req as any).user?.id;
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
   const month = (req.query.month as string) || new Date().toISOString().slice(0, 7);
-  // Always use zero-padded prefix: "2026-06"
-  const [yearStr, monStr] = month.split("-");
-  const prefix = `${yearStr}-${monStr.padStart(2, "0")}`;
+  const { from: periodFrom, to: periodTo } = getPayPeriodDates(month);
 
   const [profile] = await db
     .select()
@@ -36,7 +45,7 @@ router.get("/attendance/my", async (req, res): Promise<void> => {
     .from(attendanceTable)
     .where(eq(attendanceTable.profileId, profile.id));
 
-  res.json(records.filter((r) => r.date.startsWith(prefix)));
+  res.json(records.filter((r) => r.date >= periodFrom && r.date <= periodTo));
 });
 
 // ─── GET my salary report (current user from token) ──────────────────────────
@@ -47,7 +56,6 @@ router.get("/attendance/my/salary-report", async (req, res): Promise<void> => {
 
   const month = (req.query.month as string) || new Date().toISOString().slice(0, 7);
   const [year, mon] = month.split("-").map(Number);
-  const prefix = `${year}-${String(mon).padStart(2, "0")}`;
   const daysInMonth = new Date(year, mon, 0).getDate();
 
   const [profile] = await db
@@ -67,7 +75,8 @@ router.get("/attendance/my/salary-report", async (req, res): Promise<void> => {
   }
 
   const allRecords = await db.select().from(attendanceTable).where(eq(attendanceTable.profileId, profile.id));
-  const records = allRecords.filter((r) => r.date.startsWith(prefix));
+  const { from: periodFrom, to: periodTo } = getPayPeriodDates(month);
+  const records = allRecords.filter((r) => r.date >= periodFrom && r.date <= periodTo);
 
   const adjustments = await db
     .select()
@@ -122,8 +131,7 @@ router.get("/attendance/:profileId", async (req, res): Promise<void> => {
   if (isNaN(profileId)) { res.status(400).json({ error: "Invalid profileId" }); return; }
 
   const month = (req.query.month as string) || new Date().toISOString().slice(0, 7);
-  const [year, mon] = month.split("-");
-  const prefix = `${year}-${mon}`;
+  const { from: periodFrom, to: periodTo } = getPayPeriodDates(month);
 
   const records = await db
     .select()
@@ -135,7 +143,8 @@ router.get("/attendance/:profileId", async (req, res): Promise<void> => {
     );
 
   // filter by month prefix in JS (varchar date field YYYY-MM-DD)
-  const filtered = records.filter((r) => r.date.startsWith(prefix));
+  const { from: periodFrom, to: periodTo } = getPayPeriodDates(month);
+  const filtered = records.filter((r) => r.date >= periodFrom && r.date <= periodTo);
 
   res.json(filtered);
 });
@@ -217,7 +226,6 @@ router.get("/attendance/:profileId/salary-report", async (req, res): Promise<voi
 
   const month = (req.query.month as string) || new Date().toISOString().slice(0, 7);
   const [year, mon] = month.split("-").map(Number);
-  const prefix = `${year}-${String(mon).padStart(2, "0")}`;
   const daysInMonth = new Date(year, mon, 0).getDate();
 
   const [profile] = await db
@@ -228,7 +236,8 @@ router.get("/attendance/:profileId/salary-report", async (req, res): Promise<voi
   if (!profile) { res.status(404).json({ error: "Profile not found" }); return; }
 
   const allRecords = await db.select().from(attendanceTable).where(eq(attendanceTable.profileId, profileId));
-  const records = allRecords.filter((r) => r.date.startsWith(prefix));
+  const { from: periodFrom, to: periodTo } = getPayPeriodDates(month);
+  const records = allRecords.filter((r) => r.date >= periodFrom && r.date <= periodTo);
 
   const adjustments = await db
     .select()
