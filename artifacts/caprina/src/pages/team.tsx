@@ -2982,7 +2982,7 @@ function MyOrdersTab({
 function EmployeeDetail({
   profileId, displayName, isSystemUser, username, onBack,
 }: {
-  profileId: number; displayName: string; isSystemUser: boolean; username?: string | null; onBack: () => void;
+  profileId: number; displayName: string; isSystemUser: boolean; username?: string | null; onBack?: () => void;
 }) {
   const { isAdmin, isSuperAdmin, can } = useAuth();
   const canSalaries   = isAdmin || can("team.salaries");
@@ -3068,9 +3068,11 @@ function EmployeeDetail({
     <div className="space-y-4 animate-in fade-in duration-300">
       {/* Back button + name */}
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onBack}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
+        {onBack && (
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onBack}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+        )}
         <div>
           <h2 className="text-base font-bold">{displayName}</h2>
           <p className="text-xs text-muted-foreground">
@@ -4719,6 +4721,29 @@ export default function TeamPage() {
 
   const selectedProfile = profiles.find(p => p.id === selectedProfileId);
 
+  // ── لو الـ user مش admin → وجّهه تلقائياً لـ profile بتاعه ──────────────────
+  const myProfile = !isAdmin ? profiles.find((p: any) => p.userId === user?.id) : null;
+
+  // auto-select عند أول تحميل للـ profiles
+  React.useEffect(() => {
+    if (!isAdmin && myProfile && selectedProfileId === null) {
+      setSelectedProfileId(myProfile.id);
+    }
+  }, [isAdmin, myProfile?.id]);
+
+  // لو الـ user مش admin ومفيش profile → رسالة
+  if (!isAdmin && !profilesLoading && !myProfile) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center px-4">
+        <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+          <span className="text-3xl">👤</span>
+        </div>
+        <h2 className="text-lg font-bold">لم يتم إنشاء ملفك الشخصي بعد</h2>
+        <p className="text-muted-foreground text-sm max-w-xs">تواصل مع المدير لإضافتك في نظام إدارة الفريق.</p>
+      </div>
+    );
+  }
+
   if (selectedProfileId !== null && selectedProfile) {
     return (
       <div className="max-w-3xl mx-auto animate-in fade-in duration-300">
@@ -4727,7 +4752,7 @@ export default function TeamPage() {
           displayName={selectedProfile.displayName ?? "—"}
           isSystemUser={!!(selectedProfile as any).isSystemUser}
           username={(selectedProfile as any).username}
-          onBack={() => setSelectedProfileId(null)}
+          onBack={isAdmin ? () => setSelectedProfileId(null) : undefined}
         />
       </div>
     );
