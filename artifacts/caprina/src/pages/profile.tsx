@@ -158,9 +158,22 @@ function AvatarUpload({ currentAvatar, displayName, onUpload }: {
 }
 
 /* ── Tab: Dashboard (لوحتي) ── */
-function DashboardTab({ myStats, profile }: { myStats?: TeamMemberExtStats; profile?: EmployeeProfile }) {
-  const [viewMode, setViewMode]       = useState<"monthly" | "daily">("monthly");
-  const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
+function DashboardTab({ myStats, profile, externalViewMode, externalDate, onViewModeChange, onDateChange }: {
+  myStats?: TeamMemberExtStats;
+  profile?: EmployeeProfile;
+  externalViewMode?: "monthly" | "daily";
+  externalDate?: string;
+  onViewModeChange?: (m: "monthly" | "daily") => void;
+  onDateChange?: (d: string) => void;
+}) {
+  const [_viewMode, _setViewMode] = useState<"monthly" | "daily">("monthly");
+  const [_selectedDate, _setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
+
+  // استخدم الـ external state لو موجود، وإلا الـ internal
+  const viewMode = externalViewMode ?? _viewMode;
+  const selectedDate = externalDate ?? _selectedDate;
+  const setViewMode = (m: "monthly" | "daily") => { _setViewMode(m); onViewModeChange?.(m); };
+  const setSelectedDate = (d: string) => { _setSelectedDate(d); onDateChange?.(d); };
 
   const currentMonth = format(new Date(), "yyyy-MM");
   const prevMonth = format(subMonths(new Date(), 1), "yyyy-MM");
@@ -2532,6 +2545,10 @@ export default function ProfilePage() {
   const [avatarB64, setAvatarB64] = useState<string | null | undefined>(undefined);
   const [activeTab, setActiveTab] = useState<"dashboard" | "orders" | "kpis" | "report" | "saleskpi" | "attendance" | "settings">("dashboard");
 
+  // state مشترك للـ header وDashboardTab
+  const [headerViewMode, setHeaderViewMode] = useState<"monthly" | "daily">("monthly");
+  const [headerDate, setHeaderDate] = useState(format(new Date(), "yyyy-MM-dd"));
+
   // Fetch team extended stats (for current user overview)
   const { data: allStats } = useQuery({
     queryKey: ["team-perf-profile"],
@@ -2543,10 +2560,14 @@ export default function ProfilePage() {
   // Fetch my-report لنقاط الأداء الصحيحة (0-100) في الـ header
   const currentMonth = format(new Date(), "yyyy-MM");
   const { data: myReport } = useQuery({
-    queryKey: ["my-report-header", currentMonth],
-    queryFn: () => employeeApi.getMyReport(currentMonth),
+    queryKey: ["my-report-header", headerViewMode, headerViewMode === "daily" ? headerDate : currentMonth],
+    queryFn: () => headerViewMode === "daily"
+      ? employeeApi.getMyReport(undefined, "daily", headerDate)
+      : employeeApi.getMyReport(currentMonth),
     staleTime: 5 * 60_000,
   });
+
+  // حساب الـ score: لو daily وما رجعش score من API، احسبه لاحقاً من dayOrders
   const headerScore = myReport?.overallScore ?? null;
 
   // Fetch employee profiles list to find the current user's profile
@@ -2632,7 +2653,12 @@ export default function ProfilePage() {
             </div>
             {headerScore != null && (
               <div className="shrink-0 text-center sm:text-left">
-                <div className="text-xs text-muted-foreground mb-0.5">نقاط الأداء</div>
+                <div className="text-xs text-muted-foreground mb-0.5 flex items-center gap-1.5 justify-center sm:justify-start">
+                  نقاط الأداء
+                  {headerViewMode === "daily" && (
+                    <span className="text-[9px] bg-primary/15 text-primary font-bold px-1.5 py-0.5 rounded-full">يومي</span>
+                  )}
+                </div>
                 <div className="text-3xl font-black">{headerScore}<span className="text-sm text-muted-foreground">/100</span></div>
                 <ScoreBadge score={headerScore} />
               </div>
@@ -2652,7 +2678,16 @@ export default function ProfilePage() {
       </div>
 
       {/* ── Tab Content ── */}
-      {activeTab === "dashboard" && <DashboardTab myStats={myStats} profile={myProfile} />}
+      {activeTab === "dashboard" && (
+        <DashboardTab
+          myStats={myStats}
+          profile={myProfile}
+          externalViewMode={headerViewMode}
+          externalDate={headerDate}
+          onViewModeChange={setHeaderViewMode}
+          onDateChange={setHeaderDate}
+        />
+      )}
       {activeTab === "orders" && <OrdersTab profile={myProfile} userId={user.id} />}
       {activeTab === "kpis" && <KpisTab myStats={myStats} profile={myProfile} />}
       {activeTab === "report" && <MonthlyReportTab profile={myProfile} />}
