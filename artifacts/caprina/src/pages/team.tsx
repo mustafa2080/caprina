@@ -4156,7 +4156,15 @@ function EmployeeDetail({
                       </div>
                       <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/8 px-3 py-2 min-w-[115px]">
                         <p className="text-[10px] text-muted-foreground">الحالة</p>
-                        <p className="text-sm font-black text-emerald-500">{report.rating}</p>
+                        <p className="text-sm font-black text-emerald-500">
+                          {report.overallScore == null ? "غير محدد"
+                            : report.overallScore >= 80 ? "ممتاز"
+                            : report.overallScore >= 65 ? "جيد جداً"
+                            : report.overallScore >= 50 ? "جيد"
+                            : report.overallScore >= 35 ? "مقبول"
+                            : report.overallScore > 0  ? "ضعيف"
+                            : "غير محدد"}
+                        </p>
                       </div>
                     </div>
                   </div>
