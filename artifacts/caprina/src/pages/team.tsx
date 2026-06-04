@@ -68,6 +68,7 @@ const RATING_CONFIG: Record<string, { color: string; bg: string; label: string }
   مقبول:      { color: "text-amber-700   dark:text-amber-400",   bg: "bg-amber-50   dark:bg-amber-900/20",   label: "مقبول ⚠️" },
   ضعيف:       { color: "text-red-700     dark:text-red-400",     bg: "bg-red-50     dark:bg-red-900/20",     label: "ضعيف ❌" },
   "غير محدد": { color: "text-muted-foreground",                   bg: "bg-muted/20",                          label: "غير محدد" },
+  "لا توجد بيانات": { color: "text-muted-foreground",             bg: "bg-muted/20",                          label: "لا توجد بيانات" },
 };
 
 // ─── Profile Form Dialog ──────────────────────────────────────────────────────
