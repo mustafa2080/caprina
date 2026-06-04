@@ -923,32 +923,76 @@ router.get("/employee-orders/:profileId", async (req, res): Promise<void> => {
     .where(and(...orderConditions))
     .orderBy(desc(ordersTable.createdAt));
 
-  // حساب الإحصائيات
-  const delivered  = orders.filter(o => o.status === "received" || o.status === "partial_received");
-  const returned   = orders.filter(o => o.status === "returned");
-  const inShipping = orders.filter(o => o.status === "in_shipping");
-  const pending    = orders.filter(o => !["received","partial_received","returned"].includes(o.status));
+  // ── Group rows → invoices (نفس منطق buildPerUserInvoices) ──
+  const _SP: Record<string, number> = { pending:1, in_shipping:2, warehouse_ready:3, delayed:4, partial_received:5, received:6, returned:7 };
+  const invRowsMap = new Map<string, (typeof ordersTable.$inferSelect)[]>();
+  for (const o of orders) {
+    const k = o.invoiceNumber ?? `solo-${o.id}`;
+    if (!invRowsMap.has(k)) invRowsMap.set(k, []);
+    invRowsMap.get(k)!.push(o);
+  }
 
-  const totalRevenue = delivered.reduce((s, o) => {
-    const rev = o.status === "partial_received" && o.partialQuantity
-      ? o.unitPrice * o.partialQuantity : o.totalPrice;
-    return s + rev;
-  }, 0);
-  const totalProfit = orders.reduce((s, o) => s + profitFromOrder(o), 0);
+  // resolve كل invoice: status أولوية + بيانات من أول row
+  type ResolvedInvoice = {
+    id: number; invoiceNumber: string | null; customerName: string;
+    product: string; quantity: number; unitPrice: number; totalPrice: number;
+    status: string; city: string | null; adSource: string | null;
+    shippingCost: number | null; createdAt: string; color: string | null; size: string | null;
+    productCount: number; // عدد المنتجات داخل الفاتورة
+  };
+
+  const resolvedInvoices: ResolvedInvoice[] = Array.from(invRowsMap.values()).map(rows => {
+    const statuses = rows.map(r => r.status);
+    const resolvedStatus = [...statuses].sort((a, b) => (_SP[a] ?? 99) - (_SP[b] ?? 99))[0];
+    const first = rows[0];
+    const totalQty   = rows.reduce((s, r) => s + r.quantity, 0);
+    const totalPrice = rows.reduce((s, r) => s + r.totalPrice, 0);
+    // اسم المنتجات مجمعين
+    const productNames = [...new Set(rows.map(r => r.product ?? ""))].join(" + ");
+    return {
+      id:            first.id,
+      invoiceNumber: first.invoiceNumber,
+      customerName:  first.customerName,
+      product:       productNames,
+      quantity:      totalQty,
+      unitPrice:     first.unitPrice,
+      totalPrice,
+      status:        resolvedStatus,
+      city:          first.city,
+      adSource:      first.adSource,
+      shippingCost:  first.shippingCost,
+      createdAt:     first.createdAt instanceof Date ? first.createdAt.toISOString() : String(first.createdAt),
+      color:         rows.length > 1 ? null : first.color,
+      size:          rows.length > 1 ? null : first.size,
+      productCount:  rows.length,
+    };
+  });
+
+  // sort بالأحدث
+  resolvedInvoices.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  // حساب الإحصائيات على مستوى الـ invoice
+  const totalInv    = resolvedInvoices.length;
+  const deliveredInv  = resolvedInvoices.filter(i => i.status === "received" || i.status === "partial_received");
+  const returnedInv   = resolvedInvoices.filter(i => i.status === "returned");
+  const inShippingInv = resolvedInvoices.filter(i => i.status === "in_shipping");
+  const pendingInv    = resolvedInvoices.filter(i => !["received","partial_received","returned"].includes(i.status));
+
+  const totalRevenue = deliveredInv.reduce((s, i) => s + i.totalPrice, 0);
+  const totalProfit  = orders.reduce((s, o) => s + profitFromOrder(o), 0);
 
   const stats = {
-    total:        orders.length,
-    delivered:    delivered.length,
-    returned:     returned.length,
-    inShipping:   inShipping.length,
-    pending:      pending.length,
-    deliveryRate: orders.length > 0 ? Math.round((delivered.length / orders.length) * 100) : 0,
-    returnRate:   orders.length > 0 ? Math.round((returned.length  / orders.length) * 100) : 0,
+    total:        totalInv,
+    delivered:    deliveredInv.length,
+    returned:     returnedInv.length,
+    inShipping:   inShippingInv.length,
+    pending:      pendingInv.length,
+    deliveryRate: totalInv > 0 ? Math.round((deliveredInv.length / totalInv) * 100) : 0,
+    returnRate:   totalInv > 0 ? Math.round((returnedInv.length  / totalInv) * 100) : 0,
     totalRevenue: Math.round(totalRevenue),
     totalProfit:  Math.round(totalProfit),
   };
 
-  // حساب KPI impact (القيم الفعلية)
   const kpiImpact = {
     deliveryRate: stats.deliveryRate,
     returnRate:   stats.returnRate,
@@ -957,22 +1001,22 @@ router.get("/employee-orders/:profileId", async (req, res): Promise<void> => {
     profit:       stats.totalProfit,
   };
 
-  // إرجاع الطلبات مع الإحصائيات — نختار أهم الفيلدات فقط
-  const simplifiedOrders = orders.map(o => ({
-    id:            o.id,
-    invoiceNumber: o.invoiceNumber,
-    customerName:  o.customerName,
-    product:       o.product,
-    quantity:      o.quantity,
-    unitPrice:     o.unitPrice,
-    totalPrice:    o.totalPrice,
-    status:        o.status,
-    city:          o.city,
-    adSource:      o.adSource,
-    shippingCost:  o.shippingCost,
-    createdAt:     o.createdAt,
-    color:         o.color,
-    size:          o.size,
+  const simplifiedOrders = resolvedInvoices.map(i => ({
+    id:            i.id,
+    invoiceNumber: i.invoiceNumber,
+    customerName:  i.customerName,
+    product:       i.product,
+    quantity:      i.quantity,
+    unitPrice:     i.unitPrice,
+    totalPrice:    i.totalPrice,
+    status:        i.status,
+    city:          i.city,
+    adSource:      i.adSource,
+    shippingCost:  i.shippingCost,
+    createdAt:     i.createdAt,
+    color:         i.color,
+    size:          i.size,
+    productCount:  i.productCount,
   }));
 
   res.json({ orders: simplifiedOrders, stats, kpiImpact });
