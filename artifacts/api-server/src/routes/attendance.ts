@@ -142,8 +142,7 @@ router.get("/attendance/:profileId", async (req, res): Promise<void> => {
       )
     );
 
-  // filter by month prefix in JS (varchar date field YYYY-MM-DD)
-  const { from: periodFrom, to: periodTo } = getPayPeriodDates(month);
+  // filter by pay period (varchar date field YYYY-MM-DD)
   const filtered = records.filter((r) => r.date >= periodFrom && r.date <= periodTo);
 
   res.json(filtered);
