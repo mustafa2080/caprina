@@ -10,7 +10,8 @@ import {
   ListOrdered, Activity, FileText, ChevronRight,
   ChevronDown, AlertCircle, Coins, Percent, ArrowUp,
   ArrowDown, CalendarDays, Wallet, BadgeCheck, Info,
-  RefreshCw, CalendarCheck2,
+  RefreshCw, CalendarCheck2, Gauge, Award, ShieldAlert,
+  Medal, GanttChart, Sparkles,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -197,8 +198,9 @@ function DashboardTab({ myStats, profile }: { myStats?: TeamMemberExtStats; prof
 
   // KPI entries من daily logs
   const kpiEntries: { label: string; value: number; target: number; unit: string }[] = useMemo(() => {
-    if (!dailyLogs?.entries?.length) return [];
-    return dailyLogs.entries.map((e: any) => ({
+    const logs = dailyLogs as any;
+    if (!logs?.entries?.length) return [];
+    return logs.entries.map((e: any) => ({
       label: e.kpiName ?? e.label ?? "مؤشر",
       value: e.value ?? 0,
       target: e.targetValue ?? e.target ?? 0,
@@ -1199,6 +1201,584 @@ function SettingsTab({ user, avatarB64, setAvatarB64, avatarMutation, handleSave
   );
 }
 
+/* ── Tab: Sales KPI Dashboard (أداء الفريق للموظف) ── */
+function SalesKPIDashboardTab({ myStats, profile }: { myStats?: TeamMemberExtStats; profile?: EmployeeProfile }) {
+  const currentMonth = format(new Date(), "yyyy-MM");
+  const prevMonth = format(subMonths(new Date(), 1), "yyyy-MM");
+  const prev2Month = format(subMonths(new Date(), 2), "yyyy-MM");
+
+  const { data: currReport } = useQuery({
+    queryKey: ["sales-kpi-curr", currentMonth],
+    queryFn: () => employeeApi.getMyReport(currentMonth),
+    staleTime: 5 * 60_000,
+  });
+  const { data: prevReport } = useQuery({
+    queryKey: ["sales-kpi-prev", prevMonth],
+    queryFn: () => employeeApi.getMyReport(prevMonth),
+    staleTime: 5 * 60_000,
+  });
+  const { data: prev2Report } = useQuery({
+    queryKey: ["sales-kpi-prev2", prev2Month],
+    queryFn: () => employeeApi.getMyReport(prev2Month),
+    staleTime: 5 * 60_000,
+  });
+
+  const os = currReport?.orderStats;
+  const kpis = currReport?.kpis ?? [];
+  const fin = currReport?.kpiFinancials;
+  const score = currReport?.overallScore ?? myStats?.score ?? 0;
+  const rating = currReport?.rating;
+
+  // ── 1. التقدم نحو الأهداف ──
+  const goals = useMemo(() => {
+    const deliveryRate = os?.deliveryRate ?? myStats?.deliveryRate ?? 0;
+    const returnRate   = os?.returnRate   ?? myStats?.returnRate   ?? 0;
+    const total        = os?.total        ?? myStats?.total        ?? 0;
+    const daily        = myStats?.ordersPerDay ?? (total / 26);
+    return [
+      { label: "معدل التسليم",   value: deliveryRate,       target: 80,   unit: "%",       icon: CheckCircle2, color: "emerald" },
+      { label: "تخفيض الإرجاع", value: Math.max(0,20-returnRate), target: 20, unit: "%",  icon: XCircle,      color: "rose",    invert: true, rawValue: returnRate, rawTarget: 20 },
+      { label: "طلبات يومياً",   value: daily,              target: 10,   unit: "طلب",    icon: Package,      color: "blue" },
+      { label: "نقاط الأداء",    value: score,              target: 80,   unit: "نقطة",   icon: Trophy,       color: "amber" },
+    ];
+  }, [os, myStats, score]);
+
+  const achievedGoals = goals.filter(g => {
+    if (g.invert) return (g.rawValue ?? 0) < (g.rawTarget ?? 20);
+    return g.value >= g.target;
+  }).length;
+
+  // ── 2. تقييم الأداء الربعي ──
+  const quarterData = useMemo(() => [
+    { label: format(new Date(prev2Month + "-01"), "MMM", { locale: ar }), score: prev2Report?.overallScore ?? 0, delivered: prev2Report?.orderStats?.delivered ?? 0 },
+    { label: format(new Date(prevMonth + "-01"), "MMM",  { locale: ar }), score: prevReport?.overallScore  ?? 0, delivered: prevReport?.orderStats?.delivered  ?? 0 },
+    { label: format(new Date(currentMonth + "-01"), "MMM", { locale: ar }), score: currReport?.overallScore ?? 0, delivered: os?.delivered ?? 0 },
+  ], [prev2Report, prevReport, currReport, os, prev2Month, prevMonth, currentMonth]);
+
+  const quarterTrend = quarterData[2].score - quarterData[0].score;
+
+  // ── 3. مؤشرات الأداء التشغيلي ──
+  const operationalKpis = useMemo(() => [
+    {
+      label: "معدل التسليم",
+      value: os?.deliveryRate ?? myStats?.deliveryRate ?? 0,
+      target: 80, unit: "%", icon: CheckCircle2,
+      color: (os?.deliveryRate ?? 0) >= 80 ? "emerald" : "amber",
+      description: "نسبة الطلبات المكتملة",
+    },
+    {
+      label: "معدل الإرجاع",
+      value: os?.returnRate ?? myStats?.returnRate ?? 0,
+      target: 20, unit: "%", icon: XCircle,
+      color: (os?.returnRate ?? 0) < 20 ? "emerald" : "rose",
+      description: "نسبة الطلبات المرتجعة",
+      lowerIsBetter: true,
+    },
+    {
+      label: "سرعة المعالجة",
+      value: myStats?.avgProcessingHours ?? 0,
+      target: 24, unit: "ساعة", icon: Clock,
+      color: (myStats?.avgProcessingHours ?? 99) <= 24 ? "emerald" : "amber",
+      description: "متوسط وقت الإنجاز",
+      lowerIsBetter: true,
+    },
+    {
+      label: "طلبات/يوم",
+      value: myStats?.ordersPerDay ?? 0,
+      target: 10, unit: "طلب", icon: Gauge,
+      color: (myStats?.ordersPerDay ?? 0) >= 10 ? "emerald" : "blue",
+      description: "متوسط الإنتاجية اليومية",
+    },
+  ], [os, myStats]);
+
+  // ── 4. الملخص المالي ──
+  const baseSalary = currReport?.salary ?? 0;
+  const bonuses    = fin?.totalBonus ?? 0;
+  const deductions = fin?.totalDeduction ?? 0;
+  const netSalary  = baseSalary + bonuses - deductions;
+  const revenue    = os?.totalRevenue ?? 0;
+
+  // ── 5. مصفوفة مخاطر المؤشرات ──
+  const riskMatrix = useMemo(() => {
+    const items: { label: string; risk: "high" | "medium" | "low"; trend: "up" | "down" | "stable"; value: string; note: string }[] = [];
+    const returnRate = os?.returnRate ?? myStats?.returnRate ?? 0;
+    const deliveryRate = os?.deliveryRate ?? myStats?.deliveryRate ?? 0;
+    const procHours = myStats?.avgProcessingHours ?? null;
+    const scoreVal = score;
+
+    if (returnRate >= 25) items.push({ label: "معدل الإرجاع", risk: "high", trend: "down", value: `${returnRate.toFixed(1)}%`, note: "يتجاوز الحد المقبول 20%" });
+    else if (returnRate >= 15) items.push({ label: "معدل الإرجاع", risk: "medium", trend: "stable", value: `${returnRate.toFixed(1)}%`, note: "قريب من الحد التحذيري" });
+    else items.push({ label: "معدل الإرجاع", risk: "low", trend: "up", value: `${returnRate.toFixed(1)}%`, note: "ضمن النطاق الطبيعي" });
+
+    if (deliveryRate < 60) items.push({ label: "معدل التسليم", risk: "high", trend: "down", value: `${deliveryRate.toFixed(1)}%`, note: "أقل من الحد الأدنى المطلوب" });
+    else if (deliveryRate < 80) items.push({ label: "معدل التسليم", risk: "medium", trend: "stable", value: `${deliveryRate.toFixed(1)}%`, note: "يحتاج تحسين للوصول للهدف" });
+    else items.push({ label: "معدل التسليم", risk: "low", trend: "up", value: `${deliveryRate.toFixed(1)}%`, note: "يحقق الهدف المطلوب" });
+
+    if (procHours !== null) {
+      if (procHours > 48) items.push({ label: "سرعة التسليم", risk: "high", trend: "down", value: `${procHours.toFixed(0)}س`, note: "بطيء جداً في المعالجة" });
+      else if (procHours > 24) items.push({ label: "سرعة التسليم", risk: "medium", trend: "stable", value: `${procHours.toFixed(0)}س`, note: "أبطأ من المستهدف" });
+      else items.push({ label: "سرعة التسليم", risk: "low", trend: "up", value: `${procHours.toFixed(0)}س`, note: "سريع ومنتج" });
+    }
+
+    if (scoreVal < 40) items.push({ label: "نقاط الأداء الكلية", risk: "high", trend: "down", value: `${scoreVal}`, note: "يحتاج تدخل عاجل" });
+    else if (scoreVal < 60) items.push({ label: "نقاط الأداء الكلية", risk: "medium", trend: "stable", value: `${scoreVal}`, note: "مجال واسع للتحسين" });
+    else items.push({ label: "نقاط الأداء الكلية", risk: "low", trend: "up", value: `${scoreVal}`, note: "أداء جيد" });
+
+    return items.sort((a, b) => {
+      const order = { high: 0, medium: 1, low: 2 };
+      return order[a.risk] - order[b.risk];
+    });
+  }, [os, myStats, score]);
+
+  // ── 6. جدار الإنجازات الشهرية ──
+  const achievements = useMemo(() => {
+    const deliveryRate = os?.deliveryRate ?? myStats?.deliveryRate ?? 0;
+    const returnRate   = os?.returnRate   ?? myStats?.returnRate   ?? 0;
+    const total        = os?.total        ?? 0;
+    const daily        = myStats?.ordersPerDay ?? 0;
+    const procHours    = myStats?.avgProcessingHours ?? null;
+    const scoreVal     = score;
+
+    return [
+      {
+        id: "top_delivery",
+        label: "معدل تسليم ممتاز",
+        icon: Trophy,
+        color: "amber",
+        unlocked: deliveryRate >= 85,
+        desc: "حقق ≥ 85% معدل تسليم",
+        progress: Math.min(100, (deliveryRate / 85) * 100),
+      },
+      {
+        id: "zero_return",
+        label: "مرتجعات منخفضة",
+        icon: ShieldAlert,
+        color: "emerald",
+        unlocked: returnRate < 10,
+        desc: "معدل إرجاع أقل من 10%",
+        progress: Math.min(100, Math.max(0, (20 - returnRate) / 20) * 100),
+      },
+      {
+        id: "high_score",
+        label: "نجم الأداء",
+        icon: Star,
+        color: "yellow",
+        unlocked: scoreVal >= 80,
+        desc: "نقاط أداء ≥ 80",
+        progress: Math.min(100, (scoreVal / 80) * 100),
+      },
+      {
+        id: "productive",
+        label: "منتج يومياً",
+        icon: Zap,
+        color: "blue",
+        unlocked: daily >= 10,
+        desc: "متوسط 10 طلبات يومياً",
+        progress: Math.min(100, (daily / 10) * 100),
+      },
+      {
+        id: "fast_delivery",
+        label: "سريع الإنجاز",
+        icon: Clock,
+        color: "violet",
+        unlocked: procHours !== null && procHours <= 12,
+        desc: "وقت تسليم ≤ 12 ساعة",
+        progress: procHours !== null ? Math.min(100, Math.max(0, (24 - procHours) / 24) * 100) : 0,
+      },
+      {
+        id: "volume_hero",
+        label: "بطل الحجم",
+        icon: Package,
+        color: "rose",
+        unlocked: total >= 100,
+        desc: "100 طلب في الشهر",
+        progress: Math.min(100, (total / 100) * 100),
+      },
+    ];
+  }, [os, myStats, score]);
+
+  const unlockedCount = achievements.filter(a => a.unlocked).length;
+
+  const colorMap: Record<string, { text: string; bg: string; border: string; bar: string }> = {
+    emerald: { text: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/30", bar: "bg-emerald-500" },
+    amber:   { text: "text-amber-400",   bg: "bg-amber-500/10",   border: "border-amber-500/30",   bar: "bg-amber-500"   },
+    yellow:  { text: "text-yellow-400",  bg: "bg-yellow-500/10",  border: "border-yellow-500/30",  bar: "bg-yellow-500"  },
+    blue:    { text: "text-blue-400",    bg: "bg-blue-500/10",    border: "border-blue-500/30",    bar: "bg-blue-500"    },
+    violet:  { text: "text-violet-400",  bg: "bg-violet-500/10",  border: "border-violet-500/30",  bar: "bg-violet-500"  },
+    rose:    { text: "text-rose-400",    bg: "bg-rose-500/10",    border: "border-rose-500/30",    bar: "bg-rose-500"    },
+  };
+  const riskColorMap: Record<string, { text: string; bg: string; border: string; dot: string; label: string }> = {
+    high:   { text: "text-rose-400",    bg: "bg-rose-500/10",    border: "border-rose-500/30",   dot: "bg-rose-500",    label: "خطر عالٍ"   },
+    medium: { text: "text-amber-400",   bg: "bg-amber-500/10",   border: "border-amber-500/30",  dot: "bg-amber-500",   label: "خطر متوسط" },
+    low:    { text: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/30",dot: "bg-emerald-500", label: "منخفض"       },
+  };
+
+  return (
+    <div className="space-y-5" dir="rtl">
+
+      {/* ══ 1. التقدم نحو الأهداف ══ */}
+      <div className="rounded-2xl border border-border bg-card overflow-hidden">
+        <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between"
+          style={{ background: "linear-gradient(to left, hsl(var(--primary)/0.08), transparent)" }}>
+          <div className="flex items-center gap-2">
+            <Target className="w-4 h-4 text-primary" />
+            <span className="font-black text-sm">التقدم نحو الأهداف</span>
+          </div>
+          <span className="text-xs font-bold text-muted-foreground">{achievedGoals}/{goals.length} محقق</span>
+        </div>
+        <div className="p-4 space-y-4">
+          {/* Donut summary */}
+          <div className="flex items-center gap-4">
+            <div className="relative shrink-0" style={{ width: 80, height: 80 }}>
+              <svg width={80} height={80} style={{ transform: "rotate(-90deg)" }}>
+                <circle cx={40} cy={40} r={32} fill="none" stroke="hsl(var(--muted)/0.3)" strokeWidth={10} />
+                <circle cx={40} cy={40} r={32} fill="none"
+                  stroke={achievedGoals === goals.length ? "#10b981" : achievedGoals >= goals.length / 2 ? "#3b82f6" : "#f59e0b"}
+                  strokeWidth={10}
+                  strokeDasharray={`${(achievedGoals / goals.length) * 2 * Math.PI * 32} ${2 * Math.PI * 32}`}
+                  strokeLinecap="round"
+                  style={{ transition: "stroke-dasharray 1s ease" }}
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-lg font-black leading-none">{achievedGoals}</span>
+                <span className="text-[9px] text-muted-foreground">/{goals.length}</span>
+              </div>
+            </div>
+            <div className="flex-1 space-y-1">
+              <p className="text-sm font-bold">{achievedGoals === goals.length ? "🎉 كل الأهداف محققة!" : `${goals.length - achievedGoals} أهداف متبقية`}</p>
+              <p className="text-xs text-muted-foreground">شهر {format(new Date(currentMonth + "-01"), "MMMM yyyy", { locale: ar })}</p>
+              {rating && <p className="text-xs font-bold" style={{ color: score >= 80 ? "#10b981" : score >= 60 ? "#3b82f6" : "#f59e0b" }}>التقييم: {rating}</p>}
+            </div>
+          </div>
+          {/* Goals list */}
+          <div className="space-y-3">
+            {goals.map((g, i) => {
+              const isAchieved = g.invert ? (g.rawValue ?? 0) < (g.rawTarget ?? 20) : g.value >= g.target;
+              const progressPct = g.invert
+                ? Math.min(100, Math.max(0, ((g.rawTarget ?? 20) - (g.rawValue ?? 0)) / (g.rawTarget ?? 20) * 100))
+                : Math.min(100, (g.value / g.target) * 100);
+              const c = colorMap[g.color] ?? colorMap.blue;
+              return (
+                <div key={i} className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <g.icon className={`w-3.5 h-3.5 ${c.text}`} />
+                      <span className="text-xs font-bold">{g.label}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs font-black ${c.text}`}>
+                        {g.invert ? `${(g.rawValue ?? 0).toFixed(1)}${g.unit}` : `${typeof g.value === 'number' && g.value % 1 !== 0 ? g.value.toFixed(1) : g.value} ${g.unit}`}
+                      </span>
+                      {isAchieved
+                        ? <BadgeCheck className="w-3.5 h-3.5 text-emerald-400" />
+                        : <span className="text-[10px] text-muted-foreground">الهدف: {g.target}{g.unit}</span>}
+                    </div>
+                  </div>
+                  <div className="h-2 bg-muted/30 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full transition-all duration-700 ${isAchieved ? "bg-emerald-500" : c.bar}`}
+                      style={{ width: `${progressPct}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* ══ 2. تقييم الأداء الربعي ══ */}
+      <div className="rounded-2xl border border-border bg-card overflow-hidden">
+        <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between"
+          style={{ background: "linear-gradient(to left, hsl(var(--primary)/0.08), transparent)" }}>
+          <div className="flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-blue-400" />
+            <span className="font-black text-sm">تقييم الأداء الربعي</span>
+          </div>
+          <span className={`text-xs font-bold flex items-center gap-1 ${quarterTrend > 0 ? "text-emerald-400" : quarterTrend < 0 ? "text-rose-400" : "text-muted-foreground"}`}>
+            {quarterTrend > 0 ? <ArrowUp className="w-3 h-3" /> : quarterTrend < 0 ? <ArrowDown className="w-3 h-3" /> : null}
+            {quarterTrend > 0 ? `+${quarterTrend}` : quarterTrend} نقطة
+          </span>
+        </div>
+        <div className="p-4 space-y-4">
+          {/* Bar chart الربعي */}
+          <div className="flex items-end gap-3 h-28 px-2">
+            {quarterData.map((q, i) => {
+              const h = Math.max(8, (q.score / 100) * 96);
+              const isLast = i === quarterData.length - 1;
+              return (
+                <div key={i} className="flex-1 flex flex-col items-center gap-1.5">
+                  <span className="text-xs font-black" style={{ color: isLast ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))" }}>{q.score}</span>
+                  <div className="w-full rounded-t-lg transition-all duration-700 relative overflow-hidden"
+                    style={{
+                      height: h,
+                      background: isLast
+                        ? "linear-gradient(180deg, hsl(var(--primary)), hsl(var(--primary)/0.6))"
+                        : "hsl(var(--muted)/0.5)",
+                    }}>
+                    {isLast && (
+                      <div className="absolute inset-0 bg-white/10 opacity-0 hover:opacity-100 transition-opacity" />
+                    )}
+                  </div>
+                  <span className="text-[10px] text-muted-foreground">{q.label}</span>
+                </div>
+              );
+            })}
+          </div>
+          {/* Stats row */}
+          <div className="grid grid-cols-3 gap-2">
+            {quarterData.map((q, i) => (
+              <div key={i} className={`rounded-xl p-3 border text-center ${i === quarterData.length - 1 ? "border-primary/30 bg-primary/5" : "border-border bg-muted/20"}`}>
+                <p className="text-[10px] text-muted-foreground mb-1">{q.label}</p>
+                <p className={`text-lg font-black ${i === quarterData.length - 1 ? "text-primary" : ""}`}>{q.score}</p>
+                <p className="text-[10px] text-emerald-400">{fmtNum(q.delivered)} مسلّم</p>
+              </div>
+            ))}
+          </div>
+          {/* Rating badge */}
+          {rating && (
+            <div className={`rounded-xl p-3 border flex items-center justify-between ${score >= 80 ? "border-emerald-500/30 bg-emerald-500/5" : score >= 60 ? "border-blue-500/30 bg-blue-500/5" : "border-amber-500/30 bg-amber-500/5"}`}>
+              <span className="text-sm font-bold">التقييم الإجمالي للربع</span>
+              <span className={`text-sm font-black flex items-center gap-1 ${score >= 80 ? "text-emerald-400" : score >= 60 ? "text-blue-400" : "text-amber-400"}`}>
+                <Star className="w-4 h-4 text-yellow-400" />{rating}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ══ 3. مؤشرات الأداء التشغيلي ══ */}
+      <div className="rounded-2xl border border-border bg-card overflow-hidden">
+        <div className="px-4 py-3 border-b border-border/50"
+          style={{ background: "linear-gradient(to left, hsl(var(--primary)/0.08), transparent)" }}>
+          <div className="flex items-center gap-2">
+            <Gauge className="w-4 h-4 text-violet-400" />
+            <span className="font-black text-sm">مؤشرات الأداء التشغيلي</span>
+          </div>
+        </div>
+        <div className="p-4 space-y-3">
+          {operationalKpis.map((kpi, i) => {
+            const c = colorMap[kpi.color] ?? colorMap.blue;
+            const progressPct = kpi.lowerIsBetter
+              ? Math.min(100, Math.max(0, ((kpi.target * 2) - kpi.value) / (kpi.target * 2) * 100))
+              : Math.min(100, (kpi.value / kpi.target) * 100);
+            const isOk = kpi.lowerIsBetter ? kpi.value <= kpi.target : kpi.value >= kpi.target;
+            return (
+              <div key={i} className={`rounded-xl p-3.5 border ${c.bg} ${c.border}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <kpi.icon className={`w-4 h-4 ${c.text}`} />
+                    <span className="text-sm font-bold">{kpi.label}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-base font-black ${c.text}`}>
+                      {typeof kpi.value === 'number' && kpi.value % 1 !== 0 ? kpi.value.toFixed(1) : kpi.value}{kpi.unit}
+                    </span>
+                    {isOk ? <BadgeCheck className="w-4 h-4 text-emerald-400" /> : <AlertCircle className="w-4 h-4 text-amber-400" />}
+                  </div>
+                </div>
+                <div className="h-2.5 bg-black/20 rounded-full overflow-hidden mb-1.5">
+                  <div className={`h-full rounded-full transition-all duration-700 ${isOk ? "bg-emerald-500" : c.bar}`}
+                    style={{ width: `${progressPct}%` }} />
+                </div>
+                <div className="flex justify-between text-[10px] text-muted-foreground/70">
+                  <span>{kpi.description}</span>
+                  <span>{kpi.lowerIsBetter ? "الحد: " : "الهدف: "}{kpi.target}{kpi.unit}</span>
+                </div>
+              </div>
+            );
+          })}
+          {/* KPIs المخصصة من التقرير */}
+          {kpis.length > 0 && (
+            <div className="pt-2 border-t border-border/40 space-y-2">
+              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">KPIs مخصصة</p>
+              {kpis.map(k => {
+                const actual = k.actualValue ?? 0;
+                const progress = k.targetValue > 0 ? Math.min(100, (actual / k.targetValue) * 100) : 0;
+                const c = k.achieved ? colorMap.emerald : colorMap.amber;
+                return (
+                  <div key={k.id} className={`rounded-xl p-3 border ${c.bg} ${c.border}`}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs font-bold">{k.name}</span>
+                      <span className={`text-sm font-black ${c.text}`}>{fmtNum(actual)}/{fmtNum(k.targetValue)} {k.unit}</span>
+                    </div>
+                    <div className="h-2 bg-black/20 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full ${k.achieved ? "bg-emerald-500" : "bg-amber-500"} transition-all duration-700`} style={{ width: `${progress}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ══ 4. الملخص المالي للمؤشرات ══ */}
+      <div className="rounded-2xl border border-border bg-card overflow-hidden">
+        <div className="px-4 py-3 border-b border-border/50"
+          style={{ background: "linear-gradient(to left, hsl(var(--primary)/0.08), transparent)" }}>
+          <div className="flex items-center gap-2">
+            <Wallet className="w-4 h-4 text-emerald-400" />
+            <span className="font-black text-sm">الملخص المالي للمؤشرات</span>
+          </div>
+        </div>
+        <div className="p-4 space-y-3">
+          {/* Mini cards */}
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="rounded-xl p-3.5 border border-blue-500/20 bg-blue-500/5">
+              <p className="text-[10px] text-muted-foreground mb-1">إجمالي الإيرادات</p>
+              <p className="text-lg font-black text-blue-400">{fmt(revenue)}</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">{fmtNum(os?.delivered ?? 0)} طلب مسلّم</p>
+            </div>
+            <div className="rounded-xl p-3.5 border border-emerald-500/20 bg-emerald-500/5">
+              <p className="text-[10px] text-muted-foreground mb-1">الراتب الأساسي</p>
+              <p className="text-lg font-black text-emerald-400">{fmt(baseSalary)}</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">شهر {format(new Date(currentMonth + "-01"), "MMMM", { locale: ar })}</p>
+            </div>
+          </div>
+          {/* KPI bonuses/deductions */}
+          {(bonuses > 0 || deductions > 0) && (
+            <div className="space-y-2">
+              {bonuses > 0 && (
+                <div className="flex items-center justify-between rounded-xl p-3 border border-emerald-500/20 bg-emerald-500/5">
+                  <span className="text-sm text-emerald-400 flex items-center gap-1.5"><ArrowUp className="w-3.5 h-3.5" />مكافآت KPIs</span>
+                  <span className="font-black text-emerald-400">+ {fmt(bonuses)}</span>
+                </div>
+              )}
+              {deductions > 0 && (
+                <div className="flex items-center justify-between rounded-xl p-3 border border-rose-500/20 bg-rose-500/5">
+                  <span className="text-sm text-rose-400 flex items-center gap-1.5"><ArrowDown className="w-3.5 h-3.5" />خصومات KPIs</span>
+                  <span className="font-black text-rose-400">- {fmt(deductions)}</span>
+                </div>
+              )}
+            </div>
+          )}
+          {/* Net salary */}
+          {baseSalary > 0 && (
+            <div className="rounded-xl p-4 border border-primary/30 bg-primary/5 flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground">صافي الراتب المستحق</p>
+                {fin && <p className="text-[10px] text-muted-foreground">{fin.achievedCount}/{kpis.length} KPIs محققة</p>}
+              </div>
+              <p className="text-2xl font-black text-primary">{fmt(netSalary)}</p>
+            </div>
+          )}
+          {/* KPI financial breakdown */}
+          {kpis.length > 0 && (
+            <div className="space-y-1.5 pt-1 border-t border-border/40">
+              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">تفاصيل KPIs</p>
+              {kpis.map(k => (
+                <div key={k.id} className="flex items-center justify-between py-1.5 border-b border-border/20 last:border-0">
+                  <div className="flex items-center gap-2">
+                    {k.achieved ? <BadgeCheck className="w-3.5 h-3.5 text-emerald-400" /> : <XCircle className="w-3.5 h-3.5 text-rose-400" />}
+                    <span className="text-xs">{k.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-muted-foreground">{fmtNum(k.actualValue ?? 0)}/{fmtNum(k.targetValue)} {k.unit}</span>
+                    {k.score != null && (
+                      <span className={`text-xs font-bold ${k.score >= 80 ? "text-emerald-400" : k.score >= 60 ? "text-blue-400" : "text-rose-400"}`}>
+                        {k.score.toFixed(0)}%
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {baseSalary === 0 && (
+            <div className="text-center py-6 text-muted-foreground">
+              <Wallet className="w-8 h-8 mx-auto mb-2 opacity-20" />
+              <p className="text-sm">لا توجد بيانات مالية لهذا الشهر</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ══ 5. مصفوفة مخاطر المؤشرات ══ */}
+      <div className="rounded-2xl border border-border bg-card overflow-hidden">
+        <div className="px-4 py-3 border-b border-border/50"
+          style={{ background: "linear-gradient(to left, hsl(var(--primary)/0.08), transparent)" }}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4 text-rose-400" />
+              <span className="font-black text-sm">مصفوفة مخاطر المؤشرات</span>
+            </div>
+            <div className="flex items-center gap-2 text-[10px]">
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-rose-500" />عالٍ</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500" />متوسط</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" />منخفض</span>
+            </div>
+          </div>
+        </div>
+        <div className="p-4 space-y-2.5">
+          {riskMatrix.map((item, i) => {
+            const rc = riskColorMap[item.risk];
+            return (
+              <div key={i} className={`rounded-xl p-3.5 border ${rc.bg} ${rc.border} flex items-center gap-3`}>
+                <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${rc.dot}`} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <span className="text-sm font-bold">{item.label}</span>
+                    <span className={`text-sm font-black ${rc.text}`}>{item.value}</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">{item.note}</p>
+                </div>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${rc.bg} ${rc.border} ${rc.text} shrink-0`}>{rc.label}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ══ 6. جدار الإنجازات الشهرية ══ */}
+      <div className="rounded-2xl border border-border bg-card overflow-hidden">
+        <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between"
+          style={{ background: "linear-gradient(to left, hsl(var(--primary)/0.08), transparent)" }}>
+          <div className="flex items-center gap-2">
+            <Award className="w-4 h-4 text-yellow-400" />
+            <span className="font-black text-sm">جدار الإنجازات الشهرية</span>
+          </div>
+          <span className="text-xs font-bold text-muted-foreground">{unlockedCount}/{achievements.length} مفتوحة</span>
+        </div>
+        <div className="p-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {achievements.map((a, i) => {
+              const c = colorMap[a.color] ?? colorMap.blue;
+              return (
+                <div key={i}
+                  className={`rounded-2xl p-4 border flex flex-col items-center gap-2 text-center transition-all duration-300 ${
+                    a.unlocked
+                      ? `${c.bg} ${c.border} shadow-sm`
+                      : "border-border/30 bg-muted/10 opacity-50 grayscale"
+                  }`}>
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center ${a.unlocked ? c.bg : "bg-muted/30"}`}
+                    style={a.unlocked ? { boxShadow: `0 0 16px ${a.color === "emerald" ? "rgba(16,185,129,0.3)" : a.color === "amber" ? "rgba(245,158,11,0.3)" : "rgba(59,130,246,0.3)"}` } : {}}>
+                    <a.icon className={`w-6 h-6 ${a.unlocked ? c.text : "text-muted-foreground"}`} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold leading-tight">{a.label}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{a.desc}</p>
+                  </div>
+                  {/* progress mini bar */}
+                  <div className="w-full h-1.5 bg-black/10 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full transition-all duration-700 ${a.unlocked ? c.bar : "bg-muted-foreground/30"}`}
+                      style={{ width: `${a.progress}%` }} />
+                  </div>
+                  {a.unlocked && (
+                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${c.bg} ${c.text} border ${c.border}`}>
+                      ✓ مفتوحة
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+    </div>
+  );
+}
+
 /* ── Main Profile Page ── */
 /* ── Tab: Attendance ── */
 const STATUS_META: Record<string, { label: string; color: string; bg: string; border: string; dot: string }> = {
@@ -1455,7 +2035,7 @@ export default function ProfilePage() {
   const qc = useQueryClient();
 
   const [avatarB64, setAvatarB64] = useState<string | null | undefined>(undefined);
-  const [activeTab, setActiveTab] = useState<"dashboard" | "orders" | "kpis" | "report" | "attendance" | "settings">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "orders" | "kpis" | "report" | "saleskpi" | "attendance" | "settings">("dashboard");
 
   // Fetch team extended stats (for current user overview)
   const { data: allStats } = useQuery({
@@ -1514,14 +2094,16 @@ export default function ProfilePage() {
   const roleColor = getRoleColor(user.role);
 
   const isAdminRole = user?.role === "super_admin" || user?.role === "admin";
+  const isEmployee  = user?.role === "employee";
 
   const TABS = [
-    { key: "dashboard",  label: "لوحتي",         icon: LayoutDashboard },
-    { key: "orders",     label: "طلباتي",         icon: ListOrdered },
-    { key: "kpis",       label: "مؤشرات الأداء",  icon: Activity },
-    { key: "report",     label: "تقرير شهري",     icon: FileText },
+    { key: "dashboard",    label: "لوحتي",         icon: LayoutDashboard },
+    { key: "orders",       label: "طلباتي",         icon: ListOrdered },
+    { key: "kpis",         label: "مؤشرات الأداء",  icon: Activity },
+    { key: "report",       label: "تقرير شهري",     icon: FileText },
+    ...(isEmployee ? [{ key: "saleskpi", label: "أداء الفريق", icon: GanttChart }] : []),
     ...(!isAdminRole ? [{ key: "attendance", label: "الحضور", icon: CalendarCheck2 }] : []),
-    { key: "settings",   label: "الإعدادات",       icon: User },
+    { key: "settings",     label: "الإعدادات",       icon: User },
   ];
 
   return (
@@ -1579,6 +2161,7 @@ export default function ProfilePage() {
       {activeTab === "orders" && <OrdersTab profile={myProfile} userId={user.id} />}
       {activeTab === "kpis" && <KpisTab myStats={myStats} profile={myProfile} />}
       {activeTab === "report" && <MonthlyReportTab profile={myProfile} />}
+      {activeTab === "saleskpi" && <SalesKPIDashboardTab myStats={myStats} profile={myProfile} />}
       {activeTab === "attendance" && <AttendanceTab />}
       {activeTab === "settings" && (
         <SettingsTab
