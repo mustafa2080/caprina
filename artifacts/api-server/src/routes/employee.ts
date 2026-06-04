@@ -542,8 +542,8 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
     kpis.map(async (kpi) => {
       let actualValue: number | null;
       if (kpi.metric === "manual") {
-        // use cumulative monthly sum from daily logs
-        actualValue = manualCumulativeMap.get(kpi.id) ?? null;
+        // use cumulative monthly sum from daily logs — default to 0 if no logs yet
+        actualValue = manualCumulativeMap.get(kpi.id) ?? 0;
       } else {
         actualValue = userId
           ? await computeActualValue(kpi.metric, userId, dateFrom, dateTo, (profile as any).tenantId)
@@ -809,7 +809,7 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
     kpis.map(async (kpi) => {
       let actualValue: number | null;
       if (kpi.metric === "manual") {
-        actualValue = manualCumulativeMapMR.get(kpi.id) ?? null;
+        actualValue = manualCumulativeMapMR.get(kpi.id) ?? 0;
       } else {
         actualValue = await computeActualValue(kpi.metric, userId, dateFrom, dateTo, (profile as any).tenantId);
       }
