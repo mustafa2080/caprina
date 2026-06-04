@@ -548,9 +548,9 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
           ? await computeActualValue(kpi.metric, userId, dateFrom, dateTo, profile.tenantId)
           : 0;
       }
-      // For manual KPIs: use progressive target based on day number in month
-      // For past months (completed): use full monthly target
-      const effectiveTarget = kpi.metric === "manual" && isCurrentMonth
+      // Progressive target for current month — applies to ALL metric types.
+      // For past months (completed): use full monthly target as-is.
+      const effectiveTarget = isCurrentMonth
         ? Math.max(1, Math.round((kpi.targetValue / reportDaysInMonth) * reportDayNumber))
         : kpi.targetValue;
       const score =
@@ -598,11 +598,16 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
         : null;
   }
 
-  // fallback: لو مفيش KPIs — نحسب من deliveryRate ومعدل الإرجاع
+  // fallback: لو مفيش KPIs — نحسب من الطلبات المغلقة فقط (delivered + returned)
   if (overallScore === null && orderStats.total > 0) {
-    const deliveryScore = orderStats.deliveryRate;
-    const returnPenalty = Math.max(0, 100 - orderStats.returnRate * 2);
-    overallScore = Math.round(deliveryScore * 0.6 + returnPenalty * 0.4);
+    const closedCount = orderStats.delivered + orderStats.returned;
+    if (closedCount > 0) {
+      const closedDeliveryRate = Math.round((orderStats.delivered / closedCount) * 100);
+      const closedReturnRate   = Math.round((orderStats.returned  / closedCount) * 100);
+      const returnPenalty      = Math.max(0, 100 - closedReturnRate * 2);
+      overallScore = Math.round(closedDeliveryRate * 0.6 + returnPenalty * 0.4);
+    }
+    // لو مفيش طلبات مغلقة خالص → مفيش score بعد (كل الطلبات لسه pending)
   }
 
   const rating =
@@ -689,11 +694,16 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
     const deliveryRate = totalInvoices0 > 0 ? Math.round((delivered / totalInvoices0) * 100) : 0;
     const returnRate   = totalInvoices0 > 0 ? Math.round((returned  / totalInvoices0) * 100) : 0;
 
-    // fallback score من deliveryRate ومعدل الإرجاع
+    // fallback score من الطلبات المغلقة فقط
     let noProfileScore: number | null = null;
     if (orders.length > 0) {
-      const returnPenalty = Math.max(0, 100 - returnRate * 2);
-      noProfileScore = Math.round(deliveryRate * 0.6 + returnPenalty * 0.4);
+      const closedCount0 = delivered + returned;
+      if (closedCount0 > 0) {
+        const closedDR = Math.round((delivered / closedCount0) * 100);
+        const closedRR = Math.round((returned  / closedCount0) * 100);
+        const returnPenalty = Math.max(0, 100 - closedRR * 2);
+        noProfileScore = Math.round(closedDR * 0.6 + returnPenalty * 0.4);
+      }
     }
     const noProfileRating =
       noProfileScore === null ? "لا توجد بيانات"
@@ -835,11 +845,16 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
       : null;
   }
 
-  // fallback: لو مفيش KPIs — نحسب النقاط من deliveryRate (60% وزن) ومعدل الإرجاع (40% وزن)
+  // fallback: لو مفيش KPIs — نحسب من الطلبات المغلقة فقط (delivered + returned)
   if (overallScore === null && orderStats.total > 0) {
-    const deliveryScore = orderStats.deliveryRate; // 0-100
-    const returnPenalty = Math.max(0, 100 - orderStats.returnRate * 2); // عقوبة المرتجعات
-    overallScore = Math.round(deliveryScore * 0.6 + returnPenalty * 0.4);
+    const closedCount = orderStats.delivered + orderStats.returned;
+    if (closedCount > 0) {
+      const closedDeliveryRate = Math.round((orderStats.delivered / closedCount) * 100);
+      const closedReturnRate   = Math.round((orderStats.returned  / closedCount) * 100);
+      const returnPenalty      = Math.max(0, 100 - closedReturnRate * 2);
+      overallScore = Math.round(closedDeliveryRate * 0.6 + returnPenalty * 0.4);
+    }
+    // لو كل الطلبات لسه pending → مفيش score
   }
 
   const rating =
