@@ -3091,6 +3091,9 @@ function EmployeeDetail({
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   });
+  const today = new Date().toISOString().slice(0, 10);
+  const [kpiViewMode, setKpiViewMode] = useState<"monthly" | "daily">("monthly");
+  const [kpiSelectedDate, setKpiSelectedDate] = useState(today);
 
   const { data: kpis = [], isLoading: kpisLoading } = useQuery({
     queryKey: ["employee-kpis", profileId],
@@ -3102,10 +3105,19 @@ function EmployeeDetail({
     queryFn: () => employeeApi.getProfile(profileId),
   });
 
-  const { data: report, isLoading: reportLoading } = useQuery({
+  const { data: monthlyReport, isLoading: reportLoading } = useQuery({
     queryKey: ["employee-report", profileId, reportMonth],
     queryFn: () => employeeApi.getReport(profileId, reportMonth),
   });
+
+  const { data: dailyReportKpi } = useQuery({
+    queryKey: ["employee-report-kpi-daily", profileId, kpiSelectedDate],
+    queryFn: () => employeeApi.getReport(profileId, undefined, "daily", kpiSelectedDate),
+    enabled: kpiViewMode === "daily",
+    staleTime: 60_000,
+  });
+
+  const report = kpiViewMode === "daily" ? dailyReportKpi : monthlyReport;
 
   const { data: salaryReport } = useQuery({
     queryKey: ["salary-report", profileId, reportMonth],
@@ -3251,16 +3263,48 @@ function EmployeeDetail({
         <TabsContent value="kpis" className="space-y-4 mt-3">
 
           {/* ── Header ── */}
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>
               <p className="text-sm font-bold">لوحة مؤشرات الأداء</p>
-              <p className="text-[10px] text-muted-foreground">نظرة شاملة على أداء الموظف ومؤشراته الشهرية</p>
+              <p className="text-[10px] text-muted-foreground">
+                {kpiViewMode === "daily"
+                  ? `أداء يوم ${new Date(kpiSelectedDate + "T00:00:00").toLocaleDateString("ar-EG", { weekday: "long", day: "numeric", month: "long" })}`
+                  : "نظرة شاملة على أداء الموظف ومؤشراته الشهرية"}
+              </p>
             </div>
-            {isAdmin && (
-              <Button size="sm" className="h-7 text-xs gap-1" onClick={() => { setEditingKpi(undefined); setKpiDialogOpen(true); }}>
-                <Plus className="w-3 h-3" />إضافة مؤشر
-              </Button>
-            )}
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Toggle يومي/شهري */}
+              <div className="flex items-center gap-1 p-1 rounded-xl border border-border bg-muted/20">
+                {(["monthly", "daily"] as const).map(mode => (
+                  <button key={mode} type="button" onClick={() => setKpiViewMode(mode)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      kpiViewMode === mode ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                    }`}>
+                    {mode === "monthly" ? "شهري" : "يومي"}
+                  </button>
+                ))}
+              </div>
+              {/* date/month picker */}
+              {kpiViewMode === "daily" ? (
+                <input type="date" value={kpiSelectedDate} max={today}
+                  onChange={e => setKpiSelectedDate(e.target.value)}
+                  className="rounded-lg border border-border bg-muted/20 px-3 py-1.5 text-xs font-medium focus:outline-none focus:border-primary" />
+              ) : (
+                <select value={reportMonth} onChange={e => setReportMonth(e.target.value)}
+                  className="rounded-lg border border-border bg-muted/20 px-3 py-1.5 text-xs font-medium focus:outline-none focus:border-primary">
+                  {Array.from({ length: 12 }, (_, i) => {
+                    const d = new Date(); d.setMonth(d.getMonth() - i);
+                    const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+                    return <option key={val} value={val}>{d.toLocaleDateString("ar-EG", { month: "long", year: "numeric" })}</option>;
+                  })}
+                </select>
+              )}
+              {isAdmin && (
+                <Button size="sm" className="h-7 text-xs gap-1" onClick={() => { setEditingKpi(undefined); setKpiDialogOpen(true); }}>
+                  <Plus className="w-3 h-3" />إضافة مؤشر
+                </Button>
+              )}
+            </div>
           </div>
 
           {kpisLoading && <p className="text-center text-muted-foreground text-xs py-6">جاري التحميل...</p>}
@@ -3330,7 +3374,7 @@ function EmployeeDetail({
                       <div className="space-y-1">
                         <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/70 px-3 py-1 text-[10px] font-bold text-muted-foreground">
                           <Target className="w-3 h-3 text-primary" />
-                          لوحة مؤشرات الأداء الشهرية
+                          {kpiViewMode === "daily" ? `أداء يوم ${kpiSelectedDate}` : "لوحة مؤشرات الأداء الشهرية"}
                         </div>
                         <h3 className="text-lg font-black leading-tight">مراجعة سريعة لأداء {displayName}</h3>
                         <p className="text-xs text-muted-foreground max-w-2xl">
@@ -3809,7 +3853,8 @@ function EmployeeDetail({
                   </CardContent>
                 </Card>
 
-                {/* ─── Monthly Trend: آخر 3 أشهر ─── */}
+                {/* ─── Monthly Trend: آخر 3 أشهر — شهري فقط ─── */}
+                {kpiViewMode === "monthly" && (
                 <Card className="border-border bg-card">
                   <CardContent className="px-4 py-4">
                     <div className="flex items-center gap-2 mb-4">
@@ -3819,6 +3864,7 @@ function EmployeeDetail({
                     <MonthlyTrend profileId={profileId} currentMonth={reportMonth} kpis={kpis} />
                   </CardContent>
                 </Card>
+                )}
 
                 {/* ─── NEW 1: Performance Risk Matrix ─── */}
                 {activeKpis.length > 0 && (() => {
