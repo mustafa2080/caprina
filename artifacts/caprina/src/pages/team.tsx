@@ -5,7 +5,7 @@ import {
   TrendingUp, TrendingDown, Printer, Star, AlertCircle, Trophy, Briefcase, Package,
   DollarSign, Calendar, BarChart2, Settings, ArrowLeft, Save, RefreshCw, UserPlus,
   Clock, UserCheck, UserX, Gift, MinusCircle, CheckCircle2, XCircle, AlertTriangle,
-  Crown, Medal, Award, Download,
+  Crown, Medal, Award, Download, Search,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -4677,6 +4677,7 @@ export default function TeamPage() {
   const [addProfileOpen, setAddProfileOpen] = useState(false);
   const [addingUser, setAddingUser] = useState<AppUser | null>(null);
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [teamSearch, setTeamSearch] = useState("");
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -4760,13 +4761,28 @@ export default function TeamPage() {
 
   return (
     <div className="space-y-5 animate-in fade-in duration-500">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex-1 min-w-0">
           <h1 className="text-xl font-bold flex items-center gap-2">
             <Users className="w-5 h-5 text-primary" />
             إدارة الفريق
           </h1>
           <p className="text-muted-foreground text-xs mt-0.5">بيانات الموظفين، مؤشرات الأداء، والتقارير الشهرية</p>
+        </div>
+        {/* ── بحث realtime ── */}
+        <div className="relative w-56">
+          <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="ابحث باسم الموظف..."
+            value={teamSearch}
+            onChange={e => setTeamSearch(e.target.value)}
+            className="h-8 text-xs pr-8 pl-3"
+          />
+          {teamSearch && (
+            <button onClick={() => setTeamSearch("")} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+              <X className="w-3 h-3" />
+            </button>
+          )}
         </div>
         {canShowWizard && (
           <Button size="sm" className="gap-1 h-8 text-xs" onClick={() => setWizardOpen(true)}>
@@ -4790,7 +4806,7 @@ export default function TeamPage() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {profiles.map(profile => {
+        {profiles.filter(p => !teamSearch || (p.displayName ?? "").includes(teamSearch) || (p as any).username?.includes(teamSearch) || (p as any).jobTitle?.includes(teamSearch)).map(profile => {
           const isSystemUser = !!(profile as any).isSystemUser;
           const roleMap: Record<string, string> = { super_admin: "سوبر أدمن", admin: "مدير", warehouse: "مخزن", employee: "موظف" };
           const roleLabel = (profile as any).role ? (roleMap[(profile as any).role] ?? (profile as any).role) : (isSystemUser ? "موظف" : "فريق فقط");
