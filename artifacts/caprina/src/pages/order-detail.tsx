@@ -2210,23 +2210,6 @@ export default function OrderDetail() {
                 <Plus className="w-3 h-3" />إضافة منتج
               </Button>
               )}
-              <Button variant="outline" size="sm" onClick={handlePrint} className="h-8 text-xs gap-1 border-border">
-                <Printer className="w-3 h-3" />فاتورة
-              </Button>
-              {isAdmin && order.status !== "received" && order.status !== "partial_received" && order.status !== "returned" && (
-                <Button
-                  variant="outline" size="sm"
-                  onClick={() => {
-                    const regs = (cashData as any)?.registers ?? [];
-                    const defaultReg = regs.find((r: any) => r.isDefault) ?? regs[0];
-                    if (defaultReg) setSelectedRegisterId(String(defaultReg.id));
-                    setShowCloseDialog(true);
-                  }}
-                  className="h-8 text-xs gap-1 bg-transparent hover:bg-emerald-500/10 text-emerald-400 border border-emerald-600/50 hover:border-emerald-500"
-                >
-                  <CheckCircle2 className="w-3 h-3" />إغلاق
-                </Button>
-              )}
               {(order.status === "pending" || order.status === "warehouse_ready") && (
                 <Button
                   variant="outline" size="sm"
@@ -2269,6 +2252,28 @@ export default function OrderDetail() {
             <Button variant="outline" size="sm" onClick={handlePrint} className="h-8 text-xs gap-1 border-border">
               <Printer className="w-3 h-3" />فاتورة
             </Button>
+          )}
+          {/* زراري الطباعة والإغلاق — يظهران دائماً بغض النظر عن وضع التعديل أو الصلاحيات */}
+          {isEditing && (
+            <>
+              <Button variant="outline" size="sm" onClick={handlePrint} className="h-8 text-xs gap-1 border-border">
+                <Printer className="w-3 h-3" />فاتورة
+              </Button>
+              {isAdmin && order.status !== "received" && order.status !== "partial_received" && order.status !== "returned" && (
+                <Button
+                  variant="outline" size="sm"
+                  onClick={() => {
+                    const regs = (cashData as any)?.registers ?? [];
+                    const defaultReg = regs.find((r: any) => r.isDefault) ?? regs[0];
+                    if (defaultReg) setSelectedRegisterId(String(defaultReg.id));
+                    setShowCloseDialog(true);
+                  }}
+                  className="h-8 text-xs gap-1 bg-transparent hover:bg-emerald-500/10 text-emerald-400 border border-emerald-600/50 hover:border-emerald-500"
+                >
+                  <CheckCircle2 className="w-3 h-3" />إغلاق
+                </Button>
+              )}
+            </>
           )}
         </div>
       </div>
