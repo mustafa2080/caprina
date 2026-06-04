@@ -159,9 +159,13 @@ function AvatarUpload({ currentAvatar, displayName, onUpload }: {
 
 /* ── Tab: Dashboard (لوحتي) ── */
 function DashboardTab({ myStats, profile }: { myStats?: TeamMemberExtStats; profile?: EmployeeProfile }) {
+  const [viewMode, setViewMode]       = useState<"monthly" | "daily">("monthly");
+  const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
+
   const currentMonth = format(new Date(), "yyyy-MM");
   const prevMonth = format(subMonths(new Date(), 1), "yyyy-MM");
   const todayStr = format(new Date(), "yyyy-MM-dd");
+  const selectedMonth = selectedDate.slice(0, 7);
 
   const { data: currReport } = useQuery({
     queryKey: ["emp-report-curr-mine", currentMonth],
@@ -172,29 +176,38 @@ function DashboardTab({ myStats, profile }: { myStats?: TeamMemberExtStats; prof
     queryFn: () => employeeApi.getMyReport(prevMonth),
   });
 
-  // ── الأداء اليومي: طلبات اليوم ──
-  const { data: todayOrders = [] } = useQuery({
-    queryKey: ["my-orders-today", todayStr],
-    queryFn: () => apiFetch<any[]>(`/orders/my-orders?month=${currentMonth}`),
+  // ── الأداء اليومي: طلبات اليوم أو التاريخ المختار ──
+  const activeDate = viewMode === "daily" ? selectedDate : todayStr;
+  const { data: dayOrders = [] } = useQuery({
+    queryKey: ["my-orders-day", activeDate],
+    queryFn: () => apiFetch<any[]>(`/orders/my-orders?month=${activeDate.slice(0,7)}`),
     select: (orders) => orders.filter((o: any) => {
       const d = o.createdAt?.slice(0, 10) ?? o.date?.slice(0, 10);
-      return d === todayStr;
+      return d === activeDate;
     }),
     staleTime: 30_000,
   });
 
-  // ── الأداء اليومي: KPI logs اليوم ──
+  // ── daily report للتاريخ المختار ──
+  const { data: dailyReport } = useQuery({
+    queryKey: ["emp-report-daily", selectedDate],
+    queryFn: () => employeeApi.getMyReport(selectedMonth, "daily", selectedDate),
+    enabled: viewMode === "daily",
+    staleTime: 60_000,
+  });
+
+  // ── الأداء اليومي: KPI logs ──
   const { data: dailyLogs } = useQuery({
-    queryKey: ["daily-logs-today", profile?.id, todayStr],
-    queryFn: () => employeeApi.getDailyLogs(profile!.id, todayStr),
+    queryKey: ["daily-logs", profile?.id, activeDate],
+    queryFn: () => employeeApi.getDailyLogs(profile!.id, activeDate),
     enabled: !!profile?.id,
     staleTime: 30_000,
   });
 
-  // احسب إحصائيات طلبات اليوم
-  const todayDelivered = todayOrders.filter((o: any) => o.status === "received" || o.status === "partial_received").length;
-  const todayReturned  = todayOrders.filter((o: any) => o.status === "returned").length;
-  const todayPending   = todayOrders.filter((o: any) => !["received","partial_received","returned"].includes(o.status)).length;
+  // احسب إحصائيات الطلبات
+  const dayDelivered = dayOrders.filter((o: any) => o.status === "received" || o.status === "partial_received").length;
+  const dayReturned  = dayOrders.filter((o: any) => o.status === "returned").length;
+  const dayPending   = dayOrders.filter((o: any) => !["received","partial_received","returned"].includes(o.status)).length;
 
   // KPI entries من daily logs
   const kpiEntries: { label: string; value: number; target: number; unit: string }[] = useMemo(() => {
@@ -227,163 +240,222 @@ function DashboardTab({ myStats, profile }: { myStats?: TeamMemberExtStats; prof
     : score >= 35 ? "مقبول"
     : score > 0   ? "ضعيف" : null;
 
-  // دايماً نعرض اللوحة — البيانات هتييجي من getMyReport حتى لو مفيش profile
+  // في الـ daily mode: استخدم dailyReport، وإلا currReport
+  const activeReport  = viewMode === "daily" ? dailyReport : currReport;
+  const activeStats   = activeReport?.orderStats;
+  const activeScore   = activeReport?.overallScore ?? (viewMode === "monthly" ? score : null);
+  const activeRating  = activeScore == null ? null
+    : activeScore >= 80 ? "ممتاز" : activeScore >= 65 ? "جيد جداً"
+    : activeScore >= 50 ? "جيد"   : activeScore >= 35 ? "مقبول" : "ضعيف";
+  const activeDateLabel = viewMode === "daily"
+    ? format(new Date(selectedDate), "d MMMM yyyy", { locale: ar })
+    : format(new Date(currentMonth + "-01"), "MMMM yyyy", { locale: ar });
+
+  // دايماً نعرض اللوحة
   return (
     <div className="space-y-4">
-      {/* Quick KPI Cards */}
-      <div className="grid grid-cols-3 gap-3">
-        <MiniCard icon={Package} label="طلبات الشهر" value={fmtNum(stats?.total ?? myStats?.total ?? 0)} color="from-blue-500/15 to-blue-600/5 border-blue-500/20 text-blue-400" />
-        <MiniCard icon={CheckCircle2} label="مسلّمة" value={fmtNum(stats?.delivered ?? myStats?.delivered ?? 0)} sub={pct(stats?.deliveryRate ?? myStats?.deliveryRate ?? 0)} color="from-emerald-500/15 to-green-600/5 border-emerald-500/20 text-emerald-400" />
-        <MiniCard icon={XCircle} label="مرتجعات" value={fmtNum(stats?.returned ?? myStats?.returned ?? 0)} sub={pct(stats?.returnRate ?? myStats?.returnRate ?? 0)} color="from-rose-500/15 to-red-600/5 border-rose-500/20 text-rose-400" />
 
+      {/* ── Toggle يومي / شهري ── */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-1 p-1 rounded-xl border border-border bg-muted/20">
+          {(["monthly", "daily"] as const).map(mode => (
+            <button key={mode} type="button" onClick={() => setViewMode(mode)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                viewMode === mode ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}>
+              {mode === "monthly" ? "شهري" : "يومي"}
+            </button>
+          ))}
+        </div>
+        {viewMode === "daily" ? (
+          <input type="date" value={selectedDate} max={format(new Date(), "yyyy-MM-dd")}
+            onChange={e => setSelectedDate(e.target.value)}
+            className="rounded-lg border border-border bg-muted/20 px-3 py-1.5 text-xs font-medium focus:outline-none focus:border-primary" />
+        ) : (
+          <span className="text-xs text-muted-foreground font-medium">{activeDateLabel}</span>
+        )}
       </div>
 
-      {/* ── الأداء اليومي ── */}
+      {/* Quick KPI Cards */}
+      <div className="grid grid-cols-3 gap-3">
+        <MiniCard icon={Package}
+          label={viewMode === "daily" ? "طلبات اليوم" : "طلبات الشهر"}
+          value={fmtNum(viewMode === "daily" ? dayOrders.length : (activeStats?.total ?? myStats?.total ?? 0))}
+          color="from-blue-500/15 to-blue-600/5 border-blue-500/20 text-blue-400" />
+        <MiniCard icon={CheckCircle2} label="مسلّمة"
+          value={fmtNum(viewMode === "daily" ? dayDelivered : (activeStats?.delivered ?? myStats?.delivered ?? 0))}
+          sub={pct(viewMode === "daily" ? (dayOrders.length > 0 ? dayDelivered / dayOrders.length * 100 : 0) : (activeStats?.deliveryRate ?? myStats?.deliveryRate ?? 0))}
+          color="from-emerald-500/15 to-green-600/5 border-emerald-500/20 text-emerald-400" />
+        <MiniCard icon={XCircle} label="مرتجعات"
+          value={fmtNum(viewMode === "daily" ? dayReturned : (activeStats?.returned ?? myStats?.returned ?? 0))}
+          sub={pct(viewMode === "daily" ? (dayOrders.length > 0 ? dayReturned / dayOrders.length * 100 : 0) : (activeStats?.returnRate ?? myStats?.returnRate ?? 0))}
+          color="from-rose-500/15 to-red-600/5 border-rose-500/20 text-rose-400" />
+      </div>
+
+      {/* ── بيانات اليوم ── */}
       <Card className="border border-amber-500/20 bg-gradient-to-br from-amber-500/5 to-transparent">
         <CardContent className="p-4 space-y-3">
           <div className="flex items-center gap-2">
             <Flame className="w-4 h-4 text-amber-400" />
-            <span className="font-bold text-sm">الأداء اليومي — {format(new Date(), "d MMMM yyyy", { locale: ar })}</span>
+            <span className="font-bold text-sm">
+              {viewMode === "daily" ? `أداء يوم — ${activeDateLabel}` : `الأداء اليومي — ${format(new Date(), "d MMMM yyyy", { locale: ar })}`}
+            </span>
           </div>
           <div className="grid grid-cols-3 gap-2">
             <div className="rounded-xl border border-border bg-muted/20 p-3 text-center">
-              <p className="text-2xl font-black">{todayOrders.length}</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">طلبات اليوم</p>
+              <p className="text-2xl font-black">{dayOrders.length}</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">طلبات</p>
             </div>
             <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3 text-center">
-              <p className="text-2xl font-black text-emerald-400">{todayDelivered}</p>
+              <p className="text-2xl font-black text-emerald-400">{dayDelivered}</p>
               <p className="text-[11px] text-muted-foreground mt-0.5">مسلّمة</p>
             </div>
             <div className="rounded-xl border border-rose-500/30 bg-rose-500/5 p-3 text-center">
-              <p className="text-2xl font-black text-rose-400">{todayReturned}</p>
+              <p className="text-2xl font-black text-rose-400">{dayReturned}</p>
               <p className="text-[11px] text-muted-foreground mt-0.5">مرتجعة</p>
             </div>
           </div>
-          {todayPending > 0 && (
+          {dayPending > 0 && (
             <p className="text-[11px] text-amber-400/80 flex items-center gap-1">
-              <Hourglass className="w-3 h-3" />{todayPending} طلب قيد الانتظار
+              <Hourglass className="w-3 h-3" />{dayPending} طلب قيد الانتظار
             </p>
           )}
-          {/* KPI اليومية */}
           {kpiEntries.length > 0 && (
             <div className="space-y-2 pt-1 border-t border-border/50">
               <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">مؤشرات اليوم</p>
               {kpiEntries.map((k, i) => {
-                const achieved = k.target > 0 ? Math.min(100, (k.value / k.target) * 100) : 0;
+                const pctVal = k.target > 0 ? Math.min(100, (k.value / k.target) * 100) : 0;
                 return (
                   <div key={i} className="space-y-1">
                     <div className="flex justify-between text-xs">
                       <span className="text-muted-foreground">{k.label}</span>
                       <span className="font-bold">{fmtNum(k.value)}{k.unit ? ` ${k.unit}` : ""} {k.target > 0 && <span className="text-muted-foreground font-normal">/ {fmtNum(k.target)}</span>}</span>
                     </div>
-                    {k.target > 0 && <AnimatedBar pct={achieved} color={achieved >= 100 ? "bg-emerald-500" : achieved >= 60 ? "bg-blue-500" : "bg-amber-500"} />}
+                    {k.target > 0 && <AnimatedBar pct={pctVal} color={pctVal >= 100 ? "bg-emerald-500" : pctVal >= 60 ? "bg-blue-500" : "bg-amber-500"} />}
                   </div>
                 );
               })}
             </div>
           )}
-          {todayOrders.length === 0 && kpiEntries.length === 0 && (
-            <p className="text-xs text-muted-foreground text-center py-2">لا توجد نشاطات مسجلة اليوم</p>
+          {dayOrders.length === 0 && kpiEntries.length === 0 && (
+            <p className="text-xs text-muted-foreground text-center py-2">لا توجد نشاطات مسجلة</p>
           )}
         </CardContent>
       </Card>
 
-      {/* Score + Comparison */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {/* Score Card */}
+      {/* Score + Comparison — شهري فقط */}
+      {viewMode === "monthly" && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Card className="border">
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Trophy className="w-4 h-4 text-amber-400" />
+                  <span className="font-bold text-sm">نقاط الأداء</span>
+                </div>
+                {activeScore != null && <ScoreBadge score={activeScore} />}
+              </div>
+              {activeScore != null ? (
+                <>
+                  <div className="text-center py-2">
+                    <span className="text-5xl font-black">{activeScore}</span>
+                    <span className="text-sm text-muted-foreground">/100</span>
+                  </div>
+                  <div className="h-3 bg-muted/30 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all duration-700" style={{
+                      width: `${activeScore}%`,
+                      background: activeScore >= 80 ? "linear-gradient(90deg,#10b981,#34d399)" : activeScore >= 60 ? "linear-gradient(90deg,#3b82f6,#60a5fa)" : activeScore >= 40 ? "linear-gradient(90deg,#f59e0b,#fbbf24)" : "linear-gradient(90deg,#ef4444,#f87171)",
+                    }} />
+                  </div>
+                  {activeRating && <p className="text-xs text-center text-muted-foreground">التقييم: <span className="font-bold text-foreground">{activeRating}</span></p>}
+                  {!currReport?.kpis?.length && (
+                    <p className="text-[11px] text-center text-muted-foreground/70 mt-1 flex items-center justify-center gap-1">
+                      <Info className="w-3 h-3" />محسوبة من معدل التسليم والإرجاع
+                    </p>
+                  )}
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-4 gap-2">
+                  <Target className="w-8 h-8 text-muted-foreground/30" />
+                  <p className="text-sm text-muted-foreground text-center">لا توجد طلبات هذا الشهر</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          <Card className="border">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <BarChart3 className="w-4 h-4 text-blue-400" />
+                <span className="font-bold text-sm">هذا الشهر مقابل السابق</span>
+              </div>
+              {compData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={110}>
+                  <LineChart data={compData}>
+                    <XAxis dataKey="name" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <Tooltip formatter={(v: any) => [fmtNum(v), ""]}
+                      contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11 }}
+                      itemStyle={{ color: "hsl(var(--foreground))" }} cursor={{ stroke: "hsl(var(--border))", strokeWidth: 1 }} />
+                    <Line type="monotone" dataKey="delivered" name="مسلّمة" stroke="#10b981" strokeWidth={2.5} dot={{ r: 4, fill: "#10b981", strokeWidth: 0 }} />
+                    <Line type="monotone" dataKey="returned" name="مرتجعة" stroke="#ef4444" strokeWidth={2.5} dot={{ r: 4, fill: "#ef4444", strokeWidth: 0 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : <div className="h-[110px] flex items-center justify-center text-muted-foreground text-sm">لا بيانات كافية</div>}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* نقاط الأداء في الـ daily mode */}
+      {viewMode === "daily" && activeScore != null && (
         <Card className="border">
           <CardContent className="p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Trophy className="w-4 h-4 text-amber-400" />
-                <span className="font-bold text-sm">نقاط الأداء</span>
+                <span className="font-bold text-sm">نقاط أداء اليوم</span>
               </div>
-              {score != null && <ScoreBadge score={score} />}
+              <ScoreBadge score={activeScore} />
             </div>
-            {score != null ? (
-              <>
-                <div className="text-center py-2">
-                  <span className="text-5xl font-black">{score}</span>
-                  <span className="text-sm text-muted-foreground">/100</span>
-                </div>
-                <div className="h-3 bg-muted/30 rounded-full overflow-hidden">
-                  <div className="h-full rounded-full transition-all duration-700" style={{
-                    width: `${score}%`,
-                    background: score >= 80 ? "linear-gradient(90deg,#10b981,#34d399)" : score >= 60 ? "linear-gradient(90deg,#3b82f6,#60a5fa)" : score >= 40 ? "linear-gradient(90deg,#f59e0b,#fbbf24)" : "linear-gradient(90deg,#ef4444,#f87171)",
-                  }} />
-                </div>
-                {localRating && <p className="text-xs text-center text-muted-foreground">التقييم: <span className="font-bold text-foreground">{localRating}</span></p>}
-                {!currReport?.kpis?.length && (
-                  <p className="text-[11px] text-center text-muted-foreground/70 mt-1 flex items-center justify-center gap-1">
-                    <Info className="w-3 h-3" />محسوبة من معدل التسليم والإرجاع
-                  </p>
-                )}
-              </>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-4 gap-2">
-                <Target className="w-8 h-8 text-muted-foreground/30" />
-                <p className="text-sm text-muted-foreground text-center">لا توجد طلبات هذا الشهر</p>
-                <p className="text-[11px] text-muted-foreground/60 text-center">ستظهر النقاط بعد تسجيل أول طلب</p>
+            <div className="text-center py-1">
+              <span className="text-5xl font-black">{activeScore}</span>
+              <span className="text-sm text-muted-foreground">/100</span>
+            </div>
+            <div className="h-3 bg-muted/30 rounded-full overflow-hidden">
+              <div className="h-full rounded-full transition-all duration-700" style={{
+                width: `${activeScore}%`,
+                background: activeScore >= 80 ? "linear-gradient(90deg,#10b981,#34d399)" : activeScore >= 60 ? "linear-gradient(90deg,#3b82f6,#60a5fa)" : activeScore >= 40 ? "linear-gradient(90deg,#f59e0b,#fbbf24)" : "linear-gradient(90deg,#ef4444,#f87171)",
+              }} />
+            </div>
+            {activeRating && <p className="text-xs text-center text-muted-foreground">التقييم: <span className="font-bold text-foreground">{activeRating}</span></p>}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Financial + Speed — شهري فقط */}
+      {viewMode === "monthly" && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Card className="border">
+            <CardContent className="p-4 space-y-2.5">
+              <div className="flex items-center gap-2"><TrendingUp className="w-4 h-4 text-emerald-400" /><span className="font-bold text-sm">الأداء المالي</span></div>
+              <div><div className="flex justify-between text-xs mb-1"><span className="text-muted-foreground">إجمالي الإيرادات</span><span className="font-bold">{fmt(activeStats?.totalRevenue ?? 0)}</span></div><AnimatedBar pct={100} color="bg-blue-500" /></div>
+              <div><div className="flex justify-between text-xs mb-1"><span className="text-muted-foreground">معدل التسليم</span><span className="font-bold text-blue-400">{pct(activeStats?.deliveryRate ?? 0)}</span></div><AnimatedBar pct={activeStats?.deliveryRate ?? 0} color="bg-blue-500" /></div>
+              <div><div className="flex justify-between text-xs mb-1"><span className="text-muted-foreground">معدل الإرجاع</span><span className="font-bold text-rose-400">{pct(activeStats?.returnRate ?? 0)}</span></div><AnimatedBar pct={activeStats?.returnRate ?? 0} color="bg-rose-500" /></div>
+            </CardContent>
+          </Card>
+          <Card className="border">
+            <CardContent className="p-4 space-y-2.5">
+              <div className="flex items-center gap-2"><Zap className="w-4 h-4 text-amber-400" /><span className="font-bold text-sm">السرعة والكفاءة</span></div>
+              <div className="flex flex-col divide-y divide-border/30">
+                {myStats?.avgProcessingHours != null && <div className="flex justify-between py-2 text-xs"><span className="text-muted-foreground flex items-center gap-1"><Clock className="w-3 h-3" />متوسط وقت المعالجة</span><span className="font-bold">{myStats.avgProcessingHours.toFixed(1)} ساعة</span></div>}
+                <div className="flex justify-between py-2 text-xs"><span className="text-muted-foreground flex items-center gap-1"><Target className="w-3 h-3" />طلبات يومياً</span><span className="font-bold">{(myStats?.ordersPerDay ?? 0).toFixed(1)}</span></div>
+                {myStats?.topSource && <div className="flex justify-between py-2 text-xs"><span className="text-muted-foreground">المصدر الأعلى</span><Badge variant="outline" className="text-xs">{myStats.topSource}</Badge></div>}
+                {profile?.hireDate && <div className="flex justify-between py-2 text-xs"><span className="text-muted-foreground flex items-center gap-1"><CalendarDays className="w-3 h-3" />تاريخ التعيين</span><span className="font-bold">{format(new Date(profile.hireDate), "d MMM yyyy", { locale: ar })}</span></div>}
+                {profile?.jobTitle && <div className="flex justify-between py-2 text-xs"><span className="text-muted-foreground">المسمى الوظيفي</span><span className="font-bold">{profile.jobTitle}</span></div>}
               </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* This Month vs Last Month */}
-        <Card className="border">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <BarChart3 className="w-4 h-4 text-blue-400" />
-              <span className="font-bold text-sm">هذا الشهر مقابل السابق</span>
-            </div>
-            {compData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={110}>
-                <LineChart data={compData}>
-                  <XAxis dataKey="name" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <Tooltip
-                    formatter={(v: any) => [fmtNum(v), ""]}
-                    contentStyle={{
-                      background: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: 8,
-                      fontSize: 11,
-                      boxShadow: "none",
-                    }}
-                    itemStyle={{ color: "hsl(var(--foreground))" }}
-                    cursor={{ stroke: "hsl(var(--border))", strokeWidth: 1 }}
-                  />
-                  <Line type="monotone" dataKey="delivered" name="مسلّمة" stroke="#10b981" strokeWidth={2.5} dot={{ r: 4, fill: "#10b981", strokeWidth: 0 }} activeDot={{ r: 5, fill: "#10b981", strokeWidth: 0 }} />
-                  <Line type="monotone" dataKey="returned" name="مرتجعة" stroke="#ef4444" strokeWidth={2.5} dot={{ r: 4, fill: "#ef4444", strokeWidth: 0 }} activeDot={{ r: 5, fill: "#ef4444", strokeWidth: 0 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : <div className="h-[110px] flex items-center justify-center text-muted-foreground text-sm">لا بيانات كافية</div>}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Financial + Speed */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <Card className="border">
-          <CardContent className="p-4 space-y-2.5">
-            <div className="flex items-center gap-2"><TrendingUp className="w-4 h-4 text-emerald-400" /><span className="font-bold text-sm">الأداء المالي</span></div>
-            <div><div className="flex justify-between text-xs mb-1"><span className="text-muted-foreground">إجمالي الإيرادات</span><span className="font-bold">{fmt(stats?.totalRevenue ?? 0)}</span></div><AnimatedBar pct={100} color="bg-blue-500" /></div>
-            <div><div className="flex justify-between text-xs mb-1"><span className="text-muted-foreground">معدل التسليم</span><span className="font-bold text-blue-400">{pct(stats?.deliveryRate ?? 0)}</span></div><AnimatedBar pct={stats?.deliveryRate ?? 0} color="bg-blue-500" /></div>
-            <div><div className="flex justify-between text-xs mb-1"><span className="text-muted-foreground">معدل الإرجاع</span><span className="font-bold text-rose-400">{pct(stats?.returnRate ?? 0)}</span></div><AnimatedBar pct={stats?.returnRate ?? 0} color="bg-rose-500" /></div>
-          </CardContent>
-        </Card>
-        <Card className="border">
-          <CardContent className="p-4 space-y-2.5">
-            <div className="flex items-center gap-2"><Zap className="w-4 h-4 text-amber-400" /><span className="font-bold text-sm">السرعة والكفاءة</span></div>
-            <div className="flex flex-col divide-y divide-border/30">
-              {myStats?.avgProcessingHours != null && <div className="flex justify-between py-2 text-xs"><span className="text-muted-foreground flex items-center gap-1"><Clock className="w-3 h-3" />متوسط وقت المعالجة</span><span className="font-bold">{myStats.avgProcessingHours.toFixed(1)} ساعة</span></div>}
-              <div className="flex justify-between py-2 text-xs"><span className="text-muted-foreground flex items-center gap-1"><Target className="w-3 h-3" />طلبات يومياً</span><span className="font-bold">{(myStats?.ordersPerDay ?? 0).toFixed(1)}</span></div>
-              {myStats?.topSource && <div className="flex justify-between py-2 text-xs"><span className="text-muted-foreground">المصدر الأعلى</span><Badge variant="outline" className="text-xs">{myStats.topSource}</Badge></div>}
-              {profile?.hireDate && <div className="flex justify-between py-2 text-xs"><span className="text-muted-foreground flex items-center gap-1"><CalendarDays className="w-3 h-3" />تاريخ التعيين</span><span className="font-bold">{format(new Date(profile.hireDate), "d MMM yyyy", { locale: ar })}</span></div>}
-              {profile?.jobTitle && <div className="flex justify-between py-2 text-xs"><span className="text-muted-foreground">المسمى الوظيفي</span><span className="font-bold">{profile.jobTitle}</span></div>}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
