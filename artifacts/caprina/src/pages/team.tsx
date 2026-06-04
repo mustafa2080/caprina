@@ -808,7 +808,15 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
               </div>
             </div>
             <div className="text-center">
-              <div className="text-xl font-black">{report.rating}</div>
+              <div className="text-xl font-black">
+                {report.overallScore == null ? "غير محدد"
+                  : report.overallScore >= 80 ? "ممتاز"
+                  : report.overallScore >= 65 ? "جيد جداً"
+                  : report.overallScore >= 50 ? "جيد"
+                  : report.overallScore >= 35 ? "مقبول"
+                  : report.overallScore > 0  ? "ضعيف"
+                  : "غير محدد"}
+              </div>
               <div className="text-xs text-muted-foreground mt-1">
                 {report.overallScore !== null
                   ? report.overallScore >= 90 ? "أداء استثنائي" : report.overallScore >= 75 ? "أداء فوق المتوسط" : report.overallScore >= 60 ? "أداء مقبول" : "يحتاج تحسين"
