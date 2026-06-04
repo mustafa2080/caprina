@@ -2119,6 +2119,25 @@ export default function OrderDetail() {
                   <Trash2 className="w-3 h-3" />حذف
                 </Button>
               )}
+              {/* زرار الطباعة — يظهر دائماً */}
+              <Button variant="outline" size="sm" onClick={handlePrint} className="h-8 text-xs gap-1 border-border">
+                <Printer className="w-3 h-3" />فاتورة
+              </Button>
+              {/* زرار الإغلاق — للأدمن فقط */}
+              {isAdmin && order.status !== "received" && order.status !== "partial_received" && order.status !== "returned" && (
+                <Button
+                  variant="outline" size="sm"
+                  onClick={() => {
+                    const regs = (cashData as any)?.registers ?? [];
+                    const defaultReg = regs.find((r: any) => r.isDefault) ?? regs[0];
+                    if (defaultReg) setSelectedRegisterId(String(defaultReg.id));
+                    setShowCloseDialog(true);
+                  }}
+                  className="h-8 text-xs gap-1 bg-transparent hover:bg-emerald-500/10 text-emerald-400 border border-emerald-600/50 hover:border-emerald-500"
+                >
+                  <CheckCircle2 className="w-3 h-3" />إغلاق
+                </Button>
+              )}
             </div>
           </div>
           <InvoiceView
@@ -2173,7 +2192,7 @@ export default function OrderDetail() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center flex-wrap gap-2">
           {!isEditing && canWriteOrders && (
             <>
               <div className="w-44">

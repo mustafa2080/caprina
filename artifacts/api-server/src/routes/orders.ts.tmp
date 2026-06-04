@@ -1186,68 +1186,6 @@ router.delete("/orders/:id", async (req, res): Promise<void> => {
     return;
   }
 
-
-  // ━━ إرجاع المخزون + خصم الخزنة عند الحذف ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  const orderRef = {
-    variantId: existing.variantId,
-    productId: existing.productId,
-    product: existing.product,
-    color: existing.color,
-    size: existing.size,
-    warehouseId: existing.warehouseId,
-  };
-
-  const [manifestLink] = await db
-    .select({ id: shippingManifestOrdersTable.id })
-    .from(shippingManifestOrdersTable)
-    .where(eq(shippingManifestOrdersTable.orderId, existing.id))
-    .limit(1)
-    .catch(() => []);
-
-  if (!manifestLink) {
-    const [existingMovement] = await db
-      .select({ id: inventoryMovementsTable.id, reason: inventoryMovementsTable.reason })
-      .from(inventoryMovementsTable)
-      .where(eq(inventoryMovementsTable.orderId, existing.id))
-      .orderBy(desc(inventoryMovementsTable.id))
-      .limit(1)
-      .catch(() => []);
-
-    const deductedStatuses = ["in_shipping", "received", "partial_received"];
-    const wasDeducted = existingMovement
-      ? ["sale", "partial_sale", "to_shipping"].includes(existingMovement.reason ?? "")
-      : deductedStatuses.includes(existing.status ?? "");
-
-    if (wasDeducted) {
-      const { variantId, productId } = await resolveInventoryTarget(orderRef);
-      await adjustWarehouseStock(existing.warehouseId, variantId, productId, existing.quantity).catch(() => {});
-      await syncProductQuantityFromWarehouses(variantId, productId).catch(() => {});
-      if (existingMovement) {
-        await updateMovementReason(existing.id, existingMovement.reason as any, "adjustment" as any, "حذف الطلب — إرجاع للمخزون").catch(() => {});
-      }
-    }
-  }
-
-  // خصم الخزنة لو في transaction مرتبطة بالطلب
-  try {
-    const [txRow] = await db
-      .select()
-      .from(cashTransactionsTable)
-      .where(and(
-        eq(cashTransactionsTable.type, "order_collected"),
-        eq(cashTransactionsTable.orderId, existing.id),
-      ))
-      .limit(1);
-    if (txRow) {
-      const amt = parseFloat(txRow.amount ?? "0");
-      await db.update(cashRegistersTable).set({
-        balance: sql`balance - ${amt}`,
-        updatedAt: new Date(),
-      }).where(eq(cashRegistersTable.id, txRow.registerId));
-      await db.delete(cashTransactionsTable).where(eq(cashTransactionsTable.id, txRow.id));
-    }
-  } catch (_) {}
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   await db.update(ordersTable).set({ deletedAt: new Date() }).where(eq(ordersTable.id, id));
 
   await logAudit({
