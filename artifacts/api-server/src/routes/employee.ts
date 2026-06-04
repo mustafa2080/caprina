@@ -18,9 +18,9 @@ import { getTenantId } from "../middlewares/requireTenant.js";
 const router: IRouter = Router();
 router.use(requireAuth);
 
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Helper: compute actual KPI value from orders
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function profitFromOrder(o: typeof ordersTable.$inferSelect): number {
   const qty =
     o.status === "partial_received" && o.partialQuantity ? o.partialQuantity : o.quantity;
@@ -79,7 +79,7 @@ async function computeActualValue(
       return Math.round((returned / orders.length) * 100);
     }
     case "total_orders": {
-      // عد الـ invoices الفريدة (مش الـ rows) — نفس منطق orders.tsx
+      // ط¹ط¯ ط§ظ„ظ€ invoices ط§ظ„ظپط±ظٹط¯ط© (ظ…ط´ ط§ظ„ظ€ rows) â€” ظ†ظپط³ ظ…ظ†ط·ظ‚ orders.tsx
       const uniqueInvoices = new Set(orders.map(o => o.invoiceNumber ?? `solo-${o.id}`));
       return uniqueInvoices.size;
     }
@@ -114,13 +114,13 @@ function computeKpiScore(
   return Math.min(100, Math.round((actual / target) * 100));
 }
 
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Resolve profile with merged displayName
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function mergeProfile(profile: typeof employeeProfilesTable.$inferSelect, user: typeof usersTable.$inferSelect | null) {
   return {
     ...profile,
-    displayName: profile.displayName ?? user?.displayName ?? "—",
+    displayName: profile.displayName ?? user?.displayName ?? "â€”",
     username: user?.username ?? null,
     role: user?.role ?? "team_only",
     isActive: user?.isActive ?? true,
@@ -128,12 +128,12 @@ function mergeProfile(profile: typeof employeeProfilesTable.$inferSelect, user: 
   };
 }
 
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Employee Profiles CRUD
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
-// ─── دالة حساب دورة الراتب: من 26 الشهر السابق لـ 25 الشهر الحالي ──────────
+// â”€â”€â”€ ط¯ط§ظ„ط© ط­ط³ط§ط¨ ط¯ظˆط±ط© ط§ظ„ط±ط§طھط¨: ظ…ظ† 26 ط§ظ„ط´ظ‡ط± ط§ظ„ط³ط§ط¨ظ‚ ظ„ظ€ 25 ط§ظ„ط´ظ‡ط± ط§ظ„ط­ط§ظ„ظٹ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function getPayPeriod(monthParam: string): { dateFrom: Date; dateTo: Date; periodLabel: string } {
   let year: number, month: number;
   if (monthParam) {
@@ -143,36 +143,36 @@ function getPayPeriod(monthParam: string): { dateFrom: Date; dateTo: Date; perio
     year = now.getFullYear();
     month = now.getMonth() + 1;
   }
-  // من: 26 الشهر السابق
+  // ظ…ظ†: 26 ط§ظ„ط´ظ‡ط± ط§ظ„ط³ط§ط¨ظ‚
   const prevMonth = month === 1 ? 12 : month - 1;
   const prevYear  = month === 1 ? year - 1 : year;
   const dateFrom  = new Date(prevYear, prevMonth - 1, 26, 0, 0, 0, 0);
-  // إلى: 25 الشهر الحالي
+  // ط¥ظ„ظ‰: 25 ط§ظ„ط´ظ‡ط± ط§ظ„ط­ط§ظ„ظٹ
   const dateTo    = new Date(year, month - 1, 25, 23, 59, 59, 999);
-  const periodLabel = `${prevYear}-${String(prevMonth).padStart(2,"0")}-26 → ${year}-${String(month).padStart(2,"0")}-25`;
+  const periodLabel = `${prevYear}-${String(prevMonth).padStart(2,"0")}-26 â†’ ${year}-${String(month).padStart(2,"0")}-25`;
   return { dateFrom, dateTo, periodLabel };
 }
 
 router.get("/employee-profiles", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req);
 
-  // جلب كل الـ profiles مع الـ users بـ leftJoin
+  // ط¬ظ„ط¨ ظƒظ„ ط§ظ„ظ€ profiles ظ…ط¹ ط§ظ„ظ€ users ط¨ظ€ leftJoin
   const rows = await db
     .select({ profile: employeeProfilesTable, user: usersTable })
     .from(employeeProfilesTable)
     .leftJoin(usersTable, eq(employeeProfilesTable.userId, usersTable.id));
 
-  // فلترة بالـ tenant من الـ profile مباشرة
+  // ظپظ„طھط±ط© ط¨ط§ظ„ظ€ tenant ظ…ظ† ط§ظ„ظ€ profile ظ…ط¨ط§ط´ط±ط©
   const filtered = tenantId !== null
-    ? rows.filter(r => r.profile.tenantId === tenantId)
-    : rows.filter(r => r.profile.tenantId === null);
+    ? rows.filter(r => (r.profile as any).tenantId === tenantId)
+    : rows.filter(r => (r.profile as any).tenantId === null);
 
-  // جلب kpiCount لكل profile دفعة واحدة
+  // ط¬ظ„ط¨ kpiCount ظ„ظƒظ„ profile ط¯ظپط¹ط© ظˆط§ط­ط¯ط©
   const allKpis = await db.select({ profileId: employeeKpisTable.profileId }).from(employeeKpisTable);
   const kpiCountMap: Record<number, number> = {};
-  for (const k of allKpis) kpiCountMap[k.profileId] = (kpiCountMap[k.profileId] ?? 0) + 1;
+  for (const k of allKpis) if (k.profileId != null) kpiCountMap[k.profileId] = (kpiCountMap[k.profileId] ?? 0) + 1;
 
-  // جلب الحضور للشهر الحالي لكل profile
+  // ط¬ظ„ط¨ ط§ظ„ط­ط¶ظˆط± ظ„ظ„ط´ظ‡ط± ط§ظ„ط­ط§ظ„ظٹ ظ„ظƒظ„ profile
   const now = new Date();
   const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const attRecords = await db.select({
@@ -182,6 +182,7 @@ router.get("/employee-profiles", async (req, res): Promise<void> => {
 
   const attMap: Record<number, { workedDays: number; absentDays: number; lateDays: number }> = {};
   for (const r of attRecords) {
+    if (r.profileId == null) continue;
     if (!attMap[r.profileId]) attMap[r.profileId] = { workedDays: 0, absentDays: 0, lateDays: 0 };
     if (r.status === "present") attMap[r.profileId].workedDays++;
     if (r.status === "late")    { attMap[r.profileId].workedDays++; attMap[r.profileId].lateDays++; }
@@ -198,7 +199,7 @@ router.get("/employee-profiles", async (req, res): Promise<void> => {
 
 // GET by profile ID
 router.get("/employee-profiles/:profileId", async (req, res): Promise<void> => {
-  const profileId = parseInt(req.params.profileId);
+  const profileId = parseInt(String(req.params.profileId));
   if (isNaN(profileId)) { res.status(400).json({ error: "Invalid profileId" }); return; }
 
   const [row] = await db
@@ -207,7 +208,7 @@ router.get("/employee-profiles/:profileId", async (req, res): Promise<void> => {
     .leftJoin(usersTable, eq(employeeProfilesTable.userId, usersTable.id))
     .where(eq(employeeProfilesTable.id, profileId));
 
-  if (!row) { res.status(404).json({ error: "الموظف غير موجود" }); return; }
+  if (!row) { res.status(404).json({ error: "ط§ظ„ظ…ظˆط¸ظپ ط؛ظٹط± ظ…ظˆط¬ظˆط¯" }); return; }
 
   const kpis = await db
     .select()
@@ -232,7 +233,7 @@ const ProfileSchema = z.object({
   avatar: z.string().nullish(),
 });
 
-// POST — create or upsert profile
+// POST â€” create or upsert profile
 router.post("/employee-profiles", requireAdmin, async (req, res): Promise<void> => {
   const parsed = ProfileSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
@@ -284,23 +285,23 @@ router.post("/employee-profiles", requireAdmin, async (req, res): Promise<void> 
 });
 
 router.patch("/employee-profiles/:profileId", requireAdmin, async (req, res): Promise<void> => {
-  const profileId = parseInt(req.params.profileId);
+  const profileId = parseInt(String(req.params.profileId));
   if (isNaN(profileId)) { res.status(400).json({ error: "Invalid profileId" }); return; }
 
   const Schema = ProfileSchema.partial();
   const parsed = Schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
-  // تحقق من وجود الملف أولاً
+  // طھط­ظ‚ظ‚ ظ…ظ† ظˆط¬ظˆط¯ ط§ظ„ظ…ظ„ظپ ط£ظˆظ„ط§ظ‹
   const [existing] = await db.select({ id: employeeProfilesTable.id }).from(employeeProfilesTable).where(eq(employeeProfilesTable.id, profileId));
-  if (!existing) { res.status(404).json({ error: "الملف الشخصي غير موجود" }); return; }
+  if (!existing) { res.status(404).json({ error: "ط§ظ„ظ…ظ„ظپ ط§ظ„ط´ط®طµظٹ ط؛ظٹط± ظ…ظˆط¬ظˆط¯" }); return; }
 
   await db
     .update(employeeProfilesTable)
     .set({ ...parsed.data as any, updatedAt: new Date() })
     .where(eq(employeeProfilesTable.id, profileId));
 
-  // ── sync users table لو الـ profile مرتبط بـ userId ──
+  // â”€â”€ sync users table ظ„ظˆ ط§ظ„ظ€ profile ظ…ط±طھط¨ط· ط¨ظ€ userId â”€â”€
   const [updatedProfile] = await db.select().from(employeeProfilesTable).where(eq(employeeProfilesTable.id, profileId));
   if (updatedProfile.userId) {
     const userUpdates: Record<string, any> = {};
@@ -316,15 +317,15 @@ router.patch("/employee-profiles/:profileId", requireAdmin, async (req, res): Pr
 });
 
 router.delete("/employee-profiles/:profileId", requireAdmin, async (req, res): Promise<void> => {
-  const profileId = parseInt(req.params.profileId);
+  const profileId = parseInt(String(req.params.profileId));
   if (isNaN(profileId)) { res.status(400).json({ error: "Invalid profileId" }); return; }
   await db.delete(employeeProfilesTable).where(eq(employeeProfilesTable.id, profileId));
   res.status(204).send();
 });
 
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Employee KPIs CRUD  (all keyed by profileId)
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const KpiSchema = z.object({
   profileId: z.number().int().positive(),
@@ -341,7 +342,7 @@ const KpiSchema = z.object({
 });
 
 router.get("/employee-kpis/:profileId", async (req, res): Promise<void> => {
-  const profileId = parseInt(req.params.profileId);
+  const profileId = parseInt(String(req.params.profileId));
   if (isNaN(profileId)) { res.status(400).json({ error: "Invalid profileId" }); return; }
   const kpis = await db
     .select()
@@ -384,7 +385,7 @@ router.post("/employee-kpis", requireAdmin, async (req, res): Promise<void> => {
 });
 
 router.patch("/employee-kpis/:kpiId", requireAdmin, async (req, res): Promise<void> => {
-  const kpiId = parseInt(req.params.kpiId);
+  const kpiId = parseInt(String(req.params.kpiId));
   if (isNaN(kpiId)) { res.status(400).json({ error: "Invalid kpiId" }); return; }
 
   const Schema = KpiSchema.partial().omit({ profileId: true });
@@ -395,24 +396,24 @@ router.patch("/employee-kpis/:kpiId", requireAdmin, async (req, res): Promise<vo
     .update(employeeKpisTable)
     .set(parsed.data as any)
     .where(eq(employeeKpisTable.id, kpiId));
-  if (!(kpiUpdateResult as any)[0]?.affectedRows) { res.status(404).json({ error: "المؤشر غير موجود" }); return; }
+  if (!(kpiUpdateResult as any)[0]?.affectedRows) { res.status(404).json({ error: "ط§ظ„ظ…ط¤ط´ط± ط؛ظٹط± ظ…ظˆط¬ظˆط¯" }); return; }
   const [updated] = await db.select().from(employeeKpisTable).where(eq(employeeKpisTable.id, kpiId));
   res.json(updated);
 });
 
 router.delete("/employee-kpis/:kpiId", requireSuperAdmin, async (req, res): Promise<void> => {
-  const kpiId = parseInt(req.params.kpiId);
+  const kpiId = parseInt(String(req.params.kpiId));
   if (isNaN(kpiId)) { res.status(400).json({ error: "Invalid kpiId" }); return; }
   await db.delete(employeeKpisTable).where(eq(employeeKpisTable.id, kpiId));
   res.status(204).send();
 });
 
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Monthly Report  (by profileId)
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 router.get("/analytics/employee-report/:profileId", async (req, res): Promise<void> => {
-  const profileId = parseInt(req.params.profileId);
+  const profileId = parseInt(String(req.params.profileId));
   if (isNaN(profileId)) { res.status(400).json({ error: "Invalid profileId" }); return; }
 
   const monthParam = (req.query.month as string) || "";
@@ -424,7 +425,7 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
     .leftJoin(usersTable, eq(employeeProfilesTable.userId, usersTable.id))
     .where(eq(employeeProfilesTable.id, profileId));
 
-  if (!row) { res.status(404).json({ error: "الموظف غير موجود" }); return; }
+  if (!row) { res.status(404).json({ error: "ط§ظ„ظ…ظˆط¸ظپ ط؛ظٹط± ظ…ظˆط¬ظˆط¯" }); return; }
 
   const profile = row.profile;
   const userRow = row.user;
@@ -460,7 +461,7 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
   };
 
   if (userId) {
-    const tenantId = profile.tenantId;
+    const tenantId = (profile as any).tenantId;
     const orders = await db
       .select()
       .from(ordersTable)
@@ -477,8 +478,8 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
         )
       );
 
-    // ── حساب الإحصائيات على مستوى الـ invoice (مش الـ rows) ──
-    // نفس منطق buildPerUserInvoices في team-analytics.ts
+    // â”€â”€ ط­ط³ط§ط¨ ط§ظ„ط¥ط­طµط§ط¦ظٹط§طھ ط¹ظ„ظ‰ ظ…ط³طھظˆظ‰ ط§ظ„ظ€ invoice (ظ…ط´ ط§ظ„ظ€ rows) â”€â”€
+    // ظ†ظپط³ ظ…ظ†ط·ظ‚ buildPerUserInvoices ظپظٹ team-analytics.ts
     const STATUS_PRIORITY: Record<string, number> = {
       pending: 1, in_shipping: 2, warehouse_ready: 3, delayed: 4,
       partial_received: 5, received: 6, returned: 7,
@@ -545,10 +546,10 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
         actualValue = manualCumulativeMap.get(kpi.id) ?? null;
       } else {
         actualValue = userId
-          ? await computeActualValue(kpi.metric, userId, dateFrom, dateTo, profile.tenantId)
+          ? await computeActualValue(kpi.metric, userId, dateFrom, dateTo, (profile as any).tenantId)
           : 0;
       }
-      // Progressive target for current month — applies to ALL metric types.
+      // Progressive target for current month â€” applies to ALL metric types.
       // For past months (completed): use full monthly target as-is.
       const effectiveTarget = isCurrentMonth
         ? Math.max(1, Math.round((kpi.targetValue / reportDaysInMonth) * reportDayNumber))
@@ -567,8 +568,8 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
   const baseSalary = profile.monthlySalary ?? 0;
   const kpiFinancials = evaluatedKpis.reduce(
     (acc, kpi) => {
-      const salaryWeight = kpi.salaryWeight ?? 0;
-      const overtargetBonus = kpi.overtargetBonus ?? 0;
+      const salaryWeight = (kpi as any).salaryWeight ?? 0;
+      const overtargetBonus = (kpi as any).overtargetBonus ?? 0;
       const salaryImpact = baseSalary > 0 ? Math.round((salaryWeight / 100) * baseSalary) : 0;
       const bonusImpact = baseSalary > 0 ? Math.round((overtargetBonus / 100) * baseSalary) : 0;
 
@@ -598,7 +599,7 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
         : null;
   }
 
-  // fallback: لو مفيش KPIs — نحسب من الطلبات المغلقة فقط (delivered + returned)
+  // fallback: ظ„ظˆ ظ…ظپظٹط´ KPIs â€” ظ†ط­ط³ط¨ ظ…ظ† ط§ظ„ط·ظ„ط¨ط§طھ ط§ظ„ظ…ط؛ظ„ظ‚ط© ظپظ‚ط· (delivered + returned)
   if (overallScore === null && orderStats.total > 0) {
     const closedCount = orderStats.delivered + orderStats.returned;
     if (closedCount > 0) {
@@ -607,22 +608,22 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
       const returnPenalty      = Math.max(0, 100 - closedReturnRate * 2);
       overallScore = Math.round(closedDeliveryRate * 0.6 + returnPenalty * 0.4);
     }
-    // لو مفيش طلبات مغلقة خالص → مفيش score بعد (كل الطلبات لسه pending)
+    // ظ„ظˆ ظ…ظپظٹط´ ط·ظ„ط¨ط§طھ ظ…ط؛ظ„ظ‚ط© ط®ط§ظ„طµ â†’ ظ…ظپظٹط´ score ط¨ط¹ط¯ (ظƒظ„ ط§ظ„ط·ظ„ط¨ط§طھ ظ„ط³ظ‡ pending)
   }
 
   const rating =
-    overallScore === null ? "لا توجد بيانات"
-    : overallScore >= 90 ? "ممتاز"
-    : overallScore >= 75 ? "جيد جداً"
-    : overallScore >= 60 ? "جيد"
-    : overallScore >= 40 ? "مقبول"
-    : "ضعيف";
+    overallScore === null ? "ظ„ط§ طھظˆط¬ط¯ ط¨ظٹط§ظ†ط§طھ"
+    : overallScore >= 90 ? "ظ…ظ…طھط§ط²"
+    : overallScore >= 75 ? "ط¬ظٹط¯ ط¬ط¯ط§ظ‹"
+    : overallScore >= 60 ? "ط¬ظٹط¯"
+    : overallScore >= 40 ? "ظ…ظ‚ط¨ظˆظ„"
+    : "ط¶ط¹ظٹظپ";
 
   res.json({
     profileId,
     userId: userId ?? null,
     username: userRow?.username ?? null,
-    displayName: profile.displayName ?? userRow?.displayName ?? "—",
+    displayName: profile.displayName ?? userRow?.displayName ?? "â€”",
     role: userRow?.role ?? "team_only",
     isSystemUser: userRow !== null,
     profile,
@@ -646,9 +647,9 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
   });
 });
 
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // GET /analytics/my-report?month=YYYY-MM  (current user from token)
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.get("/analytics/my-report", async (req, res): Promise<void> => {
   const userId = (req as any).user?.id;
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
@@ -660,7 +661,7 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
     .where(eq(employeeProfilesTable.userId, userId));
 
   if (!row) {
-    // No employee profile — return basic stats from orders only
+    // No employee profile â€” return basic stats from orders only
   const monthParam = (req.query.month as string) || "";
   const { dateFrom, dateTo } = getPayPeriod(monthParam);
 
@@ -678,7 +679,7 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
       ));
 
     const [userRow] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
-    // ── عد الـ invoices الفريدة ──
+    // â”€â”€ ط¹ط¯ ط§ظ„ظ€ invoices ط§ظ„ظپط±ظٹط¯ط© â”€â”€
     const _sp0: Record<string, number> = { pending:1,in_shipping:2,warehouse_ready:3,delayed:4,partial_received:5,received:6,returned:7 };
     const _imap0 = new Map<string, (typeof ordersTable.$inferSelect)[]>();
     for (const o of orders) { const k = o.invoiceNumber ?? `solo-${o.id}`; if (!_imap0.has(k)) _imap0.set(k,[]); _imap0.get(k)!.push(o); }
@@ -694,7 +695,7 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
     const deliveryRate = totalInvoices0 > 0 ? Math.round((delivered / totalInvoices0) * 100) : 0;
     const returnRate   = totalInvoices0 > 0 ? Math.round((returned  / totalInvoices0) * 100) : 0;
 
-    // fallback score من الطلبات المغلقة فقط
+    // fallback score ظ…ظ† ط§ظ„ط·ظ„ط¨ط§طھ ط§ظ„ظ…ط؛ظ„ظ‚ط© ظپظ‚ط·
     let noProfileScore: number | null = null;
     if (orders.length > 0) {
       const closedCount0 = delivered + returned;
@@ -706,17 +707,17 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
       }
     }
     const noProfileRating =
-      noProfileScore === null ? "لا توجد بيانات"
-      : noProfileScore >= 90 ? "ممتاز"
-      : noProfileScore >= 75 ? "جيد جداً"
-      : noProfileScore >= 60 ? "جيد"
-      : noProfileScore >= 40 ? "مقبول"
-      : "ضعيف";
+      noProfileScore === null ? "ظ„ط§ طھظˆط¬ط¯ ط¨ظٹط§ظ†ط§طھ"
+      : noProfileScore >= 90 ? "ظ…ظ…طھط§ط²"
+      : noProfileScore >= 75 ? "ط¬ظٹط¯ ط¬ط¯ط§ظ‹"
+      : noProfileScore >= 60 ? "ط¬ظٹط¯"
+      : noProfileScore >= 40 ? "ظ…ظ‚ط¨ظˆظ„"
+      : "ط¶ط¹ظٹظپ";
 
-    return res.json({
+    res.json({
       profileId: null,
       userId,
-      displayName: userRow?.displayName ?? "—",
+      displayName: userRow?.displayName ?? "â€”",
       noProfile: true,
       period: { month: monthParam || `${dateFrom.getFullYear()}-${String(dateFrom.getMonth() + 1).padStart(2, "0")}`, from: dateFrom.toISOString(), to: dateTo.toISOString() },
       orderStats: { total: totalInvoices0, delivered, returned, pending, deliveryRate, returnRate, totalRevenue, totalProfit },
@@ -728,7 +729,7 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
     });
   }
 
-  // Has profile — run full report logic directly (no redirect)
+  // Has profile â€” run full report logic directly (no redirect)
   const profileId = row.profile.id;
   const profile = row.profile;
   const userRow = row.user;
@@ -768,14 +769,14 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
       gte(ordersTable.createdAt, dateFrom),
       lte(ordersTable.createdAt, dateTo),
       isNull(ordersTable.deletedAt),
-      profile.tenantId != null ? eq(ordersTable.tenantId, profile.tenantId) : undefined
+      (profile as any).tenantId != null ? eq(ordersTable.tenantId, (profile as any).tenantId) : undefined
     ));
 
   const totalRevenue = orders.filter(o => o.status === "received" || o.status === "partial_received")
     .reduce((s, o) => s + (o.status === "partial_received" && o.partialQuantity ? o.unitPrice * o.partialQuantity : o.totalPrice), 0);
   const totalProfit = orders.reduce((s, o) => s + profitFromOrder(o), 0);
 
-  // ── عد الـ invoices الفريدة ──
+  // â”€â”€ ط¹ط¯ ط§ظ„ظ€ invoices ط§ظ„ظپط±ظٹط¯ط© â”€â”€
   const _sp2: Record<string, number> = { pending:1,in_shipping:2,warehouse_ready:3,delayed:4,partial_received:5,received:6,returned:7 };
   const _imap2 = new Map<string, (typeof ordersTable.$inferSelect)[]>();
   for (const o of orders) { const k = o.invoiceNumber ?? `solo-${o.id}`; if (!_imap2.has(k)) _imap2.set(k,[]); _imap2.get(k)!.push(o); }
@@ -810,9 +811,9 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
       if (kpi.metric === "manual") {
         actualValue = manualCumulativeMapMR.get(kpi.id) ?? null;
       } else {
-        actualValue = await computeActualValue(kpi.metric, userId, dateFrom, dateTo, profile.tenantId);
+        actualValue = await computeActualValue(kpi.metric, userId, dateFrom, dateTo, (profile as any).tenantId);
       }
-      const effectiveTarget = kpi.metric === "manual" && isCurrentMonthMR
+      const effectiveTarget = isCurrentMonthMR
         ? Math.max(1, Math.round((kpi.targetValue / reportDaysInMonthMR) * reportDayNumberMR))
         : kpi.targetValue;
       const score = actualValue !== null ? computeKpiScore(actualValue, effectiveTarget, kpi.direction) : null;
@@ -824,8 +825,8 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
   const scoredKpis = evaluatedKpis.filter(k => k.score !== null);
   const baseSalary = profile.monthlySalary ?? 0;
   const kpiFinancials = evaluatedKpis.reduce((acc, kpi) => {
-    const salaryWeight    = kpi.salaryWeight ?? 0;
-    const overtargetBonus = kpi.overtargetBonus ?? 0;
+    const salaryWeight    = (kpi as any).salaryWeight ?? 0;
+    const overtargetBonus = (kpi as any).overtargetBonus ?? 0;
     const salaryImpact    = baseSalary > 0 ? Math.round((salaryWeight / 100) * baseSalary) : 0;
     const bonusImpact     = baseSalary > 0 ? Math.round((overtargetBonus / 100) * baseSalary) : 0;
     acc.totalSalaryWeight += salaryWeight;
@@ -845,7 +846,7 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
       : null;
   }
 
-  // fallback: لو مفيش KPIs — نحسب من الطلبات المغلقة فقط (delivered + returned)
+  // fallback: ظ„ظˆ ظ…ظپظٹط´ KPIs â€” ظ†ط­ط³ط¨ ظ…ظ† ط§ظ„ط·ظ„ط¨ط§طھ ط§ظ„ظ…ط؛ظ„ظ‚ط© ظپظ‚ط· (delivered + returned)
   if (overallScore === null && orderStats.total > 0) {
     const closedCount = orderStats.delivered + orderStats.returned;
     if (closedCount > 0) {
@@ -854,21 +855,21 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
       const returnPenalty      = Math.max(0, 100 - closedReturnRate * 2);
       overallScore = Math.round(closedDeliveryRate * 0.6 + returnPenalty * 0.4);
     }
-    // لو كل الطلبات لسه pending → مفيش score
+    // ظ„ظˆ ظƒظ„ ط§ظ„ط·ظ„ط¨ط§طھ ظ„ط³ظ‡ pending â†’ ظ…ظپظٹط´ score
   }
 
   const rating =
-    overallScore === null ? "لا توجد بيانات"
-    : overallScore >= 90 ? "ممتاز"
-    : overallScore >= 75 ? "جيد جداً"
-    : overallScore >= 60 ? "جيد"
-    : overallScore >= 40 ? "مقبول"
-    : "ضعيف";
+    overallScore === null ? "ظ„ط§ طھظˆط¬ط¯ ط¨ظٹط§ظ†ط§طھ"
+    : overallScore >= 90 ? "ظ…ظ…طھط§ط²"
+    : overallScore >= 75 ? "ط¬ظٹط¯ ط¬ط¯ط§ظ‹"
+    : overallScore >= 60 ? "ط¬ظٹط¯"
+    : overallScore >= 40 ? "ظ…ظ‚ط¨ظˆظ„"
+    : "ط¶ط¹ظٹظپ";
 
-  return res.json({
+  res.json({
     profileId,
     userId,
-    displayName: profile.displayName ?? userRow?.displayName ?? "—",
+    displayName: profile.displayName ?? userRow?.displayName ?? "â€”",
     period: {
       month: monthParam || `${dateFrom.getFullYear()}-${String(dateFrom.getMonth() + 1).padStart(2, "0")}`,
       from: dateFrom.toISOString(),
@@ -889,31 +890,31 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
   });
 });
 
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // GET /employee-orders/:profileId?month=YYYY-MM
-// طلبات الموظف (createdBy أو assigned) مع إحصائياتها الكاملة
-// ────────────────────────────────────────────────────────────────────────────
+// ط·ظ„ط¨ط§طھ ط§ظ„ظ…ظˆط¸ظپ (createdBy ط£ظˆ assigned) ظ…ط¹ ط¥ط­طµط§ط¦ظٹط§طھظ‡ط§ ط§ظ„ظƒط§ظ…ظ„ط©
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.get("/employee-orders/:profileId", async (req, res): Promise<void> => {
-  const profileId = parseInt(req.params.profileId);
+  const profileId = parseInt(String(req.params.profileId));
   if (isNaN(profileId)) { res.status(400).json({ error: "Invalid profileId" }); return; }
 
   const monthParam = (req.query.month as string | undefined) || "";
   const { dateFrom, dateTo } = getPayPeriod(monthParam);
 
-  // جلب الـ profile والـ userId
+  // ط¬ظ„ط¨ ط§ظ„ظ€ profile ظˆط§ظ„ظ€ userId
   const [row] = await db
     .select({ profile: employeeProfilesTable, user: usersTable })
     .from(employeeProfilesTable)
     .leftJoin(usersTable, eq(employeeProfilesTable.userId, usersTable.id))
     .where(eq(employeeProfilesTable.id, profileId));
 
-  if (!row) { res.status(404).json({ error: "الموظف غير موجود" }); return; }
+  if (!row) { res.status(404).json({ error: "ط§ظ„ظ…ظˆط¸ظپ ط؛ظٹط± ظ…ظˆط¬ظˆط¯" }); return; }
 
   const reqUser = (req as any).user;
   const isSuperOrAdmin = reqUser?.role === "super_admin" || reqUser?.role === "admin";
   const tenantId = getTenantId(req);
 
-  // جلب طلبات الموظف — دايماً فلتر على userId بتاع الموظف (مش الـ requester)
+  // ط¬ظ„ط¨ ط·ظ„ط¨ط§طھ ط§ظ„ظ…ظˆط¸ظپ â€” ط¯ط§ظٹظ…ط§ظ‹ ظپظ„طھط± ط¹ظ„ظ‰ userId ط¨طھط§ط¹ ط§ظ„ظ…ظˆط¸ظپ (ظ…ط´ ط§ظ„ظ€ requester)
   const targetUserId = row.profile.userId;
   if (!targetUserId) {
     res.json({
@@ -925,8 +926,8 @@ router.get("/employee-orders/:profileId", async (req, res): Promise<void> => {
   }
 
   const orderConditions: any[] = [
-    isNull(ordersTable.deletedAt),                        // استبعاد المحذوفة دايماً
-    eq(ordersTable.createdByUserId, targetUserId),        // طلبات الموظف ده بالتحديد
+    isNull(ordersTable.deletedAt),                        // ط§ط³طھط¨ط¹ط§ط¯ ط§ظ„ظ…ط­ط°ظˆظپط© ط¯ط§ظٹظ…ط§ظ‹
+    eq(ordersTable.createdByUserId, targetUserId),        // ط·ظ„ط¨ط§طھ ط§ظ„ظ…ظˆط¸ظپ ط¯ظ‡ ط¨ط§ظ„طھط­ط¯ظٹط¯
     gte(ordersTable.createdAt, dateFrom),
     lte(ordersTable.createdAt, dateTo),
   ];
@@ -938,7 +939,7 @@ router.get("/employee-orders/:profileId", async (req, res): Promise<void> => {
     .where(and(...orderConditions))
     .orderBy(desc(ordersTable.createdAt));
 
-  // ── Group rows → invoices (نفس منطق buildPerUserInvoices) ──
+  // â”€â”€ Group rows â†’ invoices (ظ†ظپط³ ظ…ظ†ط·ظ‚ buildPerUserInvoices) â”€â”€
   const _SP: Record<string, number> = { pending:1, in_shipping:2, warehouse_ready:3, delayed:4, partial_received:5, received:6, returned:7 };
   const invRowsMap = new Map<string, (typeof ordersTable.$inferSelect)[]>();
   for (const o of orders) {
@@ -947,13 +948,13 @@ router.get("/employee-orders/:profileId", async (req, res): Promise<void> => {
     invRowsMap.get(k)!.push(o);
   }
 
-  // resolve كل invoice: status أولوية + بيانات من أول row
+  // resolve ظƒظ„ invoice: status ط£ظˆظ„ظˆظٹط© + ط¨ظٹط§ظ†ط§طھ ظ…ظ† ط£ظˆظ„ row
   type ResolvedInvoice = {
     id: number; invoiceNumber: string | null; customerName: string;
     product: string; quantity: number; unitPrice: number; totalPrice: number;
     status: string; city: string | null; adSource: string | null;
     shippingCost: number | null; createdAt: string; color: string | null; size: string | null;
-    productCount: number; // عدد المنتجات داخل الفاتورة
+    productCount: number; // ط¹ط¯ط¯ ط§ظ„ظ…ظ†طھط¬ط§طھ ط¯ط§ط®ظ„ ط§ظ„ظپط§طھظˆط±ط©
   };
 
   const resolvedInvoices: ResolvedInvoice[] = Array.from(invRowsMap.values()).map(rows => {
@@ -962,7 +963,7 @@ router.get("/employee-orders/:profileId", async (req, res): Promise<void> => {
     const first = rows[0];
     const totalQty   = rows.reduce((s, r) => s + r.quantity, 0);
     const totalPrice = rows.reduce((s, r) => s + r.totalPrice, 0);
-    // اسم المنتجات مجمعين
+    // ط§ط³ظ… ط§ظ„ظ…ظ†طھط¬ط§طھ ظ…ط¬ظ…ط¹ظٹظ†
     const productNames = [...new Set(rows.map(r => r.product ?? ""))].join(" + ");
     return {
       id:            first.id,
@@ -983,10 +984,10 @@ router.get("/employee-orders/:profileId", async (req, res): Promise<void> => {
     };
   });
 
-  // sort بالأحدث
+  // sort ط¨ط§ظ„ط£ط­ط¯ط«
   resolvedInvoices.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-  // حساب الإحصائيات على مستوى الـ invoice
+  // ط­ط³ط§ط¨ ط§ظ„ط¥ط­طµط§ط¦ظٹط§طھ ط¹ظ„ظ‰ ظ…ط³طھظˆظ‰ ط§ظ„ظ€ invoice
   const totalInv    = resolvedInvoices.length;
   const deliveredInv  = resolvedInvoices.filter(i => i.status === "received" || i.status === "partial_received");
   const returnedInv   = resolvedInvoices.filter(i => i.status === "returned");
@@ -1046,12 +1047,12 @@ router.get("/users-without-profile", async (req, res): Promise<void> => {
   res.json(unprofiledUsers);
 });
 
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Daily Logs  (all keyed by profileId)
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 router.get("/employee-daily-logs/:profileId", async (req, res): Promise<void> => {
-  const profileId = parseInt(req.params.profileId);
+  const profileId = parseInt(String(req.params.profileId));
   if (isNaN(profileId)) { res.status(400).json({ error: "Invalid profileId" }); return; }
 
   const date = (req.query.date as string) || new Date().toISOString().slice(0, 10);
@@ -1110,7 +1111,7 @@ router.get("/employee-daily-logs/:profileId", async (req, res): Promise<void> =>
       const actualValue     = kpi.metric === "manual" ? cumulativeValue : autoValue;
 
       // manual: progressive daily target = (monthlyTarget / daysInMonth) * dayNumber
-      // e.g. target=1000, day 15 of 30 → expected so far = 500
+      // e.g. target=1000, day 15 of 30 â†’ expected so far = 500
       // auto:  compare today's value vs dailyTarget (target/30)
       let dailyTarget: number;
       if (kpi.metric === "manual") {
@@ -1147,7 +1148,7 @@ router.get("/employee-daily-logs/:profileId", async (req, res): Promise<void> =>
 });
 
 router.get("/employee-daily-logs/:profileId/week", async (req, res): Promise<void> => {
-  const profileId = parseInt(req.params.profileId);
+  const profileId = parseInt(String(req.params.profileId));
   if (isNaN(profileId)) { res.status(400).json({ error: "Invalid profileId" }); return; }
 
   const endDate = (req.query.date as string) || new Date().toISOString().slice(0, 10);
@@ -1254,13 +1255,13 @@ router.post("/employee-daily-logs", async (req, res): Promise<void> => {
   }
 });
 
-// ── GET /employee/team-ranking?month=YYYY-MM ──────────────────────────────
-// يرجع كل الموظفين مرتبين حسب overallScore من الأعلى للأقل
+// â”€â”€ GET /employee/team-ranking?month=YYYY-MM â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ظٹط±ط¬ط¹ ظƒظ„ ط§ظ„ظ…ظˆط¸ظپظٹظ† ظ…ط±طھط¨ظٹظ† ط­ط³ط¨ overallScore ظ…ظ† ط§ظ„ط£ط¹ظ„ظ‰ ظ„ظ„ط£ظ‚ظ„
 router.get("/team-ranking", requireAdmin, async (req, res): Promise<void> => {
   const tenantId = getTenantId(req);
   const month = (req.query.month as string) || new Date().toISOString().slice(0, 7);
 
-  // جيب كل الـ profiles في نفس الـ tenant
+  // ط¬ظٹط¨ ظƒظ„ ط§ظ„ظ€ profiles ظپظٹ ظ†ظپط³ ط§ظ„ظ€ tenant
   const profiles = await db.select({
     id: employeeProfilesTable.id,
     displayName: employeeProfilesTable.displayName,
@@ -1272,7 +1273,7 @@ router.get("/team-ranking", requireAdmin, async (req, res): Promise<void> => {
     .leftJoin(usersTable, eq(usersTable.id, employeeProfilesTable.userId))
     .where(tenantId !== null ? eq(usersTable.tenantId, tenantId) : undefined as any);
 
-  // لكل profile احسب الـ overallScore
+  // ظ„ظƒظ„ profile ط§ط­ط³ط¨ ط§ظ„ظ€ overallScore
   const ranking = await Promise.all(profiles.map(async (profile) => {
     const kpis = await db.select().from(employeeKpisTable).where(
       and(eq(employeeKpisTable.profileId, profile.id), eq(employeeKpisTable.isActive, true))
@@ -1307,7 +1308,7 @@ router.get("/team-ranking", requireAdmin, async (req, res): Promise<void> => {
     return { ...profile, overallScore, achievedCount, totalKpis: kpis.length };
   }));
 
-  // رتّب من الأعلى للأقل (null في الآخر)
+  // ط±طھظ‘ط¨ ظ…ظ† ط§ظ„ط£ط¹ظ„ظ‰ ظ„ظ„ط£ظ‚ظ„ (null ظپظٹ ط§ظ„ط¢ط®ط±)
   ranking.sort((a, b) => {
     if (a.overallScore === null && b.overallScore === null) return 0;
     if (a.overallScore === null) return 1;
@@ -1318,7 +1319,7 @@ router.get("/team-ranking", requireAdmin, async (req, res): Promise<void> => {
   res.json(ranking);
 });
 
-// ── GET /employee/star-employees ─────────────────────────────────────────
+// â”€â”€ GET /employee/star-employees â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.get("/star-employees", requireAuth, async (req, res): Promise<void> => {
   const [setting] = await db.select().from(appSettingsTable).where(eq(appSettingsTable.key, "star_employees")).limit(1);
   if (!setting?.value) { res.json([]); return; }
@@ -1334,17 +1335,17 @@ router.get("/star-employees", requireAuth, async (req, res): Promise<void> => {
     }).from(employeeProfilesTable).where(
       or(...ids.map(id => eq(employeeProfilesTable.id, id)))
     );
-    // رتّبهم بنفس ترتيب الاختيار
+    // ط±طھظ‘ط¨ظ‡ظ… ط¨ظ†ظپط³ طھط±طھظٹط¨ ط§ظ„ط§ط®طھظٹط§ط±
     const ordered = ids.map(id => profiles.find(p => p.id === id)).filter(Boolean);
     res.json(ordered);
   } catch { res.json([]); }
 });
 
-// ── POST /employee/star-employees ────────────────────────────────────────
+// â”€â”€ POST /employee/star-employees â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.post("/star-employees", requireSuperAdmin, async (req, res): Promise<void> => {
   const { profileIds } = req.body as { profileIds: number[] };
   if (!Array.isArray(profileIds) || profileIds.length > 3) {
-    res.status(400).json({ error: "أقصى 3 موظفين نجوم" }); return;
+    res.status(400).json({ error: "ط£ظ‚طµظ‰ 3 ظ…ظˆط¸ظپظٹظ† ظ†ط¬ظˆظ…" }); return;
   }
   const value = JSON.stringify(profileIds);
   const existing = await db.select().from(appSettingsTable).where(eq(appSettingsTable.key, "star_employees")).limit(1);
