@@ -4963,7 +4963,7 @@ export default function TeamPage() {
         open={wizardOpen}
         onClose={() => setWizardOpen(false)}
         onSuccess={(profileId) => { setWizardOpen(false); setSelectedProfileId(profileId); }}
-        availableUsers={allUsers}
+        availableUsers={unprofiledUsers}
         existingProfiles={profiles}
       />
 
