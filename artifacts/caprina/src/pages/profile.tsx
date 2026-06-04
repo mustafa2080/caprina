@@ -26,7 +26,7 @@ import {
   type Attendance, type AttendanceSalaryReport, type PayrollAdjustment,
 } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from "recharts";
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, RadarChart, Radar, PolarGrid, PolarAngleAxis, ReferenceLine } from "recharts";
 
 /* ── helpers ── */
 const fmt = (n: number) =>
@@ -1533,6 +1533,28 @@ function SalesKPIDashboardTab({ myStats, profile }: { myStats?: TeamMemberExtSta
 
   const quarterTrend = quarterData[2].score - quarterData[0].score;
 
+  // ── 2b. بيانات الـ Line Chart و Radar Chart للربع ──
+  const quarterLineData = useMemo(() => {
+    const ref = 70; // reference line
+    return quarterData.map(q => ({ ...q, ref }));
+  }, [quarterData]);
+
+  const radarData = useMemo(() => {
+    const deliveryRate = os?.deliveryRate ?? liveStats?.deliveryRate ?? 0;
+    const returnRate   = os?.returnRate   ?? liveStats?.returnRate   ?? 0;
+    const procHours    = liveStats?.avgProcessingHours ?? 0;
+    const daily        = liveStats?.ordersPerDay ?? 0;
+    const scoreVal     = score;
+    // normalize كل قيمة على 100
+    return [
+      { label: "معدل ت...", value: Math.min(100, deliveryRate), full: 100 },
+      { label: "سرعة ا...", value: Math.min(100, Math.max(0, (48 - procHours) / 48 * 100)), full: 100 },
+      { label: "معدل الا...", value: Math.min(100, Math.max(0, (20 - returnRate) / 20 * 100)), full: 100 },
+      { label: "معدل ا...", value: Math.min(100, (daily / 15) * 100), full: 100 },
+      { label: "معدل تح...", value: Math.min(100, scoreVal), full: 100 },
+    ];
+  }, [os, liveStats, score]);
+
   // ── 3. مؤشرات الأداء التشغيلي ──
   const operationalKpis = useMemo(() => [
     {
@@ -1766,59 +1788,92 @@ function SalesKPIDashboardTab({ myStats, profile }: { myStats?: TeamMemberExtSta
       <div className="rounded-2xl border border-border bg-card overflow-hidden">
         <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between"
           style={{ background: "linear-gradient(to left, hsl(var(--primary)/0.08), transparent)" }}>
-          <div className="flex items-center gap-2">
-            <BarChart3 className="w-4 h-4 text-blue-400" />
-            <span className="font-black text-sm">تقييم الأداء الربعي</span>
+          <div>
+            <div className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-blue-400" />
+              <span className="font-black text-sm">تقييم الأداء الربعي</span>
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-0.5">مقارنة الأداء الحالي مع المرجع العام</p>
           </div>
-          <span className={`text-xs font-bold flex items-center gap-1 ${quarterTrend > 0 ? "text-emerald-400" : quarterTrend < 0 ? "text-rose-400" : "text-muted-foreground"}`}>
-            {quarterTrend > 0 ? <ArrowUp className="w-3 h-3" /> : quarterTrend < 0 ? <ArrowDown className="w-3 h-3" /> : null}
-            {quarterTrend > 0 ? `+${quarterTrend}` : quarterTrend} نقطة
-          </span>
+          <div className="flex flex-col items-end gap-1">
+            {/* Star rating */}
+            <div className="flex items-center gap-0.5">
+              {[1,2,3,4,5].map(s => (
+                <Star key={s} className="w-3.5 h-3.5" fill={s <= Math.round(score / 20) ? "#f59e0b" : "none"} stroke={s <= Math.round(score / 20) ? "#f59e0b" : "#6b7280"} />
+              ))}
+            </div>
+            {ratingLabel && <span className="text-[10px] text-muted-foreground">{ratingLabel}</span>}
+          </div>
         </div>
         <div className="p-4 space-y-4">
-          {/* Bar chart الربعي */}
-          <div className="flex items-end gap-3 h-28 px-2">
-            {quarterData.map((q, i) => {
-              const h = Math.max(8, (q.score / 100) * 96);
-              const isLast = i === quarterData.length - 1;
-              return (
-                <div key={i} className="flex-1 flex flex-col items-center gap-1.5">
-                  <span className="text-xs font-black" style={{ color: isLast ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))" }}>{q.score}</span>
-                  <div className="w-full rounded-t-lg transition-all duration-700 relative overflow-hidden"
-                    style={{
-                      height: h,
-                      background: isLast
-                        ? "linear-gradient(180deg, hsl(var(--primary)), hsl(var(--primary)/0.6))"
-                        : "hsl(var(--muted)/0.5)",
-                    }}>
-                    {isLast && (
-                      <div className="absolute inset-0 bg-white/10 opacity-0 hover:opacity-100 transition-opacity" />
-                    )}
-                  </div>
-                  <span className="text-[10px] text-muted-foreground">{q.label}</span>
-                </div>
-              );
-            })}
-          </div>
-          {/* Stats row */}
-          <div className="grid grid-cols-3 gap-2">
-            {quarterData.map((q, i) => (
-              <div key={i} className={`rounded-xl p-3 border text-center ${i === quarterData.length - 1 ? "border-primary/30 bg-primary/5" : "border-border bg-muted/20"}`}>
-                <p className="text-[10px] text-muted-foreground mb-1">{q.label}</p>
-                <p className={`text-lg font-black ${i === quarterData.length - 1 ? "text-primary" : ""}`}>{q.score}</p>
-                <p className="text-[10px] text-emerald-400">{fmtNum(q.delivered)} مسلّم</p>
-              </div>
-            ))}
-          </div>
-          {/* Rating badge */}
-          {ratingLabel && (
-            <div className={`rounded-xl p-3 border flex items-center justify-between ${score >= 80 ? "border-emerald-500/30 bg-emerald-500/5" : score >= 60 ? "border-blue-500/30 bg-blue-500/5" : "border-amber-500/30 bg-amber-500/5"}`}>
-              <span className="text-sm font-bold">التقييم الإجمالي للربع</span>
-              <span className={`text-sm font-black flex items-center gap-1 ${score >= 80 ? "text-emerald-400" : score >= 60 ? "text-blue-400" : "text-amber-400"}`}>
-                <Star className="w-4 h-4 text-yellow-400" />{ratingLabel}
-              </span>
+          {/* Legend */}
+          <div className="flex items-center gap-4 justify-end text-[10px]">
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-0.5 rounded" style={{ background: "#f59e0b" }} />
+              <span className="text-muted-foreground">الأداء الحالي</span>
             </div>
-          )}
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-0.5 rounded border-t-2 border-dashed" style={{ borderColor: "#10b981" }} />
+              <span className="text-muted-foreground">المرجع</span>
+            </div>
+          </div>
+          {/* Line Chart */}
+          <div style={{ background: "hsl(var(--card))", borderRadius: 12, padding: "8px 4px" }}>
+            <ResponsiveContainer width="100%" height={140}>
+              <LineChart data={quarterLineData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <XAxis dataKey="label" tick={{ fill: "#9ca3af", fontSize: 10 }} axisLine={false} tickLine={false} />
+                <YAxis domain={[0, 100]} tick={{ fill: "#9ca3af", fontSize: 10 }} axisLine={false} tickLine={false} />
+                <Tooltip
+                  contentStyle={{ background: "#1f2937", border: "1px solid #374151", borderRadius: 8, fontSize: 11 }}
+                  labelStyle={{ color: "#f9fafb", fontWeight: "bold" }}
+                  formatter={(val: number, name: string) => [
+                    val,
+                    name === "score" ? "الأداء الحالي" : "المرجع"
+                  ]}
+                />
+                <ReferenceLine y={70} stroke="#10b981" strokeDasharray="5 3" strokeWidth={1.5} />
+                <Line
+                  type="monotone"
+                  dataKey="score"
+                  stroke="#f59e0b"
+                  strokeWidth={2.5}
+                  dot={{ fill: "#f59e0b", r: 4, strokeWidth: 0 }}
+                  activeDot={{ r: 6, fill: "#f59e0b" }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Radar Chart */}
+          <div>
+            <p className="text-[10px] text-muted-foreground mb-2 text-center">تطور الكفاءات الأساسية</p>
+            <div style={{ background: "hsl(var(--card))", borderRadius: 12, padding: "4px" }}>
+              <ResponsiveContainer width="100%" height={180}>
+                <RadarChart cx="50%" cy="50%" outerRadius={65} data={radarData}>
+                  <PolarGrid stroke="#374151" strokeWidth={0.8} />
+                  <PolarAngleAxis dataKey="label" tick={{ fill: "#9ca3af", fontSize: 9 }} />
+                  <Radar
+                    name="الأداء"
+                    dataKey="value"
+                    stroke="#f59e0b"
+                    fill="#f59e0b"
+                    fillOpacity={0.25}
+                    strokeWidth={1.5}
+                    dot={{ fill: "#f59e0b", r: 3, strokeWidth: 0 }}
+                  />
+                </RadarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Trend badge */}
+          <div className="flex items-center justify-between rounded-xl px-3 py-2 border border-border bg-muted/20">
+            <span className="text-xs text-muted-foreground">التغيير خلال الربع</span>
+            <span className={`text-xs font-black flex items-center gap-1 ${quarterTrend > 0 ? "text-emerald-400" : quarterTrend < 0 ? "text-rose-400" : "text-muted-foreground"}`}>
+              {quarterTrend > 0 ? <ArrowUp className="w-3 h-3" /> : quarterTrend < 0 ? <ArrowDown className="w-3 h-3" /> : null}
+              {quarterTrend > 0 ? `+${quarterTrend}` : quarterTrend} نقطة
+            </span>
+          </div>
         </div>
       </div>
 
