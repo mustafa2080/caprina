@@ -4,6 +4,7 @@ import { ArrowRight, AlertCircle, Pencil, Save, X, Printer, Phone, MapPin, Trash
 import { useAuth } from "@/contexts/AuthContext";
 import { useState, useRef, useEffect, useMemo } from "react";
 import React from "react";
+import { createPortal } from "react-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -1623,7 +1624,7 @@ function StatusSelect({
       </button>
 
       {/* Dropdown — fixed عشان ميتقطعش بـ overflow */}
-      {open && typeof document !== "undefined" && React.createPortal(
+      {open && typeof document !== "undefined" && createPortal(
         <div
           ref={dropRef}
           style={{
