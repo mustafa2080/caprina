@@ -2478,10 +2478,10 @@ function MyDashboardTab({ profileId, monthlySalary }: {
     staleTime: 60_000,
   });
 
-  // daily KPIs for today
+  // daily KPIs for selected date
   const { data: dailyData } = useQuery({
-    queryKey: ["employee-daily-logs", profileId, today],
-    queryFn: () => employeeApi.getDailyLogs(profileId, today),
+    queryKey: ["employee-daily-logs", profileId, selectedDate],
+    queryFn: () => employeeApi.getDailyLogs(profileId, selectedDate),
     staleTime: 60_000,
   });
   const dailyKpis = ((dailyData as any)?.kpis ?? []) as any[];
@@ -2647,7 +2647,7 @@ function MyDashboardTab({ profileId, monthlySalary }: {
         <div className="flex items-center justify-between">
           <p className="text-xs font-bold flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block" />
-            أداء اليوم — {new Date().toLocaleDateString("ar-EG", { weekday: "long", day: "numeric", month: "long" })}
+            أداء اليوم — {new Date(selectedDate + "T00:00:00").toLocaleDateString("ar-EG", { weekday: "long", day: "numeric", month: "long" })}
           </p>
           {dailyKpis.length > 0 && (
             <span className="text-[10px] text-muted-foreground">
