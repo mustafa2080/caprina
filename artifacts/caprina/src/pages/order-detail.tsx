@@ -2074,7 +2074,7 @@ export default function OrderDetail() {
                     <SelectTrigger className="h-8 text-xs bg-card border-border">
                       <span>{statusLabels[selectDisplayStatus ?? order.status] || (selectDisplayStatus ?? order.status)}</span>
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent side="top">
                       <SelectItem value="pending">قيد الانتظار</SelectItem>
                       <SelectItem value="warehouse_ready">قيد الشحن في المخزن</SelectItem>
                       <SelectItem value="in_shipping">قيد الشحن</SelectItem>
@@ -2324,7 +2324,7 @@ export default function OrderDetail() {
                   <SelectTrigger className="h-8 text-xs bg-card border-border">
                     <span>{statusLabels[selectDisplayStatus ?? order.status] || (selectDisplayStatus ?? order.status)}</span>
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent side="top">
                     <SelectItem value="pending">قيد الانتظار</SelectItem>
                     <SelectItem value="warehouse_ready">قيد الشحن في المخزن</SelectItem>
                     <SelectItem value="in_shipping">قيد الشحن</SelectItem>
