@@ -1049,10 +1049,14 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
     .where(eq(ordersTable.id, params.data.id));
 
   // ── إضافة الإيراد للخزنة عند التسليم (received / partial_received) ──────────
+  // لو الطلب في فاتورة متعددة → Transaction واحدة بإجمالي الكل تتعمل بعد كده
+  // لو طلب فردي → transaction هنا مباشرة
   const deliveredStatuses = ["received", "partial_received"];
+  const isInvoiceGroup = !!existing.invoiceNumber;
   if (
     deliveredStatuses.includes(newStatus) &&
-    !deliveredStatuses.includes(oldStatus)
+    !deliveredStatuses.includes(oldStatus) &&
+    !isInvoiceGroup  // الفاتورة المتعددة بتتعالج بعد كده بـ transaction واحدة
   ) {
     try {
       const [mainRegister] = await db
@@ -1062,11 +1066,9 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
         .limit(1);
 
       if (mainRegister) {
-        // استخدم الـ register المحدد من الـ request لو موجود
         const targetRegister = (data as any).cashRegisterId
           ? (await db.select().from(cashRegistersTable).where(eq(cashRegistersTable.id, (data as any).cashRegisterId)).limit(1))[0] ?? mainRegister
           : mainRegister;
-        // تأكد مفيش transaction مسجلة قبل كده لنفس الطلب
         const [existingTx] = await db
           .select({ id: cashTransactionsTable.id })
           .from(cashTransactionsTable)
@@ -1077,18 +1079,18 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
           .limit(1);
 
         if (!existingTx) {
-          const amount      = newTotalPrice;
-          const balBefore   = Number(targetRegister.balance ?? 0);
-          const balAfter    = balBefore + amount;
-          const now         = new Date();
+          const amount    = newTotalPrice;
+          const balBefore = Number(targetRegister.balance ?? 0);
+          const balAfter  = balBefore + amount;
+          const now       = new Date();
           await db.insert(cashTransactionsTable).values({
             registerId:      targetRegister.id,
             type:            "order_collected" as any,
             amount:          String(amount),
             balanceBefore:   String(balBefore),
             balanceAfter:    String(balAfter),
-            description:     `تحصيل طلب #${existing.invoiceNumber ?? existing.id} — ${existing.customerName}`,
-            referenceNumber: String(existing.invoiceNumber ?? existing.id),
+            description:     `تحصيل طلب #${existing.id} — ${existing.customerName}`,
+            referenceNumber: String(existing.id),
             orderId:         existing.id,
             transactionDate: now,
             createdByUserId: req.user?.id ?? null,
@@ -1156,16 +1158,20 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
       ));
 
     for (const sibling of siblingOrders) {
-      if (sibling.id === existing.id) continue; // اتعالج فوق
+      if (sibling.id === existing.id) continue; // اتعالج inventory-ه فوق
 
-      // تحقق إذا الأوردر ده موجود في بيان (في حالتها الـ manifest هو المسؤول)
-      const [siblingManifestLink] = await db
-        .select({ id: shippingManifestOrdersTable.id })
-        .from(shippingManifestOrdersTable)
-        .where(eq(shippingManifestOrdersTable.orderId, sibling.id))
-        .limit(1)
-        .catch(() => []);
-      if (siblingManifestLink) continue; // الـ manifest هو المسؤول عن inventory-ه
+      // عند received: نخصم المخزون بغض النظر عن البيان (الإغلاق يدوي مش من البيان)
+      // عند باقي الحالات: لو في بيان → البيان هو المسؤول
+      const skipForManifest = data.status !== "received" && data.status !== "partial_received";
+      if (skipForManifest) {
+        const [siblingManifestLink] = await db
+          .select({ id: shippingManifestOrdersTable.id })
+          .from(shippingManifestOrdersTable)
+          .where(eq(shippingManifestOrdersTable.orderId, sibling.id))
+          .limit(1)
+          .catch(() => []);
+        if (siblingManifestLink) continue;
+      }
 
       const siblingRef = {
         variantId: sibling.variantId,
@@ -1198,54 +1204,13 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
       }
 
       if (data.status === "received") {
+        // خصم المخزون لكل sibling
         if (siblingMovement) {
           await updateMovementReason(sibling.id, siblingMovement.reason as any, "sale", "تم الاستلام — بيع").catch(() => {});
         } else {
           await processDelivery(siblingRef, sibling.quantity, "sale", sibling.id).catch(() => {});
         }
-        // ── transaction للـ sibling في الخزنة ──────────────────────────────────
-        try {
-          const [existingSiblingTx] = await db
-            .select({ id: cashTransactionsTable.id })
-            .from(cashTransactionsTable)
-            .where(and(
-              eq(cashTransactionsTable.type, "order_collected" as any),
-              eq(cashTransactionsTable.orderId, sibling.id),
-            ))
-            .limit(1);
-          if (!existingSiblingTx) {
-            const [mainReg] = await db.select().from(cashRegistersTable)
-              .where(and(eq(cashRegistersTable.type, "main"), eq(cashRegistersTable.isActive, true)))
-              .limit(1);
-            if (mainReg) {
-              const targetReg = (data as any).cashRegisterId
-                ? (await db.select().from(cashRegistersTable).where(eq(cashRegistersTable.id, (data as any).cashRegisterId)).limit(1))[0] ?? mainReg
-                : mainReg;
-              const siblingAmount = sibling.totalPrice ?? 0;
-              const balBefore = Number(targetReg.balance ?? 0);
-              const balAfter  = balBefore + siblingAmount;
-              const now = new Date();
-              await db.insert(cashTransactionsTable).values({
-                registerId:      targetReg.id,
-                type:            "order_collected" as any,
-                amount:          String(siblingAmount),
-                balanceBefore:   String(balBefore),
-                balanceAfter:    String(balAfter),
-                description:     `تحصيل طلب #${sibling.invoiceNumber ?? sibling.id} — ${sibling.customerName}`,
-                referenceNumber: String(sibling.invoiceNumber ?? sibling.id),
-                orderId:         sibling.id,
-                transactionDate: now,
-                createdByUserId: req.user?.id ?? null,
-                createdByName:   req.user?.displayName ?? null,
-                createdAt:       now,
-              });
-              await db.update(cashRegistersTable)
-                .set({ balance: String(balAfter), updatedAt: now })
-                .where(eq(cashRegistersTable.id, targetReg.id));
-            }
-          }
-        } catch (_) {}
-        // ────────────────────────────────────────────────────────────────────────
+        // لا نعمل transaction هنا — هتتعمل transaction واحدة شاملة بعد اللوب
       }
 
       if (data.status === "partial_received") {
@@ -1254,6 +1219,7 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
         } else {
           await processDelivery(siblingRef, sibling.quantity, "partial_sale", sibling.id).catch(() => {});
         }
+        // لا نعمل transaction هنا — هتتعمل transaction واحدة شاملة بعد اللوب
       }
 
       if (data.status === "returned") {
@@ -1321,6 +1287,54 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
           await reverseDelivery(siblingRef, sibling.quantity, sibling.id).catch(() => {});
         }
       }
+    }
+    // ━━ Transaction واحدة شاملة لكل الفاتورة عند received / partial_received ━━━━
+    if (deliveredStatuses.includes(newStatus) && !deliveredStatuses.includes(oldStatus)) {
+      try {
+        const [mainReg] = await db.select().from(cashRegistersTable)
+          .where(and(eq(cashRegistersTable.type, "main"), eq(cashRegistersTable.isActive, true)))
+          .limit(1);
+        if (mainReg) {
+          const targetReg = (data as any).cashRegisterId
+            ? (await db.select().from(cashRegistersTable).where(eq(cashRegistersTable.id, (data as any).cashRegisterId)).limit(1))[0] ?? mainReg
+            : mainReg;
+          // نجمع كل totalPrice لكل الأوردرات في الفاتورة (existing + siblings)
+          const totalInvoiceAmount = siblingOrders.reduce(
+            (sum, o) => sum + Number(o.totalPrice ?? 0), 0
+          );
+          // تأكد مفيش transaction مسجلة بالفعل لهذه الفاتورة
+          const [existingInvoiceTx] = await db
+            .select({ id: cashTransactionsTable.id })
+            .from(cashTransactionsTable)
+            .where(and(
+              eq(cashTransactionsTable.type, "order_collected" as any),
+              eq(cashTransactionsTable.referenceNumber, existing.invoiceNumber!),
+            ))
+            .limit(1);
+          if (!existingInvoiceTx) {
+            const balBefore = Number(targetReg.balance ?? 0);
+            const balAfter  = balBefore + totalInvoiceAmount;
+            const now       = new Date();
+            await db.insert(cashTransactionsTable).values({
+              registerId:      targetReg.id,
+              type:            "order_collected" as any,
+              amount:          String(totalInvoiceAmount),
+              balanceBefore:   String(balBefore),
+              balanceAfter:    String(balAfter),
+              description:     `تحصيل فاتورة #${existing.invoiceNumber} — ${existing.customerName}`,
+              referenceNumber: existing.invoiceNumber!,
+              orderId:         existing.id,
+              transactionDate: now,
+              createdByUserId: req.user?.id ?? null,
+              createdByName:   req.user?.displayName ?? null,
+              createdAt:       now,
+            });
+            await db.update(cashRegistersTable)
+              .set({ balance: String(balAfter), updatedAt: now })
+              .where(eq(cashRegistersTable.id, targetReg.id));
+          }
+        }
+      } catch (_) {}
     }
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   }
