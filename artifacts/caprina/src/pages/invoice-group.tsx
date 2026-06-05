@@ -483,6 +483,7 @@ export default function InvoiceGroup() {
   const [returnNote, setReturnNote]                     = useState<string>("");
   const [showReturnDialog, setShowReturnDialog]         = useState(false);
   const [showPartialDialog, setShowPartialDialog]       = useState(false);
+  const [selectKey, setSelectKey]                       = useState(0);
   const [partialQty, setPartialQty]                     = useState<string>("");
   const [isUpdatingStatus, setIsUpdatingStatus]         = useState(false);
   const [waOrder, setWaOrder]                           = useState<WhatsAppOrderData | null>(null);
@@ -951,8 +952,9 @@ export default function InvoiceGroup() {
             </Button>
           )}
 
-          <Select value="" onValueChange={(v) => {
+          <Select key={selectKey} onValueChange={(v) => {
             if (!v) return;
+            setSelectKey(k => k + 1);
             if (v === "returned") { setShowReturnDialog(true); }
             else if (v === "partial_received") { setPartialQty(""); setShowPartialDialog(true); }
             else { setPendingStatus(v); }
