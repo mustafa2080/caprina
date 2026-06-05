@@ -1203,6 +1203,49 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
         } else {
           await processDelivery(siblingRef, sibling.quantity, "sale", sibling.id).catch(() => {});
         }
+        // ── transaction للـ sibling في الخزنة ──────────────────────────────────
+        try {
+          const [existingSiblingTx] = await db
+            .select({ id: cashTransactionsTable.id })
+            .from(cashTransactionsTable)
+            .where(and(
+              eq(cashTransactionsTable.type, "order_collected" as any),
+              eq(cashTransactionsTable.orderId, sibling.id),
+            ))
+            .limit(1);
+          if (!existingSiblingTx) {
+            const [mainReg] = await db.select().from(cashRegistersTable)
+              .where(and(eq(cashRegistersTable.type, "main"), eq(cashRegistersTable.isActive, true)))
+              .limit(1);
+            if (mainReg) {
+              const targetReg = (data as any).cashRegisterId
+                ? (await db.select().from(cashRegistersTable).where(eq(cashRegistersTable.id, (data as any).cashRegisterId)).limit(1))[0] ?? mainReg
+                : mainReg;
+              const siblingAmount = sibling.totalPrice ?? 0;
+              const balBefore = Number(targetReg.balance ?? 0);
+              const balAfter  = balBefore + siblingAmount;
+              const now = new Date();
+              await db.insert(cashTransactionsTable).values({
+                registerId:      targetReg.id,
+                type:            "order_collected" as any,
+                amount:          String(siblingAmount),
+                balanceBefore:   String(balBefore),
+                balanceAfter:    String(balAfter),
+                description:     `تحصيل طلب #${sibling.invoiceNumber ?? sibling.id} — ${sibling.customerName}`,
+                referenceNumber: String(sibling.invoiceNumber ?? sibling.id),
+                orderId:         sibling.id,
+                transactionDate: now,
+                createdByUserId: req.user?.id ?? null,
+                createdByName:   req.user?.displayName ?? null,
+                createdAt:       now,
+              });
+              await db.update(cashRegistersTable)
+                .set({ balance: String(balAfter), updatedAt: now })
+                .where(eq(cashRegistersTable.id, targetReg.id));
+            }
+          }
+        } catch (_) {}
+        // ────────────────────────────────────────────────────────────────────────
       }
 
       if (data.status === "partial_received") {

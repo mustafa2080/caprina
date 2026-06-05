@@ -548,20 +548,24 @@ export default function InvoiceGroup() {
     if (!regId) return;
     setIsClosing(true);
     try {
-      // بنبعت cashRegisterId مع كل update عشان الـ backend يستخدم الخزنة الصح
-      // والـ backend هو اللي بيعمل الـ transaction — مش الـ frontend
-      const toClose = orders.filter((o: any) => o.status !== "received" && o.status !== "partial_received");
-      for (const order of toClose) {
-        await new Promise<void>((resolve, reject) => {
-          updateOrder.mutate(
-            { id: order.id, data: { status: "received", cashRegisterId: regId } as any },
-            { onSuccess: () => resolve(), onError: (e) => reject(e) }
-          );
-        });
+      // نبعت call واحد بس لأول order — الـ backend هو اللي بيعدل كل الـ siblings
+      // وبيعمل transaction لكل منتج في الفاتورة على حدة
+      const toClose = orders.filter((o: any) => !["received","partial_received","returned"].includes(o.status));
+      if (toClose.length === 0) {
+        toast({ title: "الفاتورة مغلقة بالفعل", description: "كل الطلبات تم تسليمها.", variant: "destructive" });
+        setShowCloseDialog(false);
+        return;
       }
+      // call واحد بس — الـ backend بيعدل كل الـ siblings تلقائياً
+      await new Promise<void>((resolve, reject) => {
+        updateOrder.mutate(
+          { id: toClose[0].id, data: { status: "received", cashRegisterId: regId } as any },
+          { onSuccess: () => resolve(), onError: (e) => reject(e) }
+        );
+      });
       invalidateAll();
       queryClient.invalidateQueries({ queryKey: ["cash-registers-list"] });
-      const amount = orders.reduce((s: number, o: any) => s + (o.totalPrice ?? 0), 0);
+      const amount = toClose.reduce((s: number, o: any) => s + (o.totalPrice ?? 0), 0);
       toast({
         title: "✅ تم إغلاق الفاتورة",
         description: `تم تحويل ${toClose.length} طلب لـ «استلم» وإيداع ${new Intl.NumberFormat("ar-EG",{style:"currency",currency:"EGP",maximumFractionDigits:0}).format(amount)} في الخزنة`,
@@ -1480,7 +1484,7 @@ export default function InvoiceGroup() {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">المبلغ المُودَع</span>
                 <span className="font-bold text-emerald-400">
-                  {formatCurrency(orders?.reduce((s: number, o: any) => s + (o.totalPrice ?? 0), 0) ?? 0)}
+                  {formatCurrency(orders?.filter((o: any) => !["received","partial_received","returned"].includes(o.status)).reduce((s: number, o: any) => s + (o.totalPrice ?? 0), 0) ?? 0)}
                 </span>
               </div>
             </div>
