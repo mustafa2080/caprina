@@ -2070,8 +2070,10 @@ export default function OrderDetail() {
             <div className="flex items-center gap-2">
               {canWriteOrders && (
                 <div className="w-44">
-                  <Select value={selectDisplayStatus ?? order.status} onValueChange={handleStatusChange} disabled={updateOrder.isPending}>
-                    <SelectTrigger className="h-8 text-xs bg-card border-border"><SelectValue /></SelectTrigger>
+                  <Select onValueChange={handleStatusChange} disabled={updateOrder.isPending}>
+                    <SelectTrigger className="h-8 text-xs bg-card border-border">
+                      <span>{statusLabels[selectDisplayStatus ?? order.status] || (selectDisplayStatus ?? order.status)}</span>
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="pending">قيد الانتظار</SelectItem>
                       <SelectItem value="warehouse_ready">قيد الشحن في المخزن</SelectItem>
@@ -2197,8 +2199,10 @@ export default function OrderDetail() {
           {!isEditing && canWriteOrders && (
             <>
               <div className="w-44">
-                <Select value={selectDisplayStatus ?? order.status} onValueChange={handleStatusChange} disabled={updateOrder.isPending}>
-                  <SelectTrigger className="h-8 text-xs bg-card border-border"><SelectValue /></SelectTrigger>
+                <Select onValueChange={handleStatusChange} disabled={updateOrder.isPending}>
+                  <SelectTrigger className="h-8 text-xs bg-card border-border">
+                    <span>{statusLabels[selectDisplayStatus ?? order.status] || (selectDisplayStatus ?? order.status)}</span>
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="pending">قيد الانتظار</SelectItem>
                     <SelectItem value="warehouse_ready">قيد الشحن في المخزن</SelectItem>
