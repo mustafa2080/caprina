@@ -1005,6 +1005,84 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
     .set({ ...data, totalPrice: newTotalPrice, updatedAt: new Date() })
     .where(eq(ordersTable.id, params.data.id));
 
+  // ── إضافة الإيراد للخزنة عند التسليم (received / partial_received) ──────────
+  const deliveredStatuses = ["received", "partial_received"];
+  if (
+    deliveredStatuses.includes(newStatus) &&
+    !deliveredStatuses.includes(oldStatus) &&
+    !isInManifest
+  ) {
+    try {
+      const [mainRegister] = await db
+        .select()
+        .from(cashRegistersTable)
+        .where(and(eq(cashRegistersTable.type, "main"), eq(cashRegistersTable.isActive, true)))
+        .limit(1);
+
+      if (mainRegister) {
+        // تأكد مفيش transaction مسجلة قبل كده لنفس الطلب
+        const [existingTx] = await db
+          .select({ id: cashTransactionsTable.id })
+          .from(cashTransactionsTable)
+          .where(and(
+            eq(cashTransactionsTable.type, "order_collected" as any),
+            eq(cashTransactionsTable.orderId, existing.id),
+          ))
+          .limit(1);
+
+        if (!existingTx) {
+          const amount      = newTotalPrice;
+          const balBefore   = Number(mainRegister.balance ?? 0);
+          const balAfter    = balBefore + amount;
+          const now         = new Date();
+          await db.insert(cashTransactionsTable).values({
+            registerId:      mainRegister.id,
+            type:            "order_collected" as any,
+            amount:          String(amount),
+            balanceBefore:   String(balBefore),
+            balanceAfter:    String(balAfter),
+            description:     `تحصيل طلب #${existing.invoiceNumber ?? existing.id} — ${existing.customerName}`,
+            referenceNumber: String(existing.invoiceNumber ?? existing.id),
+            orderId:         existing.id,
+            transactionDate: now,
+            createdByUserId: req.user?.id ?? null,
+            createdByName:   req.user?.displayName ?? null,
+            createdAt:       now,
+          });
+          await db.update(cashRegistersTable)
+            .set({ balance: String(balAfter), updatedAt: now })
+            .where(eq(cashRegistersTable.id, mainRegister.id));
+        }
+      }
+    } catch (_) {}
+  }
+  // ── إزالة الإيراد من الخزنة لو رجع من received لحالة تانية ──────────────────
+  if (
+    deliveredStatuses.includes(oldStatus) &&
+    !deliveredStatuses.includes(newStatus) &&
+    !isInManifest
+  ) {
+    try {
+      const [txRow] = await db
+        .select()
+        .from(cashTransactionsTable)
+        .where(and(
+          eq(cashTransactionsTable.type, "order_collected" as any),
+          eq(cashTransactionsTable.orderId, existing.id),
+        ))
+        .limit(1);
+      if (txRow) {
+        const amt = parseFloat(txRow.amount ?? "0");
+        await db.update(cashRegistersTable).set({
+          balance:   sql`balance - ${amt}`,
+          updatedAt: new Date(),
+        }).where(eq(cashRegistersTable.id, txRow.registerId));
+        await db.delete(cashTransactionsTable).where(eq(cashTransactionsTable.id, txRow.id));
+      }
+    } catch (_) {}
+  }
+  // ─────────────────────────────────────────────────────────────────────────────
+
   // لو الحالة اتغيرت وفيه invoiceNumber → غير كل منتجات الـ invoice بنفس الحالة
   if (data.status && data.status !== oldStatus && existing.invoiceNumber) {
     // بناء الـ set object — لو returned نضيف returnReason وباقي حقول المرتجع
