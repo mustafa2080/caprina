@@ -1919,9 +1919,9 @@ export default function OrderDetail() {
     queryKey: ["invoice-orders", invoiceNumber],
     queryFn: () => ordersApi.byInvoice(invoiceNumber!),
     enabled: !!invoiceNumber,
-    staleTime: 0,
+    staleTime: 30_000,
     retry: 1,
-    placeholderData: (prev: any) => prev, // ظٹط­طھظپط¸ ط¨ط§ظ„ط¨ظٹط§ظ†ط§طھ ط§ظ„ظ‚ط¯ظٹظ…ط© ط£ط«ظ†ط§ط، ط§ظ„ظ€ refetch
+    placeholderData: (prev: any) => prev,
   });
   // كل أوردرات الفاتورة ماعدا الحالي (للعرض في القائمة)
   const otherInvoiceOrders = invoiceOrders.filter((o: any) => o.id !== id);
@@ -2549,8 +2549,7 @@ tr.row-returned td{color:#aaa;text-decoration:line-through}
       <Link href="/orders"><Button variant="outline" className="mt-3">العودة للطلبات</Button></Link>
     </div>
   );
-  // لو invoiceNumber موجود ولسه بنجيب الطلبات (وmش error) → نستنى عشان isInvoiceMode تتحدد صح
-  // ط´ط§ط´ط© ط§ظ„طھط­ظ…ظٹظ„ ظپظ‚ط· ط¹ظ†ط¯ ط£ظˆظ„ fetch ظˆظ…ط§ ظپظٹط´ ط¨ظٹط§ظ†ط§طھ ظ‚ط¯ظٹظ…ط©
+  // لو invoiceNumber موجود ولسه بنجيب الطلبات (أول fetch فقط وما فيش بيانات قديمة) → نستنى
   if (invoiceNumber && isInvoiceLoading && !isInvoiceError && invoiceOrders.length === 0) return <div className="p-12 text-center text-muted-foreground animate-pulse">جاري التحميل...</div>;
 
   const shippingCompany = shippingCompanies?.find(c => c.id === order.shippingCompanyId);
