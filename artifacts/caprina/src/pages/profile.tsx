@@ -1145,7 +1145,9 @@ function MonthlyReportTab({ profile, externalViewMode, externalDate, onViewModeC
               <div className="w-px bg-border/50 self-stretch" />
               <div className="flex flex-col">
                 <span className="text-[10px] text-muted-foreground">معدل التسليم</span>
-                <span className="text-base font-black text-emerald-400">{pct(os.deliveryRate)}</span>
+                <span className="text-base font-black text-emerald-400">
+                  {os.total > 0 ? pct(os.delivered / os.total * 100) : "0.0%"}
+                </span>
               </div>
               <div className="w-px bg-border/50 self-stretch" />
               {isSuperAdmin && (
@@ -1189,22 +1191,22 @@ function MonthlyReportTab({ profile, externalViewMode, externalDate, onViewModeC
         <div className="space-y-1.5">
           <div className="flex justify-between text-xs font-semibold">
             <span className="flex items-center gap-1.5 text-emerald-400"><CheckCircle2 className="w-3.5 h-3.5" />معدل التسليم</span>
-            <span className="text-emerald-400">{pct(os.deliveryRate)}</span>
+            <span className="text-emerald-400">{os.total > 0 ? pct(os.delivered / os.total * 100) : "0.0%"}</span>
           </div>
           <div className="h-3 bg-muted/30 rounded-full overflow-hidden">
             <div className="h-full rounded-full bg-emerald-500 transition-all duration-700"
-              style={{ width: `${os.deliveryRate}%` }} />
+              style={{ width: `${os.total > 0 ? (os.delivered / os.total * 100) : 0}%` }} />
           </div>
         </div>
 
         <div className="space-y-1.5">
           <div className="flex justify-between text-xs font-semibold">
             <span className="flex items-center gap-1.5 text-rose-400"><XCircle className="w-3.5 h-3.5" />معدل الإرجاع</span>
-            <span className="text-rose-400">{pct(os.returnRate)}</span>
+            <span className="text-rose-400">{os.total > 0 ? pct(os.returned / os.total * 100) : "0.0%"}</span>
           </div>
           <div className="h-3 bg-muted/30 rounded-full overflow-hidden">
             <div className="h-full rounded-full bg-rose-500 transition-all duration-700"
-              style={{ width: `${os.returnRate}%` }} />
+              style={{ width: `${os.total > 0 ? (os.returned / os.total * 100) : 0}%` }} />
           </div>
         </div>
 
