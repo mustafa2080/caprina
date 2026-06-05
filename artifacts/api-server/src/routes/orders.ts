@@ -1052,8 +1052,7 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
   const deliveredStatuses = ["received", "partial_received"];
   if (
     deliveredStatuses.includes(newStatus) &&
-    !deliveredStatuses.includes(oldStatus) &&
-    !isInManifest
+    !deliveredStatuses.includes(oldStatus)
   ) {
     try {
       const [mainRegister] = await db
@@ -1106,8 +1105,7 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
   // ── إزالة الإيراد من الخزنة لو رجع من received لحالة تانية ──────────────────
   if (
     deliveredStatuses.includes(oldStatus) &&
-    !deliveredStatuses.includes(newStatus) &&
-    !isInManifest
+    !deliveredStatuses.includes(newStatus)
   ) {
     try {
       const [txRow] = await db
