@@ -3802,7 +3802,7 @@ tr.row-returned td{color:#aaa;text-decoration:line-through}
                       <p className="text-xs font-bold text-muted-foreground flex items-center gap-1">
                         <Package className="w-3 h-3" />منتجات الفاتورة ({otherInvoiceOrders.length + 1} منتجات)
                       </p>
-                      {canCreate && (
+                      {false && (
                         <button
                           type="button"
                           onClick={() => setShowAddProduct(true)}
