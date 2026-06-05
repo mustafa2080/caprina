@@ -1603,7 +1603,9 @@ export default function OrderDetail() {
   };
 
   const handleStatusChange = (newStatus: string) => {
-    if (!order || order.status === newStatus) return;
+    if (!order) return;
+    // returned و partial_received دايماً بيفتحوا الكارت حتى لو الحالة نفسها
+    if (order.status === newStatus && newStatus !== "returned" && newStatus !== "partial_received") return;
 
     // reset دايماً أول حاجة
     setSelectDisplayStatus(null);
