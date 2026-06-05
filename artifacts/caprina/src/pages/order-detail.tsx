@@ -1230,36 +1230,47 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
     <div className="space-y-4">
       {/* Header الفاتورة */}
       <Card className="border-primary/40 bg-card">
-        <CardContent className="p-4">
-          <div className="flex items-start justify-between gap-3 flex-wrap">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-mono text-muted-foreground">فاتورة</span>
-                <span className="text-sm font-black text-primary">{primaryOrder.invoiceNumber}</span>
-                <Badge variant="outline" className="text-[9px] border-primary/40 text-primary">{orders.length} منتجات</Badge>
-              </div>
-              <p className="text-base font-bold">{primaryOrder.customerName}</p>
-              {primaryOrder.phone && (
-                <p className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="w-3 h-3" />{primaryOrder.phone}</p>
-              )}
-              {primaryOrder.city && (
-                <p className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="w-3 h-3" />{primaryOrder.city}</p>
-              )}
-              {primaryOrder.address && (
-                <p className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="w-3 h-3" />{primaryOrder.address}</p>
-              )}
+        <CardContent className="p-4 space-y-3">
+          {/* الصف الأول: اسم الفاتورة + عدد المنتجات */}
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-mono text-muted-foreground">فاتورة</span>
+              <span className="text-sm font-black text-primary">{primaryOrder.invoiceNumber}</span>
+              <Badge variant="outline" className="text-[9px] border-primary/40 text-primary">{orders.length} منتجات</Badge>
             </div>
-            <div className="flex flex-col items-end gap-2">
-              <div className="text-left">
-                <p className="text-xs text-muted-foreground mb-1">إجمالي الفاتورة</p>
-                <p className="text-xl font-black text-primary">{formatCurrency(invoiceTotal)}</p>
-              </div>
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-muted-foreground">إجمالي الفاتورة</p>
+              <p className="text-lg font-black text-primary">{formatCurrency(invoiceTotal)}</p>
               {canEdit && (
                 <Button variant="outline" size="sm" className="h-7 text-xs gap-1 border-primary/40 text-primary hover:bg-primary/5"
                   onClick={() => setShowInvoiceEdit(true)}>
-                  <Pencil className="w-3 h-3" />تعديل بيانات الفاتورة
+                  <Pencil className="w-3 h-3" />تعديل
                 </Button>
               )}
+            </div>
+          </div>
+
+          {/* الصف الثاني: بيانات العميل أفقية بأيقونات */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2 border-t border-border/40">
+            {/* العميل */}
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[10px] text-muted-foreground font-medium">العميل</span>
+              <span className="text-sm font-bold truncate">{primaryOrder.customerName}</span>
+            </div>
+            {/* الواتف */}
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1"><Phone className="w-3 h-3" />الواتف</span>
+              <span className="text-sm font-semibold text-foreground/90 truncate">{primaryOrder.phone || "—"}</span>
+            </div>
+            {/* المحافظة */}
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1"><MapPin className="w-3 h-3" />المحافظة</span>
+              <span className="text-sm font-semibold text-foreground/90 truncate">{primaryOrder.city || "—"}</span>
+            </div>
+            {/* العنوان */}
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1"><MapPin className="w-3 h-3" />العنوان</span>
+              <span className="text-xs font-semibold text-foreground/90 line-clamp-2">{primaryOrder.address || "—"}</span>
             </div>
           </div>
         </CardContent>
