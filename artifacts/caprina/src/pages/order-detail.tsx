@@ -2308,7 +2308,7 @@ body{font-family:'Cairo',Tahoma,Arial,sans-serif;background:#fff;color:#111;font
 .header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:16px;border-bottom:2px solid #ddd;margin-bottom:18px}
 .header-left .inv-title{font-size:26px;font-weight:900;color:#111;margin-bottom:6px}
 .header-left .inv-meta{font-size:14px;color:#555;line-height:2;font-weight:600}
-.header-right .logo{width:88px;height:88px;border-radius:50%;object-fit:cover;border:1px solid #ddd}
+.header-right .logo{width:110px;height:110px;border-radius:12px;object-fit:contain;border:none;background:transparent}
 
 /* ── CLIENT BOX ── */
 .client-box{border:1px solid #ccc;border-radius:6px;padding:14px 20px;margin-bottom:18px;display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap}
