@@ -2053,7 +2053,7 @@ export default function OrderDetail() {
   const isManifestLocked = !!invoiceManifestStatus;
   // لو invoiceNumber موجود ولسه loading → ننتظر قبل ما نحدد الوضع (إلا لو حصل error → نعرض الطلب الفردي)
   // isInvoiceMode: ظ„ط§ طھطھط£ط«ط± ط¨ط§ظ„ظ€ refetch â€” طھط³طھط®ط¯ظ… invoiceOrders.length ظ…ط¨ط§ط´ط±ط© (placeholderData ط¨طھط­طھظپط¸ ط¨ط§ظ„ط¨ظٹط§ظ†ط§طھ)
-  const isInvoiceMode = !!invoiceNumber && !isInvoiceError && invoiceOrders.length > 1;
+  const isInvoiceMode = !!invoiceNumber && !isInvoiceError && invoiceOrders.length >= 1;
 
   return (
     <div className="max-w-4xl mx-auto space-y-5 animate-in fade-in duration-500">
