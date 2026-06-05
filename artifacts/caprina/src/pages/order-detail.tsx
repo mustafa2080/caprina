@@ -1438,7 +1438,7 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
                 منتجات الفاتورة
                 <span className="text-xs font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{orders.length}</span>
               </h3>
-              {canCreate && (
+              {false && (
                 <button onClick={() => setShowAddProduct(true)}
                   className="flex items-center gap-1.5 text-xs font-bold text-primary border border-dashed border-primary/40 hover:bg-primary/5 px-3 py-1.5 rounded-lg transition-colors">
                   <Plus className="w-3.5 h-3.5" />إضافة منتج
