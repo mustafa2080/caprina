@@ -954,10 +954,17 @@ export default function InvoiceGroup() {
 
           <Select key={selectKey} onValueChange={(v) => {
             if (!v) return;
-            setSelectKey(k => k + 1);
-            if (v === "returned") { setShowReturnDialog(true); }
-            else if (v === "partial_received") { setPartialQty(""); setShowPartialDialog(true); }
-            else { setPendingStatus(v); }
+            if (v === "returned") {
+              setShowReturnDialog(true);
+              setTimeout(() => setSelectKey(k => k + 1), 0);
+            } else if (v === "partial_received") {
+              setPartialQty("");
+              setShowPartialDialog(true);
+              setTimeout(() => setSelectKey(k => k + 1), 0);
+            } else {
+              setPendingStatus(v);
+              setTimeout(() => setSelectKey(k => k + 1), 0);
+            }
           }} disabled={isUpdatingStatus || isSelectLocked}>
             <SelectTrigger className="h-9 text-xs bg-card text-foreground border-border hover:bg-muted font-bold w-auto gap-1.5 px-3 shrink-0 transition-colors"
               title={hasOpenManifest ? `مرتبط ببيان مفتوح (${openManifestEntry?.manifestNumber})` : undefined}>
