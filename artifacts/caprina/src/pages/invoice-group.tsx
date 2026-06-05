@@ -483,7 +483,6 @@ export default function InvoiceGroup() {
   const [returnNote, setReturnNote]                     = useState<string>("");
   const [showReturnDialog, setShowReturnDialog]         = useState(false);
   const [showPartialDialog, setShowPartialDialog]       = useState(false);
-  const [selectKey, setSelectKey]                       = useState(0);
   const [partialQty, setPartialQty]                     = useState<string>("");
   const [isUpdatingStatus, setIsUpdatingStatus]         = useState(false);
   const [waOrder, setWaOrder]                           = useState<WhatsAppOrderData | null>(null);
@@ -952,19 +951,11 @@ export default function InvoiceGroup() {
             </Button>
           )}
 
-          <Select key={selectKey} onValueChange={(v) => {
+          <Select onValueChange={(v) => {
             if (!v) return;
-            if (v === "returned") {
-              setShowReturnDialog(true);
-              setTimeout(() => setSelectKey(k => k + 1), 0);
-            } else if (v === "partial_received") {
-              setPartialQty("");
-              setShowPartialDialog(true);
-              setTimeout(() => setSelectKey(k => k + 1), 0);
-            } else {
-              setPendingStatus(v);
-              setTimeout(() => setSelectKey(k => k + 1), 0);
-            }
+            if (v === "returned") { setShowReturnDialog(true); }
+            else if (v === "partial_received") { setPartialQty(""); setShowPartialDialog(true); }
+            else { setPendingStatus(v); }
           }} disabled={isUpdatingStatus || isSelectLocked}>
             <SelectTrigger className="h-9 text-xs bg-card text-foreground border-border hover:bg-muted font-bold w-auto gap-1.5 px-3 shrink-0 transition-colors"
               title={hasOpenManifest ? `مرتبط ببيان مفتوح (${openManifestEntry?.manifestNumber})` : undefined}>
