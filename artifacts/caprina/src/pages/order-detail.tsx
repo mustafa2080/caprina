@@ -2471,30 +2471,20 @@ tr.row-returned td{color:#aaa;text-decoration:line-through}
     if (!regId) return;
     setIsClosing(true);
     try {
-      // حول الأوردر لـ received لو مش كده
-      if (order.status !== "received" && order.status !== "partial_received") {
-        await new Promise<void>((resolve) => {
-          updateOrder.mutate(
-            { id: order.id, data: { status: "received" } },
-            { onSuccess: () => resolve(), onError: () => resolve() }
-          );
-        });
-      }
-      // أضف transaction للخزنة
-      const amount = order.totalPrice ?? 0;
-      await apiFetch(`/cash-registers/${regId}/transaction`, {
-        method: "POST",
-        body: JSON.stringify({
-          type: "order_collected",
-          amount,
-          description: `إغلاق طلب #${order.invoiceNumber ?? id} — ${order.customerName ?? ""}`,
-          referenceNumber: order.invoiceNumber ?? String(id),
-          transactionDate: new Date().toISOString(),
-          orderId: order.id,
-        }),
+      // بنبعت cashRegisterId مع الـ status عشان الـ backend يستخدم الخزنة الصح
+      // والـ backend هو اللي بيعمل الـ transaction — مش الـ frontend
+      const targetStatus = (order.status === "received" || order.status === "partial_received")
+        ? order.status
+        : "received";
+      await new Promise<void>((resolve, reject) => {
+        updateOrder.mutate(
+          { id: order.id, data: { status: targetStatus, cashRegisterId: regId } as any },
+          { onSuccess: () => resolve(), onError: (e) => reject(e) }
+        );
       });
       invalidateAll();
       queryClient.invalidateQueries({ queryKey: ["cash-registers-list"] });
+      const amount = order.totalPrice ?? 0;
       toast({
         title: "✅ تم إغلاق الطلب",
         description: `تم تحويله لـ «استلم» وإيداع ${new Intl.NumberFormat("ar-EG",{style:"currency",currency:"EGP",maximumFractionDigits:0}).format(amount)} في الخزنة`,

@@ -1020,6 +1020,10 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
         .limit(1);
 
       if (mainRegister) {
+        // استخدم الـ register المحدد من الـ request لو موجود
+        const targetRegister = (data as any).cashRegisterId
+          ? (await db.select().from(cashRegistersTable).where(eq(cashRegistersTable.id, (data as any).cashRegisterId)).limit(1))[0] ?? mainRegister
+          : mainRegister;
         // تأكد مفيش transaction مسجلة قبل كده لنفس الطلب
         const [existingTx] = await db
           .select({ id: cashTransactionsTable.id })
@@ -1032,11 +1036,11 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
 
         if (!existingTx) {
           const amount      = newTotalPrice;
-          const balBefore   = Number(mainRegister.balance ?? 0);
+          const balBefore   = Number(targetRegister.balance ?? 0);
           const balAfter    = balBefore + amount;
           const now         = new Date();
           await db.insert(cashTransactionsTable).values({
-            registerId:      mainRegister.id,
+            registerId:      targetRegister.id,
             type:            "order_collected" as any,
             amount:          String(amount),
             balanceBefore:   String(balBefore),
@@ -1051,7 +1055,7 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
           });
           await db.update(cashRegistersTable)
             .set({ balance: String(balAfter), updatedAt: now })
-            .where(eq(cashRegistersTable.id, mainRegister.id));
+            .where(eq(cashRegistersTable.id, targetRegister.id));
         }
       }
     } catch (_) {}

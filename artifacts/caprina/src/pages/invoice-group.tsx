@@ -548,30 +548,20 @@ export default function InvoiceGroup() {
     if (!regId) return;
     setIsClosing(true);
     try {
-      // 1) حول كل أوردر مش received لـ received
+      // بنبعت cashRegisterId مع كل update عشان الـ backend يستخدم الخزنة الصح
+      // والـ backend هو اللي بيعمل الـ transaction — مش الـ frontend
       const toClose = orders.filter((o: any) => o.status !== "received" && o.status !== "partial_received");
       for (const order of toClose) {
-        await new Promise<void>((resolve) => {
+        await new Promise<void>((resolve, reject) => {
           updateOrder.mutate(
-            { id: order.id, data: { status: "received" } },
-            { onSuccess: () => resolve(), onError: () => resolve() }
+            { id: order.id, data: { status: "received", cashRegisterId: regId } as any },
+            { onSuccess: () => resolve(), onError: (e) => reject(e) }
           );
         });
       }
-      // 2) أضف transaction للخزنة بمبلغ الفاتورة
-      const amount = orders.reduce((s: number, o: any) => s + (o.totalPrice ?? 0), 0);
-      await apiFetch(`/cash-registers/${regId}/transaction`, {
-        method: "POST",
-        body: JSON.stringify({
-          type: "order_collected",
-          amount,
-          description: `إغلاق فاتورة #${invoiceNumber} — ${orders[0]?.customerName ?? ""}`,
-          referenceNumber: invoiceNumber,
-          transactionDate: new Date().toISOString(),
-        }),
-      });
       invalidateAll();
       queryClient.invalidateQueries({ queryKey: ["cash-registers-list"] });
+      const amount = orders.reduce((s: number, o: any) => s + (o.totalPrice ?? 0), 0);
       toast({
         title: "✅ تم إغلاق الفاتورة",
         description: `تم تحويل ${toClose.length} طلب لـ «استلم» وإيداع ${new Intl.NumberFormat("ar-EG",{style:"currency",currency:"EGP",maximumFractionDigits:0}).format(amount)} في الخزنة`,
