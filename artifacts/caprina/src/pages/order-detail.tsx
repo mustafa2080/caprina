@@ -1884,93 +1884,214 @@ export default function OrderDetail() {
 
   const handlePrint = () => {
     if (!order) return;
+
+    // استخدم كل منتجات الفاتورة لو متاحة، وإلا الطلب الفردي
+    const printOrders: any[] = invoiceOrders.length >= 1 ? invoiceOrders : [order];
     const inv = order.invoiceNumber ?? `#${id}`;
     const dateLabel = format(new Date(order.createdAt), "yyyy/MM/dd HH:mm");
-    const shippingCost = order.shippingCost ?? 0;
-    const totalPrice = order.totalPrice ?? 0;
     const logoUrl = `${window.location.origin}/logo.jpg`;
-    // دالة تنسيق بأرقام إنجليزية
+
     const fmtEN = (n: number) =>
-      new Intl.NumberFormat("en-US", { style: "currency", currency: "EGP", maximumFractionDigits: 0 })
-        .format(n).replace("EGP", "").trim() + " ج.م";
-    const rowHtml = `
-      <tr>
-        <td>1</td>
-        <td class="name">${order.product ?? "-"}</td>
-        <td>${[order.color, order.size].filter(Boolean).join(" / ") || "-"}</td>
-        <td>${order.quantity ?? 1}</td>
-        <td>${fmtEN(order.unitPrice ?? 0)}</td>
-        <td>${fmtEN(totalPrice)}</td>
-      </tr>`;
+      new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n) + " ج.م";
+
+    const totalQty = printOrders.reduce((s: number, o: any) => s + (o.quantity ?? 0), 0);
+    const invoiceTotal = printOrders.reduce((s: number, o: any) => s + (o.totalPrice ?? 0), 0);
+    const shippingCostTotal = printOrders.reduce((s: number, o: any) => s + Math.abs(o.shippingCost ?? 0), 0);
+
+    // حساب الربحية
+    const hasCost = printOrders.some((o: any) => (o.costPrice ?? 0) > 0);
+    let totalRevenue = 0, totalCost = 0;
+    if (hasCost) {
+      for (const o of printOrders) {
+        const isRet = o.status === "returned";
+        const retToStock = isRet && (o.returnReceived === 1 || o.returnReceived === true);
+        const qty = o.status === "partial_received" && o.partialQuantity ? o.partialQuantity : o.quantity;
+        if (!isRet) totalRevenue += qty * (o.unitPrice ?? 0);
+        if (!retToStock) totalCost += qty * (o.costPrice ?? 0);
+      }
+    }
+    const netProfit = totalRevenue - totalCost - shippingCostTotal;
+    const margin = totalRevenue > 0 ? Math.round((netProfit / totalRevenue) * 100) : 0;
+
+    // صفوف المنتجات
+    const rowsHtml = printOrders.map((o: any, idx: number) => {
+      const variantLabel = [o.color, o.size].filter(Boolean).join(" / ") || "—";
+      const isRet = o.status === "returned";
+      const statusAr = (statusLabels as any)[o.status] || o.status;
+      return `
+        <tr class="${isRet ? "row-returned" : ""}">
+          <td>${idx + 1}</td>
+          <td class="name">${o.product ?? "—"}</td>
+          <td>${variantLabel}</td>
+          <td>${o.quantity ?? 1}</td>
+          <td>${fmtEN(o.unitPrice ?? 0)}</td>
+          <td class="total-cell">${fmtEN(o.totalPrice ?? 0)}</td>
+          <td><span class="status-badge">${statusAr}</span></td>
+        </tr>`;
+    }).join("");
+
+    // قسم الربحية — للأدمن فقط
+    const profitHtml = hasCost && canViewProfitability ? `
+      <div class="profit-section">
+        <div class="section-title">📊 تحليل الربحية</div>
+        <div class="profit-grid">
+          <div class="profit-row"><span>الإيرادات</span><span class="revenue">${fmtEN(totalRevenue)}</span></div>
+          <div class="profit-row"><span>تكلفة البضاعة</span><span class="cost">- ${fmtEN(totalCost)}</span></div>
+          ${shippingCostTotal > 0 ? `<div class="profit-row"><span>تكلفة الشحن</span><span class="cost">- ${fmtEN(shippingCostTotal)}</span></div>` : ""}
+          <div class="profit-row profit-net"><span>الربح الصافي</span><span class="${netProfit >= 0 ? "positive" : "negative"}">${fmtEN(netProfit)}</span></div>
+          <div class="profit-row"><span>هامش الربح</span><span class="${margin >= 20 ? "positive" : margin >= 10 ? "warn" : "negative"}">${margin}%</span></div>
+        </div>
+      </div>` : "";
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
     printWindow.document.write(`<!DOCTYPE html>
-<html lang="ar" dir="rtl"><head><meta charset="UTF-8"/><title>فاتورة ${inv}</title>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>فاتورة ${inv}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;600;700;900&display=swap" rel="stylesheet">
 <style>
-  *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  body{font-family:'Cairo',Tahoma,Arial,sans-serif;margin:0;padding:20px;color:#000;background:#fff;font-size:15px;font-weight:700}
-  .sheet{max-width:860px;margin:0 auto;border:1px solid #ddd;padding:24px;border-radius:4px}
-  /* Header: عنوان يسار، لوجو يمين */
-  .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #000;padding-bottom:14px;margin-bottom:18px}
-  .header-left{display:flex;flex-direction:column;gap:2px}
-  .inv-main-title{font-size:22px;font-weight:900;margin:0 0 2px}
-  .inv-count{font-size:13px;color:#555;font-weight:600}
-  .header-right{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
-  .brand-name{font-size:26px;font-weight:900;letter-spacing:0;font-family:'Cairo',Tahoma,Arial,sans-serif}
-  .inv-sub{font-size:13px;font-weight:600;color:#333;text-align:left}
-  .logo-wrap{display:flex;align-items:center;gap:8px}
-  .logo-wrap img{height:64px;width:auto;object-fit:contain;border-radius:50%}
-  .brand-fallback{font-size:22px;font-weight:900;display:none}
-  /* Meta بيانات العميل */
-  .meta{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;margin-bottom:18px;padding:10px 14px;border:1px solid #ccc;border-radius:4px}
-  .meta-item{font-size:14px;font-weight:600;display:flex;gap:6px}
-  .meta-label{color:#555;min-width:60px}
-  .meta-value{font-weight:800}
-  /* Table */
-  table{width:100%;border-collapse:collapse;margin-bottom:18px}
-  th{background:#1a1a1a;color:#fff;padding:10px 8px;font-size:14px;font-weight:700;border:1px solid #000;text-align:center}
-  td{border:1px solid #bbb;padding:9px 8px;text-align:center;font-size:15px;font-weight:700;font-family:'Cairo',Tahoma,Arial,sans-serif}
-  td.name{font-weight:900;font-size:15px}
-  /* Totals */
-  .totals{width:300px;margin-top:4px;margin-right:auto;margin-left:0}
-  .totals-row{display:flex;justify-content:space-between;padding:8px 0;font-size:15px;font-weight:700;border-bottom:1px solid #e0e0e0}
-  .totals-row:last-child{border-bottom:none;font-size:18px;font-weight:900;padding-top:10px}
-  @media print{body{padding:0}.sheet{border:none;max-width:none}}
-</style></head><body><div class="sheet">
+  *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact;margin:0;padding:0}
+  body{font-family:'Cairo',Tahoma,Arial,sans-serif;background:#f0f0f0;color:#111;font-size:14px}
+  .page{max-width:900px;margin:20px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.12)}
+  /* HEADER */
+  .header{background:#111;color:#fff;padding:20px 28px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+  .header-left{}
+  .inv-title{font-size:24px;font-weight:900;color:#fff}
+  .inv-meta{font-size:12px;color:#aaa;margin-top:4px}
+  .status-pill{display:inline-block;margin-top:8px;background:#e5b800;color:#111;border-radius:20px;padding:3px 14px;font-size:12px;font-weight:800}
+  .header-right{display:flex;align-items:center;gap:14px}
+  .logo{width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid #e5b800}
+  .brand-info{text-align:left}
+  .brand-name{font-size:26px;font-weight:900;color:#e5b800;letter-spacing:1px}
+  .inv-num{font-size:13px;color:#ccc;margin-top:2px}
+  .inv-date{font-size:12px;color:#999}
+  /* CLIENT */
+  .client-section{padding:16px 28px;background:#fafafa;border-bottom:1px solid #e8e8e8}
+  .client-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  @media(max-width:600px){.client-grid{grid-template-columns:repeat(2,1fr)}}
+  .client-card{background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:10px 12px}
+  .client-label{font-size:10px;color:#999;font-weight:700;margin-bottom:3px;text-transform:uppercase;letter-spacing:.5px}
+  .client-value{font-size:14px;font-weight:800;color:#111;word-break:break-word}
+  /* PRODUCTS */
+  .products-section{padding:20px 28px}
+  .section-title{font-size:13px;font-weight:700;color:#666;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  thead tr{background:#111;color:#fff}
+  th{padding:10px 8px;font-weight:700;text-align:center;font-size:13px}
+  tbody tr{border-bottom:1px solid #eee}
+  tbody tr:nth-child(even){background:#f9f9f9}
+  td{padding:10px 8px;text-align:center;font-weight:600}
+  td.name{font-weight:800;text-align:right}
+  td.total-cell{font-weight:900}
+  tr.row-returned td{color:#bbb;text-decoration:line-through}
+  .status-badge{font-size:10px;font-weight:700;background:#f0f0f0;border-radius:12px;padding:2px 8px;white-space:nowrap}
+  /* SUMMARY */
+  .summary-section{padding:0 28px 20px;display:flex;justify-content:flex-end}
+  .summary-box{min-width:290px;border:1px solid #e0e0e0;border-radius:10px;overflow:hidden}
+  .summary-row{display:flex;justify-content:space-between;align-items:center;padding:9px 14px;font-size:14px;border-bottom:1px solid #eee}
+  .summary-row:last-child{border:none;background:#111;color:#fff;font-size:17px;font-weight:900;padding:12px 14px}
+  .summary-row:last-child span:last-child{color:#e5b800}
+  .s-label{font-weight:600;color:#666}
+  .summary-row:last-child .s-label{color:#fff}
+  /* PROFIT */
+  .profit-section{margin:0 28px 20px;border:1px solid #e8e8e8;border-radius:10px;overflow:hidden}
+  .profit-section .section-title{background:#f5f5f5;margin:0;padding:10px 14px;border-bottom:1px solid #e8e8e8;font-size:13px}
+  .profit-grid{padding:10px 14px}
+  .profit-row{display:flex;justify-content:space-between;padding:6px 0;font-size:13px;font-weight:600;border-bottom:1px solid #f0f0f0}
+  .profit-row:last-child{border:none}
+  .profit-net{font-size:15px;font-weight:900;padding-top:10px;border-top:2px solid #e0e0e0 !important;margin-top:4px}
+  .revenue{color:#1a7a4a;font-weight:700}
+  .cost{color:#b04a00;font-weight:700}
+  .positive{color:#1a7a4a;font-weight:900}
+  .negative{color:#c0392b;font-weight:900}
+  .warn{color:#e67e22;font-weight:900}
+  /* FOOTER */
+  .footer{background:#f8f8f8;border-top:1px solid #e8e8e8;padding:12px 28px;display:flex;justify-content:space-between;font-size:11px;color:#aaa;flex-wrap:wrap;gap:6px}
+  @media print{body{background:#fff}.page{margin:0;box-shadow:none;border-radius:0;max-width:none}}
+</style>
+</head>
+<body>
+<div class="page">
   <div class="header">
     <div class="header-left">
-      <div class="inv-main-title">فاتورة</div>
-      <div class="inv-count">1 منتجات / ${order.quantity ?? 1} قطعة</div>
+      <div class="inv-title">فاتورة</div>
+      <div class="inv-meta">${printOrders.length} منتج · ${totalQty} قطعة</div>
+      <span class="status-pill">${(statusLabels as any)[order.status] || order.status}</span>
     </div>
     <div class="header-right">
-      <div class="logo-wrap">
-        <div>
-          <div class="brand-name">CAPRINA</div>
-          <div class="inv-sub">فاتورة رقم: ${inv}</div>
-          <div class="inv-sub">${dateLabel}</div>
-        </div>
-        <img src="${logoUrl}" alt="CAPRINA" onerror="this.style.display='none'"/>
+      <div class="brand-info">
+        <div class="brand-name">CAPRINA</div>
+        <div class="inv-num">رقم: ${inv}</div>
+        <div class="inv-date">${dateLabel}</div>
+      </div>
+      <img class="logo" src="${logoUrl}" alt="CAPRINA" onerror="this.style.display='none'"/>
+    </div>
+  </div>
+
+  <div class="client-section">
+    <div class="client-grid">
+      <div class="client-card">
+        <div class="client-label">العميل</div>
+        <div class="client-value">${order.customerName ?? "—"}</div>
+      </div>
+      <div class="client-card">
+        <div class="client-label">الواتف</div>
+        <div class="client-value" style="direction:ltr;text-align:right">${order.phone ?? "—"}</div>
+      </div>
+      <div class="client-card">
+        <div class="client-label">المحافظة</div>
+        <div class="client-value">${(order as any).city ?? "—"}</div>
+      </div>
+      <div class="client-card">
+        <div class="client-label">العنوان</div>
+        <div class="client-value" style="font-size:12px">${order.address ?? "—"}</div>
       </div>
     </div>
   </div>
-  <div class="meta">
-    <div class="meta-item"><span class="meta-label">العميل:</span><span class="meta-value">${order.customerName ?? "-"}</span></div>
-    <div class="meta-item"><span class="meta-label">الهاتف:</span><span class="meta-value">${order.phone ?? "-"}</span></div>
-    <div class="meta-item"><span class="meta-label">المحافظة:</span><span class="meta-value">${order.city ?? "-"}</span></div>
-    <div class="meta-item"><span class="meta-label">العنوان:</span><span class="meta-value">${order.address ?? "-"}</span></div>
+
+  <div class="products-section">
+    <div class="section-title">📦 المنتجات (${printOrders.length})</div>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th style="text-align:right">المنتج</th>
+          <th>اللون / المقاس</th>
+          <th>الكمية</th>
+          <th>سعر الوحدة</th>
+          <th>الإجمالي</th>
+          <th>الحالة</th>
+        </tr>
+      </thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
   </div>
-  <table>
-    <thead><tr><th>#</th><th>المنتج</th><th>اللون/المقاس</th><th>الكمية</th><th>سعر الوحدة</th><th>الإجمالي</th></tr></thead>
-    <tbody>${rowHtml}</tbody>
-  </table>
-  <div class="totals">
-    <div class="totals-row"><span>إجمالي المنتجات</span><span>${fmtEN(totalPrice)}</span></div>
-    <div class="totals-row"><span>الشحن</span><span>${fmtEN(shippingCost)}</span></div>
-    <div class="totals-row"><span>الإجمالي الكلي</span><span>${fmtEN(totalPrice + shippingCost)}</span></div>
+
+  <div class="summary-section">
+    <div class="summary-box">
+      <div class="summary-row">
+        <span class="s-label">إجمالي المنتجات (${totalQty} قطعة)</span>
+        <span style="font-weight:700">${fmtEN(invoiceTotal)}</span>
+      </div>
+      ${shippingCostTotal > 0 ? `<div class="summary-row"><span class="s-label">تكلفة الشحن</span><span style="font-weight:700">${fmtEN(shippingCostTotal)}</span></div>` : ""}
+      <div class="summary-row">
+        <span class="s-label">الإجمالي الكلي</span>
+        <span>${fmtEN(invoiceTotal + shippingCostTotal)}</span>
+      </div>
+    </div>
   </div>
-</div></body></html>`);
+
+  ${profitHtml}
+
+  <div class="footer">
+    <span>تاريخ الطباعة: ${format(new Date(), "yyyy/MM/dd HH:mm")}</span>
+    <span>CAPRINA — نظام إدارة الطلبات</span>
+  </div>
+</div>
+</body></html>`);
     printWindow.document.close();
     printWindow.onload = () => {
       // ننتظر الـ fonts تتحمل قبل الطباعة
