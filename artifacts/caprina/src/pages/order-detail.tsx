@@ -1565,25 +1565,45 @@ function StatusSelect({
   onChange: (v: string) => void;
   disabled?: boolean;
 }) {
-  const [open, setOpen] = React.useState(false);
-  const ref = React.useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const [dropPos, setDropPos] = useState({ top: 0, left: 0, width: 0 });
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropRef = useRef<HTMLDivElement>(null);
   const current = STATUS_OPTIONS.find((o) => o.value === value) ?? STATUS_OPTIONS[0];
 
-  React.useEffect(() => {
+  // إغلاق لو ضغط برا
+  useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (
+        triggerRef.current && !triggerRef.current.contains(e.target as Node) &&
+        dropRef.current && !dropRef.current.contains(e.target as Node)
+      ) setOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  const handleOpen = () => {
+    if (disabled) return;
+    if (!open && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setDropPos({
+        top: rect.bottom + window.scrollY + 4,
+        left: rect.left + window.scrollX,
+        width: Math.max(rect.width, 220),
+      });
+    }
+    setOpen((p) => !p);
+  };
+
   return (
-    <div ref={ref} className="relative select-none" style={{ minWidth: 190 }}>
+    <div className="relative select-none" style={{ minWidth: 190 }}>
       {/* Trigger */}
       <button
+        ref={triggerRef}
         type="button"
         disabled={disabled}
-        onClick={() => !disabled && setOpen((p) => !p)}
+        onClick={handleOpen}
         className={`
           w-full flex items-center gap-2 px-3 h-9 rounded-lg border text-sm font-semibold
           transition-all duration-150 cursor-pointer
@@ -1602,13 +1622,19 @@ function StatusSelect({
         </svg>
       </button>
 
-      {/* Dropdown */}
-      {open && (
-        <div className="
-          absolute z-50 mt-1.5 w-full rounded-xl border border-border
-          bg-popover shadow-xl overflow-hidden
-          animate-in fade-in-0 zoom-in-95 duration-100
-        " style={{ minWidth: 210 }}>
+      {/* Dropdown — fixed عشان ميتقطعش بـ overflow */}
+      {open && typeof document !== "undefined" && React.createPortal(
+        <div
+          ref={dropRef}
+          style={{
+            position: "fixed",
+            top: dropPos.top,
+            left: dropPos.left,
+            width: dropPos.width,
+            zIndex: 9999,
+          }}
+          className="rounded-xl border border-border bg-popover shadow-2xl overflow-hidden"
+        >
           <div className="p-1.5 flex flex-col gap-0.5">
             {STATUS_OPTIONS.map((opt) => {
               const isActive = opt.value === value;
@@ -1634,7 +1660,8 @@ function StatusSelect({
               );
             })}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
