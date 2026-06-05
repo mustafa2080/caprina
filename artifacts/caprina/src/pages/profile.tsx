@@ -628,10 +628,21 @@ function OrdersTab({ profile, userId }: { profile?: EmployeeProfile; userId: num
 }
 
 /* ── Tab: KPIs (مؤشرات الأداء) ── */
-function KpisTab({ myStats, profile }: { myStats?: TeamMemberExtStats; profile?: EmployeeProfile }) {
-  const [viewMode, setViewMode]       = useState<"monthly" | "daily">("monthly");
+function KpisTab({ myStats, profile, externalViewMode, externalDate, onViewModeChange, onDateChange }: {
+  myStats?: TeamMemberExtStats;
+  profile?: EmployeeProfile;
+  externalViewMode?: "monthly" | "daily";
+  externalDate?: string;
+  onViewModeChange?: (m: "monthly" | "daily") => void;
+  onDateChange?: (d: string) => void;
+}) {
+  const [_viewMode, _setViewMode]       = useState<"monthly" | "daily">("monthly");
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), "yyyy-MM"));
-  const [selectedDate, setSelectedDate]   = useState(format(new Date(), "yyyy-MM-dd"));
+  const [_selectedDate, _setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const viewMode      = externalViewMode ?? _viewMode;
+  const selectedDate  = externalDate ?? _selectedDate;
+  const setViewMode   = (m: "monthly" | "daily") => { _setViewMode(m); onViewModeChange?.(m); };
+  const setSelectedDate = (d: string) => { _setSelectedDate(d); onDateChange?.(d); };
 
   const monthOptions = useMemo(() => Array.from({ length: 6 }, (_, i) => {
     const d = subMonths(new Date(), i);
@@ -2689,7 +2700,14 @@ export default function ProfilePage() {
         />
       )}
       {activeTab === "orders" && <OrdersTab profile={myProfile} userId={user.id} />}
-      {activeTab === "kpis" && <KpisTab myStats={myStats} profile={myProfile} />}
+      {activeTab === "kpis" && <KpisTab
+        myStats={myStats}
+        profile={myProfile}
+        externalViewMode={headerViewMode}
+        externalDate={headerDate}
+        onViewModeChange={setHeaderViewMode}
+        onDateChange={setHeaderDate}
+      />}
       {activeTab === "report" && <MonthlyReportTab profile={myProfile} />}
       {activeTab === "saleskpi" && <SalesKPIDashboardTab myStats={myStats} profile={myProfile} />}
       {activeTab === "attendance" && <AttendanceTab />}
