@@ -2335,24 +2335,99 @@ export default function OrderDetail() {
       {/* ── وضع الفاتورة المتعددة: عرض مختلف تماماً ── */}
       {isInvoiceMode && (
         <>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <Link href="/orders">
-                <Button variant="outline" size="icon" className="h-8 w-8 rounded-full border-border"><ArrowRight className="h-4 w-4" /></Button>
-              </Link>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-xl font-bold">فاتورة {invoiceNumber}</h1>
-                  <Badge variant="outline" className={`font-bold border text-[10px] ${statusClasses[order.status] || ""}`}>
-                    {statusLabels[order.status] || order.status}
-                  </Badge>
+          {/* ── هيدر الفاتورة ── */}
+          <div className="rounded-xl overflow-hidden border border-border shadow-sm">
+            {/* صف العنوان الرئيسي */}
+            <div className="bg-card px-4 py-3 flex items-center justify-between gap-3 border-b border-border">
+              <div className="flex items-center gap-3 min-w-0">
+                <Link href="/orders">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full shrink-0 hover:bg-muted">
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h1 className="text-base font-bold truncate">فاتورة {invoiceNumber}</h1>
+                    <Badge className={`shrink-0 font-bold text-[10px] px-2 py-0.5 ${statusClasses[order.status] || ""}`}>
+                      {statusLabels[order.status] || order.status}
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    {format(new Date(order.createdAt), "yyyy/MM/dd HH:mm")} · {invoiceOrders.length} منتج
+                  </p>
                 </div>
-                <p className="text-xs text-muted-foreground mt-0.5">{format(new Date(order.createdAt), "yyyy/MM/dd HH:mm")}</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+
+            {/* صف الأزرار */}
+            <div className="bg-muted/30 px-3 py-2 flex items-center gap-1.5 flex-wrap">
+              {/* زرار الطباعة */}
+              <Button variant="outline" size="sm" onClick={handlePrint}
+                className="h-8 text-xs gap-1.5 border-border bg-card hover:bg-muted">
+                <Printer className="w-3.5 h-3.5" />فاتورة
+              </Button>
+
+              {/* حذف */}
+              {canDelete && (
+                <Button variant="outline" size="sm"
+                  onClick={() => {
+                    if (isManifestLocked) {
+                      toast({ title: "⛔ ممنوع حذف الطلب", description: `هذا الطلب مرتبط ببيان شحن مفتوح (${invoiceManifestStatus?.manifestNumber})`, variant: "destructive" });
+                      return;
+                    }
+                    if (!isOrderLocked) setShowDeleteDialog(true);
+                  }}
+                  disabled={isOrderLocked}
+                  className="h-8 text-xs gap-1.5 border-red-800 text-red-400 hover:bg-red-900/20 disabled:opacity-40 bg-card">
+                  <Trash2 className="w-3.5 h-3.5" />حذف
+                </Button>
+              )}
+
+              {/* إضافة منتج */}
+              {canCreate && (
+                <Button variant="outline" size="sm"
+                  onClick={() => setInvoiceShowAddProduct(true)}
+                  className="h-8 text-xs gap-1.5 border-primary/40 text-primary hover:bg-primary/10 bg-card">
+                  <Plus className="w-3.5 h-3.5" />إضافة منتج
+                </Button>
+              )}
+
+              {/* تعديل */}
+              {canEdit && (
+                <Button variant="outline" size="sm"
+                  onClick={() => !isOrderLocked && setInvoiceShowEdit(true)}
+                  disabled={isOrderLocked}
+                  className="h-8 text-xs gap-1.5 border-border bg-card disabled:opacity-40">
+                  {isOrderLocked ? <Lock className="w-3.5 h-3.5" /> : <Pencil className="w-3.5 h-3.5" />}تعديل
+                </Button>
+              )}
+
+              {/* إغلاق */}
+              {isAdmin && order.status !== "received" && order.status !== "partial_received" && order.status !== "returned" && (
+                <Button variant="outline" size="sm"
+                  onClick={() => {
+                    const regs = (cashData as any)?.registers ?? [];
+                    const defaultReg = regs.find((r: any) => r.isDefault) ?? regs[0];
+                    if (defaultReg) setSelectedRegisterId(String(defaultReg.id));
+                    setShowCloseDialog(true);
+                  }}
+                  className="h-8 text-xs gap-1.5 bg-card hover:bg-emerald-500/10 text-emerald-400 border border-emerald-600/50 hover:border-emerald-500">
+                  <CheckCircle2 className="w-3.5 h-3.5" />إغلاق
+                </Button>
+              )}
+
+              {/* واتساب */}
+              {(order.status === "pending" || order.status === "warehouse_ready") && canWriteOrders && (
+                <Button variant="outline" size="sm"
+                  onClick={handleWhatsApp}
+                  className="h-8 text-xs gap-1.5 border-green-700 text-green-400 hover:bg-green-500/10 bg-card">
+                  <MessageCircle className="w-3.5 h-3.5" />واتساب
+                </Button>
+              )}
+
+              {/* تغيير الحالة — يمين */}
               {canWriteOrders && (
-                <div className="w-44">
+                <div className="w-44 mr-auto">
                   <Select onValueChange={handleStatusChange} disabled={updateOrder.isPending}>
                     <SelectTrigger className="h-8 text-xs bg-card border-border">
                       <span className="flex items-center gap-1">
@@ -2372,7 +2447,7 @@ export default function OrderDetail() {
                         {statusLabels[selectDisplayStatus ?? order.status] || (selectDisplayStatus ?? order.status)}
                       </span>
                     </SelectTrigger>
-                    <SelectContent side="top">
+                    <SelectContent side="bottom">
                       <SelectItem value="pending"><span className="flex items-center gap-2"><Clock className="w-3.5 h-3.5" />قيد الانتظار</span></SelectItem>
                       <SelectItem value="warehouse_ready"><span className="flex items-center gap-2"><Warehouse className="w-3.5 h-3.5" />قيد الشحن في المخزن</span></SelectItem>
                       <SelectItem value="in_shipping"><span className="flex items-center gap-2"><Truck className="w-3.5 h-3.5" />قيد الشحن</span></SelectItem>
@@ -2383,61 +2458,6 @@ export default function OrderDetail() {
                     </SelectContent>
                   </Select>
                 </div>
-              )}
-              {canEdit && (
-                <Button variant="outline" size="sm"
-                  onClick={() => !isOrderLocked && setInvoiceShowEdit(true)}
-                  disabled={isOrderLocked}
-                  className="h-8 text-xs gap-1 border-border disabled:opacity-40">
-                  {isOrderLocked ? <Lock className="w-3 h-3" /> : <Pencil className="w-3 h-3" />}تعديل
-                </Button>
-              )}
-              {canCreate && (
-                <Button variant="outline" size="sm"
-                  onClick={() => setInvoiceShowAddProduct(true)}
-                  className="h-8 text-xs gap-1 border-primary/40 text-primary hover:bg-primary/10">
-                  <Plus className="w-3 h-3" />إضافة منتج
-                </Button>
-              )}
-              {(order.status === "pending" || order.status === "warehouse_ready") && canWriteOrders && (
-                <Button variant="outline" size="sm"
-                  onClick={handleWhatsApp}
-                  className="h-8 text-xs gap-1 border-green-700 text-green-400 hover:bg-green-500/10">
-                  <MessageCircle className="w-3 h-3" />واتساب
-                </Button>
-              )}
-              {canDelete && (
-                <Button variant="outline" size="sm"
-                  onClick={() => {
-                    if (isManifestLocked) {
-                      toast({ title: "⛔ ممنوع حذف الطلب", description: `هذا الطلب مرتبط ببيان شحن مفتوح (${invoiceManifestStatus?.manifestNumber})`, variant: "destructive" });
-                      return;
-                    }
-                    if (!isOrderLocked) setShowDeleteDialog(true);
-                  }}
-                  disabled={isOrderLocked}
-                  className="h-8 text-xs gap-1 border-red-800 text-red-400 hover:bg-red-900/20 disabled:opacity-40">
-                  <Trash2 className="w-3 h-3" />حذف
-                </Button>
-              )}
-              {/* زرار الطباعة — يظهر دائماً */}
-              <Button variant="outline" size="sm" onClick={handlePrint} className="h-8 text-xs gap-1 border-border">
-                <Printer className="w-3 h-3" />فاتورة
-              </Button>
-              {/* زرار الإغلاق — للأدمن فقط */}
-              {isAdmin && order.status !== "received" && order.status !== "partial_received" && order.status !== "returned" && (
-                <Button
-                  variant="outline" size="sm"
-                  onClick={() => {
-                    const regs = (cashData as any)?.registers ?? [];
-                    const defaultReg = regs.find((r: any) => r.isDefault) ?? regs[0];
-                    if (defaultReg) setSelectedRegisterId(String(defaultReg.id));
-                    setShowCloseDialog(true);
-                  }}
-                  className="h-8 text-xs gap-1 bg-transparent hover:bg-emerald-500/10 text-emerald-400 border border-emerald-600/50 hover:border-emerald-500"
-                >
-                  <CheckCircle2 className="w-3 h-3" />إغلاق
-                </Button>
               )}
             </div>
           </div>
