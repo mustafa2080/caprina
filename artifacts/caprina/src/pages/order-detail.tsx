@@ -2595,28 +2595,43 @@ export default function OrderDetail() {
 
 
 
-      {/* Partial received input */}
-      {showPartialInput && (
-        <Card className="border-purple-800 bg-purple-900/20">
-          <CardContent className="p-4">
-            <p className="text-sm font-bold text-purple-400 mb-3">استلام جزئي — كم وحدة استلمت؟</p>
-            <div className="flex items-center gap-3">
-              <Input type="number" min="1" max={order.quantity} placeholder={`الحد الأقصى: ${order.quantity}`} value={partialQty} onChange={e => setPartialQty(e.target.value)} className="h-8 text-sm w-40 bg-card" />
-              <Button size="sm" className="h-8 text-xs bg-purple-600 hover:bg-purple-700 text-white" onClick={handlePartialReceived} disabled={updateOrder.isPending}>تأكيد</Button>
-              <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setShowPartialInput(false); setPartialQty(""); setSelectDisplayStatus(null); }}>إلغاء</Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Partial received Dialog */}
+      <Dialog open={showPartialInput} onOpenChange={v => { if (!v) { setShowPartialInput(false); setPartialQty(""); setSelectDisplayStatus(null); } }}>
+        <DialogContent className="max-w-sm" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-sm">
+              <Package className="w-4 h-4 text-purple-400" />استلام جزئي
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">كم وحدة تم استلامها من أصل <span className="font-bold text-foreground">{order?.quantity}</span>؟</p>
+          <Input
+            type="number"
+            min="1"
+            max={order?.quantity}
+            placeholder={`الحد الأقصى: ${order?.quantity}`}
+            value={partialQty}
+            onChange={e => setPartialQty(e.target.value)}
+            className="h-9 text-sm"
+          />
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" size="sm" className="flex-1" onClick={() => { setShowPartialInput(false); setPartialQty(""); setSelectDisplayStatus(null); }}>إلغاء</Button>
+            <Button size="sm" className="flex-1 bg-purple-600 hover:bg-purple-700 text-white" onClick={handlePartialReceived} disabled={updateOrder.isPending}>
+              {updateOrder.isPending ? "جاري..." : "تأكيد"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {/* Return reason input */}
-      {showReturnInput && (
-        <Card ref={returnSectionRef} className="border-red-800 bg-red-900/20">
-          <CardContent className="p-4 space-y-3">
-            <div className="flex items-center gap-2 mb-1">
-              <RotateCcw className="w-4 h-4 text-red-400" />
-              <p className="text-sm font-bold text-red-400">تسجيل مرتجع — ما سبب الإرجاع؟</p>
-            </div>
+      {/* Return reason Dialog */}
+      <Dialog open={showReturnInput} onOpenChange={v => { if (!v) { setShowReturnInput(false); setReturnReason(""); setReturnNote(""); setReturnIsDamaged(false); setReturnReceived(null); setSelectDisplayStatus(null); } }}>
+        <DialogContent className="max-w-md" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-sm">
+              <RotateCcw className="w-4 h-4 text-red-400" />تسجيل مرتجع — ما سبب الإرجاع؟
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">سيتم تحويل {invoiceOrders.length > 1 ? `${invoiceOrders.length} منتج` : "1 منتج"} إلى «مرتجع».</p>
+          <div className="space-y-3">
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">سبب الإرجاع *</Label>
               <Select value={returnReason} onValueChange={setReturnReason}>
@@ -2729,9 +2744,9 @@ export default function OrderDetail() {
               </Button>
               <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setShowReturnInput(false); setReturnReason(""); setReturnNote(""); setReturnIsDamaged(false); setReturnReceived(null); setSelectDisplayStatus(null); }}>إلغاء</Button>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ── بيانات البيان (لو الطلب في بيان شحن ومش في قيد الانتظار) ──────────────────────────── */}
       {manifestStatus && order.status !== "pending" && (
