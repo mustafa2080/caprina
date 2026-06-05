@@ -1486,6 +1486,159 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
   );
 }
 
+// ─────────────────────────────────────────────
+// StatusSelect — Custom professional dropdown
+// ─────────────────────────────────────────────
+const STATUS_OPTIONS = [
+  {
+    value: "pending",
+    label: "قيد الانتظار",
+    icon: "⏳",
+    color: "text-yellow-400",
+    bg: "bg-yellow-500/10",
+    border: "border-yellow-600/40",
+    dot: "bg-yellow-400",
+  },
+  {
+    value: "warehouse_ready",
+    label: "قيد الشحن في المخزن",
+    icon: "🏭",
+    color: "text-blue-400",
+    bg: "bg-blue-500/10",
+    border: "border-blue-600/40",
+    dot: "bg-blue-400",
+  },
+  {
+    value: "in_shipping",
+    label: "قيد الشحن",
+    icon: "🚚",
+    color: "text-cyan-400",
+    bg: "bg-cyan-500/10",
+    border: "border-cyan-600/40",
+    dot: "bg-cyan-400",
+  },
+  {
+    value: "received",
+    label: "استلم ✓",
+    icon: "✅",
+    color: "text-emerald-400",
+    bg: "bg-emerald-500/10",
+    border: "border-emerald-600/40",
+    dot: "bg-emerald-400",
+  },
+  {
+    value: "partial_received",
+    label: "استلم جزئي",
+    icon: "📦",
+    color: "text-purple-400",
+    bg: "bg-purple-500/10",
+    border: "border-purple-600/40",
+    dot: "bg-purple-400",
+  },
+  {
+    value: "delayed",
+    label: "مؤجل",
+    icon: "⚠️",
+    color: "text-orange-400",
+    bg: "bg-orange-500/10",
+    border: "border-orange-600/40",
+    dot: "bg-orange-400",
+  },
+  {
+    value: "returned",
+    label: "مرتجع",
+    icon: "↩️",
+    color: "text-red-400",
+    bg: "bg-red-500/10",
+    border: "border-red-600/40",
+    dot: "bg-red-400",
+  },
+] as const;
+
+function StatusSelect({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef<HTMLDivElement>(null);
+  const current = STATUS_OPTIONS.find((o) => o.value === value) ?? STATUS_OPTIONS[0];
+
+  React.useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative select-none" style={{ minWidth: 190 }}>
+      {/* Trigger */}
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => !disabled && setOpen((p) => !p)}
+        className={`
+          w-full flex items-center gap-2 px-3 h-9 rounded-lg border text-sm font-semibold
+          transition-all duration-150 cursor-pointer
+          ${current.bg} ${current.border} ${current.color}
+          hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed
+          shadow-sm
+        `}
+      >
+        <span className="text-base leading-none">{current.icon}</span>
+        <span className="flex-1 text-right">{current.label}</span>
+        <svg
+          className={`w-4 h-4 opacity-60 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+          fill="none" stroke="currentColor" viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {/* Dropdown */}
+      {open && (
+        <div className="
+          absolute z-50 mt-1.5 w-full rounded-xl border border-border
+          bg-popover shadow-xl overflow-hidden
+          animate-in fade-in-0 zoom-in-95 duration-100
+        " style={{ minWidth: 210 }}>
+          <div className="p-1.5 flex flex-col gap-0.5">
+            {STATUS_OPTIONS.map((opt) => {
+              const isActive = opt.value === value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => { onChange(opt.value); setOpen(false); }}
+                  className={`
+                    w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold
+                    transition-all duration-100 text-right cursor-pointer
+                    ${isActive
+                      ? `${opt.bg} ${opt.color} ${opt.border} border`
+                      : "hover:bg-muted text-foreground border border-transparent"}
+                  `}
+                >
+                  <span className="text-base leading-none w-5 text-center">{opt.icon}</span>
+                  <span className="flex-1">{opt.label}</span>
+                  {isActive && (
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${opt.dot}`} />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function OrderDetail() {
   const params = useParams();
   const id = Number(params.id);
@@ -2425,36 +2578,12 @@ tr.row-returned td{color:#aaa;text-decoration:line-through}
 
               {/* تغيير الحالة — يمين */}
               {canWriteOrders && (
-                <div className="w-44 mr-auto">
-                  <Select onValueChange={handleStatusChange} disabled={updateOrder.isPending}>
-                    <SelectTrigger className="h-8 text-xs bg-card border-border">
-                      <span className="flex items-center gap-1">
-                        {(() => {
-                          const status = selectDisplayStatus ?? order.status;
-                          const iconMap = {
-                            pending: <Clock className="w-3 h-3" />,
-                            warehouse_ready: <Warehouse className="w-3 h-3" />,
-                            in_shipping: <Truck className="w-3 h-3" />,
-                            received: <CheckCircle2 className="w-3 h-3 text-emerald-400" />,
-                            delayed: <AlertCircle className="w-3 h-3" />,
-                            returned: <RotateCcw className="w-3 h-3" />,
-                            partial_received: <Package className="w-3 h-3" />,
-                          };
-                          return iconMap[status as keyof typeof iconMap] || null;
-                        })()}
-                        {statusLabels[selectDisplayStatus ?? order.status] || (selectDisplayStatus ?? order.status)}
-                      </span>
-                    </SelectTrigger>
-                    <SelectContent side="bottom">
-                      <SelectItem value="pending"><span className="flex items-center gap-2"><Clock className="w-3.5 h-3.5" />قيد الانتظار</span></SelectItem>
-                      <SelectItem value="warehouse_ready"><span className="flex items-center gap-2"><Warehouse className="w-3.5 h-3.5" />قيد الشحن في المخزن</span></SelectItem>
-                      <SelectItem value="in_shipping"><span className="flex items-center gap-2"><Truck className="w-3.5 h-3.5" />قيد الشحن</span></SelectItem>
-                      <SelectItem value="received"><span className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />استلم ✓</span></SelectItem>
-                      <SelectItem value="delayed"><span className="flex items-center gap-2"><AlertCircle className="w-3.5 h-3.5" />مؤجل</span></SelectItem>
-                      <SelectItem value="returned"><span className="flex items-center gap-2"><RotateCcw className="w-3.5 h-3.5" />مرتجع</span></SelectItem>
-                      <SelectItem value="partial_received"><span className="flex items-center gap-2"><Package className="w-3.5 h-3.5" />استلم جزئي</span></SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="mr-auto">
+                  <StatusSelect
+                    value={selectDisplayStatus ?? order.status}
+                    onChange={handleStatusChange}
+                    disabled={updateOrder.isPending}
+                  />
                 </div>
               )}
             </div>
@@ -2515,36 +2644,11 @@ tr.row-returned td{color:#aaa;text-decoration:line-through}
         <div className="flex items-center flex-wrap gap-2">
           {!isEditing && canWriteOrders && (
             <>
-              <div className="w-56">
-                <Select onValueChange={handleStatusChange} disabled={updateOrder.isPending}>
-                  <SelectTrigger className="h-8 text-xs bg-card border-border gap-2">
-                    <span>{statusLabels[selectDisplayStatus ?? order.status] || (selectDisplayStatus ?? order.status)}</span>
-                  </SelectTrigger>
-                  <SelectContent side="top" dir="rtl">
-                    <SelectItem value="pending" className="flex items-center gap-2">
-                      <Clock className="w-3.5 h-3.5" /> قيد الانتظار
-                    </SelectItem>
-                    <SelectItem value="warehouse_ready" className="flex items-center gap-2">
-                      <Package className="w-3.5 h-3.5" /> قيد الشحن في المخزن
-                    </SelectItem>
-                    <SelectItem value="in_shipping" className="flex items-center gap-2">
-                      <Truck className="w-3.5 h-3.5" /> قيد الشحن
-                    </SelectItem>
-                    <SelectItem value="received" className="flex items-center gap-2">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> استلم ✓
-                    </SelectItem>
-                    <SelectItem value="delayed" className="flex items-center gap-2">
-                      <AlertTriangle className="w-3.5 h-3.5 text-orange-400" /> مؤجل
-                    </SelectItem>
-                    <SelectItem value="returned" className="flex items-center gap-2">
-                      <RotateCcw className="w-3.5 h-3.5 text-red-400" /> مرتجع
-                    </SelectItem>
-                    <SelectItem value="partial_received" className="flex items-center gap-2">
-                      <Package className="w-3.5 h-3.5 text-purple-400" /> استلم جزئي
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <StatusSelect
+                value={selectDisplayStatus ?? order.status}
+                onChange={handleStatusChange}
+                disabled={updateOrder.isPending}
+              />
               {canEdit && (
               <Button
                 variant="outline" size="sm"
