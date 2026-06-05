@@ -24,7 +24,6 @@ import { type WhatsAppOrderData } from "@/lib/whatsapp";
 import { WhatsAppDialog } from "@/components/whatsapp-dialog";
 import { formatCurrency } from "@/lib/utils";
 import { ProductSearchCombobox } from "@/components/product-search-combobox";
-import { AddProductDialog } from "@/components/add-product-dialog";
 import { RETURN_REASONS, returnReasonLabel, STATUS_LABELS as statusLabels, STATUS_CLASSES as statusClasses } from "@/lib/order-constants";
 import {
   AlertDialog,
@@ -1777,15 +1776,13 @@ export default function OrderDetail() {
     updateOrder.mutate({ id, data: {
       ...values,
       shippingCompanyId: values.shippingCompanyId || null,
-      warehouseId: values.warehouseId || null,
-      assignedUserId: values.assignedUserId || null,
       adSource: values.adSource || null,
       adCampaign: values.adCampaign || null,
       city: values.city || null,
       shippingCost: values.shippingCost ?? null,
       costPrice: values.costPrice ?? null,
       ...extraData,
-    } }, {
+    } as any }, {
       onSuccess: (updated) => {
         queryClient.setQueryData(getGetOrderQueryKey(id), updated);
         queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
@@ -2643,7 +2640,7 @@ export default function OrderDetail() {
       )}
 
       {/* ── حالة كل منتج في الفاتورة المتعددة ───────────────────────────────── */}
-      {invoiceManifestStatus && invoiceManifestStatus.length > 1 && (
+      {invoiceOrders && invoiceOrders.length > 1 && (
         <Card className="border-border bg-muted/5">
           <CardContent className="p-3 flex flex-col gap-2">
             <div className="flex items-center gap-2">
@@ -2651,9 +2648,9 @@ export default function OrderDetail() {
               <span className="text-xs font-bold text-muted-foreground">حالة منتجات الفاتورة في البيان</span>
             </div>
             <div className="flex flex-col gap-1.5">
-              {invoiceManifestStatus.map(item => {
-                const isThis = item.orderId === id;
-                const ds = item.deliveryStatus;
+              {invoiceOrders.map((item: any) => {
+                const isThis = item.id === id;
+                const ds = item.status;
                 const dsColor =
                   ds === "delivered" ? "border-emerald-600 text-emerald-400 bg-emerald-900/10" :
                   ds === "returned" ? "border-red-600 text-red-400 bg-red-900/10" :
@@ -2663,7 +2660,7 @@ export default function OrderDetail() {
                 const dsLabel: Record<string, string> = {
                   delivered: "✓ مسلَّم",
                   returned: "↩ مرتجع",
-                  partial_received: `◑ استلم جزئي${item.manifestPartialQuantity != null ? ` (${item.manifestPartialQuantity}/${item.quantity})` : ""}`,
+                  partial_received: `◑ استلم جزئي${item.partialQuantity != null ? ` (${item.partialQuantity}/${item.quantity})` : ""}`,
                   postponed: "⏸ مؤجل",
                   pending: "⏳ قيد الانتظار",
                 };
@@ -2679,7 +2676,7 @@ export default function OrderDetail() {
                   return null;
                 })();
                 return (
-                  <div key={item.orderId} className={`flex items-center justify-between rounded-md px-2.5 py-1.5 border ${isThis ? "border-primary/40 bg-primary/5" : "border-border bg-transparent"}`}>
+                  <div key={item.id} className={`flex items-center justify-between rounded-md px-2.5 py-1.5 border ${isThis ? "border-primary/40 bg-primary/5" : "border-border bg-transparent"}`}>
                     <div className="flex flex-col gap-0.5 flex-1 min-w-0">
                       <span className={`text-xs font-semibold truncate ${isThis ? "text-primary" : "text-foreground"}`}>
                         {isThis && <span className="text-[9px] text-primary font-bold ml-1">← هذا الطلب</span>}
