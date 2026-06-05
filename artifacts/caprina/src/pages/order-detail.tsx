@@ -1292,24 +1292,24 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
               {/* صورة + اسم المنتج */}
               <div className="flex items-stretch gap-0">
                 {/* الصورة أو placeholder */}
-                <div className="w-36 sm:w-48 shrink-0 bg-muted flex items-center justify-center border-l border-border">
+                <div className="w-24 sm:w-32 md:w-36 shrink-0 bg-muted flex items-center justify-center border-l border-border">
                   {productImg ? (
                     <img src={productImg} alt={o.product}
-                      className="w-full h-full object-cover" style={{ minHeight: 160 }} />
+                      className="w-full h-full object-cover" style={{ minHeight: 100, maxHeight: 140 }} />
                   ) : (
-                    <div className="flex flex-col items-center gap-2 p-6 text-muted-foreground">
-                      <Package className="w-12 h-12 opacity-30" />
-                      <span className="text-[10px]">لا توجد صورة</span>
+                    <div className="flex flex-col items-center gap-1 p-3 text-muted-foreground">
+                      <Package className="w-8 h-8 opacity-30" />
+                      <span className="text-[9px]">لا توجد صورة</span>
                     </div>
                   )}
                 </div>
 
                 {/* تفاصيل المنتج */}
-                <div className="flex-1 p-5 space-y-4">
+                <div className="flex-1 p-3 sm:p-4 md:p-5 space-y-3">
                   <div>
-                    <p className="text-xs text-muted-foreground mb-1">المنتج</p>
-                    <h2 className="text-xl font-black text-foreground leading-tight">{o.product}</h2>
-                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                    <p className="text-[10px] text-muted-foreground mb-1">المنتج</p>
+                    <h2 className="text-base sm:text-lg md:text-xl font-black text-foreground leading-tight">{o.product}</h2>
+                    <div className="flex items-center gap-1.5 mt-2 flex-wrap">
                       <Badge className={`text-xs font-bold px-3 py-1 ${statusClasses[o.status] || ""}`}>
                         {statusLabels[o.status] || o.status}
                       </Badge>
@@ -1322,15 +1322,15 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
                   <div className="grid grid-cols-3 gap-3">
                     <div className="bg-muted/50 rounded-xl p-3 text-center">
                       <p className="text-[10px] text-muted-foreground mb-1">الكمية</p>
-                      <p className="text-2xl font-black text-foreground">{o.quantity}</p>
+                      <p className="text-lg sm:text-2xl font-black text-foreground">{o.quantity}</p>
                     </div>
-                    <div className="bg-muted/50 rounded-xl p-3 text-center">
+                    <div className="bg-muted/50 rounded-xl p-2 sm:p-3 text-center">
                       <p className="text-[10px] text-muted-foreground mb-1">سعر الوحدة</p>
-                      <p className="text-lg font-black text-foreground">{formatCurrency(o.unitPrice ?? 0)}</p>
+                      <p className="text-sm sm:text-lg font-black text-foreground">{formatCurrency(o.unitPrice ?? 0)}</p>
                     </div>
-                    <div className="bg-primary/10 border border-primary/30 rounded-xl p-3 text-center">
+                    <div className="bg-primary/10 border border-primary/30 rounded-xl p-2 sm:p-3 text-center">
                       <p className="text-[10px] text-primary/70 mb-1">الإجمالي</p>
-                      <p className="text-xl font-black text-primary">{formatCurrency(o.totalPrice ?? 0)}</p>
+                      <p className="text-base sm:text-xl font-black text-primary">{formatCurrency(o.totalPrice ?? 0)}</p>
                     </div>
                   </div>
 
