@@ -1339,7 +1339,7 @@ router.get("/team-ranking", requireAdmin, async (req, res): Promise<void> => {
   const month = (req.query.month as string) || new Date().toISOString().slice(0, 7);
 
   // ط¬ظٹط¨ ظƒظ„ ط§ظ„ظ€ profiles ظپظٹ ظ†ظپط³ ط§ظ„ظ€ tenant
-  const profiles = await db.select({
+  const profilesQuery = db.select({
     id: employeeProfilesTable.id,
     displayName: employeeProfilesTable.displayName,
     jobTitle: employeeProfilesTable.jobTitle,
@@ -1347,8 +1347,11 @@ router.get("/team-ranking", requireAdmin, async (req, res): Promise<void> => {
     avatar: employeeProfilesTable.avatar,
     userId: employeeProfilesTable.userId,
   }).from(employeeProfilesTable)
-    .leftJoin(usersTable, eq(usersTable.id, employeeProfilesTable.userId))
-    .where(tenantId !== null ? eq(usersTable.tenantId, tenantId) : undefined as any);
+    .leftJoin(usersTable, eq(usersTable.id, employeeProfilesTable.userId));
+
+  const profiles = tenantId !== null
+    ? await profilesQuery.where(eq(usersTable.tenantId, tenantId))
+    : await profilesQuery;
 
   // ظ„ظƒظ„ profile ط§ط­ط³ط¨ ط§ظ„ظ€ overallScore
   const ranking = await Promise.all(profiles.map(async (profile) => {
