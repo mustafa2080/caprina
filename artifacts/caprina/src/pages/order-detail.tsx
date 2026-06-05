@@ -1290,22 +1290,21 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
             <div className="lg:col-span-2 rounded-2xl border border-border bg-card overflow-hidden shadow-sm">
 
               {/* صورة + اسم المنتج */}
-              <div className="flex items-stretch gap-0">
-                {/* الصورة أو placeholder */}
-                <div className="w-24 sm:w-32 md:w-36 shrink-0 bg-muted flex items-center justify-center border-l border-border">
+              <div className="flex items-center gap-4 p-4">
+                {/* الصورة الدائرية */}
+                <div className="shrink-0">
                   {productImg ? (
                     <img src={productImg} alt={o.product}
-                      className="w-full h-full object-cover" style={{ minHeight: 100, maxHeight: 140 }} />
+                      className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border-2 border-primary/30 shadow-md" />
                   ) : (
-                    <div className="flex flex-col items-center gap-1 p-3 text-muted-foreground">
-                      <Package className="w-8 h-8 opacity-30" />
-                      <span className="text-[9px]">لا توجد صورة</span>
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-muted border-2 border-border flex items-center justify-center">
+                      <Package className="w-7 h-7 sm:w-8 sm:h-8 opacity-30 text-muted-foreground" />
                     </div>
                   )}
                 </div>
 
                 {/* تفاصيل المنتج */}
-                <div className="flex-1 p-3 sm:p-4 md:p-5 space-y-3">
+                <div className="flex-1 min-w-0 space-y-3">
                   <div>
                     <p className="text-[10px] text-muted-foreground mb-1">المنتج</p>
                     <h2 className="text-base sm:text-lg md:text-xl font-black text-foreground leading-tight">{o.product}</h2>
