@@ -1652,15 +1652,6 @@ export default function OrderDetail() {
       ? invoiceManifestStatus
       : null;
 
-    if (activeManifest && newStatus !== "returned") {
-      toast({
-        title: "⛔ لا يمكن تعديل حالة الطلب",
-        description: `هذا الطلب مرتبط ببيان شحن مفتوح (${activeManifest.manifestNumber}). يجب تعديل حالته من داخل البيان في قسم شركات الشحن فقط.`,
-        variant: "destructive",
-      });
-      return;
-    }
-
     if (newStatus === "partial_received") {
       setSelectDisplayStatus("partial_received");
       setShowPartialInput(true);
@@ -1669,6 +1660,15 @@ export default function OrderDetail() {
     if (newStatus === "returned") {
       setSelectDisplayStatus("returned");
       setShowReturnInput(true);
+      return;
+    }
+
+    if (activeManifest) {
+      toast({
+        title: "⛔ لا يمكن تعديل حالة الطلب",
+        description: `هذا الطلب مرتبط ببيان شحن مفتوح (${activeManifest.manifestNumber}). يجب تعديل حالته من داخل البيان في قسم شركات الشحن فقط.`,
+        variant: "destructive",
+      });
       return;
     }
 
@@ -2197,6 +2197,140 @@ export default function OrderDetail() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-5 animate-in fade-in duration-500">
+
+      {/* ── Dialogs مشتركة بين invoice mode و single mode ── */}
+      <Dialog open={showPartialInput} onOpenChange={v => { if (!v) { setShowPartialInput(false); setPartialQty(""); setSelectDisplayStatus(null); } }}>
+        <DialogContent className="max-w-sm" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-sm">
+              <Package className="w-4 h-4 text-purple-400" />استلام جزئي
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">كم وحدة تم استلامها من أصل <span className="font-bold text-foreground">{order?.quantity}</span>؟</p>
+          <Input
+            type="number"
+            min="1"
+            max={order?.quantity}
+            placeholder={`الحد الأقصى: ${order?.quantity}`}
+            value={partialQty}
+            onChange={e => setPartialQty(e.target.value)}
+            className="h-9 text-sm"
+          />
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" size="sm" className="flex-1" onClick={() => { setShowPartialInput(false); setPartialQty(""); setSelectDisplayStatus(null); }}>إلغاء</Button>
+            <Button size="sm" className="flex-1 bg-purple-600 hover:bg-purple-700 text-white" onClick={handlePartialReceived} disabled={updateOrder.isPending}>
+              {updateOrder.isPending ? "جاري..." : "تأكيد"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showReturnInput} onOpenChange={v => { if (!v) { setShowReturnInput(false); setReturnReason(""); setReturnNote(""); setReturnIsDamaged(false); setReturnReceived(null); setSelectDisplayStatus(null); } }}>
+        <DialogContent className="max-w-md overflow-y-auto max-h-[90vh]" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-sm">
+              <RotateCcw className="w-4 h-4 text-red-400" />تسجيل مرتجع — ما سبب الإرجاع؟
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">سيتم تحويل {invoiceOrders.length > 1 ? `${invoiceOrders.length} منتج` : "1 منتج"} إلى «مرتجع».</p>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">سبب الإرجاع *</Label>
+              <Select value={returnReason} onValueChange={setReturnReason}>
+                <SelectTrigger className="h-9 text-sm bg-card border-red-800 focus:ring-red-700">
+                  <SelectValue placeholder="اختر السبب..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {RETURN_REASONS.map(r => (
+                    <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {returnReason === "other" && (
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">اكتب السبب *</Label>
+                <Textarea
+                  placeholder="اكتب سبب الإرجاع بالتفصيل..."
+                  className="min-h-[70px] text-sm resize-none bg-card border-red-800 focus:ring-red-700"
+                  value={returnNote}
+                  onChange={e => setReturnNote(e.target.value)}
+                />
+              </div>
+            )}
+            {manifestStatus?.manifestStatus === "open" && (
+              <div className="space-y-2">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">هل تم استلام المرتجع؟ *</p>
+                <div className="flex gap-2.5">
+                  <button type="button" onClick={() => setReturnReceived(true)}
+                    className="flex-1 relative outline-none cursor-pointer p-0 border-0 bg-transparent"
+                    style={{ borderRadius: 14 }}>
+                    <div className="absolute inset-0 top-1 rounded-[14px] transition-colors" style={{
+                      background: returnReceived === true ? "#085041" : "var(--color-background-secondary)",
+                      border: returnReceived === true ? "none" : "1.5px solid #9FE1CB",
+                    }} />
+                    <div className={`relative z-10 flex flex-col items-center gap-1.5 px-3 pt-3 pb-4 rounded-[14px] transition-all ${returnReceived === true ? "mb-1" : "mb-0"}`} style={{
+                      background: returnReceived === true ? "#0F6E56" : "var(--color-background-primary)",
+                      border: returnReceived === true ? "none" : "1.5px solid #9FE1CB",
+                      boxShadow: returnReceived === true ? "inset 0 0 0 2px rgba(159,225,203,0.4)" : "none",
+                      transform: returnReceived === true ? "translateY(2px)" : "none",
+                    }}>
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={returnReceived === true ? "#E1F5EE" : "#1D9E75"} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 7L9 18l-5-5"/></svg>
+                      <span className="text-[11px] font-semibold leading-tight" style={{ color: returnReceived === true ? "#E1F5EE" : "#0F6E56" }}>تم الاستلام</span>
+                      <span className="text-[9px] leading-tight" style={{ color: returnReceived === true ? "rgba(225,245,238,0.7)" : "#5F5E5A" }}>يُعاد للمخزن</span>
+                    </div>
+                  </button>
+                  <button type="button" onClick={() => setReturnReceived(false)}
+                    className="flex-1 relative outline-none cursor-pointer p-0 border-0 bg-transparent"
+                    style={{ borderRadius: 14 }}>
+                    <div className="absolute inset-0 top-1 rounded-[14px] transition-colors" style={{
+                      background: returnReceived === false ? "#412402" : "var(--color-background-secondary)",
+                      border: returnReceived === false ? "none" : "1.5px solid #FAC775",
+                    }} />
+                    <div className={`relative z-10 flex flex-col items-center gap-1.5 px-3 pt-3 pb-4 rounded-[14px] transition-all ${returnReceived === false ? "mb-1" : "mb-0"}`} style={{
+                      background: returnReceived === false ? "#854F0B" : "var(--color-background-primary)",
+                      border: returnReceived === false ? "none" : "1.5px solid #FAC775",
+                      boxShadow: returnReceived === false ? "inset 0 0 0 2px rgba(250,199,117,0.4)" : "none",
+                      transform: returnReceived === false ? "translateY(2px)" : "none",
+                    }}>
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={returnReceived === false ? "#FAEEDA" : "#BA7517"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                      <span className="text-[11px] font-semibold leading-tight" style={{ color: returnReceived === false ? "#FAEEDA" : "#854F0B" }}>مازال في الشحن</span>
+                      <span className="text-[9px] leading-tight" style={{ color: returnReceived === false ? "rgba(250,238,218,0.7)" : "#5F5E5A" }}>لا يؤثر على المخزن</span>
+                    </div>
+                  </button>
+                </div>
+                <p className="text-[10px] text-center font-medium" style={{ color: returnReceived === true ? "#0F6E56" : returnReceived === false ? "#854F0B" : "var(--color-text-secondary)" }}>
+                  {returnReceived === true && "✓ سيتم إرجاع البضاعة للمخزن تلقائياً"}
+                  {returnReceived === false && "⏳ مرتجع مازال في شركة الشحن — لن يؤثر على المخزن"}
+                  {returnReceived === null && "⚠ مطلوب — حدد حالة الاستلام"}
+                </p>
+              </div>
+            )}
+            <div
+              className={`flex items-center gap-3 p-2.5 rounded border cursor-pointer transition-colors ${returnIsDamaged ? "border-amber-700 bg-amber-900/20" : "border-border bg-card/50"}`}
+              onClick={() => setReturnIsDamaged(v => !v)}
+            >
+              <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${returnIsDamaged ? "bg-amber-600 border-amber-600" : "border-muted-foreground"}`}>
+                {returnIsDamaged && <X className="w-2.5 h-2.5 text-white" />}
+              </div>
+              <div>
+                <p className={`text-xs font-bold ${returnIsDamaged ? "text-amber-400" : "text-muted-foreground"}`}>
+                  <AlertTriangle className="w-3 h-3 inline ml-1" />المنتج تالف / غير صالح للبيع
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  {returnIsDamaged ? "⚠ لن يُضاف للمخزون — سيُسجَّل كخسارة" : "في حالة التيك، لن يُرجَع للمخزون"}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              <Button size="sm" className="h-8 text-xs bg-red-700 hover:bg-red-600 text-white gap-1" onClick={handleReturnConfirm} disabled={updateOrder.isPending || (manifestStatus?.manifestStatus === "open" && returnReceived === null)}>
+                <RotateCcw className="w-3 h-3" />{updateOrder.isPending ? "جاري..." : "تأكيد الإرجاع"}
+              </Button>
+              <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setShowReturnInput(false); setReturnReason(""); setReturnNote(""); setReturnIsDamaged(false); setReturnReceived(null); setSelectDisplayStatus(null); }}>إلغاء</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ── وضع الفاتورة المتعددة: عرض مختلف تماماً ── */}
       {isInvoiceMode && (
