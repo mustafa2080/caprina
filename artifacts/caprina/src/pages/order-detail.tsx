@@ -2255,18 +2255,6 @@ tr.row-returned td{color:#aaa;text-decoration:line-through}
     </div>
   </div>
 
-  ${hasCost && canViewProfitability ? `
-  <div class="profit-wrap">
-    <div class="profit-head">📊 تحليل الربحية</div>
-    <div class="profit-body">
-      <div class="p-row"><span>الإيرادات</span><span class="p-rev">${fmtEN(totalRevenue)}</span></div>
-      <div class="p-row"><span>تكلفة البضاعة</span><span class="p-cost">- ${fmtEN(totalCost)}</span></div>
-      ${shippingCostTotal > 0 ? `<div class="p-row"><span>تكلفة الشحن</span><span class="p-cost">- ${fmtEN(shippingCostTotal)}</span></div>` : ""}
-      <div class="p-row"><span>الربح الصافي</span><span class="${netProfit >= 0 ? "p-pos" : "p-neg"}">${fmtEN(netProfit)}</span></div>
-      <div class="p-row"><span>هامش الربح</span><span class="${margin >= 20 ? "p-pos" : margin >= 10 ? "p-warn" : "p-neg"}">${margin}%</span></div>
-    </div>
-  </div>` : ""}
-
   <!-- FOOTER -->
   <div class="footer">CAPRINA — شكراً لتعاملكم معنا</div>
 
