@@ -999,6 +999,49 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
     }
   }
 
+  // ── خصم المخزون عند الإغلاق المباشر (received) حتى لو الطلب في بيان ──────────
+  // هذا يحدث لما المستخدم يضغط "إغلاق" مباشرة من صفحة الطلب
+  // الشرط: تغيّر لـ received + كان في بيان + مفيش حركة to_shipping (مش مشحون فعلاً)
+  if (
+    newStatus !== oldStatus &&
+    ["received", "partial_received"].includes(newStatus) &&
+    !["received", "partial_received"].includes(oldStatus) &&
+    isInManifest
+  ) {
+    try {
+      const orderRef2 = { variantId: existing.variantId, productId: existing.productId, product: existing.product, color: existing.color, size: existing.size, warehouseId: existing.warehouseId };
+      const [existingMovement2] = await db
+        .select({ id: inventoryMovementsTable.id, reason: inventoryMovementsTable.reason })
+        .from(inventoryMovementsTable)
+        .where(eq(inventoryMovementsTable.orderId, existing.id))
+        .orderBy(desc(inventoryMovementsTable.id))
+        .limit(1)
+        .catch(() => []);
+
+      const alreadyDeducted = existingMovement2
+        ? ["sale", "partial_sale", "to_shipping"].includes(existingMovement2.reason ?? "")
+        : false;
+
+      if (!alreadyDeducted) {
+        // مفيش خصم تم — نخصم دلوقتي
+        await processDelivery(
+          orderRef2,
+          existing.quantity,
+          newStatus === "partial_received" ? "partial_sale" : "sale",
+          existing.id
+        ).catch(() => {});
+      } else if (existingMovement2) {
+        // في حركة موجودة — بس نحدّث الـ reason فقط
+        await updateMovementReason(
+          existing.id,
+          existingMovement2.reason as any,
+          newStatus === "partial_received" ? "partial_sale" : "sale",
+          "تم الاستلام — بيع"
+        ).catch(() => {});
+      }
+    } catch (_) {}
+  }
+
   const before = { customerName: existing.customerName, product: existing.product, status: existing.status, quantity: existing.quantity, unitPrice: existing.unitPrice };
 
   await db.update(ordersTable)
