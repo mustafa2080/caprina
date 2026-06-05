@@ -2208,9 +2208,51 @@ function StarEmployeesManageTab() {
     queryFn: () => employeeApi.getStarEmployees(),
   });
 
+  const { data: profiles = [], isLoading: profilesLoading } = useQuery({
+    queryKey: ["list-profiles"],
+    queryFn: () => employeeApi.listProfiles(),
+  });
+
   const { data: ranking = [], isLoading: rankLoading } = useQuery({
-    queryKey: ["team-ranking", rankMonth],
-    queryFn: () => employeeApi.getTeamRanking(rankMonth),
+    queryKey: ["team-ranking-local", rankMonth, profiles.map((p: any) => p.id).join(",")],
+    enabled: profiles.length > 0,
+    queryFn: async () => {
+      const results = await Promise.all(
+        profiles.map(async (p: any) => {
+          try {
+            const report = await employeeApi.getReport(p.id, rankMonth);
+            const score = report?.overallScore ?? null;
+            return {
+              id: p.id,
+              displayName: p.displayName,
+              jobTitle: p.jobTitle,
+              department: p.department,
+              avatar: p.avatar,
+              overallScore: score,
+              achievedCount: report?.kpis?.filter((k: any) => k.achieved === true).length ?? 0,
+              totalKpis: report?.kpis?.length ?? 0,
+            };
+          } catch {
+            return {
+              id: p.id,
+              displayName: p.displayName,
+              jobTitle: p.jobTitle,
+              department: p.department,
+              avatar: p.avatar,
+              overallScore: null,
+              achievedCount: 0,
+              totalKpis: 0,
+            };
+          }
+        })
+      );
+      return results.sort((a, b) => {
+        if (a.overallScore === null && b.overallScore === null) return 0;
+        if (a.overallScore === null) return 1;
+        if (b.overallScore === null) return -1;
+        return b.overallScore - a.overallScore;
+      });
+    },
   });
 
   const saveMutation = useMutation({
@@ -2312,16 +2354,15 @@ function StarEmployeesManageTab() {
           <span className="text-[10px] text-muted-foreground">{selectedIds.length}/3 مختارين</span>
         </div>
 
-        {rankLoading ? (
+        {(profilesLoading || rankLoading) ? (
           <div className="flex items-center justify-center py-10 text-muted-foreground text-sm gap-2">
             <RefreshCw className="w-4 h-4 animate-spin" />
-            جاري تحميل الترتيب...
+            جاري تحميل بيانات الموظفين...
           </div>
         ) : ranking.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 text-muted-foreground gap-2">
             <BarChart2 className="w-8 h-8 opacity-30" />
-            <p className="text-sm">لا توجد بيانات لهذا الشهر</p>
-            <p className="text-xs opacity-70">تأكد من وجود مؤشرات أداء مُعيّنة للموظفين</p>
+            <p className="text-sm">لا يوجد موظفون</p>
           </div>
         ) : (
           <div className="divide-y divide-border/40">
