@@ -855,6 +855,7 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
 
   const oldStatus = existing.status;
   const newStatus = data.status ?? oldStatus;
+  const deliveredStatuses = ["received", "partial_received"];
 
   // ┘┘ê ╪د┘╪╖┘╪ذ ┘┘è ╪ذ┘è╪د┘ ╪┤╪ص┘ ظْ ╪ص╪▒┘â╪د╪ز ╪د┘┘à╪«╪▓┘ê┘ ┘à╪│╪ج┘ê┘┘è╪ر ╪د┘╪ذ┘è╪د┘ ┘┘é╪╖╪î ┘╪د ┘╪╣┘à┘┘ç╪د ┘ç┘╪د
   const [manifestLink] = await db
@@ -865,7 +866,10 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
     .catch(() => []);
   const isInManifest = !!manifestLink;
 
-  if (newStatus !== oldStatus && !isInManifest) {
+  // لو الطلب في بيان شحن → حركات المخزون مسؤولية البيان فقط
+  // استثناء: received / partial_received من الـ close dialog → نخصم دايماً
+  const isManualClose = deliveredStatuses.includes(newStatus) && !!(data as any).cashRegisterId;
+  if (newStatus !== oldStatus && (!isInManifest || isManualClose)) {
     const orderRef = { variantId: existing.variantId, productId: existing.productId, product: existing.product, color: existing.color, size: existing.size, warehouseId: existing.warehouseId };
 
     // ظ¤ظ¤ ┘à┘╪╖┘é ╪ص╪▒┘â╪د╪ز ╪د┘┘à╪«╪▓┘ê┘ ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
@@ -1051,7 +1055,6 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
   // ── إضافة الإيراد للخزنة عند التسليم (received / partial_received) ──────────
   // لو الطلب في فاتورة متعددة → Transaction واحدة بإجمالي الكل تتعمل بعد كده
   // لو طلب فردي → transaction هنا مباشرة
-  const deliveredStatuses = ["received", "partial_received"];
   const isInvoiceGroup = !!existing.invoiceNumber;
   if (
     deliveredStatuses.includes(newStatus) &&
