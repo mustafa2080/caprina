@@ -1953,54 +1953,54 @@ export default function OrderDetail() {
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;900&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact;margin:0;padding:0}
-body{font-family:'Cairo',Tahoma,Arial,sans-serif;background:#fff;color:#111;font-size:13px;direction:rtl}
+body{font-family:'Cairo',Tahoma,Arial,sans-serif;background:#fff;color:#111;font-size:15px;direction:rtl}
 .page{max-width:860px;margin:24px auto;background:#fff;padding:32px 36px}
 
 /* ── HEADER ── */
 .header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:16px;border-bottom:2px solid #ddd;margin-bottom:18px}
-.header-left .inv-title{font-size:22px;font-weight:900;color:#111;margin-bottom:6px}
-.header-left .inv-meta{font-size:12px;color:#555;line-height:1.9}
-.header-right .logo{width:80px;height:80px;border-radius:50%;object-fit:cover;border:1px solid #ddd}
+.header-left .inv-title{font-size:26px;font-weight:900;color:#111;margin-bottom:6px}
+.header-left .inv-meta{font-size:14px;color:#555;line-height:2;font-weight:600}
+.header-right .logo{width:88px;height:88px;border-radius:50%;object-fit:cover;border:1px solid #ddd}
 
 /* ── CLIENT BOX ── */
-.client-box{border:1px solid #ccc;border-radius:6px;padding:12px 18px;margin-bottom:18px;display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap}
-.client-col{display:flex;flex-direction:column;gap:4px}
-.client-row{font-size:13px;color:#222;font-weight:600}
-.client-row span.label{color:#555;font-weight:500;margin-left:4px}
+.client-box{border:1px solid #ccc;border-radius:6px;padding:14px 20px;margin-bottom:18px;display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap}
+.client-col{display:flex;flex-direction:column;gap:6px}
+.client-row{font-size:15px;color:#222;font-weight:700}
+.client-row span.label{color:#555;font-weight:600;margin-left:4px}
 
 /* ── TABLE ── */
 table{width:100%;border-collapse:collapse;margin-bottom:18px}
 thead tr{background:#333;color:#fff}
-th{padding:10px 10px;font-size:13px;font-weight:700;text-align:center}
+th{padding:12px 10px;font-size:15px;font-weight:800;text-align:center}
 th:nth-child(2){text-align:right}
 tbody tr{border-bottom:1px solid #e0e0e0}
 tbody tr:last-child{border-bottom:2px solid #ccc}
-td{padding:9px 10px;text-align:center;font-size:13px;font-weight:500;color:#222}
-td.name{font-weight:700;text-align:right}
-td.num{font-weight:700}
+td{padding:11px 10px;text-align:center;font-size:15px;font-weight:600;color:#222}
+td.name{font-weight:800;text-align:right}
+td.num{font-weight:800}
 tr.row-returned td{color:#aaa;text-decoration:line-through}
 
 /* ── SUMMARY ── */
 .summary-wrap{display:flex;justify-content:flex-start}
-.summary-table{width:340px;border:1px solid #ccc;border-radius:6px;overflow:hidden}
-.s-row{display:flex;justify-content:space-between;align-items:center;padding:9px 16px;font-size:13px;border-bottom:1px solid #e4e4e4}
-.s-row:last-child{border:none;background:#2a2a2a;color:#fff;font-size:15px;font-weight:900;padding:12px 16px}
+.summary-table{width:360px;border:1px solid #ccc;border-radius:6px;overflow:hidden}
+.s-row{display:flex;justify-content:space-between;align-items:center;padding:11px 16px;font-size:15px;border-bottom:1px solid #e4e4e4}
+.s-row:last-child{border:none;background:#2a2a2a;color:#fff;font-size:17px;font-weight:900;padding:13px 16px}
 .s-row:last-child .s-val{color:#f0c040}
-.s-lbl{font-weight:500;color:#444}
-.s-row:last-child .s-lbl{color:#ddd;font-weight:600}
-.s-val{font-weight:700;color:#111}
+.s-lbl{font-weight:600;color:#444}
+.s-row:last-child .s-lbl{color:#ddd;font-weight:700}
+.s-val{font-weight:800;color:#111}
 
 /* ── PROFIT ── */
 .profit-wrap{margin-top:18px;border:1px solid #ddd;border-radius:6px;overflow:hidden}
-.profit-head{background:#f5f5f5;padding:8px 16px;font-size:12px;font-weight:700;color:#555;border-bottom:1px solid #ddd}
-.profit-body{padding:8px 16px}
-.p-row{display:flex;justify-content:space-between;padding:5px 0;font-size:13px;font-weight:600;border-bottom:1px solid #f2f2f2}
-.p-row:last-child{border:none;font-size:14px;font-weight:900;padding-top:9px;border-top:2px solid #ddd !important;margin-top:4px}
+.profit-head{background:#f5f5f5;padding:10px 16px;font-size:14px;font-weight:800;color:#444;border-bottom:1px solid #ddd}
+.profit-body{padding:10px 16px}
+.p-row{display:flex;justify-content:space-between;padding:7px 0;font-size:15px;font-weight:700;border-bottom:1px solid #f2f2f2}
+.p-row:last-child{border:none;font-size:16px;font-weight:900;padding-top:10px;border-top:2px solid #ddd !important;margin-top:4px}
 .p-rev{color:#1a7a4a}.p-cost{color:#b04a00}
 .p-pos{color:#1a7a4a}.p-neg{color:#c0392b}.p-warn{color:#d68910}
 
 /* ── FOOTER ── */
-.footer{margin-top:30px;padding-top:12px;border-top:1px solid #ddd;text-align:center;font-size:12px;color:#888}
+.footer{margin-top:30px;padding-top:12px;border-top:1px solid #ddd;text-align:center;font-size:14px;font-weight:600;color:#666}
 
 @media print{
   body{background:#fff}
