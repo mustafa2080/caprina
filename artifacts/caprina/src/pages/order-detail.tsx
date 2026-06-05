@@ -2230,14 +2230,33 @@ export default function OrderDetail() {
     }
   };
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
     if (!order) return;
 
     // استخدم كل منتجات الفاتورة لو متاحة، وإلا الطلب الفردي
     const printOrders: any[] = invoiceOrders.length >= 1 ? invoiceOrders : [order];
     const inv = order.invoiceNumber ?? `#${id}`;
     const dateLabel = format(new Date(order.createdAt), "yyyy/MM/dd HH:mm");
-    const logoUrl = `${window.location.origin}/logo.jpg`;
+    const logoUrl = await new Promise<string>((resolve) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(img, 0, 0);
+        const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        for (let i = 0; i < data.data.length; i += 4) {
+          const r = data.data[i], g = data.data[i+1], b = data.data[i+2];
+          if (r < 40 && g < 40 && b < 40) data.data[i+3] = 0;
+        }
+        ctx.putImageData(data, 0, 0);
+        resolve(canvas.toDataURL("image/png"));
+      };
+      img.onerror = () => resolve(`${window.location.origin}/logo.jpg`);
+      img.src = `${window.location.origin}/logo.jpg`;
+    });
 
     const fmtEN = (n: number) =>
       new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n);
@@ -2308,7 +2327,7 @@ body{font-family:'Cairo',Tahoma,Arial,sans-serif;background:#fff;color:#111;font
 .header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:16px;border-bottom:2px solid #ddd;margin-bottom:18px}
 .header-left .inv-title{font-size:26px;font-weight:900;color:#111;margin-bottom:6px}
 .header-left .inv-meta{font-size:14px;color:#555;line-height:2;font-weight:600}
-.header-right .logo{width:110px;height:110px;border-radius:12px;object-fit:contain;border:none;background:transparent;mix-blend-mode:screen}
+.header-right .logo{width:110px;height:110px;border-radius:12px;object-fit:contain;border:none;background:transparent}
 
 /* ── CLIENT BOX ── */
 .client-box{border:1px solid #ccc;border-radius:6px;padding:14px 20px;margin-bottom:18px;display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap}

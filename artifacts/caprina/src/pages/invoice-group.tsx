@@ -715,7 +715,7 @@ export default function InvoiceGroup() {
     }
   };
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
     if (!orders?.length) return;
     const rep = orders[0];
     const totalQty = orders.reduce((sum: number, order: any) => sum + order.quantity, 0);
@@ -735,7 +735,26 @@ export default function InvoiceGroup() {
     `).join("");
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
-    const logoUrl = `${window.location.origin}/logo.jpg`;
+    const logoUrl = await new Promise<string>((resolve) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(img, 0, 0);
+        const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        for (let i = 0; i < data.data.length; i += 4) {
+          const r = data.data[i], g = data.data[i+1], b = data.data[i+2];
+          if (r < 40 && g < 40 && b < 40) data.data[i+3] = 0;
+        }
+        ctx.putImageData(data, 0, 0);
+        resolve(canvas.toDataURL("image/png"));
+      };
+      img.onerror = () => resolve(`${window.location.origin}/logo.jpg`);
+      img.src = `${window.location.origin}/logo.jpg`;
+    });
     printWindow.document.write(`<!DOCTYPE html>
 <html lang="ar" dir="rtl"><head><meta charset="UTF-8" /><title>فاتورة ${invoiceNumber}</title>
 <style>
@@ -744,7 +763,7 @@ export default function InvoiceGroup() {
   .sheet{max-width:860px;margin:0 auto}
   .header{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #000;padding-bottom:14px;margin-bottom:18px}
   .logo-wrap{background:transparent}
-  .logo-wrap img{height:100px;width:auto;object-fit:contain;background:transparent;border:none;mix-blend-mode:screen}
+  .logo-wrap img{height:100px;width:auto;object-fit:contain;background:transparent;border:none}
   .brand-fallback{font-size:26px;font-weight:900;letter-spacing:1px;display:none}
   .inv-title{font-size:22px;font-weight:900;margin:0 0 4px;text-align:left}
   .inv-sub{font-size:13px;font-weight:700;color:#333;text-align:left}
