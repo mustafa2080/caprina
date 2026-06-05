@@ -867,6 +867,8 @@ export default function InvoiceGroup() {
   const allSameStatus   = orders.every((o: any) => o.status === rep.status);
   const dominantStatus  = rep.status;
   const isAnyLocked     = orders.some((o: any) => (o.status === "received" || o.status === "partial_received")) && !isAdmin;
+  // الـ Select مقفول بس لو كل الطلبات مستلمة كاملاً (received فقط) — partial وreturned مسموح دايماً
+  const isSelectLocked  = orders.every((o: any) => o.status === "received") && !isAdmin;
 
   return (
     <div className="max-w-4xl mx-auto space-y-5 animate-in fade-in duration-500">
@@ -954,7 +956,7 @@ export default function InvoiceGroup() {
             if (v === "returned") { setShowReturnDialog(true); }
             else if (v === "partial_received") { setPartialQty(""); setShowPartialDialog(true); }
             else { setPendingStatus(v); }
-          }} disabled={isUpdatingStatus || isAnyLocked}>
+          }} disabled={isUpdatingStatus || isSelectLocked}>
             <SelectTrigger className="h-9 text-xs bg-card text-foreground border-border hover:bg-muted font-bold w-auto gap-1.5 px-3 shrink-0 transition-colors"
               title={hasOpenManifest ? `مرتبط ببيان مفتوح (${openManifestEntry?.manifestNumber})` : undefined}>
               <div className="flex items-center gap-1.5">
