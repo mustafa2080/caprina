@@ -1605,7 +1605,15 @@ export default function OrderDetail() {
   const handleStatusChange = (newStatus: string) => {
     if (!order || order.status === newStatus) return;
 
-    // ── تحقق من وجود بيان شحن مفتوح ──────────────────────────────────────
+    // reset دايماً أول حاجة
+    setSelectDisplayStatus(null);
+    setShowReturnInput(false);
+    setShowPartialInput(false);
+    setReturnReason("");
+    setReturnNote("");
+    setReturnIsDamaged(false);
+    setReturnReceived(null);
+    setPartialQty("");
     const activeManifest = manifestStatus?.manifestStatus === "open"
       ? manifestStatus
       : invoiceManifestStatus?.manifestStatus === "open"
@@ -1618,18 +1626,9 @@ export default function OrderDetail() {
         description: `هذا الطلب مرتبط ببيان شحن مفتوح (${activeManifest.manifestNumber}). يجب تعديل حالته من داخل البيان في قسم شركات الشحن فقط.`,
         variant: "destructive",
       });
-      setSelectDisplayStatus(null);
       return;
     }
 
-    // إخفاء أي فورم مفتوح قبل أي تغيير
-    setShowReturnInput(false);
-    setShowPartialInput(false);
-    setReturnReason("");
-    setReturnNote("");
-    setReturnIsDamaged(false);
-    setReturnReceived(null);
-    setPartialQty("");
     if (newStatus === "partial_received") {
       setSelectDisplayStatus("partial_received");
       setShowPartialInput(true);
