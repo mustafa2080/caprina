@@ -1232,7 +1232,6 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
       {/* Header الفاتورة */}
       <Card className="border-primary/40 bg-card">
         <CardContent className="p-4 space-y-3">
-          {/* الصف الأول: اسم الفاتورة + عدد المنتجات */}
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <div className="flex items-center gap-2">
               <span className="text-xs font-mono text-muted-foreground">فاتورة</span>
@@ -1250,25 +1249,19 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
               )}
             </div>
           </div>
-
-          {/* الصف الثاني: بيانات العميل أفقية بأيقونات */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2 border-t border-border/40">
-            {/* العميل */}
             <div className="flex flex-col gap-0.5">
               <span className="text-[10px] text-muted-foreground font-medium">العميل</span>
               <span className="text-sm font-bold truncate">{primaryOrder.customerName}</span>
             </div>
-            {/* الواتف */}
             <div className="flex flex-col gap-0.5">
               <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1"><Phone className="w-3 h-3" />الواتف</span>
               <span className="text-sm font-semibold text-foreground/90 truncate">{primaryOrder.phone || "—"}</span>
             </div>
-            {/* المحافظة */}
             <div className="flex flex-col gap-0.5">
               <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1"><MapPin className="w-3 h-3" />المحافظة</span>
               <span className="text-sm font-semibold text-foreground/90 truncate">{primaryOrder.city || "—"}</span>
             </div>
-            {/* العنوان */}
             <div className="flex flex-col gap-0.5">
               <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1"><MapPin className="w-3 h-3" />العنوان</span>
               <span className="text-xs font-semibold text-foreground/90 line-clamp-2">{primaryOrder.address || "—"}</span>
@@ -1277,171 +1270,328 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
         </CardContent>
       </Card>
 
-      {/* Layout: منتجات أفقية + sidebar */}
-      <div className="space-y-4">
+      {/* ── Single product: بطاقة كبيرة تملي الشاشة ── */}
+      {orders.length === 1 ? (() => {
+        const o = orders[0];
+        const productImg = products.find((p: any) => p.name === o.product)?.image ?? null;
+        const hasCost = (o.costPrice ?? 0) > 0;
+        const qty = o.status === "partial_received" && o.partialQuantity ? o.partialQuantity : o.quantity;
+        const revenue = qty * (o.unitPrice ?? 0);
+        const cost = qty * (o.costPrice ?? 0);
+        const shipping = Math.abs(o.shippingCost ?? 0);
+        const netProfit = revenue - cost - shipping;
+        const margin = revenue > 0 ? Math.round((netProfit / revenue) * 100) : 0;
+        const isRet = o.status === "returned";
 
-        {/* قائمة المنتجات الأفقية */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold text-muted-foreground flex items-center gap-1">
-              <Package className="w-3.5 h-3.5" />منتجات الفاتورة ({orders.length})
-            </h3>
-            {canCreate && (
-              <button onClick={() => setShowAddProduct(true)}
-                className="flex items-center gap-1.5 text-xs font-bold text-primary border border-dashed border-primary/40 hover:bg-primary/5 px-3 py-1.5 rounded-md transition-colors">
-                <Plus className="w-3.5 h-3.5" />إضافة منتج
-              </button>
-            )}
-          </div>
+        return (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
-          {/* Products grid — horizontal layout with overflow scroll */}
-          <div className="flex flex-nowrap gap-3 overflow-x-auto pb-2 -mx-4 px-4">
-            {orders.map(o => {
-              const isThis = o.id === currentId;
-              const productImg = products.find((p: any) => p.name === o.product)?.image ?? null;
-              return (
-                <div key={o.id} className={`flex-shrink-0 w-72 border rounded-lg p-3 transition-all ${isThis ? "border-primary/60 bg-primary/10 ring-2 ring-primary/30 shadow-md" : "border-border bg-card hover:border-primary/30 hover:shadow-sm"}`}>
-                  <div className="space-y-2.5">
-                    {/* Header with image and product name */}
-                    <div className="flex items-start gap-2.5">
-                      {/* صورة المنتج */}
-                      {productImg ? (
-                        <img src={productImg} alt={o.product} className="w-14 h-14 rounded-lg object-cover border border-border shrink-0" />
-                      ) : (
-                        <div className="w-14 h-14 rounded-lg bg-muted border border-border flex items-center justify-center shrink-0">
-                          <Package className="w-5 h-5 text-muted-foreground" />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        {isThis && <span className="text-[9px] text-primary font-black bg-primary/10 px-1.5 py-0.5 rounded-full w-fit block mb-1">← الحالي</span>}
-                        <p className="text-sm font-bold truncate">{o.product}</p>
-                        <div className="flex items-center gap-1 flex-wrap mt-1">
-                          <Badge variant="outline" className={`text-[8px] font-bold shrink-0 ${statusClasses[o.status] || ""}`}>
-                            {statusLabels[o.status] || o.status}
-                          </Badge>
-                          {o.color && <Badge variant="outline" className="text-[8px] border-border text-muted-foreground shrink-0">{o.color}</Badge>}
-                          {o.size && <Badge variant="outline" className="text-[8px] border-border text-muted-foreground shrink-0">{o.size}</Badge>}
-                        </div>
-                      </div>
-                      {canDelete && (
-                        <Button variant="outline" size="sm" className="h-6 w-6 p-0 text-xs gap-0 border-red-800 text-red-400 hover:bg-red-900/20 shrink-0"
-                          onClick={() => setShowDeleteId(o.id)} disabled={deletingId === o.id}>
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
-                      )}
+            {/* البطاقة الرئيسية — عمودين */}
+            <div className="lg:col-span-2 rounded-2xl border border-border bg-card overflow-hidden shadow-sm">
+
+              {/* صورة + اسم المنتج */}
+              <div className="flex items-stretch gap-0">
+                {/* الصورة أو placeholder */}
+                <div className="w-36 sm:w-48 shrink-0 bg-muted flex items-center justify-center border-l border-border">
+                  {productImg ? (
+                    <img src={productImg} alt={o.product}
+                      className="w-full h-full object-cover" style={{ minHeight: 160 }} />
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 p-6 text-muted-foreground">
+                      <Package className="w-12 h-12 opacity-30" />
+                      <span className="text-[10px]">لا توجد صورة</span>
                     </div>
+                  )}
+                </div>
 
-                    {/* Price details */}
-                    <div className="bg-muted/50 rounded p-2 space-y-1">
-                      <div className="flex justify-between text-xs">
-                        <span className="text-muted-foreground">الكمية</span>
-                        <span className="font-semibold text-foreground">{o.quantity}</span>
-                      </div>
-                      <div className="flex justify-between text-xs">
-                        <span className="text-muted-foreground">السعر</span>
-                        <span className="font-semibold text-foreground">{formatCurrency(o.unitPrice)}</span>
-                      </div>
-                      <div className="border-t border-border/40 pt-1 flex justify-between font-bold text-xs">
-                        <span className="text-foreground">الإجمالي</span>
-                        <span className="text-primary">{formatCurrency(o.totalPrice)}</span>
-                      </div>
+                {/* تفاصيل المنتج */}
+                <div className="flex-1 p-5 space-y-4">
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">المنتج</p>
+                    <h2 className="text-xl font-black text-foreground leading-tight">{o.product}</h2>
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                      <Badge className={`text-xs font-bold px-3 py-1 ${statusClasses[o.status] || ""}`}>
+                        {statusLabels[o.status] || o.status}
+                      </Badge>
+                      {o.color && <Badge variant="outline" className="text-xs border-border">{o.color}</Badge>}
+                      {o.size && <Badge variant="outline" className="text-xs border-border">{o.size}</Badge>}
                     </div>
-
-                    {o.notes && <p className="text-[10px] text-muted-foreground italic border-t border-border/40 pt-2">{o.notes}</p>}
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
 
-        {/* Sidebar — ملخص مالي + تحليل ربحية */}
-        <div className="space-y-4">
-          {/* الملخص المالي — يظهر دائماً */}
-          <Card className="border-primary/30 bg-card">
-            <CardHeader className="pb-2 pt-4 px-4">
-              <CardTitle className="text-sm font-bold text-primary">الملخص المالي</CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-4 space-y-2 text-sm">
-              {orders.map(o => (
-                <div key={o.id} className="flex justify-between text-xs">
-                  <span className="text-muted-foreground truncate max-w-[55%]">
-                    {o.product}{o.color ? ` — ${o.color}` : ""}{o.size ? ` / ${o.size}` : ""}
-                  </span>
-                  <span className="font-semibold">{formatCurrency(o.totalPrice ?? 0)}</span>
+                  {/* الأرقام */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-muted/50 rounded-xl p-3 text-center">
+                      <p className="text-[10px] text-muted-foreground mb-1">الكمية</p>
+                      <p className="text-2xl font-black text-foreground">{o.quantity}</p>
+                    </div>
+                    <div className="bg-muted/50 rounded-xl p-3 text-center">
+                      <p className="text-[10px] text-muted-foreground mb-1">سعر الوحدة</p>
+                      <p className="text-lg font-black text-foreground">{formatCurrency(o.unitPrice ?? 0)}</p>
+                    </div>
+                    <div className="bg-primary/10 border border-primary/30 rounded-xl p-3 text-center">
+                      <p className="text-[10px] text-primary/70 mb-1">الإجمالي</p>
+                      <p className="text-xl font-black text-primary">{formatCurrency(o.totalPrice ?? 0)}</p>
+                    </div>
+                  </div>
+
+                  {o.notes && (
+                    <div className="bg-muted/40 rounded-lg px-3 py-2 border border-border/50">
+                      <p className="text-[10px] text-muted-foreground mb-0.5">ملاحظات</p>
+                      <p className="text-xs text-foreground">{o.notes}</p>
+                    </div>
+                  )}
                 </div>
-              ))}
-              <Separator className="border-border" />
-              <div className="flex justify-between">
-                <span className="font-bold text-xs">إجمالي الفاتورة</span>
-                <span className="font-black text-lg text-primary">{formatCurrency(invoiceTotal)}</span>
               </div>
-            </CardContent>
-          </Card>
 
-          {/* تحليل الربحية — للمدير فقط */}
-          {canViewProfitability && (() => {
-            const hasCost = orders.some(o => (o.costPrice ?? 0) > 0);
-            if (!hasCost) return null;
+              {/* شريط التفاصيل السفلي */}
+              <div className="border-t border-border px-5 py-3 bg-muted/20 flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                  {o.shippingCompanyName && (
+                    <span className="flex items-center gap-1"><Truck className="w-3.5 h-3.5" />{o.shippingCompanyName}</span>
+                  )}
+                  {o.warehouseName && (
+                    <span className="flex items-center gap-1"><Warehouse className="w-3.5 h-3.5" />{o.warehouseName}</span>
+                  )}
+                  {o.employeeName && (
+                    <span className="flex items-center gap-1"><UserCheck className="w-3.5 h-3.5" />{o.employeeName}</span>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  {canEdit && (
+                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1 border-border"
+                      onClick={() => setShowInvoiceEdit(true)}>
+                      <Pencil className="w-3 h-3" />تعديل
+                    </Button>
+                  )}
+                  {canDelete && (
+                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1 border-red-800 text-red-400 hover:bg-red-900/20"
+                      onClick={() => setShowDeleteId(o.id)}>
+                      <Trash2 className="w-3 h-3" />حذف
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
 
-            let totalRevenue = 0, totalCost = 0, totalShipping = 0;
-            let hasReturn = false, allReturned = true;
+            {/* Sidebar — ملخص + ربحية */}
+            <div className="space-y-4">
 
-            for (const o of orders) {
-              const qty = o.status === "partial_received" && o.partialQuantity ? o.partialQuantity : o.quantity;
-              const cp = o.costPrice ?? 0;
-              const sc = Math.abs(o.shippingCost ?? 0);
-              const isRet = o.status === "returned";
-              const retToStock = isRet && (o.returnReceived === 1 || o.returnReceived === true);
-
-              if (isRet) { hasReturn = true; }
-              else { allReturned = false; }
-
-              if (!isRet) totalRevenue += qty * o.unitPrice;
-              if (!retToStock) totalCost += qty * cp;
-              totalShipping += sc;
-            }
-
-            const netProfit = totalRevenue - totalCost - totalShipping;
-            const margin = totalRevenue > 0 ? Math.round((netProfit / totalRevenue) * 100) : 0;
-            const isPositive = netProfit >= 0;
-
-            return (
-              <Card className={`border ${allReturned ? "border-red-900/50 bg-red-900/5" : isPositive ? "border-emerald-900/50 bg-emerald-900/5" : "border-red-900/50 bg-red-900/5"}`}>
-                <CardHeader className="pb-2 pt-4 px-4 border-b border-border">
-                  <CardTitle className="text-sm font-bold flex items-center gap-2">
-                    {isPositive && !allReturned
-                      ? <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-                      : <TrendingDown className="w-3.5 h-3.5 text-red-400" />}
-                    تحليل الربحية
+              {/* ملخص مالي */}
+              <Card className="border-primary/30">
+                <CardHeader className="pb-2 pt-4 px-4">
+                  <CardTitle className="text-sm font-bold text-primary flex items-center gap-2">
+                    <DollarSign className="w-4 h-4" />الملخص المالي
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="px-4 pb-4 pt-3 space-y-2 text-xs">
-                  {hasReturn && (
-                    <div className={`p-2 rounded text-[10px] font-semibold border ${allReturned ? "bg-red-900/20 text-red-400 border-red-900/30" : "bg-amber-900/20 text-amber-400 border-amber-900/30"}`}>
-                      {allReturned ? "⚠ الفاتورة مرتجعة بالكامل" : "↩ بعض المنتجات مرتجعة"}
-                    </div>
-                  )}
-                  <div className="flex justify-between"><span className="text-muted-foreground">الإيرادات</span><span className="text-primary font-semibold">{formatCurrency(totalRevenue)}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">تكلفة البضاعة</span><span className="text-amber-400">-{formatCurrency(totalCost)}</span></div>
-                  {totalShipping > 0 && <div className="flex justify-between"><span className="text-muted-foreground">تكلفة الشحن</span><span className="text-orange-400">-{formatCurrency(totalShipping)}</span></div>}
-                  <Separator />
-                  <div className="flex justify-between items-center pt-1">
-                    <span className="font-bold">الربح الصافي</span>
-                    <span className={`font-black text-base ${isPositive && !allReturned ? "text-emerald-400" : "text-red-400"}`}>{formatCurrency(netProfit)}</span>
+                <CardContent className="px-4 pb-4 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">سعر الوحدة</span>
+                    <span className="font-semibold">{formatCurrency(o.unitPrice ?? 0)}</span>
                   </div>
-                  {totalRevenue > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">هامش الربح</span>
-                      <span className={`font-bold ${margin >= 20 ? "text-emerald-400" : margin >= 10 ? "text-amber-400" : "text-red-400"}`}>{margin}%</span>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">الكمية</span>
+                    <span className="font-semibold">× {o.quantity}</span>
+                  </div>
+                  {shipping > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">الشحن</span>
+                      <span className="font-semibold">{formatCurrency(shipping)}</span>
                     </div>
                   )}
+                  <Separator />
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-sm">الإجمالي</span>
+                    <span className="font-black text-xl text-primary">{formatCurrency(o.totalPrice ?? 0)}</span>
+                  </div>
                 </CardContent>
               </Card>
-            );
-          })()}
+
+              {/* ربحية — للأدمن فقط */}
+              {canViewProfitability && hasCost && (
+                <Card className={`border ${!isRet && netProfit >= 0 ? "border-emerald-900/50 bg-emerald-900/5" : "border-red-900/50 bg-red-900/5"}`}>
+                  <CardHeader className="pb-2 pt-4 px-4 border-b border-border">
+                    <CardTitle className="text-sm font-bold flex items-center gap-2">
+                      {!isRet && netProfit >= 0
+                        ? <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                        : <TrendingDown className="w-3.5 h-3.5 text-red-400" />}
+                      تحليل الربحية
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-4 pt-3 space-y-2 text-xs">
+                    {isRet && (
+                      <div className="p-2 rounded bg-red-900/20 text-red-400 border border-red-900/30 text-[10px] font-semibold">
+                        ⚠ الطلب مرتجع
+                      </div>
+                    )}
+                    <div className="flex justify-between"><span className="text-muted-foreground">الإيرادات</span><span className="text-primary font-semibold">{formatCurrency(revenue)}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">تكلفة البضاعة</span><span className="text-amber-400">-{formatCurrency(cost)}</span></div>
+                    {shipping > 0 && <div className="flex justify-between"><span className="text-muted-foreground">تكلفة الشحن</span><span className="text-orange-400">-{formatCurrency(shipping)}</span></div>}
+                    <Separator />
+                    <div className="flex justify-between items-center pt-1">
+                      <span className="font-bold">الربح الصافي</span>
+                      <span className={`font-black text-base ${!isRet && netProfit >= 0 ? "text-emerald-400" : "text-red-400"}`}>{formatCurrency(netProfit)}</span>
+                    </div>
+                    {revenue > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">هامش الربح</span>
+                        <span className={`font-bold ${margin >= 20 ? "text-emerald-400" : margin >= 10 ? "text-amber-400" : "text-red-400"}`}>{margin}%</span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* إضافة منتج */}
+              {canCreate && (
+                <button onClick={() => setShowAddProduct(true)}
+                  className="w-full flex items-center justify-center gap-2 text-sm font-bold text-primary border-2 border-dashed border-primary/40 hover:bg-primary/5 py-3 rounded-xl transition-colors">
+                  <Plus className="w-4 h-4" />إضافة منتج للفاتورة
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      })() : (
+        /* ── Multi products: الـ layout الأفقي القديم ── */
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold text-muted-foreground flex items-center gap-1">
+                <Package className="w-3.5 h-3.5" />منتجات الفاتورة ({orders.length})
+              </h3>
+              {canCreate && (
+                <button onClick={() => setShowAddProduct(true)}
+                  className="flex items-center gap-1.5 text-xs font-bold text-primary border border-dashed border-primary/40 hover:bg-primary/5 px-3 py-1.5 rounded-md transition-colors">
+                  <Plus className="w-3.5 h-3.5" />إضافة منتج
+                </button>
+              )}
+            </div>
+            <div className="flex flex-nowrap gap-3 overflow-x-auto pb-2 -mx-4 px-4">
+              {orders.map(o => {
+                const isThis = o.id === currentId;
+                const productImg = products.find((p: any) => p.name === o.product)?.image ?? null;
+                return (
+                  <div key={o.id} className={`flex-shrink-0 w-72 border rounded-lg p-3 transition-all ${isThis ? "border-primary/60 bg-primary/10 ring-2 ring-primary/30 shadow-md" : "border-border bg-card hover:border-primary/30 hover:shadow-sm"}`}>
+                    <div className="space-y-2.5">
+                      <div className="flex items-start gap-2.5">
+                        {productImg ? (
+                          <img src={productImg} alt={o.product} className="w-14 h-14 rounded-lg object-cover border border-border shrink-0" />
+                        ) : (
+                          <div className="w-14 h-14 rounded-lg bg-muted border border-border flex items-center justify-center shrink-0">
+                            <Package className="w-5 h-5 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          {isThis && <span className="text-[9px] text-primary font-black bg-primary/10 px-1.5 py-0.5 rounded-full w-fit block mb-1">← الحالي</span>}
+                          <p className="text-sm font-bold truncate">{o.product}</p>
+                          <div className="flex items-center gap-1 flex-wrap mt-1">
+                            <Badge variant="outline" className={`text-[8px] font-bold shrink-0 ${statusClasses[o.status] || ""}`}>
+                              {statusLabels[o.status] || o.status}
+                            </Badge>
+                            {o.color && <Badge variant="outline" className="text-[8px] border-border text-muted-foreground shrink-0">{o.color}</Badge>}
+                            {o.size && <Badge variant="outline" className="text-[8px] border-border text-muted-foreground shrink-0">{o.size}</Badge>}
+                          </div>
+                        </div>
+                        {canDelete && (
+                          <Button variant="outline" size="sm" className="h-6 w-6 p-0 text-xs gap-0 border-red-800 text-red-400 hover:bg-red-900/20 shrink-0"
+                            onClick={() => setShowDeleteId(o.id)} disabled={deletingId === o.id}>
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        )}
+                      </div>
+                      <div className="bg-muted/50 rounded p-2 space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">الكمية</span>
+                          <span className="font-semibold text-foreground">{o.quantity}</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">السعر</span>
+                          <span className="font-semibold text-foreground">{formatCurrency(o.unitPrice)}</span>
+                        </div>
+                        <div className="border-t border-border/40 pt-1 flex justify-between font-bold text-xs">
+                          <span className="text-foreground">الإجمالي</span>
+                          <span className="text-primary">{formatCurrency(o.totalPrice)}</span>
+                        </div>
+                      </div>
+                      {o.notes && <p className="text-[10px] text-muted-foreground italic border-t border-border/40 pt-2">{o.notes}</p>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <div className="space-y-4">
+            <Card className="border-primary/30 bg-card">
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm font-bold text-primary">الملخص المالي</CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 space-y-2 text-sm">
+                {orders.map(o => (
+                  <div key={o.id} className="flex justify-between text-xs">
+                    <span className="text-muted-foreground truncate max-w-[55%]">
+                      {o.product}{o.color ? ` — ${o.color}` : ""}{o.size ? ` / ${o.size}` : ""}
+                    </span>
+                    <span className="font-semibold">{formatCurrency(o.totalPrice ?? 0)}</span>
+                  </div>
+                ))}
+                <Separator className="border-border" />
+                <div className="flex justify-between">
+                  <span className="font-bold text-xs">إجمالي الفاتورة</span>
+                  <span className="font-black text-lg text-primary">{formatCurrency(invoiceTotal)}</span>
+                </div>
+              </CardContent>
+            </Card>
+            {canViewProfitability && (() => {
+              const hasCost = orders.some(o => (o.costPrice ?? 0) > 0);
+              if (!hasCost) return null;
+              let totalRevenue = 0, totalCost = 0, totalShipping = 0, hasReturn = false, allReturned = true;
+              for (const o of orders) {
+                const qty = o.status === "partial_received" && o.partialQuantity ? o.partialQuantity : o.quantity;
+                const isRet = o.status === "returned";
+                const retToStock = isRet && (o.returnReceived === 1 || o.returnReceived === true);
+                if (isRet) { hasReturn = true; } else { allReturned = false; }
+                if (!isRet) totalRevenue += qty * o.unitPrice;
+                if (!retToStock) totalCost += qty * (o.costPrice ?? 0);
+                totalShipping += Math.abs(o.shippingCost ?? 0);
+              }
+              const netProfit = totalRevenue - totalCost - totalShipping;
+              const margin = totalRevenue > 0 ? Math.round((netProfit / totalRevenue) * 100) : 0;
+              const isPositive = netProfit >= 0;
+              return (
+                <Card className={`border ${allReturned ? "border-red-900/50 bg-red-900/5" : isPositive ? "border-emerald-900/50 bg-emerald-900/5" : "border-red-900/50 bg-red-900/5"}`}>
+                  <CardHeader className="pb-2 pt-4 px-4 border-b border-border">
+                    <CardTitle className="text-sm font-bold flex items-center gap-2">
+                      {isPositive && !allReturned ? <TrendingUp className="w-3.5 h-3.5 text-emerald-400" /> : <TrendingDown className="w-3.5 h-3.5 text-red-400" />}
+                      تحليل الربحية
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-4 pt-3 space-y-2 text-xs">
+                    {hasReturn && (
+                      <div className={`p-2 rounded text-[10px] font-semibold border ${allReturned ? "bg-red-900/20 text-red-400 border-red-900/30" : "bg-amber-900/20 text-amber-400 border-amber-900/30"}`}>
+                        {allReturned ? "⚠ الفاتورة مرتجعة بالكامل" : "↩ بعض المنتجات مرتجعة"}
+                      </div>
+                    )}
+                    <div className="flex justify-between"><span className="text-muted-foreground">الإيرادات</span><span className="text-primary font-semibold">{formatCurrency(totalRevenue)}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">تكلفة البضاعة</span><span className="text-amber-400">-{formatCurrency(totalCost)}</span></div>
+                    {totalShipping > 0 && <div className="flex justify-between"><span className="text-muted-foreground">تكلفة الشحن</span><span className="text-orange-400">-{formatCurrency(totalShipping)}</span></div>}
+                    <Separator />
+                    <div className="flex justify-between items-center pt-1">
+                      <span className="font-bold">الربح الصافي</span>
+                      <span className={`font-black text-base ${isPositive && !allReturned ? "text-emerald-400" : "text-red-400"}`}>{formatCurrency(netProfit)}</span>
+                    </div>
+                    {totalRevenue > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">هامش الربح</span>
+                        <span className={`font-bold ${margin >= 20 ? "text-emerald-400" : margin >= 10 ? "text-amber-400" : "text-red-400"}`}>{margin}%</span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })()}
+          </div>
         </div>
-      </div>
+      )}
 
       <EditOrderRowDialog
         open={!!editingOrder} onOpenChange={v => { if (!v) setEditingOrder(null); }}
