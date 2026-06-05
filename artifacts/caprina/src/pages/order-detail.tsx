@@ -1291,14 +1291,14 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
 
               {/* صورة + اسم المنتج */}
               <div className="flex items-center gap-4 p-4">
-                {/* الصورة الدائرية */}
-                <div className="shrink-0">
+                {/* الصورة */}
+                <div className="shrink-0 w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border border-border/60 bg-muted shadow-sm">
                   {productImg ? (
                     <img src={productImg} alt={o.product}
-                      className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border-2 border-primary/30 shadow-md" />
+                      className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-muted border-2 border-border flex items-center justify-center">
-                      <Package className="w-7 h-7 sm:w-8 sm:h-8 opacity-30 text-muted-foreground" />
+                    <div className="w-full h-full flex items-center justify-center">
+                      <Package className="w-8 h-8 opacity-25 text-muted-foreground" />
                     </div>
                   )}
                 </div>
