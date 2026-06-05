@@ -1452,78 +1452,122 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
           </div>
         );
       })() : (
-        /* ── Multi products: الـ layout الأفقي القديم ── */
-        <div className="space-y-4">
-          <div className="space-y-2">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+          {/* ── العمود الرئيسي: قائمة المنتجات ── */}
+          <div className="lg:col-span-2 space-y-3">
+
+            {/* هيدر القسم */}
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold text-muted-foreground flex items-center gap-1">
-                <Package className="w-3.5 h-3.5" />منتجات الفاتورة ({orders.length})
+              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Package className="w-4 h-4 text-primary" />
+                </div>
+                منتجات الفاتورة
+                <span className="text-xs font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{orders.length}</span>
               </h3>
               {canCreate && (
                 <button onClick={() => setShowAddProduct(true)}
-                  className="flex items-center gap-1.5 text-xs font-bold text-primary border border-dashed border-primary/40 hover:bg-primary/5 px-3 py-1.5 rounded-md transition-colors">
+                  className="flex items-center gap-1.5 text-xs font-bold text-primary border border-dashed border-primary/40 hover:bg-primary/5 px-3 py-1.5 rounded-lg transition-colors">
                   <Plus className="w-3.5 h-3.5" />إضافة منتج
                 </button>
               )}
             </div>
-            <div className="flex flex-nowrap gap-3 overflow-x-auto pb-2 -mx-4 px-4">
-              {orders.map(o => {
+
+            {/* بطاقات المنتجات */}
+            <div className="space-y-2">
+              {orders.map((o, idx) => {
                 const isThis = o.id === currentId;
                 const productImg = products.find((p: any) => p.name === o.product)?.image ?? null;
+                const isRet = o.status === "returned";
                 return (
-                  <div key={o.id} className={`flex-shrink-0 w-72 border rounded-lg p-3 transition-all ${isThis ? "border-primary/60 bg-primary/10 ring-2 ring-primary/30 shadow-md" : "border-border bg-card hover:border-primary/30 hover:shadow-sm"}`}>
-                    <div className="space-y-2.5">
-                      <div className="flex items-start gap-2.5">
+                  <div key={o.id} className={`group relative rounded-xl border transition-all ${
+                    isThis
+                      ? "border-primary/60 bg-primary/5 ring-1 ring-primary/20 shadow-sm"
+                      : isRet
+                        ? "border-red-900/30 bg-red-900/5"
+                        : "border-border bg-card hover:border-primary/30 hover:shadow-sm"
+                  }`}>
+                    <div className="flex items-stretch gap-0">
+
+                      {/* رقم ترتيب */}
+                      <div className={`w-8 shrink-0 flex items-center justify-center rounded-r-xl text-xs font-black ${
+                        isThis ? "bg-primary/20 text-primary" : "bg-muted/60 text-muted-foreground"
+                      }`}>
+                        {idx + 1}
+                      </div>
+
+                      {/* صورة المنتج */}
+                      <div className="w-16 h-16 shrink-0 my-2 mr-2 rounded-lg overflow-hidden border border-border/50 bg-muted flex items-center justify-center">
                         {productImg ? (
-                          <img src={productImg} alt={o.product} className="w-14 h-14 rounded-lg object-cover border border-border shrink-0" />
+                          <img src={productImg} alt={o.product} className="w-full h-full object-cover" />
                         ) : (
-                          <div className="w-14 h-14 rounded-lg bg-muted border border-border flex items-center justify-center shrink-0">
-                            <Package className="w-5 h-5 text-muted-foreground" />
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          {isThis && <span className="text-[9px] text-primary font-black bg-primary/10 px-1.5 py-0.5 rounded-full w-fit block mb-1">← الحالي</span>}
-                          <p className="text-sm font-bold truncate">{o.product}</p>
-                          <div className="flex items-center gap-1 flex-wrap mt-1">
-                            <Badge variant="outline" className={`text-[8px] font-bold shrink-0 ${statusClasses[o.status] || ""}`}>
-                              {statusLabels[o.status] || o.status}
-                            </Badge>
-                            {o.color && <Badge variant="outline" className="text-[8px] border-border text-muted-foreground shrink-0">{o.color}</Badge>}
-                            {o.size && <Badge variant="outline" className="text-[8px] border-border text-muted-foreground shrink-0">{o.size}</Badge>}
-                          </div>
-                        </div>
-                        {canDelete && (
-                          <Button variant="outline" size="sm" className="h-6 w-6 p-0 text-xs gap-0 border-red-800 text-red-400 hover:bg-red-900/20 shrink-0"
-                            onClick={() => setShowDeleteId(o.id)} disabled={deletingId === o.id}>
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
+                          <Package className="w-6 h-6 text-muted-foreground opacity-40" />
                         )}
                       </div>
-                      <div className="bg-muted/50 rounded p-2 space-y-1">
-                        <div className="flex justify-between text-xs">
-                          <span className="text-muted-foreground">الكمية</span>
-                          <span className="font-semibold text-foreground">{o.quantity}</span>
+
+                      {/* التفاصيل */}
+                      <div className="flex-1 min-w-0 py-2.5 pr-3 pl-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            {isThis && (
+                              <span className="text-[9px] text-primary font-black bg-primary/10 px-1.5 py-0.5 rounded-full inline-block mb-1">← الحالي</span>
+                            )}
+                            <p className="text-sm font-bold text-foreground truncate">{o.product}</p>
+                            <div className="flex items-center gap-1 mt-1 flex-wrap">
+                              <Badge className={`text-[9px] font-bold px-1.5 py-0 h-4 ${statusClasses[o.status] || ""}`}>
+                                {statusLabels[o.status] || o.status}
+                              </Badge>
+                              {o.color && <span className="text-[9px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{o.color}</span>}
+                              {o.size && <span className="text-[9px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{o.size}</span>}
+                            </div>
+                          </div>
+                          {canDelete && (
+                            <Button variant="ghost" size="sm"
+                              className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 text-red-400 hover:bg-red-900/20 hover:text-red-300 shrink-0 transition-opacity"
+                              onClick={() => setShowDeleteId(o.id)} disabled={deletingId === o.id}>
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          )}
                         </div>
-                        <div className="flex justify-between text-xs">
-                          <span className="text-muted-foreground">السعر</span>
-                          <span className="font-semibold text-foreground">{formatCurrency(o.unitPrice)}</span>
+
+                        {/* الأرقام */}
+                        <div className="flex items-center gap-3 mt-2 flex-wrap">
+                          <div className="flex items-center gap-1 text-xs">
+                            <span className="text-muted-foreground">الكمية:</span>
+                            <span className="font-bold text-foreground">{o.quantity}</span>
+                          </div>
+                          <div className="w-px h-3 bg-border/60" />
+                          <div className="flex items-center gap-1 text-xs">
+                            <span className="text-muted-foreground">السعر:</span>
+                            <span className="font-bold text-foreground">{formatCurrency(o.unitPrice)}</span>
+                          </div>
+                          <div className="w-px h-3 bg-border/60" />
+                          <div className="flex items-center gap-1 text-xs">
+                            <span className="text-muted-foreground">الإجمالي:</span>
+                            <span className="font-black text-primary">{formatCurrency(o.totalPrice)}</span>
+                          </div>
                         </div>
-                        <div className="border-t border-border/40 pt-1 flex justify-between font-bold text-xs">
-                          <span className="text-foreground">الإجمالي</span>
-                          <span className="text-primary">{formatCurrency(o.totalPrice)}</span>
-                        </div>
+                        {o.notes && (
+                          <p className="text-[10px] text-muted-foreground italic mt-1.5 border-t border-border/40 pt-1.5 line-clamp-1">
+                            {o.notes}
+                          </p>
+                        )}
                       </div>
-                      {o.notes && <p className="text-[10px] text-muted-foreground italic border-t border-border/40 pt-2">{o.notes}</p>}
                     </div>
                   </div>
                 );
               })}
             </div>
           </div>
+
+          {/* ── Sidebar: الملخص المالي + الربحية ── */}
           <div className="space-y-4">
             <Card className="border-primary/30 bg-card">
               <CardHeader className="pb-2 pt-4 px-4">
-                <CardTitle className="text-sm font-bold text-primary">الملخص المالي</CardTitle>
+                <CardTitle className="text-sm font-bold text-primary flex items-center gap-2">
+                  <DollarSign className="w-4 h-4" />الملخص المالي
+                </CardTitle>
               </CardHeader>
               <CardContent className="px-4 pb-4 space-y-2 text-sm">
                 {orders.map(o => (
@@ -1589,6 +1633,12 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
                 </Card>
               );
             })()}
+            {canCreate && (
+              <button onClick={() => setShowAddProduct(true)}
+                className="w-full flex items-center justify-center gap-2 text-sm font-bold text-primary border-2 border-dashed border-primary/40 hover:bg-primary/5 py-3 rounded-xl transition-colors">
+                <Plus className="w-4 h-4" />إضافة منتج للفاتورة
+              </button>
+            )}
           </div>
         </div>
       )}
