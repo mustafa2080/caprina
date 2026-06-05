@@ -1612,7 +1612,7 @@ export default function OrderDetail() {
       ? invoiceManifestStatus
       : null;
 
-    if (activeManifest) {
+    if (activeManifest && newStatus !== "returned") {
       toast({
         title: "⛔ لا يمكن تعديل حالة الطلب",
         description: `هذا الطلب مرتبط ببيان شحن مفتوح (${activeManifest.manifestNumber}). يجب تعديل حالته من داخل البيان في قسم شركات الشحن فقط.`,
