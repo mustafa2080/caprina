@@ -762,8 +762,8 @@ export default function InvoiceGroup() {
   body{font-family:Tahoma,Arial,sans-serif;margin:0;padding:20px;color:#000;background:#fff;font-size:15px;font-weight:600;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .sheet{max-width:860px;margin:0 auto}
   .header{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #000;padding-bottom:14px;margin-bottom:18px}
-  .logo-wrap{background:transparent}
-  .logo-wrap img{height:100px;width:auto;object-fit:contain;background:transparent;border:none}
+  .logo-wrap{background:transparent;margin-top:16px}
+  .logo-wrap img{height:130px;width:auto;object-fit:contain;background:transparent;border:none}
   .brand-fallback{font-size:26px;font-weight:900;letter-spacing:1px;display:none}
   .inv-title{font-size:22px;font-weight:900;margin:0 0 4px;text-align:left}
   .inv-sub{font-size:13px;font-weight:700;color:#333;text-align:left}
