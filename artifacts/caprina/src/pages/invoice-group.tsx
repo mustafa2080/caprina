@@ -482,6 +482,8 @@ export default function InvoiceGroup() {
   const [returnReason, setReturnReason]                 = useState<string>("");
   const [returnNote, setReturnNote]                     = useState<string>("");
   const [showReturnDialog, setShowReturnDialog]         = useState(false);
+  const [showPartialDialog, setShowPartialDialog]       = useState(false);
+  const [partialQty, setPartialQty]                     = useState<string>("");
   const [isUpdatingStatus, setIsUpdatingStatus]         = useState(false);
   const [waOrder, setWaOrder]                           = useState<WhatsAppOrderData | null>(null);
   const [showAddProduct, setShowAddProduct]             = useState(false);
@@ -653,7 +655,7 @@ export default function InvoiceGroup() {
 
   const handleBulkStatusChange = async (newStatus: string, reason?: string, note?: string) => {
     if (!orders?.length) return;
-    if (hasOpenManifest) {
+    if (hasOpenManifest && newStatus !== "returned" && newStatus !== "partial_received") {
       toast({
         title: "⛔ لا يمكن تعديل حالة الطلب",
         description: `هذه الفاتورة مرتبطة ببيان شحن مفتوح (${openManifestEntry?.manifestNumber}).`,
@@ -947,7 +949,12 @@ export default function InvoiceGroup() {
             </Button>
           )}
 
-          <Select value="" onValueChange={(v) => { if (!v) return; if (v === "returned") { setShowReturnDialog(true); } else { setPendingStatus(v); } }} disabled={isUpdatingStatus || isAnyLocked || hasOpenManifest}>
+          <Select value="" onValueChange={(v) => {
+            if (!v) return;
+            if (v === "returned") { setShowReturnDialog(true); }
+            else if (v === "partial_received") { setPartialQty(""); setShowPartialDialog(true); }
+            else { setPendingStatus(v); }
+          }} disabled={isUpdatingStatus || isAnyLocked}>
             <SelectTrigger className="h-9 text-xs bg-card text-foreground border-border hover:bg-muted font-bold w-auto gap-1.5 px-3 shrink-0 transition-colors"
               title={hasOpenManifest ? `مرتبط ببيان مفتوح (${openManifestEntry?.manifestNumber})` : undefined}>
               <div className="flex items-center gap-1.5">
@@ -960,6 +967,7 @@ export default function InvoiceGroup() {
               <SelectItem value="warehouse_ready" className="text-blue-400 focus:bg-blue-500/10 focus:text-blue-300 cursor-pointer">📦 قيد الشحن في المخزن</SelectItem>
               <SelectItem value="in_shipping" className="text-purple-400 focus:bg-purple-500/10 focus:text-purple-300 cursor-pointer">🚚 قيد الشحن</SelectItem>
               <SelectItem value="received" className="text-green-400 focus:bg-green-500/10 focus:text-green-300 cursor-pointer">✅ استلم</SelectItem>
+              <SelectItem value="partial_received" className="text-teal-400 focus:bg-teal-500/10 focus:text-teal-300 cursor-pointer">📦 استلام جزئي</SelectItem>
               <SelectItem value="delayed" className="text-orange-400 focus:bg-orange-500/10 focus:text-orange-300 cursor-pointer">⏸ مؤجل</SelectItem>
               <SelectItem value="returned" className="text-red-400 focus:bg-red-500/10 focus:text-red-300 cursor-pointer">↩ مرتجع</SelectItem>
             </SelectContent>
@@ -1293,6 +1301,60 @@ export default function InvoiceGroup() {
             <AlertDialogCancel>إلغاء</AlertDialogCancel>
             <AlertDialogAction onClick={() => pendingStatus && handleBulkStatusChange(pendingStatus)} disabled={isUpdatingStatus}>
               {isUpdatingStatus ? "جاري التحديث..." : "تأكيد"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Partial received dialog */}
+      <AlertDialog open={showPartialDialog} onOpenChange={open => { if (!open) { setShowPartialDialog(false); setPartialQty(""); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-blue-400">
+              <Package className="w-4 h-4" /> استلام جزئي
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              أدخل الكمية المستلمة فعلياً من كل طلب في هذه الفاتورة.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-3">
+            <Label className="text-xs text-muted-foreground">الكمية المستلمة *</Label>
+            <Input
+              type="number"
+              min={1}
+              className="mt-1.5 h-9 text-sm bg-card"
+              placeholder="مثال: 5"
+              value={partialQty}
+              onChange={e => setPartialQty(e.target.value)}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { setShowPartialDialog(false); setPartialQty(""); }}>إلغاء</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-blue-700 hover:bg-blue-600 text-white"
+              disabled={!partialQty || isNaN(parseInt(partialQty)) || parseInt(partialQty) < 1 || isUpdatingStatus}
+              onClick={async () => {
+                const qty = parseInt(partialQty);
+                if (isNaN(qty) || qty < 1) return;
+                setShowPartialDialog(false);
+                setIsUpdatingStatus(true);
+                for (const order of orders) {
+                  try {
+                    await new Promise<void>((resolve, reject) => {
+                      updateOrder.mutate(
+                        { id: order.id, data: { status: "partial_received" as any, partialQuantity: qty } as any },
+                        { onSuccess: () => resolve(), onError: () => reject() }
+                      );
+                    });
+                  } catch {}
+                }
+                invalidateAll();
+                setIsUpdatingStatus(false);
+                setPartialQty("");
+                toast({ title: "تم التحديث", description: `تم تسجيل استلام ${qty} وحدة جزئياً.` });
+              }}
+            >
+              {isUpdatingStatus ? "جاري التحديث..." : "تأكيد الاستلام الجزئي"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
