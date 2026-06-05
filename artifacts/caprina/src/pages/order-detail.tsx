@@ -2465,6 +2465,21 @@ tr.row-returned td{color:#aaa;text-decoration:line-through}
     enabled: isAdmin,
   });
 
+  // ── لو الطلب في فاتورة متعددة، نجيب كل الأوردرات عشان نحسب الإجمالي الصح ──
+  const { data: invoiceSiblings } = useQuery({
+    queryKey: ["invoice-group", order?.invoiceNumber],
+    queryFn: () => apiFetch<any[]>(`/orders/by-invoice/${encodeURIComponent(order!.invoiceNumber!)}`),
+    enabled: !!order?.invoiceNumber,
+    staleTime: 0,
+  });
+
+  // إجمالي الإيراد اللي هيتحول للخزنة — لو متعدد يجمع كل الأوردرات غير المغلقة
+  const closeInvoiceAmount = invoiceSiblings
+    ? invoiceSiblings
+        .filter((o: any) => !["received","partial_received","returned"].includes(o.status))
+        .reduce((s: number, o: any) => s + (o.totalPrice ?? 0), 0)
+    : (order?.totalPrice ?? 0);
+
   const handleCloseInvoice = async () => {
     if (!order) return;
     const regId = parseInt(selectedRegisterId);
@@ -2484,7 +2499,7 @@ tr.row-returned td{color:#aaa;text-decoration:line-through}
       });
       invalidateAll();
       queryClient.invalidateQueries({ queryKey: ["cash-registers-list"] });
-      const amount = order.totalPrice ?? 0;
+      const amount = closeInvoiceAmount;
       toast({
         title: "✅ تم إغلاق الطلب",
         description: `تم تحويله لـ «استلم» وإيداع ${new Intl.NumberFormat("ar-EG",{style:"currency",currency:"EGP",maximumFractionDigits:0}).format(amount)} في الخزنة`,
@@ -4109,7 +4124,7 @@ tr.row-returned td{color:#aaa;text-decoration:line-through}
             <div className="flex justify-between items-center text-sm">
               <span className="text-muted-foreground">المبلغ:</span>
               <span className="font-bold text-emerald-400">
-                {new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(order?.totalPrice ?? 0)}
+                {new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(closeInvoiceAmount)}
               </span>
             </div>
             <div className="space-y-1">
