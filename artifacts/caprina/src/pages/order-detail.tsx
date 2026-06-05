@@ -1275,14 +1275,14 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
         </CardContent>
       </Card>
 
-      {/* Layout: منتجات + sidebar */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Layout: منتجات أفقية + sidebar */}
+      <div className="space-y-4">
 
-        {/* قائمة المنتجات — col-span-2 */}
-        <div className="md:col-span-2 order-last md:order-first space-y-2">
+        {/* قائمة المنتجات الأفقية */}
+        <div className="space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold text-muted-foreground flex items-center gap-1">
-              <Package className="w-3.5 h-3.5" />منتجات الفاتورة
+              <Package className="w-3.5 h-3.5" />منتجات الفاتورة ({orders.length})
             </h3>
             {canCreate && (
               <button onClick={() => setShowAddProduct(true)}
@@ -1292,58 +1292,69 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
             )}
           </div>
 
-          {orders.map(o => {
-            const isThis = o.id === currentId;
-            const productImg = products.find((p: any) => p.name === o.product)?.image ?? null;
-            return (
-              <Card key={o.id} className={`border ${isThis ? "border-primary/50 bg-primary/5" : "border-border bg-card"}`}>
-                <CardContent className="p-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-start gap-2.5 flex-1 min-w-0">
+          {/* Products grid — horizontal layout with overflow scroll */}
+          <div className="flex flex-nowrap gap-3 overflow-x-auto pb-2 -mx-4 px-4">
+            {orders.map(o => {
+              const isThis = o.id === currentId;
+              const productImg = products.find((p: any) => p.name === o.product)?.image ?? null;
+              return (
+                <div key={o.id} className={`flex-shrink-0 w-72 border rounded-lg p-3 transition-all ${isThis ? "border-primary/60 bg-primary/10 ring-2 ring-primary/30 shadow-md" : "border-border bg-card hover:border-primary/30 hover:shadow-sm"}`}>
+                  <div className="space-y-2.5">
+                    {/* Header with image and product name */}
+                    <div className="flex items-start gap-2.5">
                       {/* صورة المنتج */}
                       {productImg ? (
-                        <img src={productImg} alt={o.product} className="w-10 h-10 rounded-lg object-cover border border-border shrink-0 mt-0.5" />
+                        <img src={productImg} alt={o.product} className="w-14 h-14 rounded-lg object-cover border border-border shrink-0" />
                       ) : (
-                        <div className="w-10 h-10 rounded-lg bg-muted border border-border flex items-center justify-center shrink-0 mt-0.5">
-                          <Package className="w-4 h-4 text-muted-foreground" />
+                        <div className="w-14 h-14 rounded-lg bg-muted border border-border flex items-center justify-center shrink-0">
+                          <Package className="w-5 h-5 text-muted-foreground" />
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          {isThis && <span className="text-[9px] text-primary font-black bg-primary/10 px-1.5 py-0.5 rounded">← هذا الطلب</span>}
-                          <Badge variant="outline" className={`text-[9px] font-bold ${statusClasses[o.status] || ""}`}>
+                        {isThis && <span className="text-[9px] text-primary font-black bg-primary/10 px-1.5 py-0.5 rounded-full w-fit block mb-1">← الحالي</span>}
+                        <p className="text-sm font-bold truncate">{o.product}</p>
+                        <div className="flex items-center gap-1 flex-wrap mt-1">
+                          <Badge variant="outline" className={`text-[8px] font-bold shrink-0 ${statusClasses[o.status] || ""}`}>
                             {statusLabels[o.status] || o.status}
                           </Badge>
+                          {o.color && <Badge variant="outline" className="text-[8px] border-border text-muted-foreground shrink-0">{o.color}</Badge>}
+                          {o.size && <Badge variant="outline" className="text-[8px] border-border text-muted-foreground shrink-0">{o.size}</Badge>}
                         </div>
-                        <p className="text-sm font-bold truncate">{o.product}</p>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          {o.color && <Badge variant="outline" className="text-[9px] border-border text-muted-foreground">{o.color}</Badge>}
-                          {o.size && <Badge variant="outline" className="text-[9px] border-border text-muted-foreground">{o.size}</Badge>}
-                        </div>
-                        <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
-                          <span>{o.quantity} وحدة × {formatCurrency(o.unitPrice)}</span>
-                          <span className="font-bold text-foreground">{formatCurrency(o.totalPrice)}</span>
-                        </div>
-                        {o.notes && <p className="text-[10px] text-muted-foreground mt-1 italic">{o.notes}</p>}
                       </div>
-                    </div>
-                    {canDelete && (
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <Button variant="outline" size="sm" className="h-7 text-xs gap-1 border-red-800 text-red-400 hover:bg-red-900/20"
+                      {canDelete && (
+                        <Button variant="outline" size="sm" className="h-6 w-6 p-0 text-xs gap-0 border-red-800 text-red-400 hover:bg-red-900/20 shrink-0"
                           onClick={() => setShowDeleteId(o.id)} disabled={deletingId === o.id}>
                           <Trash2 className="w-3 h-3" />
                         </Button>
+                      )}
+                    </div>
+
+                    {/* Price details */}
+                    <div className="bg-muted/50 rounded p-2 space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">الكمية</span>
+                        <span className="font-semibold text-foreground">{o.quantity}</span>
                       </div>
-                    )}
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">السعر</span>
+                        <span className="font-semibold text-foreground">{formatCurrency(o.unitPrice)}</span>
+                      </div>
+                      <div className="border-t border-border/40 pt-1 flex justify-between font-bold text-xs">
+                        <span className="text-foreground">الإجمالي</span>
+                        <span className="text-primary">{formatCurrency(o.totalPrice)}</span>
+                      </div>
+                    </div>
+
+                    {o.notes && <p className="text-[10px] text-muted-foreground italic border-t border-border/40 pt-2">{o.notes}</p>}
                   </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {/* Sidebar — ملخص مالي + تحليل ربحية */}
-        <div className="order-first md:order-last space-y-4">
+        <div className="space-y-4">
           {/* الملخص المالي — يظهر دائماً */}
           <Card className="border-primary/30 bg-card">
             <CardHeader className="pb-2 pt-4 px-4">
@@ -2089,16 +2100,31 @@ export default function OrderDetail() {
                 <div className="w-44">
                   <Select onValueChange={handleStatusChange} disabled={updateOrder.isPending}>
                     <SelectTrigger className="h-8 text-xs bg-card border-border">
-                      <span>{statusLabels[selectDisplayStatus ?? order.status] || (selectDisplayStatus ?? order.status)}</span>
+                      <span className="flex items-center gap-1">
+                        {(() => {
+                          const status = selectDisplayStatus ?? order.status;
+                          const iconMap = {
+                            pending: <Clock className="w-3 h-3" />,
+                            warehouse_ready: <Warehouse className="w-3 h-3" />,
+                            in_shipping: <Truck className="w-3 h-3" />,
+                            received: <CheckCircle2 className="w-3 h-3 text-emerald-400" />,
+                            delayed: <AlertCircle className="w-3 h-3" />,
+                            returned: <RotateCcw className="w-3 h-3" />,
+                            partial_received: <Package className="w-3 h-3" />,
+                          };
+                          return iconMap[status as keyof typeof iconMap] || null;
+                        })()}
+                        {statusLabels[selectDisplayStatus ?? order.status] || (selectDisplayStatus ?? order.status)}
+                      </span>
                     </SelectTrigger>
                     <SelectContent side="top">
-                      <SelectItem value="pending">قيد الانتظار</SelectItem>
-                      <SelectItem value="warehouse_ready">قيد الشحن في المخزن</SelectItem>
-                      <SelectItem value="in_shipping">قيد الشحن</SelectItem>
-                      <SelectItem value="received">استلم ✓</SelectItem>
-                      <SelectItem value="delayed">مؤجل</SelectItem>
-                      <SelectItem value="returned">مرتجع</SelectItem>
-                      <SelectItem value="partial_received">استلم جزئي</SelectItem>
+                      <SelectItem value="pending"><span className="flex items-center gap-2"><Clock className="w-3.5 h-3.5" />قيد الانتظار</span></SelectItem>
+                      <SelectItem value="warehouse_ready"><span className="flex items-center gap-2"><Warehouse className="w-3.5 h-3.5" />قيد الشحن في المخزن</span></SelectItem>
+                      <SelectItem value="in_shipping"><span className="flex items-center gap-2"><Truck className="w-3.5 h-3.5" />قيد الشحن</span></SelectItem>
+                      <SelectItem value="received"><span className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />استلم ✓</span></SelectItem>
+                      <SelectItem value="delayed"><span className="flex items-center gap-2"><AlertCircle className="w-3.5 h-3.5" />مؤجل</span></SelectItem>
+                      <SelectItem value="returned"><span className="flex items-center gap-2"><RotateCcw className="w-3.5 h-3.5" />مرتجع</span></SelectItem>
+                      <SelectItem value="partial_received"><span className="flex items-center gap-2"><Package className="w-3.5 h-3.5" />استلم جزئي</span></SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -2336,19 +2362,33 @@ export default function OrderDetail() {
         <div className="flex items-center flex-wrap gap-2">
           {!isEditing && canWriteOrders && (
             <>
-              <div className="w-44">
+              <div className="w-56">
                 <Select onValueChange={handleStatusChange} disabled={updateOrder.isPending}>
-                  <SelectTrigger className="h-8 text-xs bg-card border-border">
+                  <SelectTrigger className="h-8 text-xs bg-card border-border gap-2">
                     <span>{statusLabels[selectDisplayStatus ?? order.status] || (selectDisplayStatus ?? order.status)}</span>
                   </SelectTrigger>
-                  <SelectContent side="top">
-                    <SelectItem value="pending">قيد الانتظار</SelectItem>
-                    <SelectItem value="warehouse_ready">قيد الشحن في المخزن</SelectItem>
-                    <SelectItem value="in_shipping">قيد الشحن</SelectItem>
-                    <SelectItem value="received">استلم ✓</SelectItem>
-                    <SelectItem value="delayed">مؤجل</SelectItem>
-                    <SelectItem value="returned">مرتجع</SelectItem>
-                    <SelectItem value="partial_received">استلم جزئي</SelectItem>
+                  <SelectContent side="top" dir="rtl">
+                    <SelectItem value="pending" className="flex items-center gap-2">
+                      <Clock className="w-3.5 h-3.5" /> قيد الانتظار
+                    </SelectItem>
+                    <SelectItem value="warehouse_ready" className="flex items-center gap-2">
+                      <Package className="w-3.5 h-3.5" /> قيد الشحن في المخزن
+                    </SelectItem>
+                    <SelectItem value="in_shipping" className="flex items-center gap-2">
+                      <Truck className="w-3.5 h-3.5" /> قيد الشحن
+                    </SelectItem>
+                    <SelectItem value="received" className="flex items-center gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> استلم ✓
+                    </SelectItem>
+                    <SelectItem value="delayed" className="flex items-center gap-2">
+                      <AlertTriangle className="w-3.5 h-3.5 text-orange-400" /> مؤجل
+                    </SelectItem>
+                    <SelectItem value="returned" className="flex items-center gap-2">
+                      <RotateCcw className="w-3.5 h-3.5 text-red-400" /> مرتجع
+                    </SelectItem>
+                    <SelectItem value="partial_received" className="flex items-center gap-2">
+                      <Package className="w-3.5 h-3.5 text-purple-400" /> استلم جزئي
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -3319,7 +3359,7 @@ export default function OrderDetail() {
                   </div>
                 )}
 
-                {/* ── منتجات الفاتورة الأخرى ── */}
+                {/* ── منتجات الفاتورة الأخرى (أفقي) ── */}
                 {otherInvoiceOrders.length > 0 && (
                   <div className="mt-3">
                     <div className="flex items-center justify-between mb-2">
@@ -3336,53 +3376,70 @@ export default function OrderDetail() {
                         </button>
                       )}
                     </div>
-                    <div className="flex flex-col gap-1.5">
+                    <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4">
                       {/* الطلب الحالي */}
-                      <div className="flex items-center justify-between rounded-md px-2.5 py-2 border border-primary/40 bg-primary/5">
-                        <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[9px] text-primary font-bold">← هذا الطلب</span>
+                      <div className="flex-shrink-0 w-80 flex flex-col justify-between rounded-md px-3 py-3 border-2 border-primary/40 bg-primary/5">
+                        <div>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <span className="text-[9px] text-primary font-bold bg-primary/20 px-2 py-0.5 rounded">← هذا الطلب</span>
                           </div>
-                          <span className="text-xs font-semibold text-primary truncate">{order.product}</span>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            {(order as any).color && <Badge variant="outline" className="text-[9px] border-border text-muted-foreground">{(order as any).color}</Badge>}
-                            {(order as any).size && <Badge variant="outline" className="text-[9px] border-primary/40 text-primary font-bold">{(order as any).size}</Badge>}
-                          </div>
+                          <span className="text-sm font-bold text-primary block mb-2">{order.product}</span>
+                          {((order as any).color || (order as any).size) && (
+                            <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+                              {(order as any).color && <Badge className="text-[9px] bg-primary/20 text-primary border-primary/30">{(order as any).color}</Badge>}
+                              {(order as any).size && <Badge className="text-[9px] bg-primary text-white">{(order as any).size}</Badge>}
+                            </div>
+                          )}
                         </div>
-                        <div className="flex flex-col items-end gap-1 shrink-0">
-                          <span className="text-xs font-bold">{order.quantity} وحدة</span>
-                          <span className="text-[10px] text-primary font-bold">{formatCurrency(order.totalPrice)}</span>
+                        <div className="border-t border-primary/20 pt-2 mt-2">
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-[9px] text-muted-foreground">الكمية</span>
+                            <span className="text-sm font-bold text-primary">{order.quantity} وحدة</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-[9px] text-muted-foreground">الإجمالي</span>
+                            <span className="text-sm font-black text-primary">{formatCurrency(order.totalPrice)}</span>
+                          </div>
                         </div>
                       </div>
+                      
                       {/* باقي المنتجات في الفاتورة */}
                       {otherInvoiceOrders.map((o: any) => (
-                        <div key={o.id} className="flex items-center justify-between rounded-md px-2.5 py-2 border border-border/60 bg-muted/10 hover:bg-muted/20 transition-colors">
-                          <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-                            <span className="text-xs font-semibold truncate">{o.product}</span>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              {o.color && <Badge variant="outline" className="text-[9px] border-border text-muted-foreground">{o.color}</Badge>}
-                              {o.size && <Badge variant="outline" className="text-[9px] border-border text-muted-foreground font-bold">{o.size}</Badge>}
-                            </div>
-                            <Badge variant="outline" className={`text-[9px] font-bold w-fit mt-0.5 ${statusClasses[o.status] || ""}`}>
+                        <div key={o.id} className="flex-shrink-0 w-80 flex flex-col justify-between rounded-md px-3 py-3 border border-border/60 bg-muted/10 hover:bg-muted/20 transition-colors">
+                          <div>
+                            <span className="text-sm font-bold text-foreground block mb-2">{o.product}</span>
+                            {(o.color || o.size) && (
+                              <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+                                {o.color && <Badge variant="outline" className="text-[9px]">{o.color}</Badge>}
+                                {o.size && <Badge variant="outline" className="text-[9px] font-bold">{o.size}</Badge>}
+                              </div>
+                            )}
+                            <Badge variant="outline" className={`text-[9px] font-bold ${statusClasses[o.status] || ""}`}>
                               {statusLabels[o.status] || o.status}
                             </Badge>
                           </div>
-                          <div className="flex flex-col items-end gap-1 shrink-0">
-                            <span className="text-xs font-bold">{o.quantity} وحدة</span>
-                            <span className="text-[10px] text-muted-foreground font-bold">{formatCurrency(o.totalPrice)}</span>
+                          <div className="border-t border-border/40 pt-2 mt-2">
+                            <div className="flex justify-between items-center mb-1">
+                              <span className="text-[9px] text-muted-foreground">الكمية</span>
+                              <span className="text-sm font-bold">{o.quantity} وحدة</span>
+                            </div>
+                            <div className="flex justify-between items-center mb-2">
+                              <span className="text-[9px] text-muted-foreground">الإجمالي</span>
+                              <span className="text-sm font-bold">{formatCurrency(o.totalPrice)}</span>
+                            </div>
                             <Link href={`/orders/${o.id}`}>
-                              <span className="text-[9px] text-primary hover:underline cursor-pointer">عرض ←</span>
+                              <span className="text-[9px] text-primary hover:underline cursor-pointer block">عرض التفاصيل ←</span>
                             </Link>
                           </div>
                         </div>
                       ))}
-                      {/* إجمالي الفاتورة */}
-                      <div className="flex items-center justify-between rounded-md px-2.5 py-1.5 bg-muted/20 border border-border/40 mt-1">
-                        <span className="text-xs font-bold text-muted-foreground">إجمالي الفاتورة</span>
-                        <span className="text-sm font-black text-primary">
-                          {formatCurrency([...invoiceOrders].reduce((s: number, o: any) => s + (o.totalPrice ?? 0), 0))}
-                        </span>
-                      </div>
+                    </div>
+                    {/* إجمالي الفاتورة */}
+                    <div className="flex items-center justify-between rounded-md px-3 py-2 bg-gradient-to-l from-primary/20 to-primary/5 border border-primary/40 mt-2">
+                      <span className="text-sm font-bold text-primary">إجمالي الفاتورة</span>
+                      <span className="text-lg font-black text-primary">
+                        {formatCurrency([...invoiceOrders].reduce((s: number, o: any) => s + (o.totalPrice ?? 0), 0))}
+                      </span>
                     </div>
                   </div>
                 )}
