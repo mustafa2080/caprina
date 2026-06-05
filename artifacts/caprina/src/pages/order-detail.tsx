@@ -1241,12 +1241,6 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
             <div className="flex items-center gap-2">
               <p className="text-xs text-muted-foreground">إجمالي الفاتورة</p>
               <p className="text-lg font-black text-primary">{formatCurrency(invoiceTotal)}</p>
-              {canEdit && (
-                <Button variant="outline" size="sm" className="h-7 text-xs gap-1 border-primary/40 text-primary hover:bg-primary/5"
-                  onClick={() => setShowInvoiceEdit(true)}>
-                  <Pencil className="w-3 h-3" />تعديل
-                </Button>
-              )}
             </div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2 border-t border-border/40">
@@ -1611,12 +1605,6 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
                 </Card>
               );
             })()}
-            {canCreate && (
-              <button onClick={() => setShowAddProduct(true)}
-                className="w-full flex items-center justify-center gap-2 text-sm font-bold text-primary border-2 border-dashed border-primary/40 hover:bg-primary/5 py-3 rounded-xl transition-colors">
-                <Plus className="w-4 h-4" />إضافة منتج للفاتورة
-              </button>
-            )}
           </div>
         </div>
       )}
