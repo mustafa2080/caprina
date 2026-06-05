@@ -2045,7 +2045,7 @@ export default function OrderDetail() {
     const logoUrl = `${window.location.origin}/logo.jpg`;
 
     const fmtEN = (n: number) =>
-      new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n) + " ج.م";
+      new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n);
 
     const totalQty = printOrders.reduce((s: number, o: any) => s + (o.quantity ?? 0), 0);
     const invoiceTotal = printOrders.reduce((s: number, o: any) => s + (o.totalPrice ?? 0), 0);
