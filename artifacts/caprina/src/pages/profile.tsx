@@ -931,12 +931,22 @@ function ScoreRing({ score, size = 80 }: { score: number; size?: number }) {
   );
 }
 
-function MonthlyReportTab({ profile }: { profile?: EmployeeProfile }) {
+function MonthlyReportTab({ profile, externalViewMode, externalDate, onViewModeChange, onDateChange }: {
+  profile?: EmployeeProfile;
+  externalViewMode?: "monthly" | "daily";
+  externalDate?: string;
+  onViewModeChange?: (m: "monthly" | "daily") => void;
+  onDateChange?: (d: string) => void;
+}) {
   const { user } = useAuth();
   const isSuperAdmin = user?.role === "super_admin";
-  const [viewMode, setViewMode] = useState<"monthly" | "daily">("monthly");
+  const [_viewMode, _setViewMode] = useState<"monthly" | "daily">("monthly");
+  const [_selectedDate, _setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const viewMode     = externalViewMode ?? _viewMode;
+  const selectedDate = externalDate ?? _selectedDate;
+  const setViewMode  = (m: "monthly" | "daily") => { _setViewMode(m); onViewModeChange?.(m); };
+  const setSelectedDate = (d: string) => { _setSelectedDate(d); onDateChange?.(d); };
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), "yyyy-MM"));
-  const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
 
   const monthOptions = useMemo(() => Array.from({ length: 12 }, (_, i) => {
     const d = subMonths(new Date(), i);
@@ -2708,7 +2718,13 @@ export default function ProfilePage() {
         onViewModeChange={setHeaderViewMode}
         onDateChange={setHeaderDate}
       />}
-      {activeTab === "report" && <MonthlyReportTab profile={myProfile} />}
+      {activeTab === "report" && <MonthlyReportTab
+        profile={myProfile}
+        externalViewMode={headerViewMode}
+        externalDate={headerDate}
+        onViewModeChange={setHeaderViewMode}
+        onDateChange={setHeaderDate}
+      />}
       {activeTab === "saleskpi" && <SalesKPIDashboardTab myStats={myStats} profile={myProfile} />}
       {activeTab === "attendance" && <AttendanceTab />}
       {activeTab === "settings" && (
