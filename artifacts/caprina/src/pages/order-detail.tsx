@@ -1505,6 +1505,7 @@ export default function OrderDetail() {
   const [returnIsDamaged, setReturnIsDamaged] = useState(false);
   const [returnReceived, setReturnReceived] = useState<boolean | null>(null); // null = لم يُحدد
   const [selectDisplayStatus, setSelectDisplayStatus] = useState<string | null>(null); // قيمة مؤقتة للـ Select
+  const returnSectionRef = useRef<HTMLDivElement>(null);
 
   const initializedRef = useRef(false);
 
@@ -1587,6 +1588,14 @@ export default function OrderDetail() {
       initializedRef.current = true;
     }
   }, [order, form]);
+
+  useEffect(() => {
+    if (!showReturnInput) return;
+    const frame = window.requestAnimationFrame(() => {
+      returnSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [showReturnInput]);
 
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
@@ -2185,7 +2194,7 @@ export default function OrderDetail() {
 
           {/* Return reason input — invoice mode */}
           {showReturnInput && (
-            <Card className="border-red-800 bg-red-900/20">
+            <Card ref={returnSectionRef} className="border-red-800 bg-red-900/20">
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-center gap-2 mb-1">
                   <RotateCcw className="w-4 h-4 text-red-400" />
@@ -2433,7 +2442,7 @@ export default function OrderDetail() {
 
       {/* Return reason input */}
       {showReturnInput && (
-        <Card className="border-red-800 bg-red-900/20">
+        <Card ref={returnSectionRef} className="border-red-800 bg-red-900/20">
           <CardContent className="p-4 space-y-3">
             <div className="flex items-center gap-2 mb-1">
               <RotateCcw className="w-4 h-4 text-red-400" />
