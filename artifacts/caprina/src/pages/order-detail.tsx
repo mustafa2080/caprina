@@ -1343,7 +1343,7 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
               </div>
 
               {/* شريط التفاصيل السفلي */}
-              <div className="border-t border-border px-5 py-3 bg-muted/20 flex items-center justify-between gap-3 flex-wrap">
+              <div className="border-t border-border px-5 py-3 bg-muted/20 flex items-center gap-3 flex-wrap">
                 <div className="flex items-center gap-4 text-xs text-muted-foreground">
                   {o.shippingCompanyName && (
                     <span className="flex items-center gap-1"><Truck className="w-3.5 h-3.5" />{o.shippingCompanyName}</span>
@@ -1353,20 +1353,6 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
                   )}
                   {o.employeeName && (
                     <span className="flex items-center gap-1"><UserCheck className="w-3.5 h-3.5" />{o.employeeName}</span>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  {canEdit && (
-                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1 border-border"
-                      onClick={() => setShowInvoiceEdit(true)}>
-                      <Pencil className="w-3 h-3" />تعديل
-                    </Button>
-                  )}
-                  {canDelete && (
-                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1 border-red-800 text-red-400 hover:bg-red-900/20"
-                      onClick={() => setShowDeleteId(o.id)}>
-                      <Trash2 className="w-3 h-3" />حذف
-                    </Button>
                   )}
                 </div>
               </div>
@@ -1440,13 +1426,6 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
                 </Card>
               )}
 
-              {/* إضافة منتج */}
-              {canCreate && (
-                <button onClick={() => setShowAddProduct(true)}
-                  className="w-full flex items-center justify-center gap-2 text-sm font-bold text-primary border-2 border-dashed border-primary/40 hover:bg-primary/5 py-3 rounded-xl transition-colors">
-                  <Plus className="w-4 h-4" />إضافة منتج للفاتورة
-                </button>
-              )}
             </div>
           </div>
         );
