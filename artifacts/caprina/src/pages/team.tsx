@@ -2610,6 +2610,9 @@ export function MyDashboardTab({ profileId, monthlySalary }: {
   return (
     <div className="space-y-4 animate-in fade-in duration-300">
 
+      {/* ── موظفو الشهر المتميزون ── */}
+      <StarEmployeesSection currentMonth={currentMonth} />
+
       {/* ── Toggle يومي / شهري ── */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-1 p-1 rounded-xl border border-border bg-muted/20" dir="rtl">
