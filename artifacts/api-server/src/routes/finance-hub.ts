@@ -285,12 +285,22 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
       total: sql<number>`COALESCE(SUM(CAST(total_amount AS DECIMAL(14,2))),0)`,
     }).from(purchaseOrdersTable).where(sql`status IN ('pending','ordered','partial_received')`);
 
-    // ── 7. فواتير الشحن غير المسددة ─────────────────────────────────────────
-    // COALESCE على كل عمود على حدة عشان NULL في paid_amount ما يخليش الطرح NULL
+    // ── 7. فواتير الشحن غير المسددة = البيانات اللي جاتلها فاتورة من شركة الشحن بس مش مدفوعة ──
     const [unpaidShipping] = await db.select({
       count: sql<number>`COUNT(*)`,
       total: sql<number>`COALESCE(SUM(CAST(net_due AS DECIMAL(14,2)) - COALESCE(CAST(paid_amount AS DECIMAL(14,2)),0)),0)`,
     }).from(shippingFinancialInvoicesTable).where(sql`status IN ('pending','verified')`);
+
+    // عدد البيانات الغير مسددة = البيانات اللي عندها invoice_price ومش مدفوعة
+    const [unpaidManifests] = await db.select({
+      count: sql<number>`COUNT(*)`,
+    }).from(shippingManifestsTable).where(sql`invoice_price IS NOT NULL AND (status != 'paid')`);
+
+    // نستخدم count من البيانات وtotal من الفواتير المالية
+    const unpaidShippingResult = {
+      count: Number(unpaidManifests?.count ?? 0),
+      total: Number(unpaidShipping?.total ?? 0),
+    };
 
     // فواتير شحن متأخرة
     const overdueShipping = await db.select({
@@ -426,7 +436,7 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
       monthlyChart,
       expByCategory: expByCategory.map(e=>({ category: e.category, total: Number(e.total), count: Number(e.count) })),
       pendingPurchases: { count: Number(pendingPurchases?.count??0), total: Number(pendingPurchases?.total??0) },
-      unpaidShipping: { count: Number(unpaidShipping?.count??0), total: Number(unpaidShipping?.total??0), overdueCount: overdueShipping.length },
+      unpaidShipping: { count: unpaidShippingResult.count, total: unpaidShippingResult.total, overdueCount: overdueShipping.length },
       recentTransactions: recentTx,
       alerts,
     });
