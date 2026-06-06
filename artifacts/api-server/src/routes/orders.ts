@@ -1221,6 +1221,13 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
       if (data.status === "received") {
         // خصم المخزون لكل sibling
         if (siblingMovement) {
+          // لو to_shipping → اتخصم بالفعل → بس غيّر reason
+          // لو adjustment أو غيره → لم يُخصم → نخصم دلوقتي
+          if (siblingMovement.reason !== "to_shipping") {
+            const { variantId: sVid, productId: sPid } = await resolveInventoryTarget(siblingRef);
+            await adjustWarehouseStock(sibling.warehouseId, sVid, sPid, -sibling.quantity).catch(() => {});
+            await syncProductQuantityFromWarehouses(sVid, sPid).catch(() => {});
+          }
           await updateMovementReason(sibling.id, siblingMovement.reason as any, "sale", "تم الاستلام — بيع").catch(() => {});
         } else {
           await processDelivery(siblingRef, sibling.quantity, "sale", sibling.id).catch(() => {});
@@ -1230,6 +1237,12 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
 
       if (data.status === "partial_received") {
         if (siblingMovement) {
+          // لو adjustment أو غيره → لم يُخصم → نخصم دلوقتي
+          if (siblingMovement.reason !== "to_shipping") {
+            const { variantId: sVid2, productId: sPid2 } = await resolveInventoryTarget(siblingRef);
+            await adjustWarehouseStock(sibling.warehouseId, sVid2, sPid2, -sibling.quantity).catch(() => {});
+            await syncProductQuantityFromWarehouses(sVid2, sPid2).catch(() => {});
+          }
           await updateMovementReason(sibling.id, siblingMovement.reason as any, "partial_sale", "استلام جزئي").catch(() => {});
         } else {
           await processDelivery(siblingRef, sibling.quantity, "partial_sale", sibling.id).catch(() => {});
