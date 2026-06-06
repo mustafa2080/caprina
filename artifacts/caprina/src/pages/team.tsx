@@ -2892,12 +2892,16 @@ function MonthlyTrend({ profileId, currentMonth, kpis }: { profileId: number; cu
 // ─── MyOrdersTab ─────────────────────────────────────────────────────────────
 function MyOrdersTab({
   profileId, displayName, reportMonth, onMonthChange, kpis,
+  monthlyScore, dailyScore, selectedDate,
 }: {
   profileId: number;
   displayName: string;
   reportMonth: string;
   onMonthChange: (m: string) => void;
   kpis: EmployeeKpi[];
+  monthlyScore?: number | null;
+  dailyScore?: number | null;
+  selectedDate?: string;
 }) {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
@@ -2943,6 +2947,44 @@ function MyOrdersTab({
 
   return (
     <div className="space-y-3 animate-in fade-in duration-300">
+
+      {/* ─ مؤشر الأداء (gauge) ─ */}
+      {(monthlyScore !== undefined || dailyScore !== undefined) && (
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            { label: "الأداء الشهري", score: monthlyScore ?? null },
+            { label: "الأداء اليومي", score: dailyScore ?? null },
+          ].map(({ label, score }) => {
+            const r = 28, circ = 2 * Math.PI * r;
+            const pct  = score ?? 0;
+            const dash = (Math.min(pct, 100) / 100) * circ;
+            const gap  = circ - dash;
+            const bar  = score === null ? "#6B7280" : score >= 80 ? "#10B981" : score >= 60 ? "#F59E0B" : "#EF4444";
+            const col  = score === null ? "text-muted-foreground" : score >= 80 ? "text-emerald-400" : score >= 60 ? "text-amber-400" : "text-red-400";
+            const rat  = score === null ? "لا بيانات" : score >= 80 ? "ممتاز" : score >= 65 ? "جيد جداً" : score >= 50 ? "جيد" : score >= 35 ? "مقبول" : "ضعيف";
+            return (
+              <div key={label} className="rounded-xl p-3 bg-muted/40 border border-border/60 flex flex-col items-center gap-1.5">
+                <div className="relative flex items-center justify-center">
+                  <svg width="72" height="72" viewBox="0 0 72 72" style={{ transform: "rotate(-90deg)" }}>
+                    <circle cx="36" cy="36" r={r} fill="none" stroke="rgba(128,128,128,0.15)" strokeWidth="6" />
+                    <circle cx="36" cy="36" r={r} fill="none" stroke={bar} strokeWidth="6"
+                      strokeDasharray={`${dash} ${gap}`} strokeLinecap="round"
+                      style={{ transition: "stroke-dasharray 0.6s ease" }} />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className={`text-sm font-black leading-none ${col}`}>
+                      {score !== null ? `${score}%` : "—"}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-[10px] font-semibold text-muted-foreground">{label}</p>
+                <span className={`text-[9px] font-bold ${col}`}>{rat}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* ─ Header ─ */}
       <div className="flex flex-wrap items-center gap-2">
         <div>
@@ -3285,6 +3327,9 @@ function EmployeeDetail({
               reportMonth={reportMonth}
               onMonthChange={setReportMonth}
               kpis={kpis}
+              monthlyScore={report?.overallScore ?? null}
+              dailyScore={dailyReport?.overallScore ?? null}
+              selectedDate={selectedDate}
             />
           </TabsContent>
         )}
@@ -5115,34 +5160,39 @@ export default function TeamPage() {
 
                 {/* ── الإحصائيات ── */}
                 <div className="grid grid-cols-2 gap-3 mb-4">
-                  {/* الأداء الشهري */}
-                  <div className="rounded-xl p-3 bg-muted/40 dark:bg-white/[0.04] border border-border/60 dark:border-white/[0.07] flex flex-col items-center justify-center gap-1">
-                    {/* الدايرة */}
-                    {(() => {
-                      const r = 22, circ = 2 * Math.PI * r;
-                      const pct = perfScore ?? 0;
-                      const dash = (pct / 100) * circ;
-                      const gap = circ - dash;
-                      return (
-                        <div className="relative flex items-center justify-center">
-                          <svg width="60" height="60" viewBox="0 0 60 60" style={{ transform: "rotate(-90deg)" }}>
-                            <circle cx="30" cy="30" r={r} fill="none" stroke="rgba(128,128,128,0.15)" strokeWidth="5" />
-                            <circle cx="30" cy="30" r={r} fill="none" stroke={perfBar} strokeWidth="5"
-                              strokeDasharray={`${dash} ${gap}`} strokeLinecap="round"
-                              style={{ transition: "stroke-dasharray 0.5s ease" }} />
-                          </svg>
-                          <div className="absolute inset-0 flex flex-col items-center justify-center" style={{ transform: "none" }}>
-                            <span className={`text-xs font-black leading-none ${perfColor}`}>
-                              {perfScore !== null ? `${perfScore}%` : "—"}
-                            </span>
-                            <span className="text-[8px] text-muted-foreground/60 mt-0.5">أداؤك</span>
+                  {/* الأداء الشهري + اليومي */}
+                  <div className="rounded-xl p-3 bg-muted/40 dark:bg-white/[0.04] border border-border/60 dark:border-white/[0.07] flex flex-col gap-2">
+                    <p className="text-[9px] font-bold text-muted-foreground/70 text-center">الأداء</p>
+                    <div className="flex items-center justify-around gap-1">
+                      {[
+                        { label: "شهري", score: perfScore },
+                        { label: "يومي", score: (profile as any).dailyScore ?? null },
+                      ].map(({ label, score }) => {
+                        const r2 = 18, circ2 = 2 * Math.PI * r2;
+                        const dash2 = (Math.min(score ?? 0, 100) / 100) * circ2;
+                        const gap2  = circ2 - dash2;
+                        const bar2  = score === null ? "#6B7280" : score >= 75 ? "#10B981" : score >= 50 ? "#F59E0B" : "#EF4444";
+                        const col2  = score === null ? "text-muted-foreground" : score >= 75 ? "text-emerald-400" : score >= 50 ? "text-amber-400" : "text-red-400";
+                        return (
+                          <div key={label} className="flex flex-col items-center gap-0.5">
+                            <div className="relative flex items-center justify-center">
+                              <svg width="46" height="46" viewBox="0 0 46 46" style={{ transform: "rotate(-90deg)" }}>
+                                <circle cx="23" cy="23" r={r2} fill="none" stroke="rgba(128,128,128,0.15)" strokeWidth="4" />
+                                <circle cx="23" cy="23" r={r2} fill="none" stroke={bar2} strokeWidth="4"
+                                  strokeDasharray={`${dash2} ${gap2}`} strokeLinecap="round"
+                                  style={{ transition: "stroke-dasharray 0.5s ease" }} />
+                              </svg>
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <span className={`text-[9px] font-black leading-none ${col2}`}>
+                                  {score !== null ? `${score}%` : "—"}
+                                </span>
+                              </div>
+                            </div>
+                            <span className="text-[8px] text-muted-foreground/60">{label}</span>
                           </div>
-                        </div>
-                      );
-                    })()}
-                    <p className="text-[9px] text-muted-foreground/70 text-center leading-tight">
-                      {perfRating ?? "لا توجد بيانات"}
-                    </p>
+                        );
+                      })}
+                    </div>
                     <div className="w-full">
                       <div className="flex justify-between text-[8px] text-muted-foreground/50 mb-0.5">
                         <span>تقدم الشهر</span>
