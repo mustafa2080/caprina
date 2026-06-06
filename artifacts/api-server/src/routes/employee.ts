@@ -1256,8 +1256,20 @@ router.get("/employee-daily-logs/:profileId", async (req, res): Promise<void> =>
   const dayStart = new Date(`${date}T00:00:00.000Z`);
   const dayEnd = new Date(`${date}T23:59:59.999Z`);
 
-  // month range for cumulative sum
-  const monthStart = date.slice(0, 7) + "-01";
+  // ── استخدام نفس getPayPeriod زي employee-report ──────────────────────────
+  // الفترة: من 26 الشهر السابق → 25 الشهر الحالي
+  const dateMonthStr = date.slice(0, 7); // YYYY-MM
+  const { dateFrom: periodStart, dateTo: periodEnd } = getPayPeriod(dateMonthStr);
+
+  // عدد أيام الفترة الكاملة (دايماً ~30-31 يوم)
+  const periodDays = Math.round((periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+  // اليوم رقم كام في الفترة (من 1)
+  const selectedDay = new Date(date + "T00:00:00.000");
+  const dayNumberInPeriod = Math.max(1, Math.round((selectedDay.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+
+  // month range for cumulative sum — من بداية الفترة لليوم المختار
+  const monthStart = periodStart.toISOString().slice(0, 10);
   const monthEnd   = date;
 
   // Get userId from profile for auto-computed metrics
@@ -1309,17 +1321,13 @@ router.get("/employee-daily-logs/:profileId", async (req, res): Promise<void> =>
 
       // manual: progressive daily target = (monthlyTarget / daysInMonth) * dayNumber
       // e.g. target=1000, day 15 of 30 â†’ expected so far = 500
-      // auto:  compare today's value vs dailyTarget (target/30)
+      // auto:  compare today's value vs (target / periodDays)
+      // manual: progressive = (target / periodDays) * dayNumberInPeriod
       let dailyTarget: number;
       if (kpi.metric === "manual") {
-        const [yr, mo] = date.split("-").map(Number);
-        const daysInMonth = new Date(yr, mo, 0).getDate();
-        const dayNumber   = parseInt(date.split("-")[2], 10);
-        dailyTarget = Math.round((kpi.targetValue / daysInMonth) * dayNumber);
+        dailyTarget = Math.round((kpi.targetValue / periodDays) * dayNumberInPeriod);
       } else {
-        const [yr2, mo2] = date.split("-").map(Number);
-        const daysInMonth2 = new Date(yr2, mo2, 0).getDate();
-        dailyTarget = Math.round(kpi.targetValue / daysInMonth2);
+        dailyTarget = Math.round(kpi.targetValue / periodDays);
       }
 
       const score = actualValue !== null
@@ -1391,9 +1399,9 @@ router.get("/employee-daily-logs/:profileId/week", async (req, res): Promise<voi
           } else {
             actualValue = log?.value ?? null;
           }
-          const [dyr, dmo] = date.split("-").map(Number);
-          const dDaysInMonth = new Date(dyr, dmo, 0).getDate();
-          const dailyTarget = Math.round(kpi.targetValue / dDaysInMonth);
+          const { dateFrom: wPeriodStart, dateTo: wPeriodEnd } = getPayPeriod(date.slice(0, 7));
+          const wPeriodDays = Math.round((wPeriodEnd.getTime() - wPeriodStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+          const dailyTarget = Math.round(kpi.targetValue / wPeriodDays);
           const achieved = actualValue !== null
             ? (kpi.direction === "lower_is_better" ? actualValue <= dailyTarget : actualValue >= dailyTarget)
             : null;
