@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useMemo } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { ar } from "date-fns/locale";
@@ -2564,6 +2565,7 @@ export default function ProfilePage() {
   const { user, refreshUser } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
+  const [location] = useLocation();
 
   const [avatarB64, setAvatarB64] = useState<string | null | undefined>(undefined);
   const [activeTab, setActiveTab] = useState<"dashboard" | "orders" | "kpis" | "report" | "saleskpi" | "attendance" | "settings">("dashboard");
@@ -2644,6 +2646,22 @@ export default function ProfilePage() {
     ...(!isAdminRole ? [{ key: "attendance", label: "الحضور", icon: CalendarCheck2 }] : []),
     { key: "settings",     label: "الإعدادات",       icon: User },
   ];
+
+  // لو الـ route هو /my-dashboard → اعرض لوحتي مباشرة full width بدون header وتابات
+  if (location === "/my-dashboard") {
+    return (
+      <div className="w-full" dir="rtl">
+        <DashboardTab
+          myStats={myStats}
+          profile={myProfile}
+          externalViewMode={headerViewMode}
+          externalDate={headerDate}
+          onViewModeChange={setHeaderViewMode}
+          onDateChange={setHeaderDate}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto space-y-5" dir="rtl">
