@@ -267,7 +267,11 @@ router.get("/employee-profiles", async (req, res): Promise<void> => {
         scoredM.push({ score: computeKpiScore(actual, effTarget, kpi.direction ?? "higher_is_better"), weight: kpi.weight ?? 1 });
       }
       const twM = scoredM.reduce((s, k) => s + k.weight, 0);
-      overallScoreMap[pid] = twM > 0 ? Math.round(scoredM.reduce((s, k) => s + k.score * k.weight, 0) / twM) : null;
+      overallScoreMap[pid] = scoredM.length > 0
+        ? twM > 0
+          ? Math.round(scoredM.reduce((s, k) => s + k.score * k.weight, 0) / twM)
+          : Math.round(scoredM.reduce((s, k) => s + k.score, 0) / scoredM.length)
+        : null;
 
       // ── fallback شهري من الطلبات لو مفيش KPIs (نفس employee-report) ──────────
       if (overallScoreMap[pid] === null && userId2) {
@@ -309,7 +313,11 @@ router.get("/employee-profiles", async (req, res): Promise<void> => {
         scoredD.push({ score: computeKpiScore(todayActual, oneDayTarget, kpi.direction ?? "higher_is_better"), weight: kpi.weight ?? 1 });
       }
       const twD = scoredD.reduce((s, k) => s + k.weight, 0);
-      dailyScoreMap[pid] = twD > 0 ? Math.round(scoredD.reduce((s, k) => s + k.score * k.weight, 0) / twD) : null;
+      dailyScoreMap[pid] = scoredD.length > 0
+        ? twD > 0
+          ? Math.round(scoredD.reduce((s, k) => s + k.score * k.weight, 0) / twD)
+          : Math.round(scoredD.reduce((s, k) => s + k.score, 0) / scoredD.length)
+        : null;
 
       // ── fallback يومي من طلبات اليوم لو مفيش KPIs (نفس profile.tsx) ──────────
       if (dailyScoreMap[pid] === null && userId2) {
