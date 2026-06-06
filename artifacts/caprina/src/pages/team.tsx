@@ -2634,7 +2634,7 @@ function MyDashboardTab({ profileId, monthlySalary }: {
             </div>
           </div>
           <div className="flex-1 space-y-2">
-            <p className={`text-sm font-bold ${statusColor}`}>{dayOfMonth >= daysInMonth - 9 ? statusLabel : overallScore !== null ? `${overallScore}%` : "—"}</p>
+            <p className={`text-sm font-bold ${statusColor}`}>{viewMode === "daily" ? statusLabel : overallScore !== null ? `${overallScore}%` : "—"}</p>
             <p className="text-xs text-muted-foreground">{periodLabel}</p>
             {scoreDiff !== null && (
               <div className={`flex items-center gap-1 text-xs font-bold ${scoreDiff >= 0 ? "text-emerald-500" : "text-red-500"}`}>
@@ -4953,7 +4953,7 @@ function EmployeeScoreRing({ profileId, monthProgress, dailyScore, attendanceSco
           </div>
         </div>
         <div className="flex-1 min-w-0 space-y-1.5">
-          <p className={`text-[10px] font-bold leading-tight ${scoreText}`}>{showStatusLabel ? statusLabel : `${monthly !== null ? monthly + "%" : "—"}`}</p>
+          <p className={`text-[10px] font-bold leading-tight ${scoreText}`}>{monthly !== null ? `${monthly}%` : "—"}</p>
           {/* دائرتين صغيرتين: يومي + حضور */}
           <div className="flex items-center gap-2">
             {[{ label: "يومي", score: dailyScore }, { label: "حضور", score: attendanceScore }].map(({ label, score }) => {
