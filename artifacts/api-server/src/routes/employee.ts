@@ -498,17 +498,18 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
     .from(employeeKpisTable)
     .where(and(eq(employeeKpisTable.profileId, profileId), eq(employeeKpisTable.isActive, true)));
 
-  // Cumulative sum for manual KPIs from daily logs in this month
-  const monthStart = dateFrom.toISOString().slice(0, 10);
-  const monthEnd   = dateTo.toISOString().slice(0, 10);
+  // daily mode: fetch only the selected day's value per KPI (todayValue)
+  // monthly mode: fetch cumulative sum for the whole month
+  const manualLogsDateStart = dateFrom.toISOString().slice(0, 10);
+  const manualLogsDateEnd   = dateTo.toISOString().slice(0, 10);
   const manualLogs = await db
     .select({ kpiId: employeeDailyLogsTable.kpiId, total: sum(employeeDailyLogsTable.value) })
     .from(employeeDailyLogsTable)
     .where(
       and(
         eq(employeeDailyLogsTable.profileId, profileId),
-        gte(employeeDailyLogsTable.date, monthStart),
-        lte(employeeDailyLogsTable.date, monthEnd)
+        gte(employeeDailyLogsTable.date, manualLogsDateStart),
+        lte(employeeDailyLogsTable.date, manualLogsDateEnd)
       )
     )
     .groupBy(employeeDailyLogsTable.kpiId);
@@ -604,17 +605,18 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
     kpis.map(async (kpi) => {
       let actualValue: number | null;
       if (kpi.metric === "manual") {
-        // use cumulative monthly sum from daily logs — default to 0 if no logs yet
+        // daily mode: today's value only; monthly mode: cumulative sum
         actualValue = manualCumulativeMap.get(kpi.id) ?? 0;
       } else {
         actualValue = userId
           ? await computeActualValue(kpi.metric, userId, dateFrom, dateTo, (profile as any).tenantId)
           : 0;
       }
-      // Progressive target for current month â€” applies to ALL metric types.
-      // For past months (completed): use full monthly target as-is.
+      // daily mode: compare today's value vs (monthlyTarget / daysInMonth)
+      // monthly current: compare cumulative vs progressive target so far
+      // monthly past: compare vs full monthly target
       const effectiveTarget = mode === 'daily'
-        ? Math.max(1, Math.round(kpi.targetValue / reportDaysInMonth))
+        ? kpi.targetValue / reportDaysInMonth
         : isCurrentMonth
           ? Math.max(1, Math.round((kpi.targetValue / reportDaysInMonth) * reportDayNumber))
           : kpi.targetValue;
