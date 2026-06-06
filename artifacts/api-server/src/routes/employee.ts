@@ -233,11 +233,12 @@ router.get("/employee-profiles", async (req, res): Promise<void> => {
     if (!todayLogsMap[l.profileId]) todayLogsMap[l.profileId] = {};
     todayLogsMap[l.profileId][l.kpiId] = parseFloat(String(l.total ?? "0"));
   }
-  const dailyTarget = 1; // target يوم واحد = targetValue / daysInMonth
+  // pay-period vars لحساب dailyScore بنفس منطق daily-logs route
+  const periodDays = Math.round((mTo.getTime() - mFrom.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  const dayNumberInPeriod = Math.round((new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() - mFrom.getTime()) / (1000 * 60 * 60 * 24)) + 1;
   const dailyScoreMap: Record<number, number | null> = {};
   const todayDateObj = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
   const todayDateObjEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-  const todayStr2 = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
   // ─── overallScore + dailyScore: نفس منطق employee-report بالظبط ────────────
   const overallScoreMap: Record<number, number | null> = {};
@@ -297,20 +298,23 @@ router.get("/employee-profiles", async (req, res): Promise<void> => {
         }
       }
 
-      // ── يومي: نفس employee-report في daily mode ──────────────────────────────
-      // effectiveTarget = targetValue / daysInMonth  ← target يوم واحد
+      // ── يومي: نفس daily-logs route — تراكمي من بداية الفترة + هدف pay-period ──
       const scoredD: { score: number; weight: number }[] = [];
       for (const kpi of kpis2) {
         let todayActual: number | null = null;
         if (kpi.metric === "manual") {
-          todayActual = todayProfileLogs[kpi.id] ?? 0;
+          // تراكمي من بداية الـ pay period (نفس daily-logs route)
+          todayActual = profileLogs[kpi.id] ?? 0;
         } else {
           // للـ non-manual: احسب اليوم فقط من computeActualValue
           todayActual = userId2 ? await computeActualValue(kpi.metric, userId2, todayDateObj, todayDateObjEnd, tenantId2) : null;
         }
         if (todayActual === null) continue;
-        const oneDayTarget = kpi.targetValue / daysInMonth;
-        scoredD.push({ score: computeKpiScore(todayActual, oneDayTarget, kpi.direction ?? "higher_is_better"), weight: kpi.weight ?? 1 });
+        // نفس daily-logs route: manual → تراكمي progressive، auto → هدف يوم واحد
+        const effDailyTarget = kpi.metric === "manual"
+          ? Math.round((kpi.targetValue / periodDays) * dayNumberInPeriod)
+          : Math.max(1, Math.round(kpi.targetValue / periodDays));
+        scoredD.push({ score: computeKpiScore(todayActual, effDailyTarget, kpi.direction ?? "higher_is_better"), weight: kpi.weight ?? 1 });
       }
       const twD = scoredD.reduce((s, k) => s + k.weight, 0);
       dailyScoreMap[pid] = scoredD.length > 0
