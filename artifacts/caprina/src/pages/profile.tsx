@@ -223,15 +223,18 @@ function DashboardTab({ myStats, profile, externalViewMode, externalDate, onView
   const dayReturned  = dayOrders.filter((o: any) => o.status === "returned").length;
   const dayPending   = dayOrders.filter((o: any) => !["received","partial_received","returned"].includes(o.status)).length;
 
-  // KPI entries من daily logs
-  const kpiEntries: { label: string; value: number; target: number; unit: string }[] = useMemo(() => {
+  // KPI entries من daily logs — الـ backend بيرجع { kpis: [...] }
+  const kpiEntries: { label: string; value: number; target: number; unit: string; weight: number; score: number | null }[] = useMemo(() => {
     const logs = dailyLogs as any;
-    if (!logs?.entries?.length) return [];
-    return logs.entries.map((e: any) => ({
-      label: e.kpiName ?? e.label ?? "مؤشر",
-      value: e.value ?? 0,
-      target: e.targetValue ?? e.target ?? 0,
+    const kpis = logs?.kpis ?? logs?.entries ?? [];
+    if (!kpis.length) return [];
+    return kpis.map((e: any) => ({
+      label: e.displayName ?? e.kpiName ?? e.name ?? e.label ?? "مؤشر",
+      value: e.actualValue ?? e.todayValue ?? e.value ?? 0,
+      target: e.dailyTarget ?? e.targetValue ?? e.target ?? 0,
       unit: e.unit ?? "",
+      weight: e.weight ?? 1,
+      score: e.score ?? null,
     }));
   }, [dailyLogs]);
 
@@ -258,20 +261,32 @@ function DashboardTab({ myStats, profile, externalViewMode, externalDate, onView
   const activeReport  = viewMode === "daily" ? dailyReport : currReport;
   const activeStats   = activeReport?.orderStats;
 
-  // احسب score اليوم محلياً لو الـ API مردش overallScore
+  // احسب score اليوم من KPIs متابعة يومية (dailyLogs.kpis) — المصدر الأساسي
+  // fallback: من الطلبات المغلقة لو مفيش KPIs مدخلة
   const dailyScoreLocal = useMemo(() => {
     if (viewMode !== "daily") return null;
+
+    // 1) من dailyLogs.kpis (متابعة يومية)
+    const logsKpis: any[] = (dailyLogs as any)?.kpis ?? [];
+    const scoredDailyKpis = logsKpis.filter((k: any) => k.score !== null && k.score !== undefined);
+    if (scoredDailyKpis.length > 0) {
+      const totalWeight = scoredDailyKpis.reduce((s: number, k: any) => s + (k.weight ?? 1), 0);
+      const weightedSum = scoredDailyKpis.reduce((s: number, k: any) => s + (k.score ?? 0) * (k.weight ?? 1), 0);
+      return Math.round(weightedSum / (totalWeight || 1));
+    }
+
+    // 2) Fallback من الطلبات المغلقة لو مفيش KPIs
     const closedCount = dayDelivered + dayReturned;
     if (closedCount === 0) return null;
-    // نفس منطق الـ backend: من الطلبات المغلقة فقط (delivered + returned)
     const closedDeliveryRate = Math.round((dayDelivered / closedCount) * 100);
     const closedReturnRate   = Math.round((dayReturned  / closedCount) * 100);
     const returnPenalty      = Math.max(0, 100 - closedReturnRate * 2);
     return Math.round(closedDeliveryRate * 0.6 + returnPenalty * 0.4);
-  }, [viewMode, dayDelivered, dayReturned]);
+  }, [viewMode, dailyLogs, dayDelivered, dayReturned]);
 
+  // في daily mode: dailyScoreLocal (من متابعة يومية) هو المصدر الأساسي
   const activeScore   = viewMode === "daily"
-    ? (activeReport?.overallScore ?? dailyScoreLocal)
+    ? (dailyScoreLocal ?? activeReport?.overallScore)
     : score;
   const activeRating  = activeScore == null ? null
     : activeScore >= 80 ? "ممتاز" : activeScore >= 65 ? "جيد جداً"
