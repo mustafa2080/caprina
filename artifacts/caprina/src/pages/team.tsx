@@ -457,8 +457,10 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
   const [exportingPdf, setExportingPdf] = useState(false);
   const [specialBonus, setSpecialBonus] = useState<string>("");
   const [specialBonusNote, setSpecialBonusNote] = useState<string>("");
+  const [specialBonusType, setSpecialBonusType] = useState<"bonus" | "deduction">("bonus");
   const [editingSpecialBonus, setEditingSpecialBonus] = useState(false);
   const specialBonusNum = parseFloat(specialBonus) || 0;
+  const specialBonusValue = specialBonusType === "bonus" ? specialBonusNum : -specialBonusNum;
   const { toast } = useToast();
   const ratingCfg = RATING_CONFIG[report.rating] ?? RATING_CONFIG["غير محدد"];
 
@@ -907,17 +909,23 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
                     <span className="text-sm font-bold text-red-500">−{fmt(salaryReport.extraDeductions)}</span>
                   </div>
                 )}
-                {/* بونص خاص */}
-                <div className={`flex justify-between items-center px-3 py-2 border-b border-border/30 ${specialBonusNum > 0 ? "bg-emerald-500/5" : "bg-muted/10"}`}>
+                {/* بونص أو خصم خاص */}
+                <div className={`flex justify-between items-center px-3 py-2 border-b border-border/30 ${specialBonusNum > 0 ? (specialBonusType === "bonus" ? "bg-emerald-500/5" : "bg-red-500/5") : "bg-muted/10"}`}>
                   <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <span className="text-xs text-muted-foreground shrink-0">بونص خاص</span>
+                    <span className="text-xs text-muted-foreground shrink-0">بونص / خصم خاص</span>
                     {editingSpecialBonus ? (
                       <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                        {/* +/- toggle */}
+                        <button
+                          onClick={() => setSpecialBonusType(t => t === "bonus" ? "deduction" : "bonus")}
+                          className={`w-6 h-6 rounded-md text-xs font-black shrink-0 border transition-colors ${specialBonusType === "bonus" ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-500" : "bg-red-500/20 border-red-500/40 text-red-500"}`}>
+                          {specialBonusType === "bonus" ? "+" : "−"}
+                        </button>
                         <input
                           type="number" min="0" placeholder="القيمة"
                           value={specialBonus}
                           onChange={e => setSpecialBonus(e.target.value)}
-                          className="w-24 h-6 text-xs px-2 rounded-md border border-border bg-background focus:outline-none focus:border-primary"
+                          className="w-20 h-6 text-xs px-2 rounded-md border border-border bg-background focus:outline-none focus:border-primary"
                         />
                         <input
                           type="text" placeholder="السبب / الملاحظة"
@@ -940,13 +948,13 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
                       </div>
                     )}
                   </div>
-                  <span className={`text-sm font-bold shrink-0 mr-2 ${specialBonusNum > 0 ? "text-emerald-500" : "text-muted-foreground"}`}>
-                    {specialBonusNum > 0 ? `+${fmt(specialBonusNum)}` : "—"}
+                  <span className={`text-sm font-bold shrink-0 mr-2 ${specialBonusNum > 0 ? (specialBonusType === "bonus" ? "text-emerald-500" : "text-red-500") : "text-muted-foreground"}`}>
+                    {specialBonusNum > 0 ? `${specialBonusType === "bonus" ? "+" : "−"}${fmt(specialBonusNum)}` : "—"}
                   </span>
                 </div>
                 {/* صافي المرتب النهائي */}
                 {(() => {
-                  const finalNet = salaryReport.netSalary - kpiDeductions + kpiBonuses + specialBonusNum;
+                  const finalNet = salaryReport.netSalary - kpiDeductions + kpiBonuses + specialBonusValue;
                   return (
                     <div className={`flex justify-between items-center px-3 py-3 border-t-2 border-[#c9a227] ${finalNet >= salaryReport.baseSalary ? "bg-emerald-500/8" : finalNet < salaryReport.baseSalary * 0.9 ? "bg-red-500/5" : "bg-amber-500/8"}`}>
                       <div>
