@@ -3192,9 +3192,658 @@ function MyOrdersTab({
   );
 }
 
+// ─── KPI Tab Content (reusable inner component) ───────────────────────────────
+function KpiTabContent({
+  profileId,
+  kpis,
+  report,
+  fullProfile,
+  ratingCfg,
+  kpiViewMode,
+  kpiSelectedDate,
+  reportMonth,
+  isAdmin,
+  isSuperAdmin,
+  setEditingKpi,
+  setKpiDialogOpen,
+  deleteKpi,
+  displayName,
+}: {
+  profileId: number;
+  kpis: EmployeeKpi[];
+  report: any;
+  fullProfile: any;
+  ratingCfg: any;
+  kpiViewMode: "monthly" | "daily";
+  kpiSelectedDate: string;
+  reportMonth: string;
+  isAdmin: boolean;
+  isSuperAdmin: boolean;
+  setEditingKpi: (k: EmployeeKpi) => void;
+  setKpiDialogOpen: (v: boolean) => void;
+  deleteKpi: (id: number) => void;
+  displayName: string;
+}) {
+  const salary = fullProfile?.monthlySalary ?? 0;
+  const activeKpis = kpis.filter(k => k.isActive);
+  const evaluatedKpis = report?.kpis ?? [];
+  const evaluatedById = new Map(evaluatedKpis.map((k: any) => [k.id, k]));
+  const totalSW = activeKpis.reduce((s, k) => s + (k.salaryWeight ?? 0), 0);
+  const totalOT = activeKpis.reduce((s, k) => s + (k.overtargetBonus ?? 0), 0);
+  const totalDeduction = salary > 0 ? Math.round((totalSW / 100) * salary) : 0;
+  const totalBonus = salary > 0 ? Math.round((totalOT / 100) * salary) : 0;
+  const achievedCount = evaluatedKpis.filter((k: any) => k.achieved === true).length;
+  const failedCount = evaluatedKpis.filter((k: any) => k.achieved === false).length;
+  const overTargetCount = evaluatedKpis.filter((k: any) => k.score !== null && k.score > 100).length;
+  const scoredKpis = evaluatedKpis.filter((k: any) => k.score !== null && Number.isFinite(k.score));
+  const overallScore = report?.overallScore ?? (scoredKpis.length > 0
+    ? Math.round(scoredKpis.reduce((s: number, k: any) => s + Math.min(k.score ?? 0, 100), 0) / scoredKpis.length)
+    : null);
+  const radarData = activeKpis.map(k => ({
+    subject: k.name.length > 6 ? k.name.slice(0, 6) + "…" : k.name,
+    value: Math.min((evaluatedById.get(k.id) as any)?.score ?? (k.salaryWeight ?? 0), 100),
+    fullName: k.name,
+  }));
+  const barData = activeKpis.slice(0, 4).map(k => ({
+    name: k.name.length > 8 ? k.name.slice(0, 8) + "…" : k.name,
+    "تقييم الأداء الحالي": Math.min((evaluatedById.get(k.id) as any)?.score ?? 0, 100),
+    "المتوسط العام": 70,
+  }));
+  const opMetrics = activeKpis.slice(0, 3).map(k => ({
+    label: k.name,
+    value: (evaluatedById.get(k.id) as any)?.score !== null && (evaluatedById.get(k.id) as any)?.score !== undefined
+      ? `${Math.min(Math.round((evaluatedById.get(k.id) as any)!.score ?? 0), 100)}%`
+      : "—",
+    achieved: (evaluatedById.get(k.id) as any)?.achieved,
+    isOT: ((evaluatedById.get(k.id) as any)?.score ?? 0) > 100,
+    icon: k.direction === "higher_is_better" ? TrendingUp : TrendingDown,
+  }));
+  const kpiOverviewCards = [
+    { label: "إجمالي KPI", value: kpis.length, note: `${activeKpis.length} نشط`, color: "text-primary", bg: "bg-primary/8", border: "border-primary/20" },
+    { label: "وزن الراتب", value: `${totalSW}%`, note: fmt(totalDeduction), color: "text-amber-500", bg: "bg-amber-500/8", border: "border-amber-500/20" },
+    { label: "محقق", value: achievedCount, note: `${Math.min(Math.round((achievedCount / Math.max(evaluatedKpis.length, 1)) * 100), 100)}%`, color: "text-emerald-500", bg: "bg-emerald-500/8", border: "border-emerald-500/20" },
+    { label: "يحتاج تحسين", value: failedCount, note: `${overTargetCount} OT`, color: "text-red-500", bg: "bg-red-500/8", border: "border-red-500/20" },
+  ];
+
+  return (
+    <>
+      <Card className="border-border/60 bg-gradient-to-br from-background via-card to-primary/5 overflow-hidden">
+        <CardContent className="p-4 sm:p-5">
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+            <div className="space-y-1">
+              <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/70 px-3 py-1 text-[10px] text-muted-foreground">
+                <Target className="w-3 h-3 text-primary" />
+                {kpiViewMode === "daily" ? `أداء يوم ${kpiSelectedDate}` : "لوحة مؤشرات الأداء الشهرية"}
+              </div>
+              <h3 className="text-lg font-black leading-tight">مراجعة سريعة لأداء {displayName}</h3>
+              <p className="text-xs text-muted-foreground max-w-2xl">عرض احترافي يربط الأداء التشغيلي بالمؤشرات المالية، مع تتبع واضح للمحقق وغير المحقق والمكافآت.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <div className="rounded-2xl border border-border/60 bg-background/80 px-3 py-2 text-center min-w-[110px]">
+                <p className="text-[10px] text-muted-foreground">التقييم الإجمالي</p>
+                <p className="text-lg font-black text-primary">{overallScore !== null ? `${overallScore}%` : "—"}</p>
+              </div>
+              <div className={`rounded-2xl border px-3 py-2 text-center min-w-[110px] ${ratingCfg.bg} ${ratingCfg.color}`}>
+                <p className="text-[10px] opacity-80">النتيجة</p>
+                <p className="text-sm font-black">{ratingCfg.label}</p>
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mt-4">
+            {kpiOverviewCards.map(card => (
+              <div key={card.label} className={`rounded-2xl border ${card.border} ${card.bg} px-3 py-3`}>
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-[10px] text-muted-foreground">{card.label}</p>
+                    <p className={`text-lg font-black ${card.color}`}>{card.value}</p>
+                  </div>
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-background/70 border border-border/40">
+                    <div className={`w-2.5 h-2.5 rounded-full ${card.color.replace("text-", "bg-")}`} />
+                  </div>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1">{card.note}</p>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ROW 1 */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+        <Card className="relative overflow-hidden border-border bg-card">
+          <div className="absolute top-2 right-2.5 text-[9px] font-black text-muted-foreground/40">1</div>
+          <CardContent className="px-4 py-4 sm:py-5 flex flex-col items-center gap-3">
+            <div className="flex items-center justify-between w-full">
+              <p className="text-xs font-bold text-foreground">التقدم نحو الأهداف</p>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                overallScore !== null && overallScore >= 80 ? "bg-emerald-500/10 text-emerald-500" :
+                overallScore !== null && overallScore >= 60 ? "bg-amber-500/10 text-amber-500" :
+                "bg-red-500/10 text-red-500"
+              }`}>
+                {overallScore !== null && overallScore >= 80 ? "ممتاز" : overallScore !== null && overallScore >= 60 ? "جيد" : "يحتاج تحسين"}
+              </span>
+            </div>
+            <div className="flex flex-col md:flex-row items-center gap-4 md:gap-5 w-full">
+              <div className="relative w-28 h-28 shrink-0">
+                <svg viewBox="0 0 96 96" className="w-full h-full -rotate-90">
+                  <circle cx="48" cy="48" r="38" fill="none" stroke="hsl(var(--muted))" strokeWidth="8" />
+                  <circle cx="48" cy="48" r="38" fill="none"
+                    stroke={overallScore !== null && overallScore >= 80 ? "#10B981" : overallScore !== null && overallScore >= 60 ? "#c9a227" : "#EF4444"}
+                    strokeWidth="8"
+                    strokeDasharray={`${(overallScore ?? 0) * 2.388} 238.8`}
+                    strokeLinecap="round" />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-xl font-black leading-none">{overallScore !== null ? `${overallScore}%` : "—"}</span>
+                  <span className="text-[9px] text-muted-foreground mt-0.5">المتوسط الشهري</span>
+                </div>
+              </div>
+              <div className="flex-1 w-full space-y-2">
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { label: "محقق", value: achievedCount, color: "text-emerald-500", bg: "bg-emerald-500/10" },
+                    { label: "غير محقق", value: failedCount, color: "text-red-500", bg: "bg-red-500/10" },
+                    { label: "OT", value: overTargetCount, color: "text-blue-500", bg: "bg-blue-500/10" },
+                  ].map(item => (
+                    <div key={item.label} className={`rounded-xl border border-border/50 ${item.bg} px-3 py-2 text-center`}>
+                      <p className={`text-base font-black ${item.color}`}>{item.value}</p>
+                      <p className="text-[9px] text-muted-foreground">{item.label}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="space-y-1.5 pt-1">
+                  {activeKpis.slice(0, 3).map(k => {
+                    const sc = Math.min((evaluatedById.get(k.id) as any)?.score ?? 0, 100);
+                    return (
+                      <div key={k.id} className="rounded-lg border border-border/40 bg-muted/10 px-3 py-2">
+                        <div className="flex items-center justify-between text-[9px] mb-1">
+                          <span className="text-muted-foreground truncate max-w-[68%]">{k.name}</span>
+                          <span className="font-bold">{sc}%</span>
+                        </div>
+                        <div className="w-full h-1.5 rounded-full bg-muted/40 overflow-hidden">
+                          <div className="h-full rounded-full transition-all duration-700"
+                            style={{ width: `${sc}%`, background: sc >= 80 ? "#10B981" : sc >= 60 ? "#c9a227" : "#EF4444" }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <>
+          {barData.length > 0 && (
+            <Card className="relative overflow-hidden border-border bg-card">
+              <div className="absolute top-2 right-2.5 text-[9px] font-black text-muted-foreground/40">2</div>
+              <CardContent className="px-3 py-4">
+                <div className="flex items-start justify-between mb-2">
+                  <div>
+                    <p className="text-xs font-bold text-foreground">تقييم الأداء الربعي</p>
+                    <p className="text-[9px] text-muted-foreground">مقارنة الأداء الحالي مع المرجع العام</p>
+                  </div>
+                  <div className="flex flex-col items-end gap-0.5">
+                    <div className="flex items-center gap-1 text-[9px] text-muted-foreground"><span className="w-2 h-2 rounded-sm bg-primary inline-block" />الأداء الحالي</div>
+                    <div className="flex items-center gap-1 text-[9px] text-muted-foreground"><span className="w-2 h-2 rounded-sm bg-emerald-500 inline-block" />المرجع</div>
+                  </div>
+                </div>
+                {overallScore !== null && (
+                  <div className="flex items-center gap-0.5 mb-2 justify-end">
+                    {[1,2,3,4,5].map(s => (
+                      <Star key={s} className={`w-3 h-3 ${s <= Math.round(overallScore / 20) ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"}`} />
+                    ))}
+                    <span className="text-[9px] text-muted-foreground mr-1">
+                      {overallScore >= 90 ? "ممتاز" : overallScore >= 75 ? "جيد جداً" : overallScore >= 60 ? "جيد" : "مقبول"}
+                    </span>
+                  </div>
+                )}
+                <ResponsiveContainer width="100%" height={radarData.length >= 3 ? 140 : 180}>
+                  <LineChart data={barData} margin={{ top: 8, right: 8, bottom: 2, left: -20 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                    <XAxis dataKey="name" tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 7, fill: "hsl(var(--muted-foreground))" }} domain={[0, 100]} axisLine={false} tickLine={false} />
+                    <Tooltip formatter={(v: any, n: string) => [`${v}%`, n]} contentStyle={{ fontSize: 10, background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, direction: "rtl", color: "hsl(var(--foreground))", boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }} labelStyle={{ color: "hsl(var(--muted-foreground))", fontSize: 9 }} cursor={{ stroke: "hsl(var(--border))", strokeWidth: 1 }} />
+                    <Line type="monotone" dataKey="تقييم الأداء الحالي" stroke="hsl(var(--primary))" strokeWidth={2.5} dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
+                    <Line type="monotone" dataKey="المتوسط العام" stroke="#10B981" strokeWidth={2} strokeDasharray="4 2" dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+                {radarData.length >= 3 && (
+                  <div className="mt-3 pt-3 border-t border-border/30">
+                    <p className="text-[9px] text-muted-foreground mb-1">تطور الكفاءات الأساسية</p>
+                    <ResponsiveContainer width="100%" height={150}>
+                      <RadarChart data={radarData} margin={{ top: 5, right: 20, bottom: 5, left: 20 }}>
+                        <PolarGrid stroke="hsl(var(--border))" />
+                        <PolarAngleAxis dataKey="subject" tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} />
+                        <Tooltip contentStyle={{ fontSize: 10, background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, color: "hsl(var(--foreground))", boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }} labelStyle={{ color: "hsl(var(--muted-foreground))", fontSize: 9 }} />
+                        <Radar name="الأداء" dataKey="value" stroke="#c9a227" fill="#c9a227" fillOpacity={0.3} strokeWidth={2} />
+                      </RadarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </>
+      </div>
+
+      {/* ROW 2 */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+        {opMetrics.length > 0 && (
+          <Card className="relative overflow-hidden border-border bg-card">
+            <div className="absolute top-2 right-2.5 text-[9px] font-black text-muted-foreground/40">4</div>
+            <CardContent className="px-4 py-4">
+              <p className="text-xs font-bold text-foreground mb-3">مؤشرات الأداء التشغيلي</p>
+              <div className="space-y-2.5">
+                {opMetrics.map((m, i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground truncate max-w-[55%]">{m.label}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-black">{m.value}</span>
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${m.isOT ? "bg-blue-500/15" : m.achieved === true ? "bg-emerald-500/15" : m.achieved === false ? "bg-red-500/15" : "bg-muted/20"}`}>
+                        <m.icon className={`w-3 h-3 ${m.isOT ? "text-blue-500" : m.achieved === true ? "text-emerald-500" : m.achieved === false ? "text-red-500" : "text-muted-foreground"}`} />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {overallScore !== null && (
+                <div className="mt-3 pt-2.5 border-t border-border/30">
+                  <p className="text-[10px] font-bold text-muted-foreground mb-0.5">التعليقات والملاحظات</p>
+                  <p className="text-[10px] text-muted-foreground/80">
+                    {overallScore >= 90 ? "🌟 أداء استثنائي هذا الشهر، استمر في الإبداع!" :
+                     overallScore >= 75 ? "👍 أداء فوق المتوسط، يحتاج تعزيز بعض الجوانب" :
+                     overallScore >= 60 ? "✅ أداء مقبول، مع وجود فرص للتطوير" :
+                     "⚠️ يحتاج الموظف إلى دعم وتحسين في المؤشرات"}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+        <Card className="relative overflow-hidden border-border bg-card">
+          <div className="absolute top-2 right-2.5 text-[9px] font-black text-muted-foreground/40">5</div>
+          <CardContent className="px-4 py-4">
+            <p className="text-xs font-bold text-foreground mb-3">الملخص المالي للمؤشرات</p>
+            {salary > 0 ? (
+              <div className="space-y-2">
+                {[
+                  { label: "الراتب الأساسي", value: fmt(salary), color: "text-foreground", bg: "bg-muted/20" },
+                  { label: "إجمالي KPI من الراتب", value: `${totalSW}%`, sub: fmt(totalDeduction), color: "text-amber-600", bg: "bg-amber-500/8" },
+                  { label: "عند قصور كامل", value: fmt(salary - totalDeduction), color: "text-red-500", bg: "bg-red-500/8" },
+                  ...(totalBonus > 0 ? [{ label: "مع Over Target", value: fmt(salary + totalBonus), color: "text-blue-600", bg: "bg-blue-500/8", sub: undefined }] : []),
+                ].map((row, i) => (
+                  <div key={i} className={`flex items-center justify-between rounded-lg px-3 py-2 ${row.bg}`}>
+                    <span className="text-[10px] text-muted-foreground">{row.label}</span>
+                    <div className="text-right">
+                      <span className={`text-xs font-black ${row.color}`}>{row.value}</span>
+                      {row.sub && <p className="text-[8px] text-muted-foreground">{row.sub}</p>}
+                    </div>
+                  </div>
+                ))}
+                <div className="grid grid-cols-3 gap-1.5 pt-1">
+                  {[
+                    { label: "محقق", val: achievedCount, color: "text-emerald-600", bg: "bg-emerald-500/10" },
+                    { label: "لم يتحقق", val: failedCount, color: "text-red-500", bg: "bg-red-500/10" },
+                    { label: "Over Target", val: overTargetCount, color: "text-blue-600", bg: "bg-blue-500/10" },
+                  ].map(s => (
+                    <div key={s.label} className={`rounded-lg py-2 text-center ${s.bg}`}>
+                      <p className={`text-base font-black ${s.color}`}>{s.val}</p>
+                      <p className="text-[8px] text-muted-foreground">{s.label}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-6">
+                <DollarSign className="w-8 h-8 mx-auto mb-2 opacity-20" />
+                <p className="text-xs text-muted-foreground">لم يُحدد الراتب الأساسي بعد</p>
+                <p className="text-[10px] text-muted-foreground/60 mt-1">أضف الراتب في تعديل بيانات الموظف لرؤية التأثير المالي</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* KPI Detail Cards */}
+      <div>
+        <h3 className="text-xs font-bold text-muted-foreground mb-3 flex items-center gap-1.5">
+          <Settings className="w-3.5 h-3.5" />مؤشرات الأداء التفصيلية
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {kpis.map((kpi) => {
+            const salaryW = kpi.salaryWeight ?? 0;
+            const otBonus = kpi.overtargetBonus ?? 0;
+            const kpiAmt = salary > 0 && salaryW > 0 ? Math.round((salaryW / 100) * salary) : 0;
+            const bonusAmt = salary > 0 && otBonus > 0 ? Math.round((otBonus / 100) * salary) : 0;
+            const evalKpi = evaluatedById.get(kpi.id) as any;
+            const isOT = (evalKpi?.score ?? 0) > 100;
+            const isAchieved = evalKpi?.achieved === true;
+            const isFailed = evalKpi?.achieved === false;
+            const colorMap: Record<string, { accent: string; iconBg: string; iconColor: string; badgeBg: string; badgeText: string }> = {
+              delivery_rate: { accent: "bg-emerald-500", iconBg: "bg-emerald-50 dark:bg-emerald-900/30", iconColor: "text-emerald-600 dark:text-emerald-400", badgeBg: "bg-emerald-50/50 dark:bg-emerald-900/20 border-emerald-200/60 dark:border-emerald-700/40", badgeText: "text-emerald-700 dark:text-emerald-300" },
+              return_rate:   { accent: "bg-red-500",     iconBg: "bg-red-50 dark:bg-red-900/30",         iconColor: "text-red-600 dark:text-red-400",     badgeBg: "bg-red-50/50 dark:bg-red-900/20 border-red-200/60 dark:border-red-700/40",         badgeText: "text-red-700 dark:text-red-300" },
+              total_orders:  { accent: "bg-blue-500",    iconBg: "bg-blue-50 dark:bg-blue-900/30",        iconColor: "text-blue-600 dark:text-blue-400",    badgeBg: "bg-blue-50/50 dark:bg-blue-900/20 border-blue-200/60 dark:border-blue-700/40",    badgeText: "text-blue-700 dark:text-blue-300" },
+              profit:        { accent: "bg-violet-500",  iconBg: "bg-violet-50 dark:bg-violet-900/30",    iconColor: "text-violet-600 dark:text-violet-400",badgeBg: "bg-violet-50/50 dark:bg-violet-900/20 border-violet-200/60 dark:border-violet-700/40",badgeText: "text-violet-700 dark:text-violet-300" },
+              revenue:       { accent: "bg-amber-500",   iconBg: "bg-amber-50 dark:bg-amber-900/30",      iconColor: "text-amber-600 dark:text-amber-400",  badgeBg: "bg-amber-50/50 dark:bg-amber-900/20 border-amber-200/60 dark:border-amber-700/40",  badgeText: "text-amber-700 dark:text-amber-300" },
+              manual:        { accent: "bg-primary",     iconBg: "bg-primary/10",                         iconColor: "text-primary",                        badgeBg: "bg-primary/5 border-primary/20",                                                    badgeText: "text-primary" },
+            };
+            const colors = colorMap[kpi.metric] ?? colorMap.manual;
+            const iconForMetric: Record<string, React.ReactNode> = {
+              delivery_rate: <TrendingUp className="w-4 h-4" />,
+              return_rate:   <TrendingDown className="w-4 h-4" />,
+              total_orders:  <Package className="w-4 h-4" />,
+              profit:        <DollarSign className="w-4 h-4" />,
+              revenue:       <BarChart2 className="w-4 h-4" />,
+              manual:        <Target className="w-4 h-4" />,
+            };
+            return (
+              <div key={kpi.id} className="relative rounded-xl border border-border bg-card overflow-hidden transition-all hover:shadow-md hover:border-border/80">
+                <div className={`h-1 w-full ${colors.accent} opacity-80`} />
+                {(isOT || isAchieved || isFailed) && (
+                  <div className={`px-3 py-1.5 flex items-center gap-1.5 text-[10px] font-bold border-b border-border/20 ${
+                    isOT ? "bg-blue-500/10 text-blue-600 dark:text-blue-400" :
+                    isAchieved ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" :
+                                "bg-red-500/10 text-red-700 dark:text-red-400"
+                  }`}>
+                    {isOT ? <><Trophy className="w-3 h-3" />Over Target — تجاوز الهدف 🏆</> :
+                     isAchieved ? <><CheckCircle2 className="w-3 h-3" />تم تحقيق المؤشر ✅</> :
+                                  <><XCircle className="w-3 h-3" />لم يتحقق المؤشر ❌</>}
+                  </div>
+                )}
+                <div className="p-4">
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${colors.iconBg}`}>
+                        <span className={colors.iconColor}>{iconForMetric[kpi.metric] ?? <Target className="w-4 h-4" />}</span>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold leading-tight truncate">{kpi.name}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          {kpi.direction === "higher_is_better" ? "↑ الأعلى أفضل" : "↓ الأدنى أفضل"}{" · "}وزن {kpi.weight}%
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      {!kpi.isActive && <span className="text-[9px] bg-muted text-muted-foreground rounded-full px-2 py-0.5">غير نشط</span>}
+                      {isAdmin && (
+                        <>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground/60 hover:text-primary" onClick={() => { setEditingKpi(kpi); setKpiDialogOpen(true); }}>
+                            <Edit2 className="w-3 h-3" />
+                          </Button>
+                          {isSuperAdmin && (
+                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground/60 hover:text-destructive" onClick={() => deleteKpi(kpi.id)}>
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <div className={`flex items-center justify-between rounded-lg px-3 py-2 mb-3 border ${colors.badgeBg}`}>
+                    <span className="text-[10px] text-muted-foreground">الهدف المطلوب</span>
+                    <span className={`text-sm font-black ${colors.badgeText}`}>
+                      {kpi.direction === "lower_is_better" ? "≤" : "≥"}{fmtNum(kpi.targetValue)} <span className="text-[9px] font-normal opacity-70">{kpi.unit}</span>
+                    </span>
+                  </div>
+                  {(salaryW > 0 || otBonus > 0) && (
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                      {salaryW > 0 ? (
+                        <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200/60 dark:border-red-700/40 px-2.5 py-2">
+                          <p className="text-[9px] text-red-500/80 mb-0.5">عند قصور</p>
+                          <p className="text-xs font-black text-red-600 dark:text-red-400">−{fmt(kpiAmt)}</p>
+                          <p className="text-[9px] text-red-400/70">{salaryW}% من الراتب</p>
+                        </div>
+                      ) : (
+                        <div className="rounded-lg bg-muted/20 border border-border px-2.5 py-2 text-center opacity-40">
+                          <p className="text-[9px] text-muted-foreground mb-0.5">عند قصور</p>
+                          <p className="text-xs font-bold text-muted-foreground">—</p>
+                        </div>
+                      )}
+                      {otBonus > 0 ? (
+                        <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200/60 dark:border-emerald-700/40 px-2.5 py-2">
+                          <p className="text-[9px] text-emerald-500/80 mb-0.5">Over Target</p>
+                          <p className="text-xs font-black text-emerald-600 dark:text-emerald-400">+{fmt(bonusAmt)}</p>
+                          <p className="text-[9px] text-emerald-400/70">+{otBonus}% مكافأة</p>
+                        </div>
+                      ) : (
+                        <div className="rounded-lg bg-muted/20 border border-border px-2.5 py-2 text-center opacity-40">
+                          <p className="text-[9px] text-muted-foreground mb-0.5">Over Target</p>
+                          <p className="text-xs font-bold text-muted-foreground">—</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {salaryW > 0 && (
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] text-muted-foreground">نسبة تأثير المؤشر على الراتب</span>
+                        <span className="text-[9px] font-bold text-amber-600 dark:text-amber-400">{salaryW}%</span>
+                      </div>
+                      <div className="w-full h-1.5 rounded-full bg-muted/40 overflow-hidden">
+                        <div className={`h-full rounded-full ${colors.accent} opacity-70 transition-all duration-700`} style={{ width: `${Math.min(100, salaryW)}%` }} />
+                      </div>
+                    </div>
+                  )}
+                  {kpi.description && (
+                    <p className="text-[9px] text-muted-foreground/60 mt-2.5 italic leading-relaxed border-t border-border/20 pt-2">{kpi.description}</p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Smart Recommendation */}
+      {overallScore !== null && (
+        <div className={`rounded-2xl border px-4 py-4 space-y-2 ${
+          overallScore >= 90 ? "bg-emerald-500/8 border-emerald-500/20" :
+          overallScore >= 70 ? "bg-amber-500/8 border-amber-500/20" :
+          "bg-red-500/8 border-red-500/20"
+        }`}>
+          <div className="flex items-center gap-2">
+            <Briefcase className={`w-4 h-4 shrink-0 ${overallScore >= 90 ? "text-emerald-500" : overallScore >= 70 ? "text-amber-500" : "text-red-500"}`} />
+            <p className="text-xs font-bold">توصية ذكية للسوبريوزر</p>
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            {overallScore >= 90 ? `🌟 ${displayName} يؤدي بشكل استثنائي. يُنصح بالنظر في ترقيته أو إسناد مهام قيادية إضافية.` :
+             overallScore >= 80 ? `✅ أداء قوي من ${displayName}. يمكن الاعتماد عليه في المهام المعقدة.` :
+             overallScore >= 70 ? `👍 أداء جيد لكن هناك فرص للتحسين. يُنصح بمراجعة المؤشرات الضعيفة.` :
+             overallScore >= 50 ? `⚠️ الأداء تحت المتوسط. ضع خطة تحسين ٣٠ يوم مع متابعة أسبوعية.` :
+             `🔴 أداء ضعيف ويحتاج تدخل فوري. اعقد اجتماع 1-on-1 عاجل.`}
+          </p>
+        </div>
+      )}
+
+      {/* Manager Comment */}
+      <Card className="border-border bg-card">
+        <CardContent className="px-4 py-4">
+          <div className="flex items-center gap-2 mb-3">
+            <FileText className="w-4 h-4 text-primary shrink-0" />
+            <p className="text-xs font-bold">ملاحظة المدير على المؤشرات</p>
+            <span className="text-[9px] text-muted-foreground/60 mr-auto">(تظهر في التقرير المطبوع)</span>
+          </div>
+          <ManagerKpiComment profileId={profileId} reportMonth={reportMonth} />
+        </CardContent>
+      </Card>
+
+      {/* Monthly Trend */}
+      {kpiViewMode === "monthly" && (
+        <Card className="border-border bg-card">
+          <CardContent className="px-4 py-4">
+            <div className="flex items-center gap-2 mb-4">
+              <TrendingUp className="w-4 h-4 text-primary shrink-0" />
+              <p className="text-xs font-bold">مقارنة الأداء — آخر 3 أشهر</p>
+            </div>
+            <MonthlyTrend profileId={profileId} currentMonth={reportMonth} kpis={kpis} />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Performance Risk Matrix */}
+      {activeKpis.length > 0 && (() => {
+        const matrixKpis = activeKpis.map(k => {
+          const ev = evaluatedById.get(k.id) as any;
+          const sc = ev?.score ?? null;
+          const salaryW = k.salaryWeight ?? 0;
+          const impact = salaryW >= 20 ? "high" : salaryW >= 10 ? "medium" : "low";
+          const perf = sc === null ? "unknown" : sc >= 80 ? "good" : sc >= 50 ? "warning" : "danger";
+          return { ...k, sc, impact, perf };
+        });
+        const zones = [
+          { key: "danger-high",   label: "🔴 خطر عالي الأولوية",  color: "bg-red-500/12 border-red-500/30",      textColor: "text-red-600 dark:text-red-400",    filter: (k: any) => (k.perf === "danger" || k.perf === "unknown") && k.impact === "high" },
+          { key: "danger-low",    label: "🟠 خطر منخفض التأثير",  color: "bg-orange-500/10 border-orange-500/25", textColor: "text-orange-600 dark:text-orange-400", filter: (k: any) => (k.perf === "danger" || k.perf === "unknown") && k.impact !== "high" },
+          { key: "warning-high",  label: "🟡 تحذير — راقبه",      color: "bg-amber-500/10 border-amber-500/25",   textColor: "text-amber-600 dark:text-amber-400",  filter: (k: any) => k.perf === "warning" },
+          { key: "good",          label: "🟢 على المسار الصحيح",  color: "bg-emerald-500/10 border-emerald-500/25",textColor: "text-emerald-600 dark:text-emerald-400", filter: (k: any) => k.perf === "good" },
+        ];
+        return (
+          <Card className="border-border bg-card">
+            <CardContent className="px-4 py-4">
+              <div className="flex items-center gap-2 mb-4">
+                <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                <p className="text-xs font-bold">مصفوفة مخاطر المؤشرات</p>
+                <span className="text-[9px] text-muted-foreground/60 mr-auto">تصنيف حسب الأداء × التأثير المالي</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {zones.map(zone => {
+                  const items = matrixKpis.filter(zone.filter);
+                  if (items.length === 0) return null;
+                  return (
+                    <div key={zone.key} className={`rounded-xl border p-3 ${zone.color}`}>
+                      <p className={`text-[10px] font-bold mb-2 ${zone.textColor}`}>{zone.label}</p>
+                      <div className="space-y-1.5">
+                        {items.map(k => (
+                          <div key={k.id} className="flex items-center justify-between gap-2">
+                            <span className="text-[10px] truncate text-foreground/80">{k.name}</span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {k.sc !== null && (
+                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${k.sc >= 80 ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400" : k.sc >= 50 ? "bg-amber-500/20 text-amber-600 dark:text-amber-400" : "bg-red-500/20 text-red-600 dark:text-red-400"}`}>{k.sc}%</span>
+                              )}
+                              {(k.salaryWeight ?? 0) > 0 && (
+                                <span className="text-[9px] text-muted-foreground bg-muted/40 rounded-full px-1.5 py-0.5">{k.salaryWeight}%</span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                }).filter(Boolean)}
+                {zones.every(z => matrixKpis.filter(z.filter).length === 0) && (
+                  <div className="col-span-2 text-center py-6 text-xs text-muted-foreground">لا توجد بيانات كافية لعرض المصفوفة</div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
+
+      {/* KPI Velocity Tracker */}
+      {activeKpis.some(k => (evaluatedById.get(k.id) as any)?.score !== null) && (() => {
+        const now = new Date();
+        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        const dayPassed = now.getDate();
+        const monthPct = Math.round((dayPassed / daysInMonth) * 100);
+        return (
+          <Card className="border-border bg-card">
+            <CardContent className="px-4 py-4">
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <div className="flex items-center gap-2">
+                  <BarChart2 className="w-4 h-4 text-primary shrink-0" />
+                  <p className="text-xs font-bold">متتبع سرعة الإنجاز</p>
+                </div>
+                <span className="text-[9px] text-muted-foreground/60 bg-muted/30 rounded-full px-2 py-0.5">مرّ {dayPassed} يوم من {daysInMonth} ({monthPct}% من الشهر)</span>
+              </div>
+              <p className="text-[10px] text-muted-foreground mb-3.5">هل الموظف سيصل للهدف قبل نهاية الشهر؟</p>
+              <div className="space-y-3">
+                {activeKpis.map(kpi => {
+                  const ev = evaluatedById.get(kpi.id) as any;
+                  const sc = ev?.score ?? null;
+                  if (sc === null) return null;
+                  const projectedScore = monthPct > 0 ? Math.round((sc / monthPct) * 100) : sc;
+                  const velocity = sc - monthPct;
+                  const willReach = projectedScore >= 100;
+                  const isOT = sc > 100;
+                  return (
+                    <div key={kpi.id} className="rounded-xl border border-border/50 bg-muted/5 px-3 py-2.5">
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <span className="text-[10px] font-bold truncate max-w-[55%]">{kpi.name}</span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {isOT ? <span className="text-[9px] font-black text-blue-500 bg-blue-500/10 rounded-full px-2 py-0.5">🚀 Over Target</span> :
+                           willReach ? <span className="text-[9px] font-black text-emerald-500 bg-emerald-500/10 rounded-full px-2 py-0.5">✓ سيصل</span> :
+                           <span className="text-[9px] font-black text-red-500 bg-red-500/10 rounded-full px-2 py-0.5">✗ بحاجة جهد</span>}
+                        </div>
+                      </div>
+                      <div className="relative w-full h-3 rounded-full bg-muted/40 overflow-visible mb-1.5">
+                        <div className="absolute top-0 h-3 rounded-full bg-muted/60 transition-all" style={{ width: `${Math.min(monthPct, 100)}%` }} />
+                        <div className={`absolute top-0 h-3 rounded-full transition-all duration-700 ${isOT ? "bg-blue-500" : willReach ? "bg-emerald-500" : "bg-red-500"}`} style={{ width: `${Math.min(sc, 100)}%` }} />
+                        <div className="absolute top-[-3px] w-0.5 h-[18px] bg-foreground/40 rounded-full" style={{ left: `${Math.min(monthPct, 100)}%` }} />
+                      </div>
+                      <div className="flex items-center justify-between text-[9px] text-muted-foreground">
+                        <span>فعلي: <strong className="text-foreground">{sc}%</strong></span>
+                        <span>توقع الشهر: <strong className={willReach || isOT ? "text-emerald-500" : "text-amber-500"}>{projectedScore}%</strong></span>
+                        <span className={`font-bold ${velocity >= 0 ? "text-emerald-500" : "text-red-500"}`}>{velocity >= 0 ? "+" : ""}{velocity}% عن المتوقع</span>
+                      </div>
+                    </div>
+                  );
+                }).filter(Boolean)}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
+
+      {/* Achievement Badge Wall */}
+      {(() => {
+        const scoredKpisForBadge = activeKpis.filter(k => (evaluatedById.get(k.id) as any)?.score !== null && (evaluatedById.get(k.id) as any)?.score !== undefined);
+        const hasData = scoredKpisForBadge.length > 0;
+        const badges = [
+          { icon: "🏆", title: "محقق الكل",    desc: "تحقيق جميع المؤشرات في شهر واحد",     earned: hasData && scoredKpisForBadge.every(k => (evaluatedById.get(k.id) as any)?.achieved === true || ((evaluatedById.get(k.id) as any)?.score ?? 0) > 100), color: "border-amber-500/40 bg-amber-500/8 text-amber-500" },
+          { icon: "🚀", title: "فوق الهدف",    desc: "تجاوز الهدف في مؤشر واحد على الأقل",   earned: hasData && scoredKpisForBadge.some(k => ((evaluatedById.get(k.id) as any)?.score ?? 0) > 100),   color: "border-blue-500/40 bg-blue-500/8 text-blue-500" },
+          { icon: "⭐", title: "أداء ممتاز",   desc: "متوسط أداء فوق 90%",                   earned: overallScore !== null && overallScore >= 90,     color: "border-emerald-500/40 bg-emerald-500/8 text-emerald-500" },
+          { icon: "📈", title: "تحسن مستمر",   desc: "أداء فوق 70% — على مسار التحسين",      earned: overallScore !== null && overallScore >= 70 && overallScore < 90, color: "border-indigo-500/40 bg-indigo-500/8 text-indigo-500" },
+          { icon: "🎯", title: "نصف الطريق",   desc: "تحقيق 50%+ من المؤشرات النشطة",        earned: hasData && (scoredKpisForBadge.filter(k => (evaluatedById.get(k.id) as any)?.achieved === true || ((evaluatedById.get(k.id) as any)?.score ?? 0) > 100).length / scoredKpisForBadge.length) >= 0.5, color: "border-violet-500/40 bg-violet-500/8 text-violet-500" },
+          { icon: "💰", title: "حامي الراتب",  desc: "لا خصومات KPI هذا الشهر",              earned: hasData && scoredKpisForBadge.every(k => (evaluatedById.get(k.id) as any)?.achieved !== false || (k.salaryWeight ?? 0) === 0), color: "border-rose-500/40 bg-rose-500/8 text-rose-500" },
+        ];
+        const earnedCount = badges.filter(b => b.earned).length;
+        return (
+          <Card className="border-border bg-card">
+            <CardContent className="px-4 py-4">
+              <div className="flex items-center justify-between gap-2 mb-4">
+                <div className="flex items-center gap-2">
+                  <Gift className="w-4 h-4 text-primary shrink-0" />
+                  <p className="text-xs font-bold">جدار الإنجازات الشهرية</p>
+                </div>
+                <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${earnedCount >= 4 ? "bg-amber-500/15 text-amber-600 dark:text-amber-400" : earnedCount >= 2 ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : "bg-muted/40 text-muted-foreground"}`}>{earnedCount} / {badges.length} شارة محققة</span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {badges.map(badge => (
+                  <div key={badge.title} className={`relative rounded-xl border p-3 text-center transition-all ${badge.earned ? `${badge.color} shadow-sm` : "border-border/30 bg-muted/5 opacity-35 grayscale"}`}>
+                    {badge.earned && <div className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-current animate-pulse opacity-60" />}
+                    <div className="text-2xl mb-1.5">{badge.icon}</div>
+                    <p className="text-[10px] font-black leading-tight">{badge.title}</p>
+                    <p className="text-[9px] text-muted-foreground mt-0.5 leading-relaxed">{badge.desc}</p>
+                    {badge.earned && <div className="mt-1.5 text-[8px] font-bold opacity-70">✓ محققة</div>}
+                  </div>
+                ))}
+              </div>
+              {earnedCount === 0 && (
+                <p className="text-center text-[10px] text-muted-foreground mt-3">
+                  {hasData ? "لا توجد شارات محققة بعد — حسّن أداءك لتحقيق الشارات 🎯" : "أدخل القيم الفعلية في تاب «المتابعة اليومية» لتفعيل نظام الشارات."}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })()}
+    </>
+  );
+}
+
 // ─── Employee KPI Tab (standalone exportable) ─────────────────────────────────
 export function EmployeeKpiTab({ profileId, monthlySalary: _ms }: { profileId: number; monthlySalary?: number }) {
-  const { isAdmin, can } = useAuth();
+  const { isAdmin, isSuperAdmin, can } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
   const [kpiDialogOpen, setKpiDialogOpen] = useState(false);
@@ -3306,14 +3955,26 @@ export function EmployeeKpiTab({ profileId, monthlySalary: _ms }: { profileId: n
       )}
 
       {!kpisLoading && kpis.length > 0 && report && (() => {
-        const salary = fullProfile?.monthlySalary ?? 0;
-        /* ── نفس الـ JSX بتاع kpis tab في EmployeeDetail ── */
-        const kpiSection = (
-          <MonthlyReport
-            report={{ ...report, profile: fullProfile ?? undefined, salaryReport: salaryReport ?? undefined } as any}
+        const ratingCfg = RATING_CONFIG[report.rating ?? "غير محدد"] ?? RATING_CONFIG["غير محدد"];
+        return (
+          <KpiTabContent
+            profileId={profileId}
+            kpis={kpis}
+            report={report}
+            fullProfile={fullProfile}
+            salaryReport={salaryReport}
+            ratingCfg={ratingCfg}
+            kpiViewMode={kpiViewMode}
+            kpiSelectedDate={kpiSelectedDate}
+            reportMonth={reportMonth}
+            isAdmin={isAdmin}
+            isSuperAdmin={isSuperAdmin}
+            setEditingKpi={setEditingKpi}
+            setKpiDialogOpen={setKpiDialogOpen}
+            deleteKpi={deleteKpi}
+            displayName={fullProfile?.displayName ?? "الموظف"}
           />
         );
-        return kpiSection;
       })()}
     </div>
   );
@@ -3569,6 +4230,7 @@ function EmployeeDetail({
 
           {!kpisLoading && kpis.length > 0 && (() => {
             const salary = fullProfile?.monthlySalary ?? 0;
+            const ratingCfgLocal = RATING_CONFIG[report?.rating ?? "غير محدد"] ?? RATING_CONFIG["غير محدد"];
             const activeKpis = kpis.filter(k => k.isActive);
             const evaluatedKpis = report?.kpis ?? [];
             const evaluatedById = new Map(evaluatedKpis.map(k => [k.id, k]));
