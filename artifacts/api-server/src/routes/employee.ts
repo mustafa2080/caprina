@@ -725,7 +725,7 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
       // monthly current: compare cumulative vs progressive target so far
       // monthly past: compare vs full monthly target
       const effectiveTarget = mode === 'daily'
-        ? kpi.targetValue / reportDaysInMonth
+        ? Math.round(kpi.targetValue / reportDaysInMonth)
         : isCurrentMonth
           ? Math.max(1, Math.round((kpi.targetValue / reportDaysInMonth) * reportDayNumber))
           : kpi.targetValue;
@@ -1009,7 +1009,7 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
         actualValue = await computeActualValue(kpi.metric, userId, dateFrom, dateTo, (profile as any).tenantId);
       }
       const effectiveTarget = modeParam === "daily"
-        ? kpi.targetValue / reportDaysInMonthMR
+        ? Math.round(kpi.targetValue / reportDaysInMonthMR)
         : isCurrentMonthMR
           ? Math.max(1, Math.round((kpi.targetValue / reportDaysInMonthMR) * reportDayNumberMR))
           : kpi.targetValue;
@@ -1317,7 +1317,9 @@ router.get("/employee-daily-logs/:profileId", async (req, res): Promise<void> =>
         const dayNumber   = parseInt(date.split("-")[2], 10);
         dailyTarget = Math.round((kpi.targetValue / daysInMonth) * dayNumber);
       } else {
-        dailyTarget = kpi.targetValue / 30;
+        const [yr2, mo2] = date.split("-").map(Number);
+        const daysInMonth2 = new Date(yr2, mo2, 0).getDate();
+        dailyTarget = Math.round(kpi.targetValue / daysInMonth2);
       }
 
       const score = actualValue !== null
@@ -1389,7 +1391,9 @@ router.get("/employee-daily-logs/:profileId/week", async (req, res): Promise<voi
           } else {
             actualValue = log?.value ?? null;
           }
-          const dailyTarget = kpi.targetValue / 30;
+          const [dyr, dmo] = date.split("-").map(Number);
+          const dDaysInMonth = new Date(dyr, dmo, 0).getDate();
+          const dailyTarget = Math.round(kpi.targetValue / dDaysInMonth);
           const achieved = actualValue !== null
             ? (kpi.direction === "lower_is_better" ? actualValue <= dailyTarget : actualValue >= dailyTarget)
             : null;

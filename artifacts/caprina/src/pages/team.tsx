@@ -1721,7 +1721,7 @@ function DailyTrackerTab({ profileId }: { profileId: number }) {
                 <div className="flex items-center gap-4 text-[10px] text-muted-foreground flex-wrap">
                   {isManual ? (
                     <>
-                      <span>المتوقع حتى اليوم: <span className={`font-bold ${kpi.achieved === true ? "text-emerald-400" : "text-amber-400"}`}>{fmtNum(kpi.dailyTarget)} {kpi.unit}</span></span>
+                      <span>المتوقع حتى اليوم: <span className={`font-bold ${kpi.achieved === true ? "text-emerald-400" : "text-amber-400"}`}>{fmtNum(Math.round(kpi.dailyTarget))} {kpi.unit}</span></span>
                       <span>المتراكم: <span className={`font-bold ${kpi.achieved === true ? "text-emerald-400" : cumulativeValue !== null && cumulativeValue > 0 ? "text-blue-400" : "text-foreground"}`}>
                         {cumulativeValue !== null ? `${fmtNum(cumulativeValue)} ${kpi.unit}` : "—"}
                       </span></span>
@@ -1732,7 +1732,7 @@ function DailyTrackerTab({ profileId }: { profileId: number }) {
                     </>
                   ) : (
                     <>
-                      <span>الهدف اليومي: <span className="font-bold text-foreground">{fmtNum(Math.round(kpi.dailyTarget * 10) / 10)} {kpi.unit}</span></span>
+                      <span>الهدف اليومي: <span className="font-bold text-foreground">{fmtNum(Math.round(kpi.dailyTarget))} {kpi.unit}</span></span>
                       <span>المحقق: <span className={`font-bold ${kpi.achieved === true ? "text-emerald-400" : kpi.achieved === false ? "text-red-400" : "text-foreground"}`}>
                         {kpi.actualValue !== null ? `${fmtNum(kpi.actualValue)} ${kpi.unit}` : "—"}
                       </span></span>
