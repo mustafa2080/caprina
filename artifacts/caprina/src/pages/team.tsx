@@ -5160,63 +5160,71 @@ export default function TeamPage() {
 
                 {/* ── الإحصائيات ── */}
                 <div className="grid grid-cols-2 gap-3 mb-4">
-                  {/* دائرة الأداء — نفس منطق لوحتي */}
+                  {/* دائرة الأداء — نفس حسبة ولوت MyDashboardTab بالظبط */}
                   {(() => {
                     const monthly = perfScore;
                     const daily   = (profile as any).dailyScore ?? null;
                     const att     = (profile as any).attendanceScore ?? null;
-                    const mColor  = monthly === null ? "#6B7280" : monthly >= 80 ? "#10B981" : monthly >= 60 ? "#F59E0B" : "#EF4444";
-                    const mText   = monthly === null ? "text-muted-foreground" : monthly >= 80 ? "text-emerald-400" : monthly >= 60 ? "text-amber-400" : "text-red-400";
-                    const mLabel  = monthly === null ? "لا بيانات" : monthly >= 90 ? "ممتاز ⭐" : monthly >= 80 ? "ممتاز ✅" : monthly >= 60 ? "جيد 👍" : monthly >= 40 ? "يحتاج تحسين ⚠️" : "ضعيف ❌";
+                    const ringColor = monthly === null ? "#6B7280" : monthly >= 80 ? "#10B981" : monthly >= 60 ? "#F59E0B" : "#EF4444";
+                    const scoreText = monthly === null ? "text-muted-foreground" : monthly >= 80 ? "text-emerald-400" : monthly >= 60 ? "text-amber-400" : "text-red-400";
+                    const statusLabel = monthly === null ? "لا بيانات" : monthly >= 90 ? "أداء استثنائي ⭐" : monthly >= 80 ? "أداء ممتاز ✅" : monthly >= 60 ? "أداء جيد 👍" : monthly >= 40 ? "يحتاج تحسين ⚠️" : "أداء ضعيف ❌";
+                    const statusBg = monthly === null ? "bg-muted/20 border-border" : monthly >= 80 ? "bg-emerald-500/8 border-emerald-500/20" : monthly >= 60 ? "bg-amber-500/8 border-amber-500/20" : "bg-red-500/8 border-red-500/20";
+                    // circumference لـ r=38 → 2×π×38 = 238.8
+                    const circ = 238.8;
+                    const dash = (Math.min(monthly ?? 0, 100) / 100) * circ;
                     return (
-                      <div className="rounded-xl p-3 bg-muted/40 dark:bg-white/[0.04] border border-border/60 dark:border-white/[0.07] flex flex-col items-center gap-2">
-                        {/* الدائرة الكبيرة — شهري */}
-                        <div className="relative w-16 h-16 shrink-0">
-                          <svg viewBox="0 0 64 64" className="w-full h-full -rotate-90">
-                            <circle cx="32" cy="32" r="26" fill="none" stroke="hsl(var(--muted))" strokeWidth="6" />
-                            <circle cx="32" cy="32" r="26" fill="none" stroke={mColor} strokeWidth="6"
-                              strokeDasharray={`${(Math.min(monthly ?? 0, 100)) * 1.634} 163.4`}
-                              strokeLinecap="round" style={{ transition: "stroke-dasharray 0.5s ease" }} />
-                          </svg>
-                          <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <span className={`text-[11px] font-black leading-none ${mText}`}>
-                              {monthly !== null ? `${monthly}%` : "—"}
-                            </span>
-                            <span className="text-[7px] text-muted-foreground">شهري</span>
+                      <div className={`rounded-xl p-3 border ${statusBg} flex flex-col gap-2`}>
+                        {/* الدائرة الكبيرة — نفس MyDashboardTab: viewBox 96×96، r=38 */}
+                        <div className="flex items-center gap-3">
+                          <div className="relative w-16 h-16 shrink-0">
+                            <svg viewBox="0 0 96 96" className="w-full h-full -rotate-90">
+                              <circle cx="48" cy="48" r="38" fill="none" stroke="hsl(var(--muted))" strokeWidth="9" />
+                              <circle cx="48" cy="48" r="38" fill="none" stroke={ringColor} strokeWidth="9"
+                                strokeDasharray={`${dash} ${circ - dash}`}
+                                strokeLinecap="round" style={{ transition: "stroke-dasharray 0.6s ease" }} />
+                            </svg>
+                            <div className="absolute inset-0 flex flex-col items-center justify-center">
+                              <span className={`text-xs font-black leading-none ${scoreText}`}>
+                                {monthly !== null ? `${monthly}%` : "—"}
+                              </span>
+                              <span className="text-[7px] text-muted-foreground mt-0.5">أداؤك</span>
+                            </div>
+                          </div>
+                          <div className="flex-1 min-w-0 space-y-1.5">
+                            <p className={`text-[10px] font-bold leading-tight ${scoreText}`}>{statusLabel}</p>
+                            {/* يومي + حضور صغيرين */}
+                            <div className="flex items-center gap-2">
+                              {[{ label: "يومي", score: daily }, { label: "حضور", score: att }].map(({ label, score }) => {
+                                const r2 = 10, circ2 = 2 * Math.PI * r2;
+                                const dash2 = (Math.min(score ?? 0, 100) / 100) * circ2;
+                                const bar2 = score === null ? "#6B7280" : score >= 75 ? "#10B981" : score >= 50 ? "#F59E0B" : "#EF4444";
+                                const col2 = score === null ? "text-muted-foreground" : score >= 75 ? "text-emerald-400" : score >= 50 ? "text-amber-400" : "text-red-400";
+                                return (
+                                  <div key={label} className="flex flex-col items-center gap-0.5">
+                                    <div className="relative">
+                                      <svg width="28" height="28" viewBox="0 0 28 28" style={{ transform: "rotate(-90deg)" }}>
+                                        <circle cx="14" cy="14" r={r2} fill="none" stroke="rgba(128,128,128,0.15)" strokeWidth="3" />
+                                        <circle cx="14" cy="14" r={r2} fill="none" stroke={bar2} strokeWidth="3"
+                                          strokeDasharray={`${dash2} ${circ2 - dash2}`} strokeLinecap="round" />
+                                      </svg>
+                                      <div className="absolute inset-0 flex items-center justify-center">
+                                        <span className={`text-[7px] font-black ${col2}`}>{score !== null ? `${score}%` : "—"}</span>
+                                      </div>
+                                    </div>
+                                    <span className="text-[7px] text-muted-foreground/70">{label}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
                         </div>
-                        <span className={`text-[9px] font-bold ${mText}`}>{mLabel}</span>
-                        {/* يومي + حضور صغيرين */}
-                        <div className="flex items-center justify-around w-full gap-1 pt-1 border-t border-border/30">
-                          {[{ label: "يومي", score: daily }, { label: "حضور", score: att }].map(({ label, score }) => {
-                            const r2 = 10, circ2 = 2 * Math.PI * r2;
-                            const dash2 = (Math.min(score ?? 0, 100) / 100) * circ2;
-                            const bar2  = score === null ? "#6B7280" : score >= 75 ? "#10B981" : score >= 50 ? "#F59E0B" : "#EF4444";
-                            const col2  = score === null ? "text-muted-foreground" : score >= 75 ? "text-emerald-400" : score >= 50 ? "text-amber-400" : "text-red-400";
-                            return (
-                              <div key={label} className="flex flex-col items-center gap-0.5">
-                                <div className="relative flex items-center justify-center">
-                                  <svg width="28" height="28" viewBox="0 0 28 28" style={{ transform: "rotate(-90deg)" }}>
-                                    <circle cx="14" cy="14" r={r2} fill="none" stroke="rgba(128,128,128,0.15)" strokeWidth="3" />
-                                    <circle cx="14" cy="14" r={r2} fill="none" stroke={bar2} strokeWidth="3"
-                                      strokeDasharray={`${dash2} ${circ2 - dash2}`} strokeLinecap="round" />
-                                  </svg>
-                                  <div className="absolute inset-0 flex items-center justify-center">
-                                    <span className={`text-[7px] font-black ${col2}`}>{score !== null ? `${score}%` : "—"}</span>
-                                  </div>
-                                </div>
-                                <span className="text-[7px] text-muted-foreground/60">{label}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                        {/* شريط تقدم الشهر */}
-                        <div className="w-full">
-                          <div className="flex justify-between text-[7px] text-muted-foreground/50 mb-0.5">
+                        {/* شريط تقدم الشهر — نفس MyDashboardTab */}
+                        <div>
+                          <div className="flex justify-between text-[7px] text-muted-foreground/60 mb-1">
                             <span>تقدم الشهر</span><span>{monthProgress}%</span>
                           </div>
-                          <div className="w-full h-1 rounded-full bg-muted/60">
-                            <div className="h-1 rounded-full bg-primary/60 transition-all" style={{ width: `${monthProgress}%` }} />
+                          <div className="w-full h-1.5 rounded-full bg-black/10 dark:bg-white/10">
+                            <div className="h-1.5 rounded-full bg-primary/60 transition-all" style={{ width: `${monthProgress}%` }} />
                           </div>
                         </div>
                       </div>
