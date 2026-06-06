@@ -5160,50 +5160,68 @@ export default function TeamPage() {
 
                 {/* ── الإحصائيات ── */}
                 <div className="grid grid-cols-2 gap-3 mb-4">
-                  {/* الأداء الشهري + اليومي */}
-                  <div className="rounded-xl p-3 bg-muted/40 dark:bg-white/[0.04] border border-border/60 dark:border-white/[0.07] flex flex-col gap-2">
-                    <p className="text-[9px] font-bold text-muted-foreground/70 text-center">الأداء</p>
-                    <div className="flex items-center justify-around gap-1">
-                      {[
-                        { label: "شهري", score: perfScore },
-                        { label: "يومي", score: (profile as any).dailyScore ?? null },
-                        { label: "حضور", score: (profile as any).attendanceScore ?? null },
-                      ].map(({ label, score }) => {
-                        const r2 = 18, circ2 = 2 * Math.PI * r2;
-                        const dash2 = (Math.min(score ?? 0, 100) / 100) * circ2;
-                        const gap2  = circ2 - dash2;
-                        const bar2  = score === null ? "#6B7280" : score >= 75 ? "#10B981" : score >= 50 ? "#F59E0B" : "#EF4444";
-                        const col2  = score === null ? "text-muted-foreground" : score >= 75 ? "text-emerald-400" : score >= 50 ? "text-amber-400" : "text-red-400";
-                        return (
-                          <div key={label} className="flex flex-col items-center gap-0.5">
-                            <div className="relative flex items-center justify-center">
-                              <svg width="46" height="46" viewBox="0 0 46 46" style={{ transform: "rotate(-90deg)" }}>
-                                <circle cx="23" cy="23" r={r2} fill="none" stroke="rgba(128,128,128,0.15)" strokeWidth="4" />
-                                <circle cx="23" cy="23" r={r2} fill="none" stroke={bar2} strokeWidth="4"
-                                  strokeDasharray={`${dash2} ${gap2}`} strokeLinecap="round"
-                                  style={{ transition: "stroke-dasharray 0.5s ease" }} />
-                              </svg>
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <span className={`text-[9px] font-black leading-none ${col2}`}>
-                                  {score !== null ? `${score}%` : "—"}
-                                </span>
-                              </div>
-                            </div>
-                            <span className="text-[8px] text-muted-foreground/60">{label}</span>
+                  {/* دائرة الأداء — نفس منطق لوحتي */}
+                  {(() => {
+                    const monthly = perfScore;
+                    const daily   = (profile as any).dailyScore ?? null;
+                    const att     = (profile as any).attendanceScore ?? null;
+                    const mColor  = monthly === null ? "#6B7280" : monthly >= 80 ? "#10B981" : monthly >= 60 ? "#F59E0B" : "#EF4444";
+                    const mText   = monthly === null ? "text-muted-foreground" : monthly >= 80 ? "text-emerald-400" : monthly >= 60 ? "text-amber-400" : "text-red-400";
+                    const mLabel  = monthly === null ? "لا بيانات" : monthly >= 90 ? "ممتاز ⭐" : monthly >= 80 ? "ممتاز ✅" : monthly >= 60 ? "جيد 👍" : monthly >= 40 ? "يحتاج تحسين ⚠️" : "ضعيف ❌";
+                    return (
+                      <div className="rounded-xl p-3 bg-muted/40 dark:bg-white/[0.04] border border-border/60 dark:border-white/[0.07] flex flex-col items-center gap-2">
+                        {/* الدائرة الكبيرة — شهري */}
+                        <div className="relative w-16 h-16 shrink-0">
+                          <svg viewBox="0 0 64 64" className="w-full h-full -rotate-90">
+                            <circle cx="32" cy="32" r="26" fill="none" stroke="hsl(var(--muted))" strokeWidth="6" />
+                            <circle cx="32" cy="32" r="26" fill="none" stroke={mColor} strokeWidth="6"
+                              strokeDasharray={`${(Math.min(monthly ?? 0, 100)) * 1.634} 163.4`}
+                              strokeLinecap="round" style={{ transition: "stroke-dasharray 0.5s ease" }} />
+                          </svg>
+                          <div className="absolute inset-0 flex flex-col items-center justify-center">
+                            <span className={`text-[11px] font-black leading-none ${mText}`}>
+                              {monthly !== null ? `${monthly}%` : "—"}
+                            </span>
+                            <span className="text-[7px] text-muted-foreground">شهري</span>
                           </div>
-                        );
-                      })}
-                    </div>
-                    <div className="w-full">
-                      <div className="flex justify-between text-[8px] text-muted-foreground/50 mb-0.5">
-                        <span>تقدم الشهر</span>
-                        <span>{monthProgress}%</span>
+                        </div>
+                        <span className={`text-[9px] font-bold ${mText}`}>{mLabel}</span>
+                        {/* يومي + حضور صغيرين */}
+                        <div className="flex items-center justify-around w-full gap-1 pt-1 border-t border-border/30">
+                          {[{ label: "يومي", score: daily }, { label: "حضور", score: att }].map(({ label, score }) => {
+                            const r2 = 10, circ2 = 2 * Math.PI * r2;
+                            const dash2 = (Math.min(score ?? 0, 100) / 100) * circ2;
+                            const bar2  = score === null ? "#6B7280" : score >= 75 ? "#10B981" : score >= 50 ? "#F59E0B" : "#EF4444";
+                            const col2  = score === null ? "text-muted-foreground" : score >= 75 ? "text-emerald-400" : score >= 50 ? "text-amber-400" : "text-red-400";
+                            return (
+                              <div key={label} className="flex flex-col items-center gap-0.5">
+                                <div className="relative flex items-center justify-center">
+                                  <svg width="28" height="28" viewBox="0 0 28 28" style={{ transform: "rotate(-90deg)" }}>
+                                    <circle cx="14" cy="14" r={r2} fill="none" stroke="rgba(128,128,128,0.15)" strokeWidth="3" />
+                                    <circle cx="14" cy="14" r={r2} fill="none" stroke={bar2} strokeWidth="3"
+                                      strokeDasharray={`${dash2} ${circ2 - dash2}`} strokeLinecap="round" />
+                                  </svg>
+                                  <div className="absolute inset-0 flex items-center justify-center">
+                                    <span className={`text-[7px] font-black ${col2}`}>{score !== null ? `${score}%` : "—"}</span>
+                                  </div>
+                                </div>
+                                <span className="text-[7px] text-muted-foreground/60">{label}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {/* شريط تقدم الشهر */}
+                        <div className="w-full">
+                          <div className="flex justify-between text-[7px] text-muted-foreground/50 mb-0.5">
+                            <span>تقدم الشهر</span><span>{monthProgress}%</span>
+                          </div>
+                          <div className="w-full h-1 rounded-full bg-muted/60">
+                            <div className="h-1 rounded-full bg-primary/60 transition-all" style={{ width: `${monthProgress}%` }} />
+                          </div>
+                        </div>
                       </div>
-                      <div className="w-full h-1 rounded-full bg-muted/60 dark:bg-white/[0.08]">
-                        <div className="h-1 rounded-full bg-primary/60 transition-all" style={{ width: `${monthProgress}%` }} />
-                      </div>
-                    </div>
-                  </div>
+                    );
+                  })()}
 
                   {/* مؤشرات الأداء */}
                   <div className="rounded-xl p-3 bg-muted/40 dark:bg-white/[0.04] border border-border/60 dark:border-white/[0.07]">

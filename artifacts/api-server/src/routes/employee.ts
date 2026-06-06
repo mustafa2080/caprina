@@ -227,22 +227,25 @@ router.get("/employee-profiles", async (req, res): Promise<void> => {
   }
   const dailyTarget = 1; // target يوم واحد = targetValue / daysInMonth
   const dailyScoreMap: Record<number, number | null> = {};
+  const todayStr2 = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
-  // ─── overallScore: نجيبه من employee-report لكل موظف عشان يشمل كل أنواع KPIs ──
+  // ─── overallScore + dailyScore: نفس منطق employee-report بالظبط ────────────
   const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const overallScoreMap: Record<number, number | null> = {};
-  // نفس منطق employee-report بالظبط
   const { dateFrom: mFrom, dateTo: mTo } = getPayPeriod(currentMonthStr);
+
   await Promise.all(filtered.map(async (r) => {
     const pid = r.profile.id;
     try {
       const kpis2 = kpisByProfile[pid] ?? [];
-      const profileLogs = logsMap[pid] ?? {};
-      const userId2 = (r.profile as any).userId ?? null;
+      const profileLogs = logsMap[pid] ?? {};       // cumulative الشهر
+      const todayProfileLogs = todayLogsMap[pid] ?? {}; // اليوم فقط
+      const userId2  = (r.profile as any).userId ?? null;
       const tenantId2 = (r.profile as any).tenantId ?? null;
 
-      // ─── overallScore: نفس منطق employee-report (progressive target) ──────────
-      const scored: { score: number; weight: number }[] = [];
+      // ── شهري: نفس employee-report للشهر الحالي ──────────────────────────────
+      // effectiveTarget = round((targetValue / daysInMonth) * dayNum)  ← progressive
+      const scoredM: { score: number; weight: number }[] = [];
       for (const kpi of kpis2) {
         let actual: number | null = null;
         if (kpi.metric === "manual") {
@@ -251,30 +254,23 @@ router.get("/employee-profiles", async (req, res): Promise<void> => {
           actual = userId2 ? await computeActualValue(kpi.metric, userId2, mFrom, mTo, tenantId2) : null;
         }
         if (actual === null) continue;
-        // progressive target حتى اليوم — نفس employee-report للشهر الحالي
         const effTarget = Math.max(1, Math.round((kpi.targetValue / daysInMonth) * dayNum));
-        const s = computeKpiScore(actual, effTarget, kpi.direction ?? "higher_is_better");
-        scored.push({ score: s, weight: kpi.weight ?? 1 });
+        scoredM.push({ score: computeKpiScore(actual, effTarget, kpi.direction ?? "higher_is_better"), weight: kpi.weight ?? 1 });
       }
-      const tw = scored.reduce((s: number, k: any) => s + k.weight, 0);
-      overallScoreMap[pid] = tw > 0
-        ? Math.round(scored.reduce((s: number, k: any) => s + k.score * k.weight, 0) / tw)
-        : null;
+      const twM = scoredM.reduce((s, k) => s + k.weight, 0);
+      overallScoreMap[pid] = twM > 0 ? Math.round(scoredM.reduce((s, k) => s + k.score * k.weight, 0) / twM) : null;
 
-      // ─── dailyScore: قيمة اليوم فقط vs target يوم واحد ──────────────────────
-      const todayProfileLogs = todayLogsMap[pid] ?? {};
-      const scoredDaily: { score: number; weight: number }[] = [];
+      // ── يومي: نفس employee-report في daily mode ──────────────────────────────
+      // effectiveTarget = targetValue / daysInMonth  ← target يوم واحد
+      const scoredD: { score: number; weight: number }[] = [];
       for (const kpi of kpis2) {
         if (kpi.metric !== "manual") continue;
-        const oneDayTarget = Math.max(1, Math.round(kpi.targetValue / daysInMonth));
-        const todayActual = todayProfileLogs[kpi.id] ?? 0;
-        const s = computeKpiScore(todayActual, oneDayTarget, kpi.direction ?? "higher_is_better");
-        scoredDaily.push({ score: s, weight: kpi.weight ?? 1 });
+        const oneDayTarget = kpi.targetValue / daysInMonth;
+        const todayActual  = todayProfileLogs[kpi.id] ?? 0;
+        scoredD.push({ score: computeKpiScore(todayActual, oneDayTarget, kpi.direction ?? "higher_is_better"), weight: kpi.weight ?? 1 });
       }
-      const twD = scoredDaily.reduce((s: number, k: any) => s + k.weight, 0);
-      dailyScoreMap[pid] = twD > 0
-        ? Math.round(scoredDaily.reduce((s: number, k: any) => s + k.score * k.weight, 0) / twD)
-        : null;
+      const twD = scoredD.reduce((s, k) => s + k.weight, 0);
+      dailyScoreMap[pid] = twD > 0 ? Math.round(scoredD.reduce((s, k) => s + k.score * k.weight, 0) / twD) : null;
 
     } catch { overallScoreMap[pid] = null; dailyScoreMap[pid] = null; }
   }));
