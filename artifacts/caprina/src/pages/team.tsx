@@ -2962,43 +2962,6 @@ function MyOrdersTab({
   return (
     <div className="space-y-3 animate-in fade-in duration-300">
 
-      {/* ─ مؤشر الأداء (gauge) ─ */}
-      {(monthlyScore !== undefined || dailyScore !== undefined) && (
-        <div className="grid grid-cols-2 gap-3">
-          {[
-            { label: "الأداء الشهري", score: monthlyScore ?? null },
-            { label: "الأداء اليومي", score: dailyScore ?? null },
-          ].map(({ label, score }) => {
-            const r = 28, circ = 2 * Math.PI * r;
-            const pct  = score ?? 0;
-            const dash = (Math.min(pct, 100) / 100) * circ;
-            const gap  = circ - dash;
-            const bar  = score === null ? "#6B7280" : score >= 80 ? "#10B981" : score >= 60 ? "#F59E0B" : "#EF4444";
-            const col  = score === null ? "text-muted-foreground" : score >= 80 ? "text-emerald-400" : score >= 60 ? "text-amber-400" : "text-red-400";
-            const rat  = score === null ? "لا بيانات" : score >= 80 ? "ممتاز" : score >= 65 ? "جيد جداً" : score >= 50 ? "جيد" : score >= 35 ? "مقبول" : "ضعيف";
-            return (
-              <div key={label} className="rounded-xl p-3 bg-muted/40 border border-border/60 flex flex-col items-center gap-1.5">
-                <div className="relative flex items-center justify-center">
-                  <svg width="72" height="72" viewBox="0 0 72 72" style={{ transform: "rotate(-90deg)" }}>
-                    <circle cx="36" cy="36" r={r} fill="none" stroke="rgba(128,128,128,0.15)" strokeWidth="6" />
-                    <circle cx="36" cy="36" r={r} fill="none" stroke={bar} strokeWidth="6"
-                      strokeDasharray={`${dash} ${gap}`} strokeLinecap="round"
-                      style={{ transition: "stroke-dasharray 0.6s ease" }} />
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className={`text-sm font-black leading-none ${col}`}>
-                      {score !== null ? `${score}%` : "—"}
-                    </span>
-                  </div>
-                </div>
-                <p className="text-[10px] font-semibold text-muted-foreground">{label}</p>
-                <span className={`text-[9px] font-bold ${col}`}>{rat}</span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
       {/* ─ Header ─ */}
       <div className="flex flex-wrap items-center gap-2">
         <div>
