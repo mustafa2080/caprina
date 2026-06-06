@@ -225,7 +225,7 @@ router.get("/employee-profiles", async (req, res): Promise<void> => {
       const rawScore = Math.round((actual / effTarget) * 100);
       const kpiScore = kpi.direction === "lower_is_better"
         ? (actual <= effTarget ? 100 : Math.max(0, Math.round((effTarget / actual) * 100)))
-        : Math.min(150, rawScore);
+        : Math.min(100, rawScore);
       scored.push({ score: kpiScore, weight: kpi.weight ?? 1 });
     }
     if (scored.length > 0) {
