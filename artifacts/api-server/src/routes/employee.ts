@@ -235,16 +235,23 @@ router.get("/employee-profiles", async (req, res): Promise<void> => {
     const pid = r.profile.id;
     try {
       const kpis2 = kpisByProfile[pid] ?? [];
-      if (kpis2.length === 0) { overallScoreMap[pid] = null; return; }
       const profileLogs = logsMap[pid] ?? {};
       const scored: { score: number; weight: number }[] = [];
+
+      // ─── حساب نسبة الحضور كـ KPI إضافي (weight=1) ──────────────────────────
+      // workedDays حتى اليوم vs dayNum (عدد أيام الشهر المنقضية)
+      const att = attMap[pid] ?? { workedDays: 0, absentDays: 0, lateDays: 0 };
+      const attScore = dayNum > 0 ? Math.min(100, Math.round((att.workedDays / dayNum) * 100)) : 100;
+      scored.push({ score: attScore, weight: 1 });
+
       for (const kpi of kpis2) {
         if (kpi.metric !== "manual") continue;
-        const effTarget = Math.max(1, Math.round((kpi.targetValue / daysInMonth) * dayNum));
+        // شهري: cumulative حتى اليوم vs full monthly target
         const actual = profileLogs[kpi.id] ?? 0;
+        const monthlyTarget = Math.max(1, kpi.targetValue);
         const kpiScore = kpi.direction === "lower_is_better"
-          ? (actual <= effTarget ? 100 : Math.max(0, Math.round((effTarget / actual) * 100)))
-          : Math.min(100, Math.round((actual / effTarget) * 100));
+          ? (actual <= monthlyTarget ? 100 : Math.max(0, Math.round((monthlyTarget / actual) * 100)))
+          : Math.min(100, Math.round((actual / monthlyTarget) * 100));
         scored.push({ score: kpiScore, weight: kpi.weight ?? 1 });
       }
       // auto KPIs (delivery_rate, return_rate, etc.)
@@ -257,13 +264,12 @@ router.get("/employee-profiles", async (req, res): Promise<void> => {
           ? await computeActualValue(kpi.metric, userId2, mFrom, mTo, tenantId2)
           : null;
         if (actual === null) continue;
-        const effTarget = Math.max(1, Math.round((kpi.targetValue / daysInMonth) * dayNum));
+        const monthlyTarget = Math.max(1, kpi.targetValue);
         const kpiScore = kpi.direction === "lower_is_better"
-          ? (actual <= effTarget ? 100 : Math.max(0, Math.round((effTarget / actual) * 100)))
-          : Math.min(100, Math.round((actual / effTarget) * 100));
+          ? (actual <= monthlyTarget ? 100 : Math.max(0, Math.round((monthlyTarget / actual) * 100)))
+          : Math.min(100, Math.round((actual / monthlyTarget) * 100));
         scored.push({ score: kpiScore, weight: kpi.weight ?? 1 });
       }
-      if (scored.length === 0) { overallScoreMap[pid] = null; dailyScoreMap[pid] = null; return; }
       const tw = scored.reduce((s: number, k: any) => s + k.weight, 0);
       overallScoreMap[pid] = tw > 0
         ? Math.round(scored.reduce((s: number, k: any) => s + k.score * k.weight, 0) / tw)
