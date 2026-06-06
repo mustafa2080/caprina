@@ -2587,7 +2587,7 @@ export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState<"dashboard" | "orders" | "kpis" | "report" | "saleskpi" | "attendance" | "settings">("dashboard");
 
   // state مشترك للـ header وDashboardTab
-  const [headerViewMode, setHeaderViewMode] = useState<"monthly" | "daily">("monthly");
+  const [headerViewMode, setHeaderViewMode] = useState<"monthly" | "daily">("daily");
   const [headerDate, setHeaderDate] = useState(format(new Date(), "yyyy-MM-dd"));
 
   // Fetch team extended stats (for current user overview)
