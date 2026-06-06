@@ -1171,10 +1171,10 @@ export const employeeApi = {
   getOrders: (profileId: number, month?: string) =>
     apiFetch<EmployeeOrdersResponse>(`/employee-orders/${profileId}${month ? `?month=${month}` : ""}`),
   getTeamRanking: (month?: string) =>
-    apiFetch<any[]>(`/employee/team-ranking${month ? `?month=${month}` : ""}`),
-  getStarEmployees: () => apiFetch<any[]>("/employee/star-employees"),
+    apiFetch<any[]>(`/team-ranking${month ? `?month=${month}` : ""}`),
+  getStarEmployees: () => apiFetch<any[]>("/star-employees"),
   setStarEmployees: (profileIds: number[]) =>
-    apiFetch<{ success: boolean }>("/employee/star-employees", { method: "POST", body: JSON.stringify({ profileIds }) }),
+    apiFetch<{ success: boolean }>("/star-employees", { method: "POST", body: JSON.stringify({ profileIds }) }),
 };
 
 export const teamAnalyticsApi = {
