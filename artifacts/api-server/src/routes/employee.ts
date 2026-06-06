@@ -211,37 +211,48 @@ router.get("/employee-profiles", async (req, res): Promise<void> => {
   }
   const dayNum = now.getDate();
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  // ─── حساب overallScore لكل موظف — نفس منطق employee-report (monthly, current month) ──
+  // ─── overallScore: نجيبه من employee-report لكل موظف عشان يشمل كل أنواع KPIs ──
   const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const overallScoreMap: Record<number, number | null> = {};
-  for (const r of filtered) {
+  await Promise.all(filtered.map(async (r) => {
     const pid = r.profile.id;
-    const kpis2 = kpisByProfile[pid] ?? [];
-    if (kpis2.length === 0) { overallScoreMap[pid] = null; continue; }
-    const profileLogs = logsMap[pid] ?? {};
-    const scored: { score: number; weight: number }[] = [];
-    for (const kpi of kpis2) {
-      if (kpi.metric !== "manual") continue;
-      // progressive target حتى اليوم — نفس منطق employee-report
-      const effTarget = Math.max(1, Math.round((kpi.targetValue / daysInMonth) * dayNum));
-      // الـ actual = مجموع اليوميات من بداية الشهر حتى اليوم فقط
-      // logsMap بيجيب من monthStart2 = "YYYY-MM-01" إلى monthEnd2 = "YYYY-MM-31"
-      // لكن بما إن اليوميات بتُسجَّل يوم بيوم فالـ cumulative الحالي = مجموع ما أُدخل فعلاً
-      const actual = profileLogs[kpi.id] ?? 0;
-      const kpiScore = kpi.direction === "lower_is_better"
-        ? (actual <= effTarget ? 100 : Math.max(0, Math.round((effTarget / actual) * 100)))
-        : Math.min(100, Math.round((actual / effTarget) * 100));
-      scored.push({ score: kpiScore, weight: kpi.weight ?? 1 });
-    }
-    if (scored.length > 0) {
+    try {
+      const kpis2 = kpisByProfile[pid] ?? [];
+      if (kpis2.length === 0) { overallScoreMap[pid] = null; return; }
+      const profileLogs = logsMap[pid] ?? {};
+      const scored: { score: number; weight: number }[] = [];
+      for (const kpi of kpis2) {
+        if (kpi.metric !== "manual") continue;
+        const effTarget = Math.max(1, Math.round((kpi.targetValue / daysInMonth) * dayNum));
+        const actual = profileLogs[kpi.id] ?? 0;
+        const kpiScore = kpi.direction === "lower_is_better"
+          ? (actual <= effTarget ? 100 : Math.max(0, Math.round((effTarget / actual) * 100)))
+          : Math.min(100, Math.round((actual / effTarget) * 100));
+        scored.push({ score: kpiScore, weight: kpi.weight ?? 1 });
+      }
+      // auto KPIs (delivery_rate, return_rate, etc.)
+      const userId2 = (r.profile as any).userId ?? null;
+      const tenantId2 = (r.profile as any).tenantId ?? null;
+      const { dateFrom: mFrom, dateTo: mTo } = getPayPeriod(currentMonthStr);
+      for (const kpi of kpis2) {
+        if (kpi.metric === "manual") continue;
+        const actual = userId2
+          ? await computeActualValue(kpi.metric, userId2, mFrom, mTo, tenantId2)
+          : null;
+        if (actual === null) continue;
+        const effTarget = Math.max(1, Math.round((kpi.targetValue / daysInMonth) * dayNum));
+        const kpiScore = kpi.direction === "lower_is_better"
+          ? (actual <= effTarget ? 100 : Math.max(0, Math.round((effTarget / actual) * 100)))
+          : Math.min(100, Math.round((actual / effTarget) * 100));
+        scored.push({ score: kpiScore, weight: kpi.weight ?? 1 });
+      }
+      if (scored.length === 0) { overallScoreMap[pid] = null; return; }
       const tw = scored.reduce((s: number, k: any) => s + k.weight, 0);
       overallScoreMap[pid] = tw > 0
         ? Math.round(scored.reduce((s: number, k: any) => s + k.score * k.weight, 0) / tw)
         : null;
-    } else {
-      overallScoreMap[pid] = null;
-    }
-  }
+    } catch { overallScoreMap[pid] = null; }
+  }));
   res.json(filtered.map((r) => ({
     ...mergeProfile(r.profile, r.user),
     kpiCount: kpiCountMap[r.profile.id] ?? 0,
