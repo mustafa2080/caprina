@@ -934,12 +934,28 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
   // monthly mode: use monthParam to build correct date range
   const _now = new Date();
   const effectiveMonth = monthParam || `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, "0")}`;
-  const monthStartMR = modeParam === "daily" && dateParam
-    ? dateParam
-    : `${effectiveMonth}-01`;
-  const monthEndMR = modeParam === "daily" && dateParam
-    ? dateParam
-    : `${effectiveMonth}-31`;
+
+  // في daily mode للـ manual KPIs: نجيب cumulative من بداية الـ pay period لليوم المختار
+  // عشان نقدر نحسب المتوقع التراكمي بنفس منطق daily-logs
+  let manualStartMR: string;
+  let manualEndMR: string;
+  let dailyPeriodDays = 30;
+  let dailyDayNumberInPeriod = 1;
+
+  if (modeParam === "daily" && dateParam) {
+    const { dateFrom: dpFrom, dateTo: dpTo } = getPayPeriod(dateParam.slice(0, 7));
+    manualStartMR = dpFrom.toISOString().slice(0, 10);
+    manualEndMR   = dateParam;
+    dailyPeriodDays = Math.round((dpTo.getTime() - dpFrom.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    const selectedDay = new Date(dateParam + "T00:00:00.000");
+    dailyDayNumberInPeriod = Math.max(1, Math.round((selectedDay.getTime() - dpFrom.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+  } else {
+    manualStartMR = `${effectiveMonth}-01`;
+    manualEndMR   = `${effectiveMonth}-31`;
+  }
+
+  const monthStartMR = manualStartMR;
+  const monthEndMR   = manualEndMR;
   const manualLogsMR = await db
     .select({ kpiId: employeeDailyLogsTable.kpiId, total: sum(employeeDailyLogsTable.value) })
     .from(employeeDailyLogsTable)
@@ -1009,7 +1025,11 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
         actualValue = await computeActualValue(kpi.metric, userId, dateFrom, dateTo, (profile as any).tenantId);
       }
       const effectiveTarget = modeParam === "daily"
-        ? Math.round(kpi.targetValue / reportDaysInMonthMR)
+        ? kpi.metric === "manual"
+          // manual في daily: تراكمي حتى اليوم (نفس منطق daily-logs)
+          ? Math.max(1, Math.round((kpi.targetValue / dailyPeriodDays) * dailyDayNumberInPeriod))
+          // auto في daily: هدف يوم واحد
+          : Math.max(1, Math.round(kpi.targetValue / dailyPeriodDays))
         : isCurrentMonthMR
           ? Math.max(1, Math.round((kpi.targetValue / reportDaysInMonthMR) * reportDayNumberMR))
           : kpi.targetValue;
