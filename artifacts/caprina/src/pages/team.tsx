@@ -455,6 +455,10 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
   const printRef = useRef<HTMLDivElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [specialBonus, setSpecialBonus] = useState<string>("");
+  const [specialBonusNote, setSpecialBonusNote] = useState<string>("");
+  const [editingSpecialBonus, setEditingSpecialBonus] = useState(false);
+  const specialBonusNum = parseFloat(specialBonus) || 0;
   const { toast } = useToast();
   const ratingCfg = RATING_CONFIG[report.rating] ?? RATING_CONFIG["غير محدد"];
 
@@ -903,9 +907,46 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
                     <span className="text-sm font-bold text-red-500">−{fmt(salaryReport.extraDeductions)}</span>
                   </div>
                 )}
+                {/* بونص خاص */}
+                <div className={`flex justify-between items-center px-3 py-2 border-b border-border/30 ${specialBonusNum > 0 ? "bg-emerald-500/5" : "bg-muted/10"}`}>
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <span className="text-xs text-muted-foreground shrink-0">بونص خاص</span>
+                    {editingSpecialBonus ? (
+                      <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                        <input
+                          type="number" min="0" placeholder="القيمة"
+                          value={specialBonus}
+                          onChange={e => setSpecialBonus(e.target.value)}
+                          className="w-24 h-6 text-xs px-2 rounded-md border border-border bg-background focus:outline-none focus:border-primary"
+                        />
+                        <input
+                          type="text" placeholder="السبب / الملاحظة"
+                          value={specialBonusNote}
+                          onChange={e => setSpecialBonusNote(e.target.value)}
+                          className="flex-1 min-w-0 h-6 text-xs px-2 rounded-md border border-border bg-background focus:outline-none focus:border-primary"
+                        />
+                        <button onClick={() => setEditingSpecialBonus(false)}
+                          className="text-[10px] px-2 py-0.5 rounded-md bg-primary text-primary-foreground font-bold shrink-0">
+                          حفظ
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                        {specialBonusNote && <span className="text-[10px] text-muted-foreground truncate">{specialBonusNote}</span>}
+                        <button onClick={() => setEditingSpecialBonus(true)}
+                          className="text-[9px] px-1.5 py-0.5 rounded border border-border text-muted-foreground hover:border-primary hover:text-primary transition-colors shrink-0">
+                          {specialBonusNum > 0 ? "تعديل" : "+ إضافة"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <span className={`text-sm font-bold shrink-0 mr-2 ${specialBonusNum > 0 ? "text-emerald-500" : "text-muted-foreground"}`}>
+                    {specialBonusNum > 0 ? `+${fmt(specialBonusNum)}` : "—"}
+                  </span>
+                </div>
                 {/* صافي المرتب النهائي */}
                 {(() => {
-                  const finalNet = salaryReport.netSalary - kpiDeductions + kpiBonuses;
+                  const finalNet = salaryReport.netSalary - kpiDeductions + kpiBonuses + specialBonusNum;
                   return (
                     <div className={`flex justify-between items-center px-3 py-3 border-t-2 border-[#c9a227] ${finalNet >= salaryReport.baseSalary ? "bg-emerald-500/8" : finalNet < salaryReport.baseSalary * 0.9 ? "bg-red-500/5" : "bg-amber-500/8"}`}>
                       <div>
