@@ -30,6 +30,7 @@ interface LayoutProps {
 }
 
 const ALL_NAV = [
+  { href: "/my-dashboard",      label: "لوحتي",              icon: LayoutDashboard, exact: true, permission: null, section: null, employeeOnly: true,  iconColor: "text-emerald-400",    group: "dashboard"    },
   { href: "/",                  label: "لوحة التحكم",        icon: LayoutDashboard, exact: true, permission: "section_dashboard",       section: "section_dashboard",          iconColor: "text-blue-400",       group: "dashboard"    },
   { href: "/orders",            label: "الطلبات",             icon: Package,                     permission: "orders.view",             section: "section_orders",             iconColor: "text-orange-400",     group: "orders"       },
   { href: "/orders/new",        label: "طلب جديد",            icon: Plus,                        permission: "orders.create",           section: "section_new_order",          iconColor: "text-emerald-400",    group: "orders"       },
@@ -280,13 +281,16 @@ export default function Layout({ children }: LayoutProps) {
 
   const visibleNav = useMemo(() => {
     return ALL_NAV.filter((item) => {
+      // لوحتي → للـ employee فقط
+      if ((item as any).employeeOnly) return user?.role === "employee";
+      // لوحة التحكم → تتخفى عن الـ employee (عنده لوحتي بدلها)
+      if (item.href === "/" && user?.role === "employee") return false;
       if (isAdmin) return true;
-      // لازم الـ section يكون مفعّل (section_xxx) والـ permission موجودة
       const sectionOk = item.section ? can(item.section) : true;
       const permOk    = item.permission ? can(item.permission) : true;
       return sectionOk && permOk;
     });
-  }, [can, isAdmin]);
+  }, [can, isAdmin, user?.role]);
 
   // لو اليوزر واقف على صفحة اتشالت صلاحيتها → ننقله لأول صفحة متاحة
   const redirectingRef = useRef(false);
@@ -295,7 +299,7 @@ export default function Layout({ children }: LayoutProps) {
     if (isAdmin) return;
     if (redirectingRef.current) return;
     // صفحات عامة مش محتاجة nav permission — ما نعملش ليها redirect أبداً
-    const globalPages = ["/profile", "/subscription-expired"];
+    const globalPages = ["/profile", "/my-dashboard", "/subscription-expired"];
     if (globalPages.some(p => location === p || location.startsWith(p + "/"))) return;
     const allowed = visibleNav.map(i => i.href);
     // مش نعمل redirect لو visibleNav فاضية — ده بيحصل أثناء تحديث الـ permissions
