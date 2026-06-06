@@ -3192,6 +3192,133 @@ function MyOrdersTab({
   );
 }
 
+// ─── Employee KPI Tab (standalone exportable) ─────────────────────────────────
+export function EmployeeKpiTab({ profileId, monthlySalary: _ms }: { profileId: number; monthlySalary?: number }) {
+  const { isAdmin, can } = useAuth();
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [kpiDialogOpen, setKpiDialogOpen] = useState(false);
+  const [editingKpi, setEditingKpi] = useState<EmployeeKpi | undefined>();
+  const [reportMonth, setReportMonth] = useState(() => {
+    const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  });
+  const today = new Date().toISOString().slice(0, 10);
+  const [kpiViewMode, setKpiViewMode] = useState<"monthly" | "daily">("monthly");
+  const [kpiSelectedDate, setKpiSelectedDate] = useState(today);
+
+  const { data: kpis = [], isLoading: kpisLoading } = useQuery({
+    queryKey: ["employee-kpis", profileId],
+    queryFn: () => employeeApi.listKpis(profileId),
+  });
+  const { data: fullProfile } = useQuery({
+    queryKey: ["employee-profile", profileId],
+    queryFn: () => employeeApi.getProfile(profileId),
+  });
+  const { data: monthlyReport, isLoading: reportLoading } = useQuery({
+    queryKey: ["employee-report", profileId, reportMonth],
+    queryFn: () => employeeApi.getReport(profileId, reportMonth),
+  });
+  const { data: dailyReportKpi } = useQuery({
+    queryKey: ["employee-report-kpi-daily", profileId, kpiSelectedDate],
+    queryFn: () => employeeApi.getReport(profileId, undefined, "daily", kpiSelectedDate),
+    enabled: kpiViewMode === "daily",
+    staleTime: 60_000,
+  });
+  const report = kpiViewMode === "daily" ? dailyReportKpi : monthlyReport;
+  const { data: salaryReport } = useQuery({
+    queryKey: ["salary-report", profileId, reportMonth],
+    queryFn: () => attendanceApi.salaryReport(profileId, reportMonth),
+    enabled: !!profileId,
+  });
+
+  const deleteKpi = async (kpiId: number) => {
+    if (!confirm("حذف هذا المؤشر؟")) return;
+    try {
+      await employeeApi.deleteKpi(kpiId);
+      qc.invalidateQueries({ queryKey: ["employee-kpis", profileId] });
+      qc.invalidateQueries({ queryKey: ["employee-report", profileId] });
+      toast({ title: "تم حذف المؤشر" });
+    } catch (e: any) { toast({ title: "خطأ", description: e.message, variant: "destructive" }); }
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Dialog */}
+      <KpiFormDialog
+        open={kpiDialogOpen}
+        onClose={() => { setKpiDialogOpen(false); setEditingKpi(undefined); }}
+        profileId={profileId}
+        existing={editingKpi}
+        onSuccess={() => {
+          qc.invalidateQueries({ queryKey: ["employee-kpis", profileId] });
+          qc.invalidateQueries({ queryKey: ["employee-report", profileId] });
+          setKpiDialogOpen(false); setEditingKpi(undefined);
+        }}
+      />
+
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <p className="text-sm font-bold">لوحة مؤشرات الأداء</p>
+          <p className="text-[10px] text-muted-foreground">
+            {kpiViewMode === "daily"
+              ? `أداء يوم ${new Date(kpiSelectedDate + "T00:00:00").toLocaleDateString("ar-EG", { weekday: "long", day: "numeric", month: "long" })}`
+              : "نظرة شاملة على أداء الموظف ومؤشراته الشهرية"}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1 p-1 rounded-xl border border-border bg-muted/20">
+            {(["monthly", "daily"] as const).map(mode => (
+              <button key={mode} type="button" onClick={() => setKpiViewMode(mode)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${kpiViewMode === mode ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+                {mode === "monthly" ? "شهري" : "يومي"}
+              </button>
+            ))}
+          </div>
+          {kpiViewMode === "daily" ? (
+            <input type="date" value={kpiSelectedDate} max={today} onChange={e => setKpiSelectedDate(e.target.value)}
+              className="rounded-lg border border-border bg-muted/20 px-3 py-1.5 text-xs font-medium focus:outline-none focus:border-primary" />
+          ) : (
+            <select value={reportMonth} onChange={e => setReportMonth(e.target.value)}
+              className="rounded-lg border border-border bg-muted/20 px-3 py-1.5 text-xs font-medium focus:outline-none focus:border-primary">
+              {Array.from({ length: 12 }, (_, i) => {
+                const d = new Date(); d.setMonth(d.getMonth() - i);
+                const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+                return <option key={val} value={val}>{d.toLocaleDateString("ar-EG", { month: "long", year: "numeric" })}</option>;
+              })}
+            </select>
+          )}
+          {isAdmin && (
+            <Button size="sm" className="h-7 text-xs gap-1" onClick={() => { setEditingKpi(undefined); setKpiDialogOpen(true); }}>
+              <Plus className="w-3 h-3" />إضافة مؤشر
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {(kpisLoading || reportLoading) && <p className="text-center text-muted-foreground text-xs py-6">جاري التحميل...</p>}
+
+      {!kpisLoading && kpis.length === 0 && (
+        <div className="text-center py-10 text-muted-foreground border border-dashed border-border rounded-xl">
+          <Target className="w-10 h-10 mx-auto mb-3 opacity-20" />
+          <p className="text-sm font-bold">لا توجد مؤشرات أداء بعد</p>
+        </div>
+      )}
+
+      {!kpisLoading && kpis.length > 0 && report && (() => {
+        const salary = fullProfile?.monthlySalary ?? 0;
+        /* ── نفس الـ JSX بتاع kpis tab في EmployeeDetail ── */
+        const kpiSection = (
+          <MonthlyReport
+            report={{ ...report, profile: fullProfile ?? undefined, salaryReport: salaryReport ?? undefined } as any}
+          />
+        );
+        return kpiSection;
+      })()}
+    </div>
+  );
+}
+
 // ─── Employee Detail ──────────────────────────────────────────────────────────
 function EmployeeDetail({
   profileId, displayName, isSystemUser, username, onBack,

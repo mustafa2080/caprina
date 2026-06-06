@@ -27,7 +27,7 @@ import {
   type Attendance, type AttendanceSalaryReport, type PayrollAdjustment,
 } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { MyDashboardTab } from "./team";
+import { MyDashboardTab, EmployeeKpiTab } from "./team";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, RadarChart, Radar, PolarGrid, PolarAngleAxis, ReferenceLine } from "recharts";
 
 /* ── helpers ── */
@@ -2740,15 +2740,12 @@ export default function ProfilePage() {
         />
       )}
       {activeTab === "orders" && <OrdersTab profile={myProfile} userId={user.id} />}
-      {activeTab === "kpis" && <KpisTab
-        myStats={myStats}
-        profile={myProfile}
-        profileId={myProfile?.id}
-        externalViewMode={headerViewMode}
-        externalDate={headerDate}
-        onViewModeChange={setHeaderViewMode}
-        onDateChange={setHeaderDate}
-      />}
+      {activeTab === "kpis" && myProfile?.id && (
+        <EmployeeKpiTab
+          profileId={myProfile.id}
+          monthlySalary={myProfile.monthlySalary ?? 0}
+        />
+      )}
       {activeTab === "report" && <MonthlyReportTab
         profile={myProfile}
         externalViewMode={headerViewMode}
