@@ -2504,10 +2504,23 @@ function MyDashboardTab({ profileId, monthlySalary }: {
     enabled: !!profileId,
   });
 
-  const overallScore = (viewMode === "daily" ? dailyReport?.overallScore : report?.overallScore) ?? null;
-  const prevScore    = prevReport?.overallScore ?? null;
-  const scoreDiff    = overallScore !== null && prevScore !== null ? overallScore - prevScore : null;
   const kpis            = (viewMode === "daily" ? dailyReport?.kpis : report?.kpis) ?? [];
+
+  // في daily mode: احسب overallScore من الـ KPIs مباشرة (نفس اللي بيتعرض تحت)
+  // في monthly mode: خد من الـ report
+  const dailyOverallScore = (() => {
+    const scored = kpis.filter(k => k.score !== null && Number.isFinite(k.score));
+    if (viewMode !== "daily" || scored.length === 0) return null;
+    const totalW = scored.reduce((s, k) => s + (k.weight ?? 0), 0);
+    return totalW > 0
+      ? Math.round(scored.reduce((s, k) => s + (k.score! * (k.weight ?? 0)), 0) / totalW)
+      : Math.round(scored.reduce((s, k) => s + k.score!, 0) / scored.length);
+  })();
+  const overallScore = viewMode === "daily"
+    ? (dailyOverallScore ?? dailyReport?.overallScore ?? null)
+    : (report?.overallScore ?? null);
+  const prevScore  = prevReport?.overallScore ?? null;
+  const scoreDiff  = overallScore !== null && prevScore !== null ? overallScore - prevScore : null;
   const activeReport    = viewMode === "daily" ? dailyReport : report;
   const achievedCount   = kpis.filter(k => k.achieved === true).length;
   const failedCount     = kpis.filter(k => k.achieved === false).length;
