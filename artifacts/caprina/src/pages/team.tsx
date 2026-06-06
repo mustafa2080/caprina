@@ -2612,7 +2612,7 @@ function MyDashboardTab({ profileId, monthlySalary }: {
 
       {/* ── Toggle يومي / شهري ── */}
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-1 p-1 rounded-xl border border-border bg-muted/20">
+        <div className="flex items-center gap-1 p-1 rounded-xl border border-border bg-muted/20" dir="rtl">
           {(["daily", "monthly"] as const).map(mode => (
             <button key={mode} type="button" onClick={() => setViewMode(mode)}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
