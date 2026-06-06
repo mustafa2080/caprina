@@ -196,12 +196,21 @@ router.get("/employee-profiles", async (req, res): Promise<void> => {
     if (r.status === "half_day") attMap[r.profileId].workedDays += 0.5;
   }
 
-  const monthStart2 = `${monthStr}-01`;
-  const monthEnd2 = `${monthStr}-31`;
+  // ─── نفس getPayPeriod اللي بيستخدمه employee-report ────────────────────────
+  const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const { dateFrom: mFrom, dateTo: mTo } = getPayPeriod(currentMonthStr);
+  const periodStart = mFrom.toISOString().slice(0, 10); // "2026-05-26"
+  const periodEnd   = mTo.toISOString().slice(0, 10);   // "2026-06-25"
+
+  // dayNum = أيام مرت من بداية الفترة حتى اليوم
+  const dayNum = Math.max(1, Math.floor((now.getTime() - mFrom.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+  // daysInMonth = إجمالي أيام الفترة (30 يوم عادةً)
+  const daysInMonth = Math.round((mTo.getTime() - mFrom.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
   const allLogs = await db
     .select({ profileId: employeeDailyLogsTable.profileId, kpiId: employeeDailyLogsTable.kpiId, total: sum(employeeDailyLogsTable.value) })
     .from(employeeDailyLogsTable)
-    .where(and(gte(employeeDailyLogsTable.date, monthStart2), lte(employeeDailyLogsTable.date, monthEnd2)))
+    .where(and(gte(employeeDailyLogsTable.date, periodStart), lte(employeeDailyLogsTable.date, periodEnd)))
     .groupBy(employeeDailyLogsTable.profileId, employeeDailyLogsTable.kpiId);
   const logsMap: Record<number, Record<number, number>> = {};
   for (const l of allLogs) {
@@ -209,8 +218,6 @@ router.get("/employee-profiles", async (req, res): Promise<void> => {
     if (!logsMap[l.profileId]) logsMap[l.profileId] = {};
     logsMap[l.profileId][l.kpiId] = parseFloat(String(l.total ?? "0"));
   }
-  const dayNum = now.getDate();
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
 
   // ─── today's logs لحساب dailyScore ──────────────────────────────────────────
   const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
@@ -230,9 +237,8 @@ router.get("/employee-profiles", async (req, res): Promise<void> => {
   const todayStr2 = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
   // ─── overallScore + dailyScore: نفس منطق employee-report بالظبط ────────────
-  const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const overallScoreMap: Record<number, number | null> = {};
-  const { dateFrom: mFrom, dateTo: mTo } = getPayPeriod(currentMonthStr);
+  // mFrom و mTo و currentMonthStr معرّفين فوق من getPayPeriod
 
   await Promise.all(filtered.map(async (r) => {
     const pid = r.profile.id;
