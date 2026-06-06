@@ -646,13 +646,14 @@ function OrdersTab({ profile, userId }: { profile?: EmployeeProfile; userId: num
 }
 
 /* ── Tab: KPIs (مؤشرات الأداء) ── */
-function KpisTab({ myStats, profile, externalViewMode, externalDate, onViewModeChange, onDateChange }: {
+export function KpisTab({ myStats, profile, externalViewMode, externalDate, onViewModeChange, onDateChange, profileId: propProfileId }: {
   myStats?: TeamMemberExtStats;
   profile?: EmployeeProfile;
   externalViewMode?: "monthly" | "daily";
   externalDate?: string;
   onViewModeChange?: (m: "monthly" | "daily") => void;
   onDateChange?: (d: string) => void;
+  profileId?: number;
 }) {
   const [_viewMode, _setViewMode]       = useState<"monthly" | "daily">("monthly");
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), "yyyy-MM"));
@@ -667,12 +668,21 @@ function KpisTab({ myStats, profile, externalViewMode, externalDate, onViewModeC
     return { value: format(d, "yyyy-MM"), label: format(d, "MMMM yyyy", { locale: ar }) };
   }), []);
 
-  // استخدم getMyReport بدل getReport — يشتغل حتى بدون profile
+  const resolvedProfileId = propProfileId ?? profile?.id;
+
+  // استخدم getReport بـ profileId لو متاح، وإلا getMyReport
   const { data: report, isLoading: reportLoading } = useQuery({
-    queryKey: ["emp-report-kpis-mine", viewMode, viewMode === "monthly" ? selectedMonth : selectedDate],
-    queryFn: () => viewMode === "daily"
-      ? employeeApi.getMyReport(selectedMonth, "daily", selectedDate)
-      : employeeApi.getMyReport(selectedMonth),
+    queryKey: ["emp-report-kpis", resolvedProfileId, viewMode, viewMode === "monthly" ? selectedMonth : selectedDate],
+    queryFn: () => {
+      if (resolvedProfileId) {
+        return viewMode === "daily"
+          ? employeeApi.getReport(resolvedProfileId, undefined, "daily", selectedDate)
+          : employeeApi.getReport(resolvedProfileId, selectedMonth);
+      }
+      return viewMode === "daily"
+        ? employeeApi.getMyReport(selectedMonth, "daily", selectedDate)
+        : employeeApi.getMyReport(selectedMonth);
+    },
   });
 
   const kpis = report?.kpis ?? [];
@@ -2733,6 +2743,7 @@ export default function ProfilePage() {
       {activeTab === "kpis" && <KpisTab
         myStats={myStats}
         profile={myProfile}
+        profileId={myProfile?.id}
         externalViewMode={headerViewMode}
         externalDate={headerDate}
         onViewModeChange={setHeaderViewMode}
