@@ -771,7 +771,7 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
     overallScore =
       totalWeight > 0
         ? Math.round(scoredKpis.reduce((s, k) => s + k.score! * k.weight, 0) / totalWeight)
-        : null;
+        : Math.round(scoredKpis.reduce((s, k) => s + k.score!, 0) / scoredKpis.length);
   }
 
   // fallback: ظ„ظˆ ظ…ظپظٹط´ KPIs â€” ظ†ط­ط³ط¨ ظ…ظ† ط§ظ„ط·ظ„ط¨ط§طھ ط§ظ„ظ…ط؛ظ„ظ‚ط© ظپظ‚ط· (delivered + returned)
@@ -1060,7 +1060,7 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
     const totalWeight = scoredKpis.reduce((s, k) => s + k.weight, 0);
     overallScore = totalWeight > 0
       ? Math.round(scoredKpis.reduce((s, k) => s + k.score! * k.weight, 0) / totalWeight)
-      : null;
+      : Math.round(scoredKpis.reduce((s, k) => s + k.score!, 0) / scoredKpis.length);
   }
 
   // fallback: ظ„ظˆ ظ…ظپظٹط´ KPIs â€” ظ†ط­ط³ط¨ ظ…ظ† ط§ظ„ط·ظ„ط¨ط§طھ ط§ظ„ظ…ط؛ظ„ظ‚ط© ظپظ‚ط· (delivered + returned)
