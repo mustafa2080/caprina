@@ -2516,7 +2516,7 @@ function MyDashboardTab({ profileId, monthlySalary }: {
   const currentMonth = today.slice(0, 7);
 
   // ── Toggle يومي/شهري ──
-  const [viewMode, setViewMode] = useState<"monthly" | "daily">("monthly");
+  const [viewMode, setViewMode] = useState<"monthly" | "daily">("daily");
   const [selectedDate, setSelectedDate] = useState(today);
 
   // daily report للتاريخ المختار
