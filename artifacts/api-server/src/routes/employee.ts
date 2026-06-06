@@ -498,15 +498,14 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
     .from(employeeKpisTable)
     .where(and(eq(employeeKpisTable.profileId, profileId), eq(employeeKpisTable.isActive, true)));
 
-  // daily mode: fetch only the selected day's value per KPI (todayValue)
-  // monthly mode: fetch cumulative sum for the whole month
-  // Use dateParam directly in daily mode to avoid UTC timezone shift
+  // daily mode: use dateParam directly to avoid UTC timezone shift
+  // monthly mode: use resolvedMonth to build correct date range
   const manualLogsDateStart = mode === "daily" && dateParam
     ? dateParam
-    : dateFrom.toISOString().slice(0, 10);
+    : `${resolvedMonth}-01`;
   const manualLogsDateEnd = mode === "daily" && dateParam
     ? dateParam
-    : dateTo.toISOString().slice(0, 10);
+    : `${resolvedMonth}-31`;
   const manualLogs = await db
     .select({ kpiId: employeeDailyLogsTable.kpiId, total: sum(employeeDailyLogsTable.value) })
     .from(employeeDailyLogsTable)
@@ -826,10 +825,16 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
     .from(employeeKpisTable)
     .where(and(eq(employeeKpisTable.profileId, profileId), eq(employeeKpisTable.isActive, true)));
 
-  // daily mode: fetch only the selected day's value — use dateParam to avoid UTC shift
-  // monthly mode: fetch cumulative sum for the whole month
-  const monthStartMR = modeParam === "daily" && dateParam ? dateParam : dateFrom.toISOString().slice(0, 10);
-  const monthEndMR   = modeParam === "daily" && dateParam ? dateParam : dateTo.toISOString().slice(0, 10);
+  // daily mode: use dateParam directly to avoid UTC timezone shift
+  // monthly mode: use monthParam to build correct date range
+  const _now = new Date();
+  const effectiveMonth = monthParam || `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, "0")}`;
+  const monthStartMR = modeParam === "daily" && dateParam
+    ? dateParam
+    : `${effectiveMonth}-01`;
+  const monthEndMR = modeParam === "daily" && dateParam
+    ? dateParam
+    : `${effectiveMonth}-31`;
   const manualLogsMR = await db
     .select({ kpiId: employeeDailyLogsTable.kpiId, total: sum(employeeDailyLogsTable.value) })
     .from(employeeDailyLogsTable)
