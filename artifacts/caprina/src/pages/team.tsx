@@ -2520,7 +2520,7 @@ function MyDashboardTab({ profileId, monthlySalary }: {
     ? (dailyOverallScore ?? dailyReport?.overallScore ?? null)
     : (report?.overallScore ?? null);
   const prevScore  = prevReport?.overallScore ?? null;
-  const scoreDiff  = overallScore !== null && prevScore !== null ? overallScore - prevScore : null;
+  const scoreDiff  = overallScore !== null && prevScore !== null && prevScore > 0 ? overallScore - prevScore : null;
   const activeReport    = viewMode === "daily" ? dailyReport : report;
   const achievedCount   = kpis.filter(k => k.achieved === true).length;
   const failedCount     = kpis.filter(k => k.achieved === false).length;
