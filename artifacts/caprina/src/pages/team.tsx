@@ -3328,8 +3328,8 @@ function EmployeeDetail({
               onMonthChange={setReportMonth}
               kpis={kpis}
               monthlyScore={report?.overallScore ?? null}
-              dailyScore={dailyReport?.overallScore ?? null}
-              selectedDate={selectedDate}
+              dailyScore={dailyReportKpi?.overallScore ?? null}
+              selectedDate={kpiSelectedDate}
             />
           </TabsContent>
         )}
