@@ -291,10 +291,11 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
       total: sql<number>`COALESCE(SUM(CAST(net_due AS DECIMAL(14,2)) - COALESCE(CAST(paid_amount AS DECIMAL(14,2)),0)),0)`,
     }).from(shippingFinancialInvoicesTable).where(sql`status IN ('pending','verified')`);
 
-    // عدد البيانات الغير مسددة = البيانات اللي عندها invoice_price ومش مدفوعة
+    // عدد البيانات الغير مسددة = البيانات المغلقة اللي عندها invoice_price (جاتلها فاتورة من شركة الشحن)
+    // وليس لها سداد مسجل في financial invoices
     const [unpaidManifests] = await db.select({
       count: sql<number>`COUNT(*)`,
-    }).from(shippingManifestsTable).where(sql`invoice_price IS NOT NULL AND (status != 'paid')`);
+    }).from(shippingManifestsTable).where(sql`invoice_price IS NOT NULL`);
 
     // نستخدم count من البيانات وtotal من الفواتير المالية
     const unpaidShippingResult = {
