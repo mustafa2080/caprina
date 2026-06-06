@@ -261,14 +261,14 @@ function DashboardTab({ myStats, profile, externalViewMode, externalDate, onView
   // احسب score اليوم محلياً لو الـ API مردش overallScore
   const dailyScoreLocal = useMemo(() => {
     if (viewMode !== "daily") return null;
-    const total = dayOrders.length;
-    if (total === 0) return null;
-    const deliveryRate = dayDelivered / total * 100;
-    const returnRate   = dayReturned  / total * 100;
-    // نفس منطق الـ backend: delivery 60% + return penalty 40%
-    const s = Math.max(0, Math.round(deliveryRate * 0.6 + (100 - returnRate) * 0.4));
-    return s;
-  }, [viewMode, dayOrders, dayDelivered, dayReturned]);
+    const closedCount = dayDelivered + dayReturned;
+    if (closedCount === 0) return null;
+    // نفس منطق الـ backend: من الطلبات المغلقة فقط (delivered + returned)
+    const closedDeliveryRate = Math.round((dayDelivered / closedCount) * 100);
+    const closedReturnRate   = Math.round((dayReturned  / closedCount) * 100);
+    const returnPenalty      = Math.max(0, 100 - closedReturnRate * 2);
+    return Math.round(closedDeliveryRate * 0.6 + returnPenalty * 0.4);
+  }, [viewMode, dayDelivered, dayReturned]);
 
   const activeScore   = viewMode === "daily"
     ? (activeReport?.overallScore ?? dailyScoreLocal)
