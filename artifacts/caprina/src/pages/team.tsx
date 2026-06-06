@@ -2504,17 +2504,18 @@ function MyDashboardTab({ profileId, monthlySalary }: {
     enabled: !!profileId,
   });
 
-  const kpis            = (viewMode === "daily" ? dailyReport?.kpis : report?.kpis) ?? [];
+  const kpis            = (viewMode === "daily" ? (dailyKpis.length > 0 ? dailyKpis : dailyReport?.kpis) : report?.kpis) ?? [];
 
-  // في daily mode: احسب overallScore من الـ KPIs مباشرة (نفس اللي بيتعرض تحت)
+  // في daily mode: احسب overallScore من dailyKpis (getDailyLogs) — نفس اللي بيتعرض تحت
   // في monthly mode: خد من الـ report
   const dailyOverallScore = (() => {
-    const scored = kpis.filter(k => k.score !== null && Number.isFinite(k.score));
-    if (viewMode !== "daily" || scored.length === 0) return null;
-    const totalW = scored.reduce((s, k) => s + (k.weight ?? 0), 0);
+    if (viewMode !== "daily" || dailyKpis.length === 0) return null;
+    const scored = dailyKpis.filter((k:any) => k.score !== null && Number.isFinite(k.score));
+    if (scored.length === 0) return null;
+    const totalW = scored.reduce((s:number, k:any) => s + (k.weight ?? 0), 0);
     return totalW > 0
-      ? Math.round(scored.reduce((s, k) => s + (k.score! * (k.weight ?? 0)), 0) / totalW)
-      : Math.round(scored.reduce((s, k) => s + k.score!, 0) / scored.length);
+      ? Math.round(scored.reduce((s:number, k:any) => s + (k.score * (k.weight ?? 0)), 0) / totalW)
+      : Math.round(scored.reduce((s:number, k:any) => s + k.score, 0) / scored.length);
   })();
   const overallScore = viewMode === "daily"
     ? (dailyOverallScore ?? dailyReport?.overallScore ?? null)
