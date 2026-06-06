@@ -5167,6 +5167,7 @@ export default function TeamPage() {
                       {[
                         { label: "شهري", score: perfScore },
                         { label: "يومي", score: (profile as any).dailyScore ?? null },
+                        { label: "حضور", score: (profile as any).attendanceScore ?? null },
                       ].map(({ label, score }) => {
                         const r2 = 18, circ2 = 2 * Math.PI * r2;
                         const dash2 = (Math.min(score ?? 0, 100) / 100) * circ2;
