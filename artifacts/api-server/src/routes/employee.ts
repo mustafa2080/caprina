@@ -199,13 +199,14 @@ router.get("/employee-profiles", async (req, res): Promise<void> => {
   // ─── نفس getPayPeriod اللي بيستخدمه employee-report ────────────────────────
   const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const { dateFrom: mFrom, dateTo: mTo } = getPayPeriod(currentMonthStr);
-  const periodStart = mFrom.toISOString().slice(0, 10); // "2026-05-26"
-  const periodEnd   = mTo.toISOString().slice(0, 10);   // "2026-06-25"
+  const periodStart = mFrom.toISOString().slice(0, 10);
+  const periodEnd   = mTo.toISOString().slice(0, 10);
 
-  // dayNum = أيام مرت من بداية الفترة حتى اليوم
-  const dayNum = Math.max(1, Math.floor((now.getTime() - mFrom.getTime()) / (1000 * 60 * 60 * 24)) + 1);
-  // daysInMonth = إجمالي أيام الفترة (30 يوم عادةً)
-  const daysInMonth = Math.round((mTo.getTime() - mFrom.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  // نفس employee-report بالظبط:
+  // reportDayNumber  = now.getDate()
+  // reportDaysInMonth = أيام الشهر اللي فيه dateFrom (مش عدد أيام الفترة)
+  const dayNum      = now.getDate();
+  const daysInMonth = new Date(mFrom.getFullYear(), mFrom.getMonth() + 1, 0).getDate();
 
   const allLogs = await db
     .select({ profileId: employeeDailyLogsTable.profileId, kpiId: employeeDailyLogsTable.kpiId, total: sum(employeeDailyLogsTable.value) })
@@ -234,6 +235,8 @@ router.get("/employee-profiles", async (req, res): Promise<void> => {
   }
   const dailyTarget = 1; // target يوم واحد = targetValue / daysInMonth
   const dailyScoreMap: Record<number, number | null> = {};
+  const todayDateObj = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  const todayDateObjEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
   const todayStr2 = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
   // ─── overallScore + dailyScore: نفس منطق employee-report بالظبط ────────────
@@ -270,9 +273,15 @@ router.get("/employee-profiles", async (req, res): Promise<void> => {
       // effectiveTarget = targetValue / daysInMonth  ← target يوم واحد
       const scoredD: { score: number; weight: number }[] = [];
       for (const kpi of kpis2) {
-        if (kpi.metric !== "manual") continue;
+        let todayActual: number | null = null;
+        if (kpi.metric === "manual") {
+          todayActual = todayProfileLogs[kpi.id] ?? 0;
+        } else {
+          // للـ non-manual: احسب اليوم فقط من computeActualValue
+          todayActual = userId2 ? await computeActualValue(kpi.metric, userId2, todayDateObj, todayDateObjEnd, tenantId2) : null;
+        }
+        if (todayActual === null) continue;
         const oneDayTarget = kpi.targetValue / daysInMonth;
-        const todayActual  = todayProfileLogs[kpi.id] ?? 0;
         scoredD.push({ score: computeKpiScore(todayActual, oneDayTarget, kpi.direction ?? "higher_is_better"), weight: kpi.weight ?? 1 });
       }
       const twD = scoredD.reduce((s, k) => s + k.weight, 0);
