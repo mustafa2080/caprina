@@ -211,6 +211,8 @@ router.get("/employee-profiles", async (req, res): Promise<void> => {
   }
   const dayNum = now.getDate();
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  // ─── حساب overallScore لكل موظف — نفس منطق employee-report (monthly, current month) ──
+  const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const overallScoreMap: Record<number, number | null> = {};
   for (const r of filtered) {
     const pid = r.profile.id;
@@ -220,18 +222,25 @@ router.get("/employee-profiles", async (req, res): Promise<void> => {
     const scored: { score: number; weight: number }[] = [];
     for (const kpi of kpis2) {
       if (kpi.metric !== "manual") continue;
+      // progressive target حتى اليوم — نفس منطق employee-report
       const effTarget = Math.max(1, Math.round((kpi.targetValue / daysInMonth) * dayNum));
+      // الـ actual = مجموع اليوميات من بداية الشهر حتى اليوم فقط
+      // logsMap بيجيب من monthStart2 = "YYYY-MM-01" إلى monthEnd2 = "YYYY-MM-31"
+      // لكن بما إن اليوميات بتُسجَّل يوم بيوم فالـ cumulative الحالي = مجموع ما أُدخل فعلاً
       const actual = profileLogs[kpi.id] ?? 0;
-      const rawScore = Math.round((actual / effTarget) * 100);
       const kpiScore = kpi.direction === "lower_is_better"
         ? (actual <= effTarget ? 100 : Math.max(0, Math.round((effTarget / actual) * 100)))
-        : Math.min(100, rawScore);
+        : Math.min(100, Math.round((actual / effTarget) * 100));
       scored.push({ score: kpiScore, weight: kpi.weight ?? 1 });
     }
     if (scored.length > 0) {
       const tw = scored.reduce((s: number, k: any) => s + k.weight, 0);
-      overallScoreMap[pid] = tw > 0 ? Math.round(scored.reduce((s: number, k: any) => s + k.score * k.weight, 0) / tw) : null;
-    } else { overallScoreMap[pid] = null; }
+      overallScoreMap[pid] = tw > 0
+        ? Math.round(scored.reduce((s: number, k: any) => s + k.score * k.weight, 0) / tw)
+        : null;
+    } else {
+      overallScoreMap[pid] = null;
+    }
   }
   res.json(filtered.map((r) => ({
     ...mergeProfile(r.profile, r.user),
