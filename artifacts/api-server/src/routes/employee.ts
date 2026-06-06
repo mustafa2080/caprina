@@ -269,6 +269,30 @@ router.get("/employee-profiles", async (req, res): Promise<void> => {
       const twM = scoredM.reduce((s, k) => s + k.weight, 0);
       overallScoreMap[pid] = twM > 0 ? Math.round(scoredM.reduce((s, k) => s + k.score * k.weight, 0) / twM) : null;
 
+      // ── fallback شهري من الطلبات لو مفيش KPIs (نفس employee-report) ──────────
+      if (overallScoreMap[pid] === null && userId2) {
+        const mOrders = await db.select().from(ordersTable).where(and(
+          or(eq(ordersTable.assignedUserId, userId2), eq(ordersTable.createdByUserId, userId2)),
+          gte(ordersTable.createdAt, mFrom), lte(ordersTable.createdAt, mTo),
+          isNull(ordersTable.deletedAt),
+          tenantId2 != null ? eq(ordersTable.tenantId, tenantId2) : undefined
+        ));
+        if (mOrders.length > 0) {
+          const _sp: Record<string, number> = { pending:1,in_shipping:2,warehouse_ready:3,delayed:4,partial_received:5,received:6,returned:7 };
+          const _imap = new Map<string, (typeof ordersTable.$inferSelect)[]>();
+          for (const o of mOrders) { const k = o.invoiceNumber ?? `solo-${o.id}`; if (!_imap.has(k)) _imap.set(k,[]); _imap.get(k)!.push(o); }
+          const _inv = Array.from(_imap.values()).map(rows => { const ss=rows.map(r=>r.status); return [...ss].sort((a,b)=>(_sp[a]??99)-(_sp[b]??99))[0]; });
+          const mDel = _inv.filter(s => s === "received" || s === "partial_received").length;
+          const mRet = _inv.filter(s => s === "returned").length;
+          const mClosed = mDel + mRet;
+          if (mClosed > 0) {
+            const cdr = Math.round((mDel / mClosed) * 100);
+            const crr = Math.round((mRet / mClosed) * 100);
+            overallScoreMap[pid] = Math.round(cdr * 0.6 + Math.max(0, 100 - crr * 2) * 0.4);
+          }
+        }
+      }
+
       // ── يومي: نفس employee-report في daily mode ──────────────────────────────
       // effectiveTarget = targetValue / daysInMonth  ← target يوم واحد
       const scoredD: { score: number; weight: number }[] = [];
@@ -286,6 +310,26 @@ router.get("/employee-profiles", async (req, res): Promise<void> => {
       }
       const twD = scoredD.reduce((s, k) => s + k.weight, 0);
       dailyScoreMap[pid] = twD > 0 ? Math.round(scoredD.reduce((s, k) => s + k.score * k.weight, 0) / twD) : null;
+
+      // ── fallback يومي من طلبات اليوم لو مفيش KPIs (نفس profile.tsx) ──────────
+      if (dailyScoreMap[pid] === null && userId2) {
+        const dOrders = await db.select().from(ordersTable).where(and(
+          or(eq(ordersTable.assignedUserId, userId2), eq(ordersTable.createdByUserId, userId2)),
+          gte(ordersTable.createdAt, todayDateObj), lte(ordersTable.createdAt, todayDateObjEnd),
+          isNull(ordersTable.deletedAt),
+          tenantId2 != null ? eq(ordersTable.tenantId, tenantId2) : undefined
+        ));
+        if (dOrders.length > 0) {
+          const dDel = dOrders.filter(o => o.status === "received" || o.status === "partial_received").length;
+          const dRet = dOrders.filter(o => o.status === "returned").length;
+          const dClosed = dDel + dRet;
+          if (dClosed > 0) {
+            const dcdr = Math.round((dDel / dClosed) * 100);
+            const dcrr = Math.round((dRet / dClosed) * 100);
+            dailyScoreMap[pid] = Math.round(dcdr * 0.6 + Math.max(0, 100 - dcrr * 2) * 0.4);
+          }
+        }
+      }
 
     } catch { overallScoreMap[pid] = null; dailyScoreMap[pid] = null; }
   }));
