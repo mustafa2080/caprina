@@ -500,8 +500,13 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
 
   // daily mode: fetch only the selected day's value per KPI (todayValue)
   // monthly mode: fetch cumulative sum for the whole month
-  const manualLogsDateStart = dateFrom.toISOString().slice(0, 10);
-  const manualLogsDateEnd   = dateTo.toISOString().slice(0, 10);
+  // Use dateParam directly in daily mode to avoid UTC timezone shift
+  const manualLogsDateStart = mode === "daily" && dateParam
+    ? dateParam
+    : dateFrom.toISOString().slice(0, 10);
+  const manualLogsDateEnd = mode === "daily" && dateParam
+    ? dateParam
+    : dateTo.toISOString().slice(0, 10);
   const manualLogs = await db
     .select({ kpiId: employeeDailyLogsTable.kpiId, total: sum(employeeDailyLogsTable.value) })
     .from(employeeDailyLogsTable)
