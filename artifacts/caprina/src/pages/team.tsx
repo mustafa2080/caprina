@@ -2509,7 +2509,7 @@ function StarEmployeesManageTab() {
 
 
 // ─── My Dashboard Tab ────────────────────────────────────────────────────────
-function MyDashboardTab({ profileId, monthlySalary }: {
+export function MyDashboardTab({ profileId, monthlySalary }: {
   profileId: number; monthlySalary: number;
 }) {
   const today = new Date().toISOString().slice(0, 10);
