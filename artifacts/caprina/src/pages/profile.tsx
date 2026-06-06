@@ -284,9 +284,10 @@ function DashboardTab({ myStats, profile, externalViewMode, externalDate, onView
     return Math.round(closedDeliveryRate * 0.6 + returnPenalty * 0.4);
   }, [viewMode, dailyLogs, dayDelivered, dayReturned]);
 
-  // في daily mode: dailyScoreLocal (من متابعة يومية) هو المصدر الأساسي
+  // في daily mode: استخدم dailyReport?.overallScore (من getMyReport) — نفس مصدر KpisTab
+  // fallback: dailyScoreLocal (من getDailyLogs) لو مفيش report
   const activeScore   = viewMode === "daily"
-    ? (dailyScoreLocal ?? activeReport?.overallScore)
+    ? (activeReport?.overallScore ?? dailyScoreLocal)
     : score;
   const activeRating  = activeScore == null ? null
     : activeScore >= 80 ? "ممتاز" : activeScore >= 65 ? "جيد جداً"
