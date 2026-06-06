@@ -167,7 +167,7 @@ function DashboardTab({ myStats, profile, externalViewMode, externalDate, onView
   onViewModeChange?: (m: "monthly" | "daily") => void;
   onDateChange?: (d: string) => void;
 }) {
-  const [_viewMode, _setViewMode] = useState<"monthly" | "daily">("monthly");
+  const [_viewMode, _setViewMode] = useState<"monthly" | "daily">("daily");
   const [_selectedDate, _setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
 
   // استخدم الـ external state لو موجود، وإلا الـ internal
