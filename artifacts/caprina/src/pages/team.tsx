@@ -4928,6 +4928,11 @@ function EmployeeScoreRing({ profileId, monthProgress, dailyScore, attendanceSco
   // circumference لـ r=38 → 2×π×38 = 238.8 — نفس MyDashboardTab بالظبط
   const circ = 238.8;
   const dash = (Math.min(monthly ?? 0, 100) / 100) * circ;
+  // الحالة تظهر فقط في آخر 10 أيام من الشهر
+  const _now = new Date();
+  const _daysInMonth = new Date(_now.getFullYear(), _now.getMonth() + 1, 0).getDate();
+  const _dayOfMonth = _now.getDate();
+  const showStatusLabel = _dayOfMonth >= _daysInMonth - 9;
 
   return (
     <div className={`rounded-xl p-3 border ${statusBg} flex flex-col gap-2`}>
@@ -4948,7 +4953,7 @@ function EmployeeScoreRing({ profileId, monthProgress, dailyScore, attendanceSco
           </div>
         </div>
         <div className="flex-1 min-w-0 space-y-1.5">
-          <p className={`text-[10px] font-bold leading-tight ${scoreText}`}>{statusLabel}</p>
+          <p className={`text-[10px] font-bold leading-tight ${scoreText}`}>{showStatusLabel ? statusLabel : `${monthly !== null ? monthly + "%" : "—"}`}</p>
           {/* دائرتين صغيرتين: يومي + حضور */}
           <div className="flex items-center gap-2">
             {[{ label: "يومي", score: dailyScore }, { label: "حضور", score: attendanceScore }].map(({ label, score }) => {
