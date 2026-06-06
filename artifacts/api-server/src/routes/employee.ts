@@ -211,6 +211,23 @@ router.get("/employee-profiles", async (req, res): Promise<void> => {
   }
   const dayNum = now.getDate();
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+
+  // ─── today's logs لحساب dailyScore ──────────────────────────────────────────
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const todayLogs = await db
+    .select({ profileId: employeeDailyLogsTable.profileId, kpiId: employeeDailyLogsTable.kpiId, total: sum(employeeDailyLogsTable.value) })
+    .from(employeeDailyLogsTable)
+    .where(and(eq(employeeDailyLogsTable.date, todayStr)))
+    .groupBy(employeeDailyLogsTable.profileId, employeeDailyLogsTable.kpiId);
+  const todayLogsMap: Record<number, Record<number, number>> = {};
+  for (const l of todayLogs) {
+    if (l.profileId == null || l.kpiId == null) continue;
+    if (!todayLogsMap[l.profileId]) todayLogsMap[l.profileId] = {};
+    todayLogsMap[l.profileId][l.kpiId] = parseFloat(String(l.total ?? "0"));
+  }
+  const dailyTarget = 1; // target يوم واحد = targetValue / daysInMonth
+  const dailyScoreMap: Record<number, number | null> = {};
+
   // ─── overallScore: نجيبه من employee-report لكل موظف عشان يشمل كل أنواع KPIs ──
   const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const overallScoreMap: Record<number, number | null> = {};
@@ -246,18 +263,37 @@ router.get("/employee-profiles", async (req, res): Promise<void> => {
           : Math.min(100, Math.round((actual / effTarget) * 100));
         scored.push({ score: kpiScore, weight: kpi.weight ?? 1 });
       }
-      if (scored.length === 0) { overallScoreMap[pid] = null; return; }
+      if (scored.length === 0) { overallScoreMap[pid] = null; dailyScoreMap[pid] = null; return; }
       const tw = scored.reduce((s: number, k: any) => s + k.weight, 0);
       overallScoreMap[pid] = tw > 0
         ? Math.round(scored.reduce((s: number, k: any) => s + k.score * k.weight, 0) / tw)
         : null;
-    } catch { overallScoreMap[pid] = null; }
+
+      // ─── dailyScore: قيمة اليوم فقط vs target يوم واحد ──────────────────────
+      const todayProfileLogs = todayLogsMap[pid] ?? {};
+      const scoredDaily: { score: number; weight: number }[] = [];
+      for (const kpi of kpis2) {
+        if (kpi.metric !== "manual") continue;
+        const oneDayTarget = Math.max(1, Math.round(kpi.targetValue / daysInMonth));
+        const todayActual = todayProfileLogs[kpi.id] ?? 0;
+        const s = kpi.direction === "lower_is_better"
+          ? (todayActual <= oneDayTarget ? 100 : Math.max(0, Math.round((oneDayTarget / todayActual) * 100)))
+          : Math.min(100, Math.round((todayActual / oneDayTarget) * 100));
+        scoredDaily.push({ score: s, weight: kpi.weight ?? 1 });
+      }
+      if (scoredDaily.length === 0) { dailyScoreMap[pid] = null; return; }
+      const twD = scoredDaily.reduce((s: number, k: any) => s + k.weight, 0);
+      dailyScoreMap[pid] = twD > 0
+        ? Math.round(scoredDaily.reduce((s: number, k: any) => s + k.score * k.weight, 0) / twD)
+        : null;
+    } catch { overallScoreMap[pid] = null; dailyScoreMap[pid] = null; }
   }));
   res.json(filtered.map((r) => ({
     ...mergeProfile(r.profile, r.user),
     kpiCount: kpiCountMap[r.profile.id] ?? 0,
     attendanceSummary: attMap[r.profile.id] ?? { workedDays: 0, absentDays: 0, lateDays: 0 },
     overallScore: overallScoreMap[r.profile.id] ?? null,
+    dailyScore: dailyScoreMap[r.profile.id] ?? null,
   })));
 });
 
