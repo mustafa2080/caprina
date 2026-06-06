@@ -305,12 +305,18 @@ function Router() {
 
   if (!user) return <Redirect to="/login" />;
 
+  // موظف مبيعات → الصفحة الرئيسية هي لوحتي
+  if (user?.role === "employee" && location === "/") {
+    return <Redirect to="/my-dashboard" />;
+  }
+
   return (
     <>
       <VideoBackgroundSync />
       <Layout>
       <Suspense fallback={<PageLoader />}>
         <Switch>
+          <Route path="/my-dashboard"             component={ProfilePage} />
           <Route path="/"                         component={() => <ProtectedRoute permission="dashboard.view" component={Dashboard} />} />
           <Route path="/orders"                   component={() => <ProtectedRoute permission="orders.view" component={Orders} />} />
           <Route path="/orders/new"               component={() => <ProtectedRoute permission="orders.create" component={OrderForm} />} />
