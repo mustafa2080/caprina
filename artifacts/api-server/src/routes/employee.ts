@@ -826,9 +826,10 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
     .from(employeeKpisTable)
     .where(and(eq(employeeKpisTable.profileId, profileId), eq(employeeKpisTable.isActive, true)));
 
-  // Cumulative sum for manual KPIs from daily logs in this month
-  const monthStartMR = dateFrom.toISOString().slice(0, 10);
-  const monthEndMR   = dateTo.toISOString().slice(0, 10);
+  // daily mode: fetch only the selected day's value — use dateParam to avoid UTC shift
+  // monthly mode: fetch cumulative sum for the whole month
+  const monthStartMR = modeParam === "daily" && dateParam ? dateParam : dateFrom.toISOString().slice(0, 10);
+  const monthEndMR   = modeParam === "daily" && dateParam ? dateParam : dateTo.toISOString().slice(0, 10);
   const manualLogsMR = await db
     .select({ kpiId: employeeDailyLogsTable.kpiId, total: sum(employeeDailyLogsTable.value) })
     .from(employeeDailyLogsTable)
@@ -897,9 +898,11 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
       } else {
         actualValue = await computeActualValue(kpi.metric, userId, dateFrom, dateTo, (profile as any).tenantId);
       }
-      const effectiveTarget = isCurrentMonthMR
-        ? Math.max(1, Math.round((kpi.targetValue / reportDaysInMonthMR) * reportDayNumberMR))
-        : kpi.targetValue;
+      const effectiveTarget = modeParam === "daily"
+        ? kpi.targetValue / reportDaysInMonthMR
+        : isCurrentMonthMR
+          ? Math.max(1, Math.round((kpi.targetValue / reportDaysInMonthMR) * reportDayNumberMR))
+          : kpi.targetValue;
       const score = actualValue !== null ? computeKpiScore(actualValue, effectiveTarget, kpi.direction) : null;
       const achieved = score !== null ? (kpi.direction === "lower_is_better" ? score >= 70 : score >= 80) : null;
       return { ...kpi, actualValue, score, achieved, effectiveTarget };
