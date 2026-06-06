@@ -2634,7 +2634,7 @@ function MyDashboardTab({ profileId, monthlySalary }: {
             </div>
           </div>
           <div className="flex-1 space-y-2">
-            <p className={`text-sm font-bold ${statusColor}`}>{statusLabel}</p>
+            <p className={`text-sm font-bold ${statusColor}`}>{dayOfMonth >= daysInMonth - 9 ? statusLabel : overallScore !== null ? `${overallScore}%` : "—"}</p>
             <p className="text-xs text-muted-foreground">{periodLabel}</p>
             {scoreDiff !== null && (
               <div className={`flex items-center gap-1 text-xs font-bold ${scoreDiff >= 0 ? "text-emerald-500" : "text-red-500"}`}>
