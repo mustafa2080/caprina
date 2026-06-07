@@ -2919,72 +2919,137 @@ export function MyDashboardTab({ profileId, monthlySalary }: {
         const rr = os2?.returnRate ?? 0;
         const dr = os2?.deliveryRate ?? 0;
         const sv = overallScore ?? 0;
-        type Risk = "high"|"medium"|"low";
-        const items: { label: string; risk: Risk; value: string; note: string }[] = [];
-        if (rr >= 25) items.push({ label: "نسبة الإرجاع", risk: "high", value: `${rr.toFixed(1)}%`, note: "أعلى من 20%" });
-        else if (rr >= 15) items.push({ label: "نسبة الإرجاع", risk: "medium", value: `${rr.toFixed(1)}%`, note: "قريب من الحد" });
-        else items.push({ label: "نسبة الإرجاع", risk: "low", value: `${rr.toFixed(1)}%`, note: "طبيعي" });
-        if (dr < 60) items.push({ label: "نسبة التسليم", risk: "high", value: `${dr.toFixed(1)}%`, note: "أقل من الحد الأدنى" });
-        else if (dr < 80) items.push({ label: "نسبة التسليم", risk: "medium", value: `${dr.toFixed(1)}%`, note: "يحتاج تحسين" });
-        else items.push({ label: "نسبة التسليم", risk: "low", value: `${dr.toFixed(1)}%`, note: "في المستهدف" });
-        if (sv < 40) items.push({ label: "النقاط", risk: "high", value: `${sv}`, note: "حرج" });
-        else if (sv < 60) items.push({ label: "النقاط", risk: "medium", value: `${sv}`, note: "يحتاج تحسين" });
-        else items.push({ label: "النقاط", risk: "low", value: `${sv}`, note: "جيد" });
-        items.sort((a,b)=>({high:0,medium:1,low:2}[a.risk]-{high:0,medium:1,low:2}[b.risk]));
-        const rcMap: Record<Risk,{text:string;bg:string;border:string;dot:string}> = {
-          high:   {text:"text-rose-400",bg:"bg-gradient-to-br from-rose-500/20 to-rose-500/5",border:"border-rose-500/30",dot:"bg-rose-500"},
-          medium: {text:"text-amber-400",bg:"bg-gradient-to-br from-amber-500/20 to-amber-500/5",border:"border-amber-500/30",dot:"bg-amber-500"},
-          low:    {text:"text-emerald-400",bg:"bg-gradient-to-br from-emerald-500/20 to-emerald-500/5",border:"border-emerald-500/30",dot:"bg-emerald-500"},
+
+        type Risk = "high" | "medium" | "low";
+        type Item = { label: string; risk: Risk; value: string; note: string; target: string; pct: number };
+
+        const items: Item[] = [];
+
+        // نسبة الإرجاع (كلما قلت كان أفضل — الهدف < 10%)
+        const rrPct = Math.min(100, Math.round((rr / 30) * 100));
+        if (rr >= 25)      items.push({ label: "نسبة الإرجاع",  risk: "high",   value: `${rr.toFixed(1)}%`,  note: "يتجاوز الحد المسموح به",    target: "الهدف < 10%",  pct: rrPct });
+        else if (rr >= 15) items.push({ label: "نسبة الإرجاع",  risk: "medium", value: `${rr.toFixed(1)}%`,  note: "قريب من الحد التحذيري",      target: "الهدف < 10%",  pct: rrPct });
+        else               items.push({ label: "نسبة الإرجاع",  risk: "low",    value: `${rr.toFixed(1)}%`,  note: "ضمن النطاق المقبول",          target: "الهدف < 10%",  pct: rrPct });
+
+        // نسبة التسليم (كلما زادت كان أفضل — الهدف > 85%)
+        const drPct = Math.min(100, Math.round(dr));
+        if (dr < 60)       items.push({ label: "نسبة التسليم",  risk: "high",   value: `${dr.toFixed(1)}%`,  note: "أقل من الحد الأدنى المطلوب", target: "الهدف > 85%",  pct: drPct });
+        else if (dr < 85)  items.push({ label: "نسبة التسليم",  risk: "medium", value: `${dr.toFixed(1)}%`,  note: "يحتاج تحسين للوصول للهدف",   target: "الهدف > 85%",  pct: drPct });
+        else               items.push({ label: "نسبة التسليم",  risk: "low",    value: `${dr.toFixed(1)}%`,  note: "يحقق الهدف المطلوب",          target: "الهدف > 85%",  pct: drPct });
+
+        // نقاط الأداء (الهدف > 80)
+        const svPct = Math.min(100, Math.round(sv));
+        if (sv < 40)       items.push({ label: "نقاط الأداء",   risk: "high",   value: `${sv}`,              note: "يحتاج تدخل عاجل",             target: "الهدف > 80",   pct: svPct });
+        else if (sv < 80)  items.push({ label: "نقاط الأداء",   risk: "medium", value: `${sv}`,              note: "مجال واسع للتحسين",           target: "الهدف > 80",   pct: svPct });
+        else               items.push({ label: "نقاط الأداء",   risk: "low",    value: `${sv}`,              note: "أداء ممتاز",                  target: "الهدف > 80",   pct: svPct });
+
+        items.sort((a, b) => ({ high: 0, medium: 1, low: 2 }[a.risk] - { high: 0, medium: 1, low: 2 }[b.risk]));
+
+        const cfg: Record<Risk, {
+          label: string; icon: string;
+          barColor: string; glowColor: string;
+          cardBg: string; cardBorder: string;
+          valueBg: string; valueText: string;
+          tagBg: string; tagText: string;
+        }> = {
+          high: {
+            label: "خطر عالي", icon: "🔴",
+            barColor: "#ef4444", glowColor: "rgba(239,68,68,0.4)",
+            cardBg: "linear-gradient(145deg,#1c0a0a,#2d0f0f)",
+            cardBorder: "1px solid rgba(239,68,68,0.35)",
+            valueBg: "rgba(239,68,68,0.15)", valueText: "#f87171",
+            tagBg: "rgba(239,68,68,0.2)", tagText: "#fca5a5",
+          },
+          medium: {
+            label: "تحذير", icon: "🟡",
+            barColor: "#f59e0b", glowColor: "rgba(245,158,11,0.4)",
+            cardBg: "linear-gradient(145deg,#1a1200,#2b1e00)",
+            cardBorder: "1px solid rgba(245,158,11,0.35)",
+            valueBg: "rgba(245,158,11,0.15)", valueText: "#fbbf24",
+            tagBg: "rgba(245,158,11,0.2)", tagText: "#fde68a",
+          },
+          low: {
+            label: "آمن", icon: "🟢",
+            barColor: "#22c55e", glowColor: "rgba(34,197,94,0.4)",
+            cardBg: "linear-gradient(145deg,#071a0e,#0c2d18)",
+            cardBorder: "1px solid rgba(34,197,94,0.35)",
+            valueBg: "rgba(34,197,94,0.15)", valueText: "#4ade80",
+            tagBg: "rgba(34,197,94,0.2)", tagText: "#86efac",
+          },
         };
-        
-        const getLabelText = (itemLabel: string, risk: Risk): string => {
-          if (itemLabel === "نسبة الإرجاع") {
-            return risk === "high" ? "خطر مرتفع التأثير" : risk === "medium" ? "خطر متوسط التأثير" : "خطر منخفض التأثير";
-          } else if (itemLabel === "نسبة التسليم") {
-            return risk === "high" ? "حرج" : risk === "medium" ? "قريب من المستهدف" : "على المسار الصحيح";
-          } else if (itemLabel === "النقاط") {
-            return risk === "high" ? "حرج" : risk === "medium" ? "يحتاج تحسين" : "جيد";
-          }
-          return "";
-        };
-        
+
         return (
           <div className="rounded-2xl border border-border bg-card overflow-hidden">
-            <div className="px-5 py-4 border-b border-border/50 flex items-start justify-between gap-3"
-              style={{ background: "linear-gradient(135deg, hsl(var(--primary)/0.08) 0%, transparent 60%)" }}>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">⚠️</span>
-                  <span className="font-black text-base">مصفوفة مخاطر المؤشرات</span>
+            {/* Header */}
+            <div className="px-5 py-4 border-b border-border/40 flex items-center justify-between"
+              style={{ background: "linear-gradient(135deg,rgba(255,255,255,0.04) 0%,transparent 60%)" }}>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center"
+                  style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)" }}>
+                  <span className="text-sm">⚠️</span>
                 </div>
-                <p className="text-xs text-muted-foreground">تصنيف حسب الأداء × البيان المالي</p>
+                <div>
+                  <p className="font-black text-sm">مصفوفة مخاطر المؤشرات</p>
+                  <p className="text-[10px] text-muted-foreground/60">تصنيف حسب الأداء × البيان المالي</p>
+                </div>
+              </div>
+              {/* Legend */}
+              <div className="hidden sm:flex items-center gap-3 text-[10px] text-muted-foreground/70">
+                {(["high","medium","low"] as Risk[]).map(r => (
+                  <span key={r} className="flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full inline-block"
+                      style={{ background: cfg[r].barColor }} />
+                    {cfg[r].label}
+                  </span>
+                ))}
               </div>
             </div>
-            <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {items.map((item,i) => {
-                const rc = rcMap[item.risk];
-                const statusLabel = getLabelText(item.label, item.risk);
+
+            {/* Cards */}
+            <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {items.map((item, i) => {
+                const c = cfg[item.risk];
                 return (
-                  <div key={i} className={`rounded-2xl border ${rc.border} ${rc.bg} p-5 flex flex-col gap-4 transition-all hover:shadow-md relative overflow-hidden`}>
-                    {/* Subtle pattern background */}
-                    <div className="absolute inset-0 opacity-5" style={{
-                      backgroundImage: "repeating-linear-gradient(90deg, currentColor 0px, currentColor 1px, transparent 1px, transparent 20px)"
-                    }}/>
-                    
-                    {/* Header: Label + Value */}
-                    <div className="flex items-center justify-between gap-3 relative z-10">
-                      <div className="flex items-center gap-2.5">
-                        <span className={`w-3 h-3 rounded-full shrink-0 ${rc.dot}`}/>
-                        <span className="font-black text-sm">{statusLabel}</span>
-                      </div>
-                      <span className={`text-2xl font-black ${rc.text} shrink-0`}>{item.value}</span>
+                  <div key={i} className="rounded-xl p-4 flex flex-col gap-3 relative overflow-hidden"
+                    style={{ background: c.cardBg, border: c.cardBorder }}>
+
+                    {/* Glow accent top-right */}
+                    <div className="absolute -top-6 -right-6 w-20 h-20 rounded-full opacity-20 pointer-events-none"
+                      style={{ background: `radial-gradient(circle, ${c.barColor}, transparent 70%)` }} />
+
+                    {/* Row 1: مؤشر + tag */}
+                    <div className="flex items-center justify-between gap-2 relative z-10">
+                      <span className="text-[11px] text-white/60 font-medium">{item.label}</span>
+                      <span className="text-[9px] font-bold rounded-full px-2 py-0.5"
+                        style={{ background: c.tagBg, color: c.tagText }}>
+                        {c.icon} {c.label}
+                      </span>
                     </div>
-                    
-                    {/* Content: Item label */}
-                    <p className="text-sm font-bold text-foreground relative z-10">{item.label}</p>
-                    
-                    {/* Note */}
-                    {item.note && <p className="text-xs text-muted-foreground relative z-10">{item.note}</p>}
+
+                    {/* Row 2: القيمة الكبيرة */}
+                    <div className="flex items-end justify-between gap-2 relative z-10">
+                      <span className="text-3xl font-black leading-none" style={{ color: c.valueText }}>
+                        {item.value}
+                      </span>
+                      <span className="text-[9px] text-white/40 mb-0.5">{item.target}</span>
+                    </div>
+
+                    {/* Row 3: Progress bar */}
+                    <div className="relative z-10">
+                      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
+                        <div className="h-full rounded-full transition-all duration-700"
+                          style={{
+                            width: `${item.pct}%`,
+                            background: c.barColor,
+                            boxShadow: `0 0 6px ${c.glowColor}`,
+                          }} />
+                      </div>
+                    </div>
+
+                    {/* Row 4: ملاحظة */}
+                    <p className="text-[10px] relative z-10" style={{ color: "rgba(255,255,255,0.45)" }}>
+                      {item.note}
+                    </p>
                   </div>
                 );
               })}
