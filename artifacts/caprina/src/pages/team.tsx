@@ -2813,82 +2813,98 @@ export function MyDashboardTab({ profileId, monthlySalary }: {
         const dp = now.getDate();
         const mPct = Math.round((dp / dim) * 100);
         return (
-          <div className="rounded-2xl border border-border bg-card overflow-hidden">
-            {/* هيدر */}
-            <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between"
-              style={{ background: "linear-gradient(to left, hsl(var(--primary)/0.08), transparent)" }}>
-              <div className="flex items-center gap-2">
-                <span className="text-sm">📊</span>
-                <span className="font-black text-sm">متتبع سرعة الإنجاز</span>
+          <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm">
+            {/* ── هيدر ── */}
+            <div className="px-5 py-4 flex items-start justify-between gap-3 border-b border-border/50"
+              style={{ background: "linear-gradient(135deg, hsl(var(--primary)/0.06) 0%, transparent 60%)" }}>
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">📊</span>
+                  <span className="font-black text-base">متتبع سرعة الإنجاز</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground pr-6">هل ستصل للهدف قبل نهاية الشهر بناءً على معدلك الحالي؟</p>
               </div>
-              <span className="text-[10px] text-muted-foreground/70 bg-muted/30 rounded-full px-2.5 py-0.5">
-                مز {dp} يوم من {dim} ({mPct}% من الشهر)
-              </span>
+              <div className="flex items-center gap-1.5 bg-muted/40 border border-border/50 rounded-lg px-3 py-1.5 shrink-0">
+                <span className="text-[10px] text-muted-foreground">مرّ</span>
+                <span className="text-[11px] font-bold text-foreground">{dp}</span>
+                <span className="text-[10px] text-muted-foreground">من</span>
+                <span className="text-[11px] font-bold text-foreground">{dim}</span>
+                <span className="text-[10px] text-muted-foreground">يوم</span>
+                <span className="text-[10px] text-primary font-bold bg-primary/10 rounded-md px-1.5 py-0.5 mr-1">
+                  {mPct}%
+                </span>
+              </div>
             </div>
-            {/* وصف */}
-            <div className="px-4 pt-2 pb-1">
-              <p className="text-[11px] text-muted-foreground">هل الموظف سيصل للهدف قبل نهاية الشهر بناءً على معدله الحالي؟</p>
-            </div>
-            {/* كروت KPI */}
-            <div className="p-3 space-y-3">
+
+            {/* ── كروت KPI ── */}
+            <div className="p-4 space-y-3">
               {velKpis.map((kpi: any) => {
-                const sc = Math.min(kpi.score ?? 0, 150);
+                const sc        = Math.min(kpi.score ?? 0, 150);
                 const projected = mPct > 0 ? Math.min(Math.round((sc / mPct) * 100), 150) : sc;
-                const velocity = Math.round(projected - 100);
+                const velocity  = Math.round(projected - 100);
                 const willReach = projected >= 100;
-                const isOT = sc > 100;
-                const barColor   = isOT ? "#3b82f6"  : willReach ? "#10b981" : "#ef4444";
-                const projColor  = isOT ? "#93c5fd"  : willReach ? "#6ee7b7" : "#fca5a5";
+                const isOT      = sc > 100;
+
+                const accent = isOT
+                  ? { bar: "#3b82f6", glow: "rgba(59,130,246,0.3)", proj: "rgba(59,130,246,0.18)", border: "border-blue-500/25", bg: "bg-blue-500/5" }
+                  : willReach
+                  ? { bar: "#10b981", glow: "rgba(16,185,129,0.3)", proj: "rgba(16,185,129,0.18)", border: "border-emerald-500/25", bg: "bg-emerald-500/5" }
+                  : { bar: "#ef4444", glow: "rgba(239,68,68,0.25)",  proj: "rgba(239,68,68,0.12)",  border: "border-red-500/20",     bg: "bg-red-500/5" };
+
                 const badgeLabel = isOT ? "فوق الهدف" : willReach ? "سيصل للهدف" : "يحتاج تسريع";
                 const badgeCls   = isOT
-                  ? "bg-blue-600 text-white border-blue-500"
+                  ? "bg-blue-500/15 text-blue-400 border border-blue-500/40"
                   : willReach
-                  ? "bg-emerald-600 text-white border-emerald-500"
-                  : "bg-red-600 text-white border-red-500";
+                  ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/40"
+                  : "bg-red-500/15 text-red-400 border border-red-500/40";
                 const badgeIcon  = isOT ? "🚀" : willReach ? "✅" : "⚡";
-                const velColor   = velocity >= 0 ? "text-emerald-400" : "text-red-400";
-                /* عرض البارين: الفعلي solid، التوقع striped خفيف */
-                const solidW   = `${Math.min(sc, 100)}%`;
-                const projW    = `${Math.min(projected, 100)}%`;
-                const monthW   = `${Math.min(mPct, 100)}%`;
+                const velColor   = velocity >= 0 ? "#10b981" : "#ef4444";
+
                 return (
-                  <div key={kpi.id} className="rounded-xl border border-border/60 bg-muted/10 px-4 py-3 space-y-2.5">
-                    {/* صف: اسم يمين — badge شمال */}
+                  <div key={kpi.id}
+                    className={`rounded-xl border ${accent.border} ${accent.bg} px-4 py-3.5 space-y-3 transition-all duration-200`}>
+
+                    {/* صف العنوان */}
                     <div className="flex items-center justify-between gap-2">
-                      <span className={`text-[10px] font-black rounded-md px-2.5 py-1 border ${badgeCls}`}>
+                      <span className={`text-[10px] font-bold rounded-full px-2.5 py-0.5 ${badgeCls}`}>
                         {badgeIcon} {badgeLabel}
                       </span>
-                      <span className="text-sm font-bold text-right">{kpi.name}</span>
+                      <span className="text-sm font-bold">{kpi.name}</span>
                     </div>
-                    {/* Progress bar */}
-                    <div className="relative w-full h-4 rounded-full bg-muted/30 overflow-hidden">
-                      {/* Projected (striped خفيف) */}
-                      {projected > sc && (
-                        <div className="absolute top-0 right-0 h-full rounded-full"
+
+                    {/* Progress bar احترافي */}
+                    <div className="space-y-1.5">
+                      <div className="relative w-full h-3 rounded-full overflow-hidden"
+                        style={{ background: "rgba(255,255,255,0.06)" }}>
+                        {/* الجزء المتوقع (خلفي شفاف) */}
+                        <div className="absolute inset-y-0 right-0 rounded-full transition-all duration-700"
+                          style={{ width: `${Math.min(projected, 100)}%`, background: accent.proj }} />
+                        {/* الجزء الفعلي (solid مع glow) */}
+                        <div className="absolute inset-y-0 right-0 rounded-full transition-all duration-700"
                           style={{
-                            width: projW,
-                            background: `repeating-linear-gradient(90deg, ${projColor}55 0px, ${projColor}55 6px, ${projColor}22 6px, ${projColor}22 12px)`,
+                            width: `${Math.min(sc, 100)}%`,
+                            background: `linear-gradient(90deg, ${accent.bar}cc, ${accent.bar})`,
+                            boxShadow: `0 0 8px ${accent.glow}`,
                           }} />
-                      )}
-                      {/* Solid actual */}
-                      <div className="absolute top-0 right-0 h-full rounded-full transition-all duration-700"
-                        style={{ width: solidW, background: barColor }} />
-                      {/* خط نقطة الشهر */}
-                      <div className="absolute top-0 h-full w-[2px] bg-white/40 rounded-full"
-                        style={{ right: monthW }} />
+                        {/* خط نقطة الوقت الحالي */}
+                        <div className="absolute inset-y-0 w-[2px] rounded-full"
+                          style={{ right: `${Math.min(mPct, 100)}%`, background: "rgba(255,255,255,0.5)" }} />
+                      </div>
+
+                      {/* أرقام تحت البار */}
+                      <div className="flex items-center justify-between text-[10px]">
+                        <span className="font-bold" style={{ color: velColor }}>
+                          {velocity >= 0 ? "+" : ""}{velocity}% عن المتوقع
+                        </span>
+                        <span className="text-muted-foreground">
+                          توقع الشهر: <strong style={{ color: accent.bar }}>{projected}%</strong>
+                        </span>
+                        <span className="text-muted-foreground">
+                          فعلي: <strong className="text-foreground">{sc}%</strong>
+                        </span>
+                      </div>
                     </div>
-                    {/* أرقام: فعلي — توقع — انحراف */}
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className={`font-bold ${velColor}`}>
-                        {velocity >= 0 ? "+" : ""}{velocity}% عن المتوقع
-                      </span>
-                      <span className="text-muted-foreground">
-                        توقع الشهر: <strong style={{ color: projColor }}>{projected}%</strong>
-                      </span>
-                      <span className="text-muted-foreground">
-                        فعلي: <strong className="text-foreground">{sc}%</strong>
-                      </span>
-                    </div>
+
                   </div>
                 );
               })}
