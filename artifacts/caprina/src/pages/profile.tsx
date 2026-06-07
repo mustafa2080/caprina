@@ -458,71 +458,69 @@ function DashboardTab({ myStats, profile, externalViewMode, externalDate, onView
         );
       })()}
 
-      {/* مصفوفة مخاطر المؤشرات — لوحتي */}
+      {/* مصفوفة مخاطر المؤشرات — لوحتي — من KPIs */}
       {(() => {
-        const os2 = currReport?.orderStats;
-        const returnRate  = os2?.returnRate  ?? myStats?.returnRate  ?? 0;
-        const deliveryRate = os2?.deliveryRate ?? myStats?.deliveryRate ?? 0;
-        const procHours   = myStats?.avgProcessingHours ?? null;
-        const scoreVal    = score ?? 0;
+        const kpisRaw: any[] = currReport?.kpis ?? [];
+        const now = new Date();
+        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        const dayPassed   = now.getDate();
+        const monthPct    = Math.round((dayPassed / daysInMonth) * 100);
 
-        type RiskLevel = "high" | "medium" | "low";
-        const items: { label: string; risk: RiskLevel; value: string; note: string }[] = [];
+        const items = kpisRaw
+          .filter((k: any) => k.isActive !== false && k.score !== null && k.score !== undefined)
+          .map((k: any) => {
+            const sc: number        = k.score as number;
+            const projected: number = monthPct > 0 ? Math.round((sc / monthPct) * 100) : sc;
+            const velocity: number  = sc - monthPct;
+            const isOT              = sc > 100;
+            const willReach         = projected >= 100;
+            const risk: "high" | "medium" | "low" = isOT || willReach ? "low" : sc >= monthPct * 0.75 ? "medium" : "high";
+            return {
+              label: k.name ?? k.displayName ?? "مؤشر",
+              risk, actual: sc,
+              projected: Math.min(projected, 150),
+              velocity, willReach, isOT, monthPct,
+            };
+          })
+          .sort((a: any, b: any) => ({ high: 0, medium: 1, low: 2 }[a.risk] - ({ high: 0, medium: 1, low: 2 }[b.risk])));
 
-        if (returnRate >= 25)      items.push({ label: "معدل الإرجاع",  risk: "high",   value: `${returnRate.toFixed(1)}%`,   note: "يتجاوز الحد المقبول 20%" });
-        else if (returnRate >= 15) items.push({ label: "معدل الإرجاع",  risk: "medium", value: `${returnRate.toFixed(1)}%`,   note: "قريب من الحد التحذيري" });
-        else                       items.push({ label: "معدل الإرجاع",  risk: "low",    value: `${returnRate.toFixed(1)}%`,   note: "ضمن النطاق الطبيعي" });
-
-        if (deliveryRate < 60)      items.push({ label: "نسبة التسليم", risk: "high",   value: `${deliveryRate.toFixed(1)}%`, note: "أقل من الحد الأدنى" });
-        else if (deliveryRate < 80) items.push({ label: "نسبة التسليم", risk: "medium", value: `${deliveryRate.toFixed(1)}%`, note: "يحتاج تحسين" });
-        else                        items.push({ label: "نسبة التسليم", risk: "low",    value: `${deliveryRate.toFixed(1)}%`, note: "يحقق الهدف" });
-
-        if (procHours !== null) {
-          if (procHours > 48)      items.push({ label: "سرعة التسليم",  risk: "high",   value: `${procHours.toFixed(0)}س`,   note: "بطيء جداً" });
-          else if (procHours > 24) items.push({ label: "سرعة التسليم",  risk: "medium", value: `${procHours.toFixed(0)}س`,   note: "أبطأ من المستهدف" });
-          else                     items.push({ label: "سرعة التسليم",  risk: "low",    value: `${procHours.toFixed(0)}س`,   note: "سريع ومنتج" });
-        }
-
-        if (scoreVal < 40)      items.push({ label: "نقاط الأداء",      risk: "high",   value: `${scoreVal}`,                note: "يحتاج تدخل عاجل" });
-        else if (scoreVal < 60) items.push({ label: "نقاط الأداء",      risk: "medium", value: `${scoreVal}`,                note: "مجال للتحسين" });
-        else                    items.push({ label: "نقاط الأداء",      risk: "low",    value: `${scoreVal}`,                note: "أداء جيد" });
-
-        const zonesDef = [
-          { key: "high"   as RiskLevel, label: "حرج",                  dotColor: "#ef4444", cardStyle: { background: "linear-gradient(135deg,#dc2626bb,#b91c1c99)", border: "1px solid #ef444455" } as React.CSSProperties, labelStyle: { color: "#fca5a5", fontWeight: 800 } as React.CSSProperties, badgeStyle: { background: "#ef4444", color: "#fff" } as React.CSSProperties },
-          { key: "medium" as RiskLevel, label: "خطر منخفض التأثير",   dotColor: "#f97316", cardStyle: { background: "linear-gradient(135deg,#ea580cbb,#c2410c99)", border: "1px solid #f9731655" } as React.CSSProperties, labelStyle: { color: "#fdba74", fontWeight: 800 } as React.CSSProperties, badgeStyle: { background: "#f97316", color: "#fff" } as React.CSSProperties },
-          { key: "low"    as RiskLevel, label: "على المسار الصحيح",    dotColor: "#22c55e", cardStyle: { background: "linear-gradient(135deg,#16a34abb,#15803d99)", border: "1px solid #22c55e55" } as React.CSSProperties, labelStyle: { color: "#86efac", fontWeight: 800 } as React.CSSProperties, badgeStyle: { background: "#22c55e", color: "#fff" } as React.CSSProperties },
-        ];
-
-        const visibleZones = zonesDef.filter(z => items.some(it => it.risk === z.key));
-        if (!visibleZones.length) return null;
+        if (!items.length) return null;
 
         return (
           <Card className="border-border bg-card overflow-hidden">
             <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-4">
+              <div className="flex items-center gap-2 mb-3">
                 <span className="text-base">⚠️</span>
                 <p className="text-xs font-bold">مصفوفة مخاطر المؤشرات</p>
-                <span className="text-[9px] text-muted-foreground/60 mr-auto">تصنيف حسب الأداء × التأثير المالي</span>
+                <span className="text-[9px] text-muted-foreground/60 mr-auto">تصنيف حسب التقدم × التوقع الشهري</span>
               </div>
-              <div className="grid grid-cols-2 gap-2.5">
-                {visibleZones.map(zone => {
-                  const zoneItems = items.filter(it => it.risk === zone.key);
+              <div className="space-y-2">
+                {items.map((item: any, i: number) => {
+                  const ac = item.isOT
+                    ? { bar: "#3b82f6", bg: "rgba(59,130,246,0.08)",  border: "rgba(59,130,246,0.25)", text: "#93c5fd", badge: "#3b82f6", label: "🏆 Over Target" }
+                    : item.willReach
+                    ? { bar: "#22c55e", bg: "rgba(34,197,94,0.08)",   border: "rgba(34,197,94,0.25)",  text: "#86efac", badge: "#22c55e", label: "✅ سيصل للهدف" }
+                    : item.risk === "medium"
+                    ? { bar: "#f97316", bg: "rgba(249,115,22,0.08)",  border: "rgba(249,115,22,0.25)", text: "#fdba74", badge: "#f97316", label: "⚠️ راقبه" }
+                    : { bar: "#ef4444", bg: "rgba(239,68,68,0.08)",   border: "rgba(239,68,68,0.25)",  text: "#fca5a5", badge: "#ef4444", label: "⚡ يحتاج تسريع" };
                   return (
-                    <div key={zone.key} className="rounded-xl p-3.5 flex flex-col justify-between min-h-[90px]" style={zone.cardStyle}>
-                      {/* أعلى: نقطة + اسم الحالة */}
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: zone.dotColor }} />
-                        <span className="text-xs font-black" style={zone.labelStyle}>{zone.label}</span>
+                    <div key={i} className="rounded-xl px-3.5 py-3 flex flex-col gap-2"
+                      style={{ background: ac.bg, border: `1px solid ${ac.border}` }}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[11px] font-bold text-foreground truncate">{item.label}</span>
+                        <span className="text-[9px] font-black rounded-full px-2 py-0.5 shrink-0 text-white" style={{ background: ac.badge }}>{ac.label}</span>
                       </div>
-                      {/* أسفل: اسم الـ KPI على اليسار + النسبة على اليمين */}
-                      {zoneItems.map((item, i) => (
-                        <div key={i} className="flex items-end justify-between gap-2 mt-1">
-                          <span className="text-[12px] text-white/90 font-medium leading-tight">{item.label}</span>
-                          <span className="text-[11px] font-black rounded-full px-2.5 py-0.5 shrink-0" style={zone.badgeStyle}>
-                            {item.value}
-                          </span>
-                        </div>
-                      ))}
+                      <div className="relative w-full h-2.5 rounded-full bg-black/20 overflow-visible">
+                        <div className="absolute top-[-3px] w-0.5 h-[16px] rounded-full bg-white/30" style={{ left: `${Math.min(item.monthPct, 100)}%` }} />
+                        <div className="absolute top-0 h-2.5 rounded-full transition-all duration-700" style={{ width: `${Math.min(item.actual, 100)}%`, background: ac.bar }} />
+                      </div>
+                      <div className="flex items-center justify-between text-[9px] text-muted-foreground">
+                        <span>فعلي: <strong className="text-foreground">{item.actual}%</strong></span>
+                        <span>توقع الشهر: <strong style={{ color: ac.text }}>{item.projected}%</strong></span>
+                        <span className="font-bold" style={{ color: item.velocity >= 0 ? "#22c55e" : "#ef4444" }}>
+                          {item.velocity >= 0 ? "+" : ""}{item.velocity}% عن المتوقع
+                        </span>
+                      </div>
                     </div>
                   );
                 })}
