@@ -2825,7 +2825,7 @@ export function MyDashboardTab({ profileId, monthlySalary }: {
                 <p className="text-[11px] text-muted-foreground pr-6">هل ستصل للهدف قبل نهاية الشهر بناءً على معدلك الحالي؟</p>
               </div>
               <div className="flex items-center gap-1.5 bg-muted/40 border border-border/50 rounded-lg px-3 py-1.5 shrink-0">
-                <span className="text-[10px] text-muted-foreground">مرّ</span>
+                <span className="text-[10px] text-muted-foreground">مر</span>
                 <span className="text-[11px] font-bold text-foreground">{dp}</span>
                 <span className="text-[10px] text-muted-foreground">من</span>
                 <span className="text-[11px] font-bold text-foreground">{dim}</span>
