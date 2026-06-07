@@ -2838,13 +2838,13 @@ export function MyDashboardTab({ profileId, monthlySalary }: {
                         : <span className="text-[9px] font-black text-red-500 bg-red-500/10 rounded-full px-2 py-0.5">Need Speed</span>}
                     </div>
                     <div className="relative w-full h-3 rounded-full bg-muted/40 overflow-visible mb-1.5">
-                      <div className="absolute top-0 h-3 rounded-full bg-muted/60" style={{ width: ${"$"}{Math.min(mPct, 100)}% }} />
-                      <div className={bsolute top-0 h-3 rounded-full {isOT ? "bg-blue-500" : willReach ? "bg-emerald-500" : "bg-red-500"}} style={{ width: ${"$"}{Math.min(sc, 100)}% }} />
+                      <div className="absolute top-0 h-3 rounded-full bg-muted/60" style={{ width: `${Math.min(mPct, 100)}%` }} />
+                      <div className={`absolute top-0 h-3 rounded-full ${isOT ? "bg-blue-500" : willReach ? "bg-emerald-500" : "bg-red-500"}`} style={{ width: `${Math.min(sc, 100)}%` }} />
                     </div>
                     <div className="flex justify-between text-[9px] text-muted-foreground">
                       <span>Actual: <strong>{sc}%</strong></span>
                       <span>Projected: <strong>{Math.min(projected, 150)}%</strong></span>
-                      <span className={ont-bold {velocity >= 0 ? "text-emerald-500" : "text-red-500"}}>{velocity >= 0 ? "+" : ""}{velocity}%</span>
+                      <span className={`font-bold ${velocity >= 0 ? "text-emerald-500" : "text-red-500"}`}>{velocity >= 0 ? "+" : ""}{velocity}%</span>
                     </div>
                   </div>
                 );
