@@ -458,6 +458,99 @@ function DashboardTab({ myStats, profile, externalViewMode, externalDate, onView
         );
       })()}
 
+      {/* مصفوفة مخاطر المؤشرات — لوحتي */}
+      {(() => {
+        const activeKpis = (currReport?.kpis ?? []).filter((k: any) => k.isActive !== false);
+        if (!activeKpis.length) return null;
+        const matrixKpis = activeKpis.map((k: any) => {
+          const sc = k.score ?? null;
+          const salaryW = k.salaryWeight ?? 0;
+          const impact = salaryW >= 20 ? "high" : salaryW >= 10 ? "medium" : "low";
+          const perf = sc === null ? "unknown" : sc >= 80 ? "good" : sc >= 50 ? "warning" : "danger";
+          return { ...k, sc, impact, perf };
+        });
+        const zones = [
+          {
+            key: "danger-high",
+            label: "خطر عالي الأولوية",
+            dot: "bg-red-500",
+            bg: "bg-red-500/10",
+            border: "border-red-500/30",
+            textColor: "text-red-500 dark:text-red-400",
+            badgeBg: "bg-red-500",
+            filter: (k: any) => (k.perf === "danger" || k.perf === "unknown") && k.impact === "high",
+          },
+          {
+            key: "danger-low",
+            label: "خطر منخفض التأثير",
+            dot: "bg-orange-500",
+            bg: "bg-orange-500/10",
+            border: "border-orange-500/30",
+            textColor: "text-orange-500 dark:text-orange-400",
+            badgeBg: "bg-orange-500",
+            filter: (k: any) => (k.perf === "danger" || k.perf === "unknown") && k.impact !== "high",
+          },
+          {
+            key: "warning-high",
+            label: "تحذير — راقبه",
+            dot: "bg-amber-500",
+            bg: "bg-amber-500/10",
+            border: "border-amber-500/30",
+            textColor: "text-amber-500 dark:text-amber-400",
+            badgeBg: "bg-amber-500",
+            filter: (k: any) => k.perf === "warning",
+          },
+          {
+            key: "good",
+            label: "على المسار الصحيح",
+            dot: "bg-emerald-500",
+            bg: "bg-emerald-500/10",
+            border: "border-emerald-500/30",
+            textColor: "text-emerald-500 dark:text-emerald-400",
+            badgeBg: "bg-emerald-500",
+            filter: (k: any) => k.perf === "good",
+          },
+        ];
+        const visibleZones = zones.filter(z => matrixKpis.some(z.filter));
+        if (!visibleZones.length) return null;
+        return (
+          <Card className="border-border bg-card overflow-hidden">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-4">
+                <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                <p className="text-xs font-bold">مصفوفة مخاطر المؤشرات</p>
+                <span className="text-[9px] text-muted-foreground/60 mr-auto">تصنيف حسب الأداء × التأثير المالي</span>
+              </div>
+              <div className="space-y-2.5">
+                {visibleZones.map(zone => {
+                  const items = matrixKpis.filter(zone.filter);
+                  return (
+                    <div key={zone.key} className={`rounded-xl border ${zone.bg} ${zone.border} p-3.5`}>
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${zone.dot}`} />
+                        <span className={`text-xs font-bold ${zone.textColor}`}>{zone.label}</span>
+                      </div>
+                      <div className="space-y-2">
+                        {items.map((k: any) => (
+                          <div key={k.id} className="flex items-center justify-between gap-2">
+                            <span className="text-[11px] text-foreground/80 truncate">{k.name}</span>
+                            {k.sc !== null && (
+                              <span className={`text-[10px] font-black text-white rounded-full px-2 py-0.5 shrink-0 ${zone.badgeBg}`}>
+                                {k.sc}%
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
+
       {/* Score + Comparison — شهري فقط */}
       {viewMode === "monthly" && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
