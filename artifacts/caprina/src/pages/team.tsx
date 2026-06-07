@@ -3906,60 +3906,6 @@ function KpiTabContent({
         );
       })()}
 
-      {/* KPI Velocity Tracker */}
-      {activeKpis.some(k => (evaluatedById.get(k.id) as any)?.score !== null) && (() => {
-        const now = new Date();
-        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-        const dayPassed = now.getDate();
-        const monthPct = Math.round((dayPassed / daysInMonth) * 100);
-        return (
-          <Card className="border-border bg-card">
-            <CardContent className="px-4 py-4">
-              <div className="flex items-center justify-between gap-2 mb-1">
-                <div className="flex items-center gap-2">
-                  <BarChart2 className="w-4 h-4 text-primary shrink-0" />
-                  <p className="text-xs font-bold">متتبع سرعة الإنجاز</p>
-                </div>
-                <span className="text-[9px] text-muted-foreground/60 bg-muted/30 rounded-full px-2 py-0.5">مرّ {dayPassed} يوم من {daysInMonth} ({monthPct}% من الشهر)</span>
-              </div>
-              <p className="text-[10px] text-muted-foreground mb-3.5">هل الموظف سيصل للهدف قبل نهاية الشهر؟</p>
-              <div className="space-y-3">
-                {activeKpis.map(kpi => {
-                  const ev = evaluatedById.get(kpi.id) as any;
-                  const sc = ev?.score ?? null;
-                  if (sc === null) return null;
-                  const projectedScore = monthPct > 0 ? Math.round((sc / monthPct) * 100) : sc;
-                  const velocity = sc - monthPct;
-                  const willReach = projectedScore >= 100;
-                  const isOT = sc > 100;
-                  return (
-                    <div key={kpi.id} className="rounded-xl border border-border/50 bg-muted/5 px-3 py-2.5">
-                      <div className="flex items-center justify-between gap-2 mb-2">
-                        <span className="text-[10px] font-bold truncate max-w-[55%]">{kpi.name}</span>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          {isOT ? <span className="text-[9px] font-black text-blue-500 bg-blue-500/10 rounded-full px-2 py-0.5">🚀 Over Target</span> :
-                           willReach ? <span className="text-[9px] font-black text-emerald-500 bg-emerald-500/10 rounded-full px-2 py-0.5">✓ سيصل</span> :
-                           <span className="text-[9px] font-black text-red-500 bg-red-500/10 rounded-full px-2 py-0.5">✗ بحاجة جهد</span>}
-                        </div>
-                      </div>
-                      <div className="relative w-full h-3 rounded-full bg-muted/40 overflow-visible mb-1.5">
-                        <div className="absolute top-0 h-3 rounded-full bg-muted/60 transition-all" style={{ width: `${Math.min(monthPct, 100)}%` }} />
-                        <div className={`absolute top-0 h-3 rounded-full transition-all duration-700 ${isOT ? "bg-blue-500" : willReach ? "bg-emerald-500" : "bg-red-500"}`} style={{ width: `${Math.min(sc, 100)}%` }} />
-                        <div className="absolute top-[-3px] w-0.5 h-[18px] bg-foreground/40 rounded-full" style={{ left: `${Math.min(monthPct, 100)}%` }} />
-                      </div>
-                      <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-                        <span>فعلي: <strong className="text-foreground">{sc}%</strong></span>
-                        <span>توقع الشهر: <strong className={willReach || isOT ? "text-emerald-500" : "text-amber-500"}>{projectedScore}%</strong></span>
-                        <span className={`font-bold ${velocity >= 0 ? "text-emerald-500" : "text-red-500"}`}>{velocity >= 0 ? "+" : ""}{velocity}% عن المتوقع</span>
-                      </div>
-                    </div>
-                  );
-                }).filter(Boolean)}
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })()}
 
       {/* Achievement Badge Wall */}
       {(() => {
