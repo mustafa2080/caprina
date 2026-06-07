@@ -305,8 +305,9 @@ function Router() {
 
   if (!user) return <Redirect to="/login" />;
 
-  // كل المستخدمين → الصفحة الرئيسية هي لوحتي
+  // الادمن والسوبر ادمن → الداشبورد، باقي اليوزرات → لوحتي
   if (location === "/") {
+    if (user.role === "admin" || user.role === "super_admin") return <Redirect to="/dashboard" />;
     return <Redirect to="/my-dashboard" />;
   }
 
@@ -317,6 +318,7 @@ function Router() {
       <Suspense fallback={<PageLoader />}>
         <Switch>
           <Route path="/my-dashboard"             component={ProfilePage} />
+          <Route path="/dashboard"                component={() => <ProtectedRoute permission="dashboard.view" component={Dashboard} />} />
           <Route path="/"                         component={() => <ProtectedRoute permission="dashboard.view" component={Dashboard} />} />
           <Route path="/orders"                   component={() => <ProtectedRoute permission="orders.view" component={Orders} />} />
           <Route path="/orders/new"               component={() => <ProtectedRoute permission="orders.create" component={OrderForm} />} />
