@@ -12,7 +12,7 @@ import {
   ChevronDown, AlertCircle, Coins, Percent, ArrowUp,
   ArrowDown, CalendarDays, Wallet, BadgeCheck, Info,
   RefreshCw, CalendarCheck2, Gauge, Award, ShieldAlert,
-  Medal, GanttChart, Sparkles, BarChart2,
+  Medal, GanttChart, Sparkles, BarChart2, Printer, Download,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,9 +24,11 @@ import {
   authApi, teamAnalyticsApi, employeeApi, ordersApi, apiFetch, attendanceApi,
   type TeamMemberExtStats, type EmployeeProfile,
   type EmployeeReport, type EvaluatedKpi,
-  type Attendance, type AttendanceSalaryReport, type PayrollAdjustment,
+  type Attendance, type AttendanceSalaryReport, type PayrollAdjustment, type MonthlySalaryReport,
 } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import html2canvas from "html2canvas";
+import { jsPDF } from "jspdf";
 import { MyDashboardTab, EmployeeKpiTab } from "./team";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, RadarChart, Radar, PolarGrid, PolarAngleAxis, ReferenceLine } from "recharts";
 
@@ -959,6 +961,270 @@ function ScoreRing({ score, size = 80 }: { score: number; size?: number }) {
   );
 }
 
+// ─── waitForImages helper ────────────────────────────────────────────────────
+async function waitForImages(root: HTMLElement) {
+  const images = Array.from(root.querySelectorAll("img"));
+  await Promise.all(
+    images.map(image =>
+      image.complete
+        ? Promise.resolve()
+        : new Promise<void>(resolve => {
+            image.onload = () => resolve();
+            image.onerror = () => resolve();
+          })
+    )
+  );
+}
+
+// ─── Monthly Report (PDF/Print) ──────────────────────────────────────────────
+function MonthlyReportPrint({ report }: { report: EmployeeReport }) {
+  const exportRef = useRef<HTMLDivElement>(null);
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const [specialBonus, setSpecialBonus] = useState<string>("");
+  const [specialBonusNote, setSpecialBonusNote] = useState<string>("");
+  const [specialBonusType, setSpecialBonusType] = useState<"bonus" | "deduction">("bonus");
+  const [editingSpecialBonus, setEditingSpecialBonus] = useState(false);
+  const specialBonusNum = parseFloat(specialBonus) || 0;
+  const specialBonusValue = specialBonusType === "bonus" ? specialBonusNum : -specialBonusNum;
+  const { toast } = useToast();
+
+  const { data: salaryReport } = useQuery({
+    queryKey: ["salary-report-profile", report.profile?.id, report.period.month],
+    queryFn: () => {
+      const profileId = report.profile?.id;
+      if (!profileId) return null;
+      return attendanceApi.salaryReport(profileId, report.period.month);
+    },
+    enabled: !!report.profile?.id,
+  });
+
+  const baseSalary = salaryReport?.baseSalary ?? report.salary ?? 0;
+  const kpiFinancials = report.kpiFinancials ?? {
+    totalDeduction: report.kpis.filter(k => k.achieved === false && (k.salaryWeight ?? 0) > 0)
+      .reduce((sum, k) => sum + Math.round(((k.salaryWeight ?? 0) / 100) * baseSalary), 0),
+    totalBonus: report.kpis.filter(k => k.score !== null && k.score > 100 && (k.overtargetBonus ?? 0) > 0)
+      .reduce((sum, k) => sum + Math.round(((k.overtargetBonus ?? 0) / 100) * baseSalary), 0),
+    achievedCount: report.kpis.filter(k => k.achieved === true).length,
+    failedCount: report.kpis.filter(k => k.achieved === false).length,
+    overTargetCount: report.kpis.filter(k => k.score !== null && k.score > 100).length,
+    totalSalaryWeight: 0, salaryAtRiskPercent: 0,
+  };
+  const kpiDeductions = kpiFinancials.totalDeduction;
+  const kpiBonuses = kpiFinancials.totalBonus;
+  const kpiAchievedCount = kpiFinancials.achievedCount;
+  const kpiFailedCount = kpiFinancials.failedCount;
+  const kpiOverTargetCount = kpiFinancials.overTargetCount;
+
+  const [yearStr, monthStr] = report.period.month.split("-");
+  const periodLabel = new Date(parseInt(yearStr), parseInt(monthStr) - 1, 1)
+    .toLocaleDateString("ar-EG", { month: "long", year: "numeric" });
+
+  const handlePrint = () => {
+    const content = exportRef.current;
+    if (!content) return;
+    const printWindow = window.open("", "_blank", "width=900,height=700");
+    if (!printWindow) return;
+    printWindow.document.write(`<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"/><title>تقرير الأداء - ${report.displayName}</title><style>*{box-sizing:border-box}html,body{margin:0;padding:0;direction:rtl;font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:#fff;color:#0f172a}@page{size:A4;margin:0}.print-wrap{padding:14mm 12mm}</style></head><body><div class="print-wrap">${content.innerHTML}</div></body></html>`);
+    printWindow.document.close();
+    printWindow.onload = () => { setTimeout(() => { printWindow.print(); printWindow.close(); }, 300); };
+  };
+
+  const handleExportPdf = async () => {
+    const content = exportRef.current;
+    if (!content || exportingPdf) return;
+    const root = document.documentElement;
+    const hadDarkMode = root.classList.contains("dark");
+    setExportingPdf(true);
+    try {
+      if (hadDarkMode) root.classList.remove("dark");
+      root.style.colorScheme = "light";
+      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+      await (document.fonts?.ready ?? Promise.resolve());
+      await waitForImages(content);
+      const captureNode = content.cloneNode(true) as HTMLElement;
+      captureNode.setAttribute("data-pdf-capture", "true");
+      captureNode.style.cssText = "position:fixed;left:0;top:0;width:1120px;max-width:1120px;height:auto;margin:0;padding:0;background:#ffffff;color:#0f172a;z-index:2147483647;pointer-events:none;overflow:visible";
+      document.body.appendChild(captureNode);
+      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+      await waitForImages(captureNode);
+      const canvas = await html2canvas(captureNode, { scale: 1.6, useCORS: true, backgroundColor: "#ffffff", logging: false, windowWidth: 1120, windowHeight: captureNode.scrollHeight, scrollX: 0, scrollY: 0 });
+      document.body.removeChild(captureNode);
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
+      const margin = 8;
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const usableWidth = pageWidth - margin * 2;
+      const usableHeight = pageHeight - margin * 2;
+      const imgData = canvas.toDataURL("image/png");
+      const imageHeight = (canvas.height * usableWidth) / canvas.width;
+      const pageHeightInCanvas = (usableHeight * canvas.width) / usableWidth;
+      let position = 0; let pageIndex = 0;
+      while (position < imageHeight) {
+        if (pageIndex > 0) pdf.addPage();
+        pdf.addImage(imgData, "PNG", margin, margin - position, usableWidth, imageHeight, undefined, "FAST");
+        position += pageHeightInCanvas; pageIndex += 1;
+      }
+      pdf.save(`caprina-report-${report.profile?.id ?? "employee"}-${report.period.month}.pdf`);
+      toast({ title: "تم تصدير PDF", description: "تم إنشاء التقرير بنجاح." });
+    } catch (error: any) {
+      toast({ title: "خطأ", description: error?.message || "حدث خطأ أثناء التصدير", variant: "destructive" });
+    } finally {
+      const el = document.querySelector('[data-pdf-capture="true"]');
+      if (el?.parentElement) el.parentElement.removeChild(el);
+      if (hadDarkMode) root.classList.add("dark");
+      root.style.colorScheme = "";
+      setExportingPdf(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* أزرار التصدير */}
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <Button onClick={handleExportPdf} disabled={exportingPdf} className="gap-2 h-8 text-xs bg-emerald-600 hover:bg-emerald-700">
+          <Download className="w-3.5 h-3.5" />
+          {exportingPdf ? "جارٍ التصدير..." : "تصدير PDF"}
+        </Button>
+        <Button onClick={handlePrint} className="gap-2 h-8 text-xs bg-primary">
+          <Printer className="w-3.5 h-3.5" />طباعة التقرير
+        </Button>
+      </div>
+
+      <div ref={exportRef} style={{ direction: "rtl", fontFamily: "'Segoe UI', Tahoma, Arial, sans-serif" }}>
+        <div className="report bg-white text-slate-900">
+
+          {/* Header */}
+          <div className="border-b-2 border-primary pb-4 mb-5 flex justify-between items-start">
+            <div className="flex items-center gap-3">
+              <img src="/logo.jpg" alt="Caprina" className="h-12 w-12 rounded-2xl object-cover border border-gray-200 shadow-sm" />
+              <div>
+                <div className="text-2xl font-black text-primary">CAPRINA</div>
+                <div className="text-xs text-gray-500 mt-0.5">تقرير أداء موظف — {periodLabel}</div>
+              </div>
+            </div>
+            <div className="text-left text-xs text-gray-400">
+              <div>تاريخ الإصدار: {new Date().toLocaleDateString("ar-EG")}</div>
+              {report.profile?.department && <div>القسم: {report.profile.department}</div>}
+            </div>
+          </div>
+
+          {/* Employee Info + Period */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+              <h3 className="text-[10px] text-gray-400 uppercase mb-2 font-semibold">بيانات الموظف</h3>
+              {[["الاسم", report.displayName], ["المسمى الوظيفي", report.profile?.jobTitle || "—"], ["القسم", report.profile?.department || "—"], ["تاريخ التعيين", report.profile?.hireDate ? new Date(report.profile.hireDate).toLocaleDateString("ar-EG") : "—"]].map(([label, value]) => (
+                <div key={label} className="flex justify-between text-xs mb-1">
+                  <span className="text-gray-400">{label}</span>
+                  <span className="font-semibold">{value}</span>
+                </div>
+              ))}
+            </div>
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+              <h3 className="text-[10px] text-gray-400 uppercase mb-2 font-semibold">فترة التقرير</h3>
+              {[["الشهر", periodLabel], ["من", new Date(report.period.from).toLocaleDateString("ar-EG")], ["إلى", new Date(report.period.to).toLocaleDateString("ar-EG")], ["إجمالي الطلبيات", fmtNum(report.orderStats.total)]].map(([label, value]) => (
+                <div key={label} className="flex justify-between text-xs mb-1">
+                  <span className="text-gray-400">{label}</span>
+                  <span className="font-semibold">{value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Order Stats */}
+          <div className="grid grid-cols-4 gap-2 mb-5">
+            {[
+              { label: "إجمالي الطلبيات", value: fmtNum(report.orderStats.total), colorCls: "text-gray-800", bgCls: "bg-gray-100 border-gray-200" },
+              { label: "مُسلَّم", value: fmtNum(report.orderStats.delivered), colorCls: "text-emerald-600", bgCls: "bg-emerald-50 border-emerald-200" },
+              { label: "مُرتجَع", value: fmtNum(report.orderStats.returned), colorCls: "text-red-600", bgCls: "bg-red-50 border-red-200" },
+              { label: "نسبة التسليم", value: `${report.orderStats.deliveryRate}%`, colorCls: "text-amber-600", bgCls: "bg-amber-50 border-amber-200" },
+            ].map(s => (
+              <div key={s.label} className={`border rounded-xl p-2.5 text-center ${s.bgCls}`}>
+                <div className={`text-xl font-black ${s.colorCls}`}>{s.value}</div>
+                <div className="text-[10px] text-gray-500 mt-0.5">{s.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Overall Score */}
+          <div className="bg-primary/8 border-2 border-primary rounded-xl p-4 mb-5 flex justify-between items-center">
+            <div>
+              <div className="text-xs text-gray-500 mb-1">التقييم الإجمالي</div>
+              <div className="text-4xl font-black text-primary">{report.overallScore !== null ? `${report.overallScore}%` : "—"}</div>
+            </div>
+            <div className="text-center">
+              <div className="text-xl font-black">
+                {report.overallScore == null ? "غير محدد" : report.overallScore >= 80 ? "ممتاز" : report.overallScore >= 65 ? "جيد جداً" : report.overallScore >= 50 ? "جيد" : report.overallScore >= 35 ? "مقبول" : report.overallScore > 0 ? "ضعيف" : "غير محدد"}
+              </div>
+              <div className="text-xs text-gray-500 mt-1">
+                {report.overallScore !== null ? report.overallScore >= 90 ? "أداء استثنائي" : report.overallScore >= 75 ? "أداء فوق المتوسط" : report.overallScore >= 60 ? "أداء مقبول" : "يحتاج تحسين" : "لا توجد مؤشرات"}
+              </div>
+            </div>
+          </div>
+
+          {/* Attendance & Salary */}
+          {salaryReport && (
+            <div className="mb-5">
+              <h3 className="text-sm font-bold mb-3 border-r-4 border-primary pr-2">الحضور والمرتب التفصيلي</h3>
+              <div className="grid grid-cols-3 gap-1.5 mb-3">
+                {[
+                  { label: "أيام الحضور", val: salaryReport.workedDays, colorCls: "text-emerald-600", bgCls: "bg-emerald-50 border-emerald-200" },
+                  { label: "أيام الغياب", val: salaryReport.absentDays, colorCls: "text-red-600", bgCls: "bg-red-50 border-red-200" },
+                  { label: "أيام التأخير", val: salaryReport.lateDays, colorCls: "text-amber-600", bgCls: "bg-amber-50 border-amber-200" },
+                  { label: "نصف يوم", val: salaryReport.halfDays, colorCls: "text-blue-600", bgCls: "bg-blue-50 border-blue-200" },
+                  { label: "إجمالي الأيام", val: salaryReport.totalWorkingDays, colorCls: "text-gray-600", bgCls: "bg-gray-100 border-gray-200" },
+                  { label: "أيام العمل الفعلية", val: salaryReport.workedDays + salaryReport.halfDays * 0.5, colorCls: "text-amber-700", bgCls: "bg-amber-50 border-amber-200" },
+                ].map(s => (
+                  <div key={s.label} className={`border rounded-xl p-2.5 text-center ${s.bgCls}`}>
+                    <div className={`text-2xl font-black leading-none ${s.colorCls}`}>{s.val}</div>
+                    <div className="text-[9px] text-gray-500 mt-1 font-medium">{s.label}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="border border-gray-200 rounded-xl overflow-hidden mb-2.5">
+                <div className="bg-amber-500 px-3 py-2 flex justify-between items-center">
+                  <span className="text-white font-bold text-xs">البند</span>
+                  <span className="text-white font-bold text-xs">المبلغ</span>
+                </div>
+                {[
+                  { label: "الراتب الأساسي", val: fmt(salaryReport.baseSalary), color: "text-gray-800", bg: "bg-gray-50" },
+                  { label: "خصم الغياب / نصف اليوم", val: salaryReport.attendanceDeduction > 0 ? `−${fmt(salaryReport.attendanceDeduction)}` : "—", color: salaryReport.attendanceDeduction > 0 ? "text-red-600" : "text-gray-400", bg: salaryReport.attendanceDeduction > 0 ? "bg-red-50" : "bg-gray-50" },
+                  { label: "خصم مؤشرات KPI", val: kpiDeductions > 0 ? `−${fmt(kpiDeductions)}` : "—", color: kpiDeductions > 0 ? "text-red-600" : "text-gray-400", bg: kpiDeductions > 0 ? "bg-red-50" : "bg-gray-50" },
+                  { label: "بونص إضافي", val: salaryReport.bonuses > 0 ? `+${fmt(salaryReport.bonuses)}` : "—", color: salaryReport.bonuses > 0 ? "text-emerald-600" : "text-gray-400", bg: salaryReport.bonuses > 0 ? "bg-emerald-50" : "bg-gray-50" },
+                  { label: "مكافأة Over Target", val: kpiBonuses > 0 ? `+${fmt(kpiBonuses)}` : "—", color: kpiBonuses > 0 ? "text-emerald-600" : "text-gray-400", bg: kpiBonuses > 0 ? "bg-emerald-50" : "bg-gray-50" },
+                  { label: "بونص / خصم خاص", val: specialBonusNum > 0 ? `${specialBonusType === "bonus" ? "+" : "−"}${fmt(specialBonusNum)}` : "—", color: specialBonusNum > 0 ? (specialBonusType === "bonus" ? "text-emerald-600" : "text-red-600") : "text-gray-400", bg: "bg-gray-50" },
+                ].map(row => (
+                  <div key={row.label} className={`flex justify-between items-center px-3 py-2 border-b border-gray-100 ${row.bg}`}>
+                    <span className="text-xs text-gray-500">{row.label}</span>
+                    <span className={`text-sm font-bold ${row.color}`}>{row.val}</span>
+                  </div>
+                ))}
+                {(() => {
+                  const finalNet = salaryReport.netSalary - kpiDeductions + kpiBonuses + specialBonusValue;
+                  return (
+                    <div className="flex justify-between items-center px-3 py-3 border-t-2 border-amber-500 bg-amber-50">
+                      <div>
+                        <p className="text-sm font-black">صافي المرتب</p>
+                        <p className="text-[9px] text-gray-400 mt-0.5">{salaryReport.baseSalary} − {salaryReport.attendanceDeduction + kpiDeductions} + {salaryReport.bonuses + kpiBonuses}</p>
+                      </div>
+                      <span className={`text-2xl font-black ${finalNet >= salaryReport.baseSalary ? "text-emerald-600" : finalNet < salaryReport.baseSalary * 0.9 ? "text-red-600" : "text-amber-600"}`}>{fmt(finalNet)}</span>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
+
+          {/* Footer */}
+          <div style={{ textAlign: "center", fontSize: 10, color: "#aaa", marginTop: 24, borderTop: "1px solid #eee", paddingTop: 12 }}>
+            تقرير صادر من نظام CAPRINA لإدارة المبيعات — {new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MonthlyReportTab({ profile, externalViewMode, externalDate, onViewModeChange, onDateChange }: {
   profile?: EmployeeProfile;
   externalViewMode?: "monthly" | "daily";
@@ -1282,6 +1548,9 @@ function MonthlyReportTab({ profile, externalViewMode, externalDate, onViewModeC
         </div>
         <span className="text-xl font-black text-primary">{fmt(salary + (fin?.totalBonus ?? 0) - (fin?.totalDeduction ?? 0))}</span>
       </div>
+
+      {/* ── تقرير PDF/طباعة ── */}
+      <MonthlyReportPrint report={report} />
 
       {/* ── Order Stats Grid ── */}
       <div>
