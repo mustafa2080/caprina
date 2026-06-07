@@ -3170,7 +3170,7 @@ export default function ProfilePage() {
     { key: "orders",       label: "طلباتي",         icon: ListOrdered },
     { key: "kpis",         label: "مؤشرات الأداء",  icon: Activity },
     { key: "report",       label: "تقرير شهري",     icon: FileText },
-    ...(isEmployee ? [{ key: "saleskpi", label: "أداء الفريق", icon: GanttChart }] : []),
+    ...(isEmployee ? [{ key: "saleskpi", label: "أدائي", icon: GanttChart }] : []),
     ...(!isAdminRole ? [{ key: "attendance", label: "الحضور", icon: CalendarCheck2 }] : []),
     { key: "settings",     label: "الإعدادات",       icon: User },
   ];
