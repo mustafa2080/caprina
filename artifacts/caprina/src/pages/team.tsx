@@ -2938,25 +2938,39 @@ export function MyDashboardTab({ profileId, monthlySalary }: {
         };
         return (
           <div className="rounded-2xl border border-border bg-card overflow-hidden">
-            <div className="px-4 py-3 border-b border-border/50 flex items-center gap-2"
-              style={{ background: "linear-gradient(to left, hsl(var(--primary)/0.08), transparent)" }}>
-              <span className="text-sm">🛡️</span>
-              <span className="font-black text-sm">مصفوفة مخاطر المؤشرات</span>
+            <div className="px-5 py-4 border-b border-border/50 flex items-start justify-between gap-3"
+              style={{ background: "linear-gradient(135deg, hsl(var(--primary)/0.08) 0%, transparent 60%)" }}>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">⚠️</span>
+                  <span className="font-black text-base">مصفوفة مخاطر المؤشرات</span>
+                </div>
+                <p className="text-xs text-muted-foreground">تصنيف حسب الأداء × البيام المالي</p>
+              </div>
             </div>
-            <div className="p-4 space-y-2.5">
+            <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
               {items.map((item,i) => {
                 const rc = rcMap[item.risk];
+                const bgMap = {
+                  high:   "bg-gradient-to-br from-rose-500/20 to-rose-500/5",
+                  medium: "bg-gradient-to-br from-amber-500/20 to-amber-500/5",
+                  low:    "bg-gradient-to-br from-emerald-500/20 to-emerald-500/5",
+                };
                 return (
-                  <div key={i} className={`rounded-xl p-3.5 border ${rc.bg} ${rc.border} flex items-center gap-3`}>
-                    <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${rc.dot}`}/>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <span className="text-sm font-bold">{item.label}</span>
-                        <span className={`text-sm font-black ${rc.text}`}>{item.value}</span>
+                  <div key={i} className={`rounded-2xl border ${rc.border} ${bgMap[item.risk]} p-5 flex flex-col gap-3 transition-all hover:shadow-md`}>
+                    {/* Header */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span className={`w-3 h-3 rounded-full shrink-0 ${rc.dot}`}/>
+                          <span className="font-black text-sm">{rc.label}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{item.note}</p>
                       </div>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">{item.note}</p>
+                      <span className={`text-2xl font-black ${rc.text} shrink-0`}>{item.value}</span>
                     </div>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${rc.bg} ${rc.border} ${rc.text} shrink-0`}>{rc.label}</span>
+                    {/* Label */}
+                    <p className="text-sm font-bold text-foreground">{item.label}</p>
                   </div>
                 );
               })}
