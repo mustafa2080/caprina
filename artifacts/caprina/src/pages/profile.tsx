@@ -2892,13 +2892,25 @@ function AttendanceTab() {
     { name: "مبرر",    value: excusedDays,      fill: "#06b6d4" },
   ].filter(d => d.value > 0);
 
-  // Build calendar
+  // Build calendar — الفترة من 26 الشهر الماضي لـ 25 الشهر الحالي
   const [year, mon] = selectedMonth.split("-").map(Number);
-  const firstDay = new Date(year, mon - 1, 1).getDay();
-  const daysInMonth = new Date(year, mon, 0).getDate();
+  const prevMonYear = mon === 1 ? year - 1 : year;
+  const prevMon    = mon === 1 ? 12 : mon - 1;
+  // أيام الفترة: 26 الشهر السابق → 25 الشهر الحالي
+  const periodDays: { dateStr: string; day: number; monthLabel: string }[] = [];
+  for (let d = 26; d <= new Date(prevMonYear, prevMon, 0).getDate(); d++) {
+    const dateStr = `${prevMonYear}-${String(prevMon).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    periodDays.push({ dateStr, day: d, monthLabel: "" });
+  }
+  for (let d = 1; d <= 25; d++) {
+    const dateStr = `${year}-${String(mon).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    periodDays.push({ dateStr, day: d, monthLabel: "" });
+  }
   const attMap = Object.fromEntries(attendance.map(a => [a.date, a]));
   const weekDays = ["سبت", "أحد", "اثنين", "ثلاثاء", "أربعاء", "خميس", "جمعة"];
-  const offset = (firstDay + 1) % 7;
+  // offset: يوم الأسبوع لأول يوم في الفترة (26 الشهر الماضي)
+  const firstDayOfPeriod = new Date(prevMonYear, prevMon - 1, 26).getDay(); // 0=sun
+  const offset = (firstDayOfPeriod + 1) % 7; // تحويل لنظام سبت=0
 
   return (
     <div className="space-y-4" dir="rtl">
@@ -3026,18 +3038,17 @@ function AttendanceTab() {
         </div>
         <div className="grid grid-cols-7 gap-px bg-border/10 p-2">
           {Array.from({ length: offset }).map((_, i) => <div key={`e-${i}`} />)}
-          {Array.from({ length: daysInMonth }, (_, i) => {
-            const day = i + 1;
-            const dateStr = `${year}-${String(mon).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+          {periodDays.map(({ dateStr, day }) => {
             const rec = attMap[dateStr];
             const meta = rec ? STATUS_META[rec.status] : null;
             const isToday = dateStr === format(new Date(), "yyyy-MM-dd");
+            const isPrevMonth = dateStr < `${year}-${String(mon).padStart(2, "0")}-01`;
             return (
-              <div key={day} title={rec ? `${STATUS_META[rec.status]?.label}${rec.checkIn ? ` · دخول: ${rec.checkIn}` : ""}` : undefined}
+              <div key={dateStr} title={rec ? `${STATUS_META[rec.status]?.label}${rec.checkIn ? ` · دخول: ${rec.checkIn}` : ""}` : undefined}
                 className={`rounded-lg p-1 flex flex-col items-center gap-0.5 min-h-[46px] justify-center cursor-default transition-all
                   ${meta ? `${meta.bg} ${meta.border} border` : "border border-transparent hover:bg-muted/20"}
                   ${isToday ? "ring-2 ring-primary" : ""}`}>
-                <span className={`text-xs font-bold leading-none ${meta ? meta.color : "text-muted-foreground"}`}>{day}</span>
+                <span className={`text-xs font-bold leading-none ${meta ? meta.color : isPrevMonth ? "text-muted-foreground/40" : "text-muted-foreground"}`}>{day}</span>
                 {rec && <span className={`w-1.5 h-1.5 rounded-full ${meta!.dot}`} />}
                 {rec?.checkIn && <span className="text-[8px] text-muted-foreground leading-none">{rec.checkIn}</span>}
                 {rec?.lateMinutes && rec.lateMinutes > 0 ? <span className="text-[8px] text-amber-400 leading-none">+{rec.lateMinutes}د</span> : null}
