@@ -1811,25 +1811,33 @@ function DailyTrackerTab({ profileId }: { profileId: number }) {
                 </div>
 
                 {isManual && (
-                  <div className="flex items-center gap-2 pt-0.5">
-                    <Input
-                      type="number"
-                      min="0"
-                      value={logValues[kpi.id] ?? ""}
-                      onChange={e => setLogValues(v => ({ ...v, [kpi.id]: e.target.value }))}
-                      placeholder={`أضف قيمة اليوم (${kpi.unit})`}
-                      className="h-7 text-xs flex-1"
-                    />
-                    <Button
-                      size="sm"
-                      className="h-7 text-xs gap-1 shrink-0"
-                      disabled={saving[kpi.id] || !logValues[kpi.id]}
-                      onClick={() => handleSave(kpi)}
-                    >
-                      <Save className="w-3 h-3" />
-                      {saving[kpi.id] ? "..." : "أضف"}
-                    </Button>
-                  </div>
+                  todayValue !== null ? (
+                    <div className="flex items-center gap-2 pt-0.5 rounded-lg border border-emerald-700/40 bg-emerald-950/20 px-3 py-2">
+                      <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                      <span className="text-[11px] text-emerald-400 font-semibold">{"\u062a\u0645 \u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u064a\u0648\u0645: "}{fmtNum(todayValue)} {kpi.unit}</span>
+                      <span className="text-[10px] text-muted-foreground/50 mr-auto">{"\u0644\u0627 \u064a\u0645\u0643\u0646 \u0627\u0644\u062a\u0639\u062f\u064a\u0644 \u0628\u0639\u062f \u0627\u0644\u062a\u0633\u062c\u064a\u0644"}</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 pt-0.5">
+                      <Input
+                        type="number"
+                        min="0"
+                        value={logValues[kpi.id] ?? ""}
+                        onChange={e => setLogValues(v => ({ ...v, [kpi.id]: e.target.value }))}
+                        placeholder={`أضف قيمة اليوم (${kpi.unit})`}
+                        className="h-7 text-xs flex-1"
+                      />
+                      <Button
+                        size="sm"
+                        className="h-7 text-xs gap-1 shrink-0"
+                        disabled={saving[kpi.id] || !logValues[kpi.id]}
+                        onClick={() => handleSave(kpi)}
+                      >
+                        <Save className="w-3 h-3" />
+                        {saving[kpi.id] ? "..." : "أضف"}
+                      </Button>
+                    </div>
+                  )
                 )}
               </CardContent>
             </Card>
