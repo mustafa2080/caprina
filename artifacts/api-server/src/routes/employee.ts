@@ -1351,15 +1351,13 @@ router.get("/employee-daily-logs/:profileId", async (req, res): Promise<void> =>
       const cumulativeValue = kpi.metric === "manual" ? (cumulativeMap.get(kpi.id) ?? null) : null;
       const actualValue     = kpi.metric === "manual" ? cumulativeValue : autoValue;
 
-      // manual: progressive daily target = (monthlyTarget / daysInMonth) * dayNumber
-      // e.g. target=1000, day 15 of 30 â†’ expected so far = 500
-      // auto:  compare today's value vs (target / periodDays)
-      // manual: progressive = (target / periodDays) * dayNumberInPeriod
+      // الهدف اليومي = الهدف الشهري / 30 يوم ثابت دايما
+      const dayOfMonth = new Date(date + "T00:00:00.000").getDate();
       let dailyTarget: number;
       if (kpi.metric === "manual") {
-        dailyTarget = Math.round((kpi.targetValue / periodDays) * dayNumberInPeriod);
+        dailyTarget = Math.round((kpi.targetValue / 30) * dayOfMonth);
       } else {
-        dailyTarget = Math.round(kpi.targetValue / periodDays);
+        dailyTarget = Math.max(1, Math.round(kpi.targetValue / 30));
       }
 
       const score = actualValue !== null
