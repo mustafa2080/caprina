@@ -467,9 +467,9 @@ function DashboardTab({ myStats, profile, externalViewMode, externalDate, onView
         const monthPct    = Math.round((dayPassed / daysInMonth) * 100);
 
         const items = kpisRaw
-          .filter((k: any) => k.isActive !== false && k.score !== null && k.score !== undefined)
+          .filter((k: any) => k.isActive !== false)
           .map((k: any) => {
-            const sc: number        = k.score as number;
+            const sc: number        = k.score != null ? (k.score as number) : 0;
             const projected: number = monthPct > 0 ? Math.round((sc / monthPct) * 100) : sc;
             const velocity: number  = sc - monthPct;
             const isOT              = sc > 100;
@@ -2382,11 +2382,11 @@ function SalesKPIDashboardTab({ myStats, profile }: { myStats?: TeamMemberExtSta
     const dayPassed   = now.getDate();
     const monthPct    = Math.round((dayPassed / daysInMonth) * 100);
 
-    const activeKpis = kpis.filter((k: any) => k.isActive !== false && k.score !== null && k.score !== undefined);
+    const activeKpis = kpis.filter((k: any) => k.isActive !== false);
     if (!activeKpis.length) return [];
 
     return activeKpis.map((k: any) => {
-      const sc: number        = k.score as number;
+      const sc: number        = k.score != null ? (k.score as number) : 0;
       const projected: number = monthPct > 0 ? Math.round((sc / monthPct) * 100) : sc;
       const velocity: number  = sc - monthPct;
       const isOT              = sc > 100;
