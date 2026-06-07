@@ -1731,6 +1731,87 @@ function MonthlyReportTab({ profile, externalViewMode, externalDate, onViewModeC
       {/* ── تقرير PDF/طباعة ── */}
       <MonthlyReportPrint report={report} />
 
+      {/* ── الملخص المالي للمؤشرات ── */}
+      <div className="rounded-2xl border border-border bg-card overflow-hidden">
+        <div className="px-4 py-3 border-b border-border/50"
+          style={{ background: "linear-gradient(to left, hsl(var(--primary)/0.08), transparent)" }}>
+          <div className="flex items-center gap-2">
+            <Wallet className="w-4 h-4 text-emerald-400" />
+            <span className="font-black text-sm">الملخص المالي للمؤشرات</span>
+          </div>
+        </div>
+        <div className="p-4 space-y-3">
+          {/* Mini cards */}
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="rounded-xl p-3.5 border border-blue-500/20 bg-blue-500/5">
+              <p className="text-[10px] text-muted-foreground mb-1">إجمالي الإيرادات</p>
+              <p className="text-lg font-black text-blue-400">{fmt(os.totalRevenue)}</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">{fmtNum(os.delivered)} طلب مسلّم</p>
+            </div>
+            <div className="rounded-xl p-3.5 border border-emerald-500/20 bg-emerald-500/5">
+              <p className="text-[10px] text-muted-foreground mb-1">الراتب الأساسي</p>
+              <p className="text-lg font-black text-emerald-400">{fmt(salary)}</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">{monthLabel}</p>
+            </div>
+          </div>
+          {/* KPI bonuses/deductions */}
+          {((fin?.totalBonus ?? 0) > 0 || (fin?.totalDeduction ?? 0) > 0) && (
+            <div className="space-y-2">
+              {(fin?.totalBonus ?? 0) > 0 && (
+                <div className="flex items-center justify-between rounded-xl p-3 border border-emerald-500/20 bg-emerald-500/5">
+                  <span className="text-sm text-emerald-400 flex items-center gap-1.5"><ArrowUp className="w-3.5 h-3.5" />مكافآت KPIs</span>
+                  <span className="font-black text-emerald-400">+ {fmt(fin!.totalBonus)}</span>
+                </div>
+              )}
+              {(fin?.totalDeduction ?? 0) > 0 && (
+                <div className="flex items-center justify-between rounded-xl p-3 border border-rose-500/20 bg-rose-500/5">
+                  <span className="text-sm text-rose-400 flex items-center gap-1.5"><ArrowDown className="w-3.5 h-3.5" />خصومات KPIs</span>
+                  <span className="font-black text-rose-400">- {fmt(fin!.totalDeduction)}</span>
+                </div>
+              )}
+            </div>
+          )}
+          {/* Net salary */}
+          {salary > 0 && (
+            <div className="rounded-xl p-4 border border-primary/30 bg-primary/5 flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground">صافي الراتب المستحق</p>
+                {fin && <p className="text-[10px] text-muted-foreground">{fin.achievedCount}/{report.kpis.length} KPIs محققة</p>}
+              </div>
+              <p className="text-2xl font-black text-primary">{fmt(salary + (fin?.totalBonus ?? 0) - (fin?.totalDeduction ?? 0))}</p>
+            </div>
+          )}
+          {/* KPI breakdown */}
+          {report.kpis.length > 0 && (
+            <div className="space-y-1.5 pt-1 border-t border-border/40">
+              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">تفاصيل KPIs</p>
+              {report.kpis.map(k => (
+                <div key={k.id} className="flex items-center justify-between py-1.5 border-b border-border/20 last:border-0">
+                  <div className="flex items-center gap-2">
+                    {k.achieved ? <BadgeCheck className="w-3.5 h-3.5 text-emerald-400" /> : <XCircle className="w-3.5 h-3.5 text-rose-400" />}
+                    <span className="text-xs">{k.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-muted-foreground">{fmtNum(k.actualValue ?? 0)}/{fmtNum(k.targetValue)} {k.unit}</span>
+                    {k.score != null && (
+                      <span className={`text-xs font-bold ${k.score >= 80 ? "text-emerald-400" : k.score >= 60 ? "text-blue-400" : "text-rose-400"}`}>
+                        {k.score.toFixed(0)}%
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {salary === 0 && (
+            <div className="text-center py-6 text-muted-foreground">
+              <Wallet className="w-8 h-8 mx-auto mb-2 opacity-20" />
+              <p className="text-sm">لا توجد بيانات مالية لهذا الشهر</p>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* ── Order Stats Grid ── */}
       <div>
         <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mb-2.5 px-0.5">إحصائيات الطلبات</p>
