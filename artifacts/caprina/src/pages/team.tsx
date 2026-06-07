@@ -2798,32 +2798,6 @@ export function MyDashboardTab({ profileId, monthlySalary }: {
       </div>
 
       {/* ── شريط KPIs التقدم ── */}
-      {kpis.length > 0 && (
-        <div className="rounded-xl border border-border bg-card p-3.5 space-y-3">
-          <p className="text-xs font-bold">تقدمك نحو الأهداف الشهرية</p>
-          {kpis.map(kpi => {
-            const sc   = Math.min(kpi.score ?? 0, 100);
-            const isOT = (kpi.score ?? 0) > 100;
-            const fillColor = isOT ? "#3B82F6" : kpi.achieved === true ? "#10B981" : kpi.achieved === false ? "#EF4444" : "#c9a227";
-            return (
-              <div key={kpi.id}>
-                <div className="flex items-center justify-between text-[10px] mb-1.5">
-                  <span className="text-muted-foreground truncate max-w-[60%]">{kpi.name}</span>
-                  <div className="flex items-center gap-2">
-                    <span className={`font-bold text-xs ${isOT ? "text-blue-500" : kpi.achieved === true ? "text-emerald-500" : kpi.achieved === false ? "text-red-500" : "text-amber-500"}`}>
-                      {isOT ? "🏆 OT" : kpi.achieved === true ? "✅" : kpi.achieved === false ? "❌" : "⏳"}
-                    </span>
-                    <span className="font-bold">{kpi.score !== null ? `${Math.min(Math.round(kpi.score), 100)}%` : "—"}</span>
-                  </div>
-                </div>
-                <div className="w-full h-2 rounded-full bg-muted/40">
-                  <div className="h-2 rounded-full transition-all duration-700" style={{ width: `${sc}%`, background: fillColor }} />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
 
       {/* ── الحضور ── */}
       <div className="rounded-xl border border-border bg-card p-3.5">
