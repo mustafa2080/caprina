@@ -1189,6 +1189,88 @@ function MonthlyReportTab({ profile, externalViewMode, externalDate, onViewModeC
         </div>
       </div>
 
+      {/* ── Summary Card (مثل team.tsx) ── */}
+      <Card className="relative overflow-hidden border-border/60 bg-gradient-to-br from-card via-card to-emerald-500/5">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(201,162,39,0.12),transparent_35%),radial-gradient(circle_at_bottom_left,rgba(16,185,129,0.10),transparent_28%)] pointer-events-none" />
+        <CardContent className="relative p-4 sm:p-5 space-y-4">
+          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-3">
+            <div className="space-y-1">
+              <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/70 px-3 py-1 text-[10px] font-bold text-muted-foreground">
+                <FileText className="w-3 h-3 text-primary" />
+                التقرير الشهري التفصيلي
+              </div>
+              <h3 className="text-lg font-black leading-tight">ملخص أداء {report.displayName}</h3>
+              <p className="text-xs text-muted-foreground max-w-2xl">
+                نظرة مالية وتشغيلية متكاملة تجمع بين الطلبيات، مؤشرات الأداء، والحضور — بصورة سهلة القراءة وعرض احترافي.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <div className="rounded-2xl border border-border/60 bg-background/80 px-3 py-2 min-w-[115px]">
+                <p className="text-[10px] text-muted-foreground">الشهر</p>
+                <p className="text-sm font-black">{monthLabel}</p>
+              </div>
+              <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/8 px-3 py-2 min-w-[115px]">
+                <p className="text-[10px] text-muted-foreground">الحالة</p>
+                <p className="text-sm font-black text-emerald-500">
+                  {score == null || score === 0 ? "غير محدد"
+                    : score >= 80 ? "ممتاز"
+                    : score >= 65 ? "جيد جداً"
+                    : score >= 50 ? "جيد"
+                    : score >= 35 ? "مقبول"
+                    : "ضعيف"}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            {[
+              { label: "الطلبيات",      value: fmtNum(os.total),                    color: "text-primary" },
+              { label: "نسبة التسليم",  value: `${os.deliveryRate ?? 0}%`,           color: "text-amber-500" },
+              { label: "خصم KPI",       value: fmt(fin?.totalDeduction ?? 0),        color: "text-red-500" },
+              { label: "مكافأة KPI",    value: fmt(fin?.totalBonus ?? 0),            color: "text-emerald-500" },
+            ].map(item => (
+              <div key={item.label} className="rounded-2xl border border-border/60 bg-background/75 px-3 py-3">
+                <p className="text-[10px] text-muted-foreground">{item.label}</p>
+                <p className={`text-lg font-black ${item.color}`}>{item.value}</p>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Quick Stats Row ── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        {[
+          { label: "الطلبيات",     value: fmtNum(os.total),                    icon: Package,      color: "text-primary",                         bg: "bg-primary/5 dark:bg-primary/10",        glow: "shadow-[0_0_14px_rgba(99,102,241,0.18)]",  border: "border-primary/20",     gradient: "from-primary/5 to-transparent"    },
+          { label: "مُسلَّم",       value: fmtNum(os.delivered),                icon: TrendingUp,   color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-900/20",   glow: "shadow-[0_0_14px_rgba(16,185,129,0.18)]",  border: "border-emerald-200/60 dark:border-emerald-700/40", gradient: "from-emerald-500/5 to-transparent" },
+          { label: "مُرتجَع",       value: fmtNum(os.returned),                 icon: TrendingDown, color: "text-red-600 dark:text-red-400",         bg: "bg-red-50 dark:bg-red-900/20",           glow: "shadow-[0_0_14px_rgba(239,68,68,0.18)]",   border: "border-red-200/60 dark:border-red-700/40", gradient: "from-red-500/5 to-transparent" },
+          { label: "نسبة التسليم", value: `${os.deliveryRate ?? 0}%`,           icon: Star,         color: "text-amber-600 dark:text-amber-400",     bg: "bg-amber-50 dark:bg-amber-900/20",       glow: "shadow-[0_0_14px_rgba(245,158,11,0.18)]",  border: "border-amber-200/60 dark:border-amber-700/40", gradient: "from-amber-500/5 to-transparent" },
+        ].map(s => (
+          <Card key={s.label} className={`relative overflow-hidden border ${s.bg} ${s.glow} ${s.border} transition-all duration-200`}>
+            <div className={`absolute inset-0 bg-gradient-to-br ${s.gradient} pointer-events-none`} />
+            <CardContent className="relative px-3 py-3 flex items-center gap-2">
+              <s.icon className={`w-4 h-4 shrink-0 ${s.color}`} />
+              <div>
+                <p className={`text-base font-bold ${s.color}`}>{s.value}</p>
+                <p className="text-[9px] text-muted-foreground">{s.label}</p>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* ── الراتب المستحق ── */}
+      <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <DollarSign className="w-4 h-4 text-primary shrink-0" />
+          <div>
+            <p className="text-xs font-bold">الراتب المستحق</p>
+            <p className="text-[10px] text-muted-foreground">{monthLabel}</p>
+          </div>
+        </div>
+        <span className="text-xl font-black text-primary">{fmt(salary + (fin?.totalBonus ?? 0) - (fin?.totalDeduction ?? 0))}</span>
+      </div>
+
       {/* ── Order Stats Grid ── */}
       <div>
         <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mb-2.5 px-0.5">إحصائيات الطلبات</p>
