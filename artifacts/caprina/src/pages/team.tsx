@@ -1767,26 +1767,47 @@ function DailyTrackerTab({ profileId }: { profileId: number }) {
 
                 <Progress value={pct} className={`h-1.5 ${kpi.achieved === true ? "[&>div]:bg-emerald-500" : kpi.achieved === false ? "[&>div]:bg-red-400" : "[&>div]:bg-primary"}`} />
 
-                <div className="flex items-center gap-4 text-[10px] text-muted-foreground flex-wrap">
-                  {isManual ? (
-                    <>
-                      <span>المتوقع حتى اليوم: <span className={`font-bold ${kpi.achieved === true ? "text-emerald-400" : "text-amber-400"}`}>{fmtNum(Math.round(kpi.dailyTarget))} {kpi.unit}</span></span>
-                      <span>المتراكم: <span className={`font-bold ${kpi.achieved === true ? "text-emerald-400" : cumulativeValue !== null && cumulativeValue > 0 ? "text-blue-400" : "text-foreground"}`}>
-                        {cumulativeValue !== null ? `${fmtNum(cumulativeValue)} ${kpi.unit}` : "—"}
-                      </span></span>
-                      {todayValue !== null && (
-                        <span className="text-muted-foreground/70">اليوم: <span className="font-semibold text-foreground">{fmtNum(todayValue)} {kpi.unit}</span></span>
-                      )}
-                      <span className="text-muted-foreground/50">الهدف الشهري: {fmtNum(kpi.targetValue)} {kpi.unit}</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>الهدف اليومي: <span className="font-bold text-foreground">{fmtNum(Math.round(kpi.dailyTarget))} {kpi.unit}</span></span>
-                      <span>المحقق: <span className={`font-bold ${kpi.achieved === true ? "text-emerald-400" : kpi.achieved === false ? "text-red-400" : "text-foreground"}`}>
-                        {kpi.actualValue !== null ? `${fmtNum(kpi.actualValue)} ${kpi.unit}` : "—"}
-                      </span></span>
-                    </>
-                  )}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                  {/* الهدف الشهري */}
+                  <div className="rounded-lg border border-border/50 bg-muted/10 px-3 py-2 text-center">
+                    <p className="text-[9px] text-muted-foreground mb-0.5">{"\u0627\u0644\u0647\u062f\u0641 \u0627\u0644\u0634\u0647\u0631\u064a"}</p>
+                    <p className="text-sm font-black text-foreground">{fmtNum(kpi.targetValue)}</p>
+                    <p className="text-[9px] text-muted-foreground/60">{kpi.unit}</p>
+                  </div>
+                  {/* الهدف اليومي */}
+                  <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 px-3 py-2 text-center">
+                    <p className="text-[9px] text-muted-foreground mb-0.5">{"\u0627\u0644\u0647\u062f\u0641 \u0627\u0644\u064a\u0648\u0645\u064a"}</p>
+                    <p className="text-sm font-black text-blue-400">{fmtNum(Math.round(kpi.dailyTarget))}</p>
+                    <p className="text-[9px] text-muted-foreground/60">{kpi.unit}</p>
+                  </div>
+                  {/* المتراكم */}
+                  <div className={`rounded-lg border px-3 py-2 text-center ${
+                    isManual
+                      ? cumulativeValue !== null && cumulativeValue >= kpi.dailyTarget
+                        ? "border-emerald-500/30 bg-emerald-500/5"
+                        : "border-amber-500/20 bg-amber-500/5"
+                      : kpi.actualValue !== null && kpi.actualValue >= kpi.dailyTarget
+                        ? "border-emerald-500/30 bg-emerald-500/5"
+                        : "border-amber-500/20 bg-amber-500/5"
+                  }`}>
+                    <p className="text-[9px] text-muted-foreground mb-0.5">{isManual ? "\u0627\u0644\u0645\u062a\u0631\u0627\u0643\u0645" : "\u0627\u0644\u0645\u062d\u0642\u0642"}</p>
+                    <p className={`text-sm font-black ${
+                      isManual
+                        ? cumulativeValue !== null && cumulativeValue >= kpi.dailyTarget ? "text-emerald-400" : "text-amber-400"
+                        : kpi.actualValue !== null && kpi.actualValue >= kpi.dailyTarget ? "text-emerald-400" : "text-amber-400"
+                    }`}>
+                      {isManual
+                        ? (cumulativeValue !== null ? fmtNum(cumulativeValue) : "—")
+                        : (kpi.actualValue !== null ? fmtNum(kpi.actualValue) : "—")}
+                    </p>
+                    <p className="text-[9px] text-muted-foreground/60">{kpi.unit}</p>
+                  </div>
+                  {/* المتوقع حتى اليوم */}
+                  <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-2 text-center">
+                    <p className="text-[9px] text-muted-foreground mb-0.5">{"\u0627\u0644\u0645\u062a\u0648\u0642\u0639 \u062d\u062a\u0649 \u0627\u0644\u064a\u0648\u0645"}</p>
+                    <p className="text-sm font-black text-violet-400">{fmtNum(Math.round(kpi.dailyTarget))}</p>
+                    <p className="text-[9px] text-muted-foreground/60">{kpi.unit}</p>
+                  </div>
                 </div>
 
                 {isManual && (
