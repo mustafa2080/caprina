@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { ar } from "date-fns/locale";
 import {
-  User, KeyRound, Camera, TrendingUp, TrendingDown,
+  User, KeyRound, Camera, TrendingUp, TrendingDown, DollarSign,
   Package, CheckCircle2, XCircle, Hourglass, Star,
   Flame, Zap, Trophy, BarChart3, Clock, Target,
   Shield, Save, Eye, EyeOff, Upload, LayoutDashboard,
