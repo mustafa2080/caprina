@@ -2931,11 +2931,23 @@ export function MyDashboardTab({ profileId, monthlySalary }: {
         else if (sv < 60) items.push({ label: "النقاط", risk: "medium", value: `${sv}`, note: "يحتاج تحسين" });
         else items.push({ label: "النقاط", risk: "low", value: `${sv}`, note: "جيد" });
         items.sort((a,b)=>({high:0,medium:1,low:2}[a.risk]-{high:0,medium:1,low:2}[b.risk]));
-        const rcMap: Record<Risk,{text:string;bg:string;border:string;dot:string;label:string}> = {
-          high:   {text:"text-rose-400",bg:"bg-rose-500/10",border:"border-rose-500/30",dot:"bg-rose-500",label:"مرتفع"},
-          medium: {text:"text-amber-400",bg:"bg-amber-500/10",border:"border-amber-500/30",dot:"bg-amber-500",label:"متوسط"},
-          low:    {text:"text-emerald-400",bg:"bg-emerald-500/10",border:"border-emerald-500/30",dot:"bg-emerald-500",label:"منخفض"},
+        const rcMap: Record<Risk,{text:string;bg:string;border:string;dot:string}> = {
+          high:   {text:"text-rose-400",bg:"bg-gradient-to-br from-rose-500/20 to-rose-500/5",border:"border-rose-500/30",dot:"bg-rose-500"},
+          medium: {text:"text-amber-400",bg:"bg-gradient-to-br from-amber-500/20 to-amber-500/5",border:"border-amber-500/30",dot:"bg-amber-500"},
+          low:    {text:"text-emerald-400",bg:"bg-gradient-to-br from-emerald-500/20 to-emerald-500/5",border:"border-emerald-500/30",dot:"bg-emerald-500"},
         };
+        
+        const getLabelText = (itemLabel: string, risk: Risk): string => {
+          if (itemLabel === "نسبة الإرجاع") {
+            return risk === "high" ? "خطر مرتفع التأثير" : risk === "medium" ? "خطر متوسط التأثير" : "خطر منخفض التأثير";
+          } else if (itemLabel === "نسبة التسليم") {
+            return risk === "high" ? "حرج" : risk === "medium" ? "قريب من المستهدف" : "على المسار الصحيح";
+          } else if (itemLabel === "النقاط") {
+            return risk === "high" ? "حرج" : risk === "medium" ? "يحتاج تحسين" : "جيد";
+          }
+          return "";
+        };
+        
         return (
           <div className="rounded-2xl border border-border bg-card overflow-hidden">
             <div className="px-5 py-4 border-b border-border/50 flex items-start justify-between gap-3"
@@ -2951,13 +2963,9 @@ export function MyDashboardTab({ profileId, monthlySalary }: {
             <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
               {items.map((item,i) => {
                 const rc = rcMap[item.risk];
-                const bgMap = {
-                  high:   "bg-gradient-to-br from-rose-500/20 to-rose-500/5",
-                  medium: "bg-gradient-to-br from-amber-500/20 to-amber-500/5",
-                  low:    "bg-gradient-to-br from-emerald-500/20 to-emerald-500/5",
-                };
+                const statusLabel = getLabelText(item.label, item.risk);
                 return (
-                  <div key={i} className={`rounded-2xl border ${rc.border} ${bgMap[item.risk]} p-5 flex flex-col gap-4 transition-all hover:shadow-md relative overflow-hidden`}>
+                  <div key={i} className={`rounded-2xl border ${rc.border} ${rc.bg} p-5 flex flex-col gap-4 transition-all hover:shadow-md relative overflow-hidden`}>
                     {/* Subtle pattern background */}
                     <div className="absolute inset-0 opacity-5" style={{
                       backgroundImage: "repeating-linear-gradient(90deg, currentColor 0px, currentColor 1px, transparent 1px, transparent 20px)"
@@ -2967,7 +2975,7 @@ export function MyDashboardTab({ profileId, monthlySalary }: {
                     <div className="flex items-center justify-between gap-3 relative z-10">
                       <div className="flex items-center gap-2.5">
                         <span className={`w-3 h-3 rounded-full shrink-0 ${rc.dot}`}/>
-                        <span className="font-black text-sm">{rc.label}</span>
+                        <span className="font-black text-sm">{statusLabel}</span>
                       </div>
                       <span className={`text-2xl font-black ${rc.text} shrink-0`}>{item.value}</span>
                     </div>
