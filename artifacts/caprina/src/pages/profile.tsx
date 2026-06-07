@@ -1209,17 +1209,26 @@ function MonthlyReportTab({ profile, externalViewMode, externalDate, onViewModeC
                 <p className="text-[10px] text-muted-foreground">الشهر</p>
                 <p className="text-sm font-black">{monthLabel}</p>
               </div>
-              <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/8 px-3 py-2 min-w-[115px]">
-                <p className="text-[10px] text-muted-foreground">الحالة</p>
-                <p className="text-sm font-black text-emerald-500">
-                  {score == null || score === 0 ? "غير محدد"
-                    : score >= 80 ? "ممتاز"
-                    : score >= 65 ? "جيد جداً"
-                    : score >= 50 ? "جيد"
-                    : score >= 35 ? "مقبول"
-                    : "ضعيف"}
-                </p>
-              </div>
+              {(() => {
+                const today = new Date();
+                const currentMonth = format(today, "yyyy-MM");
+                const isCurrentMonth = selectedMonth === currentMonth;
+                const isLast10Days = today.getDate() >= 21;
+                if (!isCurrentMonth || !isLast10Days) return null;
+                return (
+                  <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/8 px-3 py-2 min-w-[115px]">
+                    <p className="text-[10px] text-muted-foreground">الحالة</p>
+                    <p className="text-sm font-black text-emerald-500">
+                      {score == null || score === 0 ? "غير محدد"
+                        : score >= 80 ? "ممتاز"
+                        : score >= 65 ? "جيد جداً"
+                        : score >= 50 ? "جيد"
+                        : score >= 35 ? "مقبول"
+                        : "ضعيف"}
+                    </p>
+                  </div>
+                );
+              })()}
             </div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
