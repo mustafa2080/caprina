@@ -460,55 +460,42 @@ function DashboardTab({ myStats, profile, externalViewMode, externalDate, onView
 
       {/* مصفوفة مخاطر المؤشرات — لوحتي */}
       {(() => {
-        const activeKpis = (currReport?.kpis ?? []).filter((k: any) => k.isActive !== false);
-        if (!activeKpis.length) return null;
-        const matrixKpis = activeKpis.map((k: any) => {
-          const sc = k.score ?? null;
-          const salaryW = k.salaryWeight ?? 0;
-          const impact = salaryW >= 20 ? "high" : salaryW >= 10 ? "medium" : "low";
-          const perf = sc === null ? "unknown" : sc >= 80 ? "good" : sc >= 50 ? "warning" : "danger";
-          return { ...k, sc, impact, perf };
-        });
-        const zones = [
-          {
-            key: "danger-high",
-            label: "خطر عالي الأولوية",
-            dotColor: "#ef4444",
-            cardStyle: { background: "linear-gradient(135deg,#dc2626cc,#b91c1caa)", border: "1px solid #ef444455" },
-            labelStyle: { color: "#fca5a5", fontWeight: 800 },
-            badgeStyle: { background: "#ef4444", color: "#fff" },
-            filter: (k: any) => (k.perf === "danger" || k.perf === "unknown") && k.impact === "high",
-          },
-          {
-            key: "danger-low",
-            label: "خطر منخفض التأثير",
-            dotColor: "#f97316",
-            cardStyle: { background: "linear-gradient(135deg,#ea580ccc,#c2410caa)", border: "1px solid #f9731655" },
-            labelStyle: { color: "#fdba74", fontWeight: 800 },
-            badgeStyle: { background: "#f97316", color: "#fff" },
-            filter: (k: any) => (k.perf === "danger" || k.perf === "unknown") && k.impact !== "high",
-          },
-          {
-            key: "warning",
-            label: "تحذير — راقبه",
-            dotColor: "#eab308",
-            cardStyle: { background: "linear-gradient(135deg,#ca8a04cc,#a16207aa)", border: "1px solid #eab30855" },
-            labelStyle: { color: "#fde047", fontWeight: 800 },
-            badgeStyle: { background: "#eab308", color: "#fff" },
-            filter: (k: any) => k.perf === "warning",
-          },
-          {
-            key: "good",
-            label: "على المسار الصحيح",
-            dotColor: "#22c55e",
-            cardStyle: { background: "linear-gradient(135deg,#16a34acc,#15803daa)", border: "1px solid #22c55e55" },
-            labelStyle: { color: "#86efac", fontWeight: 800 },
-            badgeStyle: { background: "#22c55e", color: "#fff" },
-            filter: (k: any) => k.perf === "good",
-          },
+        const os2 = currReport?.orderStats;
+        const returnRate  = os2?.returnRate  ?? myStats?.returnRate  ?? 0;
+        const deliveryRate = os2?.deliveryRate ?? myStats?.deliveryRate ?? 0;
+        const procHours   = myStats?.avgProcessingHours ?? null;
+        const scoreVal    = score ?? 0;
+
+        type RiskLevel = "high" | "medium" | "low";
+        const items: { label: string; risk: RiskLevel; value: string; note: string }[] = [];
+
+        if (returnRate >= 25)      items.push({ label: "معدل الإرجاع",  risk: "high",   value: `${returnRate.toFixed(1)}%`,   note: "يتجاوز الحد المقبول 20%" });
+        else if (returnRate >= 15) items.push({ label: "معدل الإرجاع",  risk: "medium", value: `${returnRate.toFixed(1)}%`,   note: "قريب من الحد التحذيري" });
+        else                       items.push({ label: "معدل الإرجاع",  risk: "low",    value: `${returnRate.toFixed(1)}%`,   note: "ضمن النطاق الطبيعي" });
+
+        if (deliveryRate < 60)      items.push({ label: "نسبة التسليم", risk: "high",   value: `${deliveryRate.toFixed(1)}%`, note: "أقل من الحد الأدنى" });
+        else if (deliveryRate < 80) items.push({ label: "نسبة التسليم", risk: "medium", value: `${deliveryRate.toFixed(1)}%`, note: "يحتاج تحسين" });
+        else                        items.push({ label: "نسبة التسليم", risk: "low",    value: `${deliveryRate.toFixed(1)}%`, note: "يحقق الهدف" });
+
+        if (procHours !== null) {
+          if (procHours > 48)      items.push({ label: "سرعة التسليم",  risk: "high",   value: `${procHours.toFixed(0)}س`,   note: "بطيء جداً" });
+          else if (procHours > 24) items.push({ label: "سرعة التسليم",  risk: "medium", value: `${procHours.toFixed(0)}س`,   note: "أبطأ من المستهدف" });
+          else                     items.push({ label: "سرعة التسليم",  risk: "low",    value: `${procHours.toFixed(0)}س`,   note: "سريع ومنتج" });
+        }
+
+        if (scoreVal < 40)      items.push({ label: "نقاط الأداء",      risk: "high",   value: `${scoreVal}`,                note: "يحتاج تدخل عاجل" });
+        else if (scoreVal < 60) items.push({ label: "نقاط الأداء",      risk: "medium", value: `${scoreVal}`,                note: "مجال للتحسين" });
+        else                    items.push({ label: "نقاط الأداء",      risk: "low",    value: `${scoreVal}`,                note: "أداء جيد" });
+
+        const zonesDef = [
+          { key: "high"   as RiskLevel, label: "حرج",                  dotColor: "#ef4444", cardStyle: { background: "linear-gradient(135deg,#dc2626bb,#b91c1c99)", border: "1px solid #ef444455" } as React.CSSProperties, labelStyle: { color: "#fca5a5", fontWeight: 800 } as React.CSSProperties, badgeStyle: { background: "#ef4444", color: "#fff" } as React.CSSProperties },
+          { key: "medium" as RiskLevel, label: "خطر منخفض التأثير",   dotColor: "#f97316", cardStyle: { background: "linear-gradient(135deg,#ea580cbb,#c2410c99)", border: "1px solid #f9731655" } as React.CSSProperties, labelStyle: { color: "#fdba74", fontWeight: 800 } as React.CSSProperties, badgeStyle: { background: "#f97316", color: "#fff" } as React.CSSProperties },
+          { key: "low"    as RiskLevel, label: "على المسار الصحيح",    dotColor: "#22c55e", cardStyle: { background: "linear-gradient(135deg,#16a34abb,#15803d99)", border: "1px solid #22c55e55" } as React.CSSProperties, labelStyle: { color: "#86efac", fontWeight: 800 } as React.CSSProperties, badgeStyle: { background: "#22c55e", color: "#fff" } as React.CSSProperties },
         ];
-        const visibleZones = zones.filter(z => matrixKpis.some(z.filter));
+
+        const visibleZones = zonesDef.filter(z => items.some(it => it.risk === z.key));
         if (!visibleZones.length) return null;
+
         return (
           <Card className="border-border bg-card overflow-hidden">
             <CardContent className="p-4">
@@ -519,25 +506,23 @@ function DashboardTab({ myStats, profile, externalViewMode, externalDate, onView
               </div>
               <div className="grid grid-cols-2 gap-2.5">
                 {visibleZones.map(zone => {
-                  const items = matrixKpis.filter(zone.filter);
+                  const zoneItems = items.filter(it => it.risk === zone.key);
                   return (
                     <div key={zone.key} className="rounded-xl p-3.5" style={zone.cardStyle}>
-                      {/* اسم الحالة + نقطة */}
                       <div className="flex items-center gap-2 mb-3">
                         <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: zone.dotColor }} />
                         <span className="text-[11px]" style={zone.labelStyle}>{zone.label}</span>
                       </div>
-                      {/* قائمة الـ KPIs */}
                       <div className="space-y-2">
-                        {items.map((k: any) => (
-                          <div key={k.id} className="flex items-center justify-between gap-2">
-                            <span className="text-[11px] text-white/80 truncate">{k.name}</span>
-                            {k.sc !== null && (
-                              <span className="text-[10px] font-black rounded-full px-2 py-0.5 shrink-0"
-                                style={zone.badgeStyle}>
-                                {k.sc}%
-                              </span>
-                            )}
+                        {zoneItems.map((item, i) => (
+                          <div key={i} className="flex items-center justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="text-[11px] text-white/90 font-medium truncate">{item.label}</p>
+                              <p className="text-[9px] text-white/50 truncate">{item.note}</p>
+                            </div>
+                            <span className="text-[10px] font-black rounded-full px-2 py-0.5 shrink-0" style={zone.badgeStyle}>
+                              {item.value}
+                            </span>
                           </div>
                         ))}
                       </div>
