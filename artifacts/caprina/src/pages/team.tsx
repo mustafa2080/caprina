@@ -3656,18 +3656,6 @@ function KpiTabContent({
         </div>
       )}
 
-      {/* Manager Comment */}
-      <Card className="border-border bg-card">
-        <CardContent className="px-4 py-4">
-          <div className="flex items-center gap-2 mb-3">
-            <FileText className="w-4 h-4 text-primary shrink-0" />
-            <p className="text-xs font-bold">ملاحظة المدير على المؤشرات</p>
-            <span className="text-[9px] text-muted-foreground/60 mr-auto">(تظهر في التقرير المطبوع)</span>
-          </div>
-          <ManagerKpiComment profileId={profileId} reportMonth={reportMonth} />
-        </CardContent>
-      </Card>
-
       {/* Monthly Trend */}
       {kpiViewMode === "monthly" && (
         <Card className="border-border bg-card">
