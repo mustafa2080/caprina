@@ -2814,6 +2814,7 @@ export function MyDashboardTab({ profileId, monthlySalary }: {
         const mPct = Math.round((dp / dim) * 100);
         return (
           <div className="rounded-2xl border border-border bg-card overflow-hidden">
+            {/* هيدر */}
             <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between"
               style={{ background: "linear-gradient(to left, hsl(var(--primary)/0.08), transparent)" }}>
               <div className="flex items-center gap-2">
@@ -2824,46 +2825,68 @@ export function MyDashboardTab({ profileId, monthlySalary }: {
                 مز {dp} يوم من {dim} ({mPct}% من الشهر)
               </span>
             </div>
+            {/* وصف */}
             <div className="px-4 pt-2 pb-1">
               <p className="text-[11px] text-muted-foreground">هل الموظف سيصل للهدف قبل نهاية الشهر بناءً على معدله الحالي؟</p>
             </div>
-            <div className="p-4 space-y-4">
+            {/* كروت KPI */}
+            <div className="p-3 space-y-3">
               {velKpis.map((kpi: any) => {
                 const sc = Math.min(kpi.score ?? 0, 150);
                 const projected = mPct > 0 ? Math.min(Math.round((sc / mPct) * 100), 150) : sc;
                 const velocity = Math.round(projected - 100);
                 const willReach = projected >= 100;
                 const isOT = sc > 100;
-                const barColor = isOT ? "#3b82f6" : willReach ? "#10b981" : "#ef4444";
+                const barColor   = isOT ? "#3b82f6"  : willReach ? "#10b981" : "#ef4444";
+                const projColor  = isOT ? "#93c5fd"  : willReach ? "#6ee7b7" : "#fca5a5";
                 const badgeLabel = isOT ? "فوق الهدف" : willReach ? "سيصل للهدف" : "يحتاج تسريع";
-                const badgeBg = isOT ? "bg-blue-500/15 text-blue-400 border-blue-500/30" : willReach ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" : "bg-red-500/15 text-red-400 border-red-500/30";
-                const badgeIcon = isOT ? "🚀" : willReach ? "✅" : "⚡";
+                const badgeCls   = isOT
+                  ? "bg-blue-600 text-white border-blue-500"
+                  : willReach
+                  ? "bg-emerald-600 text-white border-emerald-500"
+                  : "bg-red-600 text-white border-red-500";
+                const badgeIcon  = isOT ? "🚀" : willReach ? "✅" : "⚡";
+                const velColor   = velocity >= 0 ? "text-emerald-400" : "text-red-400";
+                /* عرض البارين: الفعلي solid، التوقع striped خفيف */
+                const solidW   = `${Math.min(sc, 100)}%`;
+                const projW    = `${Math.min(projected, 100)}%`;
+                const monthW   = `${Math.min(mPct, 100)}%`;
                 return (
-                  <div key={kpi.id} className="space-y-2">
+                  <div key={kpi.id} className="rounded-xl border border-border/60 bg-muted/10 px-4 py-3 space-y-2.5">
+                    {/* صف: اسم يمين — badge شمال */}
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-bold">{kpi.name}</span>
-                      <span className={`text-[10px] font-black rounded-full px-2.5 py-0.5 border ${badgeBg}`}>
+                      <span className={`text-[10px] font-black rounded-md px-2.5 py-1 border ${badgeCls}`}>
                         {badgeIcon} {badgeLabel}
                       </span>
+                      <span className="text-sm font-bold text-right">{kpi.name}</span>
                     </div>
                     {/* Progress bar */}
-                    <div className="relative w-full h-5 rounded-full bg-muted/30 overflow-hidden">
-                      {/* شريط الهدف الشهري (خلفي) */}
-                      <div className="absolute top-0 right-0 h-full rounded-full bg-muted/50 transition-all duration-700"
-                        style={{ width: `${Math.min(mPct, 100)}%` }} />
-                      {/* شريط الأداء الفعلي */}
+                    <div className="relative w-full h-4 rounded-full bg-muted/30 overflow-hidden">
+                      {/* Projected (striped خفيف) */}
+                      {projected > sc && (
+                        <div className="absolute top-0 right-0 h-full rounded-full"
+                          style={{
+                            width: projW,
+                            background: `repeating-linear-gradient(90deg, ${projColor}55 0px, ${projColor}55 6px, ${projColor}22 6px, ${projColor}22 12px)`,
+                          }} />
+                      )}
+                      {/* Solid actual */}
                       <div className="absolute top-0 right-0 h-full rounded-full transition-all duration-700"
-                        style={{ width: `${Math.min(sc, 100)}%`, background: barColor, opacity: 0.9 }} />
+                        style={{ width: solidW, background: barColor }} />
                       {/* خط نقطة الشهر */}
-                      <div className="absolute top-0 h-full w-0.5 bg-foreground/30"
-                        style={{ right: `${Math.min(mPct, 100)}%` }} />
+                      <div className="absolute top-0 h-full w-[2px] bg-white/40 rounded-full"
+                        style={{ right: monthW }} />
                     </div>
-                    {/* أرقام */}
+                    {/* أرقام: فعلي — توقع — انحراف */}
                     <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-muted-foreground">فعلي: <strong className="text-foreground">{sc}%</strong></span>
-                      <span className="text-muted-foreground">توقع الشهر: <strong style={{ color: barColor }}>{projected}%</strong></span>
-                      <span className={`font-bold ${velocity >= 0 ? "text-emerald-500" : "text-red-500"}`}>
-                        عن المتوقع {velocity >= 0 ? "+" : ""}{velocity}%
+                      <span className={`font-bold ${velColor}`}>
+                        {velocity >= 0 ? "+" : ""}{velocity}% عن المتوقع
+                      </span>
+                      <span className="text-muted-foreground">
+                        توقع الشهر: <strong style={{ color: projColor }}>{projected}%</strong>
+                      </span>
+                      <span className="text-muted-foreground">
+                        فعلي: <strong className="text-foreground">{sc}%</strong>
                       </span>
                     </div>
                   </div>
