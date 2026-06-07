@@ -305,8 +305,8 @@ function Router() {
 
   if (!user) return <Redirect to="/login" />;
 
-  // موظف مبيعات → الصفحة الرئيسية هي لوحتي
-  if (user?.role === "employee" && location === "/") {
+  // كل المستخدمين → الصفحة الرئيسية هي لوحتي
+  if (location === "/") {
     return <Redirect to="/my-dashboard" />;
   }
 
