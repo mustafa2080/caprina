@@ -393,7 +393,7 @@ function DashboardTab({ myStats, profile, externalViewMode, externalDate, onView
 
       {/* متتبع سرعة الإنجاز — لوحتي */}
       {(() => {
-        const activeKpis = (report?.kpis ?? []).filter((k: any) => k.isActive !== false);
+        const activeKpis = (currReport?.kpis ?? []).filter((k: any) => k.isActive !== false);
         if (!activeKpis.some((k: any) => k.score !== null && k.score !== undefined)) return null;
         const now = new Date();
         const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
@@ -545,6 +545,79 @@ function DashboardTab({ myStats, profile, externalViewMode, externalDate, onView
           </CardContent>
         </Card>
       )}
+
+      {/* مصفوفة مخاطر المؤشرات — لوحتي */}
+      {viewMode === "monthly" && (() => {
+        const os2 = currReport?.orderStats;
+        const returnRate = os2?.returnRate ?? myStats?.returnRate ?? 0;
+        const deliveryRate = os2?.deliveryRate ?? myStats?.deliveryRate ?? 0;
+        const procHours = myStats?.avgProcessingHours ?? null;
+        const scoreVal = score ?? 0;
+        const items: { label: string; risk: "high" | "medium" | "low"; value: string; note: string }[] = [];
+
+        if (returnRate >= 25) items.push({ label: "معدل الإرجاع", risk: "high", value: `${returnRate.toFixed(1)}%`, note: "يتجاوز الحد المقبول 20%" });
+        else if (returnRate >= 15) items.push({ label: "معدل الإرجاع", risk: "medium", value: `${returnRate.toFixed(1)}%`, note: "قريب من الحد التحذيري" });
+        else items.push({ label: "معدل الإرجاع", risk: "low", value: `${returnRate.toFixed(1)}%`, note: "ضمن النطاق الطبيعي" });
+
+        if (deliveryRate < 60) items.push({ label: "معدل التسليم", risk: "high", value: `${deliveryRate.toFixed(1)}%`, note: "أقل من الحد الأدنى المطلوب" });
+        else if (deliveryRate < 80) items.push({ label: "معدل التسليم", risk: "medium", value: `${deliveryRate.toFixed(1)}%`, note: "يحتاج تحسين للوصول للهدف" });
+        else items.push({ label: "معدل التسليم", risk: "low", value: `${deliveryRate.toFixed(1)}%`, note: "يحقق الهدف المطلوب" });
+
+        if (procHours !== null) {
+          if (procHours > 48) items.push({ label: "سرعة التسليم", risk: "high", value: `${procHours.toFixed(0)}س`, note: "بطيء جداً في المعالجة" });
+          else if (procHours > 24) items.push({ label: "سرعة التسليم", risk: "medium", value: `${procHours.toFixed(0)}س`, note: "أبطأ من المستهدف" });
+          else items.push({ label: "سرعة التسليم", risk: "low", value: `${procHours.toFixed(0)}س`, note: "سريع ومنتج" });
+        }
+
+        if (scoreVal < 40) items.push({ label: "نقاط الأداء الكلية", risk: "high", value: `${scoreVal}`, note: "يحتاج تدخل عاجل" });
+        else if (scoreVal < 60) items.push({ label: "نقاط الأداء الكلية", risk: "medium", value: `${scoreVal}`, note: "مجال واسع للتحسين" });
+        else items.push({ label: "نقاط الأداء الكلية", risk: "low", value: `${scoreVal}`, note: "أداء جيد" });
+
+        items.sort((a, b) => ({ high: 0, medium: 1, low: 2 }[a.risk] - { high: 0, medium: 1, low: 2 }[b.risk]));
+
+        const rc2Map = {
+          high:   { text: "text-rose-400",    bg: "bg-rose-500/10",    border: "border-rose-500/30",   dot: "bg-rose-500",    label: "عالٍ" },
+          medium: { text: "text-amber-400",   bg: "bg-amber-500/10",   border: "border-amber-500/30",  dot: "bg-amber-500",   label: "متوسط" },
+          low:    { text: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/30", dot: "bg-emerald-500", label: "منخفض" },
+        };
+
+        return (
+          <div className="rounded-2xl border border-border bg-card overflow-hidden">
+            <div className="px-4 py-3 border-b border-border/50"
+              style={{ background: "linear-gradient(to left, hsl(var(--primary)/0.08), transparent)" }}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ShieldAlert className="w-4 h-4 text-rose-400" />
+                  <span className="font-black text-sm">مصفوفة مخاطر المؤشرات</span>
+                </div>
+                <div className="flex items-center gap-2 text-[10px]">
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-rose-500" />عالٍ</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500" />متوسط</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" />منخفض</span>
+                </div>
+              </div>
+            </div>
+            <div className="p-4 space-y-2.5">
+              {items.map((item, i) => {
+                const rc = rc2Map[item.risk];
+                return (
+                  <div key={i} className={`rounded-xl p-3.5 border ${rc.bg} ${rc.border} flex items-center gap-3`}>
+                    <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${rc.dot}`} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className="text-sm font-bold">{item.label}</span>
+                        <span className={`text-sm font-black ${rc.text}`}>{item.value}</span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">{item.note}</p>
+                    </div>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${rc.bg} ${rc.border} ${rc.text} shrink-0`}>{rc.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Financial + Speed — شهري فقط */}
       {viewMode === "monthly" && (
