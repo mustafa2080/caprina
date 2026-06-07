@@ -4143,9 +4143,6 @@ function EmployeeDetail({
 
         {/* ─── My Dashboard Tab ─── */}
         <TabsContent value="my-dashboard" className="space-y-3 mt-3">
-          <StarEmployeesSection
-            currentMonth={new Date().toISOString().slice(0, 7)}
-          />
           <MyDashboardTab
             profileId={profileId}
             monthlySalary={fullProfile?.monthlySalary ?? 0}
