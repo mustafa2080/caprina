@@ -1091,18 +1091,18 @@ function MonthlyReportPrint({ report }: { report: EmployeeReport }) {
       </div>
 
       <div ref={exportRef} style={{ direction: "rtl", fontFamily: "'Segoe UI', Tahoma, Arial, sans-serif" }}>
-        <div className="report bg-white text-slate-900">
+        <div className="report bg-white dark:bg-zinc-900 text-slate-900 dark:text-slate-100 rounded-xl border border-gray-200 dark:border-zinc-700 p-4">
 
           {/* Header */}
           <div className="border-b-2 border-primary pb-4 mb-5 flex justify-between items-start">
             <div className="flex items-center gap-3">
-              <img src="/logo.jpg" alt="Caprina" className="h-12 w-12 rounded-2xl object-cover border border-gray-200 shadow-sm" />
+              <img src="/logo.jpg" alt="Caprina" className="h-12 w-12 rounded-2xl object-cover border border-gray-200 dark:border-zinc-600 shadow-sm" />
               <div>
                 <div className="text-2xl font-black text-primary">CAPRINA</div>
-                <div className="text-xs text-gray-500 mt-0.5">تقرير أداء موظف — {periodLabel}</div>
+                <div className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">تقرير أداء موظف — {periodLabel}</div>
               </div>
             </div>
-            <div className="text-left text-xs text-gray-400">
+            <div className="text-left text-xs text-gray-400 dark:text-zinc-500">
               <div>تاريخ الإصدار: {new Date().toLocaleDateString("ar-EG")}</div>
               {report.profile?.department && <div>القسم: {report.profile.department}</div>}
             </div>
@@ -1110,21 +1110,21 @@ function MonthlyReportPrint({ report }: { report: EmployeeReport }) {
 
           {/* Employee Info + Period */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-              <h3 className="text-[10px] text-gray-400 uppercase mb-2 font-semibold">بيانات الموظف</h3>
+            <div className="bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-600 rounded-lg p-3">
+              <h3 className="text-[10px] text-gray-400 dark:text-zinc-500 uppercase mb-2 font-semibold">بيانات الموظف</h3>
               {[["الاسم", report.displayName], ["المسمى الوظيفي", report.profile?.jobTitle || "—"], ["القسم", report.profile?.department || "—"], ["تاريخ التعيين", report.profile?.hireDate ? new Date(report.profile.hireDate).toLocaleDateString("ar-EG") : "—"]].map(([label, value]) => (
                 <div key={label} className="flex justify-between text-xs mb-1">
-                  <span className="text-gray-400">{label}</span>
-                  <span className="font-semibold">{value}</span>
+                  <span className="text-gray-400 dark:text-zinc-400">{label}</span>
+                  <span className="font-semibold dark:text-slate-200">{value}</span>
                 </div>
               ))}
             </div>
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-              <h3 className="text-[10px] text-gray-400 uppercase mb-2 font-semibold">فترة التقرير</h3>
+            <div className="bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-600 rounded-lg p-3">
+              <h3 className="text-[10px] text-gray-400 dark:text-zinc-500 uppercase mb-2 font-semibold">فترة التقرير</h3>
               {[["الشهر", periodLabel], ["من", new Date(report.period.from).toLocaleDateString("ar-EG")], ["إلى", new Date(report.period.to).toLocaleDateString("ar-EG")], ["إجمالي الطلبيات", fmtNum(report.orderStats.total)]].map(([label, value]) => (
                 <div key={label} className="flex justify-between text-xs mb-1">
-                  <span className="text-gray-400">{label}</span>
-                  <span className="font-semibold">{value}</span>
+                  <span className="text-gray-400 dark:text-zinc-400">{label}</span>
+                  <span className="font-semibold dark:text-slate-200">{value}</span>
                 </div>
               ))}
             </div>
@@ -1133,29 +1133,29 @@ function MonthlyReportPrint({ report }: { report: EmployeeReport }) {
           {/* Order Stats */}
           <div className="grid grid-cols-4 gap-2 mb-5">
             {[
-              { label: "إجمالي الطلبيات", value: fmtNum(report.orderStats.total), colorCls: "text-gray-800", bgCls: "bg-gray-100 border-gray-200" },
-              { label: "مُسلَّم", value: fmtNum(report.orderStats.delivered), colorCls: "text-emerald-600", bgCls: "bg-emerald-50 border-emerald-200" },
-              { label: "مُرتجَع", value: fmtNum(report.orderStats.returned), colorCls: "text-red-600", bgCls: "bg-red-50 border-red-200" },
-              { label: "نسبة التسليم", value: `${report.orderStats.deliveryRate}%`, colorCls: "text-amber-600", bgCls: "bg-amber-50 border-amber-200" },
+              { label: "إجمالي الطلبيات", value: fmtNum(report.orderStats.total), colorCls: "text-gray-800 dark:text-gray-200", bgCls: "bg-gray-100 dark:bg-zinc-800 border-gray-200 dark:border-zinc-600" },
+              { label: "مُسلَّم", value: fmtNum(report.orderStats.delivered), colorCls: "text-emerald-600", bgCls: "bg-emerald-50 dark:bg-emerald-950 border-emerald-200 dark:border-emerald-800" },
+              { label: "مُرتجَع", value: fmtNum(report.orderStats.returned), colorCls: "text-red-600", bgCls: "bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800" },
+              { label: "نسبة التسليم", value: `${report.orderStats.deliveryRate}%`, colorCls: "text-amber-600", bgCls: "bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800" },
             ].map(s => (
               <div key={s.label} className={`border rounded-xl p-2.5 text-center ${s.bgCls}`}>
                 <div className={`text-xl font-black ${s.colorCls}`}>{s.value}</div>
-                <div className="text-[10px] text-gray-500 mt-0.5">{s.label}</div>
+                <div className="text-[10px] text-gray-500 dark:text-zinc-400 mt-0.5">{s.label}</div>
               </div>
             ))}
           </div>
 
           {/* Overall Score */}
-          <div className="bg-primary/8 border-2 border-primary rounded-xl p-4 mb-5 flex justify-between items-center">
+          <div className="bg-primary/10 dark:bg-primary/20 border-2 border-primary rounded-xl p-4 mb-5 flex justify-between items-center">
             <div>
-              <div className="text-xs text-gray-500 mb-1">التقييم الإجمالي</div>
+              <div className="text-xs text-gray-500 dark:text-zinc-400 mb-1">التقييم الإجمالي</div>
               <div className="text-4xl font-black text-primary">{report.overallScore !== null ? `${report.overallScore}%` : "—"}</div>
             </div>
             <div className="text-center">
-              <div className="text-xl font-black">
+              <div className="text-xl font-black dark:text-slate-100">
                 {report.overallScore == null ? "غير محدد" : report.overallScore >= 80 ? "ممتاز" : report.overallScore >= 65 ? "جيد جداً" : report.overallScore >= 50 ? "جيد" : report.overallScore >= 35 ? "مقبول" : report.overallScore > 0 ? "ضعيف" : "غير محدد"}
               </div>
-              <div className="text-xs text-gray-500 mt-1">
+              <div className="text-xs text-gray-500 dark:text-zinc-400 mt-1">
                 {report.overallScore !== null ? report.overallScore >= 90 ? "أداء استثنائي" : report.overallScore >= 75 ? "أداء فوق المتوسط" : report.overallScore >= 60 ? "أداء مقبول" : "يحتاج تحسين" : "لا توجد مؤشرات"}
               </div>
             </div>
@@ -1164,48 +1164,48 @@ function MonthlyReportPrint({ report }: { report: EmployeeReport }) {
           {/* Attendance & Salary */}
           {salaryReport && (
             <div className="mb-5">
-              <h3 className="text-sm font-bold mb-3 border-r-4 border-primary pr-2">الحضور والمرتب التفصيلي</h3>
+              <h3 className="text-sm font-bold mb-3 border-r-4 border-primary pr-2 dark:text-slate-100">الحضور والمرتب التفصيلي</h3>
               <div className="grid grid-cols-3 gap-1.5 mb-3">
                 {[
-                  { label: "أيام الحضور", val: salaryReport.workedDays, colorCls: "text-emerald-600", bgCls: "bg-emerald-50 border-emerald-200" },
-                  { label: "أيام الغياب", val: salaryReport.absentDays, colorCls: "text-red-600", bgCls: "bg-red-50 border-red-200" },
-                  { label: "أيام التأخير", val: salaryReport.lateDays, colorCls: "text-amber-600", bgCls: "bg-amber-50 border-amber-200" },
-                  { label: "نصف يوم", val: salaryReport.halfDays, colorCls: "text-blue-600", bgCls: "bg-blue-50 border-blue-200" },
-                  { label: "إجمالي الأيام", val: salaryReport.totalWorkingDays, colorCls: "text-gray-600", bgCls: "bg-gray-100 border-gray-200" },
-                  { label: "أيام العمل الفعلية", val: salaryReport.workedDays + salaryReport.halfDays * 0.5, colorCls: "text-amber-700", bgCls: "bg-amber-50 border-amber-200" },
+                  { label: "أيام الحضور", val: salaryReport.workedDays, colorCls: "text-emerald-600", bgCls: "bg-emerald-50 dark:bg-emerald-950 border-emerald-200 dark:border-emerald-800" },
+                  { label: "أيام الغياب", val: salaryReport.absentDays, colorCls: "text-red-600", bgCls: "bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800" },
+                  { label: "أيام التأخير", val: salaryReport.lateDays, colorCls: "text-amber-600", bgCls: "bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800" },
+                  { label: "نصف يوم", val: salaryReport.halfDays, colorCls: "text-blue-600", bgCls: "bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800" },
+                  { label: "إجمالي الأيام", val: salaryReport.totalWorkingDays, colorCls: "text-gray-600 dark:text-gray-300", bgCls: "bg-gray-100 dark:bg-zinc-800 border-gray-200 dark:border-zinc-600" },
+                  { label: "أيام العمل الفعلية", val: salaryReport.workedDays + salaryReport.halfDays * 0.5, colorCls: "text-amber-700", bgCls: "bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800" },
                 ].map(s => (
                   <div key={s.label} className={`border rounded-xl p-2.5 text-center ${s.bgCls}`}>
                     <div className={`text-2xl font-black leading-none ${s.colorCls}`}>{s.val}</div>
-                    <div className="text-[9px] text-gray-500 mt-1 font-medium">{s.label}</div>
+                    <div className="text-[9px] text-gray-500 dark:text-zinc-400 mt-1 font-medium">{s.label}</div>
                   </div>
                 ))}
               </div>
 
-              <div className="border border-gray-200 rounded-xl overflow-hidden mb-2.5">
+              <div className="border border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden mb-2.5">
                 <div className="bg-amber-500 px-3 py-2 flex justify-between items-center">
                   <span className="text-white font-bold text-xs">البند</span>
                   <span className="text-white font-bold text-xs">المبلغ</span>
                 </div>
                 {[
-                  { label: "الراتب الأساسي", val: fmt(salaryReport.baseSalary), color: "text-gray-800", bg: "bg-gray-50" },
-                  { label: "خصم الغياب / نصف اليوم", val: salaryReport.attendanceDeduction > 0 ? `−${fmt(salaryReport.attendanceDeduction)}` : "—", color: salaryReport.attendanceDeduction > 0 ? "text-red-600" : "text-gray-400", bg: salaryReport.attendanceDeduction > 0 ? "bg-red-50" : "bg-gray-50" },
-                  { label: "خصم مؤشرات KPI", val: kpiDeductions > 0 ? `−${fmt(kpiDeductions)}` : "—", color: kpiDeductions > 0 ? "text-red-600" : "text-gray-400", bg: kpiDeductions > 0 ? "bg-red-50" : "bg-gray-50" },
-                  { label: "بونص إضافي", val: salaryReport.bonuses > 0 ? `+${fmt(salaryReport.bonuses)}` : "—", color: salaryReport.bonuses > 0 ? "text-emerald-600" : "text-gray-400", bg: salaryReport.bonuses > 0 ? "bg-emerald-50" : "bg-gray-50" },
-                  { label: "مكافأة Over Target", val: kpiBonuses > 0 ? `+${fmt(kpiBonuses)}` : "—", color: kpiBonuses > 0 ? "text-emerald-600" : "text-gray-400", bg: kpiBonuses > 0 ? "bg-emerald-50" : "bg-gray-50" },
-                  { label: "بونص / خصم خاص", val: specialBonusNum > 0 ? `${specialBonusType === "bonus" ? "+" : "−"}${fmt(specialBonusNum)}` : "—", color: specialBonusNum > 0 ? (specialBonusType === "bonus" ? "text-emerald-600" : "text-red-600") : "text-gray-400", bg: "bg-gray-50" },
+                  { label: "الراتب الأساسي", val: fmt(salaryReport.baseSalary), color: "text-gray-800 dark:text-gray-200", bg: "bg-gray-50 dark:bg-zinc-800" },
+                  { label: "خصم الغياب / نصف اليوم", val: salaryReport.attendanceDeduction > 0 ? `−${fmt(salaryReport.attendanceDeduction)}` : "—", color: salaryReport.attendanceDeduction > 0 ? "text-red-600" : "text-gray-400 dark:text-zinc-500", bg: salaryReport.attendanceDeduction > 0 ? "bg-red-50 dark:bg-red-950" : "bg-gray-50 dark:bg-zinc-800" },
+                  { label: "خصم مؤشرات KPI", val: kpiDeductions > 0 ? `−${fmt(kpiDeductions)}` : "—", color: kpiDeductions > 0 ? "text-red-600" : "text-gray-400 dark:text-zinc-500", bg: kpiDeductions > 0 ? "bg-red-50 dark:bg-red-950" : "bg-gray-50 dark:bg-zinc-800" },
+                  { label: "بونص إضافي", val: salaryReport.bonuses > 0 ? `+${fmt(salaryReport.bonuses)}` : "—", color: salaryReport.bonuses > 0 ? "text-emerald-600" : "text-gray-400 dark:text-zinc-500", bg: salaryReport.bonuses > 0 ? "bg-emerald-50 dark:bg-emerald-950" : "bg-gray-50 dark:bg-zinc-800" },
+                  { label: "مكافأة Over Target", val: kpiBonuses > 0 ? `+${fmt(kpiBonuses)}` : "—", color: kpiBonuses > 0 ? "text-emerald-600" : "text-gray-400 dark:text-zinc-500", bg: kpiBonuses > 0 ? "bg-emerald-50 dark:bg-emerald-950" : "bg-gray-50 dark:bg-zinc-800" },
+                  { label: "بونص / خصم خاص", val: specialBonusNum > 0 ? `${specialBonusType === "bonus" ? "+" : "−"}${fmt(specialBonusNum)}` : "—", color: specialBonusNum > 0 ? (specialBonusType === "bonus" ? "text-emerald-600" : "text-red-600") : "text-gray-400 dark:text-zinc-500", bg: "bg-gray-50 dark:bg-zinc-800" },
                 ].map(row => (
-                  <div key={row.label} className={`flex justify-between items-center px-3 py-2 border-b border-gray-100 ${row.bg}`}>
-                    <span className="text-xs text-gray-500">{row.label}</span>
+                  <div key={row.label} className={`flex justify-between items-center px-3 py-2 border-b border-gray-100 dark:border-zinc-700 ${row.bg}`}>
+                    <span className="text-xs text-gray-500 dark:text-zinc-400">{row.label}</span>
                     <span className={`text-sm font-bold ${row.color}`}>{row.val}</span>
                   </div>
                 ))}
                 {(() => {
                   const finalNet = salaryReport.netSalary - kpiDeductions + kpiBonuses + specialBonusValue;
                   return (
-                    <div className="flex justify-between items-center px-3 py-3 border-t-2 border-amber-500 bg-amber-50">
+                    <div className="flex justify-between items-center px-3 py-3 border-t-2 border-amber-500 bg-amber-50 dark:bg-amber-950">
                       <div>
-                        <p className="text-sm font-black">صافي المرتب</p>
-                        <p className="text-[9px] text-gray-400 mt-0.5">{salaryReport.baseSalary} − {salaryReport.attendanceDeduction + kpiDeductions} + {salaryReport.bonuses + kpiBonuses}</p>
+                        <p className="text-sm font-black dark:text-amber-100">صافي المرتب</p>
+                        <p className="text-[9px] text-gray-400 dark:text-zinc-500 mt-0.5">{salaryReport.baseSalary} − {salaryReport.attendanceDeduction + kpiDeductions} + {salaryReport.bonuses + kpiBonuses}</p>
                       </div>
                       <span className={`text-2xl font-black ${finalNet >= salaryReport.baseSalary ? "text-emerald-600" : finalNet < salaryReport.baseSalary * 0.9 ? "text-red-600" : "text-amber-600"}`}>{fmt(finalNet)}</span>
                     </div>
@@ -1216,7 +1216,7 @@ function MonthlyReportPrint({ report }: { report: EmployeeReport }) {
           )}
 
           {/* Footer */}
-          <div style={{ textAlign: "center", fontSize: 10, color: "#aaa", marginTop: 24, borderTop: "1px solid #eee", paddingTop: 12 }}>
+          <div className="text-center text-[10px] text-gray-400 dark:text-zinc-600 mt-6 border-t border-gray-200 dark:border-zinc-700 pt-3">
             تقرير صادر من نظام CAPRINA لإدارة المبيعات — {new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" })}
           </div>
         </div>
