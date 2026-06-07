@@ -1746,6 +1746,14 @@ function DailyTrackerTab({ profileId }: { profileId: number }) {
           const todayValue      = (kpi as any).todayValue as number | null;
           const cumulativeValue = (kpi as any).cumulativeValue as number | null;
 
+          // الهدف اليومي الثابت = الهدف الشهري / 30
+          const dailyFixed = Math.max(1, Math.round(kpi.targetValue / 30));
+          // المتوقع حتى اليوم = (الهدف الشهري / 30) * رقم اليوم المختار
+          const selectedDayNum = new Date(selectedDate + "T00:00:00").getDate();
+          const dailyExpected = isManual
+            ? Math.round((kpi.targetValue / 30) * selectedDayNum)
+            : dailyFixed;
+
           return (
             <Card key={kpi.id} className={`border ${kpi.achieved === true ? "border-emerald-700/50 bg-emerald-950/10" : kpi.achieved === false ? "border-red-800/30" : "border-border"}`}>
               <CardContent className="px-4 py-3 space-y-2">
@@ -1777,7 +1785,7 @@ function DailyTrackerTab({ profileId }: { profileId: number }) {
                   {/* الهدف اليومي */}
                   <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 px-3 py-2 text-center">
                     <p className="text-[9px] text-muted-foreground mb-0.5">{"\u0627\u0644\u0647\u062f\u0641 \u0627\u0644\u064a\u0648\u0645\u064a"}</p>
-                    <p className="text-sm font-black text-blue-400">{fmtNum(Math.round(kpi.dailyTarget))}</p>
+                    <p className="text-sm font-black text-blue-400">{fmtNum(dailyFixed)}</p>
                     <p className="text-[9px] text-muted-foreground/60">{kpi.unit}</p>
                   </div>
                   {/* المتراكم */}
@@ -1805,7 +1813,7 @@ function DailyTrackerTab({ profileId }: { profileId: number }) {
                   {/* المتوقع حتى اليوم */}
                   <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-2 text-center">
                     <p className="text-[9px] text-muted-foreground mb-0.5">{"\u0627\u0644\u0645\u062a\u0648\u0642\u0639 \u062d\u062a\u0649 \u0627\u0644\u064a\u0648\u0645"}</p>
-                    <p className="text-sm font-black text-violet-400">{fmtNum(Math.round(kpi.dailyTarget))}</p>
+                    <p className="text-sm font-black text-violet-400">{fmtNum(dailyExpected)}</p>
                     <p className="text-[9px] text-muted-foreground/60">{kpi.unit}</p>
                   </div>
                 </div>
