@@ -2957,20 +2957,26 @@ export function MyDashboardTab({ profileId, monthlySalary }: {
                   low:    "bg-gradient-to-br from-emerald-500/20 to-emerald-500/5",
                 };
                 return (
-                  <div key={i} className={`rounded-2xl border ${rc.border} ${bgMap[item.risk]} p-5 flex flex-col gap-3 transition-all hover:shadow-md`}>
-                    {/* Header */}
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <span className={`w-3 h-3 rounded-full shrink-0 ${rc.dot}`}/>
-                          <span className="font-black text-sm">{rc.label}</span>
-                        </div>
-                        <p className="text-xs text-muted-foreground">{item.note}</p>
+                  <div key={i} className={`rounded-2xl border ${rc.border} ${bgMap[item.risk]} p-5 flex flex-col gap-4 transition-all hover:shadow-md relative overflow-hidden`}>
+                    {/* Subtle pattern background */}
+                    <div className="absolute inset-0 opacity-5" style={{
+                      backgroundImage: "repeating-linear-gradient(90deg, currentColor 0px, currentColor 1px, transparent 1px, transparent 20px)"
+                    }}/>
+                    
+                    {/* Header: Label + Value */}
+                    <div className="flex items-center justify-between gap-3 relative z-10">
+                      <div className="flex items-center gap-2.5">
+                        <span className={`w-3 h-3 rounded-full shrink-0 ${rc.dot}`}/>
+                        <span className="font-black text-sm">{rc.label}</span>
                       </div>
                       <span className={`text-2xl font-black ${rc.text} shrink-0`}>{item.value}</span>
                     </div>
-                    {/* Label */}
-                    <p className="text-sm font-bold text-foreground">{item.label}</p>
+                    
+                    {/* Content: Item label */}
+                    <p className="text-sm font-bold text-foreground relative z-10">{item.label}</p>
+                    
+                    {/* Note */}
+                    {item.note && <p className="text-xs text-muted-foreground relative z-10">{item.note}</p>}
                   </div>
                 );
               })}
