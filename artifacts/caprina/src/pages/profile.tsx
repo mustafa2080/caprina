@@ -618,69 +618,6 @@ function DashboardTab({ myStats, profile, externalViewMode, externalDate, onView
         </Card>
       )}
 
-      {/* مصفوفة مخاطر المؤشرات — نسخة شهرية — من KPIs */}
-      {(() => {
-        const kpisRaw2: any[] = currReport?.kpis ?? [];
-        const now2 = new Date();
-        const daysInMonth2 = new Date(now2.getFullYear(), now2.getMonth() + 1, 0).getDate();
-        const dayPassed2    = now2.getDate();
-        const monthPct2     = Math.round((dayPassed2 / daysInMonth2) * 100);
-
-        const items2 = kpisRaw2
-          .filter((k: any) => k.isActive !== false && k.score !== null && k.score !== undefined)
-          .map((k: any) => {
-            const sc: number        = k.score as number;
-            const projected: number = monthPct2 > 0 ? Math.round((sc / monthPct2) * 100) : sc;
-            const velocity: number  = sc - monthPct2;
-            const isOT              = sc > 100;
-            const willReach         = projected >= 100;
-            const risk: "high" | "medium" | "low" = isOT || willReach ? "low" : sc >= monthPct2 * 0.75 ? "medium" : "high";
-            return { label: k.name ?? k.displayName ?? "مؤشر", risk, actual: sc, projected: Math.min(projected, 150), velocity, willReach, isOT, monthPct: monthPct2 };
-          })
-          .sort((a: any, b: any) => ({ high: 0, medium: 1, low: 2 }[a.risk] - ({ high: 0, medium: 1, low: 2 }[b.risk])));
-
-        if (!items2.length) return null;
-        return (
-          <Card className="border-border bg-card overflow-hidden">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-base">⚠️</span>
-                <p className="text-xs font-bold">مصفوفة مخاطر المؤشرات</p>
-                <span className="text-[9px] text-muted-foreground/60 mr-auto">تصنيف حسب التقدم × التوقع الشهري</span>
-              </div>
-              <div className="space-y-2">
-                {items2.map((item: any, i: number) => {
-                  const ac = item.isOT
-                    ? { bar: "#3b82f6", bg: "rgba(59,130,246,0.08)",  border: "rgba(59,130,246,0.25)", text: "#93c5fd", badge: "#3b82f6", label: "🏆 Over Target" }
-                    : item.willReach
-                    ? { bar: "#22c55e", bg: "rgba(34,197,94,0.08)",   border: "rgba(34,197,94,0.25)",  text: "#86efac", badge: "#22c55e", label: "✅ سيصل للهدف" }
-                    : item.risk === "medium"
-                    ? { bar: "#f97316", bg: "rgba(249,115,22,0.08)",  border: "rgba(249,115,22,0.25)", text: "#fdba74", badge: "#f97316", label: "⚠️ راقبه" }
-                    : { bar: "#ef4444", bg: "rgba(239,68,68,0.08)",   border: "rgba(239,68,68,0.25)",  text: "#fca5a5", badge: "#ef4444", label: "⚡ يحتاج تسريع" };
-                  return (
-                    <div key={i} className="rounded-xl px-3.5 py-3 flex flex-col gap-2" style={{ background: ac.bg, border: `1px solid ${ac.border}` }}>
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[11px] font-bold text-foreground truncate">{item.label}</span>
-                        <span className="text-[9px] font-black rounded-full px-2 py-0.5 shrink-0 text-white" style={{ background: ac.badge }}>{ac.label}</span>
-                      </div>
-                      <div className="relative w-full h-2.5 rounded-full bg-black/20 overflow-visible">
-                        <div className="absolute top-[-3px] w-0.5 h-[16px] rounded-full bg-white/30" style={{ left: `${Math.min(item.monthPct, 100)}%` }} />
-                        <div className="absolute top-0 h-2.5 rounded-full transition-all duration-700" style={{ width: `${Math.min(item.actual, 100)}%`, background: ac.bar }} />
-                      </div>
-                      <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-                        <span>فعلي: <strong className="text-foreground">{item.actual}%</strong></span>
-                        <span>توقع الشهر: <strong style={{ color: ac.text }}>{item.projected}%</strong></span>
-                        <span className="font-bold" style={{ color: item.velocity >= 0 ? "#22c55e" : "#ef4444" }}>{item.velocity >= 0 ? "+" : ""}{item.velocity}% عن المتوقع</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })()}
-
       {/* Financial + Speed — شهري فقط */}
       {viewMode === "monthly" && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
