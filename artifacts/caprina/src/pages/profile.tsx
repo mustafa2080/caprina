@@ -1020,13 +1020,192 @@ function MonthlyReportPrint({ report }: { report: EmployeeReport }) {
     .toLocaleDateString("ar-EG", { month: "long", year: "numeric" });
 
   const handlePrint = () => {
-    const content = exportRef.current;
-    if (!content) return;
-    const printWindow = window.open("", "_blank", "width=900,height=700");
+    if (!salaryReport) return;
+    const finalNet = salaryReport.netSalary - kpiDeductions + kpiBonuses + specialBonusValue;
+    const scoreLabel = report.overallScore == null ? "غير محدد" : report.overallScore >= 80 ? "ممتاز" : report.overallScore >= 65 ? "جيد جداً" : report.overallScore >= 50 ? "جيد" : report.overallScore >= 35 ? "مقبول" : report.overallScore > 0 ? "ضعيف" : "غير محدد";
+    const scoreDesc = report.overallScore !== null ? report.overallScore >= 90 ? "أداء استثنائي" : report.overallScore >= 75 ? "أداء فوق المتوسط" : report.overallScore >= 60 ? "أداء مقبول" : "يحتاج تحسين" : "لا توجد مؤشرات";
+    const scoreColor = report.overallScore != null && report.overallScore >= 70 ? "#16a34a" : report.overallScore != null && report.overallScore >= 50 ? "#d97706" : "#dc2626";
+    const netColor = finalNet >= salaryReport.baseSalary ? "#16a34a" : finalNet < salaryReport.baseSalary * 0.9 ? "#dc2626" : "#d97706";
+    const today = new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" });
+
+    const salaryRows = [
+      ["الراتب الأساسي", fmt(salaryReport.baseSalary), "#1e293b", "#f8fafc"],
+      ["خصم الغياب / نصف اليوم", salaryReport.attendanceDeduction > 0 ? `−${fmt(salaryReport.attendanceDeduction)}` : "—", salaryReport.attendanceDeduction > 0 ? "#dc2626" : "#94a3b8", salaryReport.attendanceDeduction > 0 ? "#fef2f2" : "#f8fafc"],
+      ["خصم مؤشرات KPI", kpiDeductions > 0 ? `−${fmt(kpiDeductions)}` : "—", kpiDeductions > 0 ? "#dc2626" : "#94a3b8", kpiDeductions > 0 ? "#fef2f2" : "#f8fafc"],
+      ["بونص إضافي", salaryReport.bonuses > 0 ? `+${fmt(salaryReport.bonuses)}` : "—", salaryReport.bonuses > 0 ? "#16a34a" : "#94a3b8", salaryReport.bonuses > 0 ? "#f0fdf4" : "#f8fafc"],
+      ["مكافأة Over Target", kpiBonuses > 0 ? `+${fmt(kpiBonuses)}` : "—", kpiBonuses > 0 ? "#16a34a" : "#94a3b8", kpiBonuses > 0 ? "#f0fdf4" : "#f8fafc"],
+      ["بونص / خصم خاص", specialBonusNum > 0 ? `${specialBonusType === "bonus" ? "+" : "−"}${fmt(specialBonusNum)}` : "—", specialBonusNum > 0 ? (specialBonusType === "bonus" ? "#16a34a" : "#dc2626") : "#94a3b8", "#f8fafc"],
+    ];
+
+    const attendanceStats = [
+      ["أيام الحضور", salaryReport.workedDays, "#16a34a", "#f0fdf4", "#bbf7d0"],
+      ["أيام الغياب", salaryReport.absentDays, "#dc2626", "#fef2f2", "#fecaca"],
+      ["أيام التأخير", salaryReport.lateDays, "#d97706", "#fffbeb", "#fde68a"],
+      ["نصف يوم", salaryReport.halfDays, "#2563eb", "#eff6ff", "#bfdbfe"],
+      ["إجمالي الأيام", salaryReport.totalWorkingDays, "#475569", "#f1f5f9", "#cbd5e1"],
+      ["أيام العمل الفعلية", salaryReport.workedDays + salaryReport.halfDays * 0.5, "#92400e", "#fffbeb", "#fde68a"],
+    ];
+
+    const orderStats = [
+      ["إجمالي الطلبيات", report.orderStats.total, "#1e293b", "#f1f5f9", "#e2e8f0"],
+      ["مُسلَّم", report.orderStats.delivered, "#16a34a", "#f0fdf4", "#bbf7d0"],
+      ["مُرتجَع", report.orderStats.returned, "#dc2626", "#fef2f2", "#fecaca"],
+      ["نسبة التسليم", `${report.orderStats.deliveryRate}%`, "#d97706", "#fffbeb", "#fde68a"],
+    ];
+
+    const html = `<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="UTF-8"/>
+<title>تقرير الأداء — ${report.displayName}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:#fff;color:#0f172a;font-family:'Cairo','Segoe UI',Tahoma,Arial,sans-serif;direction:rtl;font-size:13px}
+  @page{size:A4 portrait;margin:12mm 10mm}
+  @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+
+  .page{max-width:780px;margin:0 auto;padding:10px 0}
+
+  /* Header */
+  .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #f59e0b;padding-bottom:14px;margin-bottom:18px}
+  .header-brand{display:flex;align-items:center;gap:12px}
+  .header-brand img{width:52px;height:52px;border-radius:12px;object-fit:cover;border:2px solid #e2e8f0}
+  .brand-title{font-size:22px;font-weight:900;color:#f59e0b;letter-spacing:1px}
+  .brand-sub{font-size:11px;color:#64748b;margin-top:3px}
+  .header-meta{text-align:left;font-size:11px;color:#94a3b8;line-height:1.8}
+
+  /* Info grid */
+  .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+  .info-card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px}
+  .info-card-title{font-size:9px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;font-weight:700}
+  .info-row{display:flex;justify-content:space-between;font-size:11px;margin-bottom:5px;align-items:center}
+  .info-label{color:#64748b}
+  .info-value{font-weight:700;color:#1e293b}
+
+  /* Stats row */
+  .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
+  .stat-card{border-radius:10px;padding:10px;text-align:center;border:1px solid}
+  .stat-val{font-size:20px;font-weight:900;line-height:1}
+  .stat-label{font-size:9px;color:#64748b;margin-top:4px;font-weight:600}
+
+  /* Score */
+  .score-box{border:2px solid #f59e0b;border-radius:12px;padding:14px 18px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;background:#fffbeb}
+  .score-num{font-size:40px;font-weight:900}
+  .score-right{text-align:center}
+  .score-label{font-size:20px;font-weight:900}
+  .score-desc{font-size:11px;color:#64748b;margin-top:4px}
+
+  /* Section title */
+  .section-title{font-size:13px;font-weight:900;border-right:4px solid #f59e0b;padding-right:10px;margin-bottom:12px;color:#0f172a}
+
+  /* Attendance */
+  .attend-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+  .attend-card{border-radius:10px;padding:10px;text-align:center;border:1px solid}
+  .attend-val{font-size:22px;font-weight:900;line-height:1}
+  .attend-label{font-size:9px;margin-top:4px;font-weight:600;color:#64748b}
+
+  /* Salary table */
+  .salary-table{border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;margin-bottom:8px}
+  .salary-header{background:#f59e0b;display:flex;justify-content:space-between;padding:9px 14px}
+  .salary-header span{color:#fff;font-weight:900;font-size:12px}
+  .salary-row{display:flex;justify-content:space-between;align-items:center;padding:9px 14px;border-bottom:1px solid #f1f5f9}
+  .salary-row:last-child{border-bottom:none}
+  .salary-name{font-size:11px;color:#64748b}
+  .salary-val{font-size:13px;font-weight:700}
+  .salary-net{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-top:2px solid #f59e0b;background:#fffbeb}
+  .net-title{font-size:13px;font-weight:900;color:#0f172a}
+  .net-sub{font-size:9px;color:#94a3b8;margin-top:2px}
+  .net-val{font-size:26px;font-weight:900}
+
+  /* Footer */
+  .footer{text-align:center;font-size:10px;color:#94a3b8;margin-top:20px;padding-top:12px;border-top:1px solid #e2e8f0}
+
+  /* Divider */
+  .divider{height:1px;background:#e2e8f0;margin:14px 0}
+
+  /* Badge */
+  .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-brand">
+      <img src="${window.location.origin}/logo.jpg" alt="Caprina" onerror="this.style.display='none'"/>
+      <div>
+        <div class="brand-title">CAPRINA</div>
+        <div class="brand-sub">تقرير أداء موظف — ${periodLabel}</div>
+      </div>
+    </div>
+    <div class="header-meta">
+      <div>تاريخ الإصدار: ${today}</div>
+      ${report.profile?.department ? `<div>القسم: ${report.profile.department}</div>` : ""}
+    </div>
+  </div>
+
+  <!-- Info Grid -->
+  <div class="info-grid">
+    <div class="info-card">
+      <div class="info-card-title">بيانات الموظف</div>
+      ${[["الاسم", report.displayName], ["المسمى الوظيفي", report.profile?.jobTitle || "—"], ["القسم", report.profile?.department || "—"], ["تاريخ التعيين", report.profile?.hireDate ? new Date(report.profile.hireDate).toLocaleDateString("ar-EG") : "—"]].map(([l, v]) => `<div class="info-row"><span class="info-label">${l}</span><span class="info-value">${v}</span></div>`).join("")}
+    </div>
+    <div class="info-card">
+      <div class="info-card-title">فترة التقرير</div>
+      ${[["الشهر", periodLabel], ["من", new Date(report.period.from).toLocaleDateString("ar-EG")], ["إلى", new Date(report.period.to).toLocaleDateString("ar-EG")], ["إجمالي الطلبيات", report.orderStats.total]].map(([l, v]) => `<div class="info-row"><span class="info-label">${l}</span><span class="info-value">${v}</span></div>`).join("")}
+    </div>
+  </div>
+
+  <!-- Order Stats -->
+  <div class="stats-grid">
+    ${orderStats.map(([lbl, val, color, bg, border]) => `<div class="stat-card" style="background:${bg};border-color:${border}"><div class="stat-val" style="color:${color}">${val}</div><div class="stat-label">${lbl}</div></div>`).join("")}
+  </div>
+
+  <!-- Overall Score -->
+  <div class="score-box">
+    <div>
+      <div style="font-size:11px;color:#64748b;margin-bottom:4px">التقييم الإجمالي</div>
+      <div class="score-num" style="color:${scoreColor}">${report.overallScore !== null ? `${report.overallScore}%` : "—"}</div>
+    </div>
+    <div class="score-right">
+      <div class="score-label" style="color:${scoreColor}">${scoreLabel}</div>
+      <div class="score-desc">${scoreDesc}</div>
+    </div>
+  </div>
+
+  <!-- Attendance -->
+  <div class="section-title">الحضور والمرتب التفصيلي</div>
+  <div class="attend-grid">
+    ${attendanceStats.map(([lbl, val, color, bg, border]) => `<div class="attend-card" style="background:${bg};border-color:${border}"><div class="attend-val" style="color:${color}">${val}</div><div class="attend-label">${lbl}</div></div>`).join("")}
+  </div>
+
+  <!-- Salary Table -->
+  <div class="salary-table">
+    <div class="salary-header"><span>البند</span><span>المبلغ</span></div>
+    ${salaryRows.map(([lbl, val, color, bg]) => `<div class="salary-row" style="background:${bg}"><span class="salary-name">${lbl}</span><span class="salary-val" style="color:${color}">${val}</span></div>`).join("")}
+    <div class="salary-net">
+      <div>
+        <div class="net-title">صافي المرتب</div>
+        <div class="net-sub">${salaryReport.baseSalary} − ${salaryReport.attendanceDeduction + kpiDeductions} + ${salaryReport.bonuses + kpiBonuses}</div>
+      </div>
+      <span class="net-val" style="color:${netColor}">${fmt(finalNet)}</span>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">تقرير صادر من نظام CAPRINA لإدارة المبيعات — ${today}</div>
+
+</div>
+<script>window.onload=function(){setTimeout(function(){window.print();},400);}</script>
+</body>
+</html>`;
+
+    const printWindow = window.open("", "_blank", "width=900,height=750");
     if (!printWindow) return;
-    printWindow.document.write(`<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"/><title>تقرير الأداء - ${report.displayName}</title><style>*{box-sizing:border-box}html,body{margin:0;padding:0;direction:rtl;font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:#fff;color:#0f172a}@page{size:A4;margin:0}.print-wrap{padding:14mm 12mm}</style></head><body><div class="print-wrap">${content.innerHTML}</div></body></html>`);
+    printWindow.document.write(html);
     printWindow.document.close();
-    printWindow.onload = () => { setTimeout(() => { printWindow.print(); printWindow.close(); }, 300); };
   };
 
   const handleExportPdf = async () => {
