@@ -508,24 +508,21 @@ function DashboardTab({ myStats, profile, externalViewMode, externalDate, onView
                 {visibleZones.map(zone => {
                   const zoneItems = items.filter(it => it.risk === zone.key);
                   return (
-                    <div key={zone.key} className="rounded-xl p-3.5" style={zone.cardStyle}>
-                      <div className="flex items-center gap-2 mb-3">
+                    <div key={zone.key} className="rounded-xl p-3.5 flex flex-col justify-between min-h-[90px]" style={zone.cardStyle}>
+                      {/* أعلى: نقطة + اسم الحالة */}
+                      <div className="flex items-center gap-2 mb-2">
                         <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: zone.dotColor }} />
-                        <span className="text-[11px]" style={zone.labelStyle}>{zone.label}</span>
+                        <span className="text-xs font-black" style={zone.labelStyle}>{zone.label}</span>
                       </div>
-                      <div className="space-y-2">
-                        {zoneItems.map((item, i) => (
-                          <div key={i} className="flex items-center justify-between gap-2">
-                            <div className="min-w-0">
-                              <p className="text-[11px] text-white/90 font-medium truncate">{item.label}</p>
-                              <p className="text-[9px] text-white/50 truncate">{item.note}</p>
-                            </div>
-                            <span className="text-[10px] font-black rounded-full px-2 py-0.5 shrink-0" style={zone.badgeStyle}>
-                              {item.value}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
+                      {/* أسفل: اسم الـ KPI على اليسار + النسبة على اليمين */}
+                      {zoneItems.map((item, i) => (
+                        <div key={i} className="flex items-end justify-between gap-2 mt-1">
+                          <span className="text-[12px] text-white/90 font-medium leading-tight">{item.label}</span>
+                          <span className="text-[11px] font-black rounded-full px-2.5 py-0.5 shrink-0" style={zone.badgeStyle}>
+                            {item.value}
+                          </span>
+                        </div>
+                      ))}
                     </div>
                   );
                 })}
