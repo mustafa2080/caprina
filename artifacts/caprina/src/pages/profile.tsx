@@ -1154,10 +1154,10 @@ function MonthlyReportTab({ profile, externalViewMode, externalDate, onViewModeC
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
               <span className="font-black text-lg leading-tight">{report.displayName}</span>
-              {rating && viewMode === "monthly" && (() => {
+              {rating && (viewMode === "daily" || (() => {
                 const today = new Date();
                 return selectedMonth === format(today, "yyyy-MM") && today.getDate() >= 21;
-              })() && (
+              })()) && (
                 <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border ${rm.bg} ${rm.border} ${rm.color}`}>
                   <RatingIcon className="w-3 h-3" />{rating}
                 </span>
