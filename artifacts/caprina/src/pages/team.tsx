@@ -2803,6 +2803,108 @@ export function MyDashboardTab({ profileId, monthlySalary }: {
         )}
       </div>
 
+
+      {/* ── متتبع سرعة الإنجاز ── */}
+      {(() => {
+        const velKpis = (report?.kpis ?? []).filter((k: any) => k.isActive !== false && k.score !== null && k.score !== undefined);
+        if (!velKpis.length) return null;
+        const now = new Date();
+        const dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        const dp = now.getDate();
+        const mPct = Math.round((dp / dim) * 100);
+        return (
+          <div className="rounded-2xl border border-border bg-card overflow-hidden">
+            <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between"
+              style={{ background: "linear-gradient(to left, hsl(var(--primary)/0.08), transparent)" }}>
+              <div className="flex items-center gap-2">
+                <span className="text-sm">📊</span>
+                <span className="font-black text-sm">متتبع سرعة الإنجاز</span>
+              </div>
+              <span className="text-[9px] text-muted-foreground/60 bg-muted/30 rounded-full px-2 py-0.5">{dp}/{dim} ({mPct}%)</span>
+            </div>
+            <div className="p-4 space-y-3">
+              {velKpis.map((kpi: any) => {
+                const sc = kpi.score ?? 0;
+                const projected = mPct > 0 ? Math.round((sc / mPct) * 100) : sc;
+                const velocity = sc - mPct;
+                const willReach = projected >= 100;
+                const isOT = sc > 100;
+                return (
+                  <div key={kpi.id} className="rounded-xl border border-border/50 bg-muted/5 px-3 py-2.5">
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <span className="text-[10px] font-bold truncate max-w-[55%]">{kpi.name}</span>
+                      {isOT ? <span className="text-[9px] font-black text-blue-500 bg-blue-500/10 rounded-full px-2 py-0.5">Over Target</span>
+                        : willReach ? <span className="text-[9px] font-black text-emerald-500 bg-emerald-500/10 rounded-full px-2 py-0.5">OK</span>
+                        : <span className="text-[9px] font-black text-red-500 bg-red-500/10 rounded-full px-2 py-0.5">Need Speed</span>}
+                    </div>
+                    <div className="relative w-full h-3 rounded-full bg-muted/40 overflow-visible mb-1.5">
+                      <div className="absolute top-0 h-3 rounded-full bg-muted/60" style={{ width: ${"$"}{Math.min(mPct, 100)}% }} />
+                      <div className={bsolute top-0 h-3 rounded-full {isOT ? "bg-blue-500" : willReach ? "bg-emerald-500" : "bg-red-500"}} style={{ width: ${"$"}{Math.min(sc, 100)}% }} />
+                    </div>
+                    <div className="flex justify-between text-[9px] text-muted-foreground">
+                      <span>Actual: <strong>{sc}%</strong></span>
+                      <span>Projected: <strong>{Math.min(projected, 150)}%</strong></span>
+                      <span className={ont-bold {velocity >= 0 ? "text-emerald-500" : "text-red-500"}}>{velocity >= 0 ? "+" : ""}{velocity}%</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── مصفوفة مخاطر المؤشرات ── */}
+      {(() => {
+        const os2 = report?.orderStats;
+        const rr = os2?.returnRate ?? 0;
+        const dr = os2?.deliveryRate ?? 0;
+        const sv = overallScore ?? 0;
+        type Risk = "high"|"medium"|"low";
+        const items: { label: string; risk: Risk; value: string; note: string }[] = [];
+        if (rr >= 25) items.push({ label: "Return Rate", risk: "high", value: ${"$"}{rr.toFixed(1)}%, note: "Above 20%" });
+        else if (rr >= 15) items.push({ label: "Return Rate", risk: "medium", value: ${"$"}{rr.toFixed(1)}%, note: "Near warning" });
+        else items.push({ label: "Return Rate", risk: "low", value: ${"$"}{rr.toFixed(1)}%, note: "Normal" });
+        if (dr < 60) items.push({ label: "Delivery Rate", risk: "high", value: ${"$"}{dr.toFixed(1)}%, note: "Below min" });
+        else if (dr < 80) items.push({ label: "Delivery Rate", risk: "medium", value: ${"$"}{dr.toFixed(1)}%, note: "Needs improvement" });
+        else items.push({ label: "Delivery Rate", risk: "low", value: ${"$"}{dr.toFixed(1)}%, note: "On target" });
+        if (sv < 40) items.push({ label: "Score", risk: "high", value: ${"$"}{sv}, note: "Critical" });
+        else if (sv < 60) items.push({ label: "Score", risk: "medium", value: ${"$"}{sv}, note: "Room to improve" });
+        else items.push({ label: "Score", risk: "low", value: ${"$"}{sv}, note: "Good" });
+        items.sort((a,b)=>({high:0,medium:1,low:2}[a.risk]-{high:0,medium:1,low:2}[b.risk]));
+        const rcMap: Record<Risk,{text:string;bg:string;border:string;dot:string;label:string}> = {
+          high:   {text:"text-rose-400",bg:"bg-rose-500/10",border:"border-rose-500/30",dot:"bg-rose-500",label:"High"},
+          medium: {text:"text-amber-400",bg:"bg-amber-500/10",border:"border-amber-500/30",dot:"bg-amber-500",label:"Med"},
+          low:    {text:"text-emerald-400",bg:"bg-emerald-500/10",border:"border-emerald-500/30",dot:"bg-emerald-500",label:"Low"},
+        };
+        return (
+          <div className="rounded-2xl border border-border bg-card overflow-hidden">
+            <div className="px-4 py-3 border-b border-border/50 flex items-center gap-2"
+              style={{ background: "linear-gradient(to left, hsl(var(--primary)/0.08), transparent)" }}>
+              <span className="text-sm">🛡️</span>
+              <span className="font-black text-sm">مصفوفة مخاطر المؤشرات</span>
+            </div>
+            <div className="p-4 space-y-2.5">
+              {items.map((item,i) => {
+                const rc = rcMap[item.risk];
+                return (
+                  <div key={i} className={ounded-xl p-3.5 border {rc.bg} {rc.border} flex items-center gap-3}>
+                    <span className={w-2.5 h-2.5 rounded-full shrink-0 {rc.dot}}/>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className="text-sm font-bold">{item.label}</span>
+                        <span className={	ext-sm font-black {rc.text}}>{item.value}</span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">{item.note}</p>
+                    </div>
+                    <span className={	ext-[10px] font-bold px-2 py-0.5 rounded-full border {rc.bg} {rc.border} {rc.text} shrink-0}>{rc.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 {/* ── بطاقات سريعة ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {[
