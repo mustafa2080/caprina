@@ -2957,7 +2957,7 @@ export function MyDashboardTab({ profileId, monthlySalary }: {
                   <span className="text-lg">⚠️</span>
                   <span className="font-black text-base">مصفوفة مخاطر المؤشرات</span>
                 </div>
-                <p className="text-xs text-muted-foreground">تصنيف حسب الأداء × البيام المالي</p>
+                <p className="text-xs text-muted-foreground">تصنيف حسب الأداء × البيان المالي</p>
               </div>
             </div>
             <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
