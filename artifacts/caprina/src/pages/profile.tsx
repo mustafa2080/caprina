@@ -394,7 +394,7 @@ function DashboardTab({ myStats, profile, externalViewMode, externalDate, onView
       {/* متتبع سرعة الإنجاز — لوحتي */}
       {(() => {
         const activeKpis = (currReport?.kpis ?? []).filter((k: any) => k.isActive !== false);
-        if (!activeKpis.some((k: any) => k.score !== null && k.score !== undefined)) return null;
+        if (!activeKpis.length) return null;
         const now = new Date();
         const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
         const dayPassed = now.getDate();
@@ -547,7 +547,7 @@ function DashboardTab({ myStats, profile, externalViewMode, externalDate, onView
       )}
 
       {/* مصفوفة مخاطر المؤشرات — لوحتي */}
-      {viewMode === "monthly" && (() => {
+      {(() => {
         const os2 = currReport?.orderStats;
         const returnRate = os2?.returnRate ?? myStats?.returnRate ?? 0;
         const deliveryRate = os2?.deliveryRate ?? myStats?.deliveryRate ?? 0;
