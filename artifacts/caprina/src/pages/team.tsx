@@ -2862,20 +2862,20 @@ export function MyDashboardTab({ profileId, monthlySalary }: {
         const sv = overallScore ?? 0;
         type Risk = "high"|"medium"|"low";
         const items: { label: string; risk: Risk; value: string; note: string }[] = [];
-        if (rr >= 25) items.push({ label: "Return Rate", risk: "high", value: `${rr.toFixed(1)}%`, note: "Above 20%" });
-        else if (rr >= 15) items.push({ label: "Return Rate", risk: "medium", value: `${rr.toFixed(1)}%`, note: "Near warning" });
-        else items.push({ label: "Return Rate", risk: "low", value: `${rr.toFixed(1)}%`, note: "Normal" });
-        if (dr < 60) items.push({ label: "Delivery Rate", risk: "high", value: `${dr.toFixed(1)}%`, note: "Below min" });
-        else if (dr < 80) items.push({ label: "Delivery Rate", risk: "medium", value: `${dr.toFixed(1)}%`, note: "Needs improvement" });
-        else items.push({ label: "Delivery Rate", risk: "low", value: `${dr.toFixed(1)}%`, note: "On target" });
-        if (sv < 40) items.push({ label: "Score", risk: "high", value: `${sv}`, note: "Critical" });
-        else if (sv < 60) items.push({ label: "Score", risk: "medium", value: `${sv}`, note: "Room to improve" });
-        else items.push({ label: "Score", risk: "low", value: `${sv}`, note: "Good" });
+        if (rr >= 25) items.push({ label: "نسبة الإرجاع", risk: "high", value: `${rr.toFixed(1)}%`, note: "أعلى من 20%" });
+        else if (rr >= 15) items.push({ label: "نسبة الإرجاع", risk: "medium", value: `${rr.toFixed(1)}%`, note: "قريب من الحد" });
+        else items.push({ label: "نسبة الإرجاع", risk: "low", value: `${rr.toFixed(1)}%`, note: "طبيعي" });
+        if (dr < 60) items.push({ label: "نسبة التسليم", risk: "high", value: `${dr.toFixed(1)}%`, note: "أقل من الحد الأدنى" });
+        else if (dr < 80) items.push({ label: "نسبة التسليم", risk: "medium", value: `${dr.toFixed(1)}%`, note: "يحتاج تحسين" });
+        else items.push({ label: "نسبة التسليم", risk: "low", value: `${dr.toFixed(1)}%`, note: "في المستهدف" });
+        if (sv < 40) items.push({ label: "النقاط", risk: "high", value: `${sv}`, note: "حرج" });
+        else if (sv < 60) items.push({ label: "النقاط", risk: "medium", value: `${sv}`, note: "يحتاج تحسين" });
+        else items.push({ label: "النقاط", risk: "low", value: `${sv}`, note: "جيد" });
         items.sort((a,b)=>({high:0,medium:1,low:2}[a.risk]-{high:0,medium:1,low:2}[b.risk]));
         const rcMap: Record<Risk,{text:string;bg:string;border:string;dot:string;label:string}> = {
-          high:   {text:"text-rose-400",bg:"bg-rose-500/10",border:"border-rose-500/30",dot:"bg-rose-500",label:"High"},
-          medium: {text:"text-amber-400",bg:"bg-amber-500/10",border:"border-amber-500/30",dot:"bg-amber-500",label:"Med"},
-          low:    {text:"text-emerald-400",bg:"bg-emerald-500/10",border:"border-emerald-500/30",dot:"bg-emerald-500",label:"Low"},
+          high:   {text:"text-rose-400",bg:"bg-rose-500/10",border:"border-rose-500/30",dot:"bg-rose-500",label:"مرتفع"},
+          medium: {text:"text-amber-400",bg:"bg-amber-500/10",border:"border-amber-500/30",dot:"bg-amber-500",label:"متوسط"},
+          low:    {text:"text-emerald-400",bg:"bg-emerald-500/10",border:"border-emerald-500/30",dot:"bg-emerald-500",label:"منخفض"},
         };
         return (
           <div className="rounded-2xl border border-border bg-card overflow-hidden">
