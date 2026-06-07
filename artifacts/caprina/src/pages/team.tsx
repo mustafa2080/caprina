@@ -2913,74 +2913,43 @@ export function MyDashboardTab({ profileId, monthlySalary }: {
         );
       })()}
 
-      {/* ── مصفوفة مخاطر المؤشرات ── */}
+      {/* ── مصفوفة مخاطر المؤشرات — من KPIs manual فقط ── */}
       {(() => {
-        const os2 = report?.orderStats;
-        const rr = os2?.returnRate ?? 0;
-        const dr = os2?.deliveryRate ?? 0;
-        const sv = overallScore ?? 0;
+        const manualKpis = (report?.kpis ?? []).filter(
+          (k: any) => k.isActive !== false && k.metric === "manual" && k.score !== null && k.score !== undefined
+        );
+        if (!manualKpis.length) return null;
+
+        const now = new Date();
+        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        const dayPassed   = now.getDate();
+        const monthPct    = Math.round((dayPassed / daysInMonth) * 100);
 
         type Risk = "high" | "medium" | "low";
-        type Item = { label: string; risk: Risk; value: string; note: string; target: string; pct: number };
-
-        const items: Item[] = [];
-
-        // نسبة الإرجاع (كلما قلت كان أفضل — الهدف < 10%)
-        const rrPct = Math.min(100, Math.round((rr / 30) * 100));
-        if (rr >= 25)      items.push({ label: "نسبة الإرجاع",  risk: "high",   value: `${rr.toFixed(1)}%`,  note: "يتجاوز الحد المسموح به",    target: "الهدف < 10%",  pct: rrPct });
-        else if (rr >= 15) items.push({ label: "نسبة الإرجاع",  risk: "medium", value: `${rr.toFixed(1)}%`,  note: "قريب من الحد التحذيري",      target: "الهدف < 10%",  pct: rrPct });
-        else               items.push({ label: "نسبة الإرجاع",  risk: "low",    value: `${rr.toFixed(1)}%`,  note: "ضمن النطاق المقبول",          target: "الهدف < 10%",  pct: rrPct });
-
-        // نسبة التسليم (كلما زادت كان أفضل — الهدف > 85%)
-        const drPct = Math.min(100, Math.round(dr));
-        if (dr < 60)       items.push({ label: "نسبة التسليم",  risk: "high",   value: `${dr.toFixed(1)}%`,  note: "أقل من الحد الأدنى المطلوب", target: "الهدف > 85%",  pct: drPct });
-        else if (dr < 85)  items.push({ label: "نسبة التسليم",  risk: "medium", value: `${dr.toFixed(1)}%`,  note: "يحتاج تحسين للوصول للهدف",   target: "الهدف > 85%",  pct: drPct });
-        else               items.push({ label: "نسبة التسليم",  risk: "low",    value: `${dr.toFixed(1)}%`,  note: "يحقق الهدف المطلوب",          target: "الهدف > 85%",  pct: drPct });
-
-        // نقاط الأداء (الهدف > 80)
-        const svPct = Math.min(100, Math.round(sv));
-        if (sv < 40)       items.push({ label: "نقاط الأداء",   risk: "high",   value: `${sv}`,              note: "يحتاج تدخل عاجل",             target: "الهدف > 80",   pct: svPct });
-        else if (sv < 80)  items.push({ label: "نقاط الأداء",   risk: "medium", value: `${sv}`,              note: "مجال واسع للتحسين",           target: "الهدف > 80",   pct: svPct });
-        else               items.push({ label: "نقاط الأداء",   risk: "low",    value: `${sv}`,              note: "أداء ممتاز",                  target: "الهدف > 80",   pct: svPct });
-
-        items.sort((a, b) => ({ high: 0, medium: 1, low: 2 }[a.risk] - { high: 0, medium: 1, low: 2 }[b.risk]));
-
         const cfg: Record<Risk, {
           label: string; icon: string;
           barColor: string; glowColor: string;
           cardBg: string; cardBorder: string;
-          valueBg: string; valueText: string;
-          tagBg: string; tagText: string;
+          valueText: string; tagBg: string; tagText: string;
         }> = {
-          high: {
-            label: "خطر عالي", icon: "🔴",
-            barColor: "#ef4444", glowColor: "rgba(239,68,68,0.4)",
-            cardBg: "linear-gradient(145deg,#1c0a0a,#2d0f0f)",
-            cardBorder: "1px solid rgba(239,68,68,0.35)",
-            valueBg: "rgba(239,68,68,0.15)", valueText: "#f87171",
-            tagBg: "rgba(239,68,68,0.2)", tagText: "#fca5a5",
-          },
-          medium: {
-            label: "تحذير", icon: "🟡",
-            barColor: "#f59e0b", glowColor: "rgba(245,158,11,0.4)",
-            cardBg: "linear-gradient(145deg,#1a1200,#2b1e00)",
-            cardBorder: "1px solid rgba(245,158,11,0.35)",
-            valueBg: "rgba(245,158,11,0.15)", valueText: "#fbbf24",
-            tagBg: "rgba(245,158,11,0.2)", tagText: "#fde68a",
-          },
-          low: {
-            label: "آمن", icon: "🟢",
-            barColor: "#22c55e", glowColor: "rgba(34,197,94,0.4)",
-            cardBg: "linear-gradient(145deg,#071a0e,#0c2d18)",
-            cardBorder: "1px solid rgba(34,197,94,0.35)",
-            valueBg: "rgba(34,197,94,0.15)", valueText: "#4ade80",
-            tagBg: "rgba(34,197,94,0.2)", tagText: "#86efac",
-          },
+          high:   { label: "خطر عالي", icon: "🔴", barColor: "#ef4444", glowColor: "rgba(239,68,68,0.4)",   cardBg: "linear-gradient(145deg,#1c0a0a,#2d0f0f)", cardBorder: "1px solid rgba(239,68,68,0.35)",  valueText: "#f87171", tagBg: "rgba(239,68,68,0.2)",  tagText: "#fca5a5" },
+          medium: { label: "تحذير",    icon: "🟡", barColor: "#f59e0b", glowColor: "rgba(245,158,11,0.4)",  cardBg: "linear-gradient(145deg,#1a1200,#2b1e00)", cardBorder: "1px solid rgba(245,158,11,0.35)", valueText: "#fbbf24", tagBg: "rgba(245,158,11,0.2)", tagText: "#fde68a" },
+          low:    { label: "آمن",      icon: "🟢", barColor: "#22c55e", glowColor: "rgba(34,197,94,0.4)",   cardBg: "linear-gradient(145deg,#071a0e,#0c2d18)", cardBorder: "1px solid rgba(34,197,94,0.35)",  valueText: "#4ade80", tagBg: "rgba(34,197,94,0.2)",  tagText: "#86efac" },
         };
+
+        const items = manualKpis.map((k: any) => {
+          const sc: number   = k.score as number;
+          const projected    = monthPct > 0 ? Math.round((sc / monthPct) * 100) : sc;
+          const velocity     = sc - monthPct;
+          const isOT         = sc > 100;
+          const willReach    = projected >= 100;
+          const risk: Risk   = isOT || willReach ? "low" : sc >= monthPct * 0.75 ? "medium" : "high";
+          const note         = isOT ? "فوق الهدف" : willReach ? "سيصل للهدف" : sc >= monthPct * 0.75 ? "يحتاج تحسين" : "تحت الحد المطلوب";
+          return { label: k.name ?? k.displayName ?? "مؤشر", risk, sc, projected: Math.min(projected, 150), velocity, note, monthPct };
+        }).sort((a: any, b: any) => ({ high: 0, medium: 1, low: 2 }[a.risk as Risk] - ({ high: 0, medium: 1, low: 2 }[b.risk as Risk])));
 
         return (
           <div className="rounded-2xl border border-border bg-card overflow-hidden">
-            {/* Header */}
             <div className="px-5 py-4 border-b border-border/40 flex items-center justify-between"
               style={{ background: "linear-gradient(135deg,rgba(255,255,255,0.04) 0%,transparent 60%)" }}>
               <div className="flex items-center gap-3">
@@ -2990,66 +2959,44 @@ export function MyDashboardTab({ profileId, monthlySalary }: {
                 </div>
                 <div>
                   <p className="font-black text-sm">مصفوفة مخاطر المؤشرات</p>
-                  <p className="text-[10px] text-muted-foreground/60">تصنيف حسب الأداء × البيان المالي</p>
+                  <p className="text-[10px] text-muted-foreground/60">تصنيف حسب التقدم × التوقع الشهري</p>
                 </div>
               </div>
-              {/* Legend */}
-              <div className="hidden sm:flex items-center gap-3 text-[10px] text-muted-foreground/70">
-                {(["high","medium","low"] as Risk[]).map(r => (
-                  <span key={r} className="flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full inline-block"
-                      style={{ background: cfg[r].barColor }} />
-                    {cfg[r].label}
-                  </span>
-                ))}
-              </div>
+              <span className="text-[9px] text-muted-foreground/60 bg-muted/30 rounded-full px-2 py-0.5">
+                مرّ {dayPassed} يوم من {daysInMonth} ({monthPct}%)
+              </span>
             </div>
-
-            {/* Cards */}
             <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {items.map((item, i) => {
-                const c = cfg[item.risk];
+              {items.map((item: any, i: number) => {
+                const c = cfg[item.risk as Risk];
                 return (
                   <div key={i} className="rounded-xl p-4 flex flex-col gap-3 relative overflow-hidden"
                     style={{ background: c.cardBg, border: c.cardBorder }}>
-
-                    {/* Glow accent top-right */}
                     <div className="absolute -top-6 -right-6 w-20 h-20 rounded-full opacity-20 pointer-events-none"
                       style={{ background: `radial-gradient(circle, ${c.barColor}, transparent 70%)` }} />
-
-                    {/* Row 1: مؤشر + tag */}
                     <div className="flex items-center justify-between gap-2 relative z-10">
-                      <span className="text-[11px] text-white/60 font-medium">{item.label}</span>
-                      <span className="text-[9px] font-bold rounded-full px-2 py-0.5"
-                        style={{ background: c.tagBg, color: c.tagText }}>
-                        {c.icon} {c.label}
-                      </span>
+                      <span className="text-[11px] text-white/60 font-medium truncate">{item.label}</span>
+                      <span className="text-[9px] font-bold rounded-full px-2 py-0.5 shrink-0"
+                        style={{ background: c.tagBg, color: c.tagText }}>{c.icon} {c.label}</span>
                     </div>
-
-                    {/* Row 2: القيمة الكبيرة */}
                     <div className="flex items-end justify-between gap-2 relative z-10">
-                      <span className="text-3xl font-black leading-none" style={{ color: c.valueText }}>
-                        {item.value}
-                      </span>
-                      <span className="text-[9px] text-white/40 mb-0.5">{item.target}</span>
+                      <span className="text-3xl font-black leading-none" style={{ color: c.valueText }}>{item.sc}%</span>
+                      <span className="text-[9px] text-white/40 mb-0.5">توقع نهاية الشهر: {item.projected}%</span>
                     </div>
-
-                    {/* Row 3: Progress bar */}
                     <div className="relative z-10">
                       <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
                         <div className="h-full rounded-full transition-all duration-700"
-                          style={{
-                            width: `${item.pct}%`,
-                            background: c.barColor,
-                            boxShadow: `0 0 6px ${c.glowColor}`,
-                          }} />
+                          style={{ width: `${Math.min(item.sc, 100)}%`, background: c.barColor, boxShadow: `0 0 6px ${c.glowColor}` }} />
                       </div>
+                      <div className="absolute top-[-4px] w-0.5 h-[14px] rounded-full bg-white/25"
+                        style={{ left: `${Math.min(item.monthPct, 100)}%` }} />
                     </div>
-
-                    {/* Row 4: ملاحظة */}
-                    <p className="text-[10px] relative z-10" style={{ color: "rgba(255,255,255,0.45)" }}>
-                      {item.note}
-                    </p>
+                    <div className="flex items-center justify-between text-[9px] text-white/40 relative z-10">
+                      <span>{item.note}</span>
+                      <span className="font-bold" style={{ color: item.velocity >= 0 ? "#22c55e" : "#ef4444" }}>
+                        {item.velocity >= 0 ? "+" : ""}{item.velocity}% عن المتوقع
+                      </span>
+                    </div>
                   </div>
                 );
               })}
