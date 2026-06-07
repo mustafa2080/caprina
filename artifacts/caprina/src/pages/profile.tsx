@@ -3190,7 +3190,7 @@ export default function ProfilePage() {
   const isMyDashboard = location === "/my-dashboard";
 
   return (
-    <div className={isMyDashboard ? "w-full space-y-5" : "max-w-3xl mx-auto space-y-5"} dir="rtl">
+    <div className="max-w-4xl mx-auto space-y-5" dir="rtl">
       {/* ── Header ── */}
       <Card className="overflow-hidden border-0" style={{ background: "hsl(var(--card))" }}>
         <div className="h-20 relative" style={{ background: "linear-gradient(135deg, hsl(var(--primary)/0.35) 0%, hsl(var(--primary)/0.1) 60%, transparent 100%)" }}>
