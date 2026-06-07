@@ -2450,37 +2450,29 @@ function SalesKPIDashboardTab({ myStats, profile }: { myStats?: TeamMemberExtSta
   const netSalary  = baseSalary + bonuses - deductions;
   const revenue    = os?.totalRevenue ?? 0;
 
-  // ── 5. مصفوفة مخاطر المؤشرات ──
+  // ── 5. مصفوفة مخاطر المؤشرات — مبنية من KPIs (نفس مصدر متتبع سرعة الإنجاز) ──
   const riskMatrix = useMemo(() => {
-    const items: { label: string; risk: "high" | "medium" | "low"; trend: "up" | "down" | "stable"; value: string; note: string }[] = [];
-    const returnRate = os?.returnRate ?? liveStats?.returnRate ?? 0;
-    const deliveryRate = os?.deliveryRate ?? liveStats?.deliveryRate ?? 0;
-    const procHours = liveStats?.avgProcessingHours ?? null;
-    const scoreVal = score;
-
-    if (returnRate >= 25) items.push({ label: "معدل الإرجاع", risk: "high", trend: "down", value: `${returnRate.toFixed(1)}%`, note: "يتجاوز الحد المقبول 20%" });
-    else if (returnRate >= 15) items.push({ label: "معدل الإرجاع", risk: "medium", trend: "stable", value: `${returnRate.toFixed(1)}%`, note: "قريب من الحد التحذيري" });
-    else items.push({ label: "معدل الإرجاع", risk: "low", trend: "up", value: `${returnRate.toFixed(1)}%`, note: "ضمن النطاق الطبيعي" });
-
-    if (deliveryRate < 60) items.push({ label: "معدل التسليم", risk: "high", trend: "down", value: `${deliveryRate.toFixed(1)}%`, note: "أقل من الحد الأدنى المطلوب" });
-    else if (deliveryRate < 80) items.push({ label: "معدل التسليم", risk: "medium", trend: "stable", value: `${deliveryRate.toFixed(1)}%`, note: "يحتاج تحسين للوصول للهدف" });
-    else items.push({ label: "معدل التسليم", risk: "low", trend: "up", value: `${deliveryRate.toFixed(1)}%`, note: "يحقق الهدف المطلوب" });
-
-    if (procHours !== null) {
-      if (procHours > 48) items.push({ label: "سرعة التسليم", risk: "high", trend: "down", value: `${procHours.toFixed(0)}س`, note: "بطيء جداً في المعالجة" });
-      else if (procHours > 24) items.push({ label: "سرعة التسليم", risk: "medium", trend: "stable", value: `${procHours.toFixed(0)}س`, note: "أبطأ من المستهدف" });
-      else items.push({ label: "سرعة التسليم", risk: "low", trend: "up", value: `${procHours.toFixed(0)}س`, note: "سريع ومنتج" });
-    }
-
-    if (scoreVal < 40) items.push({ label: "نقاط الأداء الكلية", risk: "high", trend: "down", value: `${scoreVal}`, note: "يحتاج تدخل عاجل" });
-    else if (scoreVal < 60) items.push({ label: "نقاط الأداء الكلية", risk: "medium", trend: "stable", value: `${scoreVal}`, note: "مجال واسع للتحسين" });
-    else items.push({ label: "نقاط الأداء الكلية", risk: "low", trend: "up", value: `${scoreVal}`, note: "أداء جيد" });
-
-    return items.sort((a, b) => {
+    const activeKpis = kpis.filter((k: any) => k.isActive !== false && k.score !== null && k.score !== undefined);
+    if (!activeKpis.length) return [];
+    return activeKpis.map((k: any) => {
+      const sc = k.score as number;
+      const risk: "high" | "medium" | "low" = sc >= 80 ? "low" : sc >= 50 ? "medium" : "high";
+      const note = risk === "low"
+        ? "يحقق الهدف المطلوب"
+        : risk === "medium"
+        ? "يحتاج تحسين للوصول للهدف"
+        : "تحت الحد الأدنى المطلوب";
+      return {
+        label: k.name ?? k.displayName ?? "مؤشر",
+        risk,
+        value: `${Math.round(sc)}%`,
+        note,
+      };
+    }).sort((a: any, b: any) => {
       const order = { high: 0, medium: 1, low: 2 };
       return order[a.risk] - order[b.risk];
     });
-  }, [os, liveStats, score]);
+  }, [kpis]);
 
   // ── 6. جدار الإنجازات الشهرية ──
   const achievements = useMemo(() => {
