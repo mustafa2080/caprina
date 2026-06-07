@@ -2809,40 +2809,46 @@ function SalesKPIDashboardTab({ myStats, profile }: { myStats?: TeamMemberExtSta
       </div>
 
       {/* ══ 5. مصفوفة مخاطر المؤشرات ══ */}
-      <div className="rounded-2xl border border-border bg-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border/50"
-          style={{ background: "linear-gradient(to left, hsl(var(--primary)/0.08), transparent)" }}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <ShieldAlert className="w-4 h-4 text-rose-400" />
-              <span className="font-black text-sm">مصفوفة مخاطر المؤشرات</span>
-            </div>
-            <div className="flex items-center gap-2 text-[10px]">
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-rose-500" />عالٍ</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500" />متوسط</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" />منخفض</span>
-            </div>
+      <Card className="border-border bg-card overflow-hidden">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-base">⚠️</span>
+            <p className="text-xs font-bold">مصفوفة مخاطر المؤشرات</p>
+            <span className="text-[9px] text-muted-foreground/60 mr-auto">تصنيف حسب الأداء × التأثير المالي</span>
           </div>
-        </div>
-        <div className="p-4 space-y-2.5">
-          {riskMatrix.map((item, i) => {
-            const rc = riskColorMap[item.risk];
+          {(() => {
+            const zonesDef = [
+              { key: "high"   as const, label: "حرج",                 dotColor: "#ef4444", cardStyle: { background: "linear-gradient(135deg,#dc2626bb,#b91c1c99)", border: "1px solid #ef444455" } as React.CSSProperties, labelStyle: { color: "#fca5a5", fontWeight: 800 } as React.CSSProperties, badgeStyle: { background: "#ef4444", color: "#fff" } as React.CSSProperties },
+              { key: "medium" as const, label: "خطر منخفض التأثير",  dotColor: "#f97316", cardStyle: { background: "linear-gradient(135deg,#ea580cbb,#c2410c99)", border: "1px solid #f9731655" } as React.CSSProperties, labelStyle: { color: "#fdba74", fontWeight: 800 } as React.CSSProperties, badgeStyle: { background: "#f97316", color: "#fff" } as React.CSSProperties },
+              { key: "low"    as const, label: "على المسار الصحيح",   dotColor: "#22c55e", cardStyle: { background: "linear-gradient(135deg,#16a34abb,#15803d99)", border: "1px solid #22c55e55" } as React.CSSProperties, labelStyle: { color: "#86efac", fontWeight: 800 } as React.CSSProperties, badgeStyle: { background: "#22c55e", color: "#fff" } as React.CSSProperties },
+            ];
+            const visibleZones = zonesDef.filter(z => riskMatrix.some(it => it.risk === z.key));
             return (
-              <div key={i} className={`rounded-xl p-3.5 border ${rc.bg} ${rc.border} flex items-center gap-3`}>
-                <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${rc.dot}`} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <span className="text-sm font-bold">{item.label}</span>
-                    <span className={`text-sm font-black ${rc.text}`}>{item.value}</span>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">{item.note}</p>
-                </div>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${rc.bg} ${rc.border} ${rc.text} shrink-0`}>{rc.label}</span>
+              <div className="grid grid-cols-2 gap-2.5">
+                {visibleZones.map(zone => {
+                  const zoneItems = riskMatrix.filter(it => it.risk === zone.key);
+                  return (
+                    <div key={zone.key} className="rounded-xl p-3.5 flex flex-col justify-between min-h-[90px]" style={zone.cardStyle}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: zone.dotColor }} />
+                        <span className="text-xs font-black" style={zone.labelStyle}>{zone.label}</span>
+                      </div>
+                      {zoneItems.map((item, i) => (
+                        <div key={i} className="flex items-end justify-between gap-2 mt-1">
+                          <span className="text-[12px] text-white/90 font-medium leading-tight">{item.label}</span>
+                          <span className="text-[11px] font-black rounded-full px-2.5 py-0.5 shrink-0" style={zone.badgeStyle}>
+                            {item.value}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
               </div>
             );
-          })}
-        </div>
-      </div>
+          })()}
+        </CardContent>
+      </Card>
 
       {/* ══ 6. جدار الإنجازات الشهرية ══ */}
       <div className="rounded-2xl border border-border bg-card overflow-hidden">
