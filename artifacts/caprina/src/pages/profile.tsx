@@ -1199,7 +1199,6 @@ function MonthlyReportTab({ profile, externalViewMode, externalDate, onViewModeC
             { label: "مرتجعة",           value: fmtNum(os.returned),   icon: XCircle,      grad: "from-rose-500/15 to-red-600/5 border-rose-500/20",        val: "text-rose-400" },
             { label: "قيد التنفيذ",      value: fmtNum(os.pending),    icon: Hourglass,    grad: "from-amber-500/15 to-yellow-600/5 border-amber-500/20",   val: "text-amber-400" },
             { label: "إجمالي الإيرادات", value: fmt(os.totalRevenue),  icon: Coins,        grad: "from-blue-500/15 to-blue-600/5 border-blue-500/20",       val: "text-blue-400" },
-            { label: "صافي الأرباح",     value: fmt(os.totalProfit),   icon: TrendingUp,   grad: "from-violet-500/15 to-purple-600/5 border-violet-500/20", val: "text-violet-400" },
           ].map(({ label, value, icon: Icon, grad, val }) => (
             <div key={label} className={`rounded-xl p-3.5 border bg-gradient-to-br ${grad} flex flex-col gap-1`}>
               <div className="flex items-center justify-between">
