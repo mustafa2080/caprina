@@ -1189,7 +1189,7 @@ export default function FinanceHub() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
 
         {/* مستحقات الشحن — sky glow */}
-        <Link href="/finance/shipping-invoices">
+        <Link href="/shipping">
           <div className="relative overflow-hidden rounded-[22px] p-5 group transition-all duration-300 hover:-translate-y-1.5 cursor-pointer"
             style={{
               background: "linear-gradient(135deg, rgba(14,165,233,0.12) 0%, rgba(56,189,248,0.04) 60%, rgba(0,0,0,0) 100%)",
@@ -1202,26 +1202,33 @@ export default function FinanceHub() {
             <div className="absolute -bottom-6 -left-6 w-28 h-28 rounded-full pointer-events-none opacity-60"
               style={{ background: "radial-gradient(circle,rgba(14,165,233,0.15) 0%,transparent 70%)" }}/>
             <div className="relative z-10">
-              <div className="flex items-center gap-2 mb-4">
+              <div className="flex items-center gap-2 mb-3">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center"
                   style={{ background: "linear-gradient(135deg,rgba(14,165,233,0.28),rgba(56,189,248,0.12))", border: "1px solid rgba(14,165,233,0.40)", boxShadow: "0 4px 14px rgba(14,165,233,0.15), inset 0 1px 0 rgba(255,255,255,0.15)" }}>
                   <Truck className="w-4 h-4" style={{ color: "#0ea5e9", filter: "drop-shadow(0 0 6px #0ea5e988)" }}/>
                 </div>
                 <div>
                   <p className="text-sm font-bold">مستحقات الشحن</p>
-                  <p className="text-[11px] text-muted-foreground">فواتير غير مسددة</p>
+                  <p className="text-[11px] text-muted-foreground">طلبات في الشحن</p>
                 </div>
               </div>
               <p className="text-2xl font-black" style={{ color: "#0ea5e9", textShadow: "0 0 20px #0ea5e955" }}>
                 {isLoading ? "..." : fmtF(data?.unpaidShipping?.total ?? 0)}
               </p>
-              <div className="flex items-center justify-between mt-2 pt-2" style={{ borderTop: "1px solid rgba(14,165,233,0.20)" }}>
-                <p className="text-xs text-muted-foreground">{data?.unpaidShipping?.count ?? 0} فاتورة</p>
-                {(data?.unpaidShipping?.overdueCount ?? 0) > 0 && (
-                  <span className="text-[11px] px-2 py-0.5 rounded-full font-bold"
-                    style={{ background: "rgba(244,63,94,0.12)", color: "#f43f5e", border: "1px solid rgba(244,63,94,0.25)" }}>
-                    {data?.unpaidShipping?.overdueCount} متأخرة!
-                  </span>
+              <div className="mt-2 pt-2 space-y-1.5" style={{ borderTop: "1px solid rgba(14,165,233,0.20)" }}>
+                {isLoading ? (
+                  <p className="text-xs text-muted-foreground">جاري التحميل...</p>
+                ) : (data?.unpaidShipping?.byCompany ?? []).length === 0 ? (
+                  <p className="text-xs text-muted-foreground">لا توجد طلبات في الشحن</p>
+                ) : (
+                  (data?.unpaidShipping?.byCompany ?? []).map((co: any) => (
+                    <div key={co.id} className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground truncate max-w-[55%]">{co.name}</span>
+                      <span className="text-xs font-bold" style={{ color: "#0ea5e9" }}>
+                        {co.count} طلب
+                      </span>
+                    </div>
+                  ))
                 )}
               </div>
             </div>

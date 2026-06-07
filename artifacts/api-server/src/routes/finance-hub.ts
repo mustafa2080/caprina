@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, cashRegistersTable, cashTransactionsTable, expensesTable, ordersTable, purchaseOrdersTable, shippingFinancialInvoicesTable, shippingManifestsTable, shippingManifestOrdersTable, CREDIT_TYPES, DEBIT_TYPES } from "@workspace/db";
+import { db, cashRegistersTable, cashTransactionsTable, expensesTable, ordersTable, purchaseOrdersTable, shippingFinancialInvoicesTable, shippingManifestsTable, shippingManifestOrdersTable, shippingCompaniesTable, CREDIT_TYPES, DEBIT_TYPES } from "@workspace/db";
 import { eq, desc, gte, lte, and, sql, lt, isNull, inArray } from "drizzle-orm";
 import { getTenantId } from "../middlewares/requireTenant.js";
 
@@ -285,22 +285,34 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
       total: sql<number>`COALESCE(SUM(CAST(total_amount AS DECIMAL(14,2))),0)`,
     }).from(purchaseOrdersTable).where(sql`status IN ('pending','ordered','partial_received')`);
 
-    // ── 7. فواتير الشحن غير المسددة = البيانات اللي جاتلها فاتورة من شركة الشحن بس مش مدفوعة ──
-    const [unpaidShipping] = await db.select({
-      count: sql<number>`COUNT(*)`,
-      total: sql<number>`COALESCE(SUM(CAST(net_due AS DECIMAL(14,2)) - COALESCE(CAST(paid_amount AS DECIMAL(14,2)),0)),0)`,
-    }).from(shippingFinancialInvoicesTable).where(sql`status IN ('pending','verified')`);
+    // ── 7. مستحقات شركات الشحن — من الطلبات الفعلية (in_shipping) مجمعة لكل شركة ──
+    const tOrderShip = tenantId !== null ? [eq(ordersTable.tenantId, tenantId)] : [];
+    const companiesRaw = await db.select().from(shippingCompaniesTable)
+      .where(tenantId !== null ? eq(shippingCompaniesTable.tenantId, tenantId) : undefined);
 
-    // عدد البيانات الغير مسددة = البيانات المغلقة اللي عندها invoice_price (جاتلها فاتورة من شركة الشحن)
-    // وليس لها سداد مسجل في financial invoices
-    const [unpaidManifests] = await db.select({
-      count: sql<number>`COUNT(*)`,
-    }).from(shippingManifestsTable).where(sql`invoice_price IS NOT NULL`);
+    const shippingDuesByCompany = await Promise.all(companiesRaw.map(async (co) => {
+      const [stats] = await db.select({
+        count:       sql<number>`COUNT(*)`,
+        totalPrice:  sql<number>`COALESCE(SUM(CAST(total_price AS DECIMAL(14,2))),0)`,
+      }).from(ordersTable).where(and(
+        isNull(ordersTable.deletedAt),
+        eq(ordersTable.shippingCompanyId as any, co.id),
+        sql`status IN ('in_shipping','partially_received')`,
+        ...tOrderShip,
+      ));
+      return {
+        id:    co.id,
+        name:  co.name,
+        logo:  (co as any).logo ?? null,
+        count: Number(stats?.count ?? 0),
+        total: Number(stats?.totalPrice ?? 0),
+      };
+    }));
 
-    // نستخدم count من البيانات وtotal من الفواتير المالية
     const unpaidShippingResult = {
-      count: Number(unpaidManifests?.count ?? 0),
-      total: Number(unpaidShipping?.total ?? 0),
+      total: shippingDuesByCompany.reduce((s, c) => s + c.total, 0),
+      count: shippingDuesByCompany.reduce((s, c) => s + c.count, 0),
+      byCompany: shippingDuesByCompany.filter(c => c.count > 0),
     };
 
     // فواتير شحن متأخرة
