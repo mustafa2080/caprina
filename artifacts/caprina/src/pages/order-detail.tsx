@@ -2762,28 +2762,24 @@ tr.row-returned td{color:#aaa;text-decoration:line-through}
                 )}
 
                 {/* إغلاق */}
-                {order.status !== "received" && order.status !== "partial_received" && order.status !== "returned" && (
-                  <Button variant="outline" size="sm"
-                    onClick={() => {
-                      const regs = (cashData as any)?.registers ?? [];
-                      const defaultReg = regs.find((r: any) => r.isDefault) ?? regs[0];
-                      if (defaultReg) setSelectedRegisterId(String(defaultReg.id));
-                      setShowCloseDialog(true);
-                    }}
-                    className="h-8 text-xs gap-1.5 bg-card hover:bg-emerald-500/10 text-emerald-400 border border-emerald-600/50 hover:border-emerald-500">
-                    <CheckCircle2 className="w-3.5 h-3.5" />إغلاق
-                  </Button>
-                )}
+                <Button variant="outline" size="sm"
+                  onClick={() => {
+                    const regs = (cashData as any)?.registers ?? [];
+                    const defaultReg = regs.find((r: any) => r.isDefault) ?? regs[0];
+                    if (defaultReg) setSelectedRegisterId(String(defaultReg.id));
+                    setShowCloseDialog(true);
+                  }}
+                  className="h-8 text-xs gap-1.5 bg-card hover:bg-emerald-500/10 text-emerald-400 border border-emerald-600/50 hover:border-emerald-500">
+                  <CheckCircle2 className="w-3.5 h-3.5" />إغلاق
+                </Button>
               </>)}
 
               {/* واتساب — للكل */}
-              {(order.status === "pending" || order.status === "warehouse_ready") && (
-                <Button variant="outline" size="sm"
-                  onClick={handleWhatsApp}
-                  className="h-8 text-xs gap-1.5 border-green-700 text-green-400 hover:bg-green-500/10 bg-card">
-                  <MessageCircle className="w-3.5 h-3.5" />واتساب
-                </Button>
-              )}
+              <Button variant="outline" size="sm"
+                onClick={handleWhatsApp}
+                className="h-8 text-xs gap-1.5 border-green-700 text-green-400 hover:bg-green-500/10 bg-card">
+                <MessageCircle className="w-3.5 h-3.5" />واتساب
+              </Button>
 
               {/* تغيير الحالة — للأدمن فقط */}
               {isAdmin && canWriteOrders && (
