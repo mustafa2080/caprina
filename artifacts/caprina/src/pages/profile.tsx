@@ -391,6 +391,73 @@ function DashboardTab({ myStats, profile, externalViewMode, externalDate, onView
         </CardContent>
       </Card>
 
+      {/* متتبع سرعة الإنجاز — لوحتي */}
+      {(() => {
+        const activeKpis = (report?.kpis ?? []).filter((k: any) => k.isActive !== false);
+        if (!activeKpis.some((k: any) => k.score !== null && k.score !== undefined)) return null;
+        const now = new Date();
+        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        const dayPassed = now.getDate();
+        const monthPct = Math.round((dayPassed / daysInMonth) * 100);
+        return (
+          <Card className="border-border bg-card">
+            <CardContent className="px-4 py-4">
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <div className="flex items-center gap-2">
+                  <BarChart2 className="w-4 h-4 text-primary shrink-0" />
+                  <p className="text-xs font-bold">{"\u0645\u062a\u062a\u0628\u0639 \u0633\u0631\u0639\u0629 \u0627\u0644\u0625\u0646\u062c\u0627\u0632"}</p>
+                </div>
+                <span className="text-[9px] text-muted-foreground/60 bg-muted/30 rounded-full px-2 py-0.5">
+                  {"\u0645\u0631\u0651 "}{dayPassed}{" \u064a\u0648\u0645 \u0645\u0646 "}{daysInMonth}{" ("}{monthPct}{"% \u0645\u0646 \u0627\u0644\u0634\u0647\u0631)"}
+                </span>
+              </div>
+              <p className="text-[10px] text-muted-foreground mb-3.5">{"\u0647\u0644 \u0633\u062a\u0635\u0644 \u0644\u0644\u0647\u062f\u0641 \u0642\u0628\u0644 \u0646\u0647\u0627\u064a\u0629 \u0627\u0644\u0634\u0647\u0631 \u0628\u0646\u0627\u0621\u064b \u0639\u0644\u0649 \u0645\u0639\u062f\u0644\u0643 \u0627\u0644\u062d\u0627\u0644\u064a\u061f"}</p>
+              <div className="space-y-3">
+                {activeKpis.map((kpi: any) => {
+                  const sc = kpi.score ?? null;
+                  if (sc === null || sc === undefined) return null;
+                  const projectedScore = monthPct > 0 ? Math.round((sc / monthPct) * 100) : sc;
+                  const velocity = sc - monthPct;
+                  const willReach = projectedScore >= 100;
+                  const isOT = sc > 100;
+                  return (
+                    <div key={kpi.id} className="rounded-xl border border-border/50 bg-muted/5 px-3 py-2.5">
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <span className="text-[10px] font-bold truncate max-w-[55%]">{kpi.name}</span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {isOT ? (
+                            <span className="text-[9px] font-black text-blue-500 bg-blue-500/10 rounded-full px-2 py-0.5">{"\uD83C\uDFC6 Over Target"}</span>
+                          ) : willReach ? (
+                            <span className="text-[9px] font-black text-emerald-500 bg-emerald-500/10 rounded-full px-2 py-0.5">{"\u2705 \u0633\u064a\u0635\u0644 \u0644\u0644\u0647\u062f\u0641"}</span>
+                          ) : (
+                            <span className="text-[9px] font-black text-red-500 bg-red-500/10 rounded-full px-2 py-0.5">{"\u26A1 \u064a\u062d\u062a\u0627\u062c \u062a\u0633\u0631\u064a\u0639"}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="relative w-full h-3 rounded-full bg-muted/40 overflow-visible mb-1.5">
+                        <div className="absolute top-0 h-3 rounded-full bg-muted/60 transition-all"
+                          style={{ width: `${Math.min(monthPct, 100)}%` }} />
+                        <div className={`absolute top-0 h-3 rounded-full transition-all duration-700 ${isOT ? "bg-blue-500" : willReach ? "bg-emerald-500" : "bg-red-500"}`}
+                          style={{ width: `${Math.min(sc, 100)}%` }} />
+                        <div className="absolute top-[-3px] w-0.5 h-[18px] bg-foreground/40 rounded-full"
+                          style={{ left: `${Math.min(monthPct, 100)}%` }} />
+                      </div>
+                      <div className="flex items-center justify-between text-[9px] text-muted-foreground">
+                        <span>{"\u0641\u0639\u0644\u064a: "}<strong className="text-foreground">{sc}%</strong></span>
+                        <span>{"\u062a\u0648\u0642\u0639 \u0627\u0644\u0634\u0647\u0631: "}<strong className={willReach || isOT ? "text-emerald-500" : "text-amber-500"}>{Math.min(projectedScore, 150)}%</strong></span>
+                        <span className={`font-bold ${velocity >= 0 ? "text-emerald-500" : "text-red-500"}`}>
+                          {velocity >= 0 ? "+" : ""}{velocity}{"% \u0639\u0646 \u0627\u0644\u0645\u062a\u0648\u0642\u0639"}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                }).filter(Boolean)}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
+
       {/* Score + Comparison — شهري فقط */}
       {viewMode === "monthly" && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -478,73 +545,6 @@ function DashboardTab({ myStats, profile, externalViewMode, externalDate, onView
           </CardContent>
         </Card>
       )}
-
-      {/* متتبع سرعة الإنجاز — لوحتي */}
-      {(() => {
-        const activeKpis = (report?.kpis ?? []).filter((k: any) => k.isActive !== false);
-        if (!activeKpis.some((k: any) => k.score !== null && k.score !== undefined)) return null;
-        const now = new Date();
-        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-        const dayPassed = now.getDate();
-        const monthPct = Math.round((dayPassed / daysInMonth) * 100);
-        return (
-          <Card className="border-border bg-card">
-            <CardContent className="px-4 py-4">
-              <div className="flex items-center justify-between gap-2 mb-1">
-                <div className="flex items-center gap-2">
-                  <BarChart2 className="w-4 h-4 text-primary shrink-0" />
-                  <p className="text-xs font-bold">{"\u0645\u062a\u062a\u0628\u0639 \u0633\u0631\u0639\u0629 \u0627\u0644\u0625\u0646\u062c\u0627\u0632"}</p>
-                </div>
-                <span className="text-[9px] text-muted-foreground/60 bg-muted/30 rounded-full px-2 py-0.5">
-                  {"\u0645\u0631\u0651 "}{dayPassed}{" \u064a\u0648\u0645 \u0645\u0646 "}{daysInMonth}{" ("}{monthPct}{"% \u0645\u0646 \u0627\u0644\u0634\u0647\u0631)"}
-                </span>
-              </div>
-              <p className="text-[10px] text-muted-foreground mb-3.5">{"\u0647\u0644 \u0633\u062a\u0635\u0644 \u0644\u0644\u0647\u062f\u0641 \u0642\u0628\u0644 \u0646\u0647\u0627\u064a\u0629 \u0627\u0644\u0634\u0647\u0631 \u0628\u0646\u0627\u0621\u064b \u0639\u0644\u0649 \u0645\u0639\u062f\u0644\u0643 \u0627\u0644\u062d\u0627\u0644\u064a\u061f"}</p>
-              <div className="space-y-3">
-                {activeKpis.map((kpi: any) => {
-                  const sc = kpi.score ?? null;
-                  if (sc === null || sc === undefined) return null;
-                  const projectedScore = monthPct > 0 ? Math.round((sc / monthPct) * 100) : sc;
-                  const velocity = sc - monthPct;
-                  const willReach = projectedScore >= 100;
-                  const isOT = sc > 100;
-                  return (
-                    <div key={kpi.id} className="rounded-xl border border-border/50 bg-muted/5 px-3 py-2.5">
-                      <div className="flex items-center justify-between gap-2 mb-2">
-                        <span className="text-[10px] font-bold truncate max-w-[55%]">{kpi.name}</span>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          {isOT ? (
-                            <span className="text-[9px] font-black text-blue-500 bg-blue-500/10 rounded-full px-2 py-0.5">{"\uD83C\uDFC6 Over Target"}</span>
-                          ) : willReach ? (
-                            <span className="text-[9px] font-black text-emerald-500 bg-emerald-500/10 rounded-full px-2 py-0.5">{"\u2705 \u0633\u064a\u0635\u0644 \u0644\u0644\u0647\u062f\u0641"}</span>
-                          ) : (
-                            <span className="text-[9px] font-black text-red-500 bg-red-500/10 rounded-full px-2 py-0.5">{"\u26A1 \u064a\u062d\u062a\u0627\u062c \u062a\u0633\u0631\u064a\u0639"}</span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="relative w-full h-3 rounded-full bg-muted/40 overflow-visible mb-1.5">
-                        <div className="absolute top-0 h-3 rounded-full bg-muted/60 transition-all"
-                          style={{ width: `${Math.min(monthPct, 100)}%` }} />
-                        <div className={`absolute top-0 h-3 rounded-full transition-all duration-700 ${isOT ? "bg-blue-500" : willReach ? "bg-emerald-500" : "bg-red-500"}`}
-                          style={{ width: `${Math.min(sc, 100)}%` }} />
-                        <div className="absolute top-[-3px] w-0.5 h-[18px] bg-foreground/40 rounded-full"
-                          style={{ left: `${Math.min(monthPct, 100)}%` }} />
-                      </div>
-                      <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-                        <span>{"\u0641\u0639\u0644\u064a: "}<strong className="text-foreground">{sc}%</strong></span>
-                        <span>{"\u062a\u0648\u0642\u0639 \u0627\u0644\u0634\u0647\u0631: "}<strong className={willReach || isOT ? "text-emerald-500" : "text-amber-500"}>{Math.min(projectedScore, 150)}%</strong></span>
-                        <span className={`font-bold ${velocity >= 0 ? "text-emerald-500" : "text-red-500"}`}>
-                          {velocity >= 0 ? "+" : ""}{velocity}{"% \u0639\u0646 \u0627\u0644\u0645\u062a\u0648\u0642\u0639"}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                }).filter(Boolean)}
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })()}
 
       {/* Financial + Speed — شهري فقط */}
       {viewMode === "monthly" && (
