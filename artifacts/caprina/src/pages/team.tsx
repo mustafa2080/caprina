@@ -2758,52 +2758,6 @@ export function MyDashboardTab({ profileId, monthlySalary }: {
         </div>
       </div>
 
-            {/* daily KPI section */}
-      <div className="rounded-xl border border-primary/20 bg-primary/5 p-3.5 space-y-2.5">
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-bold flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block" />
-            أداء اليوم — {new Date(selectedDate + "T00:00:00").toLocaleDateString("ar-EG", { weekday: "long", day: "numeric", month: "long" })}
-          </p>
-          {dailyKpis.length > 0 && (
-            <span className="text-[10px] text-muted-foreground">
-              {dailyKpis.filter((k:any) => k.achieved === true).length}/{dailyKpis.length} محقق
-            </span>
-          )}
-        </div>
-        {dailyKpis.length === 0 ? (
-          <p className="text-[11px] text-muted-foreground text-center py-2">لم يتم تسجيل بيانات اليوم بعد</p>
-        ) : (
-          <div className="space-y-2">
-            {dailyKpis.map((kpi:any) => {
-              const sc = Math.min(kpi.score ?? 0, 100);
-              const isOT = (kpi.score ?? 0) > 100;
-              const fillColor = isOT ? "#3B82F6" : kpi.achieved === true ? "#10B981" : kpi.achieved === false ? "#EF4444" : "#F59E0B";
-              const statusIcon = isOT ? "🏆" : kpi.achieved === true ? "✅" : kpi.achieved === false ? "❌" : "⏳";
-              return (
-                <div key={kpi.id} className="rounded-lg bg-background/60 border border-border/40 px-3 py-2">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[11px] font-bold truncate max-w-[55%]">{kpi.name}</span>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-[10px] text-muted-foreground">
-                        {kpi.actualValue ?? 0} / {kpi.dailyTarget} {kpi.unit}
-                      </span>
-                      <span className={`text-[10px] font-black ${isOT ? "text-blue-500" : kpi.achieved === true ? "text-emerald-500" : kpi.achieved === false ? "text-red-500" : "text-amber-500"}`}>
-                        {statusIcon} {kpi.score !== null ? `${Math.round(kpi.score)}%` : "—"}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="w-full h-1.5 rounded-full bg-muted/40">
-                    <div className="h-1.5 rounded-full transition-all duration-500" style={{ width: `${sc}%`, background: fillColor }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-
       {/* ── متتبع سرعة الإنجاز ── */}
       {(() => {
         const velKpis = (report?.kpis ?? []).filter((k: any) => k.isActive !== false && k.score !== null && k.score !== undefined);
