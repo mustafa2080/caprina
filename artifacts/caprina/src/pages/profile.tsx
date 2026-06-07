@@ -473,41 +473,37 @@ function DashboardTab({ myStats, profile, externalViewMode, externalDate, onView
           {
             key: "danger-high",
             label: "خطر عالي الأولوية",
-            dot: "bg-red-500",
-            bg: "bg-red-500/10",
-            border: "border-red-500/30",
-            textColor: "text-red-500 dark:text-red-400",
-            badgeBg: "bg-red-500",
+            dotColor: "#ef4444",
+            cardStyle: { background: "linear-gradient(135deg,#dc2626cc,#b91c1caa)", border: "1px solid #ef444455" },
+            labelStyle: { color: "#fca5a5", fontWeight: 800 },
+            badgeStyle: { background: "#ef4444", color: "#fff" },
             filter: (k: any) => (k.perf === "danger" || k.perf === "unknown") && k.impact === "high",
           },
           {
             key: "danger-low",
             label: "خطر منخفض التأثير",
-            dot: "bg-orange-500",
-            bg: "bg-orange-500/10",
-            border: "border-orange-500/30",
-            textColor: "text-orange-500 dark:text-orange-400",
-            badgeBg: "bg-orange-500",
+            dotColor: "#f97316",
+            cardStyle: { background: "linear-gradient(135deg,#ea580ccc,#c2410caa)", border: "1px solid #f9731655" },
+            labelStyle: { color: "#fdba74", fontWeight: 800 },
+            badgeStyle: { background: "#f97316", color: "#fff" },
             filter: (k: any) => (k.perf === "danger" || k.perf === "unknown") && k.impact !== "high",
           },
           {
-            key: "warning-high",
+            key: "warning",
             label: "تحذير — راقبه",
-            dot: "bg-amber-500",
-            bg: "bg-amber-500/10",
-            border: "border-amber-500/30",
-            textColor: "text-amber-500 dark:text-amber-400",
-            badgeBg: "bg-amber-500",
+            dotColor: "#eab308",
+            cardStyle: { background: "linear-gradient(135deg,#ca8a04cc,#a16207aa)", border: "1px solid #eab30855" },
+            labelStyle: { color: "#fde047", fontWeight: 800 },
+            badgeStyle: { background: "#eab308", color: "#fff" },
             filter: (k: any) => k.perf === "warning",
           },
           {
             key: "good",
             label: "على المسار الصحيح",
-            dot: "bg-emerald-500",
-            bg: "bg-emerald-500/10",
-            border: "border-emerald-500/30",
-            textColor: "text-emerald-500 dark:text-emerald-400",
-            badgeBg: "bg-emerald-500",
+            dotColor: "#22c55e",
+            cardStyle: { background: "linear-gradient(135deg,#16a34acc,#15803daa)", border: "1px solid #22c55e55" },
+            labelStyle: { color: "#86efac", fontWeight: 800 },
+            badgeStyle: { background: "#22c55e", color: "#fff" },
             filter: (k: any) => k.perf === "good",
           },
         ];
@@ -517,25 +513,28 @@ function DashboardTab({ myStats, profile, externalViewMode, externalDate, onView
           <Card className="border-border bg-card overflow-hidden">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-4">
-                <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                <span className="text-base">⚠️</span>
                 <p className="text-xs font-bold">مصفوفة مخاطر المؤشرات</p>
                 <span className="text-[9px] text-muted-foreground/60 mr-auto">تصنيف حسب الأداء × التأثير المالي</span>
               </div>
-              <div className="space-y-2.5">
+              <div className="grid grid-cols-2 gap-2.5">
                 {visibleZones.map(zone => {
                   const items = matrixKpis.filter(zone.filter);
                   return (
-                    <div key={zone.key} className={`rounded-xl border ${zone.bg} ${zone.border} p-3.5`}>
+                    <div key={zone.key} className="rounded-xl p-3.5" style={zone.cardStyle}>
+                      {/* اسم الحالة + نقطة */}
                       <div className="flex items-center gap-2 mb-3">
-                        <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${zone.dot}`} />
-                        <span className={`text-xs font-bold ${zone.textColor}`}>{zone.label}</span>
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: zone.dotColor }} />
+                        <span className="text-[11px]" style={zone.labelStyle}>{zone.label}</span>
                       </div>
+                      {/* قائمة الـ KPIs */}
                       <div className="space-y-2">
                         {items.map((k: any) => (
                           <div key={k.id} className="flex items-center justify-between gap-2">
-                            <span className="text-[11px] text-foreground/80 truncate">{k.name}</span>
+                            <span className="text-[11px] text-white/80 truncate">{k.name}</span>
                             {k.sc !== null && (
-                              <span className={`text-[10px] font-black text-white rounded-full px-2 py-0.5 shrink-0 ${zone.badgeBg}`}>
+                              <span className="text-[10px] font-black rounded-full px-2 py-0.5 shrink-0"
+                                style={zone.badgeStyle}>
                                 {k.sc}%
                               </span>
                             )}
