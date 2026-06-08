@@ -106,6 +106,8 @@ export default function Login() {
     }
   };
 
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+
   // جلب الأسعار من الـ API عند فتح الصفحة
   useEffect(() => {
     fetch("/api/public/plan-prices")
@@ -335,18 +337,62 @@ export default function Login() {
                   {pwaInstalling ? "جاري التثبيت..." : "تثبيت التطبيق"}
                 </button>
                 {showPwaHint && (
-                  <div style={{
-                    position:"absolute",bottom:"calc(100% + 10px)",right:0,
-                    background:"rgba(9,8,7,0.97)",border:"1px solid rgba(201,168,76,0.35)",
-                    borderRadius:"10px",padding:"12px 14px",width:"240px",
-                    fontSize:"12px",color:"rgba(255,255,255,0.8)",lineHeight:"1.7",
-                    boxShadow:"0 8px 32px rgba(0,0,0,0.8)",zIndex:99,
-                    animation:"slideUp .25s cubic-bezier(.22,1,.36,1)",direction:"rtl",
+                  <div onClick={() => setShowPwaHint(false)} style={{
+                    position:"fixed",inset:0,zIndex:200,
+                    background:"rgba(0,0,0,0.7)",backdropFilter:"blur(8px)",
+                    display:"flex",alignItems:"flex-end",justifyContent:"center",
                   }}>
-                    <p style={{fontWeight:800,color:"#c9a84c",marginBottom:6}}>📲 كيفية التثبيت</p>
-                    <p><b>Chrome:</b> اضغط ⋮ ثم "تثبيت التطبيق"</p>
-                    <p><b>Safari iOS:</b> اضغط ثم "إضافة للشاشة الرئيسية"</p>
-                    <p><b>Edge:</b> اضغط ⋯ ثم تطبيقات ثم تثبيت</p>
+                    <div onClick={e => e.stopPropagation()} style={{
+                      width:"100%",maxWidth:"480px",
+                      background:"linear-gradient(180deg,rgba(18,14,5,0.98) 0%,rgba(9,8,7,1) 100%)",
+                      border:"1px solid rgba(201,168,76,0.3)",
+                      borderRadius:"24px 24px 0 0",padding:"28px 24px 40px",
+                      animation:"slideUp .35s cubic-bezier(.22,1,.36,1)",direction:"rtl",
+                    }}>
+                      {/* Handle */}
+                      <div style={{width:40,height:4,borderRadius:2,background:"rgba(201,168,76,0.3)",margin:"0 auto 20px"}}/>
+                      {/* Header */}
+                      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
+                        <div style={{width:44,height:44,borderRadius:12,background:"rgba(201,168,76,0.12)",border:"1px solid rgba(201,168,76,0.3)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>📲</div>
+                        <div>
+                          <p style={{fontWeight:900,fontSize:16,color:"#f5e6b8",margin:0}}>تثبيت التطبيق</p>
+                          <p style={{fontSize:12,color:"rgba(255,255,255,0.45)",margin:0}}>اتبع الخطوات التالية</p>
+                        </div>
+                        <button onClick={() => setShowPwaHint(false)} style={{marginRight:"auto",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:"50%",width:30,height:30,color:"rgba(255,255,255,0.4)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>✕</button>
+                      </div>
+
+                      {isIOS ? (
+                        /* خطوات Safari iOS */
+                        <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                          {[
+                            { n:1, icon:"🌐", text: "افتح الموقع في Safari (مش Chrome)" },
+                            { n:2, icon:"⬆️", text: 'اضغط زر المشاركة في أسفل الشاشة' },
+                            { n:3, icon:"➕", text: 'اختار "إضافة إلى الشاشة الرئيسية"' },
+                            { n:4, icon:"✅", text: 'اضغط "إضافة" في الأعلى' },
+                          ].map(s => (
+                            <div key={s.n} style={{display:"flex",alignItems:"center",gap:14,background:"rgba(201,168,76,0.06)",border:"1px solid rgba(201,168,76,0.15)",borderRadius:12,padding:"12px 14px"}}>
+                              <div style={{width:28,height:28,borderRadius:"50%",background:"rgba(201,168,76,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:900,fontSize:12,color:"#c9a84c",flexShrink:0}}>{s.n}</div>
+                              <span style={{fontSize:13}}>{s.icon} {s.text}</span>
+                            </div>
+                          ))}
+                          <p style={{fontSize:11,color:"rgba(255,255,255,0.3)",textAlign:"center",marginTop:4}}>* يشتغل على Safari iOS 16.4 وأحدث</p>
+                        </div>
+                      ) : (
+                        /* خطوات Chrome / Edge */
+                        <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                          {[
+                            { n:1, icon:"⋮", text: 'اضغط القائمة (3 نقاط) في أعلى المتصفح' },
+                            { n:2, icon:"📲", text: '"تثبيت التطبيق" أو "إضافة للشاشة الرئيسية"' },
+                            { n:3, icon:"✅", text: 'اضغط "تثبيت" للتأكيد' },
+                          ].map(s => (
+                            <div key={s.n} style={{display:"flex",alignItems:"center",gap:14,background:"rgba(201,168,76,0.06)",border:"1px solid rgba(201,168,76,0.15)",borderRadius:12,padding:"12px 14px"}}>
+                              <div style={{width:28,height:28,borderRadius:"50%",background:"rgba(201,168,76,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:900,fontSize:12,color:"#c9a84c",flexShrink:0}}>{s.n}</div>
+                              <span style={{fontSize:13}}>{s.icon} {s.text}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
