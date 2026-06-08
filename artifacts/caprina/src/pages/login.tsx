@@ -82,23 +82,28 @@ export default function Login() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [pwaInstalled, setPwaInstalled] = useState(false);
   const [pwaInstalling, setPwaInstalling] = useState(false);
+  const [showPwaHint, setShowPwaHint] = useState(false);
 
   useEffect(() => {
     const handler = (e: Event) => { e.preventDefault(); setDeferredPrompt(e); };
     window.addEventListener("beforeinstallprompt", handler);
     window.addEventListener("appinstalled", () => { setPwaInstalled(true); setDeferredPrompt(null); });
-    // لو فعلاً مثبت كـ PWA
     if (window.matchMedia("(display-mode: standalone)").matches) setPwaInstalled(true);
     return () => window.removeEventListener("beforeinstallprompt", handler);
   }, []);
 
   const handleInstallPwa = async () => {
-    if (!deferredPrompt) return;
-    setPwaInstalling(true);
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === "accepted") { setPwaInstalled(true); setDeferredPrompt(null); }
-    setPwaInstalling(false);
+    if (pwaInstalled) return;
+    if (deferredPrompt) {
+      setPwaInstalling(true);
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === "accepted") { setPwaInstalled(true); setDeferredPrompt(null); }
+      setPwaInstalling(false);
+    } else {
+      // مفيش prompt متاح — وريله hint يدوي
+      setShowPwaHint(v => !v);
+    }
   };
 
   // جلب الأسعار من الـ API عند فتح الصفحة
@@ -315,16 +320,39 @@ export default function Login() {
             <a href="https://caprinaeg.com" target="_blank" rel="noopener noreferrer" className="btn-ghost">
               <ExternalLink size={18} /> الموقع الرئيسي
             </a>
-            {(deferredPrompt || pwaInstalled) && (
-              <button
-                className={`btn-pwa${pwaInstalling ? " installing" : ""}${pwaInstalled ? " done" : ""}`}
-                onClick={handleInstallPwa}
-                disabled={pwaInstalled || pwaInstalling}
-              >
-                <span className="pwa-icon">
-                  {pwaInstalled ? <Check size={18} /> : pwaInstalling ? <Smartphone size={18} /> : <Download size={18} />}
-                </span>
-                {pwaInstalled ? "تم التثبيت ✓" : pwaInstalling ? "جاري التثبيت..." : "تثبيت التطبيق"}
+            {!pwaInstalled && (
+              <div style={{ position: "relative" }}>
+                <button
+                  className={`btn-pwa${pwaInstalling ? " installing" : ""}`}
+                  onClick={handleInstallPwa}
+                  disabled={pwaInstalling}
+                >
+                  <span className="pwa-icon">
+                    {pwaInstalling ? <Smartphone size={18} /> : <Download size={18} />}
+                  </span>
+                  {pwaInstalling ? "جاري التثبيت..." : "تثبيت التطبيق"}
+                </button>
+                {showPwaHint && (
+                  <div style={{
+                    position:"absolute",bottom:"calc(100% + 10px)",right:0,
+                    background:"rgba(9,8,7,0.97)",border:"1px solid rgba(201,168,76,0.35)",
+                    borderRadius:"10px",padding:"12px 14px",width:"240px",
+                    fontSize:"12px",color:"rgba(255,255,255,0.8)",lineHeight:"1.7",
+                    boxShadow:"0 8px 32px rgba(0,0,0,0.8)",zIndex:99,
+                    animation:"slideUp .25s cubic-bezier(.22,1,.36,1)",direction:"rtl",
+                  }}>
+                    <p style={{fontWeight:800,color:"#c9a84c",marginBottom:6}}>📲 كيفية التثبيت</p>
+                    <p><b>Chrome:</b> اضغط ⋮ ثم "تثبيت التطبيق"</p>
+                    <p><b>Safari iOS:</b> اضغط ثم "إضافة للشاشة الرئيسية"</p>
+                    <p><b>Edge:</b> اضغط ⋯ ثم تطبيقات ثم تثبيت</p>
+                  </div>
+                )}
+              </div>
+            )}
+            {pwaInstalled && (
+              <button className="btn-pwa done" disabled>
+                <span className="pwa-icon"><Check size={18} /></span>
+                تم التثبيت ✓
               </button>
             )}
           </div>
