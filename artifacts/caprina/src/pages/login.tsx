@@ -221,18 +221,20 @@ export default function Login() {
         .btn-sub:active:not(:disabled){transform:translateY(2px);box-shadow:0 1px 0 var(--gold-dim);}
         .btn-sub:disabled{opacity:.3;cursor:not-allowed;}
         @keyframes pwaShine{0%{left:-100%}100%{left:200%}}
-        @keyframes pwaPulse{0%,100%{box-shadow:0 0 0 0 rgba(56,189,248,0.5),0 4px 0 #0369a1,0 8px 28px rgba(14,165,233,0.3)}50%{box-shadow:0 0 0 6px rgba(56,189,248,0),0 4px 0 #0369a1,0 8px 28px rgba(14,165,233,0.5)}}
+        @keyframes pwaPulse{0%,100%{box-shadow:0 0 0 0 rgba(201,168,76,0.4),0 4px 0 rgba(139,105,20,0.8),0 8px 28px rgba(201,168,76,0.2)}50%{box-shadow:0 0 0 6px rgba(201,168,76,0),0 4px 0 rgba(139,105,20,0.8),0 8px 28px rgba(201,168,76,0.4)}}
         @keyframes pwaIconBounce{0%,100%{transform:translateY(0)}40%{transform:translateY(-4px)}70%{transform:translateY(-2px)}}
         @keyframes pwaDone{0%{transform:scale(0.5);opacity:0}60%{transform:scale(1.2)}100%{transform:scale(1);opacity:1}}
-        .btn-pwa{display:inline-flex;align-items:center;gap:.6rem;padding:.85rem 2rem;background:linear-gradient(135deg,#0ea5e9 0%,#0284c7 50%,#0369a1 100%);color:#fff;font-size:.88rem;font-weight:800;border:none;border-radius:.6rem;cursor:pointer;letter-spacing:.04em;box-shadow:0 4px 0 #0369a1,0 8px 28px rgba(14,165,233,0.35);transition:all .2s ease;position:relative;overflow:hidden;text-decoration:none;}
-        .btn-pwa::before{content:'';position:absolute;top:0;left:-100%;width:60%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.25),transparent);animation:pwaShine 2.5s ease-in-out infinite;}
-        .btn-pwa::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,0.15) 0%,transparent 60%);border-radius:.6rem;pointer-events:none;}
-        .btn-pwa:hover{transform:translateY(-2px);box-shadow:0 6px 0 #0369a1,0 12px 36px rgba(14,165,233,0.5);}
-        .btn-pwa:active{transform:translateY(2px);box-shadow:0 2px 0 #0369a1;}
+        .btn-pwa{display:inline-flex;align-items:center;gap:.6rem;padding:.85rem 2rem;background:linear-gradient(135deg,rgba(201,168,76,0.18) 0%,rgba(139,105,20,0.12) 100%);color:var(--gold-light);font-size:.88rem;font-weight:800;border:1.5px solid rgba(201,168,76,0.45);border-radius:.6rem;cursor:pointer;letter-spacing:.04em;box-shadow:0 4px 0 rgba(139,105,20,0.5),0 8px 28px rgba(201,168,76,0.15);transition:all .2s ease;position:relative;overflow:hidden;text-decoration:none;}
+        .btn-pwa::before{content:'';position:absolute;top:0;left:-100%;width:60%;height:100%;background:linear-gradient(90deg,transparent,rgba(201,168,76,0.2),transparent);animation:pwaShine 2.5s ease-in-out infinite;}
+        .btn-pwa::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(201,168,76,0.08) 0%,transparent 60%);border-radius:.6rem;pointer-events:none;}
+        .btn-pwa:hover{transform:translateY(-2px);background:linear-gradient(135deg,rgba(201,168,76,0.25),rgba(139,105,20,0.18));border-color:rgba(201,168,76,0.7);box-shadow:0 6px 0 rgba(139,105,20,0.6),0 12px 36px rgba(201,168,76,0.3);}
+        .btn-pwa:active{transform:translateY(2px);box-shadow:0 2px 0 rgba(139,105,20,0.5);}
         .btn-pwa.installing{animation:pwaPulse 1.2s ease-in-out infinite;cursor:wait;}
         .btn-pwa .pwa-icon{animation:pwaIconBounce 1.8s ease-in-out infinite;}
-        .btn-pwa.done{background:linear-gradient(135deg,#22c55e,#16a34a);box-shadow:0 4px 0 #15803d,0 8px 28px rgba(34,197,94,0.35);}
+        .btn-pwa.done{background:linear-gradient(135deg,rgba(34,197,94,0.2),rgba(22,163,74,0.12));border-color:rgba(34,197,94,0.5);color:#4ade80;box-shadow:0 4px 0 rgba(22,163,74,0.4),0 8px 28px rgba(34,197,94,0.15);}
         .btn-pwa.done .pwa-icon{animation:pwaDone .4s cubic-bezier(.22,1,.36,1);}
+        .btn-pwa-wrap{position:relative;}
+        @media(max-width:480px){.btn-pwa-wrap{width:100%;}.btn-pwa{width:100%;justify-content:center;padding:.8rem 1.2rem;}}
         @media(max-width:1024px){.lp{padding:0 5vw;}.hc{max-width:460px;}}
         @media(max-width:768px){.lp{justify-content:center;padding:1.5rem 1.2rem;align-items:center;}.hc{align-items:center;text-align:center;padding:2rem 1.8rem;max-width:100%;}.h-title{font-size:2rem;text-align:center;}.h-desc{text-align:center;font-size:.92rem;}.btn-row{justify-content:center;width:100%;}.copy-bar{justify-content:center;}.gold-divider{display:none;}.logo-wrap{margin-bottom:1.6rem;}.tagline{margin-bottom:1.6rem;}}
         @media(max-width:480px){.lp{padding:1rem .9rem;align-items:flex-start;padding-top:2rem;}.hc{padding:1.6rem 1.3rem;}.h-title{font-size:1.65rem;}.h-desc{font-size:.85rem;}.btn-primary,.btn-ghost,.btn-pwa{width:100%;justify-content:center;padding:.8rem 1.2rem;}.btn-row{flex-direction:column;gap:.65rem;width:100%;}.logo-ring{width:68px;height:68px;}.logo-ring img{width:50px;height:50px;}.logo-brand{font-size:1.4rem;}.logo-wrap{gap:.8rem;margin-bottom:1.4rem;}.tagline{font-size:.7rem;margin-bottom:1.4rem;}.copy-bar{gap:.5rem;}.copy-text{font-size:.65rem;letter-spacing:.1em;}}
@@ -321,7 +323,7 @@ export default function Login() {
               <ExternalLink size={18} /> الموقع الرئيسي
             </a>
             {!pwaInstalled && (
-              <div style={{ position: "relative" }}>
+              <div className="btn-pwa-wrap">
                 <button
                   className={`btn-pwa${pwaInstalling ? " installing" : ""}`}
                   onClick={handleInstallPwa}
