@@ -3,7 +3,7 @@ import { authApi } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff, ShieldCheck, UserCircle2, Fingerprint, X, LogIn, ExternalLink, Check, MessageCircle, Mail, Zap, Building2, Rocket, Crown } from "lucide-react";
+import { Eye, EyeOff, ShieldCheck, UserCircle2, Fingerprint, X, LogIn, ExternalLink, Check, MessageCircle, Mail, Zap, Building2, Rocket, Crown, Download, Smartphone } from "lucide-react";
 
 const DEFAULT_PLANS = [
   {
@@ -77,6 +77,29 @@ export default function Login() {
   const [showPricing, setShowPricing] = useState(false);
   const [billingYearly, setBillingYearly] = useState(false);
   const [planPrices, setPlanPrices] = useState<PlanPrices | null>(null);
+
+  // PWA install
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [pwaInstalled, setPwaInstalled] = useState(false);
+  const [pwaInstalling, setPwaInstalling] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: Event) => { e.preventDefault(); setDeferredPrompt(e); };
+    window.addEventListener("beforeinstallprompt", handler);
+    window.addEventListener("appinstalled", () => { setPwaInstalled(true); setDeferredPrompt(null); });
+    // لو فعلاً مثبت كـ PWA
+    if (window.matchMedia("(display-mode: standalone)").matches) setPwaInstalled(true);
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
+  const handleInstallPwa = async () => {
+    if (!deferredPrompt) return;
+    setPwaInstalling(true);
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === "accepted") { setPwaInstalled(true); setDeferredPrompt(null); }
+    setPwaInstalling(false);
+  };
 
   // جلب الأسعار من الـ API عند فتح الصفحة
   useEffect(() => {
@@ -192,9 +215,22 @@ export default function Login() {
         .btn-sub:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 6px 0 var(--gold-dim),0 12px 32px rgba(201,168,76,0.45);}
         .btn-sub:active:not(:disabled){transform:translateY(2px);box-shadow:0 1px 0 var(--gold-dim);}
         .btn-sub:disabled{opacity:.3;cursor:not-allowed;}
+        @keyframes pwaShine{0%{left:-100%}100%{left:200%}}
+        @keyframes pwaPulse{0%,100%{box-shadow:0 0 0 0 rgba(56,189,248,0.5),0 4px 0 #0369a1,0 8px 28px rgba(14,165,233,0.3)}50%{box-shadow:0 0 0 6px rgba(56,189,248,0),0 4px 0 #0369a1,0 8px 28px rgba(14,165,233,0.5)}}
+        @keyframes pwaIconBounce{0%,100%{transform:translateY(0)}40%{transform:translateY(-4px)}70%{transform:translateY(-2px)}}
+        @keyframes pwaDone{0%{transform:scale(0.5);opacity:0}60%{transform:scale(1.2)}100%{transform:scale(1);opacity:1}}
+        .btn-pwa{display:inline-flex;align-items:center;gap:.6rem;padding:.85rem 2rem;background:linear-gradient(135deg,#0ea5e9 0%,#0284c7 50%,#0369a1 100%);color:#fff;font-size:.88rem;font-weight:800;border:none;border-radius:.6rem;cursor:pointer;letter-spacing:.04em;box-shadow:0 4px 0 #0369a1,0 8px 28px rgba(14,165,233,0.35);transition:all .2s ease;position:relative;overflow:hidden;text-decoration:none;}
+        .btn-pwa::before{content:'';position:absolute;top:0;left:-100%;width:60%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.25),transparent);animation:pwaShine 2.5s ease-in-out infinite;}
+        .btn-pwa::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,0.15) 0%,transparent 60%);border-radius:.6rem;pointer-events:none;}
+        .btn-pwa:hover{transform:translateY(-2px);box-shadow:0 6px 0 #0369a1,0 12px 36px rgba(14,165,233,0.5);}
+        .btn-pwa:active{transform:translateY(2px);box-shadow:0 2px 0 #0369a1;}
+        .btn-pwa.installing{animation:pwaPulse 1.2s ease-in-out infinite;cursor:wait;}
+        .btn-pwa .pwa-icon{animation:pwaIconBounce 1.8s ease-in-out infinite;}
+        .btn-pwa.done{background:linear-gradient(135deg,#22c55e,#16a34a);box-shadow:0 4px 0 #15803d,0 8px 28px rgba(34,197,94,0.35);}
+        .btn-pwa.done .pwa-icon{animation:pwaDone .4s cubic-bezier(.22,1,.36,1);}
         @media(max-width:1024px){.lp{padding:0 5vw;}.hc{max-width:460px;}}
         @media(max-width:768px){.lp{justify-content:center;padding:1.5rem 1.2rem;align-items:center;}.hc{align-items:center;text-align:center;padding:2rem 1.8rem;max-width:100%;}.h-title{font-size:2rem;text-align:center;}.h-desc{text-align:center;font-size:.92rem;}.btn-row{justify-content:center;width:100%;}.copy-bar{justify-content:center;}.gold-divider{display:none;}.logo-wrap{margin-bottom:1.6rem;}.tagline{margin-bottom:1.6rem;}}
-        @media(max-width:480px){.lp{padding:1rem .9rem;align-items:flex-start;padding-top:2rem;}.hc{padding:1.6rem 1.3rem;}.h-title{font-size:1.65rem;}.h-desc{font-size:.85rem;}.btn-primary,.btn-ghost{width:100%;justify-content:center;padding:.8rem 1.2rem;}.btn-row{flex-direction:column;gap:.65rem;width:100%;}.logo-ring{width:68px;height:68px;}.logo-ring img{width:50px;height:50px;}.logo-brand{font-size:1.4rem;}.logo-wrap{gap:.8rem;margin-bottom:1.4rem;}.tagline{font-size:.7rem;margin-bottom:1.4rem;}.copy-bar{gap:.5rem;}.copy-text{font-size:.65rem;letter-spacing:.1em;}}
+        @media(max-width:480px){.lp{padding:1rem .9rem;align-items:flex-start;padding-top:2rem;}.hc{padding:1.6rem 1.3rem;}.h-title{font-size:1.65rem;}.h-desc{font-size:.85rem;}.btn-primary,.btn-ghost,.btn-pwa{width:100%;justify-content:center;padding:.8rem 1.2rem;}.btn-row{flex-direction:column;gap:.65rem;width:100%;}.logo-ring{width:68px;height:68px;}.logo-ring img{width:50px;height:50px;}.logo-brand{font-size:1.4rem;}.logo-wrap{gap:.8rem;margin-bottom:1.4rem;}.tagline{font-size:.7rem;margin-bottom:1.4rem;}.copy-bar{gap:.5rem;}.copy-text{font-size:.65rem;letter-spacing:.1em;}}
         @media(max-width:360px){.hc{padding:1.3rem 1rem;}.h-title{font-size:1.45rem;}.logo-ring{width:60px;height:60px;}.logo-ring img{width:44px;height:44px;}.logo-brand{font-size:1.25rem;}}
         @media(min-width:1400px){.lp{padding:0 10vw;}.hc{max-width:560px;}.h-title{font-size:3.5rem;}.h-desc{font-size:1.1rem;}}
         @media(max-width:480px){.ov{padding:.8rem;}.card{padding:1.8rem 1.4rem;border-radius:1rem;}.card-title{font-size:1rem;}.f-input{height:44px;font-size:.85rem;}.btn-sub{height:46px;font-size:.88rem;}}
@@ -279,6 +315,18 @@ export default function Login() {
             <a href="https://caprinaeg.com" target="_blank" rel="noopener noreferrer" className="btn-ghost">
               <ExternalLink size={18} /> الموقع الرئيسي
             </a>
+            {(deferredPrompt || pwaInstalled) && (
+              <button
+                className={`btn-pwa${pwaInstalling ? " installing" : ""}${pwaInstalled ? " done" : ""}`}
+                onClick={handleInstallPwa}
+                disabled={pwaInstalled || pwaInstalling}
+              >
+                <span className="pwa-icon">
+                  {pwaInstalled ? <Check size={18} /> : pwaInstalling ? <Smartphone size={18} /> : <Download size={18} />}
+                </span>
+                {pwaInstalled ? "تم التثبيت ✓" : pwaInstalling ? "جاري التثبيت..." : "تثبيت التطبيق"}
+              </button>
+            )}
           </div>
           <div className="fu5 copy-bar">
             <div className="copy-line" />
