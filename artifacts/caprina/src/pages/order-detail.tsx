@@ -2547,6 +2547,7 @@ tr.row-returned td{color:#aaa;text-decoration:line-through}
   const orderReturnReason = (order as any).returnReason as string | null;
   const orderReturnNote = (order as any).returnNote as string | null;
   const isOrderLocked = (order.status === "received" || order.status === "partial_received") && !isAdmin;
+  const isOrderClosed = order.status === "closed";
   const isManifestLocked = !!invoiceManifestStatus;
   // لو invoiceNumber موجود ولسه loading → ننتظر قبل ما نحدد الوضع (إلا لو حصل error → نعرض الطلب الفردي)
   // isInvoiceMode: ظ„ط§ طھطھط£ط«ط± ط¨ط§ظ„ظ€ refetch â€” طھط³طھط®ط¯ظ… invoiceOrders.length ظ…ط¨ط§ط´ط±ط© (placeholderData ط¨طھط­طھظپط¸ ط¨ط§ظ„ط¨ظٹط§ظ†ط§طھ)
@@ -2762,16 +2763,23 @@ tr.row-returned td{color:#aaa;text-decoration:line-through}
                 )}
 
                 {/* إغلاق */}
-                <Button variant="outline" size="sm"
-                  onClick={() => {
-                    const regs = (cashData as any)?.registers ?? [];
-                    const defaultReg = regs.find((r: any) => r.isDefault) ?? regs[0];
-                    if (defaultReg) setSelectedRegisterId(String(defaultReg.id));
-                    setShowCloseDialog(true);
-                  }}
-                  className="h-8 text-xs gap-1.5 bg-card hover:bg-emerald-500/10 text-emerald-400 border border-emerald-600/50 hover:border-emerald-500">
-                  <CheckCircle2 className="w-3.5 h-3.5" />إغلاق
-                </Button>
+                {(() => {
+                  const isAlreadyClosed = order.status === "received" || order.status === "partial_received" || order.status === "returned";
+                  return (
+                    <Button variant="outline" size="sm"
+                      onClick={isAlreadyClosed ? undefined : () => {
+                        const regs = (cashData as any)?.registers ?? [];
+                        const defaultReg = regs.find((r: any) => r.isDefault) ?? regs[0];
+                        if (defaultReg) setSelectedRegisterId(String(defaultReg.id));
+                        setShowCloseDialog(true);
+                      }}
+                      disabled={isAlreadyClosed}
+                      className={`h-8 text-xs gap-1.5 border ${isAlreadyClosed ? "bg-muted/30 text-muted-foreground border-border cursor-not-allowed opacity-60" : "bg-card hover:bg-emerald-500/10 text-emerald-400 border-emerald-600/50 hover:border-emerald-500"}`}>
+                      {isAlreadyClosed ? <Lock className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                      {isAlreadyClosed ? "مغلق" : "إغلاق"}
+                    </Button>
+                  );
+                })()}
               </>)}
 
               {/* واتساب — للكل */}
@@ -2897,18 +2905,23 @@ tr.row-returned td{color:#aaa;text-decoration:line-through}
                 <Trash2 className="w-3 h-3" />حذف
               </Button>
             )}
-            {order.status !== "received" && order.status !== "partial_received" && order.status !== "returned" && (
-              <Button variant="outline" size="sm"
-                onClick={() => {
-                  const regs = (cashData as any)?.registers ?? [];
-                  const defaultReg = regs.find((r: any) => r.isDefault) ?? regs[0];
-                  if (defaultReg) setSelectedRegisterId(String(defaultReg.id));
-                  setShowCloseDialog(true);
-                }}
-                className="h-8 text-xs gap-1 bg-transparent hover:bg-emerald-500/10 text-emerald-400 border border-emerald-600/50 hover:border-emerald-500">
-                <CheckCircle2 className="w-3 h-3" />إغلاق
-              </Button>
-            )}
+            {(() => {
+              const isAlreadyClosed = order.status === "received" || order.status === "partial_received" || order.status === "returned";
+              return (
+                <Button variant="outline" size="sm"
+                  onClick={isAlreadyClosed ? undefined : () => {
+                    const regs = (cashData as any)?.registers ?? [];
+                    const defaultReg = regs.find((r: any) => r.isDefault) ?? regs[0];
+                    if (defaultReg) setSelectedRegisterId(String(defaultReg.id));
+                    setShowCloseDialog(true);
+                  }}
+                  disabled={isAlreadyClosed}
+                  className={`h-8 text-xs gap-1 border ${isAlreadyClosed ? "bg-muted/30 text-muted-foreground border-border cursor-not-allowed opacity-60" : "bg-transparent hover:bg-emerald-500/10 text-emerald-400 border-emerald-600/50 hover:border-emerald-500"}`}>
+                  {isAlreadyClosed ? <Lock className="w-3 h-3" /> : <CheckCircle2 className="w-3 h-3" />}
+                  {isAlreadyClosed ? "مغلق" : "إغلاق"}
+                </Button>
+              );
+            })()}
           </>)}
         </div>
       </div>
