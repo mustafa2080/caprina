@@ -810,16 +810,16 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
             <div className="text-center">
               <div className="text-xl font-black">
                 {report.overallScore == null ? "غير محدد"
-                  : report.overallScore >= 80 ? "ممتاز"
-                  : report.overallScore >= 65 ? "جيد جداً"
-                  : report.overallScore >= 50 ? "جيد"
-                  : report.overallScore >= 35 ? "مقبول"
-                  : report.overallScore > 0  ? "ضعيف"
+                  : report.overallScore >= 95 ? "ممتاز ⭐"
+                  : report.overallScore >= 85 ? "جيد جداً ✅"
+                  : report.overallScore >= 75 ? "جيد 👍"
+                  : report.overallScore >= 60 ? "مقبول ⚠️"
+                  : report.overallScore > 0  ? "ضعيف ❌"
                   : "غير محدد"}
               </div>
               <div className="text-xs text-muted-foreground mt-1">
                 {report.overallScore !== null
-                  ? report.overallScore >= 90 ? "أداء استثنائي" : report.overallScore >= 75 ? "أداء فوق المتوسط" : report.overallScore >= 60 ? "أداء مقبول" : "يحتاج تحسين"
+                  ? report.overallScore >= 95 ? "يفوق التوقعات بشكل ملحوظ" : report.overallScore >= 85 ? "يتجاوز الأهداف المطلوبة" : report.overallScore >= 75 ? "يلبي التوقعات" : report.overallScore >= 60 ? "يحتاج تطوير سريع" : "خطة تحسين مطلوبة"
                   : "لا توجد مؤشرات"}
               </div>
             </div>
@@ -3510,11 +3510,11 @@ function EmployeeDetail({
                       <div className="flex items-center justify-between w-full">
                         <p className="text-xs font-bold text-foreground">التقدم نحو الأهداف</p>
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          overallScore !== null && overallScore >= 80 ? "bg-emerald-500/10 text-emerald-500" :
+                          overallScore !== null && overallScore >= 75 ? "bg-emerald-500/10 text-emerald-500" :
                           overallScore !== null && overallScore >= 60 ? "bg-amber-500/10 text-amber-500" :
                           "bg-red-500/10 text-red-500"
                         }`}>
-                          {overallScore !== null && overallScore >= 80 ? "ممتاز" : overallScore !== null && overallScore >= 60 ? "جيد" : "يحتاج تحسين"}
+                          {overallScore === null ? "لا بيانات" : overallScore >= 95 ? "ممتاز ⭐" : overallScore >= 85 ? "جيد جداً ✅" : overallScore >= 75 ? "جيد 👍" : overallScore >= 60 ? "مقبول ⚠️" : "ضعيف ❌"}
                         </span>
                       </div>
                       <div className="flex flex-col md:flex-row items-center gap-4 md:gap-5 w-full">
@@ -5193,7 +5193,11 @@ export default function TeamPage() {
                     const bigDash  = ((bigValue ?? 0) / 100) * circLg;
                     return (
                       <div className="rounded-xl p-3 flex flex-col justify-between"
-                        style={{ background: "rgba(80,20,20,0.45)", border: "1px solid rgba(180,50,50,0.18)", minWidth: 0, flex: "0 0 auto", width: "54%" }}>
+                        style={{
+                          background: bigValue === null ? "rgba(60,60,60,0.35)" : bigValue >= 75 ? "rgba(10,60,35,0.45)" : bigValue >= 50 ? "rgba(60,45,5,0.45)" : "rgba(70,15,15,0.45)",
+                          border: `1px solid ${bigValue === null ? "rgba(120,120,120,0.15)" : bigValue >= 75 ? "rgba(16,185,129,0.2)" : bigValue >= 50 ? "rgba(245,158,11,0.2)" : "rgba(239,68,68,0.2)"}`,
+                          minWidth: 0, flex: "0 0 auto", width: "54%",
+                        }}>
                         
                         {/* صف الدوائر */}
                         <div className="flex items-center justify-between gap-2">
