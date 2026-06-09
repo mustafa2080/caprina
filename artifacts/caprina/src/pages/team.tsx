@@ -1685,57 +1685,56 @@ function DailyTrackerTab({ profileId }: { profileId: number }) {
           const isTodayDate = selectedDate === new Date().toISOString().slice(0, 10);
           const isLocked = isManual && isTodayDate && (kpi as any).todayValue !== null && (kpi as any).todayValue !== undefined;
 
-          // manual: progress = cumulative / monthly target
-          // auto:   progress = today's value / daily target
-          const compareValue  = isManual ? ((kpi as any).cumulativeValue ?? 0) : (kpi.actualValue ?? 0);
-          const compareTarget = kpi.dailyTarget; // backend already sets correct target per type
-          const rawPct = compareTarget > 0
-            ? Math.min(100, (compareValue / compareTarget) * 100)
-            : 0;
-          const pct = kpi.direction === "lower_is_better"
-            ? (kpi.achieved ? 100 : Math.max(0, 100 - rawPct))
-            : rawPct;
-
           const todayValue      = (kpi as any).todayValue as number | null;
           const cumulativeValue = (kpi as any).cumulativeValue as number | null;
 
+          // هدف اليوم = targetValue / 30
+          const dailyTargetSimple = Math.max(1, Math.round(kpi.targetValue / 30));
+
+          // الـ progress والـ achieved من اليوم فقط
+          const todayActual = isManual ? (todayValue ?? 0) : (kpi.actualValue ?? 0);
+          const compareTarget = isManual ? dailyTargetSimple : kpi.dailyTarget;
+          const rawPct = compareTarget > 0 ? Math.min(100, (todayActual / compareTarget) * 100) : 0;
+          const pct = kpi.direction === "lower_is_better"
+            ? (todayActual <= compareTarget ? 100 : Math.max(0, 100 - rawPct))
+            : rawPct;
+          const todayAchieved = isManual
+            ? (kpi.direction === "lower_is_better" ? todayActual <= compareTarget : todayActual >= compareTarget)
+            : kpi.achieved;
+
           return (
-            <Card key={kpi.id} className={`border ${kpi.achieved === true ? "border-emerald-700/50 bg-emerald-950/10" : kpi.achieved === false ? "border-red-800/30" : "border-border"}`}>
+            <Card key={kpi.id} className={`border ${todayAchieved === true ? "border-emerald-700/50 bg-emerald-950/10" : todayAchieved === false ? "border-red-800/30" : "border-border"}`}>
               <CardContent className="px-4 py-3 space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
-                    {kpi.achieved === true
+                    {todayAchieved === true
                       ? <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                      : kpi.achieved === false
+                      : todayAchieved === false
                         ? <X className="w-4 h-4 text-red-400 shrink-0" />
                         : <Target className="w-4 h-4 text-muted-foreground shrink-0" />}
                     <p className="text-sm font-bold break-words leading-tight" title={kpi.name}>{kpi.name}</p>
                     {!isManual && <Badge variant="outline" className="text-[8px] h-3.5 shrink-0">تلقائي</Badge>}
-                    {isManual && <Badge variant="outline" className="text-[8px] h-3.5 shrink-0 border-blue-700/50 text-blue-400">متراكم</Badge>}
                   </div>
-                  <Badge variant="outline" className={`text-[9px] shrink-0 ${kpi.achieved === true ? "border-emerald-700 text-emerald-400" : kpi.achieved === false ? "border-red-700 text-red-400" : "border-border text-muted-foreground"}`}>
-                    {kpi.achieved === true ? "✅ محقق" : kpi.achieved === false ? "❌ لم يُحقَّق" : "غير مسجل"}
+                  <Badge variant="outline" className={`text-[9px] shrink-0 ${todayAchieved === true ? "border-emerald-700 text-emerald-400" : todayAchieved === false ? "border-red-700 text-red-400" : "border-border text-muted-foreground"}`}>
+                    {todayAchieved === true ? "✅ محقق" : todayAchieved === false ? "❌ لم يُحقَّق" : "غير مسجل"}
                   </Badge>
                 </div>
 
-                <Progress value={pct} className={`h-1.5 ${kpi.achieved === true ? "[&>div]:bg-emerald-500" : kpi.achieved === false ? "[&>div]:bg-red-400" : "[&>div]:bg-primary"}`} />
+                <Progress value={pct} className={`h-1.5 ${todayAchieved === true ? "[&>div]:bg-emerald-500" : todayAchieved === false ? "[&>div]:bg-red-400" : "[&>div]:bg-primary"}`} />
 
                 <div className="flex items-center gap-4 text-[10px] text-muted-foreground flex-wrap">
                   {isManual ? (
                     <>
-                      <span>المتوقع حتى اليوم: <span className={`font-bold ${kpi.achieved === true ? "text-emerald-400" : "text-amber-400"}`}>{fmtNum(kpi.dailyTarget)} {kpi.unit}</span></span>
-                      <span>المتراكم: <span className={`font-bold ${kpi.achieved === true ? "text-emerald-400" : cumulativeValue !== null && cumulativeValue > 0 ? "text-blue-400" : "text-foreground"}`}>
-                        {cumulativeValue !== null ? `${fmtNum(cumulativeValue)} ${kpi.unit}` : "—"}
+                      <span>اليوم: <span className={`font-bold ${todayAchieved === true ? "text-emerald-400" : todayAchieved === false ? "text-red-400" : "text-foreground"}`}>
+                        {todayValue !== null ? `${fmtNum(todayValue)} ${kpi.unit}` : "—"}
                       </span></span>
-                      {todayValue !== null && (
-                        <span className="text-muted-foreground/70">اليوم: <span className="font-semibold text-foreground">{fmtNum(todayValue)} {kpi.unit}</span></span>
-                      )}
+                      <span>الهدف اليومي: <span className="font-bold text-foreground">{fmtNum(dailyTargetSimple)} {kpi.unit}</span></span>
                       <span className="text-muted-foreground/50">الهدف الشهري: {fmtNum(kpi.targetValue)} {kpi.unit}</span>
                     </>
                   ) : (
                     <>
                       <span>الهدف اليومي: <span className="font-bold text-foreground">{fmtNum(Math.round(kpi.dailyTarget * 10) / 10)} {kpi.unit}</span></span>
-                      <span>المحقق: <span className={`font-bold ${kpi.achieved === true ? "text-emerald-400" : kpi.achieved === false ? "text-red-400" : "text-foreground"}`}>
+                      <span>المحقق: <span className={`font-bold ${todayAchieved === true ? "text-emerald-400" : todayAchieved === false ? "text-red-400" : "text-foreground"}`}>
                         {kpi.actualValue !== null ? `${fmtNum(kpi.actualValue)} ${kpi.unit}` : "—"}
                       </span></span>
                     </>
