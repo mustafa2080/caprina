@@ -24,7 +24,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, ReferenceLine, PieChart, Pie,
   LineChart, Line, Legend,
 } from "recharts";
-import { employeeApi, usersApi, type EmployeeProfile, type EmployeeKpi, type EmployeeReport, type AppUser, type DailyKpiEntry, type DailyLogDay, appSettingsApi, attendanceApi, type AttendanceRecord, type AttendanceStatus, type PayrollAdjustment, type MonthlySalaryReport } from "@/lib/api";
+import { employeeApi, usersApi, teamAnalyticsApi, type EmployeeProfile, type EmployeeKpi, type EmployeeReport, type AppUser, type DailyKpiEntry, type DailyLogDay, appSettingsApi, attendanceApi, type AttendanceRecord, type AttendanceStatus, type PayrollAdjustment, type MonthlySalaryReport } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
@@ -5142,7 +5142,7 @@ export default function TeamPage() {
                   {/* 3 دوائر: دكتور / يومي / شهري */}
                   {(() => {
                     const circles = [
-                      { label: "دكتور", value: attScore },
+                      { label: "حضور", value: attScore },
                       { label: "يومي",  value: dailyScore },
                       { label: "شهري",  value: monthlyScore },
                     ];

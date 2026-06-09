@@ -1110,6 +1110,7 @@ export const employeeApi = {
     monthlySalary?: number | null;
     hireDate?: string | null;
     notes?: string | null;
+    avatar?: string | null;
   }) => apiFetch<EmployeeProfile>("/employee-profiles", { method: "POST", body: JSON.stringify(data) }),
   upsertProfile: (data: {
     userId?: number;
@@ -1119,6 +1120,7 @@ export const employeeApi = {
     monthlySalary?: number | null;
     hireDate?: string | null;
     notes?: string | null;
+    avatar?: string | null;
   }) => apiFetch<EmployeeProfile>("/employee-profiles", { method: "POST", body: JSON.stringify(data) }),
   updateProfile: (profileId: number, data: Partial<{
     displayName: string;
@@ -1370,6 +1372,7 @@ export const attendanceApi = {
     checkOut?: string | null;
     lateMinutes?: number;
     notes?: string | null;
+    deduction?: number;
   }) => apiFetch<AttendanceRecord>("/attendance", { method: "POST", body: JSON.stringify(data) }),
 
   // حذف سجل يوم
