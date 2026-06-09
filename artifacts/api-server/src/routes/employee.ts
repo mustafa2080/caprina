@@ -722,7 +722,8 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
     (dateFrom.getFullYear() === now.getFullYear() && dateFrom.getMonth() === now.getMonth()) ||
     (dateTo.getFullYear() === now.getFullYear() && dateTo.getMonth() === now.getMonth() && now <= dateTo);
   const reportDayNumber  = isCurrentMonth ? now.getDate() : dateTo.getDate();
-  const reportDaysInMonth = new Date(dateTo.getFullYear(), dateTo.getMonth() + 1, 0).getDate();
+  // نستخدم dateFrom (بداية الـ pay period) لحساب daysInMonth — متطابق مع listProfiles
+  const reportDaysInMonth = new Date(dateFrom.getFullYear(), dateFrom.getMonth() + 1, 0).getDate();
 
   const evaluatedKpis = await Promise.all(
     kpis.map(async (kpi) => {
