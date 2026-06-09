@@ -2683,9 +2683,11 @@ export function MyDashboardTab({ profileId, monthlySalary }: {
             </div>
           </div>
           <div className="flex-1 space-y-2">
-            <p className={`text-sm font-bold ${statusColor}`}>{statusLabel}</p>
+            {(viewMode === "daily" || isLast10Days) && (
+              <p className={`text-sm font-bold ${statusColor}`}>{statusLabel}</p>
+            )}
             <p className="text-xs text-muted-foreground">{periodLabel}</p>
-            {statusAdvice && (
+            {statusAdvice && (viewMode === "daily" || isLast10Days) && (
               <p className={`text-[11px] leading-relaxed rounded-lg border px-2.5 py-2 ${
                 overallScore !== null && overallScore >= 75
                   ? "border-emerald-500/20 bg-emerald-500/5 text-emerald-700 dark:text-emerald-400"
