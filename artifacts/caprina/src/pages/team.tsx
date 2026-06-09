@@ -2551,10 +2551,31 @@ export function MyDashboardTab({ profileId, monthlySalary }: {
     ? new Date(selectedDate + "T00:00:00").toLocaleDateString("ar-EG", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
     : new Date(parseInt(currentMonth.split("-")[0]), parseInt(currentMonth.split("-")[1]) - 1, 1)
         .toLocaleDateString("ar-EG", { month: "long", year: "numeric" });
-  const statusColor = overallScore === null ? "text-muted-foreground" : overallScore >= 80 ? "text-emerald-500" : overallScore >= 60 ? "text-amber-500" : "text-red-500";
-  const statusBg    = overallScore === null ? "bg-muted/20 border-border" : overallScore >= 80 ? "bg-emerald-500/8 border-emerald-500/20" : overallScore >= 60 ? "bg-amber-500/8 border-amber-500/20" : "bg-red-500/8 border-red-500/20";
+  const statusColor = overallScore === null ? "text-muted-foreground" : overallScore >= 75 ? "text-emerald-500" : overallScore >= 60 ? "text-amber-500" : "text-red-500";
+  const statusBg    = overallScore === null ? "bg-muted/20 border-border" : overallScore >= 75 ? "bg-emerald-500/8 border-emerald-500/20" : overallScore >= 60 ? "bg-amber-500/8 border-amber-500/20" : "bg-red-500/8 border-red-500/20";
   const isLast10Days = dayOfMonth >= daysInMonth - 9;
-  const statusLabel = overallScore === null ? "لا يوجد بيانات" : overallScore >= 90 ? "أداء استثنائي ⭐" : overallScore >= 80 ? "أداء ممتاز ✅" : overallScore >= 60 ? "أداء جيد 👍" : (viewMode === "monthly" && !isLast10Days) ? "قيد المتابعة 📊" : overallScore >= 40 ? "يحتاج تحسين ⚠️" : "أداء ضعيف — خطر ❌";
+  const statusLabel = overallScore === null
+    ? "لا يوجد بيانات"
+    : overallScore >= 95 ? "ممتاز — يفوق التوقعات ⭐"
+    : overallScore >= 85 ? "جيد جداً — يتجاوز الأهداف ✅"
+    : overallScore >= 75 ? "جيد — يلبي التوقعات 👍"
+    : (viewMode === "monthly" && !isLast10Days) ? "جيد — يلبي التوقعات 👍"
+    : overallScore >= 60 ? "مقبول — يحتاج تحسين ⚠️"
+    : "ضعيف — خطة تحسين مطلوبة ❌";
+
+  const statusAdvice = overallScore === null
+    ? null
+    : overallScore >= 95
+    ? "نشكرك على أدائك الاستثنائي ومساهمتك الرائعة في نجاح الفريق. ننصحك بالاستمرار في قيادة المبادرات الجديدة، ومشاركة خبراتك مع زملائك. أنت مرشح قوي لفرص القيادة والتطور المستقبلي."
+    : overallScore >= 85
+    ? "عمل رائع! لقد تجاوزت التوقعات في العديد من المهام. ننصحك بالتركيز على تطوير مهاراتك القيادية وتحمل مسؤوليات أكبر في المشاريع القادمة للوصول إلى التقييم الأعلى."
+    : overallScore >= 75
+    ? "أداؤك مستقر ويلبي معايير العمل المطلوبة بنجاح. ننصحك بالبحث عن فرص للابتكار وتطوير مهاراتك الحالية لتتجاوز الأهداف المعتادة في الدورة التقييمية القادمة."
+    : (viewMode === "monthly" && !isLast10Days)
+    ? null
+    : overallScore >= 60
+    ? "أداؤك يقترب من المعايير المطلوبة، لكن هناك بعض الجوانب التي تحتاج إلى تطوير سريع. ننصحك بالتواصل مع مديرك المباشر لوضع خطة عمل واضحة وتحديد التدريبات اللازمة لسد الفجوات."
+    : "تنبيه: الأداء الحالي لا يلبي الحد الأدنى من توقعات الشركة. يرجى الالتزام التام بـ «خطة تحسين الأداء» والمتابعة الأسبوعية مع الإدارة والموارد البشرية لتصحيح المسار فوراً.";
 
   return (
     <div className="space-y-4 animate-in fade-in duration-300">
@@ -2634,6 +2655,15 @@ export function MyDashboardTab({ profileId, monthlySalary }: {
           <div className="flex-1 space-y-2">
             <p className={`text-sm font-bold ${statusColor}`}>{statusLabel}</p>
             <p className="text-xs text-muted-foreground">{periodLabel}</p>
+            {statusAdvice && (
+              <p className={`text-[11px] leading-relaxed rounded-lg border px-2.5 py-2 ${
+                overallScore !== null && overallScore >= 75
+                  ? "border-emerald-500/20 bg-emerald-500/5 text-emerald-700 dark:text-emerald-400"
+                  : overallScore !== null && overallScore >= 60
+                  ? "border-amber-500/20 bg-amber-500/5 text-amber-700 dark:text-amber-400"
+                  : "border-red-500/20 bg-red-500/5 text-red-700 dark:text-red-400"
+              }`}>{statusAdvice}</p>
+            )}
             {scoreDiff !== null && (
               <div className={`flex items-center gap-1 text-xs font-bold ${scoreDiff >= 0 ? "text-emerald-500" : "text-red-500"}`}>
                 {scoreDiff >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
