@@ -810,16 +810,16 @@ function MonthlyReport({ report }: { report: EmployeeReport }) {
             <div className="text-center">
               <div className="text-xl font-black">
                 {report.overallScore == null ? "غير محدد"
-                  : report.overallScore >= 80 ? "ممتاز"
-                  : report.overallScore >= 65 ? "جيد جداً"
-                  : report.overallScore >= 50 ? "جيد"
-                  : report.overallScore >= 35 ? "مقبول"
-                  : report.overallScore > 0  ? "ضعيف"
+                  : report.overallScore >= 95 ? "ممتاز ⭐"
+                  : report.overallScore >= 85 ? "جيد جداً ✅"
+                  : report.overallScore >= 75 ? "جيد 👍"
+                  : report.overallScore >= 60 ? "مقبول ⚠️"
+                  : report.overallScore > 0  ? "ضعيف ❌"
                   : "غير محدد"}
               </div>
               <div className="text-xs text-muted-foreground mt-1">
                 {report.overallScore !== null
-                  ? report.overallScore >= 90 ? "أداء استثنائي" : report.overallScore >= 75 ? "أداء فوق المتوسط" : report.overallScore >= 60 ? "أداء مقبول" : "يحتاج تحسين"
+                  ? report.overallScore >= 95 ? "يفوق التوقعات" : report.overallScore >= 85 ? "يتجاوز الأهداف" : report.overallScore >= 75 ? "يلبي التوقعات" : report.overallScore >= 60 ? "يحتاج تحسين" : "خطة تحسين مطلوبة"
                   : "لا توجد مؤشرات"}
               </div>
             </div>
@@ -2540,9 +2540,9 @@ function MyDashboardTab({ profileId, monthlySalary }: {
     ? new Date(selectedDate + "T00:00:00").toLocaleDateString("ar-EG", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
     : new Date(parseInt(currentMonth.split("-")[0]), parseInt(currentMonth.split("-")[1]) - 1, 1)
         .toLocaleDateString("ar-EG", { month: "long", year: "numeric" });
-  const statusColor = overallScore === null ? "text-muted-foreground" : overallScore >= 80 ? "text-emerald-500" : overallScore >= 60 ? "text-amber-500" : "text-red-500";
-  const statusBg    = overallScore === null ? "bg-muted/20 border-border" : overallScore >= 80 ? "bg-emerald-500/8 border-emerald-500/20" : overallScore >= 60 ? "bg-amber-500/8 border-amber-500/20" : "bg-red-500/8 border-red-500/20";
-  const statusLabel = overallScore === null ? "لا يوجد بيانات" : overallScore >= 90 ? "أداء استثنائي ⭐" : overallScore >= 80 ? "أداء ممتاز ✅" : overallScore >= 60 ? "أداء جيد 👍" : overallScore >= 40 ? "يحتاج تحسين ⚠️" : "أداء ضعيف — خطر ❌";
+  const statusColor = overallScore === null ? "text-muted-foreground" : overallScore >= 75 ? "text-emerald-500" : overallScore >= 60 ? "text-amber-500" : "text-red-500";
+  const statusBg    = overallScore === null ? "bg-muted/20 border-border" : overallScore >= 85 ? "bg-emerald-500/8 border-emerald-500/20" : overallScore >= 75 ? "bg-emerald-500/8 border-emerald-500/20" : overallScore >= 60 ? "bg-amber-500/8 border-amber-500/20" : "bg-red-500/8 border-red-500/20";
+  const statusLabel = overallScore === null ? "لا يوجد بيانات" : overallScore >= 95 ? "ممتاز — يفوق التوقعات ⭐" : overallScore >= 85 ? "جيد جداً — يتجاوز الأهداف ✅" : overallScore >= 75 ? "جيد — يلبي التوقعات 👍" : overallScore >= 60 ? "مقبول — يحتاج تحسين ⚠️" : "ضعيف — خطة تحسين مطلوبة ❌";
 
   return (
     <div className="space-y-4 animate-in fade-in duration-300">
@@ -3470,11 +3470,11 @@ function EmployeeDetail({
                       <div className="flex items-center justify-between w-full">
                         <p className="text-xs font-bold text-foreground">التقدم نحو الأهداف</p>
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          overallScore !== null && overallScore >= 80 ? "bg-emerald-500/10 text-emerald-500" :
+                          overallScore !== null && overallScore >= 75 ? "bg-emerald-500/10 text-emerald-500" :
                           overallScore !== null && overallScore >= 60 ? "bg-amber-500/10 text-amber-500" :
                           "bg-red-500/10 text-red-500"
                         }`}>
-                          {overallScore !== null && overallScore >= 80 ? "ممتاز" : overallScore !== null && overallScore >= 60 ? "جيد" : "يحتاج تحسين"}
+                          {overallScore !== null && overallScore >= 95 ? "ممتاز ⭐" : overallScore !== null && overallScore >= 85 ? "جيد جداً ✅" : overallScore !== null && overallScore >= 75 ? "جيد 👍" : overallScore !== null && overallScore >= 60 ? "مقبول ⚠️" : "ضعيف ❌"}
                         </span>
                       </div>
                       <div className="flex flex-col md:flex-row items-center gap-4 md:gap-5 w-full">
@@ -3657,10 +3657,11 @@ function EmployeeDetail({
                         <div className="mt-3 pt-2.5 border-t border-border/30">
                           <p className="text-[10px] font-bold text-muted-foreground mb-0.5">التعليقات والملاحظات</p>
                           <p className="text-[10px] text-muted-foreground/80">
-                            {overallScore >= 90 ? "🌟 أداء استثنائي هذا الشهر، استمر في الإبداع!" :
-                             overallScore >= 75 ? "👍 أداء فوق المتوسط، يحتاج تعزيز بعض الجوانب" :
-                             overallScore >= 60 ? "✅ أداء مقبول، مع وجود فرص للتطوير" :
-                             "⚠️ يحتاج الموظف إلى دعم وتحسين في المؤشرات"}
+                            {overallScore >= 95 ? "🌟 ممتاز — يفوق التوقعات، استمر في قيادة الفريق!" :
+                             overallScore >= 85 ? "✅ جيد جداً — يتجاوز الأهداف، واصل هذا المستوى" :
+                             overallScore >= 75 ? "👍 جيد — يلبي التوقعات، عزز بعض الجوانب" :
+                             overallScore >= 60 ? "⚠️ مقبول — يحتاج تحسين في عدة مؤشرات" :
+                             "❌ ضعيف — يحتاج خطة تحسين فورية ودعم مستمر"}
                           </p>
                         </div>
                       )}
@@ -3867,23 +3868,23 @@ function EmployeeDetail({
                 {/* ─── Smart Recommendation Box ─── */}
                 {overallScore !== null && (
                   <div className={`rounded-2xl border px-4 py-4 space-y-2 ${
-                    overallScore >= 90 ? "bg-emerald-500/8 border-emerald-500/20" :
-                    overallScore >= 70 ? "bg-amber-500/8 border-amber-500/20" :
+                    overallScore >= 85 ? "bg-emerald-500/8 border-emerald-500/20" :
+                    overallScore >= 60 ? "bg-amber-500/8 border-amber-500/20" :
                     "bg-red-500/8 border-red-500/20"
                   }`}>
                     <div className="flex items-center gap-2">
-                      <Briefcase className={`w-4 h-4 shrink-0 ${overallScore >= 90 ? "text-emerald-500" : overallScore >= 70 ? "text-amber-500" : "text-red-500"}`} />
+                      <Briefcase className={`w-4 h-4 shrink-0 ${overallScore >= 85 ? "text-emerald-500" : overallScore >= 60 ? "text-amber-500" : "text-red-500"}`} />
                       <p className="text-xs font-bold">توصية ذكية للسوبريوزر</p>
                     </div>
                     <p className="text-xs text-muted-foreground leading-relaxed">
-                      {overallScore >= 90
-                        ? `🌟 ${displayName} يؤدي بشكل استثنائي. يُنصح بالنظر في ترقيته أو إسناد مهام قيادية إضافية. المكافأة المالية ستعزز الدافعية.`
-                        : overallScore >= 80
-                        ? `✅ أداء قوي من ${displayName}. يمكن الاعتماد عليه في المهام المعقدة. حدد معه هدفاً طموحاً للشهر القادم.`
-                        : overallScore >= 70
-                        ? `👍 أداء جيد لكن هناك فرص للتحسين. يُنصح بمراجعة المؤشرات الضعيفة معه في اجتماع قصير واضع تارجت واضح.`
-                        : overallScore >= 50
-                        ? `⚠️ الأداء تحت المتوسط. تحقق من الأسباب: هل هناك عقبات خارجية؟ ضع خطة تحسين ٣٠ يوم مع متابعة أسبوعية.`
+                      {overallScore >= 95
+                        ? `🌟 ${displayName} يفوق التوقعات. يُنصح بالنظر في ترقيته أو إسناد مهام قيادية إضافية. المكافأة المالية ستعزز الدافعية.`
+                        : overallScore >= 85
+                        ? `✅ أداء جيد جداً من ${displayName}. يمكن الاعتماد عليه في المهام المعقدة. حدد معه هدفاً طموحاً للشهر القادم.`
+                        : overallScore >= 75
+                        ? `👍 أداء جيد لكن هناك فرص للتحسين. راجع المؤشرات الأقل في اجتماع قصير وضع هدفاً واضحاً.`
+                        : overallScore >= 60
+                        ? `⚠️ الأداء مقبول لكن تحت التوقعات. تحقق من الأسباب وضع خطة تحسين ٣٠ يوم مع متابعة أسبوعية.`
                         : `🔴 أداء ضعيف ويحتاج تدخل فوري. اعقد اجتماع 1-on-1 عاجل. إذا استمر خلال شهر، ادرس إعادة التقييم الوظيفي.`
                       }
                     </p>
