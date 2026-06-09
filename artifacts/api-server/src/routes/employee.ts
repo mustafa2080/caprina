@@ -1299,9 +1299,13 @@ router.get("/employee-daily-logs/:profileId", async (req, res): Promise<void> =>
   // عدد أيام الفترة الكاملة (دايماً ~30-31 يوم)
   const periodDays = Math.round((periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
-  // اليوم رقم كام في الفترة (من 1)
+  // اليوم رقم كام في الفترة (من 1) — للـ يومي
   const selectedDay = new Date(date + "T00:00:00.000");
   const dayNumberInPeriod = Math.max(1, Math.round((selectedDay.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+
+  // نفس منطق الكارت للـ شهري: daysInMonth = أيام شهر periodStart، dayNum = اليوم في الشهر الميلادي
+  const daysInMonth = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, 0).getDate();
+  const dayNum = selectedDay.getDate();
 
   // month range for cumulative sum — من بداية الفترة لليوم المختار
   const monthStart = periodStart.toISOString().slice(0, 10);
@@ -1354,7 +1358,10 @@ router.get("/employee-daily-logs/:profileId", async (req, res): Promise<void> =>
       const cumulativeValue = kpi.metric === "manual" ? (cumulativeMap.get(kpi.id) ?? null) : null;
       const actualValue     = kpi.metric === "manual" ? cumulativeValue : autoValue;
 
-      // الهدف اليومي (تراكمي progressive) — لتاب متابعة يومية والدايرة اليومي
+      // شهري: نفس الكارت — round(targetValue / daysInMonth * dayNum)
+      const monthlyTarget = Math.max(1, Math.round((kpi.targetValue / daysInMonth) * dayNum));
+
+      // يومي: نفس الكارت — round(targetValue / periodDays * dayNumberInPeriod)
       let dailyTarget: number;
       if (kpi.metric === "manual") {
         dailyTarget = Math.max(1, Math.round((kpi.targetValue / periodDays) * dayNumberInPeriod));
@@ -1362,13 +1369,9 @@ router.get("/employee-daily-logs/:profileId", async (req, res): Promise<void> =>
         dailyTarget = Math.max(1, Math.round(kpi.targetValue / periodDays));
       }
 
-      // الهدف الشهري الكامل — لدايرة الشهري (كل أيام الفترة)
-      const monthlyTarget: number = kpi.targetValue;
-
       const score = actualValue !== null
         ? computeKpiScore(actualValue, dailyTarget, kpi.direction)
         : null;
-      // monthlyScore: تراكمي vs الهدف الكامل (للدايرة الشهرية)
       const monthlyScore = actualValue !== null
         ? computeKpiScore(actualValue, monthlyTarget, kpi.direction)
         : null;
