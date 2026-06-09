@@ -2497,7 +2497,7 @@ export function MyDashboardTab({ profileId, monthlySalary }: {
   });
   const dailyKpis = ((dailyData as any)?.kpis ?? []) as any[];
 
-  // ── overallScore محسوب من dailyData (متابعة يومية) مباشرة — متطابق مع الكارت ──
+  // ── شهري: تراكمي من بداية الـ pay period — متطابق مع الكارت ──
   const monthlyScoreFromDaily = (() => {
     const scored = dailyKpis.filter((k: any) => k.score !== null && Number.isFinite(k.score));
     if (scored.length === 0) return null;
@@ -2505,6 +2505,30 @@ export function MyDashboardTab({ profileId, monthlySalary }: {
     return totalW > 0
       ? Math.round(scored.reduce((s: number, k: any) => s + Math.min(k.score, 100) * (k.weight ?? 1), 0) / totalW)
       : Math.round(scored.reduce((s: number, k: any) => s + Math.min(k.score, 100), 0) / scored.length);
+  })();
+
+  // ── يومي: أداء اليوم فقط (todayValue) vs هدف يوم واحد ──
+  const todayOnlyScore = (() => {
+    const dayOfMonth = new Date().getDate();
+    const scored = dailyKpis
+      .filter((k: any) => k.todayValue !== null && k.todayValue !== undefined && Number.isFinite(k.todayValue))
+      .map((k: any) => {
+        const todayTarget = k.metric === "manual"
+          ? Math.max(1, Math.round((k.targetValue / 30)))   // هدف يوم واحد ثابت
+          : Math.max(1, Math.round(k.targetValue / 30));
+        let score: number;
+        if (k.direction === "lower_is_better") {
+          score = k.todayValue <= todayTarget ? 100 : Math.max(0, Math.round((todayTarget / k.todayValue) * 100));
+        } else {
+          score = Math.min(100, Math.round((k.todayValue / todayTarget) * 100));
+        }
+        return { score, weight: k.weight ?? 1 };
+      });
+    if (scored.length === 0) return null;
+    const totalW = scored.reduce((s: number, k: any) => s + k.weight, 0);
+    return totalW > 0
+      ? Math.round(scored.reduce((s: number, k: any) => s + k.score * k.weight, 0) / totalW)
+      : Math.round(scored.reduce((s: number, k: any) => s + k.score, 0) / scored.length);
   })();
 
   const prevMonthDate = new Date();
@@ -2525,10 +2549,11 @@ export function MyDashboardTab({ profileId, monthlySalary }: {
     enabled: !!profileId,
   });
 
-  // overallScore: في الشهري ناخده من dailyData (متابعة يومية) — متطابق مع الكارت
-  // في اليومي ناخده من dailyReport كالعادة
+  // overallScore:
+  // شهري  → تراكمي من dailyData (متطابق مع الكارت)
+  // يومي  → أداء اليوم فقط من todayValue (مش getReport)
   const overallScore = viewMode === "daily"
-    ? (dailyReport?.overallScore ?? null)
+    ? (todayOnlyScore ?? dailyReport?.overallScore ?? null)
     : (monthlyScoreFromDaily ?? report?.overallScore ?? null);
   const prevScore    = prevReport?.overallScore ?? null;
   const scoreDiff    = overallScore !== null && prevScore !== null ? overallScore - prevScore : null;
