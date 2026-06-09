@@ -2489,7 +2489,7 @@ export function MyDashboardTab({ profileId, monthlySalary }: {
     staleTime: 60_000,
   });
 
-  // daily KPIs for selected date
+  // daily KPIs for selected date (تاب متابعة يومية)
   const { data: dailyData } = useQuery({
     queryKey: ["employee-daily-logs", profileId, selectedDate],
     queryFn: () => employeeApi.getDailyLogs(profileId, selectedDate),
@@ -2497,9 +2497,15 @@ export function MyDashboardTab({ profileId, monthlySalary }: {
   });
   const dailyKpis = ((dailyData as any)?.kpis ?? []) as any[];
 
-  // ── شهري: تراكمي من بداية الـ pay period — متطابق مع الكارت ──
+  // ── شهري: تراكمي من تاب متابعة يومية بتاريخ اليوم الحالي دايماً ──
+  const { data: todayDailyData } = useQuery({
+    queryKey: ["employee-daily-logs", profileId, today],
+    queryFn: () => employeeApi.getDailyLogs(profileId, today),
+    staleTime: 60_000,
+  });
+  const todayKpis = ((todayDailyData as any)?.kpis ?? []) as any[];
   const monthlyScoreFromDaily = (() => {
-    const scored = dailyKpis.filter((k: any) => k.score !== null && Number.isFinite(k.score));
+    const scored = todayKpis.filter((k: any) => k.score !== null && Number.isFinite(k.score));
     if (scored.length === 0) return null;
     const totalW = scored.reduce((s: number, k: any) => s + (k.weight ?? 1), 0);
     return totalW > 0
