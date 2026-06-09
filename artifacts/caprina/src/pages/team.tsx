@@ -2497,6 +2497,16 @@ export function MyDashboardTab({ profileId, monthlySalary }: {
   });
   const dailyKpis = ((dailyData as any)?.kpis ?? []) as any[];
 
+  // ── overallScore محسوب من dailyData (متابعة يومية) مباشرة — متطابق مع الكارت ──
+  const monthlyScoreFromDaily = (() => {
+    const scored = dailyKpis.filter((k: any) => k.score !== null && Number.isFinite(k.score));
+    if (scored.length === 0) return null;
+    const totalW = scored.reduce((s: number, k: any) => s + (k.weight ?? 1), 0);
+    return totalW > 0
+      ? Math.round(scored.reduce((s: number, k: any) => s + Math.min(k.score, 100) * (k.weight ?? 1), 0) / totalW)
+      : Math.round(scored.reduce((s: number, k: any) => s + Math.min(k.score, 100), 0) / scored.length);
+  })();
+
   const prevMonthDate = new Date();
   prevMonthDate.setMonth(prevMonthDate.getMonth() - 1);
   const prevMonth = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, "0")}`;
@@ -2515,7 +2525,11 @@ export function MyDashboardTab({ profileId, monthlySalary }: {
     enabled: !!profileId,
   });
 
-  const overallScore = (viewMode === "daily" ? dailyReport?.overallScore : report?.overallScore) ?? null;
+  // overallScore: في الشهري ناخده من dailyData (متابعة يومية) — متطابق مع الكارت
+  // في اليومي ناخده من dailyReport كالعادة
+  const overallScore = viewMode === "daily"
+    ? (dailyReport?.overallScore ?? null)
+    : (monthlyScoreFromDaily ?? report?.overallScore ?? null);
   const prevScore    = prevReport?.overallScore ?? null;
   const scoreDiff    = overallScore !== null && prevScore !== null ? overallScore - prevScore : null;
   const kpis            = (viewMode === "daily" ? dailyReport?.kpis : report?.kpis) ?? [];
