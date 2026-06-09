@@ -2551,10 +2551,8 @@ export function MyDashboardTab({ profileId, monthlySalary }: {
 
   // overallScore:
   // شهري  → تراكمي من dailyData (متطابق مع الكارت)
-  // يومي  → أداء اليوم فقط من todayValue (مش getReport)
-  const overallScore = viewMode === "daily"
-    ? (todayOnlyScore ?? dailyReport?.overallScore ?? null)
-    : (monthlyScoreFromDaily ?? report?.overallScore ?? null);
+  // يومي  → نفس score تاب متابعة يومية (cumulativeValue / dailyTarget) = monthlyScoreFromDaily
+  const overallScore = monthlyScoreFromDaily ?? report?.overallScore ?? null;
   const prevScore    = prevReport?.overallScore ?? null;
   const scoreDiff    = overallScore !== null && prevScore !== null ? overallScore - prevScore : null;
   const kpis            = (viewMode === "daily" ? dailyReport?.kpis : report?.kpis) ?? [];
