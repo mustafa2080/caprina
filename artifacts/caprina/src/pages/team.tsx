@@ -5114,79 +5114,109 @@ export default function TeamPage() {
                   </div>
                 </div>
 
-                {/* ── الإحصائيات ── */}
-                <div className="space-y-3 mb-4">
-                  {/* صف مؤشرات الأداء */}
-                  <div className="rounded-xl p-3 bg-muted/40 dark:bg-white/[0.04] border border-border/60 dark:border-white/[0.07]">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-[10px] font-bold text-muted-foreground">مؤشرات الأداء</p>
-                      <span className={`text-sm font-black ${kpiCount > 0 ? "text-indigo-500 dark:text-indigo-400" : "text-muted-foreground/40"}`}>
+                {/* ── الإحصائيات: نصفين جنب بعض ── */}
+                <div className="flex gap-2 mb-4">
+
+                  {/* يسار: مؤشرات الأداء */}
+                  <div className="flex-1 rounded-xl p-3 bg-muted/40 dark:bg-white/[0.04] border border-border/60 dark:border-white/[0.07] flex flex-col justify-between min-w-0">
+                    <div>
+                      <p className="text-[10px] font-bold text-muted-foreground mb-2">مؤشرات الأداء</p>
+                      <span className={`text-xl font-black block mb-1 ${kpiCount > 0 ? "text-indigo-500 dark:text-indigo-400" : "text-muted-foreground/40"}`}>
                         {kpiCount > 0 ? kpiCount : "—"}
                       </span>
+                      <div className="flex gap-1 flex-wrap">
+                        {kpiCount > 0
+                          ? Array.from({ length: Math.min(kpiCount, 5) }).map((_, i) => (
+                              <div key={i} className="w-2 h-2 rounded-full"
+                                style={{ background: "#6366F1", boxShadow: "0 0 4px rgba(99,102,241,0.5)" }} />
+                            ))
+                          : <p className="text-[9px] text-muted-foreground/50">لم تُضف بعد</p>
+                        }
+                        {kpiCount > 5 && <span className="text-[9px] text-indigo-400">+{kpiCount - 5}</span>}
+                      </div>
                     </div>
-                    <div className="flex gap-1 flex-wrap">
-                      {kpiCount > 0
-                        ? Array.from({ length: Math.min(kpiCount, 6) }).map((_, i) => (
-                            <div key={i} className="w-2 h-2 rounded-full"
-                              style={{ background: "#6366F1", boxShadow: "0 0 4px rgba(99,102,241,0.5)" }} />
-                          ))
-                        : <p className="text-[9px] text-muted-foreground/50">لم تُضف بعد</p>
-                      }
-                      {kpiCount > 6 && <span className="text-[9px] text-indigo-500 dark:text-indigo-400/70">+{kpiCount - 6}</span>}
-                    </div>
-                    <p className="text-[9px] mt-1 text-muted-foreground/70">
+                    <p className="text-[9px] mt-2 text-muted-foreground/60">
                       {kpiCount > 0 ? `${kpiCount} مؤشر نشط` : "أضف مؤشرات أداء"}
                     </p>
                   </div>
 
-                  {/* 3 دوائر: دكتور / يومي / شهري */}
+                  {/* يمين: 3 دوائر في box واحد داكن */}
                   {(() => {
-                    const circles = [
+                    const rSm = 14, rLg = 22;
+                    const circSm = 2 * Math.PI * rSm, circLg = 2 * Math.PI * rLg;
+                    const smallCircles = [
                       { label: "حضور", value: attScore },
                       { label: "يومي",  value: dailyScore },
-                      { label: "شهري",  value: monthlyScore },
                     ];
-                    const r = 18, circ = 2 * Math.PI * r;
+                    const bigValue = monthlyScore;
+                    const bigColor = circleColor(bigValue);
+                    const bigText  = circleText(bigValue);
+                    const bigDash  = ((bigValue ?? 0) / 100) * circLg;
                     return (
-                      <div className="grid grid-cols-3 gap-2">
-                        {circles.map(({ label, value }) => {
-                          const pct = value ?? 0;
-                          const dash = (pct / 100) * circ;
-                          const color = circleColor(value);
-                          const textCls = circleText(value);
-                          return (
-                            <div key={label} className="rounded-xl p-2 bg-muted/40 dark:bg-white/[0.04] border border-border/60 dark:border-white/[0.07] flex flex-col items-center gap-1">
-                              <div className="relative flex items-center justify-center">
-                                <svg width="48" height="48" viewBox="0 0 48 48" style={{ transform: "rotate(-90deg)" }}>
-                                  <circle cx="24" cy="24" r={r} fill="none" stroke="rgba(128,128,128,0.15)" strokeWidth="4" />
-                                  <circle cx="24" cy="24" r={r} fill="none" stroke={color} strokeWidth="4"
-                                    strokeDasharray={`${dash} ${circ - dash}`} strokeLinecap="round"
-                                    style={{ transition: "stroke-dasharray 0.5s ease" }} />
-                                </svg>
-                                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                  <span className={`text-[10px] font-black leading-none ${textCls}`}>
-                                    {value !== null ? `${value}%` : "—"}
-                                  </span>
+                      <div className="rounded-xl p-3 flex flex-col justify-between"
+                        style={{ background: "rgba(80,20,20,0.45)", border: "1px solid rgba(180,50,50,0.18)", minWidth: 0, flex: "0 0 auto", width: "54%" }}>
+                        
+                        {/* صف الدوائر */}
+                        <div className="flex items-center justify-between gap-2">
+                          {/* دائرتان صغيرتان يسار */}
+                          <div className="flex flex-col gap-2">
+                            {smallCircles.map(({ label, value }) => {
+                              const pct = value ?? 0;
+                              const dash = (pct / 100) * circSm;
+                              const color = circleColor(value);
+                              const textCls = circleText(value);
+                              return (
+                                <div key={label} className="flex flex-col items-center gap-0.5">
+                                  <div className="relative flex items-center justify-center">
+                                    <svg width="36" height="36" viewBox="0 0 36 36" style={{ transform: "rotate(-90deg)" }}>
+                                      <circle cx="18" cy="18" r={rSm} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="3.5" />
+                                      <circle cx="18" cy="18" r={rSm} fill="none" stroke={color} strokeWidth="3.5"
+                                        strokeDasharray={`${dash} ${circSm - dash}`} strokeLinecap="round" />
+                                    </svg>
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                      <span className={`text-[9px] font-black leading-none ${textCls}`}>
+                                        {value !== null ? `${value}%` : "—"}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <span className="text-[8px] text-white/50 font-medium">{label}</span>
                                 </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* دائرة شهري كبيرة يمين */}
+                          <div className="flex flex-col items-center gap-1">
+                            <div className="relative flex items-center justify-center">
+                              <svg width="58" height="58" viewBox="0 0 58 58" style={{ transform: "rotate(-90deg)" }}>
+                                <circle cx="29" cy="29" r={rLg} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="4.5" />
+                                <circle cx="29" cy="29" r={rLg} fill="none" stroke={bigColor} strokeWidth="4.5"
+                                  strokeDasharray={`${bigDash} ${circLg - bigDash}`} strokeLinecap="round"
+                                  style={{ transition: "stroke-dasharray 0.5s ease" }} />
+                              </svg>
+                              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                <span className={`text-[11px] font-black leading-none ${bigText}`}>
+                                  {bigValue !== null ? `${bigValue}%` : "—"}
+                                </span>
                               </div>
-                              <span className="text-[9px] text-muted-foreground/70 font-medium">{label}</span>
                             </div>
-                          );
-                        })}
+                            <span className="text-[8px] text-white/50 font-medium">شهري</span>
+                          </div>
+                        </div>
+
+                        {/* تقدم الشهر */}
+                        <div className="mt-3">
+                          <div className="flex justify-between text-[8px] text-white/30 mb-1">
+                            <span>تقدم الشهر</span>
+                            <span>{monthProgress}%</span>
+                          </div>
+                          <div className="w-full h-1 rounded-full" style={{ background: "rgba(255,255,255,0.08)" }}>
+                            <div className="h-1 rounded-full transition-all" style={{ width: `${monthProgress}%`, background: "hsl(var(--primary))" }} />
+                          </div>
+                        </div>
                       </div>
                     );
                   })()}
-
-                  {/* تقدم الشهر */}
-                  <div>
-                    <div className="flex justify-between text-[8px] text-muted-foreground/50 mb-0.5">
-                      <span>تقدم الشهر</span>
-                      <span>{monthProgress}%</span>
-                    </div>
-                    <div className="w-full h-1 rounded-full bg-muted/60 dark:bg-white/[0.08]">
-                      <div className="h-1 rounded-full bg-primary/60 transition-all" style={{ width: `${monthProgress}%` }} />
-                    </div>
-                  </div>
                 </div>
 
                 {/* ── الفوتر ── */}
