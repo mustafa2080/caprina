@@ -1640,204 +1640,287 @@ function AttendanceTab({ profileId, monthlySalary, isAdmin }: {
                       {adj.reason}
                     </p>
                   )}
-                </div>
-              ))}
+
+// ─── Star Employees Section (عرض للجميع في لوحتي) ──────────────────────────
+function StarEmployeesSection({ currentMonth: _cm }: { currentMonth: string }) {
+  const { data: stars = [], isLoading } = useQuery({
+    queryKey: ["star-employees"],
+    queryFn: () => employeeApi.getStarEmployees(),
+  });
+
+  const rankIcons = [
+    <Crown key="1" className="w-5 h-5 text-yellow-400" />,
+    <Medal key="2" className="w-5 h-5 text-slate-300" />,
+    <Award key="3" className="w-5 h-5 text-amber-600" />,
+  ];
+  const rankColors = [
+    "from-yellow-500/20 to-yellow-600/5 border-yellow-500/30",
+    "from-slate-400/20 to-slate-500/5 border-slate-400/30",
+    "from-amber-600/20 to-amber-700/5 border-amber-600/30",
+  ];
+  const rankLabels = ["🥇 الأول", "🥈 الثاني", "🥉 الثالث"];
+
+  if (isLoading || stars.length === 0) return null;
+
+  return (
+    <div className="rounded-2xl border border-yellow-500/20 bg-gradient-to-br from-yellow-500/5 to-transparent p-4 mb-3">
+      <div className="flex items-center gap-2 mb-3">
+        <Trophy className="w-4 h-4 text-yellow-400" />
+        <span className="text-sm font-bold text-yellow-300">موظفو الشهر المتميزون</span>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        {stars.slice(0, 3).map((emp: any, i: number) => (
+          <div key={emp.id}
+            className={`relative rounded-xl border bg-gradient-to-br ${rankColors[i]} p-3 flex flex-col items-center gap-1.5 text-center`}>
+            <div className="absolute -top-2 -right-1">{rankIcons[i]}</div>
+            <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-white/10 bg-muted shrink-0">
+              {emp.avatar
+                ? <img src={emp.avatar} className="w-full h-full object-cover" alt={emp.displayName} />
+                : <div className="w-full h-full flex items-center justify-center text-lg font-bold"
+                    style={{ background: "linear-gradient(135deg,hsl(var(--primary)/0.7),hsl(var(--primary)/0.3))" }}>
+                    {emp.displayName?.charAt(0)?.toUpperCase()}
+                  </div>}
             </div>
-          )}
+            <p className="text-xs font-bold leading-tight">{emp.displayName}</p>
+            <p className="text-[10px] text-muted-foreground leading-tight">{emp.jobTitle ?? emp.department ?? ""}</p>
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+              style={{ background: i === 0 ? "rgba(234,179,8,0.2)" : i === 1 ? "rgba(148,163,184,0.2)" : "rgba(180,83,9,0.2)",
+                       color: i === 0 ? "#fbbf24" : i === 1 ? "#cbd5e1" : "#d97706" }}>
+              {rankLabels[i]}
+            </span>
+          </div>
+        ))}
+      </div>
+      <p className="text-center text-[10px] text-muted-foreground mt-2">
+        🌟 هؤلاء الموظفون حققوا أعلى الأهداف هذا الشهر — استمر في التميز!
+      </p>
+    </div>
+  );
+}
+
+// ─── Star Employees Manage Tab (للسوبر أدمن فقط) ─────────────────────────────
+function StarEmployeesManageTab() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const [rankMonth, setRankMonth] = useState(currentMonth);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [saved, setSaved] = useState(false);
+
+  const { data: stars = [], isLoading: starsLoading } = useQuery({
+    queryKey: ["star-employees"],
+    queryFn: () => employeeApi.getStarEmployees(),
+  });
+
+  const { data: ranking = [], isLoading: rankLoading } = useQuery({
+    queryKey: ["team-ranking", rankMonth],
+    queryFn: () => employeeApi.getTeamRanking(rankMonth),
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: (ids: number[]) => employeeApi.setStarEmployees(ids),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["star-employees"] });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+      toast({ title: "✅ تم حفظ موظفي الشهر المتميزين" });
+    },
+  });
+
+  useEffect(() => {
+    if (stars.length > 0) setSelectedIds(stars.map((s: any) => s.id));
+  }, [stars]);
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : prev.length < 3 ? [...prev, id] : prev
+    );
+  };
+
+  const rankIcons = [
+    <Crown key="1" className="w-5 h-5 text-yellow-400" />,
+    <Medal key="2" className="w-5 h-5 text-slate-300" />,
+    <Award key="3" className="w-5 h-5 text-amber-600" />,
+  ];
+  const rankColors = [
+    "from-yellow-500/20 to-yellow-600/5 border-yellow-500/30",
+    "from-slate-400/20 to-slate-500/5 border-slate-400/30",
+    "from-amber-600/20 to-amber-700/5 border-amber-600/30",
+  ];
+  const rankLabels = ["🥇 الأول", "🥈 الثاني", "🥉 الثالث"];
+
+  const monthLabel = new Date(parseInt(rankMonth.split("-")[0]), parseInt(rankMonth.split("-")[1]) - 1, 1)
+    .toLocaleDateString("ar-EG", { month: "long", year: "numeric" });
+
+  return (
+    <div className="space-y-4 animate-in fade-in duration-300">
+
+      {/* ── Header ── */}
+      <div className="rounded-2xl border border-yellow-500/20 bg-gradient-to-br from-yellow-500/8 to-transparent p-4">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-2">
+            <Trophy className="w-5 h-5 text-yellow-400" />
+            <div>
+              <p className="text-sm font-bold">اختيار موظفي الشهر المتميزين</p>
+              <p className="text-[11px] text-muted-foreground">اختر حتى 3 موظفين — ستظهر بطاقاتهم لجميع الموظفين تلقائياً</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Label className="text-xs text-muted-foreground whitespace-nowrap">الشهر:</Label>
+            <Input type="month" value={rankMonth} onChange={e => setRankMonth(e.target.value)}
+              className="h-8 text-xs bg-background border-border w-36" />
+          </div>
         </div>
+      </div>
+
+      {/* ── النجوم المختارون حالياً ── */}
+      {stars.length > 0 && (
+        <div className="rounded-xl border border-border bg-card p-3">
+          <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
+            <Star className="w-3.5 h-3.5 text-yellow-400" />
+            النجوم المحفوظون حالياً
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            {stars.slice(0, 3).map((emp: any, i: number) => (
+              <div key={emp.id}
+                className={`relative rounded-xl border bg-gradient-to-br ${rankColors[i]} p-2.5 flex flex-col items-center gap-1 text-center`}>
+                <div className="absolute -top-1.5 -right-1">{rankIcons[i]}</div>
+                <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white/10 bg-muted shrink-0">
+                  {emp.avatar
+                    ? <img src={emp.avatar} className="w-full h-full object-cover" alt={emp.displayName} />
+                    : <div className="w-full h-full flex items-center justify-center text-sm font-bold"
+                        style={{ background: "linear-gradient(135deg,hsl(var(--primary)/0.7),hsl(var(--primary)/0.3))" }}>
+                        {emp.displayName?.charAt(0)?.toUpperCase()}
+                      </div>}
+                </div>
+                <p className="text-[11px] font-bold leading-tight">{emp.displayName}</p>
+                <p className="text-[9px] text-muted-foreground">{emp.jobTitle ?? emp.department ?? ""}</p>
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                  style={{ background: i === 0 ? "rgba(234,179,8,0.2)" : i === 1 ? "rgba(148,163,184,0.2)" : "rgba(180,83,9,0.2)",
+                           color: i === 0 ? "#fbbf24" : i === 1 ? "#cbd5e1" : "#d97706" }}>
+                  {rankLabels[i]}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Ranking ── */}
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <div className="px-4 py-2.5 border-b border-border/60 bg-muted/20 flex items-center justify-between">
+          <p className="text-xs font-semibold flex items-center gap-1.5">
+            <BarChart2 className="w-3.5 h-3.5 text-primary" />
+            ترتيب الموظفين — {monthLabel}
+          </p>
+          <span className="text-[10px] text-muted-foreground">{selectedIds.length}/3 مختارين</span>
+        </div>
+
+        {rankLoading ? (
+          <div className="flex items-center justify-center py-10 text-muted-foreground text-sm gap-2">
+            <RefreshCw className="w-4 h-4 animate-spin" />
+            جاري تحميل الترتيب...
+          </div>
+        ) : ranking.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-10 text-muted-foreground gap-2">
+            <BarChart2 className="w-8 h-8 opacity-30" />
+            <p className="text-sm">لا توجد بيانات لهذا الشهر</p>
+            <p className="text-xs opacity-70">تأكد من وجود مؤشرات أداء مُعيّنة للموظفين</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-border/40">
+            {ranking.map((emp: any, i: number) => {
+              const isSelected = selectedIds.includes(emp.id);
+              const rank = i + 1;
+              const score = emp.overallScore;
+              const scoreColor = score === null ? "text-muted-foreground" : score >= 90 ? "text-emerald-400" : score >= 70 ? "text-blue-400" : score >= 50 ? "text-yellow-400" : "text-red-400";
+              const barColor = score === null ? "bg-muted" : score >= 90 ? "bg-emerald-500" : score >= 70 ? "bg-blue-500" : score >= 50 ? "bg-yellow-500" : "bg-red-500";
+
+              return (
+                <div key={emp.id}
+                  onClick={() => toggleSelect(emp.id)}
+                  className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-all hover:bg-muted/30 ${
+                    isSelected ? "bg-primary/5 border-r-2 border-r-primary" : ""
+                  }`}>
+                  {/* rank badge */}
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black shrink-0 ${
+                    rank === 1 ? "bg-yellow-500/20 text-yellow-400" :
+                    rank === 2 ? "bg-slate-400/20 text-slate-300" :
+                    rank === 3 ? "bg-amber-600/20 text-amber-500" : "bg-muted text-muted-foreground"
+                  }`}>
+                    {rank <= 3 ? rankIcons[rank - 1] : rank}
+                  </div>
+                  {/* avatar */}
+                  <div className="w-9 h-9 rounded-full overflow-hidden bg-muted shrink-0">
+                    {emp.avatar
+                      ? <img src={emp.avatar} className="w-full h-full object-cover" alt={emp.displayName} />
+                      : <div className="w-full h-full flex items-center justify-center text-sm font-bold"
+                          style={{ background: "linear-gradient(135deg,hsl(var(--primary)/0.7),hsl(var(--primary)/0.3))" }}>
+                          {emp.displayName?.charAt(0)?.toUpperCase()}
+                        </div>}
+                  </div>
+                  {/* info + progress */}
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-semibold truncate">{emp.displayName}</p>
+                      <span className={`text-sm font-black shrink-0 ${scoreColor}`}>
+                        {score !== null ? `${score}%` : "—"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div className={`h-full rounded-full transition-all ${barColor}`}
+                          style={{ width: `${Math.min(100, score ?? 0)}%` }} />
+                      </div>
+                      <span className="text-[9px] text-muted-foreground shrink-0 tabular-nums">
+                        {emp.achievedCount}/{emp.totalKpis} مؤشر
+                      </span>
+                    </div>
+                    {emp.jobTitle && <p className="text-[10px] text-muted-foreground truncate">{emp.jobTitle}</p>}
+                  </div>
+                  {/* checkbox */}
+                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-all ${
+                    isSelected ? "border-primary bg-primary" : "border-border"
+                  }`}>
+                    {isSelected && <Check className="w-3 h-3 text-white" />}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ── Actions ── */}
+      <div className="flex gap-2">
+        <Button className={`flex-1 h-10 text-sm font-bold transition-all ${saved ? "bg-emerald-600 hover:bg-emerald-700" : ""}`}
+          onClick={() => saveMutation.mutate(selectedIds)}
+          disabled={saveMutation.isPending || selectedIds.length === 0}>
+          {saveMutation.isPending ? (
+            <><RefreshCw className="w-4 h-4 ml-2 animate-spin" />جاري الحفظ...</>
+          ) : saved ? (
+            <><CheckCircle2 className="w-4 h-4 ml-2" />تم الحفظ!</>
+          ) : (
+            <><Trophy className="w-4 h-4 ml-2" />حفظ النجوم ({selectedIds.length}/3)</>
+          )}
+        </Button>
+        {(selectedIds.length > 0 || stars.length > 0) && (
+          <Button variant="outline" size="sm" className="h-10 px-4 text-xs border-red-500/30 text-red-400 hover:bg-red-500/10"
+            onClick={() => { setSelectedIds([]); saveMutation.mutate([]); }}>
+            مسح الكل
+          </Button>
+        )}
+      </div>
+
+      {selectedIds.length > 0 && !saved && (
+        <p className="text-center text-[11px] text-muted-foreground">
+          💡 بعد الحفظ ستظهر بطاقات النجوم تلقائياً في لوحة كل موظف
+        </p>
       )}
     </div>
   );
 }
 
-// ─── Daily Tracker Tab ───────────────────────────────────────────────────────
-function DailyTrackerTab({ profileId }: { profileId: number }) {
-  const { toast } = useToast();
-  const qc = useQueryClient();
-  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [logValues, setLogValues] = useState<Record<number, string>>({});
-  const [saving, setSaving] = useState<Record<number, boolean>>({});
-
-  const { data: dailyData, isLoading, refetch } = useQuery({
-    queryKey: ["employee-daily-logs", profileId, selectedDate],
-    queryFn: () => employeeApi.getDailyLogs(profileId, selectedDate),
-  });
-
-  const { data: weekData } = useQuery({
-    queryKey: ["employee-week-logs", profileId, selectedDate],
-    queryFn: () => employeeApi.getWeekLogs(profileId, selectedDate),
-  });
-
-  useEffect(() => {
-    if (!dailyData) return;
-    const init: Record<number, string> = {};
-    dailyData.kpis.forEach(kpi => {
-      if (kpi.metric === "manual" && kpi.actualValue !== null) {
-        init[kpi.id] = String(kpi.actualValue);
-      }
-    });
-    setLogValues(init);
-  }, [dailyData]);
-
-  const handleSave = async (kpi: DailyKpiEntry) => {
-    const val = parseFloat(logValues[kpi.id] ?? "");
-    if (isNaN(val)) { toast({ title: "أدخل قيمة صحيحة", variant: "destructive" }); return; }
-    setSaving(s => ({ ...s, [kpi.id]: true }));
-    try {
-      await employeeApi.saveDailyLog({ profileId, kpiId: kpi.id, date: selectedDate, value: val });
-      qc.invalidateQueries({ queryKey: ["employee-daily-logs", profileId, selectedDate] });
-      qc.invalidateQueries({ queryKey: ["employee-week-logs", profileId, selectedDate] });
-      toast({ title: "تم التسجيل ✅" });
-    } catch (e: any) {
-      toast({ title: "خطأ", description: e.message, variant: "destructive" });
-    } finally {
-      setSaving(s => ({ ...s, [kpi.id]: false }));
-    }
-  };
-
-  const achievedCount = dailyData?.kpis.filter(k => k.achieved === true).length ?? 0;
-  const totalCount = dailyData?.kpis.length ?? 0;
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3 flex-wrap">
-        <Input
-          type="date"
-          value={selectedDate}
-          onChange={e => setSelectedDate(e.target.value)}
-          className="w-36 h-7 text-xs"
-          max={new Date().toISOString().slice(0, 10)}
-        />
-        <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => refetch()}>
-          <RefreshCw className="w-3 h-3" />تحديث
-        </Button>
-        {totalCount > 0 && (
-          <Badge variant="outline" className={`text-xs mr-auto ${achievedCount === totalCount ? "border-emerald-700 text-emerald-400" : achievedCount > 0 ? "border-amber-700 text-amber-400" : "border-red-700 text-red-400"}`}>
-            {achievedCount}/{totalCount} محقق
-          </Badge>
-        )}
-      </div>
-
-      {isLoading && <p className="text-center text-muted-foreground text-xs py-8 animate-pulse">جاري التحميل...</p>}
-
-      {!isLoading && totalCount === 0 && (
-        <div className="text-center py-10 text-muted-foreground border border-dashed border-border rounded-lg">
-          <Target className="w-8 h-8 mx-auto mb-2 opacity-20" />
-          <p className="text-sm">لا توجد مؤشرات نشطة.</p>
-          <p className="text-xs mt-1">أضف مؤشرات من تاب «مؤشرات الأداء» أولاً.</p>
-        </div>
-      )}
-
-      <div className="space-y-2">
-        {(dailyData?.kpis ?? []).map(kpi => {
-          const isManual = kpi.metric === "manual";
-
-          // manual: progress = cumulative / monthly target
-          // auto:   progress = today's value / daily target
-          const compareValue  = isManual ? ((kpi as any).cumulativeValue ?? 0) : (kpi.actualValue ?? 0);
-          const compareTarget = kpi.dailyTarget; // backend already sets correct target per type
-          const rawPct = compareTarget > 0
-            ? Math.min(100, (compareValue / compareTarget) * 100)
-            : 0;
-          const pct = kpi.direction === "lower_is_better"
-            ? (kpi.achieved ? 100 : Math.max(0, 100 - rawPct))
-            : rawPct;
-
-          const todayValue      = (kpi as any).todayValue as number | null;
-          const cumulativeValue = (kpi as any).cumulativeValue as number | null;
-
-          // الهدف اليومي الثابت = الهدف الشهري / 30
-          const dailyFixed = Math.max(1, Math.round(kpi.targetValue / 30));
-          // المتوقع حتى اليوم = (الهدف الشهري / 30) * رقم اليوم المختار
-          const selectedDayNum = new Date(selectedDate + "T00:00:00").getDate();
-          const dailyExpected = isManual
-            ? Math.round((kpi.targetValue / 30) * selectedDayNum)
-            : dailyFixed;
-
-          return (
-            <Card key={kpi.id} className={`border ${kpi.achieved === true ? "border-emerald-700/50 bg-emerald-950/10" : kpi.achieved === false ? "border-red-800/30" : "border-border"}`}>
-              <CardContent className="px-4 py-3 space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    {kpi.achieved === true
-                      ? <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                      : kpi.achieved === false
-                        ? <X className="w-4 h-4 text-red-400 shrink-0" />
-                        : <Target className="w-4 h-4 text-muted-foreground shrink-0" />}
-                    <p className="text-sm font-bold break-words leading-tight" title={kpi.name}>{kpi.name}</p>
-                    {!isManual && <Badge variant="outline" className="text-[8px] h-3.5 shrink-0">تلقائي</Badge>}
-                    {isManual && <Badge variant="outline" className="text-[8px] h-3.5 shrink-0 border-blue-700/50 text-blue-400">متراكم</Badge>}
-                  </div>
-                  <Badge variant="outline" className={`text-[9px] shrink-0 ${kpi.achieved === true ? "border-emerald-700 text-emerald-400" : kpi.achieved === false ? "border-red-700 text-red-400" : "border-border text-muted-foreground"}`}>
-                    {kpi.achieved === true ? "✅ محقق" : kpi.achieved === false ? "❌ لم يُحقَّق" : "غير مسجل"}
-                  </Badge>
-                </div>
-
-                <Progress value={pct} className={`h-1.5 ${kpi.achieved === true ? "[&>div]:bg-emerald-500" : kpi.achieved === false ? "[&>div]:bg-red-400" : "[&>div]:bg-primary"}`} />
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
-                  {/* الهدف الشهري */}
-                  <div className="rounded-lg border border-border/50 bg-muted/10 px-3 py-2 text-center">
-                    <p className="text-[9px] text-muted-foreground mb-0.5">{"\u0627\u0644\u0647\u062f\u0641 \u0627\u0644\u0634\u0647\u0631\u064a"}</p>
-                    <p className="text-sm font-black text-foreground">{fmtNum(kpi.targetValue)}</p>
-                    <p className="text-[9px] text-muted-foreground/60">{kpi.unit}</p>
-                  </div>
-                  {/* الهدف اليومي */}
-                  <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 px-3 py-2 text-center">
-                    <p className="text-[9px] text-muted-foreground mb-0.5">{"\u0627\u0644\u0647\u062f\u0641 \u0627\u0644\u064a\u0648\u0645\u064a"}</p>
-                    <p className="text-sm font-black text-blue-400">{fmtNum(dailyFixed)}</p>
-                    <p className="text-[9px] text-muted-foreground/60">{kpi.unit}</p>
-                  </div>
-                  {/* المتراكم */}
-                  <div className={`rounded-lg border px-3 py-2 text-center ${
-                    isManual
-                      ? cumulativeValue !== null && cumulativeValue >= kpi.dailyTarget
-                        ? "border-emerald-500/30 bg-emerald-500/5"
-                        : "border-amber-500/20 bg-amber-500/5"
-                      : kpi.actualValue !== null && kpi.actualValue >= kpi.dailyTarget
-                        ? "border-emerald-500/30 bg-emerald-500/5"
-                        : "border-amber-500/20 bg-amber-500/5"
-                  }`}>
-                    <p className="text-[9px] text-muted-foreground mb-0.5">{isManual ? "\u0627\u0644\u0645\u062a\u0631\u0627\u0643\u0645" : "\u0627\u0644\u0645\u062d\u0642\u0642"}</p>
-                    <p className={`text-sm font-black ${
-                      isManual
-                        ? cumulativeValue !== null && cumulativeValue >= kpi.dailyTarget ? "text-emerald-400" : "text-amber-400"
-                        : kpi.actualValue !== null && kpi.actualValue >= kpi.dailyTarget ? "text-emerald-400" : "text-amber-400"
-                    }`}>
-                      {isManual
-                        ? (cumulativeValue !== null ? fmtNum(cumulativeValue) : "—")
-                        : (kpi.actualValue !== null ? fmtNum(kpi.actualValue) : "—")}
-                    </p>
-                    <p className="text-[9px] text-muted-foreground/60">{kpi.unit}</p>
-                  </div>
-                  {/* المتوقع حتى اليوم */}
-                  <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-2 text-center">
-                    <p className="text-[9px] text-muted-foreground mb-0.5">{"\u0627\u0644\u0645\u062a\u0648\u0642\u0639 \u062d\u062a\u0649 \u0627\u0644\u064a\u0648\u0645"}</p>
-                    <p className="text-sm font-black text-violet-400">{fmtNum(dailyExpected)}</p>
-                    <p className="text-[9px] text-muted-foreground/60">{kpi.unit}</p>
-                  </div>
-                </div>
-
-                {isManual && (
-                  todayValue !== null ? (
-                    <div className="flex items-center gap-2 pt-0.5 rounded-lg border border-emerald-700/40 bg-emerald-950/20 px-3 py-2">
-                      <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                      <span className="text-[11px] text-emerald-400 font-semibold">{"\u062a\u0645 \u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u064a\u0648\u0645: "}{fmtNum(todayValue)} {kpi.unit}</span>
-                      <span className="text-[10px] text-muted-foreground/50 mr-auto">{"\u0644\u0627 \u064a\u0645\u0643\u0646 \u0627\u0644\u062a\u0639\u062f\u064a\u0644 \u0628\u0639\u062f \u0627\u0644\u062a\u0633\u062c\u064a\u0644"}</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 pt-0.5">
-                      <Input
-                        type="number"
-                        min="0"
-                        value={logValues[kpi.id] ?? ""}
-                        onChange={e => setLogValues(v => ({ ...v, [kpi.id]: e.target.value }))}
-                        placeholder={`أضف قيمة اليوم (${kpi.unit})`}
-                        className="h-7 text-xs flex-1"
-                      />
-                      <Button
-                        size="sm"
-                        className="h-7 text-xs gap-1 shrink-0"
                         disabled={saving[kpi.id] || !logValues[kpi.id]}
                         onClick={() => handleSave(kpi)}
                       >
@@ -4222,7 +4305,7 @@ function EmployeeDetail({
           {!isSystemUser && (
             <Badge variant="outline" className="text-[9px] h-5 border-amber-700 text-amber-400">فريق فقط</Badge>
           )}
-          {isAdmin && (
+          {canManage && (
             <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setProfileOpen(true)}>
               <Edit2 className="w-3 h-3" />تعديل البيانات
             </Button>
@@ -4328,7 +4411,7 @@ function EmployeeDetail({
                   })}
                 </select>
               )}
-              {isAdmin && (
+              {canManage && (
                 <Button size="sm" className="h-7 text-xs gap-1" onClick={() => { setEditingKpi(undefined); setKpiDialogOpen(true); }}>
                   <Plus className="w-3 h-3" />إضافة مؤشر
                 </Button>
@@ -4342,7 +4425,7 @@ function EmployeeDetail({
             <div className="text-center py-10 text-muted-foreground border border-dashed border-border rounded-xl">
               <Target className="w-10 h-10 mx-auto mb-3 opacity-20" />
               <p className="text-sm font-bold">لا توجد مؤشرات أداء بعد</p>
-              {isAdmin && <p className="text-xs mt-1 text-muted-foreground/70">أضف مؤشرات لتتبع وتقييم أداء هذا الموظف</p>}
+              {canManage && <p className="text-xs mt-1 text-muted-foreground/70">أضف مؤشرات لتتبع وتقييم أداء هذا الموظف</p>}
             </div>
           )}
 
@@ -4759,7 +4842,7 @@ function EmployeeDetail({
                               </div>
                               <div className="flex items-center gap-0.5 shrink-0">
                                 {!kpi.isActive && <span className="text-[9px] bg-muted text-muted-foreground rounded-full px-2 py-0.5 border border-border">معطل</span>}
-                                {isAdmin && (
+                                {canManage && (
                                   <>
                                     <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground/60 hover:text-primary hover:bg-primary/5 rounded-lg"
                                       onClick={() => { setEditingKpi(kpi); setKpiDialogOpen(true); }}>
@@ -5613,7 +5696,7 @@ function EmployeeDetail({
                 </div>
               </div>
               {/* زرار تعديل */}
-              {isAdmin && (
+              {canManage && (
                 <Button variant="outline" size="icon"
                   className="shrink-0 rounded-xl h-9 w-9 border-border/60 hover:border-primary/50 hover:bg-primary/5"
                   onClick={() => setProfileOpen(true)}>
@@ -5712,7 +5795,7 @@ function EmployeeDetail({
             <div className="rounded-xl border border-dashed border-border/50 bg-muted/10 px-4 py-8 text-center">
               <Users className="w-10 h-10 mx-auto mb-2 opacity-20" />
               <p className="text-sm text-muted-foreground">لم يتم إنشاء ملف شخصي بعد</p>
-              {isAdmin && (
+              {canManage && (
                 <Button size="sm" className="mt-3 text-xs" onClick={() => setProfileOpen(true)}>
                   إنشاء ملف شخصي
                 </Button>
@@ -5915,18 +5998,18 @@ export default function TeamPage() {
 
   const selectedProfile = profiles.find(p => p.id === selectedProfileId);
 
-  // ── لو الـ user مش admin → وجّهه تلقائياً لـ profile بتاعه ──────────────────
-  const myProfile = !isAdmin ? profiles.find((p: any) => p.userId === user?.id) : null;
+  // ── لو الـ user مش admin ومش عنده team.manage → وجّهه لـ profile بتاعه ──────
+  const myProfile = (!isAdmin && !canManage) ? profiles.find((p: any) => p.userId === user?.id) : null;
 
-  // auto-select عند أول تحميل للـ profiles
+  // auto-select عند أول تحميل للـ profiles (بس لو مش admin ومش canManage)
   React.useEffect(() => {
-    if (!isAdmin && myProfile && selectedProfileId === null) {
+    if (!isAdmin && !canManage && myProfile && selectedProfileId === null) {
       setSelectedProfileId(myProfile.id);
     }
-  }, [isAdmin, myProfile?.id]);
+  }, [isAdmin, canManage, myProfile?.id]);
 
-  // لو الـ user مش admin ومفيش profile → رسالة
-  if (!isAdmin && !profilesLoading && !myProfile) {
+  // لو الـ user مش admin ومش canManage ومفيش profile → رسالة
+  if (!isAdmin && !canManage && !profilesLoading && !myProfile) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center px-4">
         <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
@@ -5946,7 +6029,7 @@ export default function TeamPage() {
           displayName={selectedProfile.displayName ?? "—"}
           isSystemUser={!!(selectedProfile as any).isSystemUser}
           username={(selectedProfile as any).username}
-          onBack={isAdmin ? () => setSelectedProfileId(null) : undefined}
+          onBack={(isAdmin || canManage) ? () => setSelectedProfileId(null) : undefined}
         />
       </div>
     );
