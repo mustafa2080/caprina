@@ -2460,7 +2460,7 @@ function StarEmployeesManageTab() {
 
 
 // ─── My Dashboard Tab ────────────────────────────────────────────────────────
-function MyDashboardTab({ profileId, monthlySalary }: {
+export function MyDashboardTab({ profileId, monthlySalary }: {
   profileId: number; monthlySalary: number;
 }) {
   const today = new Date().toISOString().slice(0, 10);
@@ -3122,6 +3122,7 @@ function MyOrdersTab({
 }
 
 // ─── Employee Detail ──────────────────────────────────────────────────────────
+export { MyDashboardTab as EmployeeKpiTab };
 function EmployeeDetail({
   profileId, displayName, isSystemUser, username, onBack,
 }: {
