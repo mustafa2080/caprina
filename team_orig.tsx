@@ -3242,7 +3242,7 @@ function EmployeeDetail({
           {!isSystemUser && (
             <Badge variant="outline" className="text-[9px] h-5 border-amber-700 text-amber-400">فريق فقط</Badge>
           )}
-          {canManage && (
+          {isAdmin && (
             <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setProfileOpen(true)}>
               <Edit2 className="w-3 h-3" />تعديل البيانات
             </Button>
@@ -3348,7 +3348,7 @@ function EmployeeDetail({
                   })}
                 </select>
               )}
-              {canManage && (
+              {isAdmin && (
                 <Button size="sm" className="h-7 text-xs gap-1" onClick={() => { setEditingKpi(undefined); setKpiDialogOpen(true); }}>
                   <Plus className="w-3 h-3" />إضافة مؤشر
                 </Button>
@@ -3362,7 +3362,7 @@ function EmployeeDetail({
             <div className="text-center py-10 text-muted-foreground border border-dashed border-border rounded-xl">
               <Target className="w-10 h-10 mx-auto mb-3 opacity-20" />
               <p className="text-sm font-bold">لا توجد مؤشرات أداء بعد</p>
-              {canManage && <p className="text-xs mt-1 text-muted-foreground/70">أضف مؤشرات لتتبع وتقييم أداء هذا الموظف</p>}
+              {isAdmin && <p className="text-xs mt-1 text-muted-foreground/70">أضف مؤشرات لتتبع وتقييم أداء هذا الموظف</p>}
             </div>
           )}
 
@@ -3778,7 +3778,7 @@ function EmployeeDetail({
                               </div>
                               <div className="flex items-center gap-0.5 shrink-0">
                                 {!kpi.isActive && <span className="text-[9px] bg-muted text-muted-foreground rounded-full px-2 py-0.5 border border-border">معطل</span>}
-                                {canManage && (
+                                {isAdmin && (
                                   <>
                                     <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground/60 hover:text-primary hover:bg-primary/5 rounded-lg"
                                       onClick={() => { setEditingKpi(kpi); setKpiDialogOpen(true); }}>
@@ -4925,18 +4925,18 @@ export default function TeamPage() {
 
   const selectedProfile = profiles.find(p => p.id === selectedProfileId);
 
-  // ── لو الـ user مش admin ومش عنده team.manage → وجّهه لـ profile بتاعه ──────
-  const myProfile = (!isAdmin && !canManage) ? profiles.find((p: any) => p.userId === user?.id) : null;
+  // ── لو الـ user مش admin → وجّهه تلقائياً لـ profile بتاعه ──────────────────
+  const myProfile = !isAdmin ? profiles.find((p: any) => p.userId === user?.id) : null;
 
-  // auto-select عند أول تحميل للـ profiles (بس لو مش admin ومش canManage)
+  // auto-select عند أول تحميل للـ profiles
   React.useEffect(() => {
-    if (!isAdmin && !canManage && myProfile && selectedProfileId === null) {
+    if (!isAdmin && myProfile && selectedProfileId === null) {
       setSelectedProfileId(myProfile.id);
     }
-  }, [isAdmin, canManage, myProfile?.id]);
+  }, [isAdmin, myProfile?.id]);
 
-  // لو الـ user مش admin ومش canManage ومفيش profile → رسالة
-  if (!isAdmin && !canManage && !profilesLoading && !myProfile) {
+  // لو الـ user مش admin ومفيش profile → رسالة
+  if (!isAdmin && !profilesLoading && !myProfile) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center px-4">
         <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
@@ -4956,7 +4956,7 @@ export default function TeamPage() {
           displayName={selectedProfile.displayName ?? "—"}
           isSystemUser={!!(selectedProfile as any).isSystemUser}
           username={(selectedProfile as any).username}
-          onBack={(isAdmin || canManage) ? () => setSelectedProfileId(null) : undefined}
+          onBack={isAdmin ? () => setSelectedProfileId(null) : undefined}
         />
       </div>
     );

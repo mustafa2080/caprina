@@ -56,7 +56,9 @@ export function requirePermission(permission: string) {
       return;
     }
     const perms: string[] = Array.isArray((user as any).permissions) ? (user as any).permissions : [];
-    if (perms.includes(permission)) {
+    // شيل الـ markers (__customized__, __rolename__...) قبل الـ check
+    const realPerms = perms.filter(p => !p.startsWith("__"));
+    if (realPerms.includes(permission)) {
       next();
       return;
     }
