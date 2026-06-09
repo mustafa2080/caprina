@@ -716,11 +716,13 @@ router.get("/analytics/employee-report/:profileId", async (req, res): Promise<vo
   // the progressive target (monthlyTarget * daysPassed / daysInMonth)
   // In daily mode: compare against daily target (monthlyTarget / daysInMonth).
   const now = new Date();
+  // pay period يمتد على شهرين (مثلاً 26 مايو → 25 يونيو):
+  // نعتبره "الشهر الحالي" لو dateTo في الشهر الحالي وما انتهى بعد
   const isCurrentMonth =
-    dateFrom.getFullYear() === now.getFullYear() &&
-    dateFrom.getMonth() === now.getMonth();
+    (dateFrom.getFullYear() === now.getFullYear() && dateFrom.getMonth() === now.getMonth()) ||
+    (dateTo.getFullYear() === now.getFullYear() && dateTo.getMonth() === now.getMonth() && now <= dateTo);
   const reportDayNumber  = isCurrentMonth ? now.getDate() : dateTo.getDate();
-  const reportDaysInMonth = new Date(dateFrom.getFullYear(), dateFrom.getMonth() + 1, 0).getDate();
+  const reportDaysInMonth = new Date(dateTo.getFullYear(), dateTo.getMonth() + 1, 0).getDate();
 
   const evaluatedKpis = await Promise.all(
     kpis.map(async (kpi) => {
