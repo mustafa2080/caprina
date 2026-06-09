@@ -2533,10 +2533,22 @@ export function MyDashboardTab({ profileId, monthlySalary }: {
     enabled: !!profileId,
   });
 
+  // dailyScoreFromDaily: من k.score (يومي progressive) من todayKpis
+  const dailyScoreFromToday = (() => {
+    const scored = todayKpis.filter((k: any) => k.score !== null && Number.isFinite(k.score));
+    if (scored.length === 0) return null;
+    const totalW = scored.reduce((s: number, k: any) => s + (k.weight ?? 1), 0);
+    return totalW > 0
+      ? Math.round(scored.reduce((s: number, k: any) => s + Math.min(k.score, 100) * (k.weight ?? 1), 0) / totalW)
+      : Math.round(scored.reduce((s: number, k: any) => s + Math.min(k.score, 100), 0) / scored.length);
+  })();
+
   // overallScore:
-  // شهري  → تراكمي من dailyData (متطابق مع الكارت)
-  // يومي  → نفس score تاب متابعة يومية (cumulativeValue / dailyTarget) = monthlyScoreFromDaily
-  const overallScore = monthlyScoreFromDaily ?? report?.overallScore ?? null;
+  // شهري  → monthlyScore (actual vs هدف شهري = round(target/daysInMonth*dayNum))
+  // يومي  → score (actual vs هدف يومي progressive = round(target/periodDays*dayNumberInPeriod))
+  const overallScore = viewMode === "daily"
+    ? (dailyScoreFromToday ?? report?.overallScore ?? null)
+    : (monthlyScoreFromDaily ?? report?.overallScore ?? null);
   const prevScore    = prevReport?.overallScore ?? null;
   const scoreDiff    = overallScore !== null && prevScore !== null ? overallScore - prevScore : null;
   const kpis            = (viewMode === "daily" ? dailyReport?.kpis : report?.kpis) ?? [];
