@@ -1354,7 +1354,7 @@ router.get("/employee-daily-logs/:profileId", async (req, res): Promise<void> =>
       const cumulativeValue = kpi.metric === "manual" ? (cumulativeMap.get(kpi.id) ?? null) : null;
       const actualValue     = kpi.metric === "manual" ? cumulativeValue : autoValue;
 
-      // الهدف اليومي = نفس منطق listProfiles: targetValue / periodDays * dayNumberInPeriod
+      // الهدف اليومي (تراكمي progressive) — لتاب متابعة يومية والدايرة اليومي
       let dailyTarget: number;
       if (kpi.metric === "manual") {
         dailyTarget = Math.max(1, Math.round((kpi.targetValue / periodDays) * dayNumberInPeriod));
@@ -1362,8 +1362,15 @@ router.get("/employee-daily-logs/:profileId", async (req, res): Promise<void> =>
         dailyTarget = Math.max(1, Math.round(kpi.targetValue / periodDays));
       }
 
+      // الهدف الشهري الكامل — لدايرة الشهري (كل أيام الفترة)
+      const monthlyTarget: number = kpi.targetValue;
+
       const score = actualValue !== null
         ? computeKpiScore(actualValue, dailyTarget, kpi.direction)
+        : null;
+      // monthlyScore: تراكمي vs الهدف الكامل (للدايرة الشهرية)
+      const monthlyScore = actualValue !== null
+        ? computeKpiScore(actualValue, monthlyTarget, kpi.direction)
         : null;
       const achieved = actualValue !== null
         ? (kpi.direction === "lower_is_better" ? actualValue <= dailyTarget : actualValue >= dailyTarget)
@@ -1375,9 +1382,11 @@ router.get("/employee-daily-logs/:profileId", async (req, res): Promise<void> =>
         cumulativeValue,
         todayValue,
         dailyTarget,
+        monthlyTarget,
         logId: log?.id ?? null,
         logNotes: log?.notes ?? null,
         score,
+        monthlyScore,
         achieved,
       };
     })

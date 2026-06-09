@@ -2497,7 +2497,7 @@ export function MyDashboardTab({ profileId, monthlySalary }: {
   });
   const dailyKpis = ((dailyData as any)?.kpis ?? []) as any[];
 
-  // ── شهري: تراكمي من تاب متابعة يومية بتاريخ اليوم الحالي دايماً ──
+  // ── شهري: تراكمي vs الهدف الكامل (monthlyScore من API) ──
   const { data: todayDailyData } = useQuery({
     queryKey: ["employee-daily-logs", profileId, today],
     queryFn: () => employeeApi.getDailyLogs(profileId, today),
@@ -2505,12 +2505,12 @@ export function MyDashboardTab({ profileId, monthlySalary }: {
   });
   const todayKpis = ((todayDailyData as any)?.kpis ?? []) as any[];
   const monthlyScoreFromDaily = (() => {
-    const scored = todayKpis.filter((k: any) => k.score !== null && Number.isFinite(k.score));
+    const scored = todayKpis.filter((k: any) => k.monthlyScore !== null && Number.isFinite(k.monthlyScore));
     if (scored.length === 0) return null;
     const totalW = scored.reduce((s: number, k: any) => s + (k.weight ?? 1), 0);
     return totalW > 0
-      ? Math.round(scored.reduce((s: number, k: any) => s + Math.min(k.score, 100) * (k.weight ?? 1), 0) / totalW)
-      : Math.round(scored.reduce((s: number, k: any) => s + Math.min(k.score, 100), 0) / scored.length);
+      ? Math.round(scored.reduce((s: number, k: any) => s + Math.min(k.monthlyScore, 100) * (k.weight ?? 1), 0) / totalW)
+      : Math.round(scored.reduce((s: number, k: any) => s + Math.min(k.monthlyScore, 100), 0) / scored.length);
   })();
 
 
