@@ -1354,13 +1354,12 @@ router.get("/employee-daily-logs/:profileId", async (req, res): Promise<void> =>
       const cumulativeValue = kpi.metric === "manual" ? (cumulativeMap.get(kpi.id) ?? null) : null;
       const actualValue     = kpi.metric === "manual" ? cumulativeValue : autoValue;
 
-      // الهدف اليومي = الهدف الشهري / 30 يوم ثابت دايما
-      const dayOfMonth = new Date(date + "T00:00:00.000").getDate();
+      // الهدف اليومي = نفس منطق listProfiles: targetValue / periodDays * dayNumberInPeriod
       let dailyTarget: number;
       if (kpi.metric === "manual") {
-        dailyTarget = Math.round((kpi.targetValue / 30) * dayOfMonth);
+        dailyTarget = Math.max(1, Math.round((kpi.targetValue / periodDays) * dayNumberInPeriod));
       } else {
-        dailyTarget = Math.max(1, Math.round(kpi.targetValue / 30));
+        dailyTarget = Math.max(1, Math.round(kpi.targetValue / periodDays));
       }
 
       const score = actualValue !== null
