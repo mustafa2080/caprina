@@ -29,7 +29,35 @@ function flattenPermissions(raw: any): string[] {
   return [...new Set(flat)];
 }
 
-// ── User Avatar Component ────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// ██  VISIBILITY CONTROL — عدّل هنا براحتك لإظهار/إخفاء أقسام وصلاحيات  ██
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * الأقسام المخفية من تاب "الأقسام" — ضيف الـ key وهيختفي من الـ UI
+ * مثال: "section_audit", "section_whatsapp"
+ */
+const HIDDEN_SECTIONS: string[] = [
+  // "section_ads_analytics",
+  // "section_sessions_report",
+  // "section_audit",
+  // "section_whatsapp",
+];
+
+/**
+ * الصلاحيات المخفية من تاب "الصلاحيات" — ضيف الـ key وهيختفي من الـ UI
+ * مثال: "finance.cash", "team.salaries"
+ */
+const HIDDEN_PERMISSIONS: string[] = [
+  // "finance.cash",
+  // "finance.reports",
+  // "team.salaries",
+  // "settings.audit",
+  // "settings.sessions",
+];
+
+// ═══════════════════════════════════════════════════════════════════════════
+
 function getInitialsColor(name: string): string {
   const colors = [
     "from-violet-500 to-purple-600",
@@ -1205,7 +1233,7 @@ export default function UsersPage() {
                       >{allOn ? "إخفاء الكل" : "إظهار الكل"}</button>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                      {ALL_SECTIONS.map(sec => {
+                      {ALL_SECTIONS.filter(sec => !HIDDEN_SECTIONS.includes(sec.key)).map(sec => {
                         const isOn = form.permissions.includes(sec.key);
                         return (
                           <button key={sec.key} type="button"
@@ -1255,7 +1283,9 @@ export default function UsersPage() {
 
                   {/* 9 Section Groups */}
                   {SECTION_GROUPS.map(group => {
-                    const groupKeys = group.permissions.map(p => p.key);
+                    const groupKeys = group.permissions
+                      .filter(p => !HIDDEN_PERMISSIONS.includes(p.key))
+                      .map(p => p.key);
                     const allOn  = groupKeys.every(k => form.permissions.includes(k));
                     const someOn = groupKeys.some(k => form.permissions.includes(k));
                     const [open, setOpen] = [
@@ -1297,7 +1327,7 @@ export default function UsersPage() {
                         {/* Permissions list */}
                         {open && (
                           <div className="divide-y divide-white/[0.04]">
-                            {group.permissions.map(perm => {
+                            {group.permissions.filter(perm => !HIDDEN_PERMISSIONS.includes(perm.key)).map(perm => {
                               const active = form.permissions.includes(perm.key);
                               return (
                                 <label
