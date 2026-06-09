@@ -336,7 +336,7 @@ function Router() {
           <Route path="/users/manage"             component={() => <ProtectedRoute permission="settings.users" component={UsersPage} />} />
           <Route path="/audit-logs"               component={() => <ProtectedRoute permission="settings.audit" component={AuditLogsPage} />} />
           <Route path="/warehouses"               component={() => <ProtectedRoute permission="inventory.view" component={WarehousesPage} />} />
-          <Route path="/team-performance"         component={() => <ProtectedRoute permission="analytics.team" component={TeamPerformancePage} />} />
+          <Route path="/team-performance"         component={() => <ProtectedRoute permission="team.performance" component={TeamPerformancePage} />} />
           <Route path="/ads-analytics"            component={() => <ProtectedRoute permission="analytics.ads" component={AdsAnalyticsPage} />} />
           <Route path="/team"                     component={() => <ProtectedRoute permission="team.manage" component={TeamPage} />} />
           <Route path="/smart"                    component={() => <ProtectedRoute permission="analytics.smart" component={SmartAnalyticsPage} />} />
