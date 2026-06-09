@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Clock, Users, LogIn, LogOut, Timer, Lock, Wifi } from "lucide-react";
 
 const ROLE_LABELS: Record<string, string> = {
-  admin: "مدير", employee: "موظف مبيعات", warehouse: "مسؤول مخزون",
+  admin: "مدير", employee: "موظف", warehouse: "مسؤول",
 };
 
 const ROLE_COLORS: Record<string, string> = {

@@ -52,7 +52,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const ROLE_LABELS: Record<string, string> = {
-  super_admin: "سوبر أدمن", admin: "مدير", employee: "موظف مبيعات", warehouse: "مسؤول مخزون",
+  super_admin: "سوبر أدمن", admin: "مدير", employee: "موظف", warehouse: "مسؤول",
 };
 
 function getRoleColor(role: string) {

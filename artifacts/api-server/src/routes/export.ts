@@ -43,7 +43,7 @@ const STATUS_COLORS: Record<string, string> = {
   partial_received: "FF7c3aed",
 };
 const ROLES_AR: Record<string, string> = {
-  admin: "مدير النظام", employee: "موظف مبيعات", warehouse: "مسؤول مخزون",
+  admin: "مدير النظام", employee: "موظف", warehouse: "مسؤول",
 };
 const REASON_AR: Record<string, string> = {
   sale: "بيع", partial_sale: "بيع جزئي", return: "مرتجع",

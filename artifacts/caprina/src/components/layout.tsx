@@ -68,7 +68,7 @@ const FINANCE_NAV = [
 ];
 
 const ROLE_LABELS: Record<string, string> = {
-  admin: "مدير", employee: "موظف مبيعات", warehouse: "مسؤول مخزون", custom: "مخصص",
+  admin: "مدير", employee: "موظف", warehouse: "مسؤول", custom: "مخصص",
 };
 
 function getRoleLabel(user: any): string {
