@@ -1026,8 +1026,8 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
   // Progressive target for manual KPIs (same logic as employee-report)
   const nowMR = new Date();
   const isCurrentMonthMR =
-    dateFrom.getFullYear() === nowMR.getFullYear() &&
-    dateFrom.getMonth() === nowMR.getMonth();
+    (dateFrom.getFullYear() === nowMR.getFullYear() && dateFrom.getMonth() === nowMR.getMonth()) ||
+    (dateTo.getFullYear() === nowMR.getFullYear() && dateTo.getMonth() === nowMR.getMonth() && nowMR <= dateTo);
   const reportDayNumberMR   = isCurrentMonthMR ? nowMR.getDate() : dateTo.getDate();
   const reportDaysInMonthMR = new Date(dateFrom.getFullYear(), dateFrom.getMonth() + 1, 0).getDate();
 
