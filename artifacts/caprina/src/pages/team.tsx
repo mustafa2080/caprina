@@ -1682,6 +1682,8 @@ function DailyTrackerTab({ profileId }: { profileId: number }) {
       <div className="space-y-2">
         {(dailyData?.kpis ?? []).map(kpi => {
           const isManual = kpi.metric === "manual";
+          const isTodayDate = selectedDate === new Date().toISOString().slice(0, 10);
+          const isLocked = isManual && isTodayDate && (kpi as any).todayValue !== null && (kpi as any).todayValue !== undefined;
 
           // manual: progress = cumulative / monthly target
           // auto:   progress = today's value / daily target
@@ -1742,23 +1744,32 @@ function DailyTrackerTab({ profileId }: { profileId: number }) {
 
                 {isManual && (
                   <div className="flex items-center gap-2 pt-0.5">
-                    <Input
-                      type="number"
-                      min="0"
-                      value={logValues[kpi.id] ?? ""}
-                      onChange={e => setLogValues(v => ({ ...v, [kpi.id]: e.target.value }))}
-                      placeholder={`أضف قيمة اليوم (${kpi.unit})`}
-                      className="h-7 text-xs flex-1"
-                    />
-                    <Button
-                      size="sm"
-                      className="h-7 text-xs gap-1 shrink-0"
-                      disabled={saving[kpi.id] || !logValues[kpi.id]}
-                      onClick={() => handleSave(kpi)}
-                    >
-                      <Save className="w-3 h-3" />
-                      {saving[kpi.id] ? "..." : "أضف"}
-                    </Button>
+                    {isLocked ? (
+                      <div className="flex items-center gap-2 flex-1 h-7 px-2 rounded-md border border-border bg-muted/30 text-xs text-muted-foreground">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />
+                        <span>تم التسجيل اليوم — مقفل حتى الغد</span>
+                      </div>
+                    ) : (
+                      <>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={logValues[kpi.id] ?? ""}
+                          onChange={e => setLogValues(v => ({ ...v, [kpi.id]: e.target.value }))}
+                          placeholder={`أضف قيمة اليوم (${kpi.unit})`}
+                          className="h-7 text-xs flex-1"
+                        />
+                        <Button
+                          size="sm"
+                          className="h-7 text-xs gap-1 shrink-0"
+                          disabled={saving[kpi.id] || !logValues[kpi.id]}
+                          onClick={() => handleSave(kpi)}
+                        >
+                          <Save className="w-3 h-3" />
+                          {saving[kpi.id] ? "..." : "أضف"}
+                        </Button>
+                      </>
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -2542,7 +2553,8 @@ export function MyDashboardTab({ profileId, monthlySalary }: {
         .toLocaleDateString("ar-EG", { month: "long", year: "numeric" });
   const statusColor = overallScore === null ? "text-muted-foreground" : overallScore >= 80 ? "text-emerald-500" : overallScore >= 60 ? "text-amber-500" : "text-red-500";
   const statusBg    = overallScore === null ? "bg-muted/20 border-border" : overallScore >= 80 ? "bg-emerald-500/8 border-emerald-500/20" : overallScore >= 60 ? "bg-amber-500/8 border-amber-500/20" : "bg-red-500/8 border-red-500/20";
-  const statusLabel = overallScore === null ? "لا يوجد بيانات" : overallScore >= 90 ? "أداء استثنائي ⭐" : overallScore >= 80 ? "أداء ممتاز ✅" : overallScore >= 60 ? "أداء جيد 👍" : overallScore >= 40 ? "يحتاج تحسين ⚠️" : "أداء ضعيف — خطر ❌";
+  const isLast10Days = dayOfMonth >= daysInMonth - 9;
+  const statusLabel = overallScore === null ? "لا يوجد بيانات" : overallScore >= 90 ? "أداء استثنائي ⭐" : overallScore >= 80 ? "أداء ممتاز ✅" : overallScore >= 60 ? "أداء جيد 👍" : overallScore >= 40 ? "يحتاج تحسين ⚠️" : (viewMode === "monthly" && !isLast10Days) ? "يحتاج تحسين ⚠️" : "أداء ضعيف — خطر ❌";
 
   return (
     <div className="space-y-4 animate-in fade-in duration-300">
