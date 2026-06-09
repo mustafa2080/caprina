@@ -5020,25 +5020,25 @@ export default function TeamPage() {
           const totalDaysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
           const attPct = Math.min(100, Math.round((att.workedDays / Math.max(totalDaysInMonth, 1)) * 100));
 
-          // الأداء من listProfiles (overallScore محسوب في الـ backend من KPIs اليومية)
-          const perfScore: number | null = (profile as any).overallScore ?? null;
-          const perfRating = perfScore === null ? null : perfScore >= 90 ? "ممتاز" : perfScore >= 75 ? "جيد جداً" : perfScore >= 60 ? "جيد" : perfScore >= 40 ? "مقبول" : "ضعيف";
-          const perfColor = perfScore === null ? "text-muted-foreground" : perfScore >= 75 ? "text-emerald-400" : perfScore >= 50 ? "text-amber-400" : "text-red-400";
-          const perfBar   = perfScore === null ? "#6B7280" : perfScore >= 75 ? "#10B981" : perfScore >= 50 ? "#F59E0B" : "#EF4444";
+          // الأداء من listProfiles
+          const monthlyScore: number | null = (profile as any).overallScore ?? null;
+          const dailyScore:   number | null = (profile as any).dailyScore   ?? null;
+          const attScore:     number | null = (profile as any).attendanceScore ?? null;
           const monthProgress = Math.round((new Date().getDate() / totalDaysInMonth) * 100);
+
+          // helper: لون دايرة
+          const circleColor = (v: number | null) =>
+            v === null ? "#6B7280" : v >= 75 ? "#10B981" : v >= 50 ? "#F59E0B" : "#EF4444";
+          const circleText = (v: number | null) =>
+            v === null ? "text-muted-foreground" : v >= 75 ? "text-emerald-400" : v >= 50 ? "text-amber-400" : "text-red-400";
+
+          const perfRating = monthlyScore === null ? null : monthlyScore >= 90 ? "ممتاز" : monthlyScore >= 75 ? "جيد جداً" : monthlyScore >= 60 ? "جيد" : monthlyScore >= 40 ? "مقبول" : "ضعيف";
 
           // الصورة: أولوية لصورة الـ profile، ثم صورة الـ user من allUsers
           const linkedUser = isSystemUser ? allUsers.find((u: any) => u.id === (profile as any).userId) : null;
           const avatarSrc = profile.avatar || (linkedUser as any)?.avatar || null;
 
           // لون بناءً على نسبة الحضور
-          const attColor = att.workedDays === 0
-            ? { text: "text-muted-foreground", bar: "#6B7280", glow: "rgba(107,114,128,0.3)" }
-            : attPct >= 80
-            ? { text: "text-emerald-400", bar: "#10B981", glow: "rgba(16,185,129,0.35)" }
-            : attPct >= 50
-            ? { text: "text-amber-400", bar: "#F59E0B", glow: "rgba(245,158,11,0.35)" }
-            : { text: "text-red-400", bar: "#EF4444", glow: "rgba(239,68,68,0.35)" };
 
           return (
             <div
@@ -5115,47 +5115,8 @@ export default function TeamPage() {
                 </div>
 
                 {/* ── الإحصائيات ── */}
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  {/* الأداء الشهري */}
-                  <div className="rounded-xl p-3 bg-muted/40 dark:bg-white/[0.04] border border-border/60 dark:border-white/[0.07] flex flex-col items-center justify-center gap-1">
-                    {/* الدايرة */}
-                    {(() => {
-                      const r = 22, circ = 2 * Math.PI * r;
-                      const pct = perfScore ?? 0;
-                      const dash = (pct / 100) * circ;
-                      const gap = circ - dash;
-                      return (
-                        <div className="relative flex items-center justify-center">
-                          <svg width="60" height="60" viewBox="0 0 60 60" style={{ transform: "rotate(-90deg)" }}>
-                            <circle cx="30" cy="30" r={r} fill="none" stroke="rgba(128,128,128,0.15)" strokeWidth="5" />
-                            <circle cx="30" cy="30" r={r} fill="none" stroke={perfBar} strokeWidth="5"
-                              strokeDasharray={`${dash} ${gap}`} strokeLinecap="round"
-                              style={{ transition: "stroke-dasharray 0.5s ease" }} />
-                          </svg>
-                          <div className="absolute inset-0 flex flex-col items-center justify-center" style={{ transform: "none" }}>
-                            <span className={`text-xs font-black leading-none ${perfColor}`}>
-                              {perfScore !== null ? `${perfScore}%` : "—"}
-                            </span>
-                            <span className="text-[8px] text-muted-foreground/60 mt-0.5">أداؤك</span>
-                          </div>
-                        </div>
-                      );
-                    })()}
-                    <p className="text-[9px] text-muted-foreground/70 text-center leading-tight">
-                      {perfRating ?? "لا توجد بيانات"}
-                    </p>
-                    <div className="w-full">
-                      <div className="flex justify-between text-[8px] text-muted-foreground/50 mb-0.5">
-                        <span>تقدم الشهر</span>
-                        <span>{monthProgress}%</span>
-                      </div>
-                      <div className="w-full h-1 rounded-full bg-muted/60 dark:bg-white/[0.08]">
-                        <div className="h-1 rounded-full bg-primary/60 transition-all" style={{ width: `${monthProgress}%` }} />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* مؤشرات الأداء */}
+                <div className="space-y-3 mb-4">
+                  {/* صف مؤشرات الأداء */}
                   <div className="rounded-xl p-3 bg-muted/40 dark:bg-white/[0.04] border border-border/60 dark:border-white/[0.07]">
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-[10px] font-bold text-muted-foreground">مؤشرات الأداء</p>
@@ -5163,7 +5124,6 @@ export default function TeamPage() {
                         {kpiCount > 0 ? kpiCount : "—"}
                       </span>
                     </div>
-                    {/* نقاط المؤشرات */}
                     <div className="flex gap-1 flex-wrap">
                       {kpiCount > 0
                         ? Array.from({ length: Math.min(kpiCount, 6) }).map((_, i) => (
@@ -5172,13 +5132,60 @@ export default function TeamPage() {
                           ))
                         : <p className="text-[9px] text-muted-foreground/50">لم تُضف بعد</p>
                       }
-                      {kpiCount > 6 && (
-                        <span className="text-[9px] text-indigo-500 dark:text-indigo-400/70">+{kpiCount - 6}</span>
-                      )}
+                      {kpiCount > 6 && <span className="text-[9px] text-indigo-500 dark:text-indigo-400/70">+{kpiCount - 6}</span>}
                     </div>
                     <p className="text-[9px] mt-1 text-muted-foreground/70">
                       {kpiCount > 0 ? `${kpiCount} مؤشر نشط` : "أضف مؤشرات أداء"}
                     </p>
+                  </div>
+
+                  {/* 3 دوائر: دكتور / يومي / شهري */}
+                  {(() => {
+                    const circles = [
+                      { label: "دكتور", value: attScore },
+                      { label: "يومي",  value: dailyScore },
+                      { label: "شهري",  value: monthlyScore },
+                    ];
+                    const r = 18, circ = 2 * Math.PI * r;
+                    return (
+                      <div className="grid grid-cols-3 gap-2">
+                        {circles.map(({ label, value }) => {
+                          const pct = value ?? 0;
+                          const dash = (pct / 100) * circ;
+                          const color = circleColor(value);
+                          const textCls = circleText(value);
+                          return (
+                            <div key={label} className="rounded-xl p-2 bg-muted/40 dark:bg-white/[0.04] border border-border/60 dark:border-white/[0.07] flex flex-col items-center gap-1">
+                              <div className="relative flex items-center justify-center">
+                                <svg width="48" height="48" viewBox="0 0 48 48" style={{ transform: "rotate(-90deg)" }}>
+                                  <circle cx="24" cy="24" r={r} fill="none" stroke="rgba(128,128,128,0.15)" strokeWidth="4" />
+                                  <circle cx="24" cy="24" r={r} fill="none" stroke={color} strokeWidth="4"
+                                    strokeDasharray={`${dash} ${circ - dash}`} strokeLinecap="round"
+                                    style={{ transition: "stroke-dasharray 0.5s ease" }} />
+                                </svg>
+                                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                  <span className={`text-[10px] font-black leading-none ${textCls}`}>
+                                    {value !== null ? `${value}%` : "—"}
+                                  </span>
+                                </div>
+                              </div>
+                              <span className="text-[9px] text-muted-foreground/70 font-medium">{label}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+
+                  {/* تقدم الشهر */}
+                  <div>
+                    <div className="flex justify-between text-[8px] text-muted-foreground/50 mb-0.5">
+                      <span>تقدم الشهر</span>
+                      <span>{monthProgress}%</span>
+                    </div>
+                    <div className="w-full h-1 rounded-full bg-muted/60 dark:bg-white/[0.08]">
+                      <div className="h-1 rounded-full bg-primary/60 transition-all" style={{ width: `${monthProgress}%` }} />
+                    </div>
                   </div>
                 </div>
 
