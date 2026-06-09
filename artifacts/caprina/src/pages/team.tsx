@@ -2507,29 +2507,7 @@ export function MyDashboardTab({ profileId, monthlySalary }: {
       : Math.round(scored.reduce((s: number, k: any) => s + Math.min(k.score, 100), 0) / scored.length);
   })();
 
-  // ── يومي: أداء اليوم فقط (todayValue) vs هدف يوم واحد ──
-  const todayOnlyScore = (() => {
-    const dayOfMonth = new Date().getDate();
-    const scored = dailyKpis
-      .filter((k: any) => k.todayValue !== null && k.todayValue !== undefined && Number.isFinite(k.todayValue))
-      .map((k: any) => {
-        const todayTarget = k.metric === "manual"
-          ? Math.max(1, Math.round((k.targetValue / 30)))   // هدف يوم واحد ثابت
-          : Math.max(1, Math.round(k.targetValue / 30));
-        let score: number;
-        if (k.direction === "lower_is_better") {
-          score = k.todayValue <= todayTarget ? 100 : Math.max(0, Math.round((todayTarget / k.todayValue) * 100));
-        } else {
-          score = Math.min(100, Math.round((k.todayValue / todayTarget) * 100));
-        }
-        return { score, weight: k.weight ?? 1 };
-      });
-    if (scored.length === 0) return null;
-    const totalW = scored.reduce((s: number, k: any) => s + k.weight, 0);
-    return totalW > 0
-      ? Math.round(scored.reduce((s: number, k: any) => s + k.score * k.weight, 0) / totalW)
-      : Math.round(scored.reduce((s: number, k: any) => s + k.score, 0) / scored.length);
-  })();
+
 
   const prevMonthDate = new Date();
   prevMonthDate.setMonth(prevMonthDate.getMonth() - 1);
