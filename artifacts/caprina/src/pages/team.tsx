@@ -4711,7 +4711,7 @@ function EmployeeDetail({
                 </div>
               </div>
               {/* زرار تعديل */}
-              {isAdmin && (
+              {canManage && (
                 <Button variant="outline" size="icon"
                   className="shrink-0 rounded-xl h-9 w-9 border-border/60 hover:border-primary/50 hover:bg-primary/5"
                   onClick={() => setProfileOpen(true)}>
@@ -4810,7 +4810,7 @@ function EmployeeDetail({
             <div className="rounded-xl border border-dashed border-border/50 bg-muted/10 px-4 py-8 text-center">
               <Users className="w-10 h-10 mx-auto mb-2 opacity-20" />
               <p className="text-sm text-muted-foreground">لم يتم إنشاء ملف شخصي بعد</p>
-              {isAdmin && (
+              {canManage && (
                 <Button size="sm" className="mt-3 text-xs" onClick={() => setProfileOpen(true)}>
                   إنشاء ملف شخصي
                 </Button>
