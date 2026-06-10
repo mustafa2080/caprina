@@ -1808,7 +1808,7 @@ function SettlementCard({ manifest, onSaved }: { manifest: ShippingManifestDetai
         <div className="bg-card rounded-md p-3 border border-border">
           <p className="text-[10px] text-muted-foreground mb-1">إجمالي المسلَّم</p>
           <p className="text-base font-black text-emerald-600 dark:text-emerald-400">{formatCurrency(deliveredTotal)}</p>
-          <p className="text-[10px] text-emerald-700 dark:text-emerald-600">{s.delivered} طلبية</p>
+          <p className="text-[10px] text-emerald-700 dark:text-emerald-600">{s.delivered + groupedPartialCount} طلبية</p>
         </div>
         <div className={`bg-card rounded-md p-3 border ${hasManualCost ? "border-amber-500/40" : effectiveShippingCost === 0 ? "border-dashed border-amber-500/40" : "border-border"}`}>
           <div className="flex items-center justify-between mb-1">
