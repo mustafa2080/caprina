@@ -234,8 +234,13 @@ export default function ShippingCompanyDetailPage() {
           </Card>
           <Card className="border-emerald-900/40 bg-emerald-900/10 p-3 text-center">
             <p className="text-[10px] text-emerald-400 mb-0.5">مُسلَّم</p>
-            <p className="text-2xl font-black text-emerald-400">{stats.delivered}</p>
-            <p className="text-[10px] text-emerald-600">{stats.deliveryRate}% تسليم</p>
+            <p className="text-2xl font-black text-emerald-400">{stats.delivered + ((stats as any).partial ?? 0)}</p>
+            <p className="text-[10px] text-emerald-600">
+              {stats.deliveryRate}% تسليم
+              {((stats as any).partial ?? 0) > 0 && (
+                <span className="text-amber-500 mr-1">({(stats as any).partial} جزئي)</span>
+              )}
+            </p>
           </Card>
           <Card className="border-red-900/40 bg-red-900/10 p-3 text-center">
             <p className="text-[10px] text-red-400 mb-0.5">مُرتجَع</p>

@@ -3401,7 +3401,7 @@ export default function ShippingManifestPage() {
   const groupedTotalCount = groupedManifestOrders.length;
   const groupedCompletedCount = groupedDeliveredCount + groupedPartialCount;
   const groupedDeliveryRate = groupedTotalCount > 0 ? Math.round((groupedCompletedCount / groupedTotalCount) * 100) : 0;
-  const screenDeliveryRate = groupedTotalCount > 0 ? Math.round((groupedDeliveredCount / groupedTotalCount) * 100) : 0;
+  const screenDeliveryRate = groupedTotalCount > 0 ? Math.round((groupedCompletedCount / groupedTotalCount) * 100) : 0;
   const groupedPendingOrders = groupedPendingCount;
 
   const statusLabel = (st: DeliveryStatus) => {
@@ -3714,9 +3714,12 @@ export default function ShippingManifestPage() {
           <p className="text-xs text-emerald-400 mb-1 flex items-center gap-1">
             <CheckCircle2 className="w-3 h-3" />مُسلَّم
           </p>
-          <p className="text-2xl font-black text-emerald-400">{groupedDeliveredCount}</p>
+          <p className="text-2xl font-black text-emerald-400">{groupedDeliveredCount + groupedPartialCount}</p>
           <p className="text-xs text-emerald-600 mt-0.5 font-bold">
             {screenDeliveryRate}% نسبة التسليم
+            {groupedPartialCount > 0 && (
+              <span className="text-teal-500 mr-1">({groupedPartialCount} جزئي)</span>
+            )}
           </p>
         </Card>
         <Card className="border-red-900/50 bg-red-900/10 p-4">
