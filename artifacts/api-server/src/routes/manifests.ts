@@ -238,9 +238,11 @@ function computeStats(orders: OrderWithDelivery[]) {
     } else if (isPartial) {
       // أي طلب partial_received عنده partialQuantity → احسب إيراد القطع اللي اتستلمت
       const deliveredQty = o.partialQuantity != null ? Number(o.partialQuantity) : 0;
+      console.log(`[computeStats] partial order ${o.id}: partialQty=${deliveredQty}, unitPrice=${(o as any).unitPrice}, totalPrice=${o.totalPrice}, qty=${o.quantity}`);
       if (deliveredQty > 0) {
         const unitPrice = Number((o as any).unitPrice ?? 0) || (o.quantity > 0 ? o.totalPrice / o.quantity : 0);
         const revenue = unitPrice * deliveredQty;
+        console.log(`[computeStats] partial order ${o.id}: unitPrice=${unitPrice}, revenue=${revenue}`);
         totalRevenue += revenue; deliveredGross += revenue;
         totalCost += (o.costPrice ?? 0) * deliveredQty;
         totalShippingCost += shipping;
