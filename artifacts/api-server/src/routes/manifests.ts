@@ -83,14 +83,12 @@ async function createFinancialInvoiceOnClose(
       grossRevenue += Number(o.totalPrice);
       shippingFees += shipping;
     } else if (isPartial) {
-      // rv = 0  → البيان الأول: إيراد على القطع اللي اتستلمت فعلاً
-      // rv = null → بيان مرحّل: القطعة لسه عند الشحن → إيراد صفر تماماً
-      if (Number((o as any).returnReceived) === 0) {
-        const deliveredQty = o.partialQuantity != null ? Number(o.partialQuantity) : 0;
-        if (deliveredQty > 0) {
-          grossRevenue += Number((o as any).unitPrice ?? 0) * deliveredQty;
-          shippingFees += shipping;
-        }
+      // أي طلب partial_received عنده partialQuantity → احسب إيراد القطع اللي اتستلمت
+      const deliveredQty = o.partialQuantity != null ? Number(o.partialQuantity) : 0;
+      if (deliveredQty > 0) {
+        const unitPrice = Number((o as any).unitPrice ?? 0) || (o.quantity > 0 ? Number(o.totalPrice) / Number(o.quantity) : 0);
+        grossRevenue += unitPrice * deliveredQty;
+        shippingFees += shipping;
       }
     } else if (o.deliveryStatus === "returned") {
       // مرتجع كامل → خسارة تكلفة الشحن فقط
@@ -238,18 +236,15 @@ function computeStats(orders: OrderWithDelivery[]) {
       totalShippingCost += shipping; deliveredGross += o.totalPrice;
 
     } else if (isPartial) {
-      // rv = 0  → البيان الأول: المستخدم سجّل استلام جزئي → إيراد على القطع اللي اتستلمت
-      // rv = null → بيان مرحّل: القطعة لسه عند الشحن → إيراد صفر
-      if (rv === 0) {
-        const deliveredQty = o.partialQuantity != null ? Number(o.partialQuantity) : 0;
-        if (deliveredQty > 0) {
-          const revenue = Number((o as any).unitPrice ?? 0) * deliveredQty;
-          totalRevenue += revenue; deliveredGross += revenue;
-          totalCost += (o.costPrice ?? 0) * deliveredQty;
-          totalShippingCost += shipping;
-        }
+      // أي طلب partial_received عنده partialQuantity → احسب إيراد القطع اللي اتستلمت
+      const deliveredQty = o.partialQuantity != null ? Number(o.partialQuantity) : 0;
+      if (deliveredQty > 0) {
+        const unitPrice = Number((o as any).unitPrice ?? 0) || (o.quantity > 0 ? o.totalPrice / o.quantity : 0);
+        const revenue = unitPrice * deliveredQty;
+        totalRevenue += revenue; deliveredGross += revenue;
+        totalCost += (o.costPrice ?? 0) * deliveredQty;
+        totalShippingCost += shipping;
       }
-      // الجزء الباقي (أو كله لو مرحّل) — محسوب بالفعل في loop الفواتير
 
     } else if (o.deliveryStatus === "returned") {
       // مرتجع كامل → خسارة شحن فقط — المرتجع مش "لسه عند الشحن"
