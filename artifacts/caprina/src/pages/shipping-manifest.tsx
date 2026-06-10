@@ -1767,6 +1767,7 @@ function SettlementCard({ manifest, onSaved }: { manifest: ShippingManifestDetai
   const effectiveShippingCost = manifest.manualShippingCost ?? s.totalShippingCost;
   const hasManualCost = manifest.manualShippingCost != null;
 
+  const settlementPartialCount = manifest.orders.filter(o => o.deliveryStatus === "partial_received").length;
   const deliveredTotal = s.deliveredGross;
   // صافي الربح الحقيقي = إجمالي الإيرادات − تكلفة البضاعة − تكلفة الشحن − خسائر الإرجاع
   const netProfit = s.totalRevenue - s.totalCost - effectiveShippingCost - s.returnLosses;
@@ -1808,7 +1809,7 @@ function SettlementCard({ manifest, onSaved }: { manifest: ShippingManifestDetai
         <div className="bg-card rounded-md p-3 border border-border">
           <p className="text-[10px] text-muted-foreground mb-1">إجمالي المسلَّم</p>
           <p className="text-base font-black text-emerald-600 dark:text-emerald-400">{formatCurrency(deliveredTotal)}</p>
-          <p className="text-[10px] text-emerald-700 dark:text-emerald-600">{s.delivered + groupedPartialCount} طلبية</p>
+          <p className="text-[10px] text-emerald-700 dark:text-emerald-600">{s.delivered + settlementPartialCount} طلبية</p>
         </div>
         <div className={`bg-card rounded-md p-3 border ${hasManualCost ? "border-amber-500/40" : effectiveShippingCost === 0 ? "border-dashed border-amber-500/40" : "border-border"}`}>
           <div className="flex items-center justify-between mb-1">
