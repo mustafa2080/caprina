@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "wouter";
 import { format } from "date-fns";
-import { Search, Filter, Plus, Package, CalendarDays, X, RotateCcw, MessageCircle, Trash2, CheckSquare, RefreshCw, ChevronUp, ChevronDown, Download, FileText } from "lucide-react";
+import { Search, Filter, Plus, Package, CalendarDays, X, RotateCcw, MessageCircle, Trash2, CheckSquare, RefreshCw, ChevronUp, ChevronDown, Download, FileText, Clock, ClipboardCheck, PackageCheck, Truck, MapPin, CheckCircle2, ShieldAlert, Undo2, Ban, Layers } from "lucide-react";
 import { useUpdateOrder } from "@workspace/api-client-react";
 import type { UpdateOrderBodyStatus } from "@workspace/api-zod";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
@@ -54,6 +54,16 @@ const STATUS_OPTIONS = [
   { value: "returned",         label: "مرتجع",                  color: "text-red-500" },
   { value: "partial_received", label: "استلم جزئي",             color: "text-purple-500" },
 ];
+
+const STATUS_ICONS: Record<string, React.ElementType> = {
+  pending:          Clock,
+  warehouse_ready:  PackageCheck,
+  in_shipping:      Truck,
+  received:         CheckCircle2,
+  delayed:          ShieldAlert,
+  returned:         Undo2,
+  partial_received: Layers,
+};
 
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(amount);
@@ -920,8 +930,119 @@ export default function Orders() {
               })}
             </div>
 
-            {/* ── Desktop ── */}
-            <div className="hidden sm:block overflow-x-auto">
+            {/* ── Desktop Cards ── */}
+            <div className="hidden sm:block p-3">
+              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
+              {displayRows.map((order, rowIndex) => {
+                const retReason  = (order as any).returnReason as string | null;
+                const retNote    = (order as any).returnNote   as string | null;
+                const isGroup = !!(order as any)._groupCount && (order as any)._groupCount > 1;
+                const waStatuses = new Set(["pending","warehouse_ready","in_shipping","delayed"]);
+                const groupStatuses: string[] = (order as any)._groupStatuses ?? [order.status];
+                const canWhatsApp = canWriteOrders && !bulkSelectMode && groupStatuses.some(s => waStatuses.has(s));
+                const isSelected  = isGroupSelected(order);
+                const groupCount = (order as any)._groupCount as number | undefined;
+                const navTarget = `/orders/${order.id}`;
+                const StatusIcon = STATUS_ICONS[order.status] || Package;
+                const pq = (order as any).partialQuantity as number | null | undefined;
+                const qty = (order as any).quantity as number | undefined;
+                const rr = (order as any).returnReceived as 0 | 1 | null | undefined;
+                const dn = (order as any).delayNote as string | null | undefined;
+                return (
+                  <div
+                    key={order.id}
+                    className={`relative rounded-xl border border-border bg-card hover:bg-muted/20 cursor-pointer transition-all duration-200 hover:shadow-md hover:border-primary/30 ${isSelected ? "border-primary/50 bg-primary/5 ring-1 ring-primary/20" : ""}`}
+                    style={{ animation: "rowFadeIn 0.3s ease both", animationDelay: `${Math.min(rowIndex * 35, 600)}ms` }}
+                    onClick={() => canWriteOrders && bulkSelectMode ? toggleSelect(order) : (window.location.href = navTarget)}
+                  >
+                    {/* Top strip: رقم + تاريخ + checkbox */}
+                    <div className="flex items-center justify-between px-4 pt-3 pb-1">
+                      <div className="flex items-center gap-2">
+                        {canWriteOrders && bulkSelectMode && (
+                          <Checkbox checked={isSelected} onCheckedChange={() => toggleSelect(order)} onClick={e => e.stopPropagation()} className="shrink-0" />
+                        )}
+                        <span className="font-mono text-xs font-bold text-primary">#{order.id.toString().padStart(4,"0")}</span>
+                        {isGroup && groupCount && (
+                          <span className="text-[9px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">{groupCount} منتجات</span>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-muted-foreground">{format(new Date(order.createdAt), "yyyy/MM/dd")}</span>
+                    </div>
+
+                    {/* Main: اسم + منتج */}
+                    <div className="px-4 pb-2">
+                      <p className="font-bold text-sm text-foreground truncate">{order.customerName}</p>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <span className="text-xs text-muted-foreground truncate">{order.product}</span>
+                        {((order as any).color || (order as any).size) && (
+                          <span className="text-[10px] text-primary/70 font-semibold shrink-0">
+                            {(order as any).color}{(order as any).color && (order as any).size ? "/" : ""}{(order as any).size}
+                          </span>
+                        )}
+                        {!isGroup && <span className="text-[10px] text-muted-foreground shrink-0">×{order.quantity}</span>}
+                      </div>
+                    </div>
+
+                    {/* Bottom: status + مبلغ + واتساب */}
+                    <div className="flex items-center justify-between px-4 pb-3 pt-1 border-t border-border/50 mt-1">
+                      {/* Status badge */}
+                      <div className="flex flex-col gap-1">
+                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusClasses[order.status] || ""}`}>
+                          <StatusIcon className="w-3 h-3" />
+                          {statusLabels[order.status] || order.status}
+                        </span>
+                        {order.status === "warehouse_ready" && (
+                          <span className="text-[9px] font-bold text-amber-500 dark:text-amber-400">🏠 ما زال في المخزن</span>
+                        )}
+                        {order.status === "returned" && rr === 0 && (
+                          <span className="text-[9px] font-bold text-orange-500">⏳ عند شركة الشحن</span>
+                        )}
+                        {order.status === "delayed" && dn && (
+                          <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400">⏸ {dn}</span>
+                        )}
+                        {order.status === "partial_received" && (
+                          <span className="text-[9px] font-bold text-teal-600 dark:text-teal-400">
+                            {pq != null && qty != null ? `✓ استُلم ${pq} من ${qty}` : ""}
+                          </span>
+                        )}
+                        {order.status === "returned" && retReason && (
+                          <span className="text-[9px] text-red-500">
+                            {retReason === "other" && retNote ? retNote : returnReasonLabel(retReason)}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {canFinancials && (
+                          <span className="font-bold text-sm text-primary">
+                            {order.status === "partial_received" && (order as any)._receivedPrice != null
+                              ? <>{formatCurrency((order as any)._receivedPrice)}<span className="line-through text-muted-foreground font-normal text-[9px] mr-1">{formatCurrency(order.totalPrice)}</span></>
+                              : formatCurrency(order.totalPrice)}
+                          </span>
+                        )}
+                        {canWhatsApp && (
+                          <button className="w-8 h-8 rounded-full text-green-500 hover:bg-green-500/10 flex items-center justify-center transition-colors" onClick={(e) => handleWhatsApp(e, order)}>
+                            <MessageCircle className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Creator tag */}
+                    {(order as any).createdByName && (
+                      <div className="absolute top-3 left-4">
+                        <span className="inline-flex items-center gap-1 bg-muted px-1.5 py-0.5 rounded-full text-[9px] text-muted-foreground font-medium">
+                          👤 {(order as any).createdByName}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              </div>
+            </div>
+            {/* ── Desktop Table (hidden - replaced by cards) ── */}
+            <div className="hidden">
               <Table>
                 <TableHeader>
                   <TableRow className="border-border hover:bg-transparent">
