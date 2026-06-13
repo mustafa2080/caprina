@@ -1271,10 +1271,11 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
         const productImg = products.find((p: any) => p.name === o.product)?.image ?? null;
         const hasCost = (o.costPrice ?? 0) > 0;
         const qty = o.status === "partial_received" && o.partialQuantity ? o.partialQuantity : o.quantity;
-        const shipping = Math.abs(o.shippingCost ?? 0);
-        const revenue = qty * (o.unitPrice ?? 0) + shipping;
+        // الشحن على مستوى الفاتورة كلها (من primaryOrder) مش كل منتج على حدة
+        const shipping = orders.length === 1 ? Math.abs(o.shippingCost ?? 0) : 0;
+        const revenue = qty * (o.unitPrice ?? 0);
         const cost = qty * (o.costPrice ?? 0);
-        const netProfit = revenue - cost - shipping;
+        const netProfit = revenue - cost;
         const margin = revenue > 0 ? Math.round((netProfit / revenue) * 100) : 0;
         const isRet = o.status === "returned";
 
@@ -2265,7 +2266,8 @@ export default function OrderDetail() {
 
     const totalQty = printOrders.reduce((s: number, o: any) => s + (o.quantity ?? 0), 0);
     const invoiceTotal = printOrders.reduce((s: number, o: any) => s + (o.totalPrice ?? 0), 0);
-    const shippingCostTotal = printOrders.reduce((s: number, o: any) => s + Math.abs(o.shippingCost ?? 0), 0);
+    // الشحن مرة واحدة على مستوى الفاتورة من أول منتج فقط
+    const shippingCostTotal = Math.abs(printOrders[0]?.shippingCost ?? 0);
 
     // حساب الربحية
     const hasCost = printOrders.some((o: any) => (o.costPrice ?? 0) > 0);
@@ -4003,13 +4005,14 @@ tr.row-returned td{color:#aaa;text-decoration:line-through}
           {canViewProfitability && (() => {
             if (invoiceOrders.length > 1) {
               const allOrders = invoiceOrders as any[];
-              let totalRevenue = 0, totalCost = 0, totalShipping = 0;
+              let totalRevenue = 0, totalCost = 0;
               let hasAnyLost = false, hasAnyReturnedToStock = false, hasCostData = false;
+              // الشحن على مستوى الفاتورة مرة واحدة فقط من primaryOrder
+              const totalShipping = Math.abs((allOrders[0] as any)?.shippingCost ?? 0);
               for (const o of allOrders) {
                 const cp = (o as any).costPrice as number | null;
                 if (!cp) continue;
                 hasCostData = true;
-                const sc = Math.abs((o as any).shippingCost ?? 0);
                 const isRet = o.status === "returned";
                 const retRec = (o as any).returnReceived;
                 const toStock = isRet && (retRec === 1 || retRec === true);
@@ -4019,7 +4022,6 @@ tr.row-returned td{color:#aaa;text-decoration:line-through}
                 if (toStock) hasAnyReturnedToStock = true;
                 totalRevenue += isRet ? 0 : qty2 * (o.unitPrice ?? 0);
                 totalCost += toStock ? 0 : qty2 * cp;
-                totalShipping += sc;
               }
               if (!hasCostData) return null;
               const np = totalRevenue - totalCost - totalShipping;
