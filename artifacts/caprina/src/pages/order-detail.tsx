@@ -1563,7 +1563,7 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
               const hasCost = orders.some(o => (o.costPrice ?? 0) > 0);
               if (!hasCost) return null;
               let totalRevenue = 0, totalCost = 0, hasReturn = false, allReturned = true;
-              const totalShipping = Math.abs(primaryOrder?.shippingCost ?? 0);
+              const totalShipping = orders.reduce((s, o) => s + Math.abs((o as any).shippingCost ?? 0), 0);
               for (const o of orders) {
                 const qty = o.status === "partial_received" && o.partialQuantity ? o.partialQuantity : o.quantity;
                 const isRet = o.status === "returned";
@@ -4007,8 +4007,8 @@ tr.row-returned td{color:#aaa;text-decoration:line-through}
               const allOrders = invoiceOrders as any[];
               let totalRevenue = 0, totalCost = 0;
               let hasAnyLost = false, hasAnyReturnedToStock = false, hasCostData = false;
-              // الشحن على مستوى الفاتورة مرة واحدة فقط من primaryOrder
-              const totalShipping = Math.abs((allOrders[0] as any)?.shippingCost ?? 0);
+              // الشحن = مجموع كل الشحن من كل المنتجات (يشمل البيانات القديمة المقسّمة والجديدة)
+              const totalShipping = allOrders.reduce((s: number, o: any) => s + Math.abs(o.shippingCost ?? 0), 0);
               for (const o of allOrders) {
                 const cp = (o as any).costPrice as number | null;
                 if (!cp) continue;
