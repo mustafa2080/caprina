@@ -45,14 +45,17 @@ const formatCurrency = (n: number) =>
 
 export function applyTemplate(templateBody: string, order: WhatsAppOrderData): string {
   const shipping = Math.abs(order.shippingCost ?? 0);
-  const totalWithShipping = order.totalPrice + shipping;
+  // totalPrice هو الإجمالي الكلي (شامل الشحن) — لا نضيف الشحن مرة ثانية
+  const total = order.totalPrice;
+  // سعر المنتج بدون شحن
+  const productPrice = total - shipping;
   return templateBody
     .replace(/\{customerName\}/g, order.customerName)
     .replace(/\{orderNumber\}/g, order.id.toString().padStart(4, "0"))
     .replace(/\{product\}/g, order.product)
     .replace(/\{quantity\}/g, String(order.quantity))
-    .replace(/\{amount\}/g, formatCurrency(totalWithShipping))
-    .replace(/\{productPrice\}/g, formatCurrency(order.totalPrice))
+    .replace(/\{amount\}/g, formatCurrency(total))
+    .replace(/\{productPrice\}/g, formatCurrency(productPrice > 0 ? productPrice : total))
     .replace(/\{shippingCost\}/g, shipping > 0 ? formatCurrency(shipping) : "—")
     .replace(/\{status\}/g, order.status);
 }
