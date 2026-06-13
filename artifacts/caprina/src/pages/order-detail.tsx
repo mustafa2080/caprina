@@ -1272,10 +1272,10 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
         const hasCost = (o.costPrice ?? 0) > 0;
         const qty = o.status === "partial_received" && o.partialQuantity ? o.partialQuantity : o.quantity;
         // الشحن على مستوى الفاتورة كلها (من primaryOrder) مش كل منتج على حدة
-        const shipping = orders.length === 1 ? Math.abs(o.shippingCost ?? 0) : 0;
-        const revenue = qty * (o.unitPrice ?? 0);
+        const shipping = Math.abs(o.shippingCost ?? 0);
+        const revenue = qty * (o.unitPrice ?? 0) + shipping;
         const cost = qty * (o.costPrice ?? 0);
-        const netProfit = revenue - cost;
+        const netProfit = revenue - cost - shipping;
         const margin = revenue > 0 ? Math.round((netProfit / revenue) * 100) : 0;
         const isRet = o.status === "returned";
 
