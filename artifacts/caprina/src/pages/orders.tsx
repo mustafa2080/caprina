@@ -487,6 +487,7 @@ export default function Orders() {
         product: order.product,
         quantity: order.quantity,
         totalPrice: order.totalPrice,
+        shippingCost: order.shippingCost,
         status: order.status,
         phone: order.phone,
       });

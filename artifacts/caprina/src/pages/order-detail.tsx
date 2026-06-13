@@ -4195,7 +4195,7 @@ tr.row-returned td{color:#aaa;text-decoration:line-through}
         <WhatsAppDialog
           open={showWaDialog}
           onOpenChange={setShowWaDialog}
-          order={{ id: order.id, customerName: order.customerName, product: order.product, quantity: order.quantity, totalPrice: order.totalPrice, status: order.status, phone: order.phone }}
+          order={{ id: order.id, customerName: order.customerName, product: order.product, quantity: order.quantity, totalPrice: order.totalPrice, shippingCost: orders.reduce((s, o) => s + Math.abs((o as any).shippingCost ?? 0), 0), status: order.status, phone: order.phone }}
           onSent={handleWaSent}
         />
       )}

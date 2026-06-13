@@ -16,6 +16,7 @@ export interface WhatsAppOrderData {
   product: string;
   quantity: number;
   totalPrice: number;
+  shippingCost?: number | null;
   status: string;
   phone?: string | null;
 }
@@ -43,12 +44,16 @@ const formatCurrency = (n: number) =>
   new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(n);
 
 export function applyTemplate(templateBody: string, order: WhatsAppOrderData): string {
+  const shipping = Math.abs(order.shippingCost ?? 0);
+  const totalWithShipping = order.totalPrice + shipping;
   return templateBody
     .replace(/\{customerName\}/g, order.customerName)
     .replace(/\{orderNumber\}/g, order.id.toString().padStart(4, "0"))
     .replace(/\{product\}/g, order.product)
     .replace(/\{quantity\}/g, String(order.quantity))
-    .replace(/\{amount\}/g, formatCurrency(order.totalPrice))
+    .replace(/\{amount\}/g, formatCurrency(totalWithShipping))
+    .replace(/\{productPrice\}/g, formatCurrency(order.totalPrice))
+    .replace(/\{shippingCost\}/g, shipping > 0 ? formatCurrency(shipping) : "—")
     .replace(/\{status\}/g, order.status);
 }
 
