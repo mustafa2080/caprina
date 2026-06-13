@@ -1271,9 +1271,9 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
         const productImg = products.find((p: any) => p.name === o.product)?.image ?? null;
         const hasCost = (o.costPrice ?? 0) > 0;
         const qty = o.status === "partial_received" && o.partialQuantity ? o.partialQuantity : o.quantity;
-        const revenue = qty * (o.unitPrice ?? 0);
-        const cost = qty * (o.costPrice ?? 0);
         const shipping = Math.abs(o.shippingCost ?? 0);
+        const revenue = qty * (o.unitPrice ?? 0) + shipping;
+        const cost = qty * (o.costPrice ?? 0);
         const netProfit = revenue - cost - shipping;
         const margin = revenue > 0 ? Math.round((netProfit / revenue) * 100) : 0;
         const isRet = o.status === "returned";
@@ -1561,7 +1561,8 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
             {canViewProfitability && (() => {
               const hasCost = orders.some(o => (o.costPrice ?? 0) > 0);
               if (!hasCost) return null;
-              let totalRevenue = 0, totalCost = 0, totalShipping = 0, hasReturn = false, allReturned = true;
+              let totalRevenue = 0, totalCost = 0, hasReturn = false, allReturned = true;
+              const totalShipping = Math.abs(primaryOrder?.shippingCost ?? 0);
               for (const o of orders) {
                 const qty = o.status === "partial_received" && o.partialQuantity ? o.partialQuantity : o.quantity;
                 const isRet = o.status === "returned";
@@ -1569,8 +1570,8 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
                 if (isRet) { hasReturn = true; } else { allReturned = false; }
                 if (!isRet) totalRevenue += qty * o.unitPrice;
                 if (!retToStock) totalCost += qty * (o.costPrice ?? 0);
-                totalShipping += Math.abs(o.shippingCost ?? 0);
               }
+              totalRevenue += totalShipping;
               const netProfit = totalRevenue - totalCost - totalShipping;
               const margin = totalRevenue > 0 ? Math.round((netProfit / totalRevenue) * 100) : 0;
               const isPositive = netProfit >= 0;
