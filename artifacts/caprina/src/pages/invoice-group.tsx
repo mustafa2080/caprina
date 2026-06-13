@@ -1213,17 +1213,18 @@ export default function InvoiceGroup() {
         for (const o of orders) {
           const qty = o.status === "partial_received" && o.partialQuantity ? o.partialQuantity : o.quantity;
           const cp = o.costPrice ?? 0;
-          const sc = Math.abs(o.shippingCost ?? 0);
           const isRet = o.status === "returned";
           const retToStock = isRet && (o.returnReceived === 1 || o.returnReceived === true);
 
           if (isRet) { hasReturn = true; }
           else { allReturned = false; }
 
-          if (!isRet) totalRevenue += (o.unitPrice != null ? qty * o.unitPrice : o.totalPrice) + sc;
+          if (!isRet) totalRevenue += (o.unitPrice != null ? qty * o.unitPrice : o.totalPrice);
           if (!retToStock) totalCost += qty * cp;
-          totalShipping += sc;
         }
+
+        totalShipping = Math.abs(rep.shippingCost ?? 0);
+        totalRevenue += totalShipping;
 
         const netProfit = totalRevenue - totalCost - totalShipping;
         const margin = totalRevenue > 0 ? Math.round((netProfit / totalRevenue) * 100) : 0;
