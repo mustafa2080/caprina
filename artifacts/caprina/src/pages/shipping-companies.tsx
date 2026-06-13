@@ -598,7 +598,7 @@ export function CreateManifestDialog({
                       </div>
                       {/* Price */}
                       <div className="text-left text-xs font-bold">
-                        {formatCurrency(order.totalPrice)}
+                        {formatCurrency((order.totalPrice ?? 0) + Math.abs(order.shippingCost ?? 0))}
                       </div>
                       {/* Assigned company */}
                       <div>
