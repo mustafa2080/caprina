@@ -799,7 +799,11 @@ router.get("/orders/by-invoice/:invoiceNumber", async (req, res): Promise<void> 
   const { invoiceNumber } = req.params;
   if (!invoiceNumber) { res.status(400).json({ error: "invoiceNumber ┘à╪╖┘┘ê╪ذ" }); return; }
   const orders = await db.select().from(ordersTable).where(and(eq(ordersTable.invoiceNumber, invoiceNumber), isNull(ordersTable.deletedAt))).orderBy(ordersTable.id);
-  res.json(orders);
+  // اجمع كل تكاليف الشحن من كل المنتجات وضعها على أول منتج فقط (الباقي صفر)
+  // هذا يصلح البيانات القديمة (شحن مقسوم) والجديدة (شحن على المنتج الأول) معاً
+  const totalShipping = orders.reduce((s, o) => s + Math.abs((o.shippingCost as number) ?? 0), 0);
+  const normalized = orders.map((o, i) => ({ ...o, shippingCost: i === 0 ? totalShipping : 0 }));
+  res.json(normalized);
 });
 
 // ظ¤ظ¤ظ¤ Get order manifest status ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
