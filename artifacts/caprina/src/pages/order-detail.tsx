@@ -1572,7 +1572,6 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
                 if (!isRet) totalRevenue += qty * o.unitPrice;
                 if (!retToStock) totalCost += qty * (o.costPrice ?? 0);
               }
-              totalRevenue += totalShipping;
               const netProfit = totalRevenue - totalCost - totalShipping;
               const margin = totalRevenue > 0 ? Math.round((netProfit / totalRevenue) * 100) : 0;
               const isPositive = netProfit >= 0;
