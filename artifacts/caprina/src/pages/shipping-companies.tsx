@@ -32,6 +32,7 @@ type OrderRow = {
   id: number; customerName: string; phone: string | null;
   product: string; color: string | null; size: string | null;
   quantity: number; totalPrice: number; status: string;
+  shippingCost: number | null;
   shippingCompanyId: number | null; createdAt: string;
   invoiceNumber: string | null;
   _groupIds?: number[];
