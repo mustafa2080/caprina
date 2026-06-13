@@ -65,10 +65,11 @@ const fmtDate = (d: string | null)   => d
 // ── تصدير Excel ──────────────────────────────────────────────────────────
 async function exportToExcel(order: SaleOrder) {
   const fmtDate2 = (d: string | null) => d ? new Date(d).toLocaleDateString("ar-EG") : "—";
-  const total    = parseFloat(order.totalAmount    ?? "0");
+  const subtotal = parseFloat(order.totalAmount    ?? "0");
   const paid     = parseFloat(order.paidAmount     ?? "0");
   const discount = parseFloat(order.discountAmount ?? "0");
   const shipping = parseFloat(order.shippingCost   ?? "0");
+  const total    = subtotal - discount + shipping;
   const due      = total - paid;
   const info: (string|number)[][] = [
     ["رقم الفاتورة",  order.soNumber],
@@ -113,7 +114,8 @@ function printManifestPDF(order: SaleOrder) {
   const paid     = parseFloat(order.paidAmount    ?? "0");
   const discount = parseFloat(order.discountAmount?? "0");
   const shipping = parseFloat(order.shippingCost  ?? "0");
-  const due      = total - paid;
+  const grandTotal = total - discount + shipping;
+  const due      = grandTotal - paid;
   const rows = order.items.map((it, i) => `
     <tr>
       <td style="text-align:center;color:#888">${i + 1}</td>
@@ -177,7 +179,7 @@ function printManifestPDF(order: SaleOrder) {
   <div class="totals-row"><span>الإجمالي الفرعي</span><span>${fmtNum(total)} ج</span></div>
   ${discount>0?`<div class="totals-row" style="color:#c62828"><span>الخصم</span><span>- ${fmtNum(discount)} ج</span></div>`:""}
   ${shipping>0?`<div class="totals-row"><span>رسوم الشحن</span><span>${fmtNum(shipping)} ج</span></div>`:""}
-  <div class="totals-row grand"><span>الإجمالي الكلي</span><span>${fmtNum(total)} ج</span></div>
+  <div class="totals-row grand"><span>الإجمالي الكلي</span><span>${fmtNum(grandTotal)} ج</span></div>
   <div class="totals-row" style="color:#1B5E20"><span>المدفوع</span><span>${fmtNum(paid)} ج</span></div>
   ${due>0?`<div class="totals-row" style="color:#B71C1C"><span>المتبقي</span><span>${fmtNum(due)} ج</span></div>`:""}
 </div>
@@ -405,10 +407,11 @@ export default function FinanceSaleDetail() {
   );
   const statusInfo = STATUS_MAP[order.status] ?? { label: order.status, bg: "#eee", color: "#555" };
   const payInfo    = PAY_MAP[order.paymentStatus] ?? { label: order.paymentStatus, color: "#555" };
-  const total    = parseFloat(order.totalAmount   ?? "0");
-  const paid     = order.paymentStatus === "paid" ? total : parseFloat(order.paidAmount ?? "0");
+  const subtotal = parseFloat(order.totalAmount   ?? "0");
   const discount = parseFloat(order.discountAmount?? "0");
   const shipping = parseFloat(order.shippingCost  ?? "0");
+  const total    = subtotal - discount + shipping;
+  const paid     = order.paymentStatus === "paid" ? total : parseFloat(order.paidAmount ?? "0");
   const due      = order.paymentStatus === "paid" ? 0 : Math.max(0, total - paid);
   const totalQty = order.items.reduce((s, i) => s + i.quantity, 0);
   const statusOptions = Object.entries(STATUS_MAP).map(([k, v]) => ({ value: k, label: v.label, color: v.color }));
@@ -719,7 +722,7 @@ export default function FinanceSaleDetail() {
         <div className="rounded-xl border p-4 min-w-64" style={{ borderColor: GOLD_BORDER, background: "hsl(var(--card))" }}>
           <div className="flex justify-between text-sm py-1">
             <span className="text-muted-foreground">الإجمالي الفرعي</span>
-            <span className="font-semibold">{fmtNum(total)} ج</span>
+            <span className="font-semibold">{fmtNum(subtotal)} ج</span>
           </div>
           {discount > 0 && (
             <div className="flex justify-between text-sm py-1">
