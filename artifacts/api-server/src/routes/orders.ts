@@ -532,11 +532,13 @@ router.post("/orders/batch", async (req, res): Promise<void> => {
   if (!Array.isArray(items) || items.length === 0) { res.status(400).json({ error: "┘è╪ش╪ذ ╪ح╪▒╪│╪د┘ ┘é╪د╪خ┘à╪ر ┘à┘╪ز╪ش╪د╪ز (items)" }); return; }
 
   const invoiceNumber = sharedFields.invoiceNumber ?? generateInvoiceNumber();
-  const shippingPerItem = sharedFields.shippingCost ? Number(sharedFields.shippingCost) / items.length : 0;
+  const totalShipping = sharedFields.shippingCost ? Number(sharedFields.shippingCost) : 0;
   const createdOrders = [];
 
-  for (const item of items) {
-    const parsed = CreateOrderBody.safeParse({ ...sharedFields, product: item.product, color: item.color ?? null, size: item.size ?? null, quantity: item.quantity, unitPrice: item.unitPrice, costPrice: item.costPrice ?? null, shippingCost: shippingPerItem, productId: item.productId ?? null, variantId: item.variantId ?? null });
+  for (const [itemIndex, item] of items.entries()) {
+    // الشحن كله على المنتج الأول فقط، الباقي صفر
+    const shippingCost = itemIndex === 0 ? totalShipping : 0;
+    const parsed = CreateOrderBody.safeParse({ ...sharedFields, product: item.product, color: item.color ?? null, size: item.size ?? null, quantity: item.quantity, unitPrice: item.unitPrice, costPrice: item.costPrice ?? null, shippingCost, productId: item.productId ?? null, variantId: item.variantId ?? null });
     if (!parsed.success) { res.status(400).json({ error: `┘à┘╪ز╪ش ╪║┘è╪▒ ╪╡╪د┘╪ص: ${parsed.error.message}` }); return; }
     const totalPrice = parsed.data.quantity * parsed.data.unitPrice;
     let costPrice = (parsed.data as any).costPrice ?? null;
