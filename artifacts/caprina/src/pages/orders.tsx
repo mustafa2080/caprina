@@ -1028,8 +1028,8 @@ export default function Orders() {
                         {canFinancials && (
                         <TableCell className="text-xs font-bold text-primary">
                           {order.status === "partial_received" && (order as any)._receivedPrice != null
-                            ? <div><span>{formatCurrency((order as any)._receivedPrice)}</span><div className="line-through text-muted-foreground font-normal text-[9px]">{formatCurrency(order.totalPrice)}</div></div>
-                            : formatCurrency(order.totalPrice)}
+                            ? <div><span>{formatCurrency((order as any)._receivedPrice)}</span><div className="line-through text-muted-foreground font-normal text-[9px]">{formatCurrency((order.totalPrice ?? 0) + Math.abs(order.shippingCost ?? 0))}</div></div>
+                            : formatCurrency((order.totalPrice ?? 0) + Math.abs(order.shippingCost ?? 0))}
                         </TableCell>
                         )}
                         <TableCell className="text-xs text-muted-foreground">
