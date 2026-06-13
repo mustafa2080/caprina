@@ -4197,7 +4197,7 @@ tr.row-returned td{color:#aaa;text-decoration:line-through}
         <WhatsAppDialog
           open={showWaDialog}
           onOpenChange={setShowWaDialog}
-          order={{ id: order.id, customerName: order.customerName, product: order.product, quantity: order.quantity, totalPrice: order.totalPrice, shippingCost: invoiceOrders.reduce((s: number, o: any) => s + Math.abs(o.shippingCost ?? 0), 0), status: order.status, phone: order.phone }}
+          order={{ id: order.id, customerName: order.customerName, product: order.product, quantity: order.quantity, totalPrice: invoiceOrders.reduce((s: number, o: any) => s + (o.totalPrice ?? 0), 0), shippingCost: Math.abs((invoiceOrders.find((o: any) => (o.shippingCost ?? 0) !== 0) as any)?.shippingCost ?? 0), status: order.status, phone: order.phone }}
           onSent={handleWaSent}
         />
       )}

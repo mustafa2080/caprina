@@ -45,10 +45,8 @@ const formatCurrency = (n: number) =>
 
 export function applyTemplate(templateBody: string, order: WhatsAppOrderData): string {
   const shipping = Math.abs(order.shippingCost ?? 0);
-  // totalPrice هو الإجمالي الكلي (شامل الشحن) — لا نضيف الشحن مرة ثانية
-  const total = order.totalPrice;
-  // سعر المنتج بدون شحن
-  const productPrice = total - shipping;
+  const productPrice = order.totalPrice;                  // سعر المنتج بدون شحن
+  const total = productPrice + shipping;                  // الإجمالي = المنتج + الشحن
   return templateBody
     .replace(/\{customerName\}/g, order.customerName)
     .replace(/\{orderNumber\}/g, order.id.toString().padStart(4, "0"))
@@ -84,7 +82,7 @@ export function openWhatsApp(order: WhatsAppOrderData): boolean {
     `أهلاً يا ${order.customerName} 👋\n\n` +
     `بنأكد عليك أوردرك رقم *#${order.id.toString().padStart(4, "0")}* من *CAPRINA* 🛍️\n\n` +
     `📌 المنتج: *${order.product}* × ${order.quantity}\n` +
-    `💰 الإجمالي: *${formatCurrency(order.totalPrice)}*\n\n` +
+    `💰 الإجمالي: *${formatCurrency(order.totalPrice + Math.abs(order.shippingCost ?? 0))}*\n\n` +
     `${statusNote}\n\n` +
     `شكراً لثقتك في CAPRINA ❤️\n_WIN OR DIE_`;
   const link = buildWhatsAppLink(order.phone, message);
