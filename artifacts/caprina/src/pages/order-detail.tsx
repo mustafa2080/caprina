@@ -1563,7 +1563,7 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
               const hasCost = orders.some(o => (o.costPrice ?? 0) > 0);
               if (!hasCost) return null;
               let totalRevenue = 0, totalCost = 0, hasReturn = false, allReturned = true;
-              const totalShipping = Math.abs((orders[0] as any)?.shippingCost ?? 0);
+              const totalShipping = Math.abs((orders.find((o: any) => (o.shippingCost ?? 0) !== 0) as any)?.shippingCost ?? 0);
               for (const o of orders) {
                 const qty = o.status === "partial_received" && o.partialQuantity ? o.partialQuantity : o.quantity;
                 const isRet = o.status === "returned";
@@ -1572,6 +1572,7 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
                 if (!isRet) totalRevenue += qty * o.unitPrice;
                 if (!retToStock) totalCost += qty * (o.costPrice ?? 0);
               }
+              totalRevenue += totalShipping;
               const netProfit = totalRevenue - totalCost - totalShipping;
               const margin = totalRevenue > 0 ? Math.round((netProfit / totalRevenue) * 100) : 0;
               const isPositive = netProfit >= 0;
@@ -2266,7 +2267,7 @@ export default function OrderDetail() {
     const totalQty = printOrders.reduce((s: number, o: any) => s + (o.quantity ?? 0), 0);
     const invoiceTotal = printOrders.reduce((s: number, o: any) => s + (o.totalPrice ?? 0), 0);
     // الشحن مرة واحدة على مستوى الفاتورة من أول منتج فقط
-    const shippingCostTotal = Math.abs(printOrders[0]?.shippingCost ?? 0);
+    const shippingCostTotal = Math.abs((printOrders.find((o: any) => (o.shippingCost ?? 0) !== 0) as any)?.shippingCost ?? 0);
 
     // حساب الربحية
     const hasCost = printOrders.some((o: any) => (o.costPrice ?? 0) > 0);
@@ -2279,6 +2280,7 @@ export default function OrderDetail() {
         if (!isRet) totalRevenue += qty * (o.unitPrice ?? 0);
         if (!retToStock) totalCost += qty * (o.costPrice ?? 0);
       }
+      totalRevenue += shippingCostTotal;
     }
     const netProfit = totalRevenue - totalCost - shippingCostTotal;
     const margin = totalRevenue > 0 ? Math.round((netProfit / totalRevenue) * 100) : 0;
