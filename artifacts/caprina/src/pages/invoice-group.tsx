@@ -1,4 +1,4 @@
-import { useParams, Link, useLocation } from "wouter";
+﻿import { useParams, Link, useLocation } from "wouter";
 import { format } from "date-fns";
 import {
   ArrowRight, AlertCircle, Printer, Trash2, RefreshCw,
@@ -1220,7 +1220,7 @@ export default function InvoiceGroup() {
           if (isRet) { hasReturn = true; }
           else { allReturned = false; }
 
-          if (!isRet) totalRevenue += qty * o.unitPrice;
+          if (!isRet) totalRevenue += getReceivedPrice(o);
           if (!retToStock) totalCost += qty * cp;
           totalShipping += sc;
         }
