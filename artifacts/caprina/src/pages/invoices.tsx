@@ -78,6 +78,7 @@ export default function Invoices() {
     orders: typeof rawOrders;
     customerName: string;
     totalPrice: number;
+    shippingCost: number;
     status: string;
     createdAt: string;
     phone: string | null;
@@ -111,6 +112,7 @@ export default function Invoices() {
       orders,
       customerName: rep.customerName,
       totalPrice: orders.reduce((s, o) => s + o.totalPrice, 0),
+      shippingCost: Math.abs((orders[0] as any).shippingCost ?? 0),
       status: rep.status,
       createdAt: rep.createdAt,
       phone: rep.phone ?? null,
@@ -434,15 +436,21 @@ export default function Invoices() {
                           <span className="font-bold text-primary shrink-0 mr-1">{formatCurrency(o.totalPrice)}</span>
                         </div>
                       ))}
+                      {grp.shippingCost > 0 && (
+                        <div className="flex justify-between text-muted-foreground">
+                          <span>مصاريف الشحن</span>
+                          <span className="font-bold shrink-0 mr-1">{formatCurrency(grp.shippingCost)}</span>
+                        </div>
+                      )}
                       <div className="flex justify-between border-t border-border pt-1 mt-1">
                         <span className="font-bold text-foreground">الإجمالي</span>
-                        <span className="font-bold text-primary">{formatCurrency(displayOrders.reduce((s: number, o: any) => s + o.totalPrice, 0))}</span>
+                        <span className="font-bold text-primary">{formatCurrency(grp.totalPrice + grp.shippingCost)}</span>
                       </div>
                     </div>
                   ) : (
                     <div className="flex justify-between">
                       <span className="font-medium text-foreground">{displayOrders[0].product} ×{displayOrders[0].quantity}</span>
-                      <span className="font-bold text-primary">{formatCurrency(displayOrders[0].totalPrice)}</span>
+                      <span className="font-bold text-primary">{formatCurrency(grp.totalPrice + grp.shippingCost)}</span>
                     </div>
                   )}
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 pt-0.5">
