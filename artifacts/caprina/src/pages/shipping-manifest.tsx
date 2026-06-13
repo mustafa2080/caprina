@@ -2650,6 +2650,7 @@ type OrderRow = {
   id: number; customerName: string; phone: string | null;
   product: string; color: string | null; size: string | null;
   quantity: number; totalPrice: number; status: string;
+  shippingCost: number | null;
 };
 
 function AddOrdersToManifestDialog({
@@ -2842,7 +2843,7 @@ function AddOrdersToManifestDialog({
                         )}
                       </div>
                       <div className="text-center text-xs font-bold">{order.quantity}</div>
-                      <div className="text-left text-xs font-bold text-primary">{formatCurrency(order.totalPrice)}</div>
+                      <div className="text-left text-xs font-bold text-primary">{formatCurrency((order.totalPrice ?? 0) + Math.abs(order.shippingCost ?? 0))}</div>
                     </div>
                   );
                 })}
