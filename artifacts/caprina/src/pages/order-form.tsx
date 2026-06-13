@@ -377,7 +377,7 @@ export default function OrderForm() {
   const { data: shippingCompanies } = useQuery({ queryKey: ["shipping"],   queryFn: shippingApi.list });
   const { data: warehouses }        = useQuery({ queryKey: ["warehouses"], queryFn: warehousesApi.list });
   const { data: users }             = useQuery({ queryKey: ["users"],      queryFn: usersApi.list });
-  const { canViewFinancials } = useAuth();
+  const { canViewFinancials, isEmployee } = useAuth();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -570,7 +570,7 @@ export default function OrderForm() {
               </div>
 
               {/* Shipping cost */}
-              {canViewFinancials && (
+              {(canViewFinancials || isEmployee) && (
                 <Card className="border-emerald-200 dark:border-emerald-900/40 bg-emerald-50 dark:bg-emerald-900/5">
                   <CardHeader className="pb-2 pt-4 px-4 border-b border-border">
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
