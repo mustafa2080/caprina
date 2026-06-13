@@ -112,7 +112,7 @@ export default function Invoices() {
       orders,
       customerName: rep.customerName,
       totalPrice: orders.reduce((s, o) => s + o.totalPrice, 0),
-      shippingCost: (orders as any[]).reduce((s, o) => s + Math.abs(o.shippingCost ?? 0), 0),
+      shippingCost: Math.abs((rep as any).shippingCost ?? 0),
       status: rep.status,
       createdAt: rep.createdAt,
       phone: rep.phone ?? null,

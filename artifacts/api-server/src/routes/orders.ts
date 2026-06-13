@@ -137,7 +137,7 @@ router.get("/orders/my-orders", async (req, res): Promise<void> => {
       status:        resolvedStatus,
       city:          first.city,
       adSource:      first.adSource,
-      shippingCost:  first.shippingCost,
+      shippingCost:  rows.reduce((s, r) => s + Math.abs(r.shippingCost ?? 0), 0),
       profit:        totalProfit,
       createdAt:     first.createdAt,
       productCount:  rows.length,
