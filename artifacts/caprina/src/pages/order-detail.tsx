@@ -1207,7 +1207,8 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
   }, [externalShowEdit]);
 
   const primaryOrder = orders.find(o => o.id === currentId) || orders[0];
-  const invoiceTotal = orders.reduce((s, o) => s + (o.totalPrice ?? 0), 0);
+  const invoiceShipping = Math.abs(primaryOrder?.shippingCost ?? 0);
+  const invoiceTotal = orders.reduce((s, o) => s + (o.totalPrice ?? 0), 0) + invoiceShipping;
 
   const handleDeleteItem = async (id: number) => {
     setDeletingId(id);
@@ -1380,7 +1381,7 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
                   <Separator />
                   <div className="flex justify-between items-center">
                     <span className="font-bold text-sm">الإجمالي</span>
-                    <span className="font-black text-xl text-primary">{formatCurrency(o.totalPrice ?? 0)}</span>
+                    <span className="font-black text-xl text-primary">{formatCurrency((o.totalPrice ?? 0) + shipping)}</span>
                   </div>
                 </CardContent>
               </Card>
