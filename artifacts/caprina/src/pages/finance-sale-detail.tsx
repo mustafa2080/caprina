@@ -65,11 +65,11 @@ const fmtDate = (d: string | null)   => d
 // ── تصدير Excel ──────────────────────────────────────────────────────────
 async function exportToExcel(order: SaleOrder) {
   const fmtDate2 = (d: string | null) => d ? new Date(d).toLocaleDateString("ar-EG") : "—";
-  const subtotal = parseFloat(order.totalAmount    ?? "0");
+  const subtotal = order.items.reduce((s,i) => s + i.quantity * Number(i.unitPrice), 0);
   const paid     = parseFloat(order.paidAmount     ?? "0");
   const discount = parseFloat(order.discountAmount ?? "0");
   const shipping = parseFloat(order.shippingCost   ?? "0");
-  const total    = subtotal - discount + shipping;
+  const total    = parseFloat(order.totalAmount    ?? "0");
   const due      = total - paid;
   const info: (string|number)[][] = [
     ["رقم الفاتورة",  order.soNumber],
@@ -110,11 +110,11 @@ async function exportToExcel(order: SaleOrder) {
 function printManifestPDF(order: SaleOrder) {
   const statusInfo = STATUS_MAP[order.status] ?? { label: order.status, bg: "#eee", color: "#333" };
   const payInfo    = PAY_MAP[order.paymentStatus] ?? { label: order.paymentStatus, color: "#333" };
-  const total    = parseFloat(order.totalAmount   ?? "0");
+  const subtotal = order.items.reduce((s,i) => s + i.quantity * Number(i.unitPrice), 0);
   const paid     = parseFloat(order.paidAmount    ?? "0");
   const discount = parseFloat(order.discountAmount?? "0");
   const shipping = parseFloat(order.shippingCost  ?? "0");
-  const grandTotal = total - discount + shipping;
+  const grandTotal = parseFloat(order.totalAmount ?? "0");
   const due      = grandTotal - paid;
   const rows = order.items.map((it, i) => `
     <tr>
@@ -164,7 +164,7 @@ function printManifestPDF(order: SaleOrder) {
   <div class="stat-box"><div class="stat-val">${order.items.length}</div><div class="stat-lbl">عدد المنتجات</div></div>
   <div class="stat-box"><div class="stat-val">${order.items.reduce((s,i)=>s+i.quantity,0)}</div><div class="stat-lbl">إجمالي القطع</div></div>
   <div class="stat-box"><div class="stat-val" style="color:${PAY_MAP[order.paymentStatus]?.color??'#333'}">${payInfo.label}</div><div class="stat-lbl">حالة الدفع</div></div>
-  <div class="stat-box"><div class="stat-val">${fmtNum(total)} ج</div><div class="stat-lbl">إجمالي الفاتورة</div></div>
+  <div class="stat-box"><div class="stat-val">${fmtNum(grandTotal)} ج</div><div class="stat-lbl">إجمالي الفاتورة</div></div>
 </div>
 <div class="client-section">
   <div style="font-size:12px"><span style="color:#888;margin-left:4px">العميل:</span><strong>${order.clientName}</strong></div>
@@ -407,10 +407,10 @@ export default function FinanceSaleDetail() {
   );
   const statusInfo = STATUS_MAP[order.status] ?? { label: order.status, bg: "#eee", color: "#555" };
   const payInfo    = PAY_MAP[order.paymentStatus] ?? { label: order.paymentStatus, color: "#555" };
-  const subtotal = parseFloat(order.totalAmount   ?? "0");
+  const subtotal = order.items.reduce((s, i) => s + i.quantity * Number(i.unitPrice), 0);
   const discount = parseFloat(order.discountAmount?? "0");
   const shipping = parseFloat(order.shippingCost  ?? "0");
-  const total    = subtotal - discount + shipping;
+  const total    = parseFloat(order.totalAmount   ?? "0");
   const paid     = order.paymentStatus === "paid" ? total : parseFloat(order.paidAmount ?? "0");
   const due      = order.paymentStatus === "paid" ? 0 : Math.max(0, total - paid);
   const totalQty = order.items.reduce((s, i) => s + i.quantity, 0);
