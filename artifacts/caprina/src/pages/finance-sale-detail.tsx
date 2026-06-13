@@ -69,7 +69,7 @@ async function exportToExcel(order: SaleOrder) {
   const paid     = parseFloat(order.paidAmount     ?? "0");
   const discount = parseFloat(order.discountAmount ?? "0");
   const shipping = parseFloat(order.shippingCost   ?? "0");
-  const total    = parseFloat(order.totalAmount    ?? "0");
+  const total    = subtotal - discount + shipping;
   const due      = total - paid;
   const info: (string|number)[][] = [
     ["رقم الفاتورة",  order.soNumber],
@@ -114,7 +114,7 @@ function printManifestPDF(order: SaleOrder) {
   const paid     = parseFloat(order.paidAmount    ?? "0");
   const discount = parseFloat(order.discountAmount?? "0");
   const shipping = parseFloat(order.shippingCost  ?? "0");
-  const grandTotal = parseFloat(order.totalAmount ?? "0");
+  const grandTotal = subtotal - discount + shipping;
   const due      = grandTotal - paid;
   const rows = order.items.map((it, i) => `
     <tr>
@@ -410,7 +410,7 @@ export default function FinanceSaleDetail() {
   const subtotal = order.items.reduce((s, i) => s + i.quantity * Number(i.unitPrice), 0);
   const discount = parseFloat(order.discountAmount?? "0");
   const shipping = parseFloat(order.shippingCost  ?? "0");
-  const total    = parseFloat(order.totalAmount   ?? "0");
+  const total    = subtotal - discount + shipping;
   const paid     = order.paymentStatus === "paid" ? total : parseFloat(order.paidAmount ?? "0");
   const due      = order.paymentStatus === "paid" ? 0 : Math.max(0, total - paid);
   const totalQty = order.items.reduce((s, i) => s + i.quantity, 0);
