@@ -446,8 +446,9 @@ router.get("/orders", async (req, res): Promise<void> => {
       return rep;
     }
     const rep = { ...grp[0] } as any;
+    const shippingCostVal = Math.abs((grp.find(o => (o.shippingCost ?? 0) !== 0)?.shippingCost) ?? 0);
     rep.totalPrice     = grp.reduce((s, o) => s + o.totalPrice, 0);
-    rep.shippingCost   = Math.abs(grp[0].shippingCost ?? 0);
+    rep.shippingCost   = shippingCostVal;
     rep.quantity       = grp.reduce((s, o) => s + o.quantity,   0);
     rep.product        = grp.map(o => `${o.product} ×${o.quantity}`).join(" ، ");
     rep._groupIds      = grp.map(o => o.id);
