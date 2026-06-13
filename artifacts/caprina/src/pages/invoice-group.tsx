@@ -1220,7 +1220,7 @@ export default function InvoiceGroup() {
           if (isRet) { hasReturn = true; }
           else { allReturned = false; }
 
-          if (!isRet) totalRevenue += getReceivedPrice(o);
+          if (!isRet) totalRevenue += (o.unitPrice != null ? qty * o.unitPrice : o.totalPrice + sc);
           if (!retToStock) totalCost += qty * cp;
           totalShipping += sc;
         }
