@@ -252,7 +252,7 @@ export default function Orders() {
 
   const filtered = orders?.filter(o => {
     if (customerSearch && !o.customerName?.toLowerCase().includes(customerSearch.toLowerCase())) return false;
-    if (totalSearch && !String(Math.round((o.totalPrice ?? 0) + Math.abs(o.shippingCost ?? 0))).includes(totalSearch)) return false;
+    if (totalSearch && !String(Math.round((o.totalPrice ?? 0) - (o.shippingCost ?? 0))).includes(totalSearch)) return false;
     return true;
   }) ?? [];
 
@@ -264,7 +264,7 @@ export default function Orders() {
       case "customer": return o.customerName ?? "";
       case "phone":    return o.phone ?? "";
       case "product":  return o.product ?? "";
-      case "total":    return String(Math.round((o.totalPrice ?? 0) + Math.abs(o.shippingCost ?? 0)));
+      case "total":    return String(Math.round((o.totalPrice ?? 0) - (o.shippingCost ?? 0)));
       case "creator":  return (o as any).createdByName ?? "";
       case "status":   return statusLabels[o.status] ?? o.status;
       default:         return "";
@@ -859,8 +859,8 @@ export default function Orders() {
                         {canFinancials && (
                         <span className="font-bold text-xs text-primary shrink-0">
                           {order.status === "partial_received" && (order as any)._receivedPrice != null
-                            ? <>{formatCurrency((order as any)._receivedPrice)}<span className="line-through text-muted-foreground font-normal mr-1 text-[9px]">{formatCurrency((order.totalPrice ?? 0) + Math.abs(order.shippingCost ?? 0))}</span></>
-                            : formatCurrency((order.totalPrice ?? 0) + Math.abs(order.shippingCost ?? 0))}
+                            ? <>{formatCurrency((order as any)._receivedPrice)}<span className="line-through text-muted-foreground font-normal mr-1 text-[9px]">{formatCurrency((order.totalPrice ?? 0) - (order.shippingCost ?? 0))}</span></>
+                            : formatCurrency((order.totalPrice ?? 0) - (order.shippingCost ?? 0))}
                         </span>
                         )}
                       </div>
@@ -1029,8 +1029,8 @@ export default function Orders() {
                         {canFinancials && (
                         <TableCell className="text-xs font-bold text-primary">
                           {order.status === "partial_received" && (order as any)._receivedPrice != null
-                            ? <div><span>{formatCurrency((order as any)._receivedPrice)}</span><div className="line-through text-muted-foreground font-normal text-[9px]">{formatCurrency((order.totalPrice ?? 0) + Math.abs(order.shippingCost ?? 0))}</div></div>
-                            : formatCurrency((order.totalPrice ?? 0) + Math.abs(order.shippingCost ?? 0))}
+                            ? <div><span>{formatCurrency((order as any)._receivedPrice)}</span><div className="line-through text-muted-foreground font-normal text-[9px]">{formatCurrency((order.totalPrice ?? 0) - (order.shippingCost ?? 0))}</div></div>
+                            : formatCurrency((order.totalPrice ?? 0) - (order.shippingCost ?? 0))}
                         </TableCell>
                         )}
                         <TableCell className="text-xs text-muted-foreground">
