@@ -1,4 +1,4 @@
-import { mysqlTable, text, longtext, int, datetime, varchar, decimal, boolean, mysqlEnum } from "drizzle-orm/mysql-core";
+import { mysqlTable, text, longtext, int, datetime, varchar, decimal, boolean } from "drizzle-orm/mysql-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -26,10 +26,6 @@ export const clientsTable = mysqlTable("clients", {
   totalOrders:    int("total_orders").default(0),
   totalSales:     decimal("total_sales", { precision: 14, scale: 2 }).default("0"),
   totalPaid:      decimal("total_paid",  { precision: 14, scale: 2 }).default("0"),
-
-  // ── تصنيف العميل ──────────────────────────────────────────────────────
-  // normal: 1-200 شحنة/شهر | commercial: 201-500 | vip: 501-1000
-  clientType:     mysqlEnum("client_type", ["normal", "commercial", "vip"]).default("normal"),
 
   // ── ميتا ──────────────────────────────────────────────────────────────
   notes:          text("notes"),

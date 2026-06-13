@@ -35,8 +35,6 @@ type Client = {
   taxNumber: string | null; commercialReg: string | null; paymentTerms: string | null;
   creditLimit: string; totalOrders: number; totalSales: string; totalPaid: string;
   notes: string | null; isActive: boolean; createdAt: string; avatar: string | null;
-  clientType: "normal" | "commercial" | "vip" | null;
-  monthlyShipments?: number;
 };
 
 type SaleOrder = {
@@ -78,25 +76,7 @@ const emptyForm = {
   name: "", phone: "", phone2: "", email: "", address: "", city: "", region: "",
   taxNumber: "", commercialReg: "", paymentTerms: "فوري",
   creditLimit: "0", notes: "", isActive: true, avatar: "",
-  clientType: "normal" as "normal" | "commercial" | "vip",
 };
-
-// ── Tier config ─────────────────────────────────────────────────────────
-const TIER_CFG = {
-  normal:     { label: "عميل عادي",   range: "1 – 200 شحنة/شهر",  icon: "🟢", color: "border-emerald-700 bg-emerald-900/20 text-emerald-400" },
-  commercial: { label: "عميل تجاري",  range: "201 – 500 شحنة/شهر", icon: "🔵", color: "border-blue-700 bg-blue-900/20 text-blue-400" },
-  vip:        { label: "عميل VIP",    range: "501 – 1000 شحنة/شهر",icon: "👑", color: "border-amber-600 bg-amber-900/20 text-amber-400" },
-} as const;
-
-function TierBadge({ type }: { type: string | null | undefined }) {
-  const t = (type as keyof typeof TIER_CFG) ?? "normal";
-  const cfg = TIER_CFG[t] ?? TIER_CFG.normal;
-  return (
-    <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full border ${cfg.color}`}>
-      {cfg.icon} {cfg.label}
-    </span>
-  );
-}
 
 // ── Column Filter Dropdown ────────────────────────────────────────────────
 function ColumnFilter({ label, options, selected, onChange }: {
@@ -203,7 +183,6 @@ function ClientForm({ open, onClose, editClient, onSuccess }: {
     creditLimit: String(editClient.creditLimit ?? "0"),
     notes: editClient.notes ?? "", isActive: editClient.isActive,
     avatar: editClient.avatar ?? "🧑‍💼",
-    clientType: (editClient.clientType ?? "normal") as "normal" | "commercial" | "vip",
   } : { ...emptyForm });
 
   const mutation = useMutation({
@@ -216,7 +195,6 @@ function ClientForm({ open, onClose, editClient, onSuccess }: {
         paymentTerms: form.paymentTerms || null,
         creditLimit: parseFloat(form.creditLimit) || 0,
         notes: form.notes || null, isActive: form.isActive, avatar: form.avatar || "🧑‍💼",
-        clientType: form.clientType,
       };
       if (isEdit) return apiFetch<any>(`/finance/clients/${editClient!.id}`, { method: "PATCH", body: JSON.stringify(body) });
       return apiFetch<any>("/finance/clients", { method: "POST", body: JSON.stringify(body) });
@@ -296,24 +274,6 @@ function ClientForm({ open, onClose, editClient, onSuccess }: {
               </Select></div>
             <div><Label className="text-xs mb-1.5 block flex items-center gap-1"><Target className="w-3 h-3" />الهدف</Label>
               <Input type="number" min={0} placeholder="1000000" className="h-9 text-sm bg-background" value={form.creditLimit} onChange={e => f("creditLimit", e.target.value)} /></div>
-          </div>
-          <div><Label className="text-xs mb-1.5 block">نوع العميل</Label>
-            <div className="grid grid-cols-3 gap-2">
-              {(Object.keys(TIER_CFG) as Array<keyof typeof TIER_CFG>).map(key => {
-                const cfg = TIER_CFG[key];
-                const active = form.clientType === key;
-                return (
-                  <button key={key} type="button" onClick={() => f("clientType", key)}
-                    className={`flex flex-col items-center gap-1 p-2.5 rounded-lg border text-center transition-colors ${
-                      active ? cfg.color : "border-border bg-background text-muted-foreground hover:border-border/80"
-                    }`}>
-                    <span className="text-lg leading-none">{cfg.icon}</span>
-                    <span className="text-[11px] font-bold">{cfg.label}</span>
-                    <span className="text-[9px] opacity-80">{cfg.range}</span>
-                  </button>
-                );
-              })}
-            </div>
           </div>
           <div><Label className="text-xs mb-1.5 block">ملاحظات</Label>
             <Textarea placeholder="أي ملاحظات..." className="min-h-[60px] text-sm resize-none bg-background" value={form.notes} onChange={e => f("notes", e.target.value)} rows={2} /></div>
@@ -751,10 +711,7 @@ export default function FinanceClients() {
                       <ClientAvatar avatar={c.avatar} name={c.name} size="sm" />
                       <div>
                         <p className="text-xs font-bold">{c.name}</p>
-                        <div className="flex items-center gap-1 mt-0.5">
-                          {c.phone && <p className="text-[10px] text-muted-foreground">{c.phone}</p>}
-                          <TierBadge type={c.clientType} />
-                        </div>
+                        {c.phone && <p className="text-[10px] text-muted-foreground">{c.phone}</p>}
                       </div>
                     </div>
                     {/* الحالة */}

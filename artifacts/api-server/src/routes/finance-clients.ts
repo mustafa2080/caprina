@@ -21,15 +21,7 @@ const ClientSchema = z.object({
   notes:         z.string().nullish(),
   isActive:      z.boolean().default(true),
   avatar:        z.string().nullish(),
-  clientType:    z.enum(["normal", "commercial", "vip"]).nullish(),
 });
-
-// ── حساب نوع العميل تلقائياً بناءً على عدد الشحنات الشهرية ────────────
-function calcClientType(monthlyShipments: number): "normal" | "commercial" | "vip" {
-  if (monthlyShipments >= 501) return "vip";
-  if (monthlyShipments >= 201) return "commercial";
-  return "normal";
-}
 
 // ── مساعد: تحديث إحصائيات العميل من أوامر البيع ────────────────────────────
 async function syncClientStats(clientName: string, tenantId: number | null) {
@@ -110,19 +102,11 @@ router.get("/finance/clients", async (req, res): Promise<void> => {
 
     const enriched = clients.map(c => {
       const s = statsMap[c.name] ?? { totalOrders: 0, totalSales: 0, totalPaid: 0 };
-      // الشحنات الشهرية = إجمالي الطلبات / عدد الأشهر منذ إنشاء العميل (minimum 1)
-      const monthsActive = Math.max(1, Math.ceil(
-        (Date.now() - new Date(c.createdAt).getTime()) / (1000 * 60 * 60 * 24 * 30)
-      ));
-      const monthlyShipments = Math.round(s.totalOrders / monthsActive);
-      const autoType = calcClientType(monthlyShipments);
       return {
         ...c,
         totalOrders: s.totalOrders,
         totalSales:  String(s.totalSales),
         totalPaid:   String(s.totalPaid),
-        clientType:  c.clientType ?? autoType,
-        monthlyShipments,
       };
     });
 
