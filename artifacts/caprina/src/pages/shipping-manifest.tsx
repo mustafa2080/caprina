@@ -77,12 +77,12 @@ import { useBrand } from "@/contexts/BrandContext";
 import { format } from "date-fns";
 import { RETURN_REASONS, returnReasonLabel } from "@/lib/order-constants";
 
-const formatCurrency = (n: number | null | undefined) =>
+const formatCurrency = (n: number) =>
   new Intl.NumberFormat("ar-EG", {
     style: "currency",
     currency: "EGP",
     maximumFractionDigits: 0,
-  }).format(Number(n ?? 0));
+  }).format(n);
 
 const DELIVERY_OPTIONS: { value: DeliveryStatus; label: string; color: string; bg: string }[] = [
   { value: "pending",          label: "قيد الانتظار",   color: "text-muted-foreground",                                          bg: "border-border" },
@@ -3528,16 +3528,16 @@ export default function ShippingManifestPage() {
         </div>
         <div className="mp-total-card">
           <div className="mp-total-lbl">رسوم الشحن</div>
-          <div className="mp-total-val mp-total-orange">{Number(manifest.manualShippingCost ?? s.totalShippingCost ?? 0).toLocaleString("ar-EG")} ج.م</div>
+          <div className="mp-total-val mp-total-orange">{(manifest.manualShippingCost ?? s.totalShippingCost).toLocaleString("ar-EG")} ج.م</div>
         </div>
         <div className="mp-total-card mp-total-highlight">
           <div className="mp-total-lbl">الصافي المستحق</div>
-          <div className="mp-total-val mp-total-green">{(totalCollected - Number(manifest.manualShippingCost ?? s.totalShippingCost ?? 0)).toLocaleString("ar-EG")} ج.م</div>
+          <div className="mp-total-val mp-total-green">{(totalCollected - (manifest.manualShippingCost ?? s.totalShippingCost)).toLocaleString("ar-EG")} ج.م</div>
         </div>
         {manifest.invoicePrice != null && (
           <div className="mp-total-card">
             <div className="mp-total-lbl">سعر الفاتورة المتفق</div>
-            <div className="mp-total-val mp-total-blue">{Number(manifest.invoicePrice ?? 0).toLocaleString("ar-EG")} ج.م</div>
+            <div className="mp-total-val mp-total-blue">{manifest.invoicePrice.toLocaleString("ar-EG")} ج.م</div>
           </div>
         )}
       </div>
