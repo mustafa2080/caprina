@@ -5,7 +5,7 @@ import {
   TrendingUp, TrendingDown, Printer, Star, AlertCircle, Trophy, Briefcase, Package,
   DollarSign, Calendar, BarChart2, Settings, ArrowLeft, Save, RefreshCw, UserPlus,
   Clock, UserCheck, UserX, Gift, MinusCircle, CheckCircle2, XCircle, AlertTriangle,
-  Crown, Medal, Award, Download, Search,
+  Crown, Medal, Award, Download, Search, Lock,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
