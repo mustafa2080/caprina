@@ -99,16 +99,27 @@ function ProfileFormDialog({
     reader.onload = (ev) => {
       const img = new Image();
       img.onload = () => {
-        const canvas = document.createElement("canvas");
-        const MAX = 300;
-        let w = img.width, h = img.height;
-        if (w > h) { if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; } }
-        else { if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; } }
-        canvas.width = w; canvas.height = h;
-        const ctx = canvas.getContext("2d")!;
-        ctx.drawImage(img, 0, 0, w, h);
-        const compressed = canvas.toDataURL("image/jpeg", 0.8);
-        setAvatar(compressed);
+        try {
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            toast({ title: "خطأ", description: "لم يتمكن من معالجة الصورة", variant: "destructive" });
+            return;
+          }
+          const MAX = 300;
+          let w = img.width, h = img.height;
+          if (w > h) { if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; } }
+          else { if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; } }
+          canvas.width = w; canvas.height = h;
+          ctx.drawImage(img, 0, 0, w, h);
+          const compressed = canvas.toDataURL("image/jpeg", 0.8);
+          setAvatar(compressed);
+        } catch (err) {
+          toast({ title: "خطأ", description: "فشل تحميل الصورة", variant: "destructive" });
+        }
+      };
+      img.onerror = () => {
+        toast({ title: "خطأ", description: "الملف ليس صورة صحيحة", variant: "destructive" });
       };
       img.src = ev.target?.result as string;
     };
@@ -1891,14 +1902,26 @@ function AddMemberWizard({ open, onClose, onSuccess, availableUsers, existingPro
     reader.onload = (ev) => {
       const img = new Image();
       img.onload = () => {
-        const canvas = document.createElement("canvas");
-        const MAX = 300;
-        let w = img.width, h = img.height;
-        if (w > h) { if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; } }
-        else { if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; } }
-        canvas.width = w; canvas.height = h;
-        canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
-        setTeamOnlyAvatar(canvas.toDataURL("image/jpeg", 0.8));
+        try {
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            toast({ title: "خطأ", description: "لم يتمكن من معالجة الصورة", variant: "destructive" });
+            return;
+          }
+          const MAX = 300;
+          let w = img.width, h = img.height;
+          if (w > h) { if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; } }
+          else { if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; } }
+          canvas.width = w; canvas.height = h;
+          ctx.drawImage(img, 0, 0, w, h);
+          setTeamOnlyAvatar(canvas.toDataURL("image/jpeg", 0.8));
+        } catch (err) {
+          toast({ title: "خطأ", description: "فشل تحميل الصورة", variant: "destructive" });
+        }
+      };
+      img.onerror = () => {
+        toast({ title: "خطأ", description: "الملف ليس صورة صحيحة", variant: "destructive" });
       };
       img.src = ev.target?.result as string;
     };
