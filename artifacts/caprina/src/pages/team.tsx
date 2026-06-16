@@ -3238,7 +3238,6 @@ function MyOrdersTab({
 }
 
 // ─── Employee Detail ──────────────────────────────────────────────────────────
-export { MyDashboardTab as EmployeeKpiTab };
 function EmployeeDetail({
   profileId, displayName, isSystemUser, username, onBack,
 }: {

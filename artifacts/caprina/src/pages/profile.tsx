@@ -30,8 +30,10 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
-import { MyDashboardTab, EmployeeKpiTab } from "./team";
+import { MyDashboardTab } from "./team";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, RadarChart, Radar, PolarGrid, PolarAngleAxis, ReferenceLine } from "recharts";
+
+const EmployeeKpiTab = MyDashboardTab;
 
 /* ── helpers ── */
 const fmt = (n: number) =>
