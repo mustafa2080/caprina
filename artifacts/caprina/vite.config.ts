@@ -16,11 +16,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     // runtimeErrorOverlay مش متوافق مع React 19 — بيسبب TypeError: Illegal constructor
-    // نشغله بس في بيئة Replit الـ dev (مش في production ومش locally)
-    ...(process.env.NODE_ENV !== "production" && process.env.REPL_ID !== undefined
-      ? [await import("@replit/vite-plugin-runtime-error-modal").then(m => m.default())]
-      : []
-    ),
+    // محذوف بالكامل عشان يشتغل locally وعلى الـ production بدون مشاكل
     ...(process.env.NODE_ENV !== "production" &&
     process.env.REPL_ID !== undefined
       ? [
